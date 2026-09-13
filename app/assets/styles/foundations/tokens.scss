@@ -132,6 +132,7 @@ $bp-full: 1024px !default;
   /* ---- underline: ONE soft colour for text underlines (links). Legible but never
      full-strength ink — interactive links may deepen to --ink-2, never to --ink ---- */
   --underline: var(--ink-3);
+  --underline-offset: 2px;
 
   /* ---- chrome is MONOCHROME — controls/state/primary all read as ink; colour on
      this site is the data viz (the category bar + dots, --cat-* below) and ONE
@@ -175,6 +176,41 @@ $bp-full: 1024px !default;
   --cat-consumable: light-dark(oklch(0.64 0.17 175), oklch(0.8 0.16 178)); /* teal */
   --cat-other: light-dark(oklch(0.6 0.02 250), oklch(0.68 0.02 250)); /* neutral grey */
 
+  /* ---- route difficulty — a terrain band is not a category, even when hard ground
+     shares first-aid red. The fill and its readout need independently tuned values:
+     translucent fills need enough chroma to survive the wash, while text has to clear
+     AA over the profile's raised surface. ---- */
+  --grade-hard-fill: var(--cat-firstaid);
+  --grade-hard-ink: light-dark(oklch(0.5 0.22 25), oklch(0.68 0.25 25));
+  --grade-moderate-fill: oklch(0.72 0.17 62);
+  --grade-moderate-ink: light-dark(oklch(0.52 0.14 62), oklch(0.8 0.18 62));
+
+  /* ---- map overlay — topographic tiles stay light in both colour schemes, so marks
+     drawn over them need a fixed-light palette. These are roles, not a second app theme. ---- */
+  --map-paper: #ffffff;
+  --map-paper-muted: #f4f4f4;
+  --map-paper-translucent: #ffffffcc;
+  --map-ink: #111111;
+  --map-ink-2: #333333;
+  --map-ink-3: #555555;
+  --map-ink-4: #666666;
+  --map-line: #cccccc;
+  --map-bare: oklch(0.95 0.01 250);
+  --map-route-ground: #767676;
+  --map-route-casing: #0b0b0b;
+  --map-route-fill: var(--map-paper);
+  --map-unassigned: #9a9a9a;
+  --map-control-hover: #0000000d;
+  --map-control-selected: #00000014;
+  --map-control-shadow: 0 1px 4px #0000001f;
+  --map-pin-paper: var(--map-paper);
+  --map-pin-seat: #ececec;
+  --map-pin-ink: #1c1c1c;
+  --map-pin-seat-dark: var(--map-ink-2);
+  --map-pin-shadow: -1px 1px 3px #00000059;
+  --map-pin-shadow-lifted: -2px 2px 8px #0000008c;
+  --map-trace-shadow: 0 1px 3px #00000059;
+
   /* ---- type: ONE family — the platform system UI font (SF Pro on Apple,
      Segoe UI on Windows, Roboto on Android), with robust fallbacks ---- */
   --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
@@ -186,9 +222,15 @@ $bp-full: 1024px !default;
      not just heading classes; below the anchor (i.e. almost every screen,
      including the 1728px 16" MacBook Pro) the floor holds, so type stays stable
      on phones/laptops and only grows on huge displays. The anchor's media-query
-     companion (iOS input-zoom escape hatch) lives in atoms/controls.scss — keep
-     the two in sync. ---- */
+     companion (the ≥1920px rule that lets .field rejoin --text-base past the iOS
+     escape hatch below) lives in atoms/controls.scss — keep the two in sync. ---- */
   --text-base: max(1rem, 0.833vw); /* 16px — body, inputs, item names, labels, meta, controls */
+  /* INPUTS stay at a static 16px — the iOS input-zoom escape hatch. Safari zooms the page
+     on focus when an input's font-size is under 16px, and its check mis-reads CSS math
+     functions (max()/clamp()), zooming even though --text-base computes to 16px; a plain
+     1rem is read correctly. Established on a phone with the literal; this token holds
+     exactly that value, so a change here is a change to re-test on a phone. */
+  --text-input: 1rem;
   --text-title: max(1.375rem, 1.146vw); /* 22px — the one heading size */
   /* 32px — the LIST'S OWN NAME, and nothing else. A deliberate fifth step: a page title
      is a different role from a section heading (--text-title), which is why 22px read as
@@ -216,6 +258,9 @@ $bp-full: 1024px !default;
   /* the type system's one non-default tracking (.t-title, .t-num, buttons) —
      tokenized so the tight track retunes in one place, not a dozen literals */
   --track-tight: -0.02em;
+  /* display units sit halfway between tight and normal tracking so a bare `oz` stays
+     visually attached to the number without looking pinched. */
+  --track-unit: -0.01em;
 
   /* ---- caption tuck — the negative top-margin that pulls an item's note up under
      its name so the two read as one unit. ONE token so the editor row (.reveal--note)
@@ -235,6 +280,16 @@ $bp-full: 1024px !default;
   --space-6: 32px;
   --space-7: 48px;
   --space-9: 96px;
+
+  /* Keyboard focus is the same 2px ring whether it sits outside a native control (the
+     reset's :focus-visible, offset by its own width) or is drawn inward over an
+     app-owned plate (the calendar days, the mode and people chips, the swatches — inset
+     by exactly the ring, so it sits wholly inside the box). A literal, not --space-px:
+     a ring's thickness is not a spacing step, and the hairline retuning must not thin
+     every focus ring on the site. */
+  --focus-ring: 2px;
+  --focus-offset: 2px;
+  --focus-offset-inset: calc(-1 * var(--focus-ring));
 
   /* ---- radius: softened — buttons + floating surfaces get real rounding,
      controls/icon-buttons go pill so hover fills read as soft shapes, not boxes ---- */
@@ -259,6 +314,10 @@ $bp-full: 1024px !default;
   --radius-3: 12px;
   --radius-4: 20px; /* floating menus (autocomplete, kebab) — decisively rounder than panels */
   --radius-pill: 999px; /* buttons + icon buttons */
+  /* OUTSIDE the scale: a favicon or a link card's mark is another site's image, shown at
+     14–16px, and it keeps a corner of its own rather than taking a step of ours — 4px
+     would round a mark that small into a coin. */
+  --radius-icon: 2px;
 
   /* ---- motion: one signature ease (SPACE10's expo-out workhorse) ---- */
   --ease: cubic-bezier(0.19, 1, 0.22, 1);
@@ -384,8 +443,13 @@ $bp-full: 1024px !default;
      the page gutter instead and the page had three different left edges going down
      it — headings at one, "What's new" at a second, the date rail at a third. ---- */
   --prose: 42rem;
+  --account-measure: 26rem;
 
   /* ---- component primitives — shared structure so duplicated values can't drift ---- */
+  /* labelled controls come in two deliberate heights: the standard action/input box and
+     the compact word-plus-icon picker. A map expand control shares the compact box. */
+  --control-h: 40px;
+  --control-compact: 30px;
   /* icon-button box — the dense desktop chrome. The fixed actions track below
      multiplies it, so resizing the button here resizes the track with it. */
   --icon-btn: 32px;

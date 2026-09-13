@@ -93,7 +93,7 @@ defineEmits<{ pick: [key: string] }>();
 .headline__uc {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
+  gap: var(--space-px);
 }
 
 /* The unit takes the SAME type as the total's own (TotalsBar's .totals__unit):
@@ -108,7 +108,7 @@ defineEmits<{ pick: [key: string] }>();
   /* half-step between the type system's two trackings: the full --track-tight
      visibly pinches a bare two-letter unit ("oz"), while normal tracking reads
      loose beside the tightly-tracked display figure */
-  letter-spacing: -0.01em;
+  letter-spacing: var(--track-unit);
   color: var(--ink-2);
   transition: color var(--dur) var(--ease);
 }

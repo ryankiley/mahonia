@@ -8,7 +8,7 @@
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  min-height: 40px;
+  min-height: var(--control-h);
   padding: 0 var(--space-4);
   border: 0;
   border-radius: var(--radius-pill);
@@ -269,10 +269,10 @@ button svg {
   color: var(--ink);
   /* STATIC 16px, not var(--text-base) — iOS Safari zooms the page on focus when an
      input's font-size is < 16px, AND its zoom check mis-reads CSS math functions
-     (max()/clamp()), zooming even though --text-base computes to 16px. A literal
-     1rem is read correctly → no zoom. (--text-base only grows >16px on huge
-     displays anyway, where 16px inputs are fine.) */
-  font-size: 1rem;
+     (max()/clamp()), zooming even though --text-base computes to 16px. A plain 1rem is
+     read correctly → no zoom, and --text-input is exactly that (tokens.scss).
+     (--text-base only grows >16px on huge displays anyway, where 16px inputs are fine.) */
+  font-size: var(--text-input);
 }
 /* no underline (it read as a row divider) and no fill — the caret carries focus */
 .field:focus {
@@ -837,7 +837,7 @@ input[type="search"]::-webkit-search-decoration {
      (which would vanish on the dark toast). Translucent paper stays legible + quiet. */
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--paper) 55%, transparent);
-  text-underline-offset: 2px;
+  text-underline-offset: var(--underline-offset);
   cursor: pointer;
 }
 

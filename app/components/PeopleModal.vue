@@ -276,8 +276,8 @@ function remove(p: Person) {
   }
 }
 .ppl__swatchbtn:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: -2px;
+  outline: var(--focus-ring) solid var(--ink);
+  outline-offset: var(--focus-offset-inset);
 }
 /* Standing ALONE — nobody named yet, so the list above it doesn't render — this is
    a plain form with room above it, aligned to the dialog like any other field. */

@@ -71,7 +71,7 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
   text-decoration-style: dotted;
   text-decoration-color: var(--underline);
   text-decoration-thickness: 1px; /* from-font is heavy; pin it thin */
-  text-underline-offset: 2px;
+  text-underline-offset: var(--underline-offset);
   transition: text-decoration-color var(--dur) var(--ease);
 }
 /* Hover-capable pointers only. On touch there IS no hover, so the underline stays
