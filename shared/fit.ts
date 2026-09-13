@@ -34,7 +34,7 @@
 // so a data message is a handful of fixed-offset reads whatever its field count; a
 // hostile file full of 255-field messages costs no more per byte than a real one.
 
-import type { FilePin, TrackPoint } from "./gpx";
+import { filledElevations, type FilePin, type TrackPoint } from "./gpx";
 
 /** degrees per semicircle: the format stores 180° as 2^31 */
 const SEMICIRCLE_DEG = 180 / 2 ** 31;
@@ -260,23 +260,14 @@ function readData(view: DataView, bytes: Uint8Array, at: number, def: Definition
 }
 
 /**
- * Carry a known altitude across the samples that lack one.
- *
- * A watch often has a fix a few seconds before its barometer has settled, and those
- * samples carry a valid position with the invalid altitude. gpxStats reads a track as
- * having elevation only when every point does, so a handful of such seconds would drop
- * the whole profile and the climb with it. Filled from the nearest earlier reading, and
- * the first later one for a leading gap, which is what the device's own screen shows in
- * those seconds. A track with no altitude anywhere is left as it is.
+ * Carry a known altitude across the samples that lack one — the rule gpxStats applies
+ * to every format (filledElevations has the why), written back onto the points here
+ * because a FIT's points are read by callers before they reach gpxStats. A track with
+ * no altitude anywhere is left as it is.
  */
 function fillAltitude(points: TrackPoint[]): void {
-  const first = points.find((p) => p.ele != null);
-  if (!first) return;
-  let last = first.ele!;
-  for (const p of points) {
-    if (p.ele == null) p.ele = last;
-    else last = p.ele;
-  }
+  const ele = filledElevations(points);
+  if (ele.length) points.forEach((p, i) => (p.ele = ele[i]));
 }
 
 /**

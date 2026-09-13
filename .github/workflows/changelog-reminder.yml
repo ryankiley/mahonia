@@ -15,7 +15,7 @@
 # thing a visitor can see, and hand-labelling each one is the tax this avoids.
 #
 # It never blocks a merge (the repo runs no required checks) and clears its own
-# comment once satisfied. See scripts/changelog.mjs + README.
+# comment once satisfied. See scripts/changelog.ts + README.
 #
 # There is no auto-fill: nothing writes the entry for you. If a user-facing PR
 # merges without one, that day's release simply omits the change until it's

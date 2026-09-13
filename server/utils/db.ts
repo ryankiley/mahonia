@@ -23,6 +23,18 @@ import { memoized } from "./memoize";
  */
 export type Db = Awaited<ReturnType<typeof build>>;
 
+/**
+ * A unique-index violation, as it reaches a caller. drizzle wraps every driver
+ * error in a DrizzleQueryError and keeps the driver's own error on `cause`, so the
+ * SQLSTATE is one level down: reading `.code` off the thrown value never matches
+ * (createList's slug retry did exactly that, and never retried). Both drivers —
+ * neon-http in prod, PGlite locally and in tests — go through the same wrapper.
+ */
+export function isUniqueViolation(error: unknown): boolean {
+  const cause = (error as { cause?: unknown } | null)?.cause ?? error;
+  return typeof cause === "object" && cause !== null && (cause as { code?: unknown }).code === "23505";
+}
+
 let _dbPromise: Promise<Db> | undefined;
 
 /**

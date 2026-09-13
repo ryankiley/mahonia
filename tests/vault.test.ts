@@ -4,6 +4,7 @@ import { stubLocalStorage } from "./helpers/storage";
 import { listEntry } from "./helpers/myLists";
 import { vaultFolders, vaultItems, vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
+import { isUniqueViolation } from "../server/utils/db";
 import { UNIT_WEIGHT_MAX_MG } from "../shared/ops";
 import {
   VAULT_FOLDERS_MAX,
@@ -724,6 +725,36 @@ describe("vault folders", () => {
     ).resolves.toBe(false);
     await expect(applyVaultFolderOp(db as any, VAULT, null)).resolves.toBe(false);
     await expect(removeVaultItem(db as any, VAULT, 2_147_483_648)).resolves.toBe(false);
+  });
+
+  it("recognises a unique violation the way drizzle throws it — wrapped, code on the cause", async () => {
+    // drizzle wraps every driver error in a DrizzleQueryError and keeps the driver's
+    // own error on `cause`; a check that read `.code` off the thrown value never
+    // matched, so the rename above only ever returned false because of a preflight
+    // SELECT that has since gone. Both shapes, so a driver that throws bare still passes.
+    expect(isUniqueViolation({ cause: { code: "23505" } })).toBe(true);
+    expect(isUniqueViolation({ code: "23505" })).toBe(true);
+    expect(isUniqueViolation({ cause: { code: "42P01" } })).toBe(false);
+    expect(isUniqueViolation(new Error("nope"))).toBe(false);
+    expect(isUniqueViolation(null)).toBe(false);
+    // and the real thing: a second folder with the same name, straight into the index
+    await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "Cook" });
+    await expect(
+      db.insert(vaultFolders).values({ vaultId: VAULT, name: "Cook", sortOrder: 9 }),
+    ).rejects.toSatisfy((e: unknown) => isUniqueViolation(e));
+  });
+
+  it("unfiles on a move whose folderId is absent, as it does on an explicit null", async () => {
+    // JSON drops an undefined key, so `{ folderId: undefined }` arrives with no key at
+    // all — and that has always meant "unfile", not "malformed"
+    await applyVaultFolderOp(db as any, VAULT, { t: "add", name: "Shelter" });
+    const [shelter] = await listVaultFolders(db as any, VAULT);
+    await captureVaultItems(db as any, VAULT, [cap("Duplex")]);
+    const [duplex] = await listVaultItems(db as any, VAULT);
+    expect(await applyVaultFolderOp(db as any, VAULT, { t: "move", itemId: duplex!.id, folderId: shelter!.id })).toBe(true);
+    expect((await listVaultItems(db as any, VAULT))[0]!.folderId).toBe(shelter!.id);
+    expect(await applyVaultFolderOp(db as any, VAULT, JSON.parse(JSON.stringify({ t: "move", itemId: duplex!.id, folderId: undefined })))).toBe(true);
+    expect((await listVaultItems(db as any, VAULT))[0]!.folderId).toBeUndefined();
   });
 });
 

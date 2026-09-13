@@ -35,9 +35,17 @@ type CalendarParts = { year: number; month: number; day: number; utcMs: number }
 function calendarParts(iso: string | undefined): CalendarParts | null {
   const m = iso ? ISO_DATE.exec(iso) : null;
   if (!m) return null;
+  const year = Number(m[1]);
+  const month = Number(m[2]);
+  const day = Number(m[3]);
+  // Date.parse rather than Date.UTC, which reads a year under 100 as 19xx. The day
+  // exists if the parts come back out unchanged — read as numbers, not rebuilt as a
+  // string and compared: this runs once per day label on the trip tab.
   const utcMs = Date.parse(`${iso}T00:00:00Z`);
-  if (Number.isNaN(utcMs) || new Date(utcMs).toISOString().slice(0, 10) !== iso) return null;
-  return { year: Number(m[1]), month: Number(m[2]), day: Number(m[3]), utcMs };
+  if (Number.isNaN(utcMs)) return null;
+  const d = new Date(utcMs);
+  if (d.getUTCFullYear() !== year || d.getUTCMonth() + 1 !== month || d.getUTCDate() !== day) return null;
+  return { year, month, day, utcMs };
 }
 
 /**

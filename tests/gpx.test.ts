@@ -42,7 +42,21 @@ describe("gpxStats — distance", () => {
 
   it("declines malformed coordinates instead of calculating a plausible route from them", () => {
     expect(gpxStats([{ lat: 0, lon: 0 }, { lat: 91, lon: 0 }])).toBeNull();
-    expect(gpxStats([{ lat: 0, lon: 0, ele: Number.NaN }, { lat: 0, lon: 1, ele: 10 }])?.profile).toEqual([]);
+  });
+
+  it("carries a neighbour's altitude across a point that has none, rather than dropping the profile", () => {
+    // the seconds before a watch's barometer settles: a fix with no reading. Read
+    // strictly, three such points would void a 3,000-point profile and the climb with it.
+    const track = eastward(6, (i) => 1000 + i * 10);
+    delete track[0]!.ele; // a leading gap takes the first reading after it
+    track[3]!.ele = Number.NaN; // a NaN is a gap too, not a reading
+    const s = gpxStats(track)!;
+    expect(s.minEleM).toBe(1010);
+    expect(s.maxEleM).toBe(1050);
+    expect(s.ascentM).toBeGreaterThan(0);
+    expect(s.profile).toHaveLength(PROFILE_SAMPLES);
+    // none anywhere is still none
+    expect(gpxStats(eastward(3))!.profile).toEqual([]);
   });
 });
 
@@ -426,9 +440,15 @@ describe("reading a route out of somebody else's file", () => {
     expect(geoJsonPoints({ type: "LineString", coordinates: [[-121.71, 45.33], [181, 45.34]] })).toEqual(valid);
   });
 
-  it("leaves an altitude absent when a TCX trackpoint omits its tag", () => {
+  it("leaves an altitude absent when a TCX trackpoint omits its tag, and the profile survives it", () => {
     const [point] = gpxPoints(xml(`<TrainingCenterDatabase><Trackpoint><Position><LatitudeDegrees>45.33</LatitudeDegrees><LongitudeDegrees>-121.71</LongitudeDegrees></Position></Trackpoint></TrainingCenterDatabase>`));
     expect(point).toEqual({ lat: 45.33, lon: -121.71 });
+    // the same file with its first altitude missing keeps its profile: the gap takes
+    // the 1850 beside it instead of counting as sea level or voiding the climb
+    const gap = gpxStats(gpxPoints(xml(TCX.replace("<AltitudeMeters>1800</AltitudeMeters>", ""))))!;
+    expect(gap.minEleM).toBe(1850);
+    expect(gap.maxEleM).toBe(1900);
+    expect(gap.profile).toHaveLength(PROFILE_SAMPLES);
   });
 
   it("does not turn missing or empty coordinate text into a phantom point at zero", () => {
@@ -529,6 +549,18 @@ describe("KMZ — a KML in a zip", () => {
     withComment.set(comment, base.length);
     new DataView(withComment.buffer).setUint16(base.length - 2, comment.length, true);
     expect(await kmzToKml(withComment.buffer)).toContain("coordinates");
+  });
+
+  it("still reads an archive with bytes after its end record", async () => {
+    // a padded download, or a writer that appended a newline: unzip and Python's
+    // zipfile open these without a word, and so did this reader before the
+    // comment-length rule above — the exact record wins when there is one, and
+    // this is what stands in when there is not
+    const base = new Uint8Array(zip("doc.kml", KML));
+    const padded = new Uint8Array(base.length + 1);
+    padded.set(base);
+    padded[base.length] = 0x0a;
+    expect(await kmzToKml(padded.buffer)).toContain("coordinates");
   });
 
   it("inflates a standard deflate member within the route-size budget", async () => {

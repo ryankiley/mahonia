@@ -127,10 +127,16 @@ export function parseCsv(text: string): string[][] {
 export interface CsvImportOptions {
   /** A packing list holds 50 folders; a vault has its own, larger ceiling. */
   maxFolders?: number;
+  /** A packing list holds 1,000 items. The vault counts differently — it drops the
+   *  rows that aren't gear before applying its own ceiling — so it lifts this one. */
+  maxItems?: number;
 }
 
 /** Map a CSV (ours or LighterPack's) into ListData. Tolerant of column order/naming. */
-export function csvToListData(text: string, { maxFolders = MAX_FOLDERS }: CsvImportOptions = {}): ListData {
+export function csvToListData(
+  text: string,
+  { maxFolders = MAX_FOLDERS, maxItems = MAX_ITEMS }: CsvImportOptions = {},
+): ListData {
   const rows = parseCsv(text);
   if (rows.length < 2) return { folders: [], items: [] };
   const header = rows[0]!.map((h) => h.trim().toLowerCase());
@@ -239,7 +245,7 @@ export function csvToListData(text: string, { maxFolders = MAX_FOLDERS }: CsvImp
     if (!name && unitWeightMg <= 0) continue;
     // The server caps persisted lists at MAX_ITEMS. Stop at the same boundary here
     // so the client never spends work matching or sending rows it cannot keep.
-    if (items.length >= MAX_ITEMS) break;
+    if (items.length >= maxItems) break;
     const gearType = cell(iCommon); // read once — it also decides the override flag below
     const cat = iCat >= 0 ? stripFormulaGuard(row[iCat] ?? "") : "";
     const fId = ensureFolder(cat || "Imported");

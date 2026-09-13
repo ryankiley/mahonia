@@ -220,15 +220,24 @@ export function readResearchFiles(researchDir: string): ResearchFile[] {
     .sort();
   return files.map((file) => {
     try {
-      const parsed: unknown = JSON.parse(readFileSync(join(researchDir, file), "utf8"));
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(readFileSync(join(researchDir, file), "utf8"));
+      } catch (e) {
+        // named as such, because the shape problems below are reported the same way
+        // and a well-formed file with one mistyped field must not read as a syntax error
+        throw new Error(`invalid JSON: ${(e as Error).message}`);
+      }
       if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
         throw new Error('expected an object with a "rows" array');
       }
       if (!("rows" in parsed)) throw new Error('expected an object with a "rows" array');
       const rows = (parsed as { rows?: unknown }).rows;
       if (!Array.isArray(rows)) throw new Error('expected "rows" to be an array');
-      const problem = rows.map((row, index) => researchRowProblem(row, index + 1)).find(Boolean);
-      if (problem) throw new Error(problem);
+      // every bad row, not the first: the whole file is held back until they are all
+      // fixed, so one run should name them all
+      const problems = rows.map((row, index) => researchRowProblem(row, index + 1)).filter(Boolean);
+      if (problems.length) throw new Error(problems.join("; "));
       return { file, rows: rows as ResearchRow[] };
     } catch (e) {
       return { file, rows: [], parseError: (e as Error).message };

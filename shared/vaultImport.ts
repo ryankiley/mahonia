@@ -119,10 +119,13 @@ export function vaultImportFromJson(text: string): VaultImport | null {
  * file you haven't weighed yet.
  */
 export function vaultImportFromCsv(text: string): VaultImport {
-  // `MAX_FOLDERS` is a packing-list limit, not a property of a vault. Preserve a
-  // category for every importable row here; vault persistence applies its own
-  // folder ceiling when it creates folders for the restored gear.
-  const list = csvToListData(text, { maxFolders: VAULT_IMPORT_MAX });
+  // `MAX_FOLDERS` and `MAX_ITEMS` are packing-list limits, not properties of a vault.
+  // Keep a category for every importable row, and read every row: the ceiling that
+  // applies here is VAULT_IMPORT_MAX, taken below over the rows that ARE gear — a cap
+  // on list items would count the nameless and the container rows gearFromItem drops,
+  // and stop short of gear the server would have accepted. Vault persistence applies
+  // its own folder ceiling when it creates folders for the restored gear.
+  const list = csvToListData(text, { maxFolders: VAULT_IMPORT_MAX, maxItems: Number.POSITIVE_INFINITY });
   const name = new Map(list.folders.map((f) => [f.id, f.name]));
   // parents are containers, not gear — the one capture exclusion that still holds
   // for a deliberate import ("Cook kit" is a heading; its children are the gear)

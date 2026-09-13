@@ -170,9 +170,13 @@ describe("…but the OWNER still gets it back", () => {
   it("a restore normalizes and WRITES geometry, unlike the field this wrapper replaced", () => {
     // Body weight was deliberately not written on restore, because it never entered the
     // chain. Geometry is the opposite case: it rides the chain, it is the one field an
-    // owner cannot retype, and omitting the write would NULL it on every restore — the
-    // exact bug trailProfile already had.
-    expect(bodyOf("restoreSnapshotByEditHash")).toMatch(/routeGeometry:\s*routeGeometry/);
+    // owner cannot retype, and leaving it out of the update would keep the LIVE value
+    // standing on every restore — the exact bug trailProfile already had. The write is
+    // the whole meta, spread from the one normalizer createList uses, whose `satisfies`
+    // is what keeps a field from going missing here.
+    expect(bodyOf("restoreSnapshotByEditHash")).toMatch(/\.\.\.nulled\(meta\)/);
+    expect(bodyOf("normalizeListMeta")).toMatch(/routeGeometry:\s*normalizeRouteGeometry\(raw\.routeGeometry\)/);
+    expect(bodyOf("normalizeListMeta")).toMatch(/satisfies Record<ListMetaKey, unknown>/);
   });
 
   it("normalizeListData carries waypoints, or a restore drops every one", () => {

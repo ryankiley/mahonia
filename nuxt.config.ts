@@ -316,11 +316,14 @@ export default defineNuxtConfig({
         },
       },
     },
-    // Dev-only: Vite accepts localhost and IP addresses by default. A proxy that
-    // needs another Host can add it through MAHONIA_DEV_ALLOWED_HOSTS (documented
-    // in .env.example). Do not set this to `true`: `npm run dev` listens on all
-    // interfaces and Vite explicitly treats an any-host setting as vulnerable to
-    // DNS rebinding. Only affects `nuxt dev`, never the prod build.
+    // Dev-only, and only for a dev server on a loopback host (`dev:preview`, the
+    // Browser pane's). Vite accepts localhost and IP addresses by default; a proxy
+    // or a phone reaching the server by another name (a .local hostname) adds it
+    // through MAHONIA_DEV_ALLOWED_HOSTS (documented in .env.example). This is NOT
+    // the DNS-rebinding guard it looks like: `npm run dev` binds 0.0.0.0, and for a
+    // public host @nuxt/cli sets allowedHosts to `true` itself after this config
+    // is read (its #createListener), so there any Host is answered whatever is
+    // written here. Never reaches the prod build.
     server: {
       allowedHosts: parseDevAllowedHosts(process.env.MAHONIA_DEV_ALLOWED_HOSTS),
     },

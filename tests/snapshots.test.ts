@@ -193,6 +193,24 @@ describe("snapshots — vandalism recovery", () => {
     expect(restored!.endDate).toBeUndefined();
   });
 
+  it("keeps the pins of a snapshot that never had a route", async () => {
+    // a pin is a distance along the route, so a CHANGED route drops them (above) — but
+    // a list can carry pins with no route at all (addWaypoint asks for none; a backup
+    // whose geometry failed to read keeps its pins through createList), and those are
+    // not pointing at a route that changed; restoring them is restoring the list
+    const db = await freshDb();
+    const { editToken } = await seedList(db, {
+      folders: [folder],
+      items: [item("i1", "Tent")],
+      waypoints: [{ id: "camp-1", kind: "camp", alongM: 1_200, label: "Cairn Basin" }],
+    });
+    await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }], db);
+    const snaps = await listSnapshotsByEditToken(editToken, db);
+    const restored = await restoreSnapshotByEditToken(editToken, snaps![0]!.id, db);
+    expect(restored!.items[0]!.qty).toBe(1);
+    expect(restored!.waypoints).toEqual([{ id: "camp-1", kind: "camp", alongM: 1_200, label: "Cairn Basin" }]);
+  });
+
   it("won't restore a snapshot that belongs to another list", async () => {
     const db = await freshDb();
     const a = await seedList(db, { folders: [], items: [item("x", "A")] });

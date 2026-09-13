@@ -2,6 +2,7 @@ import { defineEventHandler } from "h3";
 import { requireAccount } from "../../../utils/authSession";
 import { deletePasskey } from "../../../utils/credentialRepo";
 import { readJsonBodyCapped } from "../../../utils/http";
+import { isSerialId } from "../../../../shared/ops";
 
 // Revoke a passkey — a lost laptop, a retired hardware key.
 //
@@ -10,7 +11,9 @@ import { readJsonBodyCapped } from "../../../utils/http";
 export default defineEventHandler(async (event) => {
   const { user, db } = await requireAccount(event, "passkey");
   const body = await readJsonBodyCapped<{ id?: unknown }>(event, 2_000);
-  const id = Number.isInteger(body?.id) ? (body.id as number) : null;
-  if (id == null) return { ok: false };
+  // ranged, not just an integer: past 2^31 - 1 Postgres answers the lookup with an
+  // overflow error, which would surface as a 500 for what is a bad request
+  const id = body?.id;
+  if (!isSerialId(id)) return { ok: false };
   return { ok: await deletePasskey(db, user.id, id) };
 });

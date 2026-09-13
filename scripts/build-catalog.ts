@@ -70,13 +70,23 @@ function main() {
   const built: BuiltRow[] = [];
   const seen = new Map<string, string>(); // identity -> source file (for dup reporting)
   const skipped: string[] = [];
-  const commonNames = loadCommonNames(COMMON_NAMES_JSON);
+  // a broken checked-in map is a build failure like a missing common name is, and it
+  // is reported the same way rather than as a stack trace
+  let commonNames: Map<string, string>;
+  try {
+    commonNames = loadCommonNames(COMMON_NAMES_JSON);
+  } catch (e) {
+    console.error(`\n✗ ${(e as Error).message}`);
+    process.exit(1);
+  }
   const usedCommonKeys = new Set<string>(); // which map entries actually matched a row
   let handWritten = 0; // research rows carrying attributes their variant doesn't state
 
   for (const { file, rows, parseError } of readResearchFiles(RESEARCH_DIR)) {
     if (parseError) {
-      skipped.push(`${file}: invalid JSON (${parseError})`);
+      // the whole file: it is held back until it reads cleanly, and the message names
+      // every reason (invalid JSON, or each row that is not the shape a row has)
+      skipped.push(`${file}: ${parseError}`);
       continue;
     }
     for (const row of rows) {

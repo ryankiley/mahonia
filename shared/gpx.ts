@@ -292,26 +292,33 @@ export async function zipMember(buffer: ArrayBuffer, want: (name: string) => boo
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
   if (buffer.byteLength > MAX_GPX_BYTES || bytes[0] !== 0x50 || bytes[1] !== 0x4b) return null; // not "PK"
-  const inBounds = (at: number, length: number) =>
-    Number.isSafeInteger(at) && at >= 0 && Number.isSafeInteger(length) && length >= 0 && at <= bytes.length - length;
+  // every offset and length here is a DataView read plus a small constant, so the one
+  // question is whether the span ends inside the buffer
+  const inBounds = (at: number, length: number) => at + length <= bytes.length;
 
   // End of central directory, scanned backwards — it sits at the end, after a comment
   // whose length nothing else tells us.
   let eocd = -1;
+  // A comment is arbitrary bytes, the EOCD magic included, so the magic alone is not
+  // proof. The record whose declared comment ends exactly at the end of the file is the
+  // real one when there is such a record; when there is none — a writer that padded the
+  // archive, a download that appended a byte — the last record whose comment at least
+  // FITS is taken instead, which is the tolerance Info-ZIP and Python's zipfile extend
+  // to trailing bytes, and what read these files before the exact rule existed.
+  let fits = -1;
   // ZIP permits a 65,535-byte comment, so its EOCD can sit exactly 65,557 bytes
   // from the end (22-byte record + comment). Include that lower endpoint.
   const firstEocd = Math.max(0, buffer.byteLength - 65_557);
   for (let i = buffer.byteLength - 22; i >= firstEocd; i--) {
-    // A comment is arbitrary bytes, including the EOCD magic. Its own declared
-    // length is the only proof that a candidate is really the final record.
-    if (
-      view.getUint32(i, true) === 0x06054b50 &&
-      i + 22 + view.getUint16(i + 20, true) === buffer.byteLength
-    ) {
+    if (view.getUint32(i, true) !== 0x06054b50) continue;
+    const end = i + 22 + view.getUint16(i + 20, true);
+    if (end === buffer.byteLength) {
       eocd = i;
       break;
     }
+    if (fits < 0 && end <= buffer.byteLength) fits = i;
   }
+  if (eocd < 0) eocd = fits;
   if (eocd < 0) return null;
 
   const count = view.getUint16(eocd + 10, true);
@@ -513,6 +520,24 @@ function resampleEvery(cumulative: number[], elevations: number[], stepM: number
 }
 
 /**
+ * Every point's altitude, in order — with a gap carried from the nearest earlier
+ * reading, and a leading gap from the first later one. Empty when no point has one.
+ *
+ * A watch often has a fix a few seconds before its barometer has settled, and a TCX
+ * or GPX writer leaves the tag out of those samples (a FIT writes the format's
+ * INVALID value, which fitRoute reads the same way). Read strictly, a handful of such
+ * seconds would drop the whole profile and the climb with it — and read as sea level,
+ * which is what an absent tag once became, they invented a descent to the coast. The
+ * carried reading is what the device's own screen showed in those seconds.
+ */
+export function filledElevations(points: readonly TrackPoint[]): number[] {
+  const first = points.find((p) => typeof p.ele === "number" && Number.isFinite(p.ele));
+  if (!first) return [];
+  let last = first.ele!;
+  return points.map((p) => (typeof p.ele === "number" && Number.isFinite(p.ele) ? (last = p.ele) : last));
+}
+
+/**
  * Distance, climb and a profile from a track. Null when there isn't enough to say
  * anything — one point is a location, not a route.
  *
@@ -530,9 +555,7 @@ export function gpxStats(points: readonly TrackPoint[]): GpxStats | null {
   }
   if (!(distanceM > 0)) return null;
 
-  const withEle = points.every((p) => typeof p.ele === "number" && Number.isFinite(p.ele))
-    ? (points as TrackPoint[]).map((p) => p.ele!)
-    : [];
+  const withEle = filledElevations(points);
 
   let ascentM = 0;
   let descentM = 0;

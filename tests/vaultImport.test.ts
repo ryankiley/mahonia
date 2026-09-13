@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport, vaultImportFromCsv, vaultImportFromJson } from "../shared/vaultImport";
 import { MAX_CATALOG_ID, MAX_FOLDERS } from "../shared/ops";
-import type { VaultEntry, VaultFolder } from "../shared/vault";
+import { VAULT_IMPORT_MAX, type VaultEntry, type VaultFolder } from "../shared/vault";
 
 let nextId = 1;
 const row = (over: Partial<VaultEntry> = {}): VaultEntry => ({
@@ -144,6 +144,21 @@ describe("vaultImportFromCsv — any spreadsheet, as gear", () => {
     const back = vaultImportFromCsv(csv);
     expect(back.rows).toHaveLength(MAX_FOLDERS + 1);
     expect(back.rows.find((row) => row.name === `Item ${MAX_FOLDERS}`)?.folder).toBe(`Folder ${MAX_FOLDERS}`);
+  });
+
+  it("fills its own ceiling from the rows that are gear, past a packing list's item limit", () => {
+    // a spreadsheet with weighted spacer rows and no names: a list keeps those as rows,
+    // and a list-sized cap counted them, so the gear after row 1,000 never arrived
+    // although the server takes VAULT_IMPORT_MAX pieces of real gear
+    const csv = [
+      "Item Name,Weight,Unit",
+      ...Array.from({ length: 60 }, () => ",100,g"),
+      ...Array.from({ length: VAULT_IMPORT_MAX }, (_, i) => `Item ${i},1,g`),
+    ].join("\n");
+
+    const back = vaultImportFromCsv(csv);
+    expect(back.rows).toHaveLength(VAULT_IMPORT_MAX);
+    expect(back.rows.at(-1)!.name).toBe(`Item ${VAULT_IMPORT_MAX - 1}`);
   });
 });
 

@@ -3,6 +3,7 @@
 // these directly (tests/catalog.test.ts) and the build/seed scripts reuse them.
 
 import { parseCsv } from "../shared/exporters/csv";
+import { safeUrl } from "../shared/trailLink";
 import { WEIGHT_SOURCES, type WeightSource } from "../shared/types";
 import { MG_PER_UNIT, parseWeightInput } from "../shared/weights";
 import { ATTRIBUTE_KEYS, parseAttributes, type AttributeKey, type RowAttributes } from "./catalogAttributes";
@@ -38,17 +39,10 @@ export { WEIGHT_SOURCES };
 export const isWeightSource = (s: string): s is WeightSource =>
   (WEIGHT_SOURCES as readonly string[]).includes(s);
 
-/** A usable citation: an absolute http(s) URL with a host. Keep this parsed rather
- * than regex-shaped: `https://#note` and `https://?q` look like they have text after
- * the scheme but have no destination for a reader or an audit to open. */
-export const isCitationUrl = (s: string): boolean => {
-  try {
-    const url = new URL(s);
-    return (url.protocol === "http:" || url.protocol === "https:") && Boolean(url.hostname);
-  } catch {
-    return false;
-  }
-};
+/** A usable citation: an absolute http(s) URL, parsed rather than regex-shaped —
+ *  `https://#note` and `https://?q` have text after the scheme and no destination a
+ *  reader or an audit could open. safeUrl is the one place the app vets a scheme. */
+export const isCitationUrl = (s: string): boolean => safeUrl(s) !== null;
 
 /** The catalog identity join: brand|name|variant, lowercased. Pre-processing
  *  (variant normalization, null-folding) stays at each call site — the builder
