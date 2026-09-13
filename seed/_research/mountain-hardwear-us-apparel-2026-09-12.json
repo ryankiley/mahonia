@@ -1,0 +1,1577 @@
+{
+  "_comment": "Mountain Hardwear US-only apparel and snow packs, 2026-09-12 — the products the maker's Japanese store does not carry, read page by page on mountainhardwear.com after its PerimeterX check had been cleared by hand. Each garment stores the page's one 'Approx. Weight*' figure, which names no size, so size is recorded as unpublished; the snow packs are one row per torso size. Pages that print no weight (the Summit Grid fleeces, Oakoram, Butter Up, the logo tees and most hats and gloves) are not added.",
+  "rows": [
+    {
+      "brand": "Mountain Hardwear",
+      "name": "StretchDown Light Hooded Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 410,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-stretchdown-light-hooded-jacket-2166151.html",
+      "quote": "Approx. Weight*: 14.5 oz / 410 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "StretchDown Light Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 373,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-stretchdown-light-jacket-2166141.html",
+      "quote": "Approx. Weight*: 13.2 oz / 373 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Ghost Whisperer Hooded Down Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 302,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-ghost-whisperer-hooded-down-jacket-2104451.html",
+      "quote": "Approx. Weight*: 10.7 oz / 302 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Ghost Whisperer UL Hooded Down Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 189,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-ghost-whisperer-ul-hooded-down-jacket-2092051.html",
+      "quote": "Approx. Weight*: 6.7 oz / 189 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Summit Grid Big Grid Hoody",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 446,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-summit-grid-big-grid-hoody-2128921.html",
+      "quote": "Approx. Weight*: 15.7 oz / 446 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Crater Lake Long Sleeve Crew Shirt",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun shirt",
+      "weight_value": 147,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-crater-lake-long-sleeve-crew-shirt-1982421.html",
+      "quote": "Approx. Weight*: 5.2 oz / 147 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Crater Lake Heavyweight Half Zip Hoody",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun hoodie",
+      "weight_value": 273.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-crater-lake-heavyweight-half-zip-hoody-2128961.html",
+      "quote": "Approx. Weight*: 9.6 oz / 273.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Hardwear Supply Hoody",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hoodie",
+      "weight_value": 926,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-hardwear-supply-hoody-2166821.html",
+      "quote": "Approx. Weight*: 2 lb 0.7 oz / 926 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Hardwear Supply Pullover Crew",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hoodie",
+      "weight_value": 848,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-hardwear-supply-pullover-crew-2166831.html",
+      "quote": "Approx. Weight*: 1 lb 13.9 oz / 848 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Après Pro Insulated Hooded Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "insulated jacket",
+      "weight_value": 590,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-apr%C3%A8s-pro-insulated-hooded-jacket-2131801.html",
+      "quote": "Approx. Weight*: 1 lb 4.8 oz / 590 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Cloud Bank GORE-TEX Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain jacket",
+      "weight_value": 982,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-cloud-bank-gore-tex-jacket-2091881.html",
+      "quote": "Approx. Weight*: 2 lb 2.6 oz / 982 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Sky Ridge GORE-TEX Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain jacket",
+      "weight_value": 897,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-sky-ridge-gore-tex-jacket-2077171.html",
+      "quote": "Approx. Weight*: 1 lb 15.6 oz / 897 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Mythogen GORE-TEX PRO Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain jacket",
+      "weight_value": 617,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-mythogen-gore-tex-pro-jacket-2128301.html",
+      "quote": "Approx. Weight*: 1 lb 5.8 oz / 617 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Warp Factor 3L Hooded Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "insulated jacket",
+      "weight_value": 744,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-warp-factor-3l-hooded-jacket-2166231.html",
+      "quote": "Approx. Weight*: 1 lb 10.2 oz / 744 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Warp Factor Anorak",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "insulated jacket",
+      "weight_value": 848,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-warp-factor-anorak-2166271.html",
+      "quote": "Approx. Weight*: 1 lb 13.9 oz / 848 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Microchill Quarter Zip",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 243,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-microchill-quarter-zip-2169151.html",
+      "quote": "Approx. Weight*: 8.6 oz / 243 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Deep Drift Fleece Hoody",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 859.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-deep-drift-fleece-hoody-2166751.html",
+      "quote": "Approx. Weight*: 1 lb 14.3 oz / 859.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Après Pro Fleece Hoody",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 549,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-apr%C3%A8s-pro-fleece-hoody-2166351.html",
+      "quote": "Approx. Weight*: 1 lb 3.4 oz / 549 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Up First Tech Fleece Hoody",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 283,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-up-first-tech-fleece-hoody-2114021.html",
+      "quote": "Approx. Weight*: 10 oz / 283 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Firefall Trifecta Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "jacket",
+      "weight_value": 1301,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-firefall-trifecta-jacket-2167191.html",
+      "quote": "Approx. Weight*: 2 lb 13.9 oz / 1301 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Firefall Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "jacket",
+      "weight_value": 790,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-firefall-jacket-2166311.html",
+      "quote": "Approx. Weight*: 1 lb 11.9 oz / 790 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Firefall Insulated Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "insulated jacket",
+      "weight_value": 920,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-firefall-insulated-jacket-2166301.html",
+      "quote": "Approx. Weight*: 2 lb 0.5 oz / 920 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Stretch Ozonic Insulated Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "insulated jacket",
+      "weight_value": 605.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-stretch-ozonic-insulated-jacket-2166101.html",
+      "quote": "Approx. Weight*: 1 lb 5.4 oz / 605.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Dry Times Hooded Rain Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain jacket",
+      "weight_value": 570,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-dry-times-hooded-rain-jacket-2109641.html",
+      "quote": "Approx. Weight*: 1 lb 4.1 oz / 570 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Threshold Rain Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain jacket",
+      "weight_value": 366,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-threshold-rain-jacket-2146651.html",
+      "quote": "Approx. Weight*: 12.9 oz / 366 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Phantom Belay Down Parka",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 692,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-phantom-belay-down-parka-2092281.html",
+      "quote": "Approx. Weight*: 1 lb 8.4 oz / 692 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Send'r Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 570,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-sendr-pant-2134161.html",
+      "quote": "Approx. Weight*: 1 lb 4.1 oz / 570 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Up First Tech Fleece Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 245,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-up-first-tech-fleece-pant-2128321.html",
+      "quote": "Approx. Weight*: 8.6 oz / 245 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Stryder Lined Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 544.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-stryder-lined-pant-2128991.html",
+      "quote": "Approx. Weight*: 1 lb 3.2 oz / 544.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "StretchDown Light Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 374,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-stretchdown-light-pant-2166161.html",
+      "quote": "Approx. Weight*: 13.2 oz / 374 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Compressor Alpine Insulated Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 606,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-compressor-alpine-insulated-pant-2091931.html",
+      "quote": "Approx. Weight*: 1 lb 5.4 oz / 606 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Threshold Rain Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain pants",
+      "weight_value": 313,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-threshold-rain-pant-2146661.html",
+      "quote": "Approx. Weight*: 11 oz / 313 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Boundary Ridge GORE-TEX Bib",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain pants",
+      "weight_value": 792,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-boundary-ridge-gore-tex-bib-2043301.html",
+      "quote": "Approx. Weight*: 1 lb 11.9 oz / 792 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Cloud Bank GORE-TEX Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain pants",
+      "weight_value": 665,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-cloud-bank-gore-tex-pant-2091901.html",
+      "quote": "Approx. Weight*: 1 lb 7.5 oz / 665 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Sky Ridge GORE-TEX Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain pants",
+      "weight_value": 669,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-sky-ridge-gore-tex-pant-2077181.html",
+      "quote": "Approx. Weight*: 1 lb 7.6 oz / 669 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Mythogen GORE-TEX PRO Bib",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain pants",
+      "weight_value": 618,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-mythogen-gore-tex-pro-bib-2188891.html",
+      "quote": "Approx. Weight*: 1 lb 5.8 oz / 618 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Warp Factor 3L Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 637,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-warp-factor-3l-pant-2166241.html",
+      "quote": "Approx. Weight*: 1 lb 6.5 oz / 637 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Warp Factor Bib",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 890,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-warp-factor-bib-2166281.html",
+      "quote": "Approx. Weight*: 1 lb 15.4 oz / 890 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Firefall Insulated Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 580,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-firefall-insulated-pant-2166331.html",
+      "quote": "Approx. Weight*: 1 lb 4.5 oz / 580 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Firefall Insulated Bib",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 821,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-firefall-insulated-bib-2166321.html",
+      "quote": "Approx. Weight*: 1 lb 13 oz / 821 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Firefall Pant",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 651,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-firefall-pant-2166341.html",
+      "quote": "Approx. Weight*: 1 lb 7 oz / 651 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Stryder Short",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "shorts",
+      "weight_value": 157.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-stryder-short-2110361.html",
+      "quote": "Approx. Weight*: 5.6 oz / 157.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Stryder Belted Short",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "shorts",
+      "weight_value": 202,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-stryder-belted-short-2110351.html",
+      "quote": "Approx. Weight*: 7.1 oz / 202 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Summit Grid Big Grid Half Zip",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 406.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-summit-grid-big-grid-half-zip-2129521.html",
+      "quote": "Approx. Weight*: 14.3 oz / 406.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Dynama Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 236.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-dynama-pant-2095461.html",
+      "quote": "Approx. Weight*: 8.3 oz / 236.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Dynama Convertible Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 269.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-dynama-convertible-pant-2095501.html",
+      "quote": "Approx. Weight*: 9.5 oz / 269.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Stryder Lined Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 528,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-stryder-lined-pant-2129751.html",
+      "quote": "Approx. Weight*: 1 lb 2.6 oz / 528 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Up First Tech Fleece Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 229,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-up-first-tech-fleece-pant-2128631.html",
+      "quote": "Approx. Weight*: 8.1 oz / 229 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "StretchDown Light Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 353,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-stretchdown-light-pant-2166441.html",
+      "quote": "Approx. Weight*: 12.5 oz / 353 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Compressor Alpine Insulated Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 604,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-compressor-alpine-insulated-pant-2092481.html",
+      "quote": "Approx. Weight*: 1 lb 5.3 oz / 604 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Stretch Ozonic Rain Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain pants",
+      "weight_value": 254,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-stretch-ozonic-rain-pant-2093481.html",
+      "quote": "Approx. Weight*: 9 oz / 254 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Threshold Rain Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain pants",
+      "weight_value": 303,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-threshold-rain-pant-2146751.html",
+      "quote": "Approx. Weight*: 10.7 oz / 303 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Boundary Ridge GORE-TEX Bib",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain pants",
+      "weight_value": 746,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-boundary-ridge-gore-tex-bib-2043211.html",
+      "quote": "Approx. Weight*: 1 lb 10.3 oz / 746 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Cloud Bank GORE-TEX Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain pants",
+      "weight_value": 617,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-cloud-bank-gore-tex-pant-2132411.html",
+      "quote": "Approx. Weight*: 1 lb 5.8 oz / 617 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Firefall Insulated Bib",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 670,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-firefall-insulated-bib-2166561.html",
+      "quote": "Approx. Weight*: 1 lb 7.6 oz / 670 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Firefall Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 613,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-firefall-pant-2166571.html",
+      "quote": "Approx. Weight*: 1 lb 5.6 oz / 613 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Warp Factor 3L Pant",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hiking pants",
+      "weight_value": 600,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-warp-factor-3l-pant-2166491.html",
+      "quote": "Approx. Weight*: 1 lb 5.2 oz / 600 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Mythogen GORE-TEX PRO Bib",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain pants",
+      "weight_value": 563.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-mythogen-gore-tex-pro-bib-2189821.html",
+      "quote": "Approx. Weight*: 1 lb 3.9 oz / 563.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Shade Lite Short",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "shorts",
+      "weight_value": 133.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-shade-lite-short-2181091.html",
+      "quote": "Approx. Weight*: 4.7 oz / 133.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Stryder Belted Short",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "shorts",
+      "weight_value": 163.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-stryder-belted-short-2110621.html",
+      "quote": "Approx. Weight*: 5.8 oz / 163.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Powabunga 32 Pack",
+      "variant": "S/M",
+      "attributes": {
+        "volume_l": 32
+      },
+      "category_hint": "pack",
+      "common_name": "backpack",
+      "weight_value": 1401.0,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/powabunga-32-pack-2097361.html",
+      "quote": "Approx. Pack Weight S/M*: 3 lb 1.4 oz / 1401 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Powabunga 32 Pack",
+      "variant": "M/L",
+      "attributes": {
+        "volume_l": 32
+      },
+      "category_hint": "pack",
+      "common_name": "backpack",
+      "weight_value": 1457.0,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/powabunga-32-pack-2097361.html",
+      "quote": "Approx. Pack Weight M/L*: 3 lb 3.4 oz / 1457 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Snoskiwoski 30L Backpack",
+      "variant": "S/M",
+      "attributes": {
+        "volume_l": 30
+      },
+      "category_hint": "pack",
+      "common_name": "backpack",
+      "weight_value": 1007.0,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/snoskiwoski-30l-backpack-2077871.html",
+      "quote": "Approx. Pack Weight S/M*: 2 lb 3.5 oz / 1007 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Snoskiwoski 30L Backpack",
+      "variant": "M/L",
+      "attributes": {
+        "volume_l": 30
+      },
+      "category_hint": "pack",
+      "common_name": "backpack",
+      "weight_value": 1037.0,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/snoskiwoski-30l-backpack-2077871.html",
+      "quote": "Approx. Pack Weight M/L*: 2 lb 4.6 oz / 1037 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Snoskiwoski 40 Pack",
+      "variant": "S/M",
+      "attributes": {
+        "volume_l": 40
+      },
+      "category_hint": "pack",
+      "common_name": "backpack",
+      "weight_value": 1052.0,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/snoskiwoski-40-pack-2097371.html",
+      "quote": "Approx. Pack Weight S/M*: 2 lb 5.1 oz / 1052 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Snoskiwoski 40 Pack",
+      "variant": "M/L",
+      "attributes": {
+        "volume_l": 40
+      },
+      "category_hint": "pack",
+      "common_name": "backpack",
+      "weight_value": 1193.0,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/snoskiwoski-40-pack-2097371.html",
+      "quote": "Approx. Pack Weight M/L*: 2 lb 10.1 oz / 1193 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "StretchDown Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 395,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-stretchdown-jacket-2166411.html",
+      "quote": "Approx. Weight*: 13.9 oz / 395 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "StretchDown Light Hooded Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 405,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-stretchdown-light-hooded-jacket-2166431.html",
+      "quote": "Approx. Weight*: 14.3 oz / 405 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "StretchDown Light Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 370,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-stretchdown-light-jacket-2166421.html",
+      "quote": "Approx. Weight*: 13.1 oz / 370 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Free Element Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "insulated jacket",
+      "weight_value": 315,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-free-element-jacket-2166461.html",
+      "quote": "Approx. Weight*: 11.1 oz / 315 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Free Element Vest",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "vest",
+      "weight_value": 205,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-free-element-vest-2166471.html",
+      "quote": "Approx. Weight*: 7.2 oz / 205 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "StretchDown Parka",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 735,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-stretchdown-parka-2166391.html",
+      "quote": "Approx. Weight*: 1 lb 9.9 oz / 735 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Ghost Whisperer Vest",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "vest",
+      "weight_value": 129,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-ghost-whisperer-vest-2104751.html",
+      "quote": "Approx. Weight*: 4.6 oz / 129 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Ghost Whisperer Parka",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 261,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-ghost-whisperer-parka-2104721.html",
+      "quote": "Approx. Weight*: 9.2 oz / 261 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Après Pro Insulated Hooded Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "insulated jacket",
+      "weight_value": 453,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-apr%C3%A8s-pro-insulated-hooded-jacket-2131811.html",
+      "quote": "Approx. Weight*: 16 oz / 453 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Seek Out Snap Neck Vest",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "vest",
+      "weight_value": 229.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-seek-out-snap-neck-vest-2129651.html",
+      "quote": "Approx. Weight*: 8.1 oz / 229.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Phantom Alpine Hooded Down Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 464,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-phantom-alpine-hooded-down-jacket-2092811.html",
+      "quote": "Approx. Weight*: 1 lb 0.4 oz / 464 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Phantom Belay Down Parka",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "down jacket",
+      "weight_value": 730,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-phantom-belay-down-parka-2092821.html",
+      "quote": "Approx. Weight*: 1 lb 9.7 oz / 730 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Compressor Alpine Insulated Hooded Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "insulated jacket",
+      "weight_value": 707,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-compressor-alpine-insulated-hooded-jacket-2092471.html",
+      "quote": "Approx. Weight*: 1 lb 8.9 oz / 707 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Wind Veil Hooded Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "wind jacket",
+      "weight_value": 142,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-wind-veil-hooded-jacket-2146771.html",
+      "quote": "Approx. Weight*: 5 oz / 142 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Summit Grid Big Grid Hoody",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 401.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-summit-grid-big-grid-hoody-2129511.html",
+      "quote": "Approx. Weight*: 14.2 oz / 401.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Hardwear Supply Hoody",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hoodie",
+      "weight_value": 841,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-hardwear-supply-hoody-2166681.html",
+      "quote": "Approx. Weight*: 1 lb 13.7 oz / 841 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Microchill Quarter Zip",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 210,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-microchill-quarter-zip-2169301.html",
+      "quote": "Approx. Weight*: 7.4 oz / 210 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Après Pro Fleece Hoody",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 515,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-apr%C3%A8s-pro-fleece-hoody-2166581.html",
+      "quote": "Approx. Weight*: 1 lb 2.2 oz / 515 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Après Pro Fleece Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 500,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-apr%C3%A8s-pro-fleece-jacket-2166591.html",
+      "quote": "Approx. Weight*: 1 lb 1.6 oz / 500 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Deep Drift Fleece Hoody",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 762.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-deep-drift-fleece-hoody-2166601.html",
+      "quote": "Approx. Weight*: 1 lb 10.9 oz / 762.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Up First Tech Fleece Hoody",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 226,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-up-first-tech-fleece-hoody-2114041.html",
+      "quote": "Approx. Weight*: 8 oz / 226 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Stretch Ozonic Insulated Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "insulated jacket",
+      "weight_value": 562.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-stretch-ozonic-insulated-jacket-2166381.html",
+      "quote": "Approx. Weight*: 1 lb 3.8 oz / 562.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Threshold Rain Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain jacket",
+      "weight_value": 368,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-threshold-rain-jacket-2146741.html",
+      "quote": "Approx. Weight*: 13 oz / 368 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Threshold Rain Parka",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "rain jacket",
+      "weight_value": 379,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-threshold-rain-parka-2146781.html",
+      "quote": "Approx. Weight*: 13.4 oz / 379 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Crater Lake Crop Zip Shirt",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun shirt",
+      "weight_value": 138.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-crater-lake-crop-zip-shirt-2068771.html",
+      "quote": "Approx. Weight*: 4.9 oz / 138.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Crater Lake Heavyweight Half Zip Hoody",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun hoodie",
+      "weight_value": 232,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-crater-lake-heavyweight-half-zip-hoody-2129571.html",
+      "quote": "Approx. Weight*: 8.2 oz / 232 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Canyon Long Sleeve Shirt",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun shirt",
+      "weight_value": 166.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-canyon-long-sleeve-shirt-2110541.html",
+      "quote": "Approx. Weight*: 5.9 oz / 166.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Crater Lake Long Sleeve Crop Shirt",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun shirt",
+      "weight_value": 101,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-crater-lake-long-sleeve-crop-shirt-1986771.html",
+      "quote": "Approx. Weight*: 3.6 oz / 101 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Sun Drift Cooling Long Sleeve Shirt",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun shirt",
+      "weight_value": 166.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-sun-drift-cooling-long-sleeve-shirt-2149161.html",
+      "quote": "Approx. Weight*: 5.9 oz / 166.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Sunshield Hoody",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun hoodie",
+      "weight_value": 145.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-sunshield-hoody-2110511.html",
+      "quote": "Approx. Weight*: 5.1 oz / 145.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Sunshield 1/2 Zip Shirt",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun shirt",
+      "weight_value": 124.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-sunshield-1%2F2-zip-shirt-2110521.html",
+      "quote": "Approx. Weight*: 4.4 oz / 124.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Hardwear Supply Long Sleeve Shirt",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "shirt",
+      "weight_value": 372,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-hardwear-supply-long-sleeve-shirt-2166711.html",
+      "quote": "Approx. Weight*: 13.1 oz / 372 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Deep Drift Fleece Full Zip",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 773.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-deep-drift-fleece-full-zip-2166761.html",
+      "quote": "Approx. Weight*: 1 lb 11.3 oz / 773.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Deep Drift Fleece Full Zip",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 659,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-deep-drift-fleece-full-zip-2166611.html",
+      "quote": "Approx. Weight*: 1 lb 7.2 oz / 659 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Up First Tech Fleece Quarter Zip",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 225.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-up-first-tech-fleece-quarter-zip-2114011.html",
+      "quote": "Approx. Weight*: 8 oz / 225.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Up First Tech Fleece Quarter Zip",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 208.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-up-first-tech-fleece-quarter-zip-2114031.html",
+      "quote": "Approx. Weight*: 7.4 oz / 208.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Micro Dome",
+      "variant": "",
+      "category_hint": "clothing",
+      "common_name": "beanie",
+      "weight_value": 68,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-micro-dome-1529021.html",
+      "quote": "Approx. Weight*: 2.4 oz / 68 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Seek Out Snap Neck Pullover",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 290.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-seek-out-snap-neck-pullover-2129671.html",
+      "quote": "Approx. Weight*: 10.2 oz / 290.5 g"
+    },
+    {
+      "brand": "Mountain Hardwear",
+      "name": "Hardwear Supply Quarter Zip",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "hoodie",
+      "weight_value": 663.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-hardwear-supply-quarter-zip-2167131.html",
+      "quote": "Approx. Weight*: 1 lb 7.4 oz / 663.5 g"
+    }
+  ]
+}
