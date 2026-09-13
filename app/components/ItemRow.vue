@@ -49,7 +49,7 @@ const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
 
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, CookieIcon, Delete02Icon, DropletIcon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, MinusSignSquareIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, Delete02Icon, DropletIcon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, MinusSignSquareIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN } from "~~/shared/ops";
@@ -58,6 +58,7 @@ import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, rowDisplayKcal, formatWeight, fromMg, groupLineMg, isBareGroup, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
+import { consumableIcon } from "~/utils/itemMarks";
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
 // like useGearList's own vaultNormKey — this module is in the editor graph already)
@@ -395,6 +396,12 @@ const variantOnRow = computed(() => variantShownIds.value.has(props.item.id));
 // (isWaterName / waterLiters / itemQtyLabel live in shared/water, shared with
 // ReadonlyItemRow so the two views can't drift.)
 const isWater = computed(() => isWaterName(props.item.name));
+// the picture on the consumable toggle: the cookie, or the fuel can on a row that
+// reads as stove fuel (isFuelRow). Read off the name and gear type whether or not the
+// row IS consumable — an unlit toggle draws what the mark would be, and the lit one
+// matches what the share view and /gear draw for the same row (consumableIcon is the
+// one rule all three read).
+const consumableGlyph = computed(() => consumableIcon(props.item));
 const litersDisplay = computed(() => waterLiters(props.item.unitWeightMg));
 function onWaterLiters(e: Event) {
   const el = e.target as HTMLInputElement;
@@ -1703,7 +1710,7 @@ function dismissFix() {
                   @mousedown.prevent
                   @click="toggleKcal"
                 >
-                  <HugeiconsIcon :icon="CookieIcon" :size="16" :stroke-width="2" />
+                  <HugeiconsIcon :icon="consumableGlyph" :size="16" :stroke-width="2" />
                 </button>
               </Tooltip>
               <Transition name="menu">
@@ -1766,10 +1773,10 @@ function dismissFix() {
             </div>
             <!-- water's mark, not a toggle: its class can't change and it has no
                  calories to hold, so a switch and a kcal field here would both be
-                 controls that lie. A DROPLET rather than the cookie every other
-                 consumable wears — same class, same lit chip, same "Consumable" name,
-                 but the picture matches the one consumable the app already treats as
-                 its own thing. The read view draws the same swap (see consumableIcon). -->
+                 controls that lie. A DROPLET rather than the cookie (or the fuel can)
+                 the toggle above wears — same class, same lit chip, same "Consumable"
+                 name, but the picture matches the one consumable the app already treats
+                 as its own thing. The read view draws the same swap (see consumableIcon). -->
             <div v-else class="item__cls">
               <Tooltip text="Consumable" preferred-placement="top">
                 <span class="item__clsfixed item__mark" role="img" aria-label="Consumable">
