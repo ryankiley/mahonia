@@ -380,9 +380,13 @@ describe("round-trips", () => {
       ],
     } as unknown as ListSnapshot;
     const csv = listToCsv(snap);
-    expect(csv.split("\n")[0]).toMatch(/,Kcal,Person$/);
-    const potLine = csv.split("\n").find((l) => l.includes("Pot"))!;
-    expect(potLine.endsWith(",Alex")).toBe(true); // the child flattens, so its inherited carrier is written out
+    // read the column by its header, not its position: a column added after Person
+    // (Needs Cooking) must not turn this into a test of what the last column is
+    const [header, ...lines] = csv.split("\n");
+    const iPerson = header!.split(",").indexOf("Person");
+    expect(iPerson).toBeGreaterThan(header!.split(",").indexOf("Kcal"));
+    const potLine = lines.find((l) => l.includes("Pot"))!;
+    expect(potLine.split(",")[iPerson]).toBe("Alex"); // the child flattens, so its inherited carrier is written out
 
     const back = csvToListData(csv);
     expect(back.people?.map((p) => p.name).sort()).toEqual(["Alex"]);
