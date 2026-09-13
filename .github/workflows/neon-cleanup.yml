@@ -56,7 +56,10 @@ permissions:
 
 jobs:
   delete-preview-branch:
-    if: github.event_name == 'pull_request'
+    # The branch name is fed to a privileged delete action. Only a same-repo PR
+    # can own a Vercel/Neon preview branch here: a fork can choose the same head
+    # name as an in-repo PR, and Dependabot cannot receive this workflow's secret.
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-24.04
     steps:
       - name: Delete preview/<branch> in Neon
@@ -143,8 +146,14 @@ jobs:
             if (!gitBranches.has("main")) {
               throw new Error("origin's branch list has no main; refusing to treat every preview branch as stale");
             }
+            // A fork can reuse any branch name. Only same-repo PR heads protect
+            // a `preview/<branch>` database from the idle sweep; otherwise an
+            // unrelated fork named `feature/foo` could keep preview/feature/foo
+            // alive forever (or collide with a real, stale local branch).
+            const repository = `${owner}/${repo}`;
             const openPrHeads = new Set(
               (await github.paginate(github.rest.pulls.list, { owner, repo, state: "open", per_page: 100 }))
+                .filter((pr) => pr.head.repo?.full_name === repository)
                 .map((pr) => pr.head.ref),
             );
 

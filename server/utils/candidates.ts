@@ -148,7 +148,19 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     .having(sql`count(distinct ${catalogCandidates.listId}) >= ${K_DISTINCT_LISTS}`);
   const keys = promotable.map((p: { normKey: string }) => p.normKey);
   res.scanned = keys.length;
-  if (!keys.length) return res;
+  // Retention is independent of whether anything is promotable today. In
+  // particular, one-off observations never reach K, which used to make their
+  // raw typed text live forever because this early return skipped the purge.
+  const purgeExpired = async () => {
+    const purged = await db.delete(catalogCandidates)
+      .where(sql`${catalogCandidates.createdAt} < now() - interval '90 days'`)
+      .returning();
+    return purged.length;
+  };
+  if (!keys.length) {
+    res.purged = await purgeExpired();
+    return res;
+  }
 
   // all open observations for those keys, grouped in JS
   const rows = (await db
@@ -279,9 +291,6 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   }
 
   // retention: drop raw typed text after 90 days (it can contain PII)
-  const purged = await db.delete(catalogCandidates)
-    .where(sql`${catalogCandidates.createdAt} < now() - interval '90 days'`)
-    .returning();
-  res.purged = purged.length;
+  res.purged = await purgeExpired();
   return res;
 }

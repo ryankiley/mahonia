@@ -207,7 +207,10 @@ jobs:
   # there is one (the delta step uploads only when it succeeded).
   comment:
     needs: check
-    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository
+    # Fork and Dependabot PRs have a read-only GITHUB_TOKEN, so neither can post
+    # this optional receipt. The check job still runs for them; only the
+    # write-only follow-up is skipped.
+    if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:

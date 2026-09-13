@@ -17,7 +17,7 @@
 
 import type { ChangelogRelease } from "../shared/changelog";
 
-/** The timezone the changelog's dates are written in (`npm run changelog` stamps local time). */
+/** The timezone the changelog's dates are written in — `npm run changelog` stamps today on this clock too. */
 export const CHANGELOG_TZ = "America/Los_Angeles";
 
 /** `2026-09-12` → `v2026.09.12`. CalVer, dotted, sorts the same way the dates do. */

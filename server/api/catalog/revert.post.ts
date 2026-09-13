@@ -1,4 +1,5 @@
 import { createError, defineEventHandler } from "h3";
+import { isCatalogId } from "../../../shared/ops";
 import { requireAdmin } from "../../utils/auth";
 import { revertEdit } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
@@ -14,7 +15,7 @@ export default defineEventHandler(async (event) => {
   // and spoofable, so the raw-body cap is the authoritative one
   const body = await readJsonBodyCapped<{ editId?: number }>(event, 8_000);
   const editId = Number(body?.editId);
-  if (!Number.isInteger(editId) || editId <= 0)
+  if (!isCatalogId(editId))
     throw createError({ statusCode: 400, statusMessage: "Bad request" });
 
   const db = await useCatalogDb();

@@ -1,4 +1,3 @@
-#!/usr/bin/env node
 // Writes one entry for the changelog (published as a GitHub Release per day),
 // so the plain-style, grouped format stays consistent when we ship a user-facing
 // change. Content is checked-in JSON — never derived from git at build time,
@@ -21,38 +20,41 @@
 // commits touched that file on one day). Two PRs can't conflict on files neither
 // of them shares. scripts/release-notes.ts folds the fragments back together
 // for each day's release; shared/changelog.ts has the full reasoning.
+//
+// Run through jiti like its siblings (changelog:compact, release-notes), so the
+// directory, the calendar and the day are the ONE copy each of those already owns:
+// this file used to be plain .mjs to keep `npm run changelog` a bare node call, and
+// held its own spellings of all three, which is how the writer came to stamp a day
+// the reader settled on a different clock.
 
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { isCalendarDate } from "../shared/calendar";
+import type { ChangelogRelease } from "../shared/changelog";
+import { FRAGMENT_DIR } from "./changelogSources";
+import { CHANGELOG_TZ, todayIn } from "./releaseNotes";
 
-// Kept in step with FRAGMENT_DIR in scripts/changelogSources.ts by hand: this
-// file is plain .mjs so `npm run changelog` stays a bare node call with no
-// transpiler between you and the argument list, which means it can't import the
-// TypeScript that owns the path. One string, named in both places on purpose.
-const DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "content", "changelog.d");
-
-// today, in LOCAL time (matches the ship-date semantics of the entries)
-const now = new Date();
-const pad = (n) => String(n).padStart(2, "0");
-const todayIso = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+type Group = "added" | "changed" | "fixed";
+const GROUPS: Group[] = ["added", "changed", "fixed"];
 
 // --- parse args: repeatable --added/--changed/--fixed, single --date/--title ---
 const argv = process.argv.slice(2);
-const groups = { added: [], changed: [], fixed: [] };
-let date = todayIso;
-let title;
+const groups: Record<Group, string[]> = { added: [], changed: [], fixed: [] };
+// Changelog days are Pacific calendar days — the clock the release workflow
+// settles them on — wherever this command happens to run.
+let date = todayIn(CHANGELOG_TZ);
+let title: string | undefined;
 
 for (let i = 0; i < argv.length; i++) {
-  const arg = argv[i];
+  const arg = argv[i]!;
   const val = argv[i + 1];
   if (arg === "--added" || arg === "--changed" || arg === "--fixed") {
     if (val === undefined) fail(`${arg} needs a value`);
-    groups[arg.slice(2)].push(val.trim());
+    groups[arg.slice(2) as Group].push(val.trim());
     i++;
   } else if (arg === "--date") {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(val ?? "")) fail("--date must be YYYY-MM-DD");
+    if (!isCalendarDate(val)) fail("--date must be a real YYYY-MM-DD calendar date");
     date = val;
     i++;
   } else if (arg === "--title") {
@@ -68,7 +70,7 @@ for (let i = 0; i < argv.length; i++) {
 // check below (length 1) and write `[""]`, which the content gate in
 // tests/changelog.test.ts then failed — the CLI printing ✓ over something that
 // turns the next PR red.
-for (const key of ["added", "changed", "fixed"]) {
+for (const key of GROUPS) {
   groups[key] = groups[key].filter((s) => s.length > 0);
 }
 
@@ -85,9 +87,9 @@ if (!groups.added.length && !groups.changed.length && !groups.fixed.length) {
 }
 
 // --- build the fragment: a release object, same shape the page already reads ---
-const fragment = { date };
+const fragment: ChangelogRelease = { date };
 if (title) fragment.title = title;
-for (const key of ["added", "changed", "fixed"]) {
+for (const key of GROUPS) {
   if (groups[key].length) fragment[key] = groups[key];
 }
 
@@ -108,7 +110,7 @@ const body = JSON.stringify(fragment, null, 2) + "\n";
 // thousand entries and would have silently overwritten one of them; 12 is 48 bits,
 // which is not going to happen. The local guard below can only see this branch, so
 // the hash length is what protects the cross-branch case.
-const first = groups.added[0] ?? groups.changed[0] ?? groups.fixed[0] ?? title;
+const first = groups.added[0] ?? groups.changed[0] ?? groups.fixed[0] ?? title ?? "";
 const slug =
   first
     .toLowerCase()
@@ -120,9 +122,9 @@ const slug =
     .slice(0, 48) || "entry";
 const hash = createHash("sha256").update(body).digest("hex").slice(0, 12);
 const name = `${date}-${slug}-${hash}.json`;
-const path = join(DIR, name);
+const path = join(FRAGMENT_DIR, name);
 
-mkdirSync(DIR, { recursive: true });
+mkdirSync(FRAGMENT_DIR, { recursive: true });
 // Never write over an entry that isn't this one. Same content = the same command
 // run twice, so that stays a no-op; different content behind the same name is a
 // hash collision, and losing somebody's sentence to it in silence is the one
@@ -135,7 +137,7 @@ writeFileSync(path, body);
 const count = groups.added.length + groups.changed.length + groups.fixed.length;
 console.log(`✓ changelog: ${count} entr${count === 1 ? "y" : "ies"} on ${date} → content/changelog.d/${name}`);
 
-function fail(msg) {
+function fail(msg: string): never {
   console.error(`changelog: ${msg}`);
   process.exit(1);
 }

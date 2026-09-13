@@ -90,6 +90,12 @@ describe("passkey storage", () => {
     expect(await existingCredentialIds(db as any, 1)).toEqual(["c1"]);
   });
 
+  it("answers an id past the column's range with false, not an overflow error", async () => {
+    // the route range-checks too; this is the floor under any caller
+    expect(await deletePasskey(db as any, 1, 2_147_483_648)).toBe(false);
+    expect(await deletePasskey(db as any, 1, 1e21)).toBe(false);
+  });
+
   it("allows removing the last passkey — the emailed link is always the way back", async () => {
     await savePasskey(db as any, key());
     const only = (await listPasskeys(db as any, 1))[0]!;

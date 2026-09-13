@@ -40,6 +40,18 @@ describe("community intake — corroborateCatalog", () => {
     expect(await catalogCount(db)).toBe(0);
   });
 
+  it("purges stale uncorroborated observations even when there is nothing to promote", async () => {
+    await stageOnLists(db, 1, { name: "Frobozz Megapack 9000", weightMg: 800_000 });
+    await db
+      .update(schema.catalogCandidates)
+      .set({ createdAt: new Date("2020-01-01T00:00:00Z") })
+      .where(eq(schema.catalogCandidates.listId, 1));
+
+    const result = await corroborateCatalog(db as any);
+    expect(result).toMatchObject({ scanned: 0, purged: 1 });
+    expect(await db.select().from(schema.catalogCandidates)).toEqual([]);
+  });
+
   it("rejects generic non-branded terms even when corroborated", async () => {
     await stageOnLists(db, 3, { name: "tent", weightMg: 900_000 });
     await stageOnLists(db, 3, { name: "water bottle", weightMg: 50_000 });

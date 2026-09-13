@@ -32,8 +32,13 @@ on:
     paths:
       - content/changelog.d/**
       - content/changelog.json
+      # Direct runtime inputs of scripts/release-notes.ts. Without these, a
+      # parser or merge fix waits for the nightly run before repairing releases.
+      - scripts/changelogSources.ts
       - scripts/releaseNotes.ts
       - scripts/release-notes.ts
+      - shared/calendar.ts
+      - shared/changelog.ts
       - .github/workflows/releases.yml
   # a day with no merges still needs yesterday cut: 09:10 UTC is 02:10 Pacific,
   # past midnight either side of daylight saving
