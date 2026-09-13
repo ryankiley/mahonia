@@ -2713,7 +2713,7 @@ function dismissFix() {
    Declared on the CLUSTER, not the controls: custom properties inherit, so this one
    line reaches the triggers ItemRowMenu renders too — which a scoped rule can't. */
 .item__actions {
-  --tip-shift: var(--space-2);
+  --tip-shift: 8px;
 }
 /* (the three menu triggers — carrier, nesting, ⋯ — take the same treatment from
    ItemRowMenu's own scoped block, which is the only place a rule can reach them) */

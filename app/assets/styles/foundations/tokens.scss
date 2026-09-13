@@ -222,11 +222,14 @@ $bp-full: 1024px !default;
      not just heading classes; below the anchor (i.e. almost every screen,
      including the 1728px 16" MacBook Pro) the floor holds, so type stays stable
      on phones/laptops and only grows on huge displays. The anchor's media-query
-     companion (iOS input-zoom escape hatch) lives in atoms/controls.scss — keep
-     the two in sync. ---- */
+     companion (the ≥1920px rule that lets .field rejoin --text-base past the iOS
+     escape hatch below) lives in atoms/controls.scss — keep the two in sync. ---- */
   --text-base: max(1rem, 0.833vw); /* 16px — body, inputs, item names, labels, meta, controls */
-  /* Actual inputs stay at a static 16px: iOS Safari does not treat a computed `max()` as
-     its no-zoom floor, even when that expression resolves to 16px. */
+  /* INPUTS stay at a static 16px — the iOS input-zoom escape hatch. Safari zooms the page
+     on focus when an input's font-size is under 16px, and its check mis-reads CSS math
+     functions (max()/clamp()), zooming even though --text-base computes to 16px; a plain
+     1rem is read correctly. Established on a phone with the literal; this token holds
+     exactly that value, so a change here is a change to re-test on a phone. */
   --text-input: 1rem;
   --text-title: max(1.375rem, 1.146vw); /* 22px — the one heading size */
   /* 32px — the LIST'S OWN NAME, and nothing else. A deliberate fifth step: a page title
@@ -278,11 +281,15 @@ $bp-full: 1024px !default;
   --space-7: 48px;
   --space-9: 96px;
 
-  /* Keyboard focus is the same 2px ring whether it sits outside a native control or
-     is drawn inward over an app-owned plate. */
-  --focus-ring: var(--space-px);
-  --focus-offset: var(--space-px);
-  --focus-offset-inset: calc(-1 * var(--space-px));
+  /* Keyboard focus is the same 2px ring whether it sits outside a native control (the
+     reset's :focus-visible, offset by its own width) or is drawn inward over an
+     app-owned plate (the calendar days, the mode and people chips, the swatches — inset
+     by exactly the ring, so it sits wholly inside the box). A literal, not --space-px:
+     a ring's thickness is not a spacing step, and the hairline retuning must not thin
+     every focus ring on the site. */
+  --focus-ring: 2px;
+  --focus-offset: 2px;
+  --focus-offset-inset: calc(-1 * var(--focus-ring));
 
   /* ---- radius: softened — buttons + floating surfaces get real rounding,
      controls/icon-buttons go pill so hover fills read as soft shapes, not boxes ---- */
@@ -291,7 +298,6 @@ $bp-full: 1024px !default;
   /* in-flow row states (the drag nest-target tint). One step under the lifted row's
      --radius-2, which is the relationship the two drag states want: the row you're
      dragging reads as picked up, the row you'd drop onto only as marked. */
-  --radius-icon: 2px; /* external favicons + card marks preserve their own small corner */
   --radius-1: 4px;
   /* in-flow surfaces that sit ON the page rather than over it: the lifted drag row, the
      vault row's hover. NOT dialogs — atoms/dialog.scss uses --radius-4, which is what a
@@ -308,6 +314,10 @@ $bp-full: 1024px !default;
   --radius-3: 12px;
   --radius-4: 20px; /* floating menus (autocomplete, kebab) — decisively rounder than panels */
   --radius-pill: 999px; /* buttons + icon buttons */
+  /* OUTSIDE the scale: a favicon or a link card's mark is another site's image, shown at
+     14–16px, and it keeps a corner of its own rather than taking a step of ours — 4px
+     would round a mark that small into a coin. */
+  --radius-icon: 2px;
 
   /* ---- motion: one signature ease (SPACE10's expo-out workhorse) ---- */
   --ease: cubic-bezier(0.19, 1, 0.22, 1);

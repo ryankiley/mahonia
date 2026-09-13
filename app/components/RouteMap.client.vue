@@ -696,17 +696,12 @@ function renderLegs() {
     const casing = L.polyline(track, {
       weight: 7,
       opacity: groundOpacity,
-      color: "transparent",
+      color: casingFor(GROUND),
       interactive: false,
       lineCap: "round",
       lineJoin: "round",
       className: "routemap__casing",
     }).addTo(map);
-    // Leaflet sets `color` as an SVG presentation attribute, where custom properties
-    // do not resolve. An inline style does, so the casing and fill can both consume the
-    // fixed-light map tokens above.
-    const casingEl = casing.getElement() as SVGElement | null;
-    if (casingEl) casingEl.style.stroke = casingFor(GROUND);
     const ground = L.polyline(track, {
       weight: 4,
       opacity: groundOpacity,
@@ -738,24 +733,22 @@ function renderLegs() {
   // Done in oklab off the leg's own token, so it follows the palette rather than a second
   // list of nine colours that would drift the first time one of them changed.
   for (const leg of dayLegs.value) {
-    const casing = L!.polyline(
-      leg.points.map((p) => [p.lat, p.lon] as [number, number]),
-      {
-        weight: 7,
-        // the casing stands down WITH its leg, or a dimmed stretch reads as a white
-        // line drawn over the terrain rather than as a quietened part of the route
-        opacity: isDimmed(leg.fromM, leg.toM) ? DIM : 1,
-        color: "transparent",
-        interactive: false,
-        lineCap: "round",
-        lineJoin: "round",
-        className: "routemap__casing",
-      },
-    ).addTo(map!);
-    const casingEl = casing.getElement() as SVGElement | null;
-    if (casingEl) casingEl.style.stroke = casingFor(leg.color);
-    else if (import.meta.dev) console.warn("[RouteMap] casing drawn before the map had a view");
-    legs.push(casing);
+    legs.push(
+      L!.polyline(
+        leg.points.map((p) => [p.lat, p.lon] as [number, number]),
+        {
+          weight: 7,
+          // the casing stands down WITH its leg, or a dimmed stretch reads as a white
+          // line drawn over the terrain rather than as a quietened part of the route
+          opacity: isDimmed(leg.fromM, leg.toM) ? DIM : 1,
+          color: casingFor(leg.color),
+          interactive: false,
+          lineCap: "round",
+          lineJoin: "round",
+          className: "routemap__casing",
+        },
+      ).addTo(map!),
+    );
   }
   for (const leg of dayLegs.value) {
     const line = L!.polyline(

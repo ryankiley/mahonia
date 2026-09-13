@@ -234,7 +234,7 @@
    happens to be added — the offset is a property of this alignment, not of any one
    control. Inherited, so it reaches triggers rendered by child components. */
 .folder__actions {
-  --tip-shift: var(--space-2);
+  --tip-shift: 8px;
 }
 /* The drag affordance and the flush-right optics are the .grip atom's
    (atoms/controls.scss), which the folder header's grip already wears alongside this
