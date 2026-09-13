@@ -49,7 +49,7 @@ const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
 
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, Delete02Icon, DropletIcon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, MinusSignSquareIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, Delete02Icon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, MinusSignSquareIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN } from "~~/shared/ops";
@@ -58,7 +58,8 @@ import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, rowDisplayKcal, formatWeight, fromMg, groupLineMg, isBareGroup, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
-import { consumableIcon, isFuelRow, offersKcal } from "~/utils/itemMarks";
+import { consumableIcon } from "~/utils/itemMarks";
+import { offersKcal, offersWorn } from "~~/shared/fuel";
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
 // like useGearList's own vaultNormKey — this module is in the editor graph already)
@@ -396,15 +397,13 @@ const variantOnRow = computed(() => variantShownIds.value.has(props.item.id));
 // (isWaterName / waterLiters / itemQtyLabel live in shared/water, shared with
 // ReadonlyItemRow so the two views can't drift.)
 const isWater = computed(() => isWaterName(props.item.name));
-// the picture on the consumable toggle: the cookie, or the fuel can on a row that
-// reads as stove fuel (isFuelRow). Read off the name and gear type whether or not the
-// row IS consumable — an unlit toggle draws what the mark would be, and the lit one
-// matches what the share view and /gear draw for the same row (consumableIcon is the
-// one rule all three read).
+// the picture on the consumable toggle, and on water's fixed mark: the droplet, the
+// fuel can, or the cookie. Read off the name and gear type whether or not the row IS
+// consumable — an unlit toggle draws what the mark would be, and the lit one matches
+// what the share view and /gear draw for the same row (consumableIcon is the one rule
+// all three read). What else a fuel name decides — no calorie field, no worn toggle —
+// is kcalOffered and wornOffered below, each reading shared/fuel for itself.
 const consumableGlyph = computed(() => consumableIcon(props.item));
-// ...and what else a fuel name decides: no calorie field (kcalOffered) and no worn
-// toggle (wornOffered). The one rule, read once here.
-const isFuel = computed(() => isFuelRow(props.item));
 const litersDisplay = computed(() => waterLiters(props.item.unitWeightMg));
 function onWaterLiters(e: Event) {
   const el = e.target as HTMLInputElement;
@@ -849,15 +848,19 @@ const wornRootRef = useTemplateRef<HTMLElement>("wornRootRef");
 const wornPopRef = useTemplateRef<HTMLElement>("wornPopRef");
 const isWornOpen = computed(() => menu.openId.value === `${props.item.id}:worn`);
 watch(isWornOpen, (open) => emit("overlayToggle", open));
-// Whether the worn toggle is drawn at all. Not on water, and not on stove fuel either:
-// nobody wears a gas canister, and a toggle that can only honestly be answered one way
-// is a control that lies (the same reasoning water's fixed mark gives). The slot stays
-// — a ghost shirt holds it open, see the template — so the consumable mark keeps its
-// column. KEPT where the row already says worn, by class or by a split: a value the
-// totals count must keep the one control that can clear it, or it is set forever with
-// no way back — the rule classCellShown follows for a stored class, and offersKcal for
-// a stored number. (isWorn already folds the split in.)
-const wornOffered = computed(() => !isWater.value && (!isFuel.value || isWorn.value));
+// Whether the worn toggle is drawn at all — offersWorn (shared/fuel): not on water, not
+// on stove fuel, kept where the row already says worn so the value stays clearable
+// (isWorn folds the split in). The slot stays either way — a ghost shirt holds it open,
+// see the template — so the consumable mark keeps its column.
+//
+// ...AND while its popover is open. The switch inside that popover is what makes a worn
+// fuel row stop being worn, and the toggle, the popover and the switch under the pointer
+// all live in the one root this gates: without this term the click that clears worn
+// unmounted the popover from inside itself, mid-transition, with the menu singleton still
+// holding its id, the folder's overlay lift never returned and focus dropped to the body.
+// The same guard classCellShown carries, for the same reason. The toggle goes when the
+// popover does.
+const wornOffered = computed(() => offersWorn(props.item, isWorn.value) || isWornOpen.value);
 const { above: wornAbove, shift: wornShift, place: placeWorn } = useMenuPlacement(wornPopRef, { fit: "shift" });
 
 // ---- calories (consumable rows only) ----
@@ -872,9 +875,28 @@ watch(isKcalOpen, (open) => emit("overlayToggle", open));
 // The field itself is offered only once the row IS consumable — the only state in which
 // the number is counted, so offering it sooner would collect a value the totals ignore
 // — and not on stove fuel holding no number, whose "calories" are the wrong kind and
-// would feed the food plan (offersKcal has the whole argument, and the exception: a
-// fuel row that already carries a value keeps the field, so the count stays clearable).
-const kcalOffered = computed(() => isConsumable.value && offersKcal(props.item));
+// would feed the food plan (offersKcal, shared/fuel, has the whole argument and the
+// exception: a fuel row that already carries a value keeps the field, so the count
+// stays clearable).
+//
+// Decided when the popover OPENS, and held while it is open. The rule reads the row as
+// stored, and two things can change that under an open popover: clearing the number
+// (which is the field's own job) and the name committing — a name typed and then acted
+// on without leaving the field commits on the focus move the popover's own field causes.
+// Either would unmount the field with the cursor in it, a control vanishing under the
+// hand. So an open popover keeps the controls it opened with; the next open reads the
+// row afresh. (The same principle wornOffered follows for its toggle.)
+const kcalHeld = ref(false);
+// immediate: the menu singleton outlives a row (a mode switch rebuilds every row), so a
+// row can mount with its popover already open, and must decide then too
+watch(
+  isKcalOpen,
+  (open) => {
+    if (open) kcalHeld.value = offersKcal(props.item);
+  },
+  { immediate: true },
+);
+const kcalOffered = computed(() => isConsumable.value && (isKcalOpen.value ? kcalHeld.value : offersKcal(props.item)));
 // Whether the two class marks are drawn. `!bareGroup` is the rule (below, at the cell);
 // the other three terms are the cases where taking them away would strand something:
 //  • WATER — its cell holds a FIXED mark, not a toggle, and that glyph is the only thing
@@ -923,7 +945,9 @@ function onKcal(e: Event) {
   // "" (and anything unparseable) clears — the reducer treats a non-number as
   // absent rather than 0, so an emptied field means "not filled in", not "zero
   // calories". Resync afterwards so a rejected entry doesn't linger in the box.
-  const n = raw === "" ? null : Number(raw);
+  // A thousands separator is not unparseable: the line below this field prints
+  // "2,700 kcal", and a number typed back the way the app wrote it must not clear.
+  const n = raw === "" ? null : Number(raw.replace(/[,\s]/g, ""));
   c.updateItem(props.item.id, { kcal: n != null && isFinite(n) ? n : null });
   el.value = props.item.kcal ? String(props.item.kcal) : "";
 }
@@ -1790,14 +1814,13 @@ function dismissFix() {
             </div>
             <!-- water's mark, not a toggle: its class can't change and it has no
                  calories to hold, so a switch and a kcal field here would both be
-                 controls that lie. A DROPLET rather than the cookie (or the fuel can)
-                 the toggle above wears — same class, same lit chip, same "Consumable"
-                 name, but the picture matches the one consumable the app already treats
-                 as its own thing. The read view draws the same swap (see consumableIcon). -->
+                 controls that lie. Same class, same lit chip, same "Consumable" name;
+                 the glyph is consumableIcon's answer for a water row, the droplet — one
+                 rule for this mark, the toggle above, the read view and /gear. -->
             <div v-else class="item__cls">
               <Tooltip text="Consumable" preferred-placement="top">
                 <span class="item__clsfixed item__mark" role="img" aria-label="Consumable">
-                  <HugeiconsIcon :icon="DropletIcon" :size="16" :stroke-width="2" />
+                  <HugeiconsIcon :icon="consumableGlyph" :size="16" :stroke-width="2" />
                 </span>
               </Tooltip>
             </div>

@@ -5,7 +5,7 @@ import type { Classification, Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
 import { formatPrice, parsePriceInput } from "~~/shared/money";
 import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
-import { isFuelRow, offersKcal } from "~/utils/itemMarks";
+import { offersKcal, offersWorn } from "~~/shared/fuel";
 
 // Correcting a piece of gear in place — the half of My Gear that capture can't do.
 //
@@ -40,6 +40,9 @@ const CLASS_OPTIONS = [
   { key: "worn", label: "Worn" },
   { key: "consumable", label: "Consumable" },
 ];
+// the same list without Worn, for a row that can't be (see classOptions) — a constant
+// rather than a filter per recompute, so the picker's options keep one identity
+const CLASS_OPTIONS_UNWORN = CLASS_OPTIONS.filter((o) => o.key !== "worn");
 
 const brand = ref("");
 const name = ref("");
@@ -54,24 +57,27 @@ const classification = ref<Classification>("base");
 const saving = ref(false);
 const error = ref("");
 const nameEl = useTemplateRef<HTMLInputElement>("nameEl");
+// What the row says it is, read LIVE from the two fields as they are typed, the way the
+// class picker's own value is: the name and gear type decide the row's other controls
+// (shared/fuel), and the dialog answers as the editor row would for the same words.
+const named = computed(() => ({ name: name.value, commonName: commonName.value }));
 // The kcal field's rule, ItemRow's verbatim: only once it IS consumable (the only state
 // in which the number is counted), and not on stove fuel holding no number — a
 // canister's "calories" are the wrong kind, and would feed the food plan (offersKcal).
-// The name and gear type are read LIVE, the way the class picker above is: what the
-// row says it is decides its fields. The "holds a number" half reads what the row
-// OPENED with, not the field — the field is the thing being edited, and a field that
-// vanished under the cursor as its last digit went would be a trap, not a rule.
+// The "holds a number" half reads what the row OPENED with, not the field — the field
+// is the thing being edited, and a field that vanished under the cursor as its last
+// digit went would be a trap, not a rule. The field can still go while the dialog is
+// open, when the name is edited into fuel with a number typed but unsaved; onSubmit
+// drops that number rather than saving what the form no longer shows.
 const kcalOffered = computed(
-  () => classification.value === "consumable" && offersKcal({ name: name.value, commonName: commonName.value, kcal: props.entry?.kcal }),
+  () => classification.value === "consumable" && offersKcal({ ...named.value, kcal: props.entry?.kcal }),
 );
-// ...and "Worn" leaves the picker on stove fuel, as the editor row drops its worn toggle
-// there (wornOffered): nobody wears a gas canister. Kept while the entry IS worn, so a
-// value that got there can be walked back — the picker can't offer a way out of a state
-// it doesn't list.
+// ...and "Worn" leaves the picker on water and stove fuel, as the editor row drops its
+// worn toggle there (offersWorn, the one rule for both): nobody wears a gas canister.
+// Kept while the entry IS worn, so a value that got there can be walked back — the
+// picker can't offer a way out of a state it doesn't list.
 const classOptions = computed(() =>
-  CLASS_OPTIONS.filter(
-    (o) => o.key !== "worn" || classification.value === "worn" || !isFuelRow({ name: name.value, commonName: commonName.value }),
-  ),
+  offersWorn(named.value, classification.value === "worn") ? CLASS_OPTIONS : CLASS_OPTIONS_UNWORN,
 );
 
 // What the dialog opened with. The patch is the DIFF against this, because a field
@@ -160,9 +166,13 @@ async function onSubmit() {
     // "base" is stored as absent, the convention the capture path keeps
     patch.classification = classification.value === "base" ? null : classification.value;
   }
-  if (kcal.value !== opened.kcal) {
-    // a kcal on a non-consumable row is carried but never counted, so a number you
-    // typed is kept rather than wiped — the value never stops being true of the food
+  // The kcal is sent only where the fuel rule would show the field for it — the same
+  // test kcalOffered makes, minus the class: a kcal on a non-consumable row is carried
+  // but never counted, so a number you typed is kept rather than wiped (the value never
+  // stops being true of the food). On a fuel row it WOULD be counted, so a number typed
+  // before the name was edited into fuel — the field gone, the digits still in the ref —
+  // is dropped rather than saved unseen, and the next list to pick this row gets none.
+  if (kcal.value !== opened.kcal && offersKcal({ ...named.value, kcal: props.entry?.kcal })) {
     const k = kcal.value.trim() ? Math.max(0, Math.round(Number(kcal.value))) : 0;
     patch.kcal = k > 0 ? k : null;
   }

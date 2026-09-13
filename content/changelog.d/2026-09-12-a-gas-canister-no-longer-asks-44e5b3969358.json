@@ -1,6 +1,0 @@
-{
-  "date": "2026-09-12",
-  "changed": [
-    "A gas canister no longer asks for calories: the kcal field stays on food, so fuel can't pad the calorie total."
-  ]
-}

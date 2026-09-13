@@ -1,33 +1,9 @@
 // The picture on a consumable mark is one rule read by three surfaces (the editor row,
-// the share row, /gear), so it is pinned once, here, rather than once per surface.
-import { CookieIcon, DropletIcon, Fuel01Icon } from "@hugeicons/core-free-icons";
+// the share row, /gear), so it is pinned once, here, rather than once per surface. The
+// text rules it reads — which rows are water, which are fuel — are pinned in fuel.test.ts.
+import { Backpack02Icon, CookieIcon, DropletIcon, Fuel01Icon, ShirtIcon } from "@hugeicons/core-free-icons";
 import { describe, expect, it } from "vitest";
-import { consumableIcon, isFuelRow, offersKcal } from "../app/utils/itemMarks";
-
-describe("isFuelRow", () => {
-  it("takes the word, the chemistry and the brands that mean stove fuel", () => {
-    for (const name of [
-      "Fuel", "fuel canister", "Solid fuel tablets", "Gas", "Gas canister", "Camping gas",
-      "Isobutane 110g", "Butane/propane mix", "Propane 1 lb", "IsoPro 227", "JetPower 100g",
-      "Esbit", "Campingaz CV300", "HEET", "Meths", "Methylated spirits", "Denatured alcohol", "Alcohol fuel",
-    ]) expect(isFuelRow({ name }), name).toBe(true);
-  });
-
-  it("reads the gear type too, so a catalog pick counts whatever the maker called it", () => {
-    expect(isFuelRow({ name: "C300 Xtreme Gas Cartridge", commonName: "Fuel canister" })).toBe(true);
-    expect(isFuelRow({ name: "Power Gas 250", commonName: "Fuel canister" })).toBe(true);
-    // the gear type alone is enough — the product name need not say fuel at all
-    expect(isFuelRow({ name: "Universal", commonName: "Fuel canister" })).toBe(true);
-    expect(isFuelRow({ name: "Solid Tablets", commonName: "Fuel tablets" })).toBe(true);
-  });
-
-  it("leaves a bear canister, the wipes and the rest of the food alone", () => {
-    for (const name of [
-      "Bear canister", "BV500", "Alcohol wipes", "Rubbing alcohol", "Peanut butter", "Trail mix",
-      "Gasket", "Sheet", "Water", "Stove", "Pot", "Sunscreen", "Isopropyl alcohol", "",
-    ]) expect(isFuelRow({ name }), name || "(blank)").toBe(false);
-  });
-});
+import { classMark, consumableIcon } from "../app/utils/itemMarks";
 
 describe("consumableIcon", () => {
   it("draws the droplet on water, the fuel can on fuel and the cookie on everything else", () => {
@@ -35,29 +11,22 @@ describe("consumableIcon", () => {
     expect(consumableIcon({ name: "Fuel canister" })).toBe(Fuel01Icon);
     expect(consumableIcon({ name: "MSR IsoPro", commonName: "Fuel canister" })).toBe(Fuel01Icon);
     expect(consumableIcon({ name: "Dinner", commonName: "Meal" })).toBe(CookieIcon);
+    expect(consumableIcon({ name: "Tailwind Endurance Fuel" })).toBe(CookieIcon);
     expect(consumableIcon({ name: "Sunscreen" })).toBe(CookieIcon);
   });
 
   it("water wins over fuel, as it must: its mark is fixed and its class can't change", () => {
-    // "water" is exact-match, so this can only ever be a name that is both — there
-    // isn't one — but the order of the two tests is the contract, so it is pinned
+    // "water" is exact-match, so the only row that is both is one whose GEAR TYPE says
+    // fuel — reachable, if odd — and the order of the two tests is the contract
     expect(consumableIcon({ name: "water", commonName: "Fuel canister" })).toBe(DropletIcon);
   });
 });
 
-describe("offersKcal", () => {
-  it("offers the field on food, and withholds it on fuel that holds no number", () => {
-    expect(offersKcal({ name: "Dinner", commonName: "Meal" })).toBe(true);
-    expect(offersKcal({ name: "Trail mix" })).toBe(true);
-    expect(offersKcal({ name: "IsoPro 110", commonName: "Fuel canister" })).toBe(false);
-    expect(offersKcal({ name: "Propane 1 lb" })).toBe(false);
-    // a zero is the reducer's "absent", so it is nothing to clear either
-    expect(offersKcal({ name: "Gas canister", kcal: 0 })).toBe(false);
-  });
-
-  it("keeps the field on a fuel row that already carries a value — a count that must stay clearable", () => {
-    expect(offersKcal({ name: "IsoPro 110", commonName: "Fuel canister", kcal: 1350 })).toBe(true);
-    expect(offersKcal({ name: "Esbit", kcal: 1 })).toBe(true);
+describe("classMark", () => {
+  it("is the shirt, the consumable's own picture, or the backpack", () => {
+    const row = { name: "Gas canister" };
+    expect(classMark("worn", row)).toBe(ShirtIcon);
+    expect(classMark("consumable", row)).toBe(Fuel01Icon);
+    expect(classMark("base", row)).toBe(Backpack02Icon);
   });
 });
-

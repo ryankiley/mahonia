@@ -437,6 +437,18 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
+  // --- ERROR: kcal on a row that is not food -----------------------------------
+  // A catalog kcal lands on every list row picked from it, where the totals and the
+  // food plan count it as something eaten. A canister's energy content is a real
+  // number a maker may print and a researcher may cite, and it is exactly the number
+  // the editor refuses to invite on a fuel row (shared/fuel.ts, offersKcal) — a pick
+  // must not be the way it gets in. Food is what GEAR_TRAITS says is food.
+  for (const r of rows) {
+    if (r.kcal != null && !traitsOf(r.commonName).food) {
+      err("kcal-on-non-food", `${gearLabel(r)}: kcal on a row whose gear type is not food — only food rows carry calories (a canister's energy content is not a ration)`);
+    }
+  }
+
   // --- WARNING: a food row still at net weight -------------------------------
   // A food row stores what you CARRY — contents plus pouch — whenever the maker
   // publishes a total/package weight or someone has weighed one. Makers mostly
