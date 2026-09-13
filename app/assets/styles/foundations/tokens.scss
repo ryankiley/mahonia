@@ -330,8 +330,12 @@ $bp-full: 1024px !default;
      (ease-in-cubic), each over a beat that stays proportional to --dur so the
      reduced-motion switch zeroes it too. */
   --ease-open: cubic-bezier(0.22, 0.61, 0.36, 1);
-  --ease-close: cubic-bezier(0.55, 0.06, 0.68, 0.19);
-  --dur-reveal: calc(var(--dur) * 1.2);
+  /* The previous close curve lingered, then collapsed abruptly at the end. A
+     conventional ease-in leaves promptly and gathers pace without a final snap. */
+  --ease-close: cubic-bezier(0.4, 0, 1, 1);
+  /* In-flow details should answer the edit immediately; 240ms gave a one-line row
+     enough runway to feel delayed. This stays long enough to read as a slide. */
+  --dur-reveal: 180ms;
   /* FLOATING CHROME ONLY — the two curves the tooltip's reveal/dismiss uses, brought
      over from the portfolio with the component. Not a second signature ease: nothing
      in the document flow may take them, and --ease stays the app's one workhorse.

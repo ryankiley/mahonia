@@ -1230,9 +1230,10 @@ function dismissFix() {
                    italic aside). A wrapping flex line, so the variant sits right after the
                    gear type's text where the fields can size to their content and drops
                    under it where they can't (.item__gtype-line). Either half may be
-                   absent: a group opens no empty field for either. Each field wears its own
-                   reveal-field fade (see the note below), so an empty one closes with its
-                   sibling rather than vanishing mid-frame. -->
+                   absent: a group opens no empty field for either. The optional inline
+                   fields fade independently, while the note below has its own layout reveal:
+                   a saved gear type keeps this outer disclosure mounted, so the note still
+                   has to slide the row when editing adds it. -->
               <div v-if="cnameShown || variantShown" class="item__gtype-line">
                 <!-- the two placeholders are a matched pair — "Name of item" above, "Type of
                      gear" here — so a blank row reads as one short stack. This field used to
@@ -1293,22 +1294,26 @@ function dismissFix() {
                    Enter still COMMITS rather than opening a line, like every other
                    field in the editor — and it keeps `description` a single line for
                    the CSV and Markdown exports, which would have to quote a newline. -->
-              <Transition name="reveal-field">
-                <textarea
-                  v-if="noteShown"
-                  ref="noteRef"
-                  class="item__note"
-                  rows="1"
-                  :maxlength="MAX_ITEM_NOTE_LEN"
-                  :value="item.description ?? ''"
-                  placeholder="Add a note"
-                  aria-label="Item note"
-                  autocorrect="off"
-                  spellcheck="true"
-                  @input="fitNote"
-                  @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
-                  @change="onNote"
-                />
+              <!-- A row with a stored gear type keeps the OUTER reveal mounted. The note
+                   therefore needs its own grid reveal: opacity alone made this second line
+                   snap in every production browser when focus offered an empty note. -->
+              <Transition name="reveal">
+                <div v-if="noteShown" class="reveal reveal--detail">
+                  <textarea
+                    ref="noteRef"
+                    class="item__note"
+                    rows="1"
+                    :maxlength="MAX_ITEM_NOTE_LEN"
+                    :value="item.description ?? ''"
+                    placeholder="Add a note"
+                    aria-label="Item note"
+                    autocorrect="off"
+                    spellcheck="true"
+                    @input="fitNote"
+                    @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
+                    @change="onNote"
+                  />
+                </div>
               </Transition>
             </div>
           </div>
@@ -2776,6 +2781,12 @@ function dismissFix() {
    distance the read/share row matches with its 0 row-gap (ReadonlyItemRow .item--ro). */
 .reveal--note {
   --reveal-offset: var(--caption-tuck);
+}
+/* The note can join a sub-line that is already standing for a saved gear type. It
+   carries no tuck of its own — the parent has already spent that offset — but using the
+   shared grid recipe means this one added line still pushes the row open and closed. */
+.reveal--detail {
+  --reveal-offset: 0;
 }
 /* the two sub-line fields (common name + note) stack as one grid child so the reveal's
    1fr↔0fr slide keeps a single clipping child; a hair of gap keeps the two lines apart */
