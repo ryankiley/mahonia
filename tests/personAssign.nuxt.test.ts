@@ -75,6 +75,31 @@ function mountRow(items: Item[], children = new Map<string, Item[]>()) {
 }
 
 describe("carried by — the row's picker + the filter attribute", () => {
+  it("keeps assignment after optional nesting controls on groups, children and water", () => {
+    const kit = item({ id: "kit", name: "Cook kit", unitWeightMg: 0, personId: "alex" });
+    const water = item({ id: "water", name: "Water", parentId: "kit", sortOrder: 1 });
+    const spoon = item({ id: "spoon", name: "Spoon", parentId: "kit", sortOrder: 2, personId: "sam" });
+    const w = mountRow([kit, water, spoon], new Map([["kit", [water, spoon]]]));
+    try {
+      const clusters = w.findAll(".item__actions");
+      expect(clusters).toHaveLength(3);
+      expect(clusters[0]!.find(".item__nest").exists()).toBe(false);
+      expect(clusters[1]!.find(".item__nest").exists()).toBe(true);
+      for (const cluster of clusters) {
+        const slots = [...cluster.element.children];
+        const assignment = slots.findIndex((slot) => slot.classList.contains("item__person"));
+        const nesting = slots.findIndex((slot) => slot.classList.contains("item__nest"));
+        expect(assignment).toBeGreaterThan(nesting);
+        // The desktop tail is fixed. The mobile-only More menu is always present
+        // too, but CSS hides it on the grid; no row-conditional box follows person.
+        expect(slots.slice(assignment + 1).map((slot) => slot.querySelector("button")?.getAttribute("aria-label") ?? slot.getAttribute("aria-label")))
+          .toEqual(["Duplicate item", "Remove item", "More actions", expect.stringMatching(/^Reorder /)]);
+      }
+    } finally {
+      w.unmount();
+    }
+  });
+
   it("stamps the wrap with the effective slot, 'u' when unclaimed", async () => {
     const w = mountRow([item()]);
     expect(w.get(".item-wrap").attributes("data-person")).toBe("u");

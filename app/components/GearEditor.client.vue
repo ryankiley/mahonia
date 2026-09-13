@@ -6,15 +6,10 @@ import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeB
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeHere } from "~/composables/useResumed";
-import { tripHeadline } from "~~/shared/trailDistance";
-import { formatWeight } from "~~/shared/weights";
-import { chipWeightLabels, filterItemsForPerson, hasUnassignedTopLevel, personName, personSlot, selectionGone, sortedPeople, UNASSIGNED } from "~~/shared/people";
-import { countedForPacking } from "~~/shared/packing";
-import type { Item, Unit } from "~~/shared/types";
+import type { Item } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
 import { CHILDREN_BY_PARENT, PEOPLE_CTX, VARIANT_SHOWN } from "~/components/ItemRow.vue";
-import { variantShownIds } from "~~/shared/variantShown";
-import { bySortOrder, computeTotals, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
+import { useGearEditorView } from "~/composables/useGearEditorView";
 
 // The whole editor surface (its own sticky topbar + flex shell). Rendered by
 // the page routes: /e (bare, prerendered) and /e/[code]
@@ -28,6 +23,7 @@ const my = useMyLists();
 const session = useSession();
 // app-wide dialogs (replace native confirm()/the copy dead-end) — see useDialogs
 const { confirm: askConfirm, showLinkFallback } = useDialogs();
+const { toast, flash } = useToast();
 
 const snapshot = c.snapshot;
 const totals = c.totals;
@@ -111,171 +107,36 @@ useSeoMeta({
   ogTitle: () => seo.value.name || GENERIC_TITLE,
   ogDescription: () => seo.value.desc,
 });
-// items whose folder was removed (e.g. by a concurrent editor) land here, not as invisible ghosts
-// (ungroupedTopLevel: nested children render under their parent, via ItemRow)
-const ungrouped = computed(() =>
-  snapshot.value ? ungroupedTopLevel(snapshot.value.items) : [],
-);
-// render folders in sortOrder so drag-reorder (moveFolderBefore) reflects immediately
-const sortedFolders = computed(() =>
-  snapshot.value ? [...snapshot.value.folders].sort(bySortOrder) : [],
-);
-// one grouping pass per snapshot, handed to each FolderSection — so a keystroke
-// in one folder doesn't make every folder re-filter + re-sort the whole item array.
-// (A just-added blank row used to be pinned to the bottom of its group here, so a
-// name/weight-sorted folder couldn't yank it away from where you clicked "Add an
-// item". Folders are drag order only now, so the row already sits where it was
-// added.)
-const itemsByFolder = computed(() => groupItemsByFolder(snapshot.value?.items ?? []));
-// one children pass per snapshot, PROVIDED to every row — so a parent row doesn't
-// re-scan the whole item array for its children on each render. Inject rather than
-// a prop: a fresh Map per recompute threaded through FolderSection → FolderRows →
-// ItemRow re-rendered every folder and every leaf on every structural edit, to
-// hand rows that only ever read the empty default a value they don't look at.
-const childrenByParent = computed(() => groupItemsByParent(snapshot.value?.items ?? []));
+const {
+  anyPacked,
+  childrenByParent,
+  chipWeights,
+  clearChecks,
+  emptyFilterName,
+  everPlan,
+  filterCaption,
+  hasUnassigned,
+  headline,
+  itemsByFolder,
+  mode,
+  modeSwitching,
+  packed,
+  packProgress,
+  people,
+  peopleOpen,
+  personFilter: pf,
+  personFilterAttr,
+  personSlotById,
+  sortedFolders,
+  ungrouped,
+  variantShown,
+  view,
+} = useGearEditorView({ flash, askConfirm });
 provide(CHILDREN_BY_PARENT, childrenByParent);
-// the rows whose variant shows beside the name on the checklist face: the same
-// product held in two variants (shared/variantShown). Provided for the reason the
-// children map is: one pass per snapshot, and a row subscribes only to its own
-// membership. The edit face never shows one beside the name (its sub-line has it).
-provide(VARIANT_SHOWN, computed(() => variantShownIds(snapshot.value?.items ?? [])));
+provide(PEOPLE_CTX, { sorted: people, slotById: personSlotById });
+provide(VARIANT_SHOWN, variantShown);
 const NO_ITEMS: Item[] = [];
 
-// Which of the three views of this list you're in. Was a single `packed` boolean; it
-// couldn't hold a third state, and every alternative to widening it meant teaching the
-// row components about a mode they don't care about.
-//
-// The state itself (plus its localStorage persistence) now lives in useEditorMode, a
-// module singleton, because the row swap is CSS-driven off `data-mode` on the body
-// below — see that composable's header for why mode must NOT reach the rows as a prop
-// (as one, every switch re-rendered all ~150 of them).
-//
-// `packed` survives as a COMPUTED, so the prop threaded down to FolderSection keeps its
-// exact old contract — the folder chrome still only ever asks "am I a checklist?", and
-// stays ignorant that planning exists.
-const { mode, everPlan, switching: modeSwitching } = useEditorMode();
-const packed = computed(() => mode.value === "pack");
-
-// ---- people ----
-// The filter itself lives in usePersonFilter (a module singleton, like the mode)
-// so the rows never subscribe to it; everything HERE is the top-level chrome that
-// genuinely changes with it — chips, headline, totals, pack progress.
-const pf = usePersonFilter();
-const people = computed(() => sortedPeople(snapshot.value?.people));
-// each person's SLOT — their index in display order, the closed set the CSS filter
-// enumerates (see personSlot). Derived once here for every row's data-person stamp
-// and picker, rather than each row sorting the people list for itself.
-const personSlotById = computed(() => new Map(people.value.map((p, i) => [p.id, i])));
-provide(PEOPLE_CTX, { sorted: people, slotById: personSlotById });
-const peopleOpen = ref(false);
-const hasUnassigned = computed(() => hasUnassignedTopLevel(snapshot.value?.items ?? []));
-// widen a filter whose target stopped resolving: the person was removed (here, or
-// by a collaborator — the poll delivers that as a snapshot change too), the last
-// unclaimed row was claimed (the Unassigned view emptying itself is done, not
-// blank), or the editor moved on to a different list under the same singleton.
-// The ONE owner of this job — removePerson deliberately doesn't reach for it.
-watch([people, hasUnassigned, () => snapshot.value?.shareCode], ([, , code], [, , oldCode]) => {
-  const s = pf.selected.value;
-  if (!s) return;
-  // the toast is for a bucket that emptied UNDER you on this list — moving to a
-  // different list clears the stale filter silently (announcing "Everything’s
-  // assigned" about a list just opened would be a claim about nothing you did)
-  const emptied =
-    code === oldCode && s === UNASSIGNED && people.value.length > 0 && !hasUnassigned.value;
-  if (selectionGone(people.value, hasUnassigned.value, s)) {
-    pf.clear();
-    // the row you just claimed vanished and the whole list flooded back — one
-    // sentence keeps that from reading as a glitch
-    if (emptied) flash("Everything’s assigned");
-  }
-});
-// the slot string the CSS matches on ("0"–"11" or "u"); null removes the
-// attribute entirely, which IS the everyone view — see atoms/item.scss
-const personFilterAttr = computed(() => {
-  const s = pf.selected.value;
-  if (!s) return null;
-  if (s === UNASSIGNED) return "u";
-  const slot = personSlot(snapshot.value?.people, s);
-  return slot == null ? null : String(slot);
-});
-const filteredItems = computed(() =>
-  filterItemsForPerson(snapshot.value?.items ?? [], pf.selected.value),
-);
-// The list + totals the page SHOWS — the whole list's, or the narrowed person's
-// (same computeTotals, just over fewer rows). One pair, read together by the
-// headline and the totals bar. Non-null exactly when `snapshot` is, so the
-// template's `?? snapshot` is a TS-narrowing crutch, never a runtime fallback.
-// The SEO description above deliberately keeps the unfiltered `totals`: a share
-// unfurl describes the list, not whichever chip happened to be active.
-const view = computed(() => {
-  const s = snapshot.value;
-  if (!s || !pf.selected.value) return { list: s, totals: totals.value };
-  const items = filteredItems.value;
-  return { list: { ...s, items }, totals: computeTotals({ folders: s.folders, items }) };
-});
-// what the big number is OF, said only while it isn't the obvious thing — the
-// headline drops its "no label needed" argument the moment a chip narrows it
-const filterCaption = computed(() => {
-  const s = pf.selected.value;
-  if (!s || mode.value === "plan") return undefined;
-  // "Unassigned gear", not bare "Unassigned": beside a figure the bare word
-  // reads as a property of the number rather than what the number is OF
-  if (s === UNASSIGNED) return "Unassigned gear";
-  const name = personName(snapshot.value?.people, s);
-  return name ? `${name}’s pack` : undefined;
-});
-// each chip's carry at a glance — the "divisible by participants" figure,
-// formatted in the list's unit; absent until the list has weights
-const chipWeights = computed<Record<string, string> | undefined>(() => {
-  const s = snapshot.value;
-  if (!s || !totals.value?.hasWeights || !people.value.length) return undefined;
-  return chipWeightLabels(s, s.displayUnit);
-});
-// the empty filter result gets a sentence (only a real person can reach it —
-// the watcher above widens an emptied Unassigned view on its own)
-const emptyFilterName = computed(() => {
-  const s = pf.selected.value;
-  if (!s || s === UNASSIGNED || filteredItems.value.length) return null;
-  return personName(snapshot.value?.people, s) ?? null;
-});
-
-/**
- * What the big number is, per view.
- *
- * Planning is about the walk, so it shows the route's distance; the other two are about
- * the pack, so they show its weight. One object rather than four scattered computeds,
- * because every field here has to change together — a value from one view beside a unit
- * picker from another is a control that lies about what it will do.
- *
- * `triggerLabel` is the SPOKEN version of the whole trigger, and it is not the same string
- * as `label`: the trigger draws the page's biggest figure, and an aria-label of "Distance
- * unit" on it replaces that figure rather than qualifying it, so the number went unspoken.
- * The menu it opens keeps the plain `label` — see OptionMenu's triggerLabel.
- */
-const headline = computed(() => {
-  if (mode.value === "plan") {
-    const trip = tripHeadline(snapshot.value ?? {});
-    return {
-      value: trip.value,
-      unit: trip.unit as string,
-      options: DISTANCE_UNIT_OPTIONS,
-      label: "Distance unit",
-      triggerLabel: `${trip.value} ${trip.unit}, change unit`,
-      pick: (u: string) => c.setMeta({ trailDistanceUnit: u }),
-    };
-  }
-  const unit = snapshot.value?.displayUnit ?? "g";
-  // view.totals, not totals: narrowed to one person, the big number is THEIR pack
-  const value = formatWeight(view.value.totals?.totalMg ?? 0, unit, { withUnit: false });
-  return {
-    value,
-    unit: unit as string,
-    options: WEIGHT_UNIT_OPTIONS,
-    label: "Weight unit",
-    triggerLabel: `${value} ${unit}, change unit`,
-    pick: (u: string) => c.setUnit(u as Unit),
-  };
-});
 /**
  * The three views, named the way a person would say them.
  *
@@ -319,40 +180,6 @@ const editorRef = ref<HTMLElement | null>(null);
 watchPostEffect(() => {
   editorRef.value?.style.setProperty("--vault-w", `${vaultWidth.value}px`);
 });
-// packing progress — boxes ticked / boxes to tick (a row is one check, whatever its
-// qty). Counts the FILTERED rows, so narrowed to one person it reads as their
-// progress — the same rows the checklist below is showing — and among them exactly the
-// rows some visible box stands for (countedForPacking): a bare group's box is its
-// children's, so counting the group too made a six-item group seven ticks, the last of
-// them a flag nothing on screen draws. The WHOLE list goes as the second argument
-// because it is what decides whether a row is a group at all — off the filtered set
-// alone, a group whose children are all someone else's looks like a leaf and gets
-// counted, adding a tick that view offers no box for.
-const packProgress = computed(() => {
-  const items = countedForPacking(filteredItems.value, snapshot.value?.items ?? []);
-  return { done: items.filter((i) => i.packed).length, total: items.length };
-});
-// Is there anything to clear? NOT `packProgress.done` — that counts only the rows with
-// a box of their own, and clearChecks below reaches every row in view. A list carrying
-// a tick on a bare group (which older builds wrote, and which no box draws now) would
-// otherwise report "0 packed" and hide the one control that can clear it, stranding the
-// flag: unreachable, uncountable, and still enough to stop an emptied group dissolving
-// (carriesContent, shared/weights).
-const anyPacked = computed(() => filteredItems.value.some((i) => i.packed));
-// start the next trip clean: uncheck everything (each row is its own op, so the
-// existing queue/flush machinery — offline, CAS, live-sync — applies unchanged).
-// Scoped to the filtered rows for the same reason the count is: clearing under
-// one person's chip must not clear anyone else's ticks.
-async function clearChecks() {
-  if (!snapshot.value) return;
-  if (!(await askConfirm({
-    title: "Clear checks",
-    message: "Uncheck every packed item? Your gear stays. Only the check marks reset.",
-    confirmLabel: "Clear checks",
-  }))) return;
-  if (!snapshot.value) return; // re-check after the awaited dialog
-  for (const it of filteredItems.value) if (it.packed) c.updateItem(it.id, { packed: false });
-}
 // The undo toast holds its dismiss timer while hovered or containing focus, and
 // restarts the window on leave/blur. Two flags (pointer, focus) so releasing one
 // while the other still holds doesn't resume the clock. They reset when the toast
@@ -388,7 +215,6 @@ function warmMenu() {
   menuEverOpened.value = true;
 }
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
-const { toast, flash } = useToast();
 // the import's one-line note ("18 of 25 rows matched the catalog."), shown once the list
 // it made is on screen — keyed on the share code, because the page may or may not
 // remount on the way here (/e → /e/{code} does; /e/{a} → /e/{b} doesn't)
