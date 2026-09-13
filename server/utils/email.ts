@@ -13,6 +13,7 @@
 // silently swallowing it would leave users staring at "check your email" forever.
 
 import { randomSecret } from "./tokens";
+import { readResponseCapped } from "./http";
 
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
@@ -25,6 +26,8 @@ const RESEND_ENDPOINT = "https://api.resend.com/emails";
  *  Matches the 10s the other caller-facing outbound calls use (import, feedback);
  *  trailFavicon is tighter at 5s, because nothing is waiting on an icon. */
 const SEND_TIMEOUT_MS = 10_000;
+/** Enough provider context for logs, without buffering an arbitrary error page. */
+const ERROR_DETAIL_MAX_BYTES = 8_000;
 
 /** The one POST both messages make. Single-sourced so the deadline and the
  *  error handling can't be right in one message and missing in the other —
@@ -42,8 +45,11 @@ async function postToResend(payload: Record<string, unknown>, apiKey: string): P
 
   if (!res.ok) {
     // Read the provider's message for the server log — never for the response
-    // body, which must not vary with the address that was submitted.
-    const detail = await res.text().catch(() => "");
+    // body, which must not vary with the address that was submitted. Stream and
+    // truncate it rather than calling res.text(): a broken upstream can return
+    // a very large HTML error page, and the log only needs a short excerpt.
+    const read = await readResponseCapped(res, ERROR_DETAIL_MAX_BYTES, "truncate").catch(() => null);
+    const detail = read?.ok ? (read.body?.toString("utf8") ?? "") : "";
     throw new Error(`Resend responded ${res.status}: ${detail.slice(0, 500)}`);
   }
 }
