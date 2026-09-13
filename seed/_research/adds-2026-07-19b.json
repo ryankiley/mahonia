@@ -116,12 +116,12 @@
       "name": "Crater Lake Long-Sleeve Crop Top",
       "variant": "Women's",
       "category_hint": "clothing",
-      "weight_value": 6,
-      "weight_unit": "oz",
+      "weight_value": 101,
+      "weight_unit": "g",
       "weight_secondary": null,
-      "weight_source": "measured",
-      "source_url": "https://www.backcountry.com/mountain-hardwear-crater-lake-long-sleeve-crop-top-womens",
-      "quote": "Claimed Weight 6oz"
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/womens-crater-lake-long-sleeve-crop-shirt-1986771.html",
+      "quote": "Approx. Weight*: 3.6 oz / 101 g (the maker's page calls it the Crater Lake Long Sleeve Crop Shirt; Backcountry's listing claimed 6 oz)"
     },
     {
       "brand": "Icebreaker",

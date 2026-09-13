@@ -1,9 +1,9 @@
 {
-  "_comment": "Mountain Hardwear US-only apparel and snow packs, 2026-09-12 — the products the maker's Japanese store does not carry, read page by page on mountainhardwear.com after its PerimeterX check had been cleared by hand. Each garment stores the page's one 'Approx. Weight*' figure, which names no size, so size is recorded as unpublished; the snow packs are one row per torso size. Pages that print no weight (the Summit Grid fleeces, Oakoram, Butter Up, the logo tees and most hats and gloves) are not added.",
+  "_comment": "Mountain Hardwear US-only apparel and snow packs, 2026-09-12 — the products the maker's Japanese store does not carry, read page by page on mountainhardwear.com after its PerimeterX check had been cleared by hand. Each garment stores the page's one 'Approx. Weight*' figure, which names no size, so size is recorded as unpublished; the snow packs are one row per torso size. Pages that print no weight (the Summit Grid fleeces, Oakoram, Butter Up, the logo tees and most hats and gloves) are not added. The Ghost Whisperer UL Hooded Down Jacket and Crater Lake Long Sleeve Crop Shirt rows were removed the same day — the catalog already carried them under their classic names (Ghost Whisperer UL Hoody, Crater Lake Long-Sleeve Crop Top), now re-cited to these pages — and StretchDown is spelled Stretchdown here to match the rows that predate the maker's re-capitalisation.",
   "rows": [
     {
       "brand": "Mountain Hardwear",
-      "name": "StretchDown Light Hooded Jacket",
+      "name": "Stretchdown Light Hooded Jacket",
       "variant": "Men's",
       "attributes_unpublished": [
         "size"
@@ -18,7 +18,7 @@
     },
     {
       "brand": "Mountain Hardwear",
-      "name": "StretchDown Light Jacket",
+      "name": "Stretchdown Light Jacket",
       "variant": "Men's",
       "attributes_unpublished": [
         "size"
@@ -45,21 +45,6 @@
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/mens-ghost-whisperer-hooded-down-jacket-2104451.html",
       "quote": "Approx. Weight*: 10.7 oz / 302 g"
-    },
-    {
-      "brand": "Mountain Hardwear",
-      "name": "Ghost Whisperer UL Hooded Down Jacket",
-      "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
-      "category_hint": "clothing",
-      "common_name": "down jacket",
-      "weight_value": 189,
-      "weight_unit": "g",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.com/p/mens-ghost-whisperer-ul-hooded-down-jacket-2092051.html",
-      "quote": "Approx. Weight*: 6.7 oz / 189 g"
     },
     {
       "brand": "Mountain Hardwear",
@@ -438,7 +423,7 @@
     },
     {
       "brand": "Mountain Hardwear",
-      "name": "StretchDown Light Pant",
+      "name": "Stretchdown Light Pant",
       "variant": "Men's",
       "attributes_unpublished": [
         "size"
@@ -723,7 +708,7 @@
     },
     {
       "brand": "Mountain Hardwear",
-      "name": "StretchDown Light Pant",
+      "name": "Stretchdown Light Pant",
       "variant": "Women's",
       "attributes_unpublished": [
         "size"
@@ -993,7 +978,7 @@
     },
     {
       "brand": "Mountain Hardwear",
-      "name": "StretchDown Jacket",
+      "name": "Stretchdown Jacket",
       "variant": "Women's",
       "attributes_unpublished": [
         "size"
@@ -1008,7 +993,7 @@
     },
     {
       "brand": "Mountain Hardwear",
-      "name": "StretchDown Light Hooded Jacket",
+      "name": "Stretchdown Light Hooded Jacket",
       "variant": "Women's",
       "attributes_unpublished": [
         "size"
@@ -1023,7 +1008,7 @@
     },
     {
       "brand": "Mountain Hardwear",
-      "name": "StretchDown Light Jacket",
+      "name": "Stretchdown Light Jacket",
       "variant": "Women's",
       "attributes_unpublished": [
         "size"
@@ -1068,7 +1053,7 @@
     },
     {
       "brand": "Mountain Hardwear",
-      "name": "StretchDown Parka",
+      "name": "Stretchdown Parka",
       "variant": "Women's",
       "attributes_unpublished": [
         "size"
@@ -1395,21 +1380,6 @@
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/womens-canyon-long-sleeve-shirt-2110541.html",
       "quote": "Approx. Weight*: 5.9 oz / 166.5 g"
-    },
-    {
-      "brand": "Mountain Hardwear",
-      "name": "Crater Lake Long Sleeve Crop Shirt",
-      "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
-      "category_hint": "clothing",
-      "common_name": "sun shirt",
-      "weight_value": 101,
-      "weight_unit": "g",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.mountainhardwear.com/p/womens-crater-lake-long-sleeve-crop-shirt-1986771.html",
-      "quote": "Approx. Weight*: 3.6 oz / 101 g"
     },
     {
       "brand": "Mountain Hardwear",
