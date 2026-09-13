@@ -1,0 +1,493 @@
+{
+  "_comment": "Adds 2026-09-12 — gear people typed on their lists (catalog_candidates, scanned 2026-09-12: 497 open rows / 458 keys, 190 new since the 09-02 pass) that the catalog was missing, graduated to cited rows from each maker's own page. Two lists drove most of it: a UK hiker (Alpkit Koro, and a Terra Nova tent and Petzl headtorch typed without a model, so not added) and a Japan/Montbell-heavy one — 'Montbell Bear' at 19 g worn is a trekking bell, so the maker's bells are here at the maker's figures (36/90/44 g; the plain Round bell weighs the same as the Monta Bear one, so only the printed edition the list named is kept); 'Montbell Thermawrap Jacket' names a family, so the family's jackets and parkas are here. Montbell pages print one weight and no size, so those rows record size as unpublished. Ortovox prints 64 g and 62 g for the women's Sport Top and Hot Pants (the list carried 84/92 — the men's boxer's figure), REI's current-season Merino 185 pages print no weight but the prior listings still do (5.6 oz size M women's, 7.4 oz size L men's). Nothing's Ear (open) — the parenthetical is its version, so it is the row's variant — follows the Powerbeats ruling: carried is the case plus both buds, 63.8 + 2 × 8.1 = 80.0 g. Sambob's own store lists the Alpha 60 and Alpha 90 crewnecks at approximate weights (~2.5 oz, ~3.5 oz) with no size. Food follows the KIND/Clif convention (label weight per bar from the nutrition panel, calories from the same panel); the Olyra panel is an image on the maker's page, transcribed; the Trader Joe's tuna pouch is sourced at net contents and says so. Dropped, no maker weight anywhere: Verve Craft Instant (only a per-cup 5 g dose), Quinn, Smelly Proof, Ursa Major wipes, Dooy (Amazon brand, reviewer-measured only); ic! berlin sits behind a Cloudflare human check. The Garmin and Mountain Hardwear candidates (inReach Mini 3 Plus, fēnix, Rockrydge Pant) are in this PR's garmin and mountain-hardwear files instead.",
+  "rows": [
+    {
+      "brand": "Nothing",
+      "name": "Ear",
+      "variant": "open",
+      "category_hint": "electronics",
+      "common_name": "earbuds",
+      "weight_value": 80,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://us.nothing.tech/products/ear-open",
+      "quote": "Weight 8.1 g (per bud) · Case weight 63.8 g (case + both buds = 80.0 g)"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Round Trekking Bell",
+      "variant": "Monta Bear",
+      "category_hint": "other",
+      "common_name": "bear bell",
+      "weight_value": 36,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1134179",
+      "quote": "Weight： 1.3 oz / 36 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Round Trekking Bell with Silencer",
+      "variant": "",
+      "category_hint": "other",
+      "common_name": "bear bell",
+      "weight_value": 90,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1134182",
+      "quote": "Weight： 3.2 oz / 90 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Square Trekking Bell with Silencer",
+      "variant": "Monta Bear",
+      "category_hint": "other",
+      "common_name": "bear bell",
+      "weight_value": 44,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1134332",
+      "quote": "Weight： 1.6 oz / 44 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "U.L. Thermawrap Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 241,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2301300",
+      "quote": "Weight： 8.5 oz / 241 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "U.L. Thermawrap Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 203,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2301385",
+      "quote": "Weight： 7.2 oz / 203 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "U.L. Thermawrap Parka",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 217,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1101597",
+      "quote": "Weight： 7.7 oz / 217 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "EX Light Thermawrap Jacket",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 174,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1101688",
+      "quote": "Weight： 6.1 oz / 174 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "EX Light Thermawrap Jacket",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 159,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2301438",
+      "quote": "Weight： 5.6 oz / 159 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "EX Light Thermawrap Parka",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 200,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1101686",
+      "quote": "Weight： 7.1 oz / 200 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "EX Light Thermawrap Parka",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 173,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1101687",
+      "quote": "Weight： 6.1 oz / 173 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Thermawrap Parka",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 322,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1101641",
+      "quote": "Weight： 11.4 oz / 322 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Thermawrap Parka",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 296,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1101642",
+      "quote": "Weight： 10.4 oz / 296 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Thermawrap Pro",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 428,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2301180",
+      "quote": "Weight： 15.1 oz / 428 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Thermawrap Pro",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 365,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2301181",
+      "quote": "Weight： 12.9 oz / 365 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Thermawrap Classic Jacket",
+      "variant": "",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "synthetic jacket",
+      "weight_value": 272,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/2301354",
+      "quote": "Weight： 9.6 oz / 272 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Zeo-Line Middle Weight Round Neck Shirt",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "base layer top",
+      "weight_value": 159,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1107704",
+      "quote": "Weight： 5.6 oz / 159 g"
+    },
+    {
+      "brand": "Montbell",
+      "name": "Zeo-Line Middle Weight Round Neck Shirt",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "base layer top",
+      "weight_value": 122,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.montbell.com/us/en/products/detail/1107705",
+      "quote": "Weight： 4.3 oz / 122 g"
+    },
+    {
+      "brand": "Alpkit",
+      "name": "Koro Mountaineering Stove",
+      "variant": "",
+      "attributes": {
+        "fuel": "isobutane"
+      },
+      "attributes_source_url": "https://alpkit.com/products/go-gas",
+      "attributes_quote": "Threaded cartridge of premium mix butane, propane and iso-butane for use at low temperatures.",
+      "category_hint": "cook",
+      "common_name": "stove",
+      "weight_value": 124,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://alpkit.com/products/koro",
+      "quote": "Vital stats … Weight: 124g"
+    },
+    {
+      "brand": "Ortovox",
+      "name": "185 Rock'N'Wool Sport Top",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sports bra",
+      "weight_value": 64,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.ortovox.com/us-en/women/mountainwear/base-layer/sports-bras/185-rock-n-wool-sport-top-w/84212",
+      "quote": "Weight: 64g"
+    },
+    {
+      "brand": "Ortovox",
+      "name": "185 Rock'N'Wool Hot Pants",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "underwear",
+      "weight_value": 62,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.ortovox.com/us-en/women/mountainwear/base-layer/base-layer-pants-short/185-rock-n-wool-hot-pants-w/84172",
+      "quote": "Weight: 62g"
+    },
+    {
+      "brand": "REI Co-op",
+      "name": "Merino 185 Base Layer Bottoms",
+      "variant": "Women's Medium",
+      "category_hint": "clothing",
+      "common_name": "base layer bottoms",
+      "weight_value": 5.6,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.rei.com/product/192867/rei-co-op-merino-185-base-layer-bottoms-womens",
+      "quote": "Weight: 5.6 oz. (size Medium)"
+    },
+    {
+      "brand": "REI Co-op",
+      "name": "Merino 185 Base Layer Bottoms",
+      "variant": "Men's Large",
+      "category_hint": "clothing",
+      "common_name": "base layer bottoms",
+      "weight_value": 7.4,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.rei.com/product/192915/rei-co-op-merino-185-base-layer-bottoms-mens",
+      "quote": "Weight: 7.4 oz. (size Large)"
+    },
+    {
+      "brand": "Peak Design",
+      "name": "Capture Camera Clip",
+      "variant": "",
+      "category_hint": "other",
+      "common_name": "camera clip",
+      "weight_value": 84,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.peakdesign.com/products/capture",
+      "quote": "Clip weight (incl. 2 thumb screws) 70 g (2.5 oz) · Plate weight 14 g (0.5 oz) · Total weight 84 g (3 oz)"
+    },
+    {
+      "brand": "NRS",
+      "name": "Silkweight Varial Hoodie",
+      "variant": "Men's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun hoodie",
+      "weight_value": 11.15,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.nrs.com/nrs-mens-silkweight-varial-hoodie/p912",
+      "quote": "Specs Fit: Regular fit Weight: 11.15 oz"
+    },
+    {
+      "brand": "NRS",
+      "name": "Silkweight Varial Hoodie",
+      "variant": "Women's",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "sun hoodie",
+      "weight_value": 8.8,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.nrs.com/nrs-womens-silkweight-varial-hoodie/pg75",
+      "quote": "Specs Fit: Regular fit Weight: 8.8 oz"
+    },
+    {
+      "brand": "Sambob",
+      "name": "Alpha 60 Crewneck",
+      "variant": "",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 2.5,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://sambob.biz/products/alpha-60-crewnecks",
+      "quote": "You will not be disappointed by the warmth to weight ratio of these (~2.5oz)"
+    },
+    {
+      "brand": "Sambob",
+      "name": "Alpha 90 Crewneck",
+      "variant": "",
+      "attributes_unpublished": [
+        "size"
+      ],
+      "category_hint": "clothing",
+      "common_name": "fleece",
+      "weight_value": 3.5,
+      "weight_unit": "oz",
+      "weight_source": "manufacturer",
+      "source_url": "https://sambob.biz/products/alpha-90-crewnecks",
+      "quote": "You will not be disappointed by the warmth to weight ratio of these (~3.5oz)"
+    },
+    {
+      "brand": "Bioré",
+      "name": "UV Athlizm Skin Protect Essence SPF50+",
+      "variant": "70g",
+      "category_hint": "other",
+      "common_name": "sunscreen",
+      "weight_value": 70,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://japanesetaste.com/products/kao-biore-uv-athlizm-skin-protect-essence-sunscreen-spf50-70g",
+      "quote": "Net contents: 70g (2.5 oz)"
+    },
+    {
+      "brand": "KIND",
+      "name": "Breakfast Protein Bar (Peanut Butter Banana Dark Chocolate)",
+      "variant": "2 bars",
+      "category_hint": "consumable",
+      "common_name": "protein bar",
+      "weight_value": 50,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.kindsnacks.com/products/breakfast-bars/peanut-butter-banana-dark-chocolate",
+      "quote": "Serving Size: 2 bars (50g)",
+      "kcal": 220,
+      "kcal_source_url": "https://www.kindsnacks.com/products/breakfast-bars/peanut-butter-banana-dark-chocolate",
+      "kcal_quote": "Serving Size: 2 bars (50g) … Calories 220"
+    },
+    {
+      "brand": "Olyra",
+      "name": "Crème Breakfast Biscuit (Dark Chocolate)",
+      "variant": "",
+      "category_hint": "consumable",
+      "common_name": "snack",
+      "weight_value": 37.5,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://olyrafoods.com/products/dark-chocolate-sandwich-breakfast-biscuits",
+      "quote": "Serving Size 1 crème breakfast biscuit (37.5g) (the maker's nutrition-facts panel, an image on the page)",
+      "kcal": 180,
+      "kcal_source_url": "https://olyrafoods.com/products/dark-chocolate-sandwich-breakfast-biscuits",
+      "kcal_quote": "Serving Size 1 crème breakfast biscuit (37.5g) … Calories 180"
+    },
+    {
+      "brand": "Trader Joe's",
+      "name": "Energy Bar (Peanut Butter)",
+      "variant": "",
+      "category_hint": "consumable",
+      "common_name": "energy bar",
+      "weight_value": 68,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.traderjoes.com/home/products/pdp/energy-bar-peanut-butter-077616",
+      "quote": "SERVING SIZE 1 bar(68g)",
+      "kcal": 270,
+      "kcal_source_url": "https://www.traderjoes.com/home/products/pdp/energy-bar-peanut-butter-077616",
+      "kcal_quote": "SERVING SIZE 1 bar(68g) CALORIES PER SERVING 270"
+    },
+    {
+      "brand": "Trader Joe's",
+      "name": "Energy Bar (Chocolate Chip)",
+      "variant": "",
+      "category_hint": "consumable",
+      "common_name": "energy bar",
+      "weight_value": 68,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.traderjoes.com/home/products/pdp/energy-bar-chocolate-chip-077618",
+      "quote": "SERVING SIZE 1 bar(68g)",
+      "kcal": 260,
+      "kcal_source_url": "https://www.traderjoes.com/home/products/pdp/energy-bar-chocolate-chip-077618",
+      "kcal_quote": "SERVING SIZE 1 bar(68g) CALORIES PER SERVING 260"
+    },
+    {
+      "brand": "Trader Joe's",
+      "name": "Wild Skipjack Tuna",
+      "variant": "3oz pouch, net",
+      "category_hint": "consumable",
+      "common_name": "meal",
+      "weight_value": 85,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.traderjoes.com/home/products/pdp/wild-skipjack-tuna-062362",
+      "quote": "SERVING SIZE 1 pouch(85g)",
+      "kcal": 90,
+      "kcal_source_url": "https://www.traderjoes.com/home/products/pdp/wild-skipjack-tuna-062362",
+      "kcal_quote": "SERVING SIZE 1 pouch(85g) CALORIES PER SERVING 90"
+    }
+  ]
+}

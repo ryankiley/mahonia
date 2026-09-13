@@ -5,12 +5,11 @@
       "name": "inReach Mini 2",
       "variant": "",
       "category_hint": "electronics",
-      "weight_value": 3.5,
-      "weight_unit": "oz",
-      "weight_secondary": "100 g",
+      "weight_value": 100,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://osat.com/products/garmin-inreach-mini-2",
-      "quote": "3.5oz (100g)"
+      "source_url": "https://www.garmin.com/en-US/p/765374/pn/010-02602-00",
+      "quote": "Weight: 3.5 oz (100.0 g)"
     },
     {
       "brand": "Nitecore",
