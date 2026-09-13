@@ -60,6 +60,10 @@ interface SessionUser {
  *  (and anything rendering a byline) reads one source with no second query. */
 interface ResolvedUser extends SessionUser {
   displayName: string | null;
+  /** The session's readable owner marker (sessionOwnerMarker) — what the browser
+   *  keys this account's local caches by, handed to /api/auth/me so the client can
+   *  tell one account's answer from the next's without ever seeing an id. */
+  owner: string;
 }
 
 /** A user just returned by redeeming a magic link, which is the one moment the
@@ -291,10 +295,24 @@ function isSecureRequest(event: H3Event): boolean {
  * needs. Every mutating vault endpoint is a POST, so Lax alone carries the CSRF
  * defence here.
  */
-/** Write the session cookie and its two readable companions with one expiry. Split out because sign-in and the sliding
- *  refresh both set them, and a difference between the two would be invisible
- *  until someone was logged out early. */
-function setSessionCookies(event: H3Event, token: string, userId: number, expiresAt: Date): void {
+/**
+ * The readable owner marker for a session: a hash of the token's hash, cut to 16 hex
+ * characters. Not a credential and not the user's id — it names WHICH account's
+ * browser-local caches to read (see SESSION_OWNER_COOKIE), nothing more. A fresh
+ * sign-in mints a new one, which the client reads as a change of owner and starts
+ * those caches over — the safe direction. Derived rather than stored, so it needs no
+ * column and no secret; one-way, so neither the token nor the row it hashes to can be
+ * read back out of a cookie; and never the id, which would put a sequential number
+ * in front of every script on the page.
+ */
+export function sessionOwnerMarker(tokenHash: string): string {
+  return sha256Hex(`owner:${tokenHash}`).slice(0, 16);
+}
+
+/** Write the session cookie and its two readable companions with one expiry. Split
+ *  out because sign-in and the sliding refresh both set them, and a difference
+ *  between the two would be invisible until someone was logged out early. */
+function setSessionCookies(event: H3Event, token: string, expiresAt: Date): void {
   setCookie(event, SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
@@ -313,7 +331,7 @@ function setSessionCookies(event: H3Event, token: string, userId: number, expire
   // Like the hint, this carries no authority. It lets the browser choose the
   // correct offline cache before /api/auth/me answers; changing it can only make
   // the browser hide its own cached data, never access another account.
-  setCookie(event, SESSION_OWNER_COOKIE, String(userId), {
+  setCookie(event, SESSION_OWNER_COOKIE, sessionOwnerMarker(sha256Hex(token)), {
     httpOnly: false,
     sameSite: "lax",
     secure: isSecureRequest(event),
@@ -326,7 +344,7 @@ export async function startSession(event: H3Event, db: Db, userId: number): Prom
   const token = randomSecret();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
   await db.insert(sessions).values({ tokenHash: sha256Hex(token), userId, expiresAt });
-  setSessionCookies(event, token, userId, expiresAt);
+  setSessionCookies(event, token, expiresAt);
 }
 
 /**
@@ -340,6 +358,7 @@ export async function startSession(event: H3Event, db: Db, userId: number): Prom
 export async function resolveSession(event: H3Event): Promise<ResolvedUser | null> {
   const raw = getCookie(event, SESSION_COOKIE);
   if (!raw) return null;
+  const hash = sha256Hex(raw);
   const db = await useAccountDb();
   const now = new Date();
   const rows = await db
@@ -353,10 +372,11 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
-    .where(and(eq(sessions.tokenHash, sha256Hex(raw)), gt(sessions.expiresAt, now)))
+    .where(and(eq(sessions.tokenHash, hash), gt(sessions.expiresAt, now)))
     .limit(1);
   const row = rows[0];
   if (!row) return null;
+  const owner = sessionOwnerMarker(hash);
   if (now.getTime() - new Date(row.lastUsedAt).getTime() > SESSION_REFRESH_AFTER_MS) {
     const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
     await db
@@ -374,11 +394,11 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
     // who uses Mahonia every week is signed out on day 90 while holding a session
     // the server considers perfectly valid — and the hint cookie expires with it,
     // so the app doesn't even ask.
-    setSessionCookies(event, raw, row.id, expiresAt);
-  } else if (getCookie(event, SESSION_OWNER_COOKIE) !== String(row.id)) {
+    setSessionCookies(event, raw, expiresAt);
+  } else if (getCookie(event, SESSION_OWNER_COOKIE) !== owner) {
     // Sessions created before this marker existed acquire it on their next read.
     // Do not reissue the credential or write the database for that migration.
-    setCookie(event, SESSION_OWNER_COOKIE, String(row.id), {
+    setCookie(event, SESSION_OWNER_COOKIE, owner, {
       httpOnly: false,
       sameSite: "lax",
       secure: isSecureRequest(event),
@@ -386,7 +406,7 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
       expires: row.expiresAt,
     });
   }
-  return { id: row.id, email: row.email, displayName: row.displayName ?? null };
+  return { id: row.id, email: row.email, displayName: row.displayName ?? null, owner };
 }
 
 /** Resolve the signed-in user or reject with 401 — requireAccount's gate. (The vault

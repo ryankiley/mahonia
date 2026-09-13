@@ -11,7 +11,9 @@
 import { sessionCacheOwner } from "../utils/sessionOwner";
 
 interface SessionState {
-  id: number;
+  /** The session's owner marker (shared/session.ts): which account's browser-local
+   *  caches are this one's. A string the server derives, never the account's id. */
+  owner: string;
   email: string | null;
   /** Optional and opt-in — the only part of an account anyone else ever sees.
    *  Null means this person's public lists carry no byline, which is the default. */
@@ -73,7 +75,7 @@ export function useSession() {
     if (pending.value) return;
     if (loaded.value && !force) return;
     if (!hasSessionHint()) {
-      forgetAccountMemos(user.value?.id ?? sessionCacheOwner());
+      forgetAccountMemos(user.value?.owner ?? sessionCacheOwner());
       clearSessionHint();
       user.value = null;
       loaded.value = true;
@@ -82,17 +84,20 @@ export function useSession() {
     pending.value = true;
     try {
       const res = await $fetch<{
-        user: { id: number; email: string | null; displayName: string | null } | null;
+        user: { owner: string; email: string | null; displayName: string | null } | null;
       }>("/api/auth/me");
-      const previousOwner = user.value?.id ?? sessionCacheOwner();
+      const previousOwner = user.value?.owner ?? sessionCacheOwner();
       const nextUser = res.user
         ? {
-            id: res.user.id,
+            owner: res.user.owner,
             email: res.user.email,
             displayName: res.user.displayName ?? null,
           }
         : null;
-      if (previousOwner !== null && previousOwner !== nextUser?.id) {
+      // A different owner than the one this tab's caches were kept for — another
+      // account signed in here, or this one signed in afresh — drops those caches
+      // before the new answer is on screen. Only ever the former owner's keys.
+      if (previousOwner !== null && previousOwner !== nextUser?.owner) {
         forgetAccountMemos(previousOwner);
       }
       user.value = nextUser;
@@ -147,14 +152,14 @@ export function useSession() {
    *  out of an account runs it: signOut below does so itself; the delete-account and
    *  sign-out-everywhere paths (which end the session server-side, then re-read it)
    *  call it directly. A one-line seam, on purpose — this composable stays thin. */
-  function forgetAccountMemos(owner = user.value?.id ?? sessionCacheOwner()): void {
+  function forgetAccountMemos(owner = user.value?.owner ?? sessionCacheOwner()): void {
     resetVaultCapture();
     useClaimedLists().resetClaimMark(owner);
     forgetAccountInitial();
   }
 
   async function signOut(): Promise<void> {
-    const owner = user.value?.id ?? sessionCacheOwner();
+    const owner = user.value?.owner ?? sessionCacheOwner();
     try {
       await $fetch("/api/auth/signout", { method: "POST" });
     } finally {

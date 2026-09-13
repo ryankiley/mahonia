@@ -91,8 +91,8 @@ registerEndpoint("/api/edit/list", (event) => {
 // composable runs here (nothing mocks it), so its state is set the way /api/auth/me
 // would leave it.
 function sessionResolved(signedIn: boolean) {
-  useState<{ id: number; email: string; displayName: string | null } | null>("session-user").value = signedIn
-    ? { id: 1, email: "ryan@example.com", displayName: null }
+  useState<{ owner: string; email: string; displayName: string | null } | null>("session-user").value = signedIn
+    ? { owner: "1", email: "ryan@example.com", displayName: null }
     : null;
   useState<boolean>("session-loaded").value = true;
 }

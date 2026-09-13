@@ -42,12 +42,12 @@ const CLAIMED_OPENS_KEY = "gear.claimed.opens.v2";
 
 const LEGACY_KEYS = ["gear.claimed.v1", "gear.claimed.rows.v1", "gear.claimed.opens.v1"];
 
-const ownedKey = (base: string, owner: number | null) =>
+const ownedKey = (base: string, owner: string | null) =>
   owner === null ? null : `${base}.${owner}`;
 
 /** The cookie is current even while an old /api/auth/me response is still on screen. */
-function cacheOwner(): number | null {
-  return sessionCacheOwner() ?? useSession().user?.value?.id ?? null;
+function cacheOwner(): string | null {
+  return sessionCacheOwner() ?? useSession().user.value?.owner ?? null;
 }
 
 function forgetLegacyCache(): void {

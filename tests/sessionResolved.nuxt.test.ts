@@ -22,8 +22,8 @@ const storage = stubLocalStorage();
 let answer: "one" | "two" | "no-user" | "down" = "no-user";
 registerEndpoint("/api/auth/me", () => {
   if (answer === "down") throw createError({ statusCode: 503, statusMessage: "Unreachable" });
-  if (answer === "one") return { user: { id: 1, email: "ryan@example.com", displayName: null } };
-  if (answer === "two") return { user: { id: 2, email: "sam@example.com", displayName: null } };
+  if (answer === "one") return { user: { owner: "1", email: "ryan@example.com", displayName: null } };
+  if (answer === "two") return { user: { owner: "2", email: "sam@example.com", displayName: null } };
   return { user: null };
 });
 
@@ -115,7 +115,7 @@ describe("a resolved account replacement", () => {
     answer = "two";
     await useSession().refresh(true);
 
-    expect(useSession().user.value?.id).toBe(2);
+    expect(useSession().user.value?.owner).toBe("2");
     expect(claimed.lists.value).toEqual([]);
     expect(storage.has(ROWS_KEY)).toBe(false);
     expect(storage.has(OPENS_KEY)).toBe(false);

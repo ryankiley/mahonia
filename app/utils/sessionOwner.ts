@@ -1,12 +1,12 @@
-import { SESSION_OWNER_COOKIE } from "~~/shared/session";
+import { SESSION_OWNER_COOKIE, SESSION_OWNER_PATTERN } from "~~/shared/session";
 
-/** The account that browser-local session data belongs to, if the server set it. */
-export function sessionCacheOwner(): number | null {
+/** The account that browser-local session data belongs to, if the server set it —
+ *  the marker itself, or null when there is none (or it isn't one). */
+export function sessionCacheOwner(): string | null {
   if (!import.meta.client) return null;
   const value = document.cookie
     .split("; ")
     .find((cookie) => cookie.startsWith(`${SESSION_OWNER_COOKIE}=`))
     ?.slice(SESSION_OWNER_COOKIE.length + 1);
-  const owner = Number(value);
-  return Number.isSafeInteger(owner) && owner > 0 ? owner : null;
+  return value && SESSION_OWNER_PATTERN.test(value) ? value : null;
 }
