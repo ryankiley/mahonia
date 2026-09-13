@@ -19,19 +19,22 @@ import { createError } from "h3";
 
 const storage = stubLocalStorage();
 
-let answer: "signed-in" | "no-user" | "down" = "no-user";
+let answer: "one" | "two" | "no-user" | "down" = "no-user";
 registerEndpoint("/api/auth/me", () => {
   if (answer === "down") throw createError({ statusCode: 503, statusMessage: "Unreachable" });
-  return { user: answer === "signed-in" ? { email: "ryan@example.com", displayName: null } : null };
+  if (answer === "one") return { user: { owner: "1", email: "ryan@example.com", displayName: null } };
+  if (answer === "two") return { user: { owner: "2", email: "sam@example.com", displayName: null } };
+  return { user: null };
 });
 
-const ROWS_KEY = "gear.claimed.rows.v1";
-const OPENS_KEY = "gear.claimed.opens.v1";
+const ROWS_KEY = "gear.claimed.rows.v2.1";
+const OPENS_KEY = "gear.claimed.opens.v2.1";
 
 beforeEach(() => {
   storage.clear();
   answer = "no-user";
   document.cookie = "mh_signed_in=1; path=/";
+  document.cookie = "mh_session_owner=1; path=/";
   useState<unknown>("session-user").value = null;
   useState<boolean>("session-loaded").value = false;
   useState<boolean>("session-pending").value = false;
@@ -73,7 +76,7 @@ describe("a session that ends without a sign-out here", () => {
 
 describe("a forced re-read that fails", () => {
   it("reads as unresolved, not as signed out", async () => {
-    answer = "signed-in";
+    answer = "one";
     await useSession().refresh();
     expect(useSession().signedIn.value).toBe(true);
     expect(useSession().loaded.value).toBe(true);
@@ -86,5 +89,35 @@ describe("a forced re-read that fails", () => {
     // `loaded` stays the licence it was meant to be: a failure here used to leave it
     // true from the last success, and the switcher then threw the cached rows away
     expect(useSession().loaded.value).toBe(false);
+  });
+});
+
+describe("a resolved account replacement", () => {
+  it("drops the former account's rows and resume ledger before B can see them", async () => {
+    answer = "one";
+    await useSession().refresh();
+    const claimed = useClaimedLists();
+    claimed.lists.value = [{
+      shareCode: "C0DE00000009",
+      slug: "as-list",
+      title: "A's list",
+      totalMg: 0,
+      version: 1,
+      displayUnit: "g",
+      updatedAt: "",
+    }];
+    storage.set(ROWS_KEY, JSON.stringify(claimed.lists.value));
+    markClaimedOpen("C0DE00000009");
+
+    // A successful sign-in in another tab updates the shared, readable owner
+    // marker before this tab re-reads /api/auth/me.
+    document.cookie = "mh_session_owner=2; path=/";
+    answer = "two";
+    await useSession().refresh(true);
+
+    expect(useSession().user.value?.owner).toBe("2");
+    expect(claimed.lists.value).toEqual([]);
+    expect(storage.has(ROWS_KEY)).toBe(false);
+    expect(storage.has(OPENS_KEY)).toBe(false);
   });
 });

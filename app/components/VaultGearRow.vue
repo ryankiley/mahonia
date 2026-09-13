@@ -87,7 +87,7 @@ const meta = computed(() => {
           <span class="visually-hidden">Worn</span>
         </span>
         <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
-          <HugeiconsIcon :icon="consumableIcon(entry.name)" :size="16" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="consumableIcon(entry)" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="visually-hidden">Consumable</span>
         </span>
       </span>

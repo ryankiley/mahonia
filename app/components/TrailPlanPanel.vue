@@ -2,8 +2,8 @@
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
 import { ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
-import { burnDownMg, dayEnd, dayRanges, estimateDay, heightIsDerived, nextOwnedDay, shownHeightM } from "~~/shared/tripPlan";
-import { coolerByC, dayFacts, type DayFacts } from "~~/shared/dayFacts";
+import { burnDownMg, dayEnds as endsForDays, dayRanges, estimateDay, heightIsDerived, lastOwnedDayIndex, nextOwnedDay, shownHeightM } from "~~/shared/tripPlan";
+import { coolerByC, dayFactsForRanges, type DayFacts } from "~~/shared/dayFacts";
 import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/shared/dryCarry";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
@@ -447,22 +447,18 @@ function onBoundary(b: { index: number; alongM: number }) {
  * there and neither mark is true.
  */
 // Camp and finish are one decision with two answers — which day ends where, and
-// whether a stored end pin already says it. shared/tripPlan.dayEnd settles it, and
-// is tested there; this reads the answer once per day, and the rows (which ask
-// several times each) read this.
+// whether a stored end pin already says it. shared/tripPlan.dayEnds settles every row
+// in one pass, and the rows (which ask several times each) read this result.
 // The stored end pins, once — not re-filtered inside the per-day map, where a
 // ten-day trip scanned the waypoints ten times to reach the same list.
 const endPinsAtM = computed(() => waypoints.value.filter((w) => w.kind === "end").map((w) => w.alongM));
 const dayEnds = computed(() =>
-  ranges.value.map((_, i) =>
-    dayEnd({
-      index: i,
-      ranges: ranges.value,
-      dayDistancesM: dayDistancesM.value,
-      hasRest: hasRest.value,
-      endPinsAtM: endPinsAtM.value,
-    }),
-  ),
+  endsForDays({
+    ranges: ranges.value,
+    dayDistancesM: dayDistancesM.value,
+    hasRest: hasRest.value,
+    endPinsAtM: endPinsAtM.value,
+  }),
 );
 
 /** The one day that has a finish, for the map — the rows ask per day, the map asks once. */
@@ -473,7 +469,7 @@ const routeFinishM = computed(() => dayEnds.value.find((e) => e?.kind === "finis
 // (shared/dayFacts): derived, said in the estimate's ink, silent on a day with no
 // distance. Nothing here is typed; the profile is public but this reads on /e for now.
 const facts = computed(() =>
-  ranges.value.map((r) => dayFacts(profile.value, props.snapshot.trailDistanceM, r, props.snapshot.trailAscentM)),
+  dayFactsForRanges(profile.value, props.snapshot.trailDistanceM, ranges.value, props.snapshot.trailAscentM),
 );
 /** a height in the list's own unit, with its unit word */
 const heightWord = (m: number) => `${heightValue(m, distanceUnit.value, distanceUnit.value === "mi" ? 10 : 1)} ${ascentUnit.value}`;
@@ -489,16 +485,10 @@ function coolerWord(aboveM: number): string {
 // stand the finish ROW down, because the pin's own row already says it, but the
 // sentence still has to say finish rather than camp, and on a point-to-point route
 // (every import that isn't a loop seeds an end pin) the pin is always there.
-const dayFinishes = computed(() =>
-  ranges.value.map(
-    (_, i) =>
-      dayEnd({ index: i, ranges: ranges.value, dayDistancesM: dayDistancesM.value, hasRest: hasRest.value })?.kind ===
-      "finish",
-  ),
-);
+const finishDayIndex = computed(() => hasRest.value ? -1 : lastOwnedDayIndex(dayDistancesM.value));
 /** "Camp at 1,850 m, 650 m above the trailhead and about 4 °C cooler. High point 2,410 m." */
 function campSentence(i: number, f: DayFacts): string {
-  const end = dayFinishes.value[i] ? "Finish" : "Camp";
+  const end = i === finishDayIndex.value ? "Finish" : "Camp";
   const parts = [`${end} at ${heightWord(f.campM)}`];
   const above = Math.round(f.aboveTrailheadM);
   if (Math.abs(above) >= 10) {
@@ -1052,7 +1042,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              is nothing to say (flat ground, a day with no distance). -->
         <template v-if="!collapsed[d?.id ?? ''] && dayDistancesM[i] && facts[i]">
           <p class="t-sm plan__fact">
-            <HugeiconsIcon :icon="dayFinishes[i] ? RacingFlagIcon : TentIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="i === finishDayIndex ? RacingFlagIcon : TentIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span>{{ campSentence(i, facts[i]!) }}</span>
           </p>
           <p v-if="groundSentence(facts[i]!)" class="t-sm plan__fact">

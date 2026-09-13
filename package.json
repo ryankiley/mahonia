@@ -22,7 +22,7 @@
     "typecheck:scripts": "node scripts/typecheck.mjs scripts",
     "typecheck:tests": "node scripts/typecheck.mjs tests",
     "bundle-budget": "node scripts/bundle-budget.mjs",
-    "changelog": "node scripts/changelog.mjs",
+    "changelog": "node node_modules/jiti/lib/jiti-cli.mjs scripts/changelog.ts",
     "changelog:compact": "node node_modules/jiti/lib/jiti-cli.mjs scripts/compact-changelog.ts",
     "release-notes": "node node_modules/jiti/lib/jiti-cli.mjs scripts/release-notes.ts",
     "og:site": "node node_modules/jiti/lib/jiti-cli.mjs scripts/render-og-site.ts",

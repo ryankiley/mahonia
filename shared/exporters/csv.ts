@@ -3,9 +3,9 @@
 
 import type { Item, ListData, ListSnapshot, Unit } from "../types";
 import { colorKeyForName, nextFolderColor } from "../categories";
-import { MAX_PEOPLE } from "../ops";
+import { MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
-import { effectiveClassification, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
+import { effectiveClassificationInFolder, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportSections } from "./rows";
 import { csvCell, stripFormulaGuard } from "./csvCell";
 import { uid } from "../id";
@@ -35,9 +35,10 @@ const CSV_DECIMALS: Record<Unit, number> = { g: 3, kg: 6, oz: 6, lb: 6 };
 export function listToCsv(list: ListSnapshot): string {
   const u = list.displayUnit;
   const esc = csvCell;
-  // one lookup table, not a folders.find() per row
-  const folderById = new Map(list.folders.map((f) => [f.id, f.name]));
-  const folderName = (id: string | null) => (id ? folderById.get(id) : undefined) ?? "";
+  // One lookup table for both the exported folder name and effective class; an export
+  // can contain hundreds of rows, so each must not scan every folder twice.
+  const folderById = new Map(list.folders.map((folder) => [folder.id, folder]));
+  const folderName = (id: string | null) => (id ? folderById.get(id)?.name : undefined) ?? "";
 
   // Kcal and Person are APPENDED, never inserted: the importer maps columns by
   // header name (see idx() below), but third-party tooling reading our export
@@ -61,7 +62,10 @@ export function listToCsv(list: ListSnapshot): string {
     s.rows.flatMap((r) => [r.item, ...r.children]),
   );
   for (const it of ordered) {
-    const cls = effectiveClassification(it, list.folders);
+    const cls = effectiveClassificationInFolder(
+      it,
+      it.folderId ? folderById.get(it.folderId) : undefined,
+    );
     // Each row exports in the unit it READS in, not the list's. The Unit column is
     // already per-row and the importer already honours it per-row, so this is what
     // makes a row typed in ounces come back as ounces instead of being flattened to
@@ -123,8 +127,20 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
+/** Import limits that depend on the thing receiving the CSV. */
+export interface CsvImportOptions {
+  /** A packing list holds 50 folders; a vault has its own, larger ceiling. */
+  maxFolders?: number;
+  /** A packing list holds 1,000 items. The vault counts differently — it drops the
+   *  rows that aren't gear before applying its own ceiling — so it lifts this one. */
+  maxItems?: number;
+}
+
 /** Map a CSV (ours or LighterPack's) into ListData. Tolerant of column order/naming. */
-export function csvToListData(text: string): ListData {
+export function csvToListData(
+  text: string,
+  { maxFolders = MAX_FOLDERS, maxItems = MAX_ITEMS }: CsvImportOptions = {},
+): ListData {
   const rows = parseCsv(text);
   if (rows.length < 2) return { folders: [], items: [] };
   const header = rows[0]!.map((h) => h.trim().toLowerCase());
@@ -169,6 +185,10 @@ export function csvToListData(text: string): ListData {
     const key = name.trim();
     if (!key) return null;
     if (!folderId.has(key)) {
+      // Match createList's hard limit before the import reaches catalog matching or
+      // the create request. Without this, a large CSV built an over-limit client
+      // payload, then the server silently changed its shape under the user.
+      if (folders.length >= maxFolders) return null;
       const id = uid();
       folderId.set(key, id);
       // name-match first (Water→blue, First Aid→red), palette walk as the fallback:
@@ -227,6 +247,9 @@ export function csvToListData(text: string): ListData {
     // spacer in someone's spreadsheet, and importing it as a nameless 0 g item puts
     // a phantom row in the list.
     if (!name && unitWeightMg <= 0) continue;
+    // The server caps persisted lists at MAX_ITEMS. Stop at the same boundary here
+    // so the client never spends work matching or sending rows it cannot keep.
+    if (items.length >= maxItems) break;
     const gearType = cell(iCommon); // read once — it also decides the override flag below
     const cat = iCat >= 0 ? stripFormulaGuard(row[iCat] ?? "") : "";
     const fId = ensureFolder(cat || "Imported");

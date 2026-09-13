@@ -22,7 +22,12 @@ async function freshDb() {
 }
 
 let seq = 0;
-async function seedList(db: Awaited<ReturnType<typeof freshDb>>, data: ListData, title = "Orig") {
+async function seedList(
+  db: Awaited<ReturnType<typeof freshDb>>,
+  data: ListData,
+  title = "Orig",
+  extra: Partial<typeof schema.lists.$inferInsert> = {},
+) {
   seq++;
   const editToken = `snap-tok-${seq}`;
   const [row] = await db
@@ -35,6 +40,7 @@ async function seedList(db: Awaited<ReturnType<typeof freshDb>>, data: ListData,
       data,
       itemCount: data.items.length,
       version: 1,
+      ...extra,
     })
     .returning();
   return { row: row!, editToken };
@@ -146,6 +152,63 @@ describe("snapshots — vandalism recovery", () => {
     expect(by.get("g1")!.parentId).toBeNull(); // one nesting level only
     expect(restored!.items.filter((i) => i.id === "dup")).toHaveLength(1);
     expect(by.get("dup")!.name).toBe("One"); // first occurrence wins
+  });
+
+  it("re-applies every trail and date metadata normalizer on restore", async () => {
+    const db = await freshDb();
+    const { editToken } = await seedList(
+      db,
+      {
+        folders: [folder],
+        items: [item("i1", "Tent")],
+        waypoints: [{ id: "camp-1", kind: "camp", alongM: 1_200, label: "Cairn Basin" }],
+      },
+      "Orig",
+      {
+        trailDistanceM: 0,
+        trailDistanceUnit: "km",
+        trailProfile: "100.4,200.6",
+        trailAscentM: 30_001,
+        trailDescentM: -1,
+        routeGeometry: "not a polyline",
+        startDate: " 2026-02-28 ",
+        endDate: "2026-02-30",
+      },
+    );
+    // Capture the raw legacy values, then restore them through the public path.
+    await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }], db);
+    const snaps = await listSnapshotsByEditToken(editToken, db);
+    const restored = await restoreSnapshotByEditToken(editToken, snaps![0]!.id, db);
+
+    expect(restored).toMatchObject({
+      trailDistanceUnit: "km",
+      trailProfile: "100,201",
+      startDate: "2026-02-28",
+    });
+    expect(restored!.trailDistanceM).toBeUndefined();
+    expect(restored!.trailAscentM).toBeUndefined();
+    expect(restored!.trailDescentM).toBeUndefined();
+    expect(restored!.routeGeometry).toBeUndefined();
+    expect(restored!.waypoints).toEqual([]);
+    expect(restored!.endDate).toBeUndefined();
+  });
+
+  it("keeps the pins of a snapshot that never had a route", async () => {
+    // a pin is a distance along the route, so a CHANGED route drops them (above) — but
+    // a list can carry pins with no route at all (addWaypoint asks for none; a backup
+    // whose geometry failed to read keeps its pins through createList), and those are
+    // not pointing at a route that changed; restoring them is restoring the list
+    const db = await freshDb();
+    const { editToken } = await seedList(db, {
+      folders: [folder],
+      items: [item("i1", "Tent")],
+      waypoints: [{ id: "camp-1", kind: "camp", alongM: 1_200, label: "Cairn Basin" }],
+    });
+    await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }], db);
+    const snaps = await listSnapshotsByEditToken(editToken, db);
+    const restored = await restoreSnapshotByEditToken(editToken, snaps![0]!.id, db);
+    expect(restored!.items[0]!.qty).toBe(1);
+    expect(restored!.waypoints).toEqual([{ id: "camp-1", kind: "camp", alongM: 1_200, label: "Cairn Basin" }]);
   });
 
   it("won't restore a snapshot that belongs to another list", async () => {

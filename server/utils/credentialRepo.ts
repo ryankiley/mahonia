@@ -6,6 +6,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { credentials } from "../db/schema";
 import type { Db } from "./db";
 import type { PasskeySummary } from "../../shared/types";
+import { isSerialId } from "../../shared/ops";
 
 /** How many passkeys one account may hold. Generous — a phone, a laptop, a
  *  hardware key and spares — while still bounding the row count per user. */
@@ -89,6 +90,8 @@ export async function touchCredential(db: Db, id: number, counter: number): Prom
 /** Remove a passkey. Scoped by userId in the WHERE so one account can't delete
  *  another's; returns whether anything was actually removed. */
 export async function deletePasskey(db: Db, userId: number, id: number): Promise<boolean> {
+  // an id the column can't hold is "nothing removed", not an overflow error
+  if (!isSerialId(id)) return false;
   const done = await db
     .delete(credentials)
     .where(and(eq(credentials.id, id), eq(credentials.userId, userId)))

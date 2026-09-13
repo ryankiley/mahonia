@@ -22,6 +22,7 @@ import {
   hasUnassignedTopLevel,
   personNameTaken,
   personSlot,
+  selectItemsForPerson,
   sortedPeople,
   uniquifyPersonNames,
   UNASSIGNED,
@@ -263,6 +264,12 @@ describe("filtering + per-person totals", () => {
     expect(visibleItemsForPerson(items, "sam").map((i) => i.id)).toEqual(["can", "kit", "spoon"]);
     // …but Alex's view never needed the favor: his kit is his
     expect(visibleItemsForPerson(items, "alex").map((i) => i.id)).toEqual(["kit", "pot"]);
+  });
+
+  it("resolves the strict and visible sets from one selection", () => {
+    const selected = selectItemsForPerson(gear(), "sam");
+    expect(selected.counted.map((i) => i.id)).toEqual(["can", "spoon"]);
+    expect(selected.visible.map((i) => i.id)).toEqual(["can", "kit", "spoon"]);
   });
 
   it("per-person totals are the strict set through the ordinary computeTotals", () => {

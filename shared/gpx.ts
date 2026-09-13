@@ -47,6 +47,23 @@ export const MAX_GPX_BYTES = 10_000_000;
 const EARTH_R_M = 6_371_008.8;
 const rad = (deg: number) => (deg * Math.PI) / 180;
 
+/** Coordinates outside the Earth are malformed input, not an unusual route. */
+function validLatLon(lat: number, lon: number): boolean {
+  return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+}
+
+/**
+ * XML attributes and element text have a dangerous coercion edge: `Number(null)`
+ * and `Number("")` are both 0. A missing coordinate is not a point on the Gulf of
+ * Guinea, so blank text stays NaN and falls through the ordinary finite/range gate.
+ */
+function finiteTextNumber(raw: string | null | undefined): number {
+  const text = raw?.trim();
+  if (!text) return Number.NaN;
+  const n = Number(text);
+  return Number.isFinite(n) ? n : Number.NaN;
+}
+
 /** Great-circle distance between two points, in metres. */
 export function haversineM(a: TrackPoint, b: TrackPoint): number {
   const dLat = rad(b.lat - a.lat);
@@ -75,11 +92,10 @@ export function gpxPoints(doc: Document): TrackPoint[] {
   const nodes = [...byLocalName(doc, "trkpt"), ...byLocalName(doc, "rtept")];
   const out: TrackPoint[] = [];
   for (const n of nodes) {
-    const lat = Number(n.getAttribute("lat"));
-    const lon = Number(n.getAttribute("lon"));
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-    const eleText = localText(n, "ele");
-    const ele = eleText != null ? Number(eleText) : Number.NaN;
+    const lat = finiteTextNumber(n.getAttribute("lat"));
+    const lon = finiteTextNumber(n.getAttribute("lon"));
+    if (!validLatLon(lat, lon)) continue;
+    const ele = finiteTextNumber(localText(n, "ele"));
     out.push(Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
   }
   return out;
@@ -167,9 +183,9 @@ export function pinKind(pin: Pick<FilePin, "sym" | "name">): WaypointKind {
 export function filePins(doc: Document): FilePin[] {
   const out: FilePin[] = [];
   for (const n of byLocalName(doc, "wpt")) {
-    const lat = Number(n.getAttribute("lat"));
-    const lon = Number(n.getAttribute("lon"));
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+    const lat = finiteTextNumber(n.getAttribute("lat"));
+    const lon = finiteTextNumber(n.getAttribute("lon"));
+    if (!validLatLon(lat, lon)) continue;
     out.push({
       lat,
       lon,
@@ -184,11 +200,13 @@ export function filePins(doc: Document): FilePin[] {
     const point = [...pm.getElementsByTagName("*")].find((el) => el.localName.toLowerCase() === "point");
     if (!point) continue;
     const raw = localText(point, "coordinates")?.trim();
-    const [lon, lat] = (raw ?? "").split(",").map(Number);
-    if (!Number.isFinite(lat!) || !Number.isFinite(lon!)) continue;
+    const [rawLon, rawLat] = (raw ?? "").split(",");
+    const lon = finiteTextNumber(rawLon);
+    const lat = finiteTextNumber(rawLat);
+    if (!validLatLon(lat, lon)) continue;
     out.push({
-      lat: lat!,
-      lon: lon!,
+      lat,
+      lon,
       name: localText(pm, "name")?.trim() || undefined,
       sym: localText(pm, "styleUrl")?.trim() || undefined,
     });
@@ -225,6 +243,34 @@ export interface ZipMember {
   bytes: Uint8Array;
 }
 
+/** Inflate a deflate member without ever buffering more route data than we accept. */
+async function inflateDeflateRaw(payload: Uint8Array<ArrayBuffer>, maxBytes: number): Promise<Uint8Array | null> {
+  try {
+    const reader = new Blob([payload]).stream().pipeThrough(new DecompressionStream("deflate-raw")).getReader();
+    const chunks: Uint8Array[] = [];
+    let length = 0;
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > maxBytes) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+    const out = new Uint8Array(length);
+    let at = 0;
+    for (const chunk of chunks) {
+      out.set(chunk, at);
+      at += chunk.byteLength;
+    }
+    return out;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The first member of a zip whose name `want` accepts, unpacked. Null for anything that
  * isn't a zip, holds no such member, or packs it some way other than stored or deflate.
@@ -245,42 +291,70 @@ export interface ZipMember {
 export async function zipMember(buffer: ArrayBuffer, want: (name: string) => boolean): Promise<ZipMember | null> {
   const view = new DataView(buffer);
   const bytes = new Uint8Array(buffer);
-  if (bytes[0] !== 0x50 || bytes[1] !== 0x4b) return null; // not "PK"
+  if (buffer.byteLength > MAX_GPX_BYTES || bytes[0] !== 0x50 || bytes[1] !== 0x4b) return null; // not "PK"
+  // every offset and length here is a DataView read plus a small constant, so the one
+  // question is whether the span ends inside the buffer
+  const inBounds = (at: number, length: number) => at + length <= bytes.length;
 
   // End of central directory, scanned backwards — it sits at the end, after a comment
   // whose length nothing else tells us.
   let eocd = -1;
-  for (let i = buffer.byteLength - 22; i >= 0 && i > buffer.byteLength - 65_557; i--) {
-    if (view.getUint32(i, true) === 0x06054b50) {
+  // A comment is arbitrary bytes, the EOCD magic included, so the magic alone is not
+  // proof. The record whose declared comment ends exactly at the end of the file is the
+  // real one when there is such a record; when there is none — a writer that padded the
+  // archive, a download that appended a byte — the last record whose comment at least
+  // FITS is taken instead, which is the tolerance Info-ZIP and Python's zipfile extend
+  // to trailing bytes, and what read these files before the exact rule existed.
+  let fits = -1;
+  // ZIP permits a 65,535-byte comment, so its EOCD can sit exactly 65,557 bytes
+  // from the end (22-byte record + comment). Include that lower endpoint.
+  const firstEocd = Math.max(0, buffer.byteLength - 65_557);
+  for (let i = buffer.byteLength - 22; i >= firstEocd; i--) {
+    if (view.getUint32(i, true) !== 0x06054b50) continue;
+    const end = i + 22 + view.getUint16(i + 20, true);
+    if (end === buffer.byteLength) {
       eocd = i;
       break;
     }
+    if (fits < 0 && end <= buffer.byteLength) fits = i;
   }
+  if (eocd < 0) eocd = fits;
   if (eocd < 0) return null;
 
   const count = view.getUint16(eocd + 10, true);
   let at = view.getUint32(eocd + 16, true);
   for (let i = 0; i < count; i++) {
+    if (!inBounds(at, 46)) return null; // fixed central-directory header
     if (view.getUint32(at, true) !== 0x02014b50) return null;
     const method = view.getUint16(at + 10, true);
     const compressed = view.getUint32(at + 20, true);
+    const uncompressed = view.getUint32(at + 24, true);
     const nameLen = view.getUint16(at + 28, true);
     const extraLen = view.getUint16(at + 30, true);
     const commentLen = view.getUint16(at + 32, true);
     const localAt = view.getUint32(at + 42, true);
+    const entryLength = 46 + nameLen + extraLen + commentLen;
+    if (!inBounds(at, entryLength)) return null;
     const name = new TextDecoder().decode(bytes.subarray(at + 46, at + 46 + nameLen));
-    at += 46 + nameLen + extraLen + commentLen;
+    at += entryLength;
     if (!want(name)) continue;
 
+    // A KMZ can have huge previews or attachments beside its route. We never read
+    // those members, so their declared size must not reject an otherwise sound KML.
+    // The selected member still has both its compressed and inflated size bounded.
+    if (compressed > MAX_GPX_BYTES || uncompressed > MAX_GPX_BYTES) return null;
+
     // the local header repeats the name and extra fields at its own lengths
+    if (!inBounds(localAt, 30)) return null;
     if (view.getUint32(localAt, true) !== 0x04034b50) return null;
     const dataAt =
       localAt + 30 + view.getUint16(localAt + 26, true) + view.getUint16(localAt + 28, true);
+    if (!inBounds(dataAt, compressed)) return null;
     const payload = bytes.subarray(dataAt, dataAt + compressed);
     if (method === 0) return { name, bytes: payload }; // stored
     if (method !== 8) return null; // anything but deflate is beyond what these zips should be
-    const stream = new Blob([payload]).stream().pipeThrough(new DecompressionStream("deflate-raw"));
-    return { name, bytes: new Uint8Array(await new Response(stream).arrayBuffer()) };
+    const inflated = await inflateDeflateRaw(payload, MAX_GPX_BYTES);
+    return inflated ? { name, bytes: inflated } : null;
   }
   return null;
 }
@@ -299,12 +373,11 @@ export async function kmzToKml(buffer: ArrayBuffer): Promise<string | null> {
 function georssPoints(doc: Document): TrackPoint[] {
   const out: TrackPoint[] = [];
   for (const node of [...byLocalName(doc, "line"), ...byLocalName(doc, "polygon")]) {
-    const nums = (node.textContent ?? "").trim().split(/[\s,]+/).map(Number);
-    for (let i = 0; i + 1 < nums.length; i += 2) {
-      const lat = nums[i]!;
-      const lon = nums[i + 1]!;
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-      if (Math.abs(lat) > 90 || Math.abs(lon) > 180) continue;
+    const tokens = (node.textContent ?? "").trim().split(/[\s,]+/);
+    for (let i = 0; i + 1 < tokens.length; i += 2) {
+      const lat = finiteTextNumber(tokens[i]);
+      const lon = finiteTextNumber(tokens[i + 1]);
+      if (!validLatLon(lat, lon)) continue;
       out.push({ lat, lon });
     }
   }
@@ -333,9 +406,12 @@ function kmlPoints(doc: Document): TrackPoint[] {
     if (!LINES.has(block.parentElement?.localName.toLowerCase() ?? "")) continue;
     for (const triple of (block.textContent ?? "").trim().split(/\s+/)) {
       if (!triple) continue;
-      const [lon, lat, ele] = triple.split(",").map(Number);
-      if (!Number.isFinite(lat!) || !Number.isFinite(lon!)) continue;
-      out.push(Number.isFinite(ele!) ? { lat: lat!, lon: lon!, ele: ele! } : { lat: lat!, lon: lon! });
+      const [rawLon, rawLat, rawEle] = triple.split(",");
+      const lon = finiteTextNumber(rawLon);
+      const lat = finiteTextNumber(rawLat);
+      const ele = finiteTextNumber(rawEle);
+      if (!validLatLon(lat, lon)) continue;
+      out.push(Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
     }
   }
   return out;
@@ -348,10 +424,13 @@ function kmlPoints(doc: Document): TrackPoint[] {
 function tcxPoints(doc: Document): TrackPoint[] {
   const out: TrackPoint[] = [];
   for (const n of byLocalName(doc, "Trackpoint")) {
-    const lat = Number(localText(n, "LatitudeDegrees"));
-    const lon = Number(localText(n, "LongitudeDegrees"));
-    if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-    const ele = Number(localText(n, "AltitudeMeters"));
+    const lat = finiteTextNumber(localText(n, "LatitudeDegrees"));
+    const lon = finiteTextNumber(localText(n, "LongitudeDegrees"));
+    if (!validLatLon(lat, lon)) continue;
+    // Number(null) is 0, so an absent altitude must be kept distinct from a
+    // genuine sea-level reading. Otherwise one incomplete TCX point invents a
+    // descent to sea level and makes the whole profile look measured.
+    const ele = finiteTextNumber(localText(n, "AltitudeMeters"));
     out.push(Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
   }
   return out;
@@ -376,7 +455,7 @@ export function geoJsonPoints(raw: unknown): TrackPoint[] {
       if (!Array.isArray(pos)) continue;
       const [lon, lat, ele] = pos as number[];
       if (typeof lat !== "number" || typeof lon !== "number") continue;
-      if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+      if (!validLatLon(lat, lon)) continue;
       out.push(typeof ele === "number" && Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
     }
   };
@@ -441,6 +520,24 @@ function resampleEvery(cumulative: number[], elevations: number[], stepM: number
 }
 
 /**
+ * Every point's altitude, in order — with a gap carried from the nearest earlier
+ * reading, and a leading gap from the first later one. Empty when no point has one.
+ *
+ * A watch often has a fix a few seconds before its barometer has settled, and a TCX
+ * or GPX writer leaves the tag out of those samples (a FIT writes the format's
+ * INVALID value, which fitRoute reads the same way). Read strictly, a handful of such
+ * seconds would drop the whole profile and the climb with it — and read as sea level,
+ * which is what an absent tag once became, they invented a descent to the coast. The
+ * carried reading is what the device's own screen showed in those seconds.
+ */
+export function filledElevations(points: readonly TrackPoint[]): number[] {
+  const first = points.find((p) => typeof p.ele === "number" && Number.isFinite(p.ele));
+  if (!first) return [];
+  let last = first.ele!;
+  return points.map((p) => (typeof p.ele === "number" && Number.isFinite(p.ele) ? (last = p.ele) : last));
+}
+
+/**
  * Distance, climb and a profile from a track. Null when there isn't enough to say
  * anything — one point is a location, not a route.
  *
@@ -448,7 +545,7 @@ function resampleEvery(cumulative: number[], elevations: number[], stepM: number
  * and every other tool, and on real terrain the difference is under 1%.
  */
 export function gpxStats(points: readonly TrackPoint[]): GpxStats | null {
-  if (points.length < 2) return null;
+  if (points.length < 2 || points.some((p) => !validLatLon(p.lat, p.lon))) return null;
 
   const cumulative: number[] = [0];
   let distanceM = 0;
@@ -458,9 +555,7 @@ export function gpxStats(points: readonly TrackPoint[]): GpxStats | null {
   }
   if (!(distanceM > 0)) return null;
 
-  const withEle = points.every((p) => p.ele != null)
-    ? (points as TrackPoint[]).map((p) => p.ele!)
-    : [];
+  const withEle = filledElevations(points);
 
   let ascentM = 0;
   let descentM = 0;

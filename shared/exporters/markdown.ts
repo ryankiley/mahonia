@@ -3,7 +3,7 @@
 // the same text at /s/{code}.md (server/middleware/shareMarkdown.ts) — a test pins
 // the two byte-for-byte, so a change here is a change to what a share link reads as.
 
-import type { ListSnapshot } from "../types";
+import type { Item, ListSnapshot } from "../types";
 import { carrierName, effectivePersonId } from "../people";
 import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, isBareGroup, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
@@ -28,6 +28,12 @@ const withCarrier = (name: string, carrier?: string) =>
 // is no tag and stays. Other Markdown in a name (*stars*, an underscore) reads as
 // Markdown, which a reader can see. Only the Item cell needs it: the rest are numbers.
 const cell = (text: string) => text.replace(/[\\|]|<(?=[A-Za-z!/?])/g, "\\$&");
+
+/** The count cell is shared by top-level and nested rows, including a base-row worn split. */
+function quantityLabel(item: Item, folders: ListSnapshot["folders"]): string {
+  const wornQty = splitWornQty(item, effectiveClassification(item, folders));
+  return `${item.qty}${wornQty > 0 ? ` (${wornQty} worn)` : ""}`;
+}
 
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;
@@ -57,11 +63,10 @@ export function listToMarkdown(list: ListSnapshot): string {
         withCommon(itemDisplayName(it.brand, it.name, it.variant), it.commonName),
         carrierName(list, it),
       );
-      const wq = splitWornQty(it, effectiveClassification(it, list.folders));
       // a bare group's Qty cell is empty, matching the three on-screen faces: the weight
       // beside it is the GROUP total, so a count there multiplies a figure it is already
       // inside — and on a row whose own line is zero, it multiplies zero
-      const qty = isBareGroup(it, kids.length > 0) ? "" : `${it.qty}${wq > 0 ? ` (${wq} worn)` : ""}`;
+      const qty = isBareGroup(it, kids.length > 0) ? "" : quantityLabel(it, list.folders);
       out.push(`| ${cell(name)} | ${qty} | ${w} |`);
       // nested items as indented sub-rows (the row weight above is their total)
       for (const child of kids) {
@@ -75,7 +80,7 @@ export function listToMarkdown(list: ListSnapshot): string {
           withCommon(itemDisplayName(child.brand, child.name, child.variant), child.commonName),
           effectivePersonId(child, it) === effectivePersonId(it) ? undefined : carrierName(list, child, it),
         );
-        out.push(`| ↳ ${cell(cn)} | ${child.qty} | ${cw} |`);
+        out.push(`| ↳ ${cell(cn)} | ${quantityLabel(child, list.folders)} | ${cw} |`);
       }
     }
     out.push("");

@@ -91,8 +91,8 @@ registerEndpoint("/api/edit/list", (event) => {
 // composable runs here (nothing mocks it), so its state is set the way /api/auth/me
 // would leave it.
 function sessionResolved(signedIn: boolean) {
-  useState<{ email: string; displayName: string | null } | null>("session-user").value = signedIn
-    ? { email: "ryan@example.com", displayName: null }
+  useState<{ owner: string; email: string; displayName: string | null } | null>("session-user").value = signedIn
+    ? { owner: "1", email: "ryan@example.com", displayName: null }
     : null;
   useState<boolean>("session-loaded").value = true;
 }
@@ -163,6 +163,7 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     // a claimed open only ever happens with the session hint present (the route
     // watcher's gate), and the ledger stamps only with an account behind the browser
     document.cookie = "mh_signed_in=1; path=/";
+    document.cookie = "mh_session_owner=1; path=/";
     window.dispatchEvent(new Event("online"));
   });
   afterEach(() => {

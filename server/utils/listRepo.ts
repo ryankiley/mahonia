@@ -5,7 +5,7 @@
 import { createError } from "h3";
 import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql } from "drizzle-orm";
 import { listClaims, catalogItems, listSnapshots, lists, type ListRow, users } from "../db/schema";
-import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeCalendarDate, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, tidyListText, type Op, MAX_TITLE_LEN, isCatalogId } from "../../shared/ops";
+import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeCalendarDate, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyListText, type Op, MAX_TITLE_LEN, isCatalogId } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
 import { computeTotals } from "../../shared/weights";
 import {
@@ -25,7 +25,7 @@ import { parseProfile } from "../../shared/profile";
 import { normalizeRouteGeometry } from "../../shared/polyline";
 import { tidyProse, tidyText } from "../../shared/tidyText";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
-import { ensureSnapshotSchema, ensureTrailFaviconSchema, useAccountDb, useDb, type Db } from "./db";
+import { ensureSnapshotSchema, ensureTrailFaviconSchema, isUniqueViolation, useAccountDb, useDb, type Db } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
 import { ensureCatalogSchema } from "./catalog";
 import { randomEditToken, randomShareCode, randomSlug, sha256Hex } from "./tokens";
@@ -624,23 +624,29 @@ export async function restoreSnapshotByEditHash(
   if (!s) return null; // unknown id, or not this caller's list
 
   // re-normalize through the SAME reducer helpers (defensive — a snapshot must not
-  // be a clamp-bypass back into raw JSONB), and re-validate the unit
+  // be a clamp-bypass back into raw JSONB). The meta too, and through the same
+  // function as createList: the title tidied like every item and folder name
+  // normalizeListData just tidied (one operation must not return "Ryan’s tent" under
+  // a title still reading "  Ryan's   Trip  "), and the trail fields through the same
+  // gates as create/setMeta before they can re-enter a live row.
   const data = normalizeListData(s);
+  const meta = normalizeListMeta(s);
+  // Waypoints are distances along this exact geometry. A snapshot whose route is
+  // malformed (or not the canonical encoding of itself) follows setMeta's
+  // route-change rule, so no pin points at a route that no longer exists — but only
+  // on a CHANGE: a snapshot that never had a route keeps the pins it has, as setMeta
+  // would, rather than losing them for having no line to hang them on.
+  if (s.routeGeometry != null && meta.routeGeometry !== s.routeGeometry)
+    data.waypoints = seedRouteEnds(meta.routeGeometry ?? "");
   const totals = computeTotals(data);
-  // tidied like createList's, because normalizeListData just tidied every item and
-  // folder name in this same restore. Without it one operation returns an internally
-  // inconsistent list — rows reading "Ryan’s tent" under a title still reading
-  // "  Ryan's   Trip  " — which is the mixed state the tidy exists to remove.
-  const title = tidyText((s.title ?? "").slice(0, MAX_TITLE_LEN)) || "Untitled list";
-  const displayUnit: Unit = UNITS.includes(s.displayUnit as Unit) ? (s.displayUnit as Unit) : "g";
   // restore writes title/description like a mutate does, so it's the same link-spam
   // vector: publish clean, then restore a link-stuffed earlier snapshot. Re-check
   // here too (set-only, mirroring applyOpsByEditHash) so this path can't smuggle
   // spam meta onto an already-public list past the publish-time gate.
   const spammyMeta = isLikelySpam({
-    title,
-    description: s.description ?? null,
-    trailLabel: s.trailLabel ?? null,
+    title: meta.title,
+    description: meta.description ?? null,
+    trailLabel: meta.trailLabel ?? null,
   });
 
   // CAS like the mutate path: re-read + version-guard so a concurrent edit can't
@@ -652,37 +658,12 @@ export async function restoreSnapshotByEditHash(
     const updated = await d
       .update(lists)
       .set({
-        title,
-        // prose-tidied like every other write path (setMeta, createList)
-        description: s.description ? tidyProse(s.description.slice(0, 4000)) || null : null,
-        // Both through their normalizers, like every other write path. The label is
-        // the one that changed here — it tidies now, and restoring past it was how a
-        // list came back with a tidied title and an untidied link name. The URL is
-        // long-standing hardening this block already claims ("a snapshot must not be
-        // a clamp-bypass back into raw JSONB") but didn't apply: safeUrl is what keeps
-        // a javascript: value out of the :href a stranger clicks on a shared list.
-        trailUrl: normalizeTrailUrl(s.trailUrl) ?? null,
-        trailLabel: normalizeTrailLabel(s.trailLabel) ?? null,
-        // NOT normalized, unlike the three above — and that asymmetry is a merge artefact
-        // rather than a decision. The clamp-bypass argument in that comment is about this
-        // whole block, so these belong behind their normalizers too (parseProfile,
-        // normalizeTrailDistanceM, normalizeDistanceUnit, normalizeTrailAscentM,
-        // normalizeRouteGeometry). Left alone here so the merge stays a merge; doing it
-        // properly means deciding what an unparseable profile restores AS, since
-        // parseProfile returns [] where the others return undefined.
-        trailDistanceM: s.trailDistanceM ?? null,
-        trailDistanceUnit: s.trailDistanceUnit ?? null,
-        trailProfile: s.trailProfile ?? null,
-        trailAscentM: s.trailAscentM ?? null,
-        trailDescentM: s.trailDescentM ?? null,
-        // WRITTEN here, unlike body weight was. Geometry rides the snapshot chain because
-        // it is a property of the LIST, and it is the one field the owner cannot retype —
-        // it came off a file they may no longer have. Leaving it out of the write would
-        // NULL it on every restore, which is the exact bug trailProfile already had.
-        routeGeometry: s.routeGeometry ?? null,
-        startDate: s.startDate ?? null,
-        endDate: s.endDate ?? null,
-        displayUnit,
+        // Every meta column, absent ones as null: a restore is a whole-list write, and
+        // a column left out of an update keeps the LIVE value — the way body weight is
+        // deliberately left standing (it never entered the chain), and the way geometry
+        // (the one field an owner cannot retype; it came off a file they may no longer
+        // have) must not be.
+        ...nulled(meta),
         data,
         ...weightColumns(totals),
         ...(row.isPublic && spammyMeta ? { flagged: true } : {}),
@@ -823,6 +804,59 @@ export async function getByEditHash(editHash: string): Promise<ListSnapshot | nu
 }
 
 /**
+ * THE VALIDATED META, as one object a write spreads — createList's insert and a
+ * snapshot restore's update, the two paths that take a whole list's meta from outside
+ * the reducer (the create route hands the body's LIST_META_KEYS through untouched, and
+ * a snapshot is old, externally recoverable JSONB). EVERY meta field is validated here
+ * and only here, typeof included.
+ *
+ * `satisfies Record<ListMetaKey, unknown>` is the load-bearing part: it fails to
+ * compile unless every LIST_META_KEYS entry appears here. Without it a field added to
+ * ListMeta would type-check the whole way in and then be dropped at the write, which
+ * is the trip-dates bug relocated one hop — and on a restore it is worse than dropped:
+ * an update that omits a column leaves the LIVE value standing, so the field would
+ * read as restored while holding whatever was there before.
+ *
+ * An absent field is `undefined`, which an insert takes as the column default; a
+ * restore must write `null` instead, or the omission above is exactly what happens —
+ * see `nulled`.
+ */
+function normalizeListMeta(raw: Partial<Record<ListMetaKey, unknown>> = {}) {
+  return {
+    title: tidyText((typeof raw.title === "string" ? raw.title : "").slice(0, MAX_TITLE_LEN)) || "Untitled list",
+    // tidyProse, matching the setMeta case — apostrophes and invisibles yes, line
+    // breaks kept, because this is the one text field that can hold paragraphs
+    description: typeof raw.description === "string" && raw.description
+      ? tidyProse(raw.description.slice(0, 4000)) || undefined
+      : undefined,
+    // anything but a real unit is grams
+    displayUnit: (typeof raw.displayUnit === "string" && UNITS.includes(raw.displayUnit as Unit)
+      ? raw.displayUnit
+      : "g") as Unit,
+    // re-validated, not just clamped — a create can carry an imported JSON backup's URL,
+    // and safeUrl is what keeps a javascript: value out of the :href a stranger clicks
+    trailUrl: normalizeTrailUrl(raw.trailUrl) ?? undefined,
+    trailLabel: normalizeTrailLabel(raw.trailLabel),
+    trailDistanceM: normalizeTrailDistanceM(raw.trailDistanceM),
+    trailDistanceUnit: normalizeDistanceUnit(raw.trailDistanceUnit),
+    trailProfile: parseProfile(raw.trailProfile).join(",") || undefined,
+    trailAscentM: normalizeTrailAscentM(raw.trailAscentM),
+    trailDescentM: normalizeTrailAscentM(raw.trailDescentM),
+    routeGeometry: normalizeRouteGeometry(raw.routeGeometry),
+    // same rule the setMeta op applies, so a date set on a draft means the same thing
+    // after the draft is saved as it did before
+    startDate: normalizeCalendarDate(raw.startDate),
+    endDate: normalizeCalendarDate(raw.endDate),
+  } satisfies Record<ListMetaKey, unknown>;
+}
+
+/** The same meta with every absent field as an explicit `null`, for an UPDATE. */
+type Nulled<T> = { [K in keyof T]: undefined extends T[K] ? Exclude<T[K], undefined> | null : T[K] };
+function nulled<T extends object>(meta: T): Nulled<T> {
+  return Object.fromEntries(Object.entries(meta).map(([k, v]) => [k, v ?? null])) as Nulled<T>;
+}
+
+/**
  * Every live list this account has claimed, as the OWNER sees it: route, pins and
  * packing ticks included, catalog names trickled down. The account's own takeout
  * (server/api/account/export), and the one read path that answers a session rather
@@ -876,55 +910,10 @@ export async function createList(
   // straight apostrophe (and the stray spaces) that the identical rename after saving
   // would have tidied. The `||` fallback still reads the tidied value, so a
   // whitespace-only title is "Untitled list" and not a bare "-a1b2c3" slug.
-  // EVERY meta field is validated here and only here, typeof included: the create route
-  // hands the body's LIST_META_KEYS through untouched (see create.post.ts), so a field
-  // that arrives as the wrong type is this function's case, not the route's.
-  const title = tidyText((typeof init?.title === "string" ? init.title : "").slice(0, MAX_TITLE_LEN)) || "Untitled list";
-  // tidyProse, matching the setMeta case — apostrophes and invisibles yes, line
-  // breaks kept, because this is the one text field that can hold paragraphs
-  const description = typeof init?.description === "string" && init.description
-    ? tidyProse(init.description.slice(0, 4000)) || undefined
-    : undefined;
-  // re-validated, not just clamped — a create can carry an imported JSON backup's URL
-  const trailUrl = normalizeTrailUrl(init?.trailUrl) ?? undefined;
-  const trailLabel = normalizeTrailLabel(init?.trailLabel);
-  const trailDistanceM = normalizeTrailDistanceM(init?.trailDistanceM);
-  const trailDistanceUnit = normalizeDistanceUnit(init?.trailDistanceUnit);
-  const trailProfile = parseProfile(init?.trailProfile).join(",") || undefined;
-  const trailAscentM = normalizeTrailAscentM(init?.trailAscentM);
-  const trailDescentM = normalizeTrailAscentM(init?.trailDescentM);
-  const routeGeometry = normalizeRouteGeometry(init?.routeGeometry);
-  // same rule the setMeta op applies, so a date set on a draft means the same thing
-  // after the draft is saved as it did before
-  const startDate = normalizeCalendarDate(init?.startDate);
-  const endDate = normalizeCalendarDate(init?.endDate);
+  const meta = normalizeListMeta(init);
+  const { title, trailUrl } = meta;
   const data = normalizeListData(init?.data);
   const totals = computeTotals(data);
-  // checked here since the route stopped doing it — anything but a real unit is grams
-  const displayUnit = init?.displayUnit && UNITS.includes(init.displayUnit) ? init.displayUnit : "g";
-
-  // THE VALIDATED META, as one object the insert spreads.
-  //
-  // `satisfies Record<ListMetaKey, unknown>` is the load-bearing part: it fails to
-  // compile unless every LIST_META_KEYS entry appears here. The route forwards the
-  // whole meta now, so without this a field added to ListMeta would type-check the
-  // whole way in and then be dropped at the insert, which is the trip-dates bug
-  // relocated one hop — and with a comment upstream promising it can't happen.
-  const meta = {
-    title,
-    description,
-    displayUnit,
-    trailUrl,
-    trailLabel,
-    trailDistanceM,
-    trailDistanceUnit,
-    trailProfile,
-    trailAscentM,
-    trailDescentM,
-    routeGeometry,
-    startDate,
-    endDate,
-  } satisfies Record<ListMetaKey, unknown>;
 
   // Retry on slug/share_code unique collision (regenerated each attempt).
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -949,7 +938,7 @@ export async function createList(
       // loses it the moment it is first saved
       return { editToken, snapshot: withOwnerOnly(rowToSnapshot(inserted[0]!), inserted[0]!) };
     } catch (e) {
-      if ((e as { code?: string })?.code === "23505" && attempt < 4) continue;
+      if (isUniqueViolation(e) && attempt < 4) continue;
       throw e;
     }
   }

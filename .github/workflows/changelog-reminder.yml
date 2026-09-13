@@ -15,7 +15,7 @@
 # thing a visitor can see, and hand-labelling each one is the tax this avoids.
 #
 # It never blocks a merge (the repo runs no required checks) and clears its own
-# comment once satisfied. See scripts/changelog.mjs + README.
+# comment once satisfied. See scripts/changelog.ts + README.
 #
 # There is no auto-fill: nothing writes the entry for you. If a user-facing PR
 # merges without one, that day's release simply omits the change until it's
@@ -35,6 +35,10 @@ permissions:
 
 jobs:
   remind:
+    # Fork and Dependabot PRs receive a read-only GITHUB_TOKEN, regardless of
+    # this workflow's requested permission. The reminder only writes a comment,
+    # so skip it there instead of turning an otherwise valid PR red.
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/github-script@v7

@@ -2,11 +2,10 @@ import type { Ref } from "vue";
 import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
 import {
   chipWeightLabels,
-  filterItemsForPerson,
   hasUnassignedTopLevel,
+  selectItemsForPerson,
   selectionGone,
   sortedPeople,
-  visibleItemsForPerson,
   type PersonSelection,
 } from "~~/shared/people";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
@@ -50,9 +49,17 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   // (matches plus a parent kept as context around a matching child) and the rows
   // a person's totals COUNT (strict — a context parent's own line is someone
   // else's weight)
-  const visibleItems = computed(() =>
-    visibleItemsForPerson(snapshot.value?.items ?? [], personFilter.value),
-  );
+  const personItems = computed(() => selectItemsForPerson(snapshot.value?.items ?? [], personFilter.value));
+  const visibleItems = computed(() => personItems.value.visible);
+  const filteredItems = computed(() => personItems.value.counted);
+  // A parent held on screen only to contain a matching child renders without its own
+  // weight. This belongs beside the selection result, not in the template component,
+  // which receives an already-filtered list.
+  const contextOnlyIds = computed(() => {
+    if (!personFilter.value) return new Set<string>();
+    const counted = new Set(filteredItems.value.map((item) => item.id));
+    return new Set(visibleItems.value.filter((item) => !counted.has(item.id)).map((item) => item.id));
+  });
   // the whole list's totals, filter or no filter — what SEO/unfurls must describe
   // (a share preview is about the list, not about whichever chip a viewer tapped)
   const fullTotals = computed(() => (snapshot.value ? computeTotals(snapshot.value) : null));
@@ -67,7 +74,7 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
     if (!personFilter.value) return fullTotals.value;
     return computeTotals({
       folders: snapshot.value.folders,
-      items: filterItemsForPerson(snapshot.value.items, personFilter.value),
+      items: filteredItems.value,
     });
   });
   // re-skin the snapshot with the viewer's unit + filter; readonly components read
@@ -102,8 +109,9 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
     personFilter: personFilter.value,
     showUnassigned: showUnassigned.value,
     chipWeights: chipWeights.value,
+    contextOnlyIds: contextOnlyIds.value,
   }));
-  return { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights, viewProps };
+  return { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights, contextOnlyIds, viewProps };
 }
 
 // The read-only pages' SEO summary was copy-pasted across /s and /l and already

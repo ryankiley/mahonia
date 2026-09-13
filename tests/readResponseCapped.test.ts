@@ -8,7 +8,7 @@ import { readResponseCapped } from "../server/utils/http";
 
 /** A Response whose body yields `chunks` one at a time, recording how many were
  *  read before the consumer let go. */
-function streamed(chunks: Uint8Array[]) {
+function streamed(chunks: Uint8Array[], onCancel?: () => void | Promise<void>) {
   const state = { pulled: 0, cancelled: false };
   const body = new ReadableStream<Uint8Array>({
     async pull(controller) {
@@ -19,6 +19,7 @@ function streamed(chunks: Uint8Array[]) {
     },
     cancel() {
       state.cancelled = true;
+      return onCancel?.();
     },
   });
   return { res: new Response(body), state };
@@ -55,10 +56,30 @@ describe("readResponseCapped", () => {
     const read = await readResponseCapped(res, 128 * 1024, "truncate");
     expect(read.ok).toBe(true);
     expect(read.ok && read.body).not.toBeNull();
-    // what it kept is the prefix it had already pulled, and it stopped there
-    expect(read.ok && read.body!.byteLength).toBeLessThanOrEqual(192 * 1024);
+    // what it kept is exactly the capped prefix, even though the final read was
+    // a full 64 KB network chunk.
+    expect(read.ok && read.body!.byteLength).toBe(128 * 1024);
     expect(state.cancelled).toBe(true);
     expect(state.pulled).toBeLessThanOrEqual(3);
+  });
+
+  it("does not retain a single oversized chunk when truncating", async () => {
+    const { res, state } = streamed([kb(512, 0x62), kb(512, 0x63)]);
+    const read = await readResponseCapped(res, 128 * 1024, "truncate");
+    expect(read.ok).toBe(true);
+    expect(read.ok && read.body).not.toBeNull();
+    expect(read.ok && read.body!.byteLength).toBe(128 * 1024);
+    expect(read.ok && read.body![0]).toBe(0x62);
+    expect(state.cancelled).toBe(true);
+    expect(state.pulled).toBe(1);
+  });
+
+  it("owns a truncated prefix before cancellation can mutate its oversized source", async () => {
+    const source = kb(512, 0x62);
+    const { res } = streamed([source], () => { source.fill(0x63); });
+    const read = await readResponseCapped(res, 128 * 1024, "truncate");
+    // A retained subarray would now read 0x63 because it shares source.buffer.
+    expect(read.ok && read.body![0]).toBe(0x62);
   });
 
   it("keeps the <head> at the front of a truncated read — the reason truncate exists", async () => {

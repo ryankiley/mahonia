@@ -10,9 +10,10 @@ const NO_ITEMS: ItemT[] = [];
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { personColor } from "~~/shared/people";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
-import { effectiveClassification, formatKcal, formatWeight, isBareGroup, rowDisplayMg, splitWornQty, rowDisplayKcal } from "~~/shared/weights";
+import { effectiveClassificationInFolder, formatKcal, formatWeight, isBareGroup, rowDisplayMg, splitWornQty, rowDisplayKcal } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
-import { classLabel, classMark } from "~/utils/itemMarks";
+import { consumableIcon } from "~/utils/itemMarks";
+import { Backpack02Icon, ShirtIcon } from "@hugeicons/core-free-icons";
 
 // The share views' row (/s + /l): name (a web-search link via <ItemName search>),
 // amount, line weight — and its nested children, rendered the SAME way one level down
@@ -29,7 +30,7 @@ const props = withDefaults(
     childrenByParent: Map<string, Item[]>;
     /**
      * Rows kept on screen only as a label for a matching child, under a person
-     * filter (ReadonlyListView computes the set). Such a row's own line is not in
+     * filter (useReadonlyList computes the set). Such a row's own line is not in
      * this page's totals, so it prints no weight — the editor blanks the same cell
      * in CSS, which is the only way it can, since no row there sees the filter.
      */
@@ -53,7 +54,12 @@ const variantOnRow = computed(() => !!props.variantShownIds?.has(props.item.id))
 /** this row is scaffolding around a match, not one of the filtered person's own */
 const isContextOnly = computed(() => !!props.contextOnlyIds?.has(props.item.id));
 
-const effClass = computed(() => effectiveClassification(props.item, props.list.folders));
+// Both the effective class and the exception mark need this folder. Resolve it once per
+// row rather than searching the folder list for each derived value.
+const folder = computed(() =>
+  props.item.folderId ? props.list.folders.find((itemFolder) => itemFolder.id === props.item.folderId) : undefined,
+);
+const effClass = computed(() => effectiveClassificationInFolder(props.item, folder.value));
 // one level of nesting: a nested row never renders its own children
 const children = computed(() =>
   props.nested ? NO_ITEMS : (props.childrenByParent.get(props.item.id) ?? NO_ITEMS),
@@ -97,14 +103,14 @@ const isWorn = computed(() => effClass.value === "worn" || splitWorn.value > 0);
 // The class the row would have said nothing to earn — its folder's default, which is
 // what every row in it inherits unless it says otherwise.
 const folderDefault = computed<Classification>(
-  () => props.list.folders.find((f) => f.id === props.item.folderId)?.defaultClassification ?? "base",
+  () => folder.value?.defaultClassification ?? "base",
 );
 // A mark is drawn only where the row DEPARTS from that. The overwhelmingly common
 // list is LighterPack-shaped — a "Worn" folder and a "Consumables" folder — and there
 // every row inside inherited, so the column was a run of identical glyphs under a
 // heading that already said the word in full. What carries information is the
 // exception: the rain jacket filed under Clothing but worn, the stove filed with the
-// food. Which is also why base has a glyph of its own here (classMark) where the
+// food. Which is also why base has a glyph of its own here (markIcon) where the
 // editor's pair of toggles never needed one — inside a consumable folder, "not food"
 // is precisely the departure worth drawing, and it was the one class that had no
 // picture to draw it with.
@@ -126,13 +132,23 @@ const showMark = computed(
 );
 // worn wins over the effective class for the picture, so a split reads as the shirt
 const markClass = computed<Classification>(() => (isWorn.value ? "worn" : effClass.value));
-const markIcon = computed(() => classMark(markClass.value, props.item.name));
+// The glyph: the shirt, the consumable's own picture (consumableIcon — the one rule the
+// editor toggle and /gear read too), or the BACKPACK. Base takes the backpack, and it is
+// the app's own word for the class rather than a new one: base weight is what's in the
+// pack, which is what the Carried tooltip says in as many words. This row is the one
+// place that needs a picture for it — the editor's pair of toggles never did (base is
+// both of them unlit) — which is why the backpack is drawn here and not in itemMarks,
+// a module on the editor's first load.
+const markIcon = computed(() =>
+  markClass.value === "worn" ? ShirtIcon : markClass.value === "consumable" ? consumableIcon(props.item) : Backpack02Icon,
+);
 // the hover title, matching the editor's tooltip: a split names its count, since
-// "Worn" alone would overstate a row that is mostly in the pack
+// "Worn" alone would overstate a row that is mostly in the pack. The word is also the
+// label a flattened reader gets (the visually-hidden text in the template).
 const markTitle = computed(() =>
   splitWorn.value > 0
     ? `${splitWorn.value} of ${props.item.qty} worn`
-    : classLabel(markClass.value),
+    : markClass.value === "worn" ? "Worn" : markClass.value === "consumable" ? "Consumable" : "Base",
 );
 // A quantity of one is the default — see itemQtyLabel's `hideSingle`. A BARE GROUP
 // carries no count in this column at all (`group`): the weight beside it is the group's

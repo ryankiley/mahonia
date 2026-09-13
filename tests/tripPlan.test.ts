@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   dayEnd,
+  dayEnds,
   dayRanges,
   heightIsDerived,
+  lastOwnedDayIndex,
   shownHeightM,
   burnDownMg,
   dayLegs,
@@ -343,6 +345,15 @@ describe("shownHeightM / heightIsDerived", () => {
 
 describe("dayEnd", () => {
   const ranges = (ds: number[]) => dayRanges(ds);
+
+  it("batches route-end decisions without changing any row", () => {
+    const dayDistancesM = [10_000, 0, 12_000, 0];
+    const opts = { ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false, endPinsAtM: [4_000] };
+    expect(lastOwnedDayIndex(dayDistancesM)).toBe(2);
+    expect(dayEnds(opts)).toEqual(
+      dayDistancesM.map((_, index) => dayEnd({ ...opts, index })),
+    );
+  });
 
   it("camps every day but the last", () => {
     const dayDistancesM = [10_000, 12_000, 8_000];

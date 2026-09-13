@@ -25,7 +25,15 @@ function main() {
 
   const files = readResearchFiles(RESEARCH_DIR);
   const researchRows = files.reduce((n, f) => n + f.rows.length, 0);
-  for (const f of runResearchChecks(files, loadCommonNames(COMMON_NAMES_JSON))) bucket(f);
+  // a broken common-name map is one finding among the rest, not a stack trace in
+  // place of the report; the checks run on without it, as the build's fallback would
+  let commonNames = new Map<string, string>();
+  try {
+    commonNames = loadCommonNames(COMMON_NAMES_JSON);
+  } catch (e) {
+    errors.push({ level: "error", code: "json", message: (e as Error).message });
+  }
+  for (const f of runResearchChecks(files, commonNames)) bucket(f);
 
   // Standing CSV-level checks over the BUILT artifact (the shipped source of truth).
   // A CSV that will not even load (a malformed cell the strict parser refuses) is a

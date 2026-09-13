@@ -77,11 +77,11 @@
       "name": "Stretchdown Hoody",
       "variant": "Men's Medium",
       "category_hint": "clothing",
-      "weight_value": 18.1,
-      "weight_unit": "oz",
-      "weight_source": "measured",
-      "source_url": "https://www.outdoorgearlab.com/reviews/clothing-mens/down-jacket-men/mountain-hardwear-stretchdown-hoody",
-      "quote": "[Replaces MH's own claimed 9.3 oz / 264 g — a manufacturer spec error (implausible with 122.5 g of down fill; the women's version specs 439 g; CleverHiker measured 18 oz). 18.1 oz = 513 g] I weighed a men's Medium Stretchdown Hoody at 18.1 ounces, which makes it one of the heaviest jackets in our lineup."
+      "weight_value": 495,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://www.mountainhardwear.com/p/mens-stretchdown-hooded-jacket-2166121.html",
+      "quote": "Approx. Weight*: 1 lb 1.5 oz / 495 g (the maker now sells this as the StretchDown Hooded Jacket; its earlier 264 g spec was implausible and OutdoorGearLab weighed a men's Medium at 513 g — the corrected maker figure is within 4 % of that)"
     },
     {
       "brand": "Arc'teryx",

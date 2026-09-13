@@ -4,6 +4,7 @@
 // MERGE: two editors adding different items both succeed with no conflict; the
 // version counter only signals "you're behind, refetch", not "rejected".
 
+import { isCalendarDate } from "./calendar";
 import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
 import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
@@ -95,7 +96,6 @@ const CLASSES: Classification[] = ["base", "worn", "consumable"];
 
 // `YYYY-MM-DD`, and a date that actually exists — the regex alone would accept
 // 2026-02-31, which Date normalises to March and would silently move the trip.
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /**
  * A trip date, or nothing.
@@ -109,11 +109,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export function normalizeCalendarDate(raw: unknown): string | undefined {
   if (typeof raw !== "string") return undefined;
   const value = raw.trim();
-  if (!DATE_RE.test(value)) return undefined;
-  // round-trip through Date: if the parts survive, the day exists
-  const d = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== value) return undefined;
-  return value;
+  // shared/calendar.ts owns what a date is — the same rule the display side reads by
+  return isCalendarDate(value) ? value : undefined;
 }
 
 /**
@@ -184,15 +181,19 @@ const META_RULES: {
 // real lists, but bound row size / DoS and keep summed totals exact under the
 // bigint(mode:number) columns (MAX_ITEMS × qtyMax × UNIT_WEIGHT_MAX_MG < 2^53).
 /**
- * A catalog row id the database can hold: catalog_items.id is a Postgres integer, so
- * anything past 2^31 - 1 isn't an id but a query that fails, and it fails on every
- * later READ of the list as well as the write (hydrateCatalogNames looks the ids up).
- * One guard for the reducer, the row normalizer and the MCP tools, since a made-up id
- * is exactly what an assistant produces when it guesses.
+ * A row id the database can hold. Every id column in the schema is a Postgres
+ * `serial` (an integer), so anything past 2^31 - 1 isn't an id but a query that
+ * fails — and for a catalog id it fails on every later READ of the list as well as
+ * the write (hydrateCatalogNames looks the ids up). One guard for the reducer, the
+ * row normalizer, the MCP tools and every route that takes an id off the wire, since
+ * a made-up id is exactly what an assistant, or a hand-rolled request, produces.
  */
-export const MAX_CATALOG_ID = 2_147_483_647;
-export const isCatalogId = (raw: unknown): raw is number =>
-  typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= MAX_CATALOG_ID;
+export const MAX_SERIAL_ID = 2_147_483_647;
+export const isSerialId = (raw: unknown): raw is number =>
+  typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= MAX_SERIAL_ID;
+/** The same range under the name the catalog call sites read it by. */
+export const MAX_CATALOG_ID = MAX_SERIAL_ID;
+export const isCatalogId = isSerialId;
 
 export const MAX_ITEMS = 1000;
 export const MAX_FOLDERS = 50;
@@ -240,7 +241,8 @@ const MAX_ID_LEN = 128;
 // tracking beacon) onto a shared list a viewer opens.
 const SAFE_COLOR_KEY = /^[a-z0-9-]{1,40}$/;
 
-const clampWeight = (n: number) =>
+/** One physical item cannot weigh less than zero or more than the shared item cap. */
+export const clampUnitWeightMg = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
 
 /**
@@ -307,7 +309,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   // does it is a live sink on a page strangers open. "" clears it, like brand/variant.
   if (typeof patch.productUrl === "string") out.productUrl = httpUrl(patch.productUrl);
   if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
-    out.unitWeightMg = clampWeight(patch.unitWeightMg);
+    out.unitWeightMg = clampUnitWeightMg(patch.unitWeightMg);
   // entryUnit is DISPLAY ONLY (see types.ts) — validated against the unit list so a
   // hostile op can't put arbitrary text where a unit label renders. null/"" clears
   // it, dropping the row back to the list's displayUnit.
@@ -342,7 +344,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
     out.catalogWeightMgAtLink = undefined;
   } else if (isCatalogId(patch.catalogItemId)) out.catalogItemId = patch.catalogItemId;
   if (patch.catalogItemId !== null && typeof patch.catalogWeightMgAtLink === "number" && isFinite(patch.catalogWeightMgAtLink))
-    out.catalogWeightMgAtLink = clampWeight(patch.catalogWeightMgAtLink);
+    out.catalogWeightMgAtLink = clampUnitWeightMg(patch.catalogWeightMgAtLink);
   if (typeof patch.packed === "boolean") out.packed = patch.packed;
   // who carries it: null clears; a string is only clamped here and validated against
   // the list's people in applyOp's updateItem arm — same division of labor as the
@@ -820,7 +822,7 @@ export function normalizeItem(raw: Item): Item {
     commonName: raw.commonName ? cleanText(String(raw.commonName), MAX_GEAR_TYPE_LEN) || undefined : undefined,
     commonNameOverridden: raw.commonNameOverridden ? true : undefined,
     nameOverridden: raw.nameOverridden ? true : undefined,
-    unitWeightMg: clampWeight(Number(raw.unitWeightMg) || 0),
+    unitWeightMg: clampUnitWeightMg(Number(raw.unitWeightMg) || 0),
     weightOverridden: !!raw.weightOverridden,
     // display-only, but it must survive normalize or a JSON round-trip (and every
     // addItem, which also runs through here) would quietly reset each row to the
@@ -844,7 +846,7 @@ export function normalizeItem(raw: Item): Item {
         : undefined,
     catalogWeightMgAtLink:
       typeof raw.catalogWeightMgAtLink === "number" && isFinite(raw.catalogWeightMgAtLink)
-        ? clampWeight(raw.catalogWeightMgAtLink)
+        ? clampUnitWeightMg(raw.catalogWeightMgAtLink)
         : undefined,
     packed: !!raw.packed,
     // clamped only — the reducer's addItem case validates it against the list's

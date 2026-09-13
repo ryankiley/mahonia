@@ -1,4 +1,5 @@
 import { createError, getHeader, readRawBody, setHeader, type H3Event } from "h3";
+import { READ_EDGE_CACHE_CONTROL } from "../../shared/site";
 
 /**
  * Keep a response out of search results.
@@ -36,11 +37,10 @@ export function setPrivate(event: H3Event): void {
  *  makes the rounds, at the accepted cost of 30 s of staleness on a read-only
  *  surface. One helper because it's one INVARIANT — the pair a crawler fetches
  *  (a list's HTML via /api/s | /api/l, then its card image via /og) must go
- *  stale together, which six copies of a header literal can't promise. The two
- *  read PAGES (/s, /l) state the same window via useResponseHeader; app code
- *  can't reach this helper, so those two literals remain. */
+ *  stale together. READ_EDGE_CACHE_CONTROL lives in shared/site.ts, so the two
+ *  SSR read pages use this exact window too. */
 export function setReadEdgeCache(event: H3Event): void {
-  setHeader(event, "Cache-Control", "public, max-age=0, s-maxage=30, stale-while-revalidate=120");
+  setHeader(event, "Cache-Control", READ_EDGE_CACHE_CONTROL);
 }
 
 /** A day of edge cache for the static, same-for-everyone text routes (robots,
@@ -122,14 +122,24 @@ export async function readResponseCapped(
   for (;;) {
     const { value, done } = await reader.read();
     if (done) break;
-    total += value.byteLength;
-    chunks.push(value);
-    // stop pulling either way — we have what we need, or we've decided we don't want it
-    if (total > maxBytes) {
+    const remaining = maxBytes - total;
+    if (value.byteLength > remaining) {
+      // Do not retain an entire oversized network chunk. A subarray is only a
+      // view, so keeping one would keep the chunk's whole backing ArrayBuffer
+      // alive until Buffer.concat runs. Copy just the prefix instead.
+      if (onOversize === "truncate" && remaining > 0) {
+        const prefix = new Uint8Array(remaining);
+        prefix.set(value.subarray(0, remaining));
+        chunks.push(prefix);
+      }
+      // stop pulling either way — we have what we need, or we've decided we don't want it
       await reader.cancel();
       if (onOversize === "reject") return { ok: false, reason: "oversize" };
+      total = maxBytes;
       break;
     }
+    total += value.byteLength;
+    chunks.push(value);
   }
   return { ok: true, body: total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null };
 }

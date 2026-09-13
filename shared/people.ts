@@ -130,7 +130,7 @@ export function personColor(person?: Person): string {
  * rule had been written out twice by the time the packing tick needed it a third time.
  *
  * The parent is passed in rather than looked up, because the callers differ in how
- * they have it: filterItemsForPerson holds a whole list and builds a map, while a
+ * they have it: the selection helpers hold a whole list and build a map, while a
  * group's checkbox (shared/packing) already IS the parent and hands over itself.
  * Everyone matches everything — the everyone view is the list itself.
  */
@@ -141,6 +141,33 @@ export function matchesSelection(
 ): boolean {
   if (!selection) return true;
   return effectivePersonId(item, parent) === (selection === UNASSIGNED ? undefined : selection);
+}
+
+/** The strict rows a selection owns and the rows needed to render them in place. */
+export interface PersonItemSelection {
+  /** Rows included in a person's totals. */
+  counted: Item[];
+  /** Counted rows plus any parent needed as a visual container. */
+  visible: Item[];
+}
+
+/**
+ * Resolve both views of a person selection in one pass. A filtered total needs the
+ * strict set while a nested renderer also needs a matching child's parent; calculating
+ * them together keeps those complementary rules on one parent index.
+ */
+export function selectItemsForPerson(items: Item[], selection: PersonSelection): PersonItemSelection {
+  if (!selection) return { counted: items, visible: items };
+  const byId = new Map(items.map((item) => [item.id, item]));
+  const counted: Item[] = [];
+  const visibleIds = new Set<string>();
+  for (const item of items) {
+    if (!matchesSelection(item, item.parentId ? byId.get(item.parentId) : null, selection)) continue;
+    counted.push(item);
+    visibleIds.add(item.id);
+    if (item.parentId) visibleIds.add(item.parentId);
+  }
+  return { counted, visible: items.filter((item) => visibleIds.has(item.id)) };
 }
 
 /**
@@ -156,9 +183,9 @@ export function matchesSelection(
  */
 export function filterItemsForPerson(items: Item[], selection: PersonSelection): Item[] {
   if (!selection) return items;
-  const byId = new Map(items.map((i) => [i.id, i]));
-  return items.filter((it) =>
-    matchesSelection(it, it.parentId ? byId.get(it.parentId) : null, selection),
+  const byId = new Map(items.map((item) => [item.id, item]));
+  return items.filter((item) =>
+    matchesSelection(item, item.parentId ? byId.get(item.parentId) : null, selection),
   );
 }
 
@@ -168,11 +195,7 @@ export function filterItemsForPerson(items: Item[], selection: PersonSelection):
  * rather than orphaned. The read-only views render from this; totals never do.
  */
 export function visibleItemsForPerson(items: Item[], selection: PersonSelection): Item[] {
-  if (!selection) return items;
-  const counted = filterItemsForPerson(items, selection);
-  const keep = new Set(counted.map((i) => i.id));
-  for (const it of counted) if (it.parentId) keep.add(it.parentId);
-  return items.filter((it) => keep.has(it.id));
+  return selectItemsForPerson(items, selection).visible;
 }
 
 /**
