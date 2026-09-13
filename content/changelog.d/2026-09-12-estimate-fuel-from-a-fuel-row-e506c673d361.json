@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-12",
+  "added": [
+    "Mark food as needing cooking to see a rough fuel estimate, assuming one boil per item."
+  ]
+}

@@ -643,6 +643,11 @@ describe("what the quiet removals count as content", () => {
     await vi.waitFor(() => expect(byId(c, "snack")).toBeTruthy());
     expect(byId(c, "snack")?.kcal).toBe(250);
   });
+  it("keeps a blank row whose only entry is its preparation choice", async () => {
+    const c = await open([item({ id: "meal", needsCooking: true })]);
+    c.discardEmpty("meal");
+    expect(byId(c, "meal")?.needsCooking).toBe(true);
+  });
 
   it("still discards one that really is untouched", async () => {
     const c = await open([item({ id: "blank", name: "", sortOrder: 0 })]);

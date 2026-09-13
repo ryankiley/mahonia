@@ -93,6 +93,9 @@ export interface Item {
   // fuel, whose calories are not food (offersKcal in fuel.ts) — counted all the same
   // if present, and never reachable without being clearable.
   kcal?: number;
+  // This trip's preparation choice, not a catalog fact (the same food can be
+  // cold-soaked). Only true opts in; false/absent never infers cooking from a name.
+  needsCooking?: boolean;
   description?: string; // optional freeform user text
   productUrl?: string;
   priceCents?: number;
