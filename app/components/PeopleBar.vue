@@ -143,8 +143,8 @@ function onKey(e: KeyboardEvent) {
   }
 }
 .pplbar__chip:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: -2px;
+  outline: var(--focus-ring) solid var(--ink);
+  outline-offset: var(--focus-offset-inset);
 }
 /* ON is the app's one on-plate (--lit), same as the mode switcher and the
    classification marks — and the hairline steps aside so the plate reads as the

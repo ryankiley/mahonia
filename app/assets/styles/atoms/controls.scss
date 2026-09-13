@@ -272,7 +272,7 @@ button svg {
      (max()/clamp()), zooming even though --text-base computes to 16px. A literal
      1rem is read correctly → no zoom. (--text-base only grows >16px on huge
      displays anyway, where 16px inputs are fine.) */
-  font-size: 1rem;
+  font-size: var(--text-input);
 }
 /* no underline (it read as a row divider) and no fill — the caret carries focus */
 .field:focus {
@@ -837,7 +837,7 @@ input[type="search"]::-webkit-search-decoration {
      (which would vanish on the dark toast). Translucent paper stays legible + quiet. */
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--paper) 55%, transparent);
-  text-underline-offset: 2px;
+  text-underline-offset: var(--underline-offset);
   cursor: pointer;
 }
 

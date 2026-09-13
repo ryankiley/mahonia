@@ -132,6 +132,7 @@ $bp-full: 1024px !default;
   /* ---- underline: ONE soft colour for text underlines (links). Legible but never
      full-strength ink — interactive links may deepen to --ink-2, never to --ink ---- */
   --underline: var(--ink-3);
+  --underline-offset: 2px;
 
   /* ---- chrome is MONOCHROME — controls/state/primary all read as ink; colour on
      this site is the data viz (the category bar + dots, --cat-* below) and ONE
@@ -224,6 +225,9 @@ $bp-full: 1024px !default;
      companion (iOS input-zoom escape hatch) lives in atoms/controls.scss — keep
      the two in sync. ---- */
   --text-base: max(1rem, 0.833vw); /* 16px — body, inputs, item names, labels, meta, controls */
+  /* Actual inputs stay at a static 16px: iOS Safari does not treat a computed `max()` as
+     its no-zoom floor, even when that expression resolves to 16px. */
+  --text-input: 1rem;
   --text-title: max(1.375rem, 1.146vw); /* 22px — the one heading size */
   /* 32px — the LIST'S OWN NAME, and nothing else. A deliberate fifth step: a page title
      is a different role from a section heading (--text-title), which is why 22px read as
@@ -251,6 +255,9 @@ $bp-full: 1024px !default;
   /* the type system's one non-default tracking (.t-title, .t-num, buttons) —
      tokenized so the tight track retunes in one place, not a dozen literals */
   --track-tight: -0.02em;
+  /* display units sit halfway between tight and normal tracking so a bare `oz` stays
+     visually attached to the number without looking pinched. */
+  --track-unit: -0.01em;
 
   /* ---- caption tuck — the negative top-margin that pulls an item's note up under
      its name so the two read as one unit. ONE token so the editor row (.reveal--note)
@@ -270,6 +277,12 @@ $bp-full: 1024px !default;
   --space-6: 32px;
   --space-7: 48px;
   --space-9: 96px;
+
+  /* Keyboard focus is the same 2px ring whether it sits outside a native control or
+     is drawn inward over an app-owned plate. */
+  --focus-ring: var(--space-px);
+  --focus-offset: var(--space-px);
+  --focus-offset-inset: calc(-1 * var(--space-px));
 
   /* ---- radius: softened — buttons + floating surfaces get real rounding,
      controls/icon-buttons go pill so hover fills read as soft shapes, not boxes ---- */
@@ -420,6 +433,7 @@ $bp-full: 1024px !default;
      the page gutter instead and the page had three different left edges going down
      it — headings at one, "What's new" at a second, the date rail at a third. ---- */
   --prose: 42rem;
+  --account-measure: 26rem;
 
   /* ---- component primitives — shared structure so duplicated values can't drift ---- */
   /* labelled controls come in two deliberate heights: the standard action/input box and

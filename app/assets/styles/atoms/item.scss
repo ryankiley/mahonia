@@ -445,7 +445,7 @@
   .item__cweight,
   .item__roqty,
   .item__roweight {
-    padding-block: 2px;
+    padding-block: var(--space-px);
     line-height: 1.3;
     display: inline-flex;
     align-items: center;
@@ -456,7 +456,7 @@
   .folder__addbtn,
   .item-nest__add {
     min-height: 0;
-    padding-block: 2px;
+    padding-block: var(--space-px);
     line-height: 1.3;
   }
 }

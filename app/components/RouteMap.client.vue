@@ -1304,7 +1304,7 @@ onBeforeUnmount(() => {
   padding: var(--space-1) var(--space-2);
   border: 1px solid var(--map-line);
   border-radius: var(--radius-1);
-  font-size: 1rem; // the iOS zoom floor, as .field has
+  font-size: var(--text-input); // the iOS zoom floor, as .field has
   color: var(--map-ink);
   background: var(--map-paper);
 }

@@ -179,8 +179,8 @@ function onKey(e: KeyboardEvent) {
 }
 
 .modebar__opt:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: -2px;
+  outline: var(--focus-ring) solid var(--ink);
+  outline-offset: var(--focus-offset-inset);
 }
 
 // SELECTED IS A STATE, not a hover that happens to be stuck — it keeps its plate whether

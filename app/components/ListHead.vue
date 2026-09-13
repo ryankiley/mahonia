@@ -1081,7 +1081,7 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink);
   /* stays at 16px while the labels above drop to 12px: 14 would sit better with them,
      but anything under 16px makes iOS Safari zoom the page on focus (atoms/controls.scss) */
-  font-size: 1rem;
+  font-size: var(--text-input);
 }
 .head__panelinput:focus {
   outline: none;
@@ -1145,7 +1145,7 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink-2);
   cursor: pointer;
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: var(--underline-offset);
 }
 /* the input is the label's, so the whole phrase is the target and no bare file chrome
    lands in a panel built out of the app's own fields */
@@ -1174,7 +1174,7 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxyes,
 .head__gpxno {
   text-decoration: underline;
-  text-underline-offset: 2px;
+  text-underline-offset: var(--underline-offset);
   transition: color var(--dur) var(--ease);
 }
 .head__gpxyes {

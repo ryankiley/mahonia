@@ -2713,7 +2713,7 @@ function dismissFix() {
    Declared on the CLUSTER, not the controls: custom properties inherit, so this one
    line reaches the triggers ItemRowMenu renders too — which a scoped rule can't. */
 .item__actions {
-  --tip-shift: 8px;
+  --tip-shift: var(--space-2);
 }
 /* (the three menu triggers — carrier, nesting, ⋯ — take the same treatment from
    ItemRowMenu's own scoped block, which is the only place a rule can reach them) */
@@ -2978,7 +2978,7 @@ function dismissFix() {
   /* the upward tuck under the name now lives on the .reveal--note wrapper (so the
      grid track sizing stays clean); this element just fills its cell */
   color: var(--ink-3);
-  font-size: 1rem; /* static 16px — avoid iOS focus-zoom (see .field in controls.scss) */
+  font-size: var(--text-input); /* static 16px — avoid iOS focus-zoom (see .field in controls.scss) */
   font-style: italic;
 }
 .item__note::placeholder {
@@ -3140,7 +3140,7 @@ textarea.item__note {
   .item-wrap .item .field,
   .item-wrap .item__name :deep(.field) {
     min-height: 0;
-    padding-block: 2px;
+    padding-block: var(--space-px);
     line-height: 1.3;
   }
   /* The sub-line sits directly under the name field here as on desktop, but the mobile
@@ -3547,7 +3547,7 @@ textarea.item__note {
   .item__cname {
     grid-column: 2 / -1;
     grid-row: 1;
-    padding-block: 2px;
+    padding-block: var(--space-px);
     line-height: 1.3;
     display: flex;
     align-items: center;
