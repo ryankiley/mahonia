@@ -445,7 +445,10 @@ export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]>
     .from(catalogEdits)
     .leftJoin(catalogItems, eq(catalogEdits.catalogItemId, catalogItems.id))
     .orderBy(desc(catalogEdits.createdAt))
-    .limit(Math.min(100, Math.max(1, limit)));
+    // Whole, not merely clamped: Drizzle hands LIMIT to Postgres as given, and the
+    // route's `?limit=2.5` reached here as 2.5 and failed the query (a 500 for a
+    // hand-edited URL). NaN would fail the same way, so it takes the default.
+    .limit(Math.min(100, Math.max(1, Math.trunc(Number.isFinite(limit) ? limit : 50))));
   return rows.map((r) => ({
     id: r.id,
     // the left join leaves brand/name/variant null for an edit whose item is gone

@@ -1,0 +1,7 @@
+{
+  "date": "2026-09-12",
+  "fixed": [
+    "A route file now offers only as many marked places as the list still has room for, instead of adding some and silently dropping the rest.",
+    "A route file that finishes reading after you have moved to another list no longer lands on that list."
+  ]
+}
