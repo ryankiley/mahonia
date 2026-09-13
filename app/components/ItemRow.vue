@@ -1057,7 +1057,7 @@ function openFix() {
     itemName: props.item.name,
     catalogWeightMg: props.item.catalogWeightMgAtLink,
     suggestedMg: props.item.unitWeightMg,
-    displayUnit: props.list.displayUnit,
+    displayUnit: rowUnit.value,
   });
 }
 // dismiss the nudge from the page: re-baseline the linked catalog weight to the
@@ -1179,7 +1179,7 @@ function dismissFix() {
                container's name is a heading the user writes; the catalog names the
                products, which are its children. Free text is untouched. -->
           <ItemInput
-            :unit="list.displayUnit"
+            :unit="rowUnit"
             :initial="editableName"
             placeholder="Name of item"
             :clear-on-commit="false"
@@ -1917,7 +1917,7 @@ function dismissFix() {
       <div v-if="showFix" class="reveal">
         <div class="item__fixrow">
           <button type="button" class="item__under-link t-sm" @click="openFix">
-            Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, list.displayUnit) }} · suggest a fix
+            Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, rowUnit) }} · suggest a fix
           </button>
           <button
             type="button"
