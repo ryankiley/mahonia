@@ -13,6 +13,14 @@ import { autoUnit, computeTotals, formatWeight, formatWeightAuto, totalsChips, u
 export const OG_IMAGE_WIDTH = 1200;
 export const OG_IMAGE_HEIGHT = 630;
 
+/** The four subset faces used by dynamic and committed social-card renders. */
+export const OG_FONT_FACES = [
+  ["inter-regular.ttf", "Inter", 400],
+  ["inter-semibold.ttf", "Inter", 600],
+  ["interdisplay-regular.ttf", "InterDisplay", 400],
+  ["interdisplay-bold.ttf", "InterDisplay", 700],
+] as const;
+
 export interface OgCardModel {
   title: string;
   /** The headline figure — number and unit apart, because the card renders the
