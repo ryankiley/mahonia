@@ -2,9 +2,5 @@
   "date": "2026-09-12",
   "added": [
     "Mark food as needing cooking to see a rough fuel estimate, assuming one boil per item."
-  ],
-  "fixed": [
-    "Person filters line up with the view tabs.",
-    "View tabs have matching top and left spacing."
   ]
 }

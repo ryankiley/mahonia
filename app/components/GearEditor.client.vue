@@ -1431,8 +1431,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
      sideways, so declaring it there left the other reading an invalid value and
      collapsing its margin to 0. */
   --folder-gap: var(--space-7);
-  /* With ModeBar's 4px padding, the first tab sits 8px from both top and left. */
-  padding-block: var(--space-1) var(--space-7);
+  padding-block: var(--space-4) var(--space-7);
   display: flex;
   flex-direction: column;
   /* one step up from --space-4. This is the gap directly under the trail link (the last
