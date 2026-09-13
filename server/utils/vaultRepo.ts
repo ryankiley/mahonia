@@ -204,9 +204,10 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
  *
  *  • name / brand / variant — take the incoming spelling. They fold to the same
  *    key either way, so this just lets a tidied-up capitalisation win.
- *  • weight — last write wins, EXCEPT that a zero never overwrites a real weight.
- *    Re-weighing your quilt in any list should update the vault; adding a catalog
- *    item whose weight you haven't filled in yet should not erase what you knew.
+ *  • weight — fill a missing vault weight, never replace one. A list is a record
+ *    of what was carried on that trip, while My Gear is the owner's current source
+ *    of truth. An explicit Save to My Gear press opts into replacing an unpinned
+ *    value; background capture never does.
  *  • common name / classification / kcal / catalog link — coalesce: a capture
  *    that carries the field sets it, one that doesn't leaves what's there. These
  *    accumulate rather than flip-flop as the same gear appears in different lists.
@@ -227,6 +228,7 @@ export async function captureVaultItemsReporting(
   db: Db,
   vaultId: number,
   caps: VaultCapture[],
+  { overwriteWeight = false }: { overwriteWeight?: boolean } = {},
 ): Promise<{ keys: VaultGearKey[]; full: boolean }> {
   let clean = sanitize(caps);
   if (!clean.length) return { keys: [], full: false };
@@ -305,12 +307,16 @@ export async function captureVaultItemsReporting(
           vaultItems.commonName,
           sql`coalesce(excluded.common_name, ${vaultItems.commonName})`,
         ),
-        // the zero-guard survives INSIDE the pin: a pinned weight is never touched,
-        // and an unpinned one still refuses to be erased by a weightless capture
+        // A background capture fills only an unknown weight. Lists can be old trip
+        // records, so replaying their whole capture set after any edit must not roll
+        // My Gear back to a historical figure. A direct Save to My Gear press is the
+        // deliberate exception, and may replace an unpinned value.
         weightMg: keepIfPinned(
           vaultItems.weightPinned,
           vaultItems.weightMg,
-          sql`case when excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`,
+          overwriteWeight
+            ? sql`case when excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`
+            : sql`case when ${vaultItems.weightMg} = 0 and excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`,
         ),
         classification: keepIfPinned(
           vaultItems.classificationPinned,
