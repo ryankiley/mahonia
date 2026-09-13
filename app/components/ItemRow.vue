@@ -1450,6 +1450,7 @@ function dismissFix() {
                     :value="item.commonName ?? ''"
                     placeholder="Type of gear"
                     aria-label="Gear type"
+                    list="gear-types"
                     autocorrect="off"
                     spellcheck="true"
                     @change="onCommonName"

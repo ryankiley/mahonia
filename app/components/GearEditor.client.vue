@@ -26,6 +26,7 @@ const c = useGearList();
 const router = useRouter();
 const my = useMyLists();
 const session = useSession();
+const { names: gearTypes, load: loadGearTypes } = useGearTypes();
 // app-wide dialogs (replace native confirm()/the copy dead-end) — see useDialogs
 const { confirm: askConfirm, showLinkFallback } = useDialogs();
 
@@ -539,6 +540,7 @@ let focusScrollTimer: ReturnType<typeof setTimeout> | undefined;
 function onFocusIn(ev: FocusEvent) {
   const el = ev.target as HTMLElement | null;
   if (!el?.matches?.("input, textarea")) return;
+  if (el.getAttribute("list") === "gear-types") void loadGearTypes();
   if (el.closest(".topbar")) return;
   const wait = window.matchMedia("(pointer: coarse)").matches ? 300 : 0;
   clearTimeout(focusScrollTimer);
@@ -1099,6 +1101,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
       :data-mode="mode"
       :data-filter-person="personFilterAttr"
     >
+      <!-- One list for all rows; its vocabulary loads only on field focus. -->
+      <datalist id="gear-types">
+        <option v-for="name in gearTypes" :key="name" :value="name" />
+      </datalist>
       <!-- WHICH VIEW OF THIS LIST. First thing under the toolbar, and part of the PAGE
            rather than the chrome: it scrolls away with everything else. A row of its own
            rather than a seat in the bar above, because that row has no width left — it
