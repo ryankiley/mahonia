@@ -89,8 +89,8 @@ describe("startSession → resolveSession", () => {
     // cookie anyone can read says nothing about the account or how many there are
     const owner = sessionOwnerMarker(sha256Hex(token));
     expect(setCookieValue(start, SESSION_OWNER_COOKIE)).toBe(owner);
+    expect(owner).toMatch(/^[0-9a-f]{16}$/);
     expect(owner).toMatch(SESSION_OWNER_PATTERN);
-    expect(owner).not.toContain(String(userId));
     // only the hash ever touches the table — a dump mints no sign-in
     const rows = await db.select().from(schema.sessions);
     expect(rows).toHaveLength(1);
@@ -102,6 +102,13 @@ describe("startSession → resolveSession", () => {
     // Sessions from before the marker existed acquire it without reissuing their
     // credential or writing the database.
     expect(setCookieValue(resolved, SESSION_OWNER_COOKIE)).toBe(owner);
+
+    // per SESSION, by design: signing in again mints a different marker, which the
+    // browser reads as a change of owner and starts its caches over
+    const again = makeEvent();
+    await startSession(again, db as never, userId);
+    expect(setCookieValue(again, SESSION_OWNER_COOKIE)).toMatch(/^[0-9a-f]{16}$/);
+    expect(setCookieValue(again, SESSION_OWNER_COOKIE)).not.toBe(owner);
   });
 
   it("resolves nothing for no cookie, a made-up cookie, or an expired session", async () => {
