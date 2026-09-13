@@ -134,8 +134,11 @@ describe("what using someone else's tiles obliges", () => {
     // colour, and pinning the colour made a legibility rule fail on a palette change.
     expect(routeMap).toMatch(/routemap__casing/);
     expect(routeMap).toMatch(/casingFor\(/);
-    expect(routeMap).toMatch(/color:\s*casingFor\(leg\.color\)/);
-    expect(routeMap).toMatch(/stroke\s*=\s*fillFor\(leg\.color\)/);
+    // Leaflet's `color` option becomes an SVG presentation attribute, which cannot
+    // resolve a CSS custom property. Both strokes therefore land as inline styles,
+    // where the fixed-light map tokens resolve before the browser paints them.
+    expect(routeMap).toMatch(/style\.stroke\s*=\s*casingFor\(leg\.color\)/);
+    expect(routeMap).toMatch(/style\.stroke\s*=\s*fillFor\(leg\.color\)/);
   });
 
   it("never prefetches — the offline story is the fallback, not a tile cache", () => {
