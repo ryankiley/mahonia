@@ -5,6 +5,7 @@ import type { Classification, Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
 import { formatPrice, parsePriceInput } from "~~/shared/money";
 import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
+import { isFuelRow, offersKcal } from "~/utils/itemMarks";
 
 // Correcting a piece of gear in place — the half of My Gear that capture can't do.
 //
@@ -53,6 +54,25 @@ const classification = ref<Classification>("base");
 const saving = ref(false);
 const error = ref("");
 const nameEl = useTemplateRef<HTMLInputElement>("nameEl");
+// The kcal field's rule, ItemRow's verbatim: only once it IS consumable (the only state
+// in which the number is counted), and not on stove fuel holding no number — a
+// canister's "calories" are the wrong kind, and would feed the food plan (offersKcal).
+// The name and gear type are read LIVE, the way the class picker above is: what the
+// row says it is decides its fields. The "holds a number" half reads what the row
+// OPENED with, not the field — the field is the thing being edited, and a field that
+// vanished under the cursor as its last digit went would be a trap, not a rule.
+const kcalOffered = computed(
+  () => classification.value === "consumable" && offersKcal({ name: name.value, commonName: commonName.value, kcal: props.entry?.kcal }),
+);
+// ...and "Worn" leaves the picker on stove fuel, as the editor row drops its worn toggle
+// there (wornOffered): nobody wears a gas canister. Kept while the entry IS worn, so a
+// value that got there can be walked back — the picker can't offer a way out of a state
+// it doesn't list.
+const classOptions = computed(() =>
+  CLASS_OPTIONS.filter(
+    (o) => o.key !== "worn" || classification.value === "worn" || !isFuelRow({ name: name.value, commonName: commonName.value }),
+  ),
+);
 
 // What the dialog opened with. The patch is the DIFF against this, because a field
 // that reaches the server gets PINNED — and pinning is a promise about the future,
@@ -269,7 +289,7 @@ async function onSubmit() {
           <span class="t-sm t-muted">Type</span>
           <OptionMenu
             class="vitem__cls field"
-            :options="CLASS_OPTIONS"
+            :options="classOptions"
             :current="classification"
             label="Gear classification"
             @pick="(k) => (classification = k as Classification)"
@@ -282,10 +302,9 @@ async function onSubmit() {
         </div>
       </div>
 
-      <!-- calories only once it IS consumable — ItemRow's rule verbatim, because that
-           is the only state in which the number is counted, and offering it sooner
-           would collect a value the totals ignore -->
-      <label v-if="classification === 'consumable'" class="dlg__field">
+      <!-- calories only once it IS consumable, and not on fuel that has none to show
+           — ItemRow's rule verbatim (see kcalOffered) -->
+      <label v-if="kcalOffered" class="dlg__field">
         <span class="t-sm t-muted">kcal each</span>
         <input v-model="kcal" class="field" inputmode="numeric" placeholder="0" @keydown.enter="onSubmit" />
       </label>

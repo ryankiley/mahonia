@@ -30,6 +30,29 @@ const FUEL_WORD =
 export const isFuelRow = (row: Named): boolean => FUEL_WORD.test(`${row.name} ${row.commonName ?? ""}`);
 
 /**
+ * Does this consumable row OFFER a calorie field? The second thing a fuel name decides,
+ * after its picture: every consumable does, except stove fuel holding no number.
+ *
+ * The kcal on a row is food energy — the totals bar's figure and the per-day plan
+ * (shared/foodPlan) read it as what you will eat. A canister of isobutane holds about
+ * 1,350 kcal of chemical energy, and a field that asks "kcal each" beside a fuel row
+ * is an invitation to type exactly that, which then feeds the plan a day's ration
+ * nobody eats. So the field is not offered there.
+ *
+ * NOT OFFERED, but never taken away with a number in it. A value that reached a fuel
+ * row some other way — typed before this rule, remembered by My Gear, brought by a
+ * pick, sent through the API — keeps counting exactly as Item.kcal says a stored
+ * value does (a row flipped base → consumable brings its calories back for the same
+ * reason: what is stored is never silently dropped from a total). And a value the
+ * totals still count must keep the one field that can clear it, or it is set forever
+ * — the rule the class cell already follows for a stored class (classCellShown). So a
+ * fuel row with calories shows the field, with the number in it; clear it and the
+ * field goes with it. Only the empty case is withheld, and the empty case is the trap.
+ */
+export const offersKcal = (row: Named & Pick<Item, "kcal">): boolean =>
+  !isFuelRow(row) || (row.kcal ?? 0) > 0;
+
+/**
  * The glyph the CONSUMABLE mark wears — a droplet on water, a fuel can on stove fuel,
  * the cookie on everything else. Same class, same chip, same label: water and fuel are
  * consumables and the mark still says so. Only the picture changes, because a cookie

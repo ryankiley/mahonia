@@ -1,0 +1,156 @@
+// @vitest-environment nuxt
+//
+// THE CALORIE FIELD ON A FUEL ROW. A row's consumable popover holds the switch and, once
+// the row is consumable, a "kcal each" field — and the number typed there is food energy:
+// the totals bar counts it and the food plan divides it by the days. A gas canister is a
+// consumable too, and a field asking for its calories is an invitation to type the
+// ~1,350 kcal of isobutane in a 110 g can, which the plan then serves as a day's ration.
+//
+// So a row that reads as stove fuel (isFuelRow, the same rule that draws its fuel can)
+// is offered the switch alone — UNLESS it already carries a number. A stored value keeps
+// counting, as Item.kcal says every stored value does, so it keeps the one field that can
+// clear it (offersKcal has the argument). The three rows below are the three states.
+//
+// THE WORN TOGGLE follows the same shape (wornOffered): nobody wears a gas canister, so a
+// fuel row draws no worn toggle — a ghost shirt holds the slot, as it does for water —
+// unless the row already says worn, in which case the toggle stays so it can be undone.
+//
+// Rendered through the real <ItemRow>, because what is under test is which branch of the
+// template draws.
+import { beforeEach, describe, expect, it } from "vitest";
+import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
+import { mount } from "@vue/test-utils";
+import ItemRow from "~/components/ItemRow.vue";
+import { rowProvides } from "./helpers/itemRow";
+import type { Item, ListSnapshot } from "~~/shared/types";
+import { blankList } from "./helpers/list";
+import { gearListStub } from "./helpers/gearList";
+
+registerEndpoint("/api/catalog/search", () => ({ results: [] }));
+registerEndpoint("/api/catalog/use", { method: "POST", handler: () => ({ ok: true }) });
+
+mockNuxtImport("useVaultAccess", () => () => ({
+  hasVault: ref(false),
+  vaultKnown: ref(true),
+  vaultFetch: <T,>() => Promise.resolve({} as T),
+}));
+
+const snapshot = ref<ListSnapshot>(blankList());
+mockNuxtImport("useGearList", () => () => gearListStub({ snapshot }));
+
+const item = (over: Partial<Item> & { id: string }): Item => ({
+  folderId: "f1",
+  parentId: null,
+  name: "",
+  unitWeightMg: 0,
+  qty: 1,
+  classification: "consumable",
+  sortOrder: 0,
+  ...over,
+});
+
+function mountRow(row: Item) {
+  snapshot.value = { ...blankList(), items: [{ ...row }] } as ListSnapshot;
+  return mount(ItemRow, {
+    props: {
+      get list() {
+        return snapshot.value;
+      },
+      get item() {
+        return snapshot.value.items[0]!;
+      },
+    },
+    global: { provide: rowProvides() },
+    attachTo: document.body,
+  });
+}
+
+// open the popover, then answer for what it holds
+async function openPop(w: ReturnType<typeof mountRow>) {
+  await w.get('button[aria-label="Consumable: yes"]').trigger("click");
+  await nextTick();
+  const pop = w.get('[role="dialog"][aria-label="Consumable"]');
+  return {
+    hasSwitch: pop.find('[role="switch"]').exists(),
+    field: pop.find<HTMLInputElement>('input[id$="-kcal"]'),
+  };
+}
+
+describe("the calorie field on a fuel row", () => {
+  beforeEach(() => {
+    snapshot.value = blankList();
+  });
+
+  it("is offered on food", async () => {
+    const w = mountRow(item({ id: "dinner", name: "Chicken Pesto Pasta", commonName: "Meal", unitWeightMg: 130_000 }));
+    const pop = await openPop(w);
+    expect(pop.hasSwitch).toBe(true);
+    expect(pop.field.exists()).toBe(true);
+    w.unmount();
+  });
+
+  it("is withheld on fuel holding no number — the switch stays", async () => {
+    for (const fuel of [
+      item({ id: "gas", name: "IsoPro Fuel Canister", brand: "MSR", commonName: "Fuel canister", unitWeightMg: 110_000 }),
+      item({ id: "propane", name: "Propane 1 lb", unitWeightMg: 460_000 }),
+    ]) {
+      const w = mountRow(fuel);
+      const pop = await openPop(w);
+      expect(pop.hasSwitch).toBe(true);
+      expect(pop.field.exists(), fuel.name).toBe(false);
+      w.unmount();
+    }
+  });
+
+  it("stays on fuel that already carries a value, with the number in it, so it can be cleared", async () => {
+    const w = mountRow(item({ id: "gas", name: "Gas canister", unitWeightMg: 210_000, kcal: 1350 }));
+    const pop = await openPop(w);
+    expect(pop.field.exists()).toBe(true);
+    expect(pop.field.element.value).toBe("1350");
+    w.unmount();
+  });
+});
+
+// SCOPED TO THE ROW: a parent renders its children as more <ItemRow>s, so an unscoped
+// find could answer for a child — none here have children, but the habit is the point.
+const wornToggle = (w: ReturnType<typeof mountRow>) => w.find(".item-row").find('button[aria-label^="Worn"]');
+const ghostShirt = (w: ReturnType<typeof mountRow>) => w.find(".item-row").find(".item__clsghost");
+
+describe("the worn toggle on a fuel row", () => {
+  beforeEach(() => {
+    snapshot.value = blankList();
+  });
+
+  it("is drawn on food", () => {
+    const w = mountRow(item({ id: "bar", name: "Clif bar", unitWeightMg: 68_000 }));
+    expect(wornToggle(w).exists()).toBe(true);
+    expect(ghostShirt(w).exists()).toBe(false);
+    w.unmount();
+  });
+
+  it("gives way to the ghost slot on fuel, whatever the row's class", () => {
+    for (const fuel of [
+      item({ id: "gas", name: "IsoPro Fuel Canister", commonName: "Fuel canister", unitWeightMg: 110_000 }),
+      item({ id: "gas", name: "Gas canister", unitWeightMg: 210_000, classification: null }),
+      item({ id: "gas", name: "Propane 1 lb", unitWeightMg: 460_000, classification: "base" }),
+    ]) {
+      const w = mountRow(fuel);
+      expect(wornToggle(w).exists(), fuel.name).toBe(false);
+      expect(ghostShirt(w).exists(), fuel.name).toBe(true);
+      w.unmount();
+    }
+  });
+
+  it("stays on fuel a row already says is worn — by class or by a split — so it can be undone", () => {
+    for (const worn of [
+      item({ id: "gas", name: "Gas canister", unitWeightMg: 210_000, classification: "worn" }),
+      item({ id: "gas", name: "Gas canister", unitWeightMg: 210_000, classification: "base", qty: 2, wornQty: 1 }),
+    ]) {
+      const w = mountRow(worn);
+      expect(wornToggle(w).exists()).toBe(true);
+      expect(ghostShirt(w).exists()).toBe(false);
+      w.unmount();
+    }
+  });
+});
+

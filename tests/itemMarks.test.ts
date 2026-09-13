@@ -2,7 +2,7 @@
 // the share row, /gear), so it is pinned once, here, rather than once per surface.
 import { CookieIcon, DropletIcon, Fuel01Icon } from "@hugeicons/core-free-icons";
 import { describe, expect, it } from "vitest";
-import { consumableIcon, isFuelRow } from "../app/utils/itemMarks";
+import { consumableIcon, isFuelRow, offersKcal } from "../app/utils/itemMarks";
 
 describe("isFuelRow", () => {
   it("takes the word, the chemistry and the brands that mean stove fuel", () => {
@@ -44,3 +44,20 @@ describe("consumableIcon", () => {
     expect(consumableIcon({ name: "water", commonName: "Fuel canister" })).toBe(DropletIcon);
   });
 });
+
+describe("offersKcal", () => {
+  it("offers the field on food, and withholds it on fuel that holds no number", () => {
+    expect(offersKcal({ name: "Dinner", commonName: "Meal" })).toBe(true);
+    expect(offersKcal({ name: "Trail mix" })).toBe(true);
+    expect(offersKcal({ name: "IsoPro 110", commonName: "Fuel canister" })).toBe(false);
+    expect(offersKcal({ name: "Propane 1 lb" })).toBe(false);
+    // a zero is the reducer's "absent", so it is nothing to clear either
+    expect(offersKcal({ name: "Gas canister", kcal: 0 })).toBe(false);
+  });
+
+  it("keeps the field on a fuel row that already carries a value — a count that must stay clearable", () => {
+    expect(offersKcal({ name: "IsoPro 110", commonName: "Fuel canister", kcal: 1350 })).toBe(true);
+    expect(offersKcal({ name: "Esbit", kcal: 1 })).toBe(true);
+  });
+});
+
