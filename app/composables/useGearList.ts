@@ -68,6 +68,14 @@ function create() {
   let remoteMissing = false;
   // bumped on every load/dispose so in-flight responses for a previous list are ignored
   let epoch = 0;
+  // The same count as a ref, for a consumer that has to REACT to the list changing
+  // rather than compare once after an await — the route import's held pin offer,
+  // which outlives a `dispose(); startDraft()` that never unmounts ListHead.
+  const epochRef = shallowRef(0);
+  function bumpEpoch(): number {
+    epochRef.value = ++epoch;
+    return epoch;
+  }
   // True while load() runs its one-time backfills (water names, folder colours,
   // stranded children). Those go through dispatch like any edit — which is right for
   // persistence, and wrong for the vault: they fire on OPEN, so a list someone
@@ -504,8 +512,7 @@ function create() {
   // matching the server's precedence: it's the more specific claim, and it keeps a
   // signed-in user's behaviour on a shared link identical to a signed-out user's.
   async function load(cap: { token?: string; code?: string }) {
-    epoch++;
-    const myEpoch = epoch;
+    const myEpoch = bumpEpoch();
     editToken = cap.token ?? "";
     // normalized so a hand-typed /e/{code} URL and the canonical code the server
     // returns key the same IndexedDB record and claimed-lists row
@@ -674,7 +681,7 @@ function create() {
   // mint a fresh draft under the dead address, which read as "the list is empty".
   // The code is kept so the page can offer the read-only view it also opens.
   function startKeyless(code: string) {
-    epoch++;
+    bumpEpoch();
     editToken = "";
     claimCode = "";
     openedByCode.value = false;
@@ -689,8 +696,7 @@ function create() {
   // in memory until the first real content lands (createFromDraft), so a visitor who
   // never adds anything never creates a server row.
   function startDraft() {
-    epoch++;
-    const myEpoch = epoch;
+    const myEpoch = bumpEpoch();
     editToken = "";
     claimCode = "";
     openedByCode.value = false;
@@ -1783,7 +1789,7 @@ function create() {
     // may not have fired, and SPA nav / unmount must not drop the last edits
     writeLocal();
     clearTimeout(persistTimer);
-    epoch++; // invalidate any in-flight flush/poll responses
+    bumpEpoch(); // invalidate any in-flight flush/poll responses
     // drop any in-flight drag (item or folder) so it can't commit against a new list
     useItemDnd().reset();
     useFolderDnd().reset();
@@ -1805,6 +1811,7 @@ function create() {
     get editToken() { return editToken; },
     get claimCode() { return claimCode; },
     get epoch() { return epoch; },
+    epochRef,
     openedByCode,
     keylessCode,
     startKeyless,

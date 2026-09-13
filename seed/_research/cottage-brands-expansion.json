@@ -67,7 +67,7 @@
     {
       "brand": "3FULGEAR",
       "name": "Minimalist Rain Pant Legs",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 90,
       "weight_unit": "g",
@@ -79,7 +79,7 @@
     {
       "brand": "3FULGEAR",
       "name": "Minimalist Rain Pant Legs",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 79,
       "weight_unit": "g",
@@ -91,7 +91,7 @@
     {
       "brand": "3FULGEAR",
       "name": "Rain Poncho",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 246,
       "weight_unit": "g",
@@ -103,7 +103,7 @@
     {
       "brand": "3FULGEAR",
       "name": "Rain Poncho",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 229,
       "weight_unit": "g",
@@ -177,7 +177,7 @@
     {
       "brand": "Aardwolf Gear Company",
       "name": "Stake Knife Bag",
-      "variant": "L",
+      "variant": "Large",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 4,
@@ -190,7 +190,7 @@
     {
       "brand": "Aardwolf Gear Company",
       "name": "Stake Knife Bag",
-      "variant": "S",
+      "variant": "Small",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 3,
@@ -215,7 +215,7 @@
     {
       "brand": "Aardwolf Gear Company",
       "name": "Trowel Sheath",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 8,
       "weight_unit": "g",
@@ -227,7 +227,7 @@
     {
       "brand": "Aardwolf Gear Company",
       "name": "Trowel Sheath",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 7,
       "weight_unit": "g",
@@ -239,7 +239,7 @@
     {
       "brand": "Aarn Packs",
       "name": "Mountain Magic 50 Pro",
-      "variant": "M Back",
+      "variant": "Medium Back",
       "attributes": {"volume_l": 50},
       "category_hint": "pack",
       "weight_value": 1005,
@@ -459,7 +459,7 @@
     {
       "brand": "allmansright",
       "name": "Krafs Stuff Sack",
-      "variant": "L",
+      "variant": "Large",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 6.8,
@@ -472,7 +472,7 @@
     {
       "brand": "allmansright",
       "name": "Krafs Stuff Sack",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 5.7,
@@ -485,7 +485,7 @@
     {
       "brand": "allmansright",
       "name": "Krafs Stuff Sack",
-      "variant": "S",
+      "variant": "Small",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 5,
@@ -558,7 +558,7 @@
     {
       "brand": "Alpha Pak",
       "name": "Adventure 2-Piece Dog Pack",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 635,
       "weight_unit": "g",
@@ -570,7 +570,7 @@
     {
       "brand": "Alpha Pak",
       "name": "Adventure 2-Piece Dog Pack",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 499,
       "weight_unit": "g",
@@ -582,7 +582,7 @@
     {
       "brand": "Alpine Fit",
       "name": "Bushwhacking Leggings",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 142,
       "weight_unit": "g",
@@ -630,7 +630,7 @@
     {
       "brand": "Alpine Fit",
       "name": "Women's Fastpacker Alpha 90 Fleece",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 112,
       "weight_unit": "g",
@@ -642,7 +642,7 @@
     {
       "brand": "Alpine Fit",
       "name": "Women's Rendezvous Ridge Long Sleeve",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 184,
       "weight_unit": "g",
@@ -654,7 +654,7 @@
     {
       "brand": "Alpine Gremlins",
       "name": "Dyneema WhisperSak",
-      "variant": "S (0.5L)",
+      "variant": "Small (0.5L)",
       "category_hint": "other",
       "weight_value": 1,
       "weight_unit": "g",
@@ -702,7 +702,7 @@
     {
       "brand": "Apex Giant",
       "name": "Bear Bag Toggle",
-      "variant": "Dogbone, L",
+      "variant": "Dogbone, Large",
       "category_hint": "other",
       "weight_value": 5.4,
       "weight_unit": "g",
@@ -714,7 +714,7 @@
     {
       "brand": "Apex Giant",
       "name": "Bear Bag Toggle",
-      "variant": "Dogbone, S",
+      "variant": "Dogbone, Small",
       "category_hint": "other",
       "weight_value": 2.5,
       "weight_unit": "g",
@@ -726,7 +726,7 @@
     {
       "brand": "Apex Giant",
       "name": "Bear Bag Toggle",
-      "variant": "Flat, L",
+      "variant": "Flat, Large",
       "category_hint": "other",
       "weight_value": 5,
       "weight_unit": "g",
@@ -738,7 +738,7 @@
     {
       "brand": "Apex Giant",
       "name": "Bear Bag Toggle",
-      "variant": "Flat, S",
+      "variant": "Flat, Small",
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -750,7 +750,7 @@
     {
       "brand": "Apex Giant",
       "name": "Dirt Diggler Trowel",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 18,
       "weight_unit": "g",
@@ -762,7 +762,7 @@
     {
       "brand": "Apex Giant",
       "name": "Dirt Diggler Trowel",
-      "variant": "XL",
+      "variant": "X-Large",
       "category_hint": "other",
       "weight_value": 27,
       "weight_unit": "g",
@@ -774,7 +774,7 @@
     {
       "brand": "Apex Giant",
       "name": "Speed Hanger",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 5.7,
       "weight_unit": "g",
@@ -786,7 +786,7 @@
     {
       "brand": "Apex Giant",
       "name": "Speed Hanger",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 1.4,
       "weight_unit": "g",
@@ -810,7 +810,7 @@
     {
       "brand": "Arms of Andes",
       "name": "Alpaca Sun Hoodie",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 192,
       "weight_unit": "g",
@@ -822,7 +822,7 @@
     {
       "brand": "Arms of Andes",
       "name": "Alpaca Sun Hoodie",
-      "variant": "Women's S",
+      "variant": "Women's Small",
       "category_hint": "clothing",
       "weight_value": 138,
       "weight_unit": "g",
@@ -846,7 +846,7 @@
     {
       "brand": "Arms of Andes",
       "name": "Alpaca Wool Glove Liners",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 25,
       "weight_unit": "g",
@@ -858,7 +858,7 @@
     {
       "brand": "Arms of Andes",
       "name": "Alpaca Wool Gloves",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 43,
       "weight_unit": "g",
@@ -882,7 +882,7 @@
     {
       "brand": "Arms of Andes",
       "name": "Men's Alpaca Wool Boxer Briefs",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -894,7 +894,7 @@
     {
       "brand": "ExOfficio",
       "name": "Men's Give-N-Go 2.0 Boxer Brief",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 89.9,
       "weight_unit": "g",
@@ -906,7 +906,7 @@
     {
       "brand": "Arms of Andes",
       "name": "Women's Alpaca Boyshort Panties",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "clothing",
       "weight_value": 46,
       "weight_unit": "g",
@@ -918,7 +918,7 @@
     {
       "brand": "Arms of Andes",
       "name": "Women's Alpaca Wool Pullover Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 326,
       "weight_unit": "g",
@@ -930,7 +930,7 @@
     {
       "brand": "Arms of Andes",
       "name": "Women's Alpaca Wool Sports Bra",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "clothing",
       "weight_value": 67,
       "weight_unit": "g",
@@ -1063,7 +1063,7 @@
     {
       "brand": "Backcountry Exposure",
       "name": "Mesa Food Bag",
-      "variant": "XL",
+      "variant": "X-Large",
       "attributes": {"volume_l": 6.5},
       "attributes_source_url": "https://www.garagegrowngear.com/products/mesa-food-bag-by-backcountry-exposure",
       "attributes_quote": "Volume: Standard: 4.5L X-Large: 6.5L",
@@ -1102,7 +1102,7 @@
     {
       "brand": "Backcountry Exposure",
       "name": "Zipper Pouch",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 11,
       "weight_unit": "g",
@@ -1114,7 +1114,7 @@
     {
       "brand": "Backcountry Exposure",
       "name": "Stake Sack",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 8,
       "weight_unit": "g",
@@ -1126,7 +1126,7 @@
     {
       "brand": "Backcountry Exposure",
       "name": "Stake Sack",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 7,
       "weight_unit": "g",
@@ -1270,7 +1270,7 @@
     {
       "brand": "Big Sky International",
       "name": "Insulated Food Pouch",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 65,
       "weight_unit": "g",
@@ -1282,7 +1282,7 @@
     {
       "brand": "Big Sky International",
       "name": "Insulated Food Pouch",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 43,
       "weight_unit": "g",
@@ -1294,7 +1294,7 @@
     {
       "brand": "Big Sky International",
       "name": "Insulated Food Pouch",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 28,
       "weight_unit": "g",
@@ -1416,7 +1416,7 @@
     {
       "brand": "Black Diamond",
       "name": "Deploy Down Hoody",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 148,
       "weight_unit": "g",
@@ -1428,7 +1428,7 @@
     {
       "brand": "Black Diamond",
       "name": "Deploy Down Hoody",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 138,
       "weight_unit": "g",
@@ -1608,7 +1608,7 @@
     {
       "brand": "Bonfus",
       "name": "Aerus 55L",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 55},
       "category_hint": "pack",
       "weight_value": 795,
@@ -1634,7 +1634,7 @@
     {
       "brand": "Bonfus",
       "name": "DCF Dry Bag",
-      "variant": "L",
+      "variant": "Large",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 29,
@@ -1647,7 +1647,7 @@
     {
       "brand": "Bonfus",
       "name": "DCF Dry Bag",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 19,
@@ -1660,7 +1660,7 @@
     {
       "brand": "Bonfus",
       "name": "DCF Dry Bag",
-      "variant": "S",
+      "variant": "Small",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 15,
@@ -1673,7 +1673,7 @@
     {
       "brand": "Bonfus",
       "name": "DCF Food Bag",
-      "variant": "L",
+      "variant": "Large",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 35,
@@ -1686,7 +1686,7 @@
     {
       "brand": "Bonfus",
       "name": "DCF Food Bag",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 25,
@@ -1699,7 +1699,7 @@
     {
       "brand": "Bonfus",
       "name": "DCF Stuff Sack",
-      "variant": "L",
+      "variant": "Large",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 14,
@@ -1712,7 +1712,7 @@
     {
       "brand": "Bonfus",
       "name": "DCF Stuff Sack",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 8,
@@ -1725,7 +1725,7 @@
     {
       "brand": "Bonfus",
       "name": "DCF Stuff Sack",
-      "variant": "S",
+      "variant": "Small",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 5,
@@ -1851,7 +1851,7 @@
     {
       "brand": "Bonfus",
       "name": "Saccus 48L",
-      "variant": "L",
+      "variant": "Large",
       "attributes": {"volume_l": 48},
       "category_hint": "pack",
       "weight_value": 490,
@@ -1864,7 +1864,7 @@
     {
       "brand": "Bonfus",
       "name": "Saccus 48L",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 48},
       "category_hint": "pack",
       "weight_value": 480,
@@ -1901,7 +1901,7 @@
     {
       "brand": "BRANWYN",
       "name": "Merino Wool Boyshort Underwear",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 54,
       "weight_unit": "g",
@@ -1913,7 +1913,7 @@
     {
       "brand": "BRANWYN",
       "name": "Merino Wool Bralette",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -1925,7 +1925,7 @@
     {
       "brand": "BRANWYN",
       "name": "Merino Wool Compressive Short",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 157,
       "weight_unit": "g",
@@ -1937,7 +1937,7 @@
     {
       "brand": "BRANWYN",
       "name": "Merino Wool Hipster Underwear",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 45,
       "weight_unit": "g",
@@ -1949,7 +1949,7 @@
     {
       "brand": "BRANWYN",
       "name": "Merino Wool Racerback Sports Bra",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 136,
       "weight_unit": "g",
@@ -2144,7 +2144,7 @@
     {
       "brand": "Brynje",
       "name": "Men's Super Thermo Boxer with Windcover",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 80,
       "weight_unit": "g",
@@ -2156,7 +2156,7 @@
     {
       "brand": "Brynje",
       "name": "Men's Super Thermo Mesh Baselayer Pants",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 159,
       "weight_unit": "g",
@@ -2168,7 +2168,7 @@
     {
       "brand": "Brynje",
       "name": "Super Thermo Long Sleeve Shirt Baselayer with Inlay",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 209.8,
       "weight_unit": "g",
@@ -2180,7 +2180,7 @@
     {
       "brand": "Brynje",
       "name": "Super Thermo T-Shirt Baselayer with Inlay",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 116.2,
       "weight_unit": "g",
@@ -2192,7 +2192,7 @@
     {
       "brand": "Brynje",
       "name": "Women's Super Thermo Long Sleeve Shirt Baselayer with Inlay",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 141.7,
       "weight_unit": "g",
@@ -2204,7 +2204,7 @@
     {
       "brand": "Brynje",
       "name": "Women's Super Thermo Mesh Baselayer Pants",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 156,
       "weight_unit": "g",
@@ -2216,7 +2216,7 @@
     {
       "brand": "Brynje",
       "name": "Women's Super Thermo T-Shirt Baselayer with Inlay",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 113.4,
       "weight_unit": "g",
@@ -2228,7 +2228,7 @@
     {
       "brand": "Brynje",
       "name": "Women's Wool Thermo Long Sleeve Baselayer with Inlay",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 130,
       "weight_unit": "g",
@@ -2240,7 +2240,7 @@
     {
       "brand": "Brynje",
       "name": "Women's Wool Thermo Mesh Baselayer Pants",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 140,
       "weight_unit": "g",
@@ -2252,7 +2252,7 @@
     {
       "brand": "Brynje",
       "name": "Women's Wool Thermo Zip Polo",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 140,
       "weight_unit": "g",
@@ -2264,7 +2264,7 @@
     {
       "brand": "Brynje",
       "name": "Wool Thermo Long Sleeve Baselayer with Inlay",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 140,
       "weight_unit": "g",
@@ -2276,7 +2276,7 @@
     {
       "brand": "Brynje",
       "name": "Wool Thermo Mesh Baselayer Pants",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 150,
       "weight_unit": "g",
@@ -2288,7 +2288,7 @@
     {
       "brand": "Brynje",
       "name": "Wool Thermo Zip Polo Baselayer with Inlay",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 180,
       "weight_unit": "g",
@@ -2337,7 +2337,7 @@
     {
       "brand": "Burgeon Outdoor",
       "name": "Alpha Direct Hoodie",
-      "variant": "120gsm, M",
+      "variant": "120gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 193,
       "weight_unit": "g",
@@ -2349,7 +2349,7 @@
     {
       "brand": "Burgeon Outdoor",
       "name": "Alpha Direct Hoodie",
-      "variant": "90gsm, M",
+      "variant": "90gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 128,
       "weight_unit": "g",
@@ -2361,7 +2361,7 @@
     {
       "brand": "Burgeon Outdoor",
       "name": "Men's Sunseeker Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 184,
       "weight_unit": "g",
@@ -2373,7 +2373,7 @@
     {
       "brand": "Burgeon Outdoor",
       "name": "Women's Sunseeker Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 167,
       "weight_unit": "g",
@@ -2601,7 +2601,7 @@
     {
       "brand": "éclipse Sun Products",
       "name": "Sun Sleeves",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 57,
       "weight_unit": "g",
@@ -2857,7 +2857,7 @@
     {
       "brand": "Cowboy Camping",
       "name": "Corral Cube",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 28,
       "weight_unit": "g",
@@ -2869,7 +2869,7 @@
     {
       "brand": "Cowboy Camping",
       "name": "Corral Cube",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 21,
       "weight_unit": "g",
@@ -2881,7 +2881,7 @@
     {
       "brand": "Cowboy Camping",
       "name": "Corral Cube",
-      "variant": "XS",
+      "variant": "X-Small",
       "category_hint": "other",
       "weight_value": 11,
       "weight_unit": "g",
@@ -2953,7 +2953,7 @@
     {
       "brand": "Cowboy Camping",
       "name": "Saddle Bag",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 70,
       "weight_unit": "g",
@@ -2965,7 +2965,7 @@
     {
       "brand": "Cowboy Camping",
       "name": "Saddle Bag",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 55,
       "weight_unit": "g",
@@ -3497,7 +3497,7 @@
     {
       "brand": "Etowah Outfitters",
       "name": "Dyneema Pack Cover",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 28,
       "weight_unit": "g",
@@ -3509,7 +3509,7 @@
     {
       "brand": "Etowah Outfitters",
       "name": "Dyneema Pack Cover",
-      "variant": "XS",
+      "variant": "X-Small",
       "category_hint": "other",
       "weight_value": 17,
       "weight_unit": "g",
@@ -3557,7 +3557,7 @@
     {
       "brand": "Etowah Outfitters",
       "name": "Silnylon Pack Cover",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 2.2,
       "weight_unit": "oz",
@@ -3569,7 +3569,7 @@
     {
       "brand": "Etowah Outfitters",
       "name": "Silnylon Pack Cover",
-      "variant": "XS",
+      "variant": "X-Small",
       "category_hint": "other",
       "weight_value": 48,
       "weight_unit": "g",
@@ -3653,7 +3653,7 @@
     {
       "brand": "Etowah Outfitters",
       "name": "Ultralight Overmitts",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 34,
       "weight_unit": "g",
@@ -3680,7 +3680,7 @@
     {
       "brand": "Exped",
       "name": "Ultra 1R Sleeping Mat",
-      "variant": "M Rectangular",
+      "variant": "Medium Rectangular",
       "attributes": {"r_value": 1.3, "length": "72in", "width": "20.5in"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/ultra-1r-sleeping-mat-by-exped",
       "attributes_quote": "R-Value: 1.3 … M Rectangular 13.9oz | 394g 72\" x 20.5\" x 3\"",
@@ -3725,7 +3725,7 @@
     {
       "brand": "Exped",
       "name": "Ultra 3R Sleeping Mat",
-      "variant": "Rectangular M",
+      "variant": "Rectangular Medium",
       "attributes": {"r_value": 2.9, "length": "72in", "width": "20.5in"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/ultra-sleeping-mat-by-exped",
       "attributes_quote": "R-Value: 2.9 … M Rectangular 16.4ozoz | 465g 72\" x 20.5\" x 3\"",
@@ -3755,7 +3755,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Cascade Locks American Trail 3/4 Crew Socks",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -3767,7 +3767,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Chester PCT American Trail 3/4 Crew Sock",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -3779,7 +3779,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Gray's Peak CDT American Trail 3/4 Crew Socks",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -3791,7 +3791,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Harpers Ferry AT American Trail 3/4 Crew Socks",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -3803,7 +3803,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Max Patch American Trail 1/4 Crew Socks",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 49,
       "weight_unit": "g",
@@ -3815,7 +3815,7 @@
     {
       "brand": "Farm to Feet",
       "name": "Max Patch American Trail 3/4 Crew Socks",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -3827,7 +3827,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Alpha Camp Pants",
-      "variant": "60gsm, M",
+      "variant": "60gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 91,
       "weight_unit": "g",
@@ -3839,7 +3839,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Alpha Camp Pants",
-      "variant": "90gsm, M",
+      "variant": "90gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 119,
       "weight_unit": "g",
@@ -3864,7 +3864,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Alpha Crewneck",
-      "variant": "120gsm, M",
+      "variant": "120gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 181,
       "weight_unit": "g",
@@ -3876,7 +3876,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Alpha Crewneck",
-      "variant": "60gsm, M",
+      "variant": "60gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 82,
       "weight_unit": "g",
@@ -3888,7 +3888,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Alpha Crewneck",
-      "variant": "90gsm, M",
+      "variant": "90gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 99,
       "weight_unit": "g",
@@ -3900,7 +3900,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Alpha Cruiser",
-      "variant": "60gsm, M",
+      "variant": "60gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 113,
       "weight_unit": "g",
@@ -3912,7 +3912,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Alpha Cruiser",
-      "variant": "90gsm, M",
+      "variant": "90gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 139,
       "weight_unit": "g",
@@ -3972,7 +3972,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Sun Cruiser",
-      "variant": "100gsm, M",
+      "variant": "100gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 164,
       "weight_unit": "g",
@@ -3984,7 +3984,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Sun Cruiser",
-      "variant": "150gsm, M",
+      "variant": "150gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 227,
       "weight_unit": "g",
@@ -3996,7 +3996,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Super Cruiser",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 184,
       "weight_unit": "g",
@@ -4008,7 +4008,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "TecnoWool Cruiser",
-      "variant": "120gsm, M",
+      "variant": "120gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 176,
       "weight_unit": "g",
@@ -4020,7 +4020,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "TecnoWool Cruiser",
-      "variant": "60gsm, M",
+      "variant": "60gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 125,
       "weight_unit": "g",
@@ -4032,7 +4032,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "TecnoWool Cruiser",
-      "variant": "90gsm, M",
+      "variant": "90gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 162,
       "weight_unit": "g",
@@ -4585,7 +4585,7 @@
     {
       "brand": "Goosefeet Gear",
       "name": "Down Socks",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 57,
       "weight_unit": "g",
@@ -4597,7 +4597,7 @@
     {
       "brand": "Goosefeet Gear",
       "name": "Waterproof Over-Booties",
-      "variant": "Robic, M",
+      "variant": "Robic, Medium",
       "category_hint": "clothing",
       "weight_value": 56,
       "weight_unit": "g",
@@ -4609,7 +4609,7 @@
     {
       "brand": "Goosefeet Gear",
       "name": "Waterproof Over-Booties",
-      "variant": "Toughtek, M",
+      "variant": "Toughtek, Medium",
       "category_hint": "clothing",
       "weight_value": 128,
       "weight_unit": "g",
@@ -4694,7 +4694,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "Ditty Storage Sack",
-      "variant": "L",
+      "variant": "Large",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 15,
@@ -4707,7 +4707,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "Ditty Storage Sack",
-      "variant": "S",
+      "variant": "Small",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 12,
@@ -4769,7 +4769,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "G4-20 Ultralight 42",
-      "variant": "L",
+      "variant": "Large",
       "attributes": {"volume_l": 42},
       "category_hint": "pack",
       "weight_value": 635,
@@ -4782,7 +4782,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "G4-20 Ultralight 42",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 42},
       "category_hint": "pack",
       "weight_value": 21.7,
@@ -4795,7 +4795,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "G4-20 Ultralight 42",
-      "variant": "S",
+      "variant": "Small",
       "attributes": {"volume_l": 42},
       "category_hint": "pack",
       "weight_value": 578,
@@ -4948,7 +4948,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "Pot Pocket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 26,
       "weight_unit": "g",
@@ -4960,7 +4960,7 @@
     {
       "brand": "Gossamer Gear",
       "name": "Pot Pocket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 20,
       "weight_unit": "g",
@@ -5340,7 +5340,7 @@
     {
       "brand": "Hartford Gear Co.",
       "name": "Stake Bag",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 5,
       "weight_unit": "g",
@@ -5352,7 +5352,7 @@
     {
       "brand": "Hartford Gear Co.",
       "name": "Stake Bag",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -5364,7 +5364,7 @@
     {
       "brand": "Hartford Gear Co.",
       "name": "Trail Pouch",
-      "variant": "Dyneema, L",
+      "variant": "Dyneema, Large",
       "category_hint": "other",
       "weight_value": 11,
       "weight_unit": "g",
@@ -5376,7 +5376,7 @@
     {
       "brand": "Hartford Gear Co.",
       "name": "Trail Pouch",
-      "variant": "Dyneema, M",
+      "variant": "Dyneema, Medium",
       "category_hint": "other",
       "weight_value": 8,
       "weight_unit": "g",
@@ -5388,7 +5388,7 @@
     {
       "brand": "Hartford Gear Co.",
       "name": "Trail Pouch",
-      "variant": "Dyneema, S",
+      "variant": "Dyneema, Small",
       "category_hint": "other",
       "weight_value": 7,
       "weight_unit": "g",
@@ -5400,7 +5400,7 @@
     {
       "brand": "Hartford Gear Co.",
       "name": "Trail Pouch",
-      "variant": "Ultra 100X, L",
+      "variant": "Ultra 100X, Large",
       "category_hint": "other",
       "weight_value": 14,
       "weight_unit": "g",
@@ -5412,7 +5412,7 @@
     {
       "brand": "Hartford Gear Co.",
       "name": "Trail Pouch",
-      "variant": "Ultra 100X, M",
+      "variant": "Ultra 100X, Medium",
       "category_hint": "other",
       "weight_value": 10,
       "weight_unit": "g",
@@ -5424,7 +5424,7 @@
     {
       "brand": "Hartford Gear Co.",
       "name": "Trail Pouch",
-      "variant": "Ultra 100X, S",
+      "variant": "Ultra 100X, Small",
       "category_hint": "other",
       "weight_value": 8,
       "weight_unit": "g",
@@ -5574,7 +5574,7 @@
     {
       "brand": "HikeLight",
       "name": "Double Ended Stuff Sack",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 10,
@@ -5587,7 +5587,7 @@
     {
       "brand": "HikeLight",
       "name": "Double Ended Stuff Sack",
-      "variant": "S",
+      "variant": "Small",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 8,
@@ -5600,7 +5600,7 @@
     {
       "brand": "HikeLight",
       "name": "Dyneema Tent Pole Bag",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 5,
       "weight_unit": "g",
@@ -5612,7 +5612,7 @@
     {
       "brand": "HikeLight",
       "name": "Dyneema Tent Pole Bag",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 4.7,
       "weight_unit": "g",
@@ -5624,7 +5624,7 @@
     {
       "brand": "HikeLight",
       "name": "Dyneema Tent Pole Bag",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -5684,7 +5684,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Food Bag",
-      "variant": "ECOPAK, L",
+      "variant": "ECOPAK, Large",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 88,
@@ -5697,7 +5697,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Food Bag",
-      "variant": "ECOPAK, S",
+      "variant": "ECOPAK, Small",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 60,
@@ -5710,7 +5710,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Food Bag",
-      "variant": "Vivid Series, L",
+      "variant": "Vivid Series, Large",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 45,
@@ -5723,7 +5723,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Food Bag",
-      "variant": "Vivid Series, S",
+      "variant": "Vivid Series, Small",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 40,
@@ -5736,7 +5736,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Roll-Top Dry Bag",
-      "variant": "Printed, M",
+      "variant": "Printed, Medium",
       "attributes": {"volume_l": 2.5},
       "attributes_source_url": "https://www.garagegrowngear.com/products/printed-dry-bag-by-hilltop-packs",
       "attributes_quote": "Volume: Medium: 2.5L Medium Long: 3.5L",
@@ -5763,7 +5763,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Roll-Top Dry Bag",
-      "variant": "L (7.5L)",
+      "variant": "Large (7.5L)",
       "category_hint": "other",
       "weight_value": 35,
       "weight_unit": "g",
@@ -5775,7 +5775,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Roll-Top Dry Bag",
-      "variant": "M (2.5L)",
+      "variant": "Medium (2.5L)",
       "category_hint": "other",
       "weight_value": 20,
       "weight_unit": "g",
@@ -5787,7 +5787,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Roll-Top Dry Bag",
-      "variant": "S (0.6L)",
+      "variant": "Small (0.6L)",
       "category_hint": "other",
       "weight_value": 13,
       "weight_unit": "g",
@@ -5814,7 +5814,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Stuff Sack",
-      "variant": "L",
+      "variant": "Large",
       "attributes": {"volume_l": 4.5},
       "attributes_source_url": "https://www.garagegrowngear.com/products/dry-bags-roll-top-ecopak-by-hilltop-packs",
       "attributes_quote": "Volume: Small: 0.6L Medium: 2.5L Large: 4.5L Jumbo: 9.5L",
@@ -5829,7 +5829,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Stuff Sack",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 2.5},
       "attributes_source_url": "https://www.garagegrowngear.com/products/dry-bags-roll-top-ecopak-by-hilltop-packs",
       "attributes_quote": "Volume: Small: 0.6L Medium: 2.5L Large: 4.5L Jumbo: 9.5L",
@@ -5844,7 +5844,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Stuff Sack",
-      "variant": "S",
+      "variant": "Small",
       "attributes": {"volume_l": 0.6},
       "attributes_source_url": "https://www.garagegrowngear.com/products/dry-bags-roll-top-ecopak-by-hilltop-packs",
       "attributes_quote": "Volume: Small: 0.6L Medium: 2.5L Large: 4.5L Jumbo: 9.5L",
@@ -5883,7 +5883,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Zipper Pouch",
-      "variant": "Printed, L",
+      "variant": "Printed, Large",
       "category_hint": "other",
       "weight_value": 14,
       "weight_unit": "g",
@@ -5895,7 +5895,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Zipper Pouch",
-      "variant": "Printed, M",
+      "variant": "Printed, Medium",
       "category_hint": "other",
       "weight_value": 10,
       "weight_unit": "g",
@@ -5907,7 +5907,7 @@
     {
       "brand": "Hilltop Packs",
       "name": "Zipper Pouch",
-      "variant": "Printed, S",
+      "variant": "Printed, Small",
       "category_hint": "other",
       "weight_value": 7,
       "weight_unit": "g",
@@ -5931,7 +5931,7 @@
     {
       "brand": "Hollow Socks",
       "name": "Trail Socks",
-      "variant": "Ankle, M",
+      "variant": "Ankle, Medium",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -5943,7 +5943,7 @@
     {
       "brand": "Hollow Socks",
       "name": "Trail Socks",
-      "variant": "Crew, M",
+      "variant": "Crew, Medium",
       "category_hint": "clothing",
       "weight_value": 77,
       "weight_unit": "g",
@@ -6126,7 +6126,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Aero 28",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 28},
       "category_hint": "pack",
       "weight_value": 506,
@@ -6151,7 +6151,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Camera Pod",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 104.3,
       "weight_unit": "g",
@@ -6175,7 +6175,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Contour 35",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "weight_value": 459,
@@ -6213,7 +6213,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Drawstring Stuff Sack",
-      "variant": "L (4L)",
+      "variant": "Large (4L)",
       "category_hint": "other",
       "weight_value": 11,
       "weight_unit": "g",
@@ -6225,7 +6225,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Drawstring Stuff Sack",
-      "variant": "M (3L)",
+      "variant": "Medium (3L)",
       "category_hint": "other",
       "weight_value": 9,
       "weight_unit": "g",
@@ -6249,7 +6249,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Drawstring Stuff Sack",
-      "variant": "S (2L)",
+      "variant": "Small (2L)",
       "category_hint": "other",
       "weight_value": 8,
       "weight_unit": "g",
@@ -6261,7 +6261,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Drawstring Stuff Sack",
-      "variant": "XL (9L)",
+      "variant": "X-Large (9L)",
       "category_hint": "other",
       "weight_value": 14,
       "weight_unit": "g",
@@ -6297,7 +6297,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Junction 40",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 833,
@@ -6310,7 +6310,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Junction 55",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 55},
       "category_hint": "pack",
       "weight_value": 866,
@@ -6323,7 +6323,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Legacy Junction 40",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 879,
@@ -6336,7 +6336,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Legacy Southwest 40",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 873,
@@ -6349,7 +6349,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Legacy Windrider 40",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 845,
@@ -6374,7 +6374,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Roll-Top Stuff Sack",
-      "variant": "L (25L)",
+      "variant": "Large (25L)",
       "category_hint": "other",
       "weight_value": 45,
       "weight_unit": "g",
@@ -6386,7 +6386,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Roll-Top Stuff Sack",
-      "variant": "M (10L)",
+      "variant": "Medium (10L)",
       "category_hint": "other",
       "weight_value": 34,
       "weight_unit": "g",
@@ -6398,7 +6398,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Roll-Top Stuff Sack",
-      "variant": "S (3L)",
+      "variant": "Small (3L)",
       "category_hint": "other",
       "weight_value": 23,
       "weight_unit": "g",
@@ -6410,7 +6410,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Roll-Top Stuff Sack",
-      "variant": "XL (43L)",
+      "variant": "X-Large (43L)",
       "category_hint": "other",
       "weight_value": 57,
       "weight_unit": "g",
@@ -6482,7 +6482,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Southwest 40",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 841.7,
@@ -6495,7 +6495,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Southwest 55",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 55},
       "category_hint": "pack",
       "weight_value": 874,
@@ -6605,7 +6605,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Unbound 55",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 55},
       "category_hint": "pack",
       "weight_value": 856,
@@ -6633,7 +6633,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Windrider 40",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 844,
@@ -6646,7 +6646,7 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Windrider 55",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 55},
       "category_hint": "pack",
       "weight_value": 880,
@@ -6935,7 +6935,7 @@
     {
       "brand": "Jolly Gear",
       "name": "Men's Triple Crown Button Down",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 241,
       "weight_unit": "g",
@@ -6947,7 +6947,7 @@
     {
       "brand": "Jolly Gear",
       "name": "Triple Crown Button Down Sun Dress",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 306,
       "weight_unit": "g",
@@ -6959,7 +6959,7 @@
     {
       "brand": "Jolly Gear",
       "name": "Women's Triple Crown Button Down",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 205,
       "weight_unit": "g",
@@ -7079,7 +7079,7 @@
     {
       "brand": "Kahtoola",
       "name": "K•10 Hiking Crampon",
-      "variant": "XL",
+      "variant": "X-Large",
       "category_hint": "other",
       "weight_value": 700,
       "weight_unit": "g",
@@ -7091,7 +7091,7 @@
     {
       "brand": "Kahtoola",
       "name": "K•10 Hiking Crampon",
-      "variant": "XS",
+      "variant": "X-Small",
       "category_hint": "other",
       "weight_value": 658,
       "weight_unit": "g",
@@ -7384,7 +7384,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Men's Crest Windshell",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 51,
       "weight_unit": "g",
@@ -7396,7 +7396,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Men's Tarn Down Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 264,
       "weight_unit": "g",
@@ -7408,7 +7408,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Men's Tincup Down Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 360,
       "weight_unit": "g",
@@ -7480,7 +7480,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Windom Hood",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 51,
       "weight_unit": "g",
@@ -7504,7 +7504,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Women's Tarn Down Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 292,
       "weight_unit": "g",
@@ -7516,7 +7516,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Women's Tarn Down Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 275,
       "weight_unit": "g",
@@ -7528,7 +7528,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Women's Tarn Down Jacket",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "clothing",
       "weight_value": 258,
       "weight_unit": "g",
@@ -7540,7 +7540,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Women's Tarn Down Jacket",
-      "variant": "XL",
+      "variant": "X-Large",
       "category_hint": "clothing",
       "weight_value": 318,
       "weight_unit": "g",
@@ -7552,7 +7552,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Women's Tincup Down Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 354,
       "weight_unit": "g",
@@ -7564,7 +7564,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Women's Tincup Down Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 332,
       "weight_unit": "g",
@@ -7576,7 +7576,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Women's Tincup Down Jacket",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "clothing",
       "weight_value": 312,
       "weight_unit": "g",
@@ -7588,7 +7588,7 @@
     {
       "brand": "Katabatic Gear",
       "name": "Women's Tincup Down Jacket",
-      "variant": "XL",
+      "variant": "X-Large",
       "category_hint": "clothing",
       "weight_value": 386,
       "weight_unit": "g",
@@ -7724,7 +7724,7 @@
     {
       "brand": "LEVE Outdoor Co.",
       "name": "Alpha 90 Hoody",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 113,
       "weight_unit": "g",
@@ -7762,7 +7762,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Hoodie Pack Cover",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 161.6,
       "weight_unit": "g",
@@ -7774,7 +7774,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Hoodie Pack Cover",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 150,
       "weight_unit": "g",
@@ -7786,7 +7786,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Jacket",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 221,
       "weight_unit": "g",
@@ -7798,7 +7798,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 210,
       "weight_unit": "g",
@@ -7810,7 +7810,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Jacket",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "clothing",
       "weight_value": 201,
       "weight_unit": "g",
@@ -7822,7 +7822,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Jacket",
-      "variant": "XL",
+      "variant": "X-Large",
       "category_hint": "clothing",
       "weight_value": 232,
       "weight_unit": "g",
@@ -7834,7 +7834,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Jacket",
-      "variant": "XS",
+      "variant": "X-Small",
       "category_hint": "clothing",
       "weight_value": 179,
       "weight_unit": "g",
@@ -7846,7 +7846,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Pants",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 130,
       "weight_unit": "g",
@@ -7858,7 +7858,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Pants",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 125,
       "weight_unit": "g",
@@ -7870,7 +7870,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Pants",
-      "variant": "XL",
+      "variant": "X-Large",
       "category_hint": "clothing",
       "weight_value": 142,
       "weight_unit": "g",
@@ -7882,7 +7882,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Pants",
-      "variant": "XS",
+      "variant": "X-Small",
       "category_hint": "clothing",
       "weight_value": 105,
       "weight_unit": "g",
@@ -7894,7 +7894,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Pants",
-      "variant": "XXL",
+      "variant": "XX-Large",
       "category_hint": "clothing",
       "weight_value": 153,
       "weight_unit": "g",
@@ -7906,7 +7906,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Wrap Skirt",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 79,
       "weight_unit": "g",
@@ -7918,7 +7918,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Wrap Skirt",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 71,
       "weight_unit": "g",
@@ -7930,7 +7930,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Wrap Skirt",
-      "variant": "XL",
+      "variant": "X-Large",
       "category_hint": "clothing",
       "weight_value": 91,
       "weight_unit": "g",
@@ -7942,7 +7942,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Wrap Skirt",
-      "variant": "XS",
+      "variant": "X-Small",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -7954,7 +7954,7 @@
     {
       "brand": "LightHeart Gear",
       "name": "Rain Wrap Skirt",
-      "variant": "XXL",
+      "variant": "XX-Large",
       "category_hint": "clothing",
       "weight_value": 108,
       "weight_unit": "g",
@@ -8063,7 +8063,7 @@
     {
       "brand": "LITE WERKS",
       "name": "The Daily Dose 55L",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 55},
       "category_hint": "pack",
       "weight_value": 1247,
@@ -8103,7 +8103,7 @@
     {
       "brand": "LiteAF",
       "name": "Multi-Day 35L Pack",
-      "variant": "L",
+      "variant": "Large",
       "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "weight_value": 476,
@@ -8116,7 +8116,7 @@
     {
       "brand": "LiteAF",
       "name": "Multi-Day 35L Pack",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "weight_value": 476,
@@ -8129,7 +8129,7 @@
     {
       "brand": "LiteAF",
       "name": "Multi-Day 35L Pack",
-      "variant": "S",
+      "variant": "Small",
       "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "weight_value": 473,
@@ -8181,7 +8181,7 @@
     {
       "brand": "LiteAF",
       "name": "Ultra 40L Curve Full Suspension",
-      "variant": "L",
+      "variant": "Large",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 907,
@@ -8194,7 +8194,7 @@
     {
       "brand": "LiteAF",
       "name": "Ultra 40L Curve Full Suspension",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 879,
@@ -8207,7 +8207,7 @@
     {
       "brand": "LiteAF",
       "name": "Ultra 40L Curve Full Suspension",
-      "variant": "XS",
+      "variant": "X-Small",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 805,
@@ -8244,7 +8244,7 @@
     {
       "brand": "LUNA PROJECT",
       "name": "Air Mesh Back Pad",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 78,
       "weight_unit": "g",
@@ -8256,7 +8256,7 @@
     {
       "brand": "LUNA PROJECT",
       "name": "Air Mesh Back Pad",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 75,
       "weight_unit": "g",
@@ -8268,7 +8268,7 @@
     {
       "brand": "LUNA PROJECT",
       "name": "Air Mesh Shoulder Pads",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 48,
       "weight_unit": "g",
@@ -8280,7 +8280,7 @@
     {
       "brand": "LUNA PROJECT",
       "name": "Air Mesh Shoulder Pads",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 34,
       "weight_unit": "g",
@@ -9265,7 +9265,7 @@
     {
       "brand": "Outdoor Vitals",
       "name": "Ventus Active Hoodie",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 198,
       "weight_unit": "g",
@@ -9277,7 +9277,7 @@
     {
       "brand": "Pa'lante",
       "name": "Grid Fleece Hoody",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 289,
       "weight_unit": "g",
@@ -9289,7 +9289,7 @@
     {
       "brand": "Pa'lante",
       "name": "Shorts",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 181,
       "weight_unit": "g",
@@ -9325,7 +9325,7 @@
     {
       "brand": "PackbackDesigns",
       "name": "DCF Stuff Sack",
-      "variant": "L",
+      "variant": "Large",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 8.5,
@@ -9338,7 +9338,7 @@
     {
       "brand": "PackbackDesigns",
       "name": "DCF Stuff Sack",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 5.7,
@@ -9351,7 +9351,7 @@
     {
       "brand": "PackbackDesigns",
       "name": "DCF Stuff Sack",
-      "variant": "S",
+      "variant": "Small",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 3.1,
@@ -9364,7 +9364,7 @@
     {
       "brand": "PackbackDesigns",
       "name": "Flat Mesh Zipper Pouch",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 26,
       "weight_unit": "g",
@@ -9376,7 +9376,7 @@
     {
       "brand": "PackbackDesigns",
       "name": "Flat Mesh Zipper Pouch",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 21,
       "weight_unit": "g",
@@ -9388,7 +9388,7 @@
     {
       "brand": "PackbackDesigns",
       "name": "Flat Mesh Zipper Pouch",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 11,
       "weight_unit": "g",
@@ -9740,7 +9740,7 @@
     {
       "brand": "Pond's Edge",
       "name": "Boxy Bag",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 11,
@@ -9814,7 +9814,7 @@
     {
       "brand": "PUPPACKR",
       "name": "Chicken Dog Food",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "consumable",
       "weight_value": 162,
       "weight_unit": "g",
@@ -9826,7 +9826,7 @@
     {
       "brand": "PUPPACKR",
       "name": "Chicken Dog Food",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "consumable",
       "weight_value": 127,
       "weight_unit": "g",
@@ -9838,7 +9838,7 @@
     {
       "brand": "PUPPACKR",
       "name": "Chicken Dog Food",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "consumable",
       "weight_value": 92,
       "weight_unit": "g",
@@ -9850,7 +9850,7 @@
     {
       "brand": "PUPPACKR",
       "name": "Chicken Dog Food",
-      "variant": "XL",
+      "variant": "X-Large",
       "category_hint": "consumable",
       "weight_value": 192,
       "weight_unit": "g",
@@ -9959,7 +9959,7 @@
     {
       "brand": "Red Paw Packs",
       "name": "Ultralight Dog Backpack",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 366,
       "weight_unit": "g",
@@ -9971,7 +9971,7 @@
     {
       "brand": "Red Paw Packs",
       "name": "Ultralight Dog Backpack",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 323,
       "weight_unit": "g",
@@ -9983,7 +9983,7 @@
     {
       "brand": "Red Paw Packs",
       "name": "Ultralight Dog Backpack",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "weight_value": 278,
       "weight_unit": "g",
@@ -9995,7 +9995,7 @@
     {
       "brand": "Ridge Merino",
       "name": "Men's Ridge Boxer Briefs",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 85,
       "weight_unit": "g",
@@ -10007,7 +10007,7 @@
     {
       "brand": "Ridge Merino",
       "name": "Men's Solstice Lightweight Wool Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 247,
       "weight_unit": "g",
@@ -10019,7 +10019,7 @@
     {
       "brand": "Ridge Merino",
       "name": "Windshifter Wind Shell Jacket",
-      "variant": "Men's L",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 142,
       "weight_unit": "g",
@@ -10031,7 +10031,7 @@
     {
       "brand": "Ridge Merino",
       "name": "Windshifter Wind Shell Jacket",
-      "variant": "Women's S",
+      "variant": "Women's Small",
       "category_hint": "clothing",
       "weight_value": 125,
       "weight_unit": "g",
@@ -10043,7 +10043,7 @@
     {
       "brand": "Ridge Merino",
       "name": "Women's Ridge Boy Short Underwear",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 57,
       "weight_unit": "g",
@@ -10055,7 +10055,7 @@
     {
       "brand": "Ridge Merino",
       "name": "Women's Send-it Seamless Sports Bra",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 102,
       "weight_unit": "g",
@@ -10067,7 +10067,7 @@
     {
       "brand": "Ridge Merino",
       "name": "Women's Solstice Lightweight Wool Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 227,
       "weight_unit": "g",
@@ -10313,7 +10313,7 @@
     {
       "brand": "Sambob",
       "name": "Alpha Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 140,
       "weight_unit": "g",
@@ -10325,7 +10325,7 @@
     {
       "brand": "Sambob",
       "name": "Alpha Joggers",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 114,
       "weight_unit": "g",
@@ -10337,7 +10337,7 @@
     {
       "brand": "Sambob",
       "name": "Alpha Quarter Zip Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 190,
       "weight_unit": "g",
@@ -10349,7 +10349,7 @@
     {
       "brand": "Sambob",
       "name": "Coastal Sun Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 278,
       "weight_unit": "g",
@@ -10361,7 +10361,7 @@
     {
       "brand": "Sambob",
       "name": "Octa Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 130,
       "weight_unit": "g",
@@ -10565,7 +10565,7 @@
     {
       "brand": "Sea to Summit",
       "name": "Frontier Ultralight Collapsible Bowl",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "cook",
       "weight_value": 82,
       "weight_unit": "g",
@@ -10577,7 +10577,7 @@
     {
       "brand": "Sea to Summit",
       "name": "Frontier Ultralight Collapsible Bowl",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "cook",
       "weight_value": 62,
       "weight_unit": "g",
@@ -10686,7 +10686,7 @@
     {
       "brand": "Sea to Summit",
       "name": "Wilderness Wipes",
-      "variant": "XL, 8-pack",
+      "variant": "X-Large, 8-pack",
       "category_hint": "consumable",
       "weight_value": 122,
       "weight_unit": "g",
@@ -10724,7 +10724,7 @@
     {
       "brand": "Shamma Sandals",
       "name": "Power Straps",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["fit"],
       "category_hint": "clothing",
       "weight_value": 12,
@@ -10849,7 +10849,7 @@
     {
       "brand": "Six Moon Designs",
       "name": "Packing Pod",
-      "variant": "L, 7L",
+      "variant": "Large, 7L",
       "category_hint": "other",
       "weight_value": 28,
       "weight_unit": "g",
@@ -10996,7 +10996,7 @@
     {
       "brand": "SkyGOAT",
       "name": "CAMP Beanie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 25,
       "weight_unit": "g",
@@ -11008,7 +11008,7 @@
     {
       "brand": "SkyGOAT",
       "name": "CAMP Mittens",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 28,
       "weight_unit": "g",
@@ -11020,7 +11020,7 @@
     {
       "brand": "SkyGOAT",
       "name": "Men's CAMP Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 287,
       "weight_unit": "g",
@@ -11032,7 +11032,7 @@
     {
       "brand": "SkyGOAT",
       "name": "Men's Full Zip Fleece Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 301,
       "weight_unit": "g",
@@ -11044,7 +11044,7 @@
     {
       "brand": "SkyGOAT",
       "name": "Men's Half Zip AIR 70 Pullover",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 148,
       "weight_unit": "g",
@@ -11056,7 +11056,7 @@
     {
       "brand": "SkyGOAT",
       "name": "Men's Half Zip Fleece Ultralight Pullover",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 222,
       "weight_unit": "g",
@@ -11068,7 +11068,7 @@
     {
       "brand": "SkyGOAT",
       "name": "Women's CAMP Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 245,
       "weight_unit": "g",
@@ -11080,7 +11080,7 @@
     {
       "brand": "SkyGOAT",
       "name": "Women's Half Zip AIR 70 Pullover",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 130,
       "weight_unit": "g",
@@ -11092,7 +11092,7 @@
     {
       "brand": "SkyGOAT",
       "name": "Women's Half Zip Fleece Ultralight Pullover",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 200,
       "weight_unit": "g",
@@ -11458,7 +11458,7 @@
     {
       "brand": "Suluk 46",
       "name": "Miksa Pot Lifter",
-      "variant": "Aluminum, L",
+      "variant": "Aluminum, Large",
       "category_hint": "cook",
       "weight_value": 11,
       "weight_unit": "g",
@@ -11470,7 +11470,7 @@
     {
       "brand": "Suluk 46",
       "name": "Miksa Pot Lifter",
-      "variant": "Aluminum, S",
+      "variant": "Aluminum, Small",
       "category_hint": "cook",
       "weight_value": 4.9,
       "weight_unit": "g",
@@ -11482,7 +11482,7 @@
     {
       "brand": "Suluk 46",
       "name": "Miksa Pot Lifter",
-      "variant": "Carbon, S",
+      "variant": "Carbon, Small",
       "category_hint": "cook",
       "weight_value": 3.2,
       "weight_unit": "g",
@@ -11494,7 +11494,7 @@
     {
       "brand": "Suluk 46",
       "name": "Miksa Pot Lifter",
-      "variant": "Carbon, XL",
+      "variant": "Carbon, X-Large",
       "category_hint": "cook",
       "weight_value": 19,
       "weight_unit": "g",
@@ -11782,7 +11782,7 @@
     {
       "brand": "Territory Run Co.",
       "name": "Men's Long Haul Short",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 150,
       "weight_unit": "g",
@@ -11972,7 +11972,7 @@
     {
       "brand": "Thrupack",
       "name": "The Comfy Strap",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "pack",
       "weight_value": 62,
       "weight_unit": "g",
@@ -11997,7 +11997,7 @@
     {
       "brand": "Toaks",
       "name": "Pot Cozy",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "cook",
       "weight_value": 27,
       "weight_unit": "g",
@@ -12009,7 +12009,7 @@
     {
       "brand": "Toaks",
       "name": "Pot Cozy",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "cook",
       "weight_value": 20,
       "weight_unit": "g",
@@ -12111,7 +12111,7 @@
     {
       "brand": "Toaks",
       "name": "Titanium Backpacking Wood Burning Stove",
-      "variant": "S, STV-12",
+      "variant": "Small, STV-12",
       "attributes": {"fuel": "wood"},
       "attributes_source_url": "https://www.toaksoutdoor.com/products/stv-12",
       "attributes_quote": "Features a venting system that burns not only the wood but also the flammable wood gas for cleaner and more efficient burning.",
@@ -12312,7 +12312,7 @@
     {
       "brand": "ToughCutie",
       "name": "Ladies Lightweight Hiker Crew",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 65,
       "weight_unit": "g",
@@ -12324,7 +12324,7 @@
     {
       "brand": "ToughCutie",
       "name": "Ladies Lightweight Hiker Quarter Crew",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 46,
       "weight_unit": "g",
@@ -12396,7 +12396,7 @@
     {
       "brand": "Tumble On Outfitters",
       "name": "Alpha & Grid Combo Fleece Hoodie",
-      "variant": "120gsm, M",
+      "variant": "120gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 244,
       "weight_unit": "g",
@@ -12408,7 +12408,7 @@
     {
       "brand": "Tumble On Outfitters",
       "name": "Alpha & Grid Combo Fleece Hoodie",
-      "variant": "90gsm, M",
+      "variant": "90gsm, Medium",
       "category_hint": "clothing",
       "weight_value": 215,
       "weight_unit": "g",
@@ -12504,7 +12504,7 @@
     {
       "brand": "Ultra Gam",
       "name": "Ankle Gaiters",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 31,
       "weight_unit": "g",
@@ -12516,7 +12516,7 @@
     {
       "brand": "Ultra Gam",
       "name": "Arm Sleeves/Warmers",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 42.5,
       "weight_unit": "g",
@@ -12528,7 +12528,7 @@
     {
       "brand": "Ultra Gam",
       "name": "Calf Gaiters",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 2.4,
       "weight_unit": "oz",
@@ -12553,7 +12553,7 @@
     {
       "brand": "UltraliteSacks",
       "name": "Ultralight Compression Sack",
-      "variant": "L (9.5L)",
+      "variant": "Large (9.5L)",
       "category_hint": "other",
       "weight_value": 68,
       "weight_unit": "g",
@@ -12565,7 +12565,7 @@
     {
       "brand": "UltraliteSacks",
       "name": "Ultralight Compression Sack",
-      "variant": "M (6.8L)",
+      "variant": "Medium (6.8L)",
       "category_hint": "other",
       "weight_value": 59.5,
       "weight_unit": "g",
@@ -12577,7 +12577,7 @@
     {
       "brand": "UltraliteSacks",
       "name": "Ultralight Compression Sack",
-      "variant": "S (5.5L)",
+      "variant": "Small (5.5L)",
       "category_hint": "other",
       "weight_value": 51,
       "weight_unit": "g",
@@ -12589,7 +12589,7 @@
     {
       "brand": "UltraliteSacks",
       "name": "Ultralight Cube",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "weight_value": 17,
       "weight_unit": "g",
@@ -12613,7 +12613,7 @@
     {
       "brand": "UltraliteSacks",
       "name": "Ultralight Cube",
-      "variant": "XL",
+      "variant": "X-Large",
       "category_hint": "other",
       "weight_value": 26,
       "weight_unit": "g",
@@ -12625,7 +12625,7 @@
     {
       "brand": "UltraliteSacks",
       "name": "Ultralight Zippered Bear Bag",
-      "variant": "L",
+      "variant": "Large",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 68,
@@ -13057,7 +13057,7 @@
     {
       "brand": "Voormi",
       "name": "River Run Hoodie",
-      "variant": "Men's L",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 198,
       "weight_unit": "g",
@@ -13069,7 +13069,7 @@
     {
       "brand": "Voormi",
       "name": "Women's River Run Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 142,
       "weight_unit": "g",
@@ -13081,7 +13081,7 @@
     {
       "brand": "Wūru Wool",
       "name": "Men's 100% Merino Lightweight Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 215,
       "weight_unit": "g",
@@ -13093,7 +13093,7 @@
     {
       "brand": "Wūru Wool",
       "name": "Men's 100% Merino Short Sleeve Shirt",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 198,
       "weight_unit": "g",
@@ -13105,7 +13105,7 @@
     {
       "brand": "Wūru Wool",
       "name": "Women's 100% Merino Lightweight Hoodie",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 210,
       "weight_unit": "g",
@@ -13117,7 +13117,7 @@
     {
       "brand": "Wūru Wool",
       "name": "Women's 100% Merino Relaxed Crew Short Sleeve",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 198,
       "weight_unit": "g",
@@ -13281,7 +13281,7 @@
     {
       "brand": "WIDE OPEN Socks",
       "name": "Men's Multi Stripe Cushioned Micro Crew Socks",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 60,
       "weight_unit": "g",
@@ -13293,7 +13293,7 @@
     {
       "brand": "WIDE OPEN Socks",
       "name": "Men's Solid Cushioned Quarter Crew Socks",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 56,
       "weight_unit": "g",
@@ -13305,7 +13305,7 @@
     {
       "brand": "WIDE OPEN Socks",
       "name": "Women's Multi Stripe Cushioned Micro Crew Socks",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 52,
       "weight_unit": "g",
@@ -13317,7 +13317,7 @@
     {
       "brand": "WIDE OPEN Socks",
       "name": "Women's Stripe Cushioned Quarter Crew Socks",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 56,
       "weight_unit": "g",
@@ -13525,7 +13525,7 @@
     {
       "brand": "Yonderwear",
       "name": "The Yonderpair Women's Underwear",
-      "variant": "M Mid-Rise",
+      "variant": "Medium Mid-Rise",
       "attributes": {"size": "M"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/the-yonderpair-womens-underwear-by-yonderwear",
       "attributes_quote": "Weight: 1.4oz | 39g (medium mid-rise)",
@@ -13540,7 +13540,7 @@
     {
       "brand": "Youer",
       "name": "Treasure Dress Air",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 170,
       "weight_unit": "g",
@@ -13735,7 +13735,7 @@
     {
       "brand": "Zpacks",
       "name": "Arc Haul 40L",
-      "variant": "M torso",
+      "variant": "Medium torso",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 416,
@@ -13761,7 +13761,7 @@
     {
       "brand": "Zpacks",
       "name": "Arc Haul 50L",
-      "variant": "M torso",
+      "variant": "Medium torso",
       "attributes": {"volume_l": 50},
       "category_hint": "pack",
       "weight_value": 427,
@@ -13787,7 +13787,7 @@
     {
       "brand": "Zpacks",
       "name": "Arc Haul 60L EPX",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 60},
       "category_hint": "pack",
       "weight_value": 482,
@@ -13861,7 +13861,7 @@
     {
       "brand": "Zpacks",
       "name": "Deluxe Camp Shoes",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["fit"],
       "category_hint": "clothing",
       "weight_value": 76,
@@ -13984,7 +13984,7 @@
     {
       "brand": "Zpacks",
       "name": "Ultralight Camp Shoes",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["fit"],
       "category_hint": "clothing",
       "weight_value": 52,

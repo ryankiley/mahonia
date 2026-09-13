@@ -125,7 +125,7 @@
     {
       "brand": "Soar",
       "name": "Tempo Top",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "running shirt",
       "weight_value": 150,
@@ -173,7 +173,7 @@
     {
       "brand": "Houdini",
       "name": "Tree Chore Jacket",
-      "variant": "Men's L",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "common_name": "jacket",
       "weight_value": 326,
@@ -185,7 +185,7 @@
     {
       "brand": "Houdini",
       "name": "Tree Chore Jacket",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "common_name": "jacket",
       "weight_value": 284,
@@ -281,7 +281,7 @@
     {
       "brand": "Klättermusen",
       "name": "Algir Accessory Bag",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "common_name": "pouch",
       "weight_value": 61,
@@ -393,7 +393,7 @@
     {
       "brand": "CAYL",
       "name": "Light Conseal Zip Jacket",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "clothing",
       "common_name": "wind jacket",
       "weight_value": 153,
@@ -429,7 +429,7 @@
     {
       "brand": "CAYL",
       "name": "Stripe B.L. Short Sleeve",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "clothing",
       "common_name": "shirt",
       "weight_value": 91,
@@ -441,7 +441,7 @@
     {
       "brand": "CAYL",
       "name": "Trail Air Jacket",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "clothing",
       "common_name": "wind jacket",
       "weight_value": 134,
@@ -453,7 +453,7 @@
     {
       "brand": "Portal",
       "name": "Acre Light Pant",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 320,
@@ -465,7 +465,7 @@
     {
       "brand": "Portal",
       "name": "Biome Insulated Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "insulated jacket",
       "weight_value": 560,
@@ -489,7 +489,7 @@
     {
       "brand": "Portal",
       "name": "Code Wind Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "wind jacket",
       "weight_value": 77,
@@ -501,7 +501,7 @@
     {
       "brand": "Portal",
       "name": "Drift Merino Boxer Brief",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "underwear",
       "weight_value": 70,
@@ -525,7 +525,7 @@
     {
       "brand": "Portal",
       "name": "Drift Merino LS T",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "base layer top",
       "weight_value": 140,
@@ -537,7 +537,7 @@
     {
       "brand": "Portal",
       "name": "Drift Merino SS T",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "base layer top",
       "weight_value": 120,
@@ -549,7 +549,7 @@
     {
       "brand": "Portal",
       "name": "Lateral Peak LS T",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "shirt",
       "weight_value": 110,
@@ -561,7 +561,7 @@
     {
       "brand": "Portal",
       "name": "Lateral Peak T",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "shirt",
       "weight_value": 90,
@@ -573,7 +573,7 @@
     {
       "brand": "Portal",
       "name": "Level Alpha Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 330,
@@ -585,7 +585,7 @@
     {
       "brand": "Portal",
       "name": "Lineage All Purpose Sock",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "socks",
       "weight_value": 60,
@@ -597,7 +597,7 @@
     {
       "brand": "Portal",
       "name": "Loam Fleece Jacket",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 480,
@@ -609,7 +609,7 @@
     {
       "brand": "Portal",
       "name": "Marka Liner Short",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "shorts",
       "weight_value": 150,
@@ -621,7 +621,7 @@
     {
       "brand": "Portal",
       "name": "Pattern Active Sock",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "socks",
       "weight_value": 40,
@@ -657,7 +657,7 @@
     {
       "brand": "Portal",
       "name": "Range Light Jersey",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "shirt",
       "weight_value": 150,
@@ -669,7 +669,7 @@
     {
       "brand": "Portal",
       "name": "Ritual Merino Sock",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "socks",
       "weight_value": 60,
@@ -681,7 +681,7 @@
     {
       "brand": "Portal",
       "name": "Root Hemp LS T",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "shirt",
       "weight_value": 260,
@@ -693,7 +693,7 @@
     {
       "brand": "Portal",
       "name": "Root Hemp T",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "shirt",
       "weight_value": 220,
@@ -705,7 +705,7 @@
     {
       "brand": "Portal",
       "name": "Traka Softshell Pant",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 360,
@@ -717,7 +717,7 @@
     {
       "brand": "Portal",
       "name": "Traka Softshell Short",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "common_name": "shorts",
       "weight_value": 250,
@@ -819,7 +819,7 @@
     {
       "brand": "Tantrums",
       "name": "Crest 6 Hydration Pack",
-      "variant": "M",
+      "variant": "Medium",
       "attributes": {"volume_l": 6},
       "category_hint": "pack",
       "common_name": "running vest",

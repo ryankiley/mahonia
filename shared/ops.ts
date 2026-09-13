@@ -243,6 +243,28 @@ const SAFE_COLOR_KEY = /^[a-z0-9-]{1,40}$/;
 const clampWeight = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
 
+/**
+ * A worn count only describes a genuine partial of a base line. Keep this beside
+ * the item normalizer rather than teaching add/import and update their own versions:
+ * both routes must turn an all-worn line into the Worn classification and discard a
+ * split from a line that has no base remainder.
+ */
+function normalizeWornSplit(
+  qty: number,
+  classification: Classification | null,
+  rawWornQty: unknown,
+): { classification: Classification | null; wornQty?: number } {
+  const wornQty =
+    typeof rawWornQty === "number" && Number.isFinite(rawWornQty)
+      ? Math.round(rawWornQty)
+      : 0;
+  if (wornQty <= 0 || qty < 2 || classification === "worn" || classification === "consumable") {
+    return { classification };
+  }
+  if (wornQty >= qty) return { classification: "worn" };
+  return { classification, wornQty };
+}
+
 /** A stored product link: http(s) only, length-capped. Anything else is no link.
  *  Deliberately not tidied — see cleanText below on why URLs keep their apostrophes. */
 const httpUrl = (raw: string): string | undefined => {
@@ -585,25 +607,9 @@ function applyOp(state: ListState, op: Op): void {
         // owes the same invariant.
         if (it.catalogItemId !== linkedTo && typeof patch.catalogWeightMgAtLink !== "number")
           it.catalogWeightMgAtLink = undefined;
-        // Normalize the worn/base split after ANY patch (needs the item's current
-        // qty + classification, which cleanItemPatch can't see). A split only reads
-        // as a GENUINE PARTIAL of a base line with ≥2 units, so:
-        //  • the item is already explicitly worn/consumable → no base remainder to
-        //    split: drop it (mirrors normalizeItem; a wornQty-only patch must not
-        //    resurrect a split — or flip a consumable to Worn via the collapse below)
-        //  • qty < 2 → nothing to split: drop it, let the item's base class stand
-        //    (not clamp to 1, which would flip the lone unit to fully worn)
-        //  • every copy worn (wornQty ≥ qty) → that's just the Worn class, not a
-        //    "N worn · 0 base" split with no base remainder
-        //  • otherwise a real partial (1 ≤ wornQty ≤ qty−1) stays as-is
-        if (it.wornQty != null) {
-          if (it.classification === "worn" || it.classification === "consumable" || it.qty < 2) {
-            it.wornQty = undefined;
-          } else if (it.wornQty >= it.qty) {
-            it.classification = "worn";
-            it.wornQty = undefined;
-          }
-        }
+        const worn = normalizeWornSplit(it.qty, it.classification, it.wornQty);
+        it.classification = worn.classification;
+        it.wornQty = worn.wornQty;
         healPersonId(state, it);
       }
       break;
@@ -793,16 +799,8 @@ export function normalizeItem(raw: Item): Item {
   let classification = CLASSES.includes(raw.classification as Classification)
     ? (raw.classification as Classification)
     : null;
-  const wornQtyRaw =
-    typeof raw.wornQty === "number" && isFinite(raw.wornQty) ? Math.round(raw.wornQty) : 0;
-  // Resolve the worn split exactly as the op-reducer does: keep it only as a genuine
-  // partial of a base-effective line with ≥2 units; an all-worn count is just the
-  // Worn class, and a lone line has nothing to split.
-  let wornQty: number | undefined;
-  if (wornQtyRaw > 0 && qty >= 2 && classification !== "worn" && classification !== "consumable") {
-    if (wornQtyRaw < qty) wornQty = wornQtyRaw;
-    else classification = "worn";
-  }
+  const worn = normalizeWornSplit(qty, classification, raw.wornQty);
+  classification = worn.classification;
   // same clamp as cleanItemPatch: whole, positive, bounded — anything else is
   // absent rather than zero (see Item.kcal)
   const kcal = typeof raw.kcal === "number" && isFinite(raw.kcal) ? Math.round(raw.kcal) : 0;
@@ -830,7 +828,7 @@ export function normalizeItem(raw: Item): Item {
     entryUnit:
       typeof raw.entryUnit === "string" && UNITS.includes(raw.entryUnit) ? raw.entryUnit : undefined,
     qty,
-    wornQty,
+    wornQty: worn.wornQty,
     classification,
     kcal: kcal > 0 ? Math.min(KCAL_MAX, kcal) : undefined,
     description: raw.description ? cleanText(String(raw.description), 2000) || undefined : undefined,

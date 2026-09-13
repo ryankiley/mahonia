@@ -101,6 +101,7 @@ describe("the share view's row", () => {
     expect(w.find(".item__rosub").text()).toBe("Quilt · Long");
   });
 
+
   it("opens the sub-line for a variant alone, and dots the note after it", () => {
     const w = mountRo(longQuilt({ commonName: undefined, description: "the summer one" }), [], new Set(["q1"]));
     expect(w.find(".item__rosub").text()).toBe("Long · the summer one");
@@ -175,7 +176,7 @@ describe("the editor's row", () => {
   it("opens an empty variant field with the gear type's while the name is being edited, on a leaf only", async () => {
     const leaf = mountRow(item({ id: "t", name: "Tarp" }));
     expect(leaf.find(".item__variant-input").exists()).toBe(false);
-    await leaf.find(".item__namebox").trigger("focusin");
+    await leaf.find(".item__namebox .ac__input").trigger("focusin"); // focus lands on the field, not the box
     expect(leaf.find(".item__gtype-input").exists()).toBe(true);
     expect(leaf.find(".item__variant-input").exists()).toBe(true);
     // the person's words, not the catalog's: "variant" is trade vocabulary
@@ -196,15 +197,28 @@ describe("the editor's row", () => {
       global: { provide: rowProvides(new Map([["g", [snapshot.value.items[1]!]]])) },
       attachTo: document.body,
     });
-    await group.find(".item__namebox").trigger("focusin");
+    await group.find(".item__namebox .ac__input").trigger("focusin");
     expect(group.find(".item__variant-input").exists()).toBe(false);
+  });
+
+  // any of the row's text fields opens the sub-line, not only the name box (Ryan,
+  // 2026-09-12); a button taking focus does not, since opening a menu is not editing
+  it("opens the sub-line from the weight field, and not from a button", async () => {
+    const w = mountRow(item({ id: "t", name: "Tarp" }));
+    expect(w.find(".item__gtype-input").exists()).toBe(false);
+    await w.find('button[aria-label^="Reorder"]').trigger("focusin");
+    expect(w.find(".item__gtype-input").exists()).toBe(false);
+    await w.find('input[aria-label="Weight"]').trigger("focusin");
+    expect(w.find(".item__gtype-input").exists()).toBe(true);
+    expect(w.find(".item__variant-input").exists()).toBe(true);
+    expect(w.find('textarea[aria-label="Item note"]').exists()).toBe(true);
   });
 
   // typing one: stored through the reducer (the stub's updateItem runs the real one),
   // and the name marked the person's so live-resolve keeps its hands off the triple
   it("stores a typed variant and marks the name the person's", async () => {
     const w = mountRow(item({ id: "t", name: "Tarp", commonName: "Shelter" }));
-    await w.find(".item__namebox").trigger("focusin"); // opens the empty field
+    await w.find(".item__namebox .ac__input").trigger("focusin"); // opens the empty field
     const field = w.find<HTMLInputElement>(".item__variant-input");
     field.element.value = "  8 x 10  ";
     await field.trigger("change");

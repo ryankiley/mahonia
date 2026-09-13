@@ -525,6 +525,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
       autocomplete="off"
       autocorrect="off"
       spellcheck="false"
+      enterkeyhint="next"
       @keydown="onKeydown"
       @paste="onPaste"
       @focus="focused = true; open = suggest"

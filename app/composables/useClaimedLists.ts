@@ -10,6 +10,7 @@
 
 import { LIST_CODE_HEADER, normalizeShareCode } from "~~/shared/links";
 import { claimedLocalKey } from "~~/shared/localList";
+import { isRecord } from "~~/shared/record";
 import type { ClaimedOpen } from "~~/shared/switcher";
 import { CLAIMED_LIST_CAP, type ClaimedList } from "~~/shared/types";
 import { forget, recall, recallJson, remember } from "../utils/remember";
@@ -42,9 +43,6 @@ const CLAIMED_OPENS_KEY = "gear.claimed.opens.v1";
 // find the single most recent, so the tail is dead weight and old codes shouldn't
 // accumulate on the device forever.
 const OPENS_KEPT = 32;
-
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  !!v && typeof v === "object" && !Array.isArray(v);
 
 function readOpens(): Record<string, number> {
   // Only what this file itself writes gets through: a canonical share code as the

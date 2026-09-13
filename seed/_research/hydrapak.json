@@ -148,7 +148,7 @@
     {
       "brand": "HydraPak",
       "name": "FuelPak",
-      "variant": "S",
+      "variant": "Small",
       "category_hint": "other",
       "common_name": "snack pouch",
       "weight_value": 10,
@@ -160,7 +160,7 @@
     {
       "brand": "HydraPak",
       "name": "FuelPak",
-      "variant": "L",
+      "variant": "Large",
       "category_hint": "other",
       "common_name": "snack pouch",
       "weight_value": 11,

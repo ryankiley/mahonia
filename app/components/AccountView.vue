@@ -591,7 +591,7 @@ async function onSignOut() {
   flex-direction: column;
   align-items: center;
   gap: var(--space-4);
-  max-width: 26rem;
+  max-width: var(--account-measure);
   margin-inline: auto;
   padding-block: 0 var(--space-6);
   text-align: center;
@@ -633,7 +633,7 @@ async function onSignOut() {
      (tokens.scss, the --underline rule) */
   text-decoration: underline;
   text-decoration-color: var(--underline);
-  text-underline-offset: 2px;
+  text-underline-offset: var(--underline-offset);
 }
 .acct__switch:hover,
 .acct__switch:focus-visible {
@@ -720,7 +720,7 @@ async function onSignOut() {
 .acct__input {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 40px;
+  min-height: var(--control-h);
   padding: 0 var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);

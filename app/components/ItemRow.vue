@@ -417,6 +417,15 @@ function onWeight(e: Event) {
   if (!el.value.trim().startsWith("<")) c.setItemWeight(props.item.id, el.value);
   el.value = weightDisplay.value; // resync to canonical (handles unparseable / no-op edits)
 }
+// Enter in a typed weight is the other half of the name field's entry chain: commit
+// through the field's ordinary change handler, then put a blank row below.  This stays
+// a text field on purpose — “3.8 oz” remains valid input alongside a bare number.
+function onWeightKeydown(e: KeyboardEvent) {
+  if (e.key !== "Enter" || e.isComposing || isWater.value || isParent.value) return;
+  e.preventDefault();
+  (e.target as HTMLInputElement).dispatchEvent(new Event("change", { bubbles: true }));
+  onAdvance();
+}
 // tapping a "<0.01"-style weight selects the label so the first keystroke replaces it
 // with a real number instead of appending to it ("<0.013" → nonsense)
 function onWeightFocus(e: Event) {
@@ -739,6 +748,14 @@ const noteRef = useTemplateRef<HTMLTextAreaElement>("noteRef");
 // mid-edit), then cleared by onRowBlur. An empty field just folds back up — nothing is
 // written by revealing it.
 const nameEditing = ref(false);
+// Landing in ANY of the row's text fields offers the sub-line, not only the name box:
+// a person editing the weight is editing the row, and the gear type, size and note are
+// one tab away from there too (Ryan, 2026-09-12: "clicking into any text field on the
+// row should probably expose all rows"). Fields only: the row's buttons and menus take
+// focus as well, and opening the ⋯ menu is not editing.
+function onFieldFocus(e: FocusEvent) {
+  if ((e.target as HTMLElement | null)?.matches?.("input, textarea")) nameEditing.value = true;
+}
 // A GROUP's own name is already the everyday label — that's where it comes from
 // (useGearList.containerFor lifts the wrapped product's common name up to be the
 // group's name), so offering a group a second one is circular. A parent therefore
@@ -1294,7 +1311,7 @@ function dismissFix() {
       <span v-if="item.commonName || variantOnRow" class="t-sm item__csub">{{ item.commonName }}<span v-if="variantOnRow" class="item__cvariant">{{ item.commonName ? " · " : "" }}{{ item.variant }}</span></span>
     </label>
 
-    <div v-if="everEdit" class="item-row item">
+    <div v-if="everEdit" class="item-row item" @focusin="onFieldFocus">
       <!-- editable row (default) -->
       <!-- focusin (it bubbles, unlike focus) rather than binding ItemInput's own input:
            the name cell is the whole "what is this item" affordance, so landing anywhere
@@ -1304,7 +1321,7 @@ function dismissFix() {
              under the NAME, not under the sub-line below), the group's name·chevron flex
              line, and the focusin target — landing anywhere in it offers the gear type
              + note underneath (nameEditing); focus arriving in those fields does not. -->
-        <div class="item__namebox" :class="{ 'item__namebox--group': isParent }" @focusin="nameEditing = true">
+        <div class="item__namebox" :class="{ 'item__namebox--group': isParent }">
           <!-- no catalog / My Gear suggestions on a GROUP. A pick stamps the product's
                weight onto the row (onNameCommit), and a group's weight cell is read-only
                and shows the total of its children — so that weight would land where no
@@ -1565,11 +1582,13 @@ function dismissFix() {
             autocorrect="off"
             autocapitalize="off"
             spellcheck="false"
+            enterkeyhint="next"
             :readonly="isWater || isParent"
             :tabindex="isWater || isParent ? -1 : undefined"
             :title="isParent ? 'Total of this group' : undefined"
             @focus="onWeightFocus"
             @change="onWeight"
+            @keydown="onWeightKeydown"
             @keydown.up.prevent="onWeightStep($event, 1)"
             @keydown.down.prevent="onWeightStep($event, -1)"
           />
@@ -2959,7 +2978,7 @@ function dismissFix() {
   /* the upward tuck under the name now lives on the .reveal--note wrapper (so the
      grid track sizing stays clean); this element just fills its cell */
   color: var(--ink-3);
-  font-size: 1rem; /* static 16px — avoid iOS focus-zoom (see .field in controls.scss) */
+  font-size: var(--text-input); /* static 16px — avoid iOS focus-zoom (see .field in controls.scss) */
   font-style: italic;
 }
 .item__note::placeholder {
@@ -3121,7 +3140,7 @@ textarea.item__note {
   .item-wrap .item .field,
   .item-wrap .item__name :deep(.field) {
     min-height: 0;
-    padding-block: 2px;
+    padding-block: var(--space-px);
     line-height: 1.3;
   }
   /* The sub-line sits directly under the name field here as on desktop, but the mobile
@@ -3362,9 +3381,41 @@ textarea.item__note {
   .item__trail {
     display: flex;
     align-items: center;
-    gap: var(--meta-gap);
+    /* ONE evenly spaced cluster on a phone, marks and controls alike (Ryan,
+       2026-09-12: "align consumable and worn to the right and evenly space them").
+       The gap between the two pairs is the same 4px as within them: it was the
+       numbers' --meta-gap, which sets the pairs apart as groups on the wide grid line
+       and read as a hole in the middle of the cluster here, on the numbers' line or
+       wrapped under it. The separation from the weight stays the auto margin's. */
+    gap: var(--space-1);
     flex: none;
     margin-left: auto;
+  }
+  /* …and the four GLYPHS at one pitch. The marks centre theirs; the ⋯ right-aligned
+     its (the desktop rule, where the trailing glyphs line up on the grip), so it
+     centres here too. The grip keeps its flush treatment (.grip: the glyph right-
+     aligned in the box and shifted a third of itself out to the edge), which puts
+     its dots, a narrow glyph, hard against the box's right edge; a centred glyph's
+     centre is half a box in. Even to the EYE is even gaps between ink, not between
+     centres: the dots are a third the width of the round glyphs, so equal centres
+     left a wider hole before the grip (Ryan, 2026-09-12: "still don't look evenly
+     spaced"). So the grip's box comes back by half a box and a little more, which
+     puts the dots' left edge the same 32px past the ⋯'s ink as each glyph sits past
+     the last. The box is --tap on a coarse pointer and --icon-btn on a fine one
+     (.btn--icon's own rule), hence the token, set both ways. Replaces .grip's
+     --grip-pull here: that pull evens the desktop cluster, where the ⋯ is
+     right-aligned; this is the same idea for a centred one. */
+  .item__trail :deep(.item__morebtn) {
+    justify-content: center;
+  }
+  .item__trail .item__grip {
+    --trail-box: var(--icon-btn);
+    margin-left: calc(-1 * (var(--trail-box) / 2 + 2px));
+  }
+  @media (pointer: coarse) {
+    .item__trail .item__grip {
+      --trail-box: var(--tap);
+    }
   }
   .item__classcell {
     flex: none;
@@ -3496,7 +3547,7 @@ textarea.item__note {
   .item__cname {
     grid-column: 2 / -1;
     grid-row: 1;
-    padding-block: 2px;
+    padding-block: var(--space-px);
     line-height: 1.3;
     display: flex;
     align-items: center;

@@ -9,18 +9,13 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 import type { SatoriOptions } from "satori";
+import { OG_FONT_FACES } from "../shared/ogCard";
 import { renderOgSiteCard } from "../server/utils/ogCard";
 
 const root = fileURLToPath(new URL("..", import.meta.url));
-const FACES = [
-  ["inter-regular.ttf", "Inter", 400],
-  ["inter-semibold.ttf", "Inter", 600],
-  ["interdisplay-regular.ttf", "InterDisplay", 400],
-  ["interdisplay-bold.ttf", "InterDisplay", 700],
-] as const;
 
 const fonts: SatoriOptions["fonts"] = await Promise.all(
-  FACES.map(async ([file, name, weight]) => ({
+  OG_FONT_FACES.map(async ([file, name, weight]) => ({
     name,
     weight,
     style: "normal" as const,

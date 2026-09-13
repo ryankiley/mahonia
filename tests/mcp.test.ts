@@ -161,6 +161,7 @@ describe("the endpoint's transport", () => {
     for (const t of tools) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.description.length).toBeGreaterThan(20);
+      expect(t).not.toHaveProperty("run");
     }
     expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product"]);
     // the two adding tools are additive; set_trip replaces and clears, and says so
@@ -446,6 +447,9 @@ describe("writing", () => {
       { trail_url: "javascript:alert(1)" },
       { items: Array.from({ length: 1001 }, (_, i) => ({ name: `Row ${i}` })) },
       { folders: Array.from({ length: 51 }, (_, i) => ({ name: `F${i}` })) },
+      // A blank folder used to become an unexpected default-named folder after the
+      // server normalized it. The connector should say what is wrong up front.
+      { folders: [{ name: "   " }] },
       // a catalog id the column can't hold would fail every later read of the list
       { items: [{ name: "x", catalog_id: 3_000_000_000 }] },
       { items: [{ name: "x", catalog_id: 1e300 }] },
