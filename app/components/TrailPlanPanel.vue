@@ -1,19 +1,17 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
 import { ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
-import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
-import { burnDownMg, dayEnds as endsForDays, dayRanges, estimateDay, heightIsDerived, lastOwnedDayIndex, nextOwnedDay, shownHeightM } from "~~/shared/tripPlan";
+import type { ListSnapshot, Totals } from "~~/shared/types";
+import { estimateDay, heightIsDerived, shownHeightM } from "~~/shared/tripPlan";
 import { coolerByC, dayFactsForRanges, type DayFacts } from "~~/shared/dayFacts";
 import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/shared/dryCarry";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS } from "~~/shared/ops";
-import { dayColorSequence } from "~~/shared/categories";
 import { shiftIsoDate } from "~~/shared/calendar";
 import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
 import { DAYLIGHT_MARGIN_H, daylightHours, formatDaylight, lightIsShort } from "~~/shared/daylight";
-import { isWaterName } from "~~/shared/water";
-import { lineMg, effectiveClassification, formatWeight } from "~~/shared/weights";
+import { formatWeight } from "~~/shared/weights";
 import type { BodyWeightUnit } from "~~/shared/trailDistance";
 import {
   DEFAULT_BODY_G,
@@ -23,13 +21,12 @@ import {
   formatDistance,
   formatDistancePadded,
   heightFieldValue,
-  heightUnitFor,
   heightValue,
-  parseBodyWeightG,
   parseDistanceM,
-  resolveDistanceUnit,
 } from "~~/shared/trailDistance";
 import { tripDays } from "~~/shared/foodPlan";
+import { useTrailPlanRoute } from "~/composables/useTrailPlanRoute";
+import { useTripLoadModel } from "~/composables/useTripLoadModel";
 
 // Planning mode's body: the trip broken into days, and what the pack weighs on each.
 //
@@ -125,95 +122,25 @@ function ensureDay(i: number): string | null {
   for (let k = stored.value.length; k <= i; k++) c.addDay();
   return null; // the patch lands on the next tick, once the op has applied
 }
-const distanceUnit = computed(() => resolveDistanceUnit(props.snapshot.trailDistanceUnit));
-
-const totalDistanceM = computed(() => days.value.reduce((s, d) => s + (d?.distanceM ?? 0), 0));
-// The bigger of the route's own length and what the days add up to.
-//
-// The route leads, because it says something true from the first moment rather than
-// sitting at zero until an itinerary is typed, and because the days are shares OF it —
-// which is what leaves a remainder for the unassigned stretch (see dayDistancesM).
-//
-// But `max`, not the route alone: an itinerary can legitimately add up to more than the
-// straight-line route — a side trip, an out-and-back to water — and a figure a person
-// typed must never be quietly discarded in favour of one read off a file.
-// NOT tripHeadline(snapshot).metres, though the arithmetic looks identical. That sums the
-// list's STORED days; this sums the days the calendar currently shows. They differ on a
-// list whose date range was shortened, because the entities behind the hidden days survive
-// (see `days`) — and the chart below has to be scaled to the ground it actually draws.
-const headlineM = computed(() =>
-  Math.max(props.snapshot.trailDistanceM ?? 0, totalDistanceM.value),
-);
-/**
- * The ROUTE's climb, exact.
- *
- * Not ascentValue, which rounds feet to the nearest 10. That rounding is right for the
- * day fields, where the store is integer metres and an editable figure would otherwise
- * round-trip 690 into 689; it is wrong here, where the figure is read-only, measured
- * across the full track, and sits beside a chart whose spoken description states it
- * exactly. 10,250 next to 10,246 is the same number disagreeing with itself.
- */
-const routeHeight = (m: number | undefined) =>
-  m == null ? "" : heightValue(m, distanceUnit.value);
-
-/** Whether the route's drop is its own fact, or the climb restated (which a loop guarantees). */
-const routeDescentDiffers = computed(
-  () =>
-    props.snapshot.trailDescentM != null &&
-    props.snapshot.trailAscentM != null &&
-    props.snapshot.trailDescentM !== props.snapshot.trailAscentM,
-);
-const totalAscentM = computed(() => days.value.reduce((s, d) => s + (d?.ascentM ?? 0), 0));
-
-/**
- * Consumable weight that actually DEPLETES — everything classed consumable, minus water.
- *
- * Water refills; it doesn't get eaten. Counting it as burned down would make the late days
- * weightlessly cheap, which is the opposite of true on a dry section. The test is the
- * item's name (shared/water.ts owns that rule), which is why this lives here rather than
- * in computeTotals — weights.ts can't import water.ts without a cycle.
- */
-const burnableMg = computed(() => {
-  const water = props.snapshot.items
-    .filter((i) => isWaterName(i.name))
-    .filter((i) => effectiveClassification(i, props.snapshot.folders) === "consumable")
-    .reduce((s, i) => s + lineMg(i), 0);
-  return Math.max(0, props.totals.consumableMg - water);
+const {
+  ascentUnit,
+  bodyFieldValue,
+  bodyG,
+  bodyIsDefault,
+  bodyUnit,
+  commitBody,
+  distanceUnit,
+  headlineM,
+  packMg,
+  routeDescentDiffers,
+  routeHeight,
+  setBodyUnit,
+  totalAscentM,
+} = useTripLoadModel({
+  snapshot: toRef(props, "snapshot"),
+  totals: toRef(props, "totals"),
+  days,
 });
-
-/**
- * The pack at the middle of each day, heaviest first.
- *
- * No longer DRAWN — the per-day bar and figure came off the row. They restated the trip's
- * "Carried" chip once per day with a burn-down nobody had asked to see, and a row read by
- * scanning one column doesn't want a seventh figure that turns it into a table.
- *
- * This survives because the ESTIMATE still needs it: what a day costs depends on what you
- * are carrying across it — the midpoint, not the morning's load, which would over-read
- * every day.
- */
-const packMg = computed(() => burnDownMg(props.totals.carriedMg, burnableMg.value, days.value.length));
-
-// ---- the walker ----
-// Set once per DEVICE, not per list — a body weight belongs to the person, not to the
-// trip, so re-entering it on every list was asking the wrong question. See
-// useBodyWeight: it never reaches the server, which is why nothing here has to be
-// stripped from a read path.
-//
-// Optional, with a STATED default. `isDefault` is what keeps that honest: the control
-// reads "assuming 70 kg" until someone sets one, rather than sitting pre-filled with 70,
-// because a pre-filled field looks like something you already confirmed.
-const body = useBodyWeight(props.snapshot.displayUnit);
-const bodyUnit = body.unit;
-const bodyG = body.value;
-const bodyIsDefault = body.isDefault;
-const bodyFieldValue = computed(() =>
-  body.stored.value ? bodyWeightFieldValue(body.stored.value, bodyUnit.value) : "",
-);
-function commitBody(e: Event) {
-  const raw = (e.target as HTMLInputElement).value.trim();
-  body.set(raw ? parseBodyWeightG(raw, bodyUnit.value) : null);
-}
 
 // ---- per-day estimates ----
 // Everything here is MODELLED, and the `~` in the template says so on every figure. The
@@ -261,208 +188,34 @@ const tripKcal = computed(() =>
 );
 const tripHours = computed(() => estimates.value.reduce((s, e) => s + (e?.hours ?? 0), 0));
 
+// Route allocation has a separate lifecycle from this visual panel: it drives the
+// profile, map, waypoint rows and boundary drags, while this component lays all of
+// those answers out. Keep that model in one composable rather than between view blocks.
+const {
+  armedRange,
+  arming,
+  dayColors,
+  dayDistancesM,
+  dayEnds,
+  finishDayIndex,
+  grouped,
+  hasRest,
+  onBoundary,
+  ranges,
+  restFromM,
+  restRange,
+  routeFinishM,
+  traceM,
+  waypoints,
+} = useTrailPlanRoute({
+  snapshot: toRef(props, "snapshot"),
+  stored,
+  days,
+  controller: c,
+});
+
 // ---- the route's shape ----
 const profile = computed(() => parseProfile(props.snapshot.trailProfile));
-// Each day's share of the ground, for cutting the profile into coloured stretches.
-//
-// A blank day is ZERO, not an even slice of what's left. Ground you haven't assigned to a
-// day isn't shared out among the blank ones — it's simply unassigned, and the chart draws
-// that tail grey (see TrailProfile). Enter 4 miles of a 20-mile route and the first 4 are
-// your Day 1; the other 16 are not yet anybody's, and colouring them would say otherwise.
-const dayDistancesM = computed(() => days.value.map((d) => d?.distanceM ?? 0));
-
-// The colours the days wear on the chart and on the map's legs — read from the one
-// sequence all three use, so a chip can't say "Day 2" in a colour day 2 isn't drawn in.
-const dayColors = computed(() => dayColorSequence(days.value.length));
-
-// ---- the pins ----
-/**
- * Where each day's stretch begins and ends along the route.
- *
- * The same cut the elevation chart and the map's legs make — days laid end to end from the
- * start — so a pin, a coloured leg and a coloured stretch of chart all answer "which day
- * is this" identically. A blank day is zero-width, which is the point: it owns no ground
- * until it has a distance, and so it can hold no pins.
- */
-// cumulative from/to per day — shared/tripPlan, so it is tested rather than inlined
-const ranges = computed(() => dayRanges(dayDistancesM.value));
-
-/** Ground past the last assigned day — still on the route, not yet anybody's. */
-const restFromM = computed(() => ranges.value.at(-1)?.toM ?? 0);
-const restRange = computed(() => ({ fromM: restFromM.value, toM: props.snapshot.trailDistanceM ?? 0 }));
-const hasRest = computed(() => restRange.value.toM > restRange.value.fromM + 1);
-
-/**
- * The pins, in ROUTE ORDER — which is the only order they have. A waypoint carries no
- * sortOrder because its distance along the line already answers "which comes first", and
- * a stored order could disagree with the map.
- */
-const waypoints = computed(() =>
-  [...(props.snapshot.waypoints ?? [])].sort((a, b) => a.alongM - b.alongM),
-);
-
-/**
- * The pins sorted into the days that contain them — a DERIVED grouping, never a stored one.
- *
- * A waypoint has no dayId on purpose: `removeDay` has no cascade because nothing else
- * references a day, and adding the first reference would break that. Chainage answers the
- * same question for free, and it stays right when the boundaries move — retype day 2's
- * distance and the pins redistribute, exactly as the chart's colours do.
- */
-const grouped = computed(() => {
-  const byDay: Waypoint[][] = ranges.value.map(() => []);
-  const rest: Waypoint[] = [];
-  // HALF-OPEN, [fromM, toM) — a pin on a boundary belongs to the day that STARTS there,
-  // not the one that ends there. Days share those boundaries exactly, and the closed
-  // version put a pin placed at the head of day 3 into day 2's list: the arithmetic was
-  // right and the answer was still the wrong day to a reader. The zero-width test keeps a
-  // blank day (which owns no ground at all) from swallowing the start of the route.
-  const dayFor = (alongM: number) => {
-    const i = ranges.value.findIndex(
-      (r) => r.toM > r.fromM && alongM >= r.fromM && alongM < r.toM,
-    );
-    if (i >= 0) return i;
-    // The one place the half-open rule needs help: the very end of the last day is a
-    // boundary with nothing after it to hand the pin to, and the finish of a walk plainly
-    // belongs to the day you finish on — not to leftover ground.
-    if (restFromM.value > 0 && alongM === restFromM.value) {
-      return ranges.value.findLastIndex((r) => r.toM > r.fromM);
-    }
-    return -1;
-  };
-  for (const w of waypoints.value) {
-    const i = dayFor(w.alongM);
-    if (i >= 0) byDay[i]!.push(w);
-    else rest.push(w);
-  }
-  return { byDay, rest };
-});
-
-/**
- * Which stretch is armed for placing — a day index, or "rest" for the unclaimed ground.
- *
- * Off by default: the map is a pan surface too, and a pin dropped by a mis-registered drag
- * is worse than one more tap to ask for. Arming from a DAY is what makes this the same
- * gesture as "Add an item" in a folder — the thing you add lands in the thing you asked
- * from, which is why the tap is clamped to that day's stretch rather than going wherever
- * the finger landed.
- */
-const arming = ref<number | "rest" | null>(null);
-
-/**
- * How far along the route the elevation chart's cursor is, passed straight to the map.
- *
- * The two marks draw the same walk twice — once as a shape, once as a place — and until
- * now you had to hold a spot on one of them in your head while looking for it on the
- * other. A profile can't tell you WHERE its steep mile is, and a map can't tell you which
- * of its bends is the climb. Tracing one and watching the other answers both.
- *
- * It lives here rather than in either component because neither owns it: the chart knows
- * the distance and nothing about the ground, the map knows the ground and has no cursor.
- * The panel already holds the pair, so it holds the one number that joins them — the same
- * chainage a waypoint is stored in, which is why nothing has to be converted.
- *
- * NOT persisted, and deliberately: it is where a pointer is this second.
- */
-const traceM = ref<number | null>(null);
-
-// A route imported before the trailhead existed carries no start pin, and neither end is
-// a kind you can place by hand — so without this those lists could never grow one. Fires
-// when the geometry first arrives, which covers a list being opened and a route being
-// dropped on it alike; a second run adds nothing (see ensureRouteEnds).
-watch(
-  () => props.snapshot.routeGeometry,
-  (geo) => {
-    if (geo) c.ensureRouteEnds();
-  },
-  { immediate: true },
-);
-const armedRange = computed(() => {
-  if (arming.value === null) return null;
-  if (arming.value === "rest") return restRange.value;
-  const r = ranges.value[arming.value];
-  if (!r) return null;
-  // A METRE SHORT of the boundary, and only for a day.
-  //
-  // The map clamps a stray tap to the near end of the armed stretch; the grouping above
-  // is half-open. Clamping to `toM` exactly would therefore park the pin on the first
-  // metre of the NEXT day — arming day 3, tapping wide and watching the row appear under
-  // day 4. A metre is far below anything the route can resolve (the geometry is
-  // simplified to ~125 m between stored points), so it costs nothing real and it makes
-  // the two rules agree. "Rest" keeps its full range: the route's end is nobody's
-  // boundary.
-  return { fromM: r.fromM, toM: Math.max(r.fromM, r.toM - 1) };
-});
-/**
- * A day boundary dropped somewhere new — TWO days rewritten in one gesture.
- *
- * Day `index` now ends where the handle landed, and the next day that owns any ground
- * starts there. Their sum is unchanged, which is what keeps every other day still: this is
- * a way of trading miles between two neighbours, not of changing how long the trip is.
- *
- * Two ops, dispatched together on the drop. Not one per pointer move — a drag would be a
- * hundred autosaves and a hundred separate undos, which is the rule every continuous
- * gesture in this app follows.
- *
- * The LAST boundary has no neighbour to trade with, so it lengthens or shortens its own
- * day and the unclaimed tail absorbs the difference. That asymmetry is the point of it.
- */
-function onBoundary(b: { index: number; alongM: number }) {
-  const from = ranges.value[b.index]?.fromM;
-  const id = stored.value[b.index]?.id;
-  if (from == null || !id) return;
-  const len = Math.max(1, Math.round(b.alongM - from));
-  // the next day that owns ground — the same answer the map bounded the drag with
-  const nextI = nextOwnedDay(dayDistancesM.value, b.index);
-  const next = nextI >= 0 ? ranges.value[nextI] : undefined;
-  const nextId = nextI >= 0 ? stored.value[nextI]?.id : undefined;
-  c.updateDay(id, { distanceM: len });
-  if (next && nextId) {
-    c.updateDay(nextId, { distanceM: Math.max(1, Math.round(next.toM - b.alongM)) });
-  }
-}
-
-/**
- * Where each day ENDS, as a row of its own — the same point the tent handle marks on the
- * map, so what you can drag up there has a line down here saying what it is and how far in.
- *
- * Derived from the itinerary, exactly as the handle is: no entity, no id, nothing stored.
- * The last day only gets one if the route runs on past it — otherwise its "camp" is the
- * end of the walk, which is somewhere you go home from rather than sleep at.
- */
-/**
- * Where the LAST day ends — a finish, which is not a camp.
- *
- * Every other day ends at a night and the camp row draws it. The last one ends at the end of the
- * walk, and that was the one thing this panel never said: the final day printed its figures
- * and then nothing at all, because it has no camp and frequently no pins either.
- *
- * DERIVED, like the camp beside it, rather than a stored waypoint — and on a loop that is
- * the whole point. A loop finishes at the trailhead it left, so a stored finish pin would
- * put two markers on one coordinate, which is exactly what seedRouteEnds refuses to do. A
- * ROW costs nothing and stacks nothing, and the map still carries one flag.
- *
- * Exactly complementary to the camp: a day has a camp or a finish, never both and never
- * neither — unless there is unclaimed ground after it, in which case the walk does not end
- * there and neither mark is true.
- */
-// Camp and finish are one decision with two answers — which day ends where, and
-// whether a stored end pin already says it. shared/tripPlan.dayEnds settles every row
-// in one pass, and the rows (which ask several times each) read this result.
-// The stored end pins, once — not re-filtered inside the per-day map, where a
-// ten-day trip scanned the waypoints ten times to reach the same list.
-const endPinsAtM = computed(() => waypoints.value.filter((w) => w.kind === "end").map((w) => w.alongM));
-const dayEnds = computed(() =>
-  endsForDays({
-    ranges: ranges.value,
-    dayDistancesM: dayDistancesM.value,
-    hasRest: hasRest.value,
-    endPinsAtM: endPinsAtM.value,
-  }),
-);
-
-/** The one day that has a finish, for the map — the rows ask per day, the map asks once. */
-const routeFinishM = computed(() => dayEnds.value.find((e) => e?.kind === "finish")?.alongM ?? null);
 
 // ---- what the day is like, read off the profile ----
 // The camp's altitude, the high point, the longest climb and the steepest stretch
@@ -481,11 +234,6 @@ function coolerWord(aboveM: number): string {
   if (n < 1) return "";
   return `about ${n} °${distanceUnit.value === "mi" ? "F" : "C"} ${v > 0 ? "cooler" : "warmer"}`;
 }
-// Whether day `i` ends the WALK. Asked of dayEnd without the stored end pins: those
-// stand the finish ROW down, because the pin's own row already says it, but the
-// sentence still has to say finish rather than camp, and on a point-to-point route
-// (every import that isn't a loop seeds an end pin) the pin is always there.
-const finishDayIndex = computed(() => hasRest.value ? -1 : lastOwnedDayIndex(dayDistancesM.value));
 /** "Camp at 1,850 m, 650 m above the trailhead and about 4 °C cooler. High point 2,410 m." */
 function campSentence(i: number, f: DayFacts): string {
   const end = i === finishDayIndex.value ? "Finish" : "Camp";
@@ -725,7 +473,6 @@ async function commitDayMetres(id: string | null, field: "distanceM" | "ascentM"
   );
 }
 
-const ascentUnit = computed(() => heightUnitFor(distanceUnit.value));
 // The two field formatters are shared/trailDistance.ts's: feet to the nearest 10 and
 // ungrouped so the value parses back (heightFieldValue), and a distance padded to at
 // least one decimal so the column holds its width (distanceFieldValue's `pad`). The
@@ -1197,7 +944,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
           :current="bodyUnit"
           label="Body weight unit"
           title="Change unit"
-          @pick="(u) => body.setUnit(u as BodyWeightUnit)"
+          @pick="(u) => setBodyUnit(u as BodyWeightUnit)"
         >
           <template #trigger="{ open }">
             <span class="t-muted">{{ bodyUnit }}</span>
