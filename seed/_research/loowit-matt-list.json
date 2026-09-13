@@ -106,6 +106,7 @@
       "brand": "Mountain Hardwear",
       "name": "Crater Lake Hoody",
       "variant": "Men's",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 5.9,
       "weight_unit": "oz",

@@ -115,6 +115,7 @@
       "brand": "Mountain Hardwear",
       "name": "Crater Lake Long-Sleeve Crop Top",
       "variant": "Women's",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 101,
       "weight_unit": "g",
