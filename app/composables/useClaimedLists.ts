@@ -14,13 +14,14 @@ import { isRecord } from "~~/shared/record";
 import type { ClaimedOpen } from "~~/shared/switcher";
 import { CLAIMED_LIST_CAP, type ClaimedList } from "~~/shared/types";
 import { forget, recall, recallJson, remember } from "../utils/remember";
+import { sessionCacheOwner } from "../utils/sessionOwner";
 import { deleteListOnServer } from "./useMyLists";
 
 
 // Which set of device tokens we've already claimed, so a signed-in visitor doesn't
 // re-POST the same registry on every page load. Persisted per-device rather than
 // held in memory: the claim call would otherwise repeat on every cold navigation.
-const CLAIMED_MARK_KEY = "gear.claimed.v1";
+const CLAIMED_MARK_KEY = "gear.claimed.v2";
 
 // The account's rows as this browser last saw them. A cache, not a source: the
 // server owns the truth and every successful read below replaces this wholesale.
@@ -31,28 +32,44 @@ const CLAIMED_MARK_KEY = "gear.claimed.v1";
 // browser holds edit links for. The lists made on another device would vanish from
 // it exactly when there's no network to ask for them back, which is the moment the
 // app is least able to explain itself.
-const CLAIMED_ROWS_KEY = "gear.claimed.rows.v1";
+const CLAIMED_ROWS_KEY = "gear.claimed.rows.v2";
 
 // When this browser last had each claimed list OPEN. The device registry keeps this
 // per row (MyListEntry.lastOpened); a claimed open has no registry row — the point
 // of it is that this device holds no edit token — so it's kept here instead, and
 // the bare address ranks the two together (shared/switcher resumeTarget).
-const CLAIMED_OPENS_KEY = "gear.claimed.opens.v1";
+const CLAIMED_OPENS_KEY = "gear.claimed.opens.v2";
+
+const LEGACY_KEYS = ["gear.claimed.v1", "gear.claimed.rows.v1", "gear.claimed.opens.v1"];
+
+const ownedKey = (base: string, owner: string | null) =>
+  owner === null ? null : `${base}.${owner}`;
+
+/** The cookie is current even while an old /api/auth/me response is still on screen. */
+function cacheOwner(): string | null {
+  return sessionCacheOwner() ?? useSession().user.value?.owner ?? null;
+}
+
+function forgetLegacyCache(): void {
+  for (const key of LEGACY_KEYS) forget(key);
+}
 
 // Enough to cover any plausible rotation of lists; the ledger is only ever read to
 // find the single most recent, so the tail is dead weight and old codes shouldn't
 // accumulate on the device forever.
 const OPENS_KEPT = 32;
 
-function readOpens(): Record<string, number> {
+function readOpens(owner = cacheOwner()): Record<string, number> {
   // Only what this file itself writes gets through: a canonical share code as the
   // key, a finite stamp as the value. Anything else — an array, "__proto__", a
   // stamp stored as a string — would become a resume target (/e/0) or sort as NaN
   // and evict the real stamps on the next write. A corrupt ledger reads as empty
   // (recallJson) rather than taking the bare address down with it — the same shrug
   // the device registry makes about its own store.
+  const key = ownedKey(CLAIMED_OPENS_KEY, owner);
+  if (!key) return {};
   const clean: Record<string, number> = {};
-  for (const [code, at] of Object.entries(recallJson(CLAIMED_OPENS_KEY, isRecord, {}))) {
+  for (const [code, at] of Object.entries(recallJson(key, isRecord, {}))) {
     if (normalizeShareCode(code) === code && typeof at === "number" && Number.isFinite(at)) {
       clean[code] = at;
     }
@@ -83,12 +100,15 @@ export function markClaimedOpen(shareCode: string): void {
   // sign-out had just cleared, for whoever signs in here next; the cookie is shared
   // across tabs, so this one knows before its own session state has caught up.
   if (useSession().presence.value === "signedOut") return;
-  const opens = readOpens();
+  const owner = cacheOwner();
+  const key = ownedKey(CLAIMED_OPENS_KEY, owner);
+  if (!key) return;
+  const opens = readOpens(owner);
   opens[code] = Date.now();
   const kept = Object.entries(opens)
     .sort((a, b) => b[1] - a[1])
     .slice(0, OPENS_KEPT);
-  remember(CLAIMED_OPENS_KEY, JSON.stringify(Object.fromEntries(kept)));
+  remember(key, JSON.stringify(Object.fromEntries(kept)));
 }
 
 /** Drop one code from the ledger: the list is gone, detached, or the claim no
@@ -96,10 +116,13 @@ export function markClaimedOpen(shareCode: string): void {
 export function forgetClaimedOpen(shareCode: string): void {
   const code = normalizeShareCode(shareCode);
   if (!import.meta.client || !code) return;
-  const opens = readOpens();
+  const owner = cacheOwner();
+  const key = ownedKey(CLAIMED_OPENS_KEY, owner);
+  if (!key) return;
+  const opens = readOpens(owner);
   if (!(code in opens)) return;
   delete opens[code];
-  remember(CLAIMED_OPENS_KEY, JSON.stringify(opens));
+  remember(key, JSON.stringify(opens));
 }
 
 /** Drop every ledger code not in `keep` — the account's rows as the server has just
@@ -108,23 +131,26 @@ export function forgetClaimedOpen(shareCode: string): void {
  *  this device asks about it until the bare address resumes into it), so without
  *  this the launch after such a change went straight to a list the account no
  *  longer held — offline, into its stale copy as "offline", with no way to notice. */
-export function pruneClaimedOpens(keep: Iterable<string>): void {
+export function pruneClaimedOpens(keep: Iterable<string>, owner = cacheOwner()): void {
   if (!import.meta.client) return;
+  const key = ownedKey(CLAIMED_OPENS_KEY, owner);
+  if (!key) return;
   const live = new Set([...keep].map(normalizeShareCode));
-  const opens = readOpens();
+  const opens = readOpens(owner);
   const kept = Object.fromEntries(Object.entries(opens).filter(([code]) => live.has(code)));
   if (Object.keys(kept).length === Object.keys(opens).length) return; // nothing to drop, no write
-  remember(CLAIMED_OPENS_KEY, JSON.stringify(kept));
+  remember(key, JSON.stringify(kept));
 }
 
 const isClaimedRow = (r: unknown): r is ClaimedList =>
   !!r && typeof r === "object" && typeof (r as ClaimedList).shareCode === "string";
 
-function readCachedRows(): ClaimedList[] {
+function readCachedRows(owner = cacheOwner()): ClaimedList[] {
   // Element by element, not just "is it an array": a null or a number in here would
   // reach mergeSwitcherRows and registryStale as `l.shareCode` and throw — in the
   // switcher's render, and on every keystroke of a claimed open.
-  return recallJson(CLAIMED_ROWS_KEY, Array.isArray, []).filter(isClaimedRow);
+  const key = ownedKey(CLAIMED_ROWS_KEY, owner);
+  return key ? recallJson(key, Array.isArray, []).filter(isClaimedRow) : [];
 }
 
 /** The registry as one comparable string. Exported so the session plugin, which
@@ -147,18 +173,21 @@ export function useClaimedLists() {
    *  have no network — starts from what this browser last knew. The ONE owner of the
    *  cache: no rows means no key, never a stored "[]", so the many visitors with no
    *  account leave nothing behind and "empty" reads the same either way. */
-  function adopt(rows: ClaimedList[]): void {
+  function adopt(rows: ClaimedList[], owner = cacheOwner()): void {
     lists.value = rows;
-    if (rows.length) remember(CLAIMED_ROWS_KEY, JSON.stringify(rows));
-    else forget(CLAIMED_ROWS_KEY);
+    const key = ownedKey(CLAIMED_ROWS_KEY, owner);
+    if (!key) return;
+    forgetLegacyCache();
+    if (rows.length) remember(key, JSON.stringify(rows));
+    else forget(key);
   }
 
   /** The server's answer, adopted whole — and held against the opens ledger (see
    *  pruneClaimedOpens), unless it hit the server's cap, when the rows in hand are
    *  not the whole account and nothing outside them can be called gone. */
-  function adoptFromServer(rows: ClaimedList[]): void {
-    adopt(rows);
-    if (rows.length < CLAIMED_LIST_CAP) pruneClaimedOpens(rows.map((r) => r.shareCode));
+  function adoptFromServer(rows: ClaimedList[], owner = cacheOwner()): void {
+    adopt(rows, owner);
+    if (rows.length < CLAIMED_LIST_CAP) pruneClaimedOpens(rows.map((r) => r.shareCode), owner);
   }
 
   /**
@@ -187,7 +216,8 @@ export function useClaimedLists() {
     following = true;
     window.addEventListener("storage", (e) => {
       // a null key is the other tab clearing storage outright — read again either way
-      if (e.key !== null && e.key !== CLAIMED_ROWS_KEY) return;
+      const key = ownedKey(CLAIMED_ROWS_KEY, cacheOwner());
+      if (!key || (e.key !== null && e.key !== key)) return;
       lists.value = readCachedRows();
     });
   }
@@ -210,9 +240,12 @@ export function useClaimedLists() {
       return;
     }
     if (!signedIn.value) return; // presumed: nothing to ask with yet, nothing to throw away
+    const owner = cacheOwner();
+    if (!owner) return;
     try {
       const res = await $fetch<{ lists: ClaimedList[] }>("/api/lists/claimed");
-      adoptFromServer(res.lists || []);
+      if (owner !== cacheOwner()) return;
+      adoptFromServer(res.lists || [], owner);
       loaded.value = true;
     } catch {
       // signed out mid-flight, or offline — leave whatever we had rather than
@@ -235,6 +268,9 @@ export function useClaimedLists() {
    */
   async function claimDeviceLists(fingerprint?: string): Promise<void> {
     if (!import.meta.client || !signedIn.value) return;
+    const owner = cacheOwner();
+    const markKey = ownedKey(CLAIMED_MARK_KEY, owner);
+    if (!markKey) return;
     // The registry, split by what this browser knows about each row. Lists it made
     // are claimed outright. Lists that arrived through someone else's edit link go
     // in the second bucket and are NOT claimed for being there — quietly attaching
@@ -255,7 +291,7 @@ export function useClaimedLists() {
     // already stranded, without anything to migrate.)
     const mark = fingerprint ?? deviceFingerprint([...editTokens, ...openedTokens]);
     // storage blocked reads as "" — fall through and claim; it's idempotent
-    const seen = recall(CLAIMED_MARK_KEY) ?? "";
+    const seen = recall(markKey) ?? "";
     if ((editTokens.length || openedTokens.length) && mark === seen) {
       // nothing new to attach, but we still want the account's own list
       if (!loaded.value) await refresh();
@@ -266,9 +302,10 @@ export function useClaimedLists() {
         method: "POST",
         body: { editTokens, openedTokens },
       });
-      adoptFromServer(res.lists || []);
+      if (owner !== cacheOwner()) return;
+      adoptFromServer(res.lists || [], owner);
       loaded.value = true;
-      remember(CLAIMED_MARK_KEY, mark); // a blocked write just means claiming again next time
+      remember(markKey, mark); // a blocked write just means claiming again next time
     } catch {
       // offline or rate-limited: leave the mark unset so the next load retries
     }
@@ -278,12 +315,15 @@ export function useClaimedLists() {
    *  counterpart of the automatic sweep above, for a list someone shared with you.
    *  Deliberately a choice rather than a side effect of signing in. */
   async function claimOne(editToken: string): Promise<boolean> {
+    const owner = cacheOwner();
+    if (!owner) return false;
     try {
       const res = await $fetch<{ lists: ClaimedList[] }>("/api/lists/claim", {
         method: "POST",
         body: { editTokens: [editToken] },
       });
-      adoptFromServer(res.lists || []);
+      if (owner !== cacheOwner()) return false;
+      adoptFromServer(res.lists || [], owner);
       loaded.value = true;
       return true;
     } catch {
@@ -311,8 +351,11 @@ export function useClaimedLists() {
    *  contract as useMyLists().deleteList: already-gone counts as done, any other
    *  failure leaves everything standing so the user can retry. */
   async function deleteClaimed(shareCode: string): Promise<boolean> {
+    const owner = cacheOwner();
+    if (!owner) return false;
     if (!(await deleteListOnServer({ [LIST_CODE_HEADER]: shareCode }))) return false;
-    adopt(lists.value.filter((l) => l.shareCode !== shareCode));
+    if (owner !== cacheOwner()) return false;
+    adopt(lists.value.filter((l) => l.shareCode !== shareCode), owner);
     // drop the claimed open's on-device copy too — the list is gone for good, so
     // the bare address must stop offering to resume it as well
     useLocalListStore().del(claimedLocalKey(shareCode));
@@ -323,6 +366,8 @@ export function useClaimedLists() {
   /** Detach a list from the account. The list itself is untouched — anyone holding
    *  its edit link, this user included, can still open it. */
   async function unclaim(shareCode: string): Promise<boolean> {
+    const owner = cacheOwner();
+    if (!owner) return false;
     try {
       const res = await $fetch<{ ok: boolean }>("/api/lists/unclaim", {
         method: "POST",
@@ -331,7 +376,8 @@ export function useClaimedLists() {
       // the list itself survives, but this account is no longer a way into it —
       // and a claimed resume is only as good as that claim
       if (res.ok) {
-        adopt(lists.value.filter((l) => l.shareCode !== shareCode));
+        if (owner !== cacheOwner()) return false;
+        adopt(lists.value.filter((l) => l.shareCode !== shareCode), owner);
         forgetClaimedOpen(shareCode);
       }
       return res.ok;
@@ -342,14 +388,18 @@ export function useClaimedLists() {
 
   /** Forget the device-claim marker — on sign-out, so the next account signed in
    *  on this browser claims its own registry rather than seeing ours already done. */
-  function resetClaimMark(): void {
+  function resetClaimMark(owner = cacheOwner()): void {
     if (!import.meta.client) return;
-    forget(CLAIMED_MARK_KEY); // a blocked remove is nothing to do about; the mark is an optimisation, not state we depend on
+    const markKey = ownedKey(CLAIMED_MARK_KEY, owner);
+    const rowsKey = ownedKey(CLAIMED_ROWS_KEY, owner);
+    const opensKey = ownedKey(CLAIMED_OPENS_KEY, owner);
+    if (markKey) forget(markKey); // a blocked remove is nothing to do about; the mark is an optimisation, not state we depend on
     // the cached rows and the opens ledger are this account's too: leaving either
     // behind would show the last person's lists in the switcher, and could resume
     // the bare address into one of them
-    forget(CLAIMED_ROWS_KEY);
-    forget(CLAIMED_OPENS_KEY);
+    if (rowsKey) forget(rowsKey);
+    if (opensKey) forget(opensKey);
+    forgetLegacyCache();
     lists.value = [];
     loaded.value = false;
   }
