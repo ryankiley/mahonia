@@ -87,6 +87,7 @@ const ITEM_SCHEMA = {
     worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried (three pairs of socks, one on your feet). For a row that is entirely worn, set classification to worn instead." },
     note: { type: "string", maxLength: MAX_ITEM_NOTE_LEN, description: "A short free-text note on the row." },
     kcal: { type: "integer", minimum: 0, description: "Calories per unit, for food." },
+    needs_cooking: { type: "boolean", description: "Food to cook on this trip. Each unit assumes one boil for a rough fuel estimate; no quantity or weight changes." },
     catalog_id: { type: "integer", minimum: 1, maximum: MAX_CATALOG_ID, description: "A catalog row id from search_catalog. The row takes the catalog's brand, name, variant, gear type and cited weight, and follows catalog corrections; a weight_g given as well is kept as your own figure." },
     folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "The folder to put it in, by name. Created when the list has no folder of that name." },
   },
@@ -155,6 +156,7 @@ const ROW_PROPS = {
   worn_qty: { type: "number", description: "Of qty, how many are worn rather than carried." },
   note: str(USER_TEXT),
   kcal: { type: "number", description: "Calories per unit." },
+  needs_cooking: { type: "boolean", description: "Food marked for cooking on this trip." },
   catalog_id: { type: "number", description: "The catalog row the item was picked from." },
   carried_by: str(`Who carries it. A nested row without one is carried by its parent's carrier. ${USER_TEXT}`),
 };
@@ -536,6 +538,7 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
     if (it.wornQty) out.worn_qty = it.wornQty;
     if (it.description) out.note = it.description;
     if (it.kcal != null) out.kcal = it.kcal;
+    if (it.needsCooking) out.needs_cooking = true;
     if (it.catalogItemId != null) out.catalog_id = it.catalogItemId;
     // a nested row names its carrier only when it differs from the parent's, as the
     // exporters do; the description says the rest
@@ -850,6 +853,7 @@ function toItem(raw: unknown, folderId: string | null, sortOrder: number): Item 
     else if (worn > 0) item.wornQty = worn;
   }
   if (typeof r.kcal === "number") item.kcal = clampInt(r.kcal, 0, 1_000_000, 0);
+  if (typeof r.needs_cooking === "boolean") item.needsCooking = r.needs_cooking;
   if (r.catalog_id != null) {
     if (!isCatalogId(r.catalog_id)) return `catalog_id on "${name}" isn't a catalog id; take one from search_catalog.`;
     item.catalogItemId = r.catalog_id;

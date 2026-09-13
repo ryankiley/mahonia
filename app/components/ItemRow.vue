@@ -55,7 +55,7 @@ import { itemQtyLabel } from "~~/shared/water";
 import { QTY_MAX, useItemRowFields } from "~/composables/useItemRowFields";
 import { useItemRowClassification } from "~/composables/useItemRowClassification";
 import { consumableIcon } from "~/utils/itemMarks";
-import { offersKcal, offersWorn } from "~~/shared/fuel";
+import { ASSUMED_FUEL_PER_BOIL_G, isFuelRow, offersKcal, offersWorn } from "~~/shared/fuel";
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
 // like useGearList's own vaultNormKey — this module is in the editor graph already)
@@ -709,7 +709,7 @@ const kcalOffered = computed(() => isConsumable.value && (isKcalOpen.value ? kca
 //    typing in also stranded its overlayToggle(true), leaving the folder's collapse clip
 //    lifted, since the menu singleton never learned it had closed.
 const classCellShown = computed(
-  () => isWater.value || !bareGroup.value || props.item.classification != null || isKcalOpen.value || isWornOpen.value,
+  () => isWater.value || !bareGroup.value || props.item.classification != null || props.item.needsCooking || isKcalOpen.value || isWornOpen.value,
 );
 const { above: kcalAbove, shift: kcalShift, place: placeKcal } = useMenuPlacement(kcalPopRef, { fit: "shift" });
 
@@ -1607,6 +1607,17 @@ function dismissFix() {
                     <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
                       <HugeiconsIcon :icon="CalculateIcon" class="item__poplineicon" :size="14" aria-hidden="true" :stroke-width="2" />
                       {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
+                    </p>
+                  </template>
+                  <template v-if="isConsumable && !isFuelRow(item) && (!bareGroup || item.needsCooking)">
+                    <div class="switch-row">
+                      <span class="t-sm">Needs cooking</span>
+                      <button class="switch" type="button" role="switch" :aria-checked="!!item.needsCooking"
+                        aria-label="Needs cooking" @click="c.updateItem(item.id, { needsCooking: !item.needsCooking })" />
+                    </div>
+                    <p v-if="item.needsCooking && !bareGroup" class="t-sm t-muted" role="status"
+                      :title="`Assumes one boil per item, at ${ASSUMED_FUEL_PER_BOIL_G} g per boil.`">
+                      ~{{ item.qty * ASSUMED_FUEL_PER_BOIL_G }} g fuel
                     </p>
                   </template>
                 </div>
