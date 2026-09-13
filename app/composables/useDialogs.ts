@@ -56,12 +56,21 @@ let confirmResolve: ((ok: boolean) => void) | null = null;
 
 const linkState = reactive({ open: false, title: "", url: "" });
 
+// `everOpened` gates the <LazyAppDialogs> mount in app.vue, the way useAccountModal's
+// gates <LazyAccountModal>: both dialogs open on a click and nothing else, so a visit
+// that never confirms anything and never has a copy blocked pays nothing for them.
+// Latched, never cleared — once mounted the component stays, so every close after
+// the first still gets its leave transition (BaseModal's `appear` covers the first
+// open, which lands already open).
+const mount = reactive({ everOpened: false });
+
 export function useDialogs() {
   // Ask the user to confirm; resolves true on confirm, false on cancel/dismiss.
   // Replaces `if (!confirm(msg)) return` with `if (!(await confirm({ message })))`.
   function confirm(opts: ConfirmOptions): Promise<boolean> {
     // settle any dialog left hanging (shouldn't happen, but never strand a promise)
     confirmResolve?.(false);
+    mount.everOpened = true;
     Object.assign(confirmState, {
       open: true,
       title: opts.title ?? "",
@@ -86,6 +95,7 @@ export function useDialogs() {
   // Fallback when a clipboard write is blocked: show the link in a read-only,
   // pre-selected field so it can be copied by hand instead of silently failing.
   function showLinkFallback(url: string, title = "Copy this link") {
+    mount.everOpened = true;
     Object.assign(linkState, { open: true, url, title });
   }
   function closeLinkFallback() {
@@ -99,5 +109,6 @@ export function useDialogs() {
     linkState,
     showLinkFallback,
     closeLinkFallback,
+    mount,
   };
 }
