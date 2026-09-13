@@ -832,7 +832,7 @@ onClickOutside(trailEl, closeTrail);
 .head__icon {
   flex: none;
   align-self: center;
-  border-radius: 2px;
+  border-radius: var(--radius-icon);
 }
 /* the globe stands in for a real mark, so it should read as a placeholder rather than
    as the site's own icon — a step lighter than the link text it sits beside */
@@ -929,7 +929,7 @@ onClickOutside(trailEl, closeTrail);
 .head__cardicon {
   flex: none;
   display: block;
-  border-radius: 2px;
+  border-radius: var(--radius-icon);
 }
 /* The URL FLEXES between a floor and a ceiling rather than being sized by its content.
    Content-sizing gave the two bad ends: a 45-character URL made the card wider than the

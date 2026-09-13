@@ -427,7 +427,7 @@ const asHeight = (m: number) => {
   block-size: var(--where-mark);
 }
 .view__trailicon {
-  border-radius: 2px;
+  border-radius: var(--radius-icon);
 }
 /* a stand-in, not the site's mark — a step lighter than the link text beside it */
 .view__trailicon--fallback {

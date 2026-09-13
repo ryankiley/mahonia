@@ -720,7 +720,7 @@ async function onSignOut() {
 .acct__input {
   flex: 1 1 auto;
   min-width: 0;
-  min-height: 40px;
+  min-height: var(--control-h);
   padding: 0 var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);

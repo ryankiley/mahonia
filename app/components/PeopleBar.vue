@@ -109,15 +109,15 @@ function onKey(e: KeyboardEvent) {
   min-width: 0;
 }
 /* The armchip's shape (TrailPlanPanel's day chips) in the page's own tokens —
-   that one hardcodes literals because it floats over a map; this row sits on
-   paper and speaks paper's language. Hairline so an OFF chip still has an edge
+   that one takes its fixed-light values from map tokens because it floats over a map;
+   this row sits on paper and speaks paper's language. Hairline so an OFF chip still has an edge
    to find, unlike the modebar's flat words which live inside one plate. */
 .pplbar__chip {
   appearance: none;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  height: 30px; /* the modebar's option height — same row rhythm */
+  height: var(--control-compact); /* the modebar's option height — same row rhythm */
   padding: 0 var(--space-3);
   border: 1px solid var(--line);
   /* --radius-2, the corner the mode chips and the list picker wear, not the pill.

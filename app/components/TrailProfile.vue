@@ -752,10 +752,10 @@ const id = useId();
   color: var(--ink-3);
 }
 .tprofile__read .is-hard {
-  color: light-dark(oklch(0.5 0.22 25), oklch(0.68 0.25 25));
+  color: var(--grade-hard-ink);
 }
 .tprofile__read .is-moderate {
-  color: light-dark(oklch(0.52 0.14 62), oklch(0.8 0.18 62));
+  color: var(--grade-moderate-ink);
 }
 .tprofile__dot {
   fill: var(--ink);
@@ -785,7 +785,7 @@ const id = useId();
    Hue 62 rather than the palette's 50 for the same reason — every degree away from red's
    25 is a degree of separation bought cheaply. */
 .tprofile__fill.is-moderate {
-  fill: oklch(0.72 0.17 62);
+  fill: var(--grade-moderate-fill);
   opacity: 0.22;
 }
 /* Red for hard, and the SAME red the hover readout marks a steep grade with — one idea,
@@ -793,7 +793,7 @@ const id = useId();
    at a similar lightness, which is a classic red/green-deficient confusion pair, and a
    difficulty signal is exactly the wrong place to ask someone to tell those apart. */
 .tprofile__fill.is-hard {
-  fill: var(--cat-firstaid);
+  fill: var(--grade-hard-fill);
   opacity: 0.34;
 }
 .tprofile__ridge {
