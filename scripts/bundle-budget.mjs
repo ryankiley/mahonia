@@ -71,10 +71,15 @@ const FIRST_LOAD_CEILING_KB = 150;
 const FIRST_LOAD_BUDGET_KB = 150;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
-// ordinary feature work. Set ~6 KB clear of the current total (281.9) so it only
-// speaks up when something has genuinely gone wrong. If you find yourself bumping
-// this one often, something is being shipped to every page that shouldn't be.
-const TOTAL_BUDGET_KB = 288;
+// ordinary feature work. Set ~6 KB clear of the current total so it only speaks up
+// when something has genuinely gone wrong. If you find yourself bumping this one
+// often, something is being shipped to every page that shouldn't be.
+//
+// Re-set 2026-09-13 at 288.1 measured (was 288, drawn at 281.9): the 6 KB went to
+// feature work spread across lazy chunks — the trip tab's day facts, the fuel rules,
+// the account cache split — and the last 0.2 to the map-file reader becoming a chunk
+// of its own, which is the first-load lever working as intended. No chunk grew.
+const TOTAL_BUDGET_KB = 294;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
