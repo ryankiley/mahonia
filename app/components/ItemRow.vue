@@ -934,6 +934,30 @@ const vaultLabel = computed(() =>
 const vaultOffered = computed(
   () => !isWater.value && vaultWorthy.value && (vaultSaved.value || !vaultCovered.value),
 );
+// A list can be a past trip, while My Gear is the owner's current kit. The same
+// scoped vault answer that keeps the save button honest also lets a differing row
+// offer its saved weight back, without a whole-vault read or another request.
+//
+// "Differs" is judged in the unit the row READS in, not in milligrams: grams show
+// no decimals, so a weight typed as 20.8 oz on another list (589,670 mg) and one
+// saved as 590 g would otherwise put "My Gear says 590 g" under a cell already
+// reading 590 g. The vault is asked about every named row, so the shape guard is
+// the save button's (no group, no water) — minus its weight requirement, because a
+// row with no weight yet is exactly the one the offer is for.
+const vaultWeight = computed(() => {
+  if (isParent.value || isWater.value || !vaultGearAsked.value.has(vaultKey.value)) return null;
+  const weight = vaultGear.value.get(vaultKey.value);
+  if (typeof weight !== "number" || !(weight > 0)) return null;
+  const unit = rowUnit.value;
+  return formatWeight(weight, unit) !== formatWeight(props.item.unitWeightMg, unit) ? weight : null;
+});
+function useVaultWeight() {
+  const weight = vaultWeight.value;
+  if (weight == null) return;
+  // This is the person's own saved measurement, not a new catalog fact. Mark it
+  // overridden so live catalog resolution cannot immediately write over it.
+  c.updateItem(props.item.id, { unitWeightMg: weight, weightOverridden: true });
+}
 /**
  * Whether the reveal below is allowed to PLAY.
  *
@@ -1929,6 +1953,16 @@ function dismissFix() {
             <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
           </button>
         </div>
+      </div>
+    </Transition>
+
+    <!-- the saved weight, in the unit the cell above reads in, so the two can be
+         compared by eye; pressing it is the whole offer, like the catalog line -->
+    <Transition name="reveal">
+      <div v-if="vaultWeight != null" class="reveal">
+        <button type="button" class="item__under-link t-sm item__vault-says" @click="useVaultWeight">
+          My Gear says {{ formatWeight(vaultWeight, rowUnit) }}
+        </button>
       </div>
     </Transition>
 
