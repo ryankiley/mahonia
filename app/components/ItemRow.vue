@@ -1,6 +1,6 @@
 <script lang="ts">
 import type { InjectionKey, Ref } from "vue";
-import type { Classification, Item as ItemT, Person, Unit } from "~~/shared/types";
+import type { Item as ItemT, Person, Unit } from "~~/shared/types";
 
 // What GearEditor derives ONCE per snapshot for every row, reached by inject rather
 // than threaded down as props. Props would carry the same one-pass tables — but a
@@ -26,7 +26,6 @@ export const VARIANT_SHOWN: InjectionKey<Readonly<Ref<ReadonlySet<string>>>> = S
 
 // static per-component tables — module scope so a large list doesn't rebuild
 // them in every row instance
-const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
 // one stable empty array for every leaf row, so `children` never mints a fresh
 // identity per row per render
 const NO_ITEMS: ItemT[] = [];
@@ -34,15 +33,10 @@ const NO_ITEMS: ItemT[] = [];
 // gear.nest.<id> — one blocking storage read per row per remount was the cost this
 // cache retired (its header carries the reasoning and the cross-tab invalidation).
 const nestCollapse = usePersistedCollapse("gear.nest.");
-// offered "N worn" split counts stop here (the stored value is always shown even
-// beyond the cap, so clamps/imports can't strand invisible state)
-const MAX_SPLIT_OPTS = 5;
 // The count's own bounds — at least one of something, and no more than the reducer
 // will store (cleanItemPatch caps at 9999, shared/ops). Both ways in go through the
 // same clamp, so the stepper and the typed field can't disagree about the ceiling,
 // and neither can hand the store a number it would silently rewrite underneath them.
-const QTY_MAX = 9999;
-const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
 // the four units as OptionMenu rows — WEIGHT_UNIT_OPTIONS (app/utils/unitOptions),
 // the same list the totals' unit picker draws from
 </script>
@@ -56,8 +50,10 @@ import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN } from "~~/shared
 import { effectivePersonId, personColor } from "~~/shared/people";
 import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import { bySortOrder, effectiveClassification, entryUnitFromInput, formatKcal, rowDisplayKcal, formatWeight, fromMg, groupLineMg, isBareGroup, itemDisplayName, parseWeightInput, rowDisplayMg, siblingItems, splitWornQty, storedClassification } from "~~/shared/weights";
-import { isWaterName, itemQtyLabel, waterLiters, waterMgFromMl } from "~~/shared/water";
+import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseWeightInput, rowDisplayMg, siblingItems, storedClassification } from "~~/shared/weights";
+import { itemQtyLabel } from "~~/shared/water";
+import { QTY_MAX, useItemRowFields } from "~/composables/useItemRowFields";
+import { useItemRowClassification } from "~/composables/useItemRowClassification";
 import { consumableIcon } from "~/utils/itemMarks";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 // the same worthiness + identity rules the capture path runs, so "already banked"
@@ -354,29 +350,6 @@ function flushPendingEdit(e: Event) {
 // else reads it there — the weight cell is read-only on a group, and the CSV writes a
 // unit only for a row carrying a weight of its own — so the one field can carry both
 // senses without either leaking into the other.
-const rowUnit = computed(() => props.item.entryUnit ?? props.list.displayUnit);
-
-const weightDisplay = computed(() =>
-  props.item.unitWeightMg > 0
-    ? formatWeight(props.item.unitWeightMg, rowUnit.value, { withUnit: false })
-    : "",
-);
-// weightDisplay's counterpart for a group: the total shown in its read-only weight
-// column (bare number, same rowUnit). Lives beside it rather than up with the nesting
-// block so the two readings of that one cell sit together — `children` holds exactly
-// this row's children, so the sum is O(children).
-const groupWeight = computed(() =>
-  formatWeight(groupLineMg(props.item, children.value), rowUnit.value, { withUnit: false }),
-);
-
-// the calories a group's row reads out — the rows inside it, under the rule the
-// totals bar counts by (rowDisplayKcal). A leaf reads nothing here: its kcal lives in
-// the consumable popover, which a bare group no longer has (#299).
-const rowKcal = computed(() => rowDisplayKcal(props.item, children.value, props.list.folders));
-const effClass = computed(() =>
-  effectiveClassification(props.item, props.list.folders),
-);
-
 // The editable name field shows "Brand Model" and NOT the variant. The variant has its
 // own field in the sub-line below (variantShown / onVariant): a pick fills it, a free
 // rename clears it along with the link (onNameCommit), and a person can type one. Beside
@@ -385,18 +358,12 @@ const effClass = computed(() =>
 // puts the same "Brand Model" in the box after a pick, and that pairing is load-bearing:
 // its blur commit compares the box against THIS value, and a box still holding the
 // variant would read as a rename and unlink the row it had just linked.
-const editableName = computed(() => itemDisplayName(props.item.brand, props.item.name));
 // The variant on the checklist face's sub-line: only where the list holds the same
 // product in another variant too (shared/variantShown, one pass per snapshot). On the
 // SUB-line, where the editor puts it, so the name line reads the same on every face
 // (Ryan, 2026-09-12: the checklist "expresses the variant on a different line").
 const variantOnRow = computed(() => variantShownIds.value.has(props.item.id));
 
-// water rows: the qty field becomes a LITRES field (water is 1 L = 1 kg), driving
-// the weight; the weight field itself is read-only so the two can't desync.
-// (isWaterName / waterLiters / itemQtyLabel live in shared/water, shared with
-// ReadonlyItemRow so the two views can't drift.)
-const isWater = computed(() => isWaterName(props.item.name));
 // the picture on the consumable toggle, and on water's fixed mark: the droplet, the
 // fuel can, or the cookie. Read off the name and gear type whether or not the row IS
 // consumable — an unlit toggle draws what the mark would be, and the lit one matches
@@ -404,128 +371,6 @@ const isWater = computed(() => isWaterName(props.item.name));
 // all three read). What else a fuel name decides — no calorie field, no worn toggle —
 // is kcalOffered and wornOffered below, each reading shared/fuel for itself.
 const consumableGlyph = computed(() => consumableIcon(props.item));
-const litersDisplay = computed(() => waterLiters(props.item.unitWeightMg));
-function onWaterLiters(e: Event) {
-  const el = e.target as HTMLInputElement;
-  const liters = Math.max(0, Number(el.value) || 0);
-  c.updateItem(props.item.id, {
-    // one source of truth for volume→weight (shared/water), matching ItemInput's
-    // water suggestion — the row used to round to whole mL first and could drift
-    unitWeightMg: waterMgFromMl(liters * 1000),
-    weightOverridden: true,
-  });
-  el.value = litersDisplay.value; // resync (in-place op mutation makes it fresh)
-}
-
-function onWeight(e: Event) {
-  if (isWater.value || isParent.value) return; // water + group weights are derived, not typed
-  const el = e.target as HTMLInputElement;
-  // "<0.01"-style text is the DISPLAY for a real weight too small to render in the
-  // chosen unit — a label, not an entry. Never parse it back (that would overwrite the
-  // true sub-precision weight with the rounded-up label). A genuine edit replaces it.
-  if (!el.value.trim().startsWith("<")) c.setItemWeight(props.item.id, el.value);
-  el.value = weightDisplay.value; // resync to canonical (handles unparseable / no-op edits)
-}
-// Enter in a typed weight is the other half of the name field's entry chain: commit
-// through the field's ordinary change handler, then put a blank row below.  This stays
-// a text field on purpose — “3.8 oz” remains valid input alongside a bare number.
-function onWeightKeydown(e: KeyboardEvent) {
-  if (e.key !== "Enter" || e.isComposing || isWater.value || isParent.value) return;
-  e.preventDefault();
-  (e.target as HTMLInputElement).dispatchEvent(new Event("change", { bubbles: true }));
-  onAdvance();
-}
-// tapping a "<0.01"-style weight selects the label so the first keystroke replaces it
-// with a real number instead of appending to it ("<0.013" → nonsense)
-function onWeightFocus(e: Event) {
-  const el = e.target as HTMLInputElement;
-  if (el.value.trim().startsWith("<")) el.select();
-}
-// Changing the unit RE-EXPRESSES the same weight, it never converts the number: the
-// row holds canonical milligrams, so picking oz just asks for those milligrams in
-// ounces. (Typing "3.8 oz" sets the same field — see setItemWeight.)
-function onRowUnit(u: Unit) {
-  c.updateItem(props.item.id, { entryUnit: u });
-}
-function onQty(e: Event) {
-  const el = e.target as HTMLInputElement;
-  const q = clampQty(Number(el.value) || 1);
-  c.updateItem(props.item.id, { qty: q });
-  el.value = String(q); // resync even when the clamp is a no-op (e.g. 0 / letters)
-}
-// The number pops when the stepper moves it — the SAME motion the big total takes
-// when it changes (the shared `num-pop` keyframe, main.scss; AnimatedCount runs it
-// per character up there). Not that component: this figure is an <input>, so it has
-// no per-character spans to stagger, and at one or two digits a cascade wouldn't
-// read anyway. The element takes the pop whole.
-//
-// A CSS animation has to be RESTARTED rather than re-fired — a class that never left
-// never replays — so: drop it, force a reflow, put it back. The same three steps
-// AnimatedCount takes, for the same reason.
-const qtyFieldRef = useTemplateRef<HTMLInputElement>("qtyFieldRef");
-const qtyPopping = ref(false);
-function popQty() {
-  qtyPopping.value = false;
-  nextTick(() => {
-    void qtyFieldRef.value?.offsetHeight;
-    qtyPopping.value = true;
-  });
-}
-// The stepper: ±1, which is what nearly every change to a count actually is.
-// Clamped rather than guarded on the disabled attribute alone — qty can move under
-// the buttons (an undo, another device's edit landing), so the floor and ceiling
-// have to hold at the moment of the press, not at the moment of the render. A press
-// at either end is then a no-op instead of a commit the reducer would rewrite — and
-// nothing pops, because nothing moved.
-function stepQty(dir: 1 | -1) {
-  const next = clampQty(props.item.qty + dir);
-  if (next === props.item.qty) return;
-  c.updateItem(props.item.id, { qty: next });
-  popQty();
-}
-// The two sub-fields resync for the same reason the numbers above do — the reducer
-// tidies the text it stores (shared/tidyText), and these are uncontrolled inputs, so
-// when the tidied result matches what's already in state (retyping "Ryan's" over a
-// stored "Ryan’s") no reactive change happens and the field would keep the typed form.
-function onCommonName(e: Event) {
-  const el = e.target as HTMLInputElement;
-  c.updateItem(props.item.id, { commonName: el.value, commonNameOverridden: true });
-  el.value = props.item.commonName ?? "";
-}
-// A typed variant is the person's, like a typed name: nameOverridden, so the catalog's
-// live-resolve (which refreshes brand, name and variant as one triple) leaves the row
-// alone rather than putting the catalog's size back on the next read. The brand and
-// name freeze at what they are, which for a linked row is the catalog's own spelling.
-// "" clears it (the reducer reads emptiness after tidying, like the gear type). The
-// variant is part of the gear's identity in My Gear (vaultNormKey), so "Long" typed on a
-// Revelation makes it the same thing as a Revelation picked in Long.
-function onVariant(e: Event) {
-  const el = e.target as HTMLInputElement;
-  c.updateItem(props.item.id, { variant: el.value, nameOverridden: true });
-  el.value = props.item.variant ?? "";
-}
-function onNote(e: Event) {
-  const el = e.target as HTMLTextAreaElement;
-  c.updateItem(props.item.id, { description: el.value });
-  el.value = props.item.description ?? "";
-  // the reducer tidies on the way in, and a collapsed run of spaces can shorten the
-  // text enough to free a line — so re-measure against what actually got saved
-  fitNote();
-}
-// arrow keys nudge the weight by a unit-appropriate step (Shift = ×10), so you can
-// tap into the field and increment/decrement without retyping
-function onWeightStep(e: KeyboardEvent, dir: 1 | -1) {
-  if (isWater.value || isParent.value) return; // water + group weights are derived, not typed
-  // step in the unit the row READS in, not the list's — arrowing on a row showing
-  // "3.8 oz" must move it by an ounce step, or the number jumps unpredictably
-  const unit = rowUnit.value;
-  const step = (STEP_BY_UNIT[unit] ?? 1) * (e.shiftKey ? 10 : 1);
-  const current = fromMg(props.item.unitWeightMg, unit);
-  const next = Math.max(0, Number((current + dir * step).toFixed(unit === "g" ? 0 : 2)));
-  c.setItemWeight(props.item.id, String(next));
-  // in-place op-reducer mutation makes weightDisplay fresh synchronously
-  (e.target as HTMLInputElement).value = weightDisplay.value;
-}
 
 // renaming in place via the same autocomplete: a catalog pick re-links + fills the
 // weight; a free-text rename just updates the name (or its trailing weight).
@@ -662,89 +507,6 @@ function onNameCommit(p: NameCommit) {
   c.updateItem(props.item.id, patch);
 }
 
-// a base row with multiples can split its count into worn + base (e.g. 3 pairs
-// of socks, 1 worn) — see the worn popover below, which is where the count lives
-const activeSplit = computed(() => splitWornQty(props.item, effClass.value)); // 0 = no split
-
-// ---- classification as two toggles ----
-// Replaces the old three-option <select>. The data model was already shaped for
-// this: `classification` is ONE field with base stored as null, so "worn off and
-// consumable off" IS base — the pair of toggles is a direct rendering of the type,
-// not a second representation of it that could disagree.
-//
-// Mutually exclusive by construction: turning one on turns the other off, because
-// the field can only hold one value. That is also why they are two buttons and not
-// a checkbox pair — checkboxes would imply both could be true.
-const isWorn = computed(() => effClass.value === "worn" || activeSplit.value > 0);
-const isConsumable = computed(() => effClass.value === "consumable");
-
-// base is stored as null — the folder default — EXCEPT where the folder itself
-// defaults to something else, in which case base has to be pinned explicitly or
-// clearing a class would silently re-inherit worn/consumable. (The rule is
-// storedClassification's; this is the one caller that always asks about base.)
-const baseValue = (): Classification | null =>
-  storedClassification("base", props.item.folderId, props.list.folders);
-
-function setClass(next: "worn" | "consumable", on: boolean) {
-  c.updateItem(props.item.id, {
-    classification: on ? next : baseValue(),
-    // a whole-row class makes the split meaningless (the reducer clears it too);
-    // turning worn OFF drops it as well, since the split only describes a base line
-    wornQty: 0,
-  });
-}
-
-// the split: N of qty are worn, the remainder stays base. Only offered on a row
-// with multiples — one of one is just "worn".
-//
-// Picking the ACTIVE count again clears it, the same way pressing a switch that is
-// already on turns it off. Without that the split is a one-way door: worn is off
-// during a split (it is a base line with a worn portion), so the switch above can't
-// undo it and the only way back would be to change the quantity.
-function setSplit(n: number) {
-  c.updateItem(props.item.id, {
-    wornQty: activeSplit.value === n ? 0 : n,
-    classification: baseValue(),
-  });
-}
-
-const splitOptions = computed(() => {
-  // the split refines a BASE line — "some of these are on my body, the rest are in
-  // the pack". A consumable row has no base portion to split, so offering counts
-  // there would silently demote the row to base on the first click. (The old
-  // select carried the same guard.)
-  if (isConsumable.value) return [];
-  const counts = new Set<number>();
-  for (let n = 1; n <= Math.min(props.item.qty - 1, MAX_SPLIT_OPTS); n++) counts.add(n);
-  if (activeSplit.value > 0) counts.add(activeSplit.value);
-  return [...counts].sort((a, b) => a - b);
-});
-
-// Short: these are the icons' NAMES, shown on hover. The popover behind each one
-// carries the explanation, so a sentence here would only wrap the bubble across the
-// row it is trying to describe.
-const wornTitle = computed(() =>
-  activeSplit.value > 0 ? `${activeSplit.value} of ${props.item.qty} worn` : "Worn",
-);
-
-// The ACCESSIBLE name has to carry the STATE as well, which the tooltip text doesn't.
-// These buttons replaced a <select aria-label="Classification">, which announced its
-// value for free ("Worn", "Consumable", "Base"); a bare "Consumable, button" reads
-// identically whether the row is consumable or not, so the only way to learn a row's
-// class would be to open its popover. The visual signal is a grey chip — this is its
-// spoken equivalent.
-//
-// aria-pressed is NOT the answer: these open a dialog rather than toggling on click,
-// so a pressed state would describe something the click doesn't do. The name says it.
-const wornAria = computed(() =>
-  activeSplit.value > 0
-    ? `Worn: ${activeSplit.value} of ${props.item.qty}`
-    : isWorn.value
-      ? "Worn: yes"
-      : "Worn: no",
-);
-const consumableAria = computed(() => (isConsumable.value ? "Consumable: yes" : "Consumable: no"));
-
 // the sub-line: the gear type (common name) and the note. Each shows as an editable
 // field whenever it holds a value (a catalog pick pre-fills the gear type), and both
 // empty fields appear while the product name is being edited, so a row typed by hand
@@ -811,6 +573,44 @@ function fitNote() {
 if (needsNoteFit) {
   watch([() => props.item.description, noteShown], () => nextTick(fitNote), { immediate: true });
 }
+
+const {
+  editableName,
+  effClass,
+  groupWeight,
+  isWater,
+  litersDisplay,
+  onCommonName,
+  onNote,
+  onQty,
+  onRowUnit,
+  onVariant,
+  onWaterLiters,
+  onWeight,
+  onWeightFocus,
+  onWeightKeydown,
+  onWeightStep,
+  qtyFieldRef,
+  qtyPopping,
+  rowKcal,
+  rowUnit,
+  stepQty,
+  weightDisplay,
+} = useItemRowFields({
+  item: toRef(props, "item"),
+  list: toRef(props, "list"),
+  children,
+  isParent,
+  onAdvance,
+  fitNote,
+});
+
+const { activeSplit, consumableAria, isConsumable, isWorn, setClass, setSplit, splitOptions, wornAria, wornTitle } =
+  useItemRowClassification({
+    item: toRef(props, "item"),
+    list: toRef(props, "list"),
+    effectiveClass: effClass,
+  });
 
 // ---- the row's popovers ----
 // One-at-a-time across the whole list (useItemMenu's singleton), and the folder
@@ -1947,8 +1747,8 @@ function dismissFix() {
                  path has it (vaultCovered — the button doesn't stand down, it steps
                  out). Same disclosure rule as the nesting menu below, which also only
                  exists while it has an action to offer. It sits FIRST in the cluster,
-                 at the open left edge, because it's the one icon here that comes and
-                 goes per row: the cluster is right-aligned, so a conditional icon in
+                 at the open left edge, with the optional nesting control: the cluster
+                 is right-aligned, so a conditional icon in
                  the middle would shuffle its neighbours from row to row, while out
                  here its absence moves nothing.
                  Not on water rows, the same rule the ⋯ menu applies: water is never
@@ -1969,41 +1769,6 @@ function dismissFix() {
                 </button>
               </Tooltip>
             </Transition>
-            <!-- CARRIED BY. Exists only once the list names people (the ⋯ menu carries
-                 the same entries on mobile, where this cluster collapses). Sits with the
-                 conditional icons at the cluster's open edge for the vault button's
-                 reason: its coming and going must shuffle nothing. Assigned, the glyph
-                 becomes the carrier's own dot — the vault button's state-swap, with the
-                 colour kept in a .swatch where this app keeps all of it. -->
-            <ItemRowMenu
-              v-if="peopleSorted.length"
-              class="item__person"
-              :row-id="item.id"
-              kind="person"
-              :label="personTitle"
-              menu-label="Who carries this"
-              trigger-class="item__person-btn"
-              tooltip
-              @overlay-toggle="$emit('overlayToggle', $event)"
-            >
-              <template #trigger>
-                <span v-if="rowPerson" class="swatch" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />
-                <HugeiconsIcon v-else :icon="UserIcon" :size="16" :stroke-width="2" />
-              </template>
-              <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  class="menu__item item__personpick"
-                  :class="{ 'is-active': e.active }"
-                  :aria-checked="e.active"
-                  @click="menu.close(); setPerson(e.active ? null : e.id)"
-                >
-                  <span class="swatch" :class="{ 'swatch--hollow': !e.color }" :style="e.color ? { background: e.color } : undefined" aria-hidden="true" />
-                  {{ e.label }}
-                </button>
-              </li>
-            </ItemRowMenu>
             <!-- NESTING, under one icon. These were up to two adjacent buttons whose
                  glyphs (list-plus, indent, outdent) are near-identical at 16px, so the
                  cluster read as noise and you had to hover each to learn which was which.
@@ -2036,6 +1801,40 @@ function dismissFix() {
                 <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
                   <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
                   {{ a.label }}
+                </button>
+              </li>
+            </ItemRowMenu>
+            <!-- CARRIED BY. Optional vault/nesting controls stay BEFORE this trigger,
+                 so assignment, duplicate, remove and grip share fixed columns even
+                 on a group with no nesting action. People exist list-wide, not per
+                 row; an unassigned row keeps the same slot with its user glyph.
+                 Mobile carries these entries in the ⋯ menu instead. -->
+            <ItemRowMenu
+              v-if="peopleSorted.length"
+              class="item__person"
+              :row-id="item.id"
+              kind="person"
+              :label="personTitle"
+              menu-label="Who carries this"
+              trigger-class="item__person-btn"
+              tooltip
+              @overlay-toggle="$emit('overlayToggle', $event)"
+            >
+              <template #trigger>
+                <span v-if="rowPerson" class="swatch" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />
+                <HugeiconsIcon v-else :icon="UserIcon" :size="16" :stroke-width="2" />
+              </template>
+              <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  class="menu__item item__personpick"
+                  :class="{ 'is-active': e.active }"
+                  :aria-checked="e.active"
+                  @click="menu.close(); setPerson(e.active ? null : e.id)"
+                >
+                  <span class="swatch" :class="{ 'swatch--hollow': !e.color }" :style="e.color ? { background: e.color } : undefined" aria-hidden="true" />
+                  {{ e.label }}
                 </button>
               </li>
             </ItemRowMenu>
