@@ -1088,10 +1088,19 @@ const vaultOffered = computed(
 // A list can be a past trip, while My Gear is the owner's current kit. The same
 // scoped vault answer that keeps the save button honest also lets a differing row
 // offer its saved weight back, without a whole-vault read or another request.
+//
+// "Differs" is judged in the unit the row READS in, not in milligrams: grams show
+// no decimals, so a weight typed as 20.8 oz on another list (589,670 mg) and one
+// saved as 590 g would otherwise put "My Gear says 590 g" under a cell already
+// reading 590 g. The vault is asked about every named row, so the shape guard is
+// the save button's (no group, no water) — minus its weight requirement, because a
+// row with no weight yet is exactly the one the offer is for.
 const vaultWeight = computed(() => {
-  if (!vaultGearAsked.value.has(vaultKey.value)) return null;
+  if (isParent.value || isWater.value || !vaultGearAsked.value.has(vaultKey.value)) return null;
   const weight = vaultGear.value.get(vaultKey.value);
-  return typeof weight === "number" && weight > 0 && weight !== props.item.unitWeightMg ? weight : null;
+  if (typeof weight !== "number" || !(weight > 0)) return null;
+  const unit = rowUnit.value;
+  return formatWeight(weight, unit) !== formatWeight(props.item.unitWeightMg, unit) ? weight : null;
 });
 function useVaultWeight() {
   const weight = vaultWeight.value;
@@ -2100,15 +2109,12 @@ function dismissFix() {
       </div>
     </Transition>
 
+    <!-- the saved weight, in the unit the cell above reads in, so the two can be
+         compared by eye; pressing it is the whole offer, like the catalog line -->
     <Transition name="reveal">
       <div v-if="vaultWeight != null" class="reveal">
-        <button
-          type="button"
-          class="item__under-link t-sm"
-          :aria-label="`Use My Gear weight ${formatWeight(vaultWeight, list.displayUnit)}`"
-          @click="useVaultWeight"
-        >
-          My Gear says {{ formatWeight(vaultWeight, list.displayUnit) }}
+        <button type="button" class="item__under-link t-sm item__vault-says" @click="useVaultWeight">
+          My Gear says {{ formatWeight(vaultWeight, rowUnit) }}
         </button>
       </div>
     </Transition>

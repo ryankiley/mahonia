@@ -146,16 +146,25 @@ describe("the save button, against what My Gear actually holds", () => {
     w.unmount();
   });
 
+  const says = (w: ReturnType<typeof mountRow>) => w.find(".item__vault-says");
+
   it("offers the saved My Gear weight when it differs, and takes it in one press", async () => {
     const item = gear();
     vaultGear.value = banked(item, 590_000);
     const w = mountRow(item);
-    const nudge = w.find('button[aria-label="Use My Gear weight 590 g"]');
-    expect(nudge.text()).toBe("My Gear says 590 g");
+    expect(says(w).text()).toBe("My Gear says 590 g");
 
-    await nudge.trigger("click");
+    await says(w).trigger("click");
 
     expect(updateItem).toHaveBeenCalledWith(item.id, { unitWeightMg: 590_000, weightOverridden: true });
+    w.unmount();
+  });
+
+  it("offers it to a row with no weight yet, in the unit that row reads in", () => {
+    const item = gear({ unitWeightMg: 0, entryUnit: "oz" });
+    vaultGear.value = banked(item, 590_000);
+    const w = mountRow(item);
+    expect(says(w).text()).toBe("My Gear says 20.8 oz");
     w.unmount();
   });
 
@@ -163,13 +172,51 @@ describe("the save button, against what My Gear actually holds", () => {
     const item = gear();
     vaultGear.value = banked(item);
     const w = mountRow(item);
-    expect(w.find('[aria-label^="Use My Gear weight"]').exists()).toBe(false);
+    expect(says(w).exists()).toBe(false);
     w.unmount();
 
     vaultGear.value = banked(item, null);
     const pinned = mountRow(item);
-    expect(pinned.find('[aria-label^="Use My Gear weight"]').exists()).toBe(false);
+    expect(says(pinned).exists()).toBe(false);
     pinned.unmount();
+  });
+
+  it("agrees when the two only differ below what the row's unit shows", () => {
+    // 20.8 oz typed on another list is 589,670 mg; a gram cell reads both as 590 g,
+    // and a nudge saying the number already on the row would be noise
+    const item = gear({ unitWeightMg: 589_670 });
+    vaultGear.value = banked(item, 590_000);
+    const w = mountRow(item);
+    expect(says(w).exists()).toBe(false);
+    w.unmount();
+
+    // in ounces the same pair reads 20.8 both ways too
+    const oz = gear({ unitWeightMg: 589_670, entryUnit: "oz" });
+    vaultGear.value = banked(oz, 590_000);
+    const w2 = mountRow(oz);
+    expect(says(w2).exists()).toBe(false);
+    w2.unmount();
+  });
+
+  it("stays off a group and off water, whose cells are not a weight of their own", () => {
+    const water = gear({ name: "Water", unitWeightMg: 1_000_000 });
+    vaultGear.value = banked(water, 500_000);
+    vaultGearAsked.value = asked(keyFor(water));
+    const w = mountRow(water);
+    expect(says(w).exists()).toBe(false);
+    w.unmount();
+
+    // a group's cell is the sum of its children; a unit weight set on it would land nowhere
+    const group = gear();
+    vaultGear.value = banked(group, 590_000);
+    vaultGearAsked.value = asked(keyFor(group));
+    const g = mount(ItemRow, {
+      props: { list, item: group },
+      global: { provide: rowProvides(new Map([[group.id, [gear({ id: "i2", parentId: group.id, name: "Stakes" })]]])) },
+      attachTo: document.body,
+    });
+    expect(says(g).exists()).toBe(false);
+    g.unmount();
   });
 
   it("outranks a chooser exclusion — declining a row is not the same as not owning it", () => {
