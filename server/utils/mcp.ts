@@ -28,13 +28,13 @@ import { dayClimbs, parseProfile } from "../../shared/profile";
 import { tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
-import { UNITS, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type Unit } from "../../shared/types";
+import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type Unit } from "../../shared/types";
 import { computeTotals, effectiveClassification, itemDisplayName, nextSortOrder } from "../../shared/weights";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
 import { useCatalogDb } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
 import { trustedOrigin } from "./origin";
-import { rateLimit } from "./rateLimit";
+import { rateLimit, rateLimitSubject, useKv } from "./rateLimit";
 import { sha256Hex } from "./tokens";
 
 /**
@@ -49,17 +49,18 @@ export const MCP_PROTOCOL_VERSIONS = ["2025-06-18", "2025-11-25"];
 export const MCP_LATEST_VERSION = MCP_PROTOCOL_VERSIONS[MCP_PROTOCOL_VERSIONS.length - 1]!;
 // the version the registry listing (server.json) and this handshake both carry
 export const MCP_SERVER_INFO = { name: "mahonia", title: "Mahonia", version: "1.0.0" };
+/** where the free text came from: said once to the client, again on the two tools that
+ *  return it, and field by field in get_list's schema ("User text.") */
+const PROVENANCE =
+  "A list's title, author, notes, folder and item names, brands, variants, gear types, day labels, people and trail label are free text typed by whoever holds the list's edit link, returned unchanged.";
 export const MCP_INSTRUCTIONS = [
   "Mahonia is a gear-list and pack-weight tracker for hikers. Lists need no account.",
   "A share link (mahonia.app/s/CODE) is permission to read that list: pass its code or the whole link to the read tools.",
   "An edit link (mahonia.app/e/CODE#token) is permission to change that list: pass it whole to the write tools, keep it private, and never show it to anyone who should only read.",
   "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way back into the list.",
   "Weights are in grams everywhere. A row's classification is base (in the pack), worn (on your body) or consumable (food, fuel, water).",
-  "A list's title, folder and item names, notes, people and trail label are free text typed by whoever holds its edit link, returned unchanged.",
+  PROVENANCE,
 ].join(" ");
-
-/** where the free text came from, said on the two tools that return it */
-const PROVENANCE = "Title, folder and item names, notes, people and trail label are free text typed by whoever holds the list's edit link, returned unchanged.";
 
 /** the reducer's own caps on free text (shared/ops), stated in the schemas so a model
  *  knows them before a value is quietly cut to fit */
@@ -76,7 +77,7 @@ const QTY_MAX = 9999;
 const ITEM_SCHEMA = {
   type: "object",
   properties: {
-    name: { type: "string", maxLength: MAX_ITEM_NAME_LEN, description: "The product or item name. Required." },
+    name: { type: "string", minLength: 1, maxLength: MAX_ITEM_NAME_LEN, description: "The product or item name. Required." },
     brand: { type: "string", maxLength: BRAND_LEN, description: "The maker, when known." },
     variant: { type: "string", maxLength: BRAND_LEN, description: "Size, length or configuration that changes the weight, such as Long or 20F." },
     gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is: Tent, Quilt, Trail runners." },
@@ -101,13 +102,207 @@ const EDIT_ARG = {
   description: "The list's edit link, whole (mahonia.app/e/CODE#token). The part after # is the write capability.",
 };
 
+// ---- what the tools hand back ---------------------------------------------------
+// The result shapes as JSON Schema (MCP's outputSchema), declared so a client that
+// validates structured results can, and so the field set is documented where the tool
+// is. "User text" marks a field somebody typed into the list; the rest is the server's.
+// A stored number is declared `number`, not `integer`: the reducer rounds every one on
+// the way in, but a read doesn't check, and a schema is a promise about what THIS code
+// hands back, not about what the writer meant to store. `integer` is for figures this
+// file computes. additionalProperties is left open on purpose, so a field added later
+// doesn't fail a client that validated against the old listing; the test helper closes
+// it, so a field added to a producer and not declared here fails the suite instead.
+
+const USER_TEXT = "User text.";
+const str = (description?: string) => ({ type: "string", ...(description ? { description } : {}) });
+const nullable = (type: "string" | "number", description?: string) => ({ type: [type, "null"], ...(description ? { description } : {}) });
+/** an object every one of whose fields is always present; the schemas that leave a
+ *  field out sometimes (a kcal total, a day's label) list their `required` by hand */
+const complete = (properties: Record<string, unknown>, description?: string) => ({
+  type: "object",
+  ...(description ? { description } : {}),
+  properties,
+  required: Object.keys(properties),
+});
+
+const UNIT_SCHEMA = { type: "string", enum: UNITS, description: "The unit the list displays in. Weights are in grams regardless." };
+
+const TOTALS_SCHEMA = {
+  type: "object",
+  description: "Whole grams, summed over every row of the list.",
+  properties: {
+    base_g: { type: "integer", description: "In the pack, consumables aside." },
+    worn_g: { type: "integer", description: "On your body." },
+    consumable_g: { type: "integer", description: "Food, fuel, water." },
+    carried_g: { type: "integer", description: "base_g plus consumable_g: what is on your back." },
+    total_g: { type: "integer", description: "carried_g plus worn_g." },
+    item_count: { type: "integer", description: "Rows, nested ones included." },
+    kcal: { type: "number", description: "Only when a food row carries calories." },
+  },
+  required: ["base_g", "worn_g", "consumable_g", "carried_g", "total_g", "item_count"],
+};
+
+/** one row of get_list; a nested row is the same minus its own nesting */
+const ROW_PROPS = {
+  name: str(`The product name, without brand or variant. ${USER_TEXT}`),
+  display_name: str("Brand, name and variant joined, the way the list shows the row."),
+  qty: { type: "number", description: "How many; weight_g is for one." },
+  weight_g: { type: "number", description: "One unit, in grams to a tenth. 0 when the row has no weight." },
+  classification: { type: "string", enum: CLASSIFICATIONS, description: "The row's own, or its folder's when it has none." },
+  brand: str(USER_TEXT),
+  variant: str(`Size, length or configuration. ${USER_TEXT}`),
+  gear_type: str(`What kind of thing it is. ${USER_TEXT}`),
+  worn_qty: { type: "number", description: "Of qty, how many are worn rather than carried." },
+  note: str(USER_TEXT),
+  kcal: { type: "number", description: "Calories per unit." },
+  catalog_id: { type: "number", description: "The catalog row the item was picked from." },
+  carried_by: str(`Who carries it. A nested row without one is carried by its parent's carrier. ${USER_TEXT}`),
+};
+const ROW_REQUIRED = ["name", "display_name", "qty", "weight_g", "classification"];
+const NESTED_ROW = { type: "object", properties: ROW_PROPS, required: ROW_REQUIRED };
+const ROW = {
+  type: "object",
+  properties: {
+    ...ROW_PROPS,
+    items: { type: "array", description: "Rows nested under this one. The parent's weight_g is its own, not the group's.", items: NESTED_ROW },
+  },
+  required: ROW_REQUIRED,
+};
+
+const DATES_SCHEMA = complete({ start: nullable("string", "YYYY-MM-DD."), end: nullable("string", "YYYY-MM-DD.") });
+const TRAIL_SCHEMA = complete({
+  url: nullable("string"),
+  label: nullable("string", USER_TEXT),
+  distance_m: nullable("number"),
+  ascent_m: nullable("number"),
+  descent_m: nullable("number"),
+});
+
+const LIST_OUTPUT = {
+  type: "object",
+  properties: {
+    title: str(USER_TEXT),
+    share_code: str("The list's share code, the read capability."),
+    share_link: str("The list's share link."),
+    unit: UNIT_SCHEMA,
+    totals: TOTALS_SCHEMA,
+    description: str(`The list's own notes. ${USER_TEXT}`),
+    dates: DATES_SCHEMA,
+    trail: TRAIL_SCHEMA,
+    days: {
+      type: "array",
+      description: "The trip's days in order, when the owner has planned them.",
+      items: {
+        type: "object",
+        properties: {
+          day: str("Day 1; with trip dates, the weekday too: Saturday, Day 1."),
+          label: str(`The owner's name for the day. ${USER_TEXT}`),
+          distance_m: nullable("number"),
+          ascent_m: nullable("number", "Typed by the owner, or read off the route's profile."),
+        },
+        required: ["day", "distance_m", "ascent_m"],
+      },
+    },
+    people: { type: "array", items: str(USER_TEXT), description: "The people who carry the list's rows, when it names any." },
+    author: str(USER_TEXT),
+    truncated: {
+      type: "object",
+      description:
+        "Present only when the list was too large to return whole, naming what was cut: notes (true: every row's note), rows (how many came off the end, nested rows counted), fields (which of description, days, trail and people went, only when the rest alone was too large). The totals still count every row. get_list_markdown holds about three times as many rows, without notes, and is cut the same way only past that.",
+      properties: {
+        notes: { type: "boolean" },
+        rows: { type: "integer" },
+        fields: { type: "array", items: { type: "string", enum: ["description", "days", "trail", "people"] } },
+      },
+    },
+    folders: {
+      type: "array",
+      description: "In the list's order, each with its rows in order. A folder with no rows is left out; rows in no folder come last, under Unfiled.",
+      items: complete({ name: str(USER_TEXT), items: { type: "array", items: ROW } }),
+    },
+  },
+  required: ["title", "share_code", "share_link", "unit", "totals", "folders"],
+};
+
+/** one catalog row, in the two catalog tools' common fields */
+const CATALOG_ROW = {
+  id: { type: "integer", description: "The catalog row id, the one add_items and create_list take as catalog_id." },
+  variant: nullable("string", "Size, length or rating; null on a product sold one way."),
+  weight_g: { type: "number", description: "The cited weight in grams, to a tenth." },
+  verified: { type: "boolean", description: "Whether the cited weight has been verified." },
+  weight_source: { type: "string", enum: WEIGHT_SOURCES, description: "Where the weight comes from." },
+  kcal: nullable("number", "Calories per unit, on food."),
+};
+
+const SEARCH_OUTPUT = complete({
+  query: str("The query as searched: trimmed, at most 100 characters."),
+  results: {
+    type: "array",
+    description: "Best first.",
+    items: complete({
+      ...CATALOG_ROW,
+      brand: nullable("string"),
+      name: str("The product name, without brand or variant."),
+      display_name: str("Brand, name and variant joined."),
+      gear_type: nullable("string", "What kind of thing it is: Tent, Quilt, Trail runners."),
+      category: nullable("string", "The catalog's category: shelter, sleep, pack, and so on."),
+    }),
+  },
+});
+
+const PRODUCT_OUTPUT = complete({
+  brand: nullable("string"),
+  name: str("The product name, without brand or variant."),
+  gear_type: nullable("string"),
+  category: nullable("string"),
+  variants: {
+    type: "array",
+    description: "Every active variant, in variant order.",
+    items: complete({ ...CATALOG_ROW, source_url: nullable("string", "The page the weight was read from.") }),
+  },
+});
+
+const CREATE_OUTPUT = complete({
+  title: str(USER_TEXT),
+  edit_link: str("The write capability. Keep it; it is the only way back into the list."),
+  share_link: str("The read capability, safe to pass on."),
+  share_code: str(),
+  folders: { type: "integer", description: "Folders made." },
+  items: { type: "integer", description: "Rows made." },
+  totals: TOTALS_SCHEMA,
+});
+
+const ADD_OUTPUT = complete({
+  added: { type: "integer", description: "Rows added." },
+  folders_made: { type: "array", items: str(USER_TEXT), description: "Folders that didn't exist and were made for these rows." },
+  share_link: str(),
+  totals: TOTALS_SCHEMA,
+  repeated: {
+    type: "boolean",
+    description: "True when this call repeated one made in the last ten minutes: nothing was added again, and the figures are that call's. Pass again: true to add the rows a second time.",
+  },
+});
+
+const TRIP_OUTPUT = complete({
+  title: str(USER_TEXT),
+  unit: UNIT_SCHEMA,
+  dates: { ...DATES_SCHEMA, type: ["object", "null"] },
+  trail: { ...TRAIL_SCHEMA, type: ["object", "null"] },
+  share_link: str(),
+});
+
 export interface McpTool {
   name: string;
   title: string;
   description: string;
   inputSchema: Record<string, unknown>;
+  /** the shape of structuredContent, on every tool that returns it */
+  outputSchema?: Record<string, unknown>;
   annotations: { readOnlyHint: boolean; destructiveHint: boolean; idempotentHint: boolean; openWorldHint: boolean };
 }
+
+type McpToolHandler = (event: H3Event, args: Record<string, unknown>) => Promise<ToolResult>;
+type RegisteredMcpTool = McpTool & { run: McpToolHandler };
 
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 const ADD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
@@ -115,20 +310,23 @@ const ADD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false
 // trail, and the hint's own definition says false means additive updates only
 const SET = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false };
 
-export const MCP_TOOLS: McpTool[] = [
+const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
   {
     name: "get_list",
     title: "Read a shared list",
-    description: `A shared list as data: title, unit, dates, trail, totals in grams, and every folder with its rows (brand, name, variant, quantity, weight of one unit in grams, classification, note, calories, who carries it; a nested row without carried_by is carried by its parent's carrier). Takes a share code or share link. ${PROVENANCE}`,
+    description: `A shared list as data: title, unit, dates, trail, totals in grams, and every folder with its rows (brand, name, variant, quantity, weight of one unit in grams, classification, note, calories, who carries it; a nested row without carried_by is carried by its parent's carrier). Takes a share code or share link. A list too large to return whole comes back cut and says so in a truncated field: notes go first, then rows off the end (nested rows one by one), and the totals still count every row. ${PROVENANCE}`,
     inputSchema: { type: "object", properties: { share_code: SHARE_ARG }, required: ["share_code"] },
+    outputSchema: LIST_OUTPUT,
     annotations: READ,
+    run: getList,
   },
   {
     name: "get_list_markdown",
     title: "Read a shared list as Markdown",
-    description: `The same list as Markdown: one table per folder and a totals block, the text the site's own Markdown export produces. Takes a share code or share link. ${PROVENANCE}`,
+    description: `The same list as Markdown: one table per folder and a totals block, the text the site's own Markdown export produces. Takes a share code or share link. A list too large to return whole loses rows off the end of the tables, a line under them says how many, and the totals still count every row. ${PROVENANCE}`,
     inputSchema: { type: "object", properties: { share_code: SHARE_ARG }, required: ["share_code"] },
     annotations: READ,
+    run: (_event, args) => getListMarkdown(args),
   },
   {
     name: "search_catalog",
@@ -143,7 +341,9 @@ export const MCP_TOOLS: McpTool[] = [
       },
       required: ["query"],
     },
+    outputSchema: SEARCH_OUTPUT,
     annotations: READ,
+    run: (_event, args) => search(args),
   },
   {
     name: "get_catalog_product",
@@ -158,7 +358,9 @@ export const MCP_TOOLS: McpTool[] = [
         name: { type: "string", description: "The product name without brand or variant." },
       },
     },
+    outputSchema: PRODUCT_OUTPUT,
     annotations: READ,
+    run: (_event, args) => product(args),
   },
   {
     name: "create_list",
@@ -169,7 +371,7 @@ export const MCP_TOOLS: McpTool[] = [
       type: "object",
       properties: {
         title: { type: "string", maxLength: MAX_TITLE_LEN },
-        unit: { type: "string", enum: UNITS, description: "The unit the list displays in. Weights are still given in grams." },
+        unit: UNIT_SCHEMA,
         start_date: { type: "string", description: "YYYY-MM-DD" },
         end_date: { type: "string", description: "YYYY-MM-DD" },
         trail_url: { type: "string", maxLength: TRAIL_URL_LEN, description: "An http(s) link to the route or trail page." },
@@ -181,7 +383,7 @@ export const MCP_TOOLS: McpTool[] = [
           items: {
             type: "object",
             properties: {
-              name: { type: "string", maxLength: MAX_FOLDER_NAME_LEN },
+              name: { type: "string", minLength: 1, maxLength: MAX_FOLDER_NAME_LEN },
               classification: { type: "string", enum: CLASSIFICATIONS, description: "What rows in this folder count as unless they say otherwise. Default base." },
               items: { type: "array", items: ITEM_SCHEMA },
             },
@@ -191,7 +393,9 @@ export const MCP_TOOLS: McpTool[] = [
         items: { type: "array", description: "Rows not placed through a folder above; each may name its folder.", items: ITEM_SCHEMA },
       },
     },
+    outputSchema: CREATE_OUTPUT,
     annotations: ADD,
+    run: create,
   },
   {
     name: "add_items",
@@ -203,10 +407,17 @@ export const MCP_TOOLS: McpTool[] = [
         edit_link: EDIT_ARG,
         items: { type: "array", minItems: 1, items: ITEM_SCHEMA },
         folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "A folder name for every row that doesn't name its own." },
+        again: {
+          type: "boolean",
+          description:
+            "A call identical to one made in the last ten minutes is taken as a retry and adds nothing: the earlier result comes back with repeated set. Pass true to add the same rows a second time on purpose.",
+        },
       },
       required: ["edit_link", "items"],
     },
+    outputSchema: ADD_OUTPUT,
     annotations: ADD,
+    run: addItems,
   },
   {
     name: "set_trip",
@@ -218,7 +429,7 @@ export const MCP_TOOLS: McpTool[] = [
       properties: {
         edit_link: EDIT_ARG,
         title: { type: "string", maxLength: MAX_TITLE_LEN },
-        unit: { type: "string", enum: UNITS },
+        unit: UNIT_SCHEMA,
         start_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
         end_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
         trail_url: { type: "string", maxLength: TRAIL_URL_LEN, description: "An http(s) link, or an empty string to clear the trail and everything that came with it (label, distance, climb, route)." },
@@ -227,9 +438,15 @@ export const MCP_TOOLS: McpTool[] = [
       },
       required: ["edit_link"],
     },
+    outputSchema: TRIP_OUTPUT,
     annotations: SET,
+    run: setTrip,
   },
 ];
+
+/** Public protocol metadata. Handlers stay server-only and never reach tools/list. */
+export const MCP_TOOLS: McpTool[] = MCP_TOOL_REGISTRY.map(({ run: _run, ...tool }) => tool);
+const mcpToolByName = new Map(MCP_TOOL_REGISTRY.map((tool) => [tool.name, tool]));
 
 export interface ToolResult {
   content: { type: "text"; text: string }[];
@@ -246,7 +463,7 @@ const ok = (structured: Record<string, unknown>, text = JSON.stringify(structure
 });
 
 export function isKnownTool(name: unknown): name is string {
-  return typeof name === "string" && MCP_TOOLS.some((t) => t.name === name);
+  return typeof name === "string" && mcpToolByName.has(name);
 }
 
 /**
@@ -257,24 +474,8 @@ export function isKnownTool(name: unknown): name is string {
  */
 export async function callTool(event: H3Event, name: string, rawArgs: unknown): Promise<ToolResult> {
   const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
-  switch (name) {
-    case "get_list":
-      return getList(event, args);
-    case "get_list_markdown":
-      return getListMarkdown(args);
-    case "search_catalog":
-      return search(args);
-    case "get_catalog_product":
-      return product(args);
-    case "create_list":
-      return create(event, args);
-    case "add_items":
-      return addItems(event, args);
-    case "set_trip":
-      return setTrip(event, args);
-    default:
-      return fail(`Unknown tool: ${name}`);
-  }
+  const tool = mcpToolByName.get(name);
+  return tool ? tool.run(event, args) : fail(`Unknown tool: ${name}`);
 }
 
 // ---- reading ---------------------------------------------------------------------
@@ -294,17 +495,20 @@ const NO_LIST = "No list is shared at that code. It may have been deleted, or th
 async function getList(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   const code = shareCodeFrom(args.share_code);
   if (!code) return fail(NO_SHARE);
+  // the read budget is the list's, not the caller's address's (see RATE_LIMITS "mcp")
+  await rateLimitSubject("mcp-read", code);
   const snap = await getByShareCode(code);
   if (!snap) return fail(NO_LIST);
-  return ok(describeList(snap, trustedOrigin(event)));
+  return ok(fitList(describeList(snap, trustedOrigin(event))));
 }
 
 async function getListMarkdown(args: Record<string, unknown>): Promise<ToolResult> {
   const code = shareCodeFrom(args.share_code);
   if (!code) return fail(NO_SHARE);
+  await rateLimitSubject("mcp-read", code);
   const snap = await getTextByShareCode(code);
   if (!snap) return fail(NO_LIST);
-  return { content: [{ type: "text", text: listToMarkdown(snap) }] };
+  return { content: [{ type: "text", text: fitMarkdown(listToMarkdown(snap)) }] };
 }
 
 /** milligrams to grams, to a tenth: the precision a kitchen scale has */
@@ -357,7 +561,6 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
       item_count: totals.itemCount,
       ...(totals.hasKcal ? { kcal: totals.kcalTotal } : {}),
     },
-    folders,
   };
   if (snap.description) out.description = snap.description;
   if (snap.startDate || snap.endDate) out.dates = { start: snap.startDate ?? null, end: snap.endDate ?? null };
@@ -384,7 +587,161 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
   }
   if (snap.people?.length) out.people = snap.people.map((p) => p.name);
   if (snap.authorName) out.author = snap.authorName;
+  // the rows last: a reader meets the trip's facts before tens of kilobytes of them,
+  // and fitList's notice slots in between without reordering anything
+  out.folders = folders;
   return out;
+}
+
+/**
+ * The most get_list may answer with, in bytes of its JSON. Claude Code counts a tool
+ * result past 25,000 tokens (its MAX_MCP_OUTPUT_TOKENS default) as too large and puts
+ * it in a file the model has to read back in slices, notice and all; an in-band cut it
+ * can read whole is better. Bytes, not characters: a CJK character is one string unit,
+ * three bytes and about one token, so a byte ceiling tracks tokens across scripts where
+ * a character one is out by three for the lists tidyText goes to lengths to keep. At
+ * ~3 bytes a token for all-CJK text this is under 22,000 tokens; ASCII JSON runs 3.5
+ * to 4, so 16,000 to 19,000. A list within MAX_ITEMS can be thirty times this: a row is
+ * 150-odd bytes before its note, and a note up to 2,000 characters.
+ */
+export const GET_LIST_MAX_BYTES = 65_536;
+
+/** the head fields fitList will give up, largest first, when the rest alone is too big */
+const SHEDDABLE = ["days", "trail", "description", "people"] as const;
+
+/**
+ * A described list cut down to the ceiling when it is over it, in three tiers, each
+ * said in the `truncated` field rather than in prose. Notes first: the longest free
+ * text on a row, and the field a model needs least to reason about a pack. Then rows
+ * off the end in reading order, a nested row counting as its own so a large group is
+ * cut inside rather than dropped whole, the most that fit found by bisection. Then, only
+ * when the list's own facts are too big by themselves (sixty day labels of control
+ * characters, a percent-encoded trail link), those fields, largest first. The totals
+ * stay as computed over the whole list. A list under the ceiling comes back as it was.
+ */
+export function fitList(described: Record<string, unknown>, max = GET_LIST_MAX_BYTES): Record<string, unknown> {
+  const size = (value: unknown) => Buffer.byteLength(JSON.stringify(value));
+  if (size(described) <= max) return described;
+  type Row = Record<string, unknown> & { items?: Row[] };
+  type Folder = { name: string; items: Row[] };
+  const { folders: whole, ...head } = described as Record<string, unknown> & { folders: Folder[] };
+  let notes = false;
+  const stripNote = ({ note, items, ...rest }: Row): Row => {
+    if (note !== undefined) notes = true;
+    return items ? { ...rest, items: items.map(stripNote) } : rest;
+  };
+  const folders = whole.map((f) => ({ ...f, items: f.items.map(stripNote) }));
+  const rowsIn = (rows: Row[]) => rows.reduce((n, r) => n + 1 + (r.items?.length ?? 0), 0);
+  const total = folders.reduce((n, f) => n + rowsIn(f.items), 0);
+  // the first n rows in reading order: a parent, then each of its nested rows, so the
+  // cut can land inside a group; a folder left with nothing is left out
+  const keep = (n: number): Folder[] => {
+    const out: Folder[] = [];
+    let left = n;
+    for (const f of folders) {
+      const items: Row[] = [];
+      for (const r of f.items) {
+        if (left <= 0) break;
+        left--;
+        if (!r.items) items.push(r);
+        else {
+          const kids = r.items.slice(0, left);
+          left -= kids.length;
+          const { items: _, ...own } = r;
+          items.push(kids.length ? { ...own, items: kids } : own);
+        }
+      }
+      if (items.length) out.push({ ...f, items });
+    }
+    return out;
+  };
+  const build = (n: number, shed: readonly string[] = []) => {
+    const kept = keep(n);
+    const rows = total - kept.reduce((c, f) => c + rowsIn(f.items), 0);
+    const rest = Object.fromEntries(Object.entries(head).filter(([k]) => !shed.includes(k)));
+    const truncated = { ...(notes ? { notes: true } : {}), ...(rows ? { rows } : {}), ...(shed.length ? { fields: shed } : {}) };
+    return { ...rest, truncated, folders: kept };
+  };
+  // the largest n whose answer fits; hi is one past the top so the whole note-stripped
+  // list is a candidate, and it can't be picked when nothing was stripped, since then
+  // it is the input over again
+  let lo = 0;
+  let hi = total + 1;
+  while (hi - lo > 1) {
+    const mid = (lo + hi) >> 1;
+    if (size(build(mid)) <= max) lo = mid;
+    else hi = mid;
+  }
+  if (lo > 0 || size(build(0)) <= max) return build(lo);
+  // the list's own facts are too big by themselves: give them up, largest first; what
+  // is left (title, links, unit, totals, author) is a few hundred bytes by the caps
+  const shed: string[] = [];
+  for (const key of SHEDDABLE) {
+    if (!(key in head)) continue;
+    shed.push(key);
+    if (size(build(0, shed)) <= max) break;
+  }
+  return build(0, shed);
+}
+
+/** the exporter's table scaffolding (shared/exporters/markdown), read back line by line */
+const MD_HEADER = "| Item | Qty | Weight |";
+const MD_RULE = "| --- | ---: | ---: |";
+
+/**
+ * The Markdown answer cut to the same ceiling, when it is over it: rows off the end of
+ * the tables, a nested row on its own (it follows its parent, so it goes first), an
+ * emptied folder's heading with them, and one line under the tables saying how many
+ * are missing. The totals block at the foot is computed over every row and stays. This
+ * lives here, not in the exporter, because the exporter is what /s/{code}.md serves
+ * byte for byte; only the tool's answer has a budget. Under the ceiling the text is
+ * the exporter's, untouched.
+ */
+export function fitMarkdown(text: string, max = GET_LIST_MAX_BYTES): string {
+  const bytes = (line: string) => Buffer.byteLength(line);
+  let total = bytes(text);
+  if (total <= max) return text;
+  const lines = text.split("\n");
+  // the foot: the rule and the totals under it, when the list has weights. A row can't
+  // be a bare "---" (rows start with a pipe), so the last one is the rule.
+  const rule = lines.lastIndexOf("---");
+  const foot = rule >= 0 ? lines.slice(rule) : [];
+  const body = rule >= 0 ? lines.slice(0, rule) : lines;
+  // the body: the title, then per folder a heading, a blank, the header, the rule, its
+  // rows and a closing blank, in the exporter's own order
+  type Section = { head: string[]; rows: string[] };
+  const lead: string[] = [];
+  const sections: Section[] = [];
+  for (const line of body) {
+    const current = sections.at(-1);
+    if (line.startsWith("## ")) sections.push({ head: [line], rows: [] });
+    else if (!current) lead.push(line);
+    else if (line.startsWith("| ") && line !== MD_HEADER && line !== MD_RULE) current.rows.push(line);
+    else if (current.rows.length === 0) current.head.push(line);
+    // the blank that closes a folder's rows is not kept: the assembly below puts it back
+  }
+  const notice = (n: number) => `_${n} more row${n === 1 ? "" : "s"} not shown; the totals count every row._`;
+  let omitted = 0;
+  // what the notice adds: its own line and a blank under it, each with a newline
+  const fits = () => total + bytes(notice(omitted)) + 2 <= max;
+  while (!fits() && sections.length) {
+    const last = sections.at(-1)!;
+    const row = last.rows.pop();
+    if (row !== undefined) {
+      omitted++;
+      total -= bytes(row) + 1;
+    }
+    if (last.rows.length === 0) {
+      // the heading, blank, header and rule of a folder with no rows left, and its closing blank
+      for (const line of last.head) total -= bytes(line) + 1;
+      total -= 1;
+      sections.pop();
+    }
+  }
+  const out = [...lead];
+  for (const s of sections) out.push(...s.head, ...s.rows, "");
+  out.push(notice(omitted), "", ...foot);
+  return out.join("\n");
 }
 
 async function search(args: Record<string, unknown>): Promise<ToolResult> {
@@ -568,62 +925,89 @@ class FolderBook {
   }
 }
 
-async function create(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  await rateLimit(event, "mcp-write");
-  const book = new FolderBook([]);
-  const items: Item[] = [];
-  const counted = new Map<string | null, number>();
-  const nextOrder = (folderId: string | null) => {
-    const n = counted.get(folderId) ?? 0;
-    counted.set(folderId, n + 1);
-    return n;
-  };
-  const place = (raw: unknown, fallbackFolder: Folder | null): string | null => {
+/**
+ * The two write tools accept rows in different envelopes, but every row follows the
+ * same path: an item-level folder wins over the surrounding folder, a missing named
+ * folder is made, and its sort order is the next free slot in that folder. Keeping
+ * that policy here means create_list and add_items cannot quietly diverge on a later
+ * validation or ordering change.
+ */
+class ItemPlan {
+  readonly items: Item[] = [];
+  private readonly counted = new Map<string | null, number>();
+
+  constructor(
+    readonly folders: FolderBook,
+    private readonly existingItems: readonly Item[] = [],
+  ) {}
+
+  place(raw: unknown, fallbackFolder: Folder | null): string | null {
     let folder = fallbackFolder;
     const named = raw && typeof raw === "object" ? (raw as Record<string, unknown>).folder : undefined;
     if (typeof named === "string" && named.trim()) {
-      const got = book.resolve(named);
-      if (typeof got === "string") return got;
-      folder = got;
+      const resolved = this.folders.resolve(named);
+      if (typeof resolved === "string") return resolved;
+      folder = resolved;
     }
-    const item = toItem(raw, folder?.id ?? null, nextOrder(folder?.id ?? null));
+    const folderId = folder?.id ?? null;
+    const sortOrder = this.nextSortOrder(folderId);
+    const item = toItem(raw, folderId, sortOrder);
     if (typeof item === "string") return item;
-    items.push(item);
+    this.items.push(item);
     return null;
-  };
+  }
+
+  placeAll(rows: readonly unknown[], fallbackFolder: Folder | null): string | null {
+    for (const row of rows) {
+      const problem = this.place(row, fallbackFolder);
+      if (problem) return problem;
+    }
+    return null;
+  }
+
+  private nextSortOrder(folderId: string | null): number {
+    // New rows go after what the folder already holds: past its highest sortOrder,
+    // not its count, since a removed row leaves a hole the count would fill mid-folder.
+    const next = this.counted.get(folderId) ?? nextSortOrder(this.existingItems, folderId);
+    this.counted.set(folderId, next + 1);
+    return next;
+  }
+}
+
+async function create(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  // the one write with no list to key on: per address, like the web's create
+  await rateLimit(event, "mcp-write");
+  const plan = new ItemPlan(new FolderBook([]));
   if (args.folders != null) {
     if (!Array.isArray(args.folders)) return fail("folders must be an array.");
     for (const f of args.folders) {
-      if (!f || typeof f !== "object" || typeof (f as Record<string, unknown>).name !== "string") return fail("Each folder needs a name.");
+      if (!f || typeof f !== "object") return fail("Each folder needs a name.");
       const fr = f as Record<string, unknown>;
+      if (typeof fr.name !== "string" || !fr.name.trim()) return fail("Each folder needs a name.");
       if (fr.classification != null && !CLASSIFICATIONS.includes(fr.classification as Classification)) {
         return fail(`"${String(fr.classification)}" isn't a classification; use base, worn or consumable.`);
       }
-      const folder = book.resolve(fr.name as string, (fr.classification as Classification | undefined) ?? "base");
+      const folder = plan.folders.resolve(fr.name as string, (fr.classification as Classification | undefined) ?? "base");
       if (typeof folder === "string") return fail(folder);
       if (fr.items != null) {
         if (!Array.isArray(fr.items)) return fail("A folder's items must be an array.");
-        for (const it of fr.items) {
-          const problem = place(it, folder);
-          if (problem) return fail(problem);
-        }
+        const problem = plan.placeAll(fr.items, folder);
+        if (problem) return fail(problem);
       }
     }
   }
   if (args.items != null) {
     if (!Array.isArray(args.items)) return fail("items must be an array.");
-    for (const it of args.items) {
-      const problem = place(it, null);
-      if (problem) return fail(problem);
-    }
+    const problem = plan.placeAll(args.items, null);
+    if (problem) return fail(problem);
   }
-  if (items.length > MAX_ITEMS) return fail(`A list holds at most ${MAX_ITEMS} rows; this would make ${items.length}.`);
+  if (plan.items.length > MAX_ITEMS) return fail(`A list holds at most ${MAX_ITEMS} rows; this would make ${plan.items.length}.`);
 
   const meta = tripMeta(args, true);
   if (typeof meta === "string") return fail(meta);
-  const unlinked = await linkCatalog(items);
+  const unlinked = await linkCatalog(plan.items);
   if (unlinked) return fail(unlinked);
-  const data: ListData = { folders: book.folders, items };
+  const data: ListData = { folders: plan.folders.folders, items: plan.items };
   const { editToken, snapshot } = await createList({ ...meta, data });
   const origin = trustedOrigin(event);
   return ok({
@@ -687,62 +1071,89 @@ function tripMeta(args: Record<string, unknown>, creating = false): Record<strin
   return meta;
 }
 
+// A retried add_items must not add its rows twice. Clients retry a call that timed
+// out or lost its answer, and nothing in the protocol marks the retry; so an
+// add_items identical to one this list took in the last ten minutes (same rows, same
+// folder, same edit link: the arguments, stably serialised, hashed with the edit hash)
+// answers with that call's result and `repeated: true`, and adds nothing. The window
+// is in the shared KV store the rate limiter uses, so it holds across serverless
+// instances; without a shared store it degrades to per instance, as the budgets do.
+// A person who means the same rows twice says so with `again: true`, which skips the
+// window; the tool's description tells the model, and `repeated` tells it after.
+//
+// Keyed on the edit hash, so a stored answer only ever goes back to a caller holding
+// the same link (it carries the share link and totals, nothing more). create_list has
+// no such key: two callers making byte-identical lists from one address range would
+// be handed one edit link, so a retried create makes a second list instead, which is
+// a spare list rather than a leaked capability.
+const REPLAY_WINDOW_S = 10 * 60;
+function replayKey(hash: string, tool: string, args: Record<string, unknown>): string {
+  const { edit_link: _link, again: _again, ...rest } = args;
+  return `mcp:replay:${sha256Hex(`${hash}|${tool}|${stableJson(rest)}`)}`;
+}
+function stableJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
+  if (v && typeof v === "object") {
+    return `{${Object.keys(v as Record<string, unknown>).sort().map((k) => `${JSON.stringify(k)}:${stableJson((v as Record<string, unknown>)[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(v) ?? "null";
+}
+
 async function addItems(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  await rateLimit(event, "mcp-write");
   const hash = editHashFrom(args.edit_link);
   if (!hash) return fail(NO_EDIT);
+  // the write budget is the list's: spent once the link has yielded a hash to key it
+  // on, so a call with no link costs nothing past the endpoint's own guard
+  await rateLimitSubject("mcp-write", hash);
   if (!Array.isArray(args.items) || !args.items.length) return fail("items must be a non-empty array of rows.");
+  if (args.again != null && typeof args.again !== "boolean") return fail("again must be true or false.");
+  const key = replayKey(hash, "add_items", args);
+  if (args.again !== true) {
+    const prior = await useKv().getItem<Record<string, unknown>>(key).catch(() => null);
+    if (prior) {
+      const structured = { ...prior, repeated: true };
+      return ok(structured, `${JSON.stringify(structured)}\nThis repeats a call made in the last ten minutes, so the rows were not added again. Pass again: true to add them a second time.`);
+    }
+  }
   const snap = await getByEditHash(hash);
   if (!snap) return fail(NO_EDIT_LIST);
   if (snap.items.length + args.items.length > MAX_ITEMS) return fail(`A list holds at most ${MAX_ITEMS} rows; this one has ${snap.items.length}.`);
 
-  const book = new FolderBook(snap.folders);
+  const plan = new ItemPlan(new FolderBook(snap.folders), snap.items);
   let fallback: Folder | null = null;
   if (typeof args.folder === "string" && args.folder.trim()) {
-    const got = book.resolve(args.folder);
+    const got = plan.folders.resolve(args.folder);
     if (typeof got === "string") return fail(got);
     fallback = got;
   }
-  // new rows go after what the folder already holds: past its highest sortOrder,
-  // not its count, since a removed row leaves a hole the count would fill mid-folder
-  const counted = new Map<string | null, number>();
-  const items: Item[] = [];
-  for (const raw of args.items) {
-    let folder = fallback;
-    const named = raw && typeof raw === "object" ? (raw as Record<string, unknown>).folder : undefined;
-    if (typeof named === "string" && named.trim()) {
-      const got = book.resolve(named);
-      if (typeof got === "string") return fail(got);
-      folder = got;
-    }
-    const folderId = folder?.id ?? null;
-    const n = counted.get(folderId) ?? nextSortOrder(snap.items, folderId);
-    counted.set(folderId, n + 1);
-    const item = toItem(raw, folderId, n);
-    if (typeof item === "string") return fail(item);
-    items.push(item);
-  }
-  const unlinked = await linkCatalog(items);
+  const problem = plan.placeAll(args.items, fallback);
+  if (problem) return fail(problem);
+  const unlinked = await linkCatalog(plan.items);
   if (unlinked) return fail(unlinked);
   const ops: Op[] = [
-    ...book.made.map((folder): Op => ({ t: "addFolder", folder })),
-    ...items.map((item): Op => ({ t: "addItem", item })),
+    ...plan.folders.made.map((folder): Op => ({ t: "addFolder", folder })),
+    ...plan.items.map((item): Op => ({ t: "addItem", item })),
   ];
   const after = await applyOpsByEditHash(hash, ops);
   if (!after) return fail(NO_EDIT_LIST);
   const origin = trustedOrigin(event);
-  return ok({
-    added: items.length,
-    folders_made: book.made.map((f) => f.name),
+  const result = {
+    added: plan.items.length,
+    folders_made: plan.folders.made.map((f) => f.name),
     share_link: `${origin}/s/${after.shareCode}`,
     totals: describeList(after, origin).totals,
-  });
+    repeated: false,
+  };
+  // remembered after the write, never before: a call that failed leaves no window,
+  // so its retry goes through
+  await useKv().setItem(key, result, { ttl: REPLAY_WINDOW_S }).catch(() => {});
+  return ok(result);
 }
 
 async function setTrip(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  await rateLimit(event, "mcp-write");
   const hash = editHashFrom(args.edit_link);
   if (!hash) return fail(NO_EDIT);
+  await rateLimitSubject("mcp-write", hash);
   const meta = tripMeta(args);
   if (typeof meta === "string") return fail(meta);
   if (!Object.keys(meta).length) return fail("Nothing to set: give a title, unit, start_date, end_date, trail_url, trail_label or trail_distance_km.");

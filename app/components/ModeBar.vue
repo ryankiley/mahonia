@@ -142,8 +142,9 @@ function onKey(e: KeyboardEvent) {
   // deliberately off. Its menubar is words only; this one puts a 16px icon beside the
   // word, and 24px leaves 4px of air above and below a mark that needs to sit in its own
   // space rather than press against the plate's edges. The extra six give the icon room
-  // without making the bar read as buttons.
-  height: 30px;
+  // without making the bar read as buttons. That 30px is --control-compact, which the
+  // people chips and the map's expand control share for the same row rhythm.
+  height: var(--control-compact);
   padding: 0 var(--space-2);
   border-radius: var(--radius-2);
   font-size: var(--text-chrome);
@@ -181,8 +182,8 @@ function onKey(e: KeyboardEvent) {
 }
 
 .modebar__opt:focus-visible {
-  outline: 2px solid var(--ink);
-  outline-offset: -2px;
+  outline: var(--focus-ring) solid var(--ink);
+  outline-offset: var(--focus-offset-inset);
 }
 
 // SELECTED IS A STATE, not a hover that happens to be stuck — it keeps its plate whether

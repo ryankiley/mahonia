@@ -204,6 +204,7 @@ export const MAX_TITLE_LEN = 200;
 export const MAX_ITEM_NAME_LEN = 200;
 export const MAX_ITEM_NOTE_LEN = 2000;
 export const MAX_GEAR_TYPE_LEN = 120; // commonName
+export const MAX_VARIANT_LEN = 120; // the size/config qualifier, typed or picked
 export const MAX_FOLDER_NAME_LEN = 120;
 export const MAX_PERSON_NAME_LEN = 60;
 // Past this an itinerary stops being something a person hand-enters, and the per-day
@@ -243,6 +244,28 @@ const SAFE_COLOR_KEY = /^[a-z0-9-]{1,40}$/;
 export const clampUnitWeightMg = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
 
+/**
+ * A worn count only describes a genuine partial of a base line. Keep this beside
+ * the item normalizer rather than teaching add/import and update their own versions:
+ * both routes must turn an all-worn line into the Worn classification and discard a
+ * split from a line that has no base remainder.
+ */
+function normalizeWornSplit(
+  qty: number,
+  classification: Classification | null,
+  rawWornQty: unknown,
+): { classification: Classification | null; wornQty?: number } {
+  const wornQty =
+    typeof rawWornQty === "number" && Number.isFinite(rawWornQty)
+      ? Math.round(rawWornQty)
+      : 0;
+  if (wornQty <= 0 || qty < 2 || classification === "worn" || classification === "consumable") {
+    return { classification };
+  }
+  if (wornQty >= qty) return { classification: "worn" };
+  return { classification, wornQty };
+}
+
 /** A stored product link: http(s) only, length-capped. Anything else is no link.
  *  Deliberately not tidied — see cleanText below on why URLs keep their apostrophes. */
 const httpUrl = (raw: string): string | undefined => {
@@ -272,7 +295,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   // drop the catalog-derived brand/variant from a now-custom item). The emptiness test
   // reads the TIDIED value, so an all-whitespace field clears rather than storing " ".
   if (typeof patch.brand === "string") out.brand = cleanText(patch.brand, 120) || undefined;
-  if (typeof patch.variant === "string") out.variant = cleanText(patch.variant, 120) || undefined;
+  if (typeof patch.variant === "string") out.variant = cleanText(patch.variant, MAX_VARIANT_LEN) || undefined;
   // common name: a non-empty string sets it; "" clears it (mirrors brand/variant)
   if (typeof patch.commonName === "string") out.commonName = cleanText(patch.commonName, MAX_GEAR_TYPE_LEN) || undefined;
   if (typeof patch.commonNameOverridden === "boolean") out.commonNameOverridden = patch.commonNameOverridden;
@@ -585,25 +608,9 @@ function applyOp(state: ListState, op: Op): void {
         // owes the same invariant.
         if (it.catalogItemId !== linkedTo && typeof patch.catalogWeightMgAtLink !== "number")
           it.catalogWeightMgAtLink = undefined;
-        // Normalize the worn/base split after ANY patch (needs the item's current
-        // qty + classification, which cleanItemPatch can't see). A split only reads
-        // as a GENUINE PARTIAL of a base line with ≥2 units, so:
-        //  • the item is already explicitly worn/consumable → no base remainder to
-        //    split: drop it (mirrors normalizeItem; a wornQty-only patch must not
-        //    resurrect a split — or flip a consumable to Worn via the collapse below)
-        //  • qty < 2 → nothing to split: drop it, let the item's base class stand
-        //    (not clamp to 1, which would flip the lone unit to fully worn)
-        //  • every copy worn (wornQty ≥ qty) → that's just the Worn class, not a
-        //    "N worn · 0 base" split with no base remainder
-        //  • otherwise a real partial (1 ≤ wornQty ≤ qty−1) stays as-is
-        if (it.wornQty != null) {
-          if (it.classification === "worn" || it.classification === "consumable" || it.qty < 2) {
-            it.wornQty = undefined;
-          } else if (it.wornQty >= it.qty) {
-            it.classification = "worn";
-            it.wornQty = undefined;
-          }
-        }
+        const worn = normalizeWornSplit(it.qty, it.classification, it.wornQty);
+        it.classification = worn.classification;
+        it.wornQty = worn.wornQty;
         healPersonId(state, it);
       }
       break;
@@ -793,16 +800,8 @@ export function normalizeItem(raw: Item): Item {
   let classification = CLASSES.includes(raw.classification as Classification)
     ? (raw.classification as Classification)
     : null;
-  const wornQtyRaw =
-    typeof raw.wornQty === "number" && isFinite(raw.wornQty) ? Math.round(raw.wornQty) : 0;
-  // Resolve the worn split exactly as the op-reducer does: keep it only as a genuine
-  // partial of a base-effective line with ≥2 units; an all-worn count is just the
-  // Worn class, and a lone line has nothing to split.
-  let wornQty: number | undefined;
-  if (wornQtyRaw > 0 && qty >= 2 && classification !== "worn" && classification !== "consumable") {
-    if (wornQtyRaw < qty) wornQty = wornQtyRaw;
-    else classification = "worn";
-  }
+  const worn = normalizeWornSplit(qty, classification, raw.wornQty);
+  classification = worn.classification;
   // same clamp as cleanItemPatch: whole, positive, bounded — anything else is
   // absent rather than zero (see Item.kcal)
   const kcal = typeof raw.kcal === "number" && isFinite(raw.kcal) ? Math.round(raw.kcal) : 0;
@@ -818,7 +817,7 @@ export function normalizeItem(raw: Item): Item {
     parentId: typeof raw.parentId === "string" && raw.parentId ? raw.parentId.slice(0, MAX_ID_LEN) : null,
     name: cleanText(String(raw.name ?? ""), MAX_ITEM_NAME_LEN),
     brand: raw.brand ? cleanText(String(raw.brand), 120) || undefined : undefined,
-    variant: raw.variant ? cleanText(String(raw.variant), 120) || undefined : undefined,
+    variant: raw.variant ? cleanText(String(raw.variant), MAX_VARIANT_LEN) || undefined : undefined,
     commonName: raw.commonName ? cleanText(String(raw.commonName), MAX_GEAR_TYPE_LEN) || undefined : undefined,
     commonNameOverridden: raw.commonNameOverridden ? true : undefined,
     nameOverridden: raw.nameOverridden ? true : undefined,
@@ -830,7 +829,7 @@ export function normalizeItem(raw: Item): Item {
     entryUnit:
       typeof raw.entryUnit === "string" && UNITS.includes(raw.entryUnit) ? raw.entryUnit : undefined,
     qty,
-    wornQty,
+    wornQty: worn.wornQty,
     classification,
     kcal: kcal > 0 ? Math.min(KCAL_MAX, kcal) : undefined,
     description: raw.description ? cleanText(String(raw.description), 2000) || undefined : undefined,
@@ -901,7 +900,7 @@ export function tidyListText<T extends {
   for (const it of list.items) {
     it.name = cleanText(it.name ?? "", MAX_ITEM_NAME_LEN);
     if (it.brand) it.brand = cleanText(it.brand, 120) || undefined;
-    if (it.variant) it.variant = cleanText(it.variant, 120) || undefined;
+    if (it.variant) it.variant = cleanText(it.variant, MAX_VARIANT_LEN) || undefined;
     if (it.commonName) it.commonName = cleanText(it.commonName, MAX_GEAR_TYPE_LEN) || undefined;
     if (it.description) it.description = cleanText(it.description, MAX_ITEM_NOTE_LEN) || undefined;
     // productUrl left alone — an apostrophe in a path is part of the address

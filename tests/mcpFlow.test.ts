@@ -8,6 +8,7 @@ import { CATALOG_DDL } from "../server/utils/catalog";
 import { LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
 import { createTestDb } from "./helpers/db";
 import { stubFetch } from "./helpers/http";
+import { expectResultConforms } from "./helpers/mcpSchema";
 
 // The MCP tools end to end against a real (in-memory) database: an assistant makes a
 // list, adds to it, sets its trip, and reads it back the way a person would see it on
@@ -20,7 +21,14 @@ vi.mock("../server/utils/db", async (importOriginal) => {
   const grab = async () => state.db;
   return { ...mod, useDb: grab, useCatalogDb: grab, useVaultDb: grab, useAccountDb: grab };
 });
-vi.mock("../server/utils/rateLimit", () => ({ rateLimit: async () => {} }));
+vi.mock("../server/utils/rateLimit", () => {
+  const kv = new Map<string, unknown>();
+  return {
+    rateLimit: async () => {},
+    rateLimitSubject: async () => {},
+    useKv: () => ({ getItem: async (k: string) => kv.get(k) ?? null, setItem: async (k: string, v: unknown) => void kv.set(k, v) }),
+  };
+});
 // searchCatalog reads DATABASE_URL at call time to pick the Neon SQL branch, which a
 // PGlite handle can't run; a shell with the variable exported must not turn this
 // suite red for a reason that has nothing to do with the code
@@ -39,6 +47,8 @@ async function rpc(method: string, params?: unknown, id = 1) {
 }
 const call = async (name: string, args: unknown) => {
   const r = await rpc("tools/call", { name, arguments: args });
+  // a real database's values, held to the declared shape as the stubbed suite's are
+  expectResultConforms(name, r);
   return { data: r.structuredContent as Record<string, unknown>, text: r.content[0]!.text, isError: r.isError ?? false };
 };
 

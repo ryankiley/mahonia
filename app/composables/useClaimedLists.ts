@@ -10,7 +10,7 @@
 
 import { LIST_CODE_HEADER, normalizeShareCode } from "~~/shared/links";
 import { claimedLocalKey } from "~~/shared/localList";
-import { isRecord } from "~~/shared/guards";
+import { isRecord } from "~~/shared/record";
 import type { ClaimedOpen } from "~~/shared/switcher";
 import { CLAIMED_LIST_CAP, type ClaimedList } from "~~/shared/types";
 import { forget, recall, recallJson, remember } from "../utils/remember";

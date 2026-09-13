@@ -62,6 +62,22 @@ export function isWaterName(name: string): boolean {
   return /^water$/i.test(name.trim());
 }
 
+/** "water 2 L", "Water 500ml", "2 L water": the volume a water line names, in ml, or
+ *  null when the text is not water with a volume (a bare "water" is the water row
+ *  without one; "500 ml" alone names no water). The name field's menu and the pasted
+ *  line read this the same way, so both make the row the Enter path makes. */
+export function waterPhraseMl(text: string): number | null {
+  const low = text.trim().toLowerCase();
+  let vol: string | null = null;
+  if (/^water\b/.test(low)) vol = low.replace(/^water\b/, "").trim();
+  else if (/\bwater$/.test(low)) vol = low.replace(/\bwater$/, "").trim();
+  // set off the way a weight is ("Water - 2 L", "Water: 750 ml", "Water (2 L)")
+  vol = vol?.replace(/^[-–—:,|(]\s*/, "").replace(/\)$/, "").trim() ?? null;
+  if (!vol) return null;
+  const ml = parseVolumeMl(vol);
+  return ml != null && ml > 0 ? ml : null;
+}
+
 /** A water row's volume in litres as the bare number its fields show ("1.75"), or "" at zero. */
 export function waterLiters(unitWeightMg: number): string {
   const l = unitWeightMg / 1_000_000;

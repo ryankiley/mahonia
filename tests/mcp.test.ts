@@ -6,10 +6,12 @@ import mcpDelete from "../server/routes/mcp.delete";
 import mcpGet from "../server/routes/mcp.get";
 import mcpHead from "../server/routes/mcp.head";
 import mcp from "../server/routes/mcp.post";
-import { MCP_TOOLS, describeList, editHashFrom, shareCodeFrom } from "../server/utils/mcp";
+import { GET_LIST_MAX_BYTES, MCP_TOOLS, describeList, editHashFrom, fitList, fitMarkdown, shareCodeFrom } from "../server/utils/mcp";
 import { sha256Hex } from "../server/utils/tokens";
 import { listToMarkdown } from "../shared/exporters/markdown";
-import type { ListSnapshot } from "../shared/types";
+import { MAX_ITEMS, MAX_ITEM_NOTE_LEN } from "../shared/ops";
+import type { Item, ListSnapshot } from "../shared/types";
+import { expectConforms, expectResultConforms } from "./helpers/mcpSchema";
 
 // The MCP endpoint, driven as a client would drive it: a real H3 event over bare node
 // mocks, one JSON-RPC message per POST, the repo and the limiter stubbed. What is pinned
@@ -27,7 +29,20 @@ vi.mock("../server/utils/listRepo", () => repo);
 const catalog = vi.hoisted(() => ({ searchCatalog: vi.fn(), productVariants: vi.fn(), catalogRowsById: vi.fn(async () => new Map()) }));
 vi.mock("../server/utils/catalog", () => catalog);
 vi.mock("../server/utils/db", () => ({ useCatalogDb: async () => ({}) }));
-const limiter = vi.hoisted(() => ({ rateLimit: vi.fn<(event: unknown, action: string) => Promise<void>>(async () => {}) }));
+const limiter = vi.hoisted(() => {
+  // the shared KV the replay window lives in, as a Map: what the limiter's own tests
+  // inject, minus the TTL (a case that needs expiry clears it by hand)
+  const kv = new Map<string, unknown>();
+  return {
+    kv,
+    rateLimit: vi.fn<(event: unknown, action: string) => Promise<void>>(async () => {}),
+    rateLimitSubject: vi.fn<(action: string, subject: string) => Promise<void>>(async () => {}),
+    useKv: () => ({
+      getItem: async <T,>(key: string) => (kv.get(key) as T | undefined) ?? null,
+      setItem: async <T,>(key: string, value: T) => void kv.set(key, value),
+    }),
+  };
+});
 vi.mock("../server/utils/rateLimit", () => limiter);
 
 const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_ABCDE";
@@ -53,8 +68,13 @@ async function post(body: unknown, headers: Record<string, string> = {}, url = "
   return { status: event.node.res.statusCode, out, event };
 }
 const rpc = (method: string, params?: unknown, id: string | number = 1) => ({ jsonrpc: "2.0", id, method, ...(params === undefined ? {} : { params }) });
-const call = (name: string, args?: unknown, headers?: Record<string, string>, url?: string) =>
-  post(rpc("tools/call", { name, arguments: args }), headers, url);
+const call = async (name: string, args?: unknown, headers?: Record<string, string>, url?: string) => {
+  const r = await post(rpc("tools/call", { name, arguments: args }), headers, url);
+  // every structured result this suite gets is held to the tool's declared shape,
+  // which is what a validating client does before it lets the model see the result
+  expectResultConforms(name, resultOf(r) as { structuredContent?: unknown; isError?: boolean } | null);
+  return r;
+};
 const resultOf = (r: { out?: Record<string, unknown> }) => (r.out?.result ?? null) as Record<string, unknown> | null;
 const toolText = (r: { out?: Record<string, unknown> }) => {
   const res = resultOf(r) as { content: { text: string }[]; isError?: boolean; structuredContent?: Record<string, unknown> } | null;
@@ -89,11 +109,14 @@ const snap = (over: Partial<ListSnapshot> = {}): ListSnapshot => ({
 });
 
 beforeEach(() => {
+  limiter.kv.clear();
   for (const fn of Object.values(repo)) fn.mockReset();
   for (const fn of Object.values(catalog)) fn.mockReset();
   catalog.catalogRowsById.mockResolvedValue(new Map());
   limiter.rateLimit.mockReset();
   limiter.rateLimit.mockResolvedValue(undefined);
+  limiter.rateLimitSubject.mockReset();
+  limiter.rateLimitSubject.mockResolvedValue(undefined);
 });
 
 describe("the endpoint's transport", () => {
@@ -138,6 +161,7 @@ describe("the endpoint's transport", () => {
     for (const t of tools) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.description.length).toBeGreaterThan(20);
+      expect(t).not.toHaveProperty("run");
     }
     expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product"]);
     // the two adding tools are additive; set_trip replaces and clears, and says so
@@ -147,6 +171,14 @@ describe("the endpoint's transport", () => {
     expect(item.name!.maxLength).toBe(200);
     expect(item.note!.maxLength).toBe(2000);
     expect(tools[0]!.description).toContain("free text typed by whoever holds the list's edit link");
+    // the six tools that answer with data declare its shape (compiled strictly in
+    // helpers/mcpSchema, which every call in this suite runs through); the Markdown
+    // tool answers with text alone and declares nothing
+    expect(tools.filter((t) => t.outputSchema).map((t) => t.name)).toEqual(["get_list", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip"]);
+    for (const t of tools) if (t.outputSchema) expect(t.outputSchema.type).toBe("object");
+    // …and the check is live: a wrong shape is refused in the schema's own terms
+    expect(() => expectConforms("search_catalog", { query: "x", results: [{ id: "7" }] })).toThrow(/search_catalog result does not match/);
+    expect(() => expectConforms("get_list", { title: "x", share_code: "A", share_link: "u", unit: "stone", totals: {}, folders: [] })).toThrow(/unit|totals/);
     expect(res.nextCursor).toBeUndefined();
     expect((await post(rpc("tools/list", { cursor: "p2" }))).out!.error).toMatchObject({ code: -32602 });
   });
@@ -188,13 +220,48 @@ describe("the endpoint's transport", () => {
     expect((await post(rpc("ping"), { "mcp-protocol-version": "2025-03-26" })).status).toBe(400);
   });
 
-  it("spends the mcp budget before reading a byte of the body, and a write spends the write budget too", async () => {
+  it("spends the endpoint's budget before reading a byte of the body", async () => {
     await post("{not json");
     expect(limiter.rateLimit).toHaveBeenCalledWith(expect.anything(), "mcp");
-    limiter.rateLimit.mockClear();
+    expect(limiter.rateLimitSubject).not.toHaveBeenCalled();
+  });
+
+  it("counts reads per list and edits per list, by the capability the call carries, not by the address", async () => {
+    // every claude.ai user of the connector arrives from one address range, so a
+    // per-address budget would be one bucket for all of them
+    repo.getByShareCode.mockResolvedValue(snap());
+    await call("get_list", { share_code: "abc123def456" });
+    expect(limiter.rateLimitSubject).toHaveBeenCalledWith("mcp-read", "ABC123DEF456");
+    // …spent before the lookup, so a refused one reaches no database
+    expect(limiter.rateLimitSubject.mock.invocationCallOrder[0]!).toBeLessThan(repo.getByShareCode.mock.invocationCallOrder[0]!);
+    repo.getTextByShareCode.mockResolvedValue(snap());
+    await call("get_list_markdown", { share_code: "ABC123DEF456" });
+    expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-read", "ABC123DEF456");
+
     repo.getByEditHash.mockResolvedValue(null);
     await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "Spoon" }] });
-    expect(limiter.rateLimit.mock.calls.map((c) => c[1])).toEqual(["mcp", "mcp-write"]);
+    expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-write", sha256Hex(TOKEN));
+    repo.applyOpsByEditHash.mockResolvedValue(null);
+    await call("set_trip", { edit_link: EDIT_LINK, title: "x" });
+    expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-write", sha256Hex(TOKEN));
+    // the address bucket is only the endpoint's own guard: nothing else keys on it…
+    expect(limiter.rateLimit.mock.calls.map((c) => c[1])).toEqual(["mcp", "mcp", "mcp", "mcp"]);
+    // …except create_list, which has no list to key on yet
+    await call("create_list", { title: "x" });
+    expect(limiter.rateLimit.mock.calls.map((c) => c[1]).slice(-2)).toEqual(["mcp", "mcp-write"]);
+    // a call with no usable capability spends no list budget at all
+    limiter.rateLimitSubject.mockClear();
+    await call("add_items", { edit_link: "https://mahonia.app/s/ABC123DEF456", items: [{ name: "x" }] });
+    await call("get_list", { share_code: "not a code #" });
+    expect(limiter.rateLimitSubject).not.toHaveBeenCalled();
+  });
+
+  it("answers a refused list budget inside the tool result, as the sentence the model can act on", async () => {
+    limiter.rateLimitSubject.mockRejectedValueOnce(Object.assign(new Error("Too many requests"), { statusCode: 429 }));
+    const r = await call("get_list", { share_code: "ABC123DEF456" });
+    expect(r.status).toBe(200);
+    expect(toolText(r)).toMatchObject({ isError: true, text: expect.stringContaining("Too many requests") });
+    expect(repo.getByShareCode).not.toHaveBeenCalled();
   });
 
   it("answers a refused budget as a JSON-RPC error with a 429, not the framework's error page", async () => {
@@ -380,6 +447,9 @@ describe("writing", () => {
       { trail_url: "javascript:alert(1)" },
       { items: Array.from({ length: 1001 }, (_, i) => ({ name: `Row ${i}` })) },
       { folders: Array.from({ length: 51 }, (_, i) => ({ name: `F${i}` })) },
+      // A blank folder used to become an unexpected default-named folder after the
+      // server normalized it. The connector should say what is wrong up front.
+      { folders: [{ name: "   " }] },
       // a catalog id the column can't hold would fail every later read of the list
       { items: [{ name: "x", catalog_id: 3_000_000_000 }] },
       { items: [{ name: "x", catalog_id: 1e300 }] },
@@ -392,6 +462,45 @@ describe("writing", () => {
       expect(text.length).toBeGreaterThan(10);
     }
     expect(repo.createList).not.toHaveBeenCalled();
+  });
+
+  // A retry adds nothing twice: the same rows through the same link inside ten minutes
+  // is answered from the first call, marked repeated; `again: true` is the way to mean
+  // it; a different link, or different rows, is a different call.
+  it("add_items answers an identical call from the first one, and adds again only when told to", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockResolvedValue(snap());
+    const args = { edit_link: EDIT_LINK, items: [{ name: "Spoon", weight_g: 10 }] };
+    const first = toolText(await call("add_items", args)).structured as Record<string, unknown>;
+    expect(first).toMatchObject({ added: 1, repeated: false });
+    expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);
+
+    // the same call, the keys in another order: nothing written, the first answer back
+    const r = await call("add_items", { items: [{ weight_g: 10, name: "Spoon" }], edit_link: EDIT_LINK });
+    expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);
+    const { structured, text } = toolText(r);
+    expect(structured).toMatchObject({ added: 1, repeated: true, share_link: first.share_link });
+    expect(text).toContain("again: true");
+    expectConforms("add_items", structured); // `call` checked the raw result already; the repeat's shape too
+
+    // meant twice: written again
+    const again = toolText(await call("add_items", { ...args, again: true })).structured;
+    expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(2);
+    expect(again).toMatchObject({ added: 1, repeated: false });
+
+    // different rows, or another list's link: their own calls
+    await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "Fork" }] });
+    await call("add_items", { edit_link: `https://mahonia.test/e/ABC123DEF456#${TOKEN.slice(0, -1)}Z`, items: [{ name: "Spoon", weight_g: 10 }] });
+    expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(4);
+  });
+
+  it("add_items remembers nothing from a call that failed", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockResolvedValueOnce(null).mockResolvedValue(snap());
+    const args = { edit_link: EDIT_LINK, items: [{ name: "Spoon" }] };
+    expect(toolText(await call("add_items", args)).isError).toBe(true);
+    const r = toolText(await call("add_items", args));
+    expect(r.structured).toMatchObject({ added: 1, repeated: false });
   });
 
   it("add_items resolves the list by the token's hash, files rows into folders by name, and makes the folder it can't find", async () => {
@@ -545,5 +654,242 @@ describe("describeList", () => {
   it("leaves out what the list doesn't have rather than printing nulls for it", () => {
     const bare = describeList(snap({ startDate: undefined, endDate: undefined, trailUrl: undefined, trailDistanceM: undefined, people: [], days: [], items: [], folders: [] }), "https://mahonia.app");
     expect(bare).toEqual({ title: "Timberline", share_code: "ABC123DEF456", share_link: "https://mahonia.app/s/ABC123DEF456", unit: "g", totals: { base_g: 0, worn_g: 0, consumable_g: 0, carried_g: 0, total_g: 0, item_count: 0 }, folders: [] });
+  });
+});
+
+describe("fitList", () => {
+  const size = (value: unknown) => Buffer.byteLength(JSON.stringify(value));
+  /** three folders of `perFolder` rows, each row with one nested row; a note on every row when given */
+  const big = (perFolder: number, note?: string, over: Partial<ListSnapshot> = {}): ListSnapshot => {
+    const folders = ["Shelter", "Sleep", "Kitchen"].map((name, i) => ({ id: `f${i}`, name, defaultClassification: "base" as const, sortOrder: i }));
+    const items: Item[] = [];
+    for (const f of folders) {
+      for (let i = 0; i < perFolder; i++) {
+        const id = `${f.id}-${i}`;
+        items.push({ id, folderId: f.id, name: `Row ${i} of ${f.name}`, brand: "Maker", unitWeightMg: 100_000, qty: 1, classification: null, sortOrder: i, description: note });
+        items.push({ id: `${id}-k`, folderId: f.id, parentId: id, name: `Part ${i}`, unitWeightMg: 10_000, qty: 1, classification: null, sortOrder: 0, description: note });
+      }
+    }
+    return snap({ folders, items, people: [], days: [], description: "The list's own notes stay.", ...over });
+  };
+  type Out = { name: string; items: { name: string; items?: { name: string }[] }[] }[];
+  const rowsIn = (out: Record<string, unknown>) => (out.folders as Out).reduce((n, f) => n + f.items.reduce((m, r) => m + 1 + (r.items?.length ?? 0), 0), 0);
+  const count = (d: Record<string, unknown>) => (d.totals as { item_count: number }).item_count;
+
+  it("returns a list under the ceiling as it was, with no truncated field", () => {
+    const d = describeList(snap(), "https://mahonia.app");
+    expect(fitList(d)).toBe(d);
+    expect(d.truncated).toBeUndefined();
+    const notes = describeList(big(3, "a note"), "https://mahonia.app");
+    expect(fitList(notes)).toBe(notes);
+  });
+
+  it("drops every row's note first, keeps every row, and says so in one field before the rows", () => {
+    const d = describeList(big(10, "x".repeat(300)), "https://mahonia.app");
+    const max = size(d) - 1_000; // over by less than the notes are worth
+    const out = fitList(d, max);
+    expect(size(out)).toBeLessThanOrEqual(max);
+    expect(out.truncated).toEqual({ notes: true });
+    expect(rowsIn(out)).toBe(count(d));
+    expect(JSON.stringify(out)).not.toContain('"note"');
+    // the list's own description is not a row's note, and stays
+    expect(out.description).toBe("The list's own notes stay.");
+    expect(out.totals).toEqual(d.totals);
+    // the same layout as a whole list, the notice slotted in before the rows
+    expect(Object.keys(out)).toEqual([...Object.keys(d).filter((k) => k !== "folders"), "truncated", "folders"]);
+  });
+
+  it("then cuts rows off the end, a nested row on its own, and counts what it left out", () => {
+    const d = describeList(big(10), "https://mahonia.app");
+    const out = fitList(d, 2_000);
+    expect(size(out)).toBeLessThanOrEqual(2_000);
+    // no note was dropped, so none is claimed
+    expect(out.truncated).toEqual({ rows: count(d) - rowsIn(out) });
+    expect(rowsIn(out)).toBeGreaterThan(0);
+    expect(out.totals).toEqual(d.totals);
+    // the rows kept are the first ones, in order, and a folder left empty is gone
+    const folders = out.folders as Out;
+    expect(folders.length).toBeLessThan(3);
+    expect(folders[0]!.name).toBe("Shelter");
+    expect(folders[0]!.items.map((r) => r.name)).toEqual(folders[0]!.items.map((_, i) => `Row ${i} of Shelter`));
+    expect(folders[0]!.items[0]!.items).toEqual([{ name: "Part 0", display_name: "Part 0", qty: 1, weight_g: 10, classification: "base" }]);
+    // the most that fit: the answer is stable at its own size, and the next row in
+    // reading order (a group's nested row counts as one) would not have fit
+    expect(fitList(d, size(out))).toEqual(out);
+    const kept = folders[0]!.items;
+    const next = kept.at(-1)!.items ? `Row ${kept.length} of Shelter` : `Part ${kept.length - 1}`;
+    const nextRow = (d.folders as Out)[0]!.items.flatMap((r) => [r, ...(r.items ?? [])]).find((r) => r.name === next)!;
+    expect(nextRow).toBeDefined();
+    expect(size({ ...out, folders: [{ ...folders[0]!, items: [...kept, nextRow] }] })).toBeGreaterThan(2_000);
+  });
+
+  it("cuts inside a group, so one large group can't empty the answer or hide the folders after it", () => {
+    // one parent carrying more nested rows than the ceiling holds, then a plain folder
+    const parent: Item = { id: "p", folderId: "f0", name: "Food bag", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 };
+    const kids: Item[] = Array.from({ length: 400 }, (_, i) => ({ id: `k${i}`, folderId: "f0", parentId: "p", name: `Snack ${i}`, brand: "Maker", variant: "Regular", commonName: "Food", unitWeightMg: 50_000, qty: 1, classification: null, sortOrder: i }));
+    const plain: Item[] = Array.from({ length: 20 }, (_, i) => ({ id: `s${i}`, folderId: "f1", name: `Item ${i}`, unitWeightMg: 20_000, qty: 1, classification: null, sortOrder: i }));
+    const s = snap({
+      folders: [
+        { id: "f0", name: "Food", defaultClassification: "consumable", sortOrder: 0 },
+        { id: "f1", name: "Shelter", defaultClassification: "base", sortOrder: 1 },
+      ],
+      items: [parent, ...kids, ...plain],
+      people: [],
+      days: [],
+    });
+    const d = describeList(s, "https://mahonia.app");
+    const out = fitList(d, 20_000);
+    expect(size(out)).toBeLessThanOrEqual(20_000);
+    const folders = out.folders as Out;
+    // the group survives with the nested rows that fit, its own fields intact
+    expect(folders[0]!.items[0]).toMatchObject({ name: "Food bag", classification: "consumable" });
+    const nested = folders[0]!.items[0]!.items!;
+    expect(nested.length).toBeGreaterThan(50);
+    expect(nested.length).toBeLessThan(400);
+    expect(nested.map((r) => r.name)).toEqual(nested.map((_, i) => `Snack ${i}`));
+    expect(out.truncated).toEqual({ rows: 421 - rowsIn(out) });
+    // …and with room to spare after the group, the folder after it is there too
+    const roomy = fitList(d, size(d) - 200) as { folders: Out };
+    expect(roomy.folders.map((f) => f.name)).toEqual(["Food", "Shelter"]);
+    expect(roomy.folders[0]!.items[0]!.items!.length).toBe(400);
+  });
+
+  it("measures bytes, so a list in a three-byte script is held to the same token budget", () => {
+    const name = "登山用のテント".repeat(4); // 28 characters: 28 string units, 84 bytes
+    const d = describeList(big(80, undefined, { title: "山の道具" }), "https://mahonia.app");
+    for (const f of d.folders as Out) for (const r of f.items) r.name = name;
+    // under the ceiling counted in characters, over it counted in bytes: a character
+    // ceiling would have returned this list whole, at roughly a third more tokens than it allows
+    expect(JSON.stringify(d).length).toBeLessThan(GET_LIST_MAX_BYTES);
+    expect(size(d)).toBeGreaterThan(GET_LIST_MAX_BYTES);
+    const out = fitList(d);
+    expect(size(out)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
+    expect(out.truncated).toEqual({ rows: count(d) - rowsIn(out) });
+  });
+
+  it("gives up the list's own facts, largest first, only when they alone are too big", () => {
+    const d = describeList(
+      big(1, undefined, {
+        description: "d".repeat(4_000),
+        days: Array.from({ length: 60 }, (_, i) => ({ id: `d${i}`, sortOrder: i, label: "\\u0001".repeat(120), distanceM: 1_000 })),
+        trailUrl: "https://example.com/route",
+        trailDistanceM: 60_000,
+        people: [{ id: "p1", name: "Sam", colorKey: "shelter", sortOrder: 0 }],
+      }),
+      "https://mahonia.app",
+    );
+    // a ceiling the head passes on its own: the days go, the description stays
+    const out = fitList(d, 10_000);
+    expect(size(out)).toBeLessThanOrEqual(10_000);
+    expect(out.truncated).toEqual({ rows: count(d), fields: ["days"] });
+    expect(out.days).toBeUndefined();
+    expect(out.description).toBe("d".repeat(4_000));
+    expect(out.trail).toBeDefined();
+    // a tighter one: the trail and the description follow, and it stops as soon as it fits
+    const bare = fitList(d, 600);
+    expect(size(bare)).toBeLessThanOrEqual(600);
+    expect(bare.truncated).toEqual({ rows: count(d), fields: ["days", "trail", "description"] });
+    expect(bare.people).toEqual(["Sam"]);
+    // one nothing can meet: everything sheddable goes, and what is left is the irreducible head
+    const floor = fitList(d, 100);
+    expect(floor.truncated).toEqual({ rows: count(d), fields: ["days", "trail", "description", "people"] });
+    expect(floor.title).toBe("Timberline");
+    expect(floor.totals).toEqual(d.totals);
+    expect(size(floor)).toBeLessThan(600);
+  });
+
+  it("does both when notes alone don't get it under, and holds the largest list the reducer allows", () => {
+    // as many rows as a list can hold (three folders, two rows a pair), the longest note on each
+    const d = describeList(big(Math.floor(MAX_ITEMS / 6), "n".repeat(MAX_ITEM_NOTE_LEN)), "https://mahonia.app");
+    expect(size(d)).toBeGreaterThan(GET_LIST_MAX_BYTES * 2);
+    const out = fitList(d);
+    expect(size(out)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
+    expect(out.truncated).toEqual({ notes: true, rows: count(d) - rowsIn(out) });
+    expect(rowsIn(out)).toBeGreaterThan(200);
+    expect(count(out)).toBe(count(d));
+  });
+
+  it("get_list answers the cut list as text and data alike, in the declared shape", async () => {
+    repo.getByShareCode.mockResolvedValue(big(Math.floor(MAX_ITEMS / 6), "n".repeat(MAX_ITEM_NOTE_LEN)));
+    const { text, structured, isError } = toolText(await call("get_list", { share_code: "ABC123DEF456" }));
+    expect(isError).toBe(false);
+    expect(Buffer.byteLength(text)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
+    expect(JSON.parse(text)).toEqual(structured);
+    expect(structured!.truncated).toMatchObject({ notes: true, rows: expect.any(Number) });
+  });
+});
+
+describe("fitMarkdown", () => {
+  const size = (text: string) => Buffer.byteLength(text);
+  const rows = (text: string) => text.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("| Item |") && !l.startsWith("| --- |"));
+  /** three folders of `perFolder` rows, each with one nested row, under long names */
+  const big = (perFolder: number): ListSnapshot => {
+    const folders = ["Shelter", "Sleep", "Kitchen"].map((name, i) => ({ id: `f${i}`, name, defaultClassification: "base" as const, sortOrder: i }));
+    const items: Item[] = [];
+    for (const f of folders) {
+      for (let i = 0; i < perFolder; i++) {
+        const id = `${f.id}-${i}`;
+        items.push({ id, folderId: f.id, name: `Row ${i} of ${f.name} ${"x".repeat(150)}`, brand: "Maker", variant: "Long", commonName: "Thing", unitWeightMg: 100_000, qty: 1, classification: null, sortOrder: i });
+        items.push({ id: `${id}-k`, folderId: f.id, parentId: id, name: `Part ${i}`, unitWeightMg: 10_000, qty: 1, classification: null, sortOrder: 0 });
+      }
+    }
+    return snap({ folders, items, people: [], days: [] });
+  };
+
+  it("returns text under the ceiling untouched", () => {
+    const md = listToMarkdown(snap());
+    expect(fitMarkdown(md)).toBe(md);
+    expect(fitMarkdown(md, size(md))).toBe(md);
+  });
+
+  it("cuts rows off the end of the tables, keeps the totals, and says how many are missing", () => {
+    const md = listToMarkdown(big(166));
+    expect(size(md)).toBeGreaterThan(GET_LIST_MAX_BYTES);
+    const out = fitMarkdown(md);
+    expect(size(out)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
+    const kept = rows(out);
+    const all = rows(md);
+    // a prefix of the rows, in order
+    expect(kept).toEqual(all.slice(0, kept.length));
+    expect(kept.length).toBeGreaterThan(100);
+    // the notice names exactly the rows that are gone, and sits above the totals
+    const missing = all.length - kept.length;
+    const foot = md.slice(md.lastIndexOf("\n---\n"));
+    expect(out.endsWith(`\n_${missing} more rows not shown; the totals count every row._\n${foot}`)).toBe(true);
+    expect(out).toContain("**Total:**");
+    // no folder is left as a bare heading
+    for (const [i, line] of out.split("\n").entries()) if (line.startsWith("## ")) expect(out.split("\n")[i + 4]).toMatch(/^\| /);
+  });
+
+  it("holds to any ceiling, one row at a time, a nested row before its parent", () => {
+    const md = listToMarkdown(big(4));
+    const all = rows(md);
+    let previous = all.length;
+    for (let max = size(md) - 1; max > 400; max -= 97) {
+      const out = fitMarkdown(md, max);
+      expect(size(out), `at ${max}`).toBeLessThanOrEqual(max);
+      const kept = rows(out);
+      expect(kept).toEqual(all.slice(0, kept.length));
+      expect(kept.length).toBeLessThanOrEqual(previous);
+      previous = kept.length;
+      expect(out).toMatch(new RegExp(`_${all.length - kept.length} more rows? not shown`));
+      // the last row kept is a parent whose nested row went, or a nested row: never a
+      // nested row whose parent went
+      if (kept.length) expect(kept.at(-1)!.startsWith("| ↳ ") ? kept.at(-2) : kept.at(-1)).toMatch(/^\| Maker Row/);
+    }
+    // down to nothing but the title, the notice and the totals
+    const bare = fitMarkdown(md, 400);
+    expect(rows(bare)).toEqual([]);
+    expect(bare).not.toContain("## ");
+    expect(bare).toContain(`_${all.length} more rows not shown`);
+    expect(bare).toContain("**Total:**");
+  });
+
+  it("get_list_markdown answers the cut text", async () => {
+    repo.getTextByShareCode.mockResolvedValue(big(166));
+    const { text, isError } = toolText(await call("get_list_markdown", { share_code: "ABC123DEF456" }));
+    expect(isError).toBe(false);
+    expect(size(text)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
+    expect(text).toMatch(/_\d+ more rows not shown; the totals count every row\._/);
   });
 });

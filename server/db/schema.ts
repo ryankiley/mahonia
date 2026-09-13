@@ -192,6 +192,8 @@ export const catalogCandidates = pgTable(
     normKey: text("norm_key").notNull(), // normalized "brand name" for grouping
     rawBrand: text("raw_brand"),
     rawName: text("raw_name").notNull(),
+    rawVariant: text("raw_variant"), // the typed size or version; part of norm_key since 2026-09-12
+    rawCommonName: text("raw_common_name"), // the typed gear type: the promoted row's common_name and search term
     listId: integer("list_id").notNull(), // INTERNAL list id — distinctness only, never exposed
     weightMg: bigint("weight_mg", { mode: "number" }), // nullable: user may type no weight
     classification: text("classification"), // base|worn|consumable|null → category_hint

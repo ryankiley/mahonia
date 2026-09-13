@@ -18,6 +18,8 @@ defineProps<{
   childrenByParent: Map<string, Item[]>;
   /** rows kept only as a label for a matching child — see useReadonlyList */
   contextOnlyIds?: ReadonlySet<string>;
+  /** rows whose variant shows beside the name — see ReadonlyListView */
+  variantShownIds?: ReadonlySet<string>;
 }>();
 
 // Collapse is local-only here: shared views always START expanded, and a viewer's
@@ -50,7 +52,7 @@ const collapsed = ref(false);
     <div class="folder__body">
       <div class="folder__bodyinner">
         <div class="folder__items">
-          <ReadonlyItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" />
+          <ReadonlyItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" :variant-shown-ids="variantShownIds" />
           <p v-if="!items.length" class="t-sm t-muted folder__empty">—</p>
         </div>
       </div>

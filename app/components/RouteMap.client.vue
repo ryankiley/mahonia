@@ -108,6 +108,10 @@ let bounds: import("leaflet").Marker[] = [];
 let trace: import("leaflet").Marker | null = null;
 let finish: import("leaflet").Marker | null = null;
 let ro: ResizeObserver | null = null;
+// draw() reaches Leaflet through a lazy import. The panel can close, or the editor
+// move to another list, before that chunk arrives — and a map built then would sit
+// on a detached host with its observer and listeners nobody unmounts.
+let disposed = false;
 
 const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
 // The route's spine — cumulative metres at every stored point — summed ONCE per geometry
@@ -208,7 +212,7 @@ const boundaries = computed(() => {
  * the yellows muddy and leaving the blues untouched. And it reads the leg's token, so a
  * change to the day palette carries here for free.
  */
-const casingFor = (color: string) => `color-mix(in oklab, ${color} 45%, #0b0b0b)`;
+const casingFor = (color: string) => `color-mix(in oklab, ${color} 45%, var(--map-route-casing))`;
 
 /**
  * The leg's own fill: the same hue, LIFTED.
@@ -219,7 +223,7 @@ const casingFor = (color: string) => `color-mix(in oklab, ${color} 45%, #0b0b0b)
  * both directions, so the route keeps a crisp edge without the casing going so black that
  * the day's colour stops being legible in it.
  */
-const fillFor = (color: string) => `color-mix(in oklab, ${color} 82%, #ffffff)`;
+const fillFor = (color: string) => `color-mix(in oklab, ${color} 82%, var(--map-route-fill))`;
 
 /** Whether a stretch of the route is outside the armed one, and so should stand down. */
 function isDimmed(fromM: number, toM: number): boolean {
@@ -358,6 +362,9 @@ type Lift = {
   commit: (alongM: number) => void;
 };
 let lift: Lift | null = null;
+// The pre-lift hold's window listeners, so an unmount mid-press can release them —
+// map.remove() unbinds only what Leaflet itself attached.
+let stopGrab: (() => void) | undefined;
 /**
  * Set through any gesture that was ABOUT AN EXISTING PIN, so the click it generates can't
  * also place a new one on an armed map. Two of them do this: the pointerup that ends a
@@ -373,6 +380,7 @@ function suppressPlaceOnce() {
 
 function onGrab(e: PointerEvent, spec: Omit<Lift, "el">) {
   if (e.button > 0 || lift) return;
+  stopGrab?.(); // a second finger's press supersedes a hold still counting down
   const el = e.currentTarget as HTMLElement;
   const x0 = e.clientX;
   const y0 = e.clientY;
@@ -388,7 +396,9 @@ function onGrab(e: PointerEvent, spec: Omit<Lift, "el">) {
     window.removeEventListener("pointermove", watch);
     window.removeEventListener("pointerup", stop);
     window.removeEventListener("pointercancel", stop);
+    if (stopGrab === stop) stopGrab = undefined;
   };
+  stopGrab = stop;
   const timer = setTimeout(() => {
     stop();
     beginLift(el, spec, e.pointerId);
@@ -452,7 +462,7 @@ function onLiftMove(e: PointerEvent) {
   lift.marker.setLatLng([at.lat, at.lon]);
 }
 
-function endLift() {
+function resetLift(commit: boolean) {
   const l = lift;
   lift = null;
   window.removeEventListener("pointermove", onLiftMove);
@@ -461,11 +471,15 @@ function endLift() {
   map?.dragging.enable();
   if (!l) return;
   l.el.classList.remove("is-lifted");
+  if (!commit) return;
   suppressPlaceOnce();
   // ONE op for the whole gesture, committed on the drop — the codebase's own rule for
   // anything continuous. Live commits would be a hundred ops and a hundred autosaves for
   // one drag, and every one of them a separate undo.
   l.commit(l.alongM);
+}
+function endLift() {
+  resetLift(true);
 }
 
 /**
@@ -653,16 +667,15 @@ function renderPins() {
 }
 
 /**
- * The ground no day has claimed: the light-theme --ink-3, as a literal.
+ * The ground no day has claimed: the fixed-light map ground token.
  *
  * The route is drawn in full BEFORE any day colours it — see renderLegs — and the stretch
  * outside the itinerary wears this. Grey rather than a category colour, for the reason the
  * elevation chart gives its unassigned tail the same token: it is precisely the part of
- * the route that has no day to belong to yet. A literal rather than the token itself,
- * like every other mark on this map (see .routemap__trace), because the basemap stays
- * light in both themes and a dark-theme --ink-3 would fade into it.
+ * the route that has no day to belong to yet. It has its own map token because the
+ * basemap stays light in both themes and a dark-theme --ink-3 would fade into it.
  */
-const GROUND = "#767676";
+const GROUND = "var(--map-route-ground)";
 
 /**
  * Draw (or redraw) the route: the whole track as ground, then one coloured line per day
@@ -972,17 +985,21 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
 }
 
 async function draw() {
-  if (!host.value) return;
+  const mapHost = host.value;
+  if (!mapHost) return;
   // Leaflet reads the container's size at construction. TrailPlanPanel lives behind a
   // v-if, so on the tick this mounts the element can still be zero-height — and a Leaflet
   // map built at zero height stays a grey box forever, since it never re-measures on its
   // own. nextTick, then invalidateSize, then watch the box for good.
   await nextTick();
+  if (disposed || host.value !== mapHost) return;
 
   const [leaflet] = await Promise.all([import("leaflet"), import("leaflet/dist/leaflet.css")]);
+  // the two awaits above are where an unmount can slip in; past this line the map is real
+  if (disposed || host.value !== mapHost) return;
   L = leaflet.default ?? (leaflet as unknown as Leaflet);
 
-  map = L.map(host.value, {
+  map = L.map(mapHost, {
     // The map is inside a scrolling page. Wheel-zoom here would eat the page scroll every
     // time the cursor crossed it, so zooming is the buttons or a deliberate ctrl/⌘ + wheel
     // — which is `onWheel` below, because Leaflet's own handler has no modifier gate: it
@@ -994,7 +1011,7 @@ async function draw() {
 
   // The caption under the map promised this and nothing delivered it: with Leaflet's
   // handler off, holding ⌘ did the same as not holding it, which is nothing.
-  host.value.addEventListener("wheel", onWheel, { passive: false });
+  mapHost.addEventListener("wheel", onWheel, { passive: false });
 
   // A VIEW BEFORE ANY LAYER. Leaflet's Map.addLayer returns early while `_loaded` is
   // false, deferring onAdd — so a layer added before the view exists has no DOM element
@@ -1081,7 +1098,7 @@ async function draw() {
     // the view is still ours.
     if (!touched) frame();
   });
-  ro.observe(host.value);
+  ro.observe(mapHost);
 }
 
 onMounted(draw);
@@ -1115,6 +1132,11 @@ watch(dayLegs, renderLegs);
 watch(() => props.armedRange, renderLegs);
 
 onBeforeUnmount(() => {
+  disposed = true;
+  // a press or a lift still in progress ends here without committing: unmounting is
+  // a cancel, not a drop, and the list may already be a different one
+  stopGrab?.();
+  resetLift(false);
   ro?.disconnect();
   // ours, not Leaflet's — map.remove() only unbinds what Leaflet itself attached
   host.value?.removeEventListener("wheel", onWheel);
@@ -1291,16 +1313,16 @@ onBeforeUnmount(() => {
 }
 .routemap__wphead {
   font-size: var(--text-chrome);
-  color: #666;
+  color: var(--map-ink-4);
 }
 .routemap__wpname {
   width: 100%;
   padding: var(--space-1) var(--space-2);
-  border: 1px solid #ccc;
+  border: 1px solid var(--map-line);
   border-radius: var(--radius-1);
-  font-size: 1rem; // the iOS zoom floor, as .field has
-  color: #111;
-  background: #fff;
+  font-size: var(--text-input); // the iOS zoom floor, as .field has
+  color: var(--map-ink);
+  background: var(--map-paper);
 }
 .routemap__wpdel {
   align-self: flex-start;
@@ -1332,29 +1354,29 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: var(--control-compact);
+  height: var(--control-compact);
   padding: 0;
   border: 1px solid var(--line-2);
   border-radius: var(--radius-1);
   // Leaflet's own controls are white-on-map in both themes because the basemap stays
   // light; this matches them rather than the app's dark chrome.
-  background: #fff;
-  color: #333;
-  box-shadow: 0 1px 4px #0000001f;
+  background: var(--map-paper);
+  color: var(--map-ink-2);
+  box-shadow: var(--map-control-shadow);
 }
 // Pointer-gated — it paints (see the note on .btn:hover, controls.scss). The control
 // sits ON the map, so a latched grey square stayed visible over the tiles for the
 // whole time you then spent panning around.
 @media (hover: hover) and (pointer: fine) {
   .routemap__expand:hover {
-    background: #f4f4f4;
+    background: var(--map-paper-muted);
   }
 }
 
 // tiles gone: plain ground, so the line is still readable
 .routemap.is-bare .routemap__canvas {
-  background: light-dark(oklch(0.95 0.01 250), oklch(0.95 0.01 250));
+  background: var(--map-bare);
 }
 
 /* …and it does want the smaller step — the design call #289 left open when it removed
@@ -1411,7 +1433,7 @@ onBeforeUnmount(() => {
   // drop is the same shape on every ground, so what you actually read is the symbol: a
   // droplet means water before you have decided which blue it was. The hue is still there,
   // in the mark, doing the job of telling two water sources from two camps at a glance.
-  background: #fff;
+  background: var(--map-pin-paper);
   color: var(--pin);
   position: relative;
   // round everywhere except the bottom-left, which the rotation below swings to the
@@ -1420,7 +1442,7 @@ onBeforeUnmount(() => {
   rotate: -45deg;
   // the shadow is what lifts it off the sheet now that there is no ring; without one a
   // white drop on a pale contour is a hole rather than a pin
-  box-shadow: -1px 1px 3px #00000059;
+  box-shadow: var(--map-pin-shadow);
   transition:
     scale var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
@@ -1439,7 +1461,7 @@ onBeforeUnmount(() => {
   position: absolute;
   inset: 14%;
   border-radius: 50%;
-  background: #ececec;
+  background: var(--map-pin-seat);
 }
 // the drop is rotated, so the mark inside it has to be turned back or every glyph sits at
 // 45° — a tent pitched on its side.
@@ -1463,7 +1485,7 @@ onBeforeUnmount(() => {
 }
 .routemap__pin.is-lifted i {
   scale: 1.35;
-  box-shadow: -2px 2px 8px #0000008c;
+  box-shadow: var(--map-pin-shadow-lifted);
 }
 .routemap__pin {
   cursor: grab;
@@ -1490,11 +1512,11 @@ onBeforeUnmount(() => {
    reader shouldn't have to know which of these the itinerary drew and which somebody
    placed. It used to carry a byte-for-byte copy of the recipe under its own name. */
 .routemap__pin--dark i {
-  background: #1c1c1c;
-  color: #fff;
+  background: var(--map-pin-ink);
+  color: var(--map-pin-paper);
 }
 .routemap__pin--dark i::before {
-  background: #333;
+  background: var(--map-pin-seat-dark);
 }
 // Leaflet's divIcon ships a white box with a border; both are cleared or every pin
 // renders inside a little card.
@@ -1515,12 +1537,12 @@ onBeforeUnmount(() => {
      the pins, or the dot renders inside a little card. */
   border: 0;
   border-radius: 50%;
-  background: #1c1c1c;
+  background: var(--map-pin-ink);
   /* the ring separates it from the day colour it sits on; the shadow lifts it off the
      contours, the same two jobs the pins' own casing does */
   box-shadow:
-    0 0 0 2px #fff,
-    0 1px 3px #00000059;
+    0 0 0 2px var(--map-pin-paper),
+    var(--map-trace-shadow);
 }
 
 .routemap__leg,
@@ -1546,7 +1568,7 @@ onBeforeUnmount(() => {
 
 .routemap .leaflet-control-attribution {
   font-size: 10px;
-  background: #ffffffcc;
+  background: var(--map-paper-translucent);
 
   a {
     color: inherit;

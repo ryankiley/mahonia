@@ -130,15 +130,16 @@ export function useSession() {
     }
   }
 
-  /** Drop the two per-account memos this device keeps — the vault's "already sent"
-   *  and the registry's "already claimed" — so the next person to sign in here
-   *  starts clean rather than inheriting them. Every way out of an account runs
-   *  it: signOut below does so itself; the delete-account and sign-out-everywhere
-   *  paths (which end the session server-side, then re-read it) call it directly.
-   *  A one-line seam, on purpose — this composable stays thin. */
+  /** Drop the three per-account memos this device keeps — the vault's "already
+   *  sent", the registry's "already claimed" and the account disc's letter — so the
+   *  next person to sign in here starts clean rather than inheriting them. Every way
+   *  out of an account runs it: signOut below does so itself; the delete-account and
+   *  sign-out-everywhere paths (which end the session server-side, then re-read it)
+   *  call it directly. A one-line seam, on purpose — this composable stays thin. */
   function forgetAccountMemos(): void {
     resetVaultCapture();
     useClaimedLists().resetClaimMark();
+    forgetAccountInitial();
   }
 
   async function signOut(): Promise<void> {

@@ -3,7 +3,7 @@
     {
       "brand": "Yamatomichi",
       "name": "MINI",
-      "variant": "M",
+      "variant": "Medium",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "pack",
       "weight_value": 425,
@@ -15,7 +15,7 @@
     {
       "brand": "Yamatomichi",
       "name": "THREE",
-      "variant": "ECOPAK EPX200, M",
+      "variant": "ECOPAK EPX200, Medium",
       "attributes": {"volume_l": 40},
       "attributes_source_url": "https://www.yamatomichi.com/en/products/three",
       "attributes_quote": "Capacity: Size M 40L, Size L 45L",
@@ -29,7 +29,7 @@
     {
       "brand": "Yamatomichi",
       "name": "UL Shirt",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 99,
       "weight_unit": "g",
@@ -151,7 +151,7 @@
     {
       "brand": "Hanchor",
       "name": "MARL Hiking Backpack",
-      "variant": "Regular torso, S hipbelt",
+      "variant": "Regular torso, Small hipbelt",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "pack",
       "weight_value": 1053,
@@ -163,7 +163,7 @@
     {
       "brand": "Hanchor",
       "name": "MARBLE Hiking Backpack",
-      "variant": "Regular torso, S hipbelt",
+      "variant": "Regular torso, Small hipbelt",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "pack",
       "weight_value": 1160,
@@ -189,7 +189,7 @@
     {
       "brand": "finetrack",
       "name": "Polygon UL Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 185,
       "weight_unit": "g",
@@ -224,7 +224,7 @@
     {
       "brand": "Teton Bros",
       "name": "Tsurugi Lite Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 240,
       "weight_unit": "g",
@@ -235,7 +235,7 @@
     {
       "brand": "Teton Bros",
       "name": "Feather Rain Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 185,
       "weight_unit": "g",
@@ -246,7 +246,7 @@
     {
       "brand": "Teton Bros",
       "name": "Wind River Hoody",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 100,
       "weight_unit": "g",

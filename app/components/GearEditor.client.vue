@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { Backpack03Icon, Bug02Icon, CheckmarkSquare02Icon, CopyPlusIcon, Delete02Icon, EllipsisIcon, FileExportIcon, FileImportIcon, InformationCircleIcon, KeyboardIcon, LegalDocument01Icon, RemoveCircleIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+// The ⋯ menu's own glyphs are NOT here — they ride its lazy chunk (EditorMenu);
+// the toolbar keeps only the one that opens it.
+import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeHere } from "~/composables/useResumed";
@@ -10,7 +12,8 @@ import { chipWeightLabels, filterItemsForPerson, hasUnassignedTopLevel, personNa
 import { countedForPacking } from "~~/shared/packing";
 import type { Item, Unit } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
-import { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
+import { CHILDREN_BY_PARENT, PEOPLE_CTX, VARIANT_SHOWN } from "~/components/ItemRow.vue";
+import { variantShownIds } from "~~/shared/variantShown";
 import { bySortOrder, computeTotals, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "~~/shared/weights";
 
 // The whole editor surface (its own sticky topbar + flex shell). Rendered by
@@ -131,6 +134,11 @@ const itemsByFolder = computed(() => groupItemsByFolder(snapshot.value?.items ??
 // hand rows that only ever read the empty default a value they don't look at.
 const childrenByParent = computed(() => groupItemsByParent(snapshot.value?.items ?? []));
 provide(CHILDREN_BY_PARENT, childrenByParent);
+// the rows whose variant shows beside the name on the checklist face: the same
+// product held in two variants (shared/variantShown). Provided for the reason the
+// children map is: one pass per snapshot, and a row subscribes only to its own
+// membership. The edit face never shows one beside the name (its sub-line has it).
+provide(VARIANT_SHOWN, computed(() => variantShownIds(snapshot.value?.items ?? [])));
 const NO_ITEMS: Item[] = [];
 
 // Which of the three views of this list you're in. Was a single `packed` boolean; it
@@ -364,10 +372,21 @@ watch(pendingUndo, (u) => {
 });
 const importOpen = ref(false);
 const menuOpen = ref(false);
-// the travelling wash shared with the other menus (see useMenuPlate). Section
-// HEADERS deliberately carry no [data-row] — they open a group rather than doing
-// something, so the wash shouldn't claim them as a destination.
-const { plateRef: kebabPlateRef, listRef: kebabListRef, on: kebabPlateOn } = useMenuPlate();
+// The menu's body is a Lazy component (EditorMenu) behind the same everOpened guard
+// the dialogs use: its rows, glyphs and export section are fetched and mounted on
+// the first open, so a visit that never opens ⋯ downloads none of it. The trigger,
+// the dismiss contract and `menuOpen` stay here.
+//
+// `warmMenu` flips the guard a beat EARLY — on the pointer reaching the button, or
+// focus landing on it — so the chunk is fetched and the component mounted (closed)
+// before the click, and the click only has to open it. An async component resolves
+// its chunk first and mounts after, so on a cold visit the first open would
+// otherwise paint nothing for one round trip and ease in only then; the hover is
+// where that round trip hides. Touch has no hover, and gets what it always got.
+const menuEverOpened = ref(false);
+function warmMenu() {
+  menuEverOpened.value = true;
+}
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 const { toast, flash } = useToast();
 // the import's one-line note ("18 of 25 rows matched the catalog."), shown once the list
@@ -573,20 +592,14 @@ async function copy(text: string, msg: string, linkFallbackTitle?: string) {
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
-// the four export actions, their chunk warm-up and the ROWS that draw them live in
-// useListExports, shared with the read views' ⋯ menu so neither the copy, the error
-// handling nor the wording and marks can drift.
-//
-// The share URL the plain-text copy appends is the READ-ONLY link — explicitly, not
-// location.href, which here is /e/{code}#{token}. That token is edit access, and this
-// action's whole purpose is pasting the result somewhere public.
-const { warmExporters, exportItems } = useListExports(
-  () => snapshot.value,
-  flash,
-  // a draft has no share code yet — no link rather than a broken one (same guard
-  // copyShare() makes before offering to copy it)
-  () => (snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : ""),
-);
+// The four export actions and the rows that draw them are the ⋯ menu's (EditorMenu,
+// through useListExports). What the editor hands it is the link the plain-text copy
+// appends: the READ-ONLY link — explicitly, not location.href, which here is
+// /e/{code}#{token}. That token is edit access, and this action's whole purpose is
+// pasting the result somewhere public.
+// A draft has no share code yet — no link rather than a broken one (same guard
+// copyShare() makes before offering to copy it).
+const exportShareUrl = computed(() => (snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : ""));
 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
 // Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
@@ -604,6 +617,7 @@ useMenuDismiss(shareOpen, shareRef);
 watch(shareOpen, (open) => open && (menuOpen.value = false));
 watch(menuOpen, (open) => open && (shareOpen.value = false));
 function toggleMenu() {
+  menuEverOpened.value = true;
   menuOpen.value = !menuOpen.value;
 }
 
@@ -859,76 +873,13 @@ onKeyStroke("?", (e) => {
   openShortcuts();
 });
 
-// EVERY ROW LEADS WITH A GLYPH. It was words alone until the foot grew two rows that
-// needed marks to tell them apart, which left the menu looking like two kinds of list
-// stacked on each other.
-//
-// The Export items were the exception for one release — bare, on the design system's
-// rule that its nested rows carry nothing. That left the one place in the menu where
-// the eye had to fall back to reading, so they carry marks now too, one per FORMAT —
-// the argument for WHICH four moved to useListExports with the rows themselves.
-//
-// Import and Export take the mirrored pair deliberately; they are the same door in
-// two directions and the glyphs should say so before the words do.
-// `hidden` keeps an action out of the menu while pressing it would do nothing worth
-// doing: an unsaved, empty draft has nothing to copy or export, and a row that yields
-// an empty file is worse than no row (inert controls are absent, not dimmed).
-interface MenuAction {
-  label: string;
-  icon: typeof UserAddIcon;
-  run: () => void;
-  hidden?: () => boolean;
+// The rows themselves — the table, its glyphs and its wording — are EditorMenu's;
+// the editor only answers what each row asks for. Feedback's dialog is Lazy behind
+// its own everOpened guard (Import's watcher sets its own), so opening it is two refs.
+function openFeedback() {
+  feedbackEverOpened.value = true;
+  feedbackOpen.value = true;
 }
-const MENU_ACTIONS: MenuAction[] = [
-  // The crew's door BEFORE anyone is named — the chips row carries its own manage
-  // button, but that row only exists once someone is on the list, so without an
-  // entry here a fresh list has no way in. Short, and not just for the voice: this
-  // row's label sets the menu's width once it passes "Duplicate this list", and
-  // .menu__item's icon has nothing pinning its size, so a long one squeezed the
-  // glyph to sub-pixel while the text took the room. No ellipsis either — it opens
-  // a dialog like "Import a list…", but it reads as the plain act it is.
-  { label: "Add people", icon: UserAddIcon, run: () => { peopleOpen.value = true; } },
-  // …and everything below it makes ANOTHER list: a copy of this one, or one read out
-  // of a file. Duplicate/Import are one run for that reason — People leads the menu
-  // instead because it is the only entry here that acts on the list you are looking
-  // at, and the only one that doesn't navigate away.
-  //
-  // A blank "Create a list" used to open that run, and it was the same newList() the
-  // switcher's footer row calls. Two doors to one act, a toolbar apart. The switcher
-  // keeps it: that card is where the lists you already have live, so "and one more"
-  // belongs under them rather than filed with import and export. This menu is what
-  // you do TO a list; the switcher is which list you're in. (That only works because
-  // the switcher now appears at ONE list rather than two — see ListMenu. Below that
-  // threshold it wasn't on screen at all, and dropping this row would have stranded a
-  // one-pack visitor with no way to start a second.)
-  // NOT a clipboard mark, however well one would fit the word "copy". The Export
-  // rows below are genuine clipboard writes, and so is the Copy01 pair of sheets
-  // that ListHead and SharePanel put on their Copy buttons — this row is the odd
-  // one out, minting an independent list and navigating you into it. That is the
-  // argument ReadonlyMenu.vue already makes for calling it "Duplicate" and not
-  // "Copy"; the glyph is read first, so it has to agree or it spends the label.
-  // The plus is what carries it: "another one of these", still legible at 14.
-  { label: "Duplicate this list", icon: CopyPlusIcon, run: cloneList, hidden: () => isFirstRun.value },
-  // Import stays a plain row. It has exactly ONE entry point — the modal, which
-  // offers the file and the LighterPack link side by side — and a disclosure holding
-  // a single item is a click that reveals nothing you couldn't have been shown. It
-  // also forced a label long enough to set the whole menu's width.
-  { label: "Import a list…", icon: FileImportIcon, run: () => { importOpen.value = true; } },
-];
-// Help and site destinations live together, away from list operations and the
-// destructive pair. The editor has no footer; the sticky toolbar keeps them in reach.
-const SITE_ACTIONS: MenuAction[] = [
-  { label: "Keyboard shortcuts", icon: KeyboardIcon, run: openShortcuts },
-  { label: "Send feedback…", icon: Bug02Icon, run: () => { feedbackEverOpened.value = true; feedbackOpen.value = true; } },
-];
-// Export folds into a disclosure — <MenuSection>, shared with the read views' ⋯ menu,
-// which owns the header, the reveal and the warm-on-open. The rows are useListExports'.
-const exportOpen = ref(false);
-// what the menu renders: the rows a state hides (Duplicate on the first-run screen)
-const menuActions = computed(() => MENU_ACTIONS.filter((a) => !a.hidden?.()));
-// a re-opened menu starts collapsed — the previous session's open section is not a
-// preference, and restoring it would put a different item under the cursor
-watch(menuOpen, (open) => open || (exportOpen.value = false));
 
 // Start a fresh, empty draft — no server row until something is added. The current
 // list isn't lost: it's auto-saved and lives in "Your lists" behind its own link.
@@ -1093,99 +1044,36 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 aria-label="More actions"
                 aria-haspopup="true"
                 :aria-expanded="menuOpen"
+                @pointerenter="warmMenu"
+                @focus="warmMenu"
                 @click="toggleMenu"
               >
                 <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
               </button>
             </Tooltip>
-            <Transition name="menu">
-              <ul v-if="menuOpen" ref="kebabListRef" class="popover menu__list editor__actions" role="menu" aria-label="More actions" v-on="kebabPlateOn">
-                <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->
-                <li role="none" aria-hidden="true">
-                  <span ref="kebabPlateRef" class="menu__plate" />
-                </li>
-                <!-- Close BEFORE the action runs, matching the old dispatch order. -->
-                <li v-for="a in menuActions" :key="a.label" role="none">
-                  <button type="button" data-row role="menuitem" class="menu__item" @click="menuOpen = false; a.run()">
-                    <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
-                    {{ a.label }}
-                  </button>
-                </li>
-                <!-- Export folds into <MenuSection>, and stays off the first-run screen
-                     for the same reason Duplicate does: an unsaved, empty draft has
-                     nothing to give (a header-only CSV). -->
-                <MenuSection
-                  v-if="!isFirstRun"
-                  v-model:open="exportOpen"
-                  label="Export"
-                  :icon="FileExportIcon"
-                  :items="exportItems"
-                  @opened="warmExporters"
-                  @pick="menuOpen = false"
-                />
-                <li role="none" class="menu__foot">
-                  <button
-                    v-for="a in SITE_ACTIONS"
-                    :key="a.label"
-                    type="button"
-                    data-row
-                    role="menuitem"
-                    class="menu__item"
-                    @click="menuOpen = false; a.run()"
-                  >
-                    <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
-                    {{ a.label }}
-                  </button>
-                  <NuxtLink to="/about" data-row role="menuitem" class="menu__item" @click="menuOpen = false">
-                    <HugeiconsIcon :icon="InformationCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-                    About
-                  </NuxtLink>
-                  <NuxtLink to="/legal" data-row role="menuitem" class="menu__item" @click="menuOpen = false">
-                    <HugeiconsIcon :icon="LegalDocument01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-                    Legal
-                  </NuxtLink>
-                </li>
-                <!-- Deleting this list, last and under a hairline. Not one of the rows
-                     above it: everything there makes, copies or moves a list, and this
-                     one ends it — the same reason ListMenu rules "New list" off its list
-                     of lists. A rule earns its keep between two KINDS of thing.
-                     Red, and red at rest rather than only under the pointer — the
-                     colour is there to be read before you reach for it. It is the
-                     port of the design system's .ds-menu__item--danger, down to the
-                     plate washing the row in its own hue (see the style). -->
-                <li v-if="isSaved" role="none" class="menu__foot">
-                  <!-- Gentler first. The two escalate — off this device, then off the
-                       internet — and reading them in that order is what makes the
-                       second one land as the bigger of the pair rather than as
-                       another way to do the first.
-                       Forget is a device act — it drops this browser's registry row
-                       and copy — so a claimed open (which has neither) doesn't offer
-                       it; Delete works either way in (session or token). -->
-                  <button
-                    v-if="!openedByCode"
-                    type="button"
-                    data-row
-                    role="menuitem"
-                    class="menu__item editor__footact"
-                    @click="menuOpen = false; forgetThisList()"
-                  >
-                    <HugeiconsIcon :icon="RemoveCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-                    Forget this list
-                  </button>
-                  <button
-                    type="button"
-                    data-row
-                    data-row-hue
-                    role="menuitem"
-                    class="menu__item editor__footact editor__delete"
-                    @click="menuOpen = false; deleteThisList()"
-                  >
-                    <HugeiconsIcon :icon="Delete02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-                    Delete this list
-                  </button>
-                </li>
-              </ul>
-            </Transition>
+            <!-- The menu itself — rows, export section, foot — is EditorMenu, Lazy
+                 behind everOpened like the dialogs: fetched and mounted on the first
+                 open, off the first load until then. Its transition lives inside it
+                 (with `appear`, for that first mount). What comes back up is one
+                 emit per row; the editor keeps the verbs. -->
+            <LazyEditorMenu
+              v-if="menuEverOpened"
+              :open="menuOpen"
+              :first-run="isFirstRun"
+              :saved="isSaved"
+              :opened-by-code="openedByCode"
+              :snapshot="snapshot"
+              :share-url="exportShareUrl"
+              @close="menuOpen = false"
+              @flash="flash"
+              @people="peopleOpen = true"
+              @duplicate="cloneList"
+              @import="importOpen = true"
+              @shortcuts="openShortcuts"
+              @feedback="openFeedback"
+              @forget="forgetThisList"
+              @delete="deleteThisList"
+            />
           </div>
         </template>
       </div>
@@ -1439,7 +1327,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         @focusin="undoFocused = true"
         @focusout="undoFocused = false"
       >
-        <span class="t-sm">Removed <strong>{{ pendingUndo.label }}</strong></span>
+        <span class="t-sm">{{ pendingUndo.verb ?? "Removed" }} <strong>{{ pendingUndo.label }}</strong></span>
         <button class="undobar__btn t-sm" @click="c.undoRemove()">
           <HugeiconsIcon :icon="UndoIcon" :size="14" :stroke-width="2" /> Undo
         </button>
@@ -1653,14 +1541,26 @@ function onCorrected(res: { status: string; itemName?: string }) {
   flex: none;
 }
 
+/* Toolbar actions recede until hovered, keyboard-focused, or open. Scope this to
+   the editor so icon buttons elsewhere keep their existing emphasis. */
+.editor > .topbar :deep(.btn--icon) {
+  color: var(--ink-3);
+}
+@media (hover: hover) and (pointer: fine) {
+  .editor > .topbar :deep(.btn--icon:hover) {
+    color: var(--ink);
+  }
+}
+.editor > .topbar :deep(.btn--icon:focus-visible),
+.editor > .topbar :deep(.btn--icon[aria-expanded="true"]) {
+  color: var(--ink);
+}
+
 /* on = the pane is open: the icon takes full ink and a soft ground, so the button
    reads as a held state rather than a hover */
 .editor__vault.is-on {
   color: var(--ink);
   background: var(--paper-2);
-}
-.editor__share {
-  color: var(--ink-2);
 }
 /* The sharing panel is ~343px of links and activity hanging off a 32px button that
    sits near the right end of the bar. `.menu` makes that button the containing block,
@@ -1682,38 +1582,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink);
   background: var(--paper-2);
 }
-/* the ⋯ menu's Export section is the shared .menu__sect disclosure (controls.scss),
-   which the read views' menu uses too */
-/* Export may expand on a short phone. Keep all links and actions reachable. */
-.editor__actions {
-  max-height: calc(100svh - var(--space-9));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-/* The shared .menu__foot (controls.scss) separates list, site, and destructive
-   actions. Its rule spans the same width as the travelling plate. */
-/* THE ONE COLOURED ROW IN THE CHROME. It was --ink-3 with the trash glyph doing the
-   distinguishing, on the monochrome rule in tokens.scss; it now spends --danger, and
-   the token's comment has been widened to say so rather than left asserting a rule
-   this breaks.
-   The colour is here to be read BEFORE you touch it — a row that only turns red once
-   you're on it has already let you arrive. That is the design system's argument for
-   .ds-menu__item--danger, and this is its port.
-   [data-row-hue] in the markup is what opts this row into the plate washing it in
-   its OWN hue rather than the neutral one (useMenuPlate reads the colour straight
-   off this declaration), so every other menu in the app is untouched.
-   No hover deepen. The wash is the state — moving the ink as well would say two
-   things about one event, and there is nowhere darker for red to go that doesn't
-   read as a different colour. */
-/* the glyph column, and the `flex: none` pinning the icon into it, are .menu__item's
-   own now (atoms/controls.scss) — including the section header's, which took its gap
-   from the copy that lived here */
-/* ...and forgetting stays in plain ink. It is not a lesser action — it takes the
-   default row colour, not the quiet one — it just isn't the irreversible one, and
-   red is what this menu reserves for that. */
-.editor__delete {
-  color: var(--danger);
-}
+/* the ⋯ menu's Export section, its ruled-off feet, its short-phone scroller
+   (.editor__actions) and the one coloured row in the chrome (.editor__delete) are
+   EditorMenu's now, styled there — a scoped rule here can't reach a child's rows */
 /* the popover's look + open/close come from the shared .menu atom (controls.scss);
    the editor only nudges the trailing cluster (toggle · share · kebab) right into the
    gutter so the kebab lines up with the item rows' drag handle below. The title group

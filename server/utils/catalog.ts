@@ -30,7 +30,7 @@ import {
   rankCandidates, type CatalogSearchResult,
   type LocalCatalogRow,
 toCatalogResult } from "../../shared/catalogSearch";
-import type { RecentChange } from "../../shared/types";
+import { WEIGHT_SOURCES, type RecentChange } from "../../shared/types";
 
 // trigramScore lives in shared/catalogSearch (single source of truth for the
 // offline client + this server fallback) — re-exported so its one server-side
@@ -50,7 +50,7 @@ export const CATALOG_DDL: string[] = [
     description text,
     category_hint text,
     weight_mg bigint NOT NULL,
-    weight_source text NOT NULL CHECK (weight_source IN ('manufacturer','measured','community','imported')),
+    weight_source text NOT NULL CHECK (weight_source IN (${WEIGHT_SOURCES.map((s) => `'${s}'`).join(",")})),
     source_url text,
     product_url text,
     image_url text,
@@ -445,7 +445,10 @@ export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]>
     .from(catalogEdits)
     .leftJoin(catalogItems, eq(catalogEdits.catalogItemId, catalogItems.id))
     .orderBy(desc(catalogEdits.createdAt))
-    .limit(Math.min(100, Math.max(1, limit)));
+    // Whole, not merely clamped: Drizzle hands LIMIT to Postgres as given, and the
+    // route's `?limit=2.5` reached here as 2.5 and failed the query (a 500 for a
+    // hand-edited URL). NaN would fail the same way, so it takes the default.
+    .limit(Math.min(100, Math.max(1, Math.trunc(Number.isFinite(limit) ? limit : 50))));
   return rows.map((r) => ({
     id: r.id,
     // the left join leaves brand/name/variant null for an edit whose item is gone

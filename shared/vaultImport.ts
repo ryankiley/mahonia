@@ -10,7 +10,7 @@
 // the endpoint re-derives everything it stores anyway (vaultRepo's sanitize).
 
 import { csvToListData } from "./exporters/csv";
-import { isRecord } from "./guards";
+import { isRecord } from "./record";
 import type { Item } from "./types";
 import {
   VAULT_IMPORT_MAX,

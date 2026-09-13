@@ -7,6 +7,7 @@ import { dayLabel } from "~~/shared/tripDay";
 import { formatDistance, heightStepFor, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
 import type { PersonSelection } from "~~/shared/people";
 import type { Item, ListSnapshot, Person, Totals, Unit } from "~~/shared/types";
+import { variantShownIds } from "~~/shared/variantShown";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
 
 // The shared body for the two read-only pages (/s/[code] + /l/[slug]). Both render
@@ -50,6 +51,12 @@ const contextOnlyIds = computed(() => props.contextOnlyIds ?? new Set<string>())
 const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? []));
 // one children pass for all rows — a row doesn't re-scan the item array for its children
 const childrenByParent = computed(() => groupItemsByParent(props.list?.items ?? []));
+// the rows whose variant shows beside the name: the same product held in two
+// variants (shared/variantShown), one pass per snapshot like the two above. Over
+// EVERY item, not the person filter's: the list holds both variants whoever is
+// carrying which, and a filtered view that dropped the size would read as a
+// different row than the unfiltered one.
+const variantShown = computed(() => variantShownIds(props.list?.items ?? []));
 const NO_ITEMS: Item[] = [];
 
 // Quiet meta line under the title — the maker's name, the page's status where it has
@@ -277,10 +284,10 @@ const asHeight = (m: number) => {
     <FilterEmpty v-if="view === 'gear' && filteredEmptyName" :name="filteredEmptyName" @clear="$emit('pick-person', null)" />
 
     <div v-if="view === 'gear'" class="view__folders">
-      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" />
+      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" :variant-shown-ids="variantShown" />
       <section v-if="ungrouped.length">
         <p class="t-label view__ungrouped">Unfiled</p>
-        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" />
+        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" :variant-shown-ids="variantShown" />
       </section>
     </div>
   </main>
@@ -413,7 +420,7 @@ const asHeight = (m: number) => {
   block-size: var(--where-mark);
 }
 .view__trailicon {
-  border-radius: 2px;
+  border-radius: var(--radius-icon);
 }
 /* a stand-in, not the site's mark — a step lighter than the link text beside it */
 .view__trailicon--fallback {

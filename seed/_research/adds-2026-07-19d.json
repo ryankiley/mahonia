@@ -133,7 +133,7 @@
     {
       "brand": "Metolius",
       "name": "Talon Belay Gloves",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 2.1,
       "weight_unit": "oz",
@@ -196,7 +196,7 @@
     {
       "brand": "Kahtoola",
       "name": "MICROspikes Ghost",
-      "variant": "M",
+      "variant": "Medium",
       "category_hint": "other",
       "weight_value": 192,
       "weight_unit": "g",

@@ -37,8 +37,8 @@ import { parseProfile, profileToString } from "../profile";
 import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
 import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";
-import { isRecord } from "../guards";
 import { uniquifyPersonNames } from "../people";
+import { isRecord } from "../record";
 import { bySortOrder } from "../weights";
 
 /** The downloaded backup's shape: the list's meta + its full content. */

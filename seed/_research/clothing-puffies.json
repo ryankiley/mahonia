@@ -3,7 +3,7 @@
     {
       "brand": "Patagonia",
       "name": "Nano Puff Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 369,
       "weight_unit": "g",
@@ -15,7 +15,7 @@
     {
       "brand": "Patagonia",
       "name": "Micro Puff Hoody",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 298,
       "weight_unit": "g",
@@ -27,7 +27,7 @@
     {
       "brand": "Patagonia",
       "name": "Down Sweater Hoody",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 420,
       "weight_unit": "g",
@@ -39,7 +39,7 @@
     {
       "brand": "Patagonia",
       "name": "Houdini Jacket",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 105,
       "weight_unit": "g",
@@ -51,7 +51,7 @@
     {
       "brand": "Patagonia",
       "name": "R1 Air Full-Zip Hoody",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 369,
       "weight_unit": "g",
@@ -63,7 +63,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Ghost Whisperer Hoody",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 8.8,
       "weight_unit": "oz",
@@ -75,7 +75,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Stretchdown Hoody",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 18.1,
       "weight_unit": "oz",
@@ -86,7 +86,7 @@
     {
       "brand": "Arc'teryx",
       "name": "Atom Hoody",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 355,
       "weight_unit": "g",
@@ -98,7 +98,7 @@
     {
       "brand": "Arc'teryx",
       "name": "Cerium SL Hoody",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 7.6,
       "weight_unit": "oz",
@@ -109,7 +109,7 @@
     {
       "brand": "Rab",
       "name": "Microlight Alpine Jacket",
-      "variant": "Men's L",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 16.5,
       "weight_unit": "oz",
@@ -121,7 +121,7 @@
     {
       "brand": "Rab",
       "name": "Mythic Ultra",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 18.9,
       "weight_unit": "oz",
@@ -133,7 +133,7 @@
     {
       "brand": "The North Face",
       "name": "ThermoBall Eco Hoodie",
-      "variant": "Men's M",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 15.9,
       "weight_unit": "oz",
@@ -144,7 +144,7 @@
     {
       "brand": "Patagonia",
       "name": "Nano Puff Jacket",
-      "variant": "Women's M",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 309,
       "weight_unit": "g",

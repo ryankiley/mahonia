@@ -14,11 +14,10 @@ import { readFileSync } from "node:fs";
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
 import { ensureCatalogSchema } from "../server/utils/catalog";
+import { sizesToWords } from "./seedSizes";
 import { useDb } from "../server/utils/db";
 import { csvToCatalogRows } from "./catalogCsv";
 import { CATALOG_CSV } from "./paths";
-
-
 
 async function main() {
   const csv = readFileSync(CATALOG_CSV, "utf8");
@@ -27,6 +26,9 @@ async function main() {
 
   const db = await useDb();
   await ensureCatalogSchema(db);
+
+  const moved = await sizesToWords(db);
+  if (moved.catalog || moved.vault) console.log(`Sizes as words: ${moved.catalog} catalog rows and ${moved.vault} My Gear rows renamed in place.`);
 
   let inserted = 0;
   let updated = 0;

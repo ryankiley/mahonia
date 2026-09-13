@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatVolume, itemQtyLabel, parseVolumeMl, waterMgFromMl } from "../shared/water";
+import { formatVolume, itemQtyLabel, parseVolumeMl, waterMgFromMl, waterPhraseMl } from "../shared/water";
 
 describe("parseVolumeMl — human volume → millilitres", () => {
   it("reads litres (the default for a bare number) and millilitres", () => {
@@ -100,5 +100,24 @@ describe("itemQtyLabel — amount labels incl. the worn split", () => {
     expect(itemQtyLabel({ name: "Water", qty: 1, unitWeightMg: 0 }, "consumable", { group: true })).toBe("");
     // ...and every water row that is NOT called a group still states its volume
     expect(itemQtyLabel({ name: "Water", qty: 2, unitWeightMg: 1_000_000 }, "consumable")).toBe("2 L");
+  });
+});
+
+describe("waterPhraseMl", () => {
+  it("reads water with a volume, either way round", () => {
+    expect(waterPhraseMl("Water 2 L")).toBe(2000);
+    expect(waterPhraseMl("water 500 ml")).toBe(500);
+    expect(waterPhraseMl("1 L water")).toBe(1000);
+  });
+  it("reads a volume set off the way a weight is", () => {
+    expect(waterPhraseMl("Water - 2 L")).toBe(2000);
+    expect(waterPhraseMl("Water: 750ml")).toBe(750);
+    expect(waterPhraseMl("Water (2 L)")).toBe(2000);
+  });
+  it("is null for bare water, a bare volume, and anything else", () => {
+    expect(waterPhraseMl("water")).toBeNull();
+    expect(waterPhraseMl("500 ml")).toBeNull();
+    expect(waterPhraseMl("Watermelon 2 kg")).toBeNull();
+    expect(waterPhraseMl("Water bottle")).toBeNull();
   });
 });

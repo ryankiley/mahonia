@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-12",
+  "changed": [
+    "A retried add_items through the connector adds its rows once; pass again: true to add the same rows on purpose."
+  ]
+}

@@ -27,8 +27,11 @@ export interface ResearchRow {
   // convention; the only warnings are judgment lists for a human (weight plausibility,
   // food rows still at net weight or without kcal, rows missing an axis their gear type
   // is sold by). normalizeVariant tidies what it can.
-  //   • S/M/L-family sizes are LETTERS — "M", "XL", "Men's M", "Women's XS/S" — on
-  //     anything worn or carried. No "Size " prefix, no comma after the gender.
+  //   • S/M/L-family sizes are WORDS — "Medium", "X-Large", "Men's Medium" — on anything
+  //     worn or carried (2026-09-12; they were letters from 2026-09-05, and the build
+  //     rewrites a letter to the word, so "M" in a row still builds "Medium"). A range
+  //     keeps the maker's letters ("Women's XS/S"). No "Size " prefix, no comma after the
+  //     gender. The attributes column keeps the letter for the size axis.
   //   • Sleep + shelter keep the maker's LENGTH words ("Regular", "Long", "Large").
   //   • Footwear states the region: "Men's US 9", "Women's US 8", "UK 8", "US 9" (unisex).
   //   • Worn-in-pairs apparel carries no unit label; only trekking poles say "per pair".

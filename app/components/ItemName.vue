@@ -3,23 +3,24 @@ import type { Item } from "~~/shared/types";
 import { itemSearchName, itemSearchUrl } from "~~/shared/links";
 import { itemDisplayName } from "~~/shared/weights";
 
-// Renders a product like "Sea to Summit Trek TkII Down Sleeping Bag · Long, 18F":
-// brand + model in normal ink; the variant as a dimmed " · …" suffix. A
-// custom-renamed item (nameOverridden) drops brand/variant and shows just the name.
+// Renders a product like "Sea to Summit Trek TkII Down Sleeping Bag": brand + model
+// in normal ink, and nothing else. The VARIANT ("Long, 18F") used to trail it as a
+// dimmed suffix; it now lives on the sub-line under the name, on every face (the
+// editor's beside the gear type, the checklist's and the share row's on the same rule
+// as the editor: see shared/variantShown), so the name line reads the same everywhere.
+// A custom-renamed item (nameOverridden) drops the brand and shows just the name.
 //
-// With `search` (the read-only share views), ONLY the product name (brand + model)
-// becomes a web-search link — the variant stays plain text OUTSIDE the anchor, so
-// the link's dotted underline never runs under the variant. Water / unnamed rows
-// resolve to no link (itemSearchUrl → null), so they render as plain text.
-// `group` is the caller's own isParent (it has childrenByParent to hand) — the FACT,
-// not a guess. A nameless group gets a stand-in label rather than rendering an empty
-// line with a weight beside it; a nameless leaf renders as the blank it is.
+// With `search` (the read-only share views), the product name becomes a web-search
+// link. Water / unnamed rows resolve to no link (itemSearchUrl → null), so they render
+// as plain text. `group` is the caller's own isParent (it has childrenByParent to hand)
+// — the FACT, not a guess. A nameless group gets a stand-in label rather than
+// rendering an empty line with a weight beside it; a nameless leaf renders as the
+// blank it is.
 const props = defineProps<{ item: Item; search?: boolean; group?: boolean }>();
 const main = computed(() => itemDisplayName(props.item.brand, props.item.name));
-const variant = computed(() => (props.item.nameOverridden ? "" : props.item.variant || ""));
 // A group reaches these views unnamed when nesting wrapped a weighed row that had no
 // gear type to take (useGearList.containerFor) — it starts empty, awaiting a name.
-const unnamed = computed(() => props.group && !main.value && !variant.value);
+const unnamed = computed(() => props.group && !main.value);
 const href = computed(() => (props.search ? itemSearchUrl(props.item) : null));
 const searchLabel = computed(() => `Search the web for ${itemSearchName(props.item)}`);
 </script>
@@ -32,7 +33,7 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
       target="_blank"
       rel="noopener noreferrer"
       :aria-label="searchLabel"
-    >{{ main }}</a><template v-else>{{ main }}</template><span v-if="variant" class="iname__variant"> · {{ variant }}</span></span>
+    >{{ main }}</a><template v-else>{{ main }}</template></span>
 </template>
 
 <style scoped>
@@ -45,18 +46,15 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
 .iname {
   min-width: 0;
 }
-/* the dimmed variant suffix, and the stand-in label for a group the user never named —
-   both quiet asides beside the product name, so both read as "not the name itself"
-   ("Group" must not look like a product actually called that) */
-.iname__variant,
+/* the stand-in label for a group the user never named: a quiet aside in the name's
+   place, so it reads as "not the name itself" ("Group" must not look like a product
+   actually called that) */
 .iname__unnamed {
   color: var(--ink-3);
   font-style: italic;
 }
 /* read-only search link: a DOTTED underline marks the product NAME as a lookup link.
-   Only the name lives inside this anchor (the variant is a sibling outside it), so
-   the underline never runs under the variant. Soft colour, firming to --ink-2 on
-   hover/focus, never full ink.
+   Soft colour, firming to --ink-2 on hover/focus, never full ink.
    The link text is otherwise indistinguishable from body copy (color: inherit), so
    the underline is the ONLY affordance — it can't just be dropped, and it can't be
    faded below text contrast either. But every row in a shared list is one of these,
@@ -73,7 +71,7 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
   text-decoration-style: dotted;
   text-decoration-color: var(--underline);
   text-decoration-thickness: 1px; /* from-font is heavy; pin it thin */
-  text-underline-offset: 2px;
+  text-underline-offset: var(--underline-offset);
   transition: text-decoration-color var(--dur) var(--ease);
 }
 /* Hover-capable pointers only. On touch there IS no hover, so the underline stays

@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-12",
+  "changed": [
+    "Pressing Enter after a weight saves it and opens the next row; typed units such as 3.8 oz still work."
+  ]
+}

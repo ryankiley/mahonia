@@ -3,6 +3,7 @@
 // these directly (tests/catalog.test.ts) and the build/seed scripts reuse them.
 
 import { parseCsv } from "../shared/exporters/csv";
+import { WEIGHT_SOURCES, type WeightSource } from "../shared/types";
 import { MG_PER_UNIT, parseWeightInput } from "../shared/weights";
 import { ATTRIBUTE_KEYS, parseAttributes, type AttributeKey, type RowAttributes } from "./catalogAttributes";
 import { buildSearchTerms } from "./searchTerms";
@@ -30,16 +31,11 @@ export const CATALOG_CSV_HEADERS = [
   "kcal",
 ] as const;
 
-export const WEIGHT_SOURCES = [
-  "manufacturer",
-  "measured",
-  "community",
-  "imported",
-] as const;
+export { WEIGHT_SOURCES };
 
 /** Membership in the provenance enum — one test instead of a cast-and-includes
  *  at every call site (the parser, the builder, the auditor, the gating test). */
-export const isWeightSource = (s: string): s is (typeof WEIGHT_SOURCES)[number] =>
+export const isWeightSource = (s: string): s is WeightSource =>
   (WEIGHT_SOURCES as readonly string[]).includes(s);
 
 /** A usable citation: an http(s) URL with something after the scheme. The one
