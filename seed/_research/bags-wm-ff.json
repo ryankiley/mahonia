@@ -74,7 +74,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Hummingbird UL 20",
-      "variant": "Regular, 6 ft, 20F",
+      "variant": "Regular, 20F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -86,7 +86,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Hummingbird UL 30",
-      "variant": "Regular, 6 ft, 30F",
+      "variant": "Regular, 30F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -98,7 +98,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Swallow UL 20",
-      "variant": "Regular, 6 ft, 20F",
+      "variant": "Regular, 20F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -110,7 +110,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Swallow UL 30",
-      "variant": "Regular, 6 ft, 30F",
+      "variant": "Regular, 30F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -122,7 +122,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Flicker UL Wide 20",
-      "variant": "Regular, 6 ft Wide, 20F",
+      "variant": "Regular Wide, 20F",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
