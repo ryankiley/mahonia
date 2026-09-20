@@ -4,7 +4,7 @@ import { CATALOG_DDL, catalogGearTypes } from "../server/utils/catalog";
 import { createTestDb } from "./helpers/db";
 
 describe("catalog gear-type vocabulary", () => {
-  it("returns distinct sorted active labels, not product names or retired types", async () => {
+  it("returns the verified rows' distinct sorted labels, not product names, retired types or community drift", async () => {
     const db = await createTestDb(CATALOG_DDL);
     await db.insert(catalogItems).values([
       { name: "Duplex", commonName: "Tent" },
@@ -15,7 +15,10 @@ describe("catalog gear-type vocabulary", () => {
       { name: "Whitespace", commonName: "  " },
       { name: "Retired", commonName: "Retired type", status: "removed" },
       { name: "Merged", commonName: "Merged type", status: "merged" },
-    ].map(row => ({ weightMg: 100_000, weightSource: "manufacturer" as const, ...row })));
+      // promoted from typed items, gear type as typed (candidates.ts): never a suggestion
+      { name: "Lanshan 2", commonName: "tent", verified: false, weightSource: "community" },
+      { name: "Bilby", commonName: "shelter", verified: false, weightSource: "community" },
+    ].map(row => ({ weightMg: 100_000, weightSource: "manufacturer", verified: true, ...row })));
     expect(await catalogGearTypes(db)).toEqual(["PLB", "Tent"]);
   });
 
