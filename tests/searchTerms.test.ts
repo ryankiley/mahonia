@@ -72,6 +72,15 @@ describe("buildSearchTerms", () => {
     expect(buildSearchTerms("Hyperlite Flat Tarp", "shelter", "Tent")).toBe("tarp");
   });
 
+  it("finds the audio rows by what they are, not only by their model name", () => {
+    // AirPods, Powerbeats and the like are named for the model, never for the noun, and
+    // electronics has no category default, so the gear type is the only way "earbuds"
+    // or "headphones" can reach them.
+    expect(buildSearchTerms("AirPods Pro 3", "electronics", "Earbuds")).toBe("earbuds earphones");
+    expect(buildSearchTerms("Powerbeats Pro 2", "electronics", "Earbuds")).toContain("earbuds");
+    expect(buildSearchTerms("AirPods Max 2", "electronics", "Headphones")).toBe("headphones headset");
+  });
+
   it("still returns null when the gear type carries no known noun", () => {
     expect(buildSearchTerms("Some Widget", null, "Doohickey")).toBeNull();
     expect(buildSearchTerms("Some Widget", null, "")).toBeNull();
