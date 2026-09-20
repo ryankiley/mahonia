@@ -1,5 +1,5 @@
 {
-  "_comment": "Apple's AirPods line, 2026-09-20 — Ryan: 'hikers bring headphones'. The catalog had two earbuds (Powerbeats Pro 2, Nothing Ear) and no AirPods. Every current model on apple.com/airpods/compare plus the previous generation of each line: AirPods 5 (new 2026-09-18, in both case configurations), AirPods 4 (both), AirPods Pro 3, AirPods Pro 2, AirPods 3, AirPods 2, AirPods Max 2 (2026) and both AirPods Max 1 editions. Names are Apple's own current ones from its support Tech Specs titles ('AirPods 2', 'AirPods Max 1'), never the parenthetical '(3rd generation)' form. Every figure was read twice, from the support.apple.com Tech Specs page each row cites AND from apple.com/airpods/compare (current models also from apple.com/<model>/specs/), and the two agreed on all of them. EARBUDS WEIGH WHAT YOU CARRY: Apple publishes each bud and the case separately, so the stored figure is case + both buds, derived, with the arithmetic in the quote — the Powerbeats Pro 2 precedent (its published 'total' was the case plus ONE bud). Where Apple sells one model with two cases of identical weight (AirPods 3 Lightning/MagSafe, AirPods 2 Lightning/Wireless, AirPods Pro 2 Lightning 2022/USB-C 2023), that is one row. AirPods 5 and AirPods 4 each come as two products whose CASE differs (the plain USB-C case 32.3 g; the Wireless Charging Case / Active Noise Cancellation case with speaker 34.7 g), so each is two rows on Apple's own product names as variants. AirPods Max are the headphones alone, cushions included, with the Smart Case (134.5 g, a sleeve, not a charging case) named in the quote; the 2024 USB-C edition (Apple now titles it 'AirPods Max 1 (USB-C)') weighs the same 386.2 g as the 2026 AirPods Max 2 and 1.4 g more than the 2020 Lightning edition, so Max 1 carries the connector as its variant.",
+  "_comment": "Apple's AirPods line, 2026-09-20 — Ryan: 'hikers bring headphones'. The catalog had two earbuds (Powerbeats Pro 2, Nothing Ear) and no AirPods. Every current model on apple.com/airpods/compare plus the previous generation of each line: AirPods 5 (new 2026-09-18, in both case configurations), AirPods 4 (both), AirPods Pro 3, AirPods Pro 2, AirPods 3, AirPods 2, AirPods Max 2 (2026) and both AirPods Max 1 editions. Names are Apple's own current ones from its support Tech Specs titles ('AirPods 2', 'AirPods Max 1'), never the parenthetical '(3rd generation)' form. Every figure was read twice, from the support.apple.com Tech Specs page each row cites AND from apple.com/airpods/compare (current models also from apple.com/<model>/specs/), and the two agreed on all of them. EARBUDS WEIGH WHAT YOU CARRY: Apple publishes each bud and the case separately, so the stored figure is case + both buds, derived, with the arithmetic in the quote — the Powerbeats Pro 2 precedent (its published 'total' was the case plus ONE bud). Where Apple sells one model with two cases of identical weight (AirPods 3 Lightning/MagSafe, AirPods 2 Lightning/Wireless, AirPods Pro 2 Lightning 2022/USB-C 2023), that is one row. AirPods 5 and AirPods 4 each come as two products whose CASE differs (the plain USB-C case 32.3 g; the Wireless Charging Case / Active Noise Cancellation case with speaker 34.7 g), so each is two rows on Apple's own product names as variants. AirPods Max are the headphones alone, cushions included, with the Smart Case (134.5 g, a sleeve, not a charging case) named in the quote; the 2024 USB-C edition (Apple now titles it 'AirPods Max 1 (USB-C)') weighs the same 386.2 g as the 2026 AirPods Max 2 and 1.4 g more than the 2020 Lightning edition, so Max 1 carries the connector as its variant. Second pass, same day: the two first-generation rows, AirPods 1 (2016) and AirPods Pro 1 (2019, whose 2021 MagSafe Charging Case edition publishes the same two figures, so it is the same row). Neither is on apple.com/airpods/compare any more, so their support Tech Specs page is the one Apple source and each was read twice from it.",
   "rows": [
     {
       "brand": "Apple",
@@ -104,6 +104,32 @@
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/111856",
       "quote": "AirPods (each) Weight: 0.14 ounce (4 grams); Lightning Charging Case or Wireless Charging Case Weight: 1.35 ounces (38.2 grams) — case + both buds = 46.2 g (AirPods 2 Tech Specs)."
+    },
+    {
+      "brand": "Apple",
+      "name": "AirPods 1",
+      "variant": "",
+      "category_hint": "electronics",
+      "common_name": "Earbuds",
+      "weight_value": 46,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://support.apple.com/en-us/111855",
+      "quote": "Weight — AirPods (each): 0.14 ounce (4 g); Charging Case: 1.34 ounces (38 g) — case + both buds = 46 g (AirPods 1 Tech Specs)."
+    },
+    {
+      "brand": "Apple",
+      "name": "AirPods Pro 1",
+      "variant": "",
+      "category_hint": "electronics",
+      "common_name": "Earbuds",
+      "weight_value": 56.4,
+      "weight_unit": "g",
+      "weight_secondary": null,
+      "weight_source": "manufacturer",
+      "source_url": "https://support.apple.com/en-us/111861",
+      "quote": "AirPods Pro (each) Weight: 0.19 ounce (5.4 grams); Wireless Charging Case Weight: 1.61 ounces (45.6 grams) — case + both buds = 56.4 g (AirPods Pro 1 with Wireless Charging Case Tech Specs). The 2021 MagSafe Charging Case edition publishes the same two figures, so it is this row."
     },
     {
       "brand": "Apple",
