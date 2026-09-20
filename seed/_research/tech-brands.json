@@ -3,7 +3,7 @@
     {
       "brand": "Goldwin",
       "name": "Dry Mesh Jacket",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 250,
       "weight_unit": "g",
@@ -15,7 +15,7 @@
     {
       "brand": "Goldwin",
       "name": "Rip-stop Hooded Jacket",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 320,
       "weight_unit": "g",
@@ -27,7 +27,7 @@
     {
       "brand": "Goldwin",
       "name": "Nylon Multi Purpose Jacket",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 510,
       "weight_unit": "g",
@@ -39,7 +39,7 @@
     {
       "brand": "Goldwin",
       "name": "Light Warmer Kochi Jacket",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 170,
       "weight_unit": "g",
@@ -51,7 +51,7 @@
     {
       "brand": "Goldwin",
       "name": "GORE-TEX 3/4 Over Coat",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 500,
       "weight_unit": "g",
@@ -63,7 +63,7 @@
     {
       "brand": "Goldwin",
       "name": "One Tuck Tapered Stretch Pants",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 535,
       "weight_unit": "g",
@@ -75,7 +75,7 @@
     {
       "brand": "Goldwin",
       "name": "Relax Straight Easy Pants",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 350,
       "weight_unit": "g",
@@ -87,7 +87,7 @@
     {
       "brand": "Goldwin",
       "name": "Dual Layered L/S Hoodie",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 257,
       "weight_unit": "g",
@@ -112,7 +112,7 @@
     {
       "brand": "Goldwin",
       "name": "Pertex Shield Pro Fast Run Jacket",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 140,
       "weight_unit": "g",
@@ -136,7 +136,7 @@
     {
       "brand": "Goldwin",
       "name": "Pertex Shieldair A/L Jacket",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 104,
       "weight_unit": "g",
@@ -148,7 +148,7 @@
     {
       "brand": "Goldwin",
       "name": "Zip-up Floating Wind Shell Jacket",
-      "variant": "Medium, JP 3",
+      "variant": "JP 3",
       "category_hint": "clothing",
       "weight_value": 90,
       "weight_unit": "g",

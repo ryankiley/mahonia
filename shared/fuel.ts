@@ -11,6 +11,9 @@
 import type { Item } from "./types";
 import { isWaterName } from "./water";
 
+/** One item marked for cooking assumes one boil at this rough fuel allowance. */
+export const ASSUMED_FUEL_PER_BOIL_G = 10;
+
 /** The two fields a row is read by here — an Item has them, and so does a vault entry. */
 export type Named = Pick<Item, "name" | "commonName">;
 

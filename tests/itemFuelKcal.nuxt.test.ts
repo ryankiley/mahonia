@@ -119,6 +119,64 @@ describe("the calorie field on a fuel row", () => {
   });
 });
 
+describe("the simple cooking estimate", () => {
+  beforeEach(() => useItemMenu().close());
+
+  it("reveals the cooking toggle only after Consumable is on, without adding calculator inputs", async () => {
+    const w = mountRow(item({ id: "meal", name: "Pasta", classification: "base", qty: 6, unitWeightMg: 100_000, kcal: 400 }));
+    await w.get('button[aria-label="Consumable: no"]').trigger("click");
+    const pop = w.get('[role="dialog"][aria-label="Consumable"]');
+    const consumable = pop.get('[role="switch"][aria-label^="Consumable"]');
+    expect(pop.find('[aria-label="Needs cooking"]').exists()).toBe(false);
+    await consumable.trigger("click");
+    const cooking = pop.get('[role="switch"][aria-label="Needs cooking"]');
+    expect(cooking.attributes("aria-checked")).toBe("false");
+    expect(pop.find('[role="status"]').exists()).toBe(false);
+    await cooking.trigger("click");
+    expect(cooking.attributes("aria-checked")).toBe("true");
+    expect(pop.get('[role="status"]').text()).toBe("~60 g fuel");
+    expect(pop.get('[role="status"]').attributes("title")).toBe("Assumes one boil per item, at 10 g per boil.");
+    expect(pop.findAll("input")).toHaveLength(1); // just the existing kcal field
+    expect(w.findAll('[role="dialog"]')).toHaveLength(1);
+    expect(snapshot.value.items[0]).toMatchObject({ qty: 6, unitWeightMg: 100_000, kcal: 400, needsCooking: true });
+
+    // Class changes hide the estimate without losing this trip's preparation choice.
+    await consumable.trigger("click");
+    expect(pop.find('[aria-label="Needs cooking"]').exists()).toBe(false);
+    expect(pop.find('[role="status"]').exists()).toBe(false);
+    expect(snapshot.value.items[0]!.needsCooking).toBe(true);
+    await consumable.trigger("click");
+    expect(pop.get('[role="status"]').text()).toContain("~60 g fuel");
+    await pop.get('[aria-label="Needs cooking"]').trigger("click");
+    expect(pop.find('[role="status"]').exists()).toBe(false);
+    expect(snapshot.value.items[0]!.needsCooking).toBeUndefined();
+    expect(snapshot.value.items[0]).toMatchObject({ qty: 6, unitWeightMg: 100_000, kcal: 400 });
+    w.unmount();
+  });
+
+  it.each([0, 1, 6, 9999])("assumes one boil per unit at quantity %i", async (qty) => {
+    const w = mountRow(item({ id: "meal", name: "Pasta", qty, needsCooking: true }));
+    await openPop(w);
+    const estimate = () => w.get('[role="dialog"][aria-label="Consumable"] [role="status"]').text();
+    expect(estimate()).toBe(`~${qty * 10} g fuel`);
+    snapshot.value.items[0]!.qty = 2;
+    await nextTick();
+    expect(estimate()).toBe("~20 g fuel");
+    w.unmount();
+  });
+
+  it("does not offer cooking on stove fuel or water", async () => {
+    const fuel = mountRow(item({ id: "gas", name: "Gas canister", kcal: 1350 }));
+    await openPop(fuel);
+    expect(fuel.find('[aria-label="Needs cooking"]').exists()).toBe(false);
+    fuel.unmount();
+    const water = mountRow(item({ id: "water", name: "Water" }));
+    expect(water.find('button[aria-label^="Consumable"]').exists()).toBe(false);
+    expect(water.find('[aria-label="Needs cooking"]').exists()).toBe(false);
+    water.unmount();
+  });
+});
+
 // SCOPED TO THE ROW: a parent renders its children as more <ItemRow>s, so an unscoped
 // find could answer for a child — none here have children, but the habit is the point.
 const wornToggle = (w: ReturnType<typeof mountRow>) => w.find(".item-row").find('button[aria-label^="Worn"]');
@@ -230,4 +288,3 @@ describe("an open popover keeps the controls it opened with", () => {
     w.unmount();
   });
 });
-

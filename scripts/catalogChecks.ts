@@ -487,9 +487,11 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // extractAttributes reads what a variant says outright ("20F" → temp_f 20, "Men's
   // US 9" → fit + size, "65L" → volume_l 65), so a shipped row carries every axis its
   // variant states (a hand-edited CSV that dropped one fails here), a hand-written
-  // value never contradicts the variant, and a variant never claims one axis twice
-  // ("Regular, Long"). What the variant does NOT state (a researched R-value, a rating
-  // on a quilt sold one way) is free.
+  // value never contradicts the variant, and a variant never claims one axis twice —
+  // a contradiction ("Regular, Long") or the same fact in a second scale ("Medium,
+  // JP 3", "Regular, 6ft"): each axis is stated once, in the maker's own scale. What
+  // the variant does NOT state (a researched R-value, a rating on a quilt sold one way)
+  // is free.
   for (const r of rows) {
     const stated = extractAttributes(r.variant, r.commonName, r.categoryHint, (c) => err("attr-conflict", `${gearLabel(r)}: the variant claims one axis twice, ${c}`));
     for (const key of Object.keys(stated) as AttributeKey[]) {

@@ -100,6 +100,8 @@ function onKey(e: KeyboardEvent) {
    whole row down by this class, and both parents v-show it. */
 .pplbar {
   display: flex;
+  /* Match the leading edge of ModeBar's first option. */
+  margin-left: calc(var(--space-2) * -1);
 }
 .pplbar__chips {
   display: flex;

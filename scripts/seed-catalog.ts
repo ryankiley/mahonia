@@ -1,8 +1,9 @@
 // Idempotent catalog seeder. Reads the curated, cited seed/catalog.csv and
 // upserts each row into catalog_items, matching on (brand, name, variant) so
 // re-running never duplicates — it inserts new rows and updates changed
-// weights/sources in place. Seeded rows are owner-curated + cited, so they're
-// marked verified=true.
+// weights/sources in place. A row whose variant was tidied keeps its id (seedRenames.ts:
+// same product, one orphan and one newcomer, renamed before the upsert). Seeded rows are
+// owner-curated + cited, so they're marked verified=true.
 //
 // Run under Node 24 (the repo's pinned toolchain) via the `seed` npm script,
 // which uses jiti (ships with Nuxt) to resolve the project's TS imports:
@@ -15,6 +16,7 @@ import { and, eq, inArray, isNull } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
 import { ensureCatalogSchema } from "../server/utils/catalog";
 import { sizesToWords } from "./seedSizes";
+import { renameMovedVariants } from "./seedRenames";
 import { useDb } from "../server/utils/db";
 import { csvToCatalogRows } from "./catalogCsv";
 import { CATALOG_CSV } from "./paths";
@@ -29,6 +31,8 @@ async function main() {
 
   const moved = await sizesToWords(db);
   if (moved.catalog || moved.vault) console.log(`Sizes as words: ${moved.catalog} catalog rows and ${moved.vault} My Gear rows renamed in place.`);
+  const renamed = await renameMovedVariants(db, rows);
+  if (renamed.catalog || renamed.vault) console.log(`Variants tidied: ${renamed.catalog} catalog rows and ${renamed.vault} My Gear rows renamed in place, ids kept.`);
 
   let inserted = 0;
   let updated = 0;

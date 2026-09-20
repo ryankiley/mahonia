@@ -197,10 +197,53 @@ function onTitleInput(e: Event) {
 // so it lives on its own rather than in the middle of a component that lays out
 // a title and some dates. The reasoning about CSP, dedup and route ends went
 // with it.
-const { gpxError, gpxBusy, pending, confirmPins, onGpx } = useGpxImport(
-  computed(() => props.snapshot),
-  c,
-);
+//
+// And it loads on the CLICK that needs it, not with the page. The file reader
+// (shared/gpx) was already behind an `await import()` inside the composable; the
+// composable itself — with the polyline and profile geometry it decodes a route
+// through — still rode the editor's first load, ~2.5 KB brotli for every visitor
+// to a list nobody imports into. So this is a facade: the three pieces of state
+// the template reads, and the two verbs, over an implementation that is fetched
+// the first time a file is chosen. Nothing here names the module statically — a
+// single import (even a type-only one is safe; a value is not) would drag it back
+// onto the first load without a word said, the same trap the shared/gpx note above
+// describes. The refs are computeds over the lazy instance so the template's
+// bindings are the same as before: `pending` is writable, because "No thanks" is
+// an assignment.
+type GpxImpl = ReturnType<typeof import("~/composables/useGpxImport")["useGpxImport"]>;
+const gpxImpl = shallowRef<GpxImpl | null>(null);
+const gpxLoading = ref(false);
+// The implementation is built after an `await`, outside setup, where a watcher it
+// creates (it drops a stale pin offer when the list changes under it) would belong to
+// no component and outlive this one. A scope made HERE, in setup, nests in the
+// component's own and is disposed with it; the lazy build runs inside that scope.
+const gpxScope = effectScope();
+const gpxError = computed(() => gpxImpl.value?.gpxError.value ?? "");
+const gpxBusy = computed(() => gpxLoading.value || (gpxImpl.value?.gpxBusy.value ?? false));
+const pending = computed({
+  get: () => gpxImpl.value?.pending.value ?? null,
+  set: (v) => {
+    if (gpxImpl.value) gpxImpl.value.pending.value = v;
+  },
+});
+async function loadGpx(): Promise<GpxImpl> {
+  if (gpxImpl.value) return gpxImpl.value;
+  gpxLoading.value = true;
+  try {
+    const { useGpxImport } = await import("~/composables/useGpxImport");
+    // a second change event during the fetch lands here too; the first build wins
+    return (gpxImpl.value ??= gpxScope.run(() => useGpxImport(computed(() => props.snapshot), c))!);
+  } finally {
+    gpxLoading.value = false;
+  }
+}
+async function onGpx(e: Event) {
+  const impl = await loadGpx();
+  // the <input>'s files are still there after the await — nothing has cleared them;
+  // the reader clears the input itself, once it has the file
+  return impl.onGpx(e);
+}
+const confirmPins = () => gpxImpl.value?.confirmPins();
 
 // ---- distance ----
 // The route's length, typed. It can't be read off the linked page — see the note atop

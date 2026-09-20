@@ -1,5 +1,6 @@
 <script setup lang="ts">
 const { state: accountModal } = useAccountModal();
+const { mount: dialogs } = useDialogs();
 // The static social-card IMAGE — the fallback every page carries until a
 // list page overrides it with its own card (useListOgCard). Absolute via
 // useSiteOrigin, which owns the prerender-crawler guard this file used to
@@ -31,6 +32,9 @@ useSeoMeta({
   <!-- LAST, and that's load-bearing. Every overlay shares one --z-float, so paint
        order decides which is on top — and a confirm can be raised from inside another
        modal (delete-account is raised from the account modal). Anything mounted after
-       AppDialogs would cover the question it was asked to answer. -->
-  <AppDialogs />
+       AppDialogs would cover the question it was asked to answer. Lazy + everOpened
+       like the account modal above (the confirm and the copy fallback both open on a
+       click and nothing else); a v-if keeps its place in the order, so mounting late
+       still lands it last. -->
+  <LazyAppDialogs v-if="dialogs.everOpened" />
 </template>

@@ -44,7 +44,7 @@ export function listToCsv(list: ListSnapshot): string {
   // header name (see idx() below), but third-party tooling reading our export
   // positionally would break if an existing column shifted.
   const out = [
-    "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty,Kcal,Person",
+    "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty,Kcal,Person,Needs Cooking",
   ];
   // The EFFECTIVE carrier (a child falls back to its parent's), materialized per
   // row because the flat CSV loses nesting: a child re-imports as top-level, so
@@ -96,6 +96,7 @@ export function listToCsv(list: ListSnapshot): string {
         // exported as though it still applied
         cls === "consumable" && it.kcal ? it.kcal : "",
         esc(carrierOf(it)),
+        it.needsCooking === true ? "1" : "",
       ].join(","),
     );
   }
@@ -174,6 +175,7 @@ export function csvToListData(
   // every export/import round-trip. Absent (a LighterPack CSV, or one of ours from
   // before the column existed) → idx returns -1 and every row reads undefined.
   const iKcal = idx(["kcal", "calories", "cal"]);
+  const iCooking = idx(["needs cooking", "needscooking"]);
   // Who carries the row — our own column, kept for the same reason as Kcal.
   // Absent everywhere but our own exports, so a LighterPack file imports peopleless.
   const iPerson = idx(["person", "carried by", "carriedby", "assigned to", "assignedto"]);
@@ -289,6 +291,7 @@ export function csvToListData(
       wornQty: wornQtyVal > 0 ? Math.min(wornQtyVal, qty) : undefined,
       classification,
       kcal: classification === "consumable" && kcalNum > 0 ? kcalNum : undefined,
+      needsCooking: truthy(row[iCooking]) || undefined,
       description: cell(iDesc),
       productUrl: cell(iUrl),
       personId: ensurePerson(cell(iPerson)),

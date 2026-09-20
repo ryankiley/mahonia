@@ -44,9 +44,13 @@ describe("catalog conventions are errors, not warnings", () => {
   it("attr-conflict: a variant that claims one axis twice", () => {
     const q = row({ name: "Burrow", variant: "Regular, Long", categoryHint: "sleep", weightMg: 600_000, commonName: "Quilt", attributes: { length: "Regular" } });
     expect(codes([q], "error")).toContain("attr-conflict");
-    // a fact restated in another spelling is not a conflict
+    // one fact in two scales is two claims too: the length as the maker's word and as a height
     const ff = row({ name: "Egret", variant: "Regular, 5ft 3in, 20F", categoryHint: "sleep", weightMg: 700_000, commonName: "Sleeping bag", attributes: { length: "Regular", temp_f: 20 } });
-    expect(codes([ff], "error")).toEqual([]);
+    expect(codes([ff], "error")).toContain("attr-conflict");
+    expect(codes([{ ...ff, variant: "Regular, 20F" }], "error")).toEqual([]);
+    const goldwin = row({ brand: "Goldwin", name: "GORE-TEX 3L Jacket", variant: "Medium, JP 3", categoryHint: "clothing", weightMg: 420_000, commonName: "Rain jacket", attributes: { size: "M" } });
+    expect(codes([goldwin], "error")).toContain("attr-conflict");
+    expect(codes([{ ...goldwin, variant: "JP 3", attributes: { size: "JP 3" } }], "error")).toEqual([]);
   });
 
   it("attr-gap: a row without an axis its gear type is sold by is a warning, a to-do", () => {

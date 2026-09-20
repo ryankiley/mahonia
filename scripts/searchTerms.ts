@@ -52,6 +52,8 @@ const NOUNS = [
   "repair kit",
   "power bank",
   "battery pack",
+  "earbuds",
+  "headphones",
   "rain jacket",
   "rain pants",
   "wind jacket",
@@ -147,6 +149,8 @@ const ALIASES: Record<string, string> = {
   "wind shirt": "wind jacket",
   puffy: "down jacket",
   battery: "power bank",
+  earphones: "earbuds",
+  headset: "headphones",
   toque: "beanie",
 };
 

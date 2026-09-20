@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { dayColorSequence } from "~~/shared/categories";
-import { cumulativeM, decodePolyline, formatLatLon, nearestAlongM, pointAlong, sliceAlong, type LatLon } from "~~/shared/polyline";
-import { dayRanges, nextOwnedDay } from "~~/shared/tripPlan";
+import { formatLatLon, nearestAlongM, pointAlong, sliceAlong } from "~~/shared/polyline";
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { ArrowExpand02Icon, ArrowShrink02Icon, HelpCircleIcon } from "@hugeicons/core-free-icons";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { waypointKindMeta } from "~/utils/waypointKinds";
+import { useRouteMapGeometry } from "~/composables/useRouteMapGeometry";
 
 // Where the route actually goes — the other half of the elevation profile's answer.
 //
@@ -113,96 +112,13 @@ let ro: ResizeObserver | null = null;
 // on a detached host with its observer and listeners nobody unmounts.
 let disposed = false;
 
-const points = computed<LatLon[]>(() => decodePolyline(props.geometry));
-// The route's spine — cumulative metres at every stored point — summed ONCE per geometry
-// and handed to every walk below. Pins, boundaries, legs and each step of a drag all
-// resolve a distance against the same 512 points, and each used to re-sum them first
-// (see the note on the walkers in shared/polyline.ts).
-const cum = computed(() => cumulativeM(points.value));
-
-// ONE sequence for every leg, memoized so a redraw can't re-derive a different palette.
-const colors = computed(() => dayColorSequence(props.dayDistancesM.length));
-
-// Where each day starts and ends along the route — the same cut the panel and the
-// elevation chart make (shared/tripPlan), so a leg, a handle and a coloured stretch of
-// chart all agree about which day owns a metre of ground.
-const ranges = computed(() => dayRanges(props.dayDistancesM));
-
-/**
- * The route cut into days, each with the colour that day wears on the elevation chart.
- *
- * The denominator matches the profile's: distances are laid end to end from the start, and
- * anything past the last assigned day stays uncoloured rather than being stretched to fit.
- * A four-mile day on a twenty-mile route owns a fifth of the line, and the sixteen miles
- * nobody has claimed read as unclaimed — the same refusal to assert a plan that isn't
- * there.
- */
-const dayLegs = computed(() => {
-  const out: { points: LatLon[]; color: string; day: number; fromM: number; toM: number }[] = [];
-  ranges.value.forEach(({ fromM, toM }, i) => {
-    const leg = sliceAlong(points.value, fromM, toM, cum.value);
-    if (leg.length >= 2) {
-      out.push({ points: leg, color: colors.value[i] ?? "var(--cat-other)", day: i + 1, fromM, toM });
-    }
-  });
-  return out;
+const { boundaries, cum, dayLegs, points, routeLengthM } = useRouteMapGeometry({
+  geometry: toRef(props, "geometry"),
+  dayDistancesM: toRef(props, "dayDistancesM"),
 });
 
-/**
- * How far a stretch stands down while another one is armed.
- *
- * Faded, never hidden: the rest of the route is still the context that tells you WHERE the
- * armed stretch is, and a line that vanished would leave a coloured fragment floating on a
- * contour sheet. Low enough that the target is unmistakable, high enough that the shape of
- * the walk survives.
- */
+/** How far a stretch stands down while another one is armed. */
 const DIM = 0.25;
-
-/** The route's own length — the far end of anything that can be dragged along it. */
-const routeLengthM = computed(() => cum.value.at(-1) ?? 0);
-
-/** The shortest a day may be dragged down to. Below this it stops being a day. */
-const MIN_DAY_M = 200;
-
-/**
- * WHERE ONE DAY ENDS AND THE NEXT BEGINS — and it is where you sleep, which is why the
- * handle wears a tent.
- *
- * Derived, never stored. A boundary is just the running total through day K, so dragging
- * one is a way of TYPING TWO NUMBERS AT ONCE: day K gets longer by exactly what day K+1
- * gives up. Their sum can't change, so nothing before or after the pair moves, and the
- * itinerary stays the single source of how long the trip is.
- *
- * The last one is different in kind: it bounds the final day against the ground nobody has
- * claimed, so dragging it lengthens or shortens that day alone and the grey tail absorbs
- * the difference. That is how you say "the route runs on past my plan".
- *
- * It is NOT a waypoint, and shouldn't become one on its own. Boundaries move constantly
- * while a trip is being planned; waypoints are the walker's own marks with their own
- * lifecycle, and removeDay has no cascade by deliberate design. So this reads as a camp
- * without being one — until somebody drops a real pin there because they have something to
- * say about it.
- */
-const boundaries = computed(() => {
-  const d = props.dayDistancesM;
-  const total = routeLengthM.value;
-  const out: { index: number; alongM: number; minM: number; maxM: number }[] = [];
-  ranges.value.forEach(({ fromM, toM }, i) => {
-    if (!(d[i]! > 0)) return;
-    // the next day that owns any ground — the neighbour this handle trades with, and the
-    // same answer the panel applies on the drop (shared/tripPlan.nextOwnedDay)
-    const nextI = nextOwnedDay(d, i);
-    const minM = fromM + MIN_DAY_M;
-    if (nextI < 0) {
-      // the last planned day, against the unclaimed tail
-      if (toM < total - MIN_DAY_M && minM < total) out.push({ index: i, alongM: toM, minM, maxM: total });
-      return;
-    }
-    const maxM = toM + d[nextI]! - MIN_DAY_M;
-    if (minM < maxM) out.push({ index: i, alongM: toM, minM, maxM });
-  });
-  return out;
-});
 
 /**
  * A leg's casing: its own colour, taken down toward black.

@@ -366,6 +366,7 @@ export const carriesContent = (item: Item): boolean =>
   item.catalogItemId != null ||
   item.classification != null ||
   item.wornQty != null ||
+  !!item.needsCooking ||
   !!item.packed;
 
 /** Units of a line that count as worn via the wornQty split.

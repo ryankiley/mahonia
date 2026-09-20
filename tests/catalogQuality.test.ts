@@ -42,7 +42,7 @@ describe("normalizeVariant", () => {
     ["M torso", "Medium torso"],
     ["40L, M torso", "40L, Medium torso"],
     ["Regular torso, S hipbelt", "Regular torso, Small hipbelt"],
-    ["M, JP 3", "Medium, JP 3"],
+    ["M, Regular", "Medium, Regular"], // a size and an inseam
     ["M+", "M+"],
     ["L/XL", "L/XL"],
     ["Medium", "Medium"],

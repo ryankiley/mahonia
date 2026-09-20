@@ -214,6 +214,19 @@ describe("the editor's row", () => {
     expect(w.find('textarea[aria-label="Item note"]').exists()).toBe(true);
   });
 
+  it("slides an empty note into a row whose saved gear type already keeps the sub-line open", async () => {
+    const w = mountRow(item({ id: "t", name: "Tarp", commonName: "Shelter" }));
+    // The outer detail wrapper is already mounted for the saved type. Focus adds only
+    // the empty Size/note fields, which used to leave the note's new line with an
+    // opacity-only transition and a visible height snap in Chrome and Safari.
+    expect(w.find('textarea[aria-label="Item note"]').exists()).toBe(false);
+    await w.find(".item__namebox .ac__input").trigger("focusin");
+    const note = w.find('textarea[aria-label="Item note"]');
+    expect(note.exists()).toBe(true);
+    expect(note.element.parentElement?.classList.contains("reveal--detail")).toBe(true);
+    expect(note.element.parentElement?.classList.contains("reveal")).toBe(true);
+  });
+
   // typing one: stored through the reducer (the stub's updateItem runs the real one),
   // and the name marked the person's so live-resolve keeps its hands off the triple
   it("stores a typed variant and marks the name the person's", async () => {

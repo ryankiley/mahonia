@@ -240,7 +240,7 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
           reweighed.add(labelOf(op.id));
           break;
         }
-        if (p.classification !== undefined || p.wornQty !== undefined || p.kcal !== undefined) {
+        if (p.classification !== undefined || p.wornQty !== undefined || p.kcal !== undefined || p.needsCooking !== undefined) {
           reclassified.add(labelOf(op.id));
           break;
         }

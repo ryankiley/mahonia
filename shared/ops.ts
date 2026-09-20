@@ -346,6 +346,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   if (patch.catalogItemId !== null && typeof patch.catalogWeightMgAtLink === "number" && isFinite(patch.catalogWeightMgAtLink))
     out.catalogWeightMgAtLink = clampUnitWeightMg(patch.catalogWeightMgAtLink);
   if (typeof patch.packed === "boolean") out.packed = patch.packed;
+  if (typeof patch.needsCooking === "boolean") out.needsCooking = patch.needsCooking || undefined;
   // who carries it: null clears; a string is only clamped here and validated against
   // the list's people in applyOp's updateItem arm — same division of labor as the
   // wornQty rule, because this function can't see the list.
@@ -849,6 +850,7 @@ export function normalizeItem(raw: Item): Item {
         ? clampUnitWeightMg(raw.catalogWeightMgAtLink)
         : undefined,
     packed: !!raw.packed,
+    needsCooking: raw.needsCooking === true ? true : undefined,
     // clamped only — the reducer's addItem case validates it against the list's
     // people (this function can't see them). Must survive normalize or every
     // addItem and every JSON import would quietly strip the assignment.

@@ -417,7 +417,7 @@ describe("writing", () => {
         { name: "Sleep", items: [{ name: "Revelation", brand: "Enlightened Equipment", variant: "20F Long", weight_g: 590.4, gear_type: "Quilt", catalog_id: 3 }] },
         { name: "Food", classification: "consumable" },
       ],
-      items: [{ name: "Bars", folder: "food", weight_g: 68, qty: 4, kcal: 250 }, { name: "Socks", qty: 3, worn_qty: 1, classification: "base", note: "one pair on" }],
+      items: [{ name: "Bars", folder: "food", weight_g: 68, qty: 4, kcal: 250, needs_cooking: true }, { name: "Socks", qty: 3, worn_qty: 1, classification: "base", note: "one pair on" }],
     });
     const init = repo.createList.mock.calls[0]![0] as Record<string, unknown> & { data: { folders: { id: string; name: string; defaultClassification: string }[]; items: Record<string, unknown>[] } };
     expect(init).toMatchObject({ title: "PCT section", displayUnit: "oz", startDate: "2026-07-04", endDate: "2026-07-06", trailUrl: "https://example.com/pct", trailDistanceM: 42_200, trailDistanceUnit: "km" });
@@ -428,7 +428,7 @@ describe("writing", () => {
     expect(quilt).toMatchObject({ name: "Revelation", brand: "Enlightened Equipment", variant: "20F Long", commonName: "Quilt", commonNameOverridden: true, unitWeightMg: 590_400, weightOverridden: true, catalogWeightMgAtLink: 590_000, qty: 1, classification: null, catalogItemId: 3, folderId: init.data.folders[0]!.id, sortOrder: 0 });
     expect(init.data.folders[0]!).toMatchObject({ colorKey: "sleep" });
     // "food" found its folder case-insensitively, and the socks went unfiled
-    expect(bars).toMatchObject({ folderId: init.data.folders[1]!.id, unitWeightMg: 68_000, qty: 4, kcal: 250 });
+    expect(bars).toMatchObject({ folderId: init.data.folders[1]!.id, unitWeightMg: 68_000, qty: 4, kcal: 250, needsCooking: true });
     expect(socks).toMatchObject({ folderId: null, qty: 3, wornQty: 1, classification: "base", description: "one pair on" });
     expect(catalog.catalogRowsById).toHaveBeenCalledWith(expect.anything(), [3]);
     const { structured, isError } = toolText(r);
@@ -622,6 +622,13 @@ describe("writing", () => {
 });
 
 describe("describeList", () => {
+  it("carries a saved cooking choice through the read schema", () => {
+    const s = snap();
+    s.items[0]!.needsCooking = true;
+    const out = describeList(s, "https://mahonia.app");
+    expectConforms("get_list", out);
+    expect((out.folders as { items: Record<string, unknown>[] }[])[0]!.items[0]!.needs_cooking).toBe(true);
+  });
   it("reads a day's climb off the profile when none was typed, and names a nested row's carrier only when it differs", () => {
     const s = snap({
       trailProfile: Array.from({ length: 240 }, (_, i) => 1000 + i * 5).join(","),
