@@ -4,8 +4,8 @@ import { CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import { mergeSwitcherRows, type SwitcherRow } from "~~/shared/switcher";
 import { foldApostrophes } from "~~/shared/tidyText";
 
-// The editor's list switcher: a labelled count in the toolbar that opens a
-// filterable menu of the lists this browser holds.
+// The editor's list switcher: a word in the toolbar that opens a filterable menu
+// of the lists this browser holds.
 //
 // It replaced a page, and that page is now gone. /mine held the lists AND the two
 // ways to stop having one; those actions moved to the editor's ⋯ menu (Forget /
@@ -20,12 +20,13 @@ import { foldApostrophes } from "~~/shared/tidyText";
 // cleanup is rare, and duplicating the ⋯ menu's actions onto these rows would blur
 // what a switcher is for.
 //
-// THE TRIGGER IS A WORD, not a glyph. "4 lists" is discoverable in a way an icon
-// isn't, it adds nothing to the toolbar's icon cluster at the other end, and the
-// count does double duty — it answers "do I have others?" before you open anything,
-// which is the returning-user question in the first place. (The chevron beside it is
-// the app's dropdown mark, not the label: the word is what you read, the chevron is
-// what says it opens.)
+// THE TRIGGER IS A WORD, not a glyph. "Your packs" is discoverable in a way an icon
+// isn't, and it adds nothing to the toolbar's icon cluster at the other end. (The
+// chevron beside it is the app's dropdown mark, not the label: the word is what you
+// read, the chevron is what says it opens.) There is NO COUNT, on the trigger or in
+// the panel: "5 packs" above five rows said what the rows already showed, and on the
+// trigger it read as a fact about the list you're on. "Do I have others?" is answered
+// by opening the menu, which is one tap.
 //
 // Built on the app's own .menu atom (trigger, .menu__list surface, .menu__item
 // rows, the travelling .menu__plate) rather than a private set of styles, so it
@@ -79,8 +80,7 @@ const all = computed(() =>
 // SWITCHER, and this card stopped being only that when "New list" moved into its
 // footer as the app's single door to a blank one. Hidden at one pack, that door was
 // shut precisely when you'd want it: no way to reach a second list, so you stayed on
-// one forever. The count isn't lying at 1 either — "do I have others?" gets a real
-// answer, which is no.
+// one forever.
 // A brand-new visitor still never sees this: an untouched draft saves nothing, so
 // there is no row to switch to and no list to add one beside.
 const hasLists = computed(() => all.value.length >= 1);
@@ -159,7 +159,7 @@ watch(open, (o) => {
       @click="open = !open"
     >
       <!-- "Your", because a bare count here read as a fact about the list you're on
-           ("1 pack") rather than the lists you have; the count sits inside, above the rows -->
+           ("1 pack") rather than the lists you have -->
       Your packs
       <HugeiconsIcon
         :icon="ChevronDownIcon"
@@ -211,7 +211,6 @@ watch(open, (o) => {
           />
         </div>
 
-        <p class="t-label lm__count">{{ all.length }} {{ all.length === 1 ? "pack" : "packs" }}</p>
         <div class="lm__rows">
           <NuxtLink
             v-for="e in shown"
@@ -395,12 +394,6 @@ watch(open, (o) => {
      the chip it hangs from, which laid the sentence out one word per line */
   width: max-content;
   max-width: min(26rem, calc(100vw - 2 * var(--space-4)));
-}
-/* the count, quiet, above the rows it counts */
-.lm__count {
-  margin: 0;
-  padding: var(--space-2) var(--space-3) var(--space-1);
-  color: var(--ink-3);
 }
 .lm__hintclose {
   color: var(--ink-3);
