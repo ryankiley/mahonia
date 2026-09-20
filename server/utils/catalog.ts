@@ -37,6 +37,23 @@ import { WEIGHT_SOURCES, type RecentChange } from "../../shared/types";
 // importer (candidates.ts) keeps its import path.
 export { trigramScore } from "../../shared/catalogSearch";
 
+/**
+ * The gear-type vocabulary the editor's datalist suggests (#382), without downloading a
+ * product row: the distinct gear types of the VERIFIED active rows — the seeded ones,
+ * whose labels scripts/gearTypes.ts sentence-cases and de-drifts at build. A community
+ * row promoted from typed items keeps its gear type as people typed it (candidates.ts),
+ * so reading those here would offer "tent", "Tents" and "shelter" back as suggestions:
+ * the drift the suggestions exist to stop.
+ */
+export async function catalogGearTypes(db: Db): Promise<string[]> {
+  await ensureCatalogSchema(db);
+  const rows = await db.selectDistinct({ name: catalogItems.commonName })
+    .from(catalogItems)
+    .where(and(eq(catalogItems.status, "active"), eq(catalogItems.verified, true)))
+    .orderBy(catalogItems.commonName);
+  return rows.flatMap(({ name }) => name?.trim() ? [name] : []);
+}
+
 const isNeon = () => Boolean(process.env.DATABASE_URL);
 
 // Safe on BOTH PGlite and Neon. Single source of truth; also spread into db.ts's
