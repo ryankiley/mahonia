@@ -368,6 +368,35 @@ describe("the save button on a list the automatic capture already covers", () =>
     w.unmount();
   });
 
+  it("stays a live action for a row My Gear holds at a different weight", async () => {
+    // The list's answer is yes, so the automatic path WILL run — but since #392 it
+    // only fills a missing vault weight, never replaces one. Reading the answer
+    // as coverage here hid the button on the one row where pressing it is the
+    // only act that can move My Gear's figure: correct a weight on a list that
+    // captures itself and there was no way to push the correction from that list.
+    vaultAuto.value = true;
+    const item = gear();
+    vaultGear.value = banked(item, 512_000); // held, at a weight that isn't the row's
+    const w = mountRow(item);
+    const btn = vaultBtn(w);
+    expect(btn.exists()).toBe(true);
+    expect(btn.attributes("aria-label")).toBe("Save to My Gear");
+    await btn.trigger("click");
+    expect(saveItemToVault).toHaveBeenCalledOnce();
+    w.unmount();
+  });
+
+  it("still vanishes when My Gear holds the gear with no weight — that one the automatic path fills", () => {
+    // a held zero is the one figure background capture writes, so the row is
+    // covered the way an unbanked row on a yes list is: it is about to happen
+    vaultAuto.value = true;
+    const item = gear();
+    vaultGear.value = banked(item, 0);
+    const w = mountRow(item);
+    expect(vaultBtn(w).exists()).toBe(false);
+    w.unmount();
+  });
+
   it("waits for the row to become gear — a new item carries no icon, finishing it brings one", async () => {
     // no weight and no catalog link — isVaultWorthy says "still a half-typed
     // thought". There is nothing to save, so there is no button to press; the
