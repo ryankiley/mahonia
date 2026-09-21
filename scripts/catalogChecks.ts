@@ -16,6 +16,7 @@ import { isVariantRedundant, normalizeVariant, normKey, RANGE_G } from "../share
 import { soldByOf, traitsOf, type AttributeKey } from "../shared/catalogAxes";
 import { extractAttributes, SHOE_REGIONS } from "./catalogAttributes";
 import { GEAR_TYPE_ALIASES } from "./gearTypes";
+import { isProductSlug } from "../shared/catalogSlug";
 
 export interface Finding {
   level: "error" | "warning";
@@ -309,6 +310,37 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     } else {
       byCI.set(ci, r);
     }
+  }
+
+  // --- ERROR: two products on one address, or a product with no address ------
+  // The slug (shared/catalogSlug.ts) is the page's URL under /catalog and the key the
+  // seeder stores, so every variant of a product must carry one slug and no two
+  // products may share it. The fold spells out "+" and a leading minus for exactly
+  // the pairs that would otherwise collide (X-Mid Pro 2 / 2+, Bishop Pass -15F / 15F);
+  // anything else that lands on one address is a naming problem to fix at the source.
+  const bySlug = new Map<string, CatalogCsvRow>();
+  for (const r of rows) {
+    if (!isProductSlug(r.slug)) {
+      err("slug-empty", `${gearLabel(r)}: brand or name folds to no address ("${r.slug}") — the page needs a Latin spelling`);
+      continue;
+    }
+    const prev = bySlug.get(r.slug);
+    if (!prev) {
+      bySlug.set(r.slug, r);
+      continue;
+    }
+    // the case-collision fold, not normKey: normKey drops punctuation, which is the
+    // one thing telling "Lone Peak 9" from "Lone Peak 9+"
+    const ci = (x: string | null) => (x || "").toLowerCase().replace(/\s+/g, " ").trim();
+    if (`${ci(r.brand)}|${ci(r.name)}` !== `${ci(prev.brand)}|${ci(prev.name)}`) {
+      err("slug-collision", `${gearLabel(r)} and ${gearLabel(prev)} share the address /catalog/${r.slug} — two products need two spellings`);
+    }
+  }
+
+  // --- ERROR: a shipped row with no quote ------------------------------------
+  // The build refuses a research row without one; this catches a hand-edited CSV.
+  for (const r of rows) {
+    if (!(r.quote ?? "").trim()) err("quote-missing", `${gearLabel(r)}: no quote for the cited weight`);
   }
 
   // --- ERROR: provenance laundering (manufacturer claim from a review site) -

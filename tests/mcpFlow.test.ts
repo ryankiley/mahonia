@@ -4,7 +4,7 @@ import { createEvent } from "h3";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import mcp from "../server/routes/mcp.post";
-import { CATALOG_DDL } from "../server/utils/catalog";
+import { CATALOG_DDL, productVariants } from "../server/utils/catalog";
 import { LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
 import { createTestDb } from "./helpers/db";
 import { stubFetch } from "./helpers/http";
@@ -62,9 +62,9 @@ beforeAll(async () => {
   const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL, CATALOG_DDL);
   _resetSnapshotEnsured();
   await db.insert(schema.catalogItems).values([
-    { brand: "Enlightened Equipment", name: "Revelation", variant: "20F Long", weightMg: 590_000, weightSource: "manufacturer", sourceUrl: "https://enlightenedequipment.com/revelation", verified: true, commonName: "Quilt", categoryHint: "sleep", searchTerms: "quilt sleep" },
-    { brand: "Enlightened Equipment", name: "Revelation", variant: "20F Regular", weightMg: 550_000, weightSource: "manufacturer", sourceUrl: "https://enlightenedequipment.com/revelation", verified: true, commonName: "Quilt", categoryHint: "sleep", searchTerms: "quilt sleep" },
-    { brand: "Zpacks", name: "Duplex", variant: null, weightMg: 538_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/duplex", verified: true, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter" },
+    { brand: "Enlightened Equipment", name: "Revelation", variant: "20F Long", weightMg: 590_000, weightSource: "manufacturer", sourceUrl: "https://enlightenedequipment.com/revelation", verified: true, commonName: "Quilt", categoryHint: "sleep", searchTerms: "quilt sleep", slug: "enlightened-equipment/revelation" },
+    { brand: "Enlightened Equipment", name: "Revelation", variant: "20F Regular", weightMg: 550_000, weightSource: "manufacturer", sourceUrl: "https://enlightenedequipment.com/revelation", verified: true, commonName: "Quilt", categoryHint: "sleep", searchTerms: "quilt sleep", slug: "enlightened-equipment/revelation" },
+    { brand: "Zpacks", name: "Duplex", variant: null, weightMg: 538_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/duplex", verified: true, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter", slug: "zpacks/duplex" },
   ]);
   state.db = db;
 });
@@ -138,7 +138,14 @@ describe("an assistant's session, start to finish", () => {
       ["20F Regular", "https://enlightenedequipment.com/revelation"],
     ]);
     const byName = await call("get_catalog_product", { brand: "zpacks", name: "duplex" });
-    expect(byName.data).toMatchObject({ brand: "Zpacks", name: "Duplex", variants: [{ variant: null, weight_g: 538, verified: true }] });
+    expect(byName.data).toMatchObject({ brand: "Zpacks", name: "Duplex", page: "http://mahonia.test/catalog/zpacks/duplex", variants: [{ variant: null, weight_g: 538, verified: true }] });
     expect((await call("get_catalog_product", { brand: "Nobody", name: "Duplex" })).isError).toBe(true);
+  });
+
+  it("finds a product by its page's slug — the catalog page's Pack this", async () => {
+    const found = await productVariants(state.db as Parameters<typeof productVariants>[0], { slug: "enlightened-equipment/revelation" });
+    expect(found?.slug).toBe("enlightened-equipment/revelation");
+    expect(found?.variants.map((v) => v.variant)).toEqual(["20F Long", "20F Regular"]);
+    expect(await productVariants(state.db as Parameters<typeof productVariants>[0], { slug: "nobody/nothing" })).toBeNull();
   });
 });

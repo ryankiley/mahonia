@@ -11,6 +11,7 @@ import { csvToCatalogRows, isCitationUrl, isWeightSource } from "../scripts/cata
 import { runCatalogChecks } from "../scripts/catalogChecks";
 import { CATALOG_CSV } from "../scripts/paths";
 import { GEAR_TRAITS } from "../shared/catalogAxes";
+import { isProductSlug } from "../shared/catalogSlug";
 
 const rows = csvToCatalogRows(readFileSync(CATALOG_CSV, "utf8"));
 const findings = runCatalogChecks(rows);
@@ -48,10 +49,19 @@ describe("seed/catalog.csv data quality", () => {
     expect(Object.keys(GEAR_TRAITS).filter((t) => !live.has(t))).toEqual([]);
   });
 
-  it("every row has provenance + a citation URL", () => {
+  it("every row has provenance, a citation URL and the cited words", () => {
     const bad = rows.filter(
-      (r) => !isWeightSource(r.weightSource) || !isCitationUrl(r.sourceUrl ?? ""),
+      (r) => !isWeightSource(r.weightSource) || !isCitationUrl(r.sourceUrl ?? "") || !(r.quote ?? "").trim(),
     );
     expect(bad.map((r) => r.name)).toEqual([]);
+  });
+
+  it("every product has one address and no two products share it", () => {
+    // the slug is what /catalog/<brand>/<product> resolves and what the seeder stores;
+    // the build's slug-collision rule is the gate, this is the count behind it
+    const products = new Set(rows.map((r) => `${(r.brand ?? "").toLowerCase()}|${r.name.toLowerCase()}`));
+    const slugs = new Set(rows.map((r) => r.slug));
+    expect(slugs.size).toBe(products.size);
+    expect(rows.every((r) => isProductSlug(r.slug))).toBe(true);
   });
 });

@@ -417,3 +417,14 @@ modules and their sentences), which only a list opened in Trip view downloads. F
 LOAD is untouched, 151.1 → 151.0 against 153, because none of it is on the editor's
 path. MAX_CHUNK unmoved at 52.9 against 72. 287 restores the ~4 KB of slack the
 re-anchors above keep arguing for.
+
+294 → 298, the catalog product pages (#334): a page per product under /catalog, with
+its cited weight, the maker's words and a "Pack this" that opens the editor with the row
+added. Measured both ways: main at abaa6ef builds to 290.6 against 294 (3.4 KB of slack),
+294.0 with the branch. The +3.4 is the product page's own route chunk (a page nobody
+downloads from the editor) plus the Pack this handler, which the editor imports on
+demand and only for a visitor who arrived from a product page. FIRST LOAD moves
+149.5 → 149.8 against the 150 ceiling: the editor gains a watcher on the address's
+`add` query, a `draftSettled` promise and one more row-adding function on the
+controller, and nothing else. MAX_CHUNK unmoved at 52.4 against 72. 298 restores the
+~4 KB of slack the re-anchors above keep arguing for.

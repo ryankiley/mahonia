@@ -339,6 +339,25 @@ watch(
   },
   { immediate: true },
 );
+// A catalog page's "Pack this" arrives as /e?add=<brand/product>[&variant=…]. A
+// WATCHER, not a one-shot read: /e is prerendered, so a hard load of /e?add=… hydrates
+// against the bare address and is moved to the full one after first paint (the
+// index page's note on the same mechanism), and the query is only there on the
+// second run. The query is cleared BEFORE the add so a reload can't add the row
+// twice, and the handler is loaded on demand — the editor's first load is measured
+// to the kilobyte, and this runs for one visitor in many.
+watch(
+  () => route.query.add,
+  async (add) => {
+    if (typeof add !== "string" || !add) return;
+    const variant = typeof route.query.variant === "string" ? route.query.variant : undefined;
+    await navigateTo({ path: route.path, hash: route.hash, query: {} }, { replace: true });
+    const { packFromCatalog } = await import("~/utils/packFromCatalog");
+    const done = await packFromCatalog(c, add, variant);
+    flash(done.ok ? `Added ${done.name}` : "Couldn’t reach the catalog");
+  },
+  { immediate: true },
+);
 // the toast clears its own timer (useToast)
 onBeforeUnmount(() => c.dispose(ownedEpoch));
 

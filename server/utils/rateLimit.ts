@@ -231,6 +231,9 @@ const RATE_LIMITS = {
   "catalog-match": 30, // one request per import, every row's name in it
   "catalog-use": 120,
   "catalog-changes": 60,
+  // one product by its page's slug — a person pressing "Pack this", never a crawler
+  // (the pages themselves are static and read no API)
+  "catalog-product": 60,
   "catalog-correct": 20,
   // trail-link favicon lookup — the ONE endpoint that fetches a caller-named third-party
   // host, so it's the tightest public budget here. A real editor asks once per link it
