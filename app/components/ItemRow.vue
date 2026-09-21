@@ -902,16 +902,25 @@ const vaultCovered = computed(() => {
   // it does not care what this list's capture answer happens to be.
   //
   // Held gear still isn't covered while the row carries a weight the vault would
-  // take: capture writes the incoming weight, so correcting one and pressing save
-  // does something. Membership alone made the button leave on the first press and
-  // never come back, so a weight fixed afterwards could not be pushed from that
-  // list at all. `null` is a PINNED weight — you fixed it by hand on /gear and no
-  // capture may argue with it — and a row with no weight sends nothing (the
-  // upsert ignores a zero), so both are covered.
+  // take: a press sends the incoming weight as a deliberate replacement, so
+  // correcting one and pressing save does something. Membership alone made the
+  // button leave on the first press and never come back, so a weight fixed
+  // afterwards could not be pushed from that list at all. `null` is a PINNED
+  // weight — you fixed it by hand on /gear and no capture may argue with it — and
+  // a row with no weight sends nothing (the upsert ignores a zero), so both are
+  // covered.
   if (vaultGear.value.has(vaultKey.value)) {
     const held = vaultGear.value.get(vaultKey.value);
     const mine = Math.max(0, Math.round(props.item.unitWeightMg));
     if (held === null || mine === 0 || held === mine) return true;
+    // Held at a DIFFERENT weight. The automatic path below only fills a missing
+    // vault weight (PR #392: a list is a record of a trip, My Gear is the current
+    // kit), so on a covered list it will leave this one exactly as it is — and
+    // reading the list's answer as coverage here hid the button on the one row
+    // where pressing it is the only act that can move the vault's figure. A held
+    // zero is the one figure the automatic path WOULD fill, so that case still
+    // falls through to the list's answer.
+    if (held !== undefined && held > 0) return false;
   }
   // Not banked yet, but about to be: the automatic path takes this list's gear on
   // the next pause, so offering to do it by hand is offering to do what's already
