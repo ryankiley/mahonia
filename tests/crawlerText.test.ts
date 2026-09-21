@@ -69,5 +69,26 @@ describe("llms.txt", () => {
     expect(body).toContain("The list editor (/e)");
     expect(body).toContain("http://mahonia.test/about");
     expect(body).toContain("https://github.com/ryankiley/mahonia/releases");
+    // and the catalog pages, by their shape and one example on the request's host
+    expect(body).toContain("/catalog/{brand}/{product}");
+    expect(body).toContain("http://mahonia.test/catalog/durston/x-mid-2");
+  });
+});
+
+describe("the catalog product pages", () => {
+  // Source canaries, as above: the page is the one thing under /catalog that IS meant
+  // to be indexed (a canonical, no robots tag), its two JSON endpoints are not, and
+  // the pages are prerendered — the rule that keeps a crawler's sweep off the
+  // function and the database (nuxt.config's reasoning).
+  it("are indexable, prerendered, and their JSON isn't", () => {
+    const page = readFileSync(`${ROOT}app/pages/catalog/[brand]/[product].vue`, "utf8");
+    expect(page).toContain('rel: "canonical"');
+    expect(page).not.toMatch(/name: "robots", content: "noindex"/);
+    for (const file of ["server/api/catalog/page.get.ts", "server/api/catalog/product.get.ts"]) {
+      expect(readFileSync(`${ROOT}${file}`, "utf8"), file).toContain("setNoIndex(event)");
+    }
+    const config = readFileSync(`${ROOT}nuxt.config.ts`, "utf8");
+    expect(config).toContain('"/catalog/**": { prerender: true }');
+    expect(config).toContain('"prerender:routes"');
   });
 });

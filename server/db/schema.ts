@@ -136,6 +136,11 @@ export const catalogItems = pgTable(
     // seed time from name + category_hint — see scripts/searchTerms.ts. Folded into
     // the fuzzy match so "tent" finds a "Copper Spur" and "rucksack" a "backpack".
     searchTerms: text("search_terms"),
+    // The product's address under /catalog ("brand/product", shared/catalogSlug.ts),
+    // written by the seeder from brand + name and shared by a product's variants; the
+    // catalog page's "Pack this" resolves it here. Seeded rows only — a community row
+    // has no page and stays null.
+    slug: text("slug"),
     weightMg: bigint("weight_mg", { mode: "number" }).notNull(),
     // Food energy for ONE unit (the calorie twin of weight_mg) — cited research,
     // food rows only; null everywhere else. A pick pre-fills the row's kcal with it.

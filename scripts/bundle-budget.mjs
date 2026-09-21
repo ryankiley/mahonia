@@ -79,7 +79,10 @@ const FIRST_LOAD_BUDGET_KB = 150;
 // feature work spread across lazy chunks — the trip tab's day facts, the fuel rules,
 // the account cache split — and the last 0.2 to the map-file reader becoming a chunk
 // of its own, which is the first-load lever working as intended. No chunk grew.
-const TOTAL_BUDGET_KB = 294;
+// Re-set 2026-09-20 at 294.0 measured (was 294, main at 290.6): the catalog product
+// page's route chunk and the on-demand "Pack this" handler (#334), neither on the
+// editor's first load. See the ledger.
+const TOTAL_BUDGET_KB = 298;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

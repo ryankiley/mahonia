@@ -26,7 +26,9 @@ const csv = (over: Partial<CatalogCsvRow>): CatalogCsvRow => ({
   kcal: null,
   weightSource: "manufacturer",
   sourceUrl: URL,
+  quote: "Weight: 420 g",
   searchTerms: null,
+  slug: "goldwin/gore-tex-3l-jacket",
   ...over,
 });
 const seeded = { brand: "Goldwin", name: "GORE-TEX 3L Jacket", variant: "Medium, JP 3", weightMg: 420_000, weightSource: "manufacturer", sourceUrl: URL, verified: true, usageCount: 2 };

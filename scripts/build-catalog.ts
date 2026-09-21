@@ -54,6 +54,7 @@ type BuiltRow = {
   weight_mg: number;
   weight_source: string;
   source_url: string;
+  quote: string;
   kcal: number | null;
 };
 
@@ -107,6 +108,14 @@ function main() {
       const url = (row.source_url ?? "").trim();
       if (!isCitationUrl(url)) {
         skipped.push(`${file}: ${label} — missing/invalid source_url`);
+        continue;
+      }
+      // The quote is the citation's substance and the product page's text; a row
+      // without one is held back like a row without a URL (every row has had one
+      // since the first research file — this only guards a hand-typed omission).
+      const quote = (row.quote ?? "").trim();
+      if (!quote) {
+        skipped.push(`${file}: ${label} — missing quote`);
         continue;
       }
       const unit = (row.weight_unit ?? "").trim() as SpecUnit;
@@ -166,6 +175,7 @@ function main() {
         weight_mg: weightMg,
         weight_source: source,
         source_url: url,
+        quote,
         kcal,
       };
 
