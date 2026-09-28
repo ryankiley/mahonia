@@ -64,6 +64,16 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
   workbox: {
     // precache the client shell (hashed JS/CSS/fonts) so it boots from cache
     globPatterns: ["**/*.{js,css,woff2}"],
+    // NOT the catalog product pages. @vite-pwa/nuxt appends `**/_payload.json` to the
+    // patterns above whenever a route rule prerenders (the payload of /, /e, /about
+    // and /legal, which IS the shell), and /catalog/** prerenders 2,300 pages with a
+    // payload each. Left in, they made the worker's manifest 2,468 entries and the
+    // worker itself 254 KB, and every new visitor fetched 2,300 files of gear
+    // weights in the background to boot an app that never shows them offline — the
+    // pages exist to cost nothing at runtime (see nuxt.config's /catalog rule), and
+    // a precache is the one thing that could undo that. A product page visited
+    // online still reaches its payload the ordinary way.
+    globIgnores: ["catalog/**"],
     // …plus the bare address, the manifest's start_url, by name. It is a prerendered
     // static shell that only resolves on the client (app/pages/index.vue), so it belongs
     // in the precache — an installed app launched offline gets it instantly, then the
