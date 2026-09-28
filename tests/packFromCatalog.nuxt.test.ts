@@ -63,6 +63,9 @@ const PRODUCTS: Record<string, unknown> = {
 };
 registerEndpoint("/api/catalog/product", (event) => {
   const slug = new URL(event.node.req.url ?? "", "http://x").searchParams.get("slug") ?? "";
+  // one address that gets no answer at all — the database is down, the function
+  // never ran — as opposed to an answer that says "no such product"
+  if (slug === "acme/unreachable") throw createError({ statusCode: 503 });
   const product = PRODUCTS[slug];
   if (!product) throw createError({ statusCode: 404 });
   return { product };
@@ -142,8 +145,24 @@ describe("packFromCatalog", () => {
   it("reports a product the catalog doesn't have, and adds nothing", async () => {
     const c = useGearList();
     c.startDraft();
-    expect(await packFromCatalog(c, "nobody/nothing")).toEqual({ ok: false });
+    expect(await packFromCatalog(c, "nobody/nothing")).toEqual({ ok: false, reason: "missing" });
     expect(c.snapshot.value!.items).toHaveLength(0);
     expect(created).toBeNull();
+  });
+
+  it("adds nothing when the named variant is gone, rather than a different size under that name", async () => {
+    const c = useGearList();
+    c.startDraft();
+    // the page's row said "XL"; the catalog now sells Regular and Large only
+    expect(await packFromCatalog(c, "therm-a-rest/neoair-xlite-nxt", "XL")).toEqual({ ok: false, reason: "missing" });
+    expect(c.snapshot.value!.items).toHaveLength(0);
+    expect(used).toEqual([]);
+  });
+
+  it("tells no answer apart from no such product", async () => {
+    const c = useGearList();
+    c.startDraft();
+    expect(await packFromCatalog(c, "acme/unreachable")).toEqual({ ok: false, reason: "unreachable" });
+    expect(c.snapshot.value!.items).toHaveLength(0);
   });
 });

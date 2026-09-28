@@ -39,23 +39,33 @@ const FOLDER_FOR: Record<string, { colorKey: string; name: string }> = {
   consumable: { colorKey: "consumable", name: "Food & Fuel" },
 };
 
-export type PackOutcome = { ok: true; name: string } | { ok: false };
+/** Why nothing was added: the catalog answered and holds no such product or variant
+ *  ("missing" — a row renamed since the page was built, or a database the seeder
+ *  hasn't reached yet), or it gave no answer at all ("unreachable"). The editor's
+ *  toast says which; a visitor offline and a visitor on a stale page are owed
+ *  different words. */
+export type PackOutcome = { ok: true; name: string } | { ok: false; reason: "missing" | "unreachable" };
 
 export async function packFromCatalog(c: Controller, slug: string, variant?: string): Promise<PackOutcome> {
   let answer: ProductAnswer;
   try {
     answer = await $fetch<ProductAnswer>("/api/catalog/product", { query: { slug } });
-  } catch {
-    return { ok: false };
+  } catch (e) {
+    const err = e as { status?: number; statusCode?: number }; // ofetch's FetchError, either spelling
+    return { ok: false, reason: (err.status ?? err.statusCode) === 404 ? "missing" : "unreachable" };
   }
   const { product } = answer;
-  const row = (variant && product.variants.find((v) => v.variant === variant)) || product.variants[0];
-  if (!row) return { ok: false };
+  // The variant the page's row named, exactly — never a different size under the
+  // name the visitor pressed: the toast would say "Regular" for a moment and the
+  // list would carry the wrong weight for good. No variant named means the page had
+  // one row, and the product's first variant is that row.
+  const row = variant ? product.variants.find((v) => v.variant === variant) : product.variants[0];
+  if (!row) return { ok: false, reason: "missing" };
 
   // the restored draft, if one was waiting in IndexedDB, replaces the starter
   // snapshot asynchronously: land the row after that, never before
   await c.draftSettled();
-  if (!c.snapshot.value) return { ok: false };
+  if (!c.snapshot.value) return { ok: false, reason: "unreachable" };
 
   const home = FOLDER_FOR[product.categoryHint ?? ""];
   let folderId: string | null = null;

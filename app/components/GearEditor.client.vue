@@ -301,8 +301,17 @@ function startSession(cap?: { token?: string; code?: string }) {
 // The route's CODE param joins the source: a claimed list opened from the switcher
 // is /e/{code} with no fragment at all, so switching between two claimed lists
 // moves only the param.
+//
+// TWO SOURCES, not one getter returning the pair. A getter's array is a fresh value
+// on every run, and Nuxt re-syncs its route object on every same-page navigation —
+// a query change included — so the pair-in-an-array form ran this again on the
+// "Pack this" watcher's own query-clearing replace below (and on the post-hydration
+// restore of a hard-loaded /e?add=…): the session was torn down and started over
+// mid-add, and the teardown wrote whatever snapshot was on screen over the on-device
+// draft slot before the first restore had read it. Vue compares each source's own
+// value, so this now runs only when the hash or the code itself changes.
 watch(
-  () => [route.hash, route.params.code] as const,
+  [() => route.hash, () => route.params.code],
   ([h, codeParam]) => {
     // decode HERE, not inside startSession: a malformed hash ("#%") throws, and that
     // throw must land before the dispose, exactly as it always has.
@@ -354,7 +363,9 @@ watch(
     await navigateTo({ path: route.path, hash: route.hash, query: {} }, { replace: true });
     const { packFromCatalog } = await import("~/utils/packFromCatalog");
     const done = await packFromCatalog(c, add, variant);
-    flash(done.ok ? `Added ${done.name}` : "Couldn’t reach the catalog");
+    // two ways to fail, told apart: the catalog answered and has no such product (a
+    // renamed row, a variant that is gone) is not the same news as no answer at all
+    flash(done.ok ? `Added ${done.name}` : done.reason === "missing" ? "Couldn’t find that product in the catalog" : "Couldn’t reach the catalog");
   },
   { immediate: true },
 );

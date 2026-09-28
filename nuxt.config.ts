@@ -194,7 +194,13 @@ export default defineNuxtConfig({
     // can't drag anything else into the build.
     "prerender:routes"({ routes }) {
       const csv = readFileSync(new URL("./seed/catalog.csv", import.meta.url), "utf8");
-      for (const page of catalogPagesFromCsv(csv)) routes.add(`/catalog/${page.slug}`);
+      const pages = catalogPagesFromCsv(csv);
+      // The reader answers a file it can't read with NO pages rather than a throw
+      // (at runtime one odd row must not take the sitemap down). At build, none at
+      // all is a broken file or a renamed column, and a deploy that quietly drops
+      // every product page — and every sitemap entry — is the failure to refuse.
+      if (!pages.length) throw new Error("seed/catalog.csv yielded no catalog product pages to prerender");
+      for (const page of pages) routes.add(`/catalog/${page.slug}`);
     },
     "nitro:init"(nitro) {
       nitro.hooks.hook("compiled", async () => {

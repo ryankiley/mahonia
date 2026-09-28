@@ -81,10 +81,9 @@ const sharedHost = computed(() => {
   const first = hosts.value[0];
   return first && hosts.value.every((h) => h && h.host === first.host) ? first : null;
 });
-const kicker = computed(() => {
-  const type = page.value.commonName ?? "";
-  return many.value ? `${type} · ${variants.value.length} variants` : type;
-});
+const kicker = computed(() =>
+  [page.value.commonName, many.value ? `${variants.value.length} variants` : ""].filter(Boolean).join(" · "),
+);
 const gramsUnit = (mg: number) => autoUnit(mg, "metric");
 
 // Head. The description says the number, which is what the query asked; the
@@ -92,12 +91,20 @@ const gramsUnit = (mg: number) => autoUnit(mg, "metric");
 // crawler). JSON-LD names the product and its weight in grams for anything that
 // reads structured data; no offers, no ratings — this is a reference, not a shop.
 const origin = useSiteOrigin();
+// a single figure's provenance, in the label's voice: over a hundred products carry
+// no maker figure at all, and "as the maker cites it" would misattribute every one
+const cited = computed(() => {
+  const source = variants.value[0]?.weightSource;
+  if (source === "measured") return "weighed on a scale";
+  if (source === "community") return "a community-reported weight";
+  return "the weight as the maker cites it";
+});
 const description = computed(() => {
   const w = `${metric.value.value} ${metric.value.unit}`;
   const kind = page.value.commonName ? `${page.value.commonName.toLowerCase()}, ` : "";
   return many.value
     ? `${title.value}: ${kind}${variants.value.length} variants from ${w}, each weight cited to its source.`
-    : `${title.value}: ${kind}${w}, the weight as the maker cites it.`;
+    : `${title.value}: ${kind}${w}, ${cited.value}.`;
 });
 const jsonLd = computed(() => {
   const grams = (mg: number) => ({ "@type": "QuantitativeValue", value: Math.round(mg / 1000), unitCode: "GRM" });
@@ -120,7 +127,10 @@ const jsonLd = computed(() => {
 useHead(() => ({
   title: `${title.value} weight — Mahonia`,
   link: [{ rel: "canonical", href: `${origin}/catalog/${slug.value}` }],
-  script: [{ type: "application/ld+json", innerHTML: JSON.stringify(jsonLd.value) }],
+  // "<" escaped inside the JSON (still valid JSON): the words are the catalog's own,
+  // but the catalog takes outside rows, and a name carrying a closing script tag
+  // would otherwise end the block early on a page served to everyone
+  script: [{ type: "application/ld+json", innerHTML: JSON.stringify(jsonLd.value).replace(/</g, "\\u003c") }],
 }));
 useSeoMeta({
   description: () => description.value,
