@@ -48,6 +48,17 @@ html {
   overflow-x: clip;
 }
 
+// No rubber-band bounce at the page's top and bottom on desktop trackpads.
+// Gated on a fine pointer so touch devices keep their native bounce and
+// pull-to-refresh. The -y longhand, not the shorthand: overscroll-behavior-x
+// on the root turns off Chrome's two-finger swipe for back/forward on a Mac.
+// Inner scrollers (vault pane, menus, dialogs) already carry `contain`.
+@media (pointer: fine) {
+  html {
+    overscroll-behavior-y: none;
+  }
+}
+
 body {
   // 100svh = small-viewport height — stable across the mobile URL-bar toggle
   // (dvh thrashes during the toggle; portfolio's reasoning).
