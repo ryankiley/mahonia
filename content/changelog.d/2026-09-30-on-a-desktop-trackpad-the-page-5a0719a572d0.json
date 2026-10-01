@@ -1,0 +1,6 @@
+{
+  "date": "2026-09-30",
+  "changed": [
+    "On a desktop trackpad the page no longer bounces past its top or bottom, while phones keep pull-to-refresh."
+  ]
+}
