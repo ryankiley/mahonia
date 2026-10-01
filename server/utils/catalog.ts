@@ -90,6 +90,11 @@ export const CATALOG_DDL: string[] = [
   // kcal — cited per-unit food energy (food rows only; null elsewhere). ALTER so
   // existing tables self-migrate, same as search_terms/common_name.
   `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS kcal integer`,
+  // slug — the product's address under /catalog (brand/product), the key the catalog
+  // page's "Pack this" looks a product up by. Seeder-written; null on community rows.
+  // ALTER so existing tables self-migrate, same as the three above.
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS slug text`,
+  `CREATE INDEX IF NOT EXISTS idx_catalog_slug ON catalog_items (slug) WHERE status = 'active'`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used
@@ -220,18 +225,21 @@ export interface CatalogProduct {
   name: string;
   commonName: string | null;
   categoryHint: string | null;
+  /** the product's page, /catalog/<slug>; null for a community product (no page) */
+  slug: string | null;
   variants: ProductVariant[];
 }
 
 /**
- * One product and every active variant of it, by a row id (its siblings come along)
- * or by brand and name. A product is the rows sharing a folded brand and an
- * exact, case-insensitive name: the identity index is (brand, name, variant), and
- * this is that index minus its last column. Null when nothing matches.
+ * One product and every active variant of it, by a row id (its siblings come along),
+ * by its slug (the catalog page's address, seeder-written) or by brand and name. A
+ * product is the rows sharing a folded brand and an exact, case-insensitive name:
+ * the identity index is (brand, name, variant), and this is that index minus its
+ * last column. Null when nothing matches.
  */
 export async function productVariants(
   db: Db,
-  ref: { id?: number; brand?: string; name?: string },
+  ref: { id?: number; slug?: string; brand?: string; name?: string },
 ): Promise<CatalogProduct | null> {
   let anchor: { brand: string | null; name: string } | undefined;
   if (ref.id) {
@@ -239,6 +247,13 @@ export async function productVariants(
       .select({ brand: catalogItems.brand, name: catalogItems.name })
       .from(catalogItems)
       .where(and(eq(catalogItems.id, ref.id), eq(catalogItems.status, "active")))
+      .limit(1);
+    anchor = rows[0];
+  } else if (ref.slug) {
+    const rows = await db
+      .select({ brand: catalogItems.brand, name: catalogItems.name })
+      .from(catalogItems)
+      .where(and(eq(catalogItems.slug, ref.slug), eq(catalogItems.status, "active")))
       .limit(1);
     anchor = rows[0];
   } else if (ref.name) {
@@ -253,6 +268,7 @@ export async function productVariants(
       variant: catalogItems.variant,
       commonName: catalogItems.commonName,
       categoryHint: catalogItems.categoryHint,
+      slug: catalogItems.slug,
       weightMg: catalogItems.weightMg,
       weightSource: catalogItems.weightSource,
       sourceUrl: catalogItems.sourceUrl,
@@ -272,6 +288,7 @@ export async function productVariants(
     name: first.name,
     commonName: first.commonName ?? null,
     categoryHint: first.categoryHint ?? null,
+    slug: first.slug ?? null,
     variants: siblings.map((r) => ({
       id: r.id,
       variant: r.variant,

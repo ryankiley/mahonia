@@ -12,11 +12,12 @@
 // Honors DATABASE_URL: writes to Neon when set, else local PGlite (.data/pglite).
 
 import { readFileSync } from "node:fs";
-import { and, eq, inArray, isNull } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
 import { ensureCatalogSchema } from "../server/utils/catalog";
 import { sizesToWords } from "./seedSizes";
 import { renameMovedVariants } from "./seedRenames";
+import { upsertCatalogRows } from "./seedUpsert";
 import { useDb } from "../server/utils/db";
 import { csvToCatalogRows } from "./catalogCsv";
 import { CATALOG_CSV } from "./paths";
@@ -34,73 +35,7 @@ async function main() {
   const renamed = await renameMovedVariants(db, rows);
   if (renamed.catalog || renamed.vault) console.log(`Variants tidied: ${renamed.catalog} catalog rows and ${renamed.vault} My Gear rows renamed in place, ids kept.`);
 
-  let inserted = 0;
-  let updated = 0;
-  let unchanged = 0;
-
-  for (const row of rows) {
-    const brandCond = row.brand === null
-      ? isNull(catalogItems.brand)
-      : eq(catalogItems.brand, row.brand);
-    const variantCond = row.variant === null
-      ? isNull(catalogItems.variant)
-      : eq(catalogItems.variant, row.variant);
-
-    const existing = await db
-      .select()
-      .from(catalogItems)
-      .where(and(brandCond, eq(catalogItems.name, row.name), variantCond))
-      .limit(1);
-
-    if (existing.length === 0) {
-      await db.insert(catalogItems).values({
-        brand: row.brand,
-        name: row.name,
-        commonName: row.commonName,
-        variant: row.variant,
-        categoryHint: row.categoryHint,
-        weightMg: row.weightMg,
-        kcal: row.kcal,
-        weightSource: row.weightSource,
-        sourceUrl: row.sourceUrl,
-        searchTerms: row.searchTerms,
-        verified: true, // seeded = owner-curated + cited
-      });
-      inserted++;
-      continue;
-    }
-
-    const cur = existing[0];
-    const changed =
-      Number(cur.weightMg) !== row.weightMg ||
-      (cur.kcal ?? null) !== row.kcal ||
-      cur.weightSource !== row.weightSource ||
-      cur.sourceUrl !== row.sourceUrl ||
-      cur.categoryHint !== row.categoryHint ||
-      cur.searchTerms !== row.searchTerms ||
-      cur.commonName !== row.commonName ||
-      cur.verified !== true;
-
-    if (changed) {
-      await db
-        .update(catalogItems)
-        .set({
-          weightMg: row.weightMg,
-          kcal: row.kcal,
-          weightSource: row.weightSource,
-          sourceUrl: row.sourceUrl,
-          categoryHint: row.categoryHint,
-          searchTerms: row.searchTerms,
-          commonName: row.commonName,
-          verified: true,
-          updatedAt: new Date(),
-        })
-        .where(eq(catalogItems.id, cur.id));
-      updated++;
-    } else {
-      unchanged++;
-    }
-  }
+  const { inserted, updated, unchanged } = await upsertCatalogRows(db, rows);
 
   // Prune stale seed-managed rows: anything verified=true that is no longer in
   // the CSV is an orphan from a rename / variant-change / removal (the upsert

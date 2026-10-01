@@ -257,6 +257,7 @@ const PRODUCT_OUTPUT = complete({
   name: str("The product name, without brand or variant."),
   gear_type: nullable("string"),
   category: nullable("string"),
+  page: nullable("string", "The product's own page on the site, with every variant's cited weight and the maker's words for it; null for a community-added product, which has none."),
   variants: {
     type: "array",
     description: "Every active variant, in variant order.",
@@ -362,7 +363,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     },
     outputSchema: PRODUCT_OUTPUT,
     annotations: READ,
-    run: (_event, args) => product(args),
+    run: (event, args) => product(event, args),
   },
   {
     name: "create_list",
@@ -770,7 +771,7 @@ async function search(args: Record<string, unknown>): Promise<ToolResult> {
   });
 }
 
-async function product(args: Record<string, unknown>): Promise<ToolResult> {
+async function product(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   const id = clampInt(args.id, 1, Number.MAX_SAFE_INTEGER, 0) || undefined;
   const brand = typeof args.brand === "string" ? args.brand.trim().slice(0, 200) : undefined;
   const name = typeof args.name === "string" ? args.name.trim().slice(0, 200) : undefined;
@@ -782,6 +783,7 @@ async function product(args: Record<string, unknown>): Promise<ToolResult> {
     name: found.name,
     gear_type: found.commonName,
     category: found.categoryHint,
+    page: found.slug ? `${trustedOrigin(event)}/catalog/${found.slug}` : null,
     variants: found.variants.map((v) => ({
       id: v.id,
       variant: v.variant,

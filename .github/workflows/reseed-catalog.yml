@@ -33,6 +33,10 @@ on:
       # catalogCsv derives search_terms through this, so an edit here changes
       # what seeding writes just as surely as an edit to catalogCsv itself
       - scripts/searchTerms.ts
+      # the upsert itself, and the slug it writes — the product page's address, so
+      # a change to the slug rule has to reach every row in production
+      - scripts/seedUpsert.ts
+      - shared/catalogSlug.ts
   # manual re-run (e.g. after setting the secret, or to force a resync)
   workflow_dispatch: {}
 
