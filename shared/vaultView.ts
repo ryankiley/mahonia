@@ -39,38 +39,25 @@ export function filterVaultRows(rows: VaultEntry[], show: VaultShow): VaultEntry
 }
 
 /**
- * Narrow by a query, using the SAME fuzzy ranker the autocomplete and the vault pane
- * use — over the rows already in memory, so there's no request per keystroke.
- *
- * This page was a literal substring filter, on the argument that a list you are
- * LOOKING at should narrow predictably. The pane retired that same argument for a
- * better reason: a vault is a hundred-odd rows, so you type rather than scan, and a
- * substring match answers a typo with an empty page while the autocomplete two
- * inches away finds the row.
- *
- * Two things the ranker's defaults get wrong for a page, both deliberate there:
- *  • it caps at VAULT_SEARCH_LIMIT (6), for a menu that must not push the catalog
- *    off-screen. This page IS the list, so it takes every match.
- *  • it returns nothing under two characters, since one is too noisy for trigrams.
- *    In a menu that reads "keep typing"; on a page it reads "you own nothing
- *    beginning with t". A single character is a prefix question, so it falls back to
- *    the substring pass, which answers one exactly.
+ * Literal matches include names and notes in any language. Every query term must
+ * match, and matching rows come first. ASCII queries also use the autocomplete's
+ * fuzzy ranker for typo tolerance, without its menu limit. Non-ASCII queries stay
+ * literal because that ranker currently strips their characters.
  */
 export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntry[] {
   const q = (rawQuery ?? "").trim();
   if (!q) return rows;
-  if (q.length < 2) {
-    // Both sides fold their apostrophes: the rows are stored tidied, so "Ryan’s
-    // repair kit" is on screen while the keyboard types "Ryan's". Only needed here —
-    // the ranker's own foldForSearch strips non-alphanumerics on both sides.
-    const needle = foldApostrophes(q.toLowerCase());
-    return rows.filter((i) =>
-      foldApostrophes(
-        `${i.brand ?? ""} ${i.name} ${i.variant ?? ""} ${i.commonName ?? ""}`.toLowerCase(),
-      ).includes(needle),
-    );
-  }
-  return rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
+  const normalize = (text: string) =>
+    foldApostrophes(text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase());
+  const terms = normalize(q).split(/\s+/);
+  const exact = rows.filter((i) => {
+    const text = normalize(`${i.brand ?? ""} ${i.name} ${i.variant ?? ""} ${i.commonName ?? ""} ${i.description ?? ""}`);
+    return terms.every((term) => text.includes(term));
+  });
+  // Preserve Chinese literal matches and Latin typo tolerance.
+  if (q.length < 2 || /[^\u0000-\u007f]/.test(q)) return exact;
+  const ids = new Set(exact.map((i) => i.id));
+  return [...exact, ...rankVaultRows(rows, q, Number.POSITIVE_INFINITY).filter((i) => !ids.has(i.id))];
 }
 
 /** IN WHAT ORDER, across the whole vault. Every comparator tie-breaks on id, so

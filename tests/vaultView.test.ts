@@ -196,3 +196,13 @@ describe("groupVaultRows — the folders view", () => {
   });
 });
 
+
+describe("quick search Chinese", () => {
+  it("matches Chinese names and notes without unrelated results", () => {
+    const rows = [row({name: "SmallRig 电池", description: "蓝色 USB-C"}), row({name: "炉头"})];
+    expect(names(searchVaultRows(rows, "电池"))).toEqual(["SmallRig 电池"]);
+    expect(names(searchVaultRows(rows, "蓝色"))).toEqual(["SmallRig 电池"]);
+    expect(names(searchVaultRows(rows, "smallrig 电池"))).toEqual(["SmallRig 电池"]);
+    expect(searchVaultRows(rows, "熊罐")).toEqual([]);
+  });
+});

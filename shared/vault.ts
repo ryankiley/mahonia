@@ -166,7 +166,8 @@ export function vaultNormKey(
   variant: string | undefined | null,
 ): string {
   if (!(name ?? "").trim()) return "";
-  return foldForSearch([brand, name, variant].filter(Boolean).join(" "));
+  return [brand, name, variant].filter(Boolean).join(" ").normalize("NFD")
+    .replace(/\p{M}/gu, "").toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
 /**
