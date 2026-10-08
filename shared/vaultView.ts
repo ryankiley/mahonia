@@ -9,6 +9,7 @@
 // Two questions, two controls. WHICH gear (`show`) and IN WHAT ORDER (`view`) are
 // independent axes, and only the second one decides whether the page has folders.
 
+import { foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
 import type { VaultEntry, VaultFolder } from "./vault";
 import { rankVaultRows } from "./vaultSearch";
@@ -55,22 +56,33 @@ export function filterVaultRows(rows: VaultEntry[], show: VaultShow): VaultEntry
  *    In a menu that reads "keep typing"; on a page it reads "you own nothing
  *    beginning with t". A single character is a prefix question, so it falls back to
  *    the substring pass, which answers one exactly.
+ *
+ * And one thing it reads too narrowly for a page: the ranker searches what a row IS
+ * (brand, name, variant, common name), never what you WROTE about it. The page also
+ * holds your notes, so a literal pass over them follows the ranked rows — after, not
+ * among them, because a note that mentions the Duplex must not outrank the Duplex.
+ * The literal pass folds both sides through the same fold as the ranker, so it
+ * matches a name in any script and either apostrophe spelling, exactly as the
+ * ranker does, and "x-mid" finds "X-Mid 2".
  */
 export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntry[] {
   const q = (rawQuery ?? "").trim();
   if (!q) return rows;
-  if (q.length < 2) {
-    // Both sides fold their apostrophes: the rows are stored tidied, so "Ryan’s
-    // repair kit" is on screen while the keyboard types "Ryan's". Only needed here —
-    // the ranker's own foldForSearch strips non-alphanumerics on both sides.
-    const needle = foldApostrophes(q.toLowerCase());
-    return rows.filter((i) =>
-      foldApostrophes(
-        `${i.brand ?? ""} ${i.name} ${i.variant ?? ""} ${i.commonName ?? ""}`.toLowerCase(),
-      ).includes(needle),
-    );
-  }
-  return rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
+  const folded = foldForSearch(q);
+  // A query the fold eats whole ("’", "-") is still a question about what's on screen:
+  // both sides fold their apostrophes and the match is raw, as it was before the fold.
+  const fold = folded ? foldForSearch : (s: string) => foldApostrophes(s.toLowerCase());
+  const terms = fold(q).split(/\s+/);
+  const literal = (fields: (r: VaultEntry) => (string | undefined)[]) =>
+    rows.filter((r) => {
+      const text = fold(fields(r).join(" "));
+      return terms.every((t) => text.includes(t));
+    });
+  if (q.length < 2) return literal((r) => [r.brand, r.name, r.variant, r.commonName]);
+  const ranked = rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
+  const seen = new Set(ranked.map((r) => r.id));
+  const noted = literal((r) => [r.brand, r.name, r.variant, r.commonName, r.description]);
+  return [...ranked, ...noted.filter((r) => !seen.has(r.id))];
 }
 
 /** IN WHAT ORDER, across the whole vault. Every comparator tie-breaks on id, so

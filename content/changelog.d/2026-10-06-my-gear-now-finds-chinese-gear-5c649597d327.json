@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-06",
+  "fixed": [
+    "My Gear now finds Chinese gear names and notes, and keeps non-Latin gear identities distinct."
+  ]
+}

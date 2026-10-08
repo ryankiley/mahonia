@@ -9,22 +9,40 @@
 
 import { foldApostrophes } from "./tidyText";
 
-/** The shared text fold: NFD → strip diacritics → lowercase → non-alphanumerics
- *  collapse to single spaces → trim. Diacritics fold to their base letter (ä→a, ū→u)
- *  BEFORE the a–z0–9 strip, so an accented brand ("Fjällräven") folds identically to
- *  its plain spelling ("Fjallraven") and each finds the other. Without the fold the
- *  accent bytes drop to spaces, fragmenting the word. The Neon path mirrors this with
- *  unaccent() (see server/utils/catalog.ts). trigrams() and the tier/prefix helpers
- *  in shared/catalogSearch.ts all fold through this ONE function so they can never
- *  drift apart. */
+/** The shared text fold: NFD → strip the marks → lowercase → the few Latin letters NFD
+ *  leaves whole take their plain spelling → anything that is not a letter or a digit,
+ *  in any script, collapses to a single space → trim. Diacritics fold to their base letter
+ *  (ä→a, ū→u) BEFORE the strip, so an accented brand ("Fjällräven") folds identically
+ *  to its plain spelling ("Fjallraven") and each finds the other. Without the fold the
+ *  accent bytes drop to spaces, fragmenting the word. ø, ß, æ, œ, ł, đ, ð and þ have no
+ *  decomposition, so they are spelled out by hand (ø→o: "norrona" finds Norrøna), the
+ *  same way Postgres's unaccent() spells them, which is what the Neon path folds with
+ *  (see server/utils/catalog.ts). Letters outside Latin are letters too: a name in
+ *  Chinese keeps every character, rather than folding to nothing, so gear named only in
+ *  its owner's language has an identity (shared/vault.ts) and can be searched for.
+ *  trigrams() and the tier/prefix helpers in shared/catalogSearch.ts all fold through
+ *  this ONE function so they can never drift apart. */
 export function foldForSearch(input: string): string {
   return input
     .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[\p{M}\p{Diacritic}]/gu, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/[øßæœłđðþ]/g, (ch) => UNDECOMPOSED[ch]!)
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
+
+/** Latin letters that NFD leaves in one piece, and what unaccent() spells them as. */
+const UNDECOMPOSED: Record<string, string> = {
+  "ø": "o",
+  "ß": "ss",
+  "æ": "ae",
+  "œ": "oe",
+  "ł": "l",
+  "đ": "d",
+  "ð": "d",
+  "þ": "th",
+};
 
 /**
  * Split a suggestion into matched / unmatched runs against what's been typed, so

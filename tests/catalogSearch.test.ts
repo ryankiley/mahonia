@@ -28,6 +28,15 @@ describe("trigrams", () => {
     expect(trigrams("Klättermusen")).toEqual(trigrams("Klattermusen"));
     expect(trigrams("Wūru")).toEqual(trigrams("Wuru"));
   });
+  it("spells out the letters NFD leaves whole, like unaccent(), so a plain typing finds them", () => {
+    expect(trigrams("Norrøna")).toEqual(trigrams("Norrona"));
+    expect(trigrams("Fußsack")).toEqual(trigrams("Fusssack"));
+  });
+  it("keeps letters in every script, so a Chinese name has trigrams at all", () => {
+    expect(trigrams("电池")).toEqual(new Set(["  电", " 电池", "电池 "]));
+    expect(trigramScore("电池", "SmallRig 电池")).toBe(1);
+    expect(trigramScore("熊罐", "SmallRig 电池")).toBe(0);
+  });
 });
 
 describe("trigramScore", () => {

@@ -155,8 +155,11 @@ function trim(v: string | undefined | null, max: number): string | undefined {
 /**
  * The identity of a piece of gear: brand + name + variant, run through the same
  * fold the catalog search uses (NFD → strip diacritics → lowercase → collapse
- * non-alphanumerics). So "Zpacks Duplex", "zpacks  duplex" and "ZPACKS DUPLEX!"
- * are one row, and an accented brand folds to its plain spelling.
+ * anything that isn't a letter or digit). So "Zpacks Duplex", "zpacks  duplex" and
+ * "ZPACKS DUPLEX!" are one row, and an accented brand folds to its plain spelling.
+ * A letter is a letter in any script: "登山杖（裸杖）" and "登山杖（含配件）" are two
+ * rows, and a name written only in Chinese is a row at all, rather than folding
+ * to "" and never being kept.
  *
  * Returns "" for a nameless row — callers treat that as "not vault-worthy".
  */
