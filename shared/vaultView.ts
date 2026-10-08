@@ -9,7 +9,7 @@
 // Two questions, two controls. WHICH gear (`show`) and IN WHAT ORDER (`view`) are
 // independent axes, and only the second one decides whether the page has folders.
 
-import { foldForSearch } from "./searchText";
+import { enoughToSearch, foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
 import type { VaultEntry, VaultFolder } from "./vault";
 import { rankVaultRows } from "./vaultSearch";
@@ -52,10 +52,10 @@ export function filterVaultRows(rows: VaultEntry[], show: VaultShow): VaultEntry
  * Two things the ranker's defaults get wrong for a page, both deliberate there:
  *  • it caps at VAULT_SEARCH_LIMIT (6), for a menu that must not push the catalog
  *    off-screen. This page IS the list, so it takes every match.
- *  • it returns nothing under two characters, since one is too noisy for trigrams.
- *    In a menu that reads "keep typing"; on a page it reads "you own nothing
- *    beginning with t". A single character is a prefix question, so it falls back to
- *    the substring pass, which answers one exactly.
+ *  • it returns nothing under two characters (enoughToSearch), since one is too
+ *    noisy for trigrams. In a menu that reads "keep typing"; on a page it reads "you
+ *    own nothing beginning with t". A single character is a prefix question, so it
+ *    falls back to the substring pass, which answers one exactly.
  *
  * And one thing it reads too narrowly for a page: the ranker searches what a row IS
  * (brand, name, variant, common name), never what you WROTE about it. The page also
@@ -78,7 +78,7 @@ export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntr
       const text = fold(fields(r).join(" "));
       return terms.every((t) => text.includes(t));
     });
-  if (q.length < 2) return literal((r) => [r.brand, r.name, r.variant, r.commonName]);
+  if (!enoughToSearch(q)) return literal((r) => [r.brand, r.name, r.variant, r.commonName]);
   const ranked = rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
   const seen = new Set(ranked.map((r) => r.id));
   const noted = literal((r) => [r.brand, r.name, r.variant, r.commonName, r.description]);

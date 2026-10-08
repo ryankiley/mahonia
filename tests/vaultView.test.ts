@@ -226,6 +226,11 @@ describe("searchVaultRows — notes and other scripts", () => {
     expect(names(searchVaultRows(rows, "duplex patches"))).toEqual(["Repair kit"]);
   });
 
+  it("a single ideograph is a whole query: ranked like a word, then its notes", () => {
+    const rows = [row({ name: "炉头" }), row({ name: "SmallRig 电池", description: "配炉头用" }), row({ name: "眼罩" })];
+    expect(names(searchVaultRows(rows, "炉"))).toEqual(["炉头", "SmallRig 电池"]);
+  });
+
   it("a single character is a prefix question about the gear, not its notes", () => {
     const rows = [row({ name: "Tent", description: "a note" }), row({ name: "Pump", description: "tiny" })];
     expect(names(searchVaultRows(rows, "t"))).toEqual(["Tent"]);

@@ -20,7 +20,7 @@
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
-import { foldForSearch } from "../../shared/searchText";
+import { enoughToSearch, foldForSearch } from "../../shared/searchText";
 import { UNIT_WEIGHT_MAX_MG, isCatalogId } from "../../shared/ops";
 import { memoized } from "./memoize";
 import type { Db } from "./db";
@@ -148,7 +148,7 @@ export async function searchCatalog(
   limit = SEARCH_LIMIT, // same default as the offline ranker — counts can't drift
 ): Promise<CatalogSearchResult[]> {
   const q = normalizeQuery(rawQuery);
-  if (q.length < 2) return []; // 1 char is too noisy for trigram autocomplete
+  if (!enoughToSearch(q)) return []; // 1 char is too noisy for trigrams, unless it is a word
 
   if (isNeon()) {
     // STAGE 1 — recall only. word_similarity matches a short query against the best
