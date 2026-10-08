@@ -194,7 +194,10 @@ button {
 // the menu rows, the switch, the add-folder affordance, the undo link. This is the
 // same step `.btn:active` has always taken, as the floor for the rest. A dimming, not
 // a scale, so it is not motion and needs no reduced-motion gate. Snaps on, and fades
-// off wherever the button already transitions opacity (.btn does).
+// off wherever the button already transitions opacity (.btn does). Specificity is
+// (0,2,1) — :not(:disabled) counts a pseudo-class — so a single-class scoped rule
+// (0,2,0) cannot set a button's opacity while it is pressed; a class that must hold
+// its opacity through a press says so with the press in its own selector.
 button:not(:disabled):active {
   opacity: 0.7;
 }

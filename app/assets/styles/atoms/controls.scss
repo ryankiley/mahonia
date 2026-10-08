@@ -481,6 +481,12 @@ input[type="search"]::-webkit-search-decoration {
 // own menu is the case that settles it: it wanted the shape, so it took a sixth copy.
 // The defence was against something that never arrived, at the price of one idea in six
 // places.
+/* Press feedback for the rows that are LINKS (About, Legal, a pack in the switcher):
+   the reset's rule reaches buttons only, and a menu where some rows dim and some
+   don't reads as half of them being broken. */
+.menu__item:active {
+  opacity: 0.7;
+}
 .menu__item {
   display: flex;
   align-items: center;

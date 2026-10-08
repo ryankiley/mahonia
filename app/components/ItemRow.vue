@@ -2224,6 +2224,10 @@ function dismissFix() {
   font-style: italic;
   white-space: nowrap;
   margin-left: var(--space-1);
+  /* nowrap AND unshrinkable: with the reset's min-width: 0 a nowrap span can be
+     squeezed below its own text and paint it over the chevron after it. The name
+     beside it is what wraps. */
+  flex: none;
 }
 /* ---- the quantity stepper: − · the number · + ----
    CENTRED in the row rather than baseline-aligned, the classification cell's fix for
