@@ -1,4 +1,5 @@
 import type { Ref } from "vue";
+import { enoughToSearch } from "~~/shared/searchText";
 
 // The debounced, abortable autocomplete scaffold, once. The catalog search and the
 // vault search had the same timer / AbortController / lastQ / clear() shape written
@@ -41,7 +42,7 @@ export function useDebouncedSearch<T>(
   function search(raw: string) {
     const q = raw.trim();
     clearTimeout(timer);
-    if (q.length < 2 || opts.ready?.() === false) {
+    if (!enoughToSearch(q) || opts.ready?.() === false) {
       // full teardown, not just an empty results list: an in-flight request (and
       // its lastQ) would otherwise land later and reopen the menu with results
       // for a query the user already deleted. Resetting lastQ also suppresses the

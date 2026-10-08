@@ -32,6 +32,18 @@ export function foldForSearch(input: string): string {
     .trim();
 }
 
+/**
+ * Is there enough typed to search on? Two characters: one is too noisy for trigrams.
+ * Every surface that searches asks this ONE question — the catalog menu, the vault
+ * pane, the page, and the server endpoints behind them — so none of them can say
+ * "keep typing" while another answers. The exception is an ideograph: in Chinese a
+ * single character is a word ("锅" is a pot), and two is a long query, so one of
+ * those is a finished question and gets its answer.
+ */
+export function enoughToSearch(query: string): boolean {
+  return query.length >= 2 || /\p{Ideographic}/u.test(query);
+}
+
 /** Latin letters that NFD leaves in one piece, and what unaccent() spells them as. */
 const UNDECOMPOSED: Record<string, string> = {
   "ø": "o",

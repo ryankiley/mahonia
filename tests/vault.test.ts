@@ -217,6 +217,11 @@ describe("rankVaultRows", () => {
     expect(rankVaultRows(rows, "d")).toEqual([]);
   });
 
+  it("takes a single ideograph — in Chinese one character is a word", () => {
+    const mine = [...rows, { id: 3, brand: "Snow Peak", name: "锅", variant: undefined, commonName: undefined, timesSeen: 1 }];
+    expect(rankVaultRows(mine, "锅").map((r) => r.id)).toEqual([3]);
+  });
+
   it("ranks a prefix match above a merely frequent one", () => {
     expect(rankVaultRows(rows, "duplex")[0]!.id).toBe(1);
   });

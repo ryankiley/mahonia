@@ -1,6 +1,8 @@
 // Pure catalog data-quality helpers shared by the build pipeline, the runtime
 // server (community intake), and tests. No DB, no node-only deps.
 
+import { foldForSearch } from "./searchText";
+
 // Plausible weight range per category, grams. Loose — catches gross slips
 // (a 50 g tent, a 5 kg stove), not borderline judgment calls. (Relocated here
 // from scripts/catalogChecks so server intake can validate without a scripts/ import.)
@@ -19,9 +21,12 @@ export const RANGE_G: Record<string, [number, number]> = {
 
 // --- community intake (Phase 3) -------------------------------------------
 
-/** Normalize a string to a comparison key: lowercase, non-alphanumerics→space. */
+/** Normalize a string to a comparison key — the ONE search fold (shared/searchText),
+ *  so a candidate's identity can't disagree with the gear it was typed as: this used
+ *  to be its own a–z fold, which keyed a name in Chinese as "" and so never let it
+ *  become a candidate however many lists carried it. */
 export function normKey(s: string | null | undefined): string {
-  return (s ?? "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return foldForSearch(s ?? "");
 }
 
 /** A variant is redundant when its tokens already appear (contiguously) in the

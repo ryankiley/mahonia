@@ -13,6 +13,7 @@
 // searched a vault locally; the pane's own search is what brought it here.
 
 import { SIM_THRESHOLD, STRONG_THRESHOLD, isExactOrPrefixMatch, trigramScore } from "./catalogSearch";
+import { enoughToSearch } from "./searchText";
 import { VAULT_SEARCH_LIMIT } from "./vault";
 import { itemDisplayName } from "./weights";
 
@@ -46,7 +47,7 @@ export function rankVaultRows<T extends RankableVaultRow>(
   limit = VAULT_SEARCH_LIMIT,
 ): T[] {
   const q = (rawQuery ?? "").trim();
-  if (q.length < 2) return []; // one character is too noisy for trigram autocomplete
+  if (!enoughToSearch(q)) return []; // one character is too noisy for trigrams, unless it is a word
   return rows
     .map((row) => {
       const brandName = itemDisplayName(row.brand ?? null, row.name);

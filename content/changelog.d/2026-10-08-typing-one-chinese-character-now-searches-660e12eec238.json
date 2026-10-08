@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-08",
+  "fixed": [
+    "Typing one Chinese character now searches, in the catalog and in My Gear. Before, a single character was treated as too short."
+  ]
+}

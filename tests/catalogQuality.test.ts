@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { emergingBrandTokens, isBrandedTypedItem, isVariantRedundant, normalizeVariant, splitKnownBrand } from "../shared/catalogQuality";
+import { emergingBrandTokens, isBrandedTypedItem, isVariantRedundant, normKey, normalizeVariant, splitKnownBrand } from "../shared/catalogQuality";
+
+describe("normKey — a candidate's identity is the search fold", () => {
+  it("keeps a name in any script, and folds an accent as the search does", () => {
+    expect(normKey("Trekology 登山杖（裸杖）")).toBe("trekology 登山杖 裸杖");
+    expect(normKey("Fjällräven Kajka")).toBe(normKey("Fjallraven Kajka"));
+    expect(normKey("  Zpacks  Duplex! ")).toBe("zpacks duplex");
+    expect(normKey(null)).toBe("");
+  });
+});
 
 describe("normalizeVariant", () => {
   const cases: [string, string][] = [
