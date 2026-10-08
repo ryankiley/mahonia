@@ -3,7 +3,6 @@
   "changed": [
     "Buttons, menu rows, switches and checkboxes dim while pressed, so a tap on a phone is answered even where there is no hover.",
     "Headings break into even lines, and paragraphs avoid leaving one word alone on the last line.",
-    "On a desktop without a touch screen, scrolling past the end of a page no longer bounces the top bar away from the edge.",
     "On Windows and Linux, the space for the scrollbar is always kept, so a page too short to scroll shows an empty strip at its right edge."
   ],
   "fixed": [
