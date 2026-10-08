@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-07",
+  "changed": [
+    "Every button, switch and checkbox now dims while pressed, so a tap on a phone is answered even where there is no hover.",
+    "Headings break into even lines, and paragraphs no longer leave a single word on their last line.",
+    "On a desktop, scrolling past the top or bottom of a page no longer bounces the top bar away from the edge."
+  ],
+  "fixed": [
+    "Scrolling with a dialog open no longer moves the list behind it, and the page no longer shifts sideways when one opens."
+  ]
+}

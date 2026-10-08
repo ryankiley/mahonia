@@ -1028,6 +1028,12 @@ input[type="search"]::-webkit-search-decoration {
 // Lifted out of VaultPickerModal when the delete-account dialog needed the same
 // thing. The ink is inherited, so a row can darken its own box on hover by setting
 // `color` on an ancestor rule.
+// Press feedback, the way every button has it (reset.scss): the box is an <input>, so
+// the reset's button rule doesn't reach it. A label press activates its control, so
+// this fires from anywhere on the packing row, which is the whole row's tap target.
+.check:has(.check__box:not(:disabled):active) {
+  opacity: 0.7;
+}
 .check {
   position: relative;
   align-self: center;

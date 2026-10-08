@@ -17,6 +17,14 @@
 *::before,
 *::after {
   box-sizing: border-box;
+  // Every flex and grid child may shrink below its content. The default (`auto`)
+  // is the min-content width, which is how an item name with no space in it ran
+  // 1,600px off a phone's right edge, and why this file's body{} rule and some
+  // fifty `min-width: 0` declarations in the components exist. Here it is the
+  // floor for every child ever added, not a fix found after each overflow. The
+  // one cost: a sized icon or swatch in a row that runs out of room now shrinks
+  // with the text beside it unless it says `flex: none` — the atoms do.
+  min-width: 0;
 }
 
 // Universal margin/padding zero — simpler than a targeted reset and load-bearing
@@ -36,6 +44,20 @@ html {
   // field focus), leave room for the sticky topbar so the field doesn't land
   // hidden underneath it — which read as the page "jumping" on focus.
   scroll-padding-top: 5rem;
+  // Keep the scrollbar's column reserved while the page is locked (see the :has()
+  // rule below) so the content doesn't jump sideways by a scrollbar's width when a
+  // dialog opens and the bar disappears. Overlay scrollbars (macOS, phones) have no
+  // width, so there this is a no-op; classic ones reserve the gutter on every page,
+  // which on a page too short to scroll leaves the column a hair off-centre. That
+  // is the trade, and it is the right one: a shift on every dialog, or a constant.
+  scrollbar-gutter: stable;
+  // No rubber-band on desktop. A trackpad overscroll stretches the whole page past
+  // its edge and drags the sticky topbar with it, which on a page whose top bar is
+  // the navigation reads as the chrome coming loose. Touch keeps the bounce (and
+  // Android's pull-to-refresh): `any-pointer: coarse` is true on any device with a
+  // touch screen, a laptop with one included. The -y longhand on purpose: -x would
+  // also take away swipe-to-go-back.
+  overscroll-behavior-y: none;
   // Pin the layout width to the viewport. After a pinch-zoom in/out iOS Safari
   // grows its LAYOUT VIEWPORT (WebKit 240860) and <body> stretches to fill the
   // wider canvas, leaving a phantom right margin that sticks. The clip must sit
@@ -46,6 +68,22 @@ html {
   // to the viewport width. `clip` (not `hidden`) doesn't create a scroll
   // container, so the sticky topbar survives.
   overflow-x: clip;
+}
+@media (any-pointer: coarse) {
+  html {
+    overscroll-behavior-y: auto;
+  }
+}
+// The page holds still under a modal. Every dialog is a BaseModal, whose scrim is
+// `.ovl`; the expanded route map takes the window the same way (`.is-expanded`).
+// Without this a wheel or a thumb on the scrim scrolled the list behind the dialog,
+// and the map locked the page itself from script (body.style.overflow) — one
+// mechanism now, and it lifts the moment the surface leaves the DOM. `hidden`, not
+// `clip`: the viewport has to keep its scroll offset, and a scroll container with
+// hidden overflow does; a clipped one has no offset to keep. The sticky topbar is
+// unaffected — nothing can scroll past it while this holds.
+html:has(.ovl, .routemap.is-expanded) {
+  overflow: hidden;
 }
 
 body {
@@ -58,13 +96,36 @@ body {
   overflow-x: clip;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
+  // (`text-rendering: optimizeLegibility` used to sit here. MDN's advice is `auto`
+  // for body text — the kerning and ligatures it asks for are on by default in every
+  // current engine, and the only thing it reliably bought was slower layout on long
+  // runs of text.)
 }
 
 // hanging-punctuation — punctuation hangs outside the measure for a tighter
 // rag. Safari-only, harmless elsewhere (progressive enhancement).
+// text-wrap: pretty — no orphan on the last line of a paragraph, and in Safari a
+// more even rag through the whole block. Chrome 117 and Safari 26; Firefox ignores
+// it. Inherited, so it reaches notes and prose alike. A note is TYPED, though, and a
+// paragraph that rebalances under a moving caret reads as the text jumping — so the
+// textarea opts back out below, to `stable`.
 :root {
   hanging-punctuation: first last;
+  text-wrap: pretty;
+}
+// Headings break into lines of even length rather than a full first line and a
+// one-word second (the About page's titles, a long folder name on a phone). Balance
+// is for short blocks only — the browsers cap it at a few lines — which is what a
+// heading is. Never on body text: that is `pretty`'s job above, and balance would
+// pull every paragraph's last line out to match its first.
+h1,
+h2,
+h3,
+h4 {
+  text-wrap: balance;
+}
+textarea {
+  text-wrap: stable;
 }
 
 // Don't let long unbroken strings (URLs, tokens) force horizontal overflow.
@@ -126,6 +187,16 @@ textarea {
 }
 button {
   cursor: pointer;
+}
+// Press feedback for every button. The html{} rule above removes the tap highlight,
+// and every hover that paints is gated to pointers that can hover (controls.scss), so
+// on a phone a button with no :active of its own answered a tap with nothing at all:
+// the menu rows, the switch, the add-folder affordance, the undo link. This is the
+// same step `.btn:active` has always taken, as the floor for the rest. A dimming, not
+// a scale, so it is not motion and needs no reduced-motion gate. Snaps on, and fades
+// off wherever the button already transitions opacity (.btn does).
+button:not(:disabled):active {
+  opacity: 0.7;
 }
 // Kill double-tap-to-zoom on the controls that get tapped in bursts — the ±
 // quantity steppers (a row's qty is MEANT to take three presses in a row, see
