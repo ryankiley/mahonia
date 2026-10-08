@@ -35,6 +35,14 @@ describe("trigrams", () => {
   it("folds full-width ASCII and half-width kana to their ordinary forms", () => {
     expect(trigrams("ＭＳＲ ＰｏｃｋｅｔＲｏｃｋｅｔ ２")).toEqual(trigrams("MSR PocketRocket 2"));
     expect(trigrams("ｶﾒﾗ")).toEqual(trigrams("カメラ"));
+    expect(trigrams("ｶﾞｽ")).toEqual(trigrams("ガス")); // a half-width voicing mark joins its kana
+  });
+  it("keeps a kana's voicing: ガス (gas) is not カス (dregs)", () => {
+    expect(trigrams("ガス")).toEqual(new Set(["  ガ", " ガス", "ガス "])); // one word, voiced
+    expect(trigrams("ガス")).not.toEqual(trigrams("カス"));
+    expect(trigrams("パン")).not.toEqual(trigrams("ハン"));
+    // while an accent is still a spelling, not a word
+    expect(trigrams("Fjällräven")).toEqual(trigrams("Fjallraven"));
   });
   it("keeps letters in every script, so a Chinese name has trigrams at all", () => {
     expect(trigrams("电池")).toEqual(new Set(["  电", " 电池", "电池 "]));

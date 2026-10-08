@@ -20,7 +20,7 @@
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
-import { enoughToSearch, foldForSearch } from "../../shared/searchText";
+import { enoughToSearch, foldForSearch, foldWidth } from "../../shared/searchText";
 import { UNIT_WEIGHT_MAX_MG, isCatalogId } from "../../shared/ops";
 import { memoized } from "./memoize";
 import type { Db } from "./db";
@@ -151,6 +151,10 @@ export async function searchCatalog(
   if (!enoughToSearch(q)) return []; // 1 char is too noisy for trigrams, unless it is a word
 
   if (isNeon()) {
+    // The width fold the JS ranker applies, done here too: unaccent() and pg_trgm's
+    // case fold cover accents and case, but "ＭＳＲ" is three letters Postgres has
+    // never seen. STAGE 2 folds the raw query itself, so only the recall needs this.
+    const wide = foldWidth(q);
     // STAGE 1 — recall only. word_similarity matches a short query against the best
     // extent of a longer name — the right metric for autocomplete fragments. We
     // DON'T use the `<%` operator: its threshold is the GUC
@@ -178,7 +182,7 @@ export async function searchCatalog(
       select id, brand, name, variant, weight_mg, weight_source, verified, usage_count, search_terms, common_name, category_hint, kcal
       from catalog_items
       where status = 'active'
-        and word_similarity(unaccent(${q}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) >= ${SIM_THRESHOLD}
+        and word_similarity(unaccent(${wide}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) >= ${SIM_THRESHOLD}
     `);
     // STAGE 2 — the same JS re-ranker the offline path uses.
     return rankCandidates(normalizeRows(res), q, limit);

@@ -33,6 +33,13 @@ on:
       # catalogCsv derives search_terms through this, so an edit here changes
       # what seeding writes just as surely as an edit to catalogCsv itself
       - scripts/searchTerms.ts
+      # seeding also refolds every My Gear identity through the search fold
+      # (scripts/seedIdentities.ts), so a change to the fold is a change to what
+      # seeding writes: without a reseed a stored key stays under the old fold and
+      # the next capture of the same gear lands as a twin
+      - shared/searchText.ts
+      - shared/vault.ts
+      - scripts/seedIdentities.ts
   # manual re-run (e.g. after setting the secret, or to force a resync)
   workflow_dispatch: {}
 

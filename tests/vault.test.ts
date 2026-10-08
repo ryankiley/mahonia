@@ -82,6 +82,10 @@ describe("vaultNormKey — what counts as the same piece of gear", () => {
     expect(vaultNormKey(null, "充电线", null)).not.toBe(vaultNormKey(null, "急救包", null));
     expect(vaultNormKey("Trekology", "登山杖（裸杖）", null)).not.toBe(vaultNormKey("Trekology", "登山杖（含配件）", null));
     expect(vaultNormKey(null, "ZPÁCKS  Duplex!", null)).toBe("zpacks duplex");
+    // full width is a keyboard mode, not a different name; a voicing mark is a different word
+    expect(vaultNormKey("ＭＳＲ", "ＰｏｃｋｅｔＲｏｃｋｅｔ ２", null)).toBe(vaultNormKey("MSR", "PocketRocket 2", null));
+    expect(vaultNormKey(null, "ガス缶", null)).toBe("ガス缶");
+    expect(vaultNormKey(null, "ガス缶", null)).not.toBe(vaultNormKey(null, "カス缶", null));
   });
 
   it("returns '' for a nameless row, so it can never be stored", () => {
