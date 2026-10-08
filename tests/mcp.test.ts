@@ -375,10 +375,13 @@ describe("reading", () => {
   });
 
   it("get_catalog_product takes an id or a brand and name, and says when nothing matches", async () => {
-    catalog.productVariants.mockResolvedValue({ brand: "Enlightened Equipment", name: "Revelation", commonName: "Quilt", categoryHint: "sleep", variants: [{ id: 3, variant: "20F Long", weightMg: 590_000, weightSource: "manufacturer", sourceUrl: "https://ee.example/rev", verified: true, kcal: null }] });
+    catalog.productVariants.mockResolvedValue({ brand: "Enlightened Equipment", name: "Revelation", commonName: "Quilt", categoryHint: "sleep", slug: "enlightened-equipment/revelation", variants: [{ id: 3, variant: "20F Long", weightMg: 590_000, weightSource: "manufacturer", sourceUrl: "https://ee.example/rev", verified: true, kcal: null }] });
     const { structured } = toolText(await call("get_catalog_product", { id: 3 }));
     expect(catalog.productVariants).toHaveBeenCalledWith(expect.anything(), { id: 3, brand: undefined, name: undefined });
-    expect(structured).toMatchObject({ brand: "Enlightened Equipment", name: "Revelation", variants: [{ id: 3, variant: "20F Long", weight_g: 590, source_url: "https://ee.example/rev" }] });
+    expect(structured).toMatchObject({ brand: "Enlightened Equipment", name: "Revelation", page: "http://mahonia.test/catalog/enlightened-equipment/revelation", variants: [{ id: 3, variant: "20F Long", weight_g: 590, source_url: "https://ee.example/rev" }] });
+    // a community product has no page
+    catalog.productVariants.mockResolvedValue({ brand: null, name: "Homemade pot cozy", commonName: null, categoryHint: null, slug: null, variants: [{ id: 9, variant: null, weightMg: 20_000, weightSource: "community", sourceUrl: null, verified: false, kcal: null }] });
+    expect(toolText(await call("get_catalog_product", { id: 9 })).structured).toMatchObject({ page: null });
     await call("get_catalog_product", { brand: "Zpacks", name: "Duplex" });
     expect(catalog.productVariants).toHaveBeenLastCalledWith(expect.anything(), { id: undefined, brand: "Zpacks", name: "Duplex" });
     catalog.productVariants.mockResolvedValue(null);

@@ -2,6 +2,9 @@ import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
 import { applyOps, MAX_ITEMS, seedRouteEnds, tidyListText, rebaseOnto } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
+/** What addCatalogItem needs of a catalog row: the search result's fields, which the
+ *  product endpoint's variants also carry (server/utils/catalog.ts productVariants). */
+export type CatalogPick = Pick<CatalogSearchResult, "id" | "brand" | "name" | "variant" | "weightMg" | "commonName" | "categoryHint" | "kcal">;
 import { splitWeightTail } from "~~/shared/pasteList";
 import { tidyText } from "~~/shared/tidyText";
 import { isWaterName, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
@@ -733,7 +736,10 @@ function create() {
     status.value = "synced";
     // Restore an in-progress, never-saved draft if one survived a reload/crash.
     // Async (IndexedDB), so the fresh starter paints first and is replaced if found.
-    store.get(DRAFT_KEY).then((local) => {
+    // Kept as `draftRestore` so a write that arrives with the page (a catalog page's
+    // "Pack this", app/utils/packFromCatalog.ts) can wait for it: a row added to the
+    // starter would be overwritten by the restored draft a moment later.
+    draftRestore = store.get(DRAFT_KEY).then((local) => {
       if (myEpoch !== epoch || editToken || !local) return;
       snapshot.value = tidyListText(local.snapshot); // same backfill as the token path
       pending = local.pending ?? [];
@@ -742,6 +748,10 @@ function create() {
       if (hasRealContent(local.snapshot)) createFromDraft();
     });
   }
+  let draftRestore: Promise<void> = Promise.resolve();
+  /** Resolves once startDraft's restore has settled (immediately when no draft was
+   *  started). Never rejects: a failed restore leaves the fresh starter in place. */
+  const draftSettled = () => draftRestore.catch(() => {});
 
   // Persist a draft to the server on its first real content. The created snapshot
   // keeps the client-side folder/item ids (the create path normalizes but preserves
@@ -1125,12 +1135,14 @@ function create() {
     return id;
   }
 
-  function addFolder(name = "New folder") {
+  function addFolder(name = "New folder"): string {
     const folders = snapshot.value?.folders ?? [];
     // a recognised name (e.g. "Clothing") gets its canonical hue; otherwise the
     // next distinct palette colour (see colorKeyForName)
     const colorKey = colorKeyForName(name, folders.map((f) => f.colorKey ?? "other"));
-    dispatch({ t: "addFolder", folder: { id: uid(), name, colorKey, defaultClassification: "base", sortOrder: folders.length } });
+    const id = uid();
+    dispatch({ t: "addFolder", folder: { id, name, colorKey, defaultClassification: "base", sortOrder: folders.length } });
+    return id;
   }
   const updateFolder = (id: string, patch: Partial<Folder>) =>
     dispatch({ t: "updateFolder", id, patch });
@@ -1321,6 +1333,43 @@ function create() {
       catalogItemId: entry.catalogItemId,
       // same pre-claim as addBlankItem: gear pulled from the vault while narrowed
       // to one person lands in that person's view, not invisibly outside it
+      personId: usePersonFilter().assignTarget(snapshot.value.people),
+      sortOrder: nextSortOrder(snapshot.value.items, folderId),
+    };
+    dispatch({ t: "addItem", item });
+    return id;
+  }
+  // Add a catalog product as a row — the catalog page's "Pack this", arriving with
+  // the page (app/utils/packFromCatalog.ts). A complete row in one dispatch, like
+  // addVaultItem above and for the same reason; but the VALUES are the catalog's,
+  // not the holder's, so this is an autocomplete pick's semantics (ItemRow's
+  // onNameCommit, catalog branch): linked, weight and name un-overridden so the
+  // catalog's live-resolve keeps them fresh, the link's weight stamped as the
+  // baseline the "catalog changed" nudge compares against.
+  function addCatalogItem(pick: CatalogPick, folderId: string | null): string {
+    if (!snapshot.value) return "";
+    const id = uid();
+    const item: Item = {
+      id,
+      folderId,
+      name: pick.name,
+      brand: pick.brand ?? undefined,
+      variant: pick.variant ?? undefined,
+      commonName: pick.commonName ?? undefined,
+      commonNameOverridden: false,
+      nameOverridden: false,
+      unitWeightMg: pick.weightMg,
+      catalogWeightMgAtLink: pick.weightMg,
+      weightOverridden: false,
+      catalogItemId: pick.id,
+      qty: 1,
+      // the catalog's consumable category is the one class it can speak for (the
+      // autocomplete's rule); everything else follows the folder it lands in
+      classification:
+        pick.categoryHint === "consumable"
+          ? storedClassification("consumable", folderId, snapshot.value.folders)
+          : null,
+      kcal: pick.kcal ?? undefined,
       personId: usePersonFilter().assignTarget(snapshot.value.people),
       sortOrder: nextSortOrder(snapshot.value.items, folderId),
     };
@@ -1817,7 +1866,7 @@ function create() {
     keylessCode,
     startKeyless,
     authHeaders,
-    load, retryLoad, startDraft, dispose, rotate,
+    load, retryLoad, startDraft, draftSettled, dispose, rotate,
     setMeta, setUnit, addFolder, updateFolder, removeFolder, moveFolderBefore,
     addDay, updateDay, removeDay,
     addPerson, updatePerson, removePerson,
@@ -1828,7 +1877,7 @@ function create() {
     // what My Gear holds of this list's gear, and which keys have an answer at
     // all — ItemRow renders its save button against the pair (see askVaultGear)
     vaultGear, vaultGearAsked, vaultGearSettled,
-    addBlankItem, addBlankItemAfter, pasteItemsAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
+    addBlankItem, addBlankItemAfter, pasteItemsAfter, addVaultItem, addVaultFolder, addCatalogItem, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest, duplicateItem,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };
