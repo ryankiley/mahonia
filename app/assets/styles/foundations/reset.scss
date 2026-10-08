@@ -51,13 +51,6 @@ html {
   // which on a page too short to scroll leaves the column a hair off-centre. That
   // is the trade, and it is the right one: a shift on every dialog, or a constant.
   scrollbar-gutter: stable;
-  // No rubber-band on desktop. A trackpad overscroll stretches the whole page past
-  // its edge and drags the sticky topbar with it, which on a page whose top bar is
-  // the navigation reads as the chrome coming loose. Touch keeps the bounce (and
-  // Android's pull-to-refresh): `any-pointer: coarse` is true on any device with a
-  // touch screen, a laptop with one included. The -y longhand on purpose: -x would
-  // also take away swipe-to-go-back.
-  overscroll-behavior-y: none;
   // Pin the layout width to the viewport. After a pinch-zoom in/out iOS Safari
   // grows its LAYOUT VIEWPORT (WebKit 240860) and <body> stretches to fill the
   // wider canvas, leaving a phantom right margin that sticks. The clip must sit
@@ -68,11 +61,6 @@ html {
   // to the viewport width. `clip` (not `hidden`) doesn't create a scroll
   // container, so the sticky topbar survives.
   overflow-x: clip;
-}
-@media (any-pointer: coarse) {
-  html {
-    overscroll-behavior-y: auto;
-  }
 }
 // The page holds still under a modal. Every dialog is a BaseModal, whose scrim is
 // `.ovl`; the expanded route map takes the window the same way (`.is-expanded`).
