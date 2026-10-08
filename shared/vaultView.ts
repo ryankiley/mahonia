@@ -9,6 +9,7 @@
 // Two questions, two controls. WHICH gear (`show`) and IN WHAT ORDER (`view`) are
 // independent axes, and only the second one decides whether the page has folders.
 
+import { foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
 import type { VaultEntry, VaultFolder } from "./vault";
 import { rankVaultRows } from "./vaultSearch";
@@ -39,25 +40,49 @@ export function filterVaultRows(rows: VaultEntry[], show: VaultShow): VaultEntry
 }
 
 /**
- * Literal matches include names and notes in any language. Every query term must
- * match, and matching rows come first. ASCII queries also use the autocomplete's
- * fuzzy ranker for typo tolerance, without its menu limit. Non-ASCII queries stay
- * literal because that ranker currently strips their characters.
+ * Narrow by a query, using the SAME fuzzy ranker the autocomplete and the vault pane
+ * use — over the rows already in memory, so there's no request per keystroke.
+ *
+ * This page was a literal substring filter, on the argument that a list you are
+ * LOOKING at should narrow predictably. The pane retired that same argument for a
+ * better reason: a vault is a hundred-odd rows, so you type rather than scan, and a
+ * substring match answers a typo with an empty page while the autocomplete two
+ * inches away finds the row.
+ *
+ * Two things the ranker's defaults get wrong for a page, both deliberate there:
+ *  • it caps at VAULT_SEARCH_LIMIT (6), for a menu that must not push the catalog
+ *    off-screen. This page IS the list, so it takes every match.
+ *  • it returns nothing under two characters, since one is too noisy for trigrams.
+ *    In a menu that reads "keep typing"; on a page it reads "you own nothing
+ *    beginning with t". A single character is a prefix question, so it falls back to
+ *    the substring pass, which answers one exactly.
+ *
+ * And one thing it reads too narrowly for a page: the ranker searches what a row IS
+ * (brand, name, variant, common name), never what you WROTE about it. The page also
+ * holds your notes, so a literal pass over them follows the ranked rows — after, not
+ * among them, because a note that mentions the Duplex must not outrank the Duplex.
+ * The literal pass folds both sides through the same fold as the ranker, so it
+ * matches a name in any script and either apostrophe spelling, exactly as the
+ * ranker does, and "x-mid" finds "X-Mid 2".
  */
 export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntry[] {
   const q = (rawQuery ?? "").trim();
   if (!q) return rows;
-  const normalize = (text: string) =>
-    foldApostrophes(text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase());
-  const terms = normalize(q).split(/\s+/);
-  const exact = rows.filter((i) => {
-    const text = normalize(`${i.brand ?? ""} ${i.name} ${i.variant ?? ""} ${i.commonName ?? ""} ${i.description ?? ""}`);
-    return terms.every((term) => text.includes(term));
-  });
-  // Preserve Chinese literal matches and Latin typo tolerance.
-  if (q.length < 2 || /[^\u0000-\u007f]/.test(q)) return exact;
-  const ids = new Set(exact.map((i) => i.id));
-  return [...exact, ...rankVaultRows(rows, q, Number.POSITIVE_INFINITY).filter((i) => !ids.has(i.id))];
+  const folded = foldForSearch(q);
+  // A query the fold eats whole ("’", "-") is still a question about what's on screen:
+  // both sides fold their apostrophes and the match is raw, as it was before the fold.
+  const fold = folded ? foldForSearch : (s: string) => foldApostrophes(s.toLowerCase());
+  const terms = fold(q).split(/\s+/);
+  const literal = (fields: (r: VaultEntry) => (string | undefined)[]) =>
+    rows.filter((r) => {
+      const text = fold(fields(r).join(" "));
+      return terms.every((t) => text.includes(t));
+    });
+  if (q.length < 2) return literal((r) => [r.brand, r.name, r.variant, r.commonName]);
+  const ranked = rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
+  const seen = new Set(ranked.map((r) => r.id));
+  const noted = literal((r) => [r.brand, r.name, r.variant, r.commonName, r.description]);
+  return [...ranked, ...noted.filter((r) => !seen.has(r.id))];
 }
 
 /** IN WHAT ORDER, across the whole vault. Every comparator tie-breaks on id, so

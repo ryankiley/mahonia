@@ -68,8 +68,20 @@ describe("vaultNormKey — what counts as the same piece of gear", () => {
     expect(vaultNormKey("Fjällräven", "Kajka", null)).toBe(vaultNormKey("Fjallraven", "Kajka", null));
   });
 
+  it("spells out the Latin letters diacritic-stripping leaves whole, as unaccent() does", () => {
+    expect(vaultNormKey("Norrøna", "Falketind", null)).toBe(vaultNormKey("Norrona", "Falketind", null));
+    expect(vaultNormKey(null, "Fußsack", null)).toBe("fusssack");
+  });
+
   it("keeps variants distinct — a different size is different gear", () => {
     expect(vaultNormKey("Durston", "X-Mid", "2P")).not.toBe(vaultNormKey("Durston", "X-Mid", "1P"));
+  });
+
+  it("keeps a name in any script — Chinese-only gear has an identity, and its variants differ", () => {
+    expect(vaultNormKey(null, "眼罩", null)).toBe("眼罩");
+    expect(vaultNormKey(null, "充电线", null)).not.toBe(vaultNormKey(null, "急救包", null));
+    expect(vaultNormKey("Trekology", "登山杖（裸杖）", null)).not.toBe(vaultNormKey("Trekology", "登山杖（含配件）", null));
+    expect(vaultNormKey(null, "ZPÁCKS  Duplex!", null)).toBe("zpacks duplex");
   });
 
   it("returns '' for a nameless row, so it can never be stored", () => {

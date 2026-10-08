@@ -182,12 +182,12 @@ const ANY_APOSTROPHE = /[‘’ʼ]/g;
  * Both apostrophe spellings folded together, for LITERAL substring matching.
  *
  * The fuzzy paths don't need this — foldForSearch() strips every non-alphanumeric, so
- * the catalog ranker and the vault ranker already match "Arc'teryx" against
- * "Arc’teryx". The three plain `.includes()` filters do: the vault list, the saved-list
- * switcher and the vault category picker all narrow a list you are LOOKING at, by
- * literal substring, on purpose. Once tidyText stores "Ryan’s repair kit", a user
- * typing the apostrophe their keyboard makes would get zero results for text they can
- * see on screen.
+ * the catalog ranker, the vault ranker and the vault page's literal pass over your notes
+ * already match "Arc'teryx" against "Arc’teryx". The two plain `.includes()` filters
+ * do: the saved-list switcher and the vault category picker both narrow a list you
+ * are LOOKING at, by literal substring, on purpose. Once tidyText stores "Ryan’s repair
+ * kit", a user typing the apostrophe their keyboard makes would get zero results for
+ * text they can see on screen.
  *
  * Folds rather than tidies, because a query is read mid-keystroke: tidyText("Ryan'")
  * leaves the apostrophe straight (nothing follows it yet), so the row would vanish for

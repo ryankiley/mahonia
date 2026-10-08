@@ -197,12 +197,37 @@ describe("groupVaultRows — the folders view", () => {
 });
 
 
-describe("quick search Chinese", () => {
+describe("searchVaultRows — notes and other scripts", () => {
   it("matches Chinese names and notes without unrelated results", () => {
-    const rows = [row({name: "SmallRig 电池", description: "蓝色 USB-C"}), row({name: "炉头"})];
+    const rows = [row({ name: "SmallRig 电池", description: "蓝色 USB-C" }), row({ name: "炉头" })];
     expect(names(searchVaultRows(rows, "电池"))).toEqual(["SmallRig 电池"]);
     expect(names(searchVaultRows(rows, "蓝色"))).toEqual(["SmallRig 电池"]);
     expect(names(searchVaultRows(rows, "smallrig 电池"))).toEqual(["SmallRig 电池"]);
+    expect(names(searchVaultRows(rows, "电"))).toEqual(["SmallRig 电池"]);
     expect(searchVaultRows(rows, "熊罐")).toEqual([]);
+  });
+
+  it("ranks the gear itself above a note that mentions it, and keeps the ranker's order", () => {
+    const rows = [
+      row({ name: "Repair kit", description: "patches for the Duplex floor" }),
+      row({ name: "Stake bag", description: "Duplex stakes" }),
+      row({ brand: "Zpacks", name: "Duplex", timesSeen: 1 }),
+      row({ brand: "Zpacks", name: "Duplex", variant: "Zip", timesSeen: 40 }),
+    ];
+    expect(names(searchVaultRows(rows, "duplex"))).toEqual(["Duplex", "Duplex", "Repair kit", "Stake bag"]);
+    // the ranker's tie-break (timesSeen) still decides between the two Duplexes
+    expect(searchVaultRows(rows, "duplex").slice(0, 2).map((r) => r.variant)).toEqual(["Zip", undefined]);
+    // a typo still finds the gear; a note is only ever a literal match
+    expect(names(searchVaultRows(rows, "dupelx"))).toEqual(["Duplex", "Duplex"]);
+  });
+
+  it("every word of the query has to land somewhere on the row", () => {
+    const rows = [row({ name: "Repair kit", description: "patches for the Duplex floor" }), row({ name: "Stake bag", description: "Duplex stakes" })];
+    expect(names(searchVaultRows(rows, "duplex patches"))).toEqual(["Repair kit"]);
+  });
+
+  it("a single character is a prefix question about the gear, not its notes", () => {
+    const rows = [row({ name: "Tent", description: "a note" }), row({ name: "Pump", description: "tiny" })];
+    expect(names(searchVaultRows(rows, "t"))).toEqual(["Tent"]);
   });
 });
