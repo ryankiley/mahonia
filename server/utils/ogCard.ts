@@ -19,7 +19,7 @@
 // server/assets/fonts (coverage rule: shared/ogCard.ts's DRAWABLE_RANGES).
 //
 // DO NOT "CLEAN UP" the `overrides.satori.fflate` pin in package.json, and do not
-// let a bot bump it to 0.8.x. satori 0.33 depends on fflate 0.7.3 exactly, and
+// let a bot bump it to 0.8.x. satori (0.35.1 here) depends on fflate 0.7.3 exactly, and
 // 0.7.3 is inside GHSA-px8p-9vwx-vf98 (an infinite loop in `unzipSync` on
 // malformed ZIP64 — a function neither satori nor its font parser ever calls, but
 // one `npm audit` reports forever). 0.7.5 clears the advisory and is the last
@@ -29,6 +29,15 @@
 // and WOFF faces decompress to nothing — every glyph silently blank, no error
 // thrown. The fonts here are TTF, which skips that path entirely, so the trap only
 // springs if someone adds a .woff. Hence the pin rather than the newer release.
+//
+// satori itself is pinned EXACTLY at 0.35.1, not a caret range: 0.35.2 bundled
+// harfbuzz into its own dist (vercel/satori#796), and that bundle reads `__dirname`
+// at import time, which does not exist in an ES module — every Node ESM consumer,
+// nitro included, gets `ReferenceError: __dirname is not defined` the moment the
+// og chunk loads (vercel/satori#844; fix proposed in #845). 0.36 and 0.37 carry
+// the same bug. Once a release lands with that fix, the range can move again; at
+// that point both hb.wasm and the layout wasm are embedded in satori's dist, so
+// the nuxt.config.ts hook that hand-copies hb.wasm into the server bundle can go.
 
 import satori, { type SatoriOptions } from "satori";
 import { Resvg } from "@resvg/resvg-js";
