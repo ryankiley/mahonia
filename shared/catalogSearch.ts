@@ -4,7 +4,7 @@
 // results rank identically to production. Pure + framework-agnostic (unit-tested).
 
 import { itemDisplayName } from "./weights";
-import { foldForSearch } from "./searchText";
+import { enoughToSearch, foldForSearch, hasIdeograph, hasKana } from "./searchText";
 
 /** pg_trgm-style trigrams over the folded string, each word padded (2 leading + 1
  *  trailing, like pg_trgm). Output is byte-identical to the prior inlined fold —
@@ -141,14 +141,15 @@ export function typeMatch(query: string, commonName: string | null | undefined):
 }
 
 /**
- * Whether some query token (3+ chars, so "ul" or "2" can't anchor a match) starts a
- * target token. The word-boundary evidence a "strong" fuzzy match has to show:
- * trigram coverage alone let "battery" clear 0.6 against "Klättermusen … dry bag" on
- * the strength of "att", "tte", "ter" and " ba".
+ * Whether some query token (3+ chars, so "ul" or "2" can't anchor a match — or any
+ * ideographs or kana, since "帐篷" and "なべ" are whole words) starts a target token. The
+ * word-boundary evidence a "strong" fuzzy match has to show: trigram coverage alone
+ * let "battery" clear 0.6 against "Klättermusen … dry bag" on the strength of "att",
+ * "tte", "ter" and " ba".
  */
 export function hasTokenHit(query: string, target: string): boolean {
   const tt = tokens(target);
-  return tokens(query).some((q) => q.length >= 3 && tt.some((t) => t.startsWith(q)));
+  return tokens(query).some((q) => (q.length >= 3 || hasIdeograph(q) || hasKana(q)) && tt.some((t) => t.startsWith(q)));
 }
 
 /**
@@ -254,7 +255,7 @@ export function rankCandidates(
   limit = SEARCH_LIMIT,
 ): CatalogSearchResult[] {
   const q = (rawQuery ?? "").trim();
-  if (q.length < 2) return []; // 1 char is too noisy for trigram autocomplete
+  if (!enoughToSearch(q)) return []; // 1 char is too noisy for trigrams, unless it is a word
   const scored = rows
     .map((r) => {
       const brandName = itemDisplayName(r.brand, r.name);

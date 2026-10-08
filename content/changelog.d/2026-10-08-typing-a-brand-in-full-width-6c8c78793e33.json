@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-08",
+  "fixed": [
+    "Typing a brand in full-width letters, as a Chinese or Japanese keyboard does, now finds it in the catalog."
+  ]
+}

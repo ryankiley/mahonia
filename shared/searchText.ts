@@ -20,10 +20,17 @@ import { foldApostrophes } from "./tidyText";
  *  (see server/utils/catalog.ts). Letters outside Latin are letters too: a name in
  *  Chinese keeps every character, rather than folding to nothing, so gear named only in
  *  its owner's language has an identity (shared/vault.ts) and can be searched for.
- *  trigrams() and the tier/prefix helpers in shared/catalogSearch.ts all fold through
- *  this ONE function so they can never drift apart. */
+ *  Width folds first: a Chinese or Japanese keyboard in full-width mode types "ＭＳＲ"
+ *  and "２" for MSR and 2, and a Japanese one may type half-width kana ("ｶﾒﾗ"), so
+ *  the full-width ASCII block maps onto ASCII and half-width kana onto the ordinary
+ *  kana (NFKC, applied to that block alone: whole-string NFKC would also spell "™"
+ *  as "tm" and split an identity on a trademark sign). trigrams() and the tier/prefix
+ *  helpers in shared/catalogSearch.ts all fold through this ONE function so they can
+ *  never drift apart. */
 export function foldForSearch(input: string): string {
   return input
+    .replace(/[\uff01-\uff5e]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/[\uff61-\uff9f]+/g, (run) => run.normalize("NFKC"))
     .normalize("NFD")
     .replace(/[\p{M}\p{Diacritic}]/gu, "")
     .toLowerCase()
@@ -41,8 +48,16 @@ export function foldForSearch(input: string): string {
  * those is a finished question and gets its answer.
  */
 export function enoughToSearch(query: string): boolean {
-  return query.length >= 2 || /\p{Ideographic}/u.test(query);
+  return query.length >= 2 || hasIdeograph(query);
 }
+
+/** Whether the text carries an ideograph (a Chinese character, or a kanji). One is a
+ *  word, and two is a long one, so the length rules written for letters don't apply. */
+export const hasIdeograph = (s: string): boolean => /\p{Ideographic}/u.test(s);
+
+/** Whether the text carries kana. Two kana are a word ("なべ" is a pot), where two
+ *  letters are a fragment; one kana alone is not, so this never opens a search. */
+export const hasKana = (s: string): boolean => /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(s);
 
 /** Latin letters that NFD leaves in one piece, and what unaccent() spells them as. */
 const UNDECOMPOSED: Record<string, string> = {

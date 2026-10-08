@@ -32,6 +32,10 @@ describe("trigrams", () => {
     expect(trigrams("Norrøna")).toEqual(trigrams("Norrona"));
     expect(trigrams("Fußsack")).toEqual(trigrams("Fusssack"));
   });
+  it("folds full-width ASCII and half-width kana to their ordinary forms", () => {
+    expect(trigrams("ＭＳＲ ＰｏｃｋｅｔＲｏｃｋｅｔ ２")).toEqual(trigrams("MSR PocketRocket 2"));
+    expect(trigrams("ｶﾒﾗ")).toEqual(trigrams("カメラ"));
+  });
   it("keeps letters in every script, so a Chinese name has trigrams at all", () => {
     expect(trigrams("电池")).toEqual(new Set(["  电", " 电池", "电池 "]));
     expect(trigramScore("电池", "SmallRig 电池")).toBe(1);
@@ -73,6 +77,32 @@ const row = (over: Partial<LocalCatalogRow>): LocalCatalogRow => ({
 describe("rankCandidates — the shared ranker", () => {
   it("returns nothing for a query under 2 chars", () => {
     expect(rankCandidates([row({})], "d")).toEqual([]);
+  });
+
+  it("finds gear by a Chinese search term, once a row carries one", () => {
+    // No catalog row carries a Chinese word yet; this pins what the ranker does when
+    // one does, so the vocabulary can be added as data without touching the ranker.
+    const rows = [
+      row({ id: 1, brand: "Zpacks", name: "Duplex", commonName: "Tent", searchTerms: "tent 帐篷 帳篷", usageCount: 5 }),
+      row({ id: 2, brand: "3FULGEAR", name: "Lanshan 2 Pro Tent", commonName: "Tent", searchTerms: "tent 帐篷 帳篷", usageCount: 50 }),
+      row({ id: 3, brand: "MSR", name: "PocketRocket 2", commonName: "Stove", searchTerms: "stove 炉头 爐頭" }),
+      row({ id: 4, brand: "Toaks", name: "Titanium 750ml Pot", commonName: "Pot", searchTerms: "pot 锅 套锅" }),
+    ];
+    // a two-character word is a whole word: a real hit, ordered by usage, spread as a kind of gear
+    expect(rankCandidates(rows, "帐篷").map((r) => r.id)).toEqual([2, 1]);
+    // the Traditional spelling finds the same rows
+    expect(rankCandidates(rows, "帳篷").map((r) => r.id)).toEqual([2, 1]);
+    // one character is a word too: "锅" is a pot
+    expect(rankCandidates(rows, "锅").map((r) => r.id)).toEqual([4]);
+    // a typo-sized fragment of a Latin name still finds nothing in Chinese
+    expect(rankCandidates(rows, "熊罐")).toEqual([]);
+  });
+
+  it("a two-word Chinese query is a real match, not a custom name", () => {
+    // Every word has to show word-boundary evidence or the junk filter reads a
+    // multi-word query as "my car keys" and shuts the menu. Two ideographs are a word.
+    const rows = [row({ id: 1, brand: "Zpacks", name: "Duplex", commonName: "Tent", searchTerms: "tent 帐篷 帳篷" })];
+    expect(rankCandidates(rows, "帐篷 duplex").map((r) => r.id)).toEqual([1]);
   });
 
   it("filters out rows below the similarity threshold", () => {
@@ -270,6 +300,10 @@ describe("hasTokenHit / isSearchTermRun", () => {
     expect(hasTokenHit("copper", "Enlightened Equipment Copperfield Wind Pants")).toBe(true);
     expect(hasTokenHit("battery", "Klättermusen Hrid WP Accessory Bag dry bag")).toBe(false);
     expect(hasTokenHit("ul", "Copper Spur HV UL2")).toBe(false);
+    // an ideograph is a word at any length, and so are two kana
+    expect(hasTokenHit("帐篷", "Zpacks Duplex tent 帐篷")).toBe(true);
+    expect(hasTokenHit("锅", "Toaks Titanium pot 锅")).toBe(true);
+    expect(hasTokenHit("なべ", "Toaks Titanium pot 鍋 なべ")).toBe(true);
   });
   it("finds the query as a run of the derived search terms, last token a prefix", () => {
     expect(isSearchTermRun("puffy", "down jacket puffy")).toBe(true);
