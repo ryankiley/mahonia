@@ -193,8 +193,9 @@ button {
 // on a phone a button with no :active of its own answered a tap with nothing at all:
 // the menu rows, the switch, the add-folder affordance, the undo link. This is the
 // same step `.btn:active` has always taken, as the floor for the rest. A dimming, not
-// a scale, so it is not motion and needs no reduced-motion gate. Snaps on, and fades
-// off wherever the button already transitions opacity (.btn does). Specificity is
+// a scale, so it is not motion and needs no reduced-motion gate. It snaps where the
+// button has no transition of its own; .btn transitions opacity and fades both ways,
+// as it always has. Specificity is
 // (0,2,1) — :not(:disabled) counts a pseudo-class — so a single-class scoped rule
 // (0,2,0) cannot set a button's opacity while it is pressed; a class that must hold
 // its opacity through a press says so with the press in its own selector.
