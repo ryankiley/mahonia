@@ -775,7 +775,10 @@ const twoFrames = () =>
 /** Where a given box sits, written as the clip that would reveal exactly it. */
 function insetOf(r: DOMRect): string {
   const t = Math.round(r.top);
-  const right = Math.round(window.innerWidth - r.right);
+  // clientWidth, not innerWidth: the expanded frame is fixed to the LAYOUT viewport,
+  // and innerWidth also counts a classic scrollbar's column (Windows, Linux) — the
+  // clip then started 15px short of the parked map's right edge.
+  const right = Math.round(document.documentElement.clientWidth - r.right);
   const b = Math.round(window.innerHeight - r.bottom);
   const l = Math.round(r.left);
   return `inset(${t}px ${right}px ${b}px ${l}px round var(--radius-2))`;

@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-08",
+  "fixed": [
+    "On Windows and Linux, the My Gear pane's divider now follows the pointer exactly, and menus and tooltips keep clear of the scrollbar."
+  ]
+}

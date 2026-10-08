@@ -69,8 +69,10 @@ function startResize(ev: PointerEvent) {
   // the pane lives inside the editor root that owns --vault-w
   const editorEl = divider.closest(".editor") as HTMLElement | null;
   // the viewport can't change mid-drag, so read it once rather than forcing layout
-  // on every move
-  const vw = window.innerWidth;
+  // on every move. clientWidth, not innerWidth: the pane's right edge sits in the
+  // LAYOUT viewport, and innerWidth also counts a classic scrollbar's column (Windows,
+  // Linux), which put the divider 15px right of the pointer there.
+  const vw = document.documentElement.clientWidth;
   let frame = 0;
   let pendingX = ev.clientX;
   let moved = false;

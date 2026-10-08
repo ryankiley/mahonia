@@ -89,7 +89,10 @@ const EDGE_PADDING = 12;
 // the viewport. If there's no `.wrap` ancestor (a tooltip floating outside the page
 // column), fall back to a viewport clamp with a small buffer.
 function getHorizontalBounds(): { min: number; max: number } {
-  const win = { min: EDGE_PADDING, max: window.innerWidth - EDGE_PADDING };
+  // clientWidth, not innerWidth: the popup is position: fixed, so its edge is the layout
+  // viewport's, and innerWidth also counts a classic scrollbar's column (Windows,
+  // Linux) — 15px the popup would be clamped into and then clipped out of.
+  const win = { min: EDGE_PADDING, max: document.documentElement.clientWidth - EDGE_PADDING };
   const t = triggerRef.value;
   const wrap = t?.closest<HTMLElement>(".wrap");
   if (!wrap) return win;
