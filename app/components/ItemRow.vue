@@ -2125,6 +2125,13 @@ function dismissFix() {
 .item--check:has(.check__box:disabled) {
   cursor: default;
 }
+/* A press on the group's collapse chevron is a press on the LABEL too (:active climbs to
+   ancestors, and a label's control takes it with it), so the checkbox atom's press rule
+   dimmed the box for a tap that does not tick it. The chevron dims on its own; the box
+   holds still. */
+.item--check:has(button:active) .check {
+  opacity: 1;
+}
 /* checkbox — the shared .check atom (controls.scss): Square (empty) under
    SquareCheck (checked), the same glyph as the header's packing toggle, stacked in
    one grid cell with the native control stretched invisibly over them. 20px — a
@@ -2224,6 +2231,10 @@ function dismissFix() {
   font-style: italic;
   white-space: nowrap;
   margin-left: var(--space-1);
+  /* nowrap AND unshrinkable: with the reset's min-width: 0 a nowrap span can be
+     squeezed below its own text and paint it over the chevron after it. The name
+     beside it is what wraps. */
+  flex: none;
 }
 /* ---- the quantity stepper: − · the number · + ----
    CENTRED in the row rather than baseline-aligned, the classification cell's fix for

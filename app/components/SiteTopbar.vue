@@ -56,6 +56,11 @@ defineProps<{
 }
 .brand {
   color: var(--ink);
+  /* One word that never yields. The reset lets every flex child shrink below its
+     content, and at 320px with the bar full ("My Gear", "Create a list", the account
+     glyph) this link was the one squeezed — to 64px, where overflow-wrap split the
+     name in two lines. The links beside it wrap at their spaces instead. */
+  flex: none;
 }
 /* the page's action and the account control travel together at the trailing edge */
 .topbar__trail {

@@ -775,7 +775,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 /* Sized to the folder name, not stretched across the panel. Stretching parked the
    chevron against the far edge, so "Add to", the name and the arrow read as three
    separate things instead of one control you click. */
-.vp__select {
+/* .optmenu, so this outranks the atom's own `flex: none` (OptionMenu.vue) by class
+   count rather than by which stylesheet happened to load last: this is the one trigger
+   that wraps a name and must be allowed to ellipsize it. */
+.vp__select.optmenu {
   flex: 0 1 auto;
   min-width: 0;
 }

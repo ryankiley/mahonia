@@ -799,7 +799,8 @@ async function setExpanded(on: boolean) {
 
   if (on) {
     parkedH.value = Math.round(from.height);
-    document.body.style.overflow = "hidden";
+    // The page lock is CSS: `html:has(.routemap.is-expanded)` (foundations/reset.scss)
+    // holds the viewport still for exactly as long as the class is on.
     window.addEventListener("keydown", onKeydown);
     expanded.value = true;
     await nextTick();
@@ -822,7 +823,6 @@ async function setExpanded(on: boolean) {
   await new Promise<void>((r) => setTimeout(r, EXPAND_MS));
   expanded.value = false;
   clip.value = null;
-  document.body.style.overflow = "";
   window.removeEventListener("keydown", onKeydown);
   await nextTick();
   map?.invalidateSize();
@@ -835,7 +835,6 @@ const EXPAND_MS = 260;
 const parkedEl = ref<HTMLElement | null>(null);
 
 onBeforeUnmount(() => {
-  document.body.style.overflow = "";
   window.removeEventListener("keydown", onKeydown);
 });
 

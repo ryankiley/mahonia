@@ -152,6 +152,12 @@ function pick(key: string) {
 .optmenu {
   display: inline-flex;
   align-items: center;
+  /* Never the thing that yields. The reset lets every flex child shrink below its
+     content (min-width: 0), and this trigger is a figure or a word — the headline's
+     64px total most of all, whose digits are each a flex item and were squeezing to
+     half their glyph the moment a person-filter caption sat beside them at 320px.
+     What gives way is the neighbour built to (the caption's .t-clip). */
+  flex: none;
 }
 /* The trigger is bare by default — no .btn chrome — because most of these wrap
    something that is already the affordance (a display figure, a caption, a glyph).
