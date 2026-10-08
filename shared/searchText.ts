@@ -20,16 +20,39 @@ import { foldApostrophes } from "./tidyText";
  *  (see server/utils/catalog.ts). Letters outside Latin are letters too: a name in
  *  Chinese keeps every character, rather than folding to nothing, so gear named only in
  *  its owner's language has an identity (shared/vault.ts) and can be searched for.
- *  trigrams() and the tier/prefix helpers in shared/catalogSearch.ts all fold through
- *  this ONE function so they can never drift apart. */
+ *  Width folds first (foldWidth). trigrams() and the tier/prefix helpers in
+ *  shared/catalogSearch.ts all fold through this ONE function so they can never drift
+ *  apart; the Neon query folds its width through foldWidth before the SQL, since
+ *  unaccent() knows nothing of width. */
 export function foldForSearch(input: string): string {
-  return input
+  return foldWidth(input)
     .normalize("NFD")
-    .replace(/[\p{M}\p{Diacritic}]/gu, "")
+    // Every mark but the kana voicing marks: NFD splits ガ into カ + U+3099, and
+    // stripping that would read "gas" as "dregs". They are the one mark that makes a
+    // different word rather than a different spelling of the same one. NFC then
+    // puts ガ back together, so the letter strip below sees a letter, not a mark.
+    .replace(/(?![\u3099\u309a])[\p{M}\p{Diacritic}]/gu, "")
+    .normalize("NFC")
     .toLowerCase()
     .replace(/[øßæœłđðþ]/g, (ch) => UNDECOMPOSED[ch]!)
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
+}
+
+/**
+ * The width fold on its own: a Chinese or Japanese keyboard in full-width mode types
+ * "ＭＳＲ" and "２" for MSR and 2, and a Japanese one may type half-width kana ("ｶﾒﾗ"),
+ * so the full-width ASCII block maps onto ASCII and half-width kana onto the ordinary
+ * kana (NFKC, applied to that block alone: whole-string NFKC would also spell "™" as
+ * "tm" and split an identity on a trademark sign). Its own function because the
+ * server's catalog query needs exactly this much and no more before the SQL: Postgres
+ * does its own case fold and unaccent, but reads "ＭＳＲ" as three letters it has
+ * never seen.
+ */
+export function foldWidth(input: string): string {
+  return input
+    .replace(/[\uff01-\uff5e]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0))
+    .replace(/[\uff61-\uff9f]+/g, (run) => run.normalize("NFKC"));
 }
 
 /**
@@ -41,8 +64,16 @@ export function foldForSearch(input: string): string {
  * those is a finished question and gets its answer.
  */
 export function enoughToSearch(query: string): boolean {
-  return query.length >= 2 || /\p{Ideographic}/u.test(query);
+  return query.length >= 2 || hasIdeograph(query);
 }
+
+/** Whether the text carries an ideograph (a Chinese character, or a kanji). One is a
+ *  word, and two is a long one, so the length rules written for letters don't apply. */
+export const hasIdeograph = (s: string): boolean => /\p{Ideographic}/u.test(s);
+
+/** Whether the text carries kana. Two kana are a word ("なべ" is a pot), where two
+ *  letters are a fragment; one kana alone is not, so this never opens a search. */
+export const hasKana = (s: string): boolean => /[\p{Script=Hiragana}\p{Script=Katakana}]/u.test(s);
 
 /** Latin letters that NFD leaves in one piece, and what unaccent() spells them as. */
 const UNDECOMPOSED: Record<string, string> = {
