@@ -90,7 +90,10 @@ export function useMenuPlacement(
       // flip actually fits — a menu wider than the viewport is beyond helping, and
       // flipping it would just move which edge it's cut off at.
       atStart.value =
-        trailingLeft < EDGE_PADDING && leadingRight <= window.innerWidth - EDGE_PADDING;
+        // clientWidth, not innerWidth: the visible edge is the layout viewport's, and
+        // innerWidth also counts a classic scrollbar's column (Windows, Linux), so a
+        // flipped menu could be judged to fit with its last 15px under the scrollbar.
+        trailingLeft < EDGE_PADDING && leadingRight <= document.documentElement.clientWidth - EDGE_PADDING;
     }
 
     // Same rule downward, and the same preference: below unless below doesn't fit and

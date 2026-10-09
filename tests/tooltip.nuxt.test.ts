@@ -61,6 +61,8 @@ describe("Tooltip positioning", () => {
     // a 1200×800 viewport, and a pointer that can actually hover
     Object.defineProperty(window, "innerWidth", { value: 1200, configurable: true });
     Object.defineProperty(window, "innerHeight", { value: 800, configurable: true });
+    // the horizontal clamp reads the LAYOUT viewport (no scrollbar column), not innerWidth
+    Object.defineProperty(document.documentElement, "clientWidth", { value: 1200, configurable: true });
     vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q }) as MediaQueryList);
 
     geom.trigger = { top: 400, bottom: 424, left: 500, width: 32, height: 24 };
