@@ -372,6 +372,9 @@ describe("reading", () => {
     await call("search_catalog", { query: "quilt" });
     expect(catalog.searchCatalog).toHaveBeenLastCalledWith(expect.anything(), "quilt", 12);
     expect(toolText(await call("search_catalog", { query: "q" })).isError).toBe(true);
+    // one character is enough when it is a word: the same rule every other search asks
+    expect(toolText(await call("search_catalog", { query: "锅" })).isError).toBe(false);
+    expect(catalog.searchCatalog).toHaveBeenLastCalledWith(expect.anything(), "锅", 12);
   });
 
   it("get_catalog_product takes an id or a brand and name, and says when nothing matches", async () => {

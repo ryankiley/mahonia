@@ -641,6 +641,13 @@ describe("vault search", () => {
     expect(await searchVaultItems(db as any, VAULT, "d")).toHaveLength(0);
   });
 
+  it("answers a single Chinese character, which is a word", async () => {
+    await captureVaultItems(db as any, VAULT, [
+      { normKey: vaultNormKey("Snow Peak", "锅", null), brand: "Snow Peak", name: "锅", weightMg: 120_000 } as any,
+    ]);
+    expect((await searchVaultItems(db as any, VAULT, "锅")).map((h) => h.name)).toEqual(["锅"]);
+  });
+
   it("never reaches into another vault", async () => {
     expect(await searchVaultItems(db as any, 2, "duplex")).toHaveLength(0);
   });

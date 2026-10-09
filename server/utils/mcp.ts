@@ -25,6 +25,7 @@ import { editLinkPath, normalizeShareCode } from "../../shared/links";
 import { isCatalogId, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_TITLE_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
 import { carrierName } from "../../shared/people";
 import { dayClimbs, parseProfile } from "../../shared/profile";
+import { enoughToSearch } from "../../shared/searchText";
 import { tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
@@ -338,7 +339,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Two characters or more." },
+        query: { type: "string", description: "Two characters or more; a single Chinese character is enough." },
         limit: { type: "integer", minimum: 1, maximum: SEARCH_LIMIT_MAX, description: `Up to ${SEARCH_LIMIT_MAX}. Default ${SEARCH_LIMIT_DEFAULT}.` },
       },
       required: ["query"],
@@ -749,7 +750,7 @@ export function fitMarkdown(text: string, max = GET_LIST_MAX_BYTES): string {
 
 async function search(args: Record<string, unknown>): Promise<ToolResult> {
   const query = typeof args.query === "string" ? args.query.trim().slice(0, 100) : "";
-  if (query.length < 2) return fail("Give at least two characters to search for.");
+  if (!enoughToSearch(query)) return fail("Give at least two characters to search for (one is enough in Chinese).");
   const limit = clampInt(args.limit, 1, SEARCH_LIMIT_MAX, SEARCH_LIMIT_DEFAULT);
   const rows = await searchCatalog(await useCatalogDb(), query, limit);
   return ok({
