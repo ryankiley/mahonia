@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-08",
+  "fixed": [
+    "Typing a single Chinese character now finds your gear in the autocomplete and in the MCP catalog search, as it already did on the My Gear page."
+  ]
+}

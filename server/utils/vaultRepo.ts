@@ -25,6 +25,7 @@ import type { Classification } from "../../shared/types";
 import { clampUnitWeightMg, isSerialId, KCAL_MAX } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { tidyText } from "../../shared/tidyText";
+import { enoughToSearch } from "../../shared/searchText";
 import { rankVaultRows } from "../../shared/vaultSearch";
 
 /** Upper bound on the rows pulled into memory for a search or a browse. A vault is
@@ -623,7 +624,8 @@ export async function listRemovedVaultItems(db: Db, vaultId: number): Promise<Va
  *  live set; the fine ranking is the shared JS cascade — the catalog's PGlite
  *  strategy, applied here on both engines because a vault is always small. */
 export async function searchVaultItems(db: Db, vaultId: number, q: string): Promise<VaultEntry[]> {
-  if ((q ?? "").trim().length < 2) return [];
+  // The ranker asks this too; asking first saves the query for a "keep typing".
+  if (!enoughToSearch((q ?? "").trim())) return [];
   const rows = await liveRows(db, vaultId);
   // rank the ROWS, then convert the handful that survive — toEntry allocates two
   // Dates and two ISO strings per row, and the ranker reads neither
