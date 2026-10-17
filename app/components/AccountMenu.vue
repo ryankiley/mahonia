@@ -204,7 +204,7 @@ const { open: openAccount } = useAccountModal();
   font-weight: 500;
   line-height: 1;
   text-transform: uppercase;
-  transition: background var(--dur) var(--ease);
+  transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 @media (hover: hover) and (pointer: fine) {
   .menu__btn:hover .avatar {

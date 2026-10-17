@@ -72,7 +72,7 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
   text-decoration-color: var(--underline);
   text-decoration-thickness: 1px; /* from-font is heavy; pin it thin */
   text-underline-offset: var(--underline-offset);
-  transition: text-decoration-color var(--dur) var(--ease);
+  transition: text-decoration-color var(--spring-fade-dur) var(--spring-fade);
 }
 /* Hover-capable pointers only. On touch there IS no hover, so the underline stays
    painted — a reveal-on-hover rule would leave phone readers (most of a shared

@@ -131,7 +131,7 @@ function addBlank() {
    `fresh`). The row's root carries this scope id as a child root, so the rule
    reaches it. */
 .folder__items > .is-new {
-  animation: item-in var(--dur) var(--ease);
+  animation: item-in var(--spring-fade-dur) var(--spring-fade);
 }
 @keyframes item-in {
   from {

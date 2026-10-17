@@ -65,13 +65,13 @@
 }
 
 /* the entering face fades in, exactly as the old <Transition name="rowmode"> enter
-   did (opacity from 0, 0.9 × --dur, the shared ease; the leaving face is dropped
+   did (opacity from 0, 0.9 × the fade spring's beat; the leaving face is dropped
    instantly, so the two never stack). An ANIMATION, not a transition — display can't
    transition, but flipping display:none→grid restarts an animation, which is
-   precisely the hook wanted here. Gated on .is-rowswitching (a ~250ms beat GearEditor
+   precisely the hook wanted here. Gated on .is-rowswitching (a ~300ms beat GearEditor
    holds up after each switch) so the fade plays on mode switches only — not on
    initial load, not when the latch first mounts a face, not when a new item's row
-   appears. reduced-motion → the global --dur kill-switch makes it instant. */
+   appears. reduced-motion → the global duration kill-switch makes it instant. */
 @keyframes rowmode-fade {
   from {
     opacity: 0;
@@ -79,7 +79,7 @@
 }
 .editor__body.is-rowswitching[data-mode="pack"] .item--check,
 .editor__body.is-rowswitching:not([data-mode="pack"]) .item-row:not(.item--check) {
-  animation: rowmode-fade calc(var(--dur) * 0.9) var(--ease);
+  animation: rowmode-fade calc(var(--spring-fade-dur) * 0.9) var(--spring-fade);
 }
 
 /* ---- the person filter -----------------------------------------------------------
@@ -226,8 +226,8 @@
 .nestcollapse > .nest-block {
   min-height: 0;
   transition:
-    opacity var(--dur) var(--ease),
-    margin-top var(--dur) var(--ease);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    margin-top var(--spring-step-dur) var(--spring-step);
   /* The clip box reaches --grip-pull past the block: a nested row's grip is pulled that
      far into the gutter so it lines up flush with every other grip on the page, and
      the block's own edge sat 5px short of it — the right column of dots was cut off
@@ -248,14 +248,14 @@
   .nestcollapse {
     display: grid;
     grid-template-rows: minmax(0, 1fr);
-    transition: grid-template-rows var(--dur) var(--ease);
+    transition: grid-template-rows var(--spring-step-dur) var(--spring-step);
   }
   .nestcollapse[data-collapsed] {
     grid-template-rows: minmax(0, 0fr);
   }
   .nestcollapse > .nest-block {
     overflow: hidden;
-    transition: margin-top var(--dur) var(--ease);
+    transition: margin-top var(--spring-step-dur) var(--spring-step);
   }
   /* the track does the hiding here; the block stays whole so the slide has something
      to clip, and the children keep their opacity through it */
@@ -430,7 +430,7 @@
   font-size: var(--text-base);
   color: var(--ink-3);
   cursor: pointer;
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .folder__addbtn:hover,
 .item-nest__add:hover {

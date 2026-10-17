@@ -43,7 +43,7 @@
   /* translate rather than display:none — a hidden element isn't focusable, and
      `left: -9999px` fights the safe-area gutter on notched phones */
   transform: translateY(calc(-100% - var(--space-4)));
-  transition: transform var(--dur) var(--ease);
+  transition: transform var(--spring-step-dur) var(--spring-step);
 }
 .skip:focus-visible {
   transform: translateY(0);

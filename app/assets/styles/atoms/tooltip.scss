@@ -47,20 +47,20 @@
   text-wrap: pretty;
 }
 
-// Enter rides --spring-smooth (critically damped — it settles into place with no
+// Enter rides the step spring (critically damped — it settles into place with no
 // overshoot, which is what makes a popup feel placed rather than thrown). Leave
-// takes --ease-in at 0.6× the duration, accelerating away: dismissal should feel
-// lighter and quicker than reveal, and there's nothing left to decelerate into.
+// takes the same spring at 0.6× the beat: dismissal should feel lighter and
+// quicker than reveal, and there's nothing left to decelerate into.
 // (The global prefers-reduced-motion rule in main.scss flattens both.)
 .tooltip-enter-active {
   transition:
-    opacity var(--dur) var(--spring-smooth),
-    transform var(--dur) var(--spring-smooth);
+    opacity var(--spring-step-dur) var(--spring-step),
+    transform var(--spring-step-dur) var(--spring-step);
 }
 .tooltip-leave-active {
   transition:
-    opacity calc(var(--dur) * 0.6) var(--ease-in),
-    transform calc(var(--dur) * 0.6) var(--ease-in);
+    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
+    transform calc(var(--spring-step-dur) * 0.6) var(--spring-step);
 }
 .tooltip-enter-from,
 .tooltip-leave-to {

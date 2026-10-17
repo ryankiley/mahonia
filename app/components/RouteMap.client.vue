@@ -823,7 +823,7 @@ async function setExpanded(on: boolean) {
   // to a remembered rectangle would fly off to somewhere the map isn't.
   const back = parkedEl.value?.getBoundingClientRect();
   clip.value = back ? insetOf(back) : "inset(0px round 0px)";
-  await new Promise<void>((r) => setTimeout(r, EXPAND_MS));
+  await new Promise<void>((r) => setTimeout(r, expandMs()));
   expanded.value = false;
   clip.value = null;
   window.removeEventListener("keydown", onKeydown);
@@ -832,9 +832,11 @@ async function setExpanded(on: boolean) {
   if (!touched) frame();
 }
 
-/** Kept in step with the CSS below; a transitionend would miss the reduced-motion case,
- *  where the transition never runs and so never ends. */
-const EXPAND_MS = 260;
+/** The clip's beat, read off the token the CSS below runs on (--spring-move-dur), so a
+ *  retune can't leave this waiting the wrong length and re-parking the map mid-slide; a
+ *  transitionend would miss the reduced-motion case, where the transition never runs
+ *  and so never ends. Falls back to the token's value if the read fails (SSR, a test). */
+const expandMs = () => springCss("move").duration;
 const parkedEl = ref<HTMLElement | null>(null);
 
 onBeforeUnmount(() => {
@@ -1205,11 +1207,7 @@ onBeforeUnmount(() => {
    so Leaflet is measured once and only the window onto it moves. */
 .routemap__frame {
   // reduced-motion is handled by the global duration kill-switch (main.scss)
-  transition: clip-path var(--dur-map-expand) cubic-bezier(0.32, 0.72, 0, 1);
-}
-.routemap {
-  // one place for the duration the script also counts on
-  --dur-map-expand: 260ms;
+  transition: clip-path var(--spring-move-dur) var(--spring-move);
 }
 .routemap__canvas {
   flex: 1;
@@ -1362,8 +1360,8 @@ onBeforeUnmount(() => {
   // white drop on a pale contour is a hole rather than a pin
   box-shadow: var(--map-pin-shadow);
   transition:
-    scale var(--dur) var(--ease),
-    box-shadow var(--dur) var(--ease);
+    scale var(--spring-step-dur) var(--spring-step),
+    box-shadow var(--spring-fade-dur) var(--spring-fade);
 }
 // A LIGHT DISC UNDER THE MARK, filling the drop's round head.
 //

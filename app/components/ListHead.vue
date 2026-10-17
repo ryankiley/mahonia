@@ -428,7 +428,7 @@ onClickOutside(trailEl, closeTrail);
            old leaves, the new arrives on the beat, and the row's min-height holds the
            line through the gap so nothing reflows.
            Its own name, not `menu`: this is an IN-FLOW content swap, not a surface
-           hanging off a control — but it spends the same --dur/--ease as everything
+           hanging off a control — but it spends the same springs as everything
            else, so it reads as the same interface moving. See the motion note in
            atoms/controls.scss. -->
       <Transition name="trailswap" mode="out-in">
@@ -781,9 +781,9 @@ onClickOutside(trailEl, closeTrail);
   opacity: 0;
   visibility: hidden;
   transition:
-    opacity var(--dur) var(--ease),
-    visibility var(--dur) var(--ease),
-    color var(--dur) var(--ease);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    visibility var(--spring-fade-dur) var(--spring-fade),
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 .head__titlewrap:hover .head__pencil,
 .head__titlewrap:focus-within .head__pencil {
@@ -953,8 +953,8 @@ onClickOutside(trailEl, closeTrail);
   opacity: 0;
   visibility: hidden;
   transition:
-    opacity var(--dur) var(--ease),
-    visibility var(--dur) var(--ease);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    visibility var(--spring-fade-dur) var(--spring-fade);
 }
 /* A press on the name pins it open, and keyboard focus reveals it — both at every
    pointer type, so a phone and a tabbing user can reach Edit and Remove. Hover is the
@@ -990,7 +990,7 @@ onClickOutside(trailEl, closeTrail);
   /* the one thing here that navigates, so it deepens on hover — quiet at rest, because
      the card is a place you land on the way to Edit as often as to the trail itself */
   color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .head__cardurl:hover,
 .head__cardurl:focus-visible {
@@ -1022,8 +1022,8 @@ onClickOutside(trailEl, closeTrail);
      rather than adding to it, so a `transition: opacity …` down there would silently drop
      the colour ease and the hover would snap. */
   transition:
-    opacity var(--dur) var(--ease),
-    color var(--dur) var(--ease);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 /* Explicit, and load-bearing: .btn--quiet:hover already sets --ink, but scoping adds a
    [data-v-] attribute to the rule above, tying its specificity with that hover rule —
@@ -1166,7 +1166,7 @@ onClickOutside(trailEl, closeTrail);
 }
 .head__distchev {
   color: var(--ink-3);
-  transition: transform var(--dur) var(--ease);
+  transition: transform var(--spring-step-dur) var(--spring-step);
 }
 .head__distchev.is-open {
   transform: rotate(180deg);
@@ -1202,7 +1202,7 @@ onClickOutside(trailEl, closeTrail);
   margin-left: var(--space-1);
   color: var(--ink-3);
   cursor: help;
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .head__gpxwhy:hover,
 .head__gpxwhy:focus-visible {
@@ -1219,7 +1219,7 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxno {
   text-decoration: underline;
   text-underline-offset: var(--underline-offset);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .head__gpxyes {
   margin-left: var(--space-1);
@@ -1337,8 +1337,8 @@ onClickOutside(trailEl, closeTrail);
 .trailswap-enter-active,
 .trailswap-leave-active {
   transition:
-    opacity var(--dur) var(--ease),
-    translate var(--dur) var(--ease);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    translate var(--spring-step-dur) var(--spring-step);
 }
 /* the link RISES into place — it is the result of an action, so it comes up from
    under the line rather than dropping onto it */

@@ -1137,7 +1137,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   display: inline-flex;
   color: var(--ink-3);
   cursor: help;
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .plan__why:hover,
 .plan__why:focus-visible {
@@ -1154,7 +1154,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   cursor: pointer;
 }
 .plan__chev2 {
-  transition: transform var(--dur) var(--ease);
+  transition: transform var(--spring-step-dur) var(--spring-step);
 }
 .plan__chev2.is-collapsed {
   transform: rotate(-90deg);
@@ -1212,7 +1212,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   font-weight: 600;
   letter-spacing: var(--track-tight);
   color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 /* full ink on hover, the house treatment for a quiet text action */
 .plan__add:hover {

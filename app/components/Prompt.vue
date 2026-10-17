@@ -104,14 +104,14 @@ const emit = defineEmits<{ dismiss: [] }>();
    small rise, no horizontal component to undo. */
 .promptin-enter-active {
   transition:
-    opacity var(--dur) var(--ease),
-    grid-template-rows var(--dur) var(--ease);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    grid-template-rows var(--spring-step-dur) var(--spring-step);
 }
 /* the exit is what matters here — it's the one that moves the page */
 .promptin-leave-active {
   transition:
-    opacity calc(var(--dur) * 0.6) var(--ease),
-    grid-template-rows var(--dur) var(--ease);
+    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
+    grid-template-rows var(--spring-step-dur) var(--spring-step);
 }
 .promptin-enter-from,
 .promptin-leave-to {

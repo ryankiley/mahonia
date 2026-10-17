@@ -25,7 +25,7 @@
 .folder__body {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
-  transition: grid-template-rows var(--dur) var(--ease);
+  transition: grid-template-rows var(--spring-step-dur) var(--spring-step);
 }
 .folder[data-collapsed] .folder__body {
   grid-template-rows: minmax(0, 0fr);
@@ -35,7 +35,7 @@
   min-width: 0;
   overflow: hidden;
   opacity: 1;
-  transition: opacity var(--dur) var(--ease);
+  transition: opacity var(--spring-fade-dur) var(--spring-fade);
 }
 /* Lift the collapse clip while a row's floating overlay is open — the folder picker,
    the unit menu, the name autocomplete, the mobile ⋯ — so a dropdown on the folder's
@@ -60,7 +60,7 @@
    the two used to be hand-mirrored across this file and atoms/item.scss. */
 .folder__chev,
 .item__nestchev {
-  transition: transform var(--dur) var(--ease);
+  transition: transform var(--spring-step-dur) var(--spring-step);
   /* standing layer: the chevron transforms on every toggle, so keep it promoted to
      avoid WebKit re-snapping it ~1px as the compositing layer comes and goes */
   will-change: transform;
@@ -86,7 +86,7 @@
   padding: 0;
   color: var(--ink-3);
   cursor: pointer;
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 /* the row's glyph is 16px; -1px so it hugs the name at the same distance the folder
    chevron does */
@@ -215,7 +215,7 @@
 .folder__del,
 .folder__grip {
   color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .folder__del:hover,
 .folder__grip:hover {
