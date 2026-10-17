@@ -1,0 +1,7 @@
+{
+  "_comment": "Adds 2026-10-17 — gear people typed on their lists (catalog_candidates, scanned 2026-10-17: 16 open keys new since the 09-12 pass, almost all generics like 'Bars', 'Stove', 'Water', 'pretzels') that the catalog was missing, cited from each maker's own page. The Hyperlite Elevate 22 was typed five ways on one list at 496 g (the Small); the maker's spec table prints the Medium, stored here like the Pemi 15 and Aero 28. 'Sun Dry Adventure Hat' at 83 g is Sunday Afternoons' Adventure Hat (maker: 85 g). Dropped: Vacation Super Spritz SPF 50 (the maker prints only 2.2 fl oz / 65 mL, no weight) and prAna Koen Mid Rise Wide Leg Pant (no maker weight, already read and dropped 2026-09-02).",
+  "rows": [
+    {"brand": "Hyperlite Mountain Gear", "name": "Elevate 22", "variant": "Medium", "attributes": {"volume_l": 22}, "category_hint": "pack", "common_name": "backpack", "weight_value": 502, "weight_unit": "g", "weight_secondary": "17.7 oz", "weight_source": "manufacturer", "source_url": "https://www.hyperlitemountaingear.com/products/elevate-22", "quote": "Weight 17.7oz | 502g"},
+    {"brand": "Sunday Afternoons", "name": "Adventure Hat", "variant": "", "category_hint": "clothing", "common_name": "sun hat", "weight_value": 85, "weight_unit": "g", "weight_secondary": "3.0 oz", "weight_source": "manufacturer", "source_url": "https://www.sundayafternoons.com/products/adventure-hat", "quote": "Adjustable sizing Weight: 3.0 ounces/85.0 grams"}
+  ]
+}
