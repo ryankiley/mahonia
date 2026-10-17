@@ -1,0 +1,214 @@
+// ── THE MODE SWITCH ──────────────────────────────────────────────────────────
+// Everything that moves when the editor changes mode (Gear / Packing / Trip), in one
+// place. Keyed on the editor body's data-mode, never on enter/leave classes, so a switch
+// is one CSS pass and mounts nothing. Editor-scoped by .editor__body: the share views
+// render none of it.
+//
+// ONE SEQUENCE, both directions, in four transition values every rule here reads:
+//   --t-out   what leaves fades at once, over half the fade's beat
+//   --t-slot  every slot that changes size moves together, half a fade after the switch,
+//             so the page reflows once and nothing rides a slot still moving
+//   --t-in    what arrives fades in half a step after that, when the slots have settled
+//   --mode-end hidden things flip visibility once the slots have settled
+// The destination state's transition list is the one that runs: arriving lands on a
+// rule's base state, leaving on its mode state, which is why each state carries its own.
+// Gear ↔ Packing is a swap of slots (the totals breakdown for the pack bar, the rows'
+// second lines and add rows folding); Gear ↔ Trip is a crossfade, the leaving view
+// pinned where it stands by GearEditor's script while it fades.
+.editor__body {
+  --mode-slot: calc(var(--spring-fade-dur) / 2);
+  --mode-in: calc(var(--spring-fade-dur) / 2 + var(--spring-step-dur) / 2);
+  --mode-end: calc(var(--mode-slot) + var(--spring-step-dur));
+  --t-slot: var(--spring-step-dur) var(--spring-step) var(--mode-slot);
+  --t-in: var(--spring-fade-dur) var(--spring-fade) var(--mode-in);
+  --t-out: var(--mode-slot) var(--spring-fade);
+  position: relative; /* the Trip crossfade pins the leaving view at its own box */
+}
+
+// ── Gear ↔ Packing: the pack bar ─────────────────────────────────────────────
+/* the bar's slide (its layout is GearEditor's) */
+.packbar-reveal {
+  transition:
+    grid-template-rows var(--t-slot),
+    margin-top var(--t-slot),
+    visibility 0s linear 0s;
+}
+/* Collapsed, the bar pulls the body's own gap back in as well: it mounts the moment
+   the list has its first item (v-if on the data), and a 0-height flex child still
+   brings the body's --space-5 gap with it — which is what shoved the folders down
+   24px on the first "Add an item" (measured 2026-10-17). margin-top rides the
+   transition, so on entering packing the gap opens on the same spring as the bar. */
+.editor__body:not([data-mode="pack"]) .packbar-reveal {
+  grid-template-rows: 0fr;
+  margin-top: calc(-1 * var(--space-5));
+  visibility: hidden;
+  /* leaving: visibility flips at the very end, once the slot has closed */
+  transition:
+    grid-template-rows var(--t-slot),
+    margin-top var(--t-slot),
+    visibility 0s linear var(--mode-end);
+}
+/* the bar's text: in at --t-in with a 4px settle, out at once */
+.packbar {
+  transition:
+    opacity var(--t-in),
+    translate var(--spring-step-dur) var(--spring-step) var(--mode-in);
+}
+.editor__body:not([data-mode="pack"]) .packbar {
+  opacity: 0;
+  translate: 0 var(--space-1);
+  transition:
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    translate var(--spring-step-dur) var(--spring-step);
+}
+
+// ── Gear ↔ Packing: the totals breakdown ────────────────────────────────────
+.totals__breakdown {
+  /* folds on the mode switch's one sequence (GearEditor's --t-slot / --t-in / --t-out)
+     instead of taking 22–108px out of the page in one frame; the clip exists only
+     while the track moves and when folded, since the chips hold tooltips */
+  transition:
+    grid-template-rows var(--t-slot),
+    margin-top var(--t-slot),
+    visibility 0s linear 0s;
+}
+.editor__body[data-mode="pack"] .totals__breakdown {
+  grid-template-rows: 0fr;
+  margin-top: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--t-slot),
+    margin-top var(--t-slot),
+    visibility 0s linear var(--mode-end);
+}
+/* the chips: in at --t-in once the slots have settled, out at once */
+.totals__breakdowninner {
+  transition: opacity var(--t-in);
+}
+.editor__body[data-mode="pack"] .totals__breakdowninner {
+  opacity: 0;
+  transition: opacity var(--spring-fade-dur) var(--spring-fade);
+}
+.editor__body.is-rowswitching .totals__breakdown > *,
+.editor__body[data-mode="pack"] .totals__breakdown > * {
+  overflow: hidden;
+}
+
+// ── Gear ↔ Packing: each folder's add row ────────────────────────────────────
+/* The add row FOLDS on a mode switch (GearEditor's --t-slot / --t-in / --t-out), rather
+   than vanishing 45px per folder in one frame: a one-track grid whose track, top
+   padding and divider close with the other slots; visibility flips at the end so the
+   button leaves the tab order exactly as unmounting did. */
+.folder__add {
+  display: grid;
+  grid-template-rows: 1fr;
+  transition:
+    grid-template-rows var(--t-slot),
+    padding-top var(--t-slot),
+    border-top-width var(--t-slot),
+    visibility 0s linear 0s;
+}
+/* Opacity fades only during the switch beat (in at --t-in; out, the pack rule below).
+   At rest it must change in one frame: when a folded blank row goes (FolderRows,
+   .is-leaving) the link has to stand on the field's pixel that same frame. */
+.editor__body.is-rowswitching .folder__add {
+  transition:
+    grid-template-rows var(--t-slot),
+    padding-top var(--t-slot),
+    border-top-width var(--t-slot),
+    opacity var(--t-in),
+    visibility 0s linear 0s;
+}
+.folder__add > * {
+  min-height: 0;
+  overflow: hidden;
+}
+.editor__body[data-mode="pack"] .folder__add {
+  grid-template-rows: 0fr;
+  padding-top: 0;
+  border-top-width: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--t-slot),
+    padding-top var(--t-slot),
+    border-top-width var(--t-slot),
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    visibility 0s linear var(--mode-end);
+}
+.editor__body[data-mode="pack"] .folder__add > * {
+  padding-block: 0; /* the button's own 12px, or the fold stops there */
+}
+
+// ── Gear ↔ Packing: each row's second line ───────────────────────────────────
+/* The row's second line (gear type + note) FOLDS on a mode switch (GearEditor's
+   --t-slot / --t-in / --t-out) rather than taking 18px out of the row in one frame.
+   The two faces are the same height, so with this the rows never move. */
+.editor__body .item-wrap > .reveal {
+  transition:
+    grid-template-rows var(--t-slot),
+    margin-top var(--t-slot),
+    opacity var(--t-in),
+    visibility 0s linear 0s;
+}
+.editor__body[data-mode="pack"] .item-wrap > .reveal {
+  grid-template-rows: minmax(0, 0fr);
+  margin-top: 0;
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    grid-template-rows var(--t-slot),
+    margin-top var(--t-slot),
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    visibility 0s linear var(--mode-end);
+}
+
+// ── Gear ↔ Trip: a crossfade ─────────────────────────────────────────────────
+/* The plan's hidden state is display:none — it leaves layout, paint, the a11y tree and
+   the body's flex gap exactly as unmounting did — and display rides the transition as
+   a discrete property. Both gates carry !important (the #210 lesson): a mode gate on a
+   latched element competes with every later layout rule on it. */
+.planreveal {
+  display: none !important;
+}
+/* THE TRIP SWITCH IS A CROSSFADE (the pin in the script's watch on mode). The view
+   that arrives — the plan, or the Gear blocks (v-show) — is in the flow on its final
+   pixels from the first frame and fades in at --mode-in; the view that leaves is
+   pinned where it stood, fades over --mode-slot (--t-out) and drops out of the flow
+   at the end of it. The display transition rides v-show's inline change. The
+   destination state's list is the one a transition runs on: arriving lands on the
+   base rule, leaving on the mode rule. */
+.editor__body[data-mode="plan"] .planreveal {
+  display: grid !important;
+}
+.editor__body:not([data-mode="plan"]) .planreveal {
+  transition: display var(--mode-slot) allow-discrete;
+}
+.planreveal > * {
+  transition: opacity var(--t-in);
+}
+.editor__body:not([data-mode="plan"]) .planreveal > * {
+  opacity: 0;
+  transition: opacity var(--t-out);
+}
+.editor__folders, .totals, .pplbar, .editor__addfolder {
+  transition: opacity var(--t-in);
+}
+.editor__body[data-mode="plan"] :is(.editor__folders, .totals, .pplbar),
+.editor__body:not([data-mode="edit"]) .editor__addfolder {
+  opacity: 0;
+  transition:
+    opacity var(--t-out),
+    display var(--mode-slot) allow-discrete;
+}
+/* the arriving view starts transparent on a real switch only (the beat); a page
+   LOADED in a mode mounts at rest, as it always did */
+@starting-style {
+  .editor__body.is-rowswitching[data-mode="plan"] .planreveal > * {
+    opacity: 0;
+  }
+  .editor__body.is-rowswitching:not([data-mode="plan"]) :is(.editor__folders, .totals, .pplbar),
+  .editor__body.is-rowswitching[data-mode="edit"] .editor__addfolder {
+    opacity: 0;
+  }
+}

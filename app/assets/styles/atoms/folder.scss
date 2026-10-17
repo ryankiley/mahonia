@@ -208,10 +208,10 @@
    clusters back was most of what a packing→gear switch still paid once the rows
    stopped re-rendering. Editor-scoped: the share views' folder headers render no
    .editor__body, so this can't touch them. */
-.editor__body[data-mode="pack"] .folder__actions,
-.editor__body[data-mode="pack"] .folder__add {
+.editor__body[data-mode="pack"] .folder__actions {
   display: none;
 }
+/* the add row's fold on a mode switch: modeswitch.scss */
 .folder__del,
 .folder__grip {
   color: var(--ink-3);
