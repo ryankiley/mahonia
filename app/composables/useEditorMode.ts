@@ -24,9 +24,10 @@ export const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
 // to reset on reload. Planning is somewhere you WORK across sittings, so it stays put.
 const MODE_KEY = "gear.mode.v1";
 
-// How long the entering row's fade needs to have finished by — comfortably past the
-// animation's calc(var(--spring-fade-dur) * 0.9) = 270ms; see `switching` below.
-const SWITCH_ANIM_MS = 300;
+// How long the switch's motion needs to have finished by: the entering row's fade
+// (0.9 × --spring-fade-dur = 270ms) and the slots that fold with --t-slot (done by
+// --mode-end, 150 + 390ms), whose clips and starting styles this beat gates.
+const SWITCH_ANIM_MS = 420;
 
 let singleton: ReturnType<typeof create> | undefined;
 

@@ -59,16 +59,16 @@
   display: none !important;
 }
 .editor__body[data-mode="pack"] .item-row:not(.item--check),
-.editor__body[data-mode="pack"] .item-wrap > .reveal,
 .editor__body[data-mode="pack"] .item-nest__add {
   display: none !important;
 }
+/* the row's second line folds on a mode switch: modeswitch.scss */
 
 /* the entering face fades in, exactly as the old <Transition name="rowmode"> enter
    did (opacity from 0, 0.9 × the fade spring's beat; the leaving face is dropped
    instantly, so the two never stack). An ANIMATION, not a transition — display can't
    transition, but flipping display:none→grid restarts an animation, which is
-   precisely the hook wanted here. Gated on .is-rowswitching (a ~300ms beat GearEditor
+   precisely the hook wanted here. Gated on .is-rowswitching (a ~420ms beat GearEditor
    holds up after each switch) so the fade plays on mode switches only — not on
    initial load, not when the latch first mounts a face, not when a new item's row
    appears. reduced-motion → the global duration kill-switch makes it instant. */
@@ -423,14 +423,21 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--field-h);
-  padding: var(--space-1) 0;
+  /* The field's height (--field-h) as PADDING around the line, not as a min-height:
+     the same 36px box with the text on the same pixel, but one that can fold — a
+     min-height floored the add row's packing fold at 36px (measured 2026-10-17). */
+  min-height: 0;
+  padding: calc((var(--field-h) - 1.5em) / 2) 0;
   background: none;
   border: 0;
   font-size: var(--text-base);
   color: var(--ink-3);
   cursor: pointer;
-  transition: color var(--spring-fade-dur) var(--spring-fade);
+  /* padding-block on the step spring: the packing fold (atoms/folder.scss) closes it
+     with the track, or the row would stop 12px short */
+  transition:
+    color var(--spring-fade-dur) var(--spring-fade),
+    padding-block var(--spring-step-dur) var(--spring-step);
 }
 .folder__addbtn:hover,
 .item-nest__add:hover {

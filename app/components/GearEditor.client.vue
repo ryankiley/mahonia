@@ -134,6 +134,52 @@ const {
   variantShown,
   view,
 } = useGearEditorView({ flash, askConfirm });
+
+// THE TRIP SWITCH IS A CROSSFADE, both ways. The view that leaves is pinned where it
+// stands — position:absolute at its own box, out of the flow — for the first slot of
+// the switch while it fades (its CSS: opacity over --mode-slot, display:none at the
+// end of it), so the view that arrives sits on its final pixels from the first frame,
+// transparent, and fades in at --mode-in. Nothing slides and nothing is pushed: the
+// plan used to collapse in the flow and the folders under it had to wait 540ms for
+// its tail (Ryan, 2026-10-17: "should the gear page content fade on when navigating
+// back?"). Read in the watcher, before the render that flips data-mode and the
+// v-shows, so the rects are the old layout's. Restored property by property: v-show
+// writes display on these same elements in between, and a saved cssText would put
+// the hidden ones back. The pin lasts --mode-slot (half the fade's beat), read off
+// the token so the two can't drift.
+const PIN_PROPS = ["position", "top", "left", "width", "margin", "box-sizing", "pointer-events"] as const;
+let unpin: (() => void) | undefined;
+watch(mode, (m, prev) => {
+  if (m !== "plan" && prev !== "plan") return;
+  const body = editorRef.value?.querySelector<HTMLElement>(".editor__body");
+  if (!body || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  unpin?.();
+  const b = body.getBoundingClientRect();
+  // every rect BEFORE any style: pinning one block out of the flow moves the ones
+  // below it, and a rect read after that is the collapsed layout's (the folders went
+  // 148px high the first time)
+  const pinned = [...body.querySelectorAll<HTMLElement>(`[data-view="${prev === "plan" ? "plan" : "gear"}"]`)]
+    .filter((el) => el.getClientRects().length)
+    .map((el) => ({ el, r: el.getBoundingClientRect() }))
+    .map(({ el, r }) => {
+      const before = PIN_PROPS.map((k) => [k, el.style.getPropertyValue(k)] as const);
+      el.style.setProperty("position", "absolute");
+      el.style.setProperty("top", `${r.top - b.top}px`);
+      el.style.setProperty("left", `${r.left - b.left}px`);
+      el.style.setProperty("width", `${r.width}px`);
+      el.style.setProperty("margin", "0");
+      el.style.setProperty("box-sizing", "border-box");
+      el.style.setProperty("pointer-events", "none");
+      return { el, before };
+    });
+  const timer = setTimeout(() => unpin?.(), springCss("fade").duration / 2 + 20);
+  unpin = () => {
+    clearTimeout(timer);
+    for (const { el, before } of pinned) for (const [k, v] of before) v ? el.style.setProperty(k, v) : el.style.removeProperty(k);
+    unpin = undefined;
+  };
+});
+onBeforeUnmount(() => unpin?.());
 provide(CHILDREN_BY_PARENT, childrenByParent);
 provide(PEOPLE_CTX, { sorted: people, slotById: personSlotById });
 provide(VARIANT_SHOWN, variantShown);
@@ -1011,7 +1057,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            legend all describe that person's pack. The `??` never runs — see the
            `view` computed — it only narrows the type for the template. -->
       <TotalsBar
-        v-show="mode !== 'plan'"
+        v-show="mode !== 'plan'" data-view="gear"
         :headline="false"
         :list="view.list ?? snapshot"
         :totals="view.totals ?? totals"
@@ -1056,7 +1102,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            "Add people" affordance is the way in before that). -->
       <PeopleBar
         v-if="people.length"
-        v-show="mode !== 'plan'"
+        v-show="mode !== 'plan'" data-view="gear"
         :people="people"
         :selected="pf.selected.value"
         :show-unassigned="hasUnassigned"
@@ -1065,7 +1111,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       />
       <!-- a filter that matches nothing says so, instead of standing every folder
            down into a silent blank page — the ListMenu empty-state voice -->
-      <FilterEmpty v-if="emptyFilterName" v-show="mode !== 'plan'" :name="emptyFilterName" @clear="pf.clear()" />
+      <FilterEmpty v-if="emptyFilterName" v-show="mode !== 'plan'" data-view="gear" :name="emptyFilterName" @clear="pf.clear()" />
       <!-- Lazy like the vault picker: most lists never name anyone, and the manager
            has no business in their first paint. v-if — state resets per open. -->
       <LazyPeopleModal v-if="peopleOpen" @close="peopleOpen = false" />
@@ -1104,7 +1150,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            clips its child permanently, which is right for a one-line bar and wrong here:
            the elevation chart's hover readout is positioned above the chart's own box, so
            a standing clip cut the reading off. This one clips only while it moves. -->
-      <div v-if="everPlan && snapshot && totals" class="planreveal">
+      <div v-if="everPlan && snapshot && totals" class="planreveal" data-view="plan">
         <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
       </div>
 
@@ -1118,7 +1164,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            half-second stall the row swap had, for the same reason; see ItemRow's
            two-Transition comment). display:none takes the rows out of layout, paint
            and the accessibility tree exactly as absence did. -->
-      <div v-show="mode !== 'plan'" class="editor__folders">
+      <div v-show="mode !== 'plan'" data-view="gear" class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
           :key="f.id"
@@ -1132,7 +1178,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- same split as the folders above: presence follows the DATA (v-if — most lists
            have no ungrouped rows and shouldn't carry the section), visibility follows
            the MODE (v-show — so leaving planning doesn't rebuild these rows either) -->
-      <section v-if="ungrouped.length" v-show="mode !== 'plan'" class="panel editor__ungrouped">
+      <section v-if="ungrouped.length" v-show="mode !== 'plan'" data-view="gear" class="panel editor__ungrouped">
         <p class="t-label">Unfiled</p>
         <!-- prev-id follows this section's render order, so the indent affordance
              points at the row actually shown above -->
@@ -1150,7 +1196,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            the mode, and a switch mounts nothing. (A half-typed folder name can't leak
            across modes — any pointer or Tab out of the input commits it via blur
            before the mode can change.) -->
-      <div v-show="mode === 'edit'" class="addfolder editor__addfolder">
+      <div v-show="mode === 'edit'" data-view="gear" class="addfolder editor__addfolder">
         <input
           v-if="addingFolder"
           ref="newFolderRef"
@@ -1248,15 +1294,18 @@ function onCorrected(res: { status: string; itemName?: string }) {
    of the page. Desktop only — below $bp-full the pane is a bottom sheet that
    overlays by design, and the list needs its full width. */
 @media (min-width: $bp-full + 1px) {
+  .editor {
+    --split-pad: calc(var(--vault-w) + 2 * var(--space-4));
+  }
   .editor--split {
-    padding-right: calc(var(--vault-w) + 2 * var(--space-4));
+    padding-right: var(--split-pad);
   }
   /* ...then the topbar breaks back out to the full viewport. It can't simply be left
      unpadded: main IS the .wrap (centred, max-width --measure), so padding it would
      only eat its own content box and never move the column. The inset has to be on
      the shell, and the bar opts out of it. */
   .editor--split > .topbar {
-    margin-right: calc(-1 * (var(--vault-w) + 2 * var(--space-4)));
+    margin-right: calc(-1 * var(--split-pad));
   }
   /* the inset's MOTION between the two is setVault's Web Animation (script above);
      these are its two rest states */
@@ -1330,49 +1379,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
   margin-bottom: 0;
 }
 
-/* The plan's reveal: the pack bar's slide without its standing clip — see the template.
-   Keyed on the body's data-mode like the pack bar, not on enter/leave classes. The
-   at-rest hidden state is display:none — the panel leaves layout, paint, the a11y tree
-   AND the body's flex gap exactly as unmounting did — and the slide still runs both
-   ways because display rides the transition as a discrete property: entering flips it
-   to grid at the transition's start, leaving holds grid until the fade lands. Browsers
-   without allow-discrete just snap between the same two correct states. */
-/* both display gates carry !important — the #210 lesson: a mode gate on a latched
-   element competes with every later layout rule on it, and importance is what holds
-   that line (transitions still outrank importance in the cascade, so the discrete
-   display animation above is unaffected) */
-.planreveal {
-  display: none !important;
-  grid-template-rows: 1fr;
-  transition:
-    grid-template-rows var(--spring-step-dur) var(--spring-step),
-    opacity var(--spring-fade-dur) var(--spring-fade),
-    display var(--spring-step-dur) allow-discrete;
-}
-.editor__body[data-mode="plan"] .planreveal {
-  display: grid !important;
-}
-.editor__body:not([data-mode="plan"]) .planreveal {
-  grid-template-rows: 0fr;
-  opacity: 0;
-}
-.planreveal > * {
-  min-height: 0;
-}
-/* the clip exists ONLY while the rows are moving, which is the only time it is needed —
-   the switch beat (is-rowswitching, 250ms) comfortably covers the 200ms slide */
-.editor__body.is-rowswitching .planreveal > * {
-  overflow: hidden;
-}
-/* entering plays the same 0fr→1fr slide the old <Transition> enter played. Gated on the
-   switch beat so a page LOADED in planning mounts at rest — the old no-`appear`
-   behavior — while a real switch (beat active) starts from the collapsed state. */
-@starting-style {
-  .editor__body.is-rowswitching[data-mode="plan"] .planreveal {
-    grid-template-rows: 0fr;
-    opacity: 0;
-  }
-}
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */
 
@@ -1478,27 +1484,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   /* the body's --space-4 gap reads roomier before a bare text line than before
      the folder blocks — tuck it up toward the totals it annotates */
   margin-top: calc(-1 * var(--space-2));
-  /* the slide, driven by the mode attribute below rather than by enter/leave
-     classes — see the template comment. margin-top rides the transition so the
-     collapsed state can contribute EXACTLY 0px to the flow (matching the old
-     unmounted state) without snapping the tuck at either end. visibility is
-     discrete: it holds through the fade-out and flips at the end, taking the
-     hidden bar (and its Clear button) out of the tab order and the
-     accessibility tree exactly as unmounting did. */
-  transition:
-    grid-template-rows var(--spring-step-dur) var(--spring-step),
-    opacity var(--spring-fade-dur) var(--spring-fade),
-    margin-top var(--spring-step-dur) var(--spring-step),
-    visibility 0s linear var(--spring-fade-dur);
-}
-.editor__body:not([data-mode="pack"]) .packbar-reveal {
-  grid-template-rows: 0fr;
-  opacity: 0;
-  margin-top: 0;
-  visibility: hidden;
-}
-.editor__body[data-mode="pack"] .packbar-reveal {
-  transition-delay: 0s; /* visibility flips visible immediately on entering packing */
+  /* its slide on a mode switch, and the bar's own fade: atoms/modeswitch.scss */
 }
 .packbar-reveal > * {
   min-height: 0;

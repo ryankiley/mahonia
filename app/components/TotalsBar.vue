@@ -114,6 +114,9 @@ const planTip = computed(() => {
     <!-- always rendered: the bar holds a blank rail at zero so it never reflows in.
          the chips stay per-category — they pop in as each class first gains weight -->
     <div class="totals__breakdown">
+    <!-- one inner box: the breakdown folds as ONE grid track on a mode switch (below),
+         and a track can only slide a single item -->
+    <div class="totals__breakdowninner">
       <!-- only the categories actually present show — no "Consumable 0 g" noise -->
       <div class="totals__chips">
         <span v-for="c in packChips" :key="c.label" class="chip">
@@ -175,6 +178,7 @@ const planTip = computed(() => {
           </span>
       </div>
       <CategoryBar :list="list" />
+    </div>
     </div>
   </div>
 </template>
@@ -246,6 +250,11 @@ const planTip = computed(() => {
      mass, so the breakdown needs more clearance than a body-copy gap to stop reading
      as a caption hanging off the number */
   margin-top: var(--space-5);
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.totals__breakdowninner {
+  min-height: 0;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
@@ -316,6 +325,7 @@ const planTip = computed(() => {
   border-inline-start: 1px solid var(--line);
 }
 
+/* Its fold on a mode switch: atoms/modeswitch.scss. */
 /* Packing's header is the list's name, the tabs and the total. The Base/Worn/
    Consumable line and the category bar are the weighing view's instruments, and on a
    phone they held the first checkbox at the bottom edge of the screen (measured:
@@ -327,7 +337,4 @@ const planTip = computed(() => {
    The WHOLE selector sits inside :global(): in Vue 3 scoped CSS a leading
    :global(ancestor) swallows the descendant after it, and the rule silently became
    `.editor__body[data-mode="pack"] {}` — matched nothing it was meant to. */
-:global(.editor__body[data-mode="pack"] .totals__breakdown) {
-  display: none;
-}
 </style>
