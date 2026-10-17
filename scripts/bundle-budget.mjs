@@ -58,17 +58,26 @@ import { kb } from "./bundleReport.mjs";
 // third of the row's DOM with it); the account and vault machinery behind a
 // signed-in check (~4 KB an anonymous visitor never needs). Beyond those it is a
 // product conversation, and this is the number that starts it.
-const FIRST_LOAD_CEILING_KB = 150;
+//
+// MOVED 2026-10-17, 150 → 155, by decision. The first thing to cross 150 was not a
+// feature but the routine dependency sweep: vue 3.5.44 and unhead 3.4.3 together
+// added 0.5 KB to the framework floor, main sat at 149.8, and the sweep (#450) went
+// out with both held back. Ryan's call, offered the sprite lever above: "we don't
+// need to do all this — just make the site a little bigger." So the line moves the
+// way the header says it may, for a decision with the case written down: the
+// framework's own patches are not the growth this line exists to price, and 5 KB
+// is room for a few of them without a shave each time. The levers still stand for
+// when the product spends it.
+const FIRST_LOAD_CEILING_KB = 155;
 // THE TRIPWIRE, ~2 KB over the last measurement. Re-anchor to current + ~2 in the
 // PR that spends it; keep it under the ceiling.
 //
-// ON THE CEILING since the evening of 2026-09-12: main measured 149.0 against 149,
-// the 2.4 KB above the 146.6 the ceiling was drawn at spent by a dozen PRs at 0.1
-// to 0.3 KB each — none an accident, so none tripped it, which is the drift a
-// tripwire cannot see. "Current + ~2" would be 151, so the two lines coincide
-// until one of the levers above buys the margin back; until then a PR over 150
-// meets the ceiling's message, not this one's.
-const FIRST_LOAD_BUDGET_KB = 150;
+// Re-anchored 2026-10-17 at 150.3 measured (vue 3.5.44 and unhead 3.4.3 in), when
+// the ceiling moved to 155. From the evening of 2026-09-12 until then the two lines
+// had coincided at 150: main measured 149.0, then 149.8, the margin above the 146.6
+// the ceiling was drawn at spent by a dozen PRs at 0.1 to 0.3 KB each — none an
+// accident, so none tripped it, which is the drift a tripwire cannot see.
+const FIRST_LOAD_BUDGET_KB = 152;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set ~6 KB clear of the current total so it only speaks up
