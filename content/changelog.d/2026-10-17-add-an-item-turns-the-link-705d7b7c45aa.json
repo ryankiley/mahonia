@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-17",
+  "changed": [
+    "Add an item turns the link into the new row's name field in place, and a blank row you click away from folds back into the link."
+  ]
+}

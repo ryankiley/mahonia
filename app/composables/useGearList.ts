@@ -1633,10 +1633,12 @@ function create() {
   // row calls this on focusout). Quiet — no undo toast: nothing was typed, so
   // nothing is lost. Emptiness is verified against the snapshot HERE, not just
   // in the caller's view, so a stale event can never discard a row with content.
-  function discardEmpty(id: string) {
+  // The emptiness test on its own, so the row can ask BEFORE it folds away (ItemRow's
+  // leave animation runs on the answer, then calls discardEmpty, which asks again).
+  function isEmptyRow(id: string): boolean {
     const it = snapshot.value?.items.find((i) => i.id === id);
-    if (!it) return;
-    if (
+    if (!it) return false;
+    return !(
       // A NAME, A GEAR TYPE, or anything carriesContent counts (shared/weights — the one
       // list, shared with unwrapEmptied, which deletes on the same reasoning). Both of
       // those are the row's own words rather than a value, which is why they are here
@@ -1644,7 +1646,10 @@ function create() {
       // unwrapEmptied has to answer the name question the other way round.
       it.name.trim() !== "" || it.commonName || carriesContent(it) ||
       snapshot.value?.items.some((c) => c.parentId === id) // has nested children
-    ) return;
+    );
+  }
+  function discardEmpty(id: string) {
+    if (!isEmptyRow(id)) return;
     if (pendingBlankId.value === id) pendingBlankId.value = null;
     // quiet: nothing was ever typed here, so "Removed 1 item" in the history would
     // be describing a row that never existed as far as anyone is concerned
@@ -1828,7 +1833,7 @@ function create() {
     // what My Gear holds of this list's gear, and which keys have an answer at
     // all — ItemRow renders its save button against the pair (see askVaultGear)
     vaultGear, vaultGearAsked, vaultGearSettled,
-    addBlankItem, addBlankItemAfter, pasteItemsAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, updateItem, removeItem, setItemWeight, moveItem,
+    addBlankItem, addBlankItemAfter, pasteItemsAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, isEmptyRow, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest, duplicateItem,
     pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
   };
