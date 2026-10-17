@@ -288,8 +288,83 @@ function onRowBlur(e: FocusEvent) {
   // elsewhere in the app — keep the row so they can come back and finish it
   if (!next && typeof document !== "undefined" && !document.hasFocus()) return;
   nameEditing.value = false; // done with this row — the untouched empty sub-fields fold away
-  c.discardEmpty(props.item.id);
+  if (leaving.value) return; // already folding away; its finish discards
+  if (!(c.isEmptyRow(props.item.id) && foldAway())) c.discardEmpty(props.item.id);
 }
+
+// THE REVERSE OF "ADD AN ITEM" (FolderRows: the link becomes the field). A blank row
+// you click away from folds back into the link instead of vanishing: its box
+// collapses under the field on the step spring, exactly the arrival run backwards
+// (grid rows 1fr→0fr, padding-bottom to 0, the field itself never moving), the
+// controls fade on the fade spring, and the link — kept out of sight by FolderRows
+// while .is-leaving holds — stands exactly where the field was when the row goes.
+// Web Animations rather than a leave transition because removal is a dispatch that
+// splices the row before the render; this runs first and dispatches on its finish.
+// The animations are left filling forward: a cancel before the dispatch would show
+// the full row for the frame between the two. Catchable: focus coming back mid-fold
+// reverses it from the frame it is at (onRowFocusIn), and nothing is discarded.
+const leaving = ref(false);
+let leaveAnims: Animation[] = [];
+function foldAway(): boolean {
+  const wrap = wrapRef.value;
+  if (!wrap || !import.meta.client || matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+  const step = springCss("step");
+  const fade = springCss("fade");
+  // the cluster's BOXED parts: .item__meta and the .item__trail inside it are both
+  // display:contents (no box, so no opacity) — the marks and actions sit under the
+  // second one. The same selector FolderRows' arrival fades.
+  const controls = [...wrap.querySelectorAll<HTMLElement>(".item__meta > :not(.item__trail), .item__meta > .item__trail > *")];
+  wrap.style.display = "grid";
+  wrap.style.gridTemplateRows = "1fr";
+  wrap.style.contentVisibility = "visible"; // its paint containment would clip the field
+  for (const k of wrap.children) (k as HTMLElement).style.minHeight = "0";
+  try {
+    const box = wrap.animate(
+      [{ gridTemplateRows: "1fr", paddingBottom: getComputedStyle(wrap).paddingBottom }, { gridTemplateRows: "0fr", paddingBottom: "0px" }],
+      { duration: step.duration, easing: step.easing, fill: "forwards" },
+    );
+    leaveAnims = [box, ...controls.map((el) => el.animate([{ opacity: 1 }, { opacity: 0 }], { duration: fade.duration, easing: fade.easing, fill: "forwards" }))];
+    leaving.value = true;
+    box.finished.then(
+      () => {
+        if (!leaving.value) return; // reversed: a refocus took it back
+        leaving.value = false;
+        if (c.isEmptyRow(props.item.id)) c.discardEmpty(props.item.id);
+        else unfold(); // filled in meanwhile (a paste, a vault pick): back to a row
+      },
+      () => {},
+    );
+    return true;
+  } catch {
+    unfold();
+    return false;
+  }
+}
+function unfold() {
+  for (const a of leaveAnims) a.cancel();
+  leaveAnims = [];
+  const wrap = wrapRef.value;
+  if (!wrap) return;
+  wrap.style.display = "";
+  wrap.style.gridTemplateRows = "";
+  wrap.style.contentVisibility = "";
+  for (const k of wrap.children) (k as HTMLElement).style.minHeight = "";
+}
+function onRowFocusIn() {
+  if (!leaving.value) return;
+  leaving.value = false;
+  const anims = leaveAnims;
+  for (const a of anims) a.reverse();
+  Promise.all(anims.map((a) => a.finished)).then(
+    () => {
+      if (!leaving.value && leaveAnims === anims) unfold();
+    },
+    () => {},
+  );
+}
+onBeforeUnmount(() => {
+  for (const a of leaveAnims) a.cancel();
+});
 
 /**
  * Commit whatever number field is being edited before a control in this row acts on it.
@@ -1088,8 +1163,9 @@ function dismissFix() {
     :data-item-id="item.id"
     :data-parent="item.parentId || null"
     :data-person="personSlotAttr"
-    :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore, 'is-nest-parent': isNestParent }"
+    :class="{ 'is-dragging': isDragging, 'is-drop-before': isDropBefore, 'is-nest-parent': isNestParent, 'is-leaving': leaving }"
     @focusout="onRowBlur"
+    @focusin="onRowFocusIn"
     @click.capture="flushPendingEdit"
   >
     <!-- editing↔packing swap, decided by CSS rather than by this component. Which face
@@ -1190,7 +1266,7 @@ function dismissFix() {
           <ItemInput
             :unit="rowUnit"
             :initial="editableName"
-            placeholder="Name of item"
+            :placeholder="isPendingBlank ? 'Add an item' : 'Name of item'"
             :clear-on-commit="false"
             :suggest="!isParent"
             :autofocus="isPendingBlank"

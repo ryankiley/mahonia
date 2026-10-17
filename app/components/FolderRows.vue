@@ -43,11 +43,18 @@ const c = useGearList();
 // pass (initial load stays static, as it did without `appear`). A row added here,
 // moved in from another folder, un-nested, or restored by undo fades in; a row
 // that merely re-sorted does not. One Set diff per items change, in place of a
-// layout read per row per render. `seen` only ever grows, and a fresh id stays
-// fresh until the next items change — the class lingering is harmless, since a
-// CSS animation plays once on arrival and never again while the class holds.
+// layout read per row per render. `seen` only ever grows. A fresh id stays fresh
+// through the NEXT items changes as well, for about the arrival's beat: "Add an
+// item" rebuilds this list twice, and Enter on a name commits the name and adds the
+// next blank in two passes — a set rebuilt from scratch each pass dropped the class
+// after one frame, and the slide never played (measured 2026-10-17: the Enter row
+// went 17px → 53px in one frame). The class lingering past the beat is harmless,
+// since a CSS animation plays once on arrival and never again while it holds; the
+// timer only keeps the set from growing for the life of the folder.
 const seen = new Set<string>();
 const fresh = shallowRef(new Set<string>());
+const FRESH_MS = 450; // past --spring-step-dur (390ms), the slide's beat
+let freshTimer: ReturnType<typeof setTimeout> | undefined;
 watch(
   () => props.items,
   (items, prev) => {
@@ -56,12 +63,21 @@ watch(
       if (!seen.has(it.id)) {
         seen.add(it.id);
         if (prev) next.add(it.id);
+      } else if (fresh.value.has(it.id)) {
+        next.add(it.id);
       }
+    }
+    if (next.size) {
+      clearTimeout(freshTimer);
+      freshTimer = setTimeout(() => {
+        fresh.value = new Set();
+      }, FRESH_MS);
     }
     fresh.value = next;
   },
   { immediate: true },
 );
+onBeforeUnmount(() => clearTimeout(freshTimer));
 
 // drag-to-reorder: this folder is a drop zone; show a tail line when an item is
 // being dragged to the end of it (no specific row targeted)
@@ -110,7 +126,9 @@ function addBlank() {
   <div v-if="isAppendTarget" class="folder__droptail" aria-hidden="true" />
 
   <!-- CSS-hidden in packing (atoms/folder.scss), so no mount per switch -->
-  <div class="folder__add" :class="{ 'folder__add--first': !items.length }">
+  <!-- is-arriving while a row is fresh: the link you pressed has just BECOME that row's
+       name field, so the next link fades in as the row's box pushes it down (CSS below) -->
+  <div class="folder__add" :class="{ 'folder__add--first': !items.length, 'is-arriving': fresh.size > 0 }">
     <button type="button" class="folder__addbtn" @click="addBlank">Add an item</button>
   </div>
 </template>
@@ -126,18 +144,76 @@ function addBlank() {
   background: var(--ink);
   margin: var(--space-1) 0;
 }
-/* a newly added item fades in where it lands — no vertical slide, so the name you
-   just clicked into doesn't jump under the cursor (initial load stays static; see
-   `fresh`). The row's root carries this scope id as a child root, so the rule
-   reaches it. */
-.folder__items > .is-new {
-  animation: item-in var(--spring-fade-dur) var(--spring-fade);
+/* THE ADD LINK BECOMES THE ROW. The blank row's name field sits on the link text's own
+   pixel (.folder__addbtn is built to the field's geometry) and never moves; the row's
+   box grows from nothing under it (grid rows 0fr→1fr — height:auto doesn't animate in
+   Safari — and padding-bottom from 0, never padding-top), its controls fade in, and the
+   next link fades in as the growth carries it down. Enter does the same one row down.
+   Nothing clips the growing box, so the field stands at full size from the first frame;
+   content-visibility stands down because its paint containment would clip. One track,
+   so a row that is several grid items (a restored parent: .reveal, .nestcollapse) only
+   fades — a multi-track template inflates its empty siblings mid-animation. Initial load
+   stays static (`fresh`). :deep() because the row's children carry ItemRow's scope. */
+.folder__items > .is-new:not(:has(> .reveal, > .nestcollapse)) {
+  display: grid;
+  grid-template-rows: 1fr;
+  content-visibility: visible;
+  animation: item-in var(--spring-step-dur) var(--spring-step);
+}
+.folder__items > .is-new:has(> .reveal, > .nestcollapse) {
+  animation: item-fade var(--spring-fade-dur) var(--spring-fade);
+}
+.folder__items > .is-new > :deep(*) {
+  min-height: 0;
+}
+/* the cluster's BOXED parts: .item__meta and the .item__trail inside it are both
+   display:contents, which has no box for an opacity to apply to (the same selector
+   ItemRow's fold uses) */
+.folder__items > .is-new :deep(.item__meta > :not(.item__trail)),
+.folder__items > .is-new :deep(.item__meta > .item__trail > *) {
+  animation: item-fade var(--spring-fade-dur) var(--spring-fade);
 }
 @keyframes item-in {
+  from {
+    grid-template-rows: 0fr;
+    padding-bottom: 0;
+  }
+}
+@keyframes item-fade {
   from {
     opacity: 0;
   }
 }
+/* the next link: hidden while the field stands in its place, then in once the box has
+   carried it most of a row down (a third of the step beat). Its top padding grows from
+   0 on the same spring: the row keeps its own 8px above the field from the first frame
+   (that is what holds the field still), so the link hands over its 8px and the folder's
+   height changes by exactly 0 on that frame. */
+.folder__add.is-arriving {
+  animation:
+    add-in var(--spring-step-dur) var(--spring-step),
+    item-fade var(--spring-fade-dur) var(--spring-fade) calc(var(--spring-step-dur) / 3) backwards;
+}
+@keyframes add-in {
+  from {
+    padding-top: 0;
+  }
+}
+/* …and the reverse: a blank row you click away from folds back into the link (ItemRow's
+   foldAway, .is-leaving while it runs). The link waits out of sight and pulls itself up
+   by the row's 8px on the fold's spring, so the frame the row goes — its 8px with it,
+   the pull released at once — is a net 0 and the label stands exactly where the field
+   was. A margin, not the padding: the atom transitions padding-top for the packing fold
+   and a padding would ease back over the next beat; nothing transitions margin at rest. */
+.folder__items:has(> .is-leaving) ~ .folder__add {
+  opacity: 0;
+  margin-top: calc(-1 * var(--space-2));
+  transition:
+    margin-top var(--spring-step-dur) var(--spring-step),
+    opacity 0s;
+}
+/* (the link's own transitions — opacity on the fade spring, for the reverse of a
+   fold, and the packing fold — are the atom's: atoms/folder.scss) */
 /* (no item leave animation: removal goes through useGearList's dispatch(), which
    splices the item out in place before the re-render, so the row is simply gone
    from the next render — nothing holds it to fade. Deletes stay instant by design,
