@@ -431,7 +431,9 @@ $bp-full: 1024px !default;
   --surface-float: light-dark(#ffffff, #1f1f1f);
   /* dialog scrim — pure-black alphas so it stays on the neutral ramp (no warm
      tint, same rule as the surfaces above) */
-  --scrim: light-dark(#0000002d, #00000059);
+  /* 10% light / 30% dark. 18% read as heavy over the white page (Ryan, 2026-10-17:
+     "scrim is too heavy"): the card's shadow does the lifting, the scrim only hushes. */
+  --scrim: light-dark(#0000001a, #0000004d);
 
   /* ---- z-index layer scale — every positioned surface takes its layer from
      here so the stack order reads in one place. --z-lifted shares --z-float's
