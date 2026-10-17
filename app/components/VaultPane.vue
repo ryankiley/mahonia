@@ -942,6 +942,18 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     display: none;
   }
 }
+/* Between the stack point and the split point — a tablet, a narrow window — the
+   sheet does NOT span the gutters: at 900px that was a 60rem card for a column of
+   short names (Ryan, 2026-10-17: "this seems too wide"). It takes the width the
+   desktop column opens at and sits where that column would, bottom-right, so a
+   window widened past the split point turns it into the column without it moving
+   across the screen. */
+@media (min-width: $bp-stack + 1px) and (max-width: $bp-full) {
+  .vp {
+    left: auto;
+    width: 23rem;
+  }
+}
 
 /* ---- entrance ------------------------------------------------------------
    Pairs with <Transition name="vaultpane"> in GearEditor. The pane comes in from
