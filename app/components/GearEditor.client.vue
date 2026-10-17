@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
+import type { Spring } from "~/utils/spring";
 // The ⋯ menu's own glyphs are NOT here — they ride its lazy chunk (EditorMenu);
 // the toolbar keeps only the one that opens it.
 import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
@@ -181,6 +182,47 @@ const editorRef = ref<HTMLElement | null>(null);
 watchPostEffect(() => {
   editorRef.value?.style.setProperty("--vault-w", `${vaultWidth.value}px`);
 });
+// THE COLUMN MOVES ON A WEB ANIMATION, not a CSS transition, for one reason: a click
+// that catches it mid-move. A transition retargets from the frame it is drawn at but
+// sets off again from rest, and handing it a curve that starts at speed meant
+// out-guessing the browser's reversal shortening. An animation we start ourselves has
+// no such rule: read where the column is and how fast from the spring we gave it,
+// cancel it, start the next from that state. The topbar's break-out margin rides the
+// same keyframes, so the two stay on one clock. The CSS states (.editor--split, below)
+// are the rest positions; with no fill they take over when the animation ends, and
+// a phone, where the inset never changes, animates nothing.
+let column: { anims: Animation[]; sp: Spring; v0: number; from: number; to: number } | undefined;
+function setVault(open: boolean) {
+  const el = editorRef.value;
+  vaultOpen.value = open;
+  if (!el || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const from = parseFloat(getComputedStyle(el).paddingRight) || 0;
+  let velocity = 0; // px per ms, signed along the inset
+  if (column) {
+    const { anims, sp, v0, to: was, from: began } = column;
+    const t = Number(anims[0]?.currentTime ?? 0) / 1000;
+    const at = (s: number) => 1 + springAt(s, sp, -1, v0);
+    velocity = ((at(t + 0.001) - at(t)) / 0.001) * ((was - began) / 1000);
+    for (const a of anims) a.cancel();
+    column = undefined;
+  }
+  // after the flush the inset is at its new rest; the animation starts before the paint
+  nextTick(() => {
+    const to = parseFloat(getComputedStyle(el).paddingRight) || 0;
+    if (Math.abs(to - from) < 1) return;
+    const sp = spring("move");
+    const { duration, easing, v0 } = springTiming(sp, velocity / (to - from), Math.abs(to - from));
+    const bar = el.querySelector<HTMLElement>(":scope > .topbar");
+    const opts: KeyframeAnimationOptions = { duration, easing };
+    const lead = el.animate([{ paddingRight: `${from}px` }, { paddingRight: `${to}px` }], opts);
+    const anims = [lead];
+    if (bar) anims.push(bar.animate([{ marginRight: `${-from}px` }, { marginRight: `${-to}px` }], opts));
+    const mine = (column = { anims, sp, v0, from, to });
+    lead.finished.then(() => {
+      if (column === mine) column = undefined;
+    }, () => {});
+  });
+}
 // The undo toast holds its dismiss timer while hovered or containing focus, and
 // restarts the window on leave/blur. Two flags (pointer, focus) so releasing one
 // while the other still holds doesn't resume the clock. They reset when the toast
@@ -815,7 +857,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
               :class="{ 'is-on': vaultOpen }"
               aria-label="My Gear"
               :aria-expanded="vaultOpen"
-              @click="vaultOpen = !vaultOpen"
+              @click="setVault(!vaultOpen)"
             >
               <HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" />
             </button>
@@ -1176,7 +1218,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <LazyVaultPane
         v-if="vaultOpen"
         v-model:width="vaultWidth"
-        @close="vaultOpen = false"
+        @close="setVault(false)"
         @added="(name: string) => flash(`Added ${name}`)"
       />
     </Transition>
@@ -1216,34 +1258,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
   .editor--split > .topbar {
     margin-right: calc(-1 * (var(--vault-w) + 2 * var(--space-4)));
   }
-  /* The inset EASES between the two widths rather than jumping, so opening and
-     closing the pane is one movement: the list gives up the space as the pane slides
-     in, and flows back into it as the pane leaves. It used to snap on the click —
-     ~400px in a single frame, and on the way out the page had already re-flowed
-     before the pane finished going, so you saw the result before the cause.
-     Declared on the BASE selector, which is what makes the removal animate too.
-     --spring-move both ways: this is the document flow, and it takes the no-bounce
-     travel spring because a column holding words must never overshoot its width
-     and wobble the text inside it. The pane's own entrance runs on the same beat.
-     The bar's break-out has to move on exactly the same clock — its negative margin
-     is what cancels this padding, so a bar that jumped while the column eased would
-     be the wrong width for the whole transition. */
-  .editor {
-    transition: padding-right var(--spring-move-dur) var(--spring-move);
-  }
-  .editor > .topbar {
-    transition: margin-right var(--spring-move-dur) var(--spring-move);
-  }
-  /* …but NOT while the divider is being dragged. --vault-w is rewritten every frame
-     of a drag (VaultPane's startResize writes it straight onto this element), and an
-     eased padding would make the column chase the divider a fifth of a second behind
-     the cursor. The pane marks the element for the length of the gesture — and for
-     the arrow-key resize, which steps the same property — so sizing stays rigid and
-     only the open/close eases. */
-  .editor--sizing,
-  .editor--sizing > .topbar {
-    transition: none;
-  }
+  /* the inset's MOTION between the two is setVault's Web Animation (script above);
+     these are its two rest states */
 }
 .editor > main {
   flex: 1 0 auto;
