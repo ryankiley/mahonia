@@ -72,7 +72,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
   display: inline-flex;
   align-items: center;
   color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .sf__clear:hover,
 .sf__clear:focus-visible {

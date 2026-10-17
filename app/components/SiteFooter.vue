@@ -65,7 +65,7 @@ const here = (p: string) => route.path === p;
 .foot__link {
   color: var(--ink-2);
   border-bottom: 1px solid transparent;
-  transition: color var(--dur) var(--ease), border-color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade), border-color var(--spring-fade-dur) var(--spring-fade);
 }
 .foot__link:hover {
   color: var(--ink);

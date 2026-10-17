@@ -668,7 +668,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   border-radius: var(--radius-pill);
   background: var(--ink-3);
   opacity: 0;
-  transition: opacity var(--dur) var(--ease);
+  transition: opacity var(--spring-fade-dur) var(--spring-fade);
 }
 .vp__resize:hover::after,
 .vp__resize:focus-visible::after {
@@ -713,8 +713,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   color: var(--ink-3);
   cursor: pointer;
   transition:
-    background var(--dur) var(--ease),
-    color var(--dur) var(--ease);
+    background var(--spring-fade-dur) var(--spring-fade),
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 .vp__tab:hover {
   color: var(--ink);
@@ -748,7 +748,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   align-items: center;
   gap: var(--space-1);
   color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .vp__open:hover,
 .vp__open:focus-visible {
@@ -968,9 +968,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    Distance is deliberately short (--space-3). It's an orientation cue, not a
    reveal — the pane is opened on purpose, and anything longer gets in the way of
    the thing you opened it to do.
-   Entrance leads with opacity on the quicker --dur while the travel settles on the
-   spring; the exit stays quicker than the entrance, the same asymmetry .menu and
-   .toast use. (The global prefers-reduced-motion rule in main.scss flattens both.)
+   Entrance leads with opacity on the fade spring while the travel settles on the
+   pop spring; the exit stays quicker than the entrance, the same asymmetry .menu
+   and .toast use. (The global prefers-reduced-motion rule in main.scss flattens
+   both.)
 
    The EXIT is not the menus' exit, though, and shouldn't be. A menu is a small
    object popping off a control, so it leaves flat and in 120ms. This is a
@@ -979,25 +980,25 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    travel is invisible on a surface that wide, so all you saw was a large rectangle
    blinking off. It leaves the way
    it arrived instead: back out to the edge it lives on, far enough to read as
-   travel (--space-4, the entrance's distance and then some), on --ease-in — the
-   token that exists for exactly this, floating chrome ACCELERATING away rather
-   than easing into a stop that isn't there. Opacity runs slightly ahead of the
-   move so it's spent before the offset lands and never clips at the end.
-   Still well short of the entrance: --dur out against --dur-slow in.
+   travel (--space-4, the entrance's distance and then some), on the step spring:
+   a thing leaving gets no spring of its own to land on, so it takes the small
+   move's and lets opacity run ahead, spent before the offset lands so nothing
+   clips at the end. Still well short of the entrance: the step beat out against
+   the pop beat in.
 
-   The LIST moves with it. GearEditor eases its own inset over the same durations
+   The LIST moves with it. GearEditor springs its own inset on the travel spring
    (see .editor--split there), so the column gives up the space as the pane arrives
    and flows back into it as the pane goes — one movement, not a panel animating
    over a page that already jumped. */
 .vaultpane-enter-active {
   transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur-slow) var(--ease-spring);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    transform var(--spring-pop-dur) var(--spring-pop);
 }
 .vaultpane-leave-active {
   transition:
-    opacity calc(var(--dur) * 0.8) var(--ease-in),
-    transform var(--dur) var(--ease-in);
+    opacity calc(var(--spring-fade-dur) * 0.8) var(--spring-fade),
+    transform var(--spring-step-dur) var(--spring-step);
 }
 .vaultpane-enter-from {
   opacity: 0;

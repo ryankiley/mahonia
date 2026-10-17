@@ -284,8 +284,8 @@ watch(open, (o) => {
   color: var(--ink-2);
   white-space: nowrap;
   transition:
-    background var(--dur) var(--ease),
-    color var(--dur) var(--ease);
+    background var(--spring-fade-dur) var(--spring-fade),
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 /* Split from :hover, not merged with it: .is-on is the OPEN menu's state and has to
    paint on every pointer, while the hover twin paints only where hovering is real

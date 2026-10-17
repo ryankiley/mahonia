@@ -228,7 +228,7 @@ const meta = computed(() => {
 .vault__act {
   flex: none;
   color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .vault__act:hover {
   color: var(--ink);
@@ -244,7 +244,7 @@ const meta = computed(() => {
   width: var(--icon-btn);
   min-height: var(--icon-btn);
   color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .vault__movewrap:hover {
   color: var(--ink);

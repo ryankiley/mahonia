@@ -1070,7 +1070,7 @@ async function exportGear(kind: string) {
   gap: var(--space-2);
   white-space: nowrap;
   color: var(--ink-2);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .vault__view:hover,
 .vault__view:focus-within {

@@ -110,7 +110,7 @@ defineEmits<{ pick: [key: string] }>();
      loose beside the tightly-tracked display figure */
   letter-spacing: var(--track-unit);
   color: var(--ink-2);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 
 /* Unit and chevron lift TOGETHER, under the pointer and on keyboard focus. They are

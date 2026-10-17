@@ -18,9 +18,9 @@
   font-weight: 600;
   letter-spacing: var(--track-tight);
   transition:
-    background var(--dur) var(--ease),
-    color var(--dur) var(--ease),
-    opacity var(--dur) var(--ease);
+    background var(--spring-fade-dur) var(--spring-fade),
+    color var(--spring-fade-dur) var(--spring-fade),
+    opacity var(--spring-fade-dur) var(--spring-fade);
 }
 /* HOVER IS POINTER-GATED, HERE AND EVERYWHERE IT PAINTS.
    iOS leaves :hover latched on the last thing you tapped until you tap something
@@ -126,8 +126,8 @@
   color: var(--ink-2);
   text-decoration-color: var(--underline);
   transition:
-    color var(--dur) var(--ease),
-    text-decoration-color var(--dur) var(--ease);
+    color var(--spring-fade-dur) var(--spring-fade),
+    text-decoration-color var(--spring-fade-dur) var(--spring-fade);
 }
 .link:hover,
 .link:focus-visible {
@@ -196,7 +196,7 @@ button svg {
   border-radius: var(--radius-pill);
   background: var(--well);
   cursor: pointer;
-  transition: background var(--dur) var(--ease);
+  transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 // THE TARGET, which is a different object from the track. 28×16 is what a switch of
 // this weight should LOOK like, and it is also 8px under the 24×24 floor WCAG 2.5.8
@@ -245,7 +245,7 @@ button svg {
   block-size: 12px;
   border-radius: 50%;
   background: var(--paper);
-  transition: translate var(--dur) var(--ease);
+  transition: translate var(--spring-track-dur) var(--spring-track); /* chases the pointer: the track spring */
 }
 .switch[aria-checked="true"]::after {
   translate: calc(28px - 12px - 2px * 2) 0;
@@ -501,7 +501,7 @@ input[type="search"]::-webkit-search-decoration {
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
-  transition: background var(--dur) var(--ease);
+  transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 .menu__item > svg {
   flex: none;
@@ -625,8 +625,8 @@ input[type="search"]::-webkit-search-decoration {
   flex: none;
   color: var(--ink-3);
   transition:
-    color var(--dur) var(--ease),
-    rotate var(--dur) var(--ease);
+    color var(--spring-fade-dur) var(--spring-fade),
+    rotate var(--spring-step-dur) var(--spring-step);
 }
 .chev.is-open {
   rotate: 180deg;
@@ -659,14 +659,14 @@ input[type="search"]::-webkit-search-decoration {
   opacity: 0;
   pointer-events: none;
   transition:
-    transform var(--dur) var(--ease),
-    height var(--dur) var(--ease),
-    opacity calc(var(--dur) * 0.6) var(--ease),
+    transform var(--spring-step-dur) var(--spring-step),
+    height var(--spring-step-dur) var(--spring-step),
+    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
     // ...and the HUE eases too, so travelling onto a destructive row bleeds red
     // into the wash instead of swapping colour mid-slide. Faster than the travel
     // (it rides opacity's timing): the wash should have arrived at its colour by
     // the time the plate lands, not still be catching up.
-    background calc(var(--dur) * 0.6) var(--ease);
+    background calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
 }
 .menu__plate.is-on {
   opacity: 1;
@@ -710,9 +710,10 @@ input[type="search"]::-webkit-search-decoration {
   cursor: default;
 }
 // ── MOTION: three families, one vocabulary ───────────────────────────────────
-// Every animated surface in the app draws its timing from the SAME tokens (--dur,
-// --ease, --ease-spring in tokens.scss), so nothing has its own idea of how fast
-// the interface moves and reduced-motion is one kill-switch. What differs between
+// Every animated surface in the app draws its timing from the SAME four springs
+// (--spring-fade/-step/-move/-pop in tokens.scss, each with its own beat), so
+// nothing has its own idea of how fast the interface moves and reduced-motion is
+// one kill-switch. What differs between
 // families is the TRANSFORM, and it differs on purpose — a scrim that popped from a
 // corner would be as wrong as a menu that merely faded.
 //
@@ -731,8 +732,8 @@ input[type="search"]::-webkit-search-decoration {
 // pops in from the trigger corner: quick fade + slight rise, spring on enter
 .menu-enter-active {
   transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur) var(--ease-spring);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    transform var(--spring-pop-dur) var(--spring-pop);
 }
 // exit: FASTER and FLATTER than the entrance. No scale — a scaling exit pins
 // the row at the transform origin (on a tall menu the top row visibly "hangs"
@@ -740,8 +741,8 @@ input[type="search"]::-webkit-search-decoration {
 // low-opacity tail, which read as a lingering ghost.
 .menu-leave-active {
   transition:
-    opacity calc(var(--dur) * 0.6) var(--ease),
-    transform calc(var(--dur) * 0.6) var(--ease);
+    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
+    transform calc(var(--spring-step-dur) * 0.6) var(--spring-step);
 }
 .menu-enter-from {
   opacity: 0;
@@ -767,10 +768,10 @@ input[type="search"]::-webkit-search-decoration {
 // transition (NOT a keyframe/filter): Safari reliably animates both — including the
 // LEAVE, where a filter transition on removal just snaps off — and a transition rests
 // at the VISIBLE base state, so if animation is ever throttled the toast still shows
-// (a keyframe would hold its hidden from-frame). It arrives as the event — a spring
-// rise that settles a slight scale-up, opacity leading on the quicker --dur so the
-// text reads before the spring finishes — and leaves quick + quiet on the plain ease,
-// a small sink. Every state shares one transform function, translate(-50%, …)
+// (a keyframe would hold its hidden from-frame). It arrives as the event — a pop
+// spring rise that settles a slight scale-up, opacity leading on the fade spring so
+// the text reads before the pop finishes — and leaves quick + quiet on the step
+// spring, a small sink. Every state shares one transform function, translate(-50%, …)
 // scale(…), so Safari interpolates cleanly (mismatched functions it won't).
 .toast {
   position: fixed;
@@ -799,13 +800,13 @@ input[type="search"]::-webkit-search-decoration {
 }
 .toast-enter-active {
   transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur-slow) var(--ease-spring);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    transform var(--spring-pop-dur) var(--spring-pop);
 }
 .toast-leave-active {
   transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur) var(--ease);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    transform var(--spring-step-dur) var(--spring-step);
   // a departing toast is already dead (the undo bar's pendingUndo is null) but still
   // painted mid-fade — without this, its Undo button eats a late click that then
   // silently no-ops. Harmless on the plain message toasts, which aren't interactive.
@@ -958,7 +959,7 @@ input[type="search"]::-webkit-search-decoration {
   background: color-mix(in oklab, var(--ink) 10%, transparent);
   border-radius: calc(var(--radius-4) - var(--space-2));
   color: var(--ink);
-  transition: background var(--dur) var(--ease);
+  transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 .well::placeholder {
   color: var(--ink-3);
@@ -993,28 +994,26 @@ input[type="search"]::-webkit-search-decoration {
   min-height: 0;
   overflow: hidden;
 }
-// Two curves, not one: opening decelerates into place, closing gathers speed and
-// leaves — the expo-out on both read as a snap (tokens.scss, --ease-open/--ease-close).
+// One spring both ways (the step spring, no overshoot — a row holding words never
+// bounces). The 2026-09-05 pair of curves (decelerate open, accelerate close) stood
+// in for what a spring's shape does on its own; if the close reads as lingering
+// again, that asymmetry is the first thing to bring back.
 .reveal-enter-active {
   transition:
-    grid-template-rows var(--dur-reveal) var(--ease-open),
-    margin-top var(--dur-reveal) var(--ease-open),
-    opacity var(--dur-reveal) var(--ease-open);
+    grid-template-rows var(--spring-step-dur) var(--spring-step),
+    margin-top var(--spring-step-dur) var(--spring-step),
+    opacity var(--spring-step-dur) var(--spring-step);
 }
 .reveal-leave-active {
   transition:
-    grid-template-rows var(--dur-reveal) var(--ease-close),
-    margin-top var(--dur-reveal) var(--ease-close),
-    opacity var(--dur-reveal) var(--ease-close);
+    grid-template-rows var(--spring-step-dur) var(--spring-step),
+    margin-top var(--spring-step-dur) var(--spring-step),
+    opacity var(--spring-step-dur) var(--spring-step);
 }
-/* the content also rises a touch as it fades, so it reads as lifting into place
-   rather than just being unveiled */
-.reveal-enter-active > * {
-  transition: transform var(--dur-reveal) var(--ease-open);
-}
-.reveal-leave-active > * {
-  transition: transform var(--dur-reveal) var(--ease-close);
-}
+/* The content does NOT move on its own: it used to rise a few px as the box grew
+   downward, two directions in one small motion (Ryan, 2026-10-17: "there's multiple
+   directions of movement"). One direction now — the box unfolds, the content fades
+   in where it will sit. */
 .reveal-enter-from,
 .reveal-leave-to {
   grid-template-rows: minmax(0, 0fr);
@@ -1073,15 +1072,15 @@ input[type="search"]::-webkit-search-decoration {
   grid-area: 1 / 1;
   pointer-events: none;
   color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .check__icon--check {
   opacity: 0;
   color: var(--ink);
   transform: scale(0.5);
   transition:
-    transform var(--dur) var(--ease-spring),
-    opacity calc(var(--dur) * 0.6) var(--ease);
+    transform var(--spring-pop-dur) var(--spring-pop),
+    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
 }
 // The empty square steps aside for the tick — and for the dash, but ONLY where there
 // is a dash to step aside for. `:has()` is doing real work in that second selector:
@@ -1092,7 +1091,7 @@ input[type="search"]::-webkit-search-decoration {
 .check__box:checked ~ .check__icon--empty,
 .check:has(.check__icon--mixed) .check__box:indeterminate ~ .check__icon--empty {
   opacity: 0;
-  transition: opacity calc(var(--dur) * 0.6) var(--ease);
+  transition: opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
 }
 .check__box:checked ~ .check__icon--check {
   opacity: 1;
@@ -1108,7 +1107,7 @@ input[type="search"]::-webkit-search-decoration {
 .check__icon--mixed {
   opacity: 0;
   color: var(--ink);
-  transition: opacity calc(var(--dur) * 0.6) var(--ease);
+  transition: opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
 }
 .check__box:indeterminate ~ .check__icon--mixed {
   opacity: 1;
@@ -1142,7 +1141,7 @@ input[type="search"]::-webkit-search-decoration {
 .addfolder__btn {
   color: var(--ink-3);
   cursor: pointer;
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .addfolder__btn:hover {
   color: var(--ink);

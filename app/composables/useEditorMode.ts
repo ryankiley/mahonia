@@ -25,8 +25,8 @@ export const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
 const MODE_KEY = "gear.mode.v1";
 
 // How long the entering row's fade needs to have finished by — comfortably past the
-// animation's calc(var(--dur) * 0.9); see `switching` below.
-const SWITCH_ANIM_MS = 250;
+// animation's calc(var(--spring-fade-dur) * 0.9) = 270ms; see `switching` below.
+const SWITCH_ANIM_MS = 300;
 
 let singleton: ReturnType<typeof create> | undefined;
 

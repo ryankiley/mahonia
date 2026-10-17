@@ -77,7 +77,11 @@ const FIRST_LOAD_CEILING_KB = 155;
 // had coincided at 150: main measured 149.0, then 149.8, the margin above the 146.6
 // the ceiling was drawn at spent by a dozen PRs at 0.1 to 0.3 KB each — none an
 // accident, so none tripped it, which is the drift a tripwire cannot see.
-const FIRST_LOAD_BUDGET_KB = 152;
+//
+// Re-anchored 2026-10-17 at 153.0 measured (the spring motion system: ~1 KB of curves,
+// the spring util, the row fold). 154 is one under the ceiling: the next growth is a
+// conversation about the ceiling.
+const FIRST_LOAD_BUDGET_KB = 154;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set ~6 KB clear of the current total so it only speaks up
@@ -88,7 +92,9 @@ const FIRST_LOAD_BUDGET_KB = 152;
 // feature work spread across lazy chunks — the trip tab's day facts, the fuel rules,
 // the account cache split — and the last 0.2 to the map-file reader becoming a chunk
 // of its own, which is the first-load lever working as intended. No chunk grew.
-const TOTAL_BUDGET_KB = 294;
+//
+// Re-set 2026-10-17 at 294.3 measured (was 294): the spring motion system. No chunk grew.
+const TOTAL_BUDGET_KB = 300;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

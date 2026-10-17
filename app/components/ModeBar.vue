@@ -111,7 +111,7 @@ function onKey(e: KeyboardEvent) {
 //   --control-1     24px   → the same 24px
 //   --radius-2             → --radius-2 (both are the 8px step)
 //   --t-caption-*          → --text-chrome, the app's one chrome size
-//   --duration-fast/--ease-out → --dur / --ease
+//   --duration-fast/--ease-out → --spring-fade (the beat and the curve are one token)
 //
 // `corner-shape: superellipse()` is dropped: it is a Chrome-only property that the
 // design system opts into and this app has never used anywhere.
@@ -151,8 +151,8 @@ function onKey(e: KeyboardEvent) {
   color: var(--ink-3);
   white-space: nowrap;
   transition:
-    background-color var(--dur) var(--ease),
-    color var(--dur) var(--ease);
+    background-color var(--spring-fade-dur) var(--spring-fade),
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 
 // The wash matters: without a plate, a pointer crossing the bar changes the word's colour

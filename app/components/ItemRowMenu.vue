@@ -112,7 +112,7 @@ function toggle() {
    so it reads at the same weight as the delete + grip it sits between. */
 .rowmenu__btn {
   color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .rowmenu__btn:hover {
   color: var(--ink);

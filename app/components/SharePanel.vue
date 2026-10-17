@@ -416,7 +416,7 @@ function changeLabel(i: number): string {
   background: var(--paper-3);
   border-radius: var(--popover-item-radius);
   color: var(--ink);
-  transition: background var(--dur) var(--ease);
+  transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss). Copying
    doesn't dismiss the panel, so the deepened chip used to sit there for the rest of

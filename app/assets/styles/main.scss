@@ -155,7 +155,7 @@
 .prose a:not(.btn) {
   color: var(--ink);
   border-bottom: 1px solid var(--line-2);
-  transition: border-color var(--dur) var(--ease);
+  transition: border-color var(--spring-fade-dur) var(--spring-fade);
 }
 .prose a:not(.btn):hover {
   // deepen on hover, but never to full ink — keeps the underline soft (see --underline)

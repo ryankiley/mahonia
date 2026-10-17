@@ -132,8 +132,8 @@ function onKey(e: KeyboardEvent) {
   color: var(--ink-3);
   white-space: nowrap;
   transition:
-    background-color var(--dur) var(--ease),
-    color var(--dur) var(--ease);
+    background-color var(--spring-fade-dur) var(--spring-fade),
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 @media (hover: hover) and (pointer: fine) {
   .pplbar__chip:hover {

@@ -88,7 +88,7 @@ onMounted(() => {
    copies of one idea. The per-character stagger below stays local: it is what
    makes this the TOTAL's version of the pop. */
 .acount.is-animating .acount__ch {
-  animation: num-pop var(--dur-slow) var(--ease-spring) both;
+  animation: num-pop var(--spring-pop-dur) var(--spring-pop) both;
   animation-delay: calc(var(--i, 0) * var(--stagger-ch)); /* 0 for the first char */
 }
 @media (prefers-reduced-motion: reduce) {

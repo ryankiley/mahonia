@@ -40,8 +40,8 @@
   overscroll-behavior: contain;
   // the scrim just fades (.ovl-* below); the dialog itself rises in (same for every modal)
   transition:
-    transform var(--dur) var(--ease-spring),
-    opacity var(--dur) var(--ease);
+    transform var(--spring-pop-dur) var(--spring-pop),
+    opacity var(--spring-fade-dur) var(--spring-fade);
 }
 
 /* The account is NARROWER than the shared 30rem. Its widest state is a column of
@@ -98,7 +98,7 @@
 }
 .ovl-enter-active,
 .ovl-leave-active {
-  transition: opacity var(--dur) var(--ease);
+  transition: opacity var(--spring-fade-dur) var(--spring-fade);
 }
 .ovl-enter-from,
 .ovl-leave-to {

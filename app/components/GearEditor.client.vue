@@ -1221,24 +1221,18 @@ function onCorrected(res: { status: string; itemName?: string }) {
      in, and flows back into it as the pane leaves. It used to snap on the click —
      ~400px in a single frame, and on the way out the page had already re-flowed
      before the pane finished going, so you saw the result before the cause.
-     Declared on the BASE selector as well as the modifier, which is what makes the
-     removal animate too — and the pair is what sets the direction: the modifier's
-     --dur-slow runs while the class is on (opening, alongside the pane's own
-     entrance), the base's --dur when it comes off (closing, alongside the exit).
-     --ease, never the popover curves: this is the document flow, and a spring here
-     would overshoot the column's width and wobble the text inside it.
+     Declared on the BASE selector, which is what makes the removal animate too.
+     --spring-move both ways: this is the document flow, and it takes the no-bounce
+     travel spring because a column holding words must never overshoot its width
+     and wobble the text inside it. The pane's own entrance runs on the same beat.
      The bar's break-out has to move on exactly the same clock — its negative margin
      is what cancels this padding, so a bar that jumped while the column eased would
      be the wrong width for the whole transition. */
   .editor {
-    transition: padding-right var(--dur) var(--ease);
+    transition: padding-right var(--spring-move-dur) var(--spring-move);
   }
   .editor > .topbar {
-    transition: margin-right var(--dur) var(--ease);
-  }
-  .editor--split,
-  .editor--split > .topbar {
-    transition-duration: var(--dur-slow);
+    transition: margin-right var(--spring-move-dur) var(--spring-move);
   }
   /* …but NOT while the divider is being dragged. --vault-w is rewritten every frame
      of a drag (VaultPane's startResize writes it straight onto this element), and an
@@ -1335,9 +1329,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: none !important;
   grid-template-rows: 1fr;
   transition:
-    grid-template-rows var(--dur) var(--ease),
-    opacity var(--dur) var(--ease),
-    display var(--dur) allow-discrete;
+    grid-template-rows var(--spring-step-dur) var(--spring-step),
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    display var(--spring-step-dur) allow-discrete;
 }
 .editor__body[data-mode="plan"] .planreveal {
   display: grid !important;
@@ -1476,10 +1470,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
      hidden bar (and its Clear button) out of the tab order and the
      accessibility tree exactly as unmounting did. */
   transition:
-    grid-template-rows var(--dur) var(--ease),
-    opacity var(--dur) var(--ease),
-    margin-top var(--dur) var(--ease),
-    visibility 0s linear var(--dur);
+    grid-template-rows var(--spring-step-dur) var(--spring-step),
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    margin-top var(--spring-step-dur) var(--spring-step),
+    visibility 0s linear var(--spring-fade-dur);
 }
 .editor__body:not([data-mode="pack"]) .packbar-reveal {
   grid-template-rows: 0fr;
@@ -1514,7 +1508,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
    stacking context that traps the add-item autocomplete dropdown's z-index
    inside its folder (so later folders paint over it). */
 .editor__folders > * {
-  animation: rise var(--dur-slow) var(--ease) backwards;
+  animation: rise var(--spring-pop-dur) var(--spring-pop) backwards;
 }
 /* cascade cadence lives in one token (--stagger, ~31ms — SPACE10's kinetic-type
    step), not five magic numbers; child 1 leads at 0, the rest step off it */

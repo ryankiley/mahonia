@@ -13,6 +13,44 @@ $bp-stack: 720px !default;
 $bp-full: 1024px !default;
 
 @use "sass:math";
+@use "sass:list";
+
+// A spring as a CSS easing: (nominal duration, bounce, launch). The duration is the
+// spring's period, about when it has settled; bounce 0 never overshoots, above ~0.2 it
+// shows. Sampled at 49 points over 1.5x the duration so the tail settles — every *-dur
+// token is that 1.5x. $launch is the starting speed in units of the natural speed: 0
+// sets off from rest (a thing with mass), 1 is the exponential ease-out, full speed on
+// the first frame (a response: a colour answering a hover, a pip chasing the pointer).
+// Same closed form as app/utils/spring.ts; a retune changes both.
+@function spring-curve($ms, $bounce: 0, $launch: 0) {
+  $d: math.div($ms, 1000);
+  $w0: math.div(2 * math.$pi, $d);
+  $zeta: 1 - $bounce;
+  $v0: $launch * $w0;
+  $T: $d * 1.5;
+  $n: 48;
+  $pts: ();
+  @for $i from 0 through $n {
+    $t: math.div($i, $n) * $T;
+    $x: 0;
+    @if $zeta >= 1 {
+      // x0 = -1 (a full travel short of the target), velocity v0 toward it
+      $x: (-1 + ($v0 - $w0) * $t) * math.pow(math.$e, -$w0 * $t);
+    } @else {
+      $wd: $w0 * math.sqrt(1 - $zeta * $zeta);
+      $b: math.div($v0 - $zeta * $w0, $wd);
+      $x: math.pow(math.$e, -$zeta * $w0 * $t) * (-1 * math.cos($wd * $t) + $b * math.sin($wd * $t));
+    }
+    // the last sample is pinned to 1 (as springTiming pins its path), so an animation
+    // that holds its end frame rests at the end state and not 0.08% short of it
+    $p: math.div(math.round((1 + $x) * 10000), 10000);
+    @if $i == $n {
+      $p: 1;
+    }
+    $pts: list.append($pts, $p, comma);
+  }
+  @return linear($pts);
+}
 
 // Fluid item-row track: $min wide at the $bp-stack mobile stack point, $max at
 // the $bp-full full-width point, linear between (clamped outside). The emitted
@@ -319,41 +357,45 @@ $bp-full: 1024px !default;
      would round a mark that small into a coin. */
   --radius-icon: 2px;
 
-  /* ---- motion: one signature ease (SPACE10's expo-out workhorse) ---- */
-  --ease: cubic-bezier(0.19, 1, 0.22, 1);
-  --ease-spring: cubic-bezier(0.34, 1.4, 0.5, 1);
-  /* IN-FLOW DISCLOSURES — a row's second line (gear type + note), the ⋯ menu's Export
-     group, the sharing panel's log (.reveal, controls.scss). Height that pushes the
-     page around wants a gentler shape than the expo-out, which spends 80% of its
-     travel in the first 60ms and read as a snap with a soft landing — worst on the
-     way shut (Ryan, 2026-09-05). Open decelerates (ease-out-cubic), close accelerates
-     (ease-in-cubic), each over a beat that stays proportional to --dur so the
-     reduced-motion switch zeroes it too. */
-  --ease-open: cubic-bezier(0.22, 0.61, 0.36, 1);
-  /* The previous close curve lingered, then collapsed abruptly at the end. A
-     conventional ease-in leaves promptly and gathers pace without a final snap. */
-  --ease-close: cubic-bezier(0.4, 0, 1, 1);
-  /* In-flow details should answer the edit immediately; 240ms gave a one-line row
-     enough runway to feel delayed. This stays long enough to read as a slide. */
-  --dur-reveal: 180ms;
-  /* FLOATING CHROME ONLY — the two curves the tooltip's reveal/dismiss uses, brought
-     over from the portfolio with the component. Not a second signature ease: nothing
-     in the document flow may take them, and --ease stays the app's one workhorse.
-     A popup wants a different character from an in-flow transition — it appears out
-     of nothing rather than moving something that was already there, so it settles
-     (--spring-smooth) instead of decelerating, and leaves by accelerating away
-     (--ease-in) instead of easing out into a stop that isn't there.
-     --spring-smooth is critically damped: it settles with NO overshoot, which is what
-     separates it from --ease-spring above (that one deliberately overshoots). */
-  --spring-smooth: linear(
-    0, 0.0286, 0.0969, 0.1851, 0.2805, 0.3751, 0.4643, 0.5456, 0.6179,
-    0.681, 0.7354, 0.7816, 0.8207, 0.8533, 0.8805, 0.9029, 0.9214, 0.9365,
-    0.9488, 0.9589, 0.967, 0.9736, 0.9789, 0.9831, 0.9866, 0.9893, 0.9915,
-    0.9933, 0.9947, 0.9958, 0.9967, 0.9974, 0.9979, 0.9984, 0.9987, 0.999,
-    0.9992, 0.9994, 0.9995, 0.9996, 0.9997, 0.9998, 0.9998, 0.9999, 0.9999,
-    0.9999, 0.9999, 0.9999, 1, 1, 1
-  );
-  --ease-in: cubic-bezier(0.32, 0, 0.67, 0);
+  /* ---- motion: one table of springs ----
+     Every move in the app runs on one of four springs. Each is a (duration, bounce)
+     pair that spring-curve() above samples into a linear() easing at build time, with
+     its own *-dur token: a spring's length is part of the spring, so no rule pairs a
+     curve with a beat of its own choosing. The duration token is 1.5x the nominal so
+     the tail settles; the move looks done at the nominal.
+     Roles, not speeds:
+       --spring-fade  colour, opacity, shadow: the hover wash, a chip's ink, a face
+                      fading in. 200ms, no bounce, LAUNCHED (see spring-curve): a
+                      colour change is a response and starts at full speed.
+       --spring-step  small moves in the flow: a chevron turning, a row's second line
+                      sliding open, a tooltip, a menu on its way out. 260ms, no bounce.
+       --spring-move  things that travel: the vault column and the page giving up its
+                      width, the sheet, the plan and pack bars, the map growing.
+                      420ms, no bounce: a column holding words never overshoots.
+       --spring-pop   arrivals: a figure that changed, a menu or dialog coming in, the
+                      folders cascading on load, the pane itself. The one visible
+                      bounce. 380ms, bounce 0.2 (peaks about 1.5% past).
+       --spring-track an indicator chasing the pointer: the calendar's day pip, the
+                      menus' travelling plate. 140ms, no bounce, LAUNCHED — on the
+                      step spring the pip trailed the cursor by most of a beat and
+                      read as broken (Ryan, 2026-10-17). It follows a hand, so it has
+                      to be moving on the first frame and nearly there by the time
+                      the hand has moved on.
+     Exits keep their asymmetry by running on a fraction of the fade's beat, never on
+     a curve of their own: a thing leaving gets no spring to land on.
+     Interruptible by construction: these are CSS transitions, so a move caught by a
+     second click retargets from the frame it is drawn at. Carrying its speed across
+     the catch as well is app/utils/spring.ts, the same table in JS. */
+  --spring-fade: #{spring-curve(200, 0, 1)};
+  --spring-fade-dur: 300ms;
+  --spring-step: #{spring-curve(260, 0)};
+  --spring-step-dur: 390ms;
+  --spring-move: #{spring-curve(420, 0)};
+  --spring-move-dur: 630ms;
+  --spring-pop: #{spring-curve(380, 0.2)};
+  --spring-pop-dur: 570ms;
+  --spring-track: #{spring-curve(140, 0, 1)};
+  --spring-track-dur: 210ms;
   /* linear() landed in Safari 17.5 / Firefox 112 — older engines take the closest
      cubic-bezier rather than dropping to the `linear` keyword.
      The test value MUST have two stops. `linear(0)` is not a valid easing (one stop
@@ -361,10 +403,12 @@ $bp-full: 1024px !default;
      and the fallback applies UNIVERSALLY — the sampled spring would never once run.
      The portfolio's copy of this guard has that exact bug; don't inherit it. */
   @supports not (animation-timing-function: linear(0, 1)) {
-    --spring-smooth: cubic-bezier(0.22, 1, 0.44, 1);
+    --spring-fade: cubic-bezier(0.16, 1, 0.3, 1);
+    --spring-step: cubic-bezier(0.22, 1, 0.36, 1);
+    --spring-move: cubic-bezier(0.22, 1, 0.36, 1);
+    --spring-pop: cubic-bezier(0.34, 1.3, 0.5, 1);
+    --spring-track: cubic-bezier(0.16, 1, 0.3, 1);
   }
-  --dur: 200ms;
-  --dur-slow: 440ms;
   --stagger: 31ms; /* per-child cascade step — SPACE10's kinetic-type cadence */
   --blur-pop: 2px; /* enter blur for pop-ins (webkit-safe: rest at blur(0), never from none) */
 

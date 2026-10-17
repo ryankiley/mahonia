@@ -95,7 +95,7 @@ const gridEl = useTemplateRef<HTMLElement>("gridEl");
 // ---- the tracking pip ----
 // One highlight that GLIDES to the day under the cursor, instead of every cell lighting
 // its own hover. Same device as the menus' travelling plate (.menu__plate, controls.scss):
-// a single absolutely-positioned box translated into place on the damped --ease, so the
+// a single absolutely-positioned box translated into place on the step spring, so the
 // cursor tracks rather than blinks.
 // It follows the POINTER while the pointer is in the grid and the KEYBOARD's day the
 // rest of the time — so the two ways of moving around this grid share one cursor
@@ -294,9 +294,9 @@ onMounted(() => {
   border-radius: var(--radius-2);
   background: color-mix(in oklab, var(--ink) 12%, transparent);
   pointer-events: none;
-  /* damped --ease, never overshoot — same rule as the menus' plate: a cursor that
+  /* the track spring — quick, never overshoots — same rule as the menus' plate: a cursor that
      overshoots lands on the wrong day, however briefly */
-  transition: translate var(--dur) var(--ease);
+  transition: translate var(--spring-track-dur) var(--spring-track);
   will-change: translate;
 }
 .cal__wd {
@@ -318,8 +318,8 @@ onMounted(() => {
   font-size: var(--text-base);
   color: var(--ink-2);
   transition:
-    background var(--dur) var(--ease),
-    color var(--dur) var(--ease);
+    background var(--spring-fade-dur) var(--spring-fade),
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 /* no background here — the pip IS the hover, and a fill under it would double the mark
    and kill the sense that one cursor is moving */

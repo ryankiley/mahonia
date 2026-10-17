@@ -2320,7 +2320,7 @@ function dismissFix() {
   transform: translateZ(0);
 }
 .item__qtyfield.is-popping {
-  animation: num-pop var(--dur-slow) var(--ease-spring) both;
+  animation: num-pop var(--spring-pop-dur) var(--spring-pop) both;
 }
 .item__unitwrap {
   position: relative;
@@ -2611,7 +2611,7 @@ function dismissFix() {
    weight as the icons across the row from them */
 .item__qtybtn {
   color: var(--ink-3);
-  transition: color var(--dur) var(--ease);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .item__grip:hover,
 .item__vault-btn:hover,
@@ -2645,7 +2645,7 @@ function dismissFix() {
   .item-row .item__dup,
   .item-row .item__del {
     opacity: 0;
-    transition: opacity var(--dur) var(--ease);
+    transition: opacity var(--spring-fade-dur) var(--spring-fade);
   }
   .item-row:hover .item__vault-btn,
   .item-row:hover .item__nestact,
@@ -2679,7 +2679,7 @@ function dismissFix() {
    fill backwards) so it runs through a glyph that has already landed. (The global
    reduced-motion rule in main.scss flattens all of it.) */
 .vaultin-enter-active {
-  animation: vault-pop calc(var(--dur) * 3) var(--ease);
+  animation: vault-pop calc(var(--spring-step-dur) * 3) var(--spring-step);
 }
 .vaultin-enter-active .item__vault-btn {
   color: var(--ink);
@@ -2688,7 +2688,7 @@ function dismissFix() {
   mask-image: linear-gradient(100deg, #000 45%, rgba(0, 0, 0, 0) 65%);
   mask-size: 250% 100%;
   mask-repeat: no-repeat;
-  animation: vault-shine calc(var(--dur) * 2.25) var(--ease) calc(var(--dur) * 0.75) backwards;
+  animation: vault-shine calc(var(--spring-fade-dur) * 2.25) var(--spring-fade) calc(var(--spring-fade-dur) * 0.75) backwards;
 }
 @keyframes vault-pop {
   0% {
@@ -2714,8 +2714,8 @@ function dismissFix() {
 }
 .vaultin-leave-active {
   transition:
-    opacity var(--dur) var(--ease),
-    transform var(--dur) var(--ease);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    transform var(--spring-step-dur) var(--spring-step);
 }
 .vaultin-leave-to {
   opacity: 0;
@@ -2789,10 +2789,7 @@ function dismissFix() {
 .reveal-leave-to {
   --reveal-offset: 0;
 }
-.reveal-enter-from > *,
-.reveal-leave-to > * {
-  transform: translateY(0.4em);
-}
+/* (no transform on the content: the line unfolds in one direction — atoms/controls.scss) */
 /* the editing↔packing row swap lives in atoms/item.scss now — it keys off the editor
    body's data-mode, which no scoped block can see, and the fade that used to be a
    <Transition> here is the rowmode-fade animation there. */
@@ -2819,7 +2816,7 @@ function dismissFix() {
 /* If one sub-line has a saved value, the shared reveal stays mounted when focus
    leaves. Let its empty sibling finish closing instead of disappearing mid-frame. */
 .reveal-field-leave-active {
-  transition: opacity var(--dur-reveal) var(--ease-close);
+  transition: opacity var(--spring-step-dur) var(--spring-step);
 }
 .reveal-field-leave-to {
   opacity: 0;
