@@ -44,20 +44,8 @@ const width = defineModel<number>("width", { required: true });
 // editor every frame just to deliver a number to a style attribute. The model commits
 // once, on release, which is also when the editor persists it.
 let endResize = () => {};
-// Mark the editor as being SIZED, so its inset stops easing for the length of the
-// gesture. The editor animates padding-right between the two column widths (see
-// .editor--sizing there) — right for a pane opening or closing, wrong for a drag,
-// where --vault-w changes every frame and an eased column would trail the divider
-// by a fifth of a second. Idle-cleared rather than paired with an explicit end,
-// because the two callers stop differently: a pointer drag has a release to hang it
-// on, an arrow-key step has only the last keypress. 120ms is longer than a frame and
-// shorter than a held key's repeat, so a run of steps stays one rigid gesture.
-let sizingTimer: ReturnType<typeof setTimeout> | undefined;
-function markSizing(editorEl: HTMLElement | null) {
-  editorEl?.classList.add("editor--sizing");
-  clearTimeout(sizingTimer);
-  sizingTimer = setTimeout(() => editorEl?.classList.remove("editor--sizing"), 120);
-}
+// (A drag never eases: the inset is a plain var read, and the editor's open/close is a
+// Web Animation it starts itself — setVault there — not a transition on the inset.)
 function startResize(ev: PointerEvent) {
   ev.preventDefault();
   const divider = ev.currentTarget as HTMLElement;
@@ -82,7 +70,6 @@ function startResize(ev: PointerEvent) {
     frame ||= requestAnimationFrame(() => {
       frame = 0;
       const w = clampVaultWidth(vw - pendingX);
-      markSizing(editorEl);
       editorEl?.style.setProperty("--vault-w", `${w}px`);
       divider.setAttribute("aria-valuenow", String(w));
     });
@@ -112,8 +99,6 @@ function onResizeKey(ev: KeyboardEvent) {
   if (ev.key === "ArrowLeft") width.value = clampVaultWidth(width.value + step);
   else if (ev.key === "ArrowRight") width.value = clampVaultWidth(width.value - step);
   else return;
-  // same rigidity the drag gets: a held arrow repeats faster than the inset's ease
-  markSizing((ev.currentTarget as HTMLElement).closest(".editor"));
   ev.preventDefault();
 }
 
