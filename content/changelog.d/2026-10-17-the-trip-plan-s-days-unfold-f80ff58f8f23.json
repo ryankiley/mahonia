@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-17",
+  "changed": [
+    "The trip plan's days unfold when added and fold when removed or collapsed, and the trail panel pops in like the dates panel."
+  ]
+}

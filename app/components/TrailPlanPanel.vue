@@ -654,8 +654,13 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
       when you shoulder it that morning.
     </p>
 
-    <ol v-else class="plan__days">
+    <!-- A day arrives and leaves the way a gear row does: its box unfolds on the step
+         spring (one grid track, hence the single inner wrapper) and folds away when
+         removed, so "Add a day" and the day's delete move the days under them rather
+         than dropping them a row in one frame (measured 2026-10-17). -->
+    <TransitionGroup v-else name="dayin" tag="ol" class="plan__days">
       <li v-for="(d, i) in days" :key="d?.id ?? `ghost-${i}`" class="plan__day">
+        <div class="plan__dayinner">
         <!-- The heading takes the FOLDER treatment — a day groups a stretch of the walk
              the way a folder groups gear, so it reads at the same level. Unlike a folder
              it is NOT renameable: a day is already named by the trip, and the calendar
@@ -687,9 +692,15 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
           </button>
         </header>
 
+        <!-- Everything under the heading folds with the chevron on the shared .reveal
+             device (atoms/controls.scss), one wrapper for all of it, rather than four
+             blocks each snapping off their own v-if. -->
+        <Transition name="reveal">
+        <div v-if="!collapsed[d?.id ?? '']" class="reveal">
+        <div class="plan__body">
         <!-- The data reads as one line of glyph-and-figure pairs, the way an item row
              does: what you TYPE first, then what follows from it. -->
-        <div v-if="!collapsed[d?.id ?? '']" class="plan__data">
+        <div class="plan__data">
           <span class="plan__cell">
             <HugeiconsIcon :icon="RouteIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <input
@@ -787,7 +798,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              estimate's ink. The first is where you end up and how high; the second is
              the climb you'll remember and the steepest bit. Both go quiet when there
              is nothing to say (flat ground, a day with no distance). -->
-        <template v-if="!collapsed[d?.id ?? ''] && dayDistancesM[i] && facts[i]">
+        <template v-if="dayDistancesM[i] && facts[i]">
           <p class="t-sm plan__fact">
             <HugeiconsIcon :icon="i === finishDayIndex ? RacingFlagIcon : TentIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
             <span>{{ campSentence(i, facts[i]!) }}</span>
@@ -802,7 +813,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              it names a place. Measured in full even when it straddles the night; the
              hours follow each day's own pace, and are left out when part of the carry
              falls on ground with no estimate. -->
-        <p v-if="!collapsed[d?.id ?? ''] && dayDistancesM[i] && dayCarries[i]" class="t-sm plan__fact">
+        <p v-if="dayDistancesM[i] && dayCarries[i]" class="t-sm plan__fact">
           <HugeiconsIcon :icon="DropletIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
           <span>
             Longest carry
@@ -820,7 +831,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              already reads "—" for exactly this reason — and an add button that could never
              produce a row under it is worse than no button at all. -->
         <div
-          v-if="!collapsed[d?.id ?? ''] && snapshot.routeGeometry && dayDistancesM[i]"
+          v-if="snapshot.routeGeometry && dayDistancesM[i]"
           class="plan__wps"
         >
           <!-- ONE list, pins and the night together, because the hairlines between them
@@ -890,8 +901,12 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             </button>
           </div>
         </div>
+        </div>
+        </div>
+        </Transition>
+        </div>
       </li>
-    </ol>
+    </TransitionGroup>
 
     <!-- The ground no day has claimed: the grey tail on the chart above, which is real
          route and holds pins like any other stretch.
@@ -999,6 +1014,37 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   display: flex;
   flex-direction: column;
   gap: var(--folder-gap, var(--space-6));
+}
+/* A day's arrival and departure: the <li> is a one-track grid around .plan__dayinner,
+   so the TransitionGroup's enter/leave can run the track 0fr↔1fr on the step spring
+   (height:auto doesn't animate in Safari) while the day fades. The clip exists only
+   while the track moves — the body holds tooltips that an always-on clip would cut.
+   The list's gap goes with it (margin-top on the step spring, not on the first day,
+   which has no gap above): a 0fr flex child still pays the gap otherwise. */
+.plan__day {
+  display: grid;
+  grid-template-rows: 1fr;
+}
+.dayin-enter-active,
+.dayin-leave-active {
+  transition:
+    grid-template-rows var(--spring-step-dur) var(--spring-step),
+    margin-top var(--spring-step-dur) var(--spring-step),
+    opacity var(--spring-fade-dur) var(--spring-fade);
+}
+.dayin-enter-active > *,
+.dayin-leave-active > * {
+  min-height: 0;
+  overflow: hidden;
+}
+.dayin-enter-from,
+.dayin-leave-to {
+  grid-template-rows: 0fr;
+  opacity: 0;
+}
+.dayin-enter-from:not(:first-child),
+.dayin-leave-to:not(:first-child) {
+  margin-top: calc(-1 * var(--folder-gap, var(--space-6)));
 }
 /* A day is a folder-shaped thing: a heading at title size, its own actions, then its
    contents underneath. Same rhythm, so the two read as siblings — the one difference is

@@ -592,142 +592,147 @@ onClickOutside(trailEl, closeTrail);
            inside, and the click goes through. Not in the tab order (-1), so keyboard
            travel through the fields is unchanged; the reset gives a mouse-focused
            element no ring. -->
-      <span
-        v-if="open"
-        :id="fieldsId"
-        ref="fieldsEl"
-        class="head__panel popover"
-        tabindex="-1"
-        @focusout="onFocusOut"
-        @keyup.escape="mode = null"
-      >
-        <!-- one line before the two fields, because they were two fields and no words:
-             what a link does and what a file does. A span, not a p — the panel is
-             phrasing content — set to block below. -->
-        <span class="t-sm t-muted head__panellede">
-          A link keeps the route with the list. A map file adds its distance and climb; it's
-          read here in your browser and never uploaded.
-        </span>
-        <!-- TWO ways in now, which is why the affordance above says "Add a trail" rather
-             than naming either of them. A LINK is the common one, so it stays first and
-             unadorned. A GPX is the richer one — it carries the distance and the shape of
-             the climb, which no link can — but it asks you to find a file, so it sits
-             second and says what it gives you rather than what it is.
-             The field itself is still a URL and nothing else: type="url", https://
-             placeholder. "Link", not "Page or URL", which offered a choice that isn't
-             there. -->
-        <label class="head__panellabel" :for="`${fieldsId}-url`">Link</label>
-        <input
-          :id="`${fieldsId}-url`"
-          class="head__panelinput"
-          type="url"
-          inputmode="url"
-          placeholder="https://"
-          autocorrect="off"
-          spellcheck="false"
-          :value="snapshot.trailUrl ?? ''"
-          @change="commitUrl"
-          @keyup.enter="mode = null"
-        />
-
-        <p class="head__gpx t-sm">
-          <label class="head__gpxbtn">
-            <input type="file" accept=".gpx,.kml,.kmz,.tcx,.fit,.geojson,.json,.xml,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/vnd.ant.fit,application/geo+json,application/json,text/xml" @change="onGpx" />
-            {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
-          </label>
-          <Tooltip
-            text="GPX, KML, KMZ, TCX, FIT, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb. The file is read here in your browser and never uploaded."
-            preferred-placement="bottom"
-          >
-            <button type="button" class="head__gpxwhy" aria-label="Which map files can be read">
-              <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-            </button>
-          </Tooltip>
-        </p>
-        <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
-        <!-- An OFFER, not an import. The route is already in by the time this appears —
-             this is only the pins the file also carried, as many as the list still has room
-             for, and they wait because a file can hold thousands and undoing them would be
-             one tap each. Phrased with the count so the answer is informed: "add 11" is a
-             different question from "add 98" — and 98 is what a yes will do, not a guess. -->
-        <p v-if="pending" class="head__gpxerr t-sm">
-          This route can add {{ pending.pins.length }}
-          {{ pending.pins.length === 1 ? "marked place" : "marked places" }}.
-          <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
-          <button type="button" class="head__gpxno" @click="pending = null">No thanks</button>
-        </p>
-
-        <!-- edit only. On the way IN the single job is pasting a URL; a title box there
-             reads as a second thing to fill in, when most links name themselves from the
-             URL anyway. It's here for the ones that can't (caltopo.com/m/ABC). -->
-        <template v-if="mode === 'edit'">
-          <label class="head__panellabel" :for="`${fieldsId}-title`">Link title</label>
+      <!-- The menu family's pop-in, the same as the dates panel beside it: this is a
+           popover hanging off a control, and until now it was the one that simply
+           appeared (Ryan, 2026-10-17). -->
+      <Transition name="menu">
+        <span
+          v-if="open"
+          :id="fieldsId"
+          ref="fieldsEl"
+          class="head__panel popover"
+          tabindex="-1"
+          @focusout="onFocusOut"
+          @keyup.escape="mode = null"
+        >
+          <!-- one line before the two fields, because they were two fields and no words:
+               what a link does and what a file does. A span, not a p — the panel is
+               phrasing content — set to block below. -->
+          <span class="t-sm t-muted head__panellede">
+            A link keeps the route with the list. A map file adds its distance and climb; it's
+            read here in your browser and never uploaded.
+          </span>
+          <!-- TWO ways in now, which is why the affordance above says "Add a trail" rather
+               than naming either of them. A LINK is the common one, so it stays first and
+               unadorned. A GPX is the richer one — it carries the distance and the shape of
+               the climb, which no link can — but it asks you to find a file, so it sits
+               second and says what it gives you rather than what it is.
+               The field itself is still a URL and nothing else: type="url", https://
+               placeholder. "Link", not "Page or URL", which offered a choice that isn't
+               there. -->
+          <label class="head__panellabel" :for="`${fieldsId}-url`">Link</label>
           <input
-            :id="`${fieldsId}-title`"
+            :id="`${fieldsId}-url`"
             class="head__panelinput"
-            :placeholder="link?.name ?? ''"
-            :value="snapshot.trailLabel ?? ''"
-            @change="commitLabel"
+            type="url"
+            inputmode="url"
+            placeholder="https://"
+            autocorrect="off"
+            spellcheck="false"
+            :value="snapshot.trailUrl ?? ''"
+            @change="commitUrl"
             @keyup.enter="mode = null"
           />
 
-          <!-- Typed, because it cannot be fetched: the linked page answers a
-               server-side GET with 403 and there's no API to ask instead. Anyone
-               pasting a trail link is looking at the number on that page.
-               A bare number is read in the unit the picker beside it shows; typing
-               "7.5 mi" into a list set to km still works, because the parser reads a
-               unit off the value and prefers it to the picker's. -->
-          <!-- "optional" rides in the LABEL, not the placeholder: a placeholder is gone
-               the moment you type, which is exactly when you'd want to know you could
-               have left it empty. The other two fields are optional too, but this is
-               the one that reads as a thing the app needs — it's the only number in
-               here, and a number in a form looks required. -->
-          <label class="head__panellabel" :for="`${fieldsId}-dist`">Distance (optional)</label>
-          <!-- The unit sits INSIDE the field's row rather than in the label, because
-               it's a control and the label isn't. Same chevron-beside-an-abbreviation
-               the totals bar and each item row use — one vocabulary for one gesture. -->
-          <span class="head__distrow">
+          <p class="head__gpx t-sm">
+            <label class="head__gpxbtn">
+              <input type="file" accept=".gpx,.kml,.kmz,.tcx,.fit,.geojson,.json,.xml,application/gpx+xml,application/vnd.google-earth.kml+xml,application/vnd.google-earth.kmz,application/vnd.ant.fit,application/geo+json,application/json,text/xml" @change="onGpx" />
+              {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
+            </label>
+            <Tooltip
+              text="GPX, KML, KMZ, TCX, FIT, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb. The file is read here in your browser and never uploaded."
+              preferred-placement="bottom"
+            >
+              <button type="button" class="head__gpxwhy" aria-label="Which map files can be read">
+                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+              </button>
+            </Tooltip>
+          </p>
+          <p v-if="gpxError" class="head__gpxerr t-sm">{{ gpxError }}</p>
+          <!-- An OFFER, not an import. The route is already in by the time this appears —
+               this is only the pins the file also carried, as many as the list still has room
+               for, and they wait because a file can hold thousands and undoing them would be
+               one tap each. Phrased with the count so the answer is informed: "add 11" is a
+               different question from "add 98" — and 98 is what a yes will do, not a guess. -->
+          <p v-if="pending" class="head__gpxerr t-sm">
+            This route can add {{ pending.pins.length }}
+            {{ pending.pins.length === 1 ? "marked place" : "marked places" }}.
+            <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
+            <button type="button" class="head__gpxno" @click="pending = null">No thanks</button>
+          </p>
+
+          <!-- edit only. On the way IN the single job is pasting a URL; a title box there
+               reads as a second thing to fill in, when most links name themselves from the
+               URL anyway. It's here for the ones that can't (caltopo.com/m/ABC). -->
+          <template v-if="mode === 'edit'">
+            <label class="head__panellabel" :for="`${fieldsId}-title`">Link title</label>
             <input
-              :id="`${fieldsId}-dist`"
-              class="head__panelinput head__distinput"
-              inputmode="decimal"
-              autocorrect="off"
-              spellcheck="false"
-              :placeholder="distanceUnit === 'mi' ? '7.5' : '12'"
-              :value="distanceValue"
-              @change="commitDistance"
+              :id="`${fieldsId}-title`"
+              class="head__panelinput"
+              :placeholder="link?.name ?? ''"
+              :value="snapshot.trailLabel ?? ''"
+              @change="commitLabel"
               @keyup.enter="mode = null"
             />
-            <OptionMenu
-              class="head__distunit"
-              :options="DISTANCE_UNIT_OPTIONS"
-              :current="distanceUnit"
-              label="Distance unit"
-              title="Change distance unit"
-              @pick="pickDistanceUnit"
-            >
-              <template #trigger="{ open }">
-                <span class="t-sm t-muted">{{ distanceUnit }}</span>
-                <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
-                     total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
-                <HugeiconsIcon
-                  :icon="ChevronDownIcon"
-                  class="head__distchev"
-                  :class="{ 'is-open': open }"
-                  :size="12"
-                  :stroke-width="2"
-                  aria-hidden="true"
-                />
-              </template>
-            </OptionMenu>
-          </span>
-          <hr class="head__paneldiv" />
-          <button type="button" class="menu__item head__panelremove" @click="remove">
-            <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" aria-hidden="true" />
-            Remove link
-          </button>
-        </template>
-      </span>
+
+            <!-- Typed, because it cannot be fetched: the linked page answers a
+                 server-side GET with 403 and there's no API to ask instead. Anyone
+                 pasting a trail link is looking at the number on that page.
+                 A bare number is read in the unit the picker beside it shows; typing
+                 "7.5 mi" into a list set to km still works, because the parser reads a
+                 unit off the value and prefers it to the picker's. -->
+            <!-- "optional" rides in the LABEL, not the placeholder: a placeholder is gone
+                 the moment you type, which is exactly when you'd want to know you could
+                 have left it empty. The other two fields are optional too, but this is
+                 the one that reads as a thing the app needs — it's the only number in
+                 here, and a number in a form looks required. -->
+            <label class="head__panellabel" :for="`${fieldsId}-dist`">Distance (optional)</label>
+            <!-- The unit sits INSIDE the field's row rather than in the label, because
+                 it's a control and the label isn't. Same chevron-beside-an-abbreviation
+                 the totals bar and each item row use — one vocabulary for one gesture. -->
+            <span class="head__distrow">
+              <input
+                :id="`${fieldsId}-dist`"
+                class="head__panelinput head__distinput"
+                inputmode="decimal"
+                autocorrect="off"
+                spellcheck="false"
+                :placeholder="distanceUnit === 'mi' ? '7.5' : '12'"
+                :value="distanceValue"
+                @change="commitDistance"
+                @keyup.enter="mode = null"
+              />
+              <OptionMenu
+                class="head__distunit"
+                :options="DISTANCE_UNIT_OPTIONS"
+                :current="distanceUnit"
+                label="Distance unit"
+                title="Change distance unit"
+                @pick="pickDistanceUnit"
+              >
+                <template #trigger="{ open }">
+                  <span class="t-sm t-muted">{{ distanceUnit }}</span>
+                  <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
+                       total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
+                  <HugeiconsIcon
+                    :icon="ChevronDownIcon"
+                    class="head__distchev"
+                    :class="{ 'is-open': open }"
+                    :size="12"
+                    :stroke-width="2"
+                    aria-hidden="true"
+                  />
+                </template>
+              </OptionMenu>
+            </span>
+            <hr class="head__paneldiv" />
+            <button type="button" class="menu__item head__panelremove" @click="remove">
+              <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" aria-hidden="true" />
+              Remove link
+            </button>
+          </template>
+        </span>
+      </Transition>
     </p>
   </div>
 </template>
@@ -1060,6 +1065,9 @@ onClickOutside(trailEl, closeTrail);
   position: absolute;
   top: calc(100% + var(--space-1));
   inset-inline-start: 0;
+  /* the menu family's pop-in scales from the trigger corner (controls.scss sets this
+     on .menu__list); this panel hangs off the row's start edge */
+  transform-origin: top left;
   z-index: var(--z-menu);
   display: flex;
   flex-direction: column;
