@@ -83,11 +83,11 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
     // Without any of this the offline launch was a browser error page: nothing below
     // matches "/", and navigateFallback is deliberately empty.
     //
-    // "/e" rides along for the same reason: it is the offline fallback for every edit
-    // link, below.
+    // "/_shell" rides along for the same reason: it is the offline fallback for every
+    // edit link, below.
     additionalManifestEntries: [
       { url: "/", revision: pwaPrecacheRevision() },
-      { url: "/e", revision: pwaPrecacheRevision() },
+      { url: "/_shell", revision: pwaPrecacheRevision() },
     ],
     // Disable the plugin's default catch-all navigation fallback: it binds to a
     // non-precached "/" (the auto-precache of the fallback only runs in dev, not
@@ -97,20 +97,17 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
     runtimeCaching: [
       // editor shell — /e and /e/{shareCode}. Online it is always the network: the
       // bare /e is prerendered and /e/{shareCode} is rendered per request for its
-      // <head>. Offline, every one of them gets the PRECACHED /e, never a copy of the
-      // page itself.
+      // <head>. Offline, every one of them gets the precached client-only /_shell
+      // (nuxt.config routeRules), never a copy of the page itself.
       //
       // It used to be a runtime cache of each page (NetworkFirst, 16 entries, a
       // week), and that copy was broken offline after any deploy: its HTML names the
       // hashed chunks of the build it came from, and the updated worker deletes those
       // from the precache when it activates, so the page loaded as a blank editor.
-      // Mahonia deploys most days. The precached /e is replaced by every deploy along
-      // with the chunks it names, so it always matches them. The editor is
-      // client-only, and its list comes from the #token fragment and the copy in
-      // IndexedDB, so nothing on /e/{shareCode} offline needs that route's own HTML:
-      // the prerendered /e hydrates at its own address and the router then moves to
-      // the real one, fragment included (the same path app/pages/index.vue describes
-      // for "/?query").
+      // The precached shell is replaced along with the chunks it names, so it always
+      // matches them. It boots at the address it was opened for, and the editor takes
+      // its list from the #token fragment (or the account) and the copy in IndexedDB,
+      // so nothing on /e/{shareCode} offline needs that route's own HTML.
       {
         // Navigations only, matched on the path: /api/l/e or /e/_payload.json must
         // never be answered with editor HTML.
@@ -119,7 +116,7 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
         handler: "NetworkOnly",
         // No networkTimeoutSeconds: Workbox accepts it only on NetworkFirst, which
         // would store the page — the copy this rule exists not to keep.
-        options: { precacheFallback: { fallbackURL: "/e" } },
+        options: { precacheFallback: { fallbackURL: "/_shell" } },
       },
       // public + shared read views — cached so a previously-opened list still
       // renders offline. /s (the share-code read) is included alongside /l: it's
