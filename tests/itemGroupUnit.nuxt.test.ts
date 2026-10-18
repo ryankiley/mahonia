@@ -130,12 +130,15 @@ describe("a group row's weight unit", () => {
     w.unmount();
   });
 
-  // Water is the one row left out: its weight is derived from a volume, so there is
-  // no unit to pick — it keeps the plain label and the chevron's empty slot.
-  it("is still withheld from a water row", () => {
+  // Water's weight is derived from its litres, but which unit that figure reads in is
+  // still a choice — the picker is the same one, and picking leaves the volume alone.
+  it("carries the picker on a water row too", async () => {
     const w = mountRow(item({ id: "w1", name: "Water", unitWeightMg: 1_000_000 }));
-    expect(w.find(".item__unitwrap .optmenu__btn").exists()).toBe(false);
-    expect(w.find(".item__unitchev--ghost").exists()).toBe(true);
+    expect(w.find(".item__unitwrap .optmenu__btn").exists()).toBe(true);
+    await pickUnit(w, "oz");
+    expect(snapshot.value.items[0]!.entryUnit).toBe("oz");
+    expect(weightField(w)).toBe("35.3"); // 1 L, in ounces
+    expect(snapshot.value.items[0]!.unitWeightMg).toBe(1_000_000);
     w.unmount();
   });
 });

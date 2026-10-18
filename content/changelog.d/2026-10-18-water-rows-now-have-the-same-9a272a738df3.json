@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-18",
+  "changed": [
+    "Water rows now have the same weight-unit picker as every other row, so you can read their weight in ounces, pounds, grams or kilograms."
+  ]
+}
