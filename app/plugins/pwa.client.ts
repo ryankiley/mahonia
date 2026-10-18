@@ -4,34 +4,28 @@
 // unaffected (nuxt.config sets injectRegister:false, so nothing else registers it).
 //
 // Registered by hand rather than through virtual:pwa-register: the virtual module
-// lazy-loads workbox-window (~2 KB brotli of client bundle) and, in autoUpdate
-// mode, all it does with it is register() + reload the page when an UPDATED
-// worker activates. Both are a few lines of platform API. The reload matters:
-// the generated SW self-activates (skipWaiting) and purges the previous
-// precache, so a tab still running the old shell would 404 on any lazy chunk it
-// hasn't loaded yet — reloading moves it onto the fresh shell. A first-ever
-// install has no stale shell, so it must NOT reload; that's the controller
-// check. In dev no SW is emitted (devOptions.enabled:false) and /sw.js 404s —
-// register() just rejects into the swallow, so the plugin stays harmless there.
+// lazy-loads workbox-window (~2 KB brotli of client bundle), and all this needs is
+// register(). In dev no SW is emitted (devOptions.enabled:false) and
+// /sw.js 404s — register() just rejects into the swallow, so the plugin stays
+// harmless there.
+//
+// AN UPDATE NEVER TAKES OVER A PAGE THAT IS OPEN. A deploy's worker installs in
+// the background and waits (config/pwa.ts leaves skipWaiting off) until no Mahonia
+// page is left: the last tab closing or navigating away, or the installed app
+// being closed. The browser then activates it before the next page loads, so that
+// page boots straight onto the new shell with no reload. Activating it any earlier
+// deletes the previous build's chunks from the precache while a tab is still
+// running on them ("/" and "/e" boot from that precache), and every lazy chunk the
+// tab hasn't loaded yet (dialogs, the share panel, the exporters) then fails, as
+// does Vercel for old hashes online. Forcing it at launch was tried and dropped: an
+// open page can hold activation off for as long as an event in the old worker runs
+// (a background-sync replay, say), so the reload landed mid-session after all.
 export default defineNuxtPlugin(() => {
   if (useOfflineEnabled()) {
     if (!("serviceWorker" in navigator)) return;
-    navigator.serviceWorker
-      .register("/sw.js")
-      .then((reg) => {
-        if (!navigator.serviceWorker.controller) return; // first install
-        const reloadWhenActivated = (sw: ServiceWorker | null) => {
-          if (!sw) return;
-          if (sw.state === "activated") return window.location.reload();
-          sw.addEventListener("statechange", () => {
-            if (sw.state === "activated") window.location.reload();
-          });
-        };
-        // an update can already be installing by the time register() resolves
-        reloadWhenActivated(reg.installing);
-        reg.addEventListener("updatefound", () => reloadWhenActivated(reg.installing));
-      })
-      .catch(() => {});
+    // The editor shell used to be runtime-cached under this name; nothing reads it now.
+    if (typeof caches !== "undefined") caches.delete("mahonia-shell").catch(() => {});
+    navigator.serviceWorker.register("/sw.js").catch(() => {});
     return;
   }
   // Flag off: actively tear down any service worker + Workbox caches a previously

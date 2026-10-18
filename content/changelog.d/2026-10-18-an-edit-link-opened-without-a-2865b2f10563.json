@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-18",
+  "fixed": [
+    "Edit links now open offline from the copy on your device, instead of a blank editor or an error page."
+  ]
+}

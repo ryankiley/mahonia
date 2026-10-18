@@ -467,6 +467,18 @@ export default defineNuxtConfig({
     // returned the pre-rename title from stale-while-revalidate while the same
     // moment's full reload rendered the new one.)
     "/e": { prerender: true },
+    // The offline app shell: rendered client-only (ssr:false), so it records no
+    // address of its own and the router boots at whatever URL it is served for.
+    // Not a page anyone visits — the service worker precaches it and answers an
+    // /e/{code} navigation with it when the network is gone (config/pwa.ts). A
+    // server-rendered page can't stand in like that: Nuxt hydrates it at the
+    // address it was rendered for and keeps that address. Nuxt's own SPA fallback
+    // (200.html) is emitted only by fully static builds, not this hybrid one.
+    "/_shell": {
+      ssr: false,
+      prerender: true,
+      headers: { "X-Robots-Tag": "noindex" },
+    },
     // pure-static pages → build-time prerender (CDN-served, zero invocations)
     "/about": { prerender: true },
     "/legal": { prerender: true },
