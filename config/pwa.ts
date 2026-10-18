@@ -67,35 +67,48 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
     // …plus the bare address, the manifest's start_url, by name. It is a prerendered
     // static shell that only resolves on the client (app/pages/index.vue), so it belongs
     // in the precache — an installed app launched offline gets it instantly, then the
-    // client resolves to the last list from the runtime-cached /e shell below. It can't
+    // client resolves to the last list in-app, which needs no HTML at all. It can't
     // come in through the glob above: this worker is generated during the client build,
     // before Nitro prerenders index.html, so the file isn't there to glob. Listed by URL
     // instead, and stamped per build so a deploy replaces the cached copy — `null` here
     // would tell Workbox the URL versions itself, and "/" never changes its name.
     // Without any of this the offline launch was a browser error page: nothing below
     // matches "/", and navigateFallback is deliberately empty.
-    additionalManifestEntries: [{ url: "/", revision: pwaPrecacheRevision() }],
+    //
+    // "/e" rides along for the same reason: it is the offline fallback for every edit
+    // link, below.
+    additionalManifestEntries: [
+      { url: "/", revision: pwaPrecacheRevision() },
+      { url: "/e", revision: pwaPrecacheRevision() },
+    ],
     // Disable the plugin's default catch-all navigation fallback: it binds to a
     // non-precached "/" (the auto-precache of the fallback only runs in dev, not
     // the prod build), so it would throw on every navigation. The `/e` route
     // below handles the editor shell explicitly instead.
     navigateFallback: "",
     runtimeCaching: [
-      // editor shell — the bare /e is prerendered and /e/{shareCode} is ISR, but
-      // neither is precached (globPatterns is assets-only), so cache the
-      // navigation response: a prior online visit lets the editor boot offline.
-      // The pattern covers BOTH the bare /e and the named-link /e/{shareCode} so
-      // a saved pretty link opens offline too. NetworkFirst keeps online users on
-      // the fresh shell (so its referenced chunks match the live precache).
+      // editor shell — /e and /e/{shareCode}. Online it is always the network: the
+      // bare /e is prerendered and /e/{shareCode} is rendered per request for its
+      // <head>. Offline, every one of them gets the PRECACHED /e, never a copy of the
+      // page itself.
+      //
+      // It used to be a runtime cache of each page (NetworkFirst, 16 entries, a
+      // week), and that copy was broken offline after any deploy: its HTML names the
+      // hashed chunks of the build it came from, and the updated worker deletes those
+      // from the precache when it activates, so the page loaded as a blank editor.
+      // Mahonia deploys most days. The precached /e is replaced by every deploy along
+      // with the chunks it names, so it always matches them. The editor is
+      // client-only, and its list comes from the #token fragment and the copy in
+      // IndexedDB, so nothing on /e/{shareCode} offline needs that route's own HTML:
+      // the prerendered /e hydrates at its own address and the router then moves to
+      // the real one, fragment included (the same path app/pages/index.vue describes
+      // for "/?query").
       {
         urlPattern: /\/e(?:\/[^/]+)?\/?$/,
-        handler: "NetworkFirst",
-        options: {
-          cacheName: "mahonia-shell",
-          // room for the bare shell + several distinct /e/{shareCode} links
-          networkTimeoutSeconds: 3,
-          expiration: { maxEntries: 16, maxAgeSeconds: 60 * 60 * 24 * 7 },
-        },
+        handler: "NetworkOnly",
+        // No networkTimeoutSeconds: Workbox accepts it only on NetworkFirst, which
+        // would store the page — the copy this rule exists not to keep.
+        options: { precacheFallback: { fallbackURL: "/e" } },
       },
       // public + shared read views — cached so a previously-opened list still
       // renders offline. /s (the share-code read) is included alongside /l: it's

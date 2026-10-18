@@ -13,8 +13,34 @@
 // install has no stale shell, so it must NOT reload; that's the controller
 // check. In dev no SW is emitted (devOptions.enabled:false) and /sw.js 404s —
 // register() just rejects into the swallow, so the plugin stays harmless there.
-export default defineNuxtPlugin(() => {
+//
+// It also finishes the offline fallback for edit links. Offline, the worker serves
+// every /e/{code} with the precached /e, and Nuxt hydrates that page at its own
+// address and then keeps it: the router lands on /e#{token}, dropping the code.
+// With a token that still opens the list, but a claimed link has no token, so it
+// would land on a fresh draft. So the real address is recorded here, before the
+// router moves, and navigated back to once hydration is done. In-app navigation to
+// /e/{code} needs no network (its /api/s fetch is server-only). Meanwhile
+// pages/e/index.vue renders nothing, so no throwaway draft starts and overwrites
+// the on-device draft slot.
+export default defineNuxtPlugin((nuxtApp) => {
   if (useOfflineEnabled()) {
+    const { pathname, search, hash } = window.location;
+    if (nuxtApp.payload.path === "/e" && /^\/e\/[^/]+\/?$/.test(pathname)) {
+      const target = pathname + search + hash;
+      const fallback = useShellFallback();
+      const router = useRouter();
+      fallback.value = target;
+      // After Nuxt's own move to the hydrated address, which also runs on
+      // app:suspense:resolve; a later navigation supersedes it.
+      nuxtApp.hooks.hookOnce("app:suspense:resolve", () => {
+        setTimeout(() => {
+          void router
+            .replace(target)
+            .finally(() => (fallback.value = null));
+        });
+      });
+    }
     if (!("serviceWorker" in navigator)) return;
     navigator.serviceWorker
       .register("/sw.js")

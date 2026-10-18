@@ -1,0 +1,6 @@
+{
+  "date": "2026-10-18",
+  "fixed": [
+    "An edit link opened without a connection now opens your list from the copy on your device, instead of a blank editor or the browser's error page."
+  ]
+}
