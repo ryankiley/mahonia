@@ -495,6 +495,20 @@
   padding-inline-end: var(--grip-bleed);
   margin-inline-end: calc(-1 * var(--grip-bleed));
 }
+/* …and on a phone the clip shaves a NESTED row's lit marks the same way, from below.
+   The stacked meta line is a ~23px text line and a mark's ground is --icon-btn, so a
+   lit drop or cookie hangs 4.4px past it top and bottom (the boxes take the full --tap
+   and --tap-pull them back; the ground is what paints). A top-level row's wrap has 8px
+   of padding under that line to hide it in; a nested row's has none, so the ground's
+   bottom came off flat. Same answer as the grip's: reach by the overhang, give it back.
+   The block is a flex column, so the negative margin can't collapse into the gap. */
+@media (max-width: t.$bp-stack) {
+  .nest-block > .item-wrap {
+    --mark-bleed: calc((var(--icon-btn) - var(--tap)) / 2 - var(--tap-pull));
+    padding-block-end: var(--mark-bleed);
+    margin-block-end: calc(-1 * var(--mark-bleed));
+  }
+}
 /* …lifted where containment would clip what a row hangs outside its box, since paint
    containment comes with it (measured: the suggestion menu's lower options became
    unhittable). A row holding any .popover — autocomplete, unit, ⋯, the class popovers
