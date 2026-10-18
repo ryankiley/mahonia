@@ -1541,34 +1541,14 @@ function dismissFix() {
                A GROUP row carries the very same picker — identical trigger, identical
                chevron — even though its figure is a sum rather than something typed:
                the choice is which unit that total READS in, and a stuff sack's 0.59 lb
-               is exactly the number you want to see in ounces. Only water is left out,
-               its weight being derived from a volume: it shows the unit as plain text,
-               with no unit to pick. -->
-          <span v-if="isWater" class="item__unitwrap">
-            <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
-            <!-- The chevron's SLOT, held open by the chevron itself.
-                 A water row has no unit to pick, so it carries no picker — and without
-                 the mark its cell is 20px narrower than every other row's. On the
-                 desktop grid that hid inside a fixed column, but the mobile meta line is
-                 a flowing flex row, so those 20px moved the whole pair and a water row's
-                 figure sat out of line with the rows above it.
-                 Rendered rather than padded: a hardcoded width is a second copy of the
-                 chevron's size that goes stale the moment the icon changes. This one
-                 cannot drift, because it IS the icon. -->
-            <HugeiconsIcon
-              :icon="ChevronDownIcon"
-              class="chev item__unitchev item__unitchev--ghost"
-              :size="12"
-              :stroke-width="2"
-              aria-hidden="true"
-            />
-          </span>
+               is exactly the number you want to see in ounces. Water carries it too, on
+               the same grounds: its weight is derived from the litres beside it, but
+               which unit that derived figure reads in is still yours to pick. -->
           <!-- overlay-toggle forwarded like the name autocomplete's: the menu opens
                downward, so on the folder's last row it crosses the collapse clip
                (and a last CHILD row crosses its group's nest clip too — the parent's
                onChildOverlay lift rides the same event on the way up) -->
           <OptionMenu
-            v-else
             class="item__unitwrap"
             :options="WEIGHT_UNIT_OPTIONS"
             :current="rowUnit"
@@ -1797,8 +1777,8 @@ function dismissFix() {
                 </div>
               </Transition>
             </div>
-            <!-- the worn SLOT, held open by the icon itself — the unit chevron's ghost
-                 recipe. Water and fuel can't be worn (wornOffered), but the cell must
+            <!-- the worn SLOT, held open by the icon itself rather than by a width,
+                 so it cannot drift from the real toggle's size. Water and fuel can't be worn (wornOffered), but the cell must
                  stay two slots wide: the mobile line right-anchors this cell, so a
                  one-slot cell would pull the row's lone consumable mark out of the
                  column it exists to sit in. -->
@@ -2419,29 +2399,9 @@ function dismissFix() {
      box formula reports a phantom error here because WebKit sizes the field 24px against
      a 20.8px line box. */
   align-items: center;
-  /* The SAME gap `.optmenu__btn` puts between its trigger's parts (both read the one
-     token, so this is a shared value and not a copied number).
-     It is load-bearing on the plain water variant, where this element IS the
-     unit-and-chevron box; on the picker variant that box is the button inside, so the
-     declaration is inert there and only one rule is needed for both.
-     Without it the ghost chevron reserved the chevron's WIDTH but not the space the
-     button holds before it, so the two variants' wraps measured 21px and 29px. The
-     chevrons still lined up — they're pinned to the cell's trailing edge — and the
-     "g" did not: it sat 8px right of every editable row's, which put a water row's
-     unit out of the column it exists to keep. */
-  gap: var(--space-2);
 }
 .item__unit {
   flex: none;
-}
-/* The reserved chevron on water rows — present for layout, invisible to eyes
- * and to screen readers (aria-hidden at the call site). See the markup for why the slot
- * is held open by a real icon rather than by a width.
- *
- * `visibility: hidden`, not `opacity: 0`: opacity would leave it hoverable and would let
- * the row's :hover rule light a mark nobody can see. */
-.item__unitchev--ghost {
-  visibility: hidden;
 }
 /* The unit trigger's hit area. The bare glyph-and-caption is ~29×24, well under the
    44px target, and it was that small before too — the transparent <select> it replaced
@@ -2495,7 +2455,7 @@ function dismissFix() {
   min-height: var(--icon-btn);
   border-radius: var(--radius-pill);
 }
-/* visibility, not opacity — the unit chevron's ghost rule: opacity would leave it
+/* visibility, not opacity: opacity would leave it
    hoverable, and a tooltip-less shirt lighting under a resting pointer reads as a
    control nobody can find again. */
 .item__clsghost {
