@@ -62,6 +62,14 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
   manifest: false,
   devOptions: { enabled: false },
   workbox: {
+    // A first visit is offline-ready at once: the new worker takes control of the
+    // page without a reload. An UPDATE does not take over by itself (skipWaiting
+    // stays off); it waits for every Mahonia page to close, because activating it
+    // deletes the chunks an open tab is running on (app/plugins/pwa.client.ts).
+    // vite-pwa sets both options for "autoUpdate" only when it injects the
+    // registration itself, so with injectRegister:false they are stated here.
+    skipWaiting: false,
+    clientsClaim: true,
     // precache the client shell (hashed JS/CSS/fonts) so it boots from cache
     globPatterns: ["**/*.{js,css,woff2}"],
     // …plus the bare address, the manifest's start_url, by name. It is a prerendered
@@ -104,7 +112,10 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
       // the real one, fragment included (the same path app/pages/index.vue describes
       // for "/?query").
       {
-        urlPattern: /\/e(?:\/[^/]+)?\/?$/,
+        // Navigations only, matched on the path: /api/l/e or /e/_payload.json must
+        // never be answered with editor HTML.
+        urlPattern: ({ request, url }) =>
+          request.mode === "navigate" && /^\/e(?:\/[^/]+)?\/?$/.test(url.pathname),
         handler: "NetworkOnly",
         // No networkTimeoutSeconds: Workbox accepts it only on NetworkFirst, which
         // would store the page — the copy this rule exists not to keep.

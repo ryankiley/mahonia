@@ -19,9 +19,16 @@ describe("pwaPrecacheRevision", () => {
 
 describe("the editor shell offline", () => {
   const rules = PWA_OPTIONS.workbox?.runtimeCaching ?? [];
+  type Match = (o: { request: { mode: string }; url: URL }) => boolean;
+  const nav = (path: string, mode = "navigate") => ({
+    request: { mode },
+    url: new URL(path, "https://mahonia.app"),
+  });
   const shell = rules.find(
-    (r) => r.urlPattern instanceof RegExp && r.urlPattern.test("/e/abc123"),
+    (r) => typeof r.urlPattern === "function" && (r.urlPattern as unknown as Match)(nav("/e/abc123")),
   );
+  const matches = (path: string, mode?: string) =>
+    (shell?.urlPattern as unknown as Match)(nav(path, mode));
 
   it("precaches /e, stamped per build like /", () => {
     const urls = (PWA_OPTIONS.workbox?.additionalManifestEntries ?? []).map((e) =>
@@ -37,8 +44,24 @@ describe("the editor shell offline", () => {
     expect(shell?.handler).toBe("NetworkOnly");
     expect(shell?.options?.precacheFallback).toEqual({ fallbackURL: "/e" });
     expect(shell?.options?.cacheName).toBeUndefined();
-    for (const path of ["/e", "/e/", "/e/abc123"]) {
-      expect((shell?.urlPattern as RegExp).test(path)).toBe(true);
+    for (const path of ["/e", "/e/", "/e/abc123"]) expect(matches(path)).toBe(true);
+  });
+
+  it("answers only page navigations under /e, never data or other routes", () => {
+    expect(matches("/e/abc123", "cors")).toBe(false);
+    for (const path of ["/e/_payload.json/x", "/api/l/e", "/api/s/e", "/l/e", "/e/a/b"]) {
+      expect(matches(path)).toBe(false);
     }
+  });
+});
+
+// vite-pwa sets these for "autoUpdate" only when it injects the registration, and
+// this app registers by hand. An update must wait for every open page to close
+// (activating it deletes their chunks); a first visit is claimed at once.
+describe("service worker updates", () => {
+  it("wait for open pages to close, and claim a first visit", () => {
+    expect(PWA_OPTIONS.injectRegister).toBe(false);
+    expect(PWA_OPTIONS.workbox?.skipWaiting).toBe(false);
+    expect(PWA_OPTIONS.workbox?.clientsClaim).toBe(true);
   });
 });
