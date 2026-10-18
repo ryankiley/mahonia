@@ -496,7 +496,7 @@
     {
       "brand": "Houdini",
       "name": "Go Jacket",
-      "variant": "Medium",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 506,
       "weight_unit": "g",
@@ -508,7 +508,7 @@
     {
       "brand": "Houdini",
       "name": "Fall in Jacket",
-      "variant": "Large",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 1000,
       "weight_unit": "g",
@@ -520,7 +520,7 @@
     {
       "brand": "Houdini",
       "name": "Five to Nine Jacket",
-      "variant": "Large",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 630,
       "weight_unit": "g",
@@ -532,7 +532,7 @@
     {
       "brand": "Houdini",
       "name": "The Orange Jacket",
-      "variant": "Large",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 195,
       "weight_unit": "g",
@@ -544,7 +544,7 @@
     {
       "brand": "Houdini",
       "name": "Pace Trail Jacket",
-      "variant": "Large",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 150,
       "weight_unit": "g",
@@ -556,7 +556,7 @@
     {
       "brand": "Houdini",
       "name": "Pace Wind Jacket",
-      "variant": "Large",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 224,
       "weight_unit": "g",
@@ -568,7 +568,7 @@
     {
       "brand": "Houdini",
       "name": "The Orange Tee",
-      "variant": "Large",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 130,
       "weight_unit": "g",
@@ -580,10 +580,7 @@
     {
       "brand": "Houdini",
       "name": "Power Houdi",
-      "variant": null,
-      "attributes": {"fit": "Men's", "size": "L"},
-      "attributes_source_url": "https://houdinisportswear.com/en-us/clothing/sweaters-hoodies/mens-power-houdi-830063",
-      "attributes_quote": "Weight men's large: 480 g",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 478,
       "weight_unit": "g",
