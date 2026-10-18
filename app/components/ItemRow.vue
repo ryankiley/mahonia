@@ -3309,10 +3309,20 @@ textarea.item__note {
        The gap between the two pairs is the same 4px as within them: it was the
        numbers' --meta-gap, which sets the pairs apart as groups on the wide grid line
        and read as a hole in the middle of the cluster here, on the numbers' line or
-       wrapped under it. The separation from the weight stays the auto margin's. */
-    gap: var(--space-1);
+       wrapped under it. The separation from the weight stays the auto margin's.
+       And that same gap is ZERO, inside the pairs too (the class cell's and the
+       actions' own, below). Every box here is --tap wide, so a 4px gap between two of
+       them is touch target spaced from touch target, which the eye never sees — what
+       it sees is 28px of air between glyphs instead of 32, still even. On a 320px
+       phone those three gaps were 12px of a line that wraps the moment "2.5 L" or
+       "10 ×" asks for one more figure. The boxes touch; none overlaps. */
+    gap: 0;
     flex: none;
     margin-left: auto;
+  }
+  .item__trail .item__classcell,
+  .item__trail .item__actions {
+    gap: 0;
   }
   /* …and the four GLYPHS at one pitch. The marks centre theirs; the ⋯ right-aligned
      its (the desktop rule, where the trailing glyphs line up on the grip), so it
@@ -3342,6 +3352,17 @@ textarea.item__note {
   }
   .item__classcell {
     flex: none;
+    /* …and its LEADING tap overshoot comes out of the line, the way --tap-pull takes
+       the vertical one. The marks' boxes are --tap wide down here (above), but what
+       you see of a mark is its --icon-btn ground; the 6px either side of that is
+       target, not picture. Left in, it stacked on --meta-gap: the weight's chevron sat
+       18px from the first mark's ground where the gap promises 12, and on a 320px
+       phone those 6px are what dropped "2 L 2,000 g" onto a line of its own. Pulled,
+       the gap measures to the ground as it does between every other pair of groups.
+       Only the leading edge: the box still sits whole on the right, where the marks'
+       spacing to the ⋯ is the cluster's own. On a wrapped line the cell is
+       right-anchored, so the 6px overhang lands in free space. */
+    margin-left: calc((var(--icon-btn) - var(--tap)) / 2);
   }
   .item__gkcal {
     flex: none;

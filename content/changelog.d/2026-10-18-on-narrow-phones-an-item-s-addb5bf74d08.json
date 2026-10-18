@@ -1,0 +1,7 @@
+{
+  "date": "2026-10-18",
+  "fixed": [
+    "On narrow phones, an item's count, weight and marks stay on one line for longer figures instead of wrapping.",
+    "A highlighted mark on an item inside a group is no longer cut off at the bottom on phones."
+  ]
+}
