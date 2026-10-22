@@ -445,6 +445,24 @@ export const sessions = pgTable(
   }
 );
 
+// A personal access token: how an assistant reaches its owner's My Gear over MCP,
+// where there is no browser to carry the session cookie. Like a session, only the
+// sha256 is stored. `scope` is "read" or "write"; nothing else is grantable, and a
+// token reaches the account's gear and nothing more (see accessTokens.ts). No
+// expiry: it lasts until revoked, which /account offers next to the passkeys.
+export const accessTokens = pgTable(
+  "access_tokens",
+  {
+    id: serial("id").primaryKey(),
+    tokenHash: text("token_hash").notNull(),
+    userId: integer("user_id").notNull(),
+    label: text("label"),
+    scope: text("scope").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  }
+);
+
 // ---------------------------------------------------------------------------
 // credentials — passkeys (WebAuthn).
 //

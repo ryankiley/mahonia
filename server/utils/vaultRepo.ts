@@ -290,7 +290,7 @@ export async function captureVaultItemsReporting(
   // creating any that don't exist yet. One statement for the whole set;
   // onConflictDoNothing makes it idempotent, so a replayed capture (the offline
   // queue, a flaky connection) neither duplicates a folder nor errors.
-  const folderId = await ensureFolders(db, vaultId, clean.map((c) => c.folder));
+  const folderId = await ensureVaultFolders(db, vaultId, clean.map((c) => c.folder));
 
   const written = await db
     .insert(vaultItems)
@@ -502,8 +502,9 @@ function keepIfPinned(flag: PgColumn, keep: PgColumn, rule: SQL): SQL {
 /**
  * Map the folder names in a capture to gear folder ids, creating the missing ones.
  * New folders land after the existing ones, in the order the names first appear.
+ * Exported for the MCP gear tools, where a folder is named rather than picked.
  */
-async function ensureFolders(
+export async function ensureVaultFolders(
   db: Db,
   vaultId: number,
   names: (string | undefined)[],
@@ -582,6 +583,18 @@ export async function vaultGearAmong(
   return rows.map((r) => [r.normKey, r.weightPinned ? null : r.weightMg]);
 }
 
+/** One row of this vault by id, live or removed, or null — the MCP gear tools'
+ *  read-back after a change that returned no row of its own (a folder move). */
+export async function getVaultItem(db: Db, vaultId: number, id: number): Promise<VaultEntry | null> {
+  if (!isSerialId(id)) return null;
+  const rows = await db
+    .select()
+    .from(vaultItems)
+    .where(and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId)))
+    .limit(1);
+  return rows[0] ? toEntry(rows[0]) : null;
+}
+
 /** A vault's folders in drag order (id breaks a tie, so the order is total). */
 export async function listVaultFolders(db: Db, vaultId: number): Promise<VaultFolder[]> {
   const rows = await db
@@ -622,12 +635,18 @@ export async function listRemovedVaultItems(db: Db, vaultId: number): Promise<Va
 /** Rank a user's vault against an autocomplete query. Recall is the whole (bounded)
  *  live set; the fine ranking is the shared JS cascade — the catalog's PGlite
  *  strategy, applied here on both engines because a vault is always small. */
-export async function searchVaultItems(db: Db, vaultId: number, q: string): Promise<VaultEntry[]> {
+export async function searchVaultItems(
+  db: Db,
+  vaultId: number,
+  q: string,
+  limit?: number,
+): Promise<VaultEntry[]> {
   if ((q ?? "").trim().length < 2) return [];
   const rows = await liveRows(db, vaultId);
   // rank the ROWS, then convert the handful that survive — toEntry allocates two
-  // Dates and two ISO strings per row, and the ranker reads neither
-  return rankVaultRows(rows, q).map(toEntry);
+  // Dates and two ISO strings per row, and the ranker reads neither. `limit` is the
+  // autocomplete's by default; the MCP gear search asks for more.
+  return rankVaultRows(rows, q, limit).map(toEntry);
 }
 
 /**
@@ -1114,7 +1133,7 @@ export async function importVaultItems(
   if (!clean.length) return { added: 0, skipped: all.length };
 
   const now = new Date();
-  const folderId = await ensureFolders(db, vaultId, clean.map((c) => c.cap.folder));
+  const folderId = await ensureVaultFolders(db, vaultId, clean.map((c) => c.cap.folder));
   const done = await db
     .insert(vaultItems)
     .values(

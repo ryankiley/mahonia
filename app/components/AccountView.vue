@@ -219,6 +219,80 @@ function deviceLabel(): string {
   return "This device";
 }
 
+// ---- assistant access ----------------------------------------------------
+// An access token lets an AI assistant reach My Gear through the MCP connector,
+// where there is no browser to carry the session (server/utils/accessTokens.ts).
+// The value exists in exactly one response, so it is held here only until the next
+// action replaces it, and the page says so.
+interface AccessTokenSummary {
+  id: number;
+  label: string | null;
+  scope: "read" | "write";
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+const tokens = ref<AccessTokenSummary[]>([]);
+const tokenLabel = ref("");
+const tokenScope = ref<"read" | "write">("read");
+const tokenBusy = ref(false);
+const tokenNote = ref("");
+const freshToken = ref("");
+const mcpUrl = `${useSiteOrigin()}/mcp`;
+const claudeCommand = computed(
+  () => `claude mcp add --transport http --scope user pack ${mcpUrl} --header "Authorization: Bearer ${freshToken.value}"`,
+);
+
+async function loadTokens() {
+  if (!signedIn.value) return;
+  try {
+    tokens.value = (await $fetch<{ tokens: AccessTokenSummary[] }>("/api/account/tokens")).tokens;
+  } catch {
+    // the section still offers to make one; a failed read is not worth a banner
+  }
+}
+watch(signedIn, () => loadTokens(), { immediate: true });
+
+async function makeToken() {
+  tokenBusy.value = true;
+  tokenNote.value = "";
+  freshToken.value = "";
+  try {
+    const res = await $fetch<{ ok: boolean; token?: string; reason?: string }>("/api/account/tokens", {
+      method: "POST",
+      body: { label: tokenLabel.value || deviceLabel(), scope: tokenScope.value },
+    });
+    if (res.ok && res.token) {
+      freshToken.value = res.token;
+      tokenLabel.value = "";
+      await loadTokens();
+    } else {
+      tokenNote.value = "You have as many tokens as an account can hold. Revoke one first.";
+    }
+  } catch {
+    tokenNote.value = "Couldn’t make a token. Try again?";
+  }
+  tokenBusy.value = false;
+}
+
+async function copyCommand() {
+  tokenNote.value = (await copyText(claudeCommand.value)) ? "Copied." : "Couldn’t copy. Select it and copy by hand.";
+}
+
+async function revokeToken(id: number) {
+  if (!(await askConfirm({
+    title: "Revoke this token",
+    message: "The assistant using it loses access to My Gear straight away. Your gear is not changed.",
+    confirmLabel: "Revoke",
+  }))) return;
+  freshToken.value = "";
+  try {
+    await $fetch("/api/account/tokens/revoke", { method: "POST", body: { id } });
+  } catch {
+    tokenNote.value = "Couldn’t revoke it. Try again?";
+  }
+  await loadTokens();
+}
+
 // ---- deleting the account ------------------------------------------------
 const deleting = ref(false);
 const deleteNote = ref("");
@@ -308,7 +382,7 @@ async function onSignOutEverywhere() {
     !(await askConfirm({
       title: "Sign out everywhere?",
       message:
-        "Ends every session on every device, including this one. Do this if you think someone else has access; removing a passkey alone doesn't end the sessions it already started.",
+        "Ends every session on every device, including this one, and revokes every assistant token. Do this if you think someone else has access; removing a passkey alone doesn't end the sessions it already started.",
       confirmLabel: "Sign out everywhere",
     }))
   )
@@ -477,6 +551,48 @@ async function onSignOut() {
               them all locks nothing.
             </p>
             <p v-if="pkNote" class="t-sm acct__note">{{ pkNote }}</p>
+          </section>
+
+          <section class="acct__section">
+            <h2 class="t-label acct__label">Assistant access</h2>
+            <p class="t-sm t-muted">
+              Let an AI assistant read your gear, or change it, through the connector at
+              <code>{{ mcpUrl }}</code>. A token works until you revoke it.
+            </p>
+            <form class="acct__row" @submit.prevent="makeToken">
+              <input
+                v-model="tokenLabel"
+                class="field acct__input"
+                maxlength="60"
+                placeholder="What it’s for"
+                aria-label="Token name"
+              />
+              <select v-model="tokenScope" class="field acct__input acct__scope" aria-label="What it can do">
+                <option value="read">Read only</option>
+                <option value="write">Read and change</option>
+              </select>
+              <button type="submit" class="btn btn--ghost acct__btn" :disabled="tokenBusy">
+                {{ tokenBusy ? "Making…" : "Make token" }}
+              </button>
+            </form>
+            <div v-if="freshToken" class="acct__fresh">
+              <p class="t-sm acct__note">Copy it now. It won’t be shown again.</p>
+              <code class="acct__secret">{{ freshToken }}</code>
+              <p class="t-sm t-muted">To add it to Claude Code:</p>
+              <code class="acct__secret">{{ claudeCommand }}</code>
+              <button type="button" class="btn btn--ghost acct__btn" @click="copyCommand">Copy command</button>
+            </div>
+            <ul v-if="tokens.length" class="acct__list">
+              <li v-for="t in tokens" :key="t.id" class="acct__item">
+                <span>{{ t.label || "Token" }}</span>
+                <span class="t-sm t-muted acct__meta">
+                  {{ t.scope === "write" ? "read and change" : "read only" }} ·
+                  {{ t.lastUsedAt ? `last used ${timeAgo(Date.parse(t.lastUsedAt))}` : "not used yet" }}
+                </span>
+                <button type="button" class="btn btn--quiet" @click="revokeToken(t.id)">Revoke</button>
+              </li>
+            </ul>
+            <p v-if="tokenNote" class="t-sm acct__note">{{ tokenNote }}</p>
           </section>
 
           <section class="acct__section">
@@ -801,5 +917,28 @@ async function onSignOut() {
 }
 .acct__meta {
   flex: 1 1 auto;
+}
+/* the scope picker takes only the room its longest option needs; the label field
+   beside it takes the rest */
+.acct__scope {
+  flex: none;
+  width: auto;
+}
+.acct__fresh {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* a credential and a command line: shown whole, selectable, and wrapped anywhere so
+   neither pushes the panel sideways at phone width */
+.acct__secret {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--paper);
+  font-size: 0.8125rem;
+  overflow-wrap: anywhere;
+  user-select: all;
 }
 </style>

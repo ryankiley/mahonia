@@ -76,6 +76,20 @@ export const ACCOUNT_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions (expires_at)`,
 
+  // access_tokens — an assistant's way into My Gear over MCP. Hash only, like a
+  // session; see accessTokens.ts.
+  `CREATE TABLE IF NOT EXISTS access_tokens (
+    id serial PRIMARY KEY,
+    token_hash text NOT NULL,
+    user_id integer NOT NULL,
+    label text,
+    scope text NOT NULL CHECK (scope IN ('read', 'write')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    last_used_at timestamptz
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_access_tokens_hash ON access_tokens (token_hash)`,
+  `CREATE INDEX IF NOT EXISTS idx_access_tokens_user ON access_tokens (user_id)`,
+
   // credentials — passkeys. Holds no secret: the private half never leaves the
   // authenticator, and a public key is useless to whoever steals it.
   `CREATE TABLE IF NOT EXISTS credentials (

@@ -17,6 +17,7 @@
 import { eq, lt, sql } from "drizzle-orm";
 import { trailFavicons } from "../db/schema";
 import { ensureTrailFaviconSchema, type Db } from "./db";
+import { CANONICAL_ORIGIN } from "../../shared/site";
 import { displayHost, safeUrl } from "../../shared/trailLink";
 // the streaming, cancel-at-the-cap body reader — it started life in this file and
 // now lives beside its sibling readJsonBodyCapped, since /api/import needs it too
@@ -24,7 +25,7 @@ import { readResponseCapped } from "./http";
 import { isResolvedHostSafe, validateExternalUrl } from "./ssrf";
 
 const FETCH_TIMEOUT_MS = 5_000;
-const FETCH_USER_AGENT = "Mahonia trail-link/1.0 (+https://mahonia.app)";
+const FETCH_USER_AGENT = `Mahonia trail-link/1.0 (+${CANONICAL_ORIGIN})`;
 // 64 KB. Real favicons are 1–6 KB; komoot.com serves a 112 KB icon, which is a page
 // asset masquerading as a favicon and not worth carrying in every SSR response.
 const MAX_BYTES = 64 * 1024;

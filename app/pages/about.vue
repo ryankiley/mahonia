@@ -17,6 +17,13 @@ useHead({
 });
 const copyrightYear = new Date().getFullYear();
 
+// The connector's address and its one-click install links, built from the site's own
+// origin so a deploy on another domain advertises itself rather than someone else's.
+const mcpUrl = `${CANONICAL_ORIGIN}/mcp`;
+const installClaude = `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Mahonia&connectorUrl=${encodeURIComponent(mcpUrl)}`;
+const installCursor = `https://cursor.com/install-mcp?name=mahonia&config=${btoa(JSON.stringify({ url: mcpUrl }))}`;
+const installVsCode = `https://insiders.vscode.dev/redirect/mcp/install?name=mahonia&config=${encodeURIComponent(JSON.stringify({ type: "http", url: mcpUrl }))}`;
+
 </script>
 
 <template>
@@ -97,34 +104,26 @@ const copyrightYear = new Date().getFullYear();
 
         <h2>From an assistant</h2>
         <p>
-          Mahonia is also a connector. Add <code>https://mahonia.app/mcp</code> to an AI
-          assistant that speaks MCP and it can read a list from its share link, search the
-          catalog, make a new list, and, given an edit link, add to one. No sign-in: a share link
-          is the permission to read and an edit link the permission to change, exactly as they
-          are for a person.
+          Mahonia is also a connector. Add <code>{{ mcpUrl }}</code> to an AI assistant that
+          speaks MCP and it can read a list from its share link, search the catalog, make a new
+          list, and, given an edit link, add to one. No sign-in: a share link is the permission to
+          read and an edit link the permission to change, exactly as they are for a person.
+        </p>
+        <p>
+          Your own gear takes one more step. Make an access token under Assistant access on
+          <NuxtLink to="/account">your account</NuxtLink>, read only or read and change, and give it
+          to the assistant with the connector. It reaches My Gear and nothing else, and you can
+          revoke it there any time.
         </p>
         <p>
           One click for
-          <a
-            href="https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Mahonia&connectorUrl=https%3A%2F%2Fmahonia.app%2Fmcp"
-            target="_blank"
-            rel="noopener noreferrer"
-            >Claude</a
-          >,
-          <a
-            href="https://cursor.com/install-mcp?name=mahonia&config=eyJ1cmwiOiJodHRwczovL21haG9uaWEuYXBwL21jcCJ9"
-            target="_blank"
-            rel="noopener noreferrer"
-            >Cursor</a
-          >
+          <a :href="installClaude" target="_blank" rel="noopener noreferrer">Claude</a>,
+          <a :href="installCursor" target="_blank" rel="noopener noreferrer">Cursor</a>
           or
-          <a
-            href="https://insiders.vscode.dev/redirect/mcp/install?name=mahonia&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmahonia.app%2Fmcp%22%7D"
-            target="_blank"
-            rel="noopener noreferrer"
+          <a :href="installVsCode" target="_blank" rel="noopener noreferrer"
             >VS Code</a
           >; the
-          <a href="https://github.com/ryankiley/mahonia#mcp-connector" target="_blank" rel="noopener noreferrer"
+          <a href="https://github.com/yuwei-liang/pack#mcp-connector" target="_blank" rel="noopener noreferrer"
             >README</a
           >
           has the line for every other client.

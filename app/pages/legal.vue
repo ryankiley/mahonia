@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 5 September 2026</p>
+        <p class="t-sm t-muted">Last updated 21 October 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -119,7 +119,7 @@ useHead({
           One more, and only on one screen. When a list has a route, the planning view draws it on
           a topographic map, and those map images come from <strong>OpenTopoMap</strong>, a
           volunteer project built on OpenStreetMap data. Loading an image tells that server your
-          rough map position and that the request came from mahonia.app, never which list you’re
+          rough map position and that the request came from this site, never which list you’re
           looking at, because the browser is told to send the site’s address and nothing further.
           It’s the only request Mahonia makes to anyone else, it only happens on a list that has a
           route, and the map’s code isn’t even downloaded otherwise.

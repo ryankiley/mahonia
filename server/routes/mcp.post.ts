@@ -20,10 +20,13 @@ import { rateLimit } from "../utils/rateLimit";
 // not speak gets a 400 with a plain JSON-RPC error and none of the newer spec's
 // reserved codes, which is the answer a newer client falls back from cleanly.
 //
-// No authentication, on purpose: a share code is already the read capability and an
-// edit link the write one, and both travel as tool arguments (server/utils/mcp.ts).
-// The endpoint must never answer 401 or 403 to a well-formed request, because that
-// is the signal Claude's clients read as "this server wants a sign-in".
+// No authentication at the door, on purpose: a share code is already the read
+// capability and an edit link the write one, and both travel as tool arguments
+// (server/utils/mcp.ts). The My Gear tools read an access token from the
+// Authorization header, but only inside the tool, and a missing or revoked one is
+// answered there as a sentence. The endpoint must never answer 401 or 403 to a
+// well-formed request, because that is the signal Claude's clients read as "this
+// server wants a sign-in", and an anonymous connector would lose the list tools too.
 
 /** a JSON-RPC body is small; a list's rows arrive a few hundred at most */
 const MAX_BODY_BYTES = 262_144;
@@ -108,7 +111,7 @@ export default defineEventHandler(async (event) => {
     case "ping":
       return result(id, {});
     case "tools/list":
-      // one page, always: seven tools need no cursor, and a cursor that arrives anyway
+      // one page, always: eleven tools need no cursor, and a cursor that arrives anyway
       // names a page this server never handed out
       if (params.cursor != null) return error(id, -32602, "Invalid cursor");
       return result(id, { tools: MCP_TOOLS });

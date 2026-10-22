@@ -1,0 +1,9 @@
+{
+  "date": "2026-10-21",
+  "added": [
+    "An AI assistant can now read your My Gear, and with your say-so add to it and change it, through the connector: make an access token under Assistant access on your account."
+  ],
+  "changed": [
+    "The connector's instructions and the About page now point at this site's own address."
+  ]
+}
