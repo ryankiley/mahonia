@@ -81,7 +81,13 @@ const FIRST_LOAD_CEILING_KB = 155;
 // Re-anchored 2026-10-17 at 153.0 measured (the spring motion system: ~1 KB of curves,
 // the spring util, the row fold). 154 is one under the ceiling: the next growth is a
 // conversation about the ceiling.
-const FIRST_LOAD_BUDGET_KB = 154;
+//
+// Re-anchored 2026-10-22 at 154.0 measured (nuxt 4.6.2: its own runtime +1.5 KB,
+// unctx off the client −0.5). 155 IS the ceiling, so the two lines coincide again, as
+// they did from 2026-09-12 to 10-17. The ceiling stays: the room it was given on
+// 10-17 was for the framework's own moves, and this is one, with 1.0 KB of it left.
+// The next growth of any size meets the ceiling's message — that conversation.
+const FIRST_LOAD_BUDGET_KB = 155;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set ~6 KB clear of the current total so it only speaks up
