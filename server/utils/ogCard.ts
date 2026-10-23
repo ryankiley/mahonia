@@ -18,26 +18,29 @@
 // fonts), with InterDisplay for the two display-size runs, subset into
 // server/assets/fonts (coverage rule: shared/ogCard.ts's DRAWABLE_RANGES).
 //
-// DO NOT "CLEAN UP" the `overrides.satori.fflate` pin in package.json, and do not
-// let a bot bump it to 0.8.x. satori (0.35.1 here) depends on fflate 0.7.3 exactly, and
-// 0.7.3 is inside GHSA-px8p-9vwx-vf98 (an infinite loop in `unzipSync` on
-// malformed ZIP64 — a function neither satori nor its font parser ever calls, but
-// one `npm audit` reports forever). 0.7.5 clears the advisory and is the last
-// release that still takes an OUTPUT BUFFER as `inflateSync`'s second argument.
-// fflate 0.8 changed that argument to an options object; satori still calls it the
-// old way and reads the buffer it passed, so on 0.8.x the buffer stays zero-filled
-// and WOFF faces decompress to nothing — every glyph silently blank, no error
-// thrown. The fonts here are TTF, which skips that path entirely, so the trap only
-// springs if someone adds a .woff. Hence the pin rather than the newer release.
+// DO NOT "CLEAN UP" the `overrides.satori.fflate` pin in package.json. satori
+// (0.63.2 here) still declares fflate 0.7.3 exactly, and 0.7.3 is inside
+// GHSA-px8p-9vwx-vf98 (an infinite loop in `unzipSync` on malformed ZIP64 — a
+// function neither satori nor its font parser ever calls, but one `npm audit`
+// reports forever). 0.7.5 clears the advisory with the smallest step. Until satori
+// 0.55.1 the override also had to stay BELOW 0.8: satori called `inflateSync` the
+// 0.7 way, with an output buffer it then read, and 0.8 made that argument an
+// options object, so WOFF faces decompressed to nothing — every glyph silently
+// blank, no error thrown. 0.55.1 reads inflateSync's return value instead
+// (vercel/satori#825), so 0.8 would no longer blank a face; 0.7.5 stays because it
+// is what satori asks for, minus the advisory. The fonts here are TTF either way.
 //
-// satori itself is pinned EXACTLY at 0.35.1, not a caret range: 0.35.2 bundled
-// harfbuzz into its own dist (vercel/satori#796), and that bundle reads `__dirname`
-// at import time, which does not exist in an ES module — every Node ESM consumer,
-// nitro included, gets `ReferenceError: __dirname is not defined` the moment the
-// og chunk loads (vercel/satori#844; fix proposed in #845). 0.36 and 0.37 carry
-// the same bug. Once a release lands with that fix, the range can move again; at
-// that point both hb.wasm and the layout wasm are embedded in satori's dist, so
-// the nuxt.config.ts hook that hand-copies hb.wasm into the server bundle can go.
+// satori is pinned EXACTLY, not a caret range, and the pin has moved once. 0.35.1
+// held out 0.35.2–0.37.0: they bundled harfbuzz into satori's dist with a
+// `__dirname` read at import time (vercel/satori#844), and every Node ESM consumer,
+// nitro included, threw `ReferenceError: __dirname is not defined` the moment the
+// og chunk loaded. 0.37.1 fixed that (#845) and 0.63.2 took the rewrite that came
+// after it: the layout engine now sizes boxes content-box and shrinks flex items
+// like a browser, which is why `el` below pins border-box and flex-shrink 0 — the
+// Yoga defaults the card was drawn against. Both wasms are embedded in satori's
+// dist now, so nothing copies hb.wasm into the server bundle by hand any more.
+// The pin stays exact because this is a 0.x package that ships a minor most days:
+// move it deliberately, re-render (tests/ogCard.test.ts, `npm run og:site`), look.
 
 import satori, { type SatoriOptions } from "satori";
 import { Resvg } from "@resvg/resvg-js";
@@ -95,9 +98,18 @@ type Vnode = {
   props: Record<string, unknown>;
   key: null;
 };
+// Two Yoga defaults pinned on every box, because the card was drawn against them
+// and satori's 0.5x rewrite lays out like a browser instead. border-box: a width
+// includes its padding, so the root's `100%` plus `64px 72px` is a 1200×630 card —
+// content-box laid out 1344×758 inside the image, and the mark and the breakdown
+// row fell off the right and bottom edges (and the engine culls what's outside).
+// flex-shrink 0: nothing here gives up width under pressure — a too-long row
+// overflows, which is what the breakdown's fit calculation below assumes, and
+// the mark keeps its 64px instead of being squeezed beside a long title. The one
+// box that must shrink, the title, says so itself.
 const el = (style: Record<string, unknown>, children?: unknown): Vnode => ({
   type: "div",
-  props: { style: { display: "flex", ...style }, children },
+  props: { style: { display: "flex", boxSizing: "border-box", flexShrink: 0, ...style }, children },
   key: null,
 });
 
@@ -141,6 +153,7 @@ function cardVnode(m: OgCardModel): Vnode {
             display: "block",
             lineClamp: 2,
             flexGrow: 1,
+            flexShrink: 1, // the only box allowed to: it wraps, the mark beside it does not
             marginRight: 48,
             fontFamily: "InterDisplay",
             fontWeight: 700,
@@ -151,7 +164,7 @@ function cardVnode(m: OgCardModel): Vnode {
           },
           m.title,
         ),
-        { type: "img", props: { src: MARK_SRC, width: MARK_SIZE, height: MARK_SIZE }, key: null },
+        { type: "img", props: { src: MARK_SRC, width: MARK_SIZE, height: MARK_SIZE, style: { flexShrink: 0 } }, key: null },
       ]),
       el({ flexGrow: 1 }),
       // the big figure — number dominant, unit smaller and muted ON ITS BASELINE,
