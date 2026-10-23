@@ -175,28 +175,24 @@ jobs:
           path: delta.md
           retention-days: 1
 
-      # Does the SERVER bundle contain the files the server needs at runtime?
+      # Does the SERVER bundle still render an OG card?
       #
-      # Nothing else here asks that. The tests import from node_modules, where
-      # every dependency is whole; typecheck never looks at a build at all; the
-      # bundle budget reads only .output/public. So a file that node-file-trace
-      # failed to copy is invisible to all four gates, and the first thing to
-      # notice is production.
+      # Nothing else here asks that. The tests import satori from node_modules,
+      # where every dependency is whole; typecheck never looks at a build at all;
+      # the bundle budget reads only .output/public. So a server bundle that
+      # cannot load its own renderer is invisible to all four gates, and the first
+      # thing to notice is production. That has happened twice — a wasm the trace
+      # left behind, then an import-time `__dirname` in an ES module; the probe's
+      # header tells both — and each time every gate above was green.
       #
-      # That is not hypothetical. satori 0.33 shapes text with harfbuzz, and
-      # harfbuzzjs resolves its wasm as `__dirname + "/hb.wasm"` — a runtime
-      # string concat that nft cannot follow, so the build shipped hb.js without
-      # it. And because harfbuzzjs builds its wasm promise at import time, the
-      # ENOENT arrives as an unhandled rejection that ogCard.ts's try/catch never
-      # sees: the instance dies rather than falling back to /og.png. Every gate
-      # above was green. See the nitro:init hook in nuxt.config.ts.
-      #
-      # One asserted path is a narrow guard, deliberately — a general "is the
-      # trace complete" check is not a thing you can write. It ratchets the one
-      # case that actually bit, and it is the right place to add the next one.
-      - name: Server bundle has its runtime assets
+      # The probe imports the og chunk out of .output/server the way nitro will,
+      # and draws one glyph with the satori that bundle resolves. Narrow on
+      # purpose: a general "is the bundle complete" check is not a thing you can
+      # write. It covers the two cases that actually bit, and it is the right
+      # place to add the next one.
+      - name: Server bundle renders
         if: '!cancelled()'
-        run: test -f .output/server/node_modules/harfbuzzjs/hb.wasm
+        run: node scripts/probe-server-bundle.mjs
 
 
   # The one write: the bundle-delta comment, from a job with `pull-requests: write`
