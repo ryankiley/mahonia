@@ -19,56 +19,27 @@ import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { backfillVaultFromClaims, claimLists } from "../server/utils/claimRepo";
 import { applyVaultItemOp, listVaultItems } from "../server/utils/vaultRepo";
-import { randomEditToken, randomShareCode, sha256Hex } from "../server/utils/tokens";
-import { createTestDb, type TestDb } from "./helpers/db";
+import { createTestDb, makeList, type TestDb } from "./helpers/db";
+import { item } from "./helpers/list";
 
-type DB = TestDb;
-async function freshDb(): Promise<DB> {
-  return createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
-}
-
-async function makeUser(db: DB, email: string): Promise<number> {
+async function makeUser(db: TestDb, email: string): Promise<number> {
   const rows = await db.insert(schema.users).values({ email }).returning();
   return rows[0]!.id;
 }
 
 /** A list carrying one named piece of gear, so the backfill has something to fold. */
-async function makeListWithGear(db: DB, title: string, gear: string, weightMg = 500_000) {
-  const editToken = randomEditToken();
-  const shareCode = randomShareCode();
-  const rows = await db
-    .insert(schema.lists)
-    .values({
-      publicSlug: `${gear.toLowerCase().replace(/\W+/g, "-")}-${shareCode.slice(0, 6).toLowerCase()}`,
-      editTokenHash: sha256Hex(editToken),
-      shareCode,
-      title,
-      data: {
-        folders: [],
-        items: [
-          {
-            id: `i-${gear}`,
-            folderId: null,
-            name: gear,
-            unitWeightMg: weightMg,
-            qty: 1,
-            classification: "base",
-            sortOrder: 0,
-          },
-        ],
-      },
-    })
-    .returning();
-  return { editToken, id: rows[0]!.id };
-}
+const makeListWithGear = (db: TestDb, title: string, gear: string, weightMg = 500_000) =>
+  makeList(db, title, {
+    data: { folders: [], items: [item({ id: `i-${gear}`, folderId: null, name: gear, unitWeightMg: weightMg, classification: "base" })] },
+  });
 
-const vaultIdFor = async (db: DB, userId: number): Promise<number | null> => {
+const vaultIdFor = async (db: TestDb, userId: number): Promise<number | null> => {
   const r = await db.execute(sql.raw(`select id from vaults where user_id = ${userId}`));
   const rows = (r as unknown as { rows: { id: number }[] }).rows;
   return rows[0]?.id ?? null;
 };
 
-const gearIn = async (db: DB, vaultId: number): Promise<string[]> => {
+const gearIn = async (db: TestDb, vaultId: number): Promise<string[]> => {
   const r = await db.execute(
     sql.raw(`select name from vault_items where vault_id = ${vaultId} order by name`),
   );
@@ -76,17 +47,17 @@ const gearIn = async (db: DB, vaultId: number): Promise<string[]> => {
 };
 
 describe("rebuilding a vault from claimed lists", () => {
-  let db: DB;
+  let db: TestDb;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
   });
 
   it("writes the gear into THIS account's vault, minting one if there isn't one yet", async () => {
     const user = await makeUser(db, "ryan@example.com");
     const list = await makeListWithGear(db, "Sierra", "Tent X");
-    await claimLists(db as never, user, [list.editToken]);
+    await claimLists(db, user, [list.editToken]);
 
-    const written = await backfillVaultFromClaims(db as never, user);
+    const written = await backfillVaultFromClaims(db, user);
     expect(written).toBe(1);
 
     const vault = await vaultIdFor(db, user);
@@ -109,7 +80,7 @@ describe("rebuilding a vault from claimed lists", () => {
       sql.raw(`insert into list_claims (user_id, list_id) values (9001, ${list.id})`),
     );
 
-    await backfillVaultFromClaims(db as never, 9001);
+    await backfillVaultFromClaims(db, 9001);
 
     // the other account's vault is id 9001 — the exact number our userId is now
     expect(await gearIn(db, 9001)).toEqual([]);
@@ -123,9 +94,9 @@ describe("rebuilding a vault from claimed lists", () => {
     const a = await makeListWithGear(db, "Sierra", "Tent X");
     const b = await makeListWithGear(db, "Cascades", "Tent X");
     const c = await makeListWithGear(db, "Desert", "Stove Y");
-    await claimLists(db as never, user, [a.editToken, b.editToken, c.editToken]);
+    await claimLists(db, user, [a.editToken, b.editToken, c.editToken]);
 
-    await backfillVaultFromClaims(db as never, user);
+    await backfillVaultFromClaims(db, user);
     const vault = await vaultIdFor(db, user);
     expect(await gearIn(db, vault!)).toEqual(["Stove Y", "Tent X"]);
   });
@@ -138,20 +109,20 @@ describe("rebuilding a vault from claimed lists", () => {
     const newer = await makeListWithGear(db, "Cascades", "Tent X", 700_000);
     await db.update(schema.lists).set({ updatedAt: new Date("2026-01-01T00:00:00Z") }).where(sql`id = ${older.id}`);
     await db.update(schema.lists).set({ updatedAt: new Date("2026-02-01T00:00:00Z") }).where(sql`id = ${newer.id}`);
-    await claimLists(db as never, user, [older.editToken, newer.editToken]);
+    await claimLists(db, user, [older.editToken, newer.editToken]);
 
-    await backfillVaultFromClaims(db as never, user);
+    await backfillVaultFromClaims(db, user);
     const vault = (await vaultIdFor(db, user))!;
-    expect((await listVaultItems(db as never, vault))[0]!.weightMg).toBe(700_000);
+    expect((await listVaultItems(db, vault))[0]!.weightMg).toBe(700_000);
   });
 
   it("is idempotent — running it twice doesn't duplicate rows", async () => {
     const user = await makeUser(db, "ryan@example.com");
     const list = await makeListWithGear(db, "Sierra", "Tent X");
-    await claimLists(db as never, user, [list.editToken]);
+    await claimLists(db, user, [list.editToken]);
 
-    await backfillVaultFromClaims(db as never, user);
-    await backfillVaultFromClaims(db as never, user);
+    await backfillVaultFromClaims(db, user);
+    await backfillVaultFromClaims(db, user);
 
     const vault = await vaultIdFor(db, user);
     expect(await gearIn(db, vault!)).toEqual(["Tent X"]);
@@ -159,7 +130,7 @@ describe("rebuilding a vault from claimed lists", () => {
 
   it("does nothing, and mints nothing, for an account with no claims", async () => {
     const user = await makeUser(db, "ryan@example.com");
-    expect(await backfillVaultFromClaims(db as never, user)).toBe(0);
+    expect(await backfillVaultFromClaims(db, user)).toBe(0);
     // no claims means no gear, and no reason to bring a vault row into existence
     expect(await vaultIdFor(db, user)).toBeNull();
   });
@@ -171,18 +142,18 @@ describe("rebuilding a vault from claimed lists", () => {
     // moment the vault is supposed to prove itself.
     const user = await makeUser(db, "ryan@example.com");
     const list = await makeListWithGear(db, "Sierra", "Tent X");
-    await claimLists(db as never, user, [list.editToken]);
-    await backfillVaultFromClaims(db as never, user);
+    await claimLists(db, user, [list.editToken]);
+    await backfillVaultFromClaims(db, user);
 
     const gear = (await vaultIdFor(db, user))!;
-    const row = (await listVaultItems(db as never, gear))[0]!;
-    await applyVaultItemOp(db as never, gear, {
+    const row = (await listVaultItems(db, gear))[0]!;
+    await applyVaultItemOp(db, gear, {
       t: "edit",
       id: row.id,
       patch: { weightMg: 480_000 },
     });
 
-    await backfillVaultFromClaims(db as never, user);
-    expect((await listVaultItems(db as never, gear))[0]!.weightMg).toBe(480_000);
+    await backfillVaultFromClaims(db, user);
+    expect((await listVaultItems(db, gear))[0]!.weightMg).toBe(480_000);
   });
 });

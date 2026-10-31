@@ -8,6 +8,7 @@
 // Backed by useState so the value is shared across every component that asks for
 // it (one fetch per page load, not one per caller) and survives SSR → hydration.
 
+import { SESSION_HINT_COOKIE, SESSION_OWNER_COOKIE } from "~~/shared/session";
 import { sessionCacheOwner } from "../utils/sessionOwner";
 
 interface SessionState {
@@ -53,13 +54,13 @@ export function useSession() {
   /** The readable companion flag the server sets alongside the HttpOnly session
    *  cookie (see SESSION_HINT_COOKIE). Not a credential — just "worth asking". */
   function hasSessionHint(): boolean {
-    return import.meta.client && document.cookie.includes("mh_signed_in=1");
+    return readCookie(SESSION_HINT_COOKIE) === "1";
   }
 
   function clearSessionHint(): void {
     if (!import.meta.client) return;
-    document.cookie = "mh_signed_in=; Max-Age=0; path=/";
-    document.cookie = "mh_session_owner=; Max-Age=0; path=/";
+    document.cookie = `${SESSION_HINT_COOKIE}=; Max-Age=0; path=/`;
+    document.cookie = `${SESSION_OWNER_COOKIE}=; Max-Age=0; path=/`;
   }
 
   /** Fetch the current session. Idempotent and de-duped: several components
@@ -142,7 +143,7 @@ export function useSession() {
       await $fetch("/api/auth/request", { method: "POST", body: { email } });
       return "sent";
     } catch (e) {
-      return (e as { statusCode?: number })?.statusCode === 503 ? "unavailable" : "error";
+      return statusOf(e) === 503 ? "unavailable" : "error";
     }
   }
 

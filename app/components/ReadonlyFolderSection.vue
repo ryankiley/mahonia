@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 
 // The share views' folder (/s + /l): static name + collapse + readonly rows.
@@ -34,15 +32,7 @@ const collapsed = ref(false);
     <header class="folder__head">
       <div class="folder__title">
         <span class="folder__name">{{ folder.name }}</span>
-        <button
-          class="folder__collapse"
-          :aria-expanded="!collapsed"
-          :aria-label="`${collapsed ? 'Expand' : 'Collapse'} ${folder.name || 'folder'}`"
-          :title="collapsed ? 'Expand folder' : 'Collapse folder'"
-          @click="collapsed = !collapsed"
-        >
-          <HugeiconsIcon :icon="ChevronDownIcon" class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="20" :stroke-width="2" />
-        </button>
+        <NestChevron folder :collapsed="collapsed" :label="folder.name || 'folder'" @toggle="collapsed = !collapsed" />
       </div>
     </header>
 

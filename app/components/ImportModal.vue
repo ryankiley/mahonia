@@ -6,7 +6,7 @@ import { linkImportedItems } from "~~/shared/catalogMatch";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
 import { editLinkPath } from "~~/shared/links";
-import type { ListData, ListMeta, ListSnapshot } from "~~/shared/types";
+import type { ListData, ListMeta } from "~~/shared/types";
 
 // "Import a list" dialog — mint a NEW list from a LighterPack share link, a
 // pasted CSV, a JSON backup (the menus' "Download JSON"), or an uploaded file,
@@ -18,7 +18,6 @@ const props = defineProps<{ open: boolean }>();
 const emit = defineEmits<{ close: [] }>();
 
 const router = useRouter();
-const myLists = useMyLists();
 
 const text = ref("");
 // what to call the list; empty falls back to the backup's own title, then "Imported list"
@@ -26,7 +25,6 @@ const title = ref("");
 const importNote = useImportNote();
 const importing = ref(false);
 const error = ref("");
-const fileRef = useTemplateRef<HTMLInputElement>("fileRef");
 
 // fresh form each time the dialog is opened
 watch(
@@ -58,25 +56,25 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
     // the link is a nicety on top of the import, never a condition of it.
     const linked = await linkToCatalog(list.data.items);
     const data: ListData = { ...list.data, items: linked.items };
-    const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
-      method: "POST",
-      // the backup forwarded whole, meta and content. It was thirteen `x: meta?.x`
-      // lines, one per ListMeta field — the shape that once let trip dates go
-      // missing from this very list (see LIST_META_KEYS); a field the export writes
-      // now reaches the restore without anyone remembering to add it here.
-      body: { ...list, data, title: title.value.trim() || list.title || "Imported list" },
+    // the backup forwarded whole, meta and content. It was thirteen `x: meta?.x`
+    // lines, one per ListMeta field — the shape that once let trip dates go
+    // missing from this very list (see LIST_META_KEYS); a field the export writes
+    // now reaches the restore without anyone remembering to add it here.
+    // An import arrives whole (no ops), so the create ALSO captures it to your vault
+    // and registers it here, in the order the copy path keeps (createAndRegisterList).
+    const { snapshot, token } = await createAndRegisterList({
+      ...list,
+      data,
+      title: title.value.trim() || list.title || "Imported list",
     });
     emit("close");
     tally("import");
-    // an import arrives whole (no ops) — capture it here, where the device knows
-    // it just created this list from data you supplied
-    useVaultCapture().captureNewList(res.snapshot, res.editToken);
     // set before the navigation, so the editor finds it the moment the list lands; a
     // list where nothing matched gets no note — "0 of 25" reads as a failure it isn't
     importNote.value = linked.matched
       ? `${linked.matched} of ${data.items.length} rows matched the catalog.`
       : null;
-    router.push(editLinkPath(res.snapshot.shareCode, myLists.registerCreated(res)));
+    router.push(editLinkPath(snapshot.shareCode, token));
   } catch {
     error.value = "Import failed. Check the file and try again.";
   } finally {
@@ -130,31 +128,20 @@ async function importFromText() {
   createFrom({ data: csvToListData(raw) });
 }
 
-function onFile(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
-  // clear the selection immediately (the File object is already captured): a
-  // failed import keeps the dialog open, and re-choosing the SAME file — the
-  // natural retry after fixing it — fires no change event while a value sticks
-  input.value = "";
-  if (!file) return;
+// a chosen file, already read (FilePickButton). A .json file is a "Download JSON"
+// backup — full-fidelity restore. Sniff {-leading content too, so a mis-extensioned
+// backup still restores.
+function importFile(text: string, file: File) {
   const isJson = /\.json$/i.test(file.name) || file.type === "application/json";
-  const reader = new FileReader();
-  reader.onload = () => {
-    const text = String(reader.result);
-    // a .json file is a "Download JSON" backup — full-fidelity restore. Sniff
-    // {-leading content too, so a mis-extensioned backup still restores.
-    if (isJson || text.trimStart().startsWith("{")) {
-      const parsed = jsonToListImport(text);
-      if (parsed) return void createFrom(parsed);
-      if (isJson) {
-        error.value = "Couldn’t read that file as a list backup. Use “Download JSON” to make one.";
-        return;
-      }
+  if (isJson || text.trimStart().startsWith("{")) {
+    const parsed = jsonToListImport(text);
+    if (parsed) return void createFrom(parsed);
+    if (isJson) {
+      error.value = "Couldn’t read that file as a list backup. Use “Download JSON” to make one.";
+      return;
     }
-    void createFrom({ data: csvToListData(text) });
-  };
-  reader.readAsText(file);
+  }
+  void createFrom({ data: csvToListData(text) });
 }
 </script>
 
@@ -195,19 +182,9 @@ function onFile(e: Event) {
     <p v-if="error" class="t-sm import__err">{{ error }}</p>
 
     <div class="dlg__actions import__actions">
-      <!-- the native file control ("Choose File · No file chosen") can't be
-           styled; a real button proxies a hidden input, and choosing a file
-           imports immediately (onFile), so there's no chosen-name state to show -->
-      <input
-        ref="fileRef"
-        type="file"
-        accept=".csv,.tsv,.json,text/csv,text/plain,application/json"
-        class="visually-hidden"
-        tabindex="-1"
-        aria-hidden="true"
-        @change="onFile"
-      />
-      <button class="btn btn--ghost import__choose" type="button" @click="fileRef?.click()">Choose a file…</button>
+      <!-- a real button over a hidden file input (FilePickButton); choosing a file
+           imports immediately, so there's no chosen-name state to show -->
+      <FilePickButton @text="importFile" />
       <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
       <button class="btn btn--primary" :disabled="importing || !text.trim()" @click="importFromText">
         {{ importing ? "Importing…" : "Import" }}
@@ -245,8 +222,5 @@ function onFile(e: Event) {
    Cancel/Import stay trailing */
 .import__actions {
   flex-wrap: wrap;
-}
-.import__choose {
-  margin-right: auto;
 }
 </style>

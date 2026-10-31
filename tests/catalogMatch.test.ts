@@ -9,6 +9,7 @@ import {
 } from "../shared/catalogMatch";
 import type { CatalogSearchResult } from "../shared/catalogSearch";
 import type { Item } from "../shared/types";
+import { item as listItem } from "./helpers/list";
 
 // Exact-match linking of imported rows to catalog products. The rule under test is
 // "word for word, or nothing": a LighterPack row that spells a product the way the
@@ -28,16 +29,7 @@ const row = (over: Partial<CatalogSearchResult> = {}): CatalogSearchResult => ({
   kcal: null,
   ...over,
 });
-const item = (over: Partial<Item> = {}): Item => ({
-  id: "i1",
-  folderId: "f1",
-  sortOrder: 0,
-  name: "MSR PocketRocket 2 Stove",
-  unitWeightMg: 73_000,
-  qty: 1,
-  classification: null,
-  ...over,
-});
+const item = (over: Partial<Item> = {}): Item => listItem({ id: "i1", name: "MSR PocketRocket 2 Stove", unitWeightMg: 73_000, ...over });
 
 describe("catalogNameKeys / importedNameKey", () => {
   it("answers to brand + model, and to the same with the variant on the end", () => {

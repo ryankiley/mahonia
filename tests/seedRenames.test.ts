@@ -11,6 +11,7 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import type { CatalogCsvRow } from "../scripts/catalogCsv";
 import { renameMovedVariants } from "../scripts/seedRenames";
 import { vaultNormKey } from "../shared/vault";
+import { seedCatalogRow } from "./helpers/catalog";
 import { createTestDb, type TestDb } from "./helpers/db";
 
 const URL = "https://usshop.goldwin-global.com/products/gl05140";
@@ -38,44 +39,44 @@ describe("renameMovedVariants", () => {
   });
 
   it("moves a row to its new variant in place, id and usage kept, and is idempotent", async () => {
-    const [old] = await db.insert(schema.catalogItems).values(seeded).returning();
-    const [other] = await db.insert(schema.catalogItems).values({ ...seeded, name: "Star Trail Pack", variant: "JP 3", weightMg: 178_000, sourceUrl: "https://usshop.goldwin-global.com/products/gm95181" }).returning();
+    const old = await seedCatalogRow(db, seeded);
+    const other = await seedCatalogRow(db, { ...seeded, name: "Star Trail Pack", variant: "JP 3", weightMg: 178_000, sourceUrl: "https://usshop.goldwin-global.com/products/gm95181" });
     const rows = [csv({}), csv({ name: "Star Trail Pack", variant: "JP 3", weightMg: 178_000, sourceUrl: "https://usshop.goldwin-global.com/products/gm95181" })];
 
-    expect(await renameMovedVariants(db as never, rows)).toEqual({ catalog: 1, vault: 0 });
+    expect(await renameMovedVariants(db, rows)).toEqual({ catalog: 1, vault: 0 });
     const after = await db.select().from(schema.catalogItems);
     expect(after).toHaveLength(2);
-    expect(after.find((r) => r.id === old!.id)).toMatchObject({ variant: "JP 3", usageCount: 2 });
-    expect(after.find((r) => r.id === other!.id)!.variant).toBe("JP 3");
+    expect(after.find((r) => r.id === old.id)).toMatchObject({ variant: "JP 3", usageCount: 2 });
+    expect(after.find((r) => r.id === other.id)!.variant).toBe("JP 3");
 
-    expect(await renameMovedVariants(db as never, rows)).toEqual({ catalog: 0, vault: 0 });
+    expect(await renameMovedVariants(db, rows)).toEqual({ catalog: 0, vault: 0 });
   });
 
   it("is not a rename when the weight or source differs, or the orphan is a community row", async () => {
-    const [old] = await db.insert(schema.catalogItems).values(seeded).returning();
-    expect((await renameMovedVariants(db as never, [csv({ weightMg: 430_000 })])).catalog).toBe(0);
-    expect((await renameMovedVariants(db as never, [csv({ sourceUrl: "https://eushop.goldwin-global.com/products/gl05140" })])).catalog).toBe(0);
-    expect((await db.select().from(schema.catalogItems)).find((r) => r.id === old!.id)!.variant).toBe("Medium, JP 3");
+    const old = await seedCatalogRow(db, seeded);
+    expect((await renameMovedVariants(db, [csv({ weightMg: 430_000 })])).catalog).toBe(0);
+    expect((await renameMovedVariants(db, [csv({ sourceUrl: "https://eushop.goldwin-global.com/products/gl05140" })])).catalog).toBe(0);
+    expect((await db.select().from(schema.catalogItems)).find((r) => r.id === old.id)!.variant).toBe("Medium, JP 3");
 
-    await db.update(schema.catalogItems).set({ verified: false }).where(eq(schema.catalogItems.id, old!.id));
-    expect((await renameMovedVariants(db as never, [csv({})])).catalog).toBe(0);
+    await db.update(schema.catalogItems).set({ verified: false }).where(eq(schema.catalogItems.id, old.id));
+    expect((await renameMovedVariants(db, [csv({})])).catalog).toBe(0);
   });
 
   it("leaves a size split or a size dropped alone: one orphan, one newcomer, or nothing", async () => {
-    await db.insert(schema.catalogItems).values(seeded);
+    await seedCatalogRow(db, seeded);
     // one orphan, two newcomers at the same weight and page: a split, not a rename
-    expect((await renameMovedVariants(db as never, [csv({ variant: "JP 3" }), csv({ variant: "JP 4" })])).catalog).toBe(0);
+    expect((await renameMovedVariants(db, [csv({ variant: "JP 3" }), csv({ variant: "JP 4" })])).catalog).toBe(0);
     // two orphans, one newcomer: a size dropped and the other renamed — ambiguous, left to the prune
-    await db.insert(schema.catalogItems).values({ ...seeded, variant: "Large, JP 4" });
-    expect((await renameMovedVariants(db as never, [csv({ variant: "JP 3" })])).catalog).toBe(0);
+    await seedCatalogRow(db, { ...seeded, variant: "Large, JP 4" });
+    expect((await renameMovedVariants(db, [csv({ variant: "JP 3" })])).catalog).toBe(0);
   });
 
   it("moves My Gear's rows with the catalog, key included", async () => {
-    await db.insert(schema.catalogItems).values(seeded);
+    await seedCatalogRow(db, seeded);
     await db.execute(sql`insert into vaults (id, user_id) values (1, 1)`).catch(() => {});
     const key = vaultNormKey("Goldwin", "GORE-TEX 3L Jacket", "Medium, JP 3");
     const [row] = await db.insert(schema.vaultItems).values({ vaultId: 1, normKey: key, brand: "Goldwin", name: "GORE-TEX 3L Jacket", variant: "Medium, JP 3", weightMg: 420_000 } as never).returning();
-    expect(await renameMovedVariants(db as never, [csv({})])).toEqual({ catalog: 1, vault: 1 });
+    expect(await renameMovedVariants(db, [csv({})])).toEqual({ catalog: 1, vault: 1 });
     const [after] = await db.select().from(schema.vaultItems).where(eq(schema.vaultItems.id, row!.id));
     expect(after).toMatchObject({ variant: "JP 3", normKey: vaultNormKey("Goldwin", "GORE-TEX 3L Jacket", "JP 3") });
   });

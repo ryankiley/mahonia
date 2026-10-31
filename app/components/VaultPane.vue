@@ -2,12 +2,12 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ArrowUpRight01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon, Layers01Icon } from "@hugeicons/core-free-icons";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
-import { vaultNormKey } from "~~/shared/vault";
+import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
 import { groupVaultRows } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
-import { foldApostrophes } from "~~/shared/tidyText";
+import { counted, foldApostrophes } from "~~/shared/tidyText";
 import { addVaultFolder, addVaultKit } from "~/composables/useVaultUnfold";
 
 // The vault, alongside the list you're building — a floating palette you keep open
@@ -253,14 +253,7 @@ function addCategory(cat: { name: string; entries: VaultEntry[] }) {
 // uses — so "Zpacks Duplex" in the list matches the vault row whatever the spacing
 // or case. Recomputed from the live snapshot, so it updates the moment something is
 // added (here or by typing).
-const inList = computed(() => {
-  const keys = new Set<string>();
-  for (const item of c.snapshot.value?.items ?? []) {
-    const key = vaultNormKey(item.brand, item.name, item.variant);
-    if (key) keys.add(key);
-  }
-  return keys;
-});
+const inList = computed(() => listNormKeys(c.snapshot.value?.items ?? []));
 // Gear the list already holds can't be added again — the row goes to an "Already
 // added" state instead. Wanting two of something is a QUANTITY, which the list row
 // owns (its "1 ×" field); a second identical row would split one thing's weight
@@ -418,7 +411,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            frequent action to reach the rare one. You have already asked for your gear
            by the time you can see this, so "all of it, with room to tidy" is one quiet
            link away at the moment you'd want it. -->
-      <NuxtLink v-if="hasVault" to="/gear" class="btn btn--quiet vp__open" title="Open My Gear as a full page">
+      <NuxtLink v-if="hasVault" to="/gear" class="btn btn--quiet vp__open ink-quiet" title="Open My Gear as a full page">
         Open
         <HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
       </NuxtLink>
@@ -449,9 +442,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            WORD FOR WORD the /vault page's prompt. It is the same question asked in
            two places, and answering it twice in two voices is how a product starts
            sounding like two products. Change one, change both. -->
-      <p class="t-sm t-muted">
-        Your gear is one pick away on every list, but it needs an account.
-      </p>
+      <p class="t-sm t-muted">{{ VAULT_ASK }}</p>
       <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
     </div>
 
@@ -529,7 +520,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             <span class="gear__main">
               <span class="gear__name t-clip">{{ cat.name }}</span>
               <span class="t-sm vp__inlist">
-                {{ cat.allInList ? "Already added" : `${cat.entries.length} item${cat.entries.length === 1 ? "" : "s"}` }}
+                {{ cat.allInList ? "Already added" : counted(cat.entries.length, "item") }}
               </span>
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(cat.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
@@ -768,12 +759,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.vp__open:hover,
-.vp__open:focus-visible {
-  color: var(--ink);
 }
 .vp__controls {
   display: flex;

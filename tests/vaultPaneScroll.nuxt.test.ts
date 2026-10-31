@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The vault pane's touch guard — which gesture the sheet keeps and which it hands
 // to the browser. On a phone the pane is a bottom sheet floating over the list, and
 // a fixed box's scroll chain runs straight to the viewport, so anything the sheet
@@ -14,7 +12,7 @@
 // is the one thing that decides the outcome in a browser — whether the touchmove was
 // cancelled.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { flushPromises, mount } from "@vue/test-utils";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import VaultPane from "~/components/VaultPane.vue";
 
@@ -96,10 +94,9 @@ describe("the vault sheet's touch guard", () => {
     rowCount = 30;
   });
   // the pane hangs an Escape listener on window; unmounting takes it with it
+  enableAutoUnmount(afterEach);
   afterEach(() => {
-    wrapper?.unmount();
-    wrapper = undefined;
-    document.body.innerHTML = "";
+    document.body.innerHTML = ""; // the cases append raw nodes beside the mount
   });
 
   it("swallows a swipe on the header, which has nothing to scroll", async () => {

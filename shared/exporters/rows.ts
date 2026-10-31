@@ -6,7 +6,7 @@
 // views render. Empty sections are included; exporters skip or flatten them.
 
 import type { Item, ListData } from "../types";
-import { bySortOrder, groupItemsByParent, sortedFolderItems, ungroupedTopLevel } from "../weights";
+import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "../weights";
 
 interface ExportSection {
   name: string;
@@ -14,12 +14,14 @@ interface ExportSection {
 }
 
 export function exportSections(list: Pick<ListData, "folders" | "items">): ExportSection[] {
-  // one children-by-parent pass for the whole list, not a per-row scan of every item
+  // one pass each for children-by-parent and top-level-rows-by-folder, not a per-row
+  // or per-folder scan of every item (the same two indexes the editor renders from)
   const byParent = groupItemsByParent(list.items);
+  const byFolder = groupItemsByFolder(list.items);
   const row = (item: Item) => ({ item, children: byParent.get(item.id) ?? [] });
   const sections: ExportSection[] = [...list.folders].sort(bySortOrder).map((f) => ({
     name: f.name,
-    rows: sortedFolderItems(list.items, f).map(row),
+    rows: (byFolder.get(f.id) ?? []).map(row),
   }));
   sections.push({
     // ungroupedTopLevel is the one shared "not in any folder" predicate the editor
@@ -28,4 +30,10 @@ export function exportSections(list: Pick<ListData, "folders" | "items">): Expor
     rows: ungroupedTopLevel(list.items).sort(bySortOrder).map(row),
   });
   return sections;
+}
+
+/** Every row in export order, flattened: a nested child follows its parent, as the
+ *  CSV and the plain-text copy both lay it out. */
+export function exportOrderedItems(list: Pick<ListData, "folders" | "items">): Item[] {
+  return exportSections(list).flatMap((s) => s.rows.flatMap((r) => [r.item, ...r.children]));
 }

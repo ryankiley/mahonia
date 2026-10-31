@@ -6,7 +6,8 @@
 // matches almost nothing, a heading that vanishes.
 
 import { describe, expect, it } from "vitest";
-import type { VaultEntry, VaultFolder } from "../shared/vault";
+import { vaultFolder as folder, vaultRow as row } from "./helpers/vault";
+import type { VaultEntry } from "../shared/vault";
 import {
   filterVaultRows,
   groupVaultRows,
@@ -14,19 +15,6 @@ import {
   sortVaultRows,
 } from "../shared/vaultView";
 
-let nextId = 1;
-const row = (over: Partial<VaultEntry> = {}): VaultEntry => ({
-  id: nextId++,
-  normKey: `k${nextId}`,
-  name: "Duplex",
-  weightMg: 500_000,
-  timesSeen: 1,
-  lastUsedAt: "2026-08-01T00:00:00.000Z",
-  createdAt: "2026-08-01T00:00:00.000Z",
-  ...over,
-});
-
-const folder = (id: number, name: string): VaultFolder => ({ id, name });
 
 const names = (rows: VaultEntry[]) => rows.map((r) => r.name);
 
@@ -195,7 +183,6 @@ describe("groupVaultRows — the folders view", () => {
     expect(out[1]).toMatchObject({ count: 1, weightMg: 7 });
   });
 });
-
 
 describe("searchVaultRows — notes and other scripts", () => {
   it("matches Chinese names and notes without unrelated results", () => {

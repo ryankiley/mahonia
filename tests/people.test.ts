@@ -37,21 +37,14 @@ import {
 import type { Item, ListData, ListSnapshot, ListState, Person } from "../shared/types";
 import { captureFromList } from "../shared/vault";
 import { computeTotals } from "../shared/weights";
-import { byToken, createTestDb, makeList } from "./helpers/db";
+import { byToken, createTestDb, makeList, type TestDb } from "./helpers/db";
+import { blankState, item as listItem } from "./helpers/list";
 
 const applyOpsByEditToken = byToken(applyOpsByEditHash);
 const listSnapshotsByEditToken = byToken(listSnapshotsByEditHash);
 const restoreSnapshotByEditToken = byToken(restoreSnapshotByEditHash);
 
-const state = (over: Partial<ListState> = {}): ListState => ({
-  title: "Trip",
-  displayUnit: "g",
-  folders: [],
-  items: [],
-  people: [],
-  version: 1,
-  ...over,
-});
+const state = (over: Partial<ListState> = {}): ListState => blankState({ people: [], ...over });
 
 const person = (over: Partial<Person> = {}): Person => ({
   id: "p1",
@@ -61,16 +54,8 @@ const person = (over: Partial<Person> = {}): Person => ({
   ...over,
 });
 
-const item = (over: Partial<Item> = {}): Item => ({
-  id: "i1",
-  folderId: null,
-  name: "Bear Can",
-  unitWeightMg: 1000,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
+const item = (over: Partial<Item> = {}): Item =>
+  listItem({ id: "i1", folderId: null, name: "Bear Can", unitWeightMg: 1000, ...over });
 
 const sam = () => person({ id: "sam", name: "Sam", sortOrder: 0 });
 const alex = () => person({ id: "alex", name: "Alex", colorKey: "sleep", sortOrder: 1 });
@@ -548,10 +533,7 @@ describe("read paths", () => {
 });
 
 describe("persistence — the silent-erasure regression", () => {
-  async function freshDb() {
-    return createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
-  }
-  const readData = async (db: Awaited<ReturnType<typeof freshDb>>, editToken: string) => {
+  const readData = async (db: TestDb, editToken: string) => {
     const [r] = await db.select().from(lists).where(eq(lists.editTokenHash, sha256Hex(editToken)));
     return r!.data as ListData;
   };
@@ -559,7 +541,7 @@ describe("persistence — the silent-erasure regression", () => {
   it("people survive an edit that has nothing to do with them", async () => {
     // the exact shape the waypoints bug had: the reducer holds the entity, the
     // write path's data literal forgets the key, and the next keystroke erases it
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const { editToken } = await makeList(db, "Crew trip", {
       data: { folders: [], items: [item({ id: "can" })] },
     });
@@ -579,7 +561,7 @@ describe("persistence — the silent-erasure regression", () => {
   });
 
   it("a snapshot restore brings the crew back", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const { editToken } = await makeList(db, "Crew trip", {
       data: {
         folders: [],

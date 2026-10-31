@@ -1,5 +1,5 @@
 import { defineEventHandler } from "h3";
-import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
+import { arrayOf, isObjectLike, readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { resolveOrMintVault } from "../../utils/vaultAuth";
 import { captureKit, captureVaultItemsReporting } from "../../utils/vaultRepo";
@@ -47,13 +47,8 @@ export default defineEventHandler(async (event) => {
     event,
     256_000,
   );
-  const items = Array.isArray(body?.items)
-    ? (body.items.filter((i) => i && typeof i === "object") as VaultCapture[]).slice(
-        0,
-        VAULT_CAPTURE_MAX,
-      )
-    : [];
-  const kit = body?.kit && typeof body.kit === "object" ? (body.kit as VaultKitCapture) : null;
+  const items = arrayOf(body?.items, isObjectLike, VAULT_CAPTURE_MAX) as VaultCapture[];
+  const kit = isObjectLike(body?.kit) ? (body.kit as VaultKitCapture) : null;
   // Nothing to store — and deliberately checked BEFORE the mint, so an editor that
   // is open but empty never brings a vault into existence.
   if (!items.length && !kit) return { ok: true, captured: 0, keys: [] };

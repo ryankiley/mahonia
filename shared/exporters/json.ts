@@ -13,41 +13,25 @@
 
 import type { Folder, Item, ListData, ListMeta, Person, TripDay, Unit, Waypoint } from "../types";
 import { pickListMeta, UNITS } from "../types";
-import {
-  MAX_DAYS,
-  MAX_FOLDERS,
-  MAX_ITEMS,
-  MAX_PEOPLE,
-  MAX_WAYPOINTS,
-  normalizeCalendarDate,
-  normalizeDay,
-  normalizeFolder,
-  normalizeItem,
-  normalizePerson,
-  normalizeWaypoint,
-  ROUTE_END_IDS,
-  MAX_TITLE_LEN,
-} from "../ops";
-import {
-  normalizeDistanceUnit,
-  normalizeTrailAscentM,
-  normalizeTrailDistanceM,
-} from "../trailDistance";
-import { parseProfile, profileToString } from "../profile";
-import { normalizeTrailLabel, normalizeTrailUrl } from "../trailLink";
+import { MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, ROUTE_END_IDS, MAX_TITLE_LEN, normalizeMetaFields } from "../ops";
+import { normalizeTrailUrl } from "../trailLink";
 import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";
 import { uniquifyPersonNames } from "../people";
 import { isRecord } from "../record";
 import { bySortOrder } from "../weights";
 
-/** The downloaded backup's shape: the list's meta + its full content. */
-export function listToJson(list: ListMeta & ListData): string {
+/** The downloaded backup's shape: the list's meta + its full content. The meta in
+ *  LIST_META_KEYS order — the key order a person sees in the file. trailFaviconDataUrl
+ *  is deliberately absent — it's a per-host cache the server rebuilds, not part of the
+ *  list the owner authored. The account takeout wraps this same object per list. */
+export function listBackupObject(list: ListMeta & ListData): Record<string, unknown> {
   const { folders, items, days, waypoints, people } = list;
-  // The meta in LIST_META_KEYS order — the key order a person sees in the file.
-  // trailFaviconDataUrl is deliberately absent — it's a per-host cache the server
-  // rebuilds, not part of the list the owner authored.
-  return JSON.stringify({ ...pickListMeta(list), folders, items, days, waypoints, people }, null, 2);
+  return { ...pickListMeta(list), folders, items, days, waypoints, people };
+}
+
+export function listToJson(list: ListMeta & ListData): string {
+  return JSON.stringify(listBackupObject(list), null, 2);
 }
 
 /** A parsed backup: meta to seed the new list with + sanitized content. */
@@ -194,11 +178,12 @@ export function jsonToListImport(text: string): JsonImport | null {
     // a hand-edited backup can carry any string here, so re-validate rather than clamp:
     // this ends up in a :href on a page strangers open
     trailUrl: normalizeTrailUrl(raw.trailUrl) ?? undefined,
-    trailLabel: normalizeTrailLabel(raw.trailLabel),
-    // re-validated for the same reason: a hand-edited backup can carry a negative,
-    // a string or an absurd number, and the normalizer is the one rule for all of them
-    trailDistanceM: normalizeTrailDistanceM(raw.trailDistanceM),
-    trailDistanceUnit: normalizeDistanceUnit(raw.trailDistanceUnit),
+    // The label, distance, unit, profile, climb, descent and dates are re-validated by
+    // the reducer's own setMeta rules (normalizeMetaFields): a hand-edited backup can
+    // carry a negative, a string or an absurd number in any of them, and the one table
+    // is the one rule for all of them — a half-typed "2026-0" clears rather than
+    // persisting as a date, a truncated profile clears rather than drawing.
+    ...normalizeMetaFields(raw),
     // The route's SHAPE. listToJson writes it, so not reading it back made the backup
     // lossy in the one way the header promises it isn't — and lossy for the field an
     // owner cannot retype, since it came off a GPX file they may no longer have. It
@@ -206,18 +191,6 @@ export function jsonToListImport(text: string): JsonImport | null {
     // the owner downloading their own list. Safe by construction on the read views —
     // their "Download JSON" runs on the public snapshot, which has no geometry to write.
     routeGeometry: normalizeRouteGeometry(raw.routeGeometry),
-    // Round-tripped through parseProfile rather than trusted: a hand-edited backup can
-    // carry any string here, and parseProfile is the one rule for what a profile is
-    // (bounded length, finite metres, at least two samples).
-    trailProfile: profileToString(parseProfile(raw.trailProfile)),
-    trailAscentM: normalizeTrailAscentM(raw.trailAscentM),
-    trailDescentM: normalizeTrailAscentM(raw.trailDescentM),
-    // Shape-checked on the way in, like the trail URL beside it and for the same
-    // reason: a hand-edited backup can carry anything, and a malformed date would
-    // render as a real one everywhere downstream. The reducer re-checks on setMeta,
-    // so an invalid value here simply doesn't survive the import either way.
-    startDate: normalizeCalendarDate(raw.startDate),
-    endDate: normalizeCalendarDate(raw.endDate),
     data: { folders, items, days, waypoints, people },
   };
 }

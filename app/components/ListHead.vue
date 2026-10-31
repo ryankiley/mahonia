@@ -104,19 +104,13 @@ watch(
   },
 );
 
-const needsFit = import.meta.client && !CSS.supports("field-sizing", "content");
-function fit() {
-  const el = titleEl.value;
-  if (!needsFit || !el) return;
-  el.style.height = "auto";
-  el.style.height = `${el.scrollHeight}px`;
-}
+const fit = () => fitTextarea(titleEl.value);
 // Follows the DRAFT, which is what the box actually shows: the initial value, and any
 // that arrives from OUTSIDE this component — a list loading in, a collaborator's
 // rename on a poll — reach it through the sync above. (Typing is covered by @input.)
 // Also on resize: the wrap point moves with the column, so a title that fits on one
 // line in landscape may need two in portrait.
-if (needsFit) {
+if (needsTextareaFit) {
   watch(draftTitle, () => nextTick(fit), { immediate: true });
   useWindowEvent("resize", fit);
 }
@@ -328,12 +322,12 @@ function toggleCard() {
   if (pinned.value) datesOpen.value = false;
 }
 
-async function openDates() {
+function openDates() {
   datesOpen.value = true;
   closeTrail(); // the trail surfaces and this one share the row; never both
-  await nextTick();
-  // the grid owns one tab stop (roving tabindex), so focus lands on a day
-  datesEl.value?.querySelector<HTMLElement>('[role="gridcell"][tabindex="0"]')?.focus();
+  // focus is the picker's own job: it lands on the grid's one tab stop from onMounted,
+  // which fires on every open (it sits under a v-if) — a lookup here found nothing on
+  // the very first open, the Lazy chunk still loading, and was redundant on the rest
 }
 // One write for both ends. The picker hands back the whole span rather than firing
 // per field, so a click that begins a new range clears the old end in the SAME op —
@@ -716,7 +710,7 @@ onClickOutside(trailEl, closeTrail);
                        total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
                   <HugeiconsIcon
                     :icon="ChevronDownIcon"
-                    class="head__distchev"
+                    class="chev"
                     :class="{ 'is-open': open }"
                     :size="12"
                     :stroke-width="2"
@@ -1019,9 +1013,13 @@ onClickOutside(trailEl, closeTrail);
    the affordance is a line of text in the page's own flow, not a control on a surface, so
    colour alone carries the hover — and with no box, its glyph sits flush at the same x as
    the resolved link's mark with nothing to compensate for. */
+/* the inks are .btn--quiet's own (controls.scss) — rest at --ink-3, lift to --ink under
+   the pointer or keyboard focus; the icon inherits currentColor, so it lifts with the
+   text. Restating the resting colour here used to TIE the atom's hover on specificity
+   (scoping adds a [data-v-] attribute) and win on order, so the button never answered
+   the pointer; the scoped block now says only what is this button's. */
 .head__add {
   gap: var(--space-1);
-  color: var(--ink-3);
   /* BOTH properties in one declaration, including the opacity the media query below
      animates. `transition` is a shorthand: a second declaration replaces the whole list
      rather than adding to it, so a `transition: opacity …` down there would silently drop
@@ -1029,15 +1027,6 @@ onClickOutside(trailEl, closeTrail);
   transition:
     opacity var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
-}
-/* Explicit, and load-bearing: .btn--quiet:hover already sets --ink, but scoping adds a
-   [data-v-] attribute to the rule above, tying its specificity with that hover rule —
-   and component styles are ordered after the atoms, so the resting colour was winning
-   even while hovered and the button never responded to the pointer at all. The icon
-   inherits currentColor, so it lifts with the text. */
-.head__add:hover,
-.head__add:focus-visible {
-  color: var(--ink);
 }
 /* Hover-capable pointers only. On touch there IS no hover, so these stay painted —
    hiding them would leave phone users with no way to reach the field at all. Opacity,
@@ -1171,13 +1160,6 @@ onClickOutside(trailEl, closeTrail);
 }
 .head__distunit {
   flex: none;
-}
-.head__distchev {
-  color: var(--ink-3);
-  transition: transform var(--spring-step-dur) var(--spring-step);
-}
-.head__distchev.is-open {
-  transform: rotate(180deg);
 }
 /* The rule stops at the panel's INNER edges (measured: x12, w306 inside a 330 panel) —
    it lines up with the fields rather than running wall to wall. */

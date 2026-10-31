@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // Nesting: the wrap, the unwrap, and the reindex.
 //
 // These had NO tests. `nestItem` appeared in the suite only as a `() => {}` stub in
@@ -15,55 +13,32 @@
 // (wrap, then move, then clear a label, then maybe unwrap), and a helper extracted
 // for testability would be exercising a different shape than the one that breaks.
 // Assertions are on the resulting snapshot, which is what a row actually renders.
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
-import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
+import { item, snapshotFor } from "./helpers/list";
+import { memoryListStore, quietVaultAccess } from "./helpers/gearList";
+import { byId, childrenOf, itemsOf, openList, registerEditorEndpoints } from "./helpers/controller";
+import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import type { Item, ListSnapshot } from "~~/shared/types";
 
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(false),
-  vaultKnown: ref(true), // answered, and answered "signed out" — see gearList.nuxt
-  vaultFetch: <T,>() => Promise.resolve({} as T),
-}));
+// no vault, and the session answered "signed out" — see gearList.nuxt
+mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
+mockNuxtImport("useLocalListStore", () => () => memoryListStore());
 
-const records = new Map<string, unknown>();
-mockNuxtImport("useLocalListStore", () => () => ({
-  get: async () => undefined,
-  set: async (key: string, record: unknown) => void records.set(key, record),
-  del: async (key: string) => void records.delete(key),
-}));
-
-const storage = stubLocalStorage();
+stubLocalStorage();
 
 const TOKEN = "nesting-edit-token";
-const FOLDER = "f1";
+const FOLDER = "f1"; // the helper's `item` lands in this folder too
 
-const item = (over: Partial<Item> & { id: string }): Item => ({
-  folderId: FOLDER,
-  parentId: null,
-  name: "",
-  unitWeightMg: 0,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
-
-let listResponse: ListSnapshot;
-registerEndpoint("/api/edit/list", () => ({ snapshot: listResponse }));
-registerEndpoint("/api/edit/changes", () => ({ version: 1 }));
-registerEndpoint("/api/catalog/use", () => ({}));
 // Swallow writes: these cases are about the optimistic snapshot the reducer builds,
 // not about what reaches the server.
-registerEndpoint("/api/edit/mutate", { method: "POST", handler: () => ({ ok: true }) });
+registerEditorEndpoints();
 
-function listWith(items: Item[], version = 1): ListSnapshot {
-  return {
+function listWith(items: Item[]): ListSnapshot {
+  return snapshotFor({
     shareCode: "NESTCODE0001",
     slug: "nesting-list-aaa",
     title: "Nesting",
-    description: "",
-    displayUnit: "g",
     // defaultClassification null: not in Classification, but weights.ts falls back to
     // "base" for exactly this — see the note in gearList.nuxt.test.ts.
     folders: [{ id: FOLDER, name: "Shelter", colorKey: "green", defaultClassification: null as never, sortOrder: 0 }],
@@ -71,18 +46,9 @@ function listWith(items: Item[], version = 1): ListSnapshot {
     // reducer's dangling-assignee heal quietly strips the very field under test
     people: [{ id: "sam", name: "Sam", sortOrder: 0 }],
     items,
-    version,
-    isPublic: false,
-  };
+  });
 }
 
-/** This list's items, top-level first then children, in sortOrder. */
-const itemsOf = (c: ReturnType<typeof useGearList>) =>
-  [...(c.snapshot.value?.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
-const byId = (c: ReturnType<typeof useGearList>, id: string) =>
-  c.snapshot.value?.items.find((i) => i.id === id);
-const childrenOf = (c: ReturnType<typeof useGearList>, parentId: string) =>
-  itemsOf(c).filter((i) => i.parentId === parentId);
 /** The list's rollups. `totals` is null until a snapshot exists, and every caller below
  *  has already awaited `open()` — so assert that rather than reaching past it with `!`,
  *  which would report "cannot read kcalTotal of null" instead of the real cause. */
@@ -92,19 +58,12 @@ function totalsOf(c: ReturnType<typeof useGearList>) {
   return t;
 }
 
-async function open(items: Item[]) {
-  listResponse = listWith(items);
-  const c = useGearList();
-  await c.load({ token: TOKEN });
-  return c;
-}
+const open = (items: Item[]) => openList(listWith(items), TOKEN);
+
+// the controller is a module singleton: hand it back clean after every case
+afterEach(() => useGearList().dispose());
 
 describe("nesting into a row that carries a weight", () => {
-  beforeEach(() => {
-    records.clear();
-    storage.clear();
-  });
-  afterEach(() => useGearList().dispose());
 
   // The wrap. A parent's weight column shows the GROUP total and is read-only, so
   // nesting under a row that has its own weight would take that weight into hiding:
@@ -202,12 +161,6 @@ describe("nesting into a row that carries a weight", () => {
 });
 
 describe("pulling the last child back out", () => {
-  beforeEach(() => {
-    records.clear();
-    storage.clear();
-  });
-  afterEach(() => useGearList().dispose());
-
   // The reverse of the wrap, and the reason it exists: without it, nest-then-unnest
   // loses in BOTH directions — the product's gear type was cleared with
   // commonNameOverridden set (so live-resolve can't refill it), and the childless
@@ -269,12 +222,6 @@ describe("pulling the last child back out", () => {
 });
 
 describe("moveItem's reindex", () => {
-  beforeEach(() => {
-    records.clear();
-    storage.clear();
-  });
-  afterEach(() => useGearList().dispose());
-
   // Reindexed to clean 0..n-1 integers in the new order: collision-proof and
   // self-healing against duplicate sortOrders, which would otherwise re-sort
   // ambiguously on the next reload.
@@ -348,12 +295,6 @@ describe("the carrier through a wrap and its unwrap", () => {
 // carrier), and a trip eating the same food on eight days paid all of them eight
 // times. The copy already knows every one of those answers.
 describe("duplicating a row", () => {
-  beforeEach(() => {
-    records.clear();
-    storage.clear();
-  });
-  afterEach(() => useGearList().dispose());
-
   it("carries every field over and lands directly below the source", async () => {
     const c = await open([
       item({
@@ -499,12 +440,6 @@ describe("duplicating a row", () => {
 // a pure move. An earlier attempt pinned the stored count to 1 instead and healed old
 // lists on open; it silently changed their totals, and these are the cases that catch it.
 describe("nesting never rewrites the row it nests into", () => {
-  beforeEach(() => {
-    records.clear();
-    storage.clear();
-  });
-  afterEach(() => useGearList().dispose());
-
   it("leaves a counted row's count alone when it becomes a group", async () => {
     const c = await open([
       item({ id: "kit", name: "Cook kit", qty: 4, sortOrder: 0 }),
@@ -631,12 +566,6 @@ describe("nesting never rewrites the row it nests into", () => {
 // field is there from the first keystroke, with `classification` still null), and each
 // of these removed it in turn. One list now, in carriesContent (shared/weights).
 describe("what the quiet removals count as content", () => {
-  beforeEach(() => {
-    records.clear();
-    storage.clear();
-  });
-  afterEach(() => useGearList().dispose());
-
   it("keeps a blank row whose only entry is its calories", async () => {
     const c = await open([item({ id: "snack", name: "", kcal: 250, sortOrder: 0 })]);
     c.discardEmpty("snack");

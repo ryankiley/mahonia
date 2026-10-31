@@ -13,17 +13,7 @@ import { describe, expect, it } from "vitest";
 import { countedForPacking, tickRows, tickState } from "../shared/packing";
 import { UNASSIGNED } from "../shared/people";
 import type { Item } from "../shared/types";
-
-const item = (over: Partial<Item> & { id: string }): Item => ({
-  folderId: "f1",
-  parentId: null,
-  name: "",
-  unitWeightMg: 0,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
+import { item } from "./helpers/list";
 
 // a container: a group holding nothing of its own
 const bag = item({ id: "bag", name: "Toiletry bag" });

@@ -6,7 +6,8 @@ import { findCredential, touchCredential } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { users } from "../../../db/schema";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
-import { originFor, rpIdFor, takeChallenge } from "../../../utils/passkeys";
+import { trustedOrigin } from "../../../utils/origin";
+import { rpIdFor, takeChallenge } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
 // Step 2 of signing in with a passkey: verify the signature and start a session.
@@ -25,8 +26,7 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "passkey");
 
   const body = await readJsonBodyCapped<{ flowId?: unknown; response?: unknown }>(event, 32_000);
-  const flowId = typeof body?.flowId === "string" ? body.flowId : "";
-  const stored = await takeChallenge(flowId);
+  const stored = await takeChallenge(body?.flowId);
   if (!stored) return { ok: false as const };
 
   const response = body?.response as { id?: string } | undefined;
@@ -42,7 +42,7 @@ export default defineEventHandler(async (event) => {
     verification = await verifyAuthenticationResponse({
       response: body?.response as never,
       expectedChallenge: stored.challenge,
-      expectedOrigin: originFor(event),
+      expectedOrigin: trustedOrigin(event),
       expectedRPID: rpIdFor(event),
       credential: {
         id: cred.credentialId,

@@ -212,15 +212,8 @@
   display: none;
 }
 /* the add row's fold on a mode switch: modeswitch.scss */
-.folder__del,
-.folder__grip {
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.folder__del:hover,
-.folder__grip:hover {
-  color: var(--ink);
-}
+/* the delete and the grip rest at the lesser ink and lift under the pointer — the
+   .ink-quiet atom (controls.scss), on both */
 /* right-align both controls + pull the grip's layout box left so its gap matches
    the item rows below (the flush shift is otherwise invisible to layout) */
 .folder__actions .btn--icon {

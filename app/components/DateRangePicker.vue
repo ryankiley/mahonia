@@ -160,7 +160,7 @@ onMounted(() => {
     <div class="cal__head">
       <button
         type="button"
-        class="btn btn--icon btn--ghost cal__nav"
+        class="btn btn--icon btn--ghost cal__nav ink-quiet"
         aria-label="Previous month"
         @click="step(-1)"
       >
@@ -171,7 +171,7 @@ onMounted(() => {
       <span class="t-sm cal__month" aria-live="polite">{{ monthLabel }}</span>
       <button
         type="button"
-        class="btn btn--icon btn--ghost cal__nav"
+        class="btn btn--icon btn--ghost cal__nav ink-quiet"
         aria-label="Next month"
         @click="step(1)"
       >
@@ -259,12 +259,6 @@ onMounted(() => {
 }
 .cal__month {
   font-weight: 600;
-}
-.cal__nav {
-  color: var(--ink-3);
-}
-.cal__nav:hover {
-  color: var(--ink);
 }
 /* Row gap only. A column gap slit the range band with a 2px gutter every day, so the
    span the ends round outward to make (below) arrived striped rather than continuous —

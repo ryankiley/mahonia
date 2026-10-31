@@ -1,7 +1,7 @@
 import { defineEventHandler } from "h3";
 import { bumpUsage } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
-import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
+import { arrayOf, readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
 // Bump usage_count when catalog items are added to a list, so autocomplete
@@ -10,9 +10,7 @@ export default defineEventHandler(async (event) => {
   setNoIndex(event);
   await rateLimit(event, "catalog-use");
   const body = await readJsonBodyCapped<{ ids?: unknown }>(event, 8_000);
-  const ids = Array.isArray(body?.ids)
-    ? body.ids.filter((n): n is number => typeof n === "number")
-    : [];
+  const ids = arrayOf(body?.ids, (n): n is number => typeof n === "number");
   if (!ids.length) return { ok: true };
   const db = await useCatalogDb();
   await bumpUsage(db, ids);

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { counted } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import {
   Cancel01Icon,
@@ -174,7 +175,7 @@ function changeLabel(i: number): string {
   const delta = s.itemCount - older.itemCount;
   if (delta === 0) return "Edited";
   const n = Math.abs(delta);
-  return `${delta > 0 ? "Added" : "Removed"} ${n} item${n === 1 ? "" : "s"}`;
+  return `${delta > 0 ? "Added" : "Removed"} ${counted(n, "item")}`;
 }
 </script>
 

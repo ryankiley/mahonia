@@ -35,7 +35,7 @@ const WEIGHT = String.raw`${NUM}\s?(?:${UNIT_WORDS})(?:\s${NUM}\s?(?:${UNIT_WORD
  * whose whitespace has been collapsed to single spaces (splitWeightTail), so every
  * quantifier here is bounded and a line of a thousand tabs costs nothing.
  */
-export const WEIGHT_TAIL = new RegExp(
+const WEIGHT_TAIL = new RegExp(
   // the separator's mark is lazy (`??`): "Bar ,9oz" is a bar at .9 oz, the comma the
   // field parser's decimal, before it is a bar at 9 oz behind a comma
   String.raw`(?:(?<sep> [-–—:,|]?? ?| ?[-–—:,|] ))(?:\((?<inParens>${WEIGHT})\)|(?<bare>${WEIGHT}))\s?$`,

@@ -44,7 +44,9 @@ type PreparedChild = { tag: string; attrs: Record<string, unknown> };
 // The same handful of attribute names (d, stroke, strokeLinecap, …) recur across every
 // icon in the set, so the case conversion is worth memoising on its own.
 const kebabCache = new Map<string, string>();
-function kebab(key: string): string {
+/** an icon attribute's camelCase name as SVG spells it — strokeLinecap → stroke-linecap.
+ *  Exported for the map's pin glyphs, which serialise the same icon data by hand. */
+export function kebab(key: string): string {
   let out = kebabCache.get(key);
   if (out === undefined) {
     out = key.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();

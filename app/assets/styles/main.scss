@@ -90,27 +90,20 @@
   margin-top: 0;
 }
 .prose p,
-.prose li,
-.bullets > li {
+.prose li {
   color: var(--ink-2);
   max-width: 64ch;
 }
 
-/* THE DRAWN BULLET LIST — a prose <ul>, and anything else that wants the same marks.
-   `.bullets` exists because About's release entries wanted them outside .prose and
-   redrew the whole thing instead: its copy called itself "the same quiet bullet the
-   .prose lists use" while being a different size (0.34em vs 0.36em), positioned by a
-   different technique (top edge vs centre), landing 1.1px lower, and measuring to a
-   different column (60ch vs 64ch). Two bullets on one page, both claiming to be one. */
-.prose ul,
-.bullets {
+/* THE DRAWN BULLET LIST — a prose <ul>. (A `.bullets` twin once served About's release
+   entries, which now live on GitHub; nothing wore the class.) */
+.prose ul {
   list-style: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
-.prose li,
-.bullets > li {
+.prose li {
   padding-left: var(--space-4);
   position: relative;
   /* No leading hang here. The root hangs a line's first quote outside the measure
@@ -136,8 +129,7 @@
    line and nothing anywhere reporting it. That is the same silent failure --space-8 had
    just been caught making one file over. The `lh` unit IS half the line box, however the
    line-height is expressed, so there is no token to keep honest. */
-.prose li::before,
-.bullets > li::before {
+.prose li::before {
   content: "";
   position: absolute;
   left: 0;

@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // Typing a product's full name and tabbing away links it, the way picking it from the
 // menu would: the CSV import already links the same text word for word, and a typed
 // row that spells a catalog product exactly was an unlinked shadow of it, with no
@@ -12,20 +10,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
-import { ref } from "vue";
 import ItemInput from "~/components/ItemInput.vue";
 import type { NameCommit } from "~/composables/useCatalogSearch";
+import { vaultWithHits } from "./helpers/gearList";
 
 // what the two halves of the menu answer with, per case
 let catalogHits: Record<string, unknown>[] = [];
 let vaultHits: Record<string, unknown>[] = [];
 registerEndpoint("/api/catalog/search", () => ({ results: catalogHits }));
 registerEndpoint("/api/catalog/use", { method: "POST", handler: () => ({ ok: true }) });
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(true),
-  vaultKnown: ref(true),
-  vaultFetch: () => Promise.resolve({ results: vaultHits }),
-}));
+mockNuxtImport("useVaultAccess", () => () => vaultWithHits(vaultHits));
 
 enableAutoUnmount(afterEach);
 

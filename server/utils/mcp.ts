@@ -19,7 +19,7 @@
 import type { H3Event } from "h3";
 import { listToMarkdown } from "../../shared/exporters/markdown";
 import { exportSections } from "../../shared/exporters/rows";
-import { colorKeyForName } from "../../shared/categories";
+import { colorKeyForName, usedColorKeys } from "../../shared/categories";
 import { uid } from "../../shared/id";
 import { editLinkPath, normalizeShareCode } from "../../shared/links";
 import { isCatalogId, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_TITLE_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
@@ -29,7 +29,7 @@ import { enoughToSearch } from "../../shared/searchText";
 import { tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
-import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type Unit } from "../../shared/types";
+import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type Unit, CLASSIFICATIONS } from "../../shared/types";
 import { computeTotals, effectiveClassification, itemDisplayName, nextSortOrder } from "../../shared/weights";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
 import { useCatalogDb } from "./db";
@@ -69,7 +69,6 @@ const BRAND_LEN = 120;
 const TRAIL_URL_LEN = 2000;
 const TRAIL_LABEL_LEN = 120;
 
-const CLASSIFICATIONS: Classification[] = ["base", "worn", "consumable"];
 const SEARCH_LIMIT_MAX = 25;
 const SEARCH_LIMIT_DEFAULT = 12;
 const QTY_MAX = 9999;
@@ -523,8 +522,24 @@ const grams = (mg: number) => Math.round(mg / 100) / 10;
  * but this is a second read path onto the same rows and it should fail closed on its
  * own. Nothing here reaches for a field it doesn't name.
  */
-export function describeList(snap: ListSnapshot, origin: string): Record<string, unknown> {
+const shareLink = (origin: string, code: string) => `${origin}/s/${code}`;
+
+/** The totals block every list-returning tool carries, in grams — get_list's, and the
+ *  create and add_items echoes, which used to compute the whole description to read it. */
+function describeTotals(snap: ListSnapshot): Record<string, unknown> {
   const totals = computeTotals(snap);
+  return {
+    base_g: Math.round(totals.baseMg / 1000),
+    worn_g: Math.round(totals.wornMg / 1000),
+    consumable_g: Math.round(totals.consumableMg / 1000),
+    carried_g: Math.round(totals.carriedMg / 1000),
+    total_g: Math.round(totals.totalMg / 1000),
+    item_count: totals.itemCount,
+    ...(totals.hasKcal ? { kcal: totals.kcalTotal } : {}),
+  };
+}
+
+export function describeList(snap: ListSnapshot, origin: string): Record<string, unknown> {
   const row = (it: Item, children: Item[], parent?: Item): Record<string, unknown> => {
     const out: Record<string, unknown> = {
       name: it.name,
@@ -554,17 +569,9 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
   const out: Record<string, unknown> = {
     title: snap.title,
     share_code: snap.shareCode,
-    share_link: `${origin}/s/${snap.shareCode}`,
+    share_link: shareLink(origin, snap.shareCode),
     unit: snap.displayUnit,
-    totals: {
-      base_g: Math.round(totals.baseMg / 1000),
-      worn_g: Math.round(totals.wornMg / 1000),
-      consumable_g: Math.round(totals.consumableMg / 1000),
-      carried_g: Math.round(totals.carriedMg / 1000),
-      total_g: Math.round(totals.totalMg / 1000),
-      item_count: totals.itemCount,
-      ...(totals.hasKcal ? { kcal: totals.kcalTotal } : {}),
-    },
+    totals: describeTotals(snap),
   };
   if (snap.description) out.description = snap.description;
   if (snap.startDate || snap.endDate) out.dates = { start: snap.startDate ?? null, end: snap.endDate ?? null };
@@ -916,7 +923,7 @@ class FolderBook {
     const found = this.find(name);
     if (found) return found;
     if (this.folders.length >= MAX_FOLDERS) return `A list holds at most ${MAX_FOLDERS} folders.`;
-    const used = this.folders.map((f) => f.colorKey ?? "other");
+    const used = usedColorKeys(this.folders);
     const folder: Folder = {
       id: uid(),
       name: tidyText(name),
@@ -1018,11 +1025,11 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
   return ok({
     title: snapshot.title,
     edit_link: `${origin}${editLinkPath(snapshot.shareCode, editToken)}`,
-    share_link: `${origin}/s/${snapshot.shareCode}`,
+    share_link: shareLink(origin, snapshot.shareCode),
     share_code: snapshot.shareCode,
     folders: snapshot.folders.length,
     items: snapshot.items.length,
-    totals: describeList(snapshot, origin).totals,
+    totals: describeTotals(snapshot),
   });
 }
 
@@ -1145,8 +1152,8 @@ async function addItems(event: H3Event, args: Record<string, unknown>): Promise<
   const result = {
     added: plan.items.length,
     folders_made: plan.folders.made.map((f) => f.name),
-    share_link: `${origin}/s/${after.shareCode}`,
-    totals: describeList(after, origin).totals,
+    share_link: shareLink(origin, after.shareCode),
+    totals: describeTotals(after),
     repeated: false,
   };
   // remembered after the write, never before: a call that failed leaves no window,

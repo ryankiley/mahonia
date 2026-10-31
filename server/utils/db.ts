@@ -210,34 +210,30 @@ export const TRAIL_FAVICONS_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_trail_favicons_stale ON trail_favicons(fetched_at)`,
 ];
 
+/** Run a DDL list, statement by statement. */
+async function runDdl(db: Db, ddl: readonly string[]): Promise<void> {
+  for (const stmt of ddl) await db.execute(sql.raw(stmt));
+}
+/** A memoized ensure for one DDL list — the shape every self-ensuring table here
+ *  takes (five of them had each written the loop). */
+const ensureOf = (ddl: readonly string[]) => memoized((db: Db) => runDdl(db, ddl));
+
 /** Idempotently create the `lists` table + indexes (memoized) — for Neon, where
  *  there's no build-time DDL. Mirrors ensureSnapshotSchema; gated to the prod path
  *  in useDb (dev's PGlite already runs the full DDL in build()). */
-const ensureListsSchema = memoized(async (db: Db) => {
-  for (const stmt of LISTS_DDL) await db.execute(sql.raw(stmt));
-});
+const ensureListsSchema = ensureOf(LISTS_DDL);
 
 /** Idempotently create trail_favicons (memoized) — for Neon (no build-time DDL). */
-export const ensureTrailFaviconSchema = memoized(async (db: Db) => {
-  for (const stmt of TRAIL_FAVICONS_DDL) await db.execute(sql.raw(stmt));
-});
+export const ensureTrailFaviconSchema = ensureOf(TRAIL_FAVICONS_DDL);
 
 /** Idempotently create list_snapshots (memoized) — for Neon (no build-time DDL). */
-export const ensureSnapshotSchema = memoized(async (db: Db) => {
-  for (const stmt of SNAPSHOTS_DDL) await db.execute(sql.raw(stmt));
-});
-/** Reset the ensure-memo — for tests that spin up a fresh database. */
-export function _resetSnapshotEnsured(): void {
-  ensureSnapshotSchema.reset();
-}
+export const ensureSnapshotSchema = ensureOf(SNAPSHOTS_DDL);
 
 /** Idempotently create the vault tables (memoized) — for Neon, where there's no
  *  build-time DDL. Mirrors ensureCatalogSchema; every vault endpoint reaches its
  *  connection through useVaultDb() below, so the ensure can't be forgotten on a
  *  path that needs it. */
-const ensureVaultSchema = memoized(async (db: Db) => {
-  for (const stmt of VAULT_DDL) await db.execute(sql.raw(stmt));
-});
+const ensureVaultSchema = ensureOf(VAULT_DDL);
 
 /**
  * The shared DB with the vault schema ensured — the vault's counterpart to
@@ -256,9 +252,7 @@ export async function useVaultDb(): Promise<Db> {
  *  vault's ensure on purpose: the vault works with no account at all, so a visitor
  *  who never signs in must never pay for this DDL. Every auth endpoint reaches its
  *  connection through useAccountDb() below, so it can't be forgotten. */
-const ensureAccountSchema = memoized(async (db: Db) => {
-  for (const stmt of ACCOUNT_DDL) await db.execute(sql.raw(stmt));
-});
+const ensureAccountSchema = ensureOf(ACCOUNT_DDL);
 
 /** The shared DB with the account schema ensured — the account layer's
  *  counterpart to useVaultDb(), for the same reason and with the same memoization. */
@@ -281,9 +275,7 @@ const DDL = [
   ...ACCOUNT_DDL,
 ];
 
-async function ensureSchema(db: Db) {
-  for (const stmt of DDL) await db.execute(sql.raw(stmt));
-}
+const ensureSchema = (db: Db) => runDdl(db, DDL);
 
 export async function useDb(): Promise<Db> {
   if (!_dbPromise) _dbPromise = build();

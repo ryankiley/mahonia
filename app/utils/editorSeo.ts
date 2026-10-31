@@ -9,7 +9,7 @@
 // which already include weights.
 
 import type { Totals, Unit } from "~~/shared/types";
-import { formatWeightAuto, unitSystem } from "~~/shared/weights";
+import { listSummaryBits } from "~~/shared/weights";
 
 export const GENERIC_TITLE = "Mahonia — pack lists, weighed";
 const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login needed.";
@@ -26,10 +26,6 @@ export function editorSeo(
   const name = t && t !== "Untitled list" ? t : "";
   if (!name) return { name, desc: GENERIC_DESC };
   if (!totals) return { name, desc: `${name}, a packing list on Mahonia.` };
-  const bits = [`${totals.itemCount} items`];
-  // owner's system, matching the card image this text unfurls beside — the same
-  // rule the read views' description follows (see ogCardModel's policy note)
-  if (totals.hasWeights)
-    bits.push(`${formatWeightAuto(totals.baseMg, { system: unitSystem(displayUnit) })} base weight`);
-  return { name, desc: `${name}, a packing list (${bits.join(" · ")}) on Mahonia.` };
+  // the same facts, in the same words, as the read views' description (listSummaryBits)
+  return { name, desc: `${name}, a packing list (${listSummaryBits(totals, displayUnit).join(" · ")}) on Mahonia.` };
 }

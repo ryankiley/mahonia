@@ -1,14 +1,7 @@
 import { createError, defineEventHandler } from "h3";
-import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { requireAccount } from "../../../utils/authSession";
 import { existingCredentialIds, MAX_PASSKEYS_PER_USER } from "../../../utils/credentialRepo";
-import {
-  PASSKEY_ALGORITHM_IDS,
-  RP_NAME,
-  requirePasskeysConfigured,
-  rpIdFor,
-  startChallenge,
-} from "../../../utils/passkeys";
+import { registrationOptions, requirePasskeysConfigured, startChallenge } from "../../../utils/passkeys";
 
 // Step 1 of adding a passkey: hand the browser the challenge and parameters for
 // the ceremony. Requires a session — you add a passkey to an account you're
@@ -24,38 +17,22 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: "Too many passkeys" });
   }
 
-  const options = await generateRegistrationOptions({
-    rpName: RP_NAME,
-    rpID: rpIdFor(event),
-    // The account handle the authenticator stores. The email is what the OS prompt
-    // shows, so the user can tell their accounts apart; userID is opaque and
-    // stable, deliberately NOT the email (the handle shouldn't have to change if an
-    // address ever does).
-    //
-    // An account made with a passkey may have no address yet, so fall back to the
-    // same shape signup-options uses — the site name plus a short tail off the
-    // stable id. Ugly next to a real address, which is the point: it's another
-    // quiet argument for attaching one.
-    userName: user.email ?? `Mahonia (#${user.id})`,
-    userDisplayName: user.email ?? "Mahonia",
-    userID: new TextEncoder().encode(String(user.id)),
-    attestationType: "none", // we don't need to know which make of key it is
-    // stated, not inherited — see PASSKEY_ALGORITHM_IDS
-    supportedAlgorithmIDs: PASSKEY_ALGORITHM_IDS,
-    // don't offer to create a second key on an authenticator that already holds
-    // one for this account
-    excludeCredentials: existing.map((id) => ({ id })),
-    authenticatorSelection: {
-      // REQUIRED, matching signup-options. Sign-in is usernameless — signin-options
-      // sends no allowCredentials — so the browser can only offer a key it can
-      // discover on its own. "preferred" let an authenticator hand back a
-      // non-discoverable credential, which this page would then confirm with "you
-      // can sign in with it from now on" and which would never appear at sign-in.
-      // Silent, permanent, and with no fallback path that could surface it.
-      residentKey: "required",
-      userVerification: "preferred",
-    },
-  });
+  // The account handle the authenticator stores. The email is what the OS prompt
+  // shows, so the user can tell their accounts apart; the handle is opaque and
+  // stable, deliberately NOT the email (it shouldn't have to change if an address
+  // ever does). An account made with a passkey may have no address yet, so fall
+  // back to the same shape signup-options uses — the site name plus a short tail
+  // off the stable id. Ugly next to a real address, which is the point: it's
+  // another quiet argument for attaching one.
+  // The keys to exclude: don't offer to create a second key on an authenticator
+  // that already holds one for this account. Everything else (the RP, the
+  // algorithms, the required resident key) is registrationOptions' and shared
+  // with signup.
+  const options = await registrationOptions(
+    event,
+    { name: user.email ?? `Mahonia (#${user.id})`, displayName: user.email ?? "Mahonia", handle: String(user.id) },
+    existing,
+  );
 
   const flowId = await startChallenge(options.challenge, user.id);
   return { flowId, options };

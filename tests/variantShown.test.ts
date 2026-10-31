@@ -3,6 +3,7 @@ import { listToCsv } from "../shared/exporters/csv";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { variantShownIds } from "../shared/variantShown";
 import type { Item, ListSnapshot } from "../shared/types";
+import { item } from "./helpers/list";
 
 // Which rows earn their variant beside the name: only a product the list holds in
 // two variants, where the variant is the one thing telling the rows apart. The rule
@@ -10,17 +11,7 @@ import type { Item, ListSnapshot } from "../shared/types";
 // that render its answer (the checklist row, the share row, the editor's sub-line)
 // are mounted in itemVariant.nuxt.test.ts.
 
-const row = (id: string, over: Partial<Item> = {}): Item => ({
-  id,
-  folderId: "f1",
-  parentId: null,
-  name: "",
-  unitWeightMg: 0,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
+const row = (id: string, over: Partial<Item> = {}): Item => item({ id, ...over });
 const quilt = (id: string, variant?: string, over: Partial<Item> = {}) =>
   row(id, { brand: "Enlightened Equipment", name: "Revelation", variant, ...over });
 

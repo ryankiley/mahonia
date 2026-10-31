@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The route-plan model used to be private implementation inside TrailPlanPanel. These
 // assertions pin the contract at its new seam: route allocation remains half-open, the
 // final endpoint stays with the last owned day, and a boundary drag updates only the
@@ -9,18 +7,13 @@ import { describe, expect, it, vi } from "vitest";
 import { useTrailPlanRoute } from "~/composables/useTrailPlanRoute";
 import { applyOps, type DayPatch } from "~~/shared/ops";
 import type { ListSnapshot, TripDay } from "~~/shared/types";
+import { snapshotFor } from "./helpers/list";
 
 function snapshot(): ListSnapshot {
-  return {
+  return snapshotFor({
     shareCode: "TRAILPLAN01",
     slug: "trail-plan-test",
     title: "Trail plan",
-    description: "",
-    displayUnit: "g",
-    folders: [],
-    items: [],
-    version: 1,
-    isPublic: false,
     trailDistanceM: 3_000,
     routeGeometry: "encoded-route",
     waypoints: [
@@ -28,7 +21,7 @@ function snapshot(): ListSnapshot {
       { id: "boundary", kind: "water", alongM: 1_000 },
       { id: "finish", kind: "end", alongM: 3_000 },
     ],
-  };
+  });
 }
 
 function open(days: TripDay[]) {

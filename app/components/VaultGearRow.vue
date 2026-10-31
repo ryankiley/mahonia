@@ -148,7 +148,7 @@ const meta = computed(() => {
              arrival. -->
         <button
           type="button"
-          class="btn btn--icon btn--ghost vault__act"
+          class="btn btn--icon btn--ghost vault__act ink-quiet"
           :title="`Edit ${displayName}`"
           :aria-label="`Edit ${displayName}`"
           @click="emit('edit')"
@@ -162,7 +162,7 @@ const meta = computed(() => {
              picker still names every destination when you open it, and it's the
              keyboard and touch path for moving gear. -->
         <OptionMenu
-          class="vault__movewrap"
+          class="vault__movewrap ink-quiet"
           trigger-class="btn btn--icon btn--ghost"
           :options="folderOptions ?? []"
           :current="String(entry.folderId ?? '')"
@@ -180,7 +180,7 @@ const meta = computed(() => {
              lives on aria-label + title. -->
         <button
           type="button"
-          class="btn btn--icon btn--ghost vault__act"
+          class="btn btn--icon btn--ghost vault__act ink-quiet"
           :disabled="busy"
           :title="`Remove ${displayName}`"
           :aria-label="`Remove ${displayName} from My Gear`"
@@ -193,7 +193,7 @@ const meta = computed(() => {
     <button
       v-else
       type="button"
-      class="btn btn--quiet vault__act"
+      class="btn btn--quiet vault__act ink-quiet"
       :disabled="busy"
       :aria-label="`Put ${displayName} back in My Gear`"
       @click="emit('restore')"
@@ -385,11 +385,6 @@ button.vault__partname:hover {
    ours, matching the folder header's delete beside it */
 .vault__act {
   flex: none;
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.vault__act:hover {
-  color: var(--ink);
 }
 /* the folder header's sort control at row scale: a glyph that shows the control
    exists, opening the app's own picker (OptionMenu) */
@@ -401,11 +396,6 @@ button.vault__partname:hover {
   justify-content: center;
   width: var(--icon-btn);
   min-height: var(--icon-btn);
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.vault__movewrap:hover {
-  color: var(--ink);
 }
 .vault__moveicon {
   pointer-events: none;
@@ -447,10 +437,17 @@ button.vault__partname:hover {
   .vault__row--kit .gear__main {
     flex-basis: calc(100% - 16px - var(--space-2));
   }
-  /* stacked, the weight drops under the name, so the parts' weights just take the
-     right edge */
+  /* The whole kit sits at ONE edge under its mark. Stacked, the weight drops to a
+     second line at the row's left, which on a plain row is where the name is — on a
+     kit the name starts after the mark, so the weight line steps in to meet it, and
+     the parts indent to the same edge rather than the desktop's wider one (the line's
+     gap is --space-2 here, --space-4 there). Their weights just take the right edge. */
+  .vault__row--kit .vault__weight {
+    margin-left: calc(16px + var(--space-2));
+  }
   .vault__parts {
     padding-right: 0;
+    padding-left: calc(16px + var(--space-2));
   }
   .vault__weight {
     min-width: 0;

@@ -13,7 +13,7 @@
 
 import type { Item, ListSnapshot } from "../types";
 import { computeTotals, formatWeightAuto, itemDisplayName, unitSystem } from "../weights";
-import { exportSections } from "./rows";
+import { exportOrderedItems } from "./rows";
 
 /**
  * A gear type reads as a common noun mid-sentence ("Altra Lone Peak 9+ trail runners")
@@ -62,8 +62,7 @@ export function listToText(list: ListSnapshot, opts: { shareUrl?: string } = {})
   // three can't disagree about what comes first. Folders are FLATTENED — the answer to
   // "what's in your pack?" is one run of names — and nested children follow their
   // parent, as they do in the CSV.
-  const names = exportSections(list)
-    .flatMap((s) => s.rows.flatMap((r) => [r.item, ...r.children]))
+  const names = exportOrderedItems(list)
     .map(itemPhrase)
     .filter(Boolean);
 

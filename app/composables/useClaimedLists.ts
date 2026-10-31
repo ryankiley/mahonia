@@ -77,6 +77,12 @@ function readOpens(owner = cacheOwner()): Record<string, number> {
   return clean;
 }
 
+/** The ledger's one writer; nothing is written for a browser with no account. */
+function writeOpens(owner: string | null, opens: Record<string, number>): void {
+  const key = ownedKey(CLAIMED_OPENS_KEY, owner);
+  if (key) remember(key, JSON.stringify(opens));
+}
+
 /** Every claimed list this browser has had open, newest first. Read by the bare
  *  address; a plain function rather than a composable so the resume middleware can
  *  call it without booting anything. */
@@ -101,14 +107,12 @@ export function markClaimedOpen(shareCode: string): void {
   // across tabs, so this one knows before its own session state has caught up.
   if (useSession().presence.value === "signedOut") return;
   const owner = cacheOwner();
-  const key = ownedKey(CLAIMED_OPENS_KEY, owner);
-  if (!key) return;
   const opens = readOpens(owner);
   opens[code] = Date.now();
   const kept = Object.entries(opens)
     .sort((a, b) => b[1] - a[1])
     .slice(0, OPENS_KEPT);
-  remember(key, JSON.stringify(Object.fromEntries(kept)));
+  writeOpens(owner, Object.fromEntries(kept));
 }
 
 /** Drop one code from the ledger: the list is gone, detached, or the claim no
@@ -117,12 +121,10 @@ export function forgetClaimedOpen(shareCode: string): void {
   const code = normalizeShareCode(shareCode);
   if (!import.meta.client || !code) return;
   const owner = cacheOwner();
-  const key = ownedKey(CLAIMED_OPENS_KEY, owner);
-  if (!key) return;
   const opens = readOpens(owner);
   if (!(code in opens)) return;
   delete opens[code];
-  remember(key, JSON.stringify(opens));
+  writeOpens(owner, opens);
 }
 
 /** Drop every ledger code not in `keep` — the account's rows as the server has just
@@ -133,13 +135,11 @@ export function forgetClaimedOpen(shareCode: string): void {
  *  longer held — offline, into its stale copy as "offline", with no way to notice. */
 export function pruneClaimedOpens(keep: Iterable<string>, owner = cacheOwner()): void {
   if (!import.meta.client) return;
-  const key = ownedKey(CLAIMED_OPENS_KEY, owner);
-  if (!key) return;
   const live = new Set([...keep].map(normalizeShareCode));
   const opens = readOpens(owner);
   const kept = Object.fromEntries(Object.entries(opens).filter(([code]) => live.has(code)));
   if (Object.keys(kept).length === Object.keys(opens).length) return; // nothing to drop, no write
-  remember(key, JSON.stringify(kept));
+  writeOpens(owner, kept);
 }
 
 const isClaimedRow = (r: unknown): r is ClaimedList =>
@@ -185,6 +185,23 @@ export function useClaimedLists() {
   /** The server's answer, adopted whole — and held against the opens ledger (see
    *  pruneClaimedOpens), unless it hit the server's cap, when the rows in hand are
    *  not the whole account and nothing outside them can be called gone. */
+  /** The server's answer, adopted — unless the account changed while the request was
+   *  out, in which case the rows belong to nobody on this device now. Three fetches
+   *  each wrote the check, the adopt and the flag; one place. */
+  function adoptAnswer(res: { lists?: ClaimedList[] }, owner: string | null): boolean {
+    if (owner !== cacheOwner()) return false;
+    adoptFromServer(res.lists || [], owner);
+    loaded.value = true;
+    return true;
+  }
+
+  /** Take one list out of the rows and out of the opens ledger — deleted, or the claim
+   *  released; the bare address must stop offering to resume it. */
+  function dropRow(shareCode: string, owner: string | null): void {
+    adopt(lists.value.filter((l) => l.shareCode !== shareCode), owner);
+    forgetClaimedOpen(shareCode);
+  }
+
   function adoptFromServer(rows: ClaimedList[], owner = cacheOwner()): void {
     adopt(rows, owner);
     if (rows.length < CLAIMED_LIST_CAP) pruneClaimedOpens(rows.map((r) => r.shareCode), owner);
@@ -244,9 +261,7 @@ export function useClaimedLists() {
     if (!owner) return;
     try {
       const res = await $fetch<{ lists: ClaimedList[] }>("/api/lists/claimed");
-      if (owner !== cacheOwner()) return;
-      adoptFromServer(res.lists || [], owner);
-      loaded.value = true;
+      if (!adoptAnswer(res, owner)) return;
     } catch {
       // signed out mid-flight, or offline — leave whatever we had rather than
       // blanking a list the user is looking at
@@ -302,9 +317,7 @@ export function useClaimedLists() {
         method: "POST",
         body: { editTokens, openedTokens },
       });
-      if (owner !== cacheOwner()) return;
-      adoptFromServer(res.lists || [], owner);
-      loaded.value = true;
+      if (!adoptAnswer(res, owner)) return;
       remember(markKey, mark); // a blocked write just means claiming again next time
     } catch {
       // offline or rate-limited: leave the mark unset so the next load retries
@@ -322,10 +335,7 @@ export function useClaimedLists() {
         method: "POST",
         body: { editTokens: [editToken] },
       });
-      if (owner !== cacheOwner()) return false;
-      adoptFromServer(res.lists || [], owner);
-      loaded.value = true;
-      return true;
+      return adoptAnswer(res, owner);
     } catch {
       return false;
     }
@@ -355,11 +365,9 @@ export function useClaimedLists() {
     if (!owner) return false;
     if (!(await deleteListOnServer({ [LIST_CODE_HEADER]: shareCode }))) return false;
     if (owner !== cacheOwner()) return false;
-    adopt(lists.value.filter((l) => l.shareCode !== shareCode), owner);
-    // drop the claimed open's on-device copy too — the list is gone for good, so
-    // the bare address must stop offering to resume it as well
+    dropRow(shareCode, owner);
+    // drop the claimed open's on-device copy too — the list is gone for good
     useLocalListStore().del(claimedLocalKey(shareCode));
-    forgetClaimedOpen(shareCode);
     return true;
   }
 
@@ -377,8 +385,7 @@ export function useClaimedLists() {
       // and a claimed resume is only as good as that claim
       if (res.ok) {
         if (owner !== cacheOwner()) return false;
-        adopt(lists.value.filter((l) => l.shareCode !== shareCode), owner);
-        forgetClaimedOpen(shareCode);
+        dropRow(shareCode, owner);
       }
       return res.ok;
     } catch {

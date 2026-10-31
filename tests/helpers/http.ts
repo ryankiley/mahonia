@@ -2,25 +2,40 @@
 // the auth/session suites assert on Set-Cookie, and the favicon/SSRF suites
 // stub fetch so they are hermetic. Each of these lived as a per-file copy
 // (sessionLifecycle + passkeyCeremony; trailFavicon + ssrfRedirect) before
-// moving here. makeEvent is the same story (shareMarkdown + crawlerText).
+// moving here. makeEvent is the same story (shareMarkdown + crawlerText), and its
+// body took the five JSON-POST builders (mcp, mcpFlow, passkeyCeremony,
+// sessionLifecycle, editAuthGate) with it.
 
 import { IncomingMessage, ServerResponse } from "node:http";
 import { Socket } from "node:net";
 import { createEvent, type H3Event } from "h3";
 import { vi } from "vitest";
 
-/** A minimal real H3 event over bare node mocks: a method, a URL and headers, which
- *  is all a handler under test reads. No server boots — the event IS the interface
- *  under test. `host` is always set, because anything that builds a URL from the
- *  request (getRequestURL; the robots/llms/sitemap routes) needs one. */
+/** A minimal real H3 event over bare node mocks: a method, a URL, headers and an
+ *  optional body, which is all a handler under test reads. No server boots — the
+ *  event IS the interface under test. `host` is always set, because anything that
+ *  builds a URL from the request (getRequestURL; the robots/llms/sitemap routes)
+ *  needs one. A `body` is JSON-encoded and pushed onto the request with its
+ *  content-type and content-length, the way a client's POST arrives; a STRING body
+ *  goes on the wire as-is, so a suite can send malformed JSON. */
 export function makeEvent(
   url: string,
-  { method = "GET", headers = {} }: { method?: string; headers?: Record<string, string> } = {},
+  {
+    method = "GET",
+    headers = {},
+    body,
+  }: { method?: string; headers?: Record<string, string>; body?: unknown } = {},
 ): H3Event {
   const req = new IncomingMessage(new Socket());
   req.method = method;
   req.url = url;
   req.headers = { host: "mahonia.test", ...headers };
+  if (body !== undefined) {
+    const buf = typeof body === "string" ? Buffer.from(body) : Buffer.from(JSON.stringify(body));
+    req.headers["content-type"] = "application/json";
+    req.headers["content-length"] = String(buf.length);
+    req.push(buf);
+  }
   req.push(null);
   return createEvent(req, new ServerResponse(req));
 }

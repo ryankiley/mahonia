@@ -223,8 +223,31 @@ export function heightUnitFor(unit: DisplayDistanceUnit): "ft" | "m" {
  * the conversion, which is why that part lives here.
  */
 export function heightValue(metres: number, unit: DisplayDistanceUnit, step = 1): string {
+  return heightNumber(metres, unit, step).toLocaleString(NUM_LOCALE);
+}
+
+/** The one conversion under every height readout: metres into the display unit, held
+ *  to `step` (in that unit). heightValue groups it for reading, heightFieldValue keeps
+ *  it parseable; neither may convert differently. */
+function heightNumber(metres: number, unit: DisplayDistanceUnit, step: number): number {
   const v = unit === "mi" ? metres / M_PER_UNIT.ft : metres;
-  return (Math.round(v / step) * step).toLocaleString();
+  return Math.round(v / step) * step;
+}
+
+/** Pinned, as weights.ts pins its own: heights render on the server-rendered share
+ *  views too, and an ambient locale would group "7,316" one way in the HTML and another
+ *  on hydration. Restated rather than imported — this module imports nothing, because
+ *  types.ts imports it. */
+const NUM_LOCALE = "en-US";
+
+/**
+ * A height with its unit word — "7,316 ft" — at the STATED step (heightStepFor) unless
+ * the caller names another. The plan's day facts and the shared view's itinerary each
+ * composed this themselves, and one had retyped the step. (The profile's readouts keep
+ * their own, coarser step — see heightStepFor.)
+ */
+export function heightWithUnit(metres: number, unit: DisplayDistanceUnit, step = heightStepFor(unit)): string {
+  return `${heightValue(metres, unit, step)} ${heightUnitFor(unit)}`;
 }
 
 /**
@@ -254,9 +277,7 @@ export function heightStepFor(unit: DisplayDistanceUnit): number {
  */
 export function heightFieldValue(metres: number | undefined, unit: DisplayDistanceUnit): string {
   if (metres == null) return "";
-  const step = heightStepFor(unit);
-  const v = unit === "mi" ? metres / M_PER_UNIT.ft : metres;
-  return String(Math.round(v / step) * step);
+  return String(heightNumber(metres, unit, heightStepFor(unit)));
 }
 
 /**

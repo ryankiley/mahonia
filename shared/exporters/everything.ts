@@ -12,26 +12,16 @@
 // only stable name a list has (an edit token is never stored, so an edit link cannot be
 // written out), and when it was last edited. Both are ignored by the importer.
 
-import type { ListMeta, ListData, ListSnapshot } from "../types";
-import { pickListMeta } from "../types";
+import { listBackupObject } from "./json";
+import type { ListSnapshot } from "../types";
 import { vaultExportObject, type VaultExport } from "./vault";
 
 export const EVERYTHING_FORMAT = "mahonia-account-export";
-export const EVERYTHING_VERSION = 1;
+const EVERYTHING_VERSION = 1;
 
 /** One list, the backup's shape plus its handle. */
 export function listExportObject(list: ListSnapshot): Record<string, unknown> {
-  const { folders, items, days, waypoints, people } = list;
-  return {
-    shareCode: list.shareCode,
-    updatedAt: list.updatedAt,
-    ...pickListMeta(list as ListMeta & ListData),
-    folders,
-    items,
-    days,
-    waypoints,
-    people,
-  };
+  return { shareCode: list.shareCode, updatedAt: list.updatedAt, ...listBackupObject(list) };
 }
 
 export interface EverythingExport {

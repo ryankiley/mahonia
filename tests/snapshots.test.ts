@@ -2,66 +2,31 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
-import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
-import { sha256Hex } from "../server/utils/tokens";
+import { LISTS_DDL, SNAPSHOTS_DDL, ensureSnapshotSchema } from "../server/utils/db";
 import {
   applyOpsByEditHash,
   listSnapshotsByEditHash,
   restoreSnapshotByEditHash,
 } from "../server/utils/listRepo";
 import type { Item, ListData } from "../shared/types";
-import { byToken, createTestDb } from "./helpers/db";
+import { byToken, createTestDb, makeList, type TestDb } from "./helpers/db";
+import { folder as listFolder, item as listItem } from "./helpers/list";
 
 const applyOpsByEditToken = byToken(applyOpsByEditHash);
 const listSnapshotsByEditToken = byToken(listSnapshotsByEditHash);
 const restoreSnapshotByEditToken = byToken(restoreSnapshotByEditHash);
 
-// Fresh in-memory PGlite with the list + snapshot tables (mirrors discovery.test).
-async function freshDb() {
-  return createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
-}
+/** A list holding `data`, its rows counted, at version 1. */
+const seedList = (db: TestDb, data: ListData, title = "Orig", extra: Partial<typeof schema.lists.$inferInsert> = {}) =>
+  makeList(db, title, { data, itemCount: data.items.length, version: 1, ...extra });
 
-let seq = 0;
-async function seedList(
-  db: Awaited<ReturnType<typeof freshDb>>,
-  data: ListData,
-  title = "Orig",
-  extra: Partial<typeof schema.lists.$inferInsert> = {},
-) {
-  seq++;
-  const editToken = `snap-tok-${seq}`;
-  const [row] = await db
-    .insert(lists)
-    .values({
-      publicSlug: `snap-${seq}-aaa${seq}`,
-      editTokenHash: sha256Hex(editToken),
-      shareCode: `SNAPCODE${seq}000`.slice(0, 12),
-      title,
-      data,
-      itemCount: data.items.length,
-      version: 1,
-      ...extra,
-    })
-    .returning();
-  return { row: row!, editToken };
-}
-
-const folder = { id: "f1", name: "Shelter", colorKey: "shelter", defaultClassification: "base" as const, sortOrder: 0 };
-const item = (id: string, name: string): Item => ({
-  id,
-  folderId: "f1",
-  name,
-  unitWeightMg: 1000,
-  weightOverridden: false,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  packed: false,
-});
+const folder = listFolder({ colorKey: "shelter" });
+const item = (id: string, name: string): Item =>
+  listItem({ id, name, unitWeightMg: 1000, weightOverridden: false, packed: false });
 
 describe("snapshots — vandalism recovery", () => {
   it("auto-snapshots the pre-edit state, throttled to one per window", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const { editToken } = await seedList(db, { folders: [folder], items: [item("i1", "Tent")] });
     await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v2" } }], db);
     let snaps = await listSnapshotsByEditToken(editToken, db);
@@ -83,7 +48,7 @@ describe("snapshots — vandalism recovery", () => {
   });
 
   it("restores a snapshot and snapshots the current state first (undoable)", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const { editToken } = await seedList(db, { folders: [folder], items: [item("i1", "Tent"), item("i2", "Quilt")] });
     // "wreck" the list — the mutate snapshots the 2-item original first
     await applyOpsByEditToken(editToken, [{ t: "removeItem", id: "i2" }], db);
@@ -99,7 +64,7 @@ describe("snapshots — vandalism recovery", () => {
   });
 
   it("reconstructs old points across a reverse-delta chain (storage = 1 base + N diffs)", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const { editToken, row } = await seedList(db, { folders: [folder], items: [item("i1", "Tent"), item("i2", "Quilt")] });
     // force a snapshot per edit by clearing the throttle each time
     const clearThrottle = () => db.update(lists).set({ lastSnapshotAt: new Date(0) }).where(eq(lists.id, row.id));
@@ -125,7 +90,7 @@ describe("snapshots — vandalism recovery", () => {
   });
 
   it("re-applies the reducer's referential invariants on restore (normalizeListData)", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     // corrupted data as a raw create POST could have stored it: dangling refs,
     // deep nesting, a child/parent folder mismatch, and a duplicate id
     const bad: ListData = {
@@ -155,7 +120,7 @@ describe("snapshots — vandalism recovery", () => {
   });
 
   it("re-applies every trail and date metadata normalizer on restore", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const { editToken } = await seedList(
       db,
       {
@@ -198,7 +163,7 @@ describe("snapshots — vandalism recovery", () => {
     // a list can carry pins with no route at all (addWaypoint asks for none; a backup
     // whose geometry failed to read keeps its pins through createList), and those are
     // not pointing at a route that changed; restoring them is restoring the list
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const { editToken } = await seedList(db, {
       folders: [folder],
       items: [item("i1", "Tent")],
@@ -212,7 +177,7 @@ describe("snapshots — vandalism recovery", () => {
   });
 
   it("won't restore a snapshot that belongs to another list", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const a = await seedList(db, { folders: [], items: [item("x", "A")] });
     const b = await seedList(db, { folders: [], items: [item("y", "B")] });
     await applyOpsByEditToken(a.editToken, [{ t: "updateItem", id: "x", patch: { qty: 2 } }], db);
@@ -221,7 +186,7 @@ describe("snapshots — vandalism recovery", () => {
   });
 
   it("returns null for an unknown edit token", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     expect(await listSnapshotsByEditToken("nope", db)).toBeNull();
     expect(await restoreSnapshotByEditToken("nope", 1, db)).toBeNull();
   });
@@ -229,7 +194,7 @@ describe("snapshots — vandalism recovery", () => {
   it("bootstraps the snapshots table on first use (Neon request-path)", async () => {
     // build WITHOUT the snapshots DDL — the repo must create it lazily via ensureSnapshotSchema
     const db = await createTestDb(LISTS_DDL);
-    _resetSnapshotEnsured();
+    ensureSnapshotSchema.reset();
     const { editToken } = await seedList(db, { folders: [], items: [item("i1", "X")] });
     expect(await listSnapshotsByEditToken(editToken, db)).toEqual([]);
   });

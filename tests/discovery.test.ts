@@ -1,10 +1,8 @@
-import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
 import { LISTS_DDL } from "../server/utils/db";
 import { CATALOG_DDL } from "../server/utils/catalog";
-import { sha256Hex } from "../server/utils/tokens";
 import { applyOpsByEditHash } from "../server/utils/listRepo";
 import {
   getPublicBySlug,
@@ -23,7 +21,7 @@ import {
   normalizeTripType,
 } from "../shared/discovery";
 import type { ListData } from "../shared/types";
-import { byToken, createTestDb } from "./helpers/db";
+import { byToken, createTestDb, makeList, type TestDb } from "./helpers/db";
 
 const applyOpsByEditToken = byToken(applyOpsByEditHash);
 const getPublishState = byToken(getPublishStateByEditHash);
@@ -117,43 +115,13 @@ describe("category segments (CategoryBar's data)", () => {
 // Repo against a fresh in-memory PGlite (mirrors catalog.test.ts).
 // ===========================================================================
 
-async function freshDb() {
-  return createTestDb(LISTS_DDL);
-}
-
 let seq = 0;
-async function seed(
-  db: Awaited<ReturnType<typeof freshDb>>,
-  o: Partial<typeof lists.$inferInsert> & { editToken?: string } = {},
-) {
-  seq++;
-  const editToken = o.editToken ?? `tok-${seq}`;
-  const [row] = await db
-    .insert(lists)
-    .values({
-      publicSlug: o.publicSlug ?? `list-${seq}-aaa${seq}`,
-      editTokenHash: sha256Hex(editToken),
-      shareCode: o.shareCode ?? `SHARECODE${seq}00`,
-      title: o.title ?? `List ${seq}`,
-      description: o.description ?? null,
-      data: o.data ?? { folders: [], items: [] },
-      itemCount: o.itemCount ?? 0,
-      baseWeightMg: o.baseWeightMg ?? 0,
-      totalWeightMg: o.totalWeightMg ?? 0,
-      isPublic: o.isPublic ?? false,
-      status: o.status ?? "active",
-      flagged: o.flagged ?? false,
-      publishedAt: o.publishedAt ?? null,
-      tripType: o.tripType ?? null,
-      season: o.season ?? null,
-    })
-    .returning();
-  return { row: row!, editToken };
-}
+/** An empty, private, unflagged list — `o` is whatever the case is about. */
+const seed = (db: TestDb, o: Partial<typeof lists.$inferInsert> = {}) => makeList(db, `List ${++seq}`, o);
 
 describe("publishList — capability write, decision applied", () => {
   it("publishes by edit token, stamps published_at, returns only public address", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { editToken, row } = await seed(db, { itemCount: 3 });
     const state = await publishList(editToken, { isPublic: true, tripType: "thru-hike", season: "summer" }, db);
     expect(state).toMatchObject({ isPublic: true, status: "active", tripType: "thru-hike", season: "summer", slug: row.publicSlug });
@@ -165,7 +133,7 @@ describe("publishList — capability write, decision applied", () => {
   });
 
   it("flags a link-spam list but keeps it active (owner not locked out)", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { editToken } = await seed(db, { itemCount: 2, description: "https://a.com https://b.com c.shop d.store" });
     const state = await publishList(editToken, { isPublic: true }, db);
     expect(state?.flagged).toBe(true);
@@ -173,21 +141,21 @@ describe("publishList — capability write, decision applied", () => {
   });
 
   it("flagging is sticky — a clean republish can't self-clear it", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { editToken } = await seed(db, { itemCount: 1, flagged: true });
     const state = await publishList(editToken, { isPublic: true }, db);
     expect(state?.flagged).toBe(true);
   });
 
   it("rejects an unknown trip type (drops to null)", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { editToken } = await seed(db, { itemCount: 1 });
     const state = await publishList(editToken, { isPublic: true, tripType: "moon-mission" }, db);
     expect(state?.tripType).toBeUndefined();
   });
 
   it("returns null for a bad/unknown edit token (→ 404 at the endpoint)", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     expect(await publishList("nope", { isPublic: true }, db)).toBeNull();
     expect(await getPublishState("nope", db)).toBeNull();
   });
@@ -195,7 +163,7 @@ describe("publishList — capability write, decision applied", () => {
 
 describe("getPublicBySlug — public-only, no id/token leak", () => {
   it("resolves a public list and omits id + edit token", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { row } = await seed(db, { itemCount: 2, isPublic: true, publishedAt: new Date() });
     const view = await getPublicBySlug(row.publicSlug, db);
     expect(view).toBeTruthy();
@@ -204,27 +172,26 @@ describe("getPublicBySlug — public-only, no id/token leak", () => {
     expect(view!.slug).toBe(row.publicSlug);
   });
   it("404s (null) for a private list — no oracle", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { row } = await seed(db, { itemCount: 2, isPublic: false });
     expect(await getPublicBySlug(row.publicSlug, db)).toBeNull();
   });
   it("404s (null) for an admin-hidden list (status takedown)", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { row } = await seed(db, { itemCount: 2, isPublic: true, status: "hidden" });
     expect(await getPublicBySlug(row.publicSlug, db)).toBeNull();
   });
   it("404s (null) for a flagged (reported/spam) list — withheld from public discovery", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { row } = await seed(db, { itemCount: 2, isPublic: true, flagged: true });
     expect(await getPublicBySlug(row.publicSlug, db)).toBeNull();
   });
   it("404s (null) for a malformed slug before any query", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     expect(await getPublicBySlug("not a slug!!", db)).toBeNull();
   });
   it("hydrates catalog-linked names (parity with /api/s and the editor)", async () => {
-    const db = await freshDb();
-    for (const stmt of CATALOG_DDL) await db.execute(sql.raw(stmt));
+    const db = await createTestDb(LISTS_DDL, CATALOG_DDL);
     const cat = await db
       .insert(schema.catalogItems)
       .values({ brand: "Durston", name: "Kakwa 55", weightMg: 893_010, weightSource: "manufacturer" })
@@ -247,7 +214,7 @@ describe("getPublicBySlug — public-only, no id/token leak", () => {
 
 describe("listPublicSlugs — the sitemap's visibility gate", () => {
   it("lists only public + active + unflagged + non-empty lists", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { row } = await seed(db, { isPublic: true, itemCount: 5, publishedAt: new Date("2026-03-01") });
     await seed(db, { isPublic: true, itemCount: 0, publishedAt: new Date("2026-04-01") }); // empty
     await seed(db, { isPublic: false, itemCount: 5, publishedAt: new Date("2026-05-01") }); // private
@@ -261,7 +228,7 @@ describe("listPublicSlugs — the sitemap's visibility gate", () => {
 
 describe("post-publish spam gate — setMeta on a public list re-runs isLikelySpam", () => {
   it("flags when a setMeta stuffs links into a public list's description", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { editToken } = await seed(db, { isPublic: true, itemCount: 2, publishedAt: new Date() });
     await applyOpsByEditToken(
       editToken,
@@ -271,7 +238,7 @@ describe("post-publish spam gate — setMeta on a public list re-runs isLikelySp
     expect((await db.select().from(lists))[0]!.flagged).toBe(true);
   });
   it("item edits never re-flag (an admin-restored list stays restored)", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { editToken } = await seed(db, {
       isPublic: true,
       itemCount: 1,
@@ -286,7 +253,7 @@ describe("post-publish spam gate — setMeta on a public list re-runs isLikelySp
     expect((await db.select().from(lists))[0]!.flagged).toBe(false);
   });
   it("a private list's setMeta never flags (the gate is public-only)", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { editToken } = await seed(db, { isPublic: false, itemCount: 1 });
     await applyOpsByEditToken(
       editToken,
@@ -299,7 +266,7 @@ describe("post-publish spam gate — setMeta on a public list re-runs isLikelySp
 
 describe("reportList", () => {
   it("report withholds a list from public discovery but keeps the owner's access", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { row } = await seed(db, { isPublic: true, itemCount: 3, baseWeightMg: 1_000_000, publishedAt: new Date() });
     expect(await listPublicSlugs(db)).toHaveLength(1);
     expect(await reportList(row.publicSlug, db)).toBe(true);
@@ -313,7 +280,7 @@ describe("reportList", () => {
     expect(await reportList(row.publicSlug, db)).toBe(false);
   });
   it("restoreList clears the flag so a falsely-reported list returns to discovery", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(LISTS_DDL);
     const { row } = await seed(db, { isPublic: true, itemCount: 3, baseWeightMg: 1_000_000, publishedAt: new Date() });
     await reportList(row.publicSlug, db);
     expect(await listPublicSlugs(db)).toHaveLength(0);

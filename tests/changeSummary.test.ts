@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { summarizeOps } from "../shared/changeSummary";
 import type { Op } from "../shared/ops";
+import type { Item } from "../shared/types";
+import { folder as listFolder, item as listItem } from "./helpers/list";
 
-const item = (id: string, over: Record<string, unknown> = {}) =>
-  ({ id, folderId: null, name: id, unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0, ...over }) as never;
-const folder = (id: string, name: string) => ({ id, name, defaultClassification: "base", sortOrder: 0 }) as never;
+// ungrouped and named by its id, which is what the summary prints
+const item = (id: string, over: Partial<Item> = {}) => listItem({ id, folderId: null, name: id, ...over });
+const folder = (id: string, name: string) => listFolder({ id, name });
 /** The list as it stood before the batch — what lets the summary name things. */
 const before = (items: unknown[] = [], folders: unknown[] = []) =>
   ({ items, folders }) as never;

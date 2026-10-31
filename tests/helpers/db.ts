@@ -74,28 +74,70 @@ export function byToken<A extends unknown[], R>(fn: (editHash: string, ...rest: 
 
 /**
  * Insert a list row directly — createList() reaches for the shared connection,
- * and these suites want a throwaway database per case. Three files each carried
+ * and these suites want a throwaway database per case. Nine files each carried
  * a byte-identical copy of the token/slug/hash preamble, diverging only in the
  * row's extras; `extra` is that divergence (last-write-wins over the defaults,
- * including `data`).
+ * including `data`). `row` is the inserted row, for a suite that reads the slug
+ * or the id back.
  */
 export async function makeList(
   db: TestDb,
   title = "Sierra trip",
   extra: Partial<typeof schema.lists.$inferInsert> = {},
 ) {
-  const editToken = randomEditToken();
-  const shareCode = randomShareCode();
-  const rows = await db
-    .insert(schema.lists)
-    .values({
+  const [made] = await makeLists(db, [title], extra);
+  return made!;
+}
+
+/** makeList for many rows in ONE insert — claims.test.ts seeds a batch cap's worth. */
+export async function makeLists(
+  db: TestDb,
+  titles: string[],
+  extra: Partial<typeof schema.lists.$inferInsert> = {},
+) {
+  const built = titles.map((title) => {
+    const editToken = randomEditToken();
+    const shareCode = randomShareCode();
+    const values = {
       publicSlug: `${title.toLowerCase().replace(/\W+/g, "-")}-${shareCode.slice(0, 6).toLowerCase()}`,
       editTokenHash: sha256Hex(editToken),
       shareCode,
       title,
       data: { folders: [], items: [] },
       ...extra,
-    })
-    .returning();
-  return { editToken, shareCode, id: rows[0]!.id };
+    };
+    return { editToken, values };
+  });
+  const rows = await db.insert(schema.lists).values(built.map((b) => b.values)).returning();
+  // matched by the share code actually written — `extra` may have chosen it
+  return built.map(({ editToken, values }) => {
+    const row = rows.find((r) => r.shareCode === values.shareCode)!;
+    return { editToken, shareCode: row.shareCode, id: row.id, row };
+  });
+}
+
+/**
+ * `n` inert rows of gear in a vault, in ONE statement. The ceiling suites fill a
+ * vault to VAULT_ITEMS_MAX (2,000) and assert by count; drizzle's multi-row insert
+ * built a 2,000-row VALUES list each time, five times a file. Row i is `Seed i`
+ * under the key vaultNormKey(null, "Seed i", null), at 1 mg, seen once — the shape
+ * the ceiling cases look row 0 back up by.
+ */
+export async function seedVaultItems(db: TestDb, vaultId: number, n: number): Promise<void> {
+  await db.execute(
+    sql.raw(
+      `insert into vault_items (vault_id, norm_key, name, weight_mg)
+       select ${Number(vaultId)}, 'seed ' || i, 'Seed ' || i, 1 from generate_series(0, ${Number(n) - 1}) as i`,
+    ),
+  );
+}
+
+/** `n` folders F0..F(n-1) in a vault, sort_order 1..n, in one statement (see seedVaultItems). */
+export async function seedVaultFolders(db: TestDb, vaultId: number, n: number): Promise<void> {
+  await db.execute(
+    sql.raw(
+      `insert into vault_folders (vault_id, name, sort_order)
+       select ${Number(vaultId)}, 'F' || i, i + 1 from generate_series(0, ${Number(n) - 1}) as i`,
+    ),
+  );
 }

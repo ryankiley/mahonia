@@ -12,80 +12,76 @@ import {
 } from "../server/utils/claimRepo";
 import { findByEditHash, rotateEditHash } from "../server/utils/listRepo";
 import { randomEditToken, sha256Hex } from "../server/utils/tokens";
-import { byToken, createTestDb, makeList as makeListRow, type TestDb } from "./helpers/db";
+import { byToken, createTestDb, makeList as makeListRow, makeLists, type TestDb } from "./helpers/db";
 
 const findByEditToken = byToken(findByEditHash);
 
-type DB = TestDb;
-async function freshDb(): Promise<DB> {
-  return createTestDb(LISTS_DDL, ACCOUNT_DDL);
-}
-
 // A list with a weight, so claimed rows have a figure to show. `extra` forwards to
 // the insert — the claim rule reads `createdAt`, so tests need to set it.
+const WEIGHED = { totalWeightMg: 539_000 };
 const makeList = (
-  db: DB,
+  db: TestDb,
   title = "Sierra trip",
   extra: Partial<typeof schema.lists.$inferInsert> = {},
-) => makeListRow(db, title, { totalWeightMg: 539_000, ...extra });
+) => makeListRow(db, title, { ...WEIGHED, ...extra });
 
 describe("claiming a list onto an account", () => {
-  let db: DB;
+  let db: TestDb;
   const USER = 1;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(LISTS_DDL, ACCOUNT_DDL);
   });
 
   it("claims a list the caller can prove they hold", async () => {
     const list = await makeList(db);
-    expect(await claimLists(db as any, USER, [list.editToken])).toBe(1);
-    const claimed = await listClaimedLists(db as any, USER);
+    expect(await claimLists(db, USER, [list.editToken])).toBe(1);
+    const claimed = await listClaimedLists(db, USER);
     expect(claimed.map((l) => l.shareCode)).toEqual([list.shareCode]);
   });
 
   it("is idempotent — re-claiming the same list adds nothing", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, USER, [list.editToken]);
-    expect(await claimLists(db as any, USER, [list.editToken])).toBe(0);
-    expect(await listClaimedLists(db as any, USER)).toHaveLength(1);
+    await claimLists(db, USER, [list.editToken]);
+    expect(await claimLists(db, USER, [list.editToken])).toBe(0);
+    expect(await listClaimedLists(db, USER)).toHaveLength(1);
   });
 
   it("silently skips tokens that resolve to nothing", async () => {
     // a device registry accumulates dead entries; a per-token verdict would also
     // let a caller probe for token existence
     const list = await makeList(db);
-    const n = await claimLists(db as any, USER, ["not-a-real-token", list.editToken, ""]);
+    const n = await claimLists(db, USER, ["not-a-real-token", list.editToken, ""]);
     expect(n).toBe(1);
-    expect(await listClaimedLists(db as any, USER)).toHaveLength(1);
+    expect(await listClaimedLists(db, USER)).toHaveLength(1);
   });
 
   it("stores NO edit token — a dump of the claims yields no capability", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, USER, [list.editToken]);
+    await claimLists(db, USER, [list.editToken]);
     const rows = await db.select().from(schema.listClaims);
     expect(rows).toHaveLength(1);
     expect(JSON.stringify(rows[0])).not.toContain(list.editToken);
     // and nothing the API hands back carries it either
-    const claimed = await listClaimedLists(db as any, USER);
+    const claimed = await listClaimedLists(db, USER);
     expect(JSON.stringify(claimed)).not.toContain(list.editToken);
   });
 
   it("lets several accounts hold the same list — an edit link is shared by design", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, 1, [list.editToken]);
-    await claimLists(db as any, 2, [list.editToken]);
-    expect(await listClaimedLists(db as any, 1)).toHaveLength(1);
-    expect(await listClaimedLists(db as any, 2)).toHaveLength(1);
+    await claimLists(db, 1, [list.editToken]);
+    await claimLists(db, 2, [list.editToken]);
+    expect(await listClaimedLists(db, 1)).toHaveLength(1);
+    expect(await listClaimedLists(db, 2)).toHaveLength(1);
   });
 
   it("drops a soft-deleted list from the claimed set", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, USER, [list.editToken]);
+    await claimLists(db, USER, [list.editToken]);
     await db
       .update(schema.lists)
       .set({ deletedAt: new Date() })
       .where(sql`id = ${list.id}`);
-    expect(await listClaimedLists(db as any, USER)).toHaveLength(0);
+    expect(await listClaimedLists(db, USER)).toHaveLength(0);
   });
 });
 
@@ -96,28 +92,28 @@ describe("claiming a list onto an account", () => {
 // edit link, which stranded it on that device forever. Only the server knows which
 // era a list is from, so the rule lives here.
 describe("claimLists — lists opened from a link", () => {
-  let db: DB;
+  let db: TestDb;
   const USER = 1;
   // straddling ORIGIN_TRACKING_SINCE (the 2026-08-02T01:45:17Z commit that added
   // `origin`), one clear day either side so neither depends on the exact instant
   const BEFORE_ORIGIN = new Date("2026-07-20T12:00:00Z");
   const AFTER_ORIGIN = new Date("2026-08-10T12:00:00Z");
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(LISTS_DDL, ACCOUNT_DDL);
   });
 
   it("claims one made before origin tracking — the stamp couldn't have been recorded", async () => {
     const old = await makeList(db, "Loowit traverse", { createdAt: BEFORE_ORIGIN });
-    expect(await claimLists(db as any, USER, [], [old.editToken])).toBe(1);
-    expect((await listClaimedLists(db as any, USER)).map((l) => l.shareCode)).toEqual([
+    expect(await claimLists(db, USER, [], [old.editToken])).toBe(1);
+    expect((await listClaimedLists(db, USER)).map((l) => l.shareCode)).toEqual([
       old.shareCode,
     ]);
   });
 
   it("leaves a list made since alone — that mark is real, and it may be someone else's", async () => {
     const shared = await makeList(db, "Someone else's trip", { createdAt: AFTER_ORIGIN });
-    expect(await claimLists(db as any, USER, [], [shared.editToken])).toBe(0);
-    expect(await listClaimedLists(db as any, USER)).toHaveLength(0);
+    expect(await claimLists(db, USER, [], [shared.editToken])).toBe(0);
+    expect(await listClaimedLists(db, USER)).toHaveLength(0);
   });
 
   it("sorts one bucket from the other in a single mixed call", async () => {
@@ -125,168 +121,168 @@ describe("claimLists — lists opened from a link", () => {
     const old = await makeList(db, "Old", { createdAt: BEFORE_ORIGIN });
     const shared = await makeList(db, "Shared", { createdAt: AFTER_ORIGIN });
 
-    const n = await claimLists(db as any, USER, [mine.editToken], [old.editToken, shared.editToken]);
+    const n = await claimLists(db, USER, [mine.editToken], [old.editToken, shared.editToken]);
 
     expect(n).toBe(2);
-    const held = (await listClaimedLists(db as any, USER)).map((l) => l.shareCode).sort();
+    const held = (await listClaimedLists(db, USER)).map((l) => l.shareCode).sort();
     expect(held).toEqual([mine.shareCode, old.shareCode].sort());
   });
 
   it("claims outright when a token is in both buckets — the stronger claim wins", async () => {
     const list = await makeList(db, "Recent", { createdAt: AFTER_ORIGIN });
-    expect(await claimLists(db as any, USER, [list.editToken], [list.editToken])).toBe(1);
-    expect(await listClaimedLists(db as any, USER)).toHaveLength(1);
+    expect(await claimLists(db, USER, [list.editToken], [list.editToken])).toBe(1);
+    expect(await listClaimedLists(db, USER)).toHaveLength(1);
   });
 
   it("still claims nothing from an empty call", async () => {
     await makeList(db, "Untouched", { createdAt: BEFORE_ORIGIN });
-    expect(await claimLists(db as any, USER, [], [])).toBe(0);
-    expect(await listClaimedLists(db as any, USER)).toHaveLength(0);
+    expect(await claimLists(db, USER, [], [])).toBe(0);
+    expect(await listClaimedLists(db, USER)).toHaveLength(0);
   });
 
   it("spends the batch cap on owned lists first", async () => {
     // one over the cap, all owned, plus an old one that would otherwise qualify
-    const owned = [];
-    for (let i = 0; i < CLAIM_BATCH_MAX; i++) owned.push((await makeList(db, `L${i}`)).editToken);
+    const titles = Array.from({ length: CLAIM_BATCH_MAX }, (_, i) => `L${i}`);
+    const owned = (await makeLists(db, titles, WEIGHED)).map((l) => l.editToken);
     const old = await makeList(db, "Old", { createdAt: BEFORE_ORIGIN });
 
-    const n = await claimLists(db as any, USER, owned, [old.editToken]);
+    const n = await claimLists(db, USER, owned, [old.editToken]);
 
     expect(n).toBe(CLAIM_BATCH_MAX); // the opened one was squeezed out, not the owned
-    const held = await listClaimedLists(db as any, USER);
+    const held = await listClaimedLists(db, USER);
     expect(held.map((l) => l.shareCode)).not.toContain(old.shareCode);
   });
 });
 
 describe("claimedEditHash — the session's route to the capability", () => {
-  let db: DB;
+  let db: TestDb;
   const USER = 1;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(LISTS_DDL, ACCOUNT_DDL);
   });
 
   it("returns the SAME hash the edit token would resolve to", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, USER, [list.editToken]);
-    const viaClaim = await claimedEditHash(db as any, USER, list.shareCode);
+    await claimLists(db, USER, [list.editToken]);
+    const viaClaim = await claimedEditHash(db, USER, list.shareCode);
     expect(viaClaim).toBe(sha256Hex(list.editToken));
     // and it lands on the same row
-    expect((await findByEditHash(viaClaim!, db as any))!.id).toBe(list.id);
-    expect((await findByEditToken(list.editToken, db as any))!.id).toBe(list.id);
+    expect((await findByEditHash(viaClaim!, db))!.id).toBe(list.id);
+    expect((await findByEditToken(list.editToken, db))!.id).toBe(list.id);
   });
 
   it("survives a rotated edit token — the hash is re-read, never cached", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, USER, [list.editToken]);
+    await claimLists(db, USER, [list.editToken]);
     const next = randomEditToken();
     await db
       .update(schema.lists)
       .set({ editTokenHash: sha256Hex(next) })
       .where(sql`id = ${list.id}`);
-    expect(await claimedEditHash(db as any, USER, list.shareCode)).toBe(sha256Hex(next));
+    expect(await claimedEditHash(db, USER, list.shareCode)).toBe(sha256Hex(next));
   });
 
   it("refuses a share code this account hasn't claimed", async () => {
     const list = await makeList(db);
     // the share code is PUBLIC, so this is the case that matters: knowing it must
     // not be enough to get write access
-    expect(await claimedEditHash(db as any, USER, list.shareCode)).toBeNull();
-    await claimLists(db as any, 2, [list.editToken]);
-    expect(await claimedEditHash(db as any, USER, list.shareCode)).toBeNull();
-    expect(await claimedEditHash(db as any, 2, list.shareCode)).not.toBeNull();
+    expect(await claimedEditHash(db, USER, list.shareCode)).toBeNull();
+    await claimLists(db, 2, [list.editToken]);
+    expect(await claimedEditHash(db, USER, list.shareCode)).toBeNull();
+    expect(await claimedEditHash(db, 2, list.shareCode)).not.toBeNull();
   });
 
   it("is case-insensitive on the code and rejects a malformed one", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, USER, [list.editToken]);
-    expect(await claimedEditHash(db as any, USER, list.shareCode.toLowerCase())).not.toBeNull();
-    expect(await claimedEditHash(db as any, USER, "nope")).toBeNull();
-    expect(await claimedEditHash(db as any, USER, "'; drop table lists; --")).toBeNull();
+    await claimLists(db, USER, [list.editToken]);
+    expect(await claimedEditHash(db, USER, list.shareCode.toLowerCase())).not.toBeNull();
+    expect(await claimedEditHash(db, USER, "nope")).toBeNull();
+    expect(await claimedEditHash(db, USER, "'; drop table lists; --")).toBeNull();
   });
 
   it("stops resolving once the list is soft-deleted", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, USER, [list.editToken]);
+    await claimLists(db, USER, [list.editToken]);
     await db.update(schema.lists).set({ deletedAt: new Date() }).where(sql`id = ${list.id}`);
-    expect(await claimedEditHash(db as any, USER, list.shareCode)).toBeNull();
+    expect(await claimedEditHash(db, USER, list.shareCode)).toBeNull();
   });
 });
 
 describe("unclaiming", () => {
-  let db: DB;
+  let db: TestDb;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(LISTS_DDL, ACCOUNT_DDL);
   });
 
   it("detaches from the account but leaves the list alone", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, 1, [list.editToken]);
-    expect(await unclaimList(db as any, 1, list.shareCode)).toBe(true);
-    expect(await listClaimedLists(db as any, 1)).toHaveLength(0);
+    await claimLists(db, 1, [list.editToken]);
+    expect(await unclaimList(db, 1, list.shareCode)).toBe(true);
+    expect(await listClaimedLists(db, 1)).toHaveLength(0);
     // the list itself is untouched — the edit link still works
-    expect(await findByEditToken(list.editToken, db as any)).not.toBeNull();
+    expect(await findByEditToken(list.editToken, db)).not.toBeNull();
   });
 
   it("can't unclaim another account's hold on the same list", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, 1, [list.editToken]);
-    await claimLists(db as any, 2, [list.editToken]);
-    expect(await unclaimList(db as any, 2, list.shareCode)).toBe(true);
+    await claimLists(db, 1, [list.editToken]);
+    await claimLists(db, 2, [list.editToken]);
+    expect(await unclaimList(db, 2, list.shareCode)).toBe(true);
     // user 1 still holds it
-    expect(await listClaimedLists(db as any, 1)).toHaveLength(1);
+    expect(await listClaimedLists(db, 1)).toHaveLength(1);
   });
 });
 
 describe("rotation revokes claim-based access", () => {
-  let db: DB;
+  let db: TestDb;
   const OWNER = 1;
   const GUEST = 2;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(LISTS_DDL, ACCOUNT_DDL);
   });
 
   const rotate = (editHash: string, keepUserId?: number) =>
-    rotateEditHash(editHash, keepUserId, db as never);
+    rotateEditHash(editHash, keepUserId, db);
 
   it("drops another account's claim, so a leaked link can actually be revoked", async () => {
     const list = await makeList(db);
     await db.update(schema.lists).set({ authorUserId: OWNER }).where(sql`id = ${list.id}`);
-    await claimLists(db as any, OWNER, [list.editToken]);
-    await claimLists(db as any, GUEST, [list.editToken]);
+    await claimLists(db, OWNER, [list.editToken]);
+    await claimLists(db, GUEST, [list.editToken]);
 
     // the owner rotates to cut off the link they shared
     expect(await rotate(sha256Hex(list.editToken), OWNER)).toBeTruthy();
 
     // the guest's session no longer authorises anything on this list …
-    expect(await claimedEditHash(db as any, GUEST, list.shareCode)).toBeNull();
-    expect(await listClaimedLists(db as any, GUEST)).toHaveLength(0);
+    expect(await claimedEditHash(db, GUEST, list.shareCode)).toBeNull();
+    expect(await listClaimedLists(db, GUEST)).toHaveLength(0);
     // … while the owner keeps theirs
-    expect(await claimedEditHash(db as any, OWNER, list.shareCode)).not.toBeNull();
+    expect(await claimedEditHash(db, OWNER, list.shareCode)).not.toBeNull();
   });
 
   it("keeps the CREATOR's claim when a link-holder rotates", async () => {
     // otherwise someone handed a link could rotate and strip the author's access
     const list = await makeList(db);
     await db.update(schema.lists).set({ authorUserId: OWNER }).where(sql`id = ${list.id}`);
-    await claimLists(db as any, OWNER, [list.editToken]);
-    await claimLists(db as any, GUEST, [list.editToken]);
+    await claimLists(db, OWNER, [list.editToken]);
+    await claimLists(db, GUEST, [list.editToken]);
 
     await rotate(sha256Hex(list.editToken), GUEST);
 
-    expect(await claimedEditHash(db as any, OWNER, list.shareCode)).not.toBeNull();
+    expect(await claimedEditHash(db, OWNER, list.shareCode)).not.toBeNull();
   });
 
   it("clears every claim when an anonymous link-holder rotates", async () => {
     const list = await makeList(db); // no authorUserId — made without an account
-    await claimLists(db as any, GUEST, [list.editToken]);
+    await claimLists(db, GUEST, [list.editToken]);
     await rotate(sha256Hex(list.editToken));
-    expect(await listClaimedLists(db as any, GUEST)).toHaveLength(0);
+    expect(await listClaimedLists(db, GUEST)).toHaveLength(0);
   });
 
   it("re-points a surviving claim at the NEW token hash", async () => {
     const list = await makeList(db);
-    await claimLists(db as any, OWNER, [list.editToken]);
+    await claimLists(db, OWNER, [list.editToken]);
     const next = await rotate(sha256Hex(list.editToken), OWNER);
-    expect(await claimedEditHash(db as any, OWNER, list.shareCode)).toBe(sha256Hex(next!));
+    expect(await claimedEditHash(db, OWNER, list.shareCode)).toBe(sha256Hex(next!));
   });
 });

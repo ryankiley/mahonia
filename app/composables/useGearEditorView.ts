@@ -1,4 +1,3 @@
-import type { Ref } from "vue";
 import type { Unit } from "~~/shared/types";
 import { tripHeadline } from "~~/shared/trailDistance";
 import { formatWeight, computeTotals, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel, bySortOrder } from "~~/shared/weights";

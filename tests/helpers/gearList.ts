@@ -12,6 +12,7 @@
 // that renders a live button — itemVaultButton wants that one and populates
 // `vaultGearAsked` itself, which is exactly why it has to.
 import { ref, type Ref } from "vue";
+import type { LocalListRecord } from "../../shared/localList";
 import { applyOps, type ItemPatch } from "../../shared/ops";
 import type { ListSnapshot } from "../../shared/types";
 
@@ -63,3 +64,45 @@ export function gearListStub(
 ) {
   return { ...baseStub(snapshot), ...over };
 }
+
+// ---- the two boundaries the live controller is stubbed at ------------------------
+// These are what the stubbed composables RETURN. `mockNuxtImport` is a compile-time
+// macro whose factory is hoisted above this file's imports and run the moment anything
+// touches `#imports`, so a factory may not call an import eagerly — each file writes
+// `mockNuxtImport("useVaultAccess", () => () => quietVaultAccess())`, and the helper is
+// reached only when the composable is actually called, long after imports settled.
+// What moved here is the object, which a dozen files had each spelled out by hand.
+
+/** A device with no vault, and the session already answered — so capture stays quiet
+ *  and every vault read settles at once instead of waiting on /api/auth/me. The state
+ *  for a suite the vault is not the subject of. */
+export const quietVaultAccess = () => ({
+  hasVault: ref(false),
+  vaultKnown: ref(true),
+  vaultFetch: <T,>() => Promise.resolve({} as T),
+});
+
+/** A device WITH a vault whose search answers `results` — handed over as the live
+ *  array, so a case can push a hit into it after the mock is built. */
+export const vaultWithHits = (results: unknown[]) => ({
+  hasVault: ref(true),
+  vaultKnown: ref(true),
+  vaultFetch: () => Promise.resolve({ results }),
+});
+
+/**
+ * useLocalListStore's IndexedDB, in memory. With a Map it RECORDS: writes deep-copy
+ * exactly as the real store does (it JSON round-trips to strip Vue's reactive proxy),
+ * so a test can never accidentally assert against a live reference to the controller's
+ * own state. Without one it is a sink — for suites about the optimistic snapshot the
+ * reducer builds, where what reaches the device is nobody's business.
+ */
+export const memoryListStore = (records?: Map<string, LocalListRecord>) => ({
+  get: async (key: string) => records?.get(key),
+  set: async (key: string, record: LocalListRecord) => {
+    records?.set(key, JSON.parse(JSON.stringify(record)));
+  },
+  del: async (key: string) => {
+    records?.delete(key);
+  },
+});

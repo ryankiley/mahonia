@@ -19,8 +19,7 @@ export default defineEventHandler(async (event) => {
     event,
     32_000,
   );
-  const flowId = typeof body?.flowId === "string" ? body.flowId : "";
-  const stored = await takeChallenge(flowId);
+  const stored = await takeChallenge(body?.flowId);
   // a challenge that isn't ours, has expired, or belongs to a different account
   if (!stored || stored.userId !== user.id) return { ok: false as const, reason: "expired" as const };
 

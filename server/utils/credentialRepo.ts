@@ -2,6 +2,7 @@
 // verification, origin/RP binding) belongs to @simplewebauthn/server, and the
 // ceremony plumbing to server/utils/passkeys.ts.
 
+import { toIso } from "./time";
 import { and, desc, eq } from "drizzle-orm";
 import { credentials } from "../db/schema";
 import type { Db } from "./db";
@@ -27,8 +28,8 @@ export async function listPasskeys(db: Db, userId: number): Promise<PasskeySumma
   return rows.map((r) => ({
     id: r.id,
     label: r.label ?? null,
-    createdAt: new Date(r.createdAt).toISOString(),
-    lastUsedAt: r.lastUsedAt ? new Date(r.lastUsedAt).toISOString() : null,
+    createdAt: toIso(r.createdAt),
+    lastUsedAt: r.lastUsedAt ? toIso(r.lastUsedAt) : null,
   }));
 }
 

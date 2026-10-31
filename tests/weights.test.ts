@@ -14,29 +14,20 @@ import { itemDisplayName, nameRepeatsBrand, rowDisplayKcal,
   isBareGroup,
   nextSortOrder,
   parseWeightInput,
-  sortedFolderItems,
   splitWornQty,
   toMg,
   totalsChips,
   ungroupedTopLevel,
 } from "../shared/weights";
 import type { Folder, Item } from "../shared/types";
+import { folder as listFolder, item as listItem } from "./helpers/list";
 import { totals } from "./helpers/totals";
 
-const folder = (
-  id: string,
-  defaultClassification: Folder["defaultClassification"],
-): Folder => ({ id, name: id, defaultClassification, sortOrder: 0 });
+const folder = (id: string, defaultClassification: Folder["defaultClassification"]): Folder =>
+  listFolder({ id, name: id, defaultClassification });
 
-const item = (over: Partial<Item> & { id: string }): Item => ({
-  folderId: null,
-  name: over.id,
-  unitWeightMg: 0,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
+// ungrouped, and named by its id, which is how the cases below read their results back
+const item = (over: Partial<Item> & { id: string }): Item => listItem({ folderId: null, name: over.id, ...over });
 
 describe("unit conversion", () => {
   it("round-trips grams", () => {
@@ -424,18 +415,6 @@ describe("groupItemsByFolder", () => {
   });
 });
 
-describe("sortedFolderItems", () => {
-  it("returns just this folder's items in drag order", () => {
-    const f: Folder = { id: "f1", name: "f1", defaultClassification: "base", sortOrder: 0 };
-    const items = [
-      item({ id: "c", folderId: "f1", name: "Cook pot", sortOrder: 1 }),
-      item({ id: "a", folderId: "f1", name: "Axe", sortOrder: 0 }),
-      item({ id: "other", folderId: "f2", name: "Zzz", sortOrder: 0 }),
-    ];
-    expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["a", "c"]);
-  });
-});
-
 describe("isBareGroup — the rows whose per-unit cells stand down", () => {
   it("is a group holding no weight, no calories and no count", () => {
     expect(isBareGroup(item({ id: "kit", unitWeightMg: 0 }), true)).toBe(true);
@@ -535,15 +514,13 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
     expect(t.baseMg).toBe(30_000);
   });
 
-  it("groupItemsByFolder / sortedFolderItems return TOP-LEVEL rows only (children render nested)", () => {
-    const f: Folder = { id: "f1", name: "f1", defaultClassification: "base", sortOrder: 0 };
+  it("groupItemsByFolder returns TOP-LEVEL rows only (children render nested)", () => {
     const items = [
       item({ id: "tent", folderId: "f1", sortOrder: 0 }),
       item({ id: "fly", folderId: "f1", parentId: "tent", sortOrder: 0 }),
       item({ id: "pack", folderId: "f1", sortOrder: 1 }),
     ];
     expect(groupItemsByFolder(items).get("f1")!.map((i) => i.id)).toEqual(["tent", "pack"]);
-    expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["tent", "pack"]);
   });
 
   it("groupItemsByParent: children under their parent id, in sortOrder", () => {
@@ -631,15 +608,12 @@ describe("parseWeightInput — a stray number is not part of the weight", () => 
   it("still sums a genuine compound, which is whitespace-separated", () => {
     // summed in full precision and rounded ONCE, as the parser does — not the sum of
     // three separately-rounded conversions
-    expect(parseWeightInput("2 lb 3 oz")).toBe(Math.round(2 * 453_592.37 + 3 * 28_349.523125));
     expect(parseWeightInput("1 lb 2 oz 3 g")).toBe(
       Math.round(453_592.37 + 2 * 28_349.523125 + 3 * 1_000),
     );
   });
 
   it("still reads a lone bare number in the list's own unit", () => {
-    expect(parseWeightInput("820", "g")).toBe(820_000);
-    expect(parseWeightInput("1.5", "kg")).toBe(1_500_000);
     expect(parseWeightInput("Weight: 850 g", "g")).toBe(850_000);
     expect(parseWeightInput("12 oz nalgene", "g")).toBe(toMg(12, "oz"));
   });

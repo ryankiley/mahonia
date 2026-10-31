@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Bug02Icon, ChevronDownIcon, Copy01Icon, CopyPlusIcon, EllipsisIcon, FileExportIcon, Flag02Icon } from "@hugeicons/core-free-icons";
+import { Bug02Icon, Copy01Icon, CopyPlusIcon, FileExportIcon, Flag02Icon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 
 // The read-only share views' ⋯ actions menu — the quiet counterpart to the editor's
 // kebab. Everything here is a READ of the list the viewer is looking at: take an
 // editable copy, grab the link, or export it. (No edit-link / rotate / import — those
-// are the owner's, and the viewer has no edit token.) Uses the shared .menu popover
-// atom (controls.scss) so it looks + opens exactly like the editor's.
+// are the owner's, and the viewer has no edit token.) The popover, the plate and the
+// dismiss rules are KebabMenu's, so it looks + opens exactly like My Gear's and the
+// editor's; this file is only the rows.
 //
 // And it READS in the same order as the editor's, which is the half that was missing:
 // plain rows, then Send feedback…, then Export last of the body, then a hairline and
@@ -25,18 +26,10 @@ const menuOpen = ref(false);
 // preference, and restoring it would put a different item under the cursor.
 const exportOpen = ref(false);
 watch(menuOpen, (open) => open || (exportOpen.value = false));
-// the travelling wash shared with the other menus (see useMenuPlate)
-const { plateRef, listRef, on: plateOn } = useMenuPlate();
-const menuRef = useTemplateRef<HTMLElement>("menuRef");
 
 // tiny toast for the copy actions (a link/markdown copy is otherwise invisible); the
 // downloads also confirm here, alongside the browser's own download chrome
 const { toast, flash } = useToast();
-
-// close on the action itself, an outside tap, a scroll gesture, or Escape (mirrors the
-// editor kebab). The scroll one is mobile's: this hangs off a sticky topbar, so nothing
-// about scrolling would otherwise take it down — see onScrollOutside.
-useMenuDismiss(menuOpen, menuRef);
 
 // the four export actions, their chunk warm-up and the rows that draw them live in
 // useListExports, shared with the editor's kebab so neither the copy, the error
@@ -48,9 +41,6 @@ useMenuDismiss(menuOpen, menuRef);
 // edit token, so unlike the editor there's nothing here to leak.
 const pageUrl = () => (typeof location !== "undefined" ? location.href : "");
 const { warmExporters, exportItems } = useListExports(() => props.snapshot, flash, pageUrl);
-function toggleMenu() {
-  menuOpen.value = !menuOpen.value;
-}
 
 const { copying, copyList } = useCopyList();
 const { showLinkFallback } = useDialogs();
@@ -60,18 +50,9 @@ const { showLinkFallback } = useDialogs();
 // list" at the foot: that one is about THIS list being spam, this one is about the app.
 // Its SEAT is the editor's — last of the plain rows, directly above Export — so the two
 // ⋯ menus read in the same order and a hand that knows one knows the other.
-// Lazy + everOpened, so a reader who never sends anything pays nothing for it.
-const feedbackOpen = ref(false);
-const feedbackEverOpened = ref(false);
-// what the box opens with: a report seeds both; plain feedback clears them
-const feedbackPreset = ref<string | undefined>();
-const feedbackTitle = ref<string | undefined>();
-function openFeedback() {
-  feedbackTitle.value = undefined;
-  feedbackPreset.value = undefined;
-  feedbackEverOpened.value = true;
-  feedbackOpen.value = true;
-}
+// The box itself is the app-wide mount useFeedback drives (Lazy, so a reader who never
+// sends anything pays nothing for it).
+const feedback = useFeedback();
 
 // "Report list" is feedback about one list: it opens the feedback box with the list's
 // address already in the message, and reaches the maintainer the way feedback does.
@@ -79,13 +60,13 @@ function openFeedback() {
 // nobody ever saw it; and a flag any link-holder could raise on a private list would
 // have been a way to take down someone's list. /api/lists/report stays for that design.
 function reportThis() {
-  feedbackTitle.value = "Report this list";
-  // NOT the share link: feedback is filed as a public issue, and a private list's
-  // unguessable link would be published with it. The title and the code's first
-  // characters are enough to find the list, and useless to anyone else.
-  feedbackPreset.value = `Reporting the shared list "${props.snapshot.title}" (share code starting ${props.snapshot.shareCode.slice(0, 4)}). What's wrong with it: `;
-  feedbackEverOpened.value = true;
-  feedbackOpen.value = true;
+  feedback.open({
+    title: "Report this list",
+    // NOT the share link: feedback is filed as a public issue, and a private list's
+    // unguessable link would be published with it. The title and the code's first
+    // characters are enough to find the list, and useless to anyone else.
+    preset: `Reporting the shared list "${props.snapshot.title}" (share code starting ${props.snapshot.shareCode.slice(0, 4)}). What's wrong with it: `,
+  });
 }
 
 async function copyThis() {
@@ -119,81 +100,60 @@ const MENU_ACTIONS = [
   // Copy01 pair of sheets ListHead and SharePanel put on the buttons that copy this
   // very link.
   { label: "Copy link", icon: Copy01Icon, run: copyLink },
-  { label: "Send feedback…", icon: Bug02Icon, run: openFeedback },
+  { label: "Send feedback…", icon: Bug02Icon, run: () => feedback.open() },
 ];
 </script>
 
 <template>
-  <div ref="menuRef" class="menu">
-    <button
-      type="button"
-      class="btn btn--icon btn--ghost menu__btn"
-      aria-label="More actions"
-      aria-haspopup="true"
-      :aria-expanded="menuOpen"
-      @click="toggleMenu"
-    >
-      <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
-    </button>
-    <Transition name="menu">
-      <ul v-if="menuOpen" ref="listRef" class="popover menu__list" role="menu" aria-label="More actions" v-on="plateOn">
-        <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->
-        <li role="none" aria-hidden="true">
-          <span ref="plateRef" class="menu__plate" />
-        </li>
-        <!-- Close BEFORE the action runs, as the editor's rows do. `busy` is the one
-             row-specific state: Duplicate is a navigation, and a second press mid-copy
-             would mint a second list. -->
-        <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
-          <button type="button" data-row role="menuitem" class="menu__item" :disabled="a.busy?.value" @click="menuOpen = false; a.run()">
-            <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
-            {{ a.label }}
-          </button>
-        </li>
-        <!-- Export folds into a disclosure, as it already does in the editor's ⋯ —
-             four formats you'd otherwise scan past to reach the thing you came for,
-             and only one of them is ever the one you want. The SAME component draws
-             it in both menus, and the same SEAT: last of the body, so opening it
-             pushes nothing but the hairline down. -->
-        <MenuSection
-          v-model:open="exportOpen"
-          label="Export"
-          :icon="FileExportIcon"
-          :items="exportItems"
-          @opened="warmExporters"
-          @pick="menuOpen = false"
-        />
-        <!-- moderation, not a read of the list — set off from the rows above by the
-             shared .menu__foot hairline (controls.scss), on every shared list (the Terms
-             say a list can be reported, and now one can). The reader's counterpart to the editor's
-             foot: both sit under the rule, both are the row that takes a list off
-             something, and both now draw that rule from one place — this one had its own
-             copy at --space-2, a step further off than the other two for no reason
-             anyone chose. -->
-        <li role="none" class="menu__foot">
-          <!-- A FLAG, the one mark this menu doesn't share with the editor's, because
-               the editor has no row to share it with — an owner doesn't report their own
-               list. It is the convention every feed uses for exactly this, which matters
-               more here than anywhere else in the menu: reporting is the one row a reader
-               should recognise without reading, and the one they should never hit by
-               mistake reaching for the row above. -->
-          <button type="button" data-row role="menuitem" class="menu__item" @click="menuOpen = false; reportThis()">
-            <HugeiconsIcon :icon="Flag02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-            Report list
-          </button>
-        </li>
-      </ul>
+  <KebabMenu v-model:open="menuOpen">
+    <template #default="{ close }">
+      <!-- Close BEFORE the action runs, as the editor's rows do. `busy` is the one
+           row-specific state: Duplicate is a navigation, and a second press mid-copy
+           would mint a second list. -->
+      <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
+        <button type="button" data-row role="menuitem" class="menu__item" :disabled="a.busy?.value" @click="close(); a.run()">
+          <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          {{ a.label }}
+        </button>
+      </li>
+      <!-- Export folds into a disclosure, as it already does in the editor's ⋯ —
+           four formats you'd otherwise scan past to reach the thing you came for,
+           and only one of them is ever the one you want. The SAME component draws
+           it in both menus, and the same SEAT: last of the body, so opening it
+           pushes nothing but the hairline down. -->
+      <MenuSection
+        v-model:open="exportOpen"
+        label="Export"
+        :icon="FileExportIcon"
+        :items="exportItems"
+        @opened="warmExporters"
+        @pick="close"
+      />
+      <!-- moderation, not a read of the list — set off from the rows above by the
+           shared .menu__foot hairline (controls.scss), on every shared list (the Terms
+           say a list can be reported, and now one can). The reader's counterpart to the
+           editor's foot: both sit under the rule, both are the row that takes a list off
+           something, and both draw that rule from one place. -->
+      <li role="none" class="menu__foot">
+        <!-- A FLAG, the one mark this menu doesn't share with the editor's, because
+             the editor has no row to share it with — an owner doesn't report their own
+             list. It is the convention every feed uses for exactly this, which matters
+             more here than anywhere else in the menu: reporting is the one row a reader
+             should recognise without reading, and the one they should never hit by
+             mistake reaching for the row above. -->
+        <button type="button" data-row role="menuitem" class="menu__item" @click="close(); reportThis()">
+          <HugeiconsIcon :icon="Flag02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          Report list
+        </button>
+      </li>
+    </template>
+  </KebabMenu>
+
+  <!-- to body so the fixed toast escapes the topbar's stacking/overflow context;
+       the pill + its motion come from the shared .toast atom (controls.scss) -->
+  <Teleport to="body">
+    <Transition name="toast">
+      <div v-if="toast" class="toast t-sm" role="status">{{ toast }}</div>
     </Transition>
-
-    <LazyFeedbackModal v-if="feedbackEverOpened" :open="feedbackOpen" :preset="feedbackPreset" :title="feedbackTitle" @close="feedbackOpen = false" />
-
-    <!-- to body so the fixed toast escapes the topbar's stacking/overflow context;
-         the pill + its motion come from the shared .toast atom (controls.scss) -->
-    <Teleport to="body">
-      <Transition name="toast">
-        <div v-if="toast" class="toast t-sm" role="status">{{ toast }}</div>
-      </Transition>
-    </Teleport>
-  </div>
+  </Teleport>
 </template>
-

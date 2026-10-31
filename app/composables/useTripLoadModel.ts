@@ -1,5 +1,5 @@
 import type { ListSnapshot, Totals, TripDay } from "~~/shared/types";
-import { burnDownMg } from "~~/shared/tripPlan";
+import { burnDownMg, descentIsDistinct, routeLengthM } from "~~/shared/tripPlan";
 import { isWaterName } from "~~/shared/water";
 import { effectiveClassification, lineMg } from "~~/shared/weights";
 import {
@@ -28,12 +28,9 @@ export function useTripLoadModel({ snapshot, totals, days }: TripLoadModelInput)
   const distanceUnit = computed(() => resolveDistanceUnit(snapshot.value.trailDistanceUnit));
   const ascentUnit = computed(() => heightUnitFor(distanceUnit.value));
   const totalDistanceM = computed(() => days.value.reduce((sum, day) => sum + (day?.distanceM ?? 0), 0));
-  const headlineM = computed(() => Math.max(snapshot.value.trailDistanceM ?? 0, totalDistanceM.value));
-  const routeDescentDiffers = computed(
-    () =>
-      snapshot.value.trailDescentM != null &&
-      snapshot.value.trailAscentM != null &&
-      snapshot.value.trailDescentM !== snapshot.value.trailAscentM,
+  const headlineM = computed(() => routeLengthM(snapshot.value.trailDistanceM, [totalDistanceM.value]));
+  const routeDescentDiffers = computed(() =>
+    descentIsDistinct(snapshot.value.trailAscentM, snapshot.value.trailDescentM),
   );
   const totalAscentM = computed(() => days.value.reduce((sum, day) => sum + (day?.ascentM ?? 0), 0));
 

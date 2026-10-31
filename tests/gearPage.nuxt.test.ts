@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The /gear page against the vault API's real route table.
 //
 // The regression this pins: the page rename (#224, /vault → /gear) also rewrote the
@@ -9,9 +7,9 @@
 // stubs vaultFetch with fixtures can never see that class of bug, so here the stub
 // passes through to $fetch and the endpoints are registered at the real paths:
 // registerEndpoint 404s anything unregistered, which is exactly what production did.
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
-import { flushPromises, mount } from "@vue/test-utils";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { readBody } from "h3";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
@@ -62,28 +60,22 @@ registerEndpoint("/api/vault/remove", {
   },
 });
 
-let wrapper: ReturnType<typeof mount> | undefined;
+enableAutoUnmount(afterEach);
 
-/** A registered endpoint's round trip crosses more than one task, so a single
- *  flushPromises can return with the response still in flight — loop a few turns. */
-async function settle(rounds = 4) {
-  for (let i = 0; i < rounds; i++) {
-    await flushPromises();
-    await nextTick();
-  }
-}
+/** How many rows the page shows. A registered endpoint's round trip crosses more than
+ *  one task, so the page is waited on by what it RENDERS rather than by flushing a
+ *  guessed number of turns. */
+const rows = (w: ReturnType<typeof mount>) => w.findAll(".vault__row");
 
-/** Mount the page and let the load round-trip settle (ClientOnly needs the tick). */
+/** Mount the page and wait for the load round-trip to put every served row on it. */
 async function openPage() {
-  wrapper = mount(GearPage, { attachTo: document.body });
-  await settle();
-  return wrapper;
+  const w = mount(GearPage, { attachTo: document.body });
+  await vi.waitFor(() => expect(rows(w)).toHaveLength(listRows.length));
+  return w;
 }
 
 describe("the /gear page's vault calls", () => {
   afterEach(() => {
-    wrapper?.unmount();
-    wrapper = undefined;
     document.body.innerHTML = "";
     storage.clear();
     removedIds = [];
@@ -95,8 +87,7 @@ describe("the /gear page's vault calls", () => {
     const w = await openPage();
     // the error line rendering instead of rows is exactly the shipped bug
     expect(w.find(".vault__error").exists()).toBe(false);
-    const rows = w.findAll(".vault__row");
-    expect(rows).toHaveLength(2);
+    expect(rows(w)).toHaveLength(2);
     expect(w.text()).toContain("Duplex");
     expect(w.text()).toContain("Kakwa 40");
   });
@@ -106,9 +97,8 @@ describe("the /gear page's vault calls", () => {
     listFolders = [];
     const w = await openPage();
     await w.get('button[aria-label="Remove Brand Duplex from My Gear"]').trigger("click");
-    await settle();
+    await vi.waitFor(() => expect(rows(w)).toHaveLength(0));
     expect(removedIds).toEqual([7]);
     expect(w.find(".vault__error").exists()).toBe(false);
-    expect(w.findAll(".vault__row")).toHaveLength(0);
   });
 });

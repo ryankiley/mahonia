@@ -4,7 +4,7 @@
 // derives the image's alt text from it, and the tests assert on it without
 // rasterizing anything. What the card SAYS is decided once, here.
 
-import { tidyText } from "./tidyText";
+import { pluralNoun, tidyText } from "./tidyText";
 import type { ListData, ListSnapshot, Totals } from "./types";
 import { autoUnit, computeTotals, formatWeight, formatWeightAuto, totalsChips, unitSystem } from "./weights";
 
@@ -94,7 +94,7 @@ export function ogCardModel(list: OgCardSource, totals: Totals = computeTotals(l
   const unit = autoUnit(totals.totalMg, system);
   const big = totals.hasWeights
     ? { value: formatWeight(totals.totalMg, unit, { withUnit: false }), unit }
-    : { value: String(totals.itemCount), unit: totals.itemCount === 1 ? "item" : "items" };
+    : { value: String(totals.itemCount), unit: pluralNoun(totals.itemCount, "item") };
   return {
     title: ogCardTitle(list.title),
     big,

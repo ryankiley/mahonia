@@ -3,6 +3,7 @@
 // ordering is identical whichever engine is underneath, exactly as the catalog
 // does it.
 
+import { sweepWindow, toIso } from "./time";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { alias, type PgColumn } from "drizzle-orm/pg-core";
 import { vaultFolders, vaultItems, vaultKitParts, vaults } from "../db/schema";
@@ -27,7 +28,7 @@ import {
   type VaultKitPartRef,
   type VaultPinField,
 } from "../../shared/vault";
-import type { Classification } from "../../shared/types";
+import { CLASSIFICATIONS, type Classification } from "../../shared/types";
 import { clampUnitWeightMg, isSerialId, KCAL_MAX } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { tidyText } from "../../shared/tidyText";
@@ -50,7 +51,6 @@ export const VAULT_ITEMS_MAX = 2000;
  *  the cap (items land unfiled); a deliberate add on /vault refuses quietly. */
 export const VAULT_FOLDERS_MAX = 200;
 
-const CLASSIFICATIONS: Classification[] = ["base", "worn", "consumable"];
 
 type Row = typeof vaultItems.$inferSelect;
 
@@ -110,8 +110,8 @@ function toEntry(row: Row): VaultEntry {
     folderId: row.folderId ?? undefined,
     pinned: pinsOf(row),
     timesSeen: row.timesSeen,
-    lastUsedAt: new Date(row.lastUsedAt).toISOString(),
-    createdAt: new Date(row.createdAt).toISOString(),
+    lastUsedAt: toIso(row.lastUsedAt),
+    createdAt: toIso(row.createdAt),
     // A kit's stored weight is its OWN; withKits replaces weightMg with the derived
     // total once the parts are read. Until then the two agree, which is also the
     // honest figure for a kit whose parts were never read.
@@ -803,23 +803,18 @@ const VAULT_PURGE_GRACE_DAYS = Math.max(
 );
 const VAULT_REAP_BATCH_MAX = 10_000;
 
-function batchLimit(n: number | undefined): number {
-  return Math.max(1, Math.min(VAULT_REAP_BATCH_MAX, Math.floor(n ?? 5_000)));
-}
-
 /** Soft-delete vaults not seen in `staleDays`. Batched, so one run can never issue
  *  an unbounded write — a backlog just drains over successive nights. */
 export async function reapAbandonedVaults(
   db: Db,
   opts?: { staleDays?: number; limit?: number },
 ): Promise<{ vaultsReaped: number }> {
-  const staleDays = Math.max(1, Math.floor(opts?.staleDays ?? VAULT_REAP_STALE_DAYS));
-  const cutoff = new Date(Date.now() - staleDays * 86_400_000);
+  const { cutoff, limit } = sweepWindow(opts?.staleDays, VAULT_REAP_STALE_DAYS, opts?.limit, VAULT_REAP_BATCH_MAX);
   const candidates = await db
     .select({ id: vaults.id })
     .from(vaults)
     .where(and(isNull(vaults.deletedAt), lt(vaults.lastSeenAt, cutoff)))
-    .limit(batchLimit(opts?.limit));
+    .limit(limit);
   if (!candidates.length) return { vaultsReaped: 0 };
 
   const done = await db
@@ -836,13 +831,12 @@ export async function purgeDeletedVaults(
   db: Db,
   opts?: { graceDays?: number; limit?: number },
 ): Promise<{ vaultsPurged: number }> {
-  const graceDays = Math.max(1, Math.floor(opts?.graceDays ?? VAULT_PURGE_GRACE_DAYS));
-  const cutoff = new Date(Date.now() - graceDays * 86_400_000);
+  const { cutoff, limit } = sweepWindow(opts?.graceDays, VAULT_PURGE_GRACE_DAYS, opts?.limit, VAULT_REAP_BATCH_MAX);
   const doomed = await db
     .select({ id: vaults.id })
     .from(vaults)
     .where(and(isNotNull(vaults.deletedAt), lt(vaults.deletedAt, cutoff)))
-    .limit(batchLimit(opts?.limit));
+    .limit(limit);
   if (!doomed.length) return { vaultsPurged: 0 };
   const ids = doomed.map((r) => r.id);
 
@@ -1554,11 +1548,7 @@ export async function importVaultItems(
 
   // The ceiling, counted once. Rows past it are skipped rather than refused: an
   // import that lands most of a backup and says so beats one that lands none.
-  const [{ n } = { n: 0 }] = await db
-    .select({ n: sql<number>`count(*)` })
-    .from(vaultItems)
-    .where(eq(vaultItems.vaultId, vaultId));
-  const room = Math.max(0, VAULT_ITEMS_MAX - Number(n));
+  const room = Math.max(0, VAULT_ITEMS_MAX - (await vaultItemCount(db, vaultId)));
   const all = [...byKey.values()];
   const clean = all.slice(0, room);
   if (!clean.length) return { added: 0, skipped: all.length };
@@ -1568,29 +1558,13 @@ export async function importVaultItems(
   const done = await db
     .insert(vaultItems)
     .values(
+      // the content columns and the new-row stamps are rowValues' (times_seen stays
+      // at 1: it counts the lists that reached for a piece of gear, and a file is not
+      // a list — a restored vault's ranking rebuilds itself the next time you pack);
+      // the pins ride on top, which is what sets an import apart from a capture
       clean.map(({ cap, pins, kit }) => ({
-        vaultId,
-        normKey: cap.normKey,
-        brand: cap.brand ?? null,
-        name: cap.name,
-        variant: cap.variant ?? null,
-        commonName: cap.commonName ?? null,
-        weightMg: cap.weightMg,
-        classification: cap.classification ?? null,
-        kcal: cap.kcal ?? null,
-        catalogItemId: cap.catalogItemId ?? null,
-        productUrl: cap.productUrl ?? null,
-        description: cap.description ?? null,
-        priceCents: cap.priceCents ?? null,
-        currency: cap.currency ?? null,
-        folderId: (cap.folder && folderId.get(cap.folder)) || null,
+        ...rowValues(cap, vaultId, now, (cap.folder && folderId.get(cap.folder)) || null),
         kind: kit ? "kit" : "piece",
-        // NOT bumped past 1: times_seen counts the lists that reached for a piece
-        // of gear, and a file is not a list. A restored vault's ranking rebuilds
-        // itself the next time you pack.
-        timesSeen: 1,
-        lastUsedAt: now,
-        updatedAt: now,
         ...pins,
         // a kit's weight is nobody's to pin (see setKitParts)
         ...(kit ? { weightPinned: false } : {}),

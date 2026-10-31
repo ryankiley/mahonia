@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The ONE suite here that needs a Nuxt app booted. Everything else in tests/ is
 // plain TS on the node environment and should stay that way — see vitest.config.ts.
 //
@@ -11,13 +9,17 @@
 // one that breaks. So: boot Nuxt, stub the two boundaries (the fetch and the
 // IndexedDB store), and drive the real singleton through the real sequence.
 //
-// Real timers, but not the real 4 s capture debounce: six cases here wait it out,
-// and at 4 s that was 34 of this file's 41 s — and the reason it was the first file
-// to time out under load. useVault exposes the wait for exactly this, and the cases
-// that must land INSIDE the debounce (the 200 ms pagehide sleeps below) need it to
-// stay a few times longer than they are, which is what sets the number.
+// Real timers, but not the real waits: the 4 s capture debounce, the 450 ms flush
+// debounce and the 1.5 s retry backoff are each shortened through the seam the
+// composable exports for it. Six cases wait out the capture debounce, and at 4 s that
+// was 34 of this file's 41 s — the reason it was the first file to time out under
+// load. The cases that must act INSIDE that debounce (the pagehide cases below) wait
+// for the rows to be queued rather than sleeping a guessed interval, which is what
+// lets it be as short as it is.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
+import { gear, snapshotFor as baseSnapshot } from "./helpers/list";
+import { memoryListStore } from "./helpers/gearList";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
 import { localKey, type LocalListRecord } from "~~/shared/localList";
@@ -25,7 +27,9 @@ import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
 import { addVaultFolder } from "~/composables/useVaultUnfold";
+import { _setFlushBackoff, _setFlushDebounce } from "~/composables/useGearList";
 import {
+  _pendingCapture,
   _setCaptureDebounce,
   resetVaultCapture,
   setVaultDecisionFor,
@@ -61,15 +65,7 @@ mockNuxtImport("useVaultAccess", () => () => ({
   },
 }));
 
-mockNuxtImport("useLocalListStore", () => () => ({
-  get: async (key: string) => records.get(key),
-  set: async (key: string, record: LocalListRecord) => {
-    records.set(key, JSON.parse(JSON.stringify(record)));
-  },
-  del: async (key: string) => {
-    records.delete(key);
-  },
-}));
+mockNuxtImport("useLocalListStore", () => () => memoryListStore(records));
 
 // ---- localStorage -------------------------------------------------------------
 // Node's own `localStorage` global is inert without --localstorage-file (every
@@ -104,25 +100,25 @@ globalThis.Blob = TextCapturingBlob as unknown as typeof Blob;
 
 const storage = stubLocalStorage();
 
-// see the header: the real wait is 4 s, and the pagehide cases sleep 200 ms to get
-// inside it. Module scope, because the controller is a module singleton and vitest
-// gives this file its own process.
-const CAPTURE_DEBOUNCE_MS = 1_000;
+// see the header: the real wait is 4 s, and the pagehide cases wait for the rows to
+// be queued and then act inside it. Module scope, because the controller is a module
+// singleton and vitest gives this file its own process. The two negative margins
+// below (`CAPTURE_DEBOUNCE_MS + 500`) stay generous on purpose: under load a timer
+// fires late, never early.
+const CAPTURE_DEBOUNCE_MS = 300;
 _setCaptureDebounce(CAPTURE_DEBOUNCE_MS);
+// the flush behind every dispatch, and the first retry after a failed one — every
+// case here waits out the first, and one waits out the second. The backoff stays
+// above persistLocal's 200 ms write debounce: the re-queue case asserts that the
+// failed op is on the device BEFORE the retry takes it back off the queue, which is
+// the order the app has at 1.5 s and loses if the retry outruns the write.
+_setFlushDebounce(20);
+_setFlushBackoff(300);
 
 // ---- the network --------------------------------------------------------------
 const TOKEN = "test-edit-token";
-const snapshotFor = (title: string, version = 1): ListSnapshot => ({
-  shareCode: "SNAPCODE0001",
-  slug: "test-list-aaa111",
-  title,
-  description: "",
-  displayUnit: "g",
-  folders: [],
-  items: [],
-  version,
-  isPublic: false,
-});
+const snapshotFor = (title: string, version = 1): ListSnapshot =>
+  baseSnapshot({ shareCode: "SNAPCODE0001", slug: "test-list-aaa111", title, version });
 
 // Routes go through registerEndpoint, NOT a $fetch global stub: under the Nuxt
 // environment $fetch is already bound to test-utils' own mock, which 404s anything
@@ -190,20 +186,38 @@ registerEndpoint("/api/edit/mutate", {
   },
 });
 
-// flush() is debounced 450ms behind a dispatch and isn't exported, so the test
-// waits for the request to actually leave rather than reaching inside.
+// flush() is debounced behind a dispatch (20 ms here, see the seam above) and isn't
+// exported, so the test waits for the request to actually leave rather than reaching
+// inside.
 const awaitMutateInFlight = () =>
   vi.waitFor(() => expect(mutateCalls).toBe(1), { timeout: 5_000, interval: 25 });
 
+// Every dial above, back to its rest position before each case — the superset of what
+// the five suites below each used to reset for themselves. Each suite then sets only
+// the list it serves. Clearing a dial a suite never touches costs nothing and means a
+// case cannot inherit another suite's state through a dial nobody thought to list.
+beforeEach(() => {
+  records.clear();
+  storage.clear(); // the decision store
+  resetVaultCapture(); // the capture memo is module-scoped
+  mutateCalls = 0;
+  captureCalls = 0;
+  captureBodies = [];
+  beacons.length = 0;
+  beaconWorks = true;
+  heldGear = []; // the vault's answer is not module-scoped — it lives on the open list
+  amongCalls = 0;
+  amongFails = false;
+  hasVault.value = true;
+});
+afterEach(() => {
+  // the controller is a module singleton: hand it back clean, and stop its poll
+  useGearList().dispose();
+});
+
 describe("useGearList — a flush that fails after the editor moved on", () => {
   beforeEach(() => {
-    records.clear();
-    mutateCalls = 0;
     listResponse = snapshotFor("Original");
-  });
-  afterEach(() => {
-    // the controller is a module singleton: hand it back clean, and stop its poll
-    useGearList().dispose();
   });
 
   // The regression this suite exists for. Sequence:
@@ -277,7 +291,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
     // The op went back into the in-memory queue, not down the recovery path: flush()
     // only fires when `pending` is non-empty, so a second attempt is the proof.
     // (Deliberately NOT asserting status === "error" here — the failure sets it, then
-    // the retry sets "saving" 450ms later, so that assertion races the very retry
+    // the retry sets "saving" a backoff later, so that assertion races the very retry
     // this behaviour is for.)
     await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
   });
@@ -295,17 +309,6 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
 // The rule being locked in: an edit link is either your own list on a second
 // device or one a friend sent you. So the editor asks ONCE per list, remembers the
 // answer, and until it has one, nothing reaches the vault.
-const gear = (over: Partial<Item> = {}): Item => ({
-  id: "i1",
-  folderId: "f1",
-  name: "Duplex",
-  brand: "Zpacks",
-  unitWeightMg: 539_000,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
 const folder = (over: Partial<Folder> = {}): Folder => ({
   id: "f1",
   name: "Shelter",
@@ -324,20 +327,7 @@ const withGear = (items: Item[], folders: Folder[] = [folder()]): ListSnapshot =
 
 describe("useGearList — whose gear is this?", () => {
   beforeEach(() => {
-    records.clear();
-    mutateCalls = 0;
-    captureCalls = 0;
-    captureBodies = [];
-    storage.clear(); // the decision store
-    resetVaultCapture(); // the capture memo is module-scoped
-    heldGear = []; // ...the vault's answer is not — it lives on the open list
-    amongCalls = 0;
-    amongFails = false;
-    hasVault.value = true;
     listResponse = withGear([gear()]);
-  });
-  afterEach(() => {
-    useGearList().dispose();
   });
 
   it("asks before a single row of someone else's gear reaches the vault", async () => {
@@ -776,20 +766,15 @@ describe("useGearList — whose gear is this?", () => {
 // list, close the tab) lands INSIDE the debounce with the rows still queued. pagehide is the only hook that
 // reliably fires when mobile Safari backgrounds a tab, and a beacon is the only
 // send that survives the document going away.
+//
+// "Inside the debounce" is asserted, not slept into: sync()'s dynamic import has to
+// resolve before the rows are queued, so each case waits for `_pendingCapture()` and
+// then acts, however long the import took on this machine.
+const rowsQueued = () => vi.waitFor(() => expect(_pendingCapture()).toBe(true), { interval: 5 });
+
 describe("useGearList — getting a pending capture out as the page goes away", () => {
   beforeEach(() => {
-    records.clear();
-    mutateCalls = 0;
-    captureCalls = 0;
-    captureBodies = [];
-    beacons.length = 0;
-    beaconWorks = true;
-    storage.clear();
-    resetVaultCapture();
     listResponse = withGear([gear()]);
-  });
-  afterEach(() => {
-    useGearList().dispose();
   });
 
   it("beacons the queued rows on pagehide, well inside the debounce", async () => {
@@ -797,8 +782,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
     await c.load({ token: TOKEN });
     setVaultDecisionFor(TOKEN, "yes"); // a list already known to be mine
     c.updateItem("i1", { qty: 2 });
-    // let sync()'s dynamic import resolve and queue the rows, well inside the debounce
-    await new Promise((r) => setTimeout(r, 200));
+    await rowsQueued();
 
     window.dispatchEvent(new Event("pagehide"));
 
@@ -817,7 +801,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
     await c.load({ token: TOKEN });
     setVaultDecisionFor(TOKEN, "yes");
     c.updateItem("i1", { qty: 2 });
-    await new Promise((r) => setTimeout(r, 200));
+    await rowsQueued();
     window.dispatchEvent(new Event("pagehide"));
 
     await new Promise((r) => setTimeout(r, CAPTURE_DEBOUNCE_MS + 500)); // past the debounce
@@ -832,7 +816,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
     await c.load({ token: TOKEN });
     setVaultDecisionFor(TOKEN, "yes");
     c.updateItem("i1", { qty: 2 });
-    await new Promise((r) => setTimeout(r, 200));
+    await rowsQueued();
     window.dispatchEvent(new Event("pagehide"));
 
     expect(beacons).toHaveLength(1); // it was attempted
@@ -874,14 +858,8 @@ describe("useGearList — addVaultFolder", () => {
   });
 
   beforeEach(() => {
-    records.clear();
-    storage.clear();
-    resetVaultCapture();
     // a list that already HOLDS something, so the "already added" rule has a case
     listResponse = withGear([gear()]);
-  });
-  afterEach(() => {
-    useGearList().dispose();
   });
 
   it("creates one folder and files every entry into it", async () => {
@@ -964,14 +942,8 @@ describe("useGearList — keeping 'Your lists' in step with a rename", () => {
   const rowFor = (token: string) =>
     useMyLists().entries.value.find((e) => e.editToken === token);
 
-  beforeEach(async () => {
-    records.clear();
-    mutateCalls = 0;
-    storage.clear();
+  beforeEach(() => {
     listResponse = snapshotFor("Timberline Trail (copy)"); // as a duplicate arrives
-  });
-  afterEach(() => {
-    useGearList().dispose();
   });
 
   it("renames the row without waiting for the server", async () => {

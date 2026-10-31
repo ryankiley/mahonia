@@ -1,9 +1,8 @@
-import { PGlite } from "@electric-sql/pglite";
-import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { MAX_CATALOG_ID } from "../shared/ops";
 import { MG_PER_UNIT } from "../shared/weights";
+import { catalogRow, seedCatalogRow, weightOf } from "./helpers/catalog";
 import { createTestDb } from "./helpers/db";
 import { parseCsv } from "../shared/exporters/csv";
 import {
@@ -249,60 +248,37 @@ describe("isHttpUrl — only http(s) citations are linkable/storable", () => {
 describe("proposeCorrection — trust-tiered wiki edits", () => {
   it("applies instantly to an UNVERIFIED (community) value", async () => {
     const db = await freshCatalogDb();
-    const [row] = await db
-      .insert(schema.catalogItems)
-      .values({ name: "Generic stake", weightMg: 12_000, weightSource: "community", verified: false })
-      .returning();
+    const row = await seedCatalogRow(db);
     const out = await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 });
     expect(out.status).toBe("applied");
-    const [after] = await db
-      .select()
-      .from(schema.catalogItems)
-      .where(eq(schema.catalogItems.id, row.id));
-    expect(Number(after.weightMg)).toBe(9_000);
+    expect(await weightOf(db, row.id)).toBe(9_000);
   });
 
   it("only PROPOSES an uncited change to a VERIFIED value (weight untouched)", async () => {
     const db = await freshCatalogDb();
-    const [row] = await db
-      .insert(schema.catalogItems)
-      .values({ name: "Zpacks Duplex", weightMg: 504_622, weightSource: "manufacturer", verified: true })
-      .returning();
+    const row = await seedCatalogRow(db, { name: "Zpacks Duplex", weightMg: 504_622, weightSource: "manufacturer", verified: true });
     const out = await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 600_000 });
     expect(out.status).toBe("proposed");
-    const [after] = await db
-      .select()
-      .from(schema.catalogItems)
-      .where(eq(schema.catalogItems.id, row.id));
-    expect(Number(after.weightMg)).toBe(504_622);
+    expect(await weightOf(db, row.id)).toBe(504_622);
   });
 
   it("APPLIES a cited change to a verified value when the citation is trusted", async () => {
     const db = await freshCatalogDb();
-    const [row] = await db
-      .insert(schema.catalogItems)
-      .values({ name: "Zpacks Duplex", weightMg: 504_622, weightSource: "manufacturer", verified: true })
-      .returning();
+    const row = await seedCatalogRow(db, { name: "Zpacks Duplex", weightMg: 504_622, weightSource: "manufacturer", verified: true });
     const out = await proposeCorrection(db, {
       catalogItemId: row.id,
       newWeightMg: 540_000,
       sourceUrl: "https://zpacks.com/products/duplex-tent",
     });
     expect(out.status).toBe("applied");
-    const [after] = await db
-      .select()
-      .from(schema.catalogItems)
-      .where(eq(schema.catalogItems.id, row.id));
+    const after = await catalogRow(db, row.id);
     expect(Number(after.weightMg)).toBe(540_000);
     expect(after.sourceUrl).toContain("zpacks.com");
   });
 
   it("strips a non-http(s) sourceUrl so it can't be stored or rendered as a link", async () => {
     const db = await freshCatalogDb();
-    const [row] = await db
-      .insert(schema.catalogItems)
-      .values({ name: "Generic stake", weightMg: 12_000, weightSource: "community", verified: false })
-      .returning();
+    const row = await seedCatalogRow(db);
     const out = await proposeCorrection(db, {
       catalogItemId: row.id,
       newWeightMg: 9_000,
@@ -315,29 +291,19 @@ describe("proposeCorrection — trust-tiered wiki edits", () => {
 
   it("won't auto-apply a verified-item change cited by a javascript: trusted-host URL", async () => {
     const db = await freshCatalogDb();
-    const [row] = await db
-      .insert(schema.catalogItems)
-      .values({ name: "Zpacks Duplex", weightMg: 504_622, weightSource: "manufacturer", verified: true })
-      .returning();
+    const row = await seedCatalogRow(db, { name: "Zpacks Duplex", weightMg: 504_622, weightSource: "manufacturer", verified: true });
     const out = await proposeCorrection(db, {
       catalogItemId: row.id,
       newWeightMg: 540_000,
       sourceUrl: "javascript://zpacks.com/%0aalert(1)",
     });
     expect(out.status).toBe("proposed"); // not trusted → not applied
-    const [after] = await db
-      .select()
-      .from(schema.catalogItems)
-      .where(eq(schema.catalogItems.id, row.id));
-    expect(Number(after.weightMg)).toBe(504_622); // weight untouched
+    expect(await weightOf(db, row.id)).toBe(504_622); // weight untouched
   });
 
   it("rejects bad weights / no-ops / missing items", async () => {
     const db = await freshCatalogDb();
-    const [row] = await db
-      .insert(schema.catalogItems)
-      .values({ name: "X", weightMg: 1_000, weightSource: "community", verified: false })
-      .returning();
+    const row = await seedCatalogRow(db, { name: "X", weightMg: 1_000 });
     expect((await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 0 })).status).toBe("rejected");
     expect((await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 1e12 })).status).toBe("rejected");
     expect((await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 1_000 })).status).toBe("noop");
@@ -346,17 +312,10 @@ describe("proposeCorrection — trust-tiered wiki edits", () => {
 
   it("rejects ids beyond the database serial range before querying them", async () => {
     const db = await freshCatalogDb();
-    const [row] = await db
-      .insert(schema.catalogItems)
-      .values({ name: "Stake", weightMg: 12_000, weightSource: "community", verified: false })
-      .returning();
+    const row = await seedCatalogRow(db, { name: "Stake" });
 
     await expect(bumpUsage(db, [row.id, MAX_CATALOG_ID + 1])).resolves.toBeUndefined();
-    const [after] = await db
-      .select()
-      .from(schema.catalogItems)
-      .where(eq(schema.catalogItems.id, row.id));
-    expect(after.usageCount).toBe(1);
+    expect((await catalogRow(db, row.id)).usageCount).toBe(1);
     expect(
       (await proposeCorrection(db, { catalogItemId: MAX_CATALOG_ID + 1, newWeightMg: 9_000 })).status,
     ).toBe("rejected");
@@ -367,10 +326,7 @@ describe("proposeCorrection — trust-tiered wiki edits", () => {
 describe("revertEdit — one-click undo of an applied edit", () => {
   it("restores the prior weight and won't double-revert", async () => {
     const db = await freshCatalogDb();
-    const [row] = await db
-      .insert(schema.catalogItems)
-      .values({ name: "Stake", weightMg: 12_000, weightSource: "community", verified: false })
-      .returning();
+    const row = await seedCatalogRow(db, { name: "Stake" });
     await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 });
     const changes = await recentChanges(db, 10);
     expect(changes[0].newWeightMg).toBe(9_000);
@@ -378,32 +334,21 @@ describe("revertEdit — one-click undo of an applied edit", () => {
 
     const out = await revertEdit(db, changes[0].id);
     expect(out.status).toBe("applied");
-    const [after] = await db
-      .select()
-      .from(schema.catalogItems)
-      .where(eq(schema.catalogItems.id, row.id));
-    expect(Number(after.weightMg)).toBe(12_000);
+    expect(await weightOf(db, row.id)).toBe(12_000);
     // reverting a non-applied edit is rejected
     expect((await revertEdit(db, changes[0].id)).status).toBe("rejected");
   });
 
   it("refuses to revert a stale (non-latest) applied edit", async () => {
     const db = await freshCatalogDb();
-    const [row] = await db
-      .insert(schema.catalogItems)
-      .values({ name: "Stake", weightMg: 100_000, weightSource: "community", verified: false })
-      .returning();
+    const row = await seedCatalogRow(db, { name: "Stake", weightMg: 100_000 });
     await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 200_000 }); // edit A
     await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 300_000 }); // edit B (newest)
     const changes = await recentChanges(db, 10); // newest first → [B, A]
     const editA = changes[1].id;
     // reverting the older edit A would silently drop B → must be rejected
     expect((await revertEdit(db, editA)).status).toBe("rejected");
-    const [after] = await db
-      .select()
-      .from(schema.catalogItems)
-      .where(eq(schema.catalogItems.id, row.id));
-    expect(Number(after.weightMg)).toBe(300_000); // unchanged
+    expect(await weightOf(db, row.id)).toBe(300_000); // unchanged
   });
 });
 
@@ -424,11 +369,8 @@ describe("activeCatalogRows — the import matcher's pool", () => {
 describe("recentChanges — the limit reaches SQL whole", () => {
   it("truncates a fractional limit and defaults a NaN one, rather than failing the query", async () => {
     const db = await freshCatalogDb();
-    const [row] = await db
-      .insert(schema.catalogItems)
-      .values({ name: "Stake", weightMg: 100_000, weightSource: "community", verified: false })
-      .returning();
-    for (const newWeightMg of [101_000, 102_000, 103_000]) await proposeCorrection(db, { catalogItemId: row!.id, newWeightMg });
+    const row = await seedCatalogRow(db, { name: "Stake", weightMg: 100_000 });
+    for (const newWeightMg of [101_000, 102_000, 103_000]) await proposeCorrection(db, { catalogItemId: row.id, newWeightMg });
 
     await expect(recentChanges(db, 2.5)).resolves.toHaveLength(2);
     await expect(recentChanges(db, Number.NaN)).resolves.toHaveLength(3);

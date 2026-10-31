@@ -3,7 +3,21 @@
 
 import type { Folder, Item } from "~~/shared/types";
 import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
-import { recallJson, remember } from "../utils/remember";
+import { forget, recall, recallJson, remember } from "../utils/remember";
+
+// shared/vault loads DYNAMICALLY — it is the capture machinery, which a list that never
+// touches the vault never needs in its first-load chunk — and it loads ONCE: three
+// sites each awaited their own import(), all resolving to the same module. A failed
+// chunk fetch (offline before the SW cached it) is NOT remembered: the memo clears
+// itself on rejection so the next capture retries, as the three separate imports did —
+// a cached rejection would have switched capture off for the page, the row's "Save to
+// My Gear" with it, until a reload.
+let vaultModule: Promise<typeof import("~~/shared/vault")> | undefined;
+const loadVault = () =>
+  (vaultModule ??= import("~~/shared/vault").catch((e: unknown) => {
+    vaultModule = undefined;
+    throw e;
+  }));
 
 // ---------------------------------------------------------------------------
 // capture
@@ -27,12 +41,9 @@ type VaultDecision = "yes" | "no" | "ask";
 
 export function vaultDecisionFor(editToken: string): VaultDecision {
   if (!import.meta.client || !editToken) return "yes"; // a draft is yours by definition
-  try {
-    const v = localStorage.getItem(DECISION_KEY(editToken));
-    return v === "yes" || v === "no" ? v : "ask";
-  } catch {
-    return "ask";
-  }
+  // blocked storage reads as null (remember.ts), and null is "ask"
+  const v = recall(DECISION_KEY(editToken));
+  return v === "yes" || v === "no" ? v : "ask";
 }
 
 export function setVaultDecisionFor(editToken: string, decision: "yes" | "no"): void {
@@ -61,12 +72,9 @@ export function vaultExclusionsFor(editToken: string): Set<string> {
 
 export function setVaultExclusionsFor(editToken: string, normKeys: string[]): void {
   if (!editToken) return;
-  try {
-    if (normKeys.length) localStorage.setItem(EXCLUDE_KEY(editToken), JSON.stringify(normKeys));
-    else localStorage.removeItem(EXCLUDE_KEY(editToken));
-  } catch {
-    /* storage blocked — the choice holds for this session only */
-  }
+  // storage blocked → the choice holds for this session only (remember/forget swallow it)
+  if (normKeys.length) remember(EXCLUDE_KEY(editToken), JSON.stringify(normKeys));
+  else forget(EXCLUDE_KEY(editToken));
 }
 
 /**
@@ -87,12 +95,8 @@ export function setVaultExclusionsFor(editToken: string, normKeys: string[]): vo
  */
 export function clearVaultDecisionFor(editToken: string): void {
   if (!editToken) return;
-  try {
-    localStorage.removeItem(DECISION_KEY(editToken));
-    localStorage.removeItem(EXCLUDE_KEY(editToken));
-  } catch {
-    /* storage blocked — then there was nothing stored to remove */
-  }
+  forget(DECISION_KEY(editToken));
+  forget(EXCLUDE_KEY(editToken));
 }
 
 /** How long the editor must be idle before a capture goes out. Long enough that
@@ -118,6 +122,12 @@ let timer: ReturnType<typeof setTimeout> | undefined;
 // retry after a failed send. Held as built rows (not raw items) so the page-hide
 // flush can beacon them synchronously — it has no chance to await anything.
 let pending: { items: VaultCapture[]; fingerprint: string } | null = null;
+/** Whether capture rows are built and waiting on the debounce — a test seam, so a
+ *  suite can act "inside the debounce" the moment there is something queued rather
+ *  than sleeping a guessed interval and hoping the dynamic import has resolved. */
+export function _pendingCapture(): boolean {
+  return pending !== null;
+}
 
 /**
  * Capture the gear in a list into this device's vault.
@@ -176,7 +186,7 @@ export function useVaultCapture() {
     void (async () => {
       let built: { caps: VaultCapture[]; fingerprint: string } | null = null;
       try {
-        const { captureFromList, captureFingerprint } = await import("~~/shared/vault");
+        const { captureFromList, captureFingerprint } = await loadVault();
         const all = captureFromList(items, folders);
         if (!all.length) return;
         // Gear declined in the chooser stays declined on every later edit — this is
@@ -343,7 +353,7 @@ export function useVaultCapture() {
   async function buildCaptures(items: Item[], folders: Folder[] = []): Promise<VaultCapture[]> {
     if (!import.meta.client) return [];
     try {
-      const { captureFromList } = await import("~~/shared/vault");
+      const { captureFromList } = await loadVault();
       return captureFromList(items, folders);
     } catch {
       return [];
@@ -397,7 +407,7 @@ export function useVaultCapture() {
     }
     let caps: VaultCapture[];
     try {
-      const { captureFromList } = await import("~~/shared/vault");
+      const { captureFromList } = await loadVault();
       // the folder list is passed so the row lands filed, not in a flat pile
       caps = captureFromList([item], folders);
     } catch {

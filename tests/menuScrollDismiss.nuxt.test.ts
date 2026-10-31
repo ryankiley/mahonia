@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // onScrollOutside (composables/dom.ts) — the mobile dismissal every anchored menu wires
 // up beside onClickOutside. A menu hangs off a trigger that is usually STICKY, so
 // scrolling neither carries it away nor takes it down; on a phone that leaves a card
@@ -12,7 +10,7 @@
 // PATHS (did the drag start inside the card?) rather than geometry, so nothing needs
 // faking: the listener's whole decision is one composedPath() check.
 import { afterEach, describe, expect, it } from "vitest";
-import { flushPromises, mount } from "@vue/test-utils";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import OptionMenu from "~/components/OptionMenu.vue";
 
 let wrapper: ReturnType<typeof mount> | undefined;
@@ -42,10 +40,9 @@ const drag = async (target: Element | Window) => {
   await flushPromises();
 };
 
+enableAutoUnmount(afterEach);
 afterEach(() => {
-  wrapper?.unmount();
-  wrapper = undefined;
-  document.body.innerHTML = "";
+  document.body.innerHTML = ""; // the cases append raw nodes beside the mount
 });
 
 describe("menus dismiss on a touch scroll", () => {

@@ -6,16 +6,10 @@ import { jsonToListImport, listToJson } from "../shared/exporters/json";
 import { summarizeOps } from "../shared/changeSummary";
 import { tripDays } from "../shared/foodPlan";
 import type { ListState, TripDay } from "../shared/types";
+import { blankState } from "./helpers/list";
+import { inZones } from "./helpers/tz";
 
-const state = (over: Partial<ListState> = {}): ListState => ({
-  title: "Trip",
-  displayUnit: "g",
-  folders: [],
-  items: [],
-  days: [],
-  version: 1,
-  ...over,
-});
+const state = (over: Partial<ListState> = {}): ListState => blankState({ days: [], ...over });
 
 const day = (over: Partial<TripDay> = {}): TripDay => ({ id: "d1", sortOrder: 0, ...over });
 
@@ -202,10 +196,8 @@ describe("staggering a trip to different dates", () => {
     expect(tripDays("2026-08-24", "2026-08-27")).toBe(4);
   });
 
-  it("survives a shift across a month boundary", () => {
-    expect(tripDays("2026-08-30", "2026-09-02")).toBe(4);
-  });
-
+  // the month boundary is foodPlan.test.ts's (which owns tripDays); these two cross
+  // boundaries that case doesn't — a year, and the night the clocks change
   it("survives a shift across a year boundary", () => {
     expect(tripDays("2026-12-30", "2027-01-02")).toBe(4);
   });
@@ -217,15 +209,7 @@ describe("staggering a trip to different dates", () => {
   });
 
   it("counts the same span identically wherever the reader is", () => {
-    const tz = process.env.TZ;
-    try {
-      for (const zone of ["UTC", "America/Los_Angeles", "Pacific/Kiritimati", "Asia/Tokyo"]) {
-        process.env.TZ = zone;
-        expect(tripDays("2026-08-10", "2026-08-13")).toBe(4);
-      }
-    } finally {
-      process.env.TZ = tz;
-    }
+    inZones(() => expect(tripDays("2026-08-10", "2026-08-13")).toBe(4));
   });
 
   it("lengthening by one day is exactly one more day", () => {

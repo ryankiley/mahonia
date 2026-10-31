@@ -1,9 +1,9 @@
-import { defineEventHandler, getQuery, setHeader } from "h3";
+import { defineEventHandler, setHeader } from "h3";
 import { searchCatalog } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
 import { rateLimit } from "../../utils/rateLimit";
 import { SEARCH_LIMIT } from "../../../shared/catalogSearch";
-import { setNoIndex } from "../../utils/http";
+import { queryString, setNoIndex } from "../../utils/http";
 
 // Maps-grade autocomplete for the gear catalog. `?q=` returns up to SEARCH_LIMIT
 // fuzzy matches ordered by the shared relevance-tier cascade (tier → verified →
@@ -38,8 +38,7 @@ export default defineEventHandler(async (event) => {
   setNoIndex(event);
   setHeader(event, "Cache-Control", "public, max-age=2, s-maxage=10");
 
-  const raw = getQuery(event).q;
-  const q = (Array.isArray(raw) ? raw[0] : raw ?? "").toString().slice(0, 100);
+  const q = queryString(event, "q", 100);
 
   const db = await useCatalogDb();
   const results = await searchCatalog(db, q, SEARCH_LIMIT);

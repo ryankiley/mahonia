@@ -1,5 +1,4 @@
 import { describe, expect, it } from "vitest";
-import * as schema from "../server/db/schema";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { claimLists } from "../server/utils/claimRepo";
 import { LISTS_DDL } from "../server/utils/db";
@@ -40,10 +39,10 @@ describe("exportClaimedLists", () => {
     const gone = await makeList(db, "Deleted", { createdAt: new Date("2026-03-01T00:00:00Z"), deletedAt: new Date() });
     // a deleted list can't be claimed at all (findLiveByEditHashes filters it), so two
     // of the three tokens take; the export must agree with that
-    expect(await claimLists(db as never, 1, [mine.editToken, newer.editToken, gone.editToken])).toBe(2);
-    expect(await claimLists(db as never, 2, [theirs.editToken])).toBe(1);
+    expect(await claimLists(db, 1, [mine.editToken, newer.editToken, gone.editToken])).toBe(2);
+    expect(await claimLists(db, 2, [theirs.editToken])).toBe(1);
 
-    const out = await exportClaimedLists(db as never, 1);
+    const out = await exportClaimedLists(db, 1);
     expect(out.map((l) => l.title)).toEqual(["Wonderland", "Timberline"]);
     const t = out[1]!;
     expect(t.shareCode).toBe(mine.shareCode);
@@ -58,7 +57,7 @@ describe("exportClaimedLists", () => {
   it("is empty for an account with no claims", async () => {
     const db = await createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL, CATALOG_DDL);
     await makeList(db, "Unclaimed");
-    expect(await exportClaimedLists(db as never, 7)).toEqual([]);
+    expect(await exportClaimedLists(db, 7)).toEqual([]);
   });
 });
 

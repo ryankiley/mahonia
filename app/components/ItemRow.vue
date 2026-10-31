@@ -137,16 +137,9 @@ const bareGroup = computed(() => isBareGroup(props.item, isParent.value));
 // a parent row. It applies in PACKING mode too (the checklist face draws its own
 // chevron), and the group's tick rolls the folded rows up deliberately: they are your
 // own rows, put away by you, which is not the case the filter guards against.
-const nestCollapsed = ref(false);
-// Still adopted on MOUNT rather than at setup, so the first paint is unchanged — this
-// only swaps where the value comes from (see nestCollapse above).
-onMounted(() => {
-  nestCollapsed.value = nestCollapse.isCollapsed(props.item.id);
-});
-function toggleNest() {
-  nestCollapsed.value = !nestCollapsed.value;
-  nestCollapse.set(props.item.id, nestCollapsed.value);
-}
+// Adopted on MOUNT rather than at setup (usePersistedCollapse.useFor), so the first
+// paint is unchanged — this only swaps where the value comes from (see nestCollapse above).
+const { collapsed: nestCollapsed, toggle: toggleNest } = nestCollapse.useFor(() => props.item.id);
 // the packing row's weight — same rule as the read views (ReadonlyItemRow): a
 // group shows its total (own + children), a leaf its own line
 const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
@@ -252,23 +245,20 @@ const isNestParent = computed(
 // siblings, through the same moveItem commit a drop uses — persistence and
 // reindexing come for free
 function onGripKey(e: KeyboardEvent) {
-  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-  e.preventDefault();
+  const step = gripStep(e);
+  if (!step) return;
   const parentId = props.item.parentId ?? null;
   const sibs = siblingItems(props.list.items, props.item.folderId, parentId).sort(bySortOrder);
   const i = sibs.findIndex((s) => s.id === props.item.id);
   if (i < 0) return;
-  if (e.key === "ArrowUp") {
+  if (step < 0) {
     const above = sibs[i - 1];
     if (above) c.moveItem(props.item.id, props.item.folderId, above.id, parentId);
   } else if (sibs[i + 1]) {
     // one slot down = insert before the row after next (none = append)
     c.moveItem(props.item.id, props.item.folderId, sibs[i + 2]?.id ?? null, parentId);
   }
-  // the reorder re-inserts this row's DOM node, blurring the grip — re-focus it so
-  // repeat presses work (the row's component is keyed by id, so the ref persists)
-  const grip = e.currentTarget as HTMLElement;
-  nextTick(() => grip.focus());
+  refocusGrip(e);
 }
 
 // a just-added "Add an item" row autofocuses its name; any row whose fields are
@@ -634,18 +624,12 @@ const subShown = computed(() => cnameShown.value || noteShown.value || variantSh
 // carry 150 of them to re-measure notes nobody is looking at. A viewport that changes
 // under a note leaves it a line of slack until the next keystroke; the listeners would
 // cost every resize frame on every list.
-const needsNoteFit = import.meta.client && !CSS.supports("field-sizing", "content");
-function fitNote() {
-  const el = noteRef.value;
-  if (!needsNoteFit || !el) return;
-  el.style.height = "auto";
-  el.style.height = `${el.scrollHeight}px`;
-}
+const fitNote = () => fitTextarea(noteRef.value);
 // Both triggers, because either can put text in front of a box that hasn't measured
 // it: a note arriving from outside (the list loading in, a collaborator's edit on the
 // poll), and the field being revealed at all — it is v-if'd, so a stored note's first
 // measurable moment is the tick after `noteShown` turns true.
-if (needsNoteFit) {
+if (needsTextareaFit) {
   watch([() => props.item.description, noteShown], () => nextTick(fitNote), { immediate: true });
 }
 
@@ -1488,7 +1472,7 @@ function dismissFix() {
                  The names carry the ITEM, like the grip's and the checkbox's do:
                  "One more, button" on its own says nothing about what of. -->
             <button
-              class="btn btn--icon btn--ghost item__qtybtn"
+              class="btn btn--icon btn--ghost item__qtybtn ink-quiet"
               type="button"
               :disabled="item.qty <= 1"
               :aria-label="`One fewer ${item.name || 'item'}`"
@@ -1518,7 +1502,7 @@ function dismissFix() {
                  the + beside it is the one that stands down below $bp-stack. -->
             <span class="t-sm t-muted item__unit">×</span>
             <button
-              class="btn btn--icon btn--ghost item__qtybtn"
+              class="btn btn--icon btn--ghost item__qtybtn ink-quiet"
               type="button"
               :disabled="item.qty >= QTY_MAX"
               :aria-label="`One more ${item.name || 'item'}`"
@@ -1833,7 +1817,7 @@ function dismissFix() {
             <Transition name="vaultin" :css="vaultRevealArmed">
               <Tooltip v-if="vaultOffered" :text="vaultLabel" preferred-placement="top">
                 <button
-                  class="btn btn--icon btn--ghost item__vault-btn"
+                  class="btn btn--icon btn--ghost item__vault-btn ink-quiet"
                   :class="{ 'is-active': vaultSaved }"
                   type="button"
                   :disabled="vaultBusy"
@@ -1922,7 +1906,7 @@ function dismissFix() {
                  it in the ⋯ menu with the rest of the cluster. -->
             <Tooltip text="Duplicate" preferred-placement="top">
               <button
-                class="btn btn--icon btn--ghost item__dup"
+                class="btn btn--icon btn--ghost item__dup ink-quiet"
                 type="button"
                 aria-label="Duplicate item"
                 @mousedown.prevent
@@ -1938,7 +1922,7 @@ function dismissFix() {
                  name contains the visible word. Same split as Duplicate beside it. -->
             <Tooltip text="Remove" preferred-placement="top">
               <button
-                class="btn btn--icon btn--ghost item__del"
+                class="btn btn--icon btn--ghost item__del ink-quiet"
                 aria-label="Remove item"
                 @mousedown.prevent
                 @click="c.removeItem(item.id)"
@@ -2000,7 +1984,7 @@ function dismissFix() {
             <!-- drag via pointerdown; arrow keys give the focused grip the reordering
                  its label promises (a drag needs a pointer) -->
             <button
-              class="btn btn--icon btn--ghost grip item__grip"
+              class="btn btn--icon btn--ghost grip item__grip ink-quiet"
               :title="`Drag to reorder · ${altLabel}-drag to copy`"
               :aria-label="`Reorder ${item.name || 'item'}`"
               @pointerdown="dnd.start(item.id, $event)"
@@ -2021,7 +2005,7 @@ function dismissFix() {
           </button>
           <button
             type="button"
-            class="btn btn--icon btn--ghost item__fixdismiss"
+            class="btn btn--icon btn--ghost item__fixdismiss ink-quiet"
             title="Dismiss"
             aria-label="Dismiss suggestion"
             @click="dismissFix"
@@ -2653,27 +2637,10 @@ function dismissFix() {
 .item__actions {
   --tip-shift: 8px;
 }
-/* (the three menu triggers — carrier, nesting, ⋯ — take the same treatment from
-   ItemRowMenu's own scoped block, which is the only place a rule can reach them) */
-.item__grip,
-.item__vault-btn,
-.item__dup,
-.item__del,
-/* the qty stepper's ± live in this family too, though they sit in the middle of the
-   row rather than the trailing cluster: they are the same kind of thing (a quiet
-   glyph that darkens under the pointer), and one rule is what keeps them the same
-   weight as the icons across the row from them */
-.item__qtybtn {
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.item__grip:hover,
-.item__vault-btn:hover,
-.item__dup:hover,
-.item__del:hover,
-.item__qtybtn:hover {
-  color: var(--ink);
-}
+/* the grip, the vault tick, duplicate, remove and the qty ± (which sit mid-row but are
+   the same kind of thing) rest at the lesser ink and lift under the pointer — the
+   .ink-quiet atom (controls.scss), which the three menu triggers wear too; one class
+   is what keeps them the same weight across the row */
 /* banked: the tick holds at full ink so the row keeps saying so */
 .item__vault-btn.is-active,
 .item__vault-btn.is-active:hover {
@@ -2971,11 +2938,7 @@ textarea.item__note {
    enlarged box back out of layout so the fix row keeps its one-text-line rhythm
    (the actions cluster's overshoot technique). */
 .item__fixdismiss {
-  color: var(--ink-3);
   margin-block: var(--tap-pull);
-}
-.item__fixdismiss:hover {
-  color: var(--ink);
 }
 
 /* the nested block's thread-line container is the shared .nest-block atom

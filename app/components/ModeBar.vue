@@ -40,30 +40,13 @@ const props = defineProps<{
 
 const emit = defineEmits<{ pick: [key: string] }>();
 
-const opts = useTemplateRef<HTMLButtonElement[]>("opts");
-
-/**
- * Arrows move the selection, the way a radio group does — and the way the design system's
- * segmented control does, whose comment is the reason the tabindex above is roving:
- * "A radiogroup is one tab stop and the arrows move inside it — that's the whole reason
- * the arrows exist. With every option tabbable, Tab walked the three views instead of the
- * page, and the arrows were a second way to do what Tab already did."
- *
- * Selection follows focus, which is correct here because switching view is free and
- * instant; the pattern only needs decoupling when activating a choice is expensive.
- */
-function onKey(e: KeyboardEvent) {
-  if (!/^Arrow(Left|Right|Up|Down)$/.test(e.key)) return;
-  const i = props.modes.findIndex((m) => m.key === props.current);
-  if (i < 0) return;
-  e.preventDefault();
-  const step = /Left|Up/.test(e.key) ? -1 : 1;
-  // wraps at both ends, so the arrows never dead-end on the first or last view
-  const at = (i + step + props.modes.length) % props.modes.length;
-  emit("pick", props.modes[at]!.key);
-  // focus follows the selection, or the next arrow press starts from the old option
-  nextTick(() => opts.value?.[at]?.focus());
-}
+// Arrows move the selection, the way a radio group does — the roving tab stop, and
+// why it roves, are useRovingRadio's (shared with the people chips).
+const { onKey } = useRovingRadio(
+  () => props.modes.length,
+  () => props.modes.findIndex((m) => m.key === props.current),
+  (at) => emit("pick", props.modes[at]!.key),
+);
 </script>
 
 <template>

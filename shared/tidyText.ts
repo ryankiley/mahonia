@@ -197,3 +197,17 @@ const ANY_APOSTROPHE = /[‘’ʼ]/g;
 export function foldApostrophes(raw: string): string {
   return raw.replace(ANY_APOSTROPHE, "'");
 }
+
+// ---- count words --------------------------------------------------------------
+// A dozen surfaces each spelled `n === 1 ? "item" : "items"` inline, which is a dozen
+// chances for one of them to drift ("1 items"); these are the two shapes.
+
+/** A noun by its count — "item" or "items". Irregulars hand over their plural. */
+export function pluralNoun(n: number, one: string, many = `${one}s`): string {
+  return n === 1 ? one : many;
+}
+
+/** The count and its noun together — "3 items", "1 item". */
+export function counted(n: number, one: string, many?: string): string {
+  return `${n} ${pluralNoun(n, one, many)}`;
+}

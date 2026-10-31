@@ -103,6 +103,14 @@ function hueOf(colorKey: string): number | null {
 // (and that hue isn't already taken), use that hue so the colour reads as meaningful;
 // otherwise fall back to the creation-order palette walk. Grey "other" may repeat —
 // it's the neutral bucket — but a coloured hue never doubles up.
+/** The hues a set of rows already wears, as the palette helpers below take them —
+ *  with "other" standing in for a row that never got one (the load-time backfill tests
+ *  for exactly that sentinel). Folders and people both answer it; seven call sites had
+ *  spelled the map and its fallback themselves. */
+export function usedColorKeys(rows: readonly { colorKey?: string | null }[]): string[] {
+  return rows.map((r) => r.colorKey ?? "other");
+}
+
 export function colorKeyForName(name: string, used: readonly string[]): string {
   const norm = name.trim().toLowerCase().replace(/\s+/g, " ");
   const key = NAME_TO_KEY[norm];

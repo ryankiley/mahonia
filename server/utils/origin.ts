@@ -43,6 +43,7 @@
 // — it just narrows the target — and every entry on it is a host somebody has to
 // remember to remove later.
 
+import { safeUrl } from "../../shared/trailLink";
 import type { H3Event } from "h3";
 import { getRequestURL } from "h3";
 import { CANONICAL_ORIGIN } from "../../shared/site";
@@ -61,14 +62,7 @@ function isProduction(): boolean {
  *  MAHONIA_ORIGIN must fall through to the pinned default rather than produce
  *  links to "undefined". */
 function normalizeOrigin(raw: string | undefined): string | null {
-  if (!raw?.trim()) return null;
-  try {
-    const url = new URL(raw.trim());
-    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
-    return url.origin;
-  } catch {
-    return null;
-  }
+  return safeUrl(raw?.trim())?.origin ?? null;
 }
 
 /**

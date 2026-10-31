@@ -17,6 +17,7 @@
 //     people actually carry is small by design, so this stays cheap locally.
 // Engine is detected via DATABASE_URL, the same signal db.ts uses.
 
+import { safeUrl } from "../../shared/trailLink";
 import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
@@ -366,28 +367,17 @@ const TRUSTED_DOMAINS = new Set([
 /** True only for http(s) URLs — keeps non-fetchable schemes (javascript:, data:)
  * out of stored citations, which are rendered as links in the changes feed. */
 export function isHttpUrl(url: string | undefined | null): boolean {
-  if (!url) return false;
-  try {
-    const p = new URL(url).protocol;
-    return p === "http:" || p === "https:";
-  } catch {
-    return false;
-  }
+  return safeUrl(url) !== null;
 }
 
-/** True if `url` cites a trusted manufacturer/retailer domain (host or subdomain). */
+/** True if `url` cites a trusted manufacturer/retailer domain (host or subdomain).
+ *  Scheme-guarded by safeUrl first: javascript://zpacks.com/… parses a trusted hostname. */
 export function isTrustedSource(url: string | undefined | null): boolean {
-  if (!url) return false;
-  try {
-    const u = new URL(url);
-    // scheme guard first: javascript://zpacks.com/… parses a trusted hostname
-    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
-    const host = u.hostname.toLowerCase().replace(/^www\./, "");
-    for (const d of TRUSTED_DOMAINS) if (host === d || host.endsWith(`.${d}`)) return true;
-    return false;
-  } catch {
-    return false;
-  }
+  const u = safeUrl(url);
+  if (!u) return false;
+  const host = u.hostname.toLowerCase().replace(/^www\./, "");
+  for (const d of TRUSTED_DOMAINS) if (host === d || host.endsWith(`.${d}`)) return true;
+  return false;
 }
 
 
