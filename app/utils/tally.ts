@@ -7,7 +7,7 @@
 // the one on the Legal page can't drift.
 import { track } from "@vercel/analytics";
 
-export type TallyName =
+type TallyName =
   | "list_created"
   | "import"
   | "share_link_copied"

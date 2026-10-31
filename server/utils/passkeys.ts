@@ -82,7 +82,7 @@ export function registrationOptions(
 }
 
 /** What the site calls itself in the OS passkey prompt. */
-export const RP_NAME = "Mahonia";
+const RP_NAME = "Mahonia";
 
 /**
  * The signature algorithms a new passkey may use: Ed25519, ES256, RS256 — stated
@@ -113,7 +113,7 @@ export const RP_NAME = "Mahonia";
  * so it is written down. Adding ML-DSA-44 is a fine thing to do deliberately, once
  * it is no longer experimental, with both routes changed together.
  */
-export const PASSKEY_ALGORITHM_IDS = [-8, -7, -257];
+const PASSKEY_ALGORITHM_IDS = [-8, -7, -257];
 
 /**
  * The refusal every passkey endpoint opens with: fail up front, loudly, rather

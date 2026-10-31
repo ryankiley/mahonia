@@ -200,7 +200,7 @@ export function normalizeMetaFields(raw: Record<string, unknown>): Partial<ListM
  * row normalizer, the MCP tools and every route that takes an id off the wire, since
  * a made-up id is exactly what an assistant, or a hand-rolled request, produces.
  */
-export const MAX_SERIAL_ID = 2_147_483_647;
+const MAX_SERIAL_ID = 2_147_483_647;
 export const isSerialId = (raw: unknown): raw is number =>
   typeof raw === "number" && Number.isInteger(raw) && raw >= 1 && raw <= MAX_SERIAL_ID;
 /** The same range under the name the catalog call sites read it by. */
@@ -217,11 +217,11 @@ export const MAX_TITLE_LEN = 200;
 export const MAX_ITEM_NAME_LEN = 200;
 export const MAX_ITEM_NOTE_LEN = 2000;
 export const MAX_GEAR_TYPE_LEN = 120; // commonName
-export const MAX_BRAND_LEN = 120;
+const MAX_BRAND_LEN = 120;
 /** a day's or a waypoint's label */
-export const MAX_LABEL_LEN = 120;
+const MAX_LABEL_LEN = 120;
 /** a row's count, and its worn split */
-export const MAX_QTY = 9999;
+const MAX_QTY = 9999;
 export const MAX_VARIANT_LEN = 120; // the size/config qualifier, typed or picked
 export const MAX_FOLDER_NAME_LEN = 120;
 export const MAX_PERSON_NAME_LEN = 60;

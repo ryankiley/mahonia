@@ -380,7 +380,7 @@ export function splitWornQty(
 }
 
 /** The portion of an item's own line that is worn rather than carried. */
-export function wornLineMg(
+function wornLineMg(
   item: Pick<Item, "qty" | "unitWeightMg" | "wornQty">,
   cls: Classification,
 ): number {
