@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { counted, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChartAverageIcon, ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
@@ -297,23 +298,6 @@ function startItemDrag(id: number, ev: PointerEvent) {
   itemDrag.start(String(id), ev);
 }
 
-// "Add folder" is a quiet label that becomes an inline field on press, and commits on
-// enter or on clicking away — the same affordance (and the same words) the editor uses
-// at the foot of its folder list. It used to be a permanently-open input with an "Add"
-// button beside it, which read as an empty form the page was waiting on rather than an
-// action you could take.
-const addingFolder = ref(false);
-const newFolderRef = useTemplateRef<HTMLInputElement>("newFolderRef");
-function openAddFolder() {
-  addingFolder.value = true;
-  nextTick(() => newFolderRef.value?.focus());
-}
-function addFolder() {
-  const name = newFolderRef.value?.value.trim();
-  addingFolder.value = false;
-  if (!name) return;
-  void folderOp({ t: "add", name });
-}
 function renameFolder(f: VaultFolder, e: Event) {
   const name = (e.target as HTMLInputElement).value.trim();
   if (!name || name === f.name) return;
@@ -328,7 +312,7 @@ async function deleteFolder(f: VaultFolder) {
     !(await askConfirm({
       title: `Delete “${f.name}”?`,
       message: held
-        ? `The ${held} ${held === 1 ? "piece" : "pieces"} of gear in it stay in My Gear; they just won’t be filed under anything.`
+        ? `The ${counted(held, "piece")} of gear in it stay in My Gear; they just won’t be filed under anything.`
         : "The folder goes; nothing else changes.",
       confirmLabel: "Delete folder",
     }))
@@ -408,9 +392,8 @@ async function commitAdd(folderId: number | null) {
 // The dialog is Lazy + v-if on "has it ever opened", so its chunk never loads for
 // someone who only came to look — the LazyCatalogCorrectionModal idiom.
 const editing = ref<VaultEntry | null>(null);
-const editorEverOpened = ref(false);
+const editorEverOpened = useLatch(() => editing.value);
 function openEdit(entry: VaultEntry) {
-  editorEverOpened.value = true;
   editing.value = entry;
 }
 // Patch the one row in place rather than re-reading the vault: the endpoint returns
@@ -436,12 +419,12 @@ const UNIT_KEY = "gear.gear.unit.v1";
 const LEGACY_SYSTEM_KEY = "gear.gear.system.v1";
 const unit = ref<Unit>("g");
 onMounted(() => {
-  const saved = localStorage.getItem(UNIT_KEY);
+  const saved = recall(UNIT_KEY);
   if (saved && (UNITS as string[]).includes(saved)) {
     unit.value = saved as Unit;
     return;
   }
-  const legacy = localStorage.getItem(LEGACY_SYSTEM_KEY);
+  const legacy = recall(LEGACY_SYSTEM_KEY);
   if (legacy === "imperial" || legacy === "metric") {
     setUnit(legacy === "imperial" ? "oz" : "g");
     return;
@@ -464,8 +447,9 @@ const weightLabel = (mg: number) => formatWeight(mg, unit.value);
 // modal per row. (Deleting a whole LIST keeps its dialog — that one isn't
 // reversible.)
 const removing = ref<number | null>(null);
-const undoable = ref<VaultEntry | null>(null);
-let undoTimer: ReturnType<typeof setTimeout> | undefined;
+// the undo bar is a toast that holds the row rather than a line of text — ten seconds,
+// the timer cleared on unmount, the same way the editor's and the read menu's own
+const { toast: undoable, flash: offerUndo, clear: clearUndo } = useToast<VaultEntry>(10_000);
 
 async function remove(entry: VaultEntry) {
   removing.value = entry.id;
@@ -473,9 +457,7 @@ async function remove(entry: VaultEntry) {
   try {
     await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id } });
     items.value = items.value.filter((i) => i.id !== entry.id);
-    undoable.value = entry;
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => (undoable.value = null), 10_000);
+    offerUndo(entry);
   } catch {
     loadError.value = "Couldn’t remove that. Check your connection and try again.";
   }
@@ -485,11 +467,9 @@ async function remove(entry: VaultEntry) {
 async function undoRemove() {
   const entry = undoable.value;
   if (!entry) return;
-  undoable.value = null;
-  clearTimeout(undoTimer);
+  clearUndo();
   await putBack(entry); // restoring is restoring — same call the Removed section makes
 }
-onBeforeUnmount(() => clearTimeout(undoTimer));
 
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
@@ -544,10 +524,9 @@ function warmExport() {
 // The ⋯'s three rows. Import is a dialog rather than a download, so the menu's one
 // emit forks here instead of the menu knowing which of its rows is which kind.
 const importOpen = ref(false);
-const importEverOpened = ref(false);
+const importEverOpened = useLatch(() => importOpen.value);
 function onMenuPick(action: string) {
   if (action !== "import") return void exportGear(action);
-  importEverOpened.value = true;
   importOpen.value = true;
 }
 
@@ -617,9 +596,7 @@ async function exportGear(kind: string) {
              how a product starts sounding like two products. Change one, change
              both. -->
         <div v-if="!hasVault" class="vault__auth">
-          <p class="vault__sentline">
-            Your gear is one pick away on every list, but it needs an account.
-          </p>
+          <p class="vault__sentline">{{ VAULT_ASK }}</p>
           <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
         </div>
 
@@ -686,7 +663,7 @@ async function exportGear(kind: string) {
             <p class="t-sm t-muted vault__count">
               <template v-if="narrowed">{{ filtered.length }} of {{ items.length }}</template>
               <template v-else>{{ items.length }}</template>
-              {{ items.length === 1 ? "item" : "items" }} ·
+              {{ pluralNoun(items.length, "item") }} ·
               <!-- The total IS the unit control, the same object the editor's
                    TotalsBar puts up: figure and chevron, opening the app's own picker.
                    A separate g/oz toggle sat off in the search bar, away from the only
@@ -766,18 +743,13 @@ async function exportGear(kind: string) {
                     <!-- unfiled isn't a folder you made: no name to edit, nothing to
                          delete — just a heading over what's left over -->
                     <span v-else class="field folder__name vault__unfiled">Unfiled</span>
-                    <button
+                    <NestChevron
                       v-if="section.folder"
-                      class="folder__collapse"
-                      :aria-expanded="!collapsed[section.folder.id]"
-                      :aria-label="`${collapsed[section.folder.id] ? 'Expand' : 'Collapse'} ${section.folder.name}`"
-                      @click="toggleCollapsed(section.folder.id)"
-                    >
-                      <HugeiconsIcon :icon="ChevronDownIcon" class="folder__chev"
-                        :class="{ 'is-collapsed': collapsed[section.folder.id] }"
-                        :size="20"
-                        :stroke-width="2" />
-                    </button>
+                      folder
+                      :collapsed="!!collapsed[section.folder.id]"
+                      :label="section.folder.name"
+                      @toggle="toggleCollapsed(section.folder.id)"
+                    />
                   </div>
 
                   <!-- what the folder HOLDS. The editor's folder header has no
@@ -785,13 +757,13 @@ async function exportGear(kind: string) {
                        folder IS the unit you're comparing, and a shelf you can't
                        weigh is half a shelf. -->
                   <span v-if="section.count" class="t-sm t-num vault__foldersum">
-                    {{ section.count }}<span class="visually-hidden"> {{ section.count === 1 ? "item" : "items" }}</span>
+                    {{ section.count }}<span class="visually-hidden"> {{ pluralNoun(section.count, "item") }}</span>
                     · {{ weightLabel(section.weightMg) }}
                   </span>
 
                   <div v-if="section.folder" class="folder__actions">
                     <button
-                      class="btn btn--icon btn--ghost folder__del"
+                      class="btn btn--icon btn--ghost folder__del ink-quiet"
                       title="Remove folder"
                       :aria-label="`Remove ${section.folder.name}`"
                       @click="deleteFolder(section.folder)"
@@ -799,7 +771,7 @@ async function exportGear(kind: string) {
                       <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
                     </button>
                     <button
-                      class="btn btn--icon btn--ghost grip folder__grip"
+                      class="btn btn--icon btn--ghost grip folder__grip ink-quiet"
                       title="Drag to reorder folder"
                       :aria-label="`Reorder ${section.folder.name}`"
                       @pointerdown="startFolderDrag(section.folder.id, $event)"
@@ -864,22 +836,11 @@ async function exportGear(kind: string) {
               </section>
 
               <!-- new folders are made here rather than by a button that invents an
-                   "Untitled folder" you then have to find and rename -->
-              <div class="addfolder vault__addfolder">
-                <input
-                  v-if="addingFolder"
-                  ref="newFolderRef"
-                  class="addfolder__input"
-                  placeholder="Folder name"
-                  aria-label="New folder name"
-                  autocorrect="off"
-                  spellcheck="false"
-                  @keydown.enter.prevent="addFolder"
-                  @keydown.esc="addingFolder = false"
-                  @blur="addFolder"
-                />
-                <button v-else type="button" class="addfolder__btn" @click="openAddFolder">Add folder</button>
-              </div>
+                   "Untitled folder" you then have to find and rename: the same quiet
+                   label-turned-field the editor's folder foot has (AddFolder). It used to
+                   be a permanently-open input with an "Add" button beside it, which read
+                   as an empty form the page was waiting on rather than an action. -->
+              <AddFolder class="vault__addfolder" @add="(name) => folderOp({ t: 'add', name })" />
             </template>
 
             <!-- a filter or a search that matched nothing. The line names the control

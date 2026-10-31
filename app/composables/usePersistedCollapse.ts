@@ -1,3 +1,5 @@
+import type { Ref } from "vue";
+
 // Per-id collapse state that outlives the page — a folder, a nested group, a trip
 // day — kept in localStorage under `${prefix}${id}` and read through ONE module-level
 // cache rather than straight off storage.
@@ -62,5 +64,25 @@ export function usePersistedCollapse(prefix: string) {
     return next;
   }
 
-  return { isCollapsed, set, toggle };
+  /**
+   * One row's collapse as a ref, for a component that owns a single id (a folder
+   * header, a group row): seeded on MOUNT rather than at setup, so the first paint is
+   * the same expanded one the server drew, and written through on toggle. The folder
+   * and the nested group each carried this ref-plus-onMounted-plus-toggle by hand.
+   */
+  function useFor(id: () => string | number): { collapsed: Ref<boolean>; toggle: () => void } {
+    const collapsed = ref(false);
+    onMounted(() => {
+      collapsed.value = isCollapsed(id());
+    });
+    return {
+      collapsed,
+      toggle() {
+        collapsed.value = !collapsed.value;
+        set(id(), collapsed.value);
+      },
+    };
+  }
+
+  return { isCollapsed, set, toggle, useFor };
 }

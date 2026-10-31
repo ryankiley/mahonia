@@ -148,7 +148,10 @@
   white-space: nowrap;
   color: var(--ink-3);
 }
-.btn--quiet:hover {
+/* lifts for the keyboard as it does for the pointer: a quiet button whose only
+   affordance is a shade of ink owes focus the same shade */
+.btn--quiet:hover,
+.btn--quiet:focus-visible {
   background: transparent;
   color: var(--ink);
 }
@@ -351,6 +354,24 @@ input[type="search"]::-webkit-search-decoration {
 .swatch--hollow {
   background: transparent;
   border: 1.5px solid var(--ink-3);
+}
+/* A legend of swatch-led entries that WRAP AS TEXT — the category bar's folders and
+   the trip panel's day key (which had "lifted this wholesale"). Each entry is inline
+   flow with a hanging indent off --swatch, so a long name's second line sits under
+   the name rather than under the dot, and the dot reads as the bullet it is
+   (CategoryBar has the full argument). What's each legend's own stays with it. */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-3);
+}
+.legend__item {
+  padding-inline-start: calc(var(--swatch) + var(--space-2));
+  text-indent: calc(-1 * (var(--swatch) + var(--space-2)));
+}
+.legend .swatch {
+  margin-inline-end: var(--space-2);
 }
 
 // .panel — a quiet hairline in-page surface (the ungrouped-items section).
@@ -1189,5 +1210,25 @@ input[type="search"]::-webkit-search-decoration {
   gap: var(--space-2);
 }
 .panel__title {
+  color: var(--ink);
+}
+
+// ---- Quiet glyph ------------------------------------------------------------
+// A glyph that rests at the lesser ink and lifts to full ink under the pointer or
+// keyboard focus: a row's trailing cluster (grip, duplicate, remove, the qty ± and
+// the vault tick), its three menu triggers, the folder header's delete and grip, the
+// calendar's month arrows, the search field's clear, the vault's folder picker and
+// "Open" link, the plan's (?) marks. Ten scoped blocks said this; one class does.
+// Composes with .btn--icon.btn--ghost and .menu__btn, and stands alone on a span or
+// a link. LAST IN THE FILE on purpose: equal specificity with every resting ink above
+// it (.btn's --ink, .btn--ghost's and .menu__btn's --ink-2), so order is what lets it
+// win, which is its whole job. Ink-only, so the hover is ungated (see .btn:hover).
+// The transition names colour alone, as every site's own copy did.
+.ink-quiet {
+  color: var(--ink-3);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
+}
+.ink-quiet:hover,
+.ink-quiet:focus-visible {
   color: var(--ink);
 }

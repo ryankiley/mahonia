@@ -33,7 +33,7 @@ export async function deleteListOnServer(headers: Record<string, string>): Promi
     await $fetch("/api/edit/delete", { method: "POST", headers });
     return true;
   } catch (e) {
-    return (e as { statusCode?: number })?.statusCode === 404;
+    return statusOf(e) === 404;
   }
 }
 

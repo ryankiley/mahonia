@@ -26,8 +26,8 @@ const segments = computed(() => categorySegments(props.list));
       />
       <span v-if="!segments.length" class="catbar__seg catbar__seg--blank" />
     </div>
-    <ul v-if="segments.length" class="catbar__legend">
-      <li v-for="(s, i) in segments" :key="i" class="catbar__item">
+    <ul v-if="segments.length" class="legend catbar__legend">
+      <li v-for="(s, i) in segments" :key="i" class="legend__item catbar__item">
         <span class="swatch" :style="{ background: categoryColor(s.colorKey) }" />
         <span class="catbar__name">{{ s.name }}</span>
         <span class="catbar__wt">
@@ -53,13 +53,8 @@ const segments = computed(() => categorySegments(props.list));
   flex-grow: 1;
   background: var(--line);
 }
-.catbar__legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin-top: var(--space-3);
-}
-/* TEXT FLOW, not a flex row. A folder name is as long as its owner made it, and once
+/* the row, the hanging indent and the dot's gap are the .legend atom's (controls.scss).
+   TEXT FLOW, not a flex row. A folder name is as long as its owner made it, and once
    one wrapped, a flex row put the dot in the middle of the block (align-self: center
    centres against the whole item, not the line it belongs to) and left the weight up
    on the first line with the rest of the name running underneath it — a number with
@@ -70,8 +65,6 @@ const segments = computed(() => categorySegments(props.list));
    under the dot, so the dot reads as the bullet it is. */
 .catbar__item {
   font-size: var(--text-base);
-  padding-inline-start: calc(var(--swatch) + var(--space-2));
-  text-indent: calc(-1 * (var(--swatch) + var(--space-2)));
   /* A flex item's automatic minimum is its MIN-CONTENT width, so a folder name with no
      space or hyphen in it sized this entry to the whole word and ran it off the side of
      the page — the legend clips, so the name was cut with no ellipsis and no way to
@@ -80,12 +73,6 @@ const segments = computed(() => categorySegments(props.list));
      legend once it has. */
   min-width: 0;
   max-width: 100%;
-}
-/* the dot's own inline-block + cap-box alignment moved onto the .swatch atom
-   (atoms/controls.scss), where a third consumer can't miss them; the gap to the label
-   is this legend's */
-.swatch {
-  margin-inline-end: var(--space-2);
 }
 /* folder names read as labels — same treatment as the Base/Worn chips (t-label):
    strong weight, secondary ink. The figure beside them keeps full ink. */

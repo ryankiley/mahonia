@@ -34,6 +34,7 @@
 // so a data message is a handful of fixed-offset reads whatever its field count; a
 // hostile file full of 255-field messages costs no more per byte than a real one.
 
+import { validLatLon } from "./polyline";
 import { filledElevations, type FilePin, type TrackPoint } from "./gpx";
 import { MAX_WAYPOINTS } from "./ops";
 
@@ -243,7 +244,7 @@ function readData(view: DataView, bytes: Uint8Array, at: number, def: Definition
   const lonDeg = lon * SEMICIRCLE_DEG;
   // a longitude can't overflow (2^31 semicircles IS 180°, and the count past it is the
   // invalid value), but a latitude can: the same range reaches 180° where 90° is the pole
-  if (Math.abs(latDeg) > 90 || Math.abs(lonDeg) > 180) return;
+  if (!validLatLon(latDeg, lonDeg)) return;
   if (def.global === RECORD) {
     // fifths of a metre, offset by 500 so that sea level is not the invalid value
     const raw =

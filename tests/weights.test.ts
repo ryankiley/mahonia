@@ -14,7 +14,6 @@ import { itemDisplayName, nameRepeatsBrand, rowDisplayKcal,
   isBareGroup,
   nextSortOrder,
   parseWeightInput,
-  sortedFolderItems,
   splitWornQty,
   toMg,
   totalsChips,
@@ -424,7 +423,7 @@ describe("groupItemsByFolder", () => {
   });
 });
 
-describe("sortedFolderItems", () => {
+describe("groupItemsByFolder, one folder", () => {
   it("returns just this folder's items in drag order", () => {
     const f: Folder = { id: "f1", name: "f1", defaultClassification: "base", sortOrder: 0 };
     const items = [
@@ -432,7 +431,7 @@ describe("sortedFolderItems", () => {
       item({ id: "a", folderId: "f1", name: "Axe", sortOrder: 0 }),
       item({ id: "other", folderId: "f2", name: "Zzz", sortOrder: 0 }),
     ];
-    expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["a", "c"]);
+    expect((groupItemsByFolder(items).get(f.id) ?? []).map((i) => i.id)).toEqual(["a", "c"]);
   });
 });
 
@@ -535,7 +534,7 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
     expect(t.baseMg).toBe(30_000);
   });
 
-  it("groupItemsByFolder / sortedFolderItems return TOP-LEVEL rows only (children render nested)", () => {
+  it("groupItemsByFolder returns TOP-LEVEL rows only (children render nested)", () => {
     const f: Folder = { id: "f1", name: "f1", defaultClassification: "base", sortOrder: 0 };
     const items = [
       item({ id: "tent", folderId: "f1", sortOrder: 0 }),
@@ -543,7 +542,7 @@ describe("nesting (a nested item is just an item with a parentId)", () => {
       item({ id: "pack", folderId: "f1", sortOrder: 1 }),
     ];
     expect(groupItemsByFolder(items).get("f1")!.map((i) => i.id)).toEqual(["tent", "pack"]);
-    expect(sortedFolderItems(items, f).map((i) => i.id)).toEqual(["tent", "pack"]);
+    expect((groupItemsByFolder(items).get(f.id) ?? []).map((i) => i.id)).toEqual(["tent", "pack"]);
   });
 
   it("groupItemsByParent: children under their parent id, in sortOrder", () => {

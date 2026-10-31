@@ -32,7 +32,7 @@
 
 import type { H3Event } from "h3";
 import { createError } from "h3";
-import { verifyRegistrationResponse } from "@simplewebauthn/server";
+import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server";
 import { trustedHost, trustedOrigin } from "./origin";
 import { randomSecret, sha256Hex } from "./tokens";
 import { sharedKvConfigured, useKv } from "./rateLimit";
@@ -48,17 +48,37 @@ export function rpIdFor(event: H3Event): string {
   return trustedHost(event).split(":")[0]!;
 }
 
-/** The exact origin the browser will report, which must match byte-for-byte. */
-export function originFor(event: H3Event): string {
-  return trustedOrigin(event);
-}
-
-/** An opaque handle for an account that doesn't exist yet — the WebAuthn userID
- *  for a passkey signup. Never used to look an account up (sign-in resolves the
- *  credential id), so it only has to be unguessable and unique enough that two
- *  accounts on one device don't render identically in a password manager. */
-export function newAccountHandle(): string {
-  return randomSecret();
+/**
+ * The registration ceremony's options, for both doors — a new account (signup-options)
+ * and a key added to an existing one (register-options). What differs is only WHO:
+ * the name the OS prompt shows, the opaque handle the authenticator stores, and the
+ * keys to leave out. Everything the two must agree on is stated once: the RP, no
+ * attestation (we don't need to know which make of key it is), the algorithm list
+ * (stated, not inherited — see PASSKEY_ALGORITHM_IDS), and a REQUIRED resident key.
+ *
+ * Required, not preferred. Sign-in is usernameless — signin-options sends no
+ * allowCredentials — so the browser can only offer a key it can discover on its own.
+ * "preferred" let an authenticator hand back a non-discoverable credential, which
+ * the page would then confirm with "you can sign in with it from now on" and which
+ * would never appear at sign-in. Silent, permanent, and with no fallback path that
+ * could surface it.
+ */
+export function registrationOptions(
+  event: H3Event,
+  who: { name: string; displayName: string; handle: string },
+  excludeIds: readonly string[] = [],
+) {
+  return generateRegistrationOptions({
+    rpName: RP_NAME,
+    rpID: rpIdFor(event),
+    userName: who.name,
+    userDisplayName: who.displayName,
+    userID: new TextEncoder().encode(who.handle),
+    attestationType: "none",
+    supportedAlgorithmIDs: PASSKEY_ALGORITHM_IDS,
+    excludeCredentials: excludeIds.map((id) => ({ id })),
+    authenticatorSelection: { residentKey: "required", userVerification: "preferred" },
+  });
 }
 
 /** What the site calls itself in the OS passkey prompt. */
@@ -166,7 +186,8 @@ export async function startChallenge(
  * Single-use: the entry is cleared before the caller verifies anything, so a
  * replayed response finds nothing and fails, whatever else happens downstream.
  */
-export async function takeChallenge(flowId: string): Promise<StoredChallenge | null> {
+export async function takeChallenge(flowId: unknown): Promise<StoredChallenge | null> {
+  // the raw body field: anything that isn't a plausible id is simply no challenge
   if (!flowId || typeof flowId !== "string" || flowId.length > 200) return null;
   const key = `wa:${sha256Hex(flowId)}`;
   const kv = useKv();
@@ -209,7 +230,7 @@ export async function verifyPasskeyRegistration(
     verification = await verifyRegistrationResponse({
       response: response as never,
       expectedChallenge: challenge,
-      expectedOrigin: originFor(event),
+      expectedOrigin: trustedOrigin(event), // the exact origin the browser reports, byte-for-byte
       expectedRPID: rpIdFor(event),
       requireUserVerification: false, // a hardware key with no PIN is still a fine second factor
     });

@@ -4,7 +4,8 @@ import { ArrowUpRight01Icon, Backpack03Icon, Calendar03Icon, GlobeIcon, Route02I
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
-import { formatDistance, heightStepFor, heightUnitFor, heightValue, resolveDistanceUnit } from "~~/shared/trailDistance";
+import { routeLengthM, shownHeightM } from "~~/shared/tripPlan";
+import { formatDistance, heightWithUnit, resolveDistanceUnit } from "~~/shared/trailDistance";
 import type { PersonSelection } from "~~/shared/people";
 import type { Item, ListSnapshot, Person, Totals, Unit } from "~~/shared/types";
 import { variantShownIds } from "~~/shared/variantShown";
@@ -65,11 +66,7 @@ const NO_ITEMS: Item[] = [];
 // words (the viewer isn't writing), just the last server write via the shared
 // timeAgo(), so a share link tells the reader how fresh the list is. Ticks silently.
 const now = useNow({ interval: 30_000 });
-const editedAt = computed(() => {
-  const iso = props.list?.updatedAt;
-  const t = iso ? Date.parse(iso) : NaN;
-  return Number.isFinite(t) ? t : null;
-});
+const editedAt = computed(() => parseIsoTime(props.list?.updatedAt));
 
 // The route this list was packed for. Lives here rather than in either page's #head
 // slot so /s and /l both get it — /l overrides only the heading block.
@@ -120,11 +117,11 @@ const climbs = computed(() =>
     props.list?.trailAscentM,
   ),
 );
+// the owner's own rule for which climb a day shows (shared/tripPlan), so a shared day
+// can't quietly read a different figure from the one its owner sees
 const climbFor = (i: number) =>
-  days.value[i]?.ascentM ?? (days.value[i]?.distanceM != null ? climbs.value[i]?.ascentM : undefined);
-const routeM = computed(() =>
-  Math.max(props.list?.trailDistanceM ?? 0, dayDistancesM.value.reduce((s, d) => s + d, 0)),
-);
+  shownHeightM(days.value[i]?.ascentM, days.value[i]?.distanceM, climbs.value[i]?.ascentM);
+const routeM = computed(() => routeLengthM(props.list?.trailDistanceM, dayDistancesM.value));
 // Nothing to show is nothing to draw — a list with no days and no route keeps the shape
 // it had before any of this existed.
 const hasTrip = computed(() => days.value.length > 0 || profile.value.length > 0);
@@ -133,10 +130,7 @@ const hasTrip = computed(() => days.value.length > 0 || profile.value.length > 0
 // the step and the unit word are all shared/trailDistance.ts's, so a shared day reads the
 // climb its owner sees.
 const tripId = useId();
-const asHeight = (m: number) => {
-  const unit = distanceUnit.value;
-  return `${heightValue(m, unit, heightStepFor(unit))} ${heightUnitFor(unit)}`;
-};
+const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 </script>
 
 <template>

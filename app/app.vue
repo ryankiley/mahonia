@@ -1,6 +1,11 @@
 <script setup lang="ts">
 const { state: accountModal } = useAccountModal();
 const { mount: dialogs } = useDialogs();
+const { state: feedback, close: closeFeedback } = useFeedback();
+// One mount outlives any page, where the two per-surface mounts it replaced went with
+// theirs — so a route change (Back, with the box open) closes it, as it always did.
+const route = useRoute();
+watch(() => route.path, closeFeedback);
 // The static social-card IMAGE — the fallback every page carries until a
 // list page overrides it with its own card (useListOgCard). Absolute via
 // useSiteOrigin, which owns the prerender-crawler guard this file used to
@@ -29,6 +34,15 @@ useSeoMeta({
        wiring its own overlay. Lazy + everOpened, so a visit that never opens it pays
        nothing for the panel, the passkey ceremony or the delete flow. -->
   <LazyAccountModal v-if="accountModal.everOpened" />
+  <!-- the feedback box, the same way: the editor's ⋯ menu and the read views' both
+       open it (useFeedback), and the read views' "Report list" seeds it -->
+  <LazyFeedbackModal
+    v-if="feedback.everOpened"
+    :open="feedback.open"
+    :preset="feedback.preset"
+    :title="feedback.title"
+    @close="feedback.open = false"
+  />
   <!-- LAST, and that's load-bearing. Every overlay shares one --z-float, so paint
        order decides which is on top — and a confirm can be raised from inside another
        modal (delete-account is raised from the account modal). Anything mounted after

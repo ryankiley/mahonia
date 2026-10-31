@@ -10,6 +10,13 @@ import { DAY_MS, parseIsoDate } from "~~/shared/calendar";
 // (the useNow composable in app/composables/dom.ts) to get a label that re-renders
 // as time passes without recomputing the base timestamp. Nuxt auto-imports
 // app/utils, so callers use `timeAgo(...)` bare.
+/** An ISO timestamp as epoch ms, or null for none or an unparseable one — the shape
+ *  the sync line and the share views' meta line both hand timeAgo. */
+export function parseIsoTime(iso: string | null | undefined): number | null {
+  const t = iso ? Date.parse(iso) : NaN;
+  return Number.isFinite(t) ? t : null;
+}
+
 export function timeAgo(ts: number, now: number = Date.now()): string {
   const s = Math.max(0, Math.round((now - ts) / 1000)); // clamp future skew to "just now"
   if (s < 45) return "just now";

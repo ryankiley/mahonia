@@ -98,7 +98,7 @@ const meta = computed(() => {
              arrival. -->
         <button
           type="button"
-          class="btn btn--icon btn--ghost vault__act"
+          class="btn btn--icon btn--ghost vault__act ink-quiet"
           :title="`Edit ${displayName}`"
           :aria-label="`Edit ${displayName}`"
           @click="emit('edit')"
@@ -112,7 +112,7 @@ const meta = computed(() => {
              picker still names every destination when you open it, and it's the
              keyboard and touch path for moving gear. -->
         <OptionMenu
-          class="vault__movewrap"
+          class="vault__movewrap ink-quiet"
           trigger-class="btn btn--icon btn--ghost"
           :options="folderOptions ?? []"
           :current="String(entry.folderId ?? '')"
@@ -130,7 +130,7 @@ const meta = computed(() => {
              lives on aria-label + title. -->
         <button
           type="button"
-          class="btn btn--icon btn--ghost vault__act"
+          class="btn btn--icon btn--ghost vault__act ink-quiet"
           :disabled="busy"
           :title="`Remove ${displayName}`"
           :aria-label="`Remove ${displayName} from My Gear`"
@@ -143,7 +143,7 @@ const meta = computed(() => {
     <button
       v-else
       type="button"
-      class="btn btn--quiet vault__act"
+      class="btn btn--quiet vault__act ink-quiet"
       :disabled="busy"
       :aria-label="`Put ${displayName} back in My Gear`"
       @click="emit('restore')"
@@ -227,11 +227,6 @@ const meta = computed(() => {
    ours, matching the folder header's delete beside it */
 .vault__act {
   flex: none;
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.vault__act:hover {
-  color: var(--ink);
 }
 /* the folder header's sort control at row scale: a glyph that shows the control
    exists, opening the app's own picker (OptionMenu) */
@@ -243,11 +238,6 @@ const meta = computed(() => {
   justify-content: center;
   width: var(--icon-btn);
   min-height: var(--icon-btn);
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.vault__movewrap:hover {
-  color: var(--ink);
 }
 .vault__moveicon {
   pointer-events: none;

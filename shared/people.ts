@@ -7,7 +7,7 @@
 
 import { categoryColor } from "./categories";
 import type { Item, ListData, ListSnapshot, Person, Unit } from "./types";
-import { bySortOrder, computeTotals, formatWeight } from "./weights";
+import { bySortOrder, computeTotals, formatWeight, groupBy } from "./weights";
 
 /**
  * The filter's third state, beside "a person id" and null-for-everyone: rows
@@ -182,11 +182,7 @@ export function selectItemsForPerson(items: Item[], selection: PersonSelection):
  * the parent's own line would put someone else's weight in this person's total.
  */
 export function filterItemsForPerson(items: Item[], selection: PersonSelection): Item[] {
-  if (!selection) return items;
-  const byId = new Map(items.map((item) => [item.id, item]));
-  return items.filter((item) =>
-    matchesSelection(item, item.parentId ? byId.get(item.parentId) : null, selection),
-  );
+  return selectItemsForPerson(items, selection).counted;
 }
 
 /**
@@ -223,13 +219,10 @@ export function carriedTotalsMg(
   // keystroke (the snapshot mutates in place), and thirteen filterItemsForPerson
   // calls each rebuilt the parent map over the whole list.
   const byId = new Map(list.items.map((i) => [i.id, i]));
-  const buckets = new Map<string, Item[]>();
-  for (const it of list.items) {
-    const key = effectivePersonId(it, it.parentId ? byId.get(it.parentId) : null) ?? UNASSIGNED;
-    const bucket = buckets.get(key);
-    if (bucket) bucket.push(it);
-    else buckets.set(key, [it]);
-  }
+  const buckets = groupBy(
+    list.items,
+    (it) => effectivePersonId(it, it.parentId ? byId.get(it.parentId) : null) ?? UNASSIGNED,
+  );
   const out: Record<string, number> = {};
   for (const key of [...(list.people ?? []).map((p) => p.id), UNASSIGNED]) {
     const items = buckets.get(key);

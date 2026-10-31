@@ -47,20 +47,14 @@ const chips = computed<{ key: PersonSelection; label: string; color?: string; ho
 
 const pick = (key: PersonSelection) => emit("pick", key === props.selected ? null : key);
 
-const opts = useTemplateRef<HTMLButtonElement[]>("opts");
-
-// ModeBar's roving arrows, verbatim in shape: selection follows focus, wraps at
-// the ends. Arrows SET rather than toggle — a radio you arrow onto is chosen.
-function onKey(e: KeyboardEvent) {
-  if (!/^Arrow(Left|Right|Up|Down)$/.test(e.key)) return;
-  const i = chips.value.findIndex((c) => c.key === props.selected);
-  if (i < 0) return;
-  e.preventDefault();
-  const step = /Left|Up/.test(e.key) ? -1 : 1;
-  const at = (i + step + chips.value.length) % chips.value.length;
-  emit("pick", chips.value[at]!.key);
-  nextTick(() => opts.value?.[at]?.focus());
-}
+// ModeBar's roving arrows, from the one place they live (useRovingRadio): selection
+// follows focus, wraps at the ends. Arrows SET rather than toggle — a radio you arrow
+// onto is chosen.
+const { onKey } = useRovingRadio(
+  () => chips.value.length,
+  () => chips.value.findIndex((c) => c.key === props.selected),
+  (at) => emit("pick", chips.value[at]!.key),
+);
 </script>
 
 <template>

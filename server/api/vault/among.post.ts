@@ -1,5 +1,5 @@
 import { defineEventHandler } from "h3";
-import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
+import { arrayOf, readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { resolveVaultForRead } from "../../utils/vaultAuth";
 import { vaultGearAmong } from "../../utils/vaultRepo";
@@ -31,9 +31,7 @@ export default defineEventHandler(async (event) => {
   // The same bound a capture takes, for the same reason: a list past it is
   // pathological, and the cap keeps one request's IN (...) bounded regardless.
   const body = await readJsonBodyCapped<{ normKeys?: unknown }>(event, 64_000);
-  const normKeys = Array.isArray(body?.normKeys)
-    ? body.normKeys.filter((k): k is string => typeof k === "string" && !!k).slice(0, VAULT_CAPTURE_MAX)
-    : [];
+  const normKeys = arrayOf(body?.normKeys, (k): k is string => typeof k === "string" && !!k, VAULT_CAPTURE_MAX);
   if (!normKeys.length) return { keys: [] };
 
   // a fresh account has no vault row until its first capture — an empty vault,

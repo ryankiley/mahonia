@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
+import { counted } from "~~/shared/tidyText";
 import { dayColorSequence } from "~~/shared/categories";
 import {
   formatDistance,
@@ -8,7 +8,7 @@ import {
   heightValue,
   type DisplayDistanceUnit,
 } from "~~/shared/trailDistance";
-import { dayRanges } from "~~/shared/tripPlan";
+import { dayRanges, descentIsDistinct, routeLengthM } from "~~/shared/tripPlan";
 // gradeBandFor is the function the SHADING bands by, not a second copy of its two
 // thresholds — so the number under the cursor and the colour under the cursor can never
 // disagree about what "steep" means. There used to be a STEEP_PCT in this file saying 10
@@ -82,9 +82,7 @@ const EDGE_F = 0.15;
 const lo = computed(() => Math.min(...props.profile));
 const hi = computed(() => Math.max(...props.profile));
 /** Whether the drop is its own fact, or just the climb restated (which a loop guarantees). */
-const descentDiffers = computed(
-  () => props.descentM != null && props.ascentM != null && props.descentM !== props.ascentM,
-);
+const descentDiffers = computed(() => descentIsDistinct(props.ascentM, props.descentM));
 // WHERE the extremes are, not just what they are — the scrubber names them in place.
 // First occurrence: a plateau at the summit has one summit as far as a label is concerned.
 const hiIdx = computed(() => props.profile.indexOf(hi.value));
@@ -118,10 +116,7 @@ const dayOfSample = computed(() => {
   // miles of a 20-mile route owns a fifth of the picture, and the sixteen miles nobody has
   // claimed yet stay visibly unclaimed. Sizing to the sum instead would stretch that one
   // day across the whole chart and quietly assert a plan that doesn't exist.
-  const total = Math.max(
-    props.totalDistanceM,
-    props.dayDistancesM.reduce((s, d) => s + d, 0),
-  );
+  const total = routeLengthM(props.totalDistanceM, props.dayDistancesM);
   if (!(total > 0)) return props.profile.map(() => -1);
   // each day's far edge as a fraction of the route — the same end-to-end cut the map's
   // legs and the panel's pins use (shared/tripPlan.dayRanges)
@@ -266,7 +261,7 @@ const description = computed(() => {
   const hard = spread.hard > 0 ? `${formatDistance(Math.round(spread.hard), props.distanceUnit)} of it steep going` : "";
   const mod = spread.moderate > 0 ? `${formatDistance(Math.round(spread.moderate), props.distanceUnit)} moderate` : "";
   const going = [hard, mod].filter(Boolean).join(" and ");
-  return `Elevation profile: ${len}, ${range}, across ${n} ${n === 1 ? "day" : "days"}.${climb}${going ? ` ${going}.` : ""}`;
+  return `Elevation profile: ${len}, ${range}, across ${counted(n, "day")}.${climb}${going ? ` ${going}.` : ""}`;
 });
 
 /**
@@ -566,17 +561,11 @@ const id = useId();
          figures instead, which is the same division of labour the numbers above the chart
          already make. aria-hidden: <desc> says all of it, and better. -->
     <p v-if="facts !== false" class="tprofile__facts">
-      <span v-if="ascentM" class="chip">
-        <span class="t-label">Elevation gain</span>
-        <span class="t-num">{{ asHeight(ascentM) }} <span class="t-muted">{{ heightUnit }}</span></span>
-      </span>
+      <FigureChip v-if="ascentM" label="Elevation gain" :value="asHeight(ascentM)" :unit="heightUnit" />
       <!-- The descent only when it is a DIFFERENT fact. On a loop it equals the climb by
            definition, and two figures carrying one fact is one figure too many; where they
            differ, the gap between them IS the net height change, which is worth seeing. -->
-      <span v-if="descentDiffers" class="chip">
-        <span class="t-label">Elevation loss</span>
-        <span class="t-num">{{ asHeight(descentM ?? 0) }} <span class="t-muted">{{ heightUnit }}</span></span>
-      </span>
+      <FigureChip v-if="descentDiffers" label="Elevation loss" :value="asHeight(descentM ?? 0)" :unit="heightUnit" />
     </p>
   </figure>
 </template>
@@ -647,7 +636,8 @@ const id = useId();
 /* The route's own figures, in the same chip the trip's estimates use — they answer the
    same kind of question and were reading as a different class of thing. */
 /* the same lesser ink the panel gives its units — see the note there on why not .t-muted */
-.tprofile__facts .t-muted {
+/* :deep — the chips' spans are FigureChip's and carry its scope, not this one's */
+.tprofile__facts :deep(.t-muted) {
   color: var(--ink-3);
 }
 .tprofile__facts {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { formatLatLon, nearestAlongM, pointAlong, sliceAlong } from "~~/shared/polyline";
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
+import { HugeiconsIcon, kebab, type IconNode } from "~/utils/hugeicon";
 import { ArrowExpand02Icon, ArrowShrink02Icon, HelpCircleIcon } from "@hugeicons/core-free-icons";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { waypointKindMeta } from "~/utils/waypointKinds";
@@ -238,7 +238,7 @@ function iconSvg(icon: IconNode): string {
       const a = Object.entries(attrs)
         // `key` is Vue's list hint and strokeWidth is set on the parent; neither is SVG
         .filter(([k]) => k !== "key" && k !== "strokeWidth")
-        .map(([k, v]) => `${k.replace(/[A-Z]/g, (ch) => `-${ch.toLowerCase()}`)}="${String(v).replace(/[<>&"]/g, "")}"`)
+        .map(([k, v]) => `${kebab(k)}="${String(v).replace(/[<>&"]/g, "")}"`)
         .join(" ");
       return `<${tag} ${a}/>`;
     })

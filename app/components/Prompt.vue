@@ -41,7 +41,7 @@ const emit = defineEmits<{ dismiss: [] }>();
 </script>
 
 <template>
-  <Transition :name="variant === 'corner' ? 'toast' : 'promptin'">
+  <Transition :name="variant === 'corner' ? 'toast' : 'reveal'">
     <!-- Corner: fixed, so nothing reflows when it goes — a fade and a small rise
          is the whole exit. -->
     <div v-if="show && variant === 'corner'" class="toast toast--corner prompt" role="status">
@@ -64,8 +64,7 @@ const emit = defineEmits<{ dismiss: [] }>();
          row's note use the same one; height:auto↔0 would just snap in Safari,
          which has no interpolate-size). The content below eases up instead of
          jumping. -->
-    <div v-else-if="show" class="prompt-reveal" role="status">
-      <div class="prompt-reveal__inner">
+    <div v-else-if="show" class="reveal" role="status">
         <div class="prompt prompt--inline">
           <span v-if="$slots.icon" class="prompt__icon" aria-hidden="true"><slot name="icon" /></span>
           <span class="prompt__text">
@@ -77,7 +76,6 @@ const emit = defineEmits<{ dismiss: [] }>();
             <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
           </button>
         </div>
-      </div>
     </div>
   </Transition>
 </template>
@@ -102,31 +100,10 @@ const emit = defineEmits<{ dismiss: [] }>();
    viewport, and on an inline banner it would slide the thing half its own width
    sideways as it arrives. So the inline variant gets its own: a plain fade and a
    small rise, no horizontal component to undo. */
-.promptin-enter-active {
-  transition:
-    opacity var(--spring-fade-dur) var(--spring-fade),
-    grid-template-rows var(--spring-step-dur) var(--spring-step);
-}
-/* the exit is what matters here — it's the one that moves the page */
-.promptin-leave-active {
-  transition:
-    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
-    grid-template-rows var(--spring-step-dur) var(--spring-step);
-}
-.promptin-enter-from,
-.promptin-leave-to {
-  opacity: 0;
-  grid-template-rows: 0fr;
-}
-/* the wrapper IS the animation: one row, 1fr → 0fr, inner clipping */
-.prompt-reveal {
-  display: grid;
-  grid-template-rows: 1fr;
-}
-.prompt-reveal__inner {
-  min-height: 0;
-  overflow: hidden;
-}
+/* the inline variant unfolds on the shared .reveal recipe (controls.scss): the grid
+   whose one row runs 1fr↔0fr with the inner clipping, on the step spring, so it folds
+   exactly as a row's note and the menu's Export section do — it carried its own copy
+   under another name */
 
 /* Inline: an aside in the column, so it borrows the page's ink rather than the
    toast's inverted surface, and a hairline + faint fill is the whole of its chrome.

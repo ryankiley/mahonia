@@ -1,4 +1,4 @@
-import { createError, getHeader, readRawBody, setHeader, type H3Event } from "h3";
+import { createError, getHeader, getQuery, readRawBody, setHeader, type H3Event } from "h3";
 import { READ_EDGE_CACHE_CONTROL } from "../../shared/site";
 
 /**
@@ -142,6 +142,24 @@ export async function readResponseCapped(
     chunks.push(value);
   }
   return { ok: true, body: total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null };
+}
+
+/** A body field that should be an array: the elements `guard` admits, capped.
+ *  Anything else — absent, a string, an object — reads as empty, and the handler's
+ *  own "nothing to do" early-out answers it. Eight handlers wrote this filter. */
+export function arrayOf<T>(v: unknown, guard: (x: unknown) => x is T, cap?: number): T[] {
+  const out = Array.isArray(v) ? v.filter(guard) : [];
+  return cap === undefined ? out : out.slice(0, cap);
+}
+
+/** a row-shaped element: an object (an array is one too, as the handlers always
+ *  allowed; the repo's sanitize is what judges the shape) */
+export const isObjectLike = (x: unknown): x is object => !!x && typeof x === "object";
+
+/** One query-string value, capped: the first where it was repeated, "" where absent. */
+export function queryString(event: H3Event, name: string, max: number): string {
+  const raw = getQuery(event)[name];
+  return (Array.isArray(raw) ? raw[0] : (raw ?? "")).toString().slice(0, max);
 }
 
 export async function readJsonBodyCapped<T>(event: H3Event, maxBytes: number): Promise<T> {

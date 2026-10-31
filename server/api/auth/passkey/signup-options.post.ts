@@ -1,13 +1,6 @@
 import { createError, defineEventHandler } from "h3";
-import { generateRegistrationOptions } from "@simplewebauthn/server";
-import {
-  PASSKEY_ALGORITHM_IDS,
-  RP_NAME,
-  newAccountHandle,
-  requirePasskeysConfigured,
-  rpIdFor,
-  startChallenge,
-} from "../../../utils/passkeys";
+import { registrationOptions, requirePasskeysConfigured, startChallenge } from "../../../utils/passkeys";
+import { randomSecret } from "../../../utils/tokens";
 import { emailTaken, normalizeEmail } from "../../../utils/authSession";
 import { useAccountDb } from "../../../utils/db";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
@@ -69,30 +62,18 @@ export default defineEventHandler(async (event) => {
   // id, because there IS no row id yet — and nothing ever looks an account up by it
   // (sign-in resolves the credential id instead), so it only has to be stable for
   // the length of the ceremony.
-  const handle = newAccountHandle();
+  // An opaque handle for an account that doesn't exist yet. Never used to look an
+  // account up (sign-in resolves the credential id), so it only has to be
+  // unguessable and unique enough that two accounts on one device don't render
+  // identically in a password manager.
+  const handle = randomSecret();
 
-  const options = await generateRegistrationOptions({
-    rpName: RP_NAME,
-    rpID: rpIdFor(event),
-    // What the OS prompt shows, and what names this passkey in a password manager
-    // forever after. The address is the right thing here — it's the one string a
-    // person will recognise months later — and being able to use it is a second
-    // reason to collect it up front rather than after.
-    userName: email,
-    userDisplayName: email,
-    userID: new TextEncoder().encode(handle),
-    attestationType: "none",
-    // stated, not inherited — see PASSKEY_ALGORITHM_IDS
-    supportedAlgorithmIDs: PASSKEY_ALGORITHM_IDS,
-    authenticatorSelection: {
-      // REQUIRED, not preferred. Sign-in sends no email and no user id, so the
-      // browser has to be able to offer the credential unprompted. A non-
-      // discoverable key here would create an account that nothing can ever sign
-      // back into — the failure would be silent and permanent.
-      residentKey: "required",
-      userVerification: "preferred",
-    },
-  });
+  // What the OS prompt shows, and what names this passkey in a password manager
+  // forever after. The address is the right thing here — it's the one string a
+  // person will recognise months later — and being able to use it is a second
+  // reason to collect it up front rather than after. The RP, the algorithms and the
+  // required resident key are registrationOptions' (shared with register-options).
+  const options = await registrationOptions(event, { name: email, displayName: email, handle });
 
   return { flowId: await startChallenge(options.challenge, undefined, email), options };
 });

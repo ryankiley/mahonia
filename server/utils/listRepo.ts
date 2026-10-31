@@ -2,8 +2,9 @@
 // edit token (write) or a share code (read); the internal numeric id never
 // leaves this module.
 
+import { sweepWindow, toIso } from "./time";
 import { createError } from "h3";
-import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql, type SQL } from "drizzle-orm";
 import { listClaims, catalogItems, listSnapshots, lists, type ListRow, users } from "../db/schema";
 import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeCalendarDate, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyListText, type Op, MAX_TITLE_LEN, isCatalogId } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
@@ -15,7 +16,7 @@ import {
   stateToFullSnap,
   type FullSnap,
 } from "../../shared/snapshotDiff";
-import { UNITS, CLAIMED_LIST_CAP } from "../../shared/types";
+import { UNITS, CLAIMED_LIST_CAP, LIST_META_KEYS } from "../../shared/types";
 import type { ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { normalizeShareCode } from "../../shared/links";
@@ -339,8 +340,13 @@ function rowToState(row: ListRow): ListState {
   });
 }
 
+/** A list that is still here: active and not soft-deleted. Every live query — by
+ *  token, by code, by claim — says it through this. */
+export function isLive(): SQL | undefined {
+  return and(eq(lists.status, "active"), isNull(lists.deletedAt));
+}
 const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val: string) =>
-  and(eq(col, val), eq(lists.status, "active"), isNull(lists.deletedAt));
+  and(eq(col, val), isLive());
 
 // The "is this holder allowed to touch this live, non-deleted list" lookup.
 // Exported so discoveryRepo shares the exact same capability gate (no drift).
@@ -459,8 +465,7 @@ export async function findLiveByEditHashes(
     .where(
       and(
         inArray(lists.editTokenHash, editHashes),
-        eq(lists.status, "active"),
-        isNull(lists.deletedAt),
+        isLive(),
       ),
     );
 }
@@ -595,7 +600,7 @@ export async function listSnapshotsByEditHash(
     id: r.id,
     version: r.version,
     reason: r.reason ?? null,
-    createdAt: r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+    createdAt: toIso(r.createdAt),
     itemCount: r.itemCount ?? 0,
   }));
 }
@@ -852,6 +857,14 @@ function normalizeListMeta(raw: Partial<Record<ListMetaKey, unknown>> = {}) {
 
 /** The same meta with every absent field as an explicit `null`, for an UPDATE. */
 type Nulled<T> = { [K in keyof T]: undefined extends T[K] ? Exclude<T[K], undefined> | null : T[K] };
+/** Every meta column off the state, PRESENT OR NOT. The reducer clears a field by
+ *  deleting its key (setOrClear), so pickListMeta — which copies only the keys it
+ *  finds — would hand the write nothing for a cleared field and the column would keep
+ *  its old value. Walked off LIST_META_KEYS, so a new field reaches the write on its own. */
+function allMeta(state: ListState): Pick<ListState, ListMetaKey> {
+  return Object.fromEntries(LIST_META_KEYS.map((k) => [k, state[k]])) as Pick<ListState, ListMetaKey>;
+}
+
 function nulled<T extends object>(meta: T): Nulled<T> {
   return Object.fromEntries(Object.entries(meta).map(([k, v]) => [k, v ?? null])) as Nulled<T>;
 }
@@ -868,7 +881,7 @@ export async function exportClaimedLists(db: Db, userId: number): Promise<ListSn
     .select({ row: lists })
     .from(listClaims)
     .innerJoin(lists, eq(lists.id, listClaims.listId))
-    .where(and(eq(listClaims.userId, userId), eq(lists.status, "active"), isNull(lists.deletedAt)))
+    .where(and(eq(listClaims.userId, userId), isLive()))
     .orderBy(desc(lists.updatedAt))
     .limit(CLAIMED_LIST_CAP);
   const out: ListSnapshot[] = [];
@@ -1047,19 +1060,12 @@ export async function applyOpsByEditHash(
     const updated = await d
       .update(lists)
       .set({
-        title: state.title,
-        description: state.description ?? null,
-        trailUrl: state.trailUrl ?? null,
-        trailLabel: state.trailLabel ?? null,
-        trailDistanceM: state.trailDistanceM ?? null,
-        trailDistanceUnit: state.trailDistanceUnit ?? null,
-        trailProfile: state.trailProfile ?? null,
-        trailAscentM: state.trailAscentM ?? null,
-        trailDescentM: state.trailDescentM ?? null,
-        routeGeometry: state.routeGeometry ?? null,
-        startDate: state.startDate ?? null,
-        endDate: state.endDate ?? null,
-        displayUnit: state.displayUnit,
+        // every meta column, null for absent — the same LIST_META_KEYS walk create and
+        // restore make, so a field added to the list reaches the mutate write on its own
+        // (this was thirteen hand-written `x: state.x ?? null` lines). allMeta, NOT
+        // pickListMeta: the reducer CLEARS a field by deleting its key, and a clear has
+        // to land as null — a present-keys-only copy would leave the old value standing.
+        ...nulled(allMeta(state)),
         data,
         ...weightColumns(totals),
         version: row.version + 1,
@@ -1151,9 +1157,7 @@ export async function reapAbandonedLists(
   opts?: { staleDays?: number; limit?: number },
 ): Promise<{ reaped: number }> {
   const d = db ?? (await useDb());
-  const staleDays = Math.max(1, Math.floor(opts?.staleDays ?? LIST_REAP_STALE_DAYS));
-  const limit = Math.max(1, Math.min(REAP_BATCH_MAX, Math.floor(opts?.limit ?? 5_000)));
-  const cutoff = new Date(Date.now() - staleDays * 86_400_000);
+  const { cutoff, limit } = sweepWindow(opts?.staleDays, LIST_REAP_STALE_DAYS, opts?.limit, REAP_BATCH_MAX);
 
   // Select the eligible ids first (bounded), then soft-delete them and count via
   // RETURNING — a reliable affected-row count across both the neon-http and PGlite
@@ -1165,8 +1169,7 @@ export async function reapAbandonedLists(
     .from(lists)
     .where(
       and(
-        eq(lists.status, "active"),
-        isNull(lists.deletedAt),
+        isLive(),
         lte(lists.itemCount, 1),
         sql`jsonb_array_length(coalesce(${lists.data} -> 'items', '[]'::jsonb)) <= 1`,
         lt(lists.updatedAt, cutoff),
@@ -1206,9 +1209,7 @@ export async function purgeDeletedLists(
   opts?: { graceDays?: number; limit?: number },
 ): Promise<{ purged: number }> {
   const d = db ?? (await useDb());
-  const graceDays = Math.max(1, Math.floor(opts?.graceDays ?? LIST_PURGE_GRACE_DAYS));
-  const limit = Math.max(1, Math.min(REAP_BATCH_MAX, Math.floor(opts?.limit ?? 5_000)));
-  const cutoff = new Date(Date.now() - graceDays * 86_400_000);
+  const { cutoff, limit } = sweepWindow(opts?.graceDays, LIST_PURGE_GRACE_DAYS, opts?.limit, REAP_BATCH_MAX);
 
   const doomed = await d
     .select({ id: lists.id })

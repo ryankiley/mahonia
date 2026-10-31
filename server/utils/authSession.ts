@@ -15,7 +15,9 @@ import { useAccountDb, type Db } from "./db";
 import { setNoIndex, setPrivate } from "./http";
 import { rateLimit, type RateLimitAction } from "./rateLimit";
 import { randomSecret, sha256Hex } from "./tokens";
-import { SESSION_OWNER_COOKIE } from "../../shared/session";
+import { SESSION_HINT_COOKIE, SESSION_OWNER_COOKIE } from "../../shared/session";
+import { sendMagicLink, type MagicLinkEmail } from "./email";
+import { trustedOrigin } from "./origin";
 
 /** The session cookie's name. `mh_` prefixed so it's obviously ours in devtools. */
 export const SESSION_COOKIE = "mh_session";
@@ -34,7 +36,7 @@ export const SESSION_COOKIE = "mh_session";
  * only "there is probably a session, worth asking". Forging it buys an attacker
  * one 401. Signed-out visitors read a cookie that isn't there and make no request.
  */
-export const SESSION_HINT_COOKIE = "mh_signed_in";
+export { SESSION_HINT_COOKIE };
 
 /** How long a magic link stays redeemable. Short — it's a live credential sitting
  *  in an inbox, and the whole flow (request → click) takes seconds. */
@@ -96,12 +98,8 @@ export function normalizeEmail(raw: unknown): string | null {
  *  separate signup: requesting a link for an unknown address IS the signup, which
  *  is what keeps the flow to one field and one click. */
 export async function findOrCreateUser(db: Db, email: string): Promise<SessionUser> {
-  const existing = await db
-    .select({ id: users.id, email: users.email })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  if (existing[0]) return existing[0];
+  const existing = await userByEmail(db, email);
+  if (existing) return existing;
   // ON CONFLICT DO NOTHING + re-read: two link requests racing for the same new
   // address would otherwise fail one of them on the unique index.
   //
@@ -118,13 +116,20 @@ export async function findOrCreateUser(db: Db, email: string): Promise<SessionUs
     .returning();
   const fresh = inserted[0];
   if (fresh) return { id: fresh.id, email: fresh.email };
-  const raced = await db
+  const raced = await userByEmail(db, email);
+  if (!raced) throw new Error("could not create user");
+  return raced;
+}
+
+/** The account at `email`, or null — the lookup the sign-in door, its race re-read and
+ *  the attach check all make. */
+async function userByEmail(db: Db, email: string): Promise<SessionUser | null> {
+  const rows = await db
     .select({ id: users.id, email: users.email })
     .from(users)
     .where(eq(users.email, email))
     .limit(1);
-  if (!raced[0]) throw new Error("could not create user");
-  return raced[0];
+  return rows[0] ?? null;
 }
 
 /**
@@ -170,12 +175,35 @@ export async function deleteAccountRow(db: Db, userId: number): Promise<void> {
  *  merge two accounts, and must not let one person's address be claimed onto
  *  someone else's account. */
 export async function emailTaken(db: Db, email: string, exceptUserId: number): Promise<boolean> {
-  const rows = await db
-    .select({ id: users.id })
-    .from(users)
-    .where(eq(users.email, email))
-    .limit(1);
-  return Boolean(rows[0]) && rows[0]!.id !== exceptUserId;
+  const user = await userByEmail(db, email);
+  return !!user && user.id !== exceptUserId;
+}
+
+/**
+ * Mail `userId` a magic link at `to`. NOT the origin that served this request: `Host`
+ * is a claim by the caller, and this link is a live credential leaving the building —
+ * a forged host here mails the account's key to whoever asked. trustedOrigin pins
+ * production and keeps the request-derived origin for dev and previews, so those
+ * still mail themselves working links without configuration. The two doors that send
+ * one (the link request; the passkey signup's address confirmation) each spelled this
+ * sequence, TTL arithmetic and all.
+ */
+export async function mailMagicLink(
+  event: H3Event,
+  db: Db,
+  userId: number,
+  to: string,
+  purpose?: MagicLinkEmail["purpose"],
+): Promise<void> {
+  const token = await issueMagicToken(db, userId);
+  const url = new URL("/auth/callback", trustedOrigin(event));
+  url.searchParams.set("t", token);
+  await sendMagicLink({
+    to,
+    url: url.toString(),
+    expiresIn: `${Math.round(MAGIC_LINK_TTL_MS / 60_000)} minutes`,
+    ...(purpose ? { purpose } : {}),
+  });
 }
 
 /**
@@ -309,35 +337,27 @@ export function sessionOwnerMarker(tokenHash: string): string {
   return sha256Hex(`owner:${tokenHash}`).slice(0, 16);
 }
 
+/** The session's three cookies share one recipe — lax, secure where the request is,
+ *  site-wide, one expiry — and differ only in whether the browser may read them. */
+const cookieOpts = (event: H3Event, expires: Date, httpOnly: boolean) => ({
+  httpOnly,
+  sameSite: "lax" as const,
+  secure: isSecureRequest(event),
+  path: "/",
+  expires,
+});
+
 /** Write the session cookie and its two readable companions with one expiry. Split
  *  out because sign-in and the sliding refresh both set them, and a difference
  *  between the two would be invisible until someone was logged out early. */
 function setSessionCookies(event: H3Event, token: string, expiresAt: Date): void {
-  setCookie(event, SESSION_COOKIE, token, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: isSecureRequest(event),
-    path: "/",
-    expires: expiresAt,
-  });
+  setCookie(event, SESSION_COOKIE, token, cookieOpts(event, expiresAt, true));
   // deliberately readable (httpOnly: false) — see SESSION_HINT_COOKIE
-  setCookie(event, SESSION_HINT_COOKIE, "1", {
-    httpOnly: false,
-    sameSite: "lax",
-    secure: isSecureRequest(event),
-    path: "/",
-    expires: expiresAt,
-  });
+  setCookie(event, SESSION_HINT_COOKIE, "1", cookieOpts(event, expiresAt, false));
   // Like the hint, this carries no authority. It lets the browser choose the
   // correct offline cache before /api/auth/me answers; changing it can only make
   // the browser hide its own cached data, never access another account.
-  setCookie(event, SESSION_OWNER_COOKIE, sessionOwnerMarker(sha256Hex(token)), {
-    httpOnly: false,
-    sameSite: "lax",
-    secure: isSecureRequest(event),
-    path: "/",
-    expires: expiresAt,
-  });
+  setCookie(event, SESSION_OWNER_COOKIE, sessionOwnerMarker(sha256Hex(token)), cookieOpts(event, expiresAt, false));
 }
 
 export async function startSession(event: H3Event, db: Db, userId: number): Promise<void> {
@@ -398,13 +418,7 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
   } else if (getCookie(event, SESSION_OWNER_COOKIE) !== owner) {
     // Sessions created before this marker existed acquire it on their next read.
     // Do not reissue the credential or write the database for that migration.
-    setCookie(event, SESSION_OWNER_COOKIE, owner, {
-      httpOnly: false,
-      sameSite: "lax",
-      secure: isSecureRequest(event),
-      path: "/",
-      expires: row.expiresAt,
-    });
+    setCookie(event, SESSION_OWNER_COOKIE, owner, cookieOpts(event, row.expiresAt, false));
   }
   return { id: row.id, email: row.email, displayName: row.displayName ?? null, owner };
 }

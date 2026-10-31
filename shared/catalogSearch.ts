@@ -88,35 +88,40 @@ export interface LocalCatalogRow extends CatalogSearchResult {
  * word-boundary-prefixes folded `target` — the "I typed the start of the name"
  * case autocomplete must reward. Autocomplete token semantics: every query token
  * but the last must EQUAL consecutive target tokens; the last (the word still being
- * typed) may be a PREFIX. Multi-word aware, and the single window loop subsumes all
- * three cases (exact/whole-prefix = a match anchored at i=0; word-boundary-prefix =
- * a match at any later token boundary). Examples:
+ * typed) may be a PREFIX. Multi-word aware, and the single window loop (tokensRunIn)
+ * subsumes all three cases (exact/whole-prefix = a match anchored at i=0;
+ * word-boundary-prefix = a match at any later token boundary). Examples:
  *   "duplex" vs "Zpacks Duplex"        → last-token prefix at i=1        → true
  *   "x mid 2" vs "Durston X-Mid 2 Pro" → tokens align at i=1            → true
  *   "plex"  vs "Zpacks Duplex"         → mid-word substring, no boundary → false
  */
 export function isExactOrPrefixMatch(query: string, target: string): boolean {
-  const q = foldForSearch(query);
-  if (!q) return false;
-  const qt = q.split(/\s+/);
-  const tt = foldForSearch(target).split(/\s+/);
-  const last = qt.length - 1;
-  for (let i = 0; i + qt.length <= tt.length; i++) {
-    let ok = true;
-    for (let k = 0; k < last; k++)
-      if (tt[i + k] !== qt[k]) {
-        ok = false;
-        break;
-      }
-    if (ok && tt[i + last]!.startsWith(qt[last]!)) return true;
-  }
-  return false;
+  const qt = tokens(query);
+  return qt.length > 0 && tokensRunIn(qt, tokens(target));
 }
 
 /** Fold + split once, for the token-level helpers below. */
 function tokens(s: string | null | undefined): string[] {
   const folded = foldForSearch(s ?? "");
   return folded ? folded.split(/\s+/) : [];
+}
+
+/**
+ * Whether the query's tokens sit over the target's from token `i`: every one but the
+ * last must EQUAL its counterpart, the last (the word still being typed) may be a
+ * PREFIX. The caller keeps `i + qt.length <= tt.length`, so every read is in range.
+ */
+function tokensMatchAt(qt: readonly string[], tt: readonly string[], i: number): boolean {
+  const last = qt.length - 1;
+  for (let k = 0; k < last; k++) if (tt[i + k] !== qt[k]) return false;
+  return tt[i + last]!.startsWith(qt[last]!);
+}
+
+/** …at ANY token boundary of the target: the one window loop that the name match and
+ *  the search-term run each used to carry a copy of. */
+function tokensRunIn(qt: readonly string[], tt: readonly string[]): boolean {
+  for (let i = 0; i + qt.length <= tt.length; i++) if (tokensMatchAt(qt, tt, i)) return true;
+  return false;
 }
 
 /**
@@ -135,8 +140,7 @@ export function typeMatch(query: string, commonName: string | null | undefined):
   const qt = tokens(query);
   const tt = tokens(commonName);
   if (!qt.length || !tt.length || qt.length > tt.length) return 0;
-  for (let k = 0; k < qt.length - 1; k++) if (qt[k] !== tt[k]) return 0;
-  if (!tt[qt.length - 1]!.startsWith(qt[qt.length - 1]!)) return 0;
+  if (!tokensMatchAt(qt, tt, 0)) return 0;
   return qt.length === tt.length ? 2 : 1;
 }
 
@@ -160,19 +164,7 @@ export function hasTokenHit(query: string, target: string): boolean {
  */
 export function isSearchTermRun(query: string, searchTerms: string | null | undefined): boolean {
   const qt = tokens(query);
-  const tt = tokens(searchTerms);
-  if (!qt.length || qt.length > tt.length) return false;
-  const last = qt.length - 1;
-  for (let i = 0; i + qt.length <= tt.length; i++) {
-    let ok = true;
-    for (let k = 0; k < last; k++)
-      if (tt[i + k] !== qt[k]) {
-        ok = false;
-        break;
-      }
-    if (ok && tt[i + last]!.startsWith(qt[last]!)) return true;
-  }
-  return false;
+  return qt.length > 0 && tokensRunIn(qt, tokens(searchTerms));
 }
 
 export type MatchTier = 0 | 1 | 2 | 3;

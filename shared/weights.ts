@@ -420,11 +420,22 @@ export function nextSortOrder<T extends { folderId: string | null; parentId?: st
   return sibs.length ? Math.max(...sibs.map((i) => i.sortOrder)) + 1 : 0;
 }
 
-/** A folder's TOP-LEVEL items in drag order (nested children render under their
- *  parent, so they're excluded here). Shared by the exporters so every surface
- *  (editor, share views, Markdown/CSV) orders a folder identically. */
-export function sortedFolderItems(items: readonly Item[], folder: Folder): Item[] {
-  return items.filter((i) => i.folderId === folder.id && i.parentId == null).sort(bySortOrder);
+/**
+ * Bucket `items` by `key`, in first-seen key order (a Map's), each bucket in input order.
+ * An `undefined` key skips the item — a child that renders under its parent rather than
+ * as a folder row, say. Four hand-rolled get-or-set loops (items by folder, by parent;
+ * carried weight by person; the vault's rows by folder) were this.
+ */
+export function groupBy<T, K>(items: readonly T[], key: (item: T) => K | undefined): Map<K, T[]> {
+  const groups = new Map<K, T[]>();
+  for (const item of items) {
+    const k = key(item);
+    if (k === undefined) continue;
+    const group = groups.get(k);
+    if (group) group.push(item);
+    else groups.set(k, [item]);
+  }
+  return groups;
 }
 
 /**
@@ -435,13 +446,8 @@ export function sortedFolderItems(items: readonly Item[], folder: Folder): Item[
  * groupItemsByParent), not as folder rows.
  */
 export function groupItemsByFolder(items: readonly Item[]): Map<string, Item[]> {
-  const byFolder = new Map<string, Item[]>();
-  for (const item of items) {
-    if (item.folderId == null || item.parentId != null) continue; // top-level only
-    const group = byFolder.get(item.folderId);
-    if (group) group.push(item);
-    else byFolder.set(item.folderId, [item]);
-  }
+  // top-level only: a child renders under its parent, not as a folder row
+  const byFolder = groupBy(items, (item) => (item.parentId != null ? undefined : item.folderId ?? undefined));
   for (const group of byFolder.values()) group.sort(bySortOrder);
   return byFolder;
 }
@@ -455,13 +461,7 @@ export function groupItemsByFolder(items: readonly Item[]): Map<string, Item[]> 
 export function groupItemsByParent<T extends { parentId?: string | null; sortOrder: number }>(
   items: readonly T[],
 ): Map<string, T[]> {
-  const byParent = new Map<string, T[]>();
-  for (const item of items) {
-    if (item.parentId == null) continue;
-    const group = byParent.get(item.parentId);
-    if (group) group.push(item);
-    else byParent.set(item.parentId, [item]);
-  }
+  const byParent = groupBy(items, (item) => item.parentId ?? undefined);
   for (const group of byParent.values()) group.sort(bySortOrder);
   return byParent;
 }
@@ -675,4 +675,19 @@ export const unitSystem = (unit: Unit | undefined): WeightSystem =>
 export function autoUnit(mg: number, system: WeightSystem): Unit {
   if (system === "imperial") return mg >= MG_PER_UNIT.lb ? "lb" : "oz";
   return mg >= MG_PER_UNIT.kg ? "kg" : "g";
+}
+
+/**
+ * The facts a list's unfurl states in its description — "12 items · 4.1 kg base
+ * weight" — in the OWNER's system, matching the card image the text sits beside (the
+ * policy note on ogCardModel). The editor's description (app/utils/editorSeo) and the
+ * share pages' (useReadonlyList) each assembled this; one wording, one place. Here
+ * beside the formatters it is built from — editorSeo rides the /e route chunk, which
+ * already holds weights and must not take on the card model.
+ */
+export function listSummaryBits(totals: Totals, displayUnit?: Unit): string[] {
+  const bits = [`${totals.itemCount} items`];
+  if (totals.hasWeights)
+    bits.push(`${formatWeightAuto(totals.baseMg, { system: unitSystem(displayUnit) })} base weight`);
+  return bits;
 }

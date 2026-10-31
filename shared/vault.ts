@@ -172,6 +172,20 @@ export function vaultNormKey(
   return foldForSearch([brand, name, variant].filter(Boolean).join(" "));
 }
 
+/** The vault identities a list's rows already hold — the set three surfaces ask
+ *  before offering a row (the pane's "already added", the folder-at-once add, the
+ *  capture's own ledger). Nameless rows have no identity and are skipped. */
+export function listNormKeys(
+  items: readonly { brand?: string | null; name?: string | null; variant?: string | null }[],
+): Set<string> {
+  const keys = new Set<string>();
+  for (const it of items) {
+    const key = vaultNormKey(it.brand, it.name, it.variant);
+    if (key) keys.add(key);
+  }
+  return keys;
+}
+
 /**
  * Is this list row a piece of gear worth remembering?
  *

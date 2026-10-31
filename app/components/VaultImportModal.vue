@@ -26,7 +26,6 @@ const error = ref("");
 // the outcome, shown in place of the form once there is one — an import you can't
 // see the result of is an import you run twice
 const done = ref<{ added: number; skipped: number } | null>(null);
-const fileRef = useTemplateRef<HTMLInputElement>("fileRef");
 
 // fresh each time it opens, like ImportModal's own reset
 watch(
@@ -61,18 +60,6 @@ async function send(raw: string) {
     error.value = "Couldn’t import that. Check your connection and try again.";
   }
   busy.value = false;
-}
-
-function onFile(e: Event) {
-  const input = e.target as HTMLInputElement;
-  const file = input.files?.[0];
-  // cleared immediately — re-choosing the SAME file after a failure is the natural
-  // retry, and it fires no change event while a value sticks (ImportModal's note)
-  input.value = "";
-  if (!file) return;
-  const reader = new FileReader();
-  reader.onload = () => void send(String(reader.result));
-  reader.readAsText(file);
 }
 
 // What happened, in as few words as say it. Two shapes are worth spelling out
@@ -122,20 +109,9 @@ const summary = computed(() => {
       <p v-if="error" class="t-sm vimport__err">{{ error }}</p>
 
       <div class="dlg__actions vimport__actions">
-        <!-- a real button proxying a hidden input, like ImportModal: the native
-             file control can't be styled, and choosing a file imports immediately -->
-        <input
-          ref="fileRef"
-          type="file"
-          accept=".csv,.tsv,.json,text/csv,text/plain,application/json"
-          class="visually-hidden"
-          tabindex="-1"
-          aria-hidden="true"
-          @change="onFile"
-        />
-        <button class="btn btn--ghost vimport__choose" type="button" @click="fileRef?.click()">
-          Choose a file…
-        </button>
+        <!-- the same button-over-a-hidden-input ImportModal has (FilePickButton);
+             choosing a file imports immediately -->
+        <FilePickButton @text="send" />
         <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
         <button class="btn btn--primary" :disabled="busy || !text.trim()" @click="send(text)">
           {{ busy ? "Importing…" : "Import" }}
@@ -163,8 +139,5 @@ const summary = computed(() => {
 }
 .vimport__actions {
   flex-wrap: wrap;
-}
-.vimport__choose {
-  margin-right: auto;
 }
 </style>

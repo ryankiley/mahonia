@@ -96,9 +96,15 @@
   gap: var(--space-4);
   margin-top: var(--space-2);
 }
-.ovl-enter-active,
-.ovl-leave-active {
+.ovl-enter-active {
   transition: opacity var(--spring-fade-dur) var(--spring-fade);
+}
+/* exit: FASTER than the entrance, the menu family's own rule (controls.scss) — this
+   was the one surface that took as long to leave as to arrive, and a dismissed dialog
+   lingering a full fade beat after Escape read as reluctant. Still opacity only: a
+   thing leaving gets no spring to land on. */
+.ovl-leave-active {
+  transition: opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
 }
 .ovl-enter-from,
 .ovl-leave-to {

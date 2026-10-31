@@ -155,10 +155,7 @@ export function normalizeRouteGeometry(raw: unknown): string | undefined {
   if (typeof raw !== "string" || !raw || raw.length > MAX_GEOMETRY_LEN) return undefined;
   const points = decodePolyline(raw);
   if (points.length < 2 || points.length > MAX_ROUTE_POINTS) return undefined;
-  for (const p of points) {
-    if (!Number.isFinite(p.lat) || !Number.isFinite(p.lon)) return undefined;
-    if (p.lat < -90 || p.lat > 90 || p.lon < -180 || p.lon > 180) return undefined;
-  }
+  for (const p of points) if (!validLatLon(p.lat, p.lon)) return undefined;
   return encodePolyline(points);
 }
 
@@ -299,10 +296,7 @@ export function pointAlong(points: readonly LatLon[], alongM: number, cum?: Cum)
   const total = cum[cum.length - 1]!;
   if (!(total > 0)) return points[0]!;
   const target = Math.max(0, Math.min(total, alongM));
-  let i = 0;
-  while (i < cum.length - 2 && cum[i + 1]! < target) i++;
-  const span = cum[i + 1]! - cum[i]!;
-  const f = span > 0 ? (target - cum[i]!) / span : 0;
+  const { i, f } = segmentAt(cum, target);
   const a = points[i]!;
   const b = points[i + 1]!;
   return { lat: a.lat + (b.lat - a.lat) * f, lon: a.lon + (b.lon - a.lon) * f };
@@ -352,4 +346,24 @@ export function nearestAlongM(points: readonly LatLon[], at: LatLon, cum?: Cum):
     }
   }
   return Math.round(best);
+}
+
+/** Coordinates outside the Earth are malformed input, not an unusual route. The route
+ *  normaliser, the GPX reader and the FIT reader all refuse them by this one test. */
+export function validLatLon(lat: number, lon: number): boolean {
+  return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+}
+
+/**
+ * Where `target` falls along a cumulative-distance array: the segment index `i` (the
+ * point lies between cum[i] and cum[i+1]) and the fraction `f` across it, 0 for a
+ * zero-length segment. The walk starts at `from` and only moves forward, so a caller
+ * sampling in increasing order hands its last `i` back in and the whole pass stays
+ * linear — pointAlong and the GPX profile resamplers each carried this loop.
+ */
+export function segmentAt(cum: readonly number[], target: number, from = 0): { i: number; f: number } {
+  let i = from;
+  while (i < cum.length - 2 && cum[i + 1]! < target) i++;
+  const span = cum[i + 1]! - cum[i]!;
+  return { i, f: span > 0 ? (target - cum[i]!) / span : 0 };
 }

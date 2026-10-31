@@ -390,6 +390,30 @@ export function shownHeightM(
   return explicitM ?? (distanceM != null ? derivedM : undefined);
 }
 
+/**
+ * Whether the descent is its own fact rather than the climb restated: on a loop the two
+ * are equal by definition, and two figures carrying one fact is one figure too many.
+ * Asked by the plan's chips and the profile's; one answer.
+ */
+export function descentIsDistinct(
+  ascentM: number | null | undefined,
+  descentM: number | null | undefined,
+): boolean {
+  return descentM != null && ascentM != null && descentM !== ascentM;
+}
+
+/**
+ * The route's length as a denominator: the stated distance, or the days' sum where
+ * they have been given more than it. The plan's headline, the shared view's itinerary
+ * and the profile's day cuts all size against this same figure.
+ */
+export function routeLengthM(
+  trailDistanceM: number | null | undefined,
+  dayDistancesM: readonly (number | null | undefined)[],
+): number {
+  return Math.max(trailDistanceM ?? 0, dayDistancesM.reduce<number>((sum, d) => sum + (d ?? 0), 0));
+}
+
 /** True when the figure on screen came from the route rather than from the user —
  *  the app marks a derived climb so it doesn't read as something you typed. */
 export function heightIsDerived(
