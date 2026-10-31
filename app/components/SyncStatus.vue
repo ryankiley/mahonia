@@ -19,11 +19,7 @@ const now = useNow({ interval: 30_000 });
 
 // authoritative last write, from the server snapshot — so a collaborator's edit the
 // poll pulls in moves it too. Absent on a never-server-saved draft.
-const editedAt = computed(() => {
-  const iso = snapshot.value?.updatedAt;
-  const t = iso ? Date.parse(iso) : NaN;
-  return Number.isFinite(t) ? t : null;
-});
+const editedAt = computed(() => parseIsoTime(snapshot.value?.updatedAt));
 
 // the controller's own hasRealContent gate (a name or a weight; a bare
 // "Add an item" row doesn't count) — drives the empty-new-list case below

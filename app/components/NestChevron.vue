@@ -2,13 +2,13 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 
-// The collapse chevron a GROUP row trails its name with — the folder header's
-// gesture at row scale, drawn once for the editor's two faces and the share views'
-// row (ReadonlyItemRow). Its looks are the shared .item__nestcollapse /
-// .item__nestchev recipe (atoms/folder.scss, one rule with the folder header's
-// chevron); what this fixes is the ATTRIBUTES the
-// three sites had each written out by hand: aria-expanded, the "Expand/Collapse
-// <name>" accessible name, the title, and the rotate class on the glyph.
+// The collapse chevron — the one a GROUP row trails its name with, and with `folder`
+// the same gesture at the folder header's scale: the editor's folder, the share views'
+// folder, My Gear's folder and the trip panel's day all fold on it. Its looks are the
+// shared .folder__collapse / .item__nestcollapse recipe (atoms/folder.scss, one rule for
+// both scales); what this fixes is the ATTRIBUTES seven sites had each written out by
+// hand: aria-expanded, the "Expand/Collapse <name>" accessible name, the title, and the
+// rotate class on the glyph.
 //
 // `stop` is for the checklist face, where the button sits INSIDE the row's <label>
 // over the packing checkbox: a click there must neither bubble to the label (which
@@ -23,8 +23,14 @@ const props = defineProps<{
   /** the group's name, for the accessible name — "Collapse Tent" */
   label: string;
   stop?: boolean;
+  /** the folder header's scale: a 20px glyph on the .folder__collapse box */
+  folder?: boolean;
+  /** what the title calls the thing folding — "group" and "folder" by default; the trip
+   *  panel's days say "day" */
+  noun?: string;
 }>();
 const emit = defineEmits<{ toggle: [] }>();
+const noun = computed(() => props.noun ?? (props.folder ? "folder" : "group"));
 function onClick(e: MouseEvent) {
   if (props.stop) {
     e.stopPropagation();
@@ -36,10 +42,10 @@ function onClick(e: MouseEvent) {
 
 <template>
   <button
-    class="item__nestcollapse"
+    :class="folder ? 'folder__collapse' : 'item__nestcollapse'"
     :aria-expanded="!collapsed"
     :aria-label="`${collapsed ? 'Expand' : 'Collapse'} ${label}`"
-    :title="collapsed ? 'Expand group' : 'Collapse group'"
+    :title="`${collapsed ? 'Expand' : 'Collapse'} ${noun}`"
     @click="onClick"
-  ><HugeiconsIcon :icon="ChevronDownIcon" class="item__nestchev" :class="{ 'is-collapsed': collapsed }" :size="16" :stroke-width="2" /></button>
+  ><HugeiconsIcon :icon="ChevronDownIcon" :class="[folder ? 'folder__chev' : 'item__nestchev', { 'is-collapsed': collapsed }]" :size="folder ? 20 : 16" :stroke-width="2" /></button>
 </template>

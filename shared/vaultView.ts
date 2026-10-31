@@ -13,7 +13,7 @@ import { enoughToSearch, foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
 import type { VaultEntry, VaultFolder } from "./vault";
 import { rankVaultRows } from "./vaultSearch";
-import { itemDisplayName } from "./weights";
+import { groupBy, itemDisplayName } from "./weights";
 
 /** The page's layout-and-order control. "folders" is the default and the only one
  *  that groups; the rest are one flat list — see groupVaultRows for why. */
@@ -148,13 +148,8 @@ export function groupVaultRows(
   folders: VaultFolder[],
   { keepEmpty }: { keepEmpty: boolean },
 ): VaultSection[] {
-  const byFolder = new Map<number | null, VaultEntry[]>();
-  for (const entry of rows) {
-    const key = entry.folderId ?? null;
-    const bucket = byFolder.get(key);
-    if (bucket) bucket.push(entry);
-    else byFolder.set(key, [entry]);
-  }
+  // null is the unfiled bucket, a real key
+  const byFolder = groupBy(rows, (entry) => entry.folderId ?? null);
   const section = (folder: VaultFolder | null, entries: VaultEntry[]): VaultSection => ({
     folder,
     entries,

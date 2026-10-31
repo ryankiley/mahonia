@@ -38,7 +38,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
     <button
       v-if="query"
       type="button"
-      class="sf__clear"
+      class="sf__clear ink-quiet"
       aria-label="Clear search"
       title="Clear search"
       @click="clear"
@@ -71,12 +71,6 @@ defineExpose({ focus: () => inputEl.value?.focus() });
   right: 0;
   display: inline-flex;
   align-items: center;
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.sf__clear:hover,
-.sf__clear:focus-visible {
-  color: var(--ink);
 }
 /* touch: the clear meets the --tap minimum (controls.scss); it overlays the
    field's end, so the bigger box only widens its hit area, not the layout */

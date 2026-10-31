@@ -9,13 +9,7 @@ import {
   type PersonSelection,
 } from "~~/shared/people";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
-import {
-  bySortOrder,
-  computeTotals,
-  formatWeightAuto,
-  ungroupedTopLevel,
-  unitSystem,
-} from "~~/shared/weights";
+import { bySortOrder, computeTotals, listSummaryBits, ungroupedTopLevel } from "~~/shared/weights";
 
 // Shared reactive view-model for the two read-only pages (/s/[code] + /l/[slug]):
 // a viewer-chosen display unit, a viewer-chosen person filter, the rolled-up
@@ -153,15 +147,11 @@ export function useReadonlyListSeo(
   );
   const desc = computed(() => {
     if (!snapshot.value || !totals.value) return copy.empty;
-    const bits = [`${totals.value.itemCount} items`];
+    // owner's system, matching the card image beside this text — the UNFURL reads as
+    // the owner presents it; only the page starts in grams (the rule at the top of
+    // this file). The facts are listSummaryBits', shared with the editor's description.
+    const bits = listSummaryBits(totals.value, snapshot.value.displayUnit);
     if (facets.value.length) bits.unshift(facets.value.join(", "));
-    // owner's system, matching the card image beside this text — the UNFURL
-    // reads as the owner presents it; only the page starts in grams (the rule
-    // at the top of this file). See ogCardModel for the policy note.
-    if (totals.value.hasWeights)
-      bits.push(
-        `${formatWeightAuto(totals.value.baseMg, { system: unitSystem(snapshot.value.displayUnit) })} base weight`,
-      );
     return `${snapshot.value.title}, ${copy.noun} (${bits.join(" · ")}). ${copy.cta}`;
   });
   // the card IMAGE — rendered per list by /og/s|/og/l, addressed by the same

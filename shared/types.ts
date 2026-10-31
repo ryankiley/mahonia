@@ -18,6 +18,9 @@ export type WeightSource = (typeof WEIGHT_SOURCES)[number];
 // One field, not two booleans — structurally prevents "worn AND consumable".
 // `base` counts toward base weight; `worn` = on your body; `consumable` = food/fuel/water.
 export type Classification = "base" | "worn" | "consumable";
+/** the runtime list, for the guards that validate foreign JSON (ops, the vault, the
+ *  MCP tools each had their own copy) */
+export const CLASSIFICATIONS: readonly Classification[] = ["base", "worn", "consumable"];
 
 export interface Folder {
   id: string; // client-generated (nanoid/uuid) so optimistic edits need no round-trip
@@ -325,10 +328,9 @@ export function pickListMeta<T extends Partial<ListMeta>>(src: T): Pick<T, ListM
 }
 
 /** Canonical wire shape returned by the API and held by the client editor. */
-export interface ListSnapshot extends ListMeta, ListData {
+export interface ListSnapshot extends ListState {
   shareCode: string;
   slug: string;
-  version: number;
   isPublic: boolean;
   // ISO timestamp of the server's last write to this list — drives the editor's
   // "edited Nm ago" line. Authoritative (reflects a collaborator's edit the poll

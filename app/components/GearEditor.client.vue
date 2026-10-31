@@ -37,10 +37,7 @@ const vaultPicker = c.vaultPicker;
 // off `caps`) fetched its chunk and stylesheet on every editor mount all the same —
 // two requests for a dialog most lists never show. Mounted on the first answer that
 // opens it, and kept after, like the other lazy dialogs below.
-const vaultPickerEverOpened = ref(false);
-watch(vaultPicker, (caps) => {
-  if (caps) vaultPickerEverOpened.value = true;
-});
+const vaultPickerEverOpened = useLatch(() => vaultPicker.value);
 // whether the open list is a CLAIMED one (session + share code, no edit token on
 // this device) — the reactive flag the chrome gates on, since c.editToken is a
 // plain getter nothing can track
@@ -61,10 +58,10 @@ const isFirstRun = computed(() => {
 });
 // Dismissal STICKS across drafts: this is a signpost for someone who already knows
 // where their lists are, so re-offering it on every new list is the nagging the
-// close button is there to stop. The editor is client-only, so localStorage is safe
-// to read at setup without an SSR mismatch.
+// close button is there to stop. The editor is client-only, so storage is safe to
+// read at setup without an SSR mismatch (recall swallows a blocked read as null).
 const INTRO_DISMISSED_KEY = "gear.intro.dismissed.v1";
-const introDismissed = ref(localStorage.getItem(INTRO_DISMISSED_KEY) === "1");
+const introDismissed = ref(recall(INTRO_DISMISSED_KEY) === "1");
 function dismissIntro() {
   introDismissed.value = true;
   resumed.value = null;
@@ -217,7 +214,7 @@ const vaultOpen = ref(false);
 // vault is a working preference, not a per-session one. The pane clamps the value
 // it writes back, so a hand-edited or stale figure can't wedge the panel off-screen.
 const VAULT_W_KEY = "gear.vault.width.v1";
-const vaultWidth = ref(clampVaultWidth(Number(localStorage.getItem(VAULT_W_KEY))));
+const vaultWidth = ref(clampVaultWidth(Number(recall(VAULT_W_KEY))));
 watch(vaultWidth, (w) => remember(VAULT_W_KEY, String(w)));
 // The width lands on the editor root as an inherited custom property — but written
 // imperatively, NOT as a template :style binding: only CSS consumes this value, and a
@@ -318,20 +315,6 @@ watch(
   { immediate: true },
 );
 
-// "Add folder" becomes an inline text field on tap; it only creates the folder
-// (and shows the next "Add folder") once you commit — enter or click away.
-const addingFolder = ref(false);
-const newFolderRef = useTemplateRef<HTMLInputElement>("newFolderRef");
-function openAddFolder() {
-  addingFolder.value = true;
-  nextTick(() => newFolderRef.value?.focus());
-}
-function commitAddFolder() {
-  const name = newFolderRef.value?.value.trim();
-  if (name) c.addFolder(name);
-  addingFolder.value = false;
-}
-
 const route = useRoute();
 // A resume that lands on a DEAD list is not an error page's business. The bare address
 // picks this browser's most recently opened list without asking the server whether
@@ -378,11 +361,12 @@ let ownedEpoch: number | undefined;
 // fresh draft when it names none), re-capturing the epoch. The ordering is the whole
 // point — see the note above — so it lives in ONE place, called by the route watcher
 // and by newList's in-place reset alike.
-function startSession(cap?: { token?: string; code?: string }) {
+function startSession(cap?: { token?: string; code?: string; keyless?: string }) {
   c.dispose(ownedEpoch);
-  if (cap?.token || cap?.code) c.load(cap);
+  if (cap?.keyless) c.startKeyless(cap.keyless);
+  else if (cap?.token || cap?.code) c.load(cap);
   else c.startDraft();
-  ownedEpoch = c.epoch; // load()/startDraft() mint their epoch synchronously
+  ownedEpoch = c.epoch; // load()/startKeyless()/startDraft() mint their epoch synchronously
 }
 // Drive load off the reactive hash so back/forward + same-route nav between two
 // of your lists dispose+reload correctly (the editor singleton holds one list).
@@ -417,13 +401,8 @@ watch(
     // offering you the read-only view of it.
     const mine = code ? my.entries.value.find((e) => e.shareCode === code)?.editToken : undefined;
     if (mine) return navigateTo({ path: route.path, hash: `#${mine}` }, { replace: true });
-    if (code) {
-      c.dispose(ownedEpoch);
-      c.startKeyless(code);
-      ownedEpoch = c.epoch;
-      return;
-    }
-    startSession(); // a fresh, unsaved draft (persists on first real content)
+    // keyless on the code; else a fresh, unsaved draft (persists on first real content)
+    startSession(code ? { keyless: code } : undefined);
   },
   { immediate: true },
 );
@@ -515,7 +494,12 @@ const origin = () => (typeof location !== "undefined" ? location.origin : "");
 // pasting the result somewhere public.
 // A draft has no share code yet — no link rather than a broken one (same guard
 // copyShare() makes before offering to copy it).
-const exportShareUrl = computed(() => (snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : ""));
+// The two links a list is handed out by, each spelled once. READ is a computed off the
+// share code; EDIT is a FUNCTION, because c.editToken is a plain getter nothing can
+// track — a computed over it would go stale across a rotate.
+const readUrl = computed(() => (snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : ""));
+// the token stays in the fragment (see shared/links.editLinkPath)
+const editUrl = () => (c.editToken ? `${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}` : "");
 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
 // Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
@@ -541,7 +525,7 @@ function copyShare() {
   // a draft has no shareCode/token yet — nudge instead of copying a broken link
   if (!snapshot.value?.shareCode) return flash("Add an item first to share");
   tally("share_link_copied"); // after the guard: a refused copy is not a copy
-  copy(`${origin()}/s/${snapshot.value.shareCode}`, "Read-only link copied", "Read-only link");
+  copy(readUrl.value, "Read-only link copied", "Read-only link");
 }
 async function copyEditLink() {
   // a claimed open holds no edit link to copy — the server only ever stored its
@@ -556,8 +540,7 @@ async function copyEditLink() {
   }))) return;
   tally("share_link_copied"); // after the confirm: a cancelled copy is not a copy
   // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
-  // token stays in the fragment (see shared/links.editLinkPath)
-  copy(`${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}`, "Edit link copied", "Edit link");
+  copy(editUrl(), "Edit link copied", "Edit link");
 }
 async function rotate() {
   if (!(await askConfirm({
@@ -756,18 +739,13 @@ async function forgetMissingList() {
 //
 // One table drives the markup AND the dispatch, so an action can't exist in one
 // without the other (a string-keyed lookup would let a typo no-op).
-// Same everOpened guard the other lazy dialogs use, so the chunk is fetched by the
-// first open rather than by loading the editor.
-const feedbackOpen = ref(false);
-const feedbackEverOpened = ref(false);
 
 // ---- the shortcuts sheet ----
 // Lazy + mounted on first use, like the other dialogs: a reference nobody has opened
 // should cost nobody anything.
 const shortcutsOpen = ref(false);
-const shortcutsEverOpened = ref(false);
+const shortcutsEverOpened = useLatch(() => shortcutsOpen.value);
 function openShortcuts() {
-  shortcutsEverOpened.value = true;
   shortcutsOpen.value = true;
 }
 // `?` opens it — the convention nearly every keyboard-driven app shares, and the only
@@ -780,8 +758,7 @@ function openShortcuts() {
 // modifier, and holding it while typing produces other characters, not "?".
 onKeyStroke("?", (e) => {
   if (e.metaKey || e.ctrlKey) return;
-  const el = e.target as HTMLElement | null;
-  if (el?.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(el?.tagName ?? "")) return;
+  if (isFormField(e.target)) return;
   // never on top of another dialog — the sheet would trap focus over the one actually
   // in use, and Escape would then close the wrong thing
   if (document.querySelector(".ovl")) return;
@@ -790,12 +767,9 @@ onKeyStroke("?", (e) => {
 });
 
 // The rows themselves — the table, its glyphs and its wording — are EditorMenu's;
-// the editor only answers what each row asks for. Feedback's dialog is Lazy behind
-// its own everOpened guard (Import's watcher sets its own), so opening it is two refs.
-function openFeedback() {
-  feedbackEverOpened.value = true;
-  feedbackOpen.value = true;
-}
+// the editor only answers what each row asks for. Feedback's box is the app-wide
+// mount useFeedback drives (Lazy, like the dialogs below), shared with the read views.
+const { open: openFeedback } = useFeedback();
 
 // Start a fresh, empty draft — no server row until something is added. The current
 // list isn't lost: it's auto-saved and lives in "Your lists" behind its own link.
@@ -825,15 +799,9 @@ function newList({ replace = false } = {}) {
 // parser + LighterPack link handling behind the import) stays out of the editor's
 // boot chunk. Once opened they STAY mounted — an unmount-on-close would cut the
 // leave transition short, and re-opens then reuse the fetched component.
-const importEverOpened = ref(false);
-watch(importOpen, (o) => {
-  if (o) importEverOpened.value = true;
-});
+const importEverOpened = useLatch(() => importOpen.value);
 const { target: correctionTarget } = useCatalogCorrection();
-const correctionEverOpened = ref(false);
-watch(correctionTarget, (t) => {
-  if (t) correctionEverOpened.value = true;
-});
+const correctionEverOpened = useLatch(() => correctionTarget.value);
 
 function onCorrected(res: { status: string; itemName?: string }) {
   flash(
@@ -935,8 +903,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :snapshot="snapshot"
                 :edit-token="c.editToken"
                 :auth-headers="c.authHeaders()"
-                :read-url="snapshot.shareCode ? `${origin()}/s/${snapshot.shareCode}` : ''"
-                :edit-url="c.editToken ? `${origin()}${editLinkPath(snapshot.shareCode, c.editToken)}` : ''"
+                :read-url="readUrl"
+                :edit-url="editUrl()"
                 @close="shareOpen = false"
                 @copy-read="copyShare"
                 @copy-edit="copyEditLink"
@@ -979,7 +947,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
               :saved="isSaved"
               :opened-by-code="openedByCode"
               :snapshot="snapshot"
-              :share-url="exportShareUrl"
+              :share-url="readUrl"
               @close="menuOpen = false"
               @flash="flash"
               @people="peopleOpen = true"
@@ -1192,25 +1160,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
         />
       </section>
 
-      <!-- v-show, matching the folder chrome: presence is constant, visibility follows
+      <!-- "Add folder" becomes an inline text field on tap and creates the folder once
+           you commit — the AddFolder control My Gear shares.
+           v-show, matching the folder chrome: presence is constant, visibility follows
            the mode, and a switch mounts nothing. (A half-typed folder name can't leak
            across modes — any pointer or Tab out of the input commits it via blur
            before the mode can change.) -->
-      <div v-show="mode === 'edit'" data-view="gear" class="addfolder editor__addfolder">
-        <input
-          v-if="addingFolder"
-          ref="newFolderRef"
-          class="addfolder__input"
-          placeholder="Folder name"
-          aria-label="New folder name"
-          autocorrect="off"
-          spellcheck="false"
-          @keydown.enter.prevent="commitAddFolder"
-          @keydown.esc="addingFolder = false"
-          @blur="commitAddFolder"
-        />
-        <button v-else type="button" class="addfolder__btn" @click="openAddFolder">Add folder</button>
-      </div>
+      <AddFolder v-show="mode === 'edit'" data-view="gear" class="editor__addfolder" @add="(name) => c.addFolder(name)" />
     </main>
 
     <main v-else-if="status === 'missing'" id="main-content" tabindex="-1" class="wrap editor__missing">
@@ -1271,7 +1227,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
     <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />
     <LazyImportModal v-if="importEverOpened" :open="importOpen" @close="importOpen = false" />
-    <LazyFeedbackModal v-if="feedbackEverOpened" :open="feedbackOpen" @close="feedbackOpen = false" />
     <LazyShortcutsModal v-if="shortcutsEverOpened" :open="shortcutsOpen" @close="shortcutsOpen = false" />
   </div>
 </template>

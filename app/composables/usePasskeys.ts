@@ -191,7 +191,7 @@ export function usePasskeys() {
       verify: "/api/auth/passkey/signup-verify",
     });
     if (end.at === "options") {
-      const status = (end.error as { statusCode?: number })?.statusCode;
+      const status = statusOf(end.error);
       if (status === 409) return "taken";
       if (status === 400) return "bad-email";
       return "failed";

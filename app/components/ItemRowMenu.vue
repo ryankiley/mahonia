@@ -75,7 +75,7 @@ function toggle() {
            click can act. Preventing the default keeps focus where it was; click
            still fires. -->
       <button
-        class="btn btn--icon btn--ghost rowmenu__btn"
+        class="btn btn--icon btn--ghost rowmenu__btn ink-quiet"
         :class="triggerClass"
         type="button"
         aria-haspopup="menu"
@@ -104,17 +104,3 @@ function toggle() {
   </div>
 </template>
 
-<style scoped>
-/* Quiet at rest (--ink-3), ink under the pointer — the row's own rule for every
-   glyph in its trailing cluster (ItemRow's .item__grip family), restated here
-   because a scoped rule there can't reach a button rendered in this component.
-   The ⋯ trigger also carries .menu__btn (--ink-2, controls.scss); this outranks it
-   so it reads at the same weight as the delete + grip it sits between. */
-.rowmenu__btn {
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.rowmenu__btn:hover {
-  color: var(--ink);
-}
-</style>

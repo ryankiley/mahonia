@@ -21,7 +21,7 @@
 import { foldForSearch } from "./searchText";
 import type { Folder, Item, Person } from "./types";
 import { itemDisplayName } from "./weights";
-import { tidyText } from "./tidyText";
+import { counted as plural, tidyText } from "./tidyText";
 import { isOpObject, type Op } from "./ops";
 
 /** Longer than this and it stops being a label. */
@@ -36,7 +36,6 @@ interface SummaryBefore {
   people?: readonly Person[];
 }
 
-const plural = (n: number, noun: string) => `${n} ${noun}${n === 1 ? "" : "s"}`;
 // "person" is the one noun here whose plural isn't an s
 const persons = (n: number) => (n === 1 ? "1 person" : `${n} people`);
 

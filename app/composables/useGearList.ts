@@ -3,9 +3,9 @@ import { applyOps, MAX_ITEMS, seedRouteEnds, tidyListText, rebaseOnto } from "~~
 import { uid } from "~~/shared/id";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
 import { splitWeightTail } from "~~/shared/pasteList";
-import { tidyText } from "~~/shared/tidyText";
+import { counted, tidyText } from "~~/shared/tidyText";
 import { isWaterName, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
-import { colorKeyForName, nextFolderColor, STARTER_FOLDERS } from "~~/shared/categories";
+import { colorKeyForName, nextFolderColor, STARTER_FOLDERS, usedColorKeys } from "~~/shared/categories";
 import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey } from "~~/shared/localList";
 import { sortedPeople } from "~~/shared/people";
@@ -14,7 +14,7 @@ import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind }
 import { pickListMeta } from "~~/shared/types";
 import type { CaptureOneResult } from "./useVault";
 import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
-import { vaultNormKey } from "~~/shared/vault";
+import { listNormKeys } from "~~/shared/vault";
 import { bySortOrder, carriesContent, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
@@ -26,6 +26,28 @@ import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedList
 // survives a reload, a crash, or a dropped connection.
 
 type Status = "idle" | "loading" | "saving" | "synced" | "missing" | "error" | "offline";
+
+/** How long after a dispatch the queued ops go to the server. Long enough that a burst
+ *  of keystrokes is one request; short enough that a list closed a moment after an
+ *  edit has usually already flushed. */
+const FLUSH_DEBOUNCE_MS = 450;
+/** The first wait after a failed flush; it doubles per failure to a 30 s ceiling. */
+const FLUSH_BACKOFF_MS = 1500;
+// Both read at the moment the timer is set — for tests. The suites that drive this
+// controller with real timers (tests/gearList.nuxt.test.ts and company) wait out the
+// flush debounce on nearly every case, and the backoff once.
+let flushDebounceMs = FLUSH_DEBOUNCE_MS;
+let flushBackoffMs = FLUSH_BACKOFF_MS;
+/** Shorten the flush debounce, or restore the default — a test seam. Only the wait
+ *  changes: the queue, the in-flight guard and the rebase run as they do at 450 ms. */
+export function _setFlushDebounce(ms = FLUSH_DEBOUNCE_MS): void {
+  flushDebounceMs = ms;
+}
+/** Shorten the first retry wait after a failed flush, or restore the default — a test
+ *  seam. The doubling and the 30 s ceiling are untouched. */
+export function _setFlushBackoff(ms = FLUSH_BACKOFF_MS): void {
+  flushBackoffMs = ms;
+}
 
 let singleton: ReturnType<typeof create> | undefined;
 
@@ -132,6 +154,13 @@ function create() {
    *  and even when there was nothing to ask about. Only the reveal animation
    *  needs it; coverage reads `asked`, which is finer. */
   const vaultGearSettled = ref(false);
+  /** Forget the vault's answer about the last list's gear — on a new list, and when
+   *  the account under the vault changes. */
+  function clearVaultGear() {
+    vaultGear.value = new Map();
+    vaultGearAsked.value = new Set();
+    vaultGearSettled.value = false;
+  }
   // newest ask wins: opens overlap, and a slower older answer landing last would
   // revert a fresher one
   let vaultGearGen = 0;
@@ -145,13 +174,7 @@ function create() {
    *  skip, and it costs one fold per item rather than the capture builder's pass. */
   function listGearKeys(): string[] {
     const snap = snapshot.value;
-    if (!snap) return [];
-    const out = new Set<string>();
-    for (const it of snap.items) {
-      const k = vaultNormKey(it.brand, it.name, it.variant);
-      if (k) out.add(k);
-    }
-    return [...out];
+    return snap ? [...listNormKeys(snap.items)] : [];
   }
 
   /**
@@ -261,11 +284,8 @@ function create() {
   // (load's catch).
   const { presence: sessionPresence, signedIn: sessionSignedIn } = useSession();
   scope.run(() => {
-    const { hasVault } = useVaultAccess();
-    watch(hasVault, () => {
-      vaultGear.value = new Map();
-      vaultGearAsked.value = new Set();
-      vaultGearSettled.value = false;
+    watch(sessionHasVault, () => {
+      clearVaultGear();
       void askVaultGear(true);
     });
   });
@@ -496,9 +516,7 @@ function create() {
     // The vault's answer was about the LAST list's gear. It dies here, which is
     // the entire lifetime story now: no epoch, no reset hook, no cross-account
     // question — a new list asks its own.
-    vaultGear.value = new Map();
-    vaultGearAsked.value = new Set();
-    vaultGearSettled.value = false;
+    clearVaultGear();
     vaultGearGen++;
     clearTimeout(vaultGearTimer);
     clearTimeout(flushTimer);
@@ -511,14 +529,26 @@ function create() {
   // cookie as the proof; see server/utils/editAuth). Token wins if both arrive,
   // matching the server's precedence: it's the more specific claim, and it keeps a
   // signed-in user's behaviour on a shared link identical to a signed-out user's.
+  /**
+   * What this open holds — a token, a claimed code, or neither. The four fields move
+   * TOGETHER: openedByCode is the reactive mirror of "no token, but a code" (the
+   * chrome gates on it, since the two plain lets can't be tracked), and keylessCode is
+   * cleared by every start but the keyless one, which sets it after. Five sites each
+   * wrote the quartet out; one of them forgetting the mirror is the bug this prevents.
+   */
+  function setCapability(token: string, code: string) {
+    editToken = token;
+    claimCode = code;
+    openedByCode.value = !token && !!code;
+    keylessCode.value = "";
+  }
+
   async function load(cap: { token?: string; code?: string }) {
     const myEpoch = bumpEpoch();
-    editToken = cap.token ?? "";
+    const token = cap.token ?? "";
     // normalized so a hand-typed /e/{code} URL and the canonical code the server
     // returns key the same IndexedDB record and claimed-lists row
-    claimCode = editToken ? "" : normalizeShareCode(cap.code);
-    openedByCode.value = !editToken && !!claimCode;
-    keylessCode.value = "";
+    setCapability(token, token ? "" : normalizeShareCode(cap.code));
     resetSession();
     snapshot.value = null;
     status.value = "loading";
@@ -577,7 +607,7 @@ function create() {
       // viz is colourful. "other" is never auto-assigned and has no picker, so the
       // only folders carrying it came from a pre-colour import; recolouring is safe
       // and self-persists via the mutate flow (covers existing prod lists on open).
-      const colorKeys = merged.folders.map((f) => f.colorKey ?? "other");
+      const colorKeys = usedColorKeys(merged.folders);
       merged.folders.forEach((f, i) => {
         if (colorKeys[i] !== "other") return;
         const colorKey = colorKeyForName(f.name, colorKeys);
@@ -627,7 +657,7 @@ function create() {
       // retrying can't fix either. Both land in the same honest dead-end. A
       // 401 on the TOKEN path stays out of here — a bearer is always presented,
       // so a 401 there is a server hiccup worth treating as transient.
-      if (e?.statusCode === 404 || (e?.statusCode === 401 && claimCode)) {
+      if (statusOf(e) === 404 || (statusOf(e) === 401 && claimCode)) {
         // If we still hold a local copy, keep it on screen so the data is
         // readable/exportable, but don't poll or flush against a dead capability —
         // and don't claim "synced": later edits stay device-only (remoteMissing).
@@ -683,9 +713,7 @@ function create() {
   // The code is kept so the page can offer the read-only view it also opens.
   function startKeyless(code: string) {
     bumpEpoch();
-    editToken = "";
-    claimCode = "";
-    openedByCode.value = false;
+    setCapability("", "");
     resetSession();
     installListeners();
     snapshot.value = null;
@@ -698,10 +726,7 @@ function create() {
   // never adds anything never creates a server row.
   function startDraft() {
     const myEpoch = bumpEpoch();
-    editToken = "";
-    claimCode = "";
-    openedByCode.value = false;
-    keylessCode.value = "";
+    setCapability("", "");
     resetSession();
     installListeners();
     // A draft has no gear to ask about yet; settle it so nothing renders as
@@ -840,7 +865,7 @@ function create() {
 
   function scheduleFlush() {
     clearTimeout(flushTimer);
-    flushTimer = setTimeout(flush, 450);
+    flushTimer = setTimeout(flush, flushDebounceMs);
   }
 
   async function flush() {
@@ -914,7 +939,7 @@ function create() {
       pending = ops.concat(pending); // re-queue (incl. 409 contention) and retry shortly
       // mutate's 404 is permanent (token deleted/rotated mid-session), never
       // transient — stop retrying; the queue stays persisted on device
-      if (e?.statusCode === 404) {
+      if (statusOf(e) === 404) {
         remoteMissing = true;
         status.value = "missing";
         persistLocal();
@@ -929,7 +954,7 @@ function create() {
       // load at exactly the wrong moment. Doubles from 1.5s to a 30s ceiling; the
       // count resets the moment anything lands, so a one-off blip costs one wait.
       flushFailures++;
-      const backoff = Math.min(1500 * 2 ** (flushFailures - 1), 30_000);
+      const backoff = Math.min(flushBackoffMs * 2 ** (flushFailures - 1), 30_000);
       clearTimeout(retryTimer);
       retryTimer = setTimeout(scheduleFlush, backoff);
     } finally {
@@ -1050,9 +1075,7 @@ function create() {
 
   function installListeners() {
     if (typeof window === "undefined" || teardownListeners) return; // once only
-    const isField = (el: EventTarget | null) =>
-      el instanceof HTMLElement && /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName);
-    const onFocusIn = (e: FocusEvent) => { if (isField(e.target)) { isEditing = true; wakePoll(); } };
+    const onFocusIn = (e: FocusEvent) => { if (isFormField(e.target)) { isEditing = true; wakePoll(); } };
     const onFocusOut = () => { isEditing = false; };
     // back in view: poll now rather than wherever the idle cadence had got to
     const onVisibility = () => { if (!document.hidden) wakePoll(true); };
@@ -1101,36 +1124,24 @@ function create() {
    */
   function addVaultFolder(name: string, entries: VaultEntry[]): string {
     if (!snapshot.value || !entries.length) return "";
-    const held = new Set(
-      snapshot.value.items
-        .map((i) => vaultNormKey(i.brand, i.name, i.variant))
-        .filter(Boolean),
-    );
+    const held = listNormKeys(snapshot.value.items);
     const fresh = entries.filter((e) => !held.has(e.normKey));
     if (!fresh.length) return "";
 
-    const folders = snapshot.value.folders;
-    const id = uid();
-    dispatch({
-      t: "addFolder",
-      folder: {
-        id,
-        name,
-        colorKey: colorKeyForName(name, folders.map((f) => f.colorKey ?? "other")),
-        defaultClassification: "base",
-        sortOrder: folders.length,
-      },
-    });
+    const id = addFolder(name);
     for (const entry of fresh) addVaultItem(entry, id);
     return id;
   }
 
-  function addFolder(name = "New folder") {
+  /** Answers the new folder's id — the vault's folder-at-once add files its rows under it. */
+  function addFolder(name = "New folder"): string {
     const folders = snapshot.value?.folders ?? [];
     // a recognised name (e.g. "Clothing") gets its canonical hue; otherwise the
     // next distinct palette colour (see colorKeyForName)
-    const colorKey = colorKeyForName(name, folders.map((f) => f.colorKey ?? "other"));
-    dispatch({ t: "addFolder", folder: { id: uid(), name, colorKey, defaultClassification: "base", sortOrder: folders.length } });
+    const colorKey = colorKeyForName(name, usedColorKeys(folders));
+    const id = uid();
+    dispatch({ t: "addFolder", folder: { id, name, colorKey, defaultClassification: "base", sortOrder: folders.length } });
+    return id;
   }
   const updateFolder = (id: string, patch: Partial<Folder>) =>
     dispatch({ t: "updateFolder", id, patch });
@@ -1223,8 +1234,8 @@ function create() {
         // (CategoryBar above, chips below), so a person taking the Shelter
         // folder's green would put one color on two meanings. Distinct across both.
         colorKey: nextFolderColor([
-          ...(snapshot.value?.folders ?? []).map((f) => f.colorKey ?? "other"),
-          ...people.map((p) => p.colorKey ?? "other"),
+          ...usedColorKeys(snapshot.value?.folders ?? []),
+          ...usedColorKeys(people),
         ]),
         sortOrder: people.length,
       },
@@ -1531,7 +1542,7 @@ function create() {
     const ids = items.map((i) => i.id);
     const made = items.length;
     if (!made) return "";
-    const rows = `${made} row${made === 1 ? "" : "s"}`;
+    const rows = counted(made, "row");
     const label = capped ? `${rows} (a list holds ${MAX_ITEMS} items; ${capped} did not fit)` : rows;
     offerUndo(label, () => {
       // quiet: undoing the paste means the rows were never there, so the history
@@ -1722,13 +1733,10 @@ function create() {
       });
       const old = editToken;
       const oldCode = claimCode;
-      editToken = res.editToken;
       // A rotate hands THIS device the new link whichever way it was holding the
       // list — so a claimed open graduates to the token path here, and the editor
       // behaves from now on exactly as if the link had been opened directly.
-      claimCode = "";
-      openedByCode.value = false;
-      keylessCode.value = "";
+      setCapability(res.editToken, "");
       // The vault answer rides along. It's keyed by the token, but it answers a
       // question about the GEAR ("is this list's gear mine?"), and a rotate is the
       // owner cycling a leaked link on a list they've already answered for. Losing
@@ -1804,10 +1812,7 @@ function create() {
     pendingUndo.value = null;
     teardownListeners?.();
     snapshot.value = null;
-    editToken = "";
-    claimCode = "";
-    openedByCode.value = false;
-    keylessCode.value = "";
+    setCapability("", "");
     resetSession();
     status.value = "idle";
   }

@@ -26,12 +26,7 @@ import {
 } from "../../shared/discovery";
 import type { ListSnapshot } from "../../shared/types";
 import { useDb, type Db } from "./db";
-import {
-  attachAuthorName,
-  findPublishFieldsByEditHash,
-  hydrateForRead,
-  rowToSnapshot,
-} from "./listRepo";
+import { attachAuthorName, findPublishFieldsByEditHash, hydrateForRead, isLive, rowToSnapshot } from "./listRepo";
 
 
 // The public-read visibility gate (public + active + not withheld + not deleted),
@@ -44,9 +39,8 @@ import {
 function publicReadConditions() {
   return [
     eq(lists.isPublic, true),
-    eq(lists.status, "active"),
     eq(lists.flagged, false),
-    isNull(lists.deletedAt),
+    isLive(),
   ];
 }
 

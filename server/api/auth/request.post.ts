@@ -1,15 +1,8 @@
 import { createError, defineEventHandler } from "h3";
-import {
-  MAGIC_LINK_TTL_MS,
-  findOrCreateUser,
-  issueMagicToken,
-  normalizeEmail,
-  sweepExpiredAuth,
-} from "../../utils/authSession";
+import { findOrCreateUser, mailMagicLink, normalizeEmail, sweepExpiredAuth } from "../../utils/authSession";
 import { useAccountDb } from "../../utils/db";
-import { canSendEmail, sendMagicLink } from "../../utils/email";
+import { canSendEmail } from "../../utils/email";
 import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
-import { trustedOrigin } from "../../utils/origin";
 import { rateLimit, rateLimitSubject } from "../../utils/rateLimit";
 
 // Ask for a sign-in link.
@@ -51,19 +44,7 @@ export default defineEventHandler(async (event) => {
   try {
     const db = await useAccountDb();
     const user = await findOrCreateUser(db, email);
-    const token = await issueMagicToken(db, user.id);
-    // NOT the origin that served this request. `Host` is a claim by the caller,
-    // and this link is a live credential leaving the building — a forged host
-    // here mails the account's key to whoever asked. trustedOrigin pins
-    // production and keeps the request-derived origin for dev and previews, so
-    // those still mail themselves working links without configuration.
-    const url = new URL("/auth/callback", trustedOrigin(event));
-    url.searchParams.set("t", token);
-    await sendMagicLink({
-      to: email,
-      url: url.toString(),
-      expiresIn: `${Math.round(MAGIC_LINK_TTL_MS / 60_000)} minutes`,
-    });
+    await mailMagicLink(event, db, user.id, email);
     // Opportunistic housekeeping on a rare, tightly-limited path: keeps expired
     // sessions and spent links from accumulating without needing a cron of their
     // own. Never allowed to fail the sign-in it rode in on.

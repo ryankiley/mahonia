@@ -4,13 +4,14 @@
 // MERGE: two editors adding different items both succeed with no conflict; the
 // version counter only signals "you're behind, refetch", not "rejected".
 
+import { isRecord } from "./record";
 import { isCalendarDate } from "./calendar";
 import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
 import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
 import { normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "./trailLink";
-import type { Classification, Folder, Item, ListMeta, ListSnapshot, ListState, Person, TripDay, Unit, Waypoint } from "./types";
-import { UNITS, WAYPOINT_KINDS } from "./types";
+import type { Classification, Folder, Item, ListMeta, ListMetaKey, ListSnapshot, ListState, Person, TripDay, Unit, Waypoint } from "./types";
+import { CLASSIFICATIONS, UNITS, WAYPOINT_KINDS } from "./types";
 import { personNameTaken, UNASSIGNED } from "./people";
 import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
 
@@ -92,7 +93,7 @@ export type Op =
       }>;
     };
 
-const CLASSES: Classification[] = ["base", "worn", "consumable"];
+const CLASSES = CLASSIFICATIONS;
 
 // `YYYY-MM-DD`, and a date that actually exists — the regex alone would accept
 // 2026-02-31, which Date normalises to March and would silently move the trip.
@@ -123,16 +124,10 @@ function setOrClear<K extends ClearableMetaKey>(state: ListMeta, key: K, value: 
   else delete state[key];
 }
 
-type ClearableMetaKey =
-  | "trailLabel"
-  | "trailDistanceM"
-  | "trailDistanceUnit"
-  | "trailProfile"
-  | "routeGeometry"
-  | "trailAscentM"
-  | "trailDescentM"
-  | "startDate"
-  | "endDate";
+/** Every meta field setMeta can CLEAR with "" — all of them but the four that always
+ *  hold something (a title, a description, a unit, a URL that keeps a stale value over
+ *  a hostile one). Derived, so a field added to LIST_META_KEYS reaches here on its own. */
+type ClearableMetaKey = Exclude<ListMetaKey, "title" | "description" | "displayUnit" | "trailUrl">;
 
 /**
  * The setOrClear fields, each with the normalizer that is its single gate — the
@@ -177,6 +172,23 @@ const META_RULES: {
   startDate: { normalize: normalizeCalendarDate },
   endDate: { normalize: normalizeCalendarDate },
 };
+/**
+ * The clearable meta fields of a foreign object, each as the reducer's setMeta would
+ * store it (undefined = clear, or nothing usable there). The JSON importer re-validates
+ * a hand-edited backup by this — the same eight rules, not a second list of them.
+ */
+export function normalizeMetaFields(raw: Record<string, unknown>): Partial<ListMeta> {
+  const out: Partial<ListMeta> = {};
+  for (const key of Object.keys(META_RULES) as (keyof typeof META_RULES)[]) {
+    const v = raw[key];
+    const rule = META_RULES[key];
+    if (typeof v === "string" || (rule.numeric && typeof v === "number")) {
+      (out as Record<string, unknown>)[key] = rule.normalize(v);
+    }
+  }
+  return out;
+}
+
 // Hard caps (enforced in the reducer → client + server agree). Generous for
 // real lists, but bound row size / DoS and keep summed totals exact under the
 // bigint(mode:number) columns (MAX_ITEMS × qtyMax × UNIT_WEIGHT_MAX_MG < 2^53).
@@ -205,6 +217,11 @@ export const MAX_TITLE_LEN = 200;
 export const MAX_ITEM_NAME_LEN = 200;
 export const MAX_ITEM_NOTE_LEN = 2000;
 export const MAX_GEAR_TYPE_LEN = 120; // commonName
+export const MAX_BRAND_LEN = 120;
+/** a day's or a waypoint's label */
+export const MAX_LABEL_LEN = 120;
+/** a row's count, and its worn split */
+export const MAX_QTY = 9999;
 export const MAX_VARIANT_LEN = 120; // the size/config qualifier, typed or picked
 export const MAX_FOLDER_NAME_LEN = 120;
 export const MAX_PERSON_NAME_LEN = 60;
@@ -295,7 +312,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   // brand/variant: a non-empty string sets it; "" clears it (so a free rename can
   // drop the catalog-derived brand/variant from a now-custom item). The emptiness test
   // reads the TIDIED value, so an all-whitespace field clears rather than storing " ".
-  if (typeof patch.brand === "string") out.brand = cleanText(patch.brand, 120) || undefined;
+  if (typeof patch.brand === "string") out.brand = cleanText(patch.brand, MAX_BRAND_LEN) || undefined;
   if (typeof patch.variant === "string") out.variant = cleanText(patch.variant, MAX_VARIANT_LEN) || undefined;
   // common name: a non-empty string sets it; "" clears it (mirrors brand/variant)
   if (typeof patch.commonName === "string") out.commonName = cleanText(patch.commonName, MAX_GEAR_TYPE_LEN) || undefined;
@@ -325,10 +342,10 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
     out.kcal = k > 0 ? Math.min(KCAL_MAX, k) : undefined;
   }
   if (typeof patch.qty === "number" && isFinite(patch.qty))
-    out.qty = Math.max(0, Math.min(9999, Math.round(patch.qty)));
+    out.qty = Math.max(0, Math.min(MAX_QTY, Math.round(patch.qty)));
   if (typeof patch.wornQty === "number" && isFinite(patch.wornQty)) {
     const wq = Math.round(patch.wornQty);
-    out.wornQty = wq > 0 ? Math.min(9999, wq) : undefined; // ≤0 clears the split
+    out.wornQty = wq > 0 ? Math.min(MAX_QTY, wq) : undefined; // ≤0 clears the split
   }
   if (patch.classification === null || (typeof patch.classification === "string" && CLASSES.includes(patch.classification)))
     out.classification = patch.classification;
@@ -435,7 +452,7 @@ export type DayPatch = Omit<Partial<TripDay>, "distanceM" | "ascentM" | "descent
 
 function cleanDayPatch(patch: DayPatch): Partial<TripDay> {
   const out: Partial<TripDay> = {};
-  if (typeof patch.label === "string") out.label = patch.label.slice(0, 120) || undefined;
+  if (typeof patch.label === "string") out.label = patch.label.slice(0, MAX_LABEL_LEN) || undefined;
   // `in` rather than a truthiness test: these are all clearable, and an explicit
   // undefined/0/"" has to be able to erase a value, not be skipped as "nothing sent".
   if ("distanceM" in patch) out.distanceM = boundedRound(patch.distanceM, 1, MAX_DAY_DISTANCE_M);
@@ -491,7 +508,7 @@ export function normalizeDay(raw: TripDay): TripDay {
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     sortOrder: Number(raw.sortOrder) || 0,
-    label: raw.label ? String(raw.label).slice(0, 120) : undefined,
+    label: raw.label ? String(raw.label).slice(0, MAX_LABEL_LEN) : undefined,
     distanceM: boundedRound(raw.distanceM, 1, MAX_DAY_DISTANCE_M),
     ascentM: boundedRound(raw.ascentM, 1, MAX_DAY_ASCENT_M),
     descentM: boundedRound(raw.descentM, 1, MAX_DAY_ASCENT_M),
@@ -522,7 +539,7 @@ export function normalizeWaypoint(raw: Waypoint): Waypoint | null {
     id: raw.id.slice(0, MAX_ID_LEN),
     kind: WAYPOINT_KINDS.includes(raw.kind) ? raw.kind : "landmark",
     alongM,
-    label: raw.label ? String(raw.label).slice(0, 120) : undefined,
+    label: raw.label ? String(raw.label).slice(0, MAX_LABEL_LEN) : undefined,
     note: raw.note ? String(raw.note).slice(0, 500) : undefined,
   };
 }
@@ -535,7 +552,7 @@ function cleanWaypointPatch(patch: Partial<Waypoint>): Partial<Waypoint> {
     const m = cleanAlongM(patch.alongM);
     if (m != null) out.alongM = m; // a patch can move a pin, never un-place it
   }
-  if ("label" in patch) out.label = patch.label ? String(patch.label).slice(0, 120) : undefined;
+  if ("label" in patch) out.label = patch.label ? String(patch.label).slice(0, MAX_LABEL_LEN) : undefined;
   if ("note" in patch) out.note = patch.note ? String(patch.note).slice(0, 500) : undefined;
   return out;
 }
@@ -568,8 +585,7 @@ function canAdd<T extends { id: string }>(
  * entry into a 500 that lost the valid ops batched with it. Exported so those
  * readers filter on the same predicate rather than each inventing a guard.
  */
-export const isOpObject = (op: unknown): op is Op =>
-  !!op && typeof op === "object" && !Array.isArray(op);
+export const isOpObject = (op: unknown): op is Op => isRecord(op);
 
 /** Apply a single op in place. Unknown/invalid ops are ignored (no throw). */
 function applyOp(state: ListState, op: Op): void {
@@ -798,7 +814,7 @@ export function normalizeItem(raw: Item): Item {
   // runs per item on every batch and every whole-list rebuild.
   const rawQty: unknown = raw.qty; // typed number, but this parses foreign JSON too
   const n = rawQty == null || rawQty === "" ? NaN : Number(rawQty);
-  const qty = Math.max(0, Math.min(9999, Math.round(Number.isFinite(n) ? n : 1)));
+  const qty = Math.max(0, Math.min(MAX_QTY, Math.round(Number.isFinite(n) ? n : 1)));
   let classification = CLASSES.includes(raw.classification as Classification)
     ? (raw.classification as Classification)
     : null;
@@ -818,7 +834,7 @@ export function normalizeItem(raw: Item): Item {
     // addItem/moveItem reducer cases, which can see the whole list; here we only clamp)
     parentId: typeof raw.parentId === "string" && raw.parentId ? raw.parentId.slice(0, MAX_ID_LEN) : null,
     name: cleanText(String(raw.name ?? ""), MAX_ITEM_NAME_LEN),
-    brand: raw.brand ? cleanText(String(raw.brand), 120) || undefined : undefined,
+    brand: raw.brand ? cleanText(String(raw.brand), MAX_BRAND_LEN) || undefined : undefined,
     variant: raw.variant ? cleanText(String(raw.variant), MAX_VARIANT_LEN) || undefined : undefined,
     commonName: raw.commonName ? cleanText(String(raw.commonName), MAX_GEAR_TYPE_LEN) || undefined : undefined,
     commonNameOverridden: raw.commonNameOverridden ? true : undefined,
@@ -834,7 +850,7 @@ export function normalizeItem(raw: Item): Item {
     wornQty: worn.wornQty,
     classification,
     kcal: kcal > 0 ? Math.min(KCAL_MAX, kcal) : undefined,
-    description: raw.description ? cleanText(String(raw.description), 2000) || undefined : undefined,
+    description: raw.description ? cleanText(String(raw.description), MAX_ITEM_NOTE_LEN) || undefined : undefined,
     productUrl: raw.productUrl ? httpUrl(String(raw.productUrl)) : undefined,
     priceCents:
       typeof raw.priceCents === "number" && isFinite(raw.priceCents)
@@ -902,7 +918,7 @@ export function tidyListText<T extends {
   for (const p of list.people ?? []) p.name = cleanText(p.name ?? "", MAX_PERSON_NAME_LEN) || "Person";
   for (const it of list.items) {
     it.name = cleanText(it.name ?? "", MAX_ITEM_NAME_LEN);
-    if (it.brand) it.brand = cleanText(it.brand, 120) || undefined;
+    if (it.brand) it.brand = cleanText(it.brand, MAX_BRAND_LEN) || undefined;
     if (it.variant) it.variant = cleanText(it.variant, MAX_VARIANT_LEN) || undefined;
     if (it.commonName) it.commonName = cleanText(it.commonName, MAX_GEAR_TYPE_LEN) || undefined;
     if (it.description) it.description = cleanText(it.description, MAX_ITEM_NOTE_LEN) || undefined;

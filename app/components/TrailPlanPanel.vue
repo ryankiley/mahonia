@@ -11,7 +11,7 @@ import { shiftIsoDate } from "~~/shared/calendar";
 import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
 import { DAYLIGHT_MARGIN_H, daylightHours, formatDaylight, lightIsShort } from "~~/shared/daylight";
-import { formatWeight } from "~~/shared/weights";
+import { formatKcal, formatWeight } from "~~/shared/weights";
 import type { BodyWeightUnit } from "~~/shared/trailDistance";
 import {
   DEFAULT_BODY_G,
@@ -21,7 +21,7 @@ import {
   formatDistance,
   formatDistancePadded,
   heightFieldValue,
-  heightValue,
+  heightWithUnit,
   parseDistanceM,
 } from "~~/shared/trailDistance";
 import { tripDays } from "~~/shared/foodPlan";
@@ -203,7 +203,6 @@ const {
   onBoundary,
   ranges,
   restFromM,
-  restRange,
   routeFinishM,
   traceM,
   waypoints,
@@ -225,7 +224,7 @@ const facts = computed(() =>
   dayFactsForRanges(profile.value, props.snapshot.trailDistanceM, ranges.value, props.snapshot.trailAscentM),
 );
 /** a height in the list's own unit, with its unit word */
-const heightWord = (m: number) => `${heightValue(m, distanceUnit.value, distanceUnit.value === "mi" ? 10 : 1)} ${ascentUnit.value}`;
+const heightWord = (m: number) => heightWithUnit(m, distanceUnit.value);
 /** the lapse-rate rule of thumb, in the degrees the list's unit system speaks */
 function coolerWord(aboveM: number): string {
   const c = coolerByC(aboveM);
@@ -508,27 +507,20 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
       <!-- The ROUTE's climb, beside the estimates derived from it. Not the sum of the
            days' typed ascents, which is a different and usually smaller number — this is
            what the whole walk climbs. -->
-      <span v-if="snapshot.trailAscentM" class="chip">
-        <span class="t-label">Elevation gain</span>
-        <span class="t-num">{{ routeHeight(snapshot.trailAscentM) }} <span class="t-muted">{{ ascentUnit }}</span></span>
-      </span>
+      <FigureChip v-if="snapshot.trailAscentM" label="Elevation gain" :value="routeHeight(snapshot.trailAscentM)" :unit="ascentUnit" />
       <!-- only when it is a DIFFERENT fact — on a loop it equals the climb by definition -->
-      <span v-if="routeDescentDiffers" class="chip">
-        <span class="t-label">Elevation loss</span>
-        <span class="t-num">{{ routeHeight(snapshot.trailDescentM) }} <span class="t-muted">{{ ascentUnit }}</span></span>
-      </span>
-      <span v-if="totalAscentM > 0" class="chip">
-        <span class="t-label">Climb</span>
-        <span class="t-num">{{ ascentValue(totalAscentM) }} <span class="t-muted">{{ ascentUnit }}</span></span>
-      </span>
-      <!-- the pack, kept in view because the totals bar stands down in this mode -->
-      <span v-if="totals.carriedMg > 0" class="chip">
-        <span class="t-label">Carried</span>
-        <!-- the unit as its own element, the way the totals bar does it: baked into the
-             formatted string it can't take the lesser ink, so "lb" sat at full weight
-             beside every other unit on the panel stepping back -->
-        <span class="t-num">{{ formatWeight(totals.carriedMg, snapshot.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ snapshot.displayUnit }}</span></span>
-      </span>
+      <FigureChip v-if="routeDescentDiffers" label="Elevation loss" :value="routeHeight(snapshot.trailDescentM)" :unit="ascentUnit" />
+      <FigureChip v-if="totalAscentM > 0" label="Climb" :value="ascentValue(totalAscentM)" :unit="ascentUnit" />
+      <!-- the pack, kept in view because the totals bar stands down in this mode. The
+           unit as its own element, the way the totals bar does it: baked into the
+           formatted string it can't take the lesser ink, so "lb" sat at full weight
+           beside every other unit on the panel stepping back -->
+      <FigureChip
+        v-if="totals.carriedMg > 0"
+        label="Carried"
+        :value="formatWeight(totals.carriedMg, snapshot.displayUnit, { withUnit: false })"
+        :unit="snapshot.displayUnit"
+      />
       <!-- The trip's own estimates, up here with the facts they're derived from rather
            than in a sentence at the foot. They step back in colour: the chips to their
            left are measured, these are worked out.
@@ -542,14 +534,10 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
            feet: it counts no camp, no breaks, no waiting out weather — the tooltip on the
            day rows has always said so, and the label should not need the tooltip to stop
            being wrong. -->
-      <span v-if="tripHours > 0" class="chip chip--est">
-        <span class="t-label">Walking time</span>
-        <span class="t-num">{{ formatHours(tripHours) }}</span>
-      </span>
-      <span v-if="tripHours > 0" class="chip chip--est">
-        <span class="t-label">Estimated burn</span>
-        <span class="t-num">{{ roundKcal(tripKcal).toLocaleString() }} <span class="t-muted">kcal</span></span>
-      </span>
+      <FigureChip v-if="tripHours > 0" class="chip--est" label="Walking time" :value="formatHours(tripHours)" />
+      <!-- formatKcal, as every other calorie figure: it pins the locale the share views
+           are rendered in, where a bare toLocaleString() took the browser's -->
+      <FigureChip v-if="tripHours > 0" class="chip--est" label="Estimated burn" :value="formatKcal(roundKcal(tripKcal))" unit="kcal" />
     </div>
 
     <!-- The route's shape, cut into days. Directly under the figure it belongs to. -->
@@ -628,8 +616,8 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
          which except hovering a leg.
          Under the MAP rather than the profile, though both use these colours, because one
          key answers for both and it belongs after the last thing that spends them. -->
-    <ul v-if="snapshot.routeGeometry && days.length" class="daykey">
-      <li v-for="(d, i) in days" :key="d?.id ?? i" class="daykey__item">
+    <ul v-if="snapshot.routeGeometry && days.length" class="legend daykey">
+      <li v-for="(d, i) in days" :key="d?.id ?? i" class="legend__item">
         <span class="swatch" :style="{ background: dayColors[i] }" />
         <span>Day {{ i + 1 }}</span>
         <!-- The SAME formatter the day's own row uses, not formatDistance. The two sat a
@@ -672,15 +660,17 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              affordance, not the data: naming can come back without a migration. -->
         <header class="plan__dayhead">
           <h2 class="t-clip plan__name">{{ dayOrdinal(i) }}</h2>
-          <button
-            type="button"
-            class="plan__collapse plan__collapse--tight"
-            :aria-expanded="!collapsed[d?.id ?? '']"
-            :aria-label="`${collapsed[d?.id ?? ''] ? 'Expand' : 'Collapse'} ${dayOrdinal(i)}`"
-            @click="d && toggleDay(d.id)"
-          >
-            <HugeiconsIcon :icon="ChevronDownIcon" class="plan__chev2" :class="{ 'is-collapsed': collapsed[d?.id ?? ''] }" :size="20" :stroke-width="2" />
-          </button>
+          <!-- the folder header's chevron (NestChevron), on the folder atom's own box —
+               this had a private restatement of its rotate recipe, minus the atom's
+               44px touch target -->
+          <NestChevron
+            folder
+            noun="day"
+            class="plan__collapse--tight"
+            :collapsed="!!collapsed[d?.id ?? '']"
+            :label="dayOrdinal(i)"
+            @toggle="d && toggleDay(d.id)"
+          />
           <button
             type="button"
             class="btn btn--icon btn--ghost plan__del plan__del--end"
@@ -755,7 +745,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                  The calories beside it keep theirs, being a single figure. -->
             <span class="t-num">{{ estimates[i] ? formatHours(estimates[i]!.hours) : "—" }}</span>
             <Tooltip v-if="estimates[i]" text="Walking time only, no breaks. Pace follows the gradient and the weight of your pack." preferred-placement="top">
-              <button type="button" class="plan__why" aria-label="How the moving time is worked out">
+              <button type="button" class="plan__why ink-quiet" aria-label="How the moving time is worked out">
                 <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
             </Tooltip>
@@ -776,7 +766,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             <span class="t-num">{{ formatDaylight(dayDaylight[i]!) }}</span>
             <span class="visually-hidden"> of daylight</span>
             <Tooltip :text="lightTip(i)" preferred-placement="top">
-              <button type="button" class="plan__why" aria-label="How the daylight is worked out">
+              <button type="button" class="plan__why ink-quiet" aria-label="How the daylight is worked out">
                 <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
             </Tooltip>
@@ -784,9 +774,9 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 
           <span class="plan__cell plan__cell--est">
             <HugeiconsIcon :icon="Fire02Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
-            <span class="t-num">{{ estimates[i] ? `~${roundKcal(estimates[i]!.totalKcal).toLocaleString()}` : "—" }}</span>
+            <span class="t-num">{{ estimates[i] ? `~${formatKcal(roundKcal(estimates[i]!.totalKcal))}` : "—" }}</span>
             <Tooltip v-if="estimates[i]" :text="`Walking and resting, at ${formatBodyWeight(bodyG, bodyUnit)}${bodyIsDefault ? ' (assumed)' : ''}. Good to about ±20%.`" preferred-placement="top">
-              <button type="button" class="plan__why" aria-label="How the calories are worked out">
+              <button type="button" class="plan__why ink-quiet" aria-label="How the calories are worked out">
                 <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
             </Tooltip>
@@ -981,7 +971,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
          creating a day the dates don't know about. A list with no dates has no range to
          extend, so it still gets a plain day. -->
     <div class="plan__addwrap">
-      <button type="button" class="plan__add" @click="addDay">Add a day</button>
+      <button type="button" class="addfolder__btn" @click="addDay">Add a day</button>
     </div>
   </section>
 </template>
@@ -1181,29 +1171,11 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
      away — at --space-1 it read as a superscript on the number */
   margin-left: var(--space-2);
   display: inline-flex;
-  color: var(--ink-3);
   cursor: help;
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.plan__why:hover,
-.plan__why:focus-visible {
-  /* full ink, the house treatment for a quiet action. The resting state is --ink-3 and
-     NOT --ink-ghost: the ghost token's own definition says not to reuse it below the
+  /* the inks are .ink-quiet's (controls.scss). The resting state is --ink-3 and NOT
+     --ink-ghost: the ghost token's own definition says not to reuse it below the
      page-title size, and at 14px it made the only sign an explanation exists a 1.35:1
      smudge — invisible to exactly the reader who needed the explanation. */
-  color: var(--ink);
-}
-.plan__collapse {
-  flex: none;
-  display: inline-flex;
-  color: var(--ink-3);
-  cursor: pointer;
-}
-.plan__chev2 {
-  transition: transform var(--spring-step-dur) var(--spring-step);
-}
-.plan__chev2.is-collapsed {
-  transform: rotate(-90deg);
 }
 .plan__gl {
   flex: none;
@@ -1215,8 +1187,12 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
  * --ink-3) it made the unit louder than the number it qualifies, which is backwards. One
  * token for every unit on the panel, so "ft" reads the same weight wherever it appears. */
 .plan__cell .t-muted,
-.plan__chips .t-muted,
 .plan__assume .t-muted {
+  color: var(--ink-3);
+}
+/* :deep, because the chips' spans are FigureChip's — rendered by a child, they carry
+   its scope and not this panel's, so a plain scoped selector matches nothing */
+.plan__chips :deep(.t-muted) {
   color: var(--ink-3);
 }
 /* mirrored, not a second icon — see the template */
@@ -1252,18 +1228,6 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   align-self: flex-start;
   margin-top: calc(var(--space-7) - var(--space-4));
 }
-.plan__add {
-  cursor: pointer;
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-/* full ink on hover, the house treatment for a quiet text action */
-.plan__add:hover {
-  color: var(--ink);
-}
 /* EVERY chip reads at the same weight, measured or estimated.
  *
  * The estimates used to step back a tone from the figures beside them, on the reasoning
@@ -1274,7 +1238,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
  *
  * Tabular numerals go too: they exist to make a COLUMN of figures line up, and these sit
  * in a row where nothing is above or below anything. Proportional digits set better. */
-.plan__chips .chip .t-num {
+.plan__chips .chip :deep(.t-num) {
   color: var(--ink-3);
   font-variant-numeric: normal;
 }
@@ -1389,26 +1353,11 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 }
 /* Lifted wholesale from .catbar__legend, deliberately: "the same treatment" means the same
    spacing and the same hanging indent, not something that merely resembles it. */
-.daykey {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2) var(--space-5);
-  margin-top: var(--space-3);
-}
-/* TEXT FLOW rather than a flex row, for the reason CategoryBar gives at length: a wrapped
-   entry in a flex row centres its dot against the whole block instead of against the line
-   it belongs to. The hanging indent keeps a wrapped line under the NAME, not under the dot. */
-.daykey__item {
-  padding-inline-start: calc(var(--swatch) + var(--space-2));
-  text-indent: calc(-1 * (var(--swatch) + var(--space-2)));
-}
+/* the key is the .legend atom (controls.scss) — the row, the hanging indent and the
+   dot's gap are CategoryBar's, shared rather than lifted; only the distance is this
+   key's */
 .daykey__dist {
   margin-inline-start: var(--space-2);
-}
-/* the atom draws the dot and sits it on the label's cap box (atoms/controls.scss —
-   both used to be restated here); only the gap to the label is the day key's */
-.daykey .swatch {
-  margin-inline-end: var(--space-2);
 }
 .plan__wplist {
   /* ONE COLUMN SET for every row in the day — the pins and the night alike. Declared here

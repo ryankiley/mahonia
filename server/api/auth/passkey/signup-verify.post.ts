@@ -1,16 +1,9 @@
 import { defineEventHandler } from "h3";
-import {
-  MAGIC_LINK_TTL_MS,
-  createAccount,
-  deleteAccountRow,
-  issueMagicToken,
-  startSession,
-} from "../../../utils/authSession";
-import { canSendEmail, sendMagicLink } from "../../../utils/email";
+import { createAccount, deleteAccountRow, mailMagicLink, startSession } from "../../../utils/authSession";
+import { canSendEmail } from "../../../utils/email";
 import { savePasskey } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
-import { trustedOrigin } from "../../../utils/origin";
 import { requirePasskeysConfigured, takeChallenge, verifyPasskeyRegistration } from "../../../utils/passkeys";
 import { rateLimit } from "../../../utils/rateLimit";
 
@@ -47,8 +40,7 @@ export default defineEventHandler(async (event) => {
   requirePasskeysConfigured();
 
   const body = await readJsonBodyCapped<{ flowId?: unknown; response?: unknown }>(event, 32_000);
-  const flowId = typeof body?.flowId === "string" ? body.flowId : "";
-  const stored = await takeChallenge(flowId);
+  const stored = await takeChallenge(body?.flowId);
   // A signup challenge carries an email and no userId. One with a userId came from
   // register-options (adding a key to an existing account) and must not mint a
   // second account here.
@@ -99,20 +91,11 @@ export default defineEventHandler(async (event) => {
   // Best-effort, and never allowed to fail the signup it rode in on.
   if (canSendEmail()) {
     try {
-      const token = await issueMagicToken(db, user.id);
-      // trustedOrigin, not the request's — this link is the UNDO for a signup
-      // against an address the signer may not hold, so it is the one thing in
-      // that message that must land on Mahonia. See server/utils/origin.ts.
-      const url = new URL("/auth/callback", trustedOrigin(event));
-      url.searchParams.set("t", token);
-      await sendMagicLink({
-        to: stored.email,
-        url: url.toString(),
-        expiresIn: `${Math.round(MAGIC_LINK_TTL_MS / 60_000)} minutes`,
-        // not a sign-in link — they're already signed in, and this is the address
-        // confirmation. See MagicLinkEmail.purpose.
-        purpose: "welcome",
-      });
+      // This link is the UNDO for a signup against an address the signer may not
+      // hold, so it is the one thing in that message that must land on Mahonia —
+      // mailMagicLink pins the origin for exactly that. "welcome", not a sign-in
+      // link: they're already signed in, and this is the address confirmation.
+      await mailMagicLink(event, db, user.id, stored.email, "welcome");
     } catch (e) {
       console.error("[passkey signup] confirmation email failed", e);
     }

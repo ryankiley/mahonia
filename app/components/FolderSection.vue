@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, Delete02Icon, GripVerticalIcon } from "@hugeicons/core-free-icons";
+import { Delete02Icon, GripVerticalIcon } from "@hugeicons/core-free-icons";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import { MAX_FOLDER_NAME_LEN } from "~~/shared/ops";
 import { bySortOrder } from "~~/shared/weights";
@@ -60,28 +60,21 @@ const isDropAfter = computed(
 // needs a pointer): ArrowUp/Down move the folder one slot, through the same
 // moveFolderBefore commit a drop uses — persistence + reindexing come for free
 function onGripKey(e: KeyboardEvent) {
-  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return;
-  e.preventDefault();
+  const step = gripStep(e);
+  if (!step) return;
   const folders = [...props.list.folders].sort(bySortOrder);
   const i = folders.findIndex((f) => f.id === props.folder.id);
   if (i < 0) return;
-  const neighbor = folders[e.key === "ArrowUp" ? i - 1 : i + 1];
-  if (neighbor) c.moveFolderBefore(props.folder.id, neighbor.id, e.key === "ArrowUp");
-  // the reorder re-inserts this folder's DOM node, blurring the grip — re-focus it
-  // so repeat presses work (the section is keyed by id, so the ref persists)
-  const grip = e.currentTarget as HTMLElement;
-  nextTick(() => grip.focus());
+  const neighbor = folders[i + step];
+  if (neighbor) c.moveFolderBefore(props.folder.id, neighbor.id, step < 0);
+  refocusGrip(e);
 }
 
 // collapse: the chevron shows/hides the folder body, persisted per folder id so a
 // collapsed folder stays collapsed across reloads (pure UI state, never sent to the
 // server). The read-only views keep their own local-only collapse (see
 // ReadonlyFolderSection) so the owner's state can't bleed into a shared link.
-const foldCollapse = usePersistedCollapse("gear.fold.");
-const collapsed = ref(false);
-onMounted(() => {
-  collapsed.value = foldCollapse.isCollapsed(props.folder.id);
-});
+const { collapsed, toggle: toggleCollapsed } = usePersistedCollapse("gear.fold.").useFor(() => props.folder.id);
 // The reducer tidies what it stores (shared/tidyText), so the field has to be told the
 // answer rather than left holding what was typed. This is an uncontrolled input —
 // :value + @change — and when the tidied result EQUALS the value already in state
@@ -92,10 +85,6 @@ function onName(e: Event) {
   const el = e.target as HTMLInputElement;
   c.updateFolder(props.folder.id, { name: el.value });
   el.value = props.folder.name;
-}
-function toggleCollapsed() {
-  collapsed.value = !collapsed.value;
-  foldCollapse.set(props.folder.id, collapsed.value);
 }
 </script>
 
@@ -118,15 +107,7 @@ function toggleCollapsed() {
           spellcheck="false"
           @change="onName"
         />
-        <button
-          class="folder__collapse"
-          :aria-expanded="!collapsed"
-          :aria-label="`${collapsed ? 'Expand' : 'Collapse'} ${folder.name || 'folder'}`"
-          :title="collapsed ? 'Expand folder' : 'Collapse folder'"
-          @click="toggleCollapsed"
-        >
-          <HugeiconsIcon :icon="ChevronDownIcon" class="folder__chev" :class="{ 'is-collapsed': collapsed }" :size="20" :stroke-width="2" />
-        </button>
+        <NestChevron folder :collapsed="collapsed" :label="folder.name || 'folder'" @toggle="toggleCollapsed" />
       </div>
       <!-- trailing actions read left→right: delete · reorder-grip (grip stays flush
            at the edge, matching the item rows) -->
@@ -136,7 +117,7 @@ function toggleCollapsed() {
            ~240ms of the switch was rebuilding folder chrome. -->
       <div class="folder__actions">
         <button
-          class="btn btn--icon btn--ghost folder__del"
+          class="btn btn--icon btn--ghost folder__del ink-quiet"
           title="Remove folder"
           aria-label="Remove folder"
           @click="c.removeFolder(folder.id)"
@@ -146,7 +127,7 @@ function toggleCollapsed() {
         <!-- drag via pointerdown; arrow keys give the focused grip the reordering
              its label promises (a drag needs a pointer) -->
         <button
-          class="btn btn--icon btn--ghost grip folder__grip"
+          class="btn btn--icon btn--ghost grip folder__grip ink-quiet"
           title="Drag to reorder folder"
           :aria-label="`Reorder ${folder.name || 'folder'}`"
           @pointerdown="fdnd.start(folder.id, $event)"

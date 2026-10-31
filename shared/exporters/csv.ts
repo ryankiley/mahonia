@@ -2,11 +2,11 @@
 // and ingests LighterPack's "Export to CSV" output (flexible header detection).
 
 import type { Item, ListData, ListSnapshot, Unit } from "../types";
-import { colorKeyForName, nextFolderColor } from "../categories";
+import { colorKeyForName, nextFolderColor, usedColorKeys } from "../categories";
 import { MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
 import { effectiveClassificationInFolder, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
-import { exportSections } from "./rows";
+import { exportOrderedItems } from "./rows";
 import { csvCell, stripFormulaGuard } from "./csvCell";
 import { uid } from "../id";
 
@@ -58,9 +58,7 @@ export function listToCsv(list: ListSnapshot): string {
   // container parent's is usually blank), so the flat CSV re-imports with correct
   // totals and no parent/child double-count. (CSV has no nesting column — children
   // re-import as flat top-level rows.)
-  const ordered: Item[] = exportSections(list).flatMap((s) =>
-    s.rows.flatMap((r) => [r.item, ...r.children]),
-  );
+  const ordered: Item[] = exportOrderedItems(list);
   for (const it of ordered) {
     const cls = effectiveClassificationInFolder(
       it,
@@ -196,7 +194,7 @@ export function csvToListData(
       // name-match first (Water→blue, First Aid→red), palette walk as the fallback:
       // the same rule addFolder applies, so an imported list and a hand-built one
       // with the same folder names wear the same colours
-      const colorKey = colorKeyForName(key, folders.map((f) => f.colorKey ?? "other"));
+      const colorKey = colorKeyForName(key, usedColorKeys(folders));
       folders.push({ id, name: key, colorKey, defaultClassification: "base", sortOrder: folders.length });
     }
     return folderId.get(key)!;
@@ -217,8 +215,8 @@ export function csvToListData(
       // seeded with the folders' hues too, like the editor's addPerson — one
       // color, one meaning, even when both sets render side by side
       const colorKey = nextFolderColor([
-        ...folders.map((f) => f.colorKey ?? "other"),
-        ...people.map((p) => p.colorKey ?? "other"),
+        ...usedColorKeys(folders),
+        ...usedColorKeys(people),
       ]);
       people.push({ id, name: key, colorKey, sortOrder: people.length });
     }

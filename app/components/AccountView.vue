@@ -10,6 +10,7 @@
 // and has two — VaultPane and /gear, ~470 lines of template between them, with a
 // comment in the page admitting its prompt is copied "WORD FOR WORD" from the pane.
 // Signing in and deleting an account are worse things to keep in sync by hand.
+import { counted } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Key01Icon } from "@hugeicons/core-free-icons";
 import type { PasskeySummary } from "~~/shared/types";
@@ -240,7 +241,7 @@ async function exportEverything() {
     downloadFile(`mahonia-export-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2), "application/json");
     const n = data.lists.length;
     const g = data.gear.items.length;
-    exportNote.value = `Saved ${n} ${n === 1 ? "list" : "lists"} and ${g} ${g === 1 ? "piece" : "pieces"} of gear.`;
+    exportNote.value = `Saved ${counted(n, "list")} and ${counted(g, "piece")} of gear.`;
   } catch {
     exportNote.value = "Couldn't build the file. Try again?";
   } finally {
@@ -292,7 +293,7 @@ async function deleteAccount() {
     await refresh(true);
     const n = res?.listsDeleted ?? 0;
     gone.value = n
-      ? `Account deleted, along with ${n} ${n === 1 ? "list" : "lists"}.`
+      ? `Account deleted, along with ${counted(n, "list")}.`
       : "Account deleted. Your lists are untouched.";
     setTimeout(() => (gone.value = ""), 8000);
   } catch {

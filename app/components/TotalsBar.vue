@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { counted } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
@@ -62,7 +63,7 @@ const plan = computed(() => foodPlan(props.totals, props.list));
 const planTip = computed(() => {
   const p = plan.value;
   if (!p) return "";
-  const span = `${kcalDisplay.value} kcal across ${p.days} ${p.days === 1 ? "day" : "days"}.`;
+  const span = `${kcalDisplay.value} kcal across ${counted(p.days, "day")}.`;
   // Named as a rule of thumb, and phrased as a range rather than a target — the band
   // is a sanity check on the arithmetic, not a recommendation for a body.
   //
@@ -119,10 +120,13 @@ const planTip = computed(() => {
     <div class="totals__breakdowninner">
       <!-- only the categories actually present show — no "Consumable 0 g" noise -->
       <div class="totals__chips">
-        <span v-for="c in packChips" :key="c.label" class="chip">
-          <span class="t-label">{{ c.label }}</span>
-          <span class="t-num">{{ formatWeight(c.mg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
-        </span>
+        <FigureChip
+          v-for="c in packChips"
+          :key="c.label"
+          :label="c.label"
+          :value="formatWeight(c.mg, list.displayUnit, { withUnit: false })"
+          :unit="list.displayUnit"
+        />
         <!-- the derived roll-up, set apart by a hairline because it doesn't belong to
              the partition on its left; the tooltip carries the definition so the label
              doesn't have to spell out the arithmetic -->
@@ -135,17 +139,17 @@ const planTip = computed(() => {
           preferred-placement="bottom"
           text="Base + consumable: everything in the pack, nothing worn on your body."
         >
-          <span class="chip">
-            <span class="t-label">Carried</span>
-            <span class="t-num">{{ formatWeight(totals.carriedMg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
-          </span>
+          <FigureChip label="Carried" :value="formatWeight(totals.carriedMg, list.displayUnit, { withUnit: false })" :unit="list.displayUnit" />
         </Tooltip>
         <!-- Worn closes the weights, apart from the run before it: the one weight that
              isn't in the pack, so it can't read as a slice of Carried. -->
-        <span v-if="wornChip" class="chip chip--apart">
-          <span class="t-label">{{ wornChip.label }}</span>
-          <span class="t-num">{{ formatWeight(wornChip.mg, list.displayUnit, { withUnit: false }) }} <span class="t-muted">{{ list.displayUnit }}</span></span>
-        </span>
+        <FigureChip
+          v-if="wornChip"
+          class="chip--apart"
+          :label="wornChip.label"
+          :value="formatWeight(wornChip.mg, list.displayUnit, { withUnit: false })"
+          :unit="list.displayUnit"
+        />
         <!-- calories sit APART from the chips on their left: those three partition the
              weight, and this is a different quantity entirely — dropping it into the
              same row would read as a fourth slice of the total. Only appears once
@@ -160,20 +164,14 @@ const planTip = computed(() => {
             preferred-placement="bottom"
             text="Food energy across everything classed as consumable."
           >
-            <span class="chip chip--alt">
-              <span class="t-label">Calories</span>
-              <span class="t-num">{{ kcalDisplay }} <span class="t-muted">kcal</span></span>
-            </span>
+            <FigureChip class="chip--alt" label="Calories" :value="kcalDisplay" unit="kcal" />
           </Tooltip>
           <!-- Per day: the same calories divided by the trip's own dates. It sits with
                the calorie chip rather than behind its own rule — it IS that figure, at
                the scale that makes it mean something. Needs both halves (kcal and a date
                range), so it stays absent on the lists that have only one. -->
           <Tooltip v-if="plan" preferred-placement="bottom" :text="planTip">
-            <span class="chip">
-              <span class="t-label">Per day</span>
-              <span class="t-num">{{ formatKcal(plan.kcalPerDay) }} <span class="t-muted">kcal</span></span>
-            </span>
+            <FigureChip label="Per day" :value="formatKcal(plan.kcalPerDay)" unit="kcal" />
           </Tooltip>
           </span>
       </div>

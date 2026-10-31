@@ -1,5 +1,5 @@
 import { defineEventHandler } from "h3";
-import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
+import { arrayOf, isObjectLike, readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { resolveOrMintVault } from "../../utils/vaultAuth";
 import { importVaultItems, type VaultImportRow } from "../../utils/vaultRepo";
@@ -29,12 +29,7 @@ export default defineEventHandler(async (event) => {
   // Four times the capture cap: this carries a whole vault rather than one list's
   // worth, and a row can hold two URLs and a note.
   const body = await readJsonBodyCapped<{ items?: unknown }>(event, 1_000_000);
-  const items = Array.isArray(body?.items)
-    ? (body.items.filter((i) => i && typeof i === "object") as VaultImportRow[]).slice(
-        0,
-        VAULT_IMPORT_MAX,
-      )
-    : [];
+  const items = arrayOf(body?.items, isObjectLike, VAULT_IMPORT_MAX) as VaultImportRow[];
   // Checked before the mint, like capture: an empty file must not bring a vault
   // into existence.
   if (!items.length) return { ok: true, added: 0, skipped: 0 };

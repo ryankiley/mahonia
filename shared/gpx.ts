@@ -16,6 +16,7 @@
 // packing list. The arithmetic the reducer and the charts need — parsing a stored profile,
 // climbs per day, grade bands — lives in profile.ts precisely so this file can stay off
 // that path. Import FROM profile.ts freely; never make profile.ts import from here.
+import { segmentAt, validLatLon } from "./polyline";
 import { CLIMB_SAMPLE_M, PROFILE_SAMPLES, totalClimb } from "./profile";
 import type { WaypointKind } from "./types";
 
@@ -46,11 +47,6 @@ export const MAX_GPX_BYTES = 10_000_000;
 
 const EARTH_R_M = 6_371_008.8;
 const rad = (deg: number) => (deg * Math.PI) / 180;
-
-/** Coordinates outside the Earth are malformed input, not an unusual route. */
-function validLatLon(lat: number, lon: number): boolean {
-  return Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
-}
 
 /**
  * XML attributes and element text have a dangerous coercion edge: `Number(null)`
@@ -487,11 +483,8 @@ function resampleByDistance(cumulative: number[], elevations: number[]): number[
   let j = 0;
   for (let i = 0; i < samples; i++) {
     const target = (total * i) / (samples - 1);
-    while (j < cumulative.length - 2 && cumulative[j + 1]! < target) j++;
-    const d0 = cumulative[j]!;
-    const d1 = cumulative[j + 1]!;
-    const span = d1 - d0;
-    const f = span > 0 ? (target - d0) / span : 0;
+    const { i: k, f } = segmentAt(cumulative, target, j);
+    j = k;
     out.push(Math.round(elevations[j]! + (elevations[j + 1]! - elevations[j]!) * f));
   }
   return out;
@@ -509,10 +502,8 @@ function resampleEvery(cumulative: number[], elevations: number[], stepM: number
   const out: number[] = [];
   let j = 0;
   for (let target = 0; target < total; target += stepM) {
-    while (j < cumulative.length - 2 && cumulative[j + 1]! < target) j++;
-    const d0 = cumulative[j]!;
-    const span = cumulative[j + 1]! - d0;
-    const f = span > 0 ? (target - d0) / span : 0;
+    const { i: k, f } = segmentAt(cumulative, target, j);
+    j = k;
     out.push(elevations[j]! + (elevations[j + 1]! - elevations[j]!) * f);
   }
   out.push(elevations[elevations.length - 1]!);

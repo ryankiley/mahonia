@@ -9,6 +9,12 @@ import type { EffectScope, Ref } from "vue";
 // module an SSR-rendered component (the /s and /l read views) would throw on
 // it — so the window reference lives HERE, behind import.meta.client, and
 // callers never touch it.
+//
+// The rest of the file is the same kind of thing — small browser-side plumbing more
+// than one surface reaches for (the reorder grip's keys, a growing textarea, a roving
+// radiogroup, a mount latch, a fetch error's status) — kept together rather than one
+// file each: on the editor's first load every module costs its own chunk glue, and a
+// dozen two-function files added more of that than the code they held.
 
 // Window listener bound to the component scope (auto-removed on unmount).
 export function useWindowEvent<K extends keyof WindowEventMap>(
@@ -182,4 +188,118 @@ export function useMenuDismiss(
   };
   watch(open, bind);
   onScopeDispose(() => bind(false));
+}
+
+/**
+ * The reorder grip's keyboard path (its label promises reordering, but a drag needs a
+ * pointer): ArrowUp/Down step the row one slot, through the same move a drop commits.
+ * Answers −1 or +1 for the arrows, swallowing the key; null for anything else. The
+ * item rows and the folder headers share it, and `refocusGrip` with it.
+ */
+export function gripStep(e: KeyboardEvent): -1 | 1 | null {
+  if (e.key !== "ArrowUp" && e.key !== "ArrowDown") return null;
+  e.preventDefault();
+  return e.key === "ArrowUp" ? -1 : 1;
+}
+
+/** The reorder re-inserts the row's DOM node, which blurs the grip — focus it again on
+ *  the next tick so repeat presses work (the component is keyed by id, so the node
+ *  persists across the move). */
+export function refocusGrip(e: KeyboardEvent): void {
+  const grip = e.currentTarget as HTMLElement;
+  nextTick(() => grip.focus());
+}
+
+/** A field someone may be typing in — an input, a textarea, a select, or anything
+ *  contenteditable — which a page-level key shortcut must leave alone. */
+export function isFormField(el: EventTarget | null | undefined): boolean {
+  return el instanceof HTMLElement && (el.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(el.tagName));
+}
+
+// A textarea that grows with its text. Where `field-sizing: content` exists the browser
+// does it natively and this is a no-op; elsewhere (Safari, as of 2026) the height is set
+// from scrollHeight by hand — the list title and a row's note both need it, and each
+// had its own copy of the check and the two lines.
+//
+// Collapse to auto FIRST, then take scrollHeight: without the reset the box can only
+// ever grow, since the scrollHeight of an already-tall textarea includes its empty
+// space. Never run alongside the native path — an explicit inline height overrides
+// content sizing, so the JS would silently replace the free native path with a forced
+// layout flush per keystroke; `needsTextareaFit` is the one gate.
+
+/** Whether this browser needs the hand-measured path at all. */
+export const needsTextareaFit = import.meta.client && !CSS.supports("field-sizing", "content");
+
+export function fitTextarea(el: HTMLTextAreaElement | null | undefined): void {
+  if (!needsTextareaFit || !el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
+
+/**
+ * Arrow keys over a radiogroup whose options carry `ref="opts"` — the mode bar's and
+ * the people chips', which had the same ten lines each ("ModeBar's roving arrows,
+ * verbatim", the second copy said).
+ *
+ * The design system's segmented control is why the group's tabindex roves at all: "A
+ * radiogroup is one tab stop and the arrows move inside it — that's the whole reason
+ * the arrows exist. With every option tabbable, Tab walked the three views instead of
+ * the page, and the arrows were a second way to do what Tab already did."
+ *
+ * Selection follows focus, which is right where picking is free and instant (a view, a
+ * filter); the pattern only needs decoupling when activating a choice is expensive.
+ * Left/Up step back, Right/Down forward, wrapping at either end; the newly selected
+ * option takes focus on the next tick, once it has re-rendered as the one tab stop.
+ *
+ * `index` is the selected option's position in the rendered order, −1 for none (then
+ * the arrows do nothing); `pick` is handed the position to select.
+ */
+export function useRovingRadio(
+  count: () => number,
+  index: () => number,
+  pick: (at: number) => void,
+): { opts: Ref<HTMLButtonElement[] | null>; onKey: (e: KeyboardEvent) => void } {
+  const opts = useTemplateRef<HTMLButtonElement[]>("opts");
+  function onKey(e: KeyboardEvent) {
+    if (!/^Arrow(Left|Right|Up|Down)$/.test(e.key)) return;
+    const i = index();
+    if (i < 0) return;
+    e.preventDefault();
+    const step = /Left|Up/.test(e.key) ? -1 : 1;
+    const n = count();
+    const at = (i + step + n) % n;
+    pick(at);
+    nextTick(() => opts.value?.[at]?.focus());
+  }
+  return { opts, onKey };
+}
+
+/**
+ * A flag that flips on the first time `src` is truthy and never back — the lazy-mount
+ * guard every Lazy dialog sits behind (`v-if="xEverOpened" :open="xOpen"`): the chunk is
+ * fetched by the first open rather than by loading the page, and the component STAYS
+ * mounted after, so every close still gets its leave transition and re-opens reuse the
+ * fetched component. The editor alone had six hand-written copies of the ref-plus-watch.
+ *
+ * `immediate`, so a source already on at setup mounts at once; a pre-flush watch, so the
+ * mount and the open land in the same render (the import dialog relied on that).
+ */
+export function useLatch(src: () => unknown): Readonly<Ref<boolean>> {
+  const on = ref(false);
+  watch(
+    src,
+    (v) => {
+      if (v) on.value = true;
+    },
+    { immediate: true },
+  );
+  return readonly(on);
+}
+
+/** The HTTP status a failed $fetch threw with, or undefined for anything else (a
+ *  network failure, a thrown string). Five call sites had each cast the error to read
+ *  it; two of them as `any`. */
+export function statusOf(e: unknown): number | undefined {
+  const status = (e as { statusCode?: unknown } | null | undefined)?.statusCode;
+  return typeof status === "number" ? status : undefined;
 }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { counted } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import { categoryColor, FOLDER_PALETTE } from "~~/shared/categories";
@@ -77,8 +78,12 @@ function setColor(p: Person, colorKey: string) {
 // assignments made one row at a time are the expensive one, and they don't come
 // back with a re-typed name.
 const arming = ref<string | null>(null);
-const carriedCount = (id: string) =>
-  filterItemsForPerson(c.snapshot.value?.items ?? [], id).length;
+// one pass per person per render, not one per read: a row's armed label asks four times
+const carriedCounts = computed(() => {
+  const s = c.snapshot.value;
+  return new Map((s?.people ?? []).map((p) => [p.id, filterItemsForPerson(s?.items ?? [], p.id).length]));
+});
+const carriedCount = (id: string) => carriedCounts.value.get(id) ?? 0;
 // palette membership, for the strip below — an 11th person walks off the ten
 // named hues onto a procedural one, and the strip must still show a selection
 const inPalette = (key?: string) => !!key && (FOLDER_PALETTE as readonly string[]).includes(key);
@@ -128,10 +133,10 @@ function remove(p: Person) {
             type="button"
             class="btn btn--quiet ppl__remove"
             :class="{ 'is-arming': arming === p.id }"
-            :aria-label="arming === p.id ? `Really remove ${p.name}? ${carriedCount(p.id)} item${carriedCount(p.id) === 1 ? '' : 's'} go back up for grabs` : `Remove ${p.name}`"
+            :aria-label="arming === p.id ? `Really remove ${p.name}? ${counted(carriedCount(p.id), 'item')} go back up for grabs` : `Remove ${p.name}`"
             @click="remove(p)"
           >
-            <template v-if="arming === p.id">Remove?{{ carriedCount(p.id) ? ` · ${carriedCount(p.id)} item${carriedCount(p.id) === 1 ? "" : "s"}` : "" }}</template>
+            <template v-if="arming === p.id">Remove?{{ carriedCount(p.id) ? ` · ${counted(carriedCount(p.id), "item")}` : "" }}</template>
             <HugeiconsIcon v-else :icon="Delete02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
           </button>
         </div>

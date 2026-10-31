@@ -7,10 +7,11 @@
 // non-claimers alike, and claiming a list takes nothing away from anyone else
 // holding that link.
 
-import { and, desc, eq, inArray, isNull } from "drizzle-orm";
+import { toIso } from "./time";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { listClaims, lists } from "../db/schema";
 import type { Db } from "./db";
-import { findLiveByEditHashes } from "./listRepo";
+import { findLiveByEditHashes, isLive } from "./listRepo";
 import { sha256Hex } from "./tokens";
 import { captureVaultItems } from "./vaultRepo";
 import { mintVault, touchVaultByUser } from "./vaultAuth";
@@ -169,8 +170,7 @@ export async function listClaimedLists(db: Db, userId: number): Promise<ClaimedL
     .where(
       and(
         eq(listClaims.userId, userId),
-        eq(lists.status, "active"),
-        isNull(lists.deletedAt),
+        isLive(),
       ),
     )
     .orderBy(desc(lists.updatedAt))
@@ -183,7 +183,7 @@ export async function listClaimedLists(db: Db, userId: number): Promise<ClaimedL
     totalMg: Number(r.totalWeightMg),
     version: r.version,
     displayUnit: UNITS.includes(r.displayUnit as Unit) ? (r.displayUnit as Unit) : "g",
-    updatedAt: new Date(r.updatedAt).toISOString(),
+    updatedAt: toIso(r.updatedAt),
   }));
 }
 
@@ -211,7 +211,7 @@ export async function backfillVaultFromClaims(db: Db, userId: number): Promise<n
     .from(listClaims)
     .innerJoin(lists, eq(lists.id, listClaims.listId))
     .where(
-      and(eq(listClaims.userId, userId), eq(lists.status, "active"), isNull(lists.deletedAt)),
+      and(eq(listClaims.userId, userId), isLive()),
     )
     .orderBy(desc(lists.updatedAt), desc(lists.id))
     .limit(CLAIM_BATCH_MAX);
@@ -274,8 +274,7 @@ export async function claimedEditHash(
       and(
         eq(lists.shareCode, code),
         eq(listClaims.userId, userId),
-        eq(lists.status, "active"),
-        isNull(lists.deletedAt),
+        isLive(),
       ),
     )
     .limit(1);
