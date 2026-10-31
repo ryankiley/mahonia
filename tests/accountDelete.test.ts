@@ -22,18 +22,13 @@ import { deleteAccount } from "../server/utils/accountRepo";
 import { claimLists } from "../server/utils/claimRepo";
 import { createTestDb, makeList, type TestDb } from "./helpers/db";
 
-type DB = TestDb;
-async function freshDb(): Promise<DB> {
-  return createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
-}
-
-async function makeUser(db: DB, email: string): Promise<number> {
+async function makeUser(db: TestDb, email: string): Promise<number> {
   const rows = await db.insert(schema.users).values({ email }).returning();
   return rows[0]!.id;
 }
 
 /** A vault with one folder and one piece of gear in it. */
-async function makeVault(db: DB, userId: number): Promise<number> {
+async function makeVault(db: TestDb, userId: number): Promise<number> {
   const v = await db.insert(schema.vaults).values({ userId }).returning();
   const vaultId = v[0]!.id;
   const f = await db.insert(schema.vaultFolders).values({ vaultId, name: "Shelter" }).returning();
@@ -47,16 +42,16 @@ async function makeVault(db: DB, userId: number): Promise<number> {
   return vaultId;
 }
 
-const count = async (db: DB, table: string, where: string): Promise<number> => {
+const count = async (db: TestDb, table: string, where: string): Promise<number> => {
   const r = await db.execute(sql.raw(`select count(*)::int as n from ${table} where ${where}`));
   return Number((r as unknown as { rows: { n: number }[] }).rows[0]!.n);
 };
 
 describe("closing an account", () => {
-  let db: DB;
+  let db: TestDb;
   let user: number;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
     user = await makeUser(db, "ryan@example.com");
   });
 
@@ -78,7 +73,7 @@ describe("closing an account", () => {
       publicKey: "pk",
     });
 
-    const res = await deleteAccount(db as never, user);
+    const res = await deleteAccount(db, user);
     expect(res.vaultDeleted).toBe(true);
 
     expect(await count(db, "users", `id = ${user}`)).toBe(0);
@@ -94,9 +89,9 @@ describe("closing an account", () => {
 
   it("LEAVES THE LISTS ALONE by default, and only drops the claim", async () => {
     const list = await makeList(db);
-    await claimLists(db as never, user, [list.editToken]);
+    await claimLists(db, user, [list.editToken]);
 
-    const res = await deleteAccount(db as never, user);
+    const res = await deleteAccount(db, user);
     expect(res.listsDeleted).toBe(0);
 
     // the bookmark is gone...
@@ -107,9 +102,9 @@ describe("closing an account", () => {
 
   it("deletes the claimed lists when that is explicitly asked for", async () => {
     const mine = await makeList(db, "Mine");
-    await claimLists(db as never, user, [mine.editToken]);
+    await claimLists(db, user, [mine.editToken]);
 
-    const res = await deleteAccount(db as never, user, { deleteLists: true });
+    const res = await deleteAccount(db, user, { deleteLists: true });
     expect(res.listsDeleted).toBe(1);
     // soft-delete, like the owner pressing Delete — the nightly purge reclaims it
     expect(await count(db, "lists", `id = ${mine.id} and deleted_at is not null`)).toBe(1);
@@ -118,9 +113,9 @@ describe("closing an account", () => {
   it("never touches a list this account didn't claim, even when deleting lists", async () => {
     const mine = await makeList(db, "Mine");
     const someoneElses = await makeList(db, "Not mine");
-    await claimLists(db as never, user, [mine.editToken]);
+    await claimLists(db, user, [mine.editToken]);
 
-    await deleteAccount(db as never, user, { deleteLists: true });
+    await deleteAccount(db, user, { deleteLists: true });
     expect(await count(db, "lists", `id = ${someoneElses.id} and deleted_at is null`)).toBe(1);
   });
 
@@ -128,7 +123,7 @@ describe("closing an account", () => {
     const list = await makeList(db);
     await db.execute(sql.raw(`update lists set author_user_id = ${user} where id = ${list.id}`));
 
-    await deleteAccount(db as never, user);
+    await deleteAccount(db, user);
     // `users.id` is a serial, so a later account could inherit this id — a stale
     // byline would put a stranger's name on someone else's list
     expect(await count(db, "lists", `id = ${list.id} and author_user_id is null`)).toBe(1);
@@ -138,10 +133,10 @@ describe("closing an account", () => {
     const other = await makeUser(db, "someone@example.com");
     const otherVault = await makeVault(db, other);
     const theirList = await makeList(db, "Theirs");
-    await claimLists(db as never, other, [theirList.editToken]);
+    await claimLists(db, other, [theirList.editToken]);
 
     await makeVault(db, user);
-    await deleteAccount(db as never, user, { deleteLists: true });
+    await deleteAccount(db, user, { deleteLists: true });
 
     expect(await count(db, "users", `id = ${other}`)).toBe(1);
     expect(await count(db, "vaults", `id = ${otherVault}`)).toBe(1);
@@ -151,7 +146,7 @@ describe("closing an account", () => {
   });
 
   it("is safe on an account with no vault, no claims and no passkeys", async () => {
-    const res = await deleteAccount(db as never, user);
+    const res = await deleteAccount(db, user);
     expect(res).toEqual({ listsDeleted: 0, vaultDeleted: false });
     expect(await count(db, "users", `id = ${user}`)).toBe(0);
   });

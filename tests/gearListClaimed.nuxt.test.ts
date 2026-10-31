@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The controller's CLAIMED-OPEN path: a list held by share code + session, with no
 // edit token on this device (the phone side of "made on the Mac, opened on the
 // phone"). Its own file rather than more cases in gearList.nuxt.test.ts because
@@ -21,6 +19,8 @@
 //     server refuses loses that stamp, but only once the session is known good.
 import { beforeEach, afterEach, describe, expect, it, vi } from "vitest";
 import { listEntry } from "./helpers/myLists";
+import { snapshotFor as baseSnapshot } from "./helpers/list";
+import { memoryListStore, quietVaultAccess } from "./helpers/gearList";
 import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, getHeader, readBody, type H3Event } from "h3";
@@ -29,39 +29,24 @@ import { LIST_CODE_HEADER } from "~~/shared/links";
 import { resumeTarget } from "~~/shared/switcher";
 import type { ListSnapshot } from "~~/shared/types";
 import type { Op } from "~~/shared/ops";
+import { _setFlushDebounce } from "~/composables/useGearList";
 
 // ---- boundary stubs (same shape as gearList.nuxt.test.ts) ---------------------
 const records = new Map<string, LocalListRecord>();
-mockNuxtImport("useLocalListStore", () => () => ({
-  get: async (key: string) => records.get(key),
-  set: async (key: string, record: LocalListRecord) => {
-    records.set(key, JSON.parse(JSON.stringify(record)));
-  },
-  del: async (key: string) => {
-    records.delete(key);
-  },
-}));
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(false), // the vault is not this file's subject; keep capture quiet
-  vaultKnown: ref(true), // ...and answered, so its reads settle instead of waiting
-  vaultFetch: <T,>() => Promise.resolve({} as T),
-}));
+mockNuxtImport("useLocalListStore", () => () => memoryListStore(records));
+// the vault is not this file's subject: no vault, and the session answered, so
+// capture stays quiet and its reads settle instead of waiting
+mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
 
 const storage = stubLocalStorage();
 
+// every edit here waits out the flush debounce; 450 ms of it is not the subject
+_setFlushDebounce(20);
+
 // ---- the network, capability-aware ---------------------------------------------
 const CODE = "TESTC0DE0001"; // canonical Crockford — normalizes to itself
-const snapshotFor = (title: string, version = 1): ListSnapshot => ({
-  shareCode: CODE,
-  slug: "claimed-list-aaa111",
-  title,
-  description: "",
-  displayUnit: "g",
-  folders: [],
-  items: [],
-  version,
-  isPublic: false,
-});
+const snapshotFor = (title: string, version = 1): ListSnapshot =>
+  baseSnapshot({ shareCode: CODE, slug: "claimed-list-aaa111", title, version });
 
 interface SeenAuth {
   bearer: string | undefined;

@@ -1,44 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { lists } from "../server/db/schema";
-import { LISTS_DDL, SNAPSHOTS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
+import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
 import { findByEditHash, softDeleteByEditHash } from "../server/utils/listRepo";
-import { sha256Hex } from "../server/utils/tokens";
-import { byToken, createTestDb } from "./helpers/db";
+import { byToken, createTestDb, makeList } from "./helpers/db";
 
 const findByEditToken = byToken(findByEditHash);
 const softDeleteByEditToken = byToken(softDeleteByEditHash);
 
 // Repo against a fresh in-memory PGlite (mirrors reapLists.test / discovery.test).
-async function freshDb() {
-  const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
-  _resetSnapshotEnsured();
-  return db;
-}
-
-let seq = 0;
-async function seed(db: Awaited<ReturnType<typeof freshDb>>, token: string) {
-  seq++;
-  await db.insert(lists).values({
-    publicSlug: `slug-${seq}`,
-    editTokenHash: sha256Hex(token),
-    shareCode: `SHARECODE${seq}00`,
-    title: `List ${seq}`,
-    data: { folders: [], items: [] },
-    itemCount: 0,
-  });
-}
 
 describe("softDeleteByEditHash — owner-initiated delete", () => {
   it("soft-deletes the token's list and drops it from the capability lookup", async () => {
-    const db = await freshDb();
-    await seed(db, "tok-a");
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const { editToken } = await makeList(db);
 
-    expect(await findByEditToken("tok-a", db)).not.toBeNull(); // live before
+    expect(await findByEditToken(editToken, db)).not.toBeNull(); // live before
 
-    expect(await softDeleteByEditToken("tok-a", db)).toBe(true);
+    expect(await softDeleteByEditToken(editToken, db)).toBe(true);
 
     // gone from the live lookup (findByEditHash filters deletedAt)…
-    expect(await findByEditToken("tok-a", db)).toBeNull();
+    expect(await findByEditToken(editToken, db)).toBeNull();
     // …but the row still exists with deletedAt set (purge reclaims it later)
     const rows = await db.select().from(lists);
     expect(rows).toHaveLength(1);
@@ -46,23 +27,23 @@ describe("softDeleteByEditHash — owner-initiated delete", () => {
   });
 
   it("leaves other lists untouched", async () => {
-    const db = await freshDb();
-    await seed(db, "tok-keep");
-    await seed(db, "tok-drop");
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const keep = await makeList(db);
+    const drop = await makeList(db);
 
-    await softDeleteByEditToken("tok-drop", db);
+    await softDeleteByEditToken(drop.editToken, db);
 
-    expect(await findByEditToken("tok-keep", db)).not.toBeNull();
-    expect(await findByEditToken("tok-drop", db)).toBeNull();
+    expect(await findByEditToken(keep.editToken, db)).not.toBeNull();
+    expect(await findByEditToken(drop.editToken, db)).toBeNull();
   });
 
   it("returns false for an unknown or already-deleted token (→ 404, no oracle)", async () => {
-    const db = await freshDb();
-    await seed(db, "tok-x");
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const { editToken } = await makeList(db);
 
     expect(await softDeleteByEditToken("never-existed", db)).toBe(false);
 
-    expect(await softDeleteByEditToken("tok-x", db)).toBe(true);
-    expect(await softDeleteByEditToken("tok-x", db)).toBe(false); // second time: already gone
+    expect(await softDeleteByEditToken(editToken, db)).toBe(true);
+    expect(await softDeleteByEditToken(editToken, db)).toBe(false); // second time: already gone
   });
 });

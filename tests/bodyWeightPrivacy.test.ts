@@ -1,6 +1,7 @@
-import { readFileSync, readdirSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import { ROOT, stripComments as withoutComments, walkSources } from "./helpers/sources";
 import { listToJson } from "../shared/exporters/json";
 import type { ListMeta, ListData } from "../shared/types";
 
@@ -20,30 +21,15 @@ import type { ListMeta, ListData } from "../shared/types";
 // These tests defend an ABSENCE, because an absence is exactly the kind of guarantee that
 // erodes the first time someone adds a convenient column.
 
-const ROOT = new URL("..", import.meta.url).pathname;
-
-/** Every source file under a directory, minus build output. */
-function sources(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(join(ROOT, dir))) {
-    if (name === "node_modules" || name === ".nuxt" || name === ".output" || name === "dist") continue;
-    const rel = `${dir}/${name}`;
-    if (statSync(join(ROOT, rel)).isDirectory()) sources(rel, out);
-    else if (/\.(ts|vue)$/.test(name)) out.push(rel);
-  }
-  return out;
-}
-
-/** Comments may discuss it; code may not carry it. */
-const withoutComments = (src: string) =>
-  src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "").replace(/<!--[\s\S]*?-->/g, "");
+// Comments may discuss it (withoutComments strips them); code may not carry it.
 
 describe("body weight never reaches the server", () => {
   it("appears nowhere in server/", () => {
     // The strongest form of the guarantee: not "it is stripped" but "there is nothing to
     // strip". A new column, an endpoint field, or a helpful passthrough all fail here.
-    const offenders = sources("server").filter((f) =>
-      /bodyWeight|body_weight/i.test(withoutComments(readFileSync(join(ROOT, f), "utf8"))),
-    );
+    const offenders = walkSources(["server"], ["ts", "vue"])
+      .filter((f) => /bodyWeight|body_weight/i.test(withoutComments(readFileSync(f, "utf8"))))
+      .map((f) => f.slice(ROOT.length));
     expect(offenders).toEqual([]);
   });
 

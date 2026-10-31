@@ -1,17 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { applyOps, clampUnitWeightMg, isOpObject, normalizeCalendarDate, normalizeItem, tidyListText, type Op } from "../shared/ops";
 import type { Item, ListState } from "../shared/types";
+import { blankState, folder, item as listItem } from "./helpers/list";
 
-const base = (): ListState => ({
-  title: "T",
-  displayUnit: "g",
-  folders: [
-    { id: "f1", name: "Pack", defaultClassification: "base", sortOrder: 0 },
-    { id: "f2", name: "Body", defaultClassification: "worn", sortOrder: 1 },
-  ],
-  items: [],
-  version: 1,
-});
+/** Two folders, Pack (base) and Body (worn), nothing in them. */
+const base = (): ListState =>
+  blankState({ title: "T", folders: [folder({ name: "Pack" }), folder({ id: "f2", name: "Body", defaultClassification: "worn", sortOrder: 1 })] });
+
+/** A row for the reducer: a weightless "Tent" in Pack, id i1. Loosely typed on purpose:
+ *  the hostile-input cases hand the reducer what a wire could carry, and normalizeItem
+ *  is what has to refuse it. */
+const item = (over: Record<string, unknown> = {}): Item => ({ ...listItem({ id: "i1", name: "Tent" }), ...over }) as Item;
+const add = (over: Record<string, unknown> = {}): Op => ({ t: "addItem", item: item(over) });
+/** A list holding one such row. */
+const withItem = (over: Record<string, unknown> = {}): ListState => {
+  const s = base();
+  applyOps(s, [add(over)]);
+  return s;
+};
 
 describe("op reducer", () => {
   it("uses one bounded rounding rule for every item weight", () => {
@@ -22,16 +28,8 @@ describe("op reducer", () => {
 
   it("adds items, idempotent on duplicate id", () => {
     const s = base();
-    const item = {
-      id: "i1",
-      folderId: "f1",
-      name: "Tent",
-      unitWeightMg: 538000,
-      qty: 1,
-      classification: null,
-      sortOrder: 0,
-    };
-    applyOps(s, [{ t: "addItem", item } as Op, { t: "addItem", item } as Op]);
+    const tent = add({ unitWeightMg: 538000 });
+    applyOps(s, [tent, tent]);
     expect(s.items.length).toBe(1);
     expect(s.items[0].name).toBe("Tent");
   });
@@ -39,7 +37,7 @@ describe("op reducer", () => {
   it("updates an item with a clamped patch", () => {
     const s = base();
     applyOps(s, [
-      { t: "addItem", item: { id: "i1", folderId: "f1", name: "X", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 } },
+      add({ name: "X" }),
       { t: "updateItem", id: "i1", patch: { qty: -5, unitWeightMg: 12345.7, name: "Y" } },
     ]);
     expect(s.items[0].qty).toBe(0); // clamped to >= 0
@@ -50,7 +48,7 @@ describe("op reducer", () => {
   it("catalogItemId: null unlinks (free rename → custom item); number re-links; absent leaves it", () => {
     const s = base();
     applyOps(s, [
-      { t: "addItem", item: { id: "i1", folderId: "f1", name: "Multi Towel Lite", brand: "REI Co-op", variant: "Small", unitWeightMg: 21262, qty: 1, classification: null, sortOrder: 0, catalogItemId: 769, catalogWeightMgAtLink: 21262 } },
+      add({ name: "Multi Towel Lite", brand: "REI Co-op", variant: "Small", unitWeightMg: 21262, catalogItemId: 769, catalogWeightMgAtLink: 21262 }),
     ]);
     // an unrelated edit leaves the link untouched
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }]);
@@ -76,7 +74,7 @@ describe("op reducer", () => {
   it("re-linking to a different product drops a link weight the patch doesn't replace", () => {
     const s = base();
     applyOps(s, [
-      { t: "addItem", item: { id: "i1", folderId: "f1", name: "Lanshan 1 Pro Tent", brand: "3FULGEAR", unitWeightMg: 688000, qty: 1, classification: null, sortOrder: 0, catalogItemId: 1, catalogWeightMgAtLink: 688000 } },
+      add({ name: "Lanshan 1 Pro Tent", brand: "3FULGEAR", unitWeightMg: 688000, catalogItemId: 1, catalogWeightMgAtLink: 688000 }),
     ]);
     // A pick from the holder's own vault: it carries the link (provenance) and THEIR
     // weight, but no link baseline — their weight isn't the catalog's. The tent's
@@ -103,7 +101,7 @@ describe("op reducer", () => {
   it("commonName + commonNameOverridden carry through; '' clears the name, flag stays", () => {
     const s = base();
     applyOps(s, [
-      { t: "addItem", item: { id: "i1", folderId: "f1", name: "Altra Lone Peak 9+", unitWeightMg: 238000, qty: 1, classification: null, sortOrder: 0 } },
+      add({ name: "Altra Lone Peak 9+", unitWeightMg: 238000 }),
     ]);
     // the user renames the common name → kept + flagged; an unrelated edit leaves both alone
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { commonName: "shoes", commonNameOverridden: true } }]);
@@ -127,7 +125,7 @@ describe("op reducer", () => {
   it("removes a folder and its items", () => {
     const s = base();
     applyOps(s, [
-      { t: "addItem", item: { id: "i1", folderId: "f2", name: "Jacket", unitWeightMg: 300000, qty: 1, classification: null, sortOrder: 0 } },
+      add({ folderId: "f2", name: "Jacket", unitWeightMg: 300000 }),
       { t: "removeFolder", id: "f2" },
     ]);
     expect(s.folders.some((f) => f.id === "f2")).toBe(false);
@@ -146,8 +144,8 @@ describe("op reducer", () => {
   it("independent adds from two editors both land (merge)", () => {
     // simulate server applying editor A then editor B's op onto the same base
     const server = base();
-    applyOps(server, [{ t: "addItem", item: { id: "a", folderId: "f1", name: "A", unitWeightMg: 1000, qty: 1, classification: null, sortOrder: 0 } }]);
-    applyOps(server, [{ t: "addItem", item: { id: "b", folderId: "f1", name: "B", unitWeightMg: 2000, qty: 1, classification: null, sortOrder: 1 } }]);
+    applyOps(server, [add({ id: "a", name: "A", unitWeightMg: 1000 })]);
+    applyOps(server, [add({ id: "b", name: "B", unitWeightMg: 2000, sortOrder: 1 })]);
     expect(server.items.map((i) => i.id).sort()).toEqual(["a", "b"]);
   });
 
@@ -158,14 +156,12 @@ describe("op reducer", () => {
 });
 
 describe("wornQty (the worn split on a base line)", () => {
-  const add = (over: Record<string, unknown> = {}): Op => ({
-    t: "addItem",
-    item: { id: "i1", folderId: "f1", name: "Socks", unitWeightMg: 100000, qty: 3, classification: null, sortOrder: 0, ...over } as any,
-  });
+  // three pairs of socks, 100 g each
+  const socks = (over: Record<string, unknown> = {}): Op => add({ name: "Socks", unitWeightMg: 100000, qty: 3, ...over });
 
   it("stores a valid split; 0 / negative / NaN clear it", () => {
     const s = base();
-    applyOps(s, [add(), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]);
+    applyOps(s, [socks(), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]);
     expect(s.items[0].wornQty).toBe(2);
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { wornQty: 0 } }]);
     expect(s.items[0].wornQty).toBeUndefined();
@@ -177,7 +173,7 @@ describe("wornQty (the worn split on a base line)", () => {
 
   it("re-clamps when qty drops, and reverts to base at qty < 2 (nothing to split)", () => {
     const s = base();
-    applyOps(s, [add({ qty: 5 }), { t: "updateItem", id: "i1", patch: { wornQty: 3 } }]);
+    applyOps(s, [socks({ qty: 5 }), { t: "updateItem", id: "i1", patch: { wornQty: 3 } }]);
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 4 } }]);
     expect(s.items[0].wornQty).toBe(3); // still a partial split at qty ≥ 2
     // qty 1 → the split is meaningless, so drop it and let base stand (not "1 worn · 0 base")
@@ -191,12 +187,12 @@ describe("wornQty (the worn split on a base line)", () => {
   });
   it("normalizeItem: a qty-1 item can't carry a split (reverts to base)", () => {
     const s = base();
-    applyOps(s, [add({ qty: 1, wornQty: 1 })]);
+    applyOps(s, [socks({ qty: 1, wornQty: 1 })]);
     expect(s.items[0].wornQty).toBeUndefined();
   });
   it("collapses an all-worn split to the plain Worn class (no '0 base' remainder)", () => {
     const s = base();
-    applyOps(s, [add({ qty: 3 }), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]); // 2 worn · 1 base
+    applyOps(s, [socks({ qty: 3 }), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]); // 2 worn · 1 base
     expect(s.items[0].wornQty).toBe(2);
     // drop to qty 2 → every copy is now worn: becomes the Worn class, split cleared
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 2 } }]);
@@ -206,7 +202,7 @@ describe("wornQty (the worn split on a base line)", () => {
 
   it("an explicit worn/consumable classification clears the split, even in the same patch", () => {
     const s = base();
-    applyOps(s, [add(), { t: "updateItem", id: "i1", patch: { wornQty: 1 } }]);
+    applyOps(s, [socks(), { t: "updateItem", id: "i1", patch: { wornQty: 1 } }]);
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { classification: "worn" } }]);
     expect(s.items[0].wornQty).toBeUndefined();
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { classification: "consumable", wornQty: 2 } }]);
@@ -215,7 +211,7 @@ describe("wornQty (the worn split on a base line)", () => {
 
   it("a wornQty-only patch on an already worn/consumable item is dropped (no stale split, no class flip)", () => {
     const s = base();
-    applyOps(s, [add({ classification: "worn" }), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]);
+    applyOps(s, [socks({ classification: "worn" }), { t: "updateItem", id: "i1", patch: { wornQty: 2 } }]);
     expect(s.items[0].wornQty).toBeUndefined();
     expect(s.items[0].classification).toBe("worn");
     // a later revert to base must not resurrect a split the user never set
@@ -223,28 +219,28 @@ describe("wornQty (the worn split on a base line)", () => {
     expect(s.items[0].wornQty).toBeUndefined();
     // wornQty ≥ qty on a consumable must NOT hit the all-worn collapse and flip the class
     s.items = [];
-    applyOps(s, [add({ classification: "consumable" }), { t: "updateItem", id: "i1", patch: { wornQty: 3 } }]);
+    applyOps(s, [socks({ classification: "consumable" }), { t: "updateItem", id: "i1", patch: { wornQty: 3 } }]);
     expect(s.items[0].wornQty).toBeUndefined();
     expect(s.items[0].classification).toBe("consumable");
   });
 
   it("normalizes on addItem: over-count → Worn, partial kept, drops junk & worn/consumable carriers", () => {
     const s = base();
-    applyOps(s, [add({ wornQty: 5 })]); // qty 3 default; every copy worn (over-count)
+    applyOps(s, [socks({ wornQty: 5 })]); // qty 3 default; every copy worn (over-count)
     expect(s.items[0].wornQty).toBeUndefined(); // → plain Worn class, not "3 worn · 0 base"
     expect(s.items[0].classification).toBe("worn");
     s.items = [];
-    applyOps(s, [add({ wornQty: 1 })]); // a genuine partial split survives
+    applyOps(s, [socks({ wornQty: 1 })]); // a genuine partial split survives
     expect(s.items[0].wornQty).toBe(1);
     expect(s.items[0].classification).toBeNull();
     s.items = [];
-    applyOps(s, [add({ wornQty: "2" })]);
+    applyOps(s, [socks({ wornQty: "2" })]);
     expect(s.items[0].wornQty).toBeUndefined(); // non-number dropped
     s.items = [];
-    applyOps(s, [add({ wornQty: 1, classification: "worn" })]);
+    applyOps(s, [socks({ wornQty: 1, classification: "worn" })]);
     expect(s.items[0].wornQty).toBeUndefined();
     s.items = [];
-    applyOps(s, [add()]); // legacy shape: no wornQty
+    applyOps(s, [socks()]); // legacy shape: no wornQty
     expect(s.items[0].wornQty).toBeUndefined();
   });
 
@@ -253,16 +249,16 @@ describe("wornQty (the worn split on a base line)", () => {
     const big = "z".repeat(500);
     applyOps(s, [
       { t: "addFolder", folder: { id: big, name: "F", defaultClassification: "base", sortOrder: 0 } as any },
-      { t: "addItem", item: { id: big, folderId: big, name: "I", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 } as any },
+      add({ id: big, folderId: big, name: "I" }),
     ]);
-    const folder = s.folders[s.folders.length - 1]!;
-    const item = s.items[s.items.length - 1]!;
-    expect(folder.id.length).toBe(128);
-    expect(item.id.length).toBe(128);
-    expect(item.folderId!.length).toBe(128); // still resolves to the (capped) folder, not nulled
+    const lastFolder = s.folders[s.folders.length - 1]!;
+    const lastItem = s.items[s.items.length - 1]!;
+    expect(lastFolder.id.length).toBe(128);
+    expect(lastItem.id.length).toBe(128);
+    expect(lastItem.folderId!.length).toBe(128); // still resolves to the (capped) folder, not nulled
     // a normal-length id is untouched
     s.items = [];
-    applyOps(s, [{ t: "addItem", item: { id: "i-ok", folderId: "f1", name: "J", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 } }]);
+    applyOps(s, [add({ id: "i-ok", name: "J" })]);
     expect(s.items[0]!.id).toBe("i-ok");
   });
 
@@ -291,14 +287,9 @@ describe("wornQty (the worn split on a base line)", () => {
 });
 
 describe("nesting (parentId)", () => {
-  const parent = (id: string, over: Record<string, unknown> = {}): Op => ({
-    t: "addItem",
-    item: { id, folderId: "f1", name: id, unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0, ...over } as any,
-  });
-  const childOf = (id: string, parentId: string, over: Record<string, unknown> = {}): Op => ({
-    t: "addItem",
-    item: { id, folderId: "f1", parentId, name: id, unitWeightMg: 100, qty: 1, classification: null, sortOrder: 0, ...over } as any,
-  });
+  const parent = (id: string, over: Record<string, unknown> = {}): Op => add({ id, name: id, ...over });
+  const childOf = (id: string, parentId: string, over: Record<string, unknown> = {}): Op =>
+    add({ id, parentId, name: id, unitWeightMg: 100, ...over });
 
   it("addItem with a valid parent nests it (and inherits the parent's folder)", () => {
     const s = base();
@@ -310,7 +301,7 @@ describe("nesting (parentId)", () => {
 
   it("addItem with a dangling / self parent coerces to top-level", () => {
     const s = base();
-    applyOps(s, [parent("tent"), childOf("ghost", "nope"), { t: "addItem", item: { id: "self", folderId: "f1", parentId: "self", name: "x", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 } as any }]);
+    applyOps(s, [parent("tent"), childOf("ghost", "nope"), add({ id: "self", parentId: "self", name: "x" })]);
     expect(s.items.find((i) => i.id === "ghost")!.parentId).toBeNull();
     expect(s.items.find((i) => i.id === "self")!.parentId).toBeNull();
   });
@@ -395,19 +386,11 @@ describe("nesting (parentId)", () => {
 });
 
 describe("kcal", () => {
-  const withItem = (over: Partial<Item> = {}) => {
-    const s = base();
-    applyOps(s, [
-      {
-        t: "addItem",
-        item: { id: "i1", folderId: "f1", name: "Bars", unitWeightMg: 1000, qty: 1, classification: "consumable", sortOrder: 0, ...over } as Item,
-      },
-    ]);
-    return s;
-  };
+  // a food row
+  const bars = (over: Partial<Item> = {}) => withItem({ name: "Bars", unitWeightMg: 1000, classification: "consumable", ...over });
 
   it("stores a whole, positive value", () => {
-    const s = withItem();
+    const s = bars();
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { kcal: 250.6 } }]);
     expect(s.items[0]!.kcal).toBe(251);
   });
@@ -415,7 +398,7 @@ describe("kcal", () => {
   it("treats 0 and negatives as ABSENT, not as a stored zero", () => {
     // absent reads as "not filled in"; a stored 0 would read as the claim "this
     // food has no calories"
-    const s = withItem({ kcal: 250 } as Partial<Item>);
+    const s = bars({ kcal: 250 } as Partial<Item>);
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { kcal: 0 } }]);
     expect(s.items[0]!.kcal).toBeUndefined();
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { kcal: -5 } }]);
@@ -423,13 +406,13 @@ describe("kcal", () => {
   });
 
   it("clears on an explicit null", () => {
-    const s = withItem({ kcal: 250 } as Partial<Item>);
+    const s = bars({ kcal: 250 } as Partial<Item>);
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { kcal: null } }]);
     expect(s.items[0]!.kcal).toBeUndefined();
   });
 
   it("ignores a non-numeric value rather than corrupting the field", () => {
-    const s = withItem({ kcal: 250 } as Partial<Item>);
+    const s = bars({ kcal: 250 } as Partial<Item>);
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { kcal: "lots" } as never }]);
     expect(s.items[0]!.kcal).toBe(250);
   });
@@ -442,31 +425,22 @@ describe("kcal", () => {
 });
 
 describe("entryUnit", () => {
-  const withItem = (over: Partial<Item> = {}) => {
-    const s = base();
-    applyOps(s, [
-      {
-        t: "addItem",
-        item: { id: "i1", folderId: "f1", name: "Stakes", unitWeightMg: 1000, qty: 1, classification: null, sortOrder: 0, ...over } as Item,
-      },
-    ]);
-    return s;
-  };
+  const stakes = (over: Partial<Item> = {}) => withItem({ name: "Stakes", unitWeightMg: 1000, ...over });
 
   it("accepts a real unit", () => {
-    const s = withItem();
+    const s = stakes();
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { entryUnit: "oz" } }]);
     expect(s.items[0]!.entryUnit).toBe("oz");
   });
 
   it("rejects anything that isn't a unit — it renders as a label", () => {
-    const s = withItem({ entryUnit: "oz" } as Partial<Item>);
+    const s = stakes({ entryUnit: "oz" } as Partial<Item>);
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { entryUnit: "<script>" } as never }]);
     expect(s.items[0]!.entryUnit).toBe("oz");
   });
 
   it("clears on an explicit null, dropping the row back to the list's unit", () => {
-    const s = withItem({ entryUnit: "oz" } as Partial<Item>);
+    const s = stakes({ entryUnit: "oz" } as Partial<Item>);
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { entryUnit: null } }]);
     expect(s.items[0]!.entryUnit).toBeUndefined();
   });
@@ -548,17 +522,6 @@ describe("trip dates", () => {
 // and a field that skips it stores a different string from the one beside it.
 describe("text tidying reaches every human field", () => {
   const CURLY = String.fromCharCode(0x2019);
-  const item = (over: Partial<Item> = {}): Item =>
-    ({
-      id: "i1",
-      folderId: "f1",
-      name: "Tent",
-      unitWeightMg: 1,
-      qty: 1,
-      classification: null,
-      sortOrder: 0,
-      ...over,
-    }) as Item;
 
   it("tidies a list title through setMeta", () => {
     const s = base();
@@ -790,7 +753,7 @@ describe("productUrl — scheme-checked like every other stored link", () => {
 
   it("clears the field through an op, and refuses a hostile one", () => {
     const s = base();
-    applyOps(s, [{ t: "addItem", item: { id: "i1", name: "Tent", unitWeightMg: 1, qty: 1, productUrl: "https://ok.test/x" } }] as unknown as Op[]);
+    applyOps(s, [add({ unitWeightMg: 1, productUrl: "https://ok.test/x" })]);
     applyOps(s, [{ t: "updateItem", id: "i1", patch: { productUrl: "javascript:alert(1)" } }] as unknown as Op[]);
     expect(s.items[0]!.productUrl).toBeUndefined();
   });
@@ -804,7 +767,7 @@ describe("isOpObject", () => {
 
   it("applyOps still ignores a malformed entry without touching the valid ones", () => {
     const s = base();
-    const ops = [null, { t: "addItem", item: { id: "i1", name: "Tent", unitWeightMg: 1, qty: 1 } }, 7] as unknown as Op[];
+    const ops = [null, add({ unitWeightMg: 1 }), 7] as unknown as Op[];
     expect(() => applyOps(s, ops)).not.toThrow();
     expect(s.items.map((i) => i.name)).toEqual(["Tent"]);
   });

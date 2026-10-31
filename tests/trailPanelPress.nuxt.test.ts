@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // A press inside the trail panel must not close the trail panel.
 //
 // The panel closes when focus leaves it — that is how tabbing past its last control
@@ -22,21 +20,13 @@ import { mount, type VueWrapper } from "@vue/test-utils";
 import { nextTick } from "vue";
 import ListHead from "~/components/ListHead.vue";
 import type { ListSnapshot } from "~~/shared/types";
+import { snapshotFor } from "./helpers/list";
 
 const setMeta = vi.fn();
 mockNuxtImport("useGearList", () => () => ({ setMeta }));
 
-const snap = (): ListSnapshot => ({
-  shareCode: "SNAPCODE0001",
-  slug: "test-list-aaa111",
-  title: "Timberline",
-  description: "",
-  displayUnit: "g",
-  folders: [],
-  items: [],
-  version: 1,
-  isPublic: false,
-});
+const snap = (): ListSnapshot =>
+  snapshotFor({ shareCode: "SNAPCODE0001", slug: "test-list-aaa111", title: "Timberline" });
 
 /**
  * What a mouse press does to focus, in every engine: the pressed node takes it if it

@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The read views' ⋯ menu — the one surface with no test at all, and the one whose rows
 // stopped being hand-written <li>s and became a table plus a shared <MenuSection>.
 //
@@ -15,11 +13,13 @@
 //     views are deliberately decoupled from the editor bundle, so a reader who opens ⋯
 //     for "Copy link" must not fetch four parsers.
 //   · Report is moderation, gated on a PUBLIC list that hasn't been reported yet.
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
-import { mount } from "@vue/test-utils";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
 import ReadonlyMenu from "~/components/ReadonlyMenu.vue";
 import { blankList } from "./helpers/list";
+
+enableAutoUnmount(afterEach);
 
 const warmExporters = vi.fn();
 const copyList = vi.fn(() => Promise.resolve(true));
@@ -59,7 +59,6 @@ describe("the read views' ⋯ menu", () => {
     const head = w.get(".menu__secthead");
     expect(head.text()).toContain("Export");
     expect(head.attributes("aria-expanded")).toBe("false");
-    w.unmount();
   });
 
   it("draws the export rows from useListExports, not from its own markup", async () => {
@@ -72,7 +71,6 @@ describe("the read views' ⋯ menu", () => {
       "Download CSV",
       "Download JSON",
     ]);
-    w.unmount();
   });
 
   it("warms the exporters when Export opens, not when the menu does", async () => {
@@ -81,7 +79,6 @@ describe("the read views' ⋯ menu", () => {
     expect(warmExporters).not.toHaveBeenCalled();
     await w.get(".menu__secthead").trigger("click");
     expect(warmExporters).toHaveBeenCalledOnce();
-    w.unmount();
   });
 
   it("disables Duplicate while a copy is in flight", async () => {
@@ -93,7 +90,6 @@ describe("the read views' ⋯ menu", () => {
     copying.value = false;
     await nextTick();
     expect(dup.attributes("disabled")).toBeUndefined();
-    w.unmount();
   });
 
   it("offers Report on every shared list, public or not", async () => {
@@ -106,7 +102,6 @@ describe("the read views' ⋯ menu", () => {
 
     const pub = await openMenu({ isPublic: true } as Parameters<typeof blankList>[0]);
     expect(rows(pub)).toContain("Report list");
-    pub.unmount();
   });
 
   it("closes on the action, so a row can't be pressed twice", async () => {
@@ -114,6 +109,5 @@ describe("the read views' ⋯ menu", () => {
     await w.findAll('[role="menuitem"]')[0]!.trigger("click");
     expect(w.find(".menu__list").exists()).toBe(false);
     expect(copyList).toHaveBeenCalled();
-    w.unmount();
   });
 });

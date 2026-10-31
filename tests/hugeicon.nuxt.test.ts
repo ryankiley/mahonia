@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The local <HugeiconsIcon> (app/utils/hugeicon.ts) exists only to render what
 // @hugeicons/vue renders, cheaply. That makes "identical markup" its entire contract,
 // and a contract worth pinning: the swap touches every icon on every surface, so a

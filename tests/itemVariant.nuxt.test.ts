@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // A row's variant, shown only where it tells the reader something, and always on the
 // sub-line under the name, never on the name line. Three faces render the answer
 // shared/variantShown gives (pinned as plain TS in variantShown.test.ts):
@@ -18,38 +16,23 @@ import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { ref, type Ref } from "vue";
 import ItemName from "~/components/ItemName.vue";
-import ItemRow from "~/components/ItemRow.vue";
 import ReadonlyItemRow from "~/components/ReadonlyItemRow.vue";
 import { useEditorMode } from "~/composables/useEditorMode";
-import { rowProvides } from "./helpers/itemRow";
+import { mountRowOver, rowProvides } from "./helpers/itemRow";
 import type { Item, ListSnapshot } from "~~/shared/types";
-import { blankList } from "./helpers/list";
-import { gearListStub } from "./helpers/gearList";
+import { blankList, item } from "./helpers/list";
+import { gearListStub, quietVaultAccess } from "./helpers/gearList";
 
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 registerEndpoint("/api/catalog/use", { method: "POST", handler: () => ({ ok: true }) });
 
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(false),
-  vaultKnown: ref(true),
-  vaultFetch: <T,>() => Promise.resolve({} as T),
-}));
+mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
 
 const snapshot = ref<ListSnapshot>(blankList());
 mockNuxtImport("useGearList", () => () => gearListStub({ snapshot }));
 
 enableAutoUnmount(afterEach);
 
-const item = (over: Partial<Item> & { id: string }): Item => ({
-  folderId: "f1",
-  parentId: null,
-  name: "",
-  unitWeightMg: 0,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
 // a catalog pick as it lands on a row: linked, sized, with the catalog's gear type
 const longQuilt = (over: Partial<Item> = {}) =>
   item({
@@ -81,7 +64,7 @@ describe("<ItemName>", () => {
 
 describe("the share view's row", () => {
   function mountRo(row: Item, children: Item[] = [], shown: ReadonlySet<string> = new Set()) {
-    const list = { ...blankList(), items: [row, ...children] } as ListSnapshot;
+    const list = blankList({ items: [row, ...children] });
     return mount(ReadonlyItemRow, {
       props: { list, item: row, childrenByParent: new Map([[row.id, children]]), variantShownIds: shown },
     });
@@ -127,21 +110,8 @@ describe("the share view's row", () => {
 });
 
 describe("the editor's row", () => {
-  function mountRow(row: Item, shown: ReadonlySet<string> | Ref<ReadonlySet<string>> = new Set()) {
-    snapshot.value = { ...blankList(), items: [{ ...row }] } as ListSnapshot;
-    return mount(ItemRow, {
-      props: {
-        get list() {
-          return snapshot.value;
-        },
-        get item() {
-          return snapshot.value.items[0]!;
-        },
-      },
-      global: { provide: rowProvides(new Map(), undefined, shown) },
-      attachTo: document.body,
-    });
-  }
+  const mountRow = (row: Item, shown: ReadonlySet<string> | Ref<ReadonlySet<string>> = new Set()) =>
+    mountRowOver(snapshot, [{ ...row }], rowProvides(new Map(), undefined, shown));
 
   beforeEach(() => {
     // both faces in the DOM: which one SHOWS is CSS off the body's data-mode, and
@@ -184,19 +154,8 @@ describe("the editor's row", () => {
     expect(leaf.find(".item__variant-input").attributes("aria-label")).toBe("Size or version");
     leaf.unmount();
 
-    snapshot.value = { ...blankList(), items: [item({ id: "g", name: "Cook kit" }), item({ id: "c", name: "Pot", parentId: "g" })] } as ListSnapshot;
-    const group = mount(ItemRow, {
-      props: {
-        get list() {
-          return snapshot.value;
-        },
-        get item() {
-          return snapshot.value.items[0]!;
-        },
-      },
-      global: { provide: rowProvides(new Map([["g", [snapshot.value.items[1]!]]])) },
-      attachTo: document.body,
-    });
+    const pot = item({ id: "c", name: "Pot", parentId: "g" });
+    const group = mountRowOver(snapshot, [item({ id: "g", name: "Cook kit" }), pot], rowProvides(new Map([["g", [pot]]])));
     await group.find(".item__namebox .ac__input").trigger("focusin");
     expect(group.find(".item__variant-input").exists()).toBe(false);
   });

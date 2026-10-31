@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The editor's ⋯ menu, now its own Lazy component (EditorMenu) with the rows as a
 // table and every action an emit. The twin of tests/readonlyMenu.nuxt.test.ts, for
 // the same reason: what a table-plus-emits menu gets wrong, it gets wrong silently.
@@ -15,11 +13,13 @@
 //     a menu that is still there.
 //   · the site foot (#376) holds two rows that emit and two that navigate; the links
 //     close the menu too.
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
-import { mount } from "@vue/test-utils";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
 import EditorMenu from "~/components/EditorMenu.vue";
 import { blankList } from "./helpers/list";
+
+enableAutoUnmount(afterEach);
 
 const warmExporters = vi.fn();
 mockNuxtImport("useListExports", () => () => ({
@@ -74,14 +74,12 @@ describe("the editor's ⋯ menu", () => {
     expect(w.get(".menu__secthead").text()).toContain("Export");
     // #376's scroller, so a short phone can still reach the foot
     expect(w.get(".menu__list").classes()).toContain("editor__actions");
-    w.unmount();
   });
 
   it("stands Duplicate and Export down on the first-run screen", () => {
     const w = openMenu({ firstRun: true, saved: false });
     expect(rows(w)).not.toContain("Duplicate this list");
     expect(w.find(".menu__secthead").exists()).toBe(false);
-    w.unmount();
   });
 
   it("offers the destructive foot only for a saved list, and Forget only for its own device", () => {
@@ -93,7 +91,6 @@ describe("the editor's ⋯ menu", () => {
     const claimed = openMenu({ openedByCode: true });
     expect(rows(claimed)).toContain("Delete this list");
     expect(rows(claimed)).not.toContain("Forget this list");
-    claimed.unmount();
   });
 
   it("emits close before the row's own event", async () => {
@@ -105,14 +102,12 @@ describe("the editor's ⋯ menu", () => {
     // emitted() is insertion-ordered (the native click the wrapper records comes
     // after both), so the first key is the first event fired
     expect(Object.keys(log).slice(0, 2)).toEqual(["close", "forget"]);
-    w.unmount();
   });
 
   it("closes on the site links too", async () => {
     const w = openMenu();
     await w.findAll('[role="menuitem"]').find((b) => b.text() === "About")!.trigger("click");
     expect(w.emitted().close).toHaveLength(1);
-    w.unmount();
   });
 
   it("warms the exporters when Export opens, and reports through the parent's toast", async () => {
@@ -122,6 +117,5 @@ describe("the editor's ⋯ menu", () => {
     await w.get(".menu__secthead").trigger("click");
     expect(warmExporters).toHaveBeenCalledOnce();
     expect(rows(w)).toContain("Copy as Markdown");
-    w.unmount();
   });
 });

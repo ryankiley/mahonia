@@ -15,11 +15,7 @@ import {
 import { existingCredentialIds, savePasskey } from "../server/utils/credentialRepo";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb, type TestDb } from "./helpers/db";
-
-type DB = TestDb;
-async function freshDb(): Promise<DB> {
-  return createTestDb(ACCOUNT_DDL);
-}
+import { PASSKEY } from "./helpers/session";
 
 describe("normalizeEmail — the identity rule", () => {
   it("lowercases and trims, so one person is one account", () => {
@@ -37,73 +33,73 @@ describe("normalizeEmail — the identity rule", () => {
 });
 
 describe("findOrCreateUser", () => {
-  let db: DB;
+  let db: TestDb;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(ACCOUNT_DDL);
   });
 
   it("creates on first sight and returns the same account after", async () => {
-    const a = await findOrCreateUser(db as any, "ryan@example.com");
-    const b = await findOrCreateUser(db as any, "ryan@example.com");
+    const a = await findOrCreateUser(db, "ryan@example.com");
+    const b = await findOrCreateUser(db, "ryan@example.com");
     expect(b.id).toBe(a.id);
     expect(await db.select().from(schema.users)).toHaveLength(1);
   });
 
   it("keeps different addresses apart", async () => {
-    const a = await findOrCreateUser(db as any, "a@example.com");
-    const b = await findOrCreateUser(db as any, "b@example.com");
+    const a = await findOrCreateUser(db, "a@example.com");
+    const b = await findOrCreateUser(db, "b@example.com");
     expect(a.id).not.toBe(b.id);
   });
 });
 
 describe("magic links", () => {
-  let db: DB;
+  let db: TestDb;
   let userId: number;
   beforeEach(async () => {
-    db = await freshDb();
-    userId = (await findOrCreateUser(db as any, "ryan@example.com")).id;
+    db = await createTestDb(ACCOUNT_DDL);
+    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
   });
 
   it("stores only the hash — the raw token is never written down", async () => {
-    const token = await issueMagicToken(db as any, userId);
+    const token = await issueMagicToken(db, userId);
     const rows = await db.select().from(schema.authTokens);
     expect(rows[0]!.tokenHash).toBe(sha256Hex(token));
     expect(rows.some((r) => r.tokenHash === token)).toBe(false);
   });
 
   it("redeems once, then never again", async () => {
-    const token = await issueMagicToken(db as any, userId);
-    expect((await consumeMagicToken(db as any, token))?.id).toBe(userId);
+    const token = await issueMagicToken(db, userId);
+    expect((await consumeMagicToken(db, token))?.id).toBe(userId);
     // the replay a forwarded email (or a second click) would produce
-    expect(await consumeMagicToken(db as any, token)).toBeNull();
+    expect(await consumeMagicToken(db, token)).toBeNull();
   });
 
   it("refuses an unknown or empty token", async () => {
-    expect(await consumeMagicToken(db as any, "")).toBeNull();
-    expect(await consumeMagicToken(db as any, "not-a-real-token")).toBeNull();
+    expect(await consumeMagicToken(db, "")).toBeNull();
+    expect(await consumeMagicToken(db, "not-a-real-token")).toBeNull();
   });
 
   it("refuses an expired token", async () => {
-    const token = await issueMagicToken(db as any, userId);
+    const token = await issueMagicToken(db, userId);
     await db
       .update(schema.authTokens)
       .set({ expiresAt: new Date(Date.now() - 1000) })
       .where(eq(schema.authTokens.userId, userId));
-    expect(await consumeMagicToken(db as any, token)).toBeNull();
+    expect(await consumeMagicToken(db, token)).toBeNull();
   });
 
   it("invalidates the previous link when a new one is requested", async () => {
-    const first = await issueMagicToken(db as any, userId);
-    const second = await issueMagicToken(db as any, userId);
+    const first = await issueMagicToken(db, userId);
+    const second = await issueMagicToken(db, userId);
     // an inbox must never hold two simultaneously-valid keys to one account
-    expect(await consumeMagicToken(db as any, first)).toBeNull();
-    expect((await consumeMagicToken(db as any, second))?.id).toBe(userId);
+    expect(await consumeMagicToken(db, first)).toBeNull();
+    expect((await consumeMagicToken(db, second))?.id).toBe(userId);
   });
 
   it("keeps one user's link from opening another's account", async () => {
-    const otherId = (await findOrCreateUser(db as any, "someone@example.com")).id;
-    const token = await issueMagicToken(db as any, otherId);
-    expect((await consumeMagicToken(db as any, token))?.id).toBe(otherId);
+    const otherId = (await findOrCreateUser(db, "someone@example.com")).id;
+    const token = await issueMagicToken(db, otherId);
+    expect((await consumeMagicToken(db, token))?.id).toBe(otherId);
   });
 });
 
@@ -118,9 +114,9 @@ describe("magic links", () => {
 // on the account that predates it goes. These tests are that rule from both ends
 // — it has to fire on the attack, and it must never fire on an ordinary sign-in.
 describe("an address is only a claim until a link comes back", () => {
-  let db: DB;
+  let db: TestDb;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(ACCOUNT_DDL);
   });
 
   const liveSession = (userId: number, tokenHash: string) =>
@@ -129,14 +125,7 @@ describe("an address is only a claim until a link comes back", () => {
       .values({ tokenHash, userId, expiresAt: new Date(Date.now() + 60_000) });
 
   const addPasskey = (userId: number, credentialId: string) =>
-    savePasskey(db as any, {
-      userId,
-      credentialId,
-      publicKey: "cHVibGlj",
-      counter: 0,
-      discoverable: true,
-      label: null,
-    });
+    savePasskey(db, { userId, credentialId, ...PASSKEY, label: null });
 
   const sessionHashes = async () =>
     (await db.select().from(schema.sessions)).map((r) => r.tokenHash);
@@ -146,18 +135,18 @@ describe("an address is only a claim until a link comes back", () => {
 
   /** Exactly what verify.post.ts does with a redeemed link, in its order. */
   async function signInWithLink(token: string) {
-    const user = await consumeMagicToken(db as any, token);
+    const user = await consumeMagicToken(db, token);
     if (!user) return null;
-    if (!user.emailVerified) await claimUnverifiedAccount(db as any, user.id);
+    if (!user.emailVerified) await claimUnverifiedAccount(db, user.id);
     return user;
   }
 
   it("records which signup route made the account", async () => {
     // the passkey route never mails the address, so it has proved nothing
-    const bySignup = await createAccount(db as any, "passkey@example.com");
+    const bySignup = await createAccount(db, "passkey@example.com");
     expect(await isVerified(bySignup.id)).toBe(false);
     // the magic-link route is a round trip through the inbox by construction
-    const byLink = await findOrCreateUser(db as any, "link@example.com");
+    const byLink = await findOrCreateUser(db, "link@example.com");
     expect(await isVerified(byLink.id)).toBe(true);
   });
 
@@ -197,23 +186,23 @@ describe("an address is only a claim until a link comes back", () => {
   it("evicts the passkey and every session when the address's owner first signs in", async () => {
     // the attacker: a passkey signup against an address that isn't theirs, plus
     // the session it started and another opened later
-    const seeded = await createAccount(db as any, "ryan@example.com");
+    const seeded = await createAccount(db, "ryan@example.com");
     await addPasskey(seeded.id, "attacker-key");
     await liveSession(seeded.id, "attacker-signup");
     await liveSession(seeded.id, "attacker-later");
 
     // the real owner asks for a sign-in link, and is handed the attacker's row —
     // that resolution is the vulnerability, and it is NOT what gets fixed
-    const found = await findOrCreateUser(db as any, "ryan@example.com");
+    const found = await findOrCreateUser(db, "ryan@example.com");
     expect(found.id).toBe(seeded.id);
     // asking for a link proves nothing, so it must not disarm the eviction
     expect(await isVerified(found.id)).toBe(false);
 
-    const token = await issueMagicToken(db as any, found.id);
+    const token = await issueMagicToken(db, found.id);
     expect((await signInWithLink(token))?.id).toBe(seeded.id);
 
     // the passkey that could re-open the account at will is gone...
-    expect(await existingCredentialIds(db as any, seeded.id)).toHaveLength(0);
+    expect(await existingCredentialIds(db, seeded.id)).toHaveLength(0);
     // ...and so is every session it had already started
     expect(await sessionHashes()).toEqual([]);
     // the address is proved now, so this happens exactly once
@@ -221,10 +210,10 @@ describe("an address is only a claim until a link comes back", () => {
   });
 
   it("leaves an ordinary sign-in alone — a second device doesn't sign the first one out", async () => {
-    const user = await findOrCreateUser(db as any, "ryan@example.com");
+    const user = await findOrCreateUser(db, "ryan@example.com");
     await liveSession(user.id, "phone");
 
-    const token = await issueMagicToken(db as any, user.id);
+    const token = await issueMagicToken(db, user.id);
     await signInWithLink(token);
 
     // an eviction firing here would log people out of their own devices every
@@ -233,48 +222,48 @@ describe("an address is only a claim until a link comes back", () => {
   });
 
   it("never touches a verified account's passkeys, however many times it signs in", async () => {
-    const user = await findOrCreateUser(db as any, "ryan@example.com");
+    const user = await findOrCreateUser(db, "ryan@example.com");
     await addPasskey(user.id, "their-own-key");
 
     for (const _ of [1, 2]) {
-      const token = await issueMagicToken(db as any, user.id);
+      const token = await issueMagicToken(db, user.id);
       await signInWithLink(token);
     }
 
-    expect(await existingCredentialIds(db as any, user.id)).toHaveLength(1);
+    expect(await existingCredentialIds(db, user.id)).toHaveLength(1);
   });
 
   it("disarms after the takeover: a passkey added afterwards survives", async () => {
-    const seeded = await createAccount(db as any, "ryan@example.com");
+    const seeded = await createAccount(db, "ryan@example.com");
     await addPasskey(seeded.id, "attacker-key");
-    await signInWithLink(await issueMagicToken(db as any, seeded.id));
+    await signInWithLink(await issueMagicToken(db, seeded.id));
 
     // now it's genuinely their account, and their own key has to stick
     await addPasskey(seeded.id, "owner-key");
-    await signInWithLink(await issueMagicToken(db as any, seeded.id));
-    expect(await existingCredentialIds(db as any, seeded.id)).toHaveLength(1);
+    await signInWithLink(await issueMagicToken(db, seeded.id));
+    expect(await existingCredentialIds(db, seeded.id)).toHaveLength(1);
   });
 
   it("keeps its hands off every other account", async () => {
-    const seeded = await createAccount(db as any, "ryan@example.com");
+    const seeded = await createAccount(db, "ryan@example.com");
     await addPasskey(seeded.id, "attacker-key");
-    const bystander = await findOrCreateUser(db as any, "someone@example.com");
+    const bystander = await findOrCreateUser(db, "someone@example.com");
     await addPasskey(bystander.id, "bystander-key");
     await liveSession(bystander.id, "bystander-session");
 
-    await signInWithLink(await issueMagicToken(db as any, seeded.id));
+    await signInWithLink(await issueMagicToken(db, seeded.id));
 
-    expect(await existingCredentialIds(db as any, bystander.id)).toHaveLength(1);
+    expect(await existingCredentialIds(db, bystander.id)).toHaveLength(1);
     expect(await sessionHashes()).toEqual(["bystander-session"]);
   });
 });
 
 describe("sweepExpiredAuth", () => {
-  let db: DB;
+  let db: TestDb;
   let userId: number;
   beforeEach(async () => {
-    db = await freshDb();
-    userId = (await findOrCreateUser(db as any, "ryan@example.com")).id;
+    db = await createTestDb(ACCOUNT_DDL);
+    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
   });
 
   it("drops expired sessions and leaves live ones", async () => {
@@ -282,7 +271,7 @@ describe("sweepExpiredAuth", () => {
       { tokenHash: "live", userId, expiresAt: new Date(Date.now() + 60_000) },
       { tokenHash: "dead", userId, expiresAt: new Date(Date.now() - 60_000) },
     ]);
-    await sweepExpiredAuth(db as any);
+    await sweepExpiredAuth(db);
     const rows = await db.select().from(schema.sessions);
     expect(rows.map((r) => r.tokenHash)).toEqual(["live"]);
   });
@@ -300,7 +289,7 @@ describe("sweepExpiredAuth", () => {
       },
       { tokenHash: "expired", userId, expiresAt: new Date(Date.now() - 60_000) },
     ]);
-    await sweepExpiredAuth(db as any);
+    await sweepExpiredAuth(db);
     const rows = await db.select().from(schema.authTokens);
     expect(rows.map((r) => r.tokenHash)).toEqual(["fresh-consumed"]);
   });

@@ -12,7 +12,6 @@ import {
   nextOwnedDay,
   restingKcal,
   toblerSpeedMs,
-  walkingKcal,
   walkingVo2,
 } from "../shared/tripPlan";
 

@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The account half of "your lists", as the DEVICE holds it: the sign-in sweep that
 // attaches this browser's lists to the account, and the two things this browser
 // keeps of the answer so that half still exists with no network — the cached rows

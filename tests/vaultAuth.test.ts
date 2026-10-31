@@ -24,14 +24,8 @@ import {
   reapAbandonedVaults,
   removeVaultItem,
 } from "../server/utils/vaultRepo";
-import { vaultNormKey } from "../shared/vault";
 import { createTestDb, type TestDb } from "./helpers/db";
-
-type DB = TestDb;
-
-async function freshDb(): Promise<DB> {
-  return createTestDb(VAULT_DDL);
-}
+import { cap as capture } from "./helpers/vault";
 
 // The mint/resolve pair, exercised at the DB layer. requireVault() itself takes an
 // H3Event and is a thin wrapper over exactly this — booting a server to assert a
@@ -40,27 +34,22 @@ async function freshDb(): Promise<DB> {
 // Account ids are just integers here; the tests never create `users` rows, because
 // nothing in the vault path reads one. That's a property worth keeping: the vault
 // depends on WHICH account, never on anything about it.
-async function mint(db: DB, userId: number): Promise<number> {
+async function mint(db: TestDb, userId: number): Promise<number> {
   const rows = await db.insert(vaults).values({ userId }).returning();
   return rows[0]!.id;
 }
-async function resolve(db: DB, userId: number): Promise<number | null> {
+async function resolve(db: TestDb, userId: number): Promise<number | null> {
   const rows = await db.select().from(vaults).where(sql`user_id = ${userId}`).limit(1);
   return rows[0]?.id ?? null;
 }
 
-const cap = (name: string, over: Record<string, unknown> = {}) =>
-  ({
-    normKey: vaultNormKey(null, name, null),
-    name,
-    weightMg: 100_000,
-    ...over,
-  }) as never;
+// unbranded, 100 g — one case reads the weight back
+const cap = (name: string, over: Record<string, unknown> = {}) => capture({ brand: undefined, name, weightMg: 100_000, ...over });
 
 describe("vault ownership", () => {
-  let db: DB;
+  let db: TestDb;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(VAULT_DDL);
   });
 
   it("holds no secret — the row grants nothing to whoever reads it", async () => {
@@ -97,77 +86,77 @@ describe("vault ownership", () => {
     const first = await mint(db, 7);
     // the loser's insert is swallowed by onConflictDoNothing and it re-reads the
     // winner's row, so an account can never end up with two vaults OR with none
-    expect(await mintVault(db as never, 7)).toBe(first);
+    expect(await mintVault(db, 7)).toBe(first);
   });
 });
 
 describe("vault isolation — one vault can never reach another's gear", () => {
-  let db: DB;
+  let db: TestDb;
   let mine: number;
   let theirs: number;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(VAULT_DDL);
     mine = await mint(db, 1);
     theirs = await mint(db, 2);
   });
 
   it("keeps captures apart even when the gear is identical", async () => {
-    await captureVaultItems(db as never, mine, [cap("Duplex")]);
-    await captureVaultItems(db as never, theirs, [cap("Duplex")]);
+    await captureVaultItems(db, mine, [cap("Duplex")]);
+    await captureVaultItems(db, theirs, [cap("Duplex")]);
 
     // same norm_key, two rows — the unique index is (vault_id, norm_key), so one
     // person's tent can't collide with another's
-    expect(await listVaultItems(db as never, mine)).toHaveLength(1);
-    expect(await listVaultItems(db as never, theirs)).toHaveLength(1);
+    expect(await listVaultItems(db, mine)).toHaveLength(1);
+    expect(await listVaultItems(db, theirs)).toHaveLength(1);
   });
 
   it("does not list another vault's rows", async () => {
-    await captureVaultItems(db as never, theirs, [cap("Quilt")]);
-    expect(await listVaultItems(db as never, mine)).toHaveLength(0);
+    await captureVaultItems(db, theirs, [cap("Quilt")]);
+    expect(await listVaultItems(db, mine)).toHaveLength(0);
   });
 
   it("refuses to remove a row belonging to another vault", async () => {
-    await captureVaultItems(db as never, theirs, [cap("Quilt")]);
-    const row = (await listVaultItems(db as never, theirs))[0]!;
+    await captureVaultItems(db, theirs, [cap("Quilt")]);
+    const row = (await listVaultItems(db, theirs))[0]!;
 
     // naming their row id from my vault matches nothing — the same answer as an id
     // that doesn't exist, so the endpoint never confirms their row is real
-    expect(await removeVaultItem(db as never, mine, row.id)).toBe(false);
-    expect(await listVaultItems(db as never, theirs)).toHaveLength(1);
+    expect(await removeVaultItem(db, mine, row.id)).toBe(false);
+    expect(await listVaultItems(db, theirs)).toHaveLength(1);
   });
 
   it("refuses to edit a row belonging to another gear", async () => {
-    await captureVaultItems(db as never, theirs, [cap("Quilt")]);
-    const row = (await listVaultItems(db as never, theirs))[0]!;
+    await captureVaultItems(db, theirs, [cap("Quilt")]);
+    const row = (await listVaultItems(db, theirs))[0]!;
 
     expect(
-      await applyVaultItemOp(db as never, mine, {
+      await applyVaultItemOp(db, mine, {
         t: "edit",
         id: row.id,
         patch: { weightMg: 1, name: "Mine now" },
       }),
     ).toBeNull();
-    const after = (await listVaultItems(db as never, theirs))[0]!;
+    const after = (await listVaultItems(db, theirs))[0]!;
     expect(after.name).toBe(row.name);
     expect(after.weightMg).toBe(row.weightMg);
   });
 
   it("lands a hand-typed add in the asking gear only", async () => {
-    await captureVaultItems(db as never, theirs, [cap("Duplex")]);
-    await applyVaultItemOp(db as never, mine, { t: "add", name: "Duplex", weightMg: 545_000 });
+    await captureVaultItems(db, theirs, [cap("Duplex")]);
+    await applyVaultItemOp(db, mine, { t: "add", name: "Duplex", weightMg: 545_000 });
 
     // same folded key, two rows — an add is scoped exactly as a capture is
-    expect(await listVaultItems(db as never, mine)).toHaveLength(1);
-    expect((await listVaultItems(db as never, mine))[0]!.weightMg).toBe(545_000);
-    expect((await listVaultItems(db as never, theirs))[0]!.weightMg).toBe(100_000);
+    expect(await listVaultItems(db, mine)).toHaveLength(1);
+    expect((await listVaultItems(db, mine))[0]!.weightMg).toBe(545_000);
+    expect((await listVaultItems(db, theirs))[0]!.weightMg).toBe(100_000);
   });
 
   it("won't file a hand-typed add into another gear's folder", async () => {
-    await applyVaultFolderOp(db as never, theirs, { t: "add", name: "Theirs" });
-    const [theirFolder] = await listVaultFolders(db as never, theirs);
+    await applyVaultFolderOp(db, theirs, { t: "add", name: "Theirs" });
+    const [theirFolder] = await listVaultFolders(db, theirs);
 
     expect(
-      await applyVaultItemOp(db as never, mine, {
+      await applyVaultItemOp(db, mine, {
         t: "add",
         name: "Duplex",
         weightMg: 1,
@@ -175,90 +164,90 @@ describe("vault isolation — one vault can never reach another's gear", () => {
       }),
     ).toBeNull();
     // and nothing was stored — the check runs before the insert, not after
-    expect(await listVaultItems(db as never, mine)).toHaveLength(0);
+    expect(await listVaultItems(db, mine)).toHaveLength(0);
   });
 
   it("a pin in one gear does not protect the identical row in another", async () => {
-    await captureVaultItems(db as never, mine, [cap("Duplex")]);
-    await captureVaultItems(db as never, theirs, [cap("Duplex")]);
-    const row = (await listVaultItems(db as never, mine))[0]!;
-    await applyVaultItemOp(db as never, mine, { t: "edit", id: row.id, patch: { weightMg: 545_000 } });
+    await captureVaultItems(db, mine, [cap("Duplex")]);
+    await captureVaultItems(db, theirs, [cap("Duplex")]);
+    const row = (await listVaultItems(db, mine))[0]!;
+    await applyVaultItemOp(db, mine, { t: "edit", id: row.id, patch: { weightMg: 545_000 } });
 
     // the deliberate path — a background capture would leave both alone now, so
     // it could not tell a pin from the fill-only rule; an explicit save can
     const save = (vaultId: number) =>
-      captureVaultItemsReporting(db as never, vaultId, [cap("Duplex", { weightMg: 900 })], { overwriteWeight: true });
+      captureVaultItemsReporting(db, vaultId, [cap("Duplex", { weightMg: 900 })], { overwriteWeight: true });
     await save(mine);
     await save(theirs);
 
-    expect((await listVaultItems(db as never, mine))[0]!.weightMg).toBe(545_000);
-    expect((await listVaultItems(db as never, theirs))[0]!.weightMg).toBe(900);
+    expect((await listVaultItems(db, mine))[0]!.weightMg).toBe(545_000);
+    expect((await listVaultItems(db, theirs))[0]!.weightMg).toBe(900);
   });
 
   it("scopes a removal to the gear that asked for it", async () => {
-    await captureVaultItems(db as never, mine, [cap("Duplex")]);
-    await captureVaultItems(db as never, theirs, [cap("Duplex")]);
-    const row = (await listVaultItems(db as never, mine))[0]!;
+    await captureVaultItems(db, mine, [cap("Duplex")]);
+    await captureVaultItems(db, theirs, [cap("Duplex")]);
+    const row = (await listVaultItems(db, mine))[0]!;
 
-    expect(await removeVaultItem(db as never, mine, row.id)).toBe(true);
-    expect(await listVaultItems(db as never, mine)).toHaveLength(0);
+    expect(await removeVaultItem(db, mine, row.id)).toBe(true);
+    expect(await listVaultItems(db, mine)).toHaveLength(0);
     // theirs is untouched, though the gear is identical
-    expect(await listVaultItems(db as never, theirs)).toHaveLength(1);
+    expect(await listVaultItems(db, theirs)).toHaveLength(1);
   });
 
   // Folders are a second id space over the same vault, so every folder verb needs
   // the same scoping the row verbs have — and the "move" op needs it TWICE, since
   // it names an item id and a folder id in one call.
   it("refuses to rename or delete another vault's folder", async () => {
-    await applyVaultFolderOp(db as never, theirs, { t: "add", name: "Shelter" });
-    const [theirFolder] = await listVaultFolders(db as never, theirs);
+    await applyVaultFolderOp(db, theirs, { t: "add", name: "Shelter" });
+    const [theirFolder] = await listVaultFolders(db, theirs);
 
-    expect(await applyVaultFolderOp(db as never, mine, { t: "rename", id: theirFolder!.id, name: "hax" })).toBe(false);
-    expect(await applyVaultFolderOp(db as never, mine, { t: "remove", id: theirFolder!.id })).toBe(false);
+    expect(await applyVaultFolderOp(db, mine, { t: "rename", id: theirFolder!.id, name: "hax" })).toBe(false);
+    expect(await applyVaultFolderOp(db, mine, { t: "remove", id: theirFolder!.id })).toBe(false);
 
     // untouched, and still named what they named it
-    const after = await listVaultFolders(db as never, theirs);
+    const after = await listVaultFolders(db, theirs);
     expect(after).toHaveLength(1);
     expect(after[0]!.name).toBe("Shelter");
   });
 
   it("won't file my gear into another vault's folder", async () => {
-    await applyVaultFolderOp(db as never, theirs, { t: "add", name: "Theirs" });
-    const [theirFolder] = await listVaultFolders(db as never, theirs);
-    await captureVaultItems(db as never, mine, [cap("Duplex")]);
-    const row = (await listVaultItems(db as never, mine))[0]!;
+    await applyVaultFolderOp(db, theirs, { t: "add", name: "Theirs" });
+    const [theirFolder] = await listVaultFolders(db, theirs);
+    await captureVaultItems(db, mine, [cap("Duplex")]);
+    const row = (await listVaultItems(db, mine))[0]!;
 
     // the folder id is verified in MY scope before it's written — otherwise gear
     // would end up filed under a heading its owner can never see
-    expect(await applyVaultFolderOp(db as never, mine, { t: "move", itemId: row.id, folderId: theirFolder!.id })).toBe(false);
-    expect((await listVaultItems(db as never, mine))[0]!.folderId).toBeUndefined();
+    expect(await applyVaultFolderOp(db, mine, { t: "move", itemId: row.id, folderId: theirFolder!.id })).toBe(false);
+    expect((await listVaultItems(db, mine))[0]!.folderId).toBeUndefined();
   });
 
   it("won't move another vault's gear, even into a folder I own", async () => {
-    await applyVaultFolderOp(db as never, mine, { t: "add", name: "Mine" });
-    const [myFolder] = await listVaultFolders(db as never, mine);
-    await captureVaultItems(db as never, theirs, [cap("Quilt")]);
-    const theirRow = (await listVaultItems(db as never, theirs))[0]!;
+    await applyVaultFolderOp(db, mine, { t: "add", name: "Mine" });
+    const [myFolder] = await listVaultFolders(db, mine);
+    await captureVaultItems(db, theirs, [cap("Quilt")]);
+    const theirRow = (await listVaultItems(db, theirs))[0]!;
 
-    expect(await applyVaultFolderOp(db as never, mine, { t: "move", itemId: theirRow.id, folderId: myFolder!.id })).toBe(false);
-    expect((await listVaultItems(db as never, theirs))[0]!.folderId).toBeUndefined();
+    expect(await applyVaultFolderOp(db, mine, { t: "move", itemId: theirRow.id, folderId: myFolder!.id })).toBe(false);
+    expect((await listVaultItems(db, theirs))[0]!.folderId).toBeUndefined();
   });
 
   it("reorders only my folders, whatever ids the payload names", async () => {
-    await applyVaultFolderOp(db as never, mine, { t: "add", name: "A" });
-    await applyVaultFolderOp(db as never, mine, { t: "add", name: "B" });
-    await applyVaultFolderOp(db as never, theirs, { t: "add", name: "Theirs" });
-    const mineIds = (await listVaultFolders(db as never, mine)).map((f) => f.id);
-    const [theirFolder] = await listVaultFolders(db as never, theirs);
+    await applyVaultFolderOp(db, mine, { t: "add", name: "A" });
+    await applyVaultFolderOp(db, mine, { t: "add", name: "B" });
+    await applyVaultFolderOp(db, theirs, { t: "add", name: "Theirs" });
+    const mineIds = (await listVaultFolders(db, mine)).map((f) => f.id);
+    const [theirFolder] = await listVaultFolders(db, theirs);
 
     // their id ridden along in the array is simply ignored — it matches nothing in
     // my scope, rather than reordering a folder I don't own
-    await applyVaultFolderOp(db as never, mine, {
+    await applyVaultFolderOp(db, mine, {
       t: "reorder",
       ids: [mineIds[1]!, theirFolder!.id, mineIds[0]!],
     });
-    expect((await listVaultFolders(db as never, mine)).map((f) => f.name)).toEqual(["B", "A"]);
-    expect((await listVaultFolders(db as never, theirs)).map((f) => f.name)).toEqual(["Theirs"]);
+    expect((await listVaultFolders(db, mine)).map((f) => f.name)).toEqual(["B", "A"]);
+    expect((await listVaultFolders(db, theirs)).map((f) => f.name)).toEqual(["Theirs"]);
   });
 });
 
@@ -267,16 +256,16 @@ describe("vault isolation — one vault can never reach another's gear", () => {
 // has to be enough to undo it. If this stops holding, the reaper quietly becomes a
 // way to lose a vault you still had the link to.
 describe("vault revive — a reaped vault comes back by being used", () => {
-  let db: DB;
+  let db: TestDb;
   beforeEach(async () => {
-    db = await freshDb();
+    db = await createTestDb(VAULT_DDL);
   });
 
   it("clears the soft-delete on the next request that resolves the vault", async () => {
     const id = await mint(db, 1);
     await db.update(vaults).set({ deletedAt: new Date() }).where(sql`id = ${id}`);
 
-    expect(await touchVaultByUser(db as never, 1)).toBe(id);
+    expect(await touchVaultByUser(db, 1)).toBe(id);
     const [row] = await db.select().from(vaults).where(sql`id = ${id}`);
     expect(row!.deletedAt).toBeNull();
   });
@@ -285,12 +274,12 @@ describe("vault revive — a reaped vault comes back by being used", () => {
     const id = await mint(db, 1);
     await db.update(vaults).set({ lastSeenAt: new Date(Date.now() - 300 * 86_400_000) }).where(sql`id = ${id}`);
 
-    await touchVaultByUser(db as never, 1);
-    expect(await reapAbandonedVaults(db as any)).toEqual({ vaultsReaped: 0 });
+    await touchVaultByUser(db, 1);
+    expect(await reapAbandonedVaults(db)).toEqual({ vaultsReaped: 0 });
   });
 
   it("still resolves nothing for an account that has no vault", async () => {
     await mint(db, 1);
-    expect(await touchVaultByUser(db as never, 2)).toBeNull();
+    expect(await touchVaultByUser(db, 2)).toBeNull();
   });
 });

@@ -5,22 +5,10 @@
 // That only stays true while both files agree, which is what the first test is for.
 
 import { describe, expect, it } from "vitest";
+import { vaultFolder as folder, vaultRow as row } from "./helpers/vault";
 import { csvToListData } from "../shared/exporters/csv";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
-import type { VaultEntry, VaultFolder } from "../shared/vault";
-
-let nextId = 1;
-const row = (over: Partial<VaultEntry> = {}): VaultEntry => ({
-  id: nextId++,
-  normKey: `k${nextId}`,
-  name: "Duplex",
-  weightMg: 539_000,
-  timesSeen: 1,
-  lastUsedAt: "2026-08-01T12:30:00.000Z",
-  createdAt: "2026-07-01T00:00:00.000Z",
-  ...over,
-});
-const folder = (id: number, name: string): VaultFolder => ({ id, name });
+import type { VaultEntry } from "../shared/vault";
 
 const lines = (csv: string) => csv.split("\n");
 const cells = (csv: string, n: number) => lines(csv)[n]!.split(",");

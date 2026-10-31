@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The month grid's KEYBOARD contract — the part of <DateRangePicker> that can quietly
 // commit the wrong date.
 //
@@ -12,9 +10,12 @@
 // the still-focused button in place, so it came back showing a different date, which
 // Enter committed. None of that is visible to a unit test of the date helpers, so it
 // is asserted here against a mounted component.
-import { describe, expect, it } from "vitest";
-import { mount } from "@vue/test-utils";
+import { afterEach, describe, expect, it } from "vitest";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
+import { nextTick } from "vue";
 import DateRangePicker from "~/components/DateRangePicker.vue";
+
+enableAutoUnmount(afterEach);
 
 const mountCal = (props: { start?: string; end?: string } = {}) =>
   mount(DateRangePicker, { props, attachTo: document.body });
@@ -25,7 +26,7 @@ const tabStop = (w: ReturnType<typeof mountCal>) =>
 
 const press = async (w: ReturnType<typeof mountCal>, key: string) => {
   await w.find(".cal__grid").trigger("keydown", { key });
-  await new Promise((r) => setTimeout(r, 0)); // the focus move awaits nextTick
+  await nextTick(); // the focus move awaits nextTick
 };
 
 describe("DateRangePicker keyboard", () => {
@@ -33,7 +34,6 @@ describe("DateRangePicker keyboard", () => {
     const w = mountCal({ start: "2026-08-04" });
     expect(tabStop(w)).toHaveLength(1);
     expect(tabStop(w)[0]!.attributes("data-iso")).toBe("2026-08-04");
-    w.unmount();
   });
 
   it("moves the tab stop with the arrow keys", async () => {
@@ -42,7 +42,6 @@ describe("DateRangePicker keyboard", () => {
     expect(tabStop(w)[0]!.attributes("data-iso")).toBe("2026-08-05");
     await press(w, "ArrowDown");
     expect(tabStop(w)[0]!.attributes("data-iso")).toBe("2026-08-12");
-    w.unmount();
   });
 
   it("carries the tab stop across a month boundary, and re-cursors to that month", async () => {
@@ -53,7 +52,6 @@ describe("DateRangePicker keyboard", () => {
     const stop = tabStop(w);
     expect(stop).toHaveLength(1);
     expect(stop[0]!.attributes("data-iso")).toBe("2026-07-28");
-    w.unmount();
   });
 
   it("keeps a tab stop after the month buttons move the view", async () => {
@@ -64,14 +62,12 @@ describe("DateRangePicker keyboard", () => {
     await w.find('[aria-label="Previous month"]').trigger("click");
     expect(w.find(".cal__month").text()).toContain("June");
     expect(tabStop(w)).toHaveLength(1);
-    w.unmount();
   });
 
   it("clamps the day when the new month is shorter", async () => {
     const w = mountCal({ start: "2026-03-31" });
     await w.find('[aria-label="Previous month"]').trigger("click"); // → February
     expect(tabStop(w)[0]!.attributes("data-iso")).toBe("2026-02-28");
-    w.unmount();
   });
 
   it("keys cells by date, so a month change replaces them rather than repainting", async () => {
@@ -82,7 +78,6 @@ describe("DateRangePicker keyboard", () => {
     await press(w, "ArrowUp"); // into July
     const reused = w.find('[data-iso="2026-07-28"]').element;
     expect(reused).not.toBe(before);
-    w.unmount();
   });
 
   it("seeds the tab stop inside the month it opens on, given only an end date", () => {
@@ -91,7 +86,6 @@ describe("DateRangePicker keyboard", () => {
     const w = mountCal({ end: "2026-11-20" });
     expect(w.find(".cal__month").text()).toContain("November");
     expect(tabStop(w)).toHaveLength(1);
-    w.unmount();
   });
 
   it("emits the day that holds focus, not the one it started on", async () => {
@@ -100,6 +94,5 @@ describe("DateRangePicker keyboard", () => {
     await w.find('[data-iso="2026-07-28"]').trigger("click");
     const last = w.emitted("update")?.at(-1)?.[0] as { start?: string };
     expect(last.start).toBe("2026-07-28");
-    w.unmount();
   });
 });

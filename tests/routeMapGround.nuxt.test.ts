@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The map draws the whole route, whether or not any of it has been planned.
 //
 // The legs are cut from the itinerary, so a route with no days had no legs — and the map
@@ -13,7 +11,7 @@
 // coordinate — happy-dom has no geometry, so the paths carry none — only that the marks
 // exist, in the order the layering depends on.
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
-import { mount, type VueWrapper } from "@vue/test-utils";
+import { enableAutoUnmount, mount, type VueWrapper } from "@vue/test-utils";
 import { nextTick } from "vue";
 import RouteMap from "~/components/RouteMap.client.vue";
 import { encodePolyline } from "~~/shared/polyline";
@@ -38,23 +36,16 @@ beforeAll(() => {
   );
 });
 
-let wrapper: VueWrapper | null = null;
-afterEach(() => {
-  wrapper?.unmount();
-  wrapper = null;
-});
+enableAutoUnmount(afterEach);
 
 /** Mount, then wait for the Leaflet chunk draw() imports and the tick it draws on. */
 async function open(dayDistancesM: number[]) {
-  wrapper = mount(RouteMap, { props: { geometry, dayDistancesM }, attachTo: document.body });
+  const wrapper: VueWrapper = mount(RouteMap, { props: { geometry, dayDistancesM }, attachTo: document.body });
   // draw() is async: a nextTick, then `await import("leaflet")`, then the lines
-  for (let i = 0; i < 20 && !wrapper.element.querySelector(".leaflet-overlay-pane path"); i++) {
-    await new Promise((r) => setTimeout(r, 25));
-    await nextTick();
-  }
+  await vi.waitFor(() => expect(wrapper.element.querySelector(".leaflet-overlay-pane path")).not.toBeNull(), { interval: 25 });
   const classes = () =>
-    [...wrapper!.element.querySelectorAll(".leaflet-overlay-pane path")].map((p) => p.getAttribute("class") ?? "");
-  return { classes, wrapper: wrapper! };
+    [...wrapper.element.querySelectorAll(".leaflet-overlay-pane path")].map((p) => p.getAttribute("class") ?? "");
+  return { classes, wrapper };
 }
 
 describe("the route on the map", () => {

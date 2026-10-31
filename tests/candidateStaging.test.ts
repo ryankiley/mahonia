@@ -32,21 +32,21 @@ describe("community intake — what a list save stages", () => {
   const typedRow = { id: "i1", folderId: "f1", name: "Frobozz Megapack 9000", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 0 };
 
   it("re-stages a typed row when its weight is typed in a later batch", async () => {
-    await applyOpsByEditHash(hash, [{ t: "addItem", item: typedRow }], db as never);
+    await applyOpsByEditHash(hash, [{ t: "addItem", item: typedRow }], db);
     expect(await staged(db)).toEqual([{ raw_name: "Frobozz Megapack 9000", raw_brand: null, raw_variant: null, raw_common_name: null, weight_mg: null }]);
 
-    await applyOpsByEditHash(hash, [{ t: "updateItem", id: "i1", patch: { unitWeightMg: 810_000 } }], db as never);
+    await applyOpsByEditHash(hash, [{ t: "updateItem", id: "i1", patch: { unitWeightMg: 810_000 } }], db);
     // the same candidate (one per name + list), now with the weight
     expect(await staged(db)).toEqual([{ raw_name: "Frobozz Megapack 9000", raw_brand: null, raw_variant: null, raw_common_name: null, weight_mg: 810_000 }]);
 
     // and the gear type, typed later still
-    await applyOpsByEditHash(hash, [{ t: "updateItem", id: "i1", patch: { commonName: "Pack" } }], db as never);
+    await applyOpsByEditHash(hash, [{ t: "updateItem", id: "i1", patch: { commonName: "Pack" } }], db);
     expect((await staged(db))[0]!.raw_common_name).toBe("Pack");
   });
 
   it("stages the typed size or version, as part of the candidate's identity", async () => {
-    await applyOpsByEditHash(hash, [{ t: "addItem", item: typedRow }], db as never);
-    await applyOpsByEditHash(hash, [{ t: "updateItem", id: "i1", patch: { variant: "Long" } }], db as never);
+    await applyOpsByEditHash(hash, [{ t: "addItem", item: typedRow }], db);
+    await applyOpsByEditHash(hash, [{ t: "updateItem", id: "i1", patch: { variant: "Long" } }], db);
     // a new identity: "Frobozz Megapack 9000 Long" is not "Frobozz Megapack 9000"
     expect(await staged(db)).toEqual([
       { raw_name: "Frobozz Megapack 9000", raw_brand: null, raw_variant: null, raw_common_name: null, weight_mg: null },
@@ -55,15 +55,15 @@ describe("community intake — what a list save stages", () => {
   });
 
   it("does not stage on an edit to something the candidate does not record", async () => {
-    await applyOpsByEditHash(hash, [{ t: "addItem", item: typedRow }], db as never);
+    await applyOpsByEditHash(hash, [{ t: "addItem", item: typedRow }], db);
     const before = await staged(db);
-    await applyOpsByEditHash(hash, [{ t: "updateItem", id: "i1", patch: { qty: 3, description: "the blue one" } }], db as never);
+    await applyOpsByEditHash(hash, [{ t: "updateItem", id: "i1", patch: { qty: 3, description: "the blue one" } }], db);
     expect(await staged(db)).toEqual(before);
   });
 
   it("never stages a catalog-linked row", async () => {
-    await applyOpsByEditHash(hash, [{ t: "addItem", item: { ...typedRow, catalogItemId: 1, unitWeightMg: 500_000 } }], db as never);
-    await applyOpsByEditHash(hash, [{ t: "updateItem", id: "i1", patch: { unitWeightMg: 510_000 } }], db as never);
+    await applyOpsByEditHash(hash, [{ t: "addItem", item: { ...typedRow, catalogItemId: 1, unitWeightMg: 500_000 } }], db);
+    await applyOpsByEditHash(hash, [{ t: "updateItem", id: "i1", patch: { unitWeightMg: 510_000 } }], db);
     expect(await staged(db)).toEqual([]);
   });
 });

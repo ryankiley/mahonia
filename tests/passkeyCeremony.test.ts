@@ -15,33 +15,23 @@
 // through real H3 events (body, cookies, headers) the way a request would.
 
 import { eq } from "drizzle-orm";
-import { IncomingMessage, ServerResponse } from "node:http";
-import { Socket } from "node:net";
-import { createEvent, type H3Event } from "h3";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
-import { SESSION_COOKIE, findOrCreateUser, startSession } from "../server/utils/authSession";
+import { SESSION_COOKIE, findOrCreateUser } from "../server/utils/authSession";
 import { savePasskey } from "../server/utils/credentialRepo";
 import { startChallenge, takeChallenge } from "../server/utils/passkeys";
 import registerVerify from "../server/api/auth/passkey/register-verify.post";
 import signupVerify from "../server/api/auth/passkey/signup-verify.post";
 import { createTestDb, type TestDb } from "./helpers/db";
-import { setCookieValue } from "./helpers/http";
-
-type DB = TestDb;
-async function freshDb(): Promise<DB> {
-  return createTestDb(ACCOUNT_DDL);
-}
+import { dbState } from "./helpers/dbMock";
+import { makeEvent, setCookieValue } from "./helpers/http";
+import { PASSKEY, signInCookie } from "./helpers/session";
 
 // The endpoints reach for useAccountDb() themselves — point it at this file's
 // throwaway database.
-const state = vi.hoisted(() => ({ db: undefined as unknown }));
-vi.mock("../server/utils/db", async (importOriginal) => {
-  const mod = await importOriginal<typeof import("../server/utils/db")>();
-  return { ...mod, useAccountDb: async () => state.db };
-});
+vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 
 // The challenge store and the rate limiter both live in Nitro's `useStorage("kv")`
 // auto-import, which doesn't exist under plain vitest — a Map plays the part.
@@ -76,30 +66,16 @@ vi.mock("../server/utils/email", () => ({
   sendPasskeyAddedNotice: vi.fn(),
 }));
 
-/** A minimal real H3 event: JSON body in, cookies/headers out. */
-function makeEvent(opts: { body?: unknown; cookie?: string } = {}): H3Event {
-  const req = new IncomingMessage(new Socket());
-  req.method = "POST";
-  req.url = "/";
-  req.headers = { host: "mahonia.test" };
-  if (opts.cookie) req.headers.cookie = opts.cookie;
-  if (opts.body !== undefined) {
-    const buf = Buffer.from(JSON.stringify(opts.body));
-    req.headers["content-type"] = "application/json";
-    req.headers["content-length"] = String(buf.length);
-    req.push(buf);
-  }
-  req.push(null);
-  return createEvent(req, new ServerResponse(req));
-}
+/** The endpoint's request: a JSON body in, the session cookie when signed in. */
+const post = (body?: unknown, cookie?: string) => makeEvent("/", { method: "POST", headers: cookie ? { cookie } : {}, body });
 
-const usersWith = (db: DB, email: string) =>
+const usersWith = (db: TestDb, email: string) =>
   db.select().from(schema.users).where(eq(schema.users.email, email));
 
-let db: DB;
+let db: TestDb;
 beforeEach(async () => {
-  db = await freshDb();
-  state.db = db;
+  db = await createTestDb(ACCOUNT_DDL);
+  dbState.db = db;
   kv.clear();
   verifyMock.mockReset();
 });
@@ -131,7 +107,7 @@ describe("signup-verify — minting an account", () => {
     const flowId = await startChallenge("chal-s", undefined, "new@example.com");
     verifyMock.mockResolvedValue(verified("cred-a"));
 
-    const event = makeEvent({ body: { flowId, response: { some: "attestation" } } });
+    const event = post({ flowId, response: { some: "attestation" } });
     expect(await signupVerify(event)).toEqual({ ok: true, email: "new@example.com" });
 
     // origin, RP ID and challenge all came from the server side, never the body
@@ -147,18 +123,18 @@ describe("signup-verify — minting an account", () => {
     expect(setCookieValue(event, SESSION_COOKIE)).toBeTruthy();
 
     // replaying the whole verified response finds no challenge left to match
-    const replay = makeEvent({ body: { flowId, response: { some: "attestation" } } });
+    const replay = post({ flowId, response: { some: "attestation" } });
     expect(await signupVerify(replay)).toEqual({ ok: false, reason: "expired" });
     expect(await usersWith(db, "new@example.com")).toHaveLength(1);
   });
 
   it("refuses a register-options challenge — signed-in users can't mint a second account", async () => {
-    const me = await findOrCreateUser(db as never, "ryan@example.com");
+    const me = await findOrCreateUser(db, "ryan@example.com");
     // what register-options parks: a userId, no email
     const flowId = await startChallenge("chal-r", me.id);
     verifyMock.mockResolvedValue(verified("cred-b"));
 
-    const res = await signupVerify(makeEvent({ body: { flowId, response: {} } }));
+    const res = await signupVerify(post({ flowId, response: {} }));
     expect(res).toEqual({ ok: false, reason: "expired" });
     // refused at the gate, before any signature math ran
     expect(verifyMock).not.toHaveBeenCalled();
@@ -166,10 +142,10 @@ describe("signup-verify — minting an account", () => {
   });
 
   it("refuses a challenge carrying a userId even if an email somehow rides along", async () => {
-    const me = await findOrCreateUser(db as never, "ryan@example.com");
+    const me = await findOrCreateUser(db, "ryan@example.com");
     const flowId = await startChallenge("chal-x", me.id, "other@example.com");
 
-    expect(await signupVerify(makeEvent({ body: { flowId, response: {} } }))).toEqual({
+    expect(await signupVerify(post({ flowId, response: {} }))).toEqual({
       ok: false,
       reason: "expired",
     });
@@ -177,20 +153,14 @@ describe("signup-verify — minting an account", () => {
   });
 
   it("rolls the account back when the credential is already registered — no unreachable row survives", async () => {
-    const owner = await findOrCreateUser(db as never, "owner@example.com");
-    await savePasskey(db as never, {
-      userId: owner.id,
-      credentialId: "cred-dup",
-      publicKey: "cHVibGlj",
-      counter: 0,
-      discoverable: true,
-    });
+    const owner = await findOrCreateUser(db, "owner@example.com");
+    await savePasskey(db, { userId: owner.id, credentialId: "cred-dup", ...PASSKEY });
 
     const flowId = await startChallenge("chal-d", undefined, "second@example.com");
     verifyMock.mockResolvedValue(verified("cred-dup"));
     const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
     try {
-      const event = makeEvent({ body: { flowId, response: {} } });
+      const event = post({ flowId, response: {} });
       expect(await signupVerify(event)).toEqual({ ok: false, reason: "invalid" });
 
       // the account was created and then rolled back — nothing could ever sign
@@ -211,24 +181,22 @@ describe("register-verify — adding a key to a signed-in account", () => {
   let myId: number;
   let cookie: string;
   beforeEach(async () => {
-    myId = (await findOrCreateUser(db as never, "ryan@example.com")).id;
-    const signIn = makeEvent();
-    await startSession(signIn, db as never, myId);
-    cookie = `${SESSION_COOKIE}=${setCookieValue(signIn, SESSION_COOKIE)}`;
+    myId = (await findOrCreateUser(db, "ryan@example.com")).id;
+    ({ cookie } = await signInCookie(db, myId));
   });
 
   it("rejects outright with no session — there is no account to add a key to", async () => {
-    await expect(registerVerify(makeEvent({ body: {} }))).rejects.toMatchObject({
+    await expect(registerVerify(post({}))).rejects.toMatchObject({
       statusCode: 401,
     });
   });
 
   it("refuses a challenge parked for a DIFFERENT account", async () => {
-    const other = await findOrCreateUser(db as never, "other@example.com");
+    const other = await findOrCreateUser(db, "other@example.com");
     const flowId = await startChallenge("chal-o", other.id);
     verifyMock.mockResolvedValue(verified("cred-c"));
 
-    const res = await registerVerify(makeEvent({ cookie, body: { flowId, response: {} } }));
+    const res = await registerVerify(post({ flowId, response: {} }, cookie));
     expect(res).toEqual({ ok: false, reason: "expired" });
     // refused before verification — the challenge's owner is checked first
     expect(verifyMock).not.toHaveBeenCalled();
@@ -238,7 +206,7 @@ describe("register-verify — adding a key to a signed-in account", () => {
   it("refuses a signup challenge (no userId) spent on the register path", async () => {
     const flowId = await startChallenge("chal-s", undefined, "new@example.com");
 
-    const res = await registerVerify(makeEvent({ cookie, body: { flowId, response: {} } }));
+    const res = await registerVerify(post({ flowId, response: {} }, cookie));
     expect(res).toEqual({ ok: false, reason: "expired" });
     expect(await db.select().from(schema.credentials)).toHaveLength(0);
   });
@@ -248,7 +216,7 @@ describe("register-verify — adding a key to a signed-in account", () => {
     verifyMock.mockResolvedValue(verified("cred-mine"));
 
     const res = await registerVerify(
-      makeEvent({ cookie, body: { flowId, response: {}, label: "MacBook" } }),
+      post({ flowId, response: {}, label: "MacBook" }, cookie),
     );
     expect(res).toEqual({ ok: true });
 

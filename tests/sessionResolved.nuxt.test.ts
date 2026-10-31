@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // What this device keeps FOR an account, and when it lets go of it. Two ways a
 // session ends never pass through signOut() on this browser — it expires, or it is
 // ended elsewhere ("sign out everywhere", the account deleted) — and both surface
