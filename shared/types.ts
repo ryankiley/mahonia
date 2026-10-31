@@ -446,6 +446,21 @@ export interface PasskeySummary {
   lastUsedAt: string | null;
 }
 
+/** What an assistant's access token may do: read My Gear, or read and change it. */
+export type AccessScope = "read" | "write";
+
+/** One of the connector's credentials, as the account dialog lists them — metadata
+ *  only, never a value. A "token" was minted there by hand; an "app" signed in
+ *  through the connector, and its label is the app's name. */
+export interface AccessTokenSummary {
+  id: number;
+  kind: "token" | "app";
+  label: string | null;
+  scope: AccessScope;
+  createdAt: string;
+  lastUsedAt: string | null;
+}
+
 /** One catalog weight correction, as /changes lists them. */
 export interface RecentChange {
   id: number;

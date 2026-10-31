@@ -1,6 +1,7 @@
-import { defineEventHandler, getHeader, readRawBody, send, setHeader, setResponseStatus, type H3Event } from "h3";
-import { MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, callTool, isKnownTool } from "../utils/mcp";
-import { setNoIndex } from "../utils/http";
+import { defineEventHandler, getHeader, readRawBody, send, setResponseStatus, type H3Event } from "h3";
+import { ACCOUNT_TOOLS, MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, callTool, isKnownTool } from "../utils/mcp";
+import { setNoIndex, setNoStore } from "../utils/http";
+import { bearerChallenge, connectorIdentity } from "../utils/oauth";
 import { trustedOrigin } from "../utils/origin";
 import { rateLimit } from "../utils/rateLimit";
 
@@ -20,10 +21,22 @@ import { rateLimit } from "../utils/rateLimit";
 // not speak gets a 400 with a plain JSON-RPC error and none of the newer spec's
 // reserved codes, which is the answer a newer client falls back from cleanly.
 //
-// No authentication, on purpose: a share code is already the read capability and an
-// edit link the write one, and both travel as tool arguments (server/utils/mcp.ts).
-// The endpoint must never answer 401 or 403 to a well-formed request, because that
-// is the signal Claude's clients read as "this server wants a sign-in".
+// No authentication at the door for the list tools, on purpose: a share code is
+// already the read capability and an edit link the write one, and both travel as
+// tool arguments (server/utils/mcp.ts). initialize, tools/list and every list tool
+// answer 200 to a request with no credential at all, so a connector added with no
+// sign-in works as it always has.
+//
+// The four My Gear tools are the exception, and the ONE place this endpoint answers
+// 401 or 403. A 401 is the signal Claude's clients read as "this server wants a
+// sign-in": on it, and only on it, Claude shows the Connect card, runs the OAuth
+// sign-in (server/utils/oauth.ts) and retries the call. So a tools/call naming a gear
+// tool with no valid bearer — none, unknown, revoked, or an access token past its hour
+// — gets a 401 whose WWW-Authenticate header names our protected-resource document
+// and the scope the tool needs; a valid read-only bearer on a tool that changes gear
+// gets a 403 with insufficient_scope, which Claude turns into a step-up for write. The
+// gate runs here, on the parsed body, before any tool: a refusal wrapped in a 200 tool
+// result is a sentence the model reads aloud, not a sign-in.
 
 /** a JSON-RPC body is small; a list's rows arrive a few hundred at most */
 const MAX_BODY_BYTES = 262_144;
@@ -34,7 +47,7 @@ const result = (id: Id, value: unknown) => ({ jsonrpc: "2.0" as const, id, resul
 
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
-  setHeader(event, "Cache-Control", "no-store");
+  setNoStore(event);
 
   // A browser page can't be the caller: the connector is server to server, and a page
   // on another origin posting here would be a rebinding attempt the spec says to refuse.
@@ -95,6 +108,26 @@ export default defineEventHandler(async (event) => {
   if (typeof msg.method !== "string") return error(id, -32600, "A request needs a method");
   const params = (msg.params && typeof msg.params === "object" ? msg.params : {}) as Record<string, unknown>;
 
+  // The account behind the bearer, for the tools that use one (ACCOUNT_TOOLS, read
+  // off the registry): resolved once here and left on the event. The gate is the
+  // scope a gear tool names; create_list only uses an account when there is one.
+  const use = msg.method === "tools/call" && typeof params.name === "string" ? ACCOUNT_TOOLS[params.name] : undefined;
+  if (use) {
+    const { identity, carried } = await connectorIdentity(event);
+    if (carried) event.context.connector = identity;
+    if (use !== "optional" && !identity) {
+      return bearerChallenge(event, {
+        status: 401,
+        error: "invalid_token",
+        scope: use,
+        description: carried ? "That token no longer opens an account; sign in to Mahonia again." : "Sign in to Mahonia to reach My Gear.",
+      });
+    }
+    if (use === "write" && identity?.scope !== "write") {
+      return bearerChallenge(event, { status: 403, error: "insufficient_scope", scope: "write", description: "Changing My Gear needs read-and-change access; allow it to continue." });
+    }
+  }
+
   switch (msg.method) {
     case "initialize": {
       const asked = typeof params.protocolVersion === "string" ? params.protocolVersion : "";
@@ -108,7 +141,7 @@ export default defineEventHandler(async (event) => {
     case "ping":
       return result(id, {});
     case "tools/list":
-      // one page, always: seven tools need no cursor, and a cursor that arrives anyway
+      // one page, always: eleven tools fit without a cursor, and a cursor that arrives anyway
       // names a page this server never handed out
       if (params.cursor != null) return error(id, -32602, "Invalid cursor");
       return result(id, { tools: MCP_TOOLS });

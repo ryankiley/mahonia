@@ -60,15 +60,36 @@ deployed on [Vercel](https://vercel.com).
 ## MCP connector
 
 The app serves a remote MCP server at `/mcp`, so an AI assistant can be handed
-`https://mahonia.app/mcp` as a connector with nothing to install and no sign-in. Seven
-tools: read a shared list as data or Markdown, search the catalog, fetch one product's
+`https://mahonia.app/mcp` as a connector with nothing to install. Seven tools need no
+sign-in: read a shared list as data or Markdown, search the catalog, fetch one product's
 variants, and, holding an edit link, make a list, add rows and set the trip's dates and
 trail. A share code is the read capability and the edit link's fragment token the write
 one, hashed on arrival and passed only as a tool argument, so nothing new is trusted. The
 transport is stateless JSON-RPC over POST (MCP revisions 2025-06-18 and 2025-11-25, no
 sessions, no event stream, GET answers 405), hand-rolled in `server/routes/mcp.post.ts`
-with the tools in `server/utils/mcp.ts`; both files carry the reasoning. My Gear is
-deliberately out of reach: it would need an account token, which is a separate decision.
+with the tools in `server/utils/mcp.ts`; both files carry the reasoning.
+
+Four more tools reach **My Gear**: `list_my_gear`, `add_my_gear`, `update_my_gear` and
+`remove_my_gear`. Gear belongs to an account rather than a link, so these need the account
+behind the call, and there are two ways to give it. In Claude, add the URL as a connector
+and choose "Sign in when needed": the first call to a gear tool shows a Connect card, you
+sign in to Mahonia with your passkey or a link, allow read or read-and-change, and the call
+goes through. That is OAuth 2.1 with Mahonia as its own authorization server (discovery
+under `/.well-known`, `/authorize`, `/token`, `/revoke`, `/register`; PKCE S256; Client ID
+Metadata Documents, so Claude registers nothing; hour-long access tokens with rotating
+refresh tokens; `server/utils/oauth.ts` and `server/utils/oauthClients.ts` carry the
+reasoning). A client configured from a file takes a token minted under Assistant access on
+`/account` instead, sent as `Authorization: Bearer <token>`. Either way only hashes are
+stored, the credential opens the account's gear and nothing more, and it lasts until it is
+revoked on that page or by "Sign out everywhere". With read-and-change, `create_list` also
+files the list it makes under the account, as a signed-in browser files the lists it
+creates, and reports `saved_to_account`.
+
+The gate is at the door, as Claude requires: a `tools/call` naming a gear tool with no valid
+bearer answers 401 with a `WWW-Authenticate` header that points at the discovery document and
+names the scope the tool needs, and a read-only bearer on a tool that changes gear answers
+403 with `insufficient_scope`. `initialize`, `tools/list` and the seven list tools never
+ask for a credential, so a connector added with no sign-in works exactly as before.
 
 Add it to a client:
 
@@ -76,12 +97,18 @@ Add it to a client:
 [![Install in VS Code](https://img.shields.io/badge/VS_Code-Install_Server-0098FF?style=flat-square&logo=visualstudiocode&logoColor=white)](https://insiders.vscode.dev/redirect/mcp/install?name=mahonia&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmahonia.app%2Fmcp%22%7D)
 
 - **Claude** (claude.ai, Desktop, mobile): [add Mahonia as a connector](https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Mahonia&connectorUrl=https%3A%2F%2Fmahonia.app%2Fmcp)
-  and choose "No sign-in". Connectors added there are available in Claude Code too.
-- **Claude Code:** `claude mcp add --transport http --scope user mahonia https://mahonia.app/mcp`
-- **Gemini CLI:** `gemini mcp add --transport http mahonia https://mahonia.app/mcp`
+  and choose "Sign in when needed". Lists and the catalog work at once; the first My Gear
+  call asks you to sign in. Connectors added there are available in Claude Code too.
+- **Claude Code:** `claude mcp add --transport http --scope user mahonia https://mahonia.app/mcp`,
+  then `/mcp` to sign in when a gear tool asks, or add
+  `--header "Authorization: Bearer <token>"` to skip the sign-in with a token from `/account`
+  (the page prints the line with your token in it).
+- **Gemini CLI:** `gemini mcp add --transport http mahonia https://mahonia.app/mcp` (`-H "Authorization: Bearer <token>"` for My Gear)
 - **ChatGPT:** Settings, Developer mode, add `https://mahonia.app/mcp` with "No Authentication".
-- **Anything that reads an `mcp.json`:** `{"mcpServers":{"mahonia":{"url":"https://mahonia.app/mcp"}}}`
-- **A client that only speaks stdio:** bridge with `npx mcp-remote https://mahonia.app/mcp`.
+- **Anything that reads an `mcp.json`:** `{"mcpServers":{"mahonia":{"url":"https://mahonia.app/mcp"}}}`,
+  plus `"headers":{"Authorization":"Bearer <token>"}` for My Gear.
+- **A client that only speaks stdio:** bridge with `npx mcp-remote https://mahonia.app/mcp`
+  (`--header "Authorization: Bearer <token>"` for My Gear).
 
 The server is listed in the [official MCP registry](https://registry.modelcontextprotocol.io)
 as `app.mahonia/mahonia`; [`server.json`](server.json) is the listing, published with

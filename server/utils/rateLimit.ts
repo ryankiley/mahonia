@@ -218,7 +218,9 @@ const RATE_LIMITS = {
   // capability the call carries: reads by the share code (rateLimitSubject), the
   // roomy one; adds and trip changes by the edit hash, the create + mutate budgets'
   // order of magnitude. create_list carries no capability yet, so it alone spends the
-  // write budget per address.
+  // write budget per address. The My Gear tools spend the same two budgets per
+  // ACCOUNT, by the access token's owner, and a create_list that files its list under
+  // an account spends that account's "list-claim" as the browser's claim does.
   "mcp": 600,
   "mcp-read": 120,
   "mcp-write": 30,
@@ -267,6 +269,15 @@ const RATE_LIMITS = {
   // single call here can cost; nobody needs it twice a minute
   "account-export": 5,
   "list-claim": 60,
+  // --- the connector's OAuth endpoints -----------------------------------------
+  // authorize is a page load plus one fetch of the client's metadata document, and a
+  // consent click; token is one exchange and then a refresh an hour at most; revoke
+  // is rarer still. register writes a row for anyone who asks, so it gets the
+  // sign-in budget.
+  "oauth-authorize": 30,
+  "oauth-token": 60,
+  "oauth-revoke": 30,
+  "oauth-register": 5,
   // the admin gate itself (see requireAdmin) — throttled against brute force
   "admin": 30,
 } as const satisfies Record<string, number>;
