@@ -142,7 +142,7 @@ let pending: { items: VaultCapture[]; fingerprint: string } | null = null;
  *  was otherwise spelled out by hand wherever that answer travels — the controller's
  *  saveItemToVault and the row's test both restated it, so a sixth result would have
  *  narrowed silently at one hop and kept compiling at the other. */
-export type CaptureOneResult = "saved" | "unworthy" | "removed" | "full" | "failed";
+export type CaptureOneResult = "saved" | "unworthy" | "removed" | "full" | "nested" | "failed";
 
 export function useVaultCapture() {
   // hasVault as well as the fetch: capture must not ASK someone who has no vault
@@ -380,6 +380,21 @@ export function useVaultCapture() {
   ): Promise<{ result: CaptureOneResult; landed: VaultGearKey[] }> {
     const nothing: VaultGearKey[] = [];
     if (!import.meta.client) return { result: "failed", landed: nothing };
+    // A GROUP row is the one container that is gear: pressed, it is offered as a
+    // KIT — its children as the parts — which the automatic path never does (a
+    // group is a heading to it, see isVaultWorthy). Its own chunk, loaded on the
+    // press (useVaultGroup): one gesture on one row, off the editor's first load.
+    if (allItems.some((i) => i.parentId === item.id)) {
+      try {
+        const { captureGroup } = await import("./useVaultGroup");
+        const done = await captureGroup(vaultFetch, item, allItems, folders);
+        // the automatic path's memo is stale once a kit's parts have landed, as below
+        if (done.result === "saved") lastFingerprint = "";
+        return done;
+      } catch {
+        return { result: "failed", landed: nothing };
+      }
+    }
     let caps: VaultCapture[];
     try {
       const { captureFromList } = await import("~~/shared/vault");
@@ -389,9 +404,7 @@ export function useVaultCapture() {
       // chunk fetch failed (offline before the SW cached it)
       return { result: "failed", landed: nothing };
     }
-    // a parent is a container, not gear; captureFromList can't see that from one item
-    if (!caps.length || allItems.some((i) => i.parentId === item.id))
-      return { result: "unworthy", landed: nothing };
+    if (!caps.length) return { result: "unworthy", landed: nothing };
     let landed: VaultGearKey[];
     let full = false;
     try {

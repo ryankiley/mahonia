@@ -17,7 +17,7 @@
 // repair affordance behind a disclosure, not part of the kit you own.
 
 import type { Unit } from "../types";
-import type { VaultEntry, VaultFolder } from "../vault";
+import { countedWeightMg, type VaultEntry, type VaultFolder } from "../vault";
 import { groupVaultRows } from "../vaultView";
 import { fromMg, itemDisplayName } from "../weights";
 import { csvCell } from "./csvCell";
@@ -46,12 +46,18 @@ const HEADER =
  * Every row exports in ONE unit, unlike a list's CSV: a vault row has no entryUnit
  * (a weight there is a fact about the gear, not about how one list types it), so
  * the unit is the page's and the column says so on every line.
+ *
+ * A KIT exports its OWN weight, not its total — the rule the list CSV applies to a
+ * group's parent row, and for the same reason: its parts are rows of this file too,
+ * so a spreadsheet summing the column would otherwise count them twice. The CSV has
+ * no column for what a kit is made of; the JSON does.
  */
 export function vaultToCsv({ items, folders }: VaultExport, unit: Unit): string {
   const out = [HEADER];
   for (const section of groupVaultRows(items, folders, { keepEmpty: false })) {
     for (const e of section.entries) {
-      const w = e.weightMg > 0 ? +fromMg(e.weightMg, unit).toFixed(unit === "g" ? 0 : 3) : "";
+      const mg = countedWeightMg(e);
+      const w = mg > 0 ? +fromMg(mg, unit).toFixed(unit === "g" ? 0 : 3) : "";
       out.push(
         [
           csvCell(section.folder?.name ?? ""),
@@ -61,7 +67,7 @@ export function vaultToCsv({ items, folders }: VaultExport, unit: Unit): string 
           csvCell(e.commonName ?? ""),
           csvCell(e.brand ?? ""),
           w,
-          e.weightMg > 0 ? unit : "",
+          mg > 0 ? unit : "",
           e.classification === "worn" ? "1" : "",
           e.classification === "consumable" ? "1" : "",
           // the bare number, like the list's Price column: a spreadsheet wants to

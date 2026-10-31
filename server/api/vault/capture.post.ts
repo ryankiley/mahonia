@@ -2,8 +2,8 @@ import { defineEventHandler } from "h3";
 import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { resolveOrMintVault } from "../../utils/vaultAuth";
-import { captureVaultItemsReporting } from "../../utils/vaultRepo";
-import { VAULT_CAPTURE_MAX, type VaultCapture } from "../../../shared/vault";
+import { captureKit, captureVaultItemsReporting } from "../../utils/vaultRepo";
+import { VAULT_CAPTURE_MAX, type VaultCapture, type VaultKitCapture } from "../../../shared/vault";
 
 // Fold the gear in an open list into the holder's vault.
 //
@@ -31,6 +31,11 @@ import { VAULT_CAPTURE_MAX, type VaultCapture } from "../../../shared/vault";
 // could reach again. That refusal is silent by design — capture runs in the
 // background while you build a list, and it must never surface an error over the
 // list you're actually working on.
+//
+// `kit` is the one shape the automatic path never sends: a GROUP row offered as a
+// kit, by its own Save to My Gear press, with `items` as its parts (see captureKit).
+// The group is never gear to the automatic capture — see isVaultWorthy — so a kit is
+// only ever made on purpose.
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
   setPrivate(event);
@@ -38,22 +43,30 @@ export default defineEventHandler(async (event) => {
 
   // 200 rows of gear with their optional URLs — generous for the cap above, still
   // far below the platform body limit
-  const body = await readJsonBodyCapped<{ items?: unknown; overwriteWeight?: unknown }>(event, 256_000);
+  const body = await readJsonBodyCapped<{ items?: unknown; overwriteWeight?: unknown; kit?: unknown }>(
+    event,
+    256_000,
+  );
   const items = Array.isArray(body?.items)
     ? (body.items.filter((i) => i && typeof i === "object") as VaultCapture[]).slice(
         0,
         VAULT_CAPTURE_MAX,
       )
     : [];
+  const kit = body?.kit && typeof body.kit === "object" ? (body.kit as VaultKitCapture) : null;
   // Nothing to store — and deliberately checked BEFORE the mint, so an editor that
   // is open but empty never brings a vault into existence.
-  if (!items.length) return { ok: true, captured: 0, keys: [] };
+  if (!items.length && !kit) return { ok: true, captured: 0, keys: [] };
 
   // The beacon carries no header — `navigator.sendBeacon` can't set one — but it
   // is same-origin, so the session cookie rides along and IS the capability. That
   // is the whole reason this endpoint needed a body token under link ownership and
   // doesn't now.
   const { db, vaultId } = await resolveOrMintVault(event);
+  if (kit) {
+    const res = await captureKit(db, vaultId, kit, items, { overwriteWeight: body?.overwriteWeight === true });
+    return { ok: true, captured: res.keys.length, keys: res.keys, full: res.full, kit: res.kit };
+  }
   // The write reports its own result — no second query, and no chance of asking
   // about a key the server spelled differently than the client did (sanitize
   // re-derives normKey from the tidied text).

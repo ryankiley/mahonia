@@ -4,8 +4,9 @@ import { rateLimit } from "../../utils/rateLimit";
 import { requireVault, resolveOrMintVault } from "../../utils/vaultAuth";
 import { applyVaultItemOp, type VaultItemOp } from "../../utils/vaultRepo";
 
-// Add a piece of gear by hand, or correct one in place — both through ONE route
-// taking an op, the same shape /api/vault/folders takes and for the same reason.
+// Add a piece of gear by hand, correct one in place, or set a kit's parts — all
+// through ONE route taking an op, the same shape /api/vault/folders takes and for the
+// same reason.
 //
 // Separate from the folders route rather than a seventh verb on it, because these
 // two write the ITEM table and resolve their vault differently (below), and folding
@@ -28,7 +29,7 @@ export default defineEventHandler(async (event) => {
   const body = await readJsonBodyCapped<{ op?: unknown }>(event, 4_000);
   const op = body?.op as VaultItemOp | undefined;
   if (!op || typeof op !== "object") return { ok: false };
-  if (op.t !== "add" && op.t !== "edit") return { ok: false };
+  if (op.t !== "add" && op.t !== "edit" && op.t !== "kit") return { ok: false };
 
   // Checked before the mint, mirroring capture.post.ts: an empty add must never
   // bring a vault into existence, the way an open-but-empty editor doesn't.
@@ -38,7 +39,7 @@ export default defineEventHandler(async (event) => {
   // capture — so an account that has never opened an editor has no vault row, and
   // "type your first piece of gear" has to work anyway. That makes add the second
   // endpoint that can mint (see the note on the budgets in utils/rateLimit.ts). An
-  // edit needs a row to act on, so it takes the strict resolver.
+  // edit, or a kit's parts, needs a row to act on, so both take the strict resolver.
   const { db, vaultId } =
     op.t === "add" ? await resolveOrMintVault(event) : await requireVault(event);
 

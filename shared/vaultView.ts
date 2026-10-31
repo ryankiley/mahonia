@@ -11,7 +11,7 @@
 
 import { enoughToSearch, foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
-import type { VaultEntry, VaultFolder } from "./vault";
+import { countedWeightMg, type VaultEntry, type VaultFolder } from "./vault";
 import { rankVaultRows } from "./vaultSearch";
 import { itemDisplayName } from "./weights";
 
@@ -119,11 +119,25 @@ function byName(a: VaultEntry, b: VaultEntry): number {
   );
 }
 
-/** One folder's worth of the page, with the two figures its header states. */
+/**
+ * What a set of rows weighs, counting each piece once. A kit adds only its own
+ * weight: its parts are pieces, counted where THEY are filed — in this set or in
+ * another folder's. Shown on its row a kit still reads its full derived weight; it is
+ * only a total that must not count a part twice.
+ */
+export function vaultTotalMg(rows: readonly VaultEntry[]): number {
+  return rows.reduce((sum, e) => sum + countedWeightMg(e), 0);
+}
+
+/** One folder's worth of the page, with the figures its header states. */
 export interface VaultSection {
   folder: VaultFolder | null;
   entries: VaultEntry[];
+  /** the PIECES filed here; kits are counted apart, in `kits` */
   count: number;
+  /** the kits filed here */
+  kits: number;
+  /** the pieces here, plus each kit's own weight only (see vaultTotalMg) */
   weightMg: number;
 }
 
@@ -158,10 +172,11 @@ export function groupVaultRows(
   const section = (folder: VaultFolder | null, entries: VaultEntry[]): VaultSection => ({
     folder,
     entries,
-    count: entries.length,
+    count: entries.filter((e) => e.kind !== "kit").length,
+    kits: entries.filter((e) => e.kind === "kit").length,
     // summed here rather than in the template: a section is built once per change
     // and read once per render, so the folder header's figure costs nothing extra
-    weightMg: entries.reduce((sum, e) => sum + e.weightMg, 0),
+    weightMg: vaultTotalMg(entries),
   });
   return folders
     .map((f) => section(f, byFolder.get(f.id) ?? []))

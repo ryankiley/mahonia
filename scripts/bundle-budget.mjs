@@ -100,7 +100,13 @@ const FIRST_LOAD_BUDGET_KB = 155;
 // of its own, which is the first-load lever working as intended. No chunk grew.
 //
 // Re-set 2026-10-17 at 294.3 measured (was 294): the spring motion system. No chunk grew.
-const TOTAL_BUDGET_KB = 300;
+//
+// Re-set 2026-10-31 at 300.0 measured (was 300): kits in My Gear. All of it on lazy
+// chunks — the gear page's (the kit row and its parts, the dialog's Parts section)
+// and the pane's (a kit unfolding into a group, which moved out of the controller
+// with the category clone to get there) — which is the shape this backstop is not
+// meant to price. No chunk grew.
+const TOTAL_BUDGET_KB = 306;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

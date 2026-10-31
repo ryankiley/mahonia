@@ -11,6 +11,7 @@ import {
   groupVaultRows,
   searchVaultRows,
   sortVaultRows,
+  vaultTotalMg,
   type VaultSection,
   type VaultShow,
   type VaultView,
@@ -132,7 +133,41 @@ const grouped = computed<VaultSection[]>(() =>
 );
 const narrowed = computed(() => filtered.value.length !== items.value.length);
 
-const totalMg = computed(() => filtered.value.reduce((sum, i) => sum + i.weightMg, 0));
+// Each piece once: a kit adds only its own weight, its parts being pieces already
+// counted where they are filed (vaultTotalMg). Summing the rows' shown weights would
+// count a kit's parts twice.
+const totalMg = computed(() => vaultTotalMg(filtered.value));
+// The count line counts PIECES and names the kits apart — "12 items" over a page of
+// ten pieces and two kits would be a third way of counting a part twice.
+const kitsOf = (rows: VaultEntry[]) => rows.filter((i) => i.kind === "kit").length;
+const pieceTotal = computed(() => items.value.length - kitsOf(items.value));
+const pieceShown = computed(() => filtered.value.length - kitsOf(filtered.value));
+const kitShown = computed(() => kitsOf(filtered.value));
+
+// ---- kits ----------------------------------------------------------------
+// A kit opens to show its parts. Closed by default and remembered per kit on this
+// device — the folder collapse's mechanism with the sense flipped: the stored flag
+// means OPEN, so a kit nobody has touched stays one row. Keyed under its own prefix
+// because a kit id and a folder id are both integers.
+const kitOpenStore = usePersistedCollapse("gear.vkitopen.");
+const kitOpen = ref<Record<number, boolean>>({});
+watch(items, (list) => {
+  for (const i of list) if (i.kind === "kit") kitOpen.value[i.id] = kitOpenStore.isCollapsed(i.id);
+});
+function toggleKit(id: number) {
+  kitOpen.value[id] = kitOpenStore.toggle(id);
+}
+// id → shown name for every live kit, for a piece's "Part of …" line
+const kitNameById = computed(
+  () => new Map(items.value.filter((i) => i.kind === "kit").map((i) => [i.id, itemDisplayName(i.brand, i.name, i.variant)])),
+);
+const kitNames = (entry: VaultEntry) =>
+  (entry.inKits ?? []).map((id) => kitNameById.value.get(id)).filter((n): n is string => !!n);
+// A part is edited where it lives — its own row, in its own folder.
+function editPart(id: number) {
+  const part = items.value.find((i) => i.id === id);
+  if (part) openEdit(part);
+}
 // What the gear on screen cost. Follows `filtered` like the weight beside it — both
 // figures describe what you are looking at, so narrowing to Worn answers "what did
 // the clothes cost" without a second control.
@@ -415,11 +450,13 @@ function openEdit(entry: VaultEntry) {
 }
 // Patch the one row in place rather than re-reading the vault: the endpoint returns
 // the row as it now stands, and a full reload would re-sort the page under a dialog
-// that just closed (a rename can move a row under A–Z).
-function onItemSaved(item: VaultEntry) {
+// that just closed (a rename can move a row under A–Z). Changing a kit's parts is the
+// exception: it changes OTHER rows too (each part's "Part of …"), so the page re-reads.
+function onItemSaved(item: VaultEntry, kitChanged = false) {
   const at = items.value.findIndex((i) => i.id === item.id);
   if (at >= 0) items.value[at] = item;
   editing.value = null;
+  if (kitChanged) void loadVault();
 }
 
 // ---- units ---------------------------------------------------------------
@@ -684,9 +721,10 @@ async function exportGear(kind: string) {
                that puts gear back into them lives inside one. -->
           <template v-else-if="items.length || folders.length">
             <p class="t-sm t-muted vault__count">
-              <template v-if="narrowed">{{ filtered.length }} of {{ items.length }}</template>
-              <template v-else>{{ items.length }}</template>
-              {{ items.length === 1 ? "item" : "items" }} ·
+              <template v-if="narrowed">{{ pieceShown }} of {{ pieceTotal }}</template>
+              <template v-else>{{ pieceTotal }}</template>
+              {{ pieceTotal === 1 ? "item" : "items" }} ·
+              <template v-if="kitShown">{{ kitShown }} {{ kitShown === 1 ? "kit" : "kits" }} · </template>
               <!-- The total IS the unit control, the same object the editor's
                    TotalsBar puts up: figure and chevron, opening the app's own picker.
                    A separate g/oz toggle sat off in the search bar, away from the only
@@ -726,6 +764,10 @@ async function exportGear(kind: string) {
                 :unit="unit"
                 :folder-options="folderOptions"
                 :busy="removing === entry.id"
+                :open="!!kitOpen[entry.id]"
+                :kit-names="kitNames(entry)"
+                @toggle="toggleKit(entry.id)"
+                @edit-part="editPart"
                 @edit="openEdit(entry)"
                 @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                 @remove="remove(entry)"
@@ -784,9 +826,18 @@ async function exportGear(kind: string) {
                        subtotal because the totals bar owns numbers there; here the
                        folder IS the unit you're comparing, and a shelf you can't
                        weigh is half a shelf. -->
-                  <span v-if="section.count" class="t-sm t-num vault__foldersum">
-                    {{ section.count }}<span class="visually-hidden"> {{ section.count === 1 ? "item" : "items" }}</span>
-                    · {{ weightLabel(section.weightMg) }}
+                  <!-- pieces, then kits, then the weight. A folder holding only kits
+                       shows no weight unless they weigh something of their own: their
+                       parts are counted in the folders they are filed in. -->
+                  <span
+                    v-if="section.count || section.kits"
+                    class="t-sm t-num vault__foldersum"
+                    :title="section.kits ? 'A kit’s parts are counted in the folders they’re filed in.' : undefined"
+                  >
+                    <template v-if="section.count">{{ section.count }}<span class="visually-hidden"> {{ section.count === 1 ? "item" : "items" }}</span></template>
+                    <template v-if="section.count && section.kits"> · </template>
+                    <template v-if="section.kits">{{ section.kits }} {{ section.kits === 1 ? "kit" : "kits" }}</template>
+                    <template v-if="section.count || section.weightMg"> · {{ weightLabel(section.weightMg) }}</template>
                   </span>
 
                   <div v-if="section.folder" class="folder__actions">
@@ -826,7 +877,11 @@ async function exportGear(kind: string) {
                         :unit="unit"
                         :folder-options="folderOptions"
                         :busy="removing === entry.id"
+                        :open="!!kitOpen[entry.id]"
+                        :kit-names="kitNames(entry)"
                         :class="{ 'vault__row--dragging': draggingItem === entry.id }"
+                        @toggle="toggleKit(entry.id)"
+                        @edit-part="editPart"
                         @pointerdown="rowPress.start(entry.id, $event)"
                         @edit="openEdit(entry)"
                         @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
@@ -983,6 +1038,7 @@ async function exportGear(kind: string) {
       :entry="editing"
       :unit="unit"
       :default-currency="vaultCurrency"
+      :gear="items"
       @close="editing = null"
       @saved="onItemSaved"
     />

@@ -24,6 +24,7 @@ import { localKey, type LocalListRecord } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
+import { addVaultFolder } from "~/composables/useVaultUnfold";
 import {
   _setCaptureDebounce,
   resetVaultCapture,
@@ -856,7 +857,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
 // ---------------------------------------------------------------------------
 // Category templates — cloning a whole vault folder back into a list.
 //
-// Driven through the live controller rather than a extracted helper because the
+// Driven through the live controller (the helper composes it) because the
 // behaviour under test is a COMPOSITION: addVaultFolder mints a folder, then leans
 // on addVaultItem for every row, and the rules worth pinning (which rows are
 // skipped, where they land, what a no-op does) only exist once those two run
@@ -888,7 +889,7 @@ describe("useGearList — addVaultFolder", () => {
     await c.load({ token: TOKEN });
     const before = c.snapshot.value!.folders.length;
 
-    const id = c.addVaultFolder("Cook kit", [
+    const id = addVaultFolder(c, "Cook kit", [
       entry({ normKey: "pot", name: "Pot", weightMg: 120_000 }),
       entry({ normKey: "stove", name: "Stove", weightMg: 80_000 }),
     ]);
@@ -913,7 +914,7 @@ describe("useGearList — addVaultFolder", () => {
     // the fixture list carries a Duplex; adding a category containing it must not
     // split one thing's weight across two rows
     const held = c.snapshot.value!.items[0]!;
-    const id = c.addVaultFolder("Shelter", [
+    const id = addVaultFolder(c, "Shelter", [
       entry({ normKey: vaultNormKey(held.brand, held.name, held.variant), name: held.name }),
       entry({ normKey: "stakes", name: "Stakes" }),
     ]);
@@ -928,7 +929,7 @@ describe("useGearList — addVaultFolder", () => {
     const held = c.snapshot.value!.items[0]!;
     const folders = c.snapshot.value!.folders.length;
 
-    const id = c.addVaultFolder("Shelter", [
+    const id = addVaultFolder(c, "Shelter", [
       entry({ normKey: vaultNormKey(held.brand, held.name, held.variant), name: held.name }),
     ]);
 
@@ -941,7 +942,7 @@ describe("useGearList — addVaultFolder", () => {
     const c = useGearList();
     await c.load({ token: TOKEN });
     const folders = c.snapshot.value!.folders.length;
-    expect(c.addVaultFolder("Empty", [])).toBe("");
+    expect(addVaultFolder(c, "Empty", [])).toBe("");
     expect(c.snapshot.value!.folders).toHaveLength(folders);
   });
 });

@@ -42,6 +42,8 @@ const vaultDeclined = ref<Set<string>>(new Set());
 const hasVault = ref(true);
 const vaultKnown = ref(true);
 const vaultGear = ref<ReadonlyMap<string, number | null>>(new Map());
+/** ...and which of them My Gear holds as a KIT — what a group row's button reads. */
+const vaultKits = ref<ReadonlySet<string>>(new Set());
 /** Which keys the open list has an ANSWER for — the row's only wait. */
 const vaultGearAsked = ref<ReadonlySet<string>>(new Set());
 const vaultGearSettled = ref(true);
@@ -60,6 +62,7 @@ mockNuxtImport("useGearList", () => () => gearListStub({
   vaultDeclined,
   // the open list's own answer about its own gear — no shared cache to mock
   vaultGear,
+  vaultKits,
   vaultGearAsked,
   vaultGearSettled,
 }));
@@ -527,6 +530,66 @@ describe("the save button on a list the automatic capture already covers", () =>
     const btn = vaultBtn(w).element;
     const nest = w.find(".item__nest-btn").element;
     expect(btn.compareDocumentPosition(nest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    w.unmount();
+  });
+});
+
+// A GROUP row is the one container that offers the button: pressed, it goes to My
+// Gear as a KIT with its children as the parts. Its covered test is its own — My Gear
+// holding the SET, not a piece of the same name — because a piece of that name is
+// exactly what the press turns into the set.
+describe("a group row offers to save itself as a kit", () => {
+  const parent = (over: Partial<Item> = {}): Item => gear({ id: "g", name: "Cook kit", brand: undefined, unitWeightMg: 0, ...over });
+  const kids = [
+    gear({ id: "c1", name: "PocketRocket 2", brand: "MSR", parentId: "g", unitWeightMg: 73_000 }),
+    gear({ id: "c2", name: "Mini Bic", brand: undefined, parentId: "g", unitWeightMg: 11_000 }),
+  ];
+  const mountGroup = (item: Item, children = kids) =>
+    mount(ItemRow, {
+      props: { list: { ...list, items: [item, ...children] } as ListSnapshot, item },
+      global: { provide: rowProvides(new Map([[item.id, children]])) },
+      attachTo: document.body,
+    });
+
+  beforeEach(() => {
+    vaultAuto.value = true; // the automatic path never makes a kit, so this must not cover a group
+    vaultDeclined.value = new Set();
+    hasVault.value = true;
+    vaultKnown.value = true;
+    vaultGear.value = new Map();
+    vaultKits.value = new Set();
+    vaultGearAsked.value = asked(keyFor(parent()));
+    vaultGearSettled.value = true;
+    saveItemToVault.mockClear();
+  });
+
+  it("offers it, in the kit's words, while My Gear holds no kit of that name", async () => {
+    const w = mountGroup(parent());
+    expect(vaultBtn(w).exists()).toBe(true);
+    expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear as a kit");
+    await vaultBtn(w).trigger("click");
+    expect(saveItemToVault).toHaveBeenCalledWith("g");
+    w.unmount();
+  });
+
+  it("is not covered by a PIECE of the same name — that piece is what the press turns into the set", () => {
+    vaultGear.value = new Map([[keyFor(parent()), 218_000]]);
+    const w = mountGroup(parent());
+    expect(vaultBtn(w).exists()).toBe(true);
+    w.unmount();
+  });
+
+  it("stands down once My Gear holds it as a kit", () => {
+    vaultGear.value = new Map([[keyFor(parent()), null]]);
+    vaultKits.value = new Set([keyFor(parent())]);
+    const w = mountGroup(parent());
+    expect(vaultBtn(w).exists()).toBe(false);
+    w.unmount();
+  });
+
+  it("has nothing to offer for a group whose rows aren't gear yet", () => {
+    const w = mountGroup(parent(), [gear({ id: "c1", name: "", parentId: "g", unitWeightMg: 0 })]);
+    expect(vaultBtn(w).exists()).toBe(false);
     w.unmount();
   });
 });
