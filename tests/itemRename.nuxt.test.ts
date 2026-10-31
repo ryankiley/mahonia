@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // Renaming a row THROUGH the autocomplete — the "this is actually a different piece
 // of gear" edit. Drives the real <ItemRow>: the commit goes through the row's own
 // onNameCommit, the patch is applied by the real reducer, and the assertions read the
@@ -18,19 +16,15 @@
 // vault hit. The vault legs are where the bug lived — a vault pick can't stamp a
 // catalog baseline, so before the reducer's guard the PREVIOUS product's spec weight
 // stayed behind and the row offered to "fix" the new item's catalog entry with it.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
-import { flushPromises, mount } from "@vue/test-utils";
-import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
-import { rowProvides } from "./helpers/itemRow";
+import { enableAutoUnmount, flushPromises } from "@vue/test-utils";
+import { mountRowOver } from "./helpers/itemRow";
 import ItemInput from "~/components/ItemInput.vue";
-import type { Item, ListSnapshot, Person } from "~~/shared/types";
+import type { Item, ListSnapshot } from "~~/shared/types";
 import { blankList } from "./helpers/list";
-import { gearListStub } from "./helpers/gearList";
+import { gearListStub, vaultWithHits } from "./helpers/gearList";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-
-// what GearEditor provides to every row — the children map, and the people in
-// display order with their slots (this list names nobody)
 
 // What the two halves of the autocomplete menu answer with, per case.
 const catalogHits: Record<string, unknown>[] = [];
@@ -38,11 +32,9 @@ const vaultHits: Record<string, unknown>[] = [];
 registerEndpoint("/api/catalog/search", () => ({ results: catalogHits }));
 registerEndpoint("/api/catalog/use", { method: "POST", handler: () => ({ ok: true }) });
 
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(true),
-  vaultKnown: ref(true),
-  vaultFetch: () => Promise.resolve({ results: vaultHits }),
-}));
+mockNuxtImport("useVaultAccess", () => () => vaultWithHits(vaultHits));
+
+enableAutoUnmount(afterEach);
 
 // The list under test, as the editor holds it — a reactive snapshot the stub
 // controller mutates through the REAL reducer, so what the row re-renders from is
@@ -82,24 +74,12 @@ const vaultPicked: Item = {
   sortOrder: 0,
 };
 
-function mountRow(item: Item) {
-  snapshot.value = { ...blankList(), items: [{ ...item }] } as ListSnapshot;
-  return mount(ItemRow, {
-    props: {
-      // read off the reactive snapshot so a commit re-renders the row
-      get list() {
-        return snapshot.value;
-      },
-      get item() {
-        return snapshot.value.items[0]!;
-      },
-    },
-    global: { provide: rowProvides() },
-    attachTo: document.body,
-  });
-}
+const mountRow = (item: Item) => mountRowOver(snapshot, [{ ...item }]);
 
 const row = () => snapshot.value.items[0]!;
+/** What the row's weight FIELD reads — the rendered half of a rename. */
+const weightField = (w: ReturnType<typeof mountRow>) =>
+  (w.find('input[aria-label="Weight"]').element as HTMLInputElement).value;
 
 async function rename(wrapper: ReturnType<typeof mountRow>, commit: NameCommit) {
   wrapper.findComponent(ItemInput).vm.$emit("commit", commit);
@@ -131,14 +111,15 @@ describe("renaming a row to a different piece of gear", () => {
     snapshot.value = blankList();
   });
 
-  it("catalog row → another catalog row: takes the new weight", async () => {
+  it("catalog row → another catalog row: takes the new weight, in the model and the field", async () => {
     const w = mountRow(catalogPicked);
+    expect(weightField(w)).toBe("688");
     await rename(w, fromCatalog());
     expect(row().unitWeightMg).toBe(541_000);
     expect(row().catalogItemId).toBe(76);
     expect(row().catalogWeightMgAtLink).toBe(541_000);
     expect(w.find(".item__fixrow").exists()).toBe(false);
-    w.unmount();
+    expect(weightField(w)).toBe("541");
   });
 
   it("catalog row → a vault row: takes your weight, no stale catalog baseline", async () => {
@@ -149,7 +130,7 @@ describe("renaming a row to a different piece of gear", () => {
     // the OLD product's catalog weight must not survive the re-link
     expect(row().catalogWeightMgAtLink).toBeUndefined();
     expect(w.find(".item__fixrow").exists()).toBe(false);
-    w.unmount();
+    expect(weightField(w)).toBe("545");
   });
 
   it("vault row → a catalog row: takes the catalog weight", async () => {
@@ -158,7 +139,6 @@ describe("renaming a row to a different piece of gear", () => {
     expect(row().unitWeightMg).toBe(541_000);
     expect(row().catalogWeightMgAtLink).toBe(541_000);
     expect(w.find(".item__fixrow").exists()).toBe(false);
-    w.unmount();
   });
 
   it("vault row → another vault row: takes the new weight", async () => {
@@ -168,22 +148,6 @@ describe("renaming a row to a different piece of gear", () => {
     expect(row().catalogItemId).toBe(201);
     expect(row().catalogWeightMgAtLink).toBeUndefined();
     expect(w.find(".item__fixrow").exists()).toBe(false);
-    w.unmount();
-  });
-
-  it("the weight FIELD shows the new weight", async () => {
-    const w = mountRow(catalogPicked);
-    expect((w.find('input[aria-label="Weight"]').element as HTMLInputElement).value).toBe("688");
-    await rename(w, fromCatalog());
-    expect((w.find('input[aria-label="Weight"]').element as HTMLInputElement).value).toBe("541");
-    w.unmount();
-  });
-
-  it("the weight FIELD shows the new weight after a vault rename", async () => {
-    const w = mountRow(catalogPicked);
-    await rename(w, fromVault());
-    expect((w.find('input[aria-label="Weight"]').element as HTMLInputElement).value).toBe("545");
-    w.unmount();
   });
 
   it("a vault pick brings back the calories the vault remembers", async () => {
@@ -191,14 +155,12 @@ describe("renaming a row to a different piece of gear", () => {
     await rename(w, fromVault({ name: "Trail Mix", classification: "consumable", kcal: 640 }));
     expect(row().classification).toBe("consumable");
     expect(row().kcal).toBe(640);
-    w.unmount();
   });
 
   it("a vault pick with no calories leaves the row's own alone", async () => {
     const w = mountRow({ ...catalogPicked, classification: "consumable", kcal: 250 });
     await rename(w, fromVault({ name: "Trail Mix", classification: "consumable" }));
     expect(row().kcal).toBe(250);
-    w.unmount();
   });
 });
 
@@ -211,7 +173,9 @@ describe("renaming through the live autocomplete", () => {
     snapshot.value = blankList();
     catalogHits.length = 0;
     vaultHits.length = 0;
+    vi.useFakeTimers(); // the search debounce is advanced by hand
   });
+  afterEach(() => vi.useRealTimers());
 
   async function typeAndPick(w: ReturnType<typeof mountRow>, text: string) {
     const field = w.find<HTMLInputElement>('input[role="combobox"]');
@@ -263,42 +227,33 @@ describe("renaming through the live autocomplete", () => {
     { from: "a vault row", to: "a vault pick", start: vaultPicked, hit: vaultHit, vault: true, mg: 545_000, shown: "545", link: 200 },
   ] as const;
 
-  for (const c of cases) {
-    it(`${c.from} → ${c.to}: the row takes the new weight, with no nudge from the old product`, async () => {
-      vi.useFakeTimers();
-      const w = mountRow(c.start);
-      (c.vault ? vaultHits : catalogHits).push({ ...c.hit });
-      await typeAndPick(w, c.hit.name.slice(0, 6));
+  it.each(cases)("$from → $to: the row takes the new weight, with no nudge from the old product", async (c) => {
+    const w = mountRow(c.start);
+    (c.vault ? vaultHits : catalogHits).push({ ...c.hit });
+    await typeAndPick(w, c.hit.name.slice(0, 6));
 
-      expect(row().unitWeightMg).toBe(c.mg);
-      expect(row().catalogItemId).toBe(c.link);
-      // and it survives the free-text commit that fires when focus leaves the field
-      await leaveField(w);
-      expect(row().unitWeightMg).toBe(c.mg);
-      expect(row().catalogItemId).toBe(c.link);
+    expect(row().unitWeightMg).toBe(c.mg);
+    expect(row().catalogItemId).toBe(c.link);
+    // and it survives the free-text commit that fires when focus leaves the field
+    await leaveField(w);
+    expect(row().unitWeightMg).toBe(c.mg);
+    expect(row().catalogItemId).toBe(c.link);
 
-      expect((w.find('input[aria-label="Weight"]').element as HTMLInputElement).value).toBe(c.shown);
-      // the "suggest a fix" nudge is only honest when the baseline belongs to the
-      // product now linked — a re-link that can't stamp one must not inherit the old
-      expect(w.find(".item__fixrow").exists()).toBe(false);
-      const baseline = row().catalogWeightMgAtLink;
-      expect(baseline === undefined || baseline === c.mg).toBe(true);
-
-      vi.useRealTimers();
-      w.unmount();
-    });
-  }
+    expect(weightField(w)).toBe(c.shown);
+    // the "suggest a fix" nudge is only honest when the baseline belongs to the
+    // product now linked — a re-link that can't stamp one must not inherit the old
+    expect(w.find(".item__fixrow").exists()).toBe(false);
+    const baseline = row().catalogWeightMgAtLink;
+    expect(baseline === undefined || baseline === c.mg).toBe(true);
+  });
 
   it("a row already nudging stops once it's renamed to a different product", async () => {
-    vi.useFakeTimers();
     // the catalog says 688 g, the user weighed 700 g — the nudge is showing
     const w = mountRow({ ...catalogPicked, unitWeightMg: 700_000, weightOverridden: true });
     expect(w.find(".item__fixrow").exists()).toBe(true);
     vaultHits.push({ ...vaultHit });
     await typeAndPick(w, "Duplex");
     expect(w.find(".item__fixrow").exists()).toBe(false);
-    vi.useRealTimers();
-    w.unmount();
   });
 
   // The classification leg. The catalog's consumable category is the one that maps
@@ -307,7 +262,6 @@ describe("renaming through the live autocomplete", () => {
   // and silence must also mean "leave what's set", or re-picking a worn row would
   // quietly flip it back to base.
   it("a consumable-category pick arrives classified consumable", async () => {
-    vi.useFakeTimers();
     const w = mountRow(catalogPicked);
     catalogHits.push({
       id: 300, brand: "Clif", name: "Energy Bar", variant: "single bar",
@@ -316,12 +270,9 @@ describe("renaming through the live autocomplete", () => {
     await typeAndPick(w, "Energy");
     expect(row().classification).toBe("consumable");
     expect(row().catalogItemId).toBe(300);
-    vi.useRealTimers();
-    w.unmount();
   });
 
   it("a food pick pre-fills the row's kcal from the catalog", async () => {
-    vi.useFakeTimers();
     const w = mountRow(catalogPicked);
     catalogHits.push({
       id: 301, brand: "Clif", name: "Energy Bar", variant: "single bar",
@@ -330,12 +281,9 @@ describe("renaming through the live autocomplete", () => {
     await typeAndPick(w, "Energy");
     expect(row().classification).toBe("consumable");
     expect(row().kcal).toBe(250);
-    vi.useRealTimers();
-    w.unmount();
   });
 
   it("a pick without kcal leaves the row's own kcal alone", async () => {
-    vi.useFakeTimers();
     // a consumable row whose calories the user entered, renamed to a food row the
     // catalog has no figure for — absent must mean "keep yours", like the vault path
     const w = mountRow({ ...catalogPicked, classification: "consumable", kcal: 640 });
@@ -345,23 +293,17 @@ describe("renaming through the live autocomplete", () => {
     });
     await typeAndPick(w, "Rice");
     expect(row().kcal).toBe(640);
-    vi.useRealTimers();
-    w.unmount();
   });
 
   it("a non-consumable pick leaves the classification exactly as it was", async () => {
-    vi.useFakeTimers();
     // an explicitly WORN row renamed to a shelter-category product must stay worn
     const w = mountRow({ ...catalogPicked, classification: "worn" });
     catalogHits.push({ ...catalogHit, categoryHint: "shelter" });
     await typeAndPick(w, "UltaMid");
     expect(row().classification).toBe("worn");
-    vi.useRealTimers();
-    w.unmount();
   });
 
   it("a free-typed 'water' lands consumable via the blur commit", async () => {
-    vi.useFakeTimers();
     // type "water" and click away WITHOUT picking the water suggestion — the
     // commitFree path, which used to leave the litres row on the folder default
     const w = mountRow(catalogPicked);
@@ -374,7 +316,5 @@ describe("renaming through the live autocomplete", () => {
     await leaveField(w);
     expect(row().name).toBe("water");
     expect(row().classification).toBe("consumable");
-    vi.useRealTimers();
-    w.unmount();
   });
 });

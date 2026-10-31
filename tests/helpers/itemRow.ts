@@ -1,20 +1,26 @@
-// The injected context every <ItemRow> suite has to provide before the component will
-// mount, and which six of them each carried a copy of.
+// What every <ItemRow> suite needs before the component will mount: the injected
+// context GearEditor provides to every row, and the mount itself over a reactive
+// snapshot.
 //
-// `gearListStub` (helpers/gearList) already did this for the controller; this is the
-// other half. ItemRow reads both keys through `inject(...)!` with a non-null assertion,
-// because in the app they always come from GearEditor — so a suite that forgets one gets
-// a runtime throw rather than a type error, which is exactly the shape of thing worth
-// having in one place.
+// `gearListStub` (helpers/gearList) already did this for the controller; `rowProvides`
+// is the other half. ItemRow reads its keys through `inject(...)!` with a non-null
+// assertion, because in the app they always come from GearEditor — so a suite that
+// forgets one gets a runtime throw rather than a type error, which is exactly the
+// shape of thing worth having in one place.
 //
-// NOT the mount itself. The suites' `mountRow`s look alike but are not: some drive a
-// reactive snapshot so a commit re-renders the row, one hands over a static list, and
-// only two pass children. Folding those into one signature would mean a parameter per
-// difference and a helper nobody could read. The costly duplication is this object,
-// whose keys are symbols exported from the component under test.
+// `mountRowOver` is the mount. An earlier version of this header argued AGAINST
+// folding the suites' `mountRow`s together — they looked alike but differed in what
+// they passed. They have since converged: twelve files held the same fourteen lines
+// (set the snapshot, mount with getter props that read it back, provide, attach to
+// body), differing only in the items, the provides and the odd list field — three
+// arguments. The one that still differs in kind, itemPaste's mount over the LIVE
+// controller's snapshot, keeps its own.
 import { isRef, ref, type Ref } from "vue";
-import { CHILDREN_BY_PARENT, PEOPLE_CTX, VARIANT_SHOWN } from "../../app/components/ItemRow.vue";
-import type { Item, Person } from "../../shared/types";
+import { mount } from "@vue/test-utils";
+import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX, VARIANT_SHOWN } from "../../app/components/ItemRow.vue";
+import { useEditorMode } from "../../app/composables/useEditorMode";
+import type { Item, ListSnapshot, Person } from "../../shared/types";
+import { blankList } from "./list";
 
 /** What ItemRow injects for the people table: the sorted list, and each id's colour slot. */
 export type PeopleCtx = { sorted: unknown; slotById: unknown };
@@ -48,3 +54,43 @@ export const rowProvides = (
   [PEOPLE_CTX as symbol]: people,
   [VARIANT_SHOWN as symbol]: isRef(variantShown) ? variantShown : ref(variantShown),
 });
+
+/**
+ * Mount the row at `items[0]` over the suite's reactive snapshot. The snapshot is
+ * REPLACED with a blank list holding `items` (plus whatever `over` adds — a people
+ * table, a pounds display unit), and both props are getters into it, so a commit the
+ * stub controller runs through the reducer re-renders the row the way the live editor
+ * would. Attached to document.body, because focus and popovers need a document.
+ *
+ * `items` is taken as given: a suite that must not let the reducer touch its fixture
+ * passes a copy (`[{ ...row }]`), exactly as it did when it held this mount itself.
+ */
+export function mountRowOver(
+  snapshot: Ref<ListSnapshot>,
+  items: Item[],
+  provides: ReturnType<typeof rowProvides> = rowProvides(),
+  over: Partial<ListSnapshot> = {},
+) {
+  snapshot.value = blankList({ ...over, items });
+  return mount(ItemRow, {
+    props: {
+      get list() {
+        return snapshot.value;
+      },
+      get item() {
+        return snapshot.value.items[0]!;
+      },
+    },
+    global: { provide: provides },
+    attachTo: document.body,
+  });
+}
+
+/** Enter packing mode and latch the checklist face in: ItemRow mounts that face only
+ *  once packing has ever been entered (useEditorMode), and the mode itself is set so
+ *  the row's handlers see packing too. */
+export function showChecklistFace(): void {
+  const em = useEditorMode();
+  em.mode.value = "pack";
+  em.everPacked.value = true;
+}

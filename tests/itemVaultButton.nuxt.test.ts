@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The row's "Save to My Gear" button, which renders only while pressing it could
 // do the thing it names. Three states hide it: a row that isn't yet gear (unnamed
 // / unweighed — nothing to save), a row My Gear ALREADY HOLDS, and a row the
@@ -20,18 +18,16 @@
 // mirror (vaultAuto / vaultDeclined), the session (hasVault), and the row's own
 // worthiness — gearList.nuxt.test.ts proves the mirror tracks the stored answer;
 // this file proves the row obeys both.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
-import { mount } from "@vue/test-utils";
-import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
+import ItemRow from "~/components/ItemRow.vue";
 import { rowProvides } from "./helpers/itemRow";
-import type { Item, ListSnapshot, Person } from "~~/shared/types";
+import type { Item } from "~~/shared/types";
 import { vaultNormKey } from "~~/shared/vault";
 import type { CaptureOneResult } from "~/composables/useVault";
 import { gearListStub } from "./helpers/gearList";
-
-// what GearEditor provides to every row — the children map, and the people in
-// display order with their slots (this list names nobody)
+import { blankList, gear } from "./helpers/list";
 
 // The dials the covered state reads, reset per test. `vaultKnown` is the session
 // having ANSWERED — false only in the moment before /api/auth/me lands;
@@ -64,26 +60,9 @@ mockNuxtImport("useGearList", () => () => gearListStub({
   vaultGearSettled,
 }));
 
-const list = {
-  id: "l1",
-  name: "Test",
-  displayUnit: "g",
-  folders: [{ id: "f1", name: "Shelter", sortOrder: 0 }],
-  items: [],
-} as unknown as ListSnapshot;
+const list = blankList();
 
-// a row capture would take: named, weighed, no children
-const gear = (over: Partial<Item> = {}): Item => ({
-  id: "i1",
-  folderId: "f1",
-  name: "Duplex",
-  brand: "Zpacks",
-  unitWeightMg: 539_000,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
+enableAutoUnmount(afterEach);
 
 function mountRow(item: Item) {
   return mount(ItemRow, {
@@ -94,6 +73,12 @@ function mountRow(item: Item) {
 }
 
 const vaultBtn = (w: ReturnType<typeof mountRow>) => w.find(".item__vault-btn");
+/** Open the row's ⋯ menu — the phone's home for the inline cluster — and say whether
+ *  any entry there offers My Gear. */
+async function menuOffersVault(w: ReturnType<typeof mountRow>) {
+  await w.find(".item__morebtn").trigger("click");
+  return w.findAll(".item__morelist .menu__item").some((b) => b.text().includes("My Gear"));
+}
 
 const keyFor = (item: Item) => vaultNormKey(item.brand, item.name, item.variant);
 /** The vault holding this row's gear, at the weight the row currently carries —
@@ -103,19 +88,20 @@ const banked = (item: Item, weightMg: number | null = item.unitWeightMg) =>
 /** Mark these keys answered-for, which is what the list's ask does. */
 const asked = (...keys: string[]) => new Set(keys);
 
+beforeEach(() => {
+  vaultAuto.value = false;
+  vaultDeclined.value = new Set();
+  hasVault.value = true;
+  vaultKnown.value = true;
+  vaultGear.value = new Map();
+  // every case's row is the `gear()` fixture, so its key is answered for unless
+  // a case says otherwise
+  vaultGearAsked.value = asked(keyFor(gear()));
+  vaultGearSettled.value = true;
+  saveItemToVault.mockClear();
+});
+
 describe("the save button, against what My Gear actually holds", () => {
-  beforeEach(() => {
-    vaultAuto.value = false;
-    vaultDeclined.value = new Set();
-    hasVault.value = true;
-    vaultKnown.value = true;
-    vaultGear.value = new Map();
-    // every case's row is the `gear()` fixture, so its key is answered for unless
-    // a case says otherwise
-    vaultGearAsked.value = asked(keyFor(gear()));
-    vaultGearSettled.value = true;
-    saveItemToVault.mockClear();
-  });
 
   it("stands down for gear the vault already holds, whatever this list's answer is", async () => {
     // THE BUG. Every route to it is the same shape: the gear is banked, and this
@@ -128,10 +114,7 @@ describe("the save button, against what My Gear actually holds", () => {
     const w = mountRow(item);
     expect(vaultBtn(w).exists()).toBe(false);
     // and the ⋯ menu agrees, on a phone where the inline cluster collapses
-    await w.find(".item__morebtn").trigger("click");
-    const labels = w.findAll(".item__morelist .menu__item").map((b) => b.text());
-    expect(labels.some((l) => l.includes("My Gear"))).toBe(false);
-    w.unmount();
+    expect(await menuOffersVault(w)).toBe(false);
   });
 
   it("still offers gear the vault does NOT hold, on that same uncovered list", () => {
@@ -141,7 +124,6 @@ describe("the save button, against what My Gear actually holds", () => {
     const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(true);
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
-    w.unmount();
   });
 
   it("outranks a chooser exclusion — declining a row is not the same as not owning it", () => {
@@ -154,7 +136,6 @@ describe("the save button, against what My Gear actually holds", () => {
     vaultGear.value = banked(item);
     const w = mountRow(item);
     expect(vaultBtn(w).exists()).toBe(false);
-    w.unmount();
   });
 
   it("waits for the vault's answer before offering to save anything", async () => {
@@ -171,7 +152,6 @@ describe("the save button, against what My Gear actually holds", () => {
     vaultGearAsked.value = asked(keyFor(item));
     await nextTick();
     expect(vaultBtn(w).exists()).toBe(false); // banked all along; no flash
-    w.unmount();
   });
 
   it("falls back to the list's answer when the vault can't be read at all", async () => {
@@ -183,7 +163,6 @@ describe("the save button, against what My Gear actually holds", () => {
     vaultAuto.value = true;
     await nextTick();
     expect(vaultBtn(w).exists()).toBe(false); // covered list → not
-    w.unmount();
   });
 
   it("ignores a stale key set once the session says there is no vault", () => {
@@ -194,7 +173,6 @@ describe("the save button, against what My Gear actually holds", () => {
     hasVault.value = false;
     const w = mountRow(item);
     expect(vaultBtn(w).exists()).toBe(true);
-    w.unmount();
   });
 
   it("offers again once the row carries a weight the vault would take", async () => {
@@ -208,7 +186,6 @@ describe("the save button, against what My Gear actually holds", () => {
     const w = mountRow(item);
     expect(vaultBtn(w).exists()).toBe(true);
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
-    w.unmount();
   });
 
   it("stays down when the vault's weight is pinned — capture may not argue with it", async () => {
@@ -219,7 +196,6 @@ describe("the save button, against what My Gear actually holds", () => {
     vaultGear.value = banked(item, null);
     const w = mountRow(item);
     expect(vaultBtn(w).exists()).toBe(false);
-    w.unmount();
   });
 
   it("stays down for a weightless row the vault already holds", async () => {
@@ -229,7 +205,6 @@ describe("the save button, against what My Gear actually holds", () => {
     vaultGear.value = banked(item, 539_000);
     const w = mountRow(item);
     expect(vaultBtn(w).exists()).toBe(false);
-    w.unmount();
   });
 
   it("plays no reveal on the first paint, and plays one when the button later returns", async () => {
@@ -260,7 +235,6 @@ describe("the save button, against what My Gear actually holds", () => {
     vaultGearSettled.value = false;
     await nextTick();
     expect(reveal(w).props("css")).toBe(false);
-    w.unmount();
   });
 
   it("says where the way back is when the vault refuses gear you removed", async () => {
@@ -278,7 +252,6 @@ describe("the save button, against what My Gear actually holds", () => {
     );
     // and it does NOT claim the tick
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
-    w.unmount();
   });
 
   it("does not send someone to their removed gear when the vault is simply full", async () => {
@@ -287,7 +260,6 @@ describe("the save button, against what My Gear actually holds", () => {
     await vaultBtn(w).trigger("click");
     await vi.waitFor(() => expect(w.emitted("toast")).toBeTruthy());
     expect(w.emitted("toast")![0]![0]).toBe("My Gear is full. Remove something there to make room");
-    w.unmount();
   });
 
   it("keeps its tick after a press, though banking the row is what covers it", async () => {
@@ -300,7 +272,6 @@ describe("the save button, against what My Gear actually holds", () => {
     await vaultBtn(w).trigger("click");
     vaultGear.value = banked(item); // what noteVaultKeys does
     await vi.waitFor(() => expect(vaultBtn(w).attributes("aria-label")).toBe("Saved to My Gear"));
-    w.unmount();
   });
 
   it("takes the button back when the ticked row is renamed into different gear", async () => {
@@ -324,34 +295,17 @@ describe("the save button, against what My Gear actually holds", () => {
     vaultGearAsked.value = asked(keyFor(item), keyFor(renamed));
     await nextTick();
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
-    w.unmount();
   });
 });
 
 describe("the save button on a list the automatic capture already covers", () => {
-  beforeEach(() => {
-    vaultAuto.value = false;
-    vaultDeclined.value = new Set();
-    hasVault.value = true;
-    vaultKnown.value = true;
-    vaultGear.value = new Map();
-    // every case's row is the `gear()` fixture, so its key is answered for unless
-    // a case says otherwise
-    vaultGearAsked.value = asked(keyFor(gear()));
-    vaultGearSettled.value = true;
-    saveItemToVault.mockClear();
-  });
-
   it("vanishes — no inline icon, no ⋯-menu entry — once the automatic path has the row", async () => {
     vaultAuto.value = true;
     const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(false);
     // the ⋯ menu follows the same disclosure rule (it used to keep a disabled
     // "Already in My Gear" line)
-    await w.find(".item__morebtn").trigger("click");
-    const labels = w.findAll(".item__morelist .menu__item").map((b) => b.text());
-    expect(labels.some((l) => l.includes("My Gear"))).toBe(false);
-    w.unmount();
+    expect(await menuOffersVault(w)).toBe(false);
   });
 
   it("stays a live action for a row the chooser declined", async () => {
@@ -365,7 +319,6 @@ describe("the save button on a list the automatic capture already covers", () =>
     // pressing it is the one way a declined row gets banked
     await btn.trigger("click");
     expect(saveItemToVault).toHaveBeenCalledOnce();
-    w.unmount();
   });
 
   it("stays a live action for a row My Gear holds at a different weight", async () => {
@@ -383,7 +336,6 @@ describe("the save button on a list the automatic capture already covers", () =>
     expect(btn.attributes("aria-label")).toBe("Save to My Gear");
     await btn.trigger("click");
     expect(saveItemToVault).toHaveBeenCalledOnce();
-    w.unmount();
   });
 
   it("still vanishes when My Gear holds the gear with no weight — that one the automatic path fills", () => {
@@ -394,7 +346,6 @@ describe("the save button on a list the automatic capture already covers", () =>
     vaultGear.value = banked(item, 0);
     const w = mountRow(item);
     expect(vaultBtn(w).exists()).toBe(false);
-    w.unmount();
   });
 
   it("waits for the row to become gear — a new item carries no icon, finishing it brings one", async () => {
@@ -404,16 +355,13 @@ describe("the save button on a list the automatic capture already covers", () =>
     // finish the row it sat on.
     const w = mountRow(gear({ unitWeightMg: 0 }));
     expect(vaultBtn(w).exists()).toBe(false);
-    await w.find(".item__morebtn").trigger("click");
-    const labels = w.findAll(".item__morelist .menu__item").map((b) => b.text());
-    expect(labels.some((l) => l.includes("My Gear"))).toBe(false);
+    expect(await menuOffersVault(w)).toBe(false);
 
     // the weight lands → the row is gear → the button arrives (this is the beat
     // the reveal animation plays on)
     await w.setProps({ item: gear({ unitWeightMg: 539_000 }) });
     expect(vaultBtn(w).exists()).toBe(true);
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
-    w.unmount();
   });
 
   it("does not render at all on a water row — inline or in the ⋯ menu", async () => {
@@ -424,10 +372,7 @@ describe("the save button on a list the automatic capture already covers", () =>
     vaultAuto.value = true; // covered or not, there is nothing to render
     const w = mountRow(gear({ name: "Water", brand: undefined, classification: "consumable" }));
     expect(vaultBtn(w).exists()).toBe(false);
-    await w.find(".item__morebtn").trigger("click");
-    const labels = w.findAll(".item__morelist .menu__item").map((b) => b.text());
-    expect(labels.some((l) => l.includes("My Gear"))).toBe(false);
-    w.unmount();
+    expect(await menuOffersVault(w)).toBe(false);
   });
 
   it("offers itself signed out the INSTANT a row becomes gear, without waiting on an ask", () => {
@@ -440,7 +385,6 @@ describe("the save button on a list the automatic capture already covers", () =>
     vaultGearAsked.value = new Set(); // nothing answered for: a row just typed in
     const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(true);
-    w.unmount();
   });
 
   it("still offers itself signed out — there is no vault for the gear to already be in", () => {
@@ -448,7 +392,6 @@ describe("the save button on a list the automatic capture already covers", () =>
     hasVault.value = false;
     const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(true);
-    w.unmount();
   });
 
   it("waits for the session before calling a covered row uncovered", async () => {
@@ -475,7 +418,6 @@ describe("the save button on a list the automatic capture already covers", () =>
     vaultGearAsked.value = asked(keyFor(gear()));
     await nextTick();
     expect(vaultBtn(w).exists()).toBe(true);
-    w.unmount();
   });
 
   it("does not read the session directly — the vault's own answer is the whole gate", async () => {
@@ -490,7 +432,6 @@ describe("the save button on a list the automatic capture already covers", () =>
     vaultGearAsked.value = asked(keyFor(gear())); // the ask settled; nothing banked
     const w = mountRow(gear());
     expect(vaultBtn(w).exists()).toBe(true);
-    w.unmount();
   });
 
   it("costs a signed-in visitor no flash — the answer lands and the row stays bare", async () => {
@@ -506,7 +447,6 @@ describe("the save button on a list the automatic capture already covers", () =>
     vaultGearAsked.value = asked(keyFor(gear()));
     await nextTick();
     expect(vaultBtn(w).exists()).toBe(false);
-    w.unmount();
   });
 
   it("still banks a row by hand on an uncovered list, and says so", async () => {
@@ -516,7 +456,6 @@ describe("the save button on a list the automatic capture already covers", () =>
     await btn.trigger("click");
     expect(saveItemToVault).toHaveBeenCalledOnce();
     await vi.waitFor(() => expect(vaultBtn(w).attributes("aria-label")).toBe("Saved to My Gear"));
-    w.unmount();
   });
 
   it("sits at the cluster's left edge, before the nesting menu", () => {
@@ -527,6 +466,5 @@ describe("the save button on a list the automatic capture already covers", () =>
     const btn = vaultBtn(w).element;
     const nest = w.find(".item__nest-btn").element;
     expect(btn.compareDocumentPosition(nest) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    w.unmount();
   });
 });

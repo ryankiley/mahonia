@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // A route file is read asynchronously, through the editor controller — which is a
 // singleton. So "which list is open" can change while a file is being read, and a
 // late parse must not land its route on whatever list came next; and the pin offer
@@ -9,19 +7,10 @@ import { ref, shallowRef, nextTick } from "vue";
 import { useGpxImport } from "~/composables/useGpxImport";
 import { MAX_WAYPOINTS } from "~~/shared/ops";
 import type { ListSnapshot } from "~~/shared/types";
+import { snapshotFor } from "./helpers/list";
 
-const snapshot = (title: string, overrides: Partial<ListSnapshot> = {}): ListSnapshot => ({
-  shareCode: "SNAPCODE0001",
-  slug: "test-list",
-  title,
-  description: "",
-  displayUnit: "g",
-  folders: [],
-  items: [],
-  version: 1,
-  isPublic: false,
-  ...overrides,
-});
+const snapshot = (title: string, overrides: Partial<ListSnapshot> = {}): ListSnapshot =>
+  snapshotFor({ shareCode: "SNAPCODE0001", slug: "test-list", title, ...overrides });
 
 const track = `<?xml version="1.0"?>
 <gpx version="1.1"><trk><trkseg>

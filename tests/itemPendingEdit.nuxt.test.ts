@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // A number you typed and then acted on WITHOUT leaving the field.
 //
 // Every control in an item row prevents its own mousedown default, so that clicking one
@@ -18,24 +16,18 @@
 // Needs the Nuxt environment: what's under test is an interaction between a real DOM
 // focus, a real event dispatch and the component's own handlers — there is no pure
 // function here to check instead.
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
-import { mount } from "@vue/test-utils";
-import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
-import { rowProvides } from "./helpers/itemRow";
-import type { Item, ListSnapshot, Person } from "~~/shared/types";
+import { enableAutoUnmount } from "@vue/test-utils";
+import { mountRowOver } from "./helpers/itemRow";
+import type { Item, ListSnapshot } from "~~/shared/types";
 import { blankList } from "./helpers/list";
-import { gearListStub } from "./helpers/gearList";
-
-// what GearEditor provides to every row — the children map, and the people in
-// display order with their slots (this list names nobody)
+import { gearListStub, quietVaultAccess } from "./helpers/gearList";
 
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(false),
-  vaultKnown: ref(true),
-  vaultFetch: () => Promise.resolve({ results: [] }),
-}));
+mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
+
+enableAutoUnmount(afterEach);
 
 const weightCommits: string[] = [];
 const advanceAnchors: string[] = [];
@@ -63,21 +55,7 @@ const item: Item = {
   sortOrder: 0,
 } as unknown as Item;
 
-function mountRow() {
-  snapshot.value = { ...blankList(), items: [{ ...item }] } as ListSnapshot;
-  return mount(ItemRow, {
-    props: {
-      get list() {
-        return snapshot.value;
-      },
-      get item() {
-        return snapshot.value.items[0]!;
-      },
-    },
-    global: { provide: rowProvides() },
-    attachTo: document.body,
-  });
-}
+const mountRow = () => mountRowOver(snapshot, [{ ...item }]);
 
 /** Type into a field the way a person does: focus it, change its value, commit nothing. */
 function typeInto(el: HTMLInputElement, value: string) {
@@ -104,7 +82,6 @@ describe("a pending number edit survives the row's own controls", () => {
     await w.find('button[aria-label^="Consumable"]').trigger("click");
 
     expect(weightCommits).toEqual(["250"]);
-    w.unmount();
   });
 
   it("commits a typed quantity when the Consumable toggle is pressed", async () => {
@@ -115,7 +92,6 @@ describe("a pending number edit survives the row's own controls", () => {
     await w.find('button[aria-label^="Consumable"]').trigger("click");
 
     expect(row().qty).toBe(7);
-    w.unmount();
   });
 
   // the fix belongs to the row, not to one button
@@ -127,7 +103,6 @@ describe("a pending number edit survives the row's own controls", () => {
     await w.find('button[aria-label^="Worn"]').trigger("click");
 
     expect(weightCommits).toEqual(["250"]);
-    w.unmount();
   });
 
   // Pressing INTO the field you are already editing must NOT commit: both handlers
@@ -146,7 +121,6 @@ describe("a pending number edit survives the row's own controls", () => {
     await field.trigger("click");
 
     expect(weightCommits).toEqual([]);
-    w.unmount();
   });
 
   it("commits a typed unit-bearing weight and advances on Enter", async () => {
@@ -160,6 +134,5 @@ describe("a pending number edit survives the row's own controls", () => {
     expect(advanceAnchors).toEqual([item.id]);
     expect(field.attributes("enterkeyhint")).toBe("next");
     expect(w.find<HTMLInputElement>('input[aria-label="Name of item"]').attributes("enterkeyhint")).toBe("next");
-    w.unmount();
   });
 });

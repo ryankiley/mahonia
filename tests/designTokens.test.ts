@@ -1,5 +1,6 @@
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { ROOT, stripComments as strip, walkSources } from "./helpers/sources";
 
 // EVERY var(--x) RESOLVES TO SOMETHING THAT DEFINES --x.
 //
@@ -18,29 +19,12 @@ import { describe, expect, it } from "vitest";
 // is how the travelling plate takes a row's own hue when a row has set one and the
 // neutral when it hasn't — so those are skipped. What's checked is the bare form, the
 // one that has nowhere to go when it's wrong.
-const ROOT = new URL("..", import.meta.url).pathname;
+const files = walkSources(["app"], ["scss", "vue", "ts"]);
 
-function walk(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const path = `${dir}/${name}`;
-    if (statSync(path).isDirectory()) walk(path, out);
-    else if (/\.(scss|vue|ts)$/.test(name)) out.push(path);
-  }
-  return out;
-}
-
-const files = walk(`${ROOT}app`);
-
-// Comments come out first. This codebase argues with itself in prose — a rule that
-// removed a token routinely says which token it removed, and says it in the `var(--x)`
-// form — so a scanner reading raw text would take the explanation for the offence and
-// fail on the very comment recording the fix. `//` only counts outside a `://`, or every
-// URL in a comment would swallow the rest of its line.
-const strip = (src: string) =>
-  src
-    .replace(/\/\*[\s\S]*?\*\//g, " ")
-    .replace(/<!--[\s\S]*?-->/g, " ")
-    .replace(/(^|[^:])\/\/.*$/gm, "$1");
+// Comments come out first (stripComments). This codebase argues with itself in prose — a
+// rule that removed a token routinely says which token it removed, and says it in the
+// `var(--x)` form — so a scanner reading raw text would take the explanation for the
+// offence and fail on the very comment recording the fix.
 
 // A custom property is DEFINED by a `--name:` declaration anywhere — :root, a scoped
 // component rule, inside a media query — or by a component handing an element one at

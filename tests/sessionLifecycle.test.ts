@@ -11,9 +11,6 @@
 // about would actually live.
 
 import { eq } from "drizzle-orm";
-import { IncomingMessage, ServerResponse } from "node:http";
-import { Socket } from "node:net";
-import { createEvent, type H3Event } from "h3";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
@@ -30,58 +27,37 @@ import {
 import { SESSION_OWNER_COOKIE, SESSION_OWNER_PATTERN } from "../shared/session";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb, type TestDb } from "./helpers/db";
-import { setCookieValue } from "./helpers/http";
-
-type DB = TestDb;
-async function freshDb(): Promise<DB> {
-  return createTestDb(ACCOUNT_DDL);
-}
+import { dbState } from "./helpers/dbMock";
+import { makeEvent, setCookieValue } from "./helpers/http";
+import { signInCookie } from "./helpers/session";
 
 // resolveSession/endSession/endAllSessions reach for useAccountDb() themselves,
 // so point it at this file's throwaway database.
-const state = vi.hoisted(() => ({ db: undefined as unknown }));
-vi.mock("../server/utils/db", async (importOriginal) => {
-  const mod = await importOriginal<typeof import("../server/utils/db")>();
-  return { ...mod, useAccountDb: async () => state.db };
-});
+vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 
-/** A minimal real H3 event: enough request for getCookie, enough response for
- *  setCookie. No server boots — the event IS the interface under test. */
-function makeEvent(cookie?: string): H3Event {
-  const req = new IncomingMessage(new Socket());
-  req.method = "GET";
-  req.url = "/";
-  req.headers = { host: "mahonia.test" };
-  if (cookie) req.headers.cookie = cookie;
-  req.push(null);
-  return createEvent(req, new ServerResponse(req));
-}
+/** A visit carrying this Cookie header, or none: enough request for getCookie,
+ *  enough response for setCookie. */
+const visit = (cookie?: string) => makeEvent("/", { headers: cookie ? { cookie } : {} });
 
 // Just past the un-exported 24h SESSION_REFRESH_AFTER_MS floor.
 const STALE_AGE_MS = 25 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /** Sign a user in and hand back the raw cookie value a browser would replay. */
-async function signIn(db: DB, userId: number): Promise<string> {
-  const event = makeEvent();
-  await startSession(event, db as never, userId);
-  const token = setCookieValue(event, SESSION_COOKIE);
-  expect(token).toBeTruthy();
-  return token!;
-}
+const signIn = async (db: TestDb, userId: number) => (await signInCookie(db, userId)).token;
 
 describe("startSession → resolveSession", () => {
-  let db: DB;
+  let db: TestDb;
   let userId: number;
   beforeEach(async () => {
-    db = await freshDb();
-    state.db = db;
-    userId = (await findOrCreateUser(db as never, "ryan@example.com")).id;
+    db = await createTestDb(ACCOUNT_DDL);
+    dbState.db = db;
+    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
   });
 
   it("round-trips: the cookie a sign-in sets is the credential resolve accepts", async () => {
-    const start = makeEvent();
-    await startSession(start, db as never, userId);
+    const start = visit();
+    await startSession(start, db, userId);
     const token = setCookieValue(start, SESSION_COOKIE)!;
     // the readable hint rides along, carrying no capability
     expect(setCookieValue(start, SESSION_HINT_COOKIE)).toBe("1");
@@ -96,7 +72,7 @@ describe("startSession → resolveSession", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]!.tokenHash).toBe(sha256Hex(token));
 
-    const resolved = makeEvent(`${SESSION_COOKIE}=${token}`);
+    const resolved = visit(`${SESSION_COOKIE}=${token}`);
     const user = await resolveSession(resolved);
     expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null, owner });
     // Sessions from before the marker existed acquire it without reissuing their
@@ -105,29 +81,29 @@ describe("startSession → resolveSession", () => {
 
     // per SESSION, by design: signing in again mints a different marker, which the
     // browser reads as a change of owner and starts its caches over
-    const again = makeEvent();
-    await startSession(again, db as never, userId);
+    const again = visit();
+    await startSession(again, db, userId);
     expect(setCookieValue(again, SESSION_OWNER_COOKIE)).toMatch(/^[0-9a-f]{16}$/);
     expect(setCookieValue(again, SESSION_OWNER_COOKIE)).not.toBe(owner);
   });
 
   it("resolves nothing for no cookie, a made-up cookie, or an expired session", async () => {
     const token = await signIn(db, userId);
-    expect(await resolveSession(makeEvent())).toBeNull();
-    expect(await resolveSession(makeEvent(`${SESSION_COOKIE}=not-a-real-token`))).toBeNull();
+    expect(await resolveSession(visit())).toBeNull();
+    expect(await resolveSession(visit(`${SESSION_COOKIE}=not-a-real-token`))).toBeNull();
 
     await db
       .update(schema.sessions)
       .set({ expiresAt: new Date(Date.now() - 1000) })
       .where(eq(schema.sessions.userId, userId));
-    expect(await resolveSession(makeEvent(`${SESSION_COOKIE}=${token}`))).toBeNull();
+    expect(await resolveSession(visit(`${SESSION_COOKIE}=${token}`))).toBeNull();
   });
 
   it("leaves a fresh session alone — no row write, no re-set cookie", async () => {
     const token = await signIn(db, userId);
     const before = (await db.select().from(schema.sessions))[0]!;
 
-    const event = makeEvent(`${SESSION_COOKIE}=${token}; ${SESSION_OWNER_COOKIE}=${sessionOwnerMarker(sha256Hex(token))}`);
+    const event = visit(`${SESSION_COOKIE}=${token}; ${SESSION_OWNER_COOKIE}=${sessionOwnerMarker(sha256Hex(token))}`);
     expect((await resolveSession(event))?.id).toBe(userId);
 
     // under the 24h refresh floor: the row is untouched and the response carries
@@ -148,7 +124,7 @@ describe("startSession → resolveSession", () => {
       .set({ lastUsedAt: staleLastUsed, expiresAt: staleExpiry })
       .where(eq(schema.sessions.userId, userId));
 
-    const event = makeEvent(`${SESSION_COOKIE}=${token}; ${SESSION_OWNER_COOKIE}=${sessionOwnerMarker(sha256Hex(token))}`);
+    const event = visit(`${SESSION_COOKIE}=${token}; ${SESSION_OWNER_COOKIE}=${sessionOwnerMarker(sha256Hex(token))}`);
     expect((await resolveSession(event))?.id).toBe(userId);
 
     const after = (await db.select().from(schema.sessions))[0]!;
@@ -165,21 +141,21 @@ describe("startSession → resolveSession", () => {
 });
 
 describe("endSession — sign out THIS device", () => {
-  let db: DB;
+  let db: TestDb;
   let userId: number;
   beforeEach(async () => {
-    db = await freshDb();
-    state.db = db;
-    userId = (await findOrCreateUser(db as never, "ryan@example.com")).id;
+    db = await createTestDb(ACCOUNT_DDL);
+    dbState.db = db;
+    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
   });
 
   it("deletes only the caller's row — other devices and other people stay signed in", async () => {
     const mine = await signIn(db, userId);
     const myOtherDevice = await signIn(db, userId);
-    const otherId = (await findOrCreateUser(db as never, "someone@example.com")).id;
+    const otherId = (await findOrCreateUser(db, "someone@example.com")).id;
     const theirs = await signIn(db, otherId);
 
-    const event = makeEvent(`${SESSION_COOKIE}=${mine}`);
+    const event = visit(`${SESSION_COOKIE}=${mine}`);
     await endSession(event);
 
     const left = (await db.select().from(schema.sessions)).map((r) => r.tokenHash);
@@ -190,38 +166,38 @@ describe("endSession — sign out THIS device", () => {
     expect(setCookieValue(event, SESSION_COOKIE)).toBe("");
     expect(setCookieValue(event, SESSION_HINT_COOKIE)).toBe("");
     expect(setCookieValue(event, SESSION_OWNER_COOKIE)).toBe("");
-    expect(await resolveSession(makeEvent(`${SESSION_COOKIE}=${mine}`))).toBeNull();
+    expect(await resolveSession(visit(`${SESSION_COOKIE}=${mine}`))).toBeNull();
   });
 
   it("is a safe no-op with no cookie at all", async () => {
     await signIn(db, userId);
-    await endSession(makeEvent());
+    await endSession(visit());
     expect(await db.select().from(schema.sessions)).toHaveLength(1);
   });
 });
 
 describe("endAllSessions — sign out EVERYWHERE", () => {
-  let db: DB;
+  let db: TestDb;
   let userId: number;
   beforeEach(async () => {
-    db = await freshDb();
-    state.db = db;
-    userId = (await findOrCreateUser(db as never, "ryan@example.com")).id;
+    db = await createTestDb(ACCOUNT_DDL);
+    dbState.db = db;
+    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
   });
 
   it("takes every session for the account — the caller's own included — and counts them", async () => {
     const mine = await signIn(db, userId);
     await signIn(db, userId);
     await signIn(db, userId);
-    const otherId = (await findOrCreateUser(db as never, "someone@example.com")).id;
+    const otherId = (await findOrCreateUser(db, "someone@example.com")).id;
     const theirs = await signIn(db, otherId);
 
-    const event = makeEvent(`${SESSION_COOKIE}=${mine}`);
+    const event = visit(`${SESSION_COOKIE}=${mine}`);
     expect(await endAllSessions(event, userId)).toBe(3);
 
     // deliberately not spared: the device you press the button on may be the
     // compromised one, so it goes too
-    expect(await resolveSession(makeEvent(`${SESSION_COOKIE}=${mine}`))).toBeNull();
+    expect(await resolveSession(visit(`${SESSION_COOKIE}=${mine}`))).toBeNull();
     const left = await db.select().from(schema.sessions);
     expect(left).toHaveLength(1);
     expect(left[0]!.tokenHash).toBe(sha256Hex(theirs));
@@ -229,6 +205,6 @@ describe("endAllSessions — sign out EVERYWHERE", () => {
   });
 
   it("reports zero for an account with nothing to end", async () => {
-    expect(await endAllSessions(makeEvent(), userId)).toBe(0);
+    expect(await endAllSessions(visit(), userId)).toBe(0);
   });
 });

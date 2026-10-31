@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The Sharing panel's "Add to your account" — the one control that attaches a
 // list this browser holds to the signed-in account.
 //
@@ -9,17 +7,16 @@
 // So most of what's under test is when the button is ABSENT — the same "inert
 // controls are absent, not disabled" rule the row's Save-to-My-Gear follows.
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { mockNuxtImport } from "@nuxt/test-utils/runtime";
+import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { flushPromises, mount } from "@vue/test-utils";
 import SharePanel from "~/components/SharePanel.vue";
-import type { ListSnapshot } from "~~/shared/types";
 import type { ClaimedList } from "~~/shared/types";
+import { snapshotFor } from "./helpers/list";
 
-// the panel's activity fetch on mount — not under test, kept quiet
-vi.stubGlobal(
-  "$fetch",
-  vi.fn(() => Promise.resolve({ snapshots: [] })),
-);
+// the panel's activity fetch on mount — not under test, kept quiet. A registered
+// route rather than a $fetch stub: under the Nuxt environment $fetch is already
+// test-utils' own mock, which answers an unregistered path with a 404.
+registerEndpoint("/api/edit/snapshots", () => ({ snapshots: [] }));
 
 const signedIn = ref(true);
 mockNuxtImport("useSession", () => () => ({ signedIn }));
@@ -36,17 +33,7 @@ mockNuxtImport("useClaimedLists", () => () => ({
 }));
 
 const SHARE = "LOOWIT000001";
-const snapshot = {
-  shareCode: SHARE,
-  slug: "loowit-aa11bb",
-  title: "Loowit Traverse",
-  description: "",
-  displayUnit: "g",
-  folders: [],
-  items: [],
-  version: 3,
-  isPublic: false,
-} as unknown as ListSnapshot;
+const snapshot = snapshotFor({ shareCode: SHARE, slug: "loowit-aa11bb", title: "Loowit Traverse", version: 3 });
 
 const claimedRow = (shareCode: string): ClaimedList => ({
   shareCode,

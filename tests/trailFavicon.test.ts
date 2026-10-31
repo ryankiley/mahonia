@@ -2,7 +2,7 @@ import { eq } from "drizzle-orm";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { trailFavicons } from "../server/db/schema";
 import { TRAIL_FAVICONS_DDL } from "../server/utils/db";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, type TestDb } from "./helpers/db";
 import { imageResponse, stubFetch } from "./helpers/http";
 import {
   FAVICON_TTL_MS,
@@ -13,16 +13,12 @@ import {
 } from "../server/utils/trailFavicon";
 
 // Fresh in-memory PGlite with just the favicon cache (mirrors snapshots.test).
-async function freshDb() {
-  return createTestDb(TRAIL_FAVICONS_DDL);
-}
-type Db = Awaited<ReturnType<typeof freshDb>>;
 
 const ICON = "data:image/x-icon;base64,AAAA";
 const OTHER_ICON = "data:image/png;base64,BBBB";
 
 /** Seed a cached host with an explicit age. */
-async function seed(db: Db, host: string, dataUrl: string | null, ageMs: number) {
+async function seed(db: TestDb, host: string, dataUrl: string | null, ageMs: number) {
   await db
     .insert(trailFavicons)
     .values({ host, dataUrl, fetchedAt: new Date(Date.now() - ageMs) });
@@ -158,7 +154,7 @@ describe("fetchFaviconDataUrl", () => {
 
 describe("cacheFaviconForHost", () => {
   it("stores a fetched icon once, then serves it from cache", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(TRAIL_FAVICONS_DDL);
     let calls = 0;
     stubFetch(() => {
       calls++;
@@ -175,7 +171,7 @@ describe("cacheFaviconForHost", () => {
   });
 
   it("records a NEGATIVE result so a dead host isn't refetched on every save", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(TRAIL_FAVICONS_DDL);
     let calls = 0;
     stubFetch(() => {
       calls++;
@@ -194,7 +190,7 @@ describe("cacheFaviconForHost", () => {
   });
 
   it("never throws — a favicon must not be able to fail a list save", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(TRAIL_FAVICONS_DDL);
     stubFetch(() => {
       throw new Error("boom");
     });
@@ -205,7 +201,7 @@ describe("cacheFaviconForHost", () => {
 
 describe("refreshStaleFavicons", () => {
   it("refreshes only hosts past the TTL", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(TRAIL_FAVICONS_DDL);
     await seed(db, "fresh.example", ICON, 2 * 24 * 60 * 60 * 1000); // 2 days old
     await seed(db, "stale.example", ICON, FAVICON_TTL_MS + 60_000);
 
@@ -224,7 +220,7 @@ describe("refreshStaleFavicons", () => {
   it("keeps the existing icon when a refetch fails, but still moves fetched_at", async () => {
     // A transient 500 must not blank a working mark, AND a permanently dead host must
     // not be retried every single night. Both halves matter.
-    const db = await freshDb();
+    const db = await createTestDb(TRAIL_FAVICONS_DDL);
     await seed(db, "flaky.example", ICON, FAVICON_TTL_MS + 60_000);
     stubFetch(() => null);
 
@@ -242,7 +238,7 @@ describe("refreshStaleFavicons", () => {
   });
 
   it("replaces the icon when a site rebrands", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(TRAIL_FAVICONS_DDL);
     await seed(db, "rebrand.example", ICON, FAVICON_TTL_MS + 60_000);
     stubFetch(() => imageResponse(new Uint8Array([66, 66, 66]), "image/png"));
 
@@ -254,7 +250,7 @@ describe("refreshStaleFavicons", () => {
 
   it("caps how many hosts one sweep will fetch", async () => {
     // the batch cap is what stops one night's sweep becoming a fetch storm
-    const db = await freshDb();
+    const db = await createTestDb(TRAIL_FAVICONS_DDL);
     for (let i = 0; i < 40; i++) {
       await seed(db, `host${i}.example`, OTHER_ICON, FAVICON_TTL_MS + i * 1000);
     }
@@ -266,7 +262,7 @@ describe("refreshStaleFavicons", () => {
   });
 
   it("takes the stalest hosts first, so nothing starves", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(TRAIL_FAVICONS_DDL);
     await seed(db, "recent.example", ICON, FAVICON_TTL_MS + 1000);
     await seed(db, "ancient.example", ICON, FAVICON_TTL_MS + 400 * 24 * 60 * 60 * 1000);
 

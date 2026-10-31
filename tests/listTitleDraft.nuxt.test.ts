@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The list title survives having the snapshot replaced under it.
 //
 // Needs a booted Nuxt because what's under test is a BINDING, not a decision: the
@@ -27,6 +25,7 @@ import { reactive } from "vue";
 import ListHead from "~/components/ListHead.vue";
 import { applyOps } from "~~/shared/ops";
 import type { ListSnapshot } from "~~/shared/types";
+import { snapshotFor } from "./helpers/list";
 
 // The stubbed controller writes through the REAL reducer, into whichever snapshot
 // the test is holding. That matters: commit resyncs the box from the stored value,
@@ -39,17 +38,8 @@ const setMeta = vi.fn((patch: Record<string, unknown>) => {
 });
 mockNuxtImport("useGearList", () => () => ({ setMeta }));
 
-const snap = (title: string): ListSnapshot => ({
-  shareCode: "SNAPCODE0001",
-  slug: "test-list-aaa111",
-  title,
-  description: "",
-  displayUnit: "g",
-  folders: [],
-  items: [],
-  version: 1,
-  isPublic: false,
-});
+const snap = (title: string): ListSnapshot =>
+  snapshotFor({ shareCode: "SNAPCODE0001", slug: "test-list-aaa111", title });
 
 function open(title: string) {
   current = reactive(snap(title)) as ListSnapshot;

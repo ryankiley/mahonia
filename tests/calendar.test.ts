@@ -1,24 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { DAY_MS, isCalendarDate, isoDate, parseIsoDate, shiftIsoDate, utcMidnight } from "../shared/calendar";
+import { inZones } from "./helpers/tz";
 
 // The one place the app turns a `YYYY-MM-DD` into a Date. The two halves answer
 // different questions — a LOCAL Date for display, a UTC instant for arithmetic — and
 // the tests below run each in several timezones, because the whole reason the module
 // exists is that the naive `new Date(iso)` is right in London and a day early in
 // Portland.
-
-/** Run `fn` with TZ pinned, restoring it after. */
-function inZones(fn: () => void) {
-  const tz = process.env.TZ;
-  try {
-    for (const zone of ["UTC", "America/Los_Angeles", "Pacific/Kiritimati", "Asia/Tokyo"]) {
-      process.env.TZ = zone;
-      fn();
-    }
-  } finally {
-    process.env.TZ = tz;
-  }
-}
 
 describe("parseIsoDate — a local Date for display", () => {
   it("lands on the named day whatever the timezone", () => {

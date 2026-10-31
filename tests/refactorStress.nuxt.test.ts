@@ -1,4 +1,3 @@
-// @vitest-environment nuxt
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { computed, effectScope, nextTick, ref } from "vue";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";

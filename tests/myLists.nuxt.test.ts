@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The device registry's ONE durability guarantee: what you do to it reaches
 // localStorage. Needs a booted Nuxt because the thing under test is a Vue effect
 // scope — the bug was not a decision any pure function makes, it was WHERE the

@@ -7,11 +7,14 @@ import { defaultExclude } from "vitest/config";
 // holds.
 //
 // defineVitestConfig only makes the Nuxt environment AVAILABLE; it does not impose
-// it. A file opts in with `// @vitest-environment nuxt` on its first line, which
-// boots a Nuxt app for that file alone. Only tests that genuinely need the framework
-// — auto-imports, composables holding Vue reactivity — should opt in; everything
-// else stays on node. See tests/gearList.nuxt.test.ts for the one case that does,
-// and the comment there for why it can't be tested as plain TS.
+// it. The opt-in is the FILENAME: defineVitestConfig splits the run into two vitest
+// projects, and a file named `*.nuxt.test.ts` is collected by the "nuxt" one (which
+// boots a Nuxt app for it) while everything else stays in the node project — see
+// `nuxtProject.test.include` in @nuxt/test-utils/dist/config.mjs. A
+// `// @vitest-environment nuxt` pragma is ignored under this split, so no file here
+// carries one. Only tests that genuinely need the framework — auto-imports,
+// composables holding Vue reactivity, a mounted component — should take the suffix;
+// each one's header says why it can't be tested as plain TS.
 export default defineVitestConfig({
   test: {
     include: ["tests/**/*.test.ts"],

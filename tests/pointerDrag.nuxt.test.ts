@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The shared drag scaffold. It has no tests and four callers — the editor's item
 // rows and folders, the in-editor vault pane, and /vault — so a change here moves
 // every drag-to-reorder gesture on the site at once. It needs a DOM (window

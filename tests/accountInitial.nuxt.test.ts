@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The letter on the account disc: where it comes from, and how it is already on the
 // disc when the bar mounts.
 //

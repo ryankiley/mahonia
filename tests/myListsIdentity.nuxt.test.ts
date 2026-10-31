@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // "Your lists" holds one row per LIST, not one per edit token.
 //
 // Needs a Nuxt app for the same reason gearList.nuxt.test.ts does: useMyLists is a
@@ -9,6 +7,7 @@
 // shape that isn't the one shipping.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listEntry } from "./helpers/myLists";
+import { snapshotFor as baseSnapshot } from "./helpers/list";
 import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import type { ListSnapshot, MyListEntry } from "~~/shared/types";
@@ -37,17 +36,8 @@ const entry = (over: Partial<MyListEntry> & { editToken: string }): MyListEntry 
     ...over,
   });
 
-const snapshotFor = (shareCode: string): ListSnapshot => ({
-  shareCode,
-  slug: "ryans-loowit-aa11bb",
-  title: "Ryan’s Loowit",
-  description: "",
-  displayUnit: "g",
-  folders: [],
-  items: [],
-  version: 8,
-  isPublic: false,
-});
+const snapshotFor = (shareCode: string): ListSnapshot =>
+  baseSnapshot({ shareCode, slug: "ryans-loowit-aa11bb", title: "Ryan’s Loowit", version: 8 });
 
 // The singleton seeds from localStorage on its FIRST call and never re-reads, so
 // tests drive the registry by writing entries.value rather than by reseeding storage.

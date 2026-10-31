@@ -31,20 +31,20 @@ describe("refoldVaultIdentities", () => {
       .values({ vaultId: 1, normKey: vaultNormKey("Zpacks", "Duplex", null), brand: "Zpacks", name: "Duplex", weightMg: 539_000 } as never)
       .returning();
 
-    expect(await refoldVaultIdentities(db as never)).toBe(2);
+    expect(await refoldVaultIdentities(db)).toBe(2);
     const after = (await db.select().from(schema.vaultItems)) as { id: number; normKey: string }[];
     expect(after.find((r) => r.id === norrona!.id)!.normKey).toBe(vaultNormKey("Norrøna", "Falketind", null));
     expect(after.find((r) => r.id === poles!.id)!.normKey).toBe(vaultNormKey("Trekology", "登山杖（裸杖）", null));
     expect(after.find((r) => r.id === duplex!.id)!.normKey).toBe(vaultNormKey("Zpacks", "Duplex", null));
 
     // idempotent
-    expect(await refoldVaultIdentities(db as never)).toBe(0);
+    expect(await refoldVaultIdentities(db)).toBe(0);
   });
 
   it("leaves a row alone when the person already holds one under its new key", async () => {
     await db.insert(schema.vaultItems).values({ vaultId: 1, normKey: "norr na falketind", brand: "Norrøna", name: "Falketind", weightMg: 300_000 } as never);
     await db.insert(schema.vaultItems).values({ vaultId: 1, normKey: vaultNormKey("Norrona", "Falketind", null), brand: "Norrona", name: "Falketind", weightMg: 310_000 } as never);
-    expect(await refoldVaultIdentities(db as never)).toBe(0);
+    expect(await refoldVaultIdentities(db)).toBe(0);
     const rows = await db.select().from(schema.vaultItems).where(eq(schema.vaultItems.vaultId, 1));
     expect(rows).toHaveLength(2);
   });

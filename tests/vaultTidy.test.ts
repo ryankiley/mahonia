@@ -52,7 +52,7 @@ async function legacyVault() {
 describe("a vault captured before the tidy existed", () => {
   it("reads back tidied on the /vault page", async () => {
     const { db, vaultId } = await legacyVault();
-    const rows = await listVaultItems(db as never, vaultId);
+    const rows = await listVaultItems(db, vaultId);
     const tent = rows.find((r) => r.name.includes("tent"))!;
     expect(tent.name).toBe(`Ryan${CURLY}s tent`);
     expect(tent.brand).toBe(`Arc${CURLY}teryx`);
@@ -62,20 +62,20 @@ describe("a vault captured before the tidy existed", () => {
 
   it("reads back tidied through the autocomplete too", async () => {
     const { db, vaultId } = await legacyVault();
-    const hits = await searchVaultItems(db as never, vaultId, "tent");
+    const hits = await searchVaultItems(db, vaultId, "tent");
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]!.brand).toBe(`Arc${CURLY}teryx`);
   });
 
   it("tidies vault folder names as well", async () => {
     const { db, vaultId } = await legacyVault();
-    const folders = await listVaultFolders(db as never, vaultId);
+    const folders = await listVaultFolders(db, vaultId);
     expect(folders[0]!.name).toBe(`Men${CURLY}s layers`);
   });
 
   it("leaves a foot mark alone here too", async () => {
     const { db, vaultId } = await legacyVault();
-    const rows = await listVaultItems(db as never, vaultId);
+    const rows = await listVaultItems(db, vaultId);
     expect(rows.some((r) => r.name === "Guyline 6'")).toBe(true);
   });
 
@@ -84,7 +84,7 @@ describe("a vault captured before the tidy existed", () => {
   // change it, an old row and a new capture of the same gear would become two rows.
   it("does NOT change a row's identity — the tidy is display-only", async () => {
     const { db, vaultId } = await legacyVault();
-    const rows = await listVaultItems(db as never, vaultId);
+    const rows = await listVaultItems(db, vaultId);
     const tent = rows.find((r) => r.name.includes("tent"))!;
     // the key stored under the old spelling still equals the key the new spelling makes
     expect(vaultNormKey("Arc'teryx", "Cerium LT Hoody", "Men's")).toBe(
