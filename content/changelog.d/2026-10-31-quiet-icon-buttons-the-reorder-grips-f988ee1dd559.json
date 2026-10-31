@@ -1,7 +1,7 @@
 {
   "date": "2026-10-31",
   "changed": [
-    "Quiet icon buttons (the reorder grips, remove, duplicate, the calendar arrows) lift to full ink when reached from the keyboard, as they do under the pointer."
+    "Quiet icon buttons (grips, remove, duplicate, the calendar arrows) lift to full ink from the keyboard as they do under the pointer."
   ],
   "fixed": [
     "Calorie and elevation figures on the trip panel and on shared lists are grouped the same way in every browser language.",

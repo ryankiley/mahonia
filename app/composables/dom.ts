@@ -228,7 +228,11 @@ export function isFormField(el: EventTarget | null | undefined): boolean {
 // layout flush per keystroke; `needsTextareaFit` is the one gate.
 
 /** Whether this browser needs the hand-measured path at all. */
-export const needsTextareaFit = import.meta.client && !CSS.supports("field-sizing", "content");
+// `typeof CSS` as well as the client flag: this module is reached from the vault's
+// composable, which the plain-node suites import, and there `import.meta.client` is
+// compiled true while no CSS object exists
+export const needsTextareaFit =
+  import.meta.client && typeof CSS !== "undefined" && !CSS.supports("field-sizing", "content");
 
 export function fitTextarea(el: HTMLTextAreaElement | null | undefined): void {
   if (!needsTextareaFit || !el) return;
