@@ -1,13 +1,9 @@
 import { describe, expect, it } from "vitest";
-import * as schema from "../server/db/schema";
 import { CATALOG_DDL, ensureCatalogSchema } from "../server/utils/catalog";
 import { hydrateCatalogNames } from "../server/utils/listRepo";
 import type { Item, ListSnapshot } from "../shared/types";
+import { seedCatalogRow } from "./helpers/catalog";
 import { createTestDb } from "./helpers/db";
-
-async function freshDb() {
-  return createTestDb(CATALOG_DDL);
-}
 
 function snap(items: Partial<Item>[]): ListSnapshot {
   return {
@@ -19,13 +15,9 @@ function snap(items: Partial<Item>[]): ListSnapshot {
 
 describe("hydrateCatalogNames (trickle-down)", () => {
   it("resolves linked items to the catalog's CURRENT brand/name/variant", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(CATALOG_DDL);
     // catalog row was cleaned after this list linked it (variant '/ M' → ', M')
-    const inserted = await db
-      .insert(schema.catalogItems)
-      .values({ brand: "Durston", name: "Kakwa 55", variant: "Ultra 200X, M", weightMg: 893010, weightSource: "manufacturer", verified: true })
-      .returning({ id: schema.catalogItems.id });
-    const cid = inserted[0]!.id;
+    const cid = (await seedCatalogRow(db, { brand: "Durston", name: "Kakwa 55", variant: "Ultra 200X, M", weightMg: 893010, weightSource: "manufacturer", verified: true })).id;
 
     const out = await hydrateCatalogNames(db, snap([
       // stored snapshot has the OLD flat name; linked, not overridden
@@ -42,12 +34,8 @@ describe("hydrateCatalogNames (trickle-down)", () => {
   });
 
   it("trickles the catalog common name down, but respects commonNameOverridden", async () => {
-    const db = await freshDb();
-    const inserted = await db
-      .insert(schema.catalogItems)
-      .values({ brand: "Durston", name: "X-Mid Pro 1", commonName: "tent", weightMg: 439418, weightSource: "manufacturer", verified: true })
-      .returning({ id: schema.catalogItems.id });
-    const cid = inserted[0]!.id;
+    const db = await createTestDb(CATALOG_DDL);
+    const cid = (await seedCatalogRow(db, { brand: "Durston", name: "X-Mid Pro 1", commonName: "tent", weightMg: 439418, weightSource: "manufacturer", verified: true })).id;
 
     const out = await hydrateCatalogNames(db, snap([
       // linked, not overridden → shows the catalog's default common name
@@ -61,12 +49,8 @@ describe("hydrateCatalogNames (trickle-down)", () => {
   });
 
   it("gates each field on its OWN flag — a renamed product still tracks the gear type", async () => {
-    const db = await freshDb();
-    const inserted = await db
-      .insert(schema.catalogItems)
-      .values({ brand: "Durston", name: "X-Mid Pro 1", commonName: "tent", weightMg: 439418, weightSource: "manufacturer", verified: true })
-      .returning({ id: schema.catalogItems.id });
-    const cid = inserted[0]!.id;
+    const db = await createTestDb(CATALOG_DDL);
+    const cid = (await seedCatalogRow(db, { brand: "Durston", name: "X-Mid Pro 1", commonName: "tent", weightMg: 439418, weightSource: "manufacturer", verified: true })).id;
 
     const out = await hydrateCatalogNames(db, snap([
       // renamed the PRODUCT only: their name survives, the gear type still resolves
@@ -83,7 +67,7 @@ describe("hydrateCatalogNames (trickle-down)", () => {
   });
 
   it("falls back to the stored snapshot when the catalog row is gone", async () => {
-    const db = await freshDb();
+    const db = await createTestDb(CATALOG_DDL);
     const out = await hydrateCatalogNames(db, snap([
       { name: "Discontinued Thing", brand: "OldCo", catalogItemId: 99999 },
     ]));

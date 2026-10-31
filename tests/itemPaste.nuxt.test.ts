@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // A list pasted into an item's name, one item per line.
 //
 // The pure half — what a line becomes — is checked as plain TS in pasteList.test.ts.
@@ -13,6 +11,9 @@
 // different shape than the one that breaks.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
+import { item, snapshotFor } from "./helpers/list";
+import { memoryListStore, quietVaultAccess } from "./helpers/gearList";
+import { byId, itemsOf, openList, registerEditorEndpoints } from "./helpers/controller";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { readBody } from "h3";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
@@ -23,41 +24,16 @@ import type { Item, ListSnapshot } from "~~/shared/types";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
 import { foldName } from "~~/shared/catalogMatch";
 
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(false),
-  vaultKnown: ref(true),
-  vaultFetch: <T,>() => Promise.resolve({} as T),
-}));
+mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
+mockNuxtImport("useLocalListStore", () => () => memoryListStore());
 
-const records = new Map<string, unknown>();
-mockNuxtImport("useLocalListStore", () => () => ({
-  get: async () => undefined,
-  set: async (key: string, record: unknown) => void records.set(key, record),
-  del: async (key: string) => void records.delete(key),
-}));
-
-const storage = stubLocalStorage();
+stubLocalStorage();
 
 const TOKEN = "paste-edit-token";
-const FOLDER = "f1";
+const FOLDER = "f1"; // the helper's `item` lands in this folder too
 
-const item = (over: Partial<Item> & { id: string }): Item => ({
-  folderId: FOLDER,
-  parentId: null,
-  name: "",
-  unitWeightMg: 0,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
-
-let listResponse: ListSnapshot;
-registerEndpoint("/api/edit/list", () => ({ snapshot: listResponse }));
-registerEndpoint("/api/edit/changes", () => ({ version: 1 }));
-registerEndpoint("/api/catalog/use", () => ({}));
+registerEditorEndpoints();
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
-registerEndpoint("/api/edit/mutate", { method: "POST", handler: () => ({ ok: true }) });
 
 // What the catalog knows, word for word — the endpoint answers positionally, a row or
 // null per name, through the real fold (case and punctuation off), exactly as the real
@@ -99,29 +75,17 @@ const BAR: CatalogSearchResult = {
 } as CatalogSearchResult;
 
 function listWith(items: Item[], displayUnit: "g" | "oz" = "g"): ListSnapshot {
-  return {
+  return snapshotFor({
     shareCode: "PASTECODE001",
     slug: "paste-list-aaa",
     title: "Paste",
-    description: "",
     displayUnit,
     folders: [{ id: FOLDER, name: "Shelter", colorKey: "green", defaultClassification: "base", sortOrder: 0 }],
     items,
-    version: 1,
-    isPublic: false,
-  };
+  });
 }
 
-const itemsOf = (c: ReturnType<typeof useGearList>) =>
-  [...(c.snapshot.value?.items ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
-const byId = (c: ReturnType<typeof useGearList>, id: string) => c.snapshot.value?.items.find((i) => i.id === id);
-
-async function open(items: Item[], displayUnit: "g" | "oz" = "g") {
-  listResponse = listWith(items, displayUnit);
-  const c = useGearList();
-  await c.load({ token: TOKEN });
-  return c;
-}
+const open = (items: Item[], displayUnit: "g" | "oz" = "g") => openList(listWith(items, displayUnit), TOKEN);
 
 /** The real row, mounted over the live controller's snapshot — a commit re-renders it. */
 function mountRow(c: ReturnType<typeof useGearList>, id: string) {
@@ -152,8 +116,6 @@ function pasteInto(w: ReturnType<typeof mountRow>, text: string, select?: [numbe
 }
 
 beforeEach(() => {
-  records.clear();
-  storage.clear();
   catalog.clear();
   matchAsked = [];
 });
@@ -195,7 +157,6 @@ describe("pasting a list into an item's name", () => {
 
     // the count, said through the undo toast
     expect(c.pendingUndo.value).toMatchObject({ verb: "Added", label: "3 rows" });
-    w.unmount();
   });
 
   it("says one row in the singular, and does not blame the cap for a line that named nothing", async () => {
@@ -212,7 +173,6 @@ describe("pasting a list into an item's name", () => {
     pasteInto(w2, "Tent\nQuilt");
     await flushPromises();
     expect(c2.pendingUndo.value?.label).toBe("1 row");
-    w2.unmount();
   });
 
   it("reads a water line as the water row at its volume", async () => {
@@ -226,7 +186,6 @@ describe("pasting a list into an item's name", () => {
       ["Water", 1_000_000, "consumable"],
       ["water", 0, "consumable"],
     ]);
-    w.unmount();
   });
 
   // the todo-list Enter after a paste opens the blank below the rows just pasted,
@@ -239,7 +198,6 @@ describe("pasting a list into an item's name", () => {
     w.findComponent({ name: "ItemInput" }).vm.$emit("advance");
     await flushPromises();
     expect(itemsOf(c).map((i) => i.name)).toEqual(["Quilt", "Stove", "Pot", "", "Pad"]);
-    w.unmount();
   });
 
   it("undo takes the rows away and puts the one you pasted into back as it was", async () => {
@@ -254,7 +212,6 @@ describe("pasting a list into an item's name", () => {
     // abandoned "Add an item" blank goes, not left sitting in the folder
     expect(itemsOf(c).map((i) => i.name)).toEqual(["Pad"]);
     expect(c.pendingUndo.value).toBeNull();
-    w.unmount();
   });
 
   it("keeps the field within the name the store keeps", async () => {
@@ -265,7 +222,6 @@ describe("pasting a list into an item's name", () => {
     const input = w.find<HTMLInputElement>('input[aria-label="Name of item"]').element;
     expect(byId(c, "blank")!.name).toHaveLength(200);
     expect(input.value).toBe(byId(c, "blank")!.name);
-    w.unmount();
   });
 
   // The gesture's own undo covers what it did to the row it landed on: a linked row
@@ -305,7 +261,6 @@ describe("pasting a list into an item's name", () => {
     c.undoRemove();
     expect(itemsOf(c).map((i) => i.name)).toEqual(["Existing"]);
     expect(byId(c, "old")!.parentId ?? null).toBeNull();
-    w.unmount();
   });
 
   it("leaves a single line to the browser's own paste", async () => {
@@ -316,7 +271,6 @@ describe("pasting a list into an item's name", () => {
     await flushPromises();
     expect(itemsOf(c)).toHaveLength(1);
     expect(matchAsked).toEqual([]);
-    w.unmount();
   });
 
   it("links a line that names a catalog product, the way a pick would", async () => {
@@ -361,7 +315,6 @@ describe("pasting a list into an item's name", () => {
     // an unknown name is left as typed
     expect(itemsOf(c)[2]).toMatchObject({ name: "Pot", nameOverridden: true });
     expect(itemsOf(c)[2]!.catalogItemId).toBeUndefined();
-    w.unmount();
   });
 
   // The first line lands where the caret is, replacing what's selected — the paste's
@@ -389,7 +342,6 @@ describe("pasting a list into an item's name", () => {
       weightOverridden: false,
       catalogWeightMgAtLink: 688_000,
     });
-    w.unmount();
   });
 
   it("keeps a weight the person typed on the row when the link lands", async () => {
@@ -400,7 +352,6 @@ describe("pasting a list into an item's name", () => {
     await flushPromises();
     await vi.waitFor(() => expect(byId(c, "mine")?.catalogItemId).toBe(1));
     expect(byId(c, "mine")).toMatchObject({ unitWeightMg: 700_000, weightOverridden: true, catalogWeightMgAtLink: 688_000 });
-    w.unmount();
   });
 
   // a group's weight is its children's; a pick can't stamp one and neither can this
@@ -418,7 +369,6 @@ describe("pasting a list into an item's name", () => {
     expect(matchAsked[0]).toEqual(["Footprint"]); // the group was never asked
     expect(byId(c, "kit")).toMatchObject({ name: "Lanshan 1 Pro Tent", unitWeightMg: 0 });
     expect(byId(c, "kit")!.catalogItemId ?? null).toBeNull();
-    w.unmount();
   });
 
   // the link lands a moment after the paste, while the field is still focused; the
@@ -436,7 +386,6 @@ describe("pasting a list into an item's name", () => {
     await w.find(".ac").trigger("focusout", { relatedTarget: document.body });
     await flushPromises();
     expect(byId(c, "blank")).toMatchObject({ catalogItemId: 1, brand: "3FULGEAR", nameOverridden: false });
-    w.unmount();
   });
 
   // lines arrive trimmed, so this reads as one word — the case is about WHERE the
@@ -449,7 +398,6 @@ describe("pasting a list into an item's name", () => {
     await flushPromises();
 
     expect(itemsOf(c).map((i) => i.name)).toEqual(["BigAgnestent", "Pot"]);
-    w.unmount();
   });
 
   it("does not link a row retyped before the catalog answered", async () => {
@@ -467,7 +415,6 @@ describe("pasting a list into an item's name", () => {
 
     expect(byId(c, pasted.id)).toMatchObject({ name: "My old tarp" });
     expect(byId(c, pasted.id)!.catalogItemId).toBeUndefined();
-    w.unmount();
   });
 
   it("makes siblings under the same parent when pasted into a nested row", async () => {
@@ -485,7 +432,6 @@ describe("pasting a list into an item's name", () => {
     const kids = itemsOf(c).filter((i) => i.parentId === "kit");
     expect(kids.map((i) => i.name)).toEqual(["Pot", "Spoon", "Lighter", "Cup"]);
     expect(itemsOf(c).filter((i) => !i.parentId).map((i) => i.name)).toEqual(["Cook kit", "Pad"]);
-    w.unmount();
   });
 
   it("stops at the list's cap and says how many it made", async () => {
@@ -500,6 +446,5 @@ describe("pasting a list into an item's name", () => {
     expect(itemsOf(c)).toHaveLength(MAX_ITEMS);
     expect(itemsOf(c).slice(-3).map((i) => i.name)).toEqual(["One", "Two", "Three"]);
     expect(c.pendingUndo.value?.label).toBe(`2 rows (a list holds ${MAX_ITEMS} items; 2 did not fit)`);
-    w.unmount();
   });
 });

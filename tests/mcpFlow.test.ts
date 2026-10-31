@@ -1,13 +1,11 @@
-import { IncomingMessage, ServerResponse } from "node:http";
-import { Socket } from "node:net";
-import { createEvent } from "h3";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import mcp from "../server/routes/mcp.post";
 import { CATALOG_DDL } from "../server/utils/catalog";
-import { LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL, _resetSnapshotEnsured } from "../server/utils/db";
+import { LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL } from "../server/utils/db";
 import { createTestDb } from "./helpers/db";
-import { stubFetch } from "./helpers/http";
+import { dbState } from "./helpers/dbMock";
+import { makeEvent, stubFetch } from "./helpers/http";
 import { expectResultConforms } from "./helpers/mcpSchema";
 
 // The MCP tools end to end against a real (in-memory) database: an assistant makes a
@@ -15,12 +13,7 @@ import { expectResultConforms } from "./helpers/mcpSchema";
 // the share page. mcp.test.ts pins the protocol with the repo stubbed; this is the half
 // that proves the tools and the repo agree on what a list is.
 
-const state = vi.hoisted(() => ({ db: undefined as unknown }));
-vi.mock("../server/utils/db", async (importOriginal) => {
-  const mod = await importOriginal<typeof import("../server/utils/db")>();
-  const grab = async () => state.db;
-  return { ...mod, useDb: grab, useCatalogDb: grab, useVaultDb: grab, useAccountDb: grab };
-});
+vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 vi.mock("../server/utils/rateLimit", () => {
   const kv = new Map<string, unknown>();
   return {
@@ -35,14 +28,8 @@ vi.mock("../server/utils/rateLimit", () => {
 vi.stubEnv("DATABASE_URL", "");
 
 async function rpc(method: string, params?: unknown, id = 1) {
-  const req = new IncomingMessage(new Socket());
-  req.method = "POST";
-  req.url = "/mcp";
-  const buf = Buffer.from(JSON.stringify({ jsonrpc: "2.0", id, method, params }));
-  req.headers = { host: "mahonia.test", "content-type": "application/json", "content-length": String(buf.length) };
-  req.push(buf);
-  req.push(null);
-  const out = (await mcp(createEvent(req, new ServerResponse(req)))) as { result?: { structuredContent?: Record<string, unknown>; content: { text: string }[]; isError?: boolean } };
+  const event = makeEvent("/mcp", { method: "POST", body: { jsonrpc: "2.0", id, method, params } });
+  const out = (await mcp(event)) as { result?: { structuredContent?: Record<string, unknown>; content: { text: string }[]; isError?: boolean } };
   return out.result!;
 }
 const call = async (name: string, args: unknown) => {
@@ -60,13 +47,12 @@ beforeAll(async () => {
   // dead one and writes a blank row, which is all this suite needs to know about it
   stubFetch(() => null);
   const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL, CATALOG_DDL);
-  _resetSnapshotEnsured();
   await db.insert(schema.catalogItems).values([
     { brand: "Enlightened Equipment", name: "Revelation", variant: "20F Long", weightMg: 590_000, weightSource: "manufacturer", sourceUrl: "https://enlightenedequipment.com/revelation", verified: true, commonName: "Quilt", categoryHint: "sleep", searchTerms: "quilt sleep" },
     { brand: "Enlightened Equipment", name: "Revelation", variant: "20F Regular", weightMg: 550_000, weightSource: "manufacturer", sourceUrl: "https://enlightenedequipment.com/revelation", verified: true, commonName: "Quilt", categoryHint: "sleep", searchTerms: "quilt sleep" },
     { brand: "Zpacks", name: "Duplex", variant: null, weightMg: 538_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/duplex", verified: true, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter" },
   ]);
-  state.db = db;
+  dbState.db = db;
 });
 
 describe("an assistant's session, start to finish", () => {

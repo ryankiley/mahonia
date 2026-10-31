@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The item drag's DROP-TARGET math — which slot, and which nesting level, the
 // gesture is aiming at. The lifecycle underneath it (capture, listeners, cancels)
 // is pointerDrag.nuxt.test.ts's; what's pinned here is the one decision this file
@@ -28,6 +26,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import type { Item } from "~~/shared/types";
+import { item as baseItem } from "./helpers/list";
 
 // The controller is read for one thing on this path — the dragged row's own folder
 // and parent — so it's stubbed to that, rather than dragging the sync engine in.
@@ -35,16 +34,8 @@ const snapshot = ref<{ items: Item[] } | null>(null);
 mockNuxtImport("useGearList", () => () => ({ snapshot }));
 
 const FOLDER = "f1";
-const item = (over: Partial<Item> & { id: string }): Item => ({
-  folderId: FOLDER,
-  parentId: null,
-  name: over.id,
-  unitWeightMg: 0,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
+// named after its id, so a drop target reads back as the row it is
+const item = (over: Partial<Item> & { id: string }): Item => baseItem({ folderId: FOLDER, name: over.id, ...over });
 
 // One folder holding: group `pot` (children `lid`, `spoon`), then top-level `tent`.
 // Vertical bands, matching what the browser lays out — a group's wrap contains its

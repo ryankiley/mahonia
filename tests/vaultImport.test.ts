@@ -5,23 +5,11 @@
 // hand-written fixtures, so the two can't drift apart without a failure here.
 
 import { describe, expect, it } from "vitest";
+import { vaultFolder as folder, vaultRow as row } from "./helpers/vault";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport, vaultImportFromCsv, vaultImportFromJson } from "../shared/vaultImport";
 import { MAX_CATALOG_ID, MAX_FOLDERS } from "../shared/ops";
-import { VAULT_IMPORT_MAX, type VaultEntry, type VaultFolder } from "../shared/vault";
-
-let nextId = 1;
-const row = (over: Partial<VaultEntry> = {}): VaultEntry => ({
-  id: nextId++,
-  normKey: `k${nextId}`,
-  name: "Duplex",
-  weightMg: 539_000,
-  timesSeen: 1,
-  lastUsedAt: "2026-08-01T12:30:00.000Z",
-  createdAt: "2026-07-01T00:00:00.000Z",
-  ...over,
-});
-const folder = (id: number, name: string): VaultFolder => ({ id, name });
+import { VAULT_IMPORT_MAX } from "../shared/vault";
 
 describe("vaultImportFromJson — our own backup, back", () => {
   const gear = {

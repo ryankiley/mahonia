@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // A GROUP ROW'S PER-UNIT CELLS — the count, the two class marks, and the name box's
 // catalog suggestions — and the rows where they stand down.
 //
@@ -20,58 +18,29 @@
 //
 // Rendered through the real <ItemRow>, because every assertion here is about which
 // branch of the template draws.
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
-import { mount } from "@vue/test-utils";
-import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
-import { rowProvides } from "./helpers/itemRow";
+import { enableAutoUnmount } from "@vue/test-utils";
+import { mountRowOver, rowProvides } from "./helpers/itemRow";
 import ItemInput from "~/components/ItemInput.vue";
-import type { Item, ListSnapshot, Person } from "~~/shared/types";
-import type { ItemPatch } from "~~/shared/ops";
-import { applyOps } from "~~/shared/ops";
-import { blankList } from "./helpers/list";
-import { gearListStub } from "./helpers/gearList";
+import type { Item, ListSnapshot } from "~~/shared/types";
+import { blankList, item } from "./helpers/list";
+import { gearListStub, quietVaultAccess } from "./helpers/gearList";
 
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 registerEndpoint("/api/catalog/use", { method: "POST", handler: () => ({ ok: true }) });
 
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(false),
-  vaultKnown: ref(true),
-  vaultFetch: <T,>() => Promise.resolve({} as T),
-}));
+mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
 
 const snapshot = ref<ListSnapshot>(blankList());
 mockNuxtImport("useGearList", () => () => gearListStub({ snapshot }));
 
-const item = (over: Partial<Item> & { id: string }): Item => ({
-  folderId: "f1",
-  parentId: null,
-  name: "",
-  unitWeightMg: 0,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
+enableAutoUnmount(afterEach);
 
 const CHILD = item({ id: "chili", name: "Chili", parentId: "dinners", unitWeightMg: 180_000 });
 
-function mountRow(row: Item, children: Item[] = []) {
-  snapshot.value = { ...blankList(), items: [{ ...row }, ...children] } as ListSnapshot;
-  return mount(ItemRow, {
-    props: {
-      get list() {
-        return snapshot.value;
-      },
-      get item() {
-        return snapshot.value.items[0]!;
-      },
-    },
-    global: { provide: rowProvides(new Map([[row.id, children]])) },
-    attachTo: document.body,
-  });
-}
+const mountRow = (row: Item, children: Item[] = []) =>
+  mountRowOver(snapshot, [{ ...row }, ...children], rowProvides(new Map([[row.id, children]])));
 
 // SCOPED TO THE ROW ITSELF. A parent renders its children as more <ItemRow>s inside its
 // own wrapper, so an unscoped find here would answer for the first CHILD — which carries
@@ -92,7 +61,6 @@ describe("the cells a bare group stands down", () => {
     expect(hasQty(w)).toBe(true);
     expect(hasClassMarks(w)).toBe(true);
     expect(suggests(w)).toBe(true);
-    w.unmount();
   });
 
   it("drops the count and the class marks on a group holding nothing", () => {
@@ -101,7 +69,6 @@ describe("the cells a bare group stands down", () => {
     expect(hasClassMarks(w)).toBe(false);
     // ...and the weight cell still shows the group's total, read-only as before
     expect((own(w).find('input[aria-label="Weight"]').element as HTMLInputElement).value).toBe("180");
-    w.unmount();
   });
 
   // The name box is a separate rule from the two above — a pick would stamp a weight,
@@ -137,7 +104,6 @@ describe("the cells a bare group stands down", () => {
   it("does not let the stepper decide whether the stepper is drawn", () => {
     const w = mountRow(item({ id: "kit", name: "Cook kit", qty: 4 }), [CHILD]);
     expect(hasQty(w)).toBe(false); // a count on a contentless group multiplies zero
-    w.unmount();
   });
 
   // Two rows keep their marks even while bare, because taking them away would strand
@@ -151,7 +117,6 @@ describe("the cells a bare group stands down", () => {
 
     const water = mountRow(item({ id: "water", name: "Water" }), [CHILD]);
     expect(hasClassMarks(water)).toBe(true);
-    water.unmount();
   });
 
   // Water's cell is a VOLUME, not a count, and the weight field beside it is read-only
@@ -159,7 +124,6 @@ describe("the cells a bare group stands down", () => {
   it("keeps a water group's litres field", () => {
     const w = mountRow(item({ id: "water", name: "Water" }), [CHILD]);
     expect(hasLitres(w)).toBe(true);
-    w.unmount();
   });
 });
 
@@ -193,14 +157,12 @@ describe("a group's name box", () => {
     await renameTo(w, "Cook kit 540 g");
     expect(snapshot.value.items[0]!.name).toBe("Cook kit");
     expect(snapshot.value.items[0]!.unitWeightMg).toBe(0); // the 540 g is refused
-    w.unmount();
   });
 
   it("refuses the water volume the keyboard can commit with no menu drawn", async () => {
     const w = mountRow(item({ id: "kit", name: "Cook kit" }), [CHILD]);
     await renameTo(w, "Water");
     expect(snapshot.value.items[0]!.unitWeightMg).toBe(0);
-    w.unmount();
   });
 
   it("still takes a trailing weight on a leaf", async () => {
@@ -208,7 +170,6 @@ describe("a group's name box", () => {
     await renameTo(w, "Pot 540 g");
     expect(snapshot.value.items[0]!.name).toBe("Pot");
     expect(snapshot.value.items[0]!.unitWeightMg).toBe(540_000);
-    w.unmount();
   });
 
   // ...and the menu itself. Asserting the PROP only tested ItemRow's hand-off — both of
@@ -233,6 +194,5 @@ describe("a group's name box", () => {
     await nextTick();
     expect(leaf.find(".ac__menu").exists()).toBe(true);
     expect(lf.attributes("role")).toBe("combobox");
-    leaf.unmount();
   });
 });

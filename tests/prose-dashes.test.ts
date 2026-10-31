@@ -8,12 +8,11 @@
 // The changelog too: content/changelog.d/*.json and the archive are prose a visitor
 // reads on /about, and a hundred dashes had gathered there while this test looked
 // only at code (swept 2026-09-12).
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { ROOT, blank, stripComments, walkSources } from "./helpers/sources";
 
-const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const ROOTS = ["app", "shared", "server"];
 const CHANGELOG = [
   "content/changelog.json",
@@ -22,26 +21,12 @@ const CHANGELOG = [
     .map((f) => `content/changelog.d/${f}`),
 ];
 
-function walk(dir: string, out: string[] = []): string[] {
-  for (const name of readdirSync(dir)) {
-    const p = join(dir, name);
-    if (statSync(p).isDirectory()) walk(p, out);
-    else if (/\.(vue|ts)$/.test(name) && !/\.test\.ts$/.test(name)) out.push(p);
-  }
-  return out;
-}
-
-// Blank a span rather than delete it, so line numbers in the report stay true.
-const blank = (m: string) => m.replace(/[^\n]/g, " ");
-const stripJs = (s: string) =>
-  s
-    .replace(/\/\*[\s\S]*?\*\//g, blank)
-    // a `//` comment — but not the `//` inside "https://"
-    .replace(/(^|[^:"'`])\/\/[^\n]*/g, (m, lead: string) => lead + blank(m.slice(lead.length)));
+// CSS is not prose, a template's comments are not either, and the script block reads
+// like any other TypeScript. Spans are blanked, not cut, so line numbers stay true.
 const stripVue = (s: string) =>
   s
     .replace(/<style[\s\S]*?<\/style>/g, blank)
-    .replace(/<script[\s\S]*?<\/script>/g, stripJs)
+    .replace(/<script[\s\S]*?<\/script>/g, stripComments)
     .replace(/<!--[\s\S]*?-->/g, blank);
 
 // The dashes that are typography or data, not prose. Each entry names its case.
@@ -61,11 +46,11 @@ const ALLOWED: RegExp[] = [
 describe("user-facing prose", () => {
   it("carries no em or en dashes outside the deliberate exceptions", () => {
     const offenders: string[] = [];
-    const files = [...ROOTS.flatMap((root) => walk(join(ROOT, root))), ...CHANGELOG.map((f) => join(ROOT, f))];
+    const files = [...walkSources(ROOTS, ["vue", "ts"]), ...CHANGELOG.map((f) => join(ROOT, f))];
     for (const file of files) {
       const raw = readFileSync(file, "utf8");
       // JSON has no comments to strip: every string in it is a sentence on the page
-      const src = file.endsWith(".vue") ? stripVue(raw) : file.endsWith(".json") ? raw : stripJs(raw);
+      const src = file.endsWith(".vue") ? stripVue(raw) : file.endsWith(".json") ? raw : stripComments(raw);
       src.split("\n").forEach((line, i) => {
         if (!/[—–]/.test(line)) return;
         if (ALLOWED.some((re) => re.test(line))) return;

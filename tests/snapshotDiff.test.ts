@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { diffListState, applyListDiff, stateToFullSnap, fullSnapToState, reconstructChainAt, type FullSnap, type ListDiff } from "../shared/snapshotDiff";
 import type { Folder, Item, ListState } from "../shared/types";
+import { blankState, folder as listFolder, item as listItem } from "./helpers/list";
 
 // content-only, order-insensitive equality (storage array order isn't load-bearing —
 // render sorts by sortOrder). Reconstruction must reproduce the target by id + fields.
@@ -14,19 +15,19 @@ function expectSameState(got: ListState, want: ListState) {
   expect(byId(got.folders)).toEqual(byId(want.folders));
   expect(byId(got.items)).toEqual(byId(want.items));
 }
+/** The same, for a reconstruction that may have come back null. */
+function expectSame(got: ListState | null, want: ListState) {
+  expect(got).not.toBeNull();
+  expectSameState(got!, want);
+}
 const roundTrips = (base: ListState, target: ListState) =>
   expectSameState(applyListDiff(base, diffListState(base, target)), target);
 
-const folder = (id: string, over: Partial<Folder> = {}): Folder => ({
-  id, name: "F" + id, colorKey: "shelter", defaultClassification: "base", sortOrder: 0, ...over,
-});
-const item = (id: string, over: Partial<Item> = {}): Item => ({
-  id, folderId: null, name: "I" + id, unitWeightMg: 100, weightOverridden: false, qty: 1,
-  classification: null, sortOrder: 0, ...over,
-});
-const state = (over: Partial<ListState> = {}): ListState => ({
-  title: "Untitled list", description: "", displayUnit: "g", folders: [], items: [], version: 1, ...over,
-});
+const folder = (id: string, over: Partial<Folder> = {}): Folder => listFolder({ id, name: "F" + id, colorKey: "shelter", ...over });
+// weightOverridden stated, not left absent: a round trip has to give back exactly this
+const item = (id: string, over: Partial<Item> = {}): Item =>
+  listItem({ id, folderId: null, name: "I" + id, unitWeightMg: 100, weightOverridden: false, ...over });
+const state = (over: Partial<ListState> = {}): ListState => blankState({ title: "Untitled list", description: "", ...over });
 
 describe("snapshot diff/apply round-trips", () => {
   it("empty diff for identical states", () => {
@@ -114,23 +115,13 @@ describe("reverse-delta chain (capture + reconstruct + prune)", () => {
     }
     return chain;
   }
-  function expectSame(got: ListState | null, want: ListState) {
-    expect(got).not.toBeNull();
-    expect(got!.title).toBe(want.title);
-    expect(got!.displayUnit).toBe(want.displayUnit);
-    expect([...got!.folders].sort((a,b)=>a.id.localeCompare(b.id))).toEqual([...want.folders].sort((a,b)=>a.id.localeCompare(b.id)));
-    expect([...got!.items].sort((a,b)=>a.id.localeCompare(b.id))).toEqual([...want.items].sort((a,b)=>a.id.localeCompare(b.id)));
-  }
-  const f = (id: string, o: Partial<Folder> = {}): Folder => ({ id, name: "F"+id, colorKey: "shelter", defaultClassification: "base", sortOrder: 0, ...o });
-  const i = (id: string, o: Partial<Item> = {}): Item => ({ id, folderId: null, name: "I"+id, unitWeightMg: 1, weightOverridden: false, qty: 1, classification: null, sortOrder: 0, ...o });
-  const st = (o: Partial<ListState> = {}): ListState => ({ title: "t", description: "", displayUnit: "g", folders: [], items: [], version: 1, ...o });
 
   it("every snapshot in the chain reconstructs to its original state", () => {
     const states = [
-      st({ folders: [f("a")], items: [i("x", { folderId: "a" })] }),
-      st({ folders: [f("a")], items: [i("x", { folderId: "a", qty: 3 }), i("y")] }),
-      st({ title: "renamed", folders: [f("a"), f("b")], items: [i("x", { folderId: "b" }), i("y", { name: "Y!" })] }),
-      st({ folders: [f("b")], items: [i("y")], displayUnit: "lb" }), // dropped folder a + item x
+      state({ folders: [folder("a")], items: [item("x", { folderId: "a" })] }),
+      state({ folders: [folder("a")], items: [item("x", { folderId: "a", qty: 3 }), item("y")] }),
+      state({ title: "renamed", folders: [folder("a"), folder("b")], items: [item("x", { folderId: "b" }), item("y", { name: "Y!" })] }),
+      state({ folders: [folder("b")], items: [item("y")], displayUnit: "lb" }), // dropped folder a + item x
     ];
     const chain = buildChain(states);
     expect(chain[0].kind).toBe("base"); // newest is always the full anchor
@@ -139,7 +130,7 @@ describe("reverse-delta chain (capture + reconstruct + prune)", () => {
   });
 
   it("still reconstructs every retained point after pruning to a cap", () => {
-    const states = Array.from({ length: 9 }, (_, n) => st({ title: "v"+n, items: Array.from({ length: n+1 }, (_, j) => i("it"+j, { qty: n+1 })) }));
+    const states = Array.from({ length: 9 }, (_, n) => state({ title: "v"+n, items: Array.from({ length: n+1 }, (_, j) => item("it"+j, { qty: n+1 })) }));
     const chain = buildChain(states).slice(0, 5); // prune: keep 5 newest
     expect(chain[0].kind).toBe("base");
     for (let k = 0; k < chain.length; k++) expectSame(reconstructChainAt(chain, k), chain[k]._ref);
@@ -151,10 +142,10 @@ describe("reverse-delta chain (capture + reconstruct + prune)", () => {
   // this pins that the extra base is genuinely harmless.
   it("reconstructs every point when an interrupted capture left a stray extra base", () => {
     const states = [
-      st({ folders: [f("a")], items: [i("x", { folderId: "a" })] }),
-      st({ folders: [f("a")], items: [i("x", { folderId: "a", qty: 3 }), i("y")] }),
-      st({ title: "renamed", folders: [f("a"), f("b")], items: [i("y", { name: "Y!" })] }),
-      st({ folders: [f("b")], items: [i("y"), i("z")], displayUnit: "lb" }),
+      state({ folders: [folder("a")], items: [item("x", { folderId: "a" })] }),
+      state({ folders: [folder("a")], items: [item("x", { folderId: "a", qty: 3 }), item("y")] }),
+      state({ title: "renamed", folders: [folder("a"), folder("b")], items: [item("y", { name: "Y!" })] }),
+      state({ folders: [folder("b")], items: [item("y"), item("z")], displayUnit: "lb" }),
     ];
     // build normally up to the last step, then append the newest WITHOUT demoting
     // the previous anchor — exactly what a crash between the insert and the update
@@ -171,7 +162,7 @@ describe("reverse-delta chain (capture + reconstruct + prune)", () => {
   // The failure mode the insert-first ordering exists to prevent: demote-then-insert,
   // interrupted, leaves a chain whose newest row is a diff with no anchor.
   it("returns null (never wrong state) for an anchorless chain", () => {
-    const chain = buildChain([st({ items: [i("x")] }), st({ items: [i("x"), i("y")] })]);
+    const chain = buildChain([state({ items: [item("x")] }), state({ items: [item("x"), item("y")] })]);
     chain.shift(); // drop the base — what a failed insert after a demote would leave
     expect(chain[0]!.kind).toBe("diff");
     expect(reconstructChainAt(chain, 0)).toBeNull();

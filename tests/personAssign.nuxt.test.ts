@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // Assigning a row to a person THROUGH the row's own "Carried by" control — and the
 // data-person attribute the CSS filter matches on. Drives the real <ItemRow>: the
 // pick dispatches through the row's handler, the patch is applied by the real
@@ -10,24 +8,22 @@
 // the CSS filter: that the wrap carries the right slot, that a nested row inherits
 // its parent's through the prop the parent passes, and that the picker's entries
 // write the state the row then re-renders from.
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
-import { mount } from "@vue/test-utils";
-import ItemRow, { CHILDREN_BY_PARENT, PEOPLE_CTX } from "~/components/ItemRow.vue";
-import { rowProvides } from "./helpers/itemRow";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
+import ItemRow from "~/components/ItemRow.vue";
+import { mountRowOver, rowProvides, showChecklistFace } from "./helpers/itemRow";
 import { sortedPeople } from "~~/shared/people";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
-import { blankList } from "./helpers/list";
-import { gearListStub } from "./helpers/gearList";
+import { blankList, item as baseItem } from "./helpers/list";
+import { gearListStub, vaultWithHits } from "./helpers/gearList";
 import { applyOps } from "~~/shared/ops";
 
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(true),
-  vaultKnown: ref(true),
-  vaultFetch: () => Promise.resolve({ results: [] }),
-}));
+mockNuxtImport("useVaultAccess", () => () => vaultWithHits([]));
+
+enableAutoUnmount(afterEach);
 
 // The list under test, as the editor holds it — a reactive snapshot the stub
 // controller mutates through the REAL reducer, so what the row re-renders from is
@@ -38,41 +34,20 @@ mockNuxtImport("useGearList", () => () => gearListStub({ snapshot }));
 const sam: Person = { id: "sam", name: "Sam", colorKey: "shelter", sortOrder: 0 };
 const alex: Person = { id: "alex", name: "Alex", colorKey: "sleep", sortOrder: 1 };
 
-const item = (over: Partial<Item> = {}): Item => ({
-  id: "i1",
-  folderId: "f1",
-  name: "Bear Can",
-  unitWeightMg: 1000,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
+// one named, weighed row, so the picker has something to assign
+const item = (over: Partial<Item> = {}): Item => baseItem({ id: "i1", name: "Bear Can", unitWeightMg: 1000, ...over });
 
-// what GearEditor provides to every row — the children map, and the people in
-// display order with their slots — off the live snapshot, so a people edit reaches
-// the row the way it would in the editor
+// the people table GearEditor provides to every row, in display order with their
+// slots — off the live snapshot, so a people edit reaches the row the way it would
+// in the editor
 const peopleSorted = computed(() => sortedPeople(snapshot.value.people));
 const peopleCtx = {
   sorted: peopleSorted,
   slotById: computed(() => new Map(peopleSorted.value.map((p, i) => [p.id, i]))),
 };
 
-function mountRow(items: Item[], children = new Map<string, Item[]>()) {
-  snapshot.value = blankList({ people: [sam, alex], items });
-  return mount(ItemRow, {
-    props: {
-      get list() {
-        return snapshot.value;
-      },
-      get item() {
-        return snapshot.value.items[0]!;
-      },
-    },
-    global: { provide: rowProvides(children, peopleCtx) },
-    attachTo: document.body,
-  });
-}
+const mountRow = (items: Item[], children = new Map<string, Item[]>()) =>
+  mountRowOver(snapshot, items, rowProvides(children, peopleCtx), { people: [sam, alex] });
 
 describe("carried by — the row's picker + the filter attribute", () => {
   it("keeps assignment after optional nesting controls on groups, children and water", () => {
@@ -103,7 +78,6 @@ describe("carried by — the row's picker + the filter attribute", () => {
   it("stamps the wrap with the effective slot, 'u' when unclaimed", async () => {
     const w = mountRow([item()]);
     expect(w.get(".item-wrap").attributes("data-person")).toBe("u");
-    w.unmount();
   });
 
   it("picking a person dispatches through the reducer and re-stamps the wrap", async () => {
@@ -121,7 +95,6 @@ describe("carried by — the row's picker + the filter attribute", () => {
     // column this cluster's right-aligned glyphs share — see ItemRow's style.
     expect(w.get(".item__person-btn").find(".swatch").exists()).toBe(true);
     expect(w.get(".item__person-btn").classes()).not.toContain("item__mark");
-    w.unmount();
   });
 
   it("'Unassigned' hands the row back", async () => {
@@ -133,7 +106,6 @@ describe("carried by — the row's picker + the filter attribute", () => {
     await clear.trigger("click");
     expect(snapshot.value.items[0]!.personId).toBeUndefined();
     expect(w.get(".item-wrap").attributes("data-person")).toBe("u");
-    w.unmount();
   });
 
   it("a nested row inherits its parent's slot through the prop, until it claims its own", async () => {
@@ -154,7 +126,6 @@ describe("carried by — the row's picker + the filter attribute", () => {
     // a nested row's clear entry says what clearing MEANS one level down
     await w.findAll(".item__person-btn")[1]!.trigger("click");
     expect(w.findAll(".item__personpick").at(-1)!.text()).toBe("Whoever carries the group");
-    w.unmount();
   });
 
   it("under a group nobody carries, the clear entry is plain 'Unassigned'", async () => {
@@ -174,7 +145,6 @@ describe("carried by — the row's picker + the filter attribute", () => {
     ]) as ListSnapshot;
     await w.vm.$nextTick();
     expect(w.findAll(".item__personpick").at(-1)!.text()).toBe("Whoever carries the group");
-    w.unmount();
   });
 
   it("a peopleless list renders no picker at all", () => {
@@ -191,21 +161,17 @@ describe("carried by — the row's picker + the filter attribute", () => {
       global: { provide: rowProvides(new Map(), peopleCtx) },
     });
     expect(w.find(".item__person-btn").exists()).toBe(false);
-    w.unmount();
   });
 
   it("the checklist face tags the row's own claim", async () => {
     // Mount the checklist face by setting the latch DIRECTLY. The singleton's own
     // mode→latch watcher was created inside the first mounted row's setup scope,
     // so it died with that row's unmount — flipping `mode` here would reach nobody.
-    const em = useEditorMode();
-    em.mode.value = "pack";
-    em.everPacked.value = true;
+    showChecklistFace();
     const w = mountRow([item({ personId: "sam" })]);
     await w.vm.$nextTick();
     const tag = w.get(".item__carrier");
     expect(tag.text()).toContain("Sam");
-    em.mode.value = "edit";
-    w.unmount();
+    useEditorMode().mode.value = "edit";
   });
 });

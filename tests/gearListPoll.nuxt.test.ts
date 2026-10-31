@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
+import { snapshotFor } from "./helpers/list";
+import { memoryListStore, quietVaultAccess } from "./helpers/gearList";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import type { LocalListRecord } from "~~/shared/localList";
 import type { ListSnapshot } from "~~/shared/types";
@@ -15,37 +17,16 @@ import type { ListSnapshot } from "~~/shared/types";
 // faked time of every call and the assertions read the gaps between them.
 
 const records = new Map<string, LocalListRecord>();
-mockNuxtImport("useLocalListStore", () => () => ({
-  get: async (key: string) => records.get(key),
-  set: async (key: string, record: LocalListRecord) => {
-    records.set(key, JSON.parse(JSON.stringify(record)));
-  },
-  del: async (key: string) => {
-    records.delete(key);
-  },
-}));
+mockNuxtImport("useLocalListStore", () => () => memoryListStore(records));
 // no vault on this device, so opening a list asks nothing about its gear
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(false),
-  vaultKnown: ref(true),
-  vaultFetch: async () => ({}),
-}));
+mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
 
-const storage = stubLocalStorage();
+stubLocalStorage();
 
 const TOKEN = "poll-test-token";
 const OTHER_TOKEN = "poll-test-other-token";
-const snapshot = (version = 1, title = "Poll"): ListSnapshot => ({
-  shareCode: "POLLCODE0001",
-  slug: "poll-list-aaa111",
-  title,
-  description: "",
-  displayUnit: "g",
-  folders: [],
-  items: [],
-  version,
-  isPublic: false,
-});
+const snapshot = (version = 1, title = "Poll"): ListSnapshot =>
+  snapshotFor({ shareCode: "POLLCODE0001", slug: "poll-list-aaa111", title, version });
 registerEndpoint("/api/edit/list", () => ({ snapshot: snapshot() }));
 registerEndpoint("/api/edit/mutate", { method: "POST", handler: () => ({ snapshot: snapshot(2) }) });
 

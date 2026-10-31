@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // THE GROUP TICK in packing mode: a group's box is its children's, and a tick on it
 // is theirs too (shared/packing). Driven through the real <ItemRow> because every
 // claim here is about the mounted row's contract with those rules: that the box takes
@@ -12,23 +10,18 @@
 // (packing.test.ts); this file mounts the wiring.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
-import { enableAutoUnmount, mount } from "@vue/test-utils";
-import ItemRow from "~/components/ItemRow.vue";
-import { rowProvides } from "./helpers/itemRow";
+import { enableAutoUnmount } from "@vue/test-utils";
+import { mountRowOver, rowProvides, showChecklistFace } from "./helpers/itemRow";
 import { groupItemsByParent } from "~~/shared/weights";
 import { applyOps, type ItemPatch } from "~~/shared/ops";
 import { sortedPeople } from "~~/shared/people";
 import type { Item, ListSnapshot, Person } from "~~/shared/types";
-import { blankList } from "./helpers/list";
-import { gearListStub } from "./helpers/gearList";
+import { blankList, item } from "./helpers/list";
+import { gearListStub, quietVaultAccess } from "./helpers/gearList";
 
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(false),
-  vaultKnown: ref(true),
-  vaultFetch: <T,>() => Promise.resolve({} as T),
-}));
+mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
 
 // The list as the editor holds it: a reactive snapshot the stub controller mutates
 // through the REAL reducer, so a cascade re-renders the row from the state the app
@@ -51,16 +44,6 @@ mockNuxtImport("useGearList", () => () => gearListStub({
 const sam: Person = { id: "sam", name: "Sam", colorKey: "shelter", sortOrder: 0 };
 const alex: Person = { id: "alex", name: "Alex", colorKey: "sleep", sortOrder: 1 };
 
-const item = (over: Partial<Item> & { id: string }): Item => ({
-  folderId: "f1",
-  parentId: null,
-  name: "",
-  unitWeightMg: 0,
-  qty: 1,
-  classification: null,
-  sortOrder: 0,
-  ...over,
-});
 // Factories, not constants: a case writes `packed` onto the snapshot's items, and the
 // snapshot holds these very objects, so a shared constant would carry one case's
 // ticks into the next.
@@ -80,21 +63,8 @@ const peopleCtx = {
   slotById: computed(() => new Map(peopleSorted.value.map((p, i) => [p.id, i]))),
 };
 
-function mountRow(items: Item[]) {
-  snapshot.value = blankList({ people: [sam, alex], items });
-  return mount(ItemRow, {
-    props: {
-      get list() {
-        return snapshot.value;
-      },
-      get item() {
-        return snapshot.value.items[0]!;
-      },
-    },
-    global: { provide: rowProvides(childrenByParent, peopleCtx) },
-    attachTo: document.body,
-  });
-}
+const mountRow = (items: Item[]) =>
+  mountRowOver(snapshot, items, rowProvides(childrenByParent, peopleCtx), { people: [sam, alex] });
 
 type W = ReturnType<typeof mountRow>;
 // The checklist faces in DOM order: the group's own label first, then one per child
@@ -115,11 +85,7 @@ const packed = (...ids: string[]) =>
 enableAutoUnmount(afterEach);
 
 beforeEach(() => {
-  // Mount the checklist face by setting the latch directly (personAssign does the
-  // same); the mode itself so the row's handlers see packing too.
-  const em = useEditorMode();
-  em.mode.value = "pack";
-  em.everPacked.value = true;
+  showChecklistFace(); // the latch set directly, as personAssign does
   usePersonFilter().clear();
   dropWrites = false;
 });

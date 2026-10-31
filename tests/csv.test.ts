@@ -1,25 +1,8 @@
 import { describe, expect, it } from "vitest";
+import { twoFolderList as snap } from "./helpers/list";
 import { csvToListData, listToCsv, parseCsv } from "../shared/exporters/csv";
 import { MAX_FOLDERS, MAX_ITEMS } from "../shared/ops";
-import type { ListSnapshot } from "../shared/types";
 import { toMg } from "../shared/weights";
-
-const snap = (): ListSnapshot => ({
-  shareCode: "X",
-  slug: "x",
-  version: 1,
-  isPublic: false,
-  title: "Trip",
-  displayUnit: "g",
-  folders: [
-    { id: "f1", name: "Shelter", defaultClassification: "base", sortOrder: 0 },
-    { id: "f2", name: "On Body", defaultClassification: "worn", sortOrder: 1 },
-  ],
-  items: [
-    { id: "i1", folderId: "f1", name: "Zpacks Duplex", unitWeightMg: 538000, qty: 1, classification: null, sortOrder: 0 },
-    { id: "i2", folderId: "f2", name: "Rain jacket", unitWeightMg: 300000, qty: 1, classification: null, sortOrder: 0 },
-  ],
-});
 
 describe("parseCsv", () => {
   it("handles quoted fields with commas and escaped quotes", () => {

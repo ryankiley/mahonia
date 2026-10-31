@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // The tooltip's POSITIONING logic — the only part of <Tooltip> that makes decisions.
 // Needs the Nuxt environment for the same reason gearList.nuxt.test.ts does: the
 // component leans on auto-imports (useTemplateRef, useId) and on a real DOM for the
@@ -12,8 +10,10 @@
 // by class name. Each case sets its own geometry and asserts the placement +
 // left/top the component computes from it.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { flushPromises, mount } from "@vue/test-utils";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import Tooltip from "~/components/Tooltip.vue";
+
+enableAutoUnmount(afterEach);
 
 type Rect = { top: number; bottom: number; left: number; right: number; width: number; height: number };
 const rect = (r: Partial<Rect>): DOMRect =>
@@ -86,9 +86,7 @@ describe("Tooltip positioning", () => {
   });
 
   afterEach(() => {
-    wrapper?.unmount();
-    wrapper = undefined;
-    document.body.innerHTML = "";
+    document.body.innerHTML = ""; // the cases append raw nodes beside the mount
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });

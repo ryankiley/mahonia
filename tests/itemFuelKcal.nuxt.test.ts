@@ -1,5 +1,3 @@
-// @vitest-environment nuxt
-//
 // THE CALORIE FIELD ON A FUEL ROW. A row's consumable popover holds the switch and, once
 // the row is consumable, a "kcal each" field — and the number typed there is food energy:
 // the totals bar counts it and the food plan divides it by the days. A gas canister is a
@@ -24,54 +22,29 @@
 //
 // Rendered through the real <ItemRow>, because what is under test is which branch of the
 // template draws.
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
-import { mount } from "@vue/test-utils";
-import ItemRow from "~/components/ItemRow.vue";
-import { rowProvides } from "./helpers/itemRow";
+import { enableAutoUnmount } from "@vue/test-utils";
+import { mountRowOver } from "./helpers/itemRow";
 import type { Item, ListSnapshot } from "~~/shared/types";
-import { blankList } from "./helpers/list";
-import { gearListStub } from "./helpers/gearList";
+import { blankList, item as baseItem } from "./helpers/list";
+import { gearListStub, quietVaultAccess } from "./helpers/gearList";
 import { useItemMenu } from "~/composables/useItemMenu";
 
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 registerEndpoint("/api/catalog/use", { method: "POST", handler: () => ({ ok: true }) });
 
-mockNuxtImport("useVaultAccess", () => () => ({
-  hasVault: ref(false),
-  vaultKnown: ref(true),
-  vaultFetch: <T,>() => Promise.resolve({} as T),
-}));
+mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
 
 const snapshot = ref<ListSnapshot>(blankList());
 mockNuxtImport("useGearList", () => () => gearListStub({ snapshot }));
 
-const item = (over: Partial<Item> & { id: string }): Item => ({
-  folderId: "f1",
-  parentId: null,
-  name: "",
-  unitWeightMg: 0,
-  qty: 1,
-  classification: "consumable",
-  sortOrder: 0,
-  ...over,
-});
+enableAutoUnmount(afterEach);
 
-function mountRow(row: Item) {
-  snapshot.value = { ...blankList(), items: [{ ...row }] } as ListSnapshot;
-  return mount(ItemRow, {
-    props: {
-      get list() {
-        return snapshot.value;
-      },
-      get item() {
-        return snapshot.value.items[0]!;
-      },
-    },
-    global: { provide: rowProvides() },
-    attachTo: document.body,
-  });
-}
+// every row here is in the consumable folder's world, so consumable is the default
+const item = (over: Partial<Item> & { id: string }): Item => baseItem({ classification: "consumable", ...over });
+
+const mountRow = (row: Item) => mountRowOver(snapshot, [{ ...row }]);
 
 // open the popover, then answer for what it holds
 async function openPop(w: ReturnType<typeof mountRow>) {
@@ -94,7 +67,6 @@ describe("the calorie field on a fuel row", () => {
     const pop = await openPop(w);
     expect(pop.hasSwitch).toBe(true);
     expect(pop.field.exists()).toBe(true);
-    w.unmount();
   });
 
   it("is withheld on fuel holding no number — the switch stays", async () => {
@@ -115,7 +87,6 @@ describe("the calorie field on a fuel row", () => {
     const pop = await openPop(w);
     expect(pop.field.exists()).toBe(true);
     expect(pop.field.element.value).toBe("1350");
-    w.unmount();
   });
 });
 
@@ -151,7 +122,6 @@ describe("the simple cooking estimate", () => {
     expect(pop.find('[role="status"]').exists()).toBe(false);
     expect(snapshot.value.items[0]!.needsCooking).toBeUndefined();
     expect(snapshot.value.items[0]).toMatchObject({ qty: 6, unitWeightMg: 100_000, kcal: 400 });
-    w.unmount();
   });
 
   it.each([0, 1, 6, 9999])("assumes one boil per unit at quantity %i", async (qty) => {
@@ -162,7 +132,6 @@ describe("the simple cooking estimate", () => {
     snapshot.value.items[0]!.qty = 2;
     await nextTick();
     expect(estimate()).toBe("~20 g fuel");
-    w.unmount();
   });
 
   it("does not offer cooking on stove fuel or water", async () => {
@@ -173,7 +142,6 @@ describe("the simple cooking estimate", () => {
     const water = mountRow(item({ id: "water", name: "Water" }));
     expect(water.find('button[aria-label^="Consumable"]').exists()).toBe(false);
     expect(water.find('[aria-label="Needs cooking"]').exists()).toBe(false);
-    water.unmount();
   });
 });
 
@@ -191,7 +159,6 @@ describe("the worn toggle on a fuel row", () => {
     const w = mountRow(item({ id: "bar", name: "Clif bar", unitWeightMg: 68_000 }));
     expect(wornToggle(w).exists()).toBe(true);
     expect(ghostShirt(w).exists()).toBe(false);
-    w.unmount();
   });
 
   it("gives way to the ghost slot on fuel, whatever the row's class", () => {
@@ -250,7 +217,6 @@ describe("an open popover keeps the controls it opened with", () => {
     expect(wornToggle(w).exists()).toBe(false);
     expect(ghostShirt(w).exists()).toBe(true);
     expect(w.emitted("overlayToggle")).toEqual([[true], [false]]);
-    w.unmount();
   });
 
   it("clearing a fuel row's calories keeps the field for the rest of the visit; the next open withholds it", async () => {
@@ -271,7 +237,6 @@ describe("an open popover keeps the controls it opened with", () => {
     pop = await openPop(w);
     expect(pop.hasSwitch).toBe(true);
     expect(pop.field.exists()).toBe(false);
-    w.unmount();
   });
 
   it("takes a number back the way the popover prints it", async () => {
@@ -285,6 +250,5 @@ describe("an open popover keeps the controls it opened with", () => {
     await nextTick();
     expect(row().kcal).toBe(1400);
     expect(w.find('input[id$="-kcal"]').exists()).toBe(true);
-    w.unmount();
   });
 });

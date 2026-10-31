@@ -1,16 +1,16 @@
-// @vitest-environment nuxt
-//
 // MY GEAR'S EDIT DIALOG follows the editor row's two fuel rules — ItemRow's rule
 // verbatim is the dialog's own stated principle — and it is the one surface where a
 // number can be typed into a field that then hides: the name and gear type are edited
 // live in the same form. So beyond the two rules, this pins that a kcal typed before the
 // row was edited into fuel is dropped on save rather than written unseen, where the next
 // list to pick the row would count it.
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
-import { flushPromises, mount } from "@vue/test-utils";
+import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import VaultItemModal from "~/components/VaultItemModal.vue";
 import type { VaultEntry } from "~~/shared/vault";
+
+enableAutoUnmount(afterEach);
 
 // every save the dialog sends — the request body is what is under test
 const sent: unknown[] = [];
@@ -58,7 +58,6 @@ describe("the edit dialog on a fuel entry", () => {
     const w = open(entry("IsoPro Fuel Canister", { commonName: "Fuel canister" }));
     expect(kcalField(w)).toBeUndefined();
     expect(await typeOptions(w)).toEqual(["Base", "Consumable"]);
-    w.unmount();
   });
 
   it("offers both on food, and Worn again on fuel that already is worn", async () => {
@@ -68,7 +67,6 @@ describe("the edit dialog on a fuel entry", () => {
     food.unmount();
     const worn = open(entry("Gas canister", { classification: "worn" }));
     expect(await typeOptions(worn)).toEqual(["Base", "Worn", "Consumable"]);
-    worn.unmount();
   });
 
   it("drops a kcal typed before the row was edited into fuel, rather than saving it unseen", async () => {
@@ -80,7 +78,6 @@ describe("the edit dialog on a fuel entry", () => {
     await w.get("button.btn--primary").trigger("click");
     await flushPromises();
     expect(patchSent()).toEqual({ commonName: "Fuel canister" });
-    w.unmount();
   });
 
   it("still clears a fuel row's stored calories, which is the one edit its field exists for", async () => {
@@ -91,6 +88,5 @@ describe("the edit dialog on a fuel entry", () => {
     await w.get("button.btn--primary").trigger("click");
     await flushPromises();
     expect(patchSent()).toEqual({ kcal: null });
-    w.unmount();
   });
 });

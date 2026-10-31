@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { dayLabel } from "../shared/tripDay";
 import { normalizeCalendarDate } from "../shared/ops";
+import { inZones } from "./helpers/tz";
 
 // Naming a day was extracted out of the planning panel when a second view needed it: a
 // shared list shows the itinerary, and a day called "Tuesday, Day 2" in the editor that
@@ -28,15 +29,7 @@ describe("what a day of a trip is called", () => {
     // The whole reason the date is parsed at T00:00:00Z and read back in UTC. A
     // local-midnight Date would step back a day for anyone west of UTC, so a trip
     // starting Monday would greet a reader in Los Angeles with "Sunday, Day 1".
-    const tz = process.env.TZ;
-    try {
-      for (const zone of ["UTC", "America/Los_Angeles", "Pacific/Kiritimati", "Asia/Tokyo"]) {
-        process.env.TZ = zone;
-        expect(dayLabel(0, "2026-08-10")).toBe("Monday, Day 1");
-      }
-    } finally {
-      process.env.TZ = tz;
-    }
+    inZones(() => expect(dayLabel(0, "2026-08-10")).toBe("Monday, Day 1"));
   });
 
   it("falls back to the bare number rather than inventing a weekday", () => {

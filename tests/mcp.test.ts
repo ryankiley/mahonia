@@ -1,6 +1,3 @@
-import { IncomingMessage, ServerResponse } from "node:http";
-import { Socket } from "node:net";
-import { createEvent } from "h3";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import mcpDelete from "../server/routes/mcp.delete";
 import mcpGet from "../server/routes/mcp.get";
@@ -11,6 +8,7 @@ import { sha256Hex } from "../server/utils/tokens";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { MAX_ITEMS, MAX_ITEM_NOTE_LEN } from "../shared/ops";
 import type { Item, ListSnapshot } from "../shared/types";
+import { makeEvent } from "./helpers/http";
 import { expectConforms, expectResultConforms } from "./helpers/mcpSchema";
 
 // The MCP endpoint, driven as a client would drive it: a real H3 event over bare node
@@ -48,20 +46,9 @@ vi.mock("../server/utils/rateLimit", () => limiter);
 const TOKEN = "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_ABCDE";
 const EDIT_LINK = `https://mahonia.test/e/ABC123DEF456#${TOKEN}`;
 
-function request(method: string, body?: unknown, headers: Record<string, string> = {}, url = "/mcp") {
-  const req = new IncomingMessage(new Socket());
-  req.method = method;
-  req.url = url;
-  req.headers = { host: "mahonia.test", accept: "application/json, text/event-stream", ...headers };
-  if (body !== undefined) {
-    const buf = typeof body === "string" ? Buffer.from(body) : Buffer.from(JSON.stringify(body));
-    req.headers["content-type"] = "application/json";
-    req.headers["content-length"] = String(buf.length);
-    req.push(buf);
-  }
-  req.push(null);
-  return createEvent(req, new ServerResponse(req));
-}
+// a client's request: it accepts both answer shapes the transport may use
+const request = (method: string, body?: unknown, headers: Record<string, string> = {}, url = "/mcp") =>
+  makeEvent(url, { method, headers: { accept: "application/json, text/event-stream", ...headers }, body });
 async function post(body: unknown, headers: Record<string, string> = {}, url = "/mcp") {
   const event = request("POST", body, headers, url);
   const out = (await mcp(event)) as Record<string, unknown> | undefined;
@@ -667,21 +654,26 @@ describe("describeList", () => {
   });
 });
 
+/** A list past the ceilings: three folders of `perFolder` rows, each row with one nested
+ *  row. `note` puts a description on every row; `longNames` gives each row a 150-char
+ *  name, a variant and a gear type, the shape that makes the Markdown table wide. */
+const big = (perFolder: number, { note, longNames = false, ...over }: Partial<ListSnapshot> & { note?: string; longNames?: boolean } = {}): ListSnapshot => {
+  const folders = ["Shelter", "Sleep", "Kitchen"].map((name, i) => ({ id: `f${i}`, name, defaultClassification: "base" as const, sortOrder: i }));
+  const items: Item[] = [];
+  for (const f of folders) {
+    for (let i = 0; i < perFolder; i++) {
+      const id = `${f.id}-${i}`;
+      const name = `Row ${i} of ${f.name}${longNames ? ` ${"x".repeat(150)}` : ""}`;
+      const wide = longNames ? { variant: "Long", commonName: "Thing" } : {};
+      items.push({ id, folderId: f.id, name, brand: "Maker", ...wide, unitWeightMg: 100_000, qty: 1, classification: null, sortOrder: i, description: note });
+      items.push({ id: `${id}-k`, folderId: f.id, parentId: id, name: `Part ${i}`, unitWeightMg: 10_000, qty: 1, classification: null, sortOrder: 0, description: note });
+    }
+  }
+  return snap({ folders, items, people: [], days: [], description: "The list's own notes stay.", ...over });
+};
+
 describe("fitList", () => {
   const size = (value: unknown) => Buffer.byteLength(JSON.stringify(value));
-  /** three folders of `perFolder` rows, each row with one nested row; a note on every row when given */
-  const big = (perFolder: number, note?: string, over: Partial<ListSnapshot> = {}): ListSnapshot => {
-    const folders = ["Shelter", "Sleep", "Kitchen"].map((name, i) => ({ id: `f${i}`, name, defaultClassification: "base" as const, sortOrder: i }));
-    const items: Item[] = [];
-    for (const f of folders) {
-      for (let i = 0; i < perFolder; i++) {
-        const id = `${f.id}-${i}`;
-        items.push({ id, folderId: f.id, name: `Row ${i} of ${f.name}`, brand: "Maker", unitWeightMg: 100_000, qty: 1, classification: null, sortOrder: i, description: note });
-        items.push({ id: `${id}-k`, folderId: f.id, parentId: id, name: `Part ${i}`, unitWeightMg: 10_000, qty: 1, classification: null, sortOrder: 0, description: note });
-      }
-    }
-    return snap({ folders, items, people: [], days: [], description: "The list's own notes stay.", ...over });
-  };
   type Out = { name: string; items: { name: string; items?: { name: string }[] }[] }[];
   const rowsIn = (out: Record<string, unknown>) => (out.folders as Out).reduce((n, f) => n + f.items.reduce((m, r) => m + 1 + (r.items?.length ?? 0), 0), 0);
   const count = (d: Record<string, unknown>) => (d.totals as { item_count: number }).item_count;
@@ -690,12 +682,12 @@ describe("fitList", () => {
     const d = describeList(snap(), "https://mahonia.app");
     expect(fitList(d)).toBe(d);
     expect(d.truncated).toBeUndefined();
-    const notes = describeList(big(3, "a note"), "https://mahonia.app");
+    const notes = describeList(big(3, { note: "a note" }), "https://mahonia.app");
     expect(fitList(notes)).toBe(notes);
   });
 
   it("drops every row's note first, keeps every row, and says so in one field before the rows", () => {
-    const d = describeList(big(10, "x".repeat(300)), "https://mahonia.app");
+    const d = describeList(big(10, { note: "x".repeat(300) }), "https://mahonia.app");
     const max = size(d) - 1_000; // over by less than the notes are worth
     const out = fitList(d, max);
     expect(size(out)).toBeLessThanOrEqual(max);
@@ -766,7 +758,7 @@ describe("fitList", () => {
 
   it("measures bytes, so a list in a three-byte script is held to the same token budget", () => {
     const name = "登山用のテント".repeat(4); // 28 characters: 28 string units, 84 bytes
-    const d = describeList(big(80, undefined, { title: "山の道具" }), "https://mahonia.app");
+    const d = describeList(big(80, { title: "山の道具" }), "https://mahonia.app");
     for (const f of d.folders as Out) for (const r of f.items) r.name = name;
     // under the ceiling counted in characters, over it counted in bytes: a character
     // ceiling would have returned this list whole, at roughly a third more tokens than it allows
@@ -779,7 +771,7 @@ describe("fitList", () => {
 
   it("gives up the list's own facts, largest first, only when they alone are too big", () => {
     const d = describeList(
-      big(1, undefined, {
+      big(1, {
         description: "d".repeat(4_000),
         days: Array.from({ length: 60 }, (_, i) => ({ id: `d${i}`, sortOrder: i, label: "\\u0001".repeat(120), distanceM: 1_000 })),
         trailUrl: "https://example.com/route",
@@ -810,7 +802,7 @@ describe("fitList", () => {
 
   it("does both when notes alone don't get it under, and holds the largest list the reducer allows", () => {
     // as many rows as a list can hold (three folders, two rows a pair), the longest note on each
-    const d = describeList(big(Math.floor(MAX_ITEMS / 6), "n".repeat(MAX_ITEM_NOTE_LEN)), "https://mahonia.app");
+    const d = describeList(big(Math.floor(MAX_ITEMS / 6), { note: "n".repeat(MAX_ITEM_NOTE_LEN) }), "https://mahonia.app");
     expect(size(d)).toBeGreaterThan(GET_LIST_MAX_BYTES * 2);
     const out = fitList(d);
     expect(size(out)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
@@ -820,7 +812,7 @@ describe("fitList", () => {
   });
 
   it("get_list answers the cut list as text and data alike, in the declared shape", async () => {
-    repo.getByShareCode.mockResolvedValue(big(Math.floor(MAX_ITEMS / 6), "n".repeat(MAX_ITEM_NOTE_LEN)));
+    repo.getByShareCode.mockResolvedValue(big(Math.floor(MAX_ITEMS / 6), { note: "n".repeat(MAX_ITEM_NOTE_LEN) }));
     const { text, structured, isError } = toolText(await call("get_list", { share_code: "ABC123DEF456" }));
     expect(isError).toBe(false);
     expect(Buffer.byteLength(text)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
@@ -832,19 +824,7 @@ describe("fitList", () => {
 describe("fitMarkdown", () => {
   const size = (text: string) => Buffer.byteLength(text);
   const rows = (text: string) => text.split("\n").filter((l) => l.startsWith("| ") && !l.startsWith("| Item |") && !l.startsWith("| --- |"));
-  /** three folders of `perFolder` rows, each with one nested row, under long names */
-  const big = (perFolder: number): ListSnapshot => {
-    const folders = ["Shelter", "Sleep", "Kitchen"].map((name, i) => ({ id: `f${i}`, name, defaultClassification: "base" as const, sortOrder: i }));
-    const items: Item[] = [];
-    for (const f of folders) {
-      for (let i = 0; i < perFolder; i++) {
-        const id = `${f.id}-${i}`;
-        items.push({ id, folderId: f.id, name: `Row ${i} of ${f.name} ${"x".repeat(150)}`, brand: "Maker", variant: "Long", commonName: "Thing", unitWeightMg: 100_000, qty: 1, classification: null, sortOrder: i });
-        items.push({ id: `${id}-k`, folderId: f.id, parentId: id, name: `Part ${i}`, unitWeightMg: 10_000, qty: 1, classification: null, sortOrder: 0 });
-      }
-    }
-    return snap({ folders, items, people: [], days: [] });
-  };
+  const wide = (perFolder: number) => big(perFolder, { longNames: true });
 
   it("returns text under the ceiling untouched", () => {
     const md = listToMarkdown(snap());
@@ -853,7 +833,7 @@ describe("fitMarkdown", () => {
   });
 
   it("cuts rows off the end of the tables, keeps the totals, and says how many are missing", () => {
-    const md = listToMarkdown(big(166));
+    const md = listToMarkdown(wide(166));
     expect(size(md)).toBeGreaterThan(GET_LIST_MAX_BYTES);
     const out = fitMarkdown(md);
     expect(size(out)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
@@ -872,7 +852,7 @@ describe("fitMarkdown", () => {
   });
 
   it("holds to any ceiling, one row at a time, a nested row before its parent", () => {
-    const md = listToMarkdown(big(4));
+    const md = listToMarkdown(wide(4));
     const all = rows(md);
     let previous = all.length;
     for (let max = size(md) - 1; max > 400; max -= 97) {
@@ -896,7 +876,7 @@ describe("fitMarkdown", () => {
   });
 
   it("get_list_markdown answers the cut text", async () => {
-    repo.getTextByShareCode.mockResolvedValue(big(166));
+    repo.getTextByShareCode.mockResolvedValue(wide(166));
     const { text, isError } = toolText(await call("get_list_markdown", { share_code: "ABC123DEF456" }));
     expect(isError).toBe(false);
     expect(size(text)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
