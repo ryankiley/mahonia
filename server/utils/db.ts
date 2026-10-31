@@ -211,7 +211,7 @@ export const TRAIL_FAVICONS_DDL: string[] = [
 ];
 
 /** Run a DDL list, statement by statement. */
-export async function runDdl(db: Db, ddl: readonly string[]): Promise<void> {
+async function runDdl(db: Db, ddl: readonly string[]): Promise<void> {
   for (const stmt of ddl) await db.execute(sql.raw(stmt));
 }
 /** A memoized ensure for one DDL list — the shape every self-ensuring table here
@@ -228,10 +228,6 @@ export const ensureTrailFaviconSchema = ensureOf(TRAIL_FAVICONS_DDL);
 
 /** Idempotently create list_snapshots (memoized) — for Neon (no build-time DDL). */
 export const ensureSnapshotSchema = ensureOf(SNAPSHOTS_DDL);
-/** Reset the ensure-memo — for tests that spin up a fresh database. */
-export function _resetSnapshotEnsured(): void {
-  ensureSnapshotSchema.reset();
-}
 
 /** Idempotently create the vault tables (memoized) — for Neon, where there's no
  *  build-time DDL. Mirrors ensureCatalogSchema; every vault endpoint reaches its

@@ -253,7 +253,7 @@ const hasNumUnit = (s: string) => /\d/.test(s) && /[a-zA-Z"']/.test(s);
 
 /** The S/M/L family, letter to word and back. The catalog's variant says the word;
  *  the attributes column and the size axis keep the letter. */
-export const SIZE_LETTER_WORD: Record<string, string> = {
+const SIZE_LETTER_WORD: Record<string, string> = {
   XXS: "XX-Small",
   XS: "X-Small",
   S: "Small",

@@ -3,8 +3,8 @@
 // both files. The stylesheet keeps the motion; this file is for the one move CSS can't
 // make — one caught in flight carrying on at the speed it has (springTiming, run as a
 // Web Animation) — and for a Web Animation that must run on a token's own curve (springCss).
-export const SPRINGS = { fade: [200, 0], step: [260, 0], move: [420, 0], pop: [380, 0.2], track: [140, 0] } as const;
-export type SpringName = keyof typeof SPRINGS;
+const SPRINGS = { fade: [200, 0], step: [260, 0], move: [420, 0], pop: [380, 0.2], track: [140, 0] } as const;
+type SpringName = keyof typeof SPRINGS;
 
 export interface Spring {
   stiffness: number;

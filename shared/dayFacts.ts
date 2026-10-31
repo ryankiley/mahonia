@@ -49,7 +49,7 @@ interface DayFactsTerrain {
  * 4). Stated as "about", never as a forecast; it is the one thing about conditions the
  * list can say with no network at all (issue #344, its first layer).
  */
-export const LAPSE_C_PER_KM = 6.5;
+const LAPSE_C_PER_KM = 6.5;
 export const coolerByC = (aboveM: number): number => (aboveM / 1000) * LAPSE_C_PER_KM;
 
 /** a climb shorter than this is a bump, not a climb worth naming */

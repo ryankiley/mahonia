@@ -17,7 +17,7 @@ import type { ListSnapshot } from "../types";
 import { vaultExportObject, type VaultExport } from "./vault";
 
 export const EVERYTHING_FORMAT = "mahonia-account-export";
-export const EVERYTHING_VERSION = 1;
+const EVERYTHING_VERSION = 1;
 
 /** One list, the backup's shape plus its handle. */
 export function listExportObject(list: ListSnapshot): Record<string, unknown> {

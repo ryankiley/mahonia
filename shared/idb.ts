@@ -15,7 +15,7 @@ const dbPromises = new Map<string, Promise<IDBDatabase>>();
 
 /** Open (once per `name`) an IndexedDB with a single object store, creating the
  *  store on upgrade. Returns a memoized promise; rejects if the open fails. */
-export function openIdb(name: string, version: number, store: string): Promise<IDBDatabase> {
+function openIdb(name: string, version: number, store: string): Promise<IDBDatabase> {
   let p = dbPromises.get(name);
   if (!p) {
     p = new Promise<IDBDatabase>((resolve, reject) => {
