@@ -119,7 +119,7 @@ export type ListRow = typeof lists.$inferSelect;
 // cheap).
 // ---------------------------------------------------------------------------
 // legacy columns still in the database, undeclared: description, image_url,
-// msrp_cents, currency, merged_into_id (see the header)
+// msrp_cents, currency (see the header)
 export const catalogItems = pgTable(
   "catalog_items",
   {
@@ -147,6 +147,10 @@ export const catalogItems = pgTable(
     verified: boolean("verified").notNull().default(false), // owner-curated trust
     usageCount: integer("usage_count").notNull().default(0), // ranks autocomplete
     status: text("status").notNull().default("active"), // active|merged|removed
+    // Where a retired row's links now point: the row the research replaced it with
+    // (scripts/seedRetire.ts). Set only on `merged`; a `removed` row has no successor.
+    // A retired row is never deleted, because list rows and My Gear rows hold its id.
+    mergedIntoId: integer("merged_into_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   }

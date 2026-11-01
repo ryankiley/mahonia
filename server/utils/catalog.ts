@@ -304,6 +304,46 @@ export async function catalogRowsById(db: Db, ids: readonly number[]): Promise<M
   return new Map(rows.map((r) => [r.id, toCatalogResult(r)]));
 }
 
+/** A merge chain longer than this is a loop, or a catalog nobody should trust. */
+const MAX_MERGE_HOPS = 8;
+
+/**
+ * The live row each id now means, keyed by the id asked for: the row itself while it is
+ * active, the row it was retired into while it is `merged` (followed to the end of the
+ * chain), absent when it was retired with no successor or never existed.
+ *
+ * What every reader of a stored link goes through, because the seed retires rather than
+ * deletes (scripts/seedRetire.ts) and a list row keeps the id it was picked under. The
+ * common case, every id still active, costs the one query catalogRowsById would.
+ */
+export async function liveCatalogRows(db: Db, ids: readonly number[]): Promise<Map<number, CatalogSearchResult>> {
+  const asked = [...new Set(ids.filter(isCatalogId))];
+  const out = new Map<number, CatalogSearchResult>();
+  if (!asked.length) return out;
+  await ensureCatalogSchema(db);
+  const byId = new Map<number, typeof catalogItems.$inferSelect>();
+  let want = asked;
+  for (let hop = 0; want.length && hop <= MAX_MERGE_HOPS; hop++) {
+    const rows = await db.select().from(catalogItems).where(inArray(catalogItems.id, want));
+    for (const r of rows) byId.set(r.id, r);
+    want = [
+      ...new Set(
+        rows.flatMap((r) =>
+          r.status === "merged" && isCatalogId(r.mergedIntoId) && !byId.has(r.mergedIntoId) ? [r.mergedIntoId] : [],
+        ),
+      ),
+    ];
+  }
+  for (const id of asked) {
+    let row = byId.get(id);
+    for (let hop = 0; row?.status === "merged" && hop <= MAX_MERGE_HOPS; hop++) {
+      row = isCatalogId(row.mergedIntoId) ? byId.get(row.mergedIntoId) : undefined;
+    }
+    if (row?.status === "active") out.set(id, toCatalogResult(row));
+  }
+  return out;
+}
+
 export async function bumpUsage(db: Db, ids: number[]): Promise<void> {
   const clean = [...new Set(ids.filter(isCatalogId))].slice(0, 50);
   if (!clean.length) return;

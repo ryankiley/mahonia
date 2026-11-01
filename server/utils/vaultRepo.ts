@@ -8,6 +8,8 @@ import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } fro
 import type { PgColumn } from "drizzle-orm/pg-core";
 import { vaultFolders, vaultItems, vaults } from "../db/schema";
 import { isUniqueViolation, type Db } from "./db";
+import { liveCatalogRows } from "./catalog";
+import type { CatalogSearchResult } from "../../shared/catalogSearch";
 import {
   VAULT_CAPTURE_MAX,
   VAULT_IMPORT_MAX,
@@ -158,6 +160,41 @@ function currencyOf(v: unknown): string | undefined {
   return /^[A-Z]{3}$/.test(code) ? code : undefined;
 }
 
+/**
+ * A catalog pick is kept under the catalog's CURRENT spelling, whatever the list row
+ * still says (2026-10-31).
+ *
+ * My Gear knows gear by its folded brand + name + variant, and a list row stores the
+ * spelling its product had the day it was picked. When the catalog tidies a variant,
+ * the seed renames the catalog row and My Gear's row in place, but not the text saved
+ * inside every list, and the sign-in backfill (claimRepo) captures from that saved
+ * text. So each sign-in sent "Men's M" to a vault that now held "Men's Medium" and
+ * minted a second row for one hoodie. A retired catalog row did the same, with nothing
+ * to catch up to.
+ *
+ * Only a row the list marks as untouched since the pick (catalogSpelling) is
+ * respelled: a row someone renamed keeps its own text and its own identity. Every
+ * linked capture takes its live successor's id, so the link outlives the row it was
+ * picked under. Best effort, like capture itself: if the catalog can't be read, the
+ * gear is captured as the list spells it rather than not at all.
+ */
+async function respellCatalogPicks(db: Db, caps: VaultCapture[]): Promise<VaultCapture[]> {
+  const ids = caps.flatMap((c) => (c && isSerialId(c.catalogItemId) ? [c.catalogItemId] : []));
+  if (!ids.length) return caps;
+  let live: Map<number, CatalogSearchResult>;
+  try {
+    live = await liveCatalogRows(db, ids);
+  } catch {
+    return caps;
+  }
+  return caps.map((c) => {
+    const row = c && isSerialId(c.catalogItemId) ? live.get(c.catalogItemId) : undefined;
+    if (!row) return c;
+    if (c.catalogSpelling !== true) return { ...c, catalogItemId: row.id };
+    return { ...c, catalogItemId: row.id, brand: row.brand ?? undefined, name: row.name, variant: row.variant ?? undefined };
+  });
+}
+
 /** Re-derive the identity server-side rather than trusting the client's normKey —
  *  a forged key could otherwise collide two unrelated items into one row (or dodge
  *  a tombstone). Drops anything that doesn't survive normalization. Fields are
@@ -233,7 +270,7 @@ export async function captureVaultItemsReporting(
   caps: VaultCapture[],
   { overwriteWeight = false }: { overwriteWeight?: boolean } = {},
 ): Promise<{ keys: VaultGearKey[]; full: boolean }> {
-  let clean = sanitize(caps);
+  let clean = sanitize(await respellCatalogPicks(db, caps));
   if (!clean.length) return { keys: [], full: false };
 
   // The per-vault ceiling. Updates to rows already in the vault always land —
