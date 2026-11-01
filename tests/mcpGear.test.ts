@@ -24,11 +24,11 @@ import { expectResultConforms } from "./helpers/mcpSchema";
 
 // The account side of the connector, driven through the real endpoint against a real
 // (in-memory) database: tokens are minted for two accounts, and requests carrying one
-// read, add to, change and put away gear, while requests carrying none, or a dead one,
-// are refused at the door with the 401 that starts a sign-in. Three things are held
-// here above all — a token reaches its own account's gear and no other's, a read-only
-// token writes nothing, and a revoked token is dead on the next call. The sign-in
-// itself is tests/oauth.test.ts.
+// read, add to, change and put away gear and name the account's lists, while requests
+// carrying none, or a dead one, are refused at the door with the 401 that starts a
+// sign-in. Three things are held here above all — a token reaches its own account's
+// gear and lists and no other's, a read-only token writes nothing, and a revoked token
+// is dead on the next call. The sign-in itself is tests/oauth.test.ts.
 
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 vi.mock("../server/utils/rateLimit", () => ({
@@ -312,5 +312,28 @@ describe("create_list filing under the token's account", () => {
     expect(r.data.account_note).toContain("edit link");
     expect(quiet).toHaveBeenCalled();
     expect(await filed()).not.toContain(r.data.share_code);
+  });
+
+  // What was filed above is what get_my_lists names: the one list made under the
+  // write token, by share code and link, and none of the lists made beside it.
+  it("names the filed lists to a read token, by share code, and nothing to an account that has none", async () => {
+    const none = await door("get_my_lists", {});
+    expect(none.status).toBe(401);
+    expect(none.challenge).toContain('scope="read"');
+
+    const r = await tool("get_my_lists", {}, carolRead);
+    expect(r.refused, r.text).toBe(false);
+    const lists = r.data.lists as Record<string, unknown>[];
+    expect(lists).toHaveLength(1);
+    expect(lists[0]).toMatchObject({ title: "Wonderland", unit: "g", total_g: 590 });
+    expect(lists[0]!.share_link).toBe(`http://mahonia.test/s/${lists[0]!.share_code}`);
+    expect(JSON.stringify(r.data)).not.toContain("/e/");
+    expect(lists.map((l) => l.share_code)).toEqual(await filed());
+    // the share code is the read capability, so the list opens from here
+    expect((await tool("get_list", { share_code: lists[0]!.share_code })).data.title).toBe("Wonderland");
+
+    const [dave] = (await db.insert(schema.users).values([{ email: "dave@example.com" }]).returning()).map((u) => u.id);
+    const daveRead = (await mintAccessToken(db, dave!, { scope: "read" }))!.token;
+    expect((await tool("get_my_lists", {}, daveRead)).data).toEqual({ lists: [] });
   });
 });

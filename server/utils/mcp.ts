@@ -10,15 +10,16 @@
 // person holding one is in, no more. It travels in the JSON-RPC body and never in a
 // query string, and nothing here logs it.
 //
-// My Gear is the one exception, and it brings the one credential that is neither a
-// share code nor an edit link. Gear belongs to an account, not to a link, so there is
-// nothing for a tool argument to carry; the four gear tools instead take a bearer in
-// the Authorization header — a token minted by hand on the account page
-// (server/utils/accessTokens.ts), or the access token of an app the person signed in
-// through the connector's OAuth flow (server/utils/oauth.ts). The list tools never
-// look at that header. The route checks it for the gear tools before any of them
-// runs and answers a missing one with the 401 that starts a sign-in (mcp.post.ts);
-// the gear section at the end of this file is what runs once it has passed.
+// The account tools are the one exception, and they bring the one credential that is
+// neither a share code nor an edit link. An account's lists and its gear belong to the
+// account, not to a link, so there is nothing for a tool argument to carry; get_my_lists
+// and the four gear tools instead take a bearer in the Authorization header — a token
+// minted by hand on the account page (server/utils/accessTokens.ts), or the access
+// token of an app the person signed in through the connector's OAuth flow
+// (server/utils/oauth.ts). The list tools never look at that header. The route checks
+// it for the account tools before any of them runs and answers a missing one with the
+// 401 that starts a sign-in (mcp.post.ts); the account section at the end of this file
+// is what runs once it has passed.
 //
 // The protocol layer (JSON-RPC over one HTTP endpoint) is server/routes/mcp.post.ts;
 // this file is the tools, so they can be tested as functions and read as a list.
@@ -41,7 +42,7 @@ import { captureFromList, type VaultEntry } from "../../shared/vault";
 import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, nextSortOrder, siblingItems } from "../../shared/weights";
 import type { AccessScope } from "../../shared/types";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
-import { claimLists } from "./claimRepo";
+import { claimLists, listClaimedLists } from "./claimRepo";
 import { useAccountDb, useCatalogDb, useVaultDb, type Db } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
 import { trustedOrigin } from "./origin";
@@ -83,8 +84,8 @@ export const MCP_INSTRUCTIONS = [
   "Mahonia is a gear-list and pack-weight tracker for hikers. Lists need no account.",
   "A share link (mahonia.app/s/CODE) is permission to read that list: pass its code or the whole link to the read tools.",
   "An edit link (mahonia.app/e/CODE#token) is permission to change that list: pass it whole to the write tools, keep it private, and never show it to anyone who should only read.",
-  "My Gear is one account's own gear. list_my_gear, add_my_gear, update_my_gear and remove_my_gear reach it once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
-  "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way back into the list. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in.",
+  "An account has its own lists and its own gear. get_my_lists names the lists filed under the connector's account, each by its share code, so one can be read without being handed a link. My Gear is the account's gear: list_my_gear, add_my_gear, update_my_gear and remove_my_gear. These reach the account once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
+  "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way this connector can change the list. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in and get_my_lists names it.",
   "To change a list that already exists, read it with get_list first: every row and folder there carries an id. update_items edits rows and moves them between folders or within one, remove_items takes rows off, and update_folders renames, reorders or removes folders. All three take the edit link.",
   "Weights are in grams everywhere. A row's classification is base (in the pack), worn (on your body) or consumable (food, fuel, water).",
   PROVENANCE,
@@ -380,9 +381,31 @@ const UPDATE_ITEM_SCHEMA = {
   required: ["id"],
 } as const;
 
+// ---- Your lists -------------------------------------------------------------------
+// The lists filed under one account, as the account page's "Your lists" shows them.
+// Each is named by its share code, the read capability, and never by its edit token:
+// the connector changes a list the way a person does, by holding its edit link. The
+// capability is the access token in the Authorization header rather than an argument;
+// the account section at the end says how that is read.
+
+const MY_LISTS_OUTPUT = complete({
+  lists: {
+    type: "array",
+    description: "Most recently changed first.",
+    items: complete({
+      title: str(USER_TEXT),
+      share_code: str("Pass it to get_list or get_list_markdown."),
+      share_link: str("The same code as a link."),
+      unit: UNIT_SCHEMA,
+      total_g: { type: "number", description: "Everything on the list in grams, worn and consumable rows included." },
+      updated_at: str("When the list last changed, ISO 8601."),
+    }),
+  },
+});
+
 // ---- My Gear ---------------------------------------------------------------------
 // One account's gear. Its capability is the access token in the Authorization header
-// rather than an argument; the gear section at the end says how that is read.
+// rather than an argument; the account section at the end says how that is read.
 
 const GEAR_ROW = complete({
   id: { type: "integer", description: "Names the piece to update_my_gear and remove_my_gear." },
@@ -685,6 +708,17 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     outputSchema: FOLDERS_OUTPUT,
     annotations: SET,
     run: updateFolders,
+  },
+  {
+    name: "get_my_lists",
+    title: "Your lists",
+    description:
+      "The lists filed under the connector's account, most recently changed first: each one's title, share code and share link, display unit, total weight in grams and when it last changed. Read one with get_list by its share code; changing one still takes its edit link. A list is filed when it was made while signed in to Mahonia, added to the account from its sharing panel, or made by create_list with read-and-change access; a list its owner only ever opened by its link isn't here, and get_list still reads it from that link. Works only when this connector carries the account's access token. Titles are text the owner typed, returned unchanged.",
+    inputSchema: { type: "object", properties: {} },
+    outputSchema: MY_LISTS_OUTPUT,
+    annotations: READ,
+    account: "read",
+    run: readMyLists,
   },
   {
     name: "list_my_gear",
@@ -1837,11 +1871,11 @@ async function updateFolders(event: H3Event, args: Record<string, unknown>): Pro
 // bearer in the Authorization header: a token minted on the account page or the
 // access token of an app the person signed in through the connector
 // (server/utils/accessTokens.ts). The route resolves that bearer once, before
-// dispatch, for every tool whose registry entry names an account use; for the four
-// gear tools it also refuses a missing or dead one with the 401 that opens Claude's
-// sign-in, and a read-only one on a write tool with a 403 (mcp.post.ts). So by the
-// time a gear tool runs the account is on the event, and create_list — which only
-// uses an account when there is one — reads the same answer.
+// dispatch, for every tool whose registry entry names an account use; for get_my_lists
+// and the four gear tools it also refuses a missing or dead one with the 401 that opens
+// Claude's sign-in, and a read-only one on a write tool with a 403 (mcp.post.ts). So by
+// the time an account tool runs the account is on the event, and create_list — which
+// only uses an account when there is one — reads the same answer.
 
 /** Who is calling, as the route left it on the event: an account with a scope, nobody
  *  ("anonymous": no bearer of ours was carried), or a bearer that opens nothing
@@ -1850,6 +1884,33 @@ function whoCalls(event: H3Event): { userId: number; scope: AccessScope } | "ano
   const caller = event.context.connector;
   if (caller === undefined) return "anonymous";
   return caller ?? "unknown";
+}
+
+/**
+ * The lists filed under the caller's account, as the account page's "Your lists"
+ * shows them: by share code, the read capability, so the assistant can open one with
+ * get_list without being handed a link. The edit token is never here; changing a list
+ * stays with whoever holds its edit link, from the connector as from anywhere. The
+ * route has already seen to the sign-in, so the one refusal left is a call that never
+ * passed it.
+ */
+async function readMyLists(event: H3Event): Promise<ToolResult> {
+  const caller = event.context.connector;
+  if (!caller) return fail("Your lists are reached through the MCP endpoint, which asks for a sign-in first.");
+  // the budget is the account's, as list_my_gear's is, never the shared address
+  await rateLimitSubject("mcp-read", `lists:${caller.userId}`);
+  const origin = trustedOrigin(event);
+  const lists = await listClaimedLists(await useAccountDb(), caller.userId);
+  return ok({
+    lists: lists.map((l) => ({
+      title: l.title,
+      share_code: l.shareCode,
+      share_link: shareLink(origin, l.shareCode),
+      unit: l.displayUnit,
+      total_g: grams(l.totalMg),
+      updated_at: l.updatedAt,
+    })),
+  });
 }
 
 interface GearHandle {

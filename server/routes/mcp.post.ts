@@ -27,12 +27,13 @@ import { rateLimit } from "../utils/rateLimit";
 // answer 200 to a request with no credential at all, so a connector added with no
 // sign-in works as it always has.
 //
-// The four My Gear tools are the exception, and the ONE place this endpoint answers
-// 401 or 403. A 401 is the signal Claude's clients read as "this server wants a
-// sign-in": on it, and only on it, Claude shows the Connect card, runs the OAuth
-// sign-in (server/utils/oauth.ts) and retries the call. So a tools/call naming a gear
-// tool with no valid bearer — none, unknown, revoked, or an access token past its hour
-// — gets a 401 whose WWW-Authenticate header names our protected-resource document
+// The account tools (get_my_lists and the four My Gear tools) are the exception, and
+// the ONE place this endpoint answers 401 or 403. A 401 is the signal Claude's clients
+// read as "this server wants a sign-in": on it, and only on it, Claude shows the
+// Connect card, runs the OAuth sign-in (server/utils/oauth.ts) and retries the call. So
+// a tools/call naming an account tool with no valid bearer — none, unknown, revoked, or
+// an access token past its hour — gets a 401 whose WWW-Authenticate header names our
+// protected-resource document
 // and the scope the tool needs; a valid read-only bearer on a tool that changes gear
 // gets a 403 with insufficient_scope, which Claude turns into a step-up for write. The
 // gate runs here, on the parsed body, before any tool: a refusal wrapped in a 200 tool
@@ -110,7 +111,7 @@ export default defineEventHandler(async (event) => {
 
   // The account behind the bearer, for the tools that use one (ACCOUNT_TOOLS, read
   // off the registry): resolved once here and left on the event. The gate is the
-  // scope a gear tool names; create_list only uses an account when there is one.
+  // scope an account tool names; create_list only uses an account when there is one.
   const use = msg.method === "tools/call" && typeof params.name === "string" ? ACCOUNT_TOOLS[params.name] : undefined;
   if (use) {
     const { identity, carried } = await connectorIdentity(event);
@@ -120,7 +121,7 @@ export default defineEventHandler(async (event) => {
         status: 401,
         error: "invalid_token",
         scope: use,
-        description: carried ? "That token no longer opens an account; sign in to Mahonia again." : "Sign in to Mahonia to reach My Gear.",
+        description: carried ? "That token no longer opens an account; sign in to Mahonia again." : "Sign in to Mahonia to reach your lists and My Gear.",
       });
     }
     if (use === "write" && identity?.scope !== "write") {
@@ -141,7 +142,7 @@ export default defineEventHandler(async (event) => {
     case "ping":
       return result(id, {});
     case "tools/list":
-      // one page, always: fourteen tools fit without a cursor, and a cursor that arrives anyway
+      // one page, always: fifteen tools fit without a cursor, and a cursor that arrives anyway
       // names a page this server never handed out
       if (params.cursor != null) return error(id, -32602, "Invalid cursor");
       return result(id, { tools: MCP_TOOLS });
