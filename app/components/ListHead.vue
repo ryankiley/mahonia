@@ -144,7 +144,7 @@ watch(
 const icon = computed(() => props.snapshot.trailFaviconDataUrl ?? fetchedIcon.value);
 
 // Everything that describes the route the link pointed AT is cleared with it: one
-// object (shared/trailLink CLEARS_WITH_LINK), spread here and by the MCP set_trip
+// object (shared/trailLink CLEARS_WITH_LINK), spread here and by the MCP update_list
 // tool, so the next field added there is cleared on both paths.
 
 // Commits on @change (blur/Enter), the uncontrolled :value pattern the title uses — not

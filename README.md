@@ -75,7 +75,7 @@ Five more tools reach an **account**. `get_my_lists` names the lists filed under
 by its share code, so an assistant can open one without being handed a link, and with
 read-and-change access the write tools take that share code in place of the edit link,
 resolved through the same claim the site uses when a signed-in owner edits a list, so the
-edit token still never leaves the server; `list_my_gear`, `add_my_gear`, `update_my_gear`
+edit token still never leaves the server; `get_my_gear`, `add_my_gear`, `update_my_gear`
 and `remove_my_gear` reach **My Gear**. An account's lists and its gear belong to the
 account rather than a link, so these need the account behind the call, and there are two
 ways to give it. In Claude, add the URL as a connector and choose "Sign in when needed":

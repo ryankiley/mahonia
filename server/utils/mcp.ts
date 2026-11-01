@@ -86,9 +86,9 @@ export const MCP_INSTRUCTIONS = [
   "Mahonia is a gear-list and pack-weight tracker for hikers. Lists need no account.",
   "A share link (mahonia.app/s/CODE) is permission to read that list: pass its code or the whole link to the read tools.",
   "An edit link (mahonia.app/e/CODE#token) is permission to change that list: pass it whole to the write tools, keep it private, and never show it to anyone who should only read. A list filed under the signed-in account can be changed without its edit link: name it by share_code instead, with read-and-change access.",
-  "An account has its own lists and its own gear. get_my_lists names the lists filed under the connector's account, each by its share code, so one can be read, and with read-and-change access changed, without being handed a link. My Gear is the account's gear: list_my_gear, add_my_gear, update_my_gear and remove_my_gear. These reach the account once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
+  "An account has its own lists and its own gear. get_my_lists names the lists filed under the connector's account, each by its share code, so one can be read, and with read-and-change access changed, without being handed a link. My Gear is the account's gear: get_my_gear, add_my_gear, update_my_gear and remove_my_gear. These reach the account once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
   "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way to change a list that isn't filed under the account. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in and get_my_lists names it.",
-  "To change a list that already exists, read it with get_list first: every row and folder there carries an id. update_items edits rows and moves them between folders or within one, remove_items takes rows off, and update_folders renames, reorders or removes folders. All three take the edit link, or the share code of a list filed under the signed-in account.",
+  "To change a list that already exists, read it with get_list first: every row and folder there carries an id. update_list changes the list's own title, unit, dates and trail; update_items edits rows and moves them between folders or within one; remove_items takes rows off; update_folders renames, reorders or removes folders. All four take the edit link, or the share code of a list filed under the signed-in account.",
   "Weights are in grams everywhere. A row's classification is base (in the pack), worn (on your body) or consumable (food, fuel, water).",
   PROVENANCE,
 ].join(" ");
@@ -519,7 +519,7 @@ type RegisteredMcpTool = McpTool & {
 
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 const ADD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
-// destructive, honestly: set_trip REPLACES a title and can clear the dates or the
+// destructive, honestly: update_list REPLACES a title and can clear the dates or the
 // trail, and the hint's own definition says false means additive updates only
 const SET = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false };
 
@@ -645,10 +645,10 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     run: addItems,
   },
   {
-    name: "set_trip",
-    title: "Set a list's title, dates, unit and trail",
+    name: "update_list",
+    title: "Change a list's title, dates, unit and trail",
     description:
-      "Sets any of a list's title, display unit, trip dates and trail on an existing list. Only the fields given change; an empty string clears a date or the trail. Takes the list's edit link, or its share code under a signed-in account that has filed it.",
+      "Changes any of a list's own fields: its title, display unit, trip dates and trail. Rows and folders are update_items and update_folders. Only the fields given change; an empty string clears a date or the trail. Takes the list's edit link, or its share code under a signed-in account that has filed it.",
     inputSchema: {
       type: "object",
       properties: {
@@ -666,7 +666,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     outputSchema: TRIP_OUTPUT,
     annotations: SET,
     account: byAccount,
-    run: setTrip,
+    run: updateList,
   },
   {
     name: "update_items",
@@ -744,7 +744,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     run: readMyLists,
   },
   {
-    name: "list_my_gear",
+    name: "get_my_gear",
     title: "Read My Gear",
     description:
       "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, grams for one, classification, calories, note, price, product link and folder, plus the account's folder names. A query ranks by a search instead; a folder name keeps to that folder. Works only when this connector carries the account's access token. Brands, names, variants, gear types, notes and folder names are text the account holder typed, returned unchanged.",
@@ -783,7 +783,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "update_my_gear",
     title: "Change a piece of My Gear",
     description:
-      "Changes one piece by the id list_my_gear gave it. Only the fields sent change, and null clears one. A changed field counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs a read-and-change access token.",
+      "Changes one piece by the id get_my_gear gave it. Only the fields sent change, and null clears one. A changed field counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs a read-and-change access token.",
     inputSchema: {
       type: "object",
       properties: { id: { type: "integer", minimum: 1 }, ...gearInput("update") },
@@ -1619,7 +1619,7 @@ async function addItems(event: H3Event, args: Record<string, unknown>): Promise<
   return ok(result);
 }
 
-async function setTrip(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+async function updateList(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   const opened = await writeHashFrom(event, args);
   if (typeof opened === "string") return fail(opened);
   const { hash } = opened;
@@ -1953,7 +1953,7 @@ function whoCalls(event: H3Event): { userId: number; scope: AccessScope } | "ano
 async function readMyLists(event: H3Event): Promise<ToolResult> {
   const caller = event.context.connector;
   if (!caller) return fail("Your lists are reached through the MCP endpoint, which asks for a sign-in first.");
-  // the budget is the account's, as list_my_gear's is, never the shared address
+  // the budget is the account's, as get_my_gear's is, never the shared address
   await rateLimitSubject("mcp-read", `lists:${caller.userId}`);
   const origin = trustedOrigin(event);
   const lists = await listClaimedLists(await useAccountDb(), caller.userId);
@@ -1988,7 +1988,7 @@ async function openGear(event: H3Event, need: AccessScope): Promise<GearHandle |
   return { db, userId: caller.userId, vaultId: await touchVaultByUser(db, caller.userId) };
 }
 
-const NO_SUCH_GEAR = "Nothing in My Gear has that id; list_my_gear gives the ids.";
+const NO_SUCH_GEAR = "Nothing in My Gear has that id; get_my_gear gives the ids.";
 
 /** how two folder names are judged the same: the gear page folds case and the
  *  typographic cleanup tidyText applies, so "Shelter", "shelter" and "SHELTER" are one */
@@ -2139,7 +2139,7 @@ async function addGear(event: H3Event, args: Record<string, unknown>): Promise<T
 async function changeGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   const gear = await openGear(event, "write");
   if (typeof gear === "string") return fail(gear);
-  if (!isSerialId(args.id)) return fail("Give the piece's id, from list_my_gear.");
+  if (!isSerialId(args.id)) return fail("Give the piece's id, from get_my_gear.");
   const id = args.id;
   const { patch, folder } = gearPatchFrom(args);
   if (patch.name === null || patch.name === "") return fail("A piece keeps a name: change it, but it can't be cleared.");
@@ -2171,7 +2171,7 @@ async function changeGear(event: H3Event, args: Record<string, unknown>): Promis
 async function putAwayGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   const gear = await openGear(event, "write");
   if (typeof gear === "string") return fail(gear);
-  if (!isSerialId(args.id)) return fail("Give the piece's id, from list_my_gear.");
+  if (!isSerialId(args.id)) return fail("Give the piece's id, from get_my_gear.");
   const restore = args.restore === true;
   const { db, vaultId } = gear;
   const done = vaultId != null && (restore ? await restoreVaultItem(db, vaultId, args.id) : await removeVaultItem(db, vaultId, args.id));

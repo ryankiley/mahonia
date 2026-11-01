@@ -144,16 +144,16 @@ describe("the endpoint's transport", () => {
   it("lists the fifteen tools, each with an object schema and honest annotations", async () => {
     const res = resultOf(await post(rpc("tools/list")))!;
     const tools = res.tools as typeof MCP_TOOLS;
-    expect(tools.map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip", "update_items", "remove_items", "update_folders", "get_my_lists", "list_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
+    expect(tools.map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "create_list", "add_items", "update_list", "update_items", "remove_items", "update_folders", "get_my_lists", "get_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
     for (const t of tools) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.description.length).toBeGreaterThan(20);
       expect(t).not.toHaveProperty("run");
     }
-    expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "get_my_lists", "list_my_gear"]);
+    expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "get_my_lists", "get_my_gear"]);
     // the three adding tools only add. Everything that replaces, clears, moves or
-    // removes says so: set_trip, the three list edits and the two gear changes
-    expect(tools.filter((t) => t.annotations.destructiveHint).map((t) => t.name)).toEqual(["set_trip", "update_items", "remove_items", "update_folders", "update_my_gear", "remove_my_gear"]);
+    // removes says so: update_list, the three list edits and the two gear changes
+    expect(tools.filter((t) => t.annotations.destructiveHint).map((t) => t.name)).toEqual(["update_list", "update_items", "remove_items", "update_folders", "update_my_gear", "remove_my_gear"]);
     // the schemas carry the reducer's caps, so a model learns them before a value is cut
     const item = (tools[4]!.inputSchema as { properties: { items: { items: { properties: Record<string, { maxLength?: number }> } } } }).properties.items.items.properties;
     expect(item.name!.maxLength).toBe(200);
@@ -162,7 +162,7 @@ describe("the endpoint's transport", () => {
     // the fourteen tools that answer with data declare its shape (compiled strictly in
     // helpers/mcpSchema, which every call in this suite runs through); the Markdown
     // tool answers with text alone and declares nothing
-    expect(tools.filter((t) => t.outputSchema).map((t) => t.name)).toEqual(["get_list", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip", "update_items", "remove_items", "update_folders", "get_my_lists", "list_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
+    expect(tools.filter((t) => t.outputSchema).map((t) => t.name)).toEqual(["get_list", "search_catalog", "get_catalog_product", "create_list", "add_items", "update_list", "update_items", "remove_items", "update_folders", "get_my_lists", "get_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
     for (const t of tools) if (t.outputSchema) expect(t.outputSchema.type).toBe("object");
     // …and the check is live: a wrong shape is refused in the schema's own terms
     expect(() => expectConforms("search_catalog", { query: "x", results: [{ id: "7" }] })).toThrow(/search_catalog result does not match/);
@@ -230,7 +230,7 @@ describe("the endpoint's transport", () => {
     await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "Spoon" }] });
     expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-write", sha256Hex(TOKEN));
     repo.applyOpsByEditHash.mockResolvedValue(null);
-    await call("set_trip", { edit_link: EDIT_LINK, title: "x" });
+    await call("update_list", { edit_link: EDIT_LINK, title: "x" });
     expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-write", sha256Hex(TOKEN));
     // the address bucket is only the endpoint's own guard: nothing else keys on it…
     expect(limiter.rateLimit.mock.calls.map((c) => c[1])).toEqual(["mcp", "mcp", "mcp", "mcp"]);
@@ -558,13 +558,13 @@ describe("writing", () => {
     expect(items[2]).toMatchObject({ classification: "base" });
   });
 
-  it("add_items and set_trip answer a link that opens nothing with the same sentence, and never read a token off the address", async () => {
+  it("add_items and update_list answer a link that opens nothing with the same sentence, and never read a token off the address", async () => {
     repo.getByEditHash.mockResolvedValue(null);
     const dead = toolText(await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "x" }] }));
     expect(dead.isError).toBe(true);
     expect(dead.text).toContain("doesn't open a list");
     repo.applyOpsByEditHash.mockResolvedValue(null);
-    expect(toolText(await call("set_trip", { edit_link: EDIT_LINK, title: "x" })).text).toBe(dead.text);
+    expect(toolText(await call("update_list", { edit_link: EDIT_LINK, title: "x" })).text).toBe(dead.text);
 
     // the address is not a place a capability may travel: a token there is ignored
     repo.getByEditHash.mockClear();
@@ -580,22 +580,22 @@ describe("writing", () => {
     expect(toolText(await call("add_items", { edit_link: "https://mahonia.app/s/ABC123DEF456", items: [{ name: "x" }] })).text).toContain("isn't an edit link");
   });
 
-  it("set_trip sends one setMeta with only the fields given, an empty string clearing", async () => {
+  it("update_list sends one setMeta with only the fields given, an empty string clearing", async () => {
     repo.applyOpsByEditHash.mockResolvedValue(snap({ title: "Renamed" }));
-    const r = await call("set_trip", { edit_link: TOKEN, title: "Renamed", start_date: "2026-08-01", end_date: "", trail_url: "https://caltopo.com/m/ABC", trail_label: "Loop", trail_distance_km: 12.5 });
+    const r = await call("update_list", { edit_link: TOKEN, title: "Renamed", start_date: "2026-08-01", end_date: "", trail_url: "https://caltopo.com/m/ABC", trail_label: "Loop", trail_distance_km: 12.5 });
     const [, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, { t: string; patch: Record<string, unknown> }[]];
     // metres stored; the list's own distance unit is left as the owner set it
     expect(ops).toEqual([{ t: "setMeta", patch: { title: "Renamed", startDate: "2026-08-01", endDate: "", trailUrl: "https://caltopo.com/m/ABC", trailLabel: "Loop", trailDistanceM: 12_500 } }]);
     expect(toolText(r).structured).toMatchObject({ title: "Renamed", share_link: "http://mahonia.test/s/ABC123DEF456" });
     expect(JSON.stringify(resultOf(r))).not.toContain(TOKEN);
-    expect(toolText(await call("set_trip", { edit_link: TOKEN })).isError).toBe(true);
-    expect(toolText(await call("set_trip", { edit_link: TOKEN, start_date: "2026-13-40" })).isError).toBe(true);
+    expect(toolText(await call("update_list", { edit_link: TOKEN })).isError).toBe(true);
+    expect(toolText(await call("update_list", { edit_link: TOKEN, start_date: "2026-13-40" })).isError).toBe(true);
     expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);
   });
 
   it("clearing the trail clears everything that described its route, as the editor does", async () => {
     repo.applyOpsByEditHash.mockResolvedValue(snap({ trailUrl: undefined, trailDistanceM: undefined, trailAscentM: undefined }));
-    const { structured } = toolText(await call("set_trip", { edit_link: TOKEN, trail_url: "" }));
+    const { structured } = toolText(await call("update_list", { edit_link: TOKEN, trail_url: "" }));
     const [, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, { t: string; patch: Record<string, unknown> }[]];
     expect(ops[0]!.patch).toEqual({ trailUrl: "", trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "", trailDescentM: "", routeGeometry: "" });
     expect(structured!.trail).toBeNull();
