@@ -26,16 +26,8 @@ import {
   setKitParts,
   vaultGearAmong,
 } from "../server/utils/vaultRepo";
-import {
-  captureFromList,
-  countedWeightMg,
-  isKitWorthy,
-  isVaultWorthy,
-  kitFromGroup,
-  kitWeightMg,
-  vaultNormKey,
-  type VaultEntry,
-} from "../shared/vault";
+import { captureFromList, isKitWorthy, isVaultWorthy, vaultNormKey, type VaultEntry } from "../shared/vault";
+import { countedWeightMg, kitFromGroup, kitWeightMg } from "../shared/vaultKit";
 import { groupVaultRows, vaultShownMg, vaultTotalMg } from "../shared/vaultView";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport } from "../shared/vaultImport";

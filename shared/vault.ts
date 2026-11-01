@@ -166,15 +166,10 @@ export interface VaultEntry extends VaultCapture, VaultKitFields {
 //
 // One level deep, like the list: a part is always a piece. A piece may sit in several
 // kits (the lighter in the cook kit and the fire kit), and totals count it once,
-// where it is filed — a kit adds only its own weight to any total (countedWeightMg).
+// where it is filed. The arithmetic and the builder live in vaultKit.ts, off the
+// editor's first load; the types and the row's own gate (isKitWorthy) live here.
 
 export type VaultKind = "piece" | "kit";
-
-/** Most parts one kit holds. A kit is a handful of rows; this bounds a hand-rolled
- *  write, not a use. */
-export const VAULT_KIT_PARTS_MAX = 100;
-/** Most of one part a kit holds ("×2 batteries") — the editor's steppers stop here. */
-export const VAULT_KIT_QTY_MAX = 99;
 
 /** One part of a kit as a read hands it back: which piece, how many, and enough of
  *  the piece to draw it under the kit — a put-away part is not in the live list the
@@ -193,7 +188,7 @@ export interface VaultKitPart {
 
 /** The kit fields a read adds to an entry. On a kit the entry's own `weightMg` is the
  *  DERIVED total (own + live parts × qty), so anything that shows or sorts one row
- *  sees the true figure; a TOTAL over rows uses countedWeightMg instead. */
+ *  sees the true figure; a TOTAL over rows reckons it apart (vaultKit.ts). */
 export interface VaultKitFields {
   /** absent on a piece */
   kind?: "kit";
@@ -203,21 +198,6 @@ export interface VaultKitFields {
   parts?: VaultKitPart[];
   /** a piece's live kits, by id; absent when it is in none */
   inKits?: number[];
-}
-
-/** A kit's weight: its own, plus each part that isn't put away, times its qty. */
-export function kitWeightMg(ownWeightMg: number, parts: readonly VaultKitPart[]): number {
-  return parts.reduce((sum, p) => (p.removed ? sum : sum + p.weightMg * p.qty), ownWeightMg);
-}
-
-/**
- * What a row adds to a TOTAL — a page's, a folder's. Each piece counts once, where it
- * is filed; a kit adds only its own weight, because its parts are already counted as
- * the pieces they are. Summing the rows' shown weights would count a kit's parts
- * twice, once as pieces and once inside the kit.
- */
-export function countedWeightMg(e: Pick<VaultEntry, "weightMg" | "kind" | "ownWeightMg">): number {
-  return e.kind === "kit" ? (e.ownWeightMg ?? 0) : e.weightMg;
 }
 
 /** A part named the way a capture can name it: by the gear's identity, with the
@@ -296,7 +276,7 @@ export function isVaultWorthy(item: Item, hasChildren: boolean): boolean {
 
 /** Water is the one list row the editor synthesises from a volume (see
  *  shared/water.ts) — never gear. */
-function isWaterRow(item: Item): boolean {
+export function isWaterRow(item: Item): boolean {
   return item.classification === "consumable" && foldForSearch(item.name) === "water";
 }
 
@@ -388,53 +368,25 @@ export function captureFromList(
 }
 
 /**
- * A GROUP row offered to the vault as a KIT — the one way a container is gear.
+ * Could this group row be saved as a KIT — the render gate for its save button, the
+ * way isVaultWorthy is for a piece's. A named group that isn't water, holding at
+ * least one child that is gear in its own right (and isn't the group's own name).
  *
- * captureFromList stands by its rule: the automatic path captures a group's children
- * and never the group, because a capture runs on every pause and must not quietly
- * make a kit of every heading you nest things under. This is the deliberate act
- * instead — the group row's own Save to My Gear press — and it says: this set, as I
- * have it on this list, is a kit I own.
- *
- * The kit's weight is the parent's OWN (a row that already had a weight keeps it when
- * something nests under it, still counted — see useGearListNesting), which is the
- * stuff sack, usually nothing; the parts are the children capture would take on their
- * own, by identity, with the count each row carried. Two children of one identity are
- * one part with their counts added: a list that lists the lighter twice means two.
- * Null when there is nothing to make a kit of: a nameless parent, water, or no child
- * that is gear yet (a kit of blank rows is a heading, not a set).
+ * Its own small test rather than "would kitFromGroup build one": this runs on every
+ * group row, so it lives here, in the module every row loads; the builder only runs
+ * on the press, and lives with the rest of the kit code (vaultKit.ts), off that path.
  */
-export function kitFromGroup(
-  parent: Item,
-  children: Item[],
-  folderName?: string,
-): { kit: VaultKitCapture; parts: VaultCapture[] } | null {
-  if (isWaterRow(parent)) return null;
-  const own = gearFromItem(parent, folderName);
-  if (!own) return null;
-  const parts = new Map<string, VaultKitPartRef>();
-  const captures = new Map<string, VaultCapture>();
-  for (const child of children) {
-    if (child.parentId !== parent.id) continue;
-    const cap = captureFromItem(child, false, folderName);
-    if (!cap || cap.normKey === own.normKey) continue;
-    captures.set(cap.normKey, cap);
-    const qty = Math.max(1, Math.round(child.qty) || 1);
-    const have = parts.get(cap.normKey);
-    if (have) have.qty = Math.min(VAULT_KIT_QTY_MAX, have.qty + qty);
-    else parts.set(cap.normKey, { normKey: cap.normKey, qty: Math.min(VAULT_KIT_QTY_MAX, qty) });
-  }
-  if (!parts.size) return null;
-  return {
-    kit: { ...own, parts: [...parts.values()].slice(0, VAULT_KIT_PARTS_MAX) },
-    parts: [...captures.values()].slice(0, VAULT_KIT_PARTS_MAX),
-  };
-}
-
-/** Could this group row be saved as a kit — the render gate for its save button,
- *  the way isVaultWorthy is for a piece's. */
-export function isKitWorthy(parent: Item, children: Item[]): boolean {
-  return kitFromGroup(parent, children) !== null;
+export function isKitWorthy(parent: Item, children: readonly Item[]): boolean {
+  if (isWaterRow(parent)) return false;
+  const own = vaultNormKey(parent.brand, parent.name, parent.variant);
+  return (
+    !!own &&
+    children.some((c) => {
+      if (c.parentId !== parent.id || !isVaultWorthy(c, false)) return false;
+      const key = vaultNormKey(c.brand, c.name, c.variant);
+      return !!key && key !== own;
+    })
+  );
 }
 
 /**

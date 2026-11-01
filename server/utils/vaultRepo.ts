@@ -11,13 +11,10 @@ import { isUniqueViolation, type Db } from "./db";
 import {
   VAULT_CAPTURE_MAX,
   VAULT_IMPORT_MAX,
-  VAULT_KIT_PARTS_MAX,
-  VAULT_KIT_QTY_MAX,
   VAULT_NAME_MAX,
   VAULT_NOTE_MAX,
   VAULT_SHORT_MAX,
   VAULT_URL_MAX,
-  kitWeightMg,
   vaultNormKey,
   type VaultCapture,
   type VaultEntry,
@@ -28,6 +25,7 @@ import {
   type VaultKitPartRef,
   type VaultPinField,
 } from "../../shared/vault";
+import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX, kitWeightMg } from "../../shared/vaultKit";
 import { CLASSIFICATIONS, type Classification } from "../../shared/types";
 import { clampUnitWeightMg, isSerialId, KCAL_MAX } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";

@@ -11,7 +11,8 @@
 
 import { enoughToSearch, foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
-import { countedWeightMg, type VaultEntry, type VaultFolder } from "./vault";
+import type { VaultEntry, VaultFolder } from "./vault";
+import { countedWeightMg } from "./vaultKit";
 import { rankVaultRows } from "./vaultSearch";
 import { groupBy, itemDisplayName } from "./weights";
 

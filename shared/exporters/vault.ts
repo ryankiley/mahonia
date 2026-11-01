@@ -17,7 +17,8 @@
 // repair affordance behind a disclosure, not part of the kit you own.
 
 import type { Unit } from "../types";
-import { countedWeightMg, type VaultEntry, type VaultFolder } from "../vault";
+import type { VaultEntry, VaultFolder } from "../vault";
+import { countedWeightMg } from "../vaultKit";
 import { groupVaultRows } from "../vaultView";
 import { fromMg, itemDisplayName } from "../weights";
 import { csvCell } from "./csvCell";

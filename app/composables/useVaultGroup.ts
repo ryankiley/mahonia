@@ -13,7 +13,8 @@
 // and a duplicate of a part further down the list stops offering too.
 
 import type { Folder, Item } from "~~/shared/types";
-import { kitFromGroup, type VaultGearKey } from "~~/shared/vault";
+import type { VaultGearKey } from "~~/shared/vault";
+import { kitFromGroup } from "~~/shared/vaultKit";
 import type { CaptureOneResult } from "./useVault";
 
 type VaultFetch = <T>(url: string, opts: { method: "POST"; body: unknown }) => Promise<T>;

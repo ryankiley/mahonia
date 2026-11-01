@@ -3,15 +3,14 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Cancel01Icon, ChevronDownIcon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
 import {
-  VAULT_KIT_QTY_MAX,
   VAULT_NAME_MAX,
   VAULT_NOTE_MAX,
   VAULT_SHORT_MAX,
   VAULT_URL_MAX,
-  kitWeightMg,
   type VaultEntry,
   type VaultKitPart,
 } from "~~/shared/vault";
+import { VAULT_KIT_QTY_MAX, kitWeightMg } from "~~/shared/vaultKit";
 import { searchVaultRows } from "~~/shared/vaultView";
 import { formatPrice, parsePriceInput } from "~~/shared/money";
 import { counted } from "~~/shared/tidyText";
