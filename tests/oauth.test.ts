@@ -86,7 +86,7 @@ async function hit(
 }
 
 const rpc = (name: string, args: unknown = {}) => ({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } });
-const gear = (bearer?: string, name = "list_my_gear", args: unknown = {}) =>
+const gear = (bearer?: string, name = "get_my_gear", args: unknown = {}) =>
   hit(mcp, "/mcp", { json: rpc(name, args), headers: bearer ? { authorization: `Bearer ${bearer}` } : {} });
 
 /** the request Claude's client builds, with a fresh PKCE pair */

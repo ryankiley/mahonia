@@ -89,7 +89,7 @@ describe("an assistant's session, start to finish", () => {
   });
 
   it("sets the trip's dates and trail", async () => {
-    const { data, isError, text } = await call("set_trip", { edit_link: editLink, start_date: "2026-08-14", end_date: "2026-08-16", trail_url: "https://caltopo.com/m/ABC", trail_label: "Timberline", trail_distance_km: 64 });
+    const { data, isError, text } = await call("update_list", { edit_link: editLink, start_date: "2026-08-14", end_date: "2026-08-16", trail_url: "https://caltopo.com/m/ABC", trail_label: "Timberline", trail_distance_km: 64 });
     expect(isError, text).toBe(false);
     expect(data).toMatchObject({ dates: { start: "2026-08-14", end: "2026-08-16" }, trail: { url: "https://caltopo.com/m/ABC", label: "Timberline", distance_m: 64_000 } });
   });

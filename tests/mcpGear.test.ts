@@ -124,7 +124,7 @@ describe("minting and revoking", () => {
 
 describe("the gear tools", () => {
   it("are refused at the door without a token: the 401 that starts a sign-in, never a tool error", async () => {
-    const none = await door("list_my_gear", {});
+    const none = await door("get_my_gear", {});
     expect(none.status).toBe(401);
     expect(none.result).toBeUndefined();
     expect(none.error).toBe("invalid_token");
@@ -133,11 +133,11 @@ describe("the gear tools", () => {
     expect(none.challenge).toContain('scope="read"');
     // a write tool asks for the write scope up front, so the consent is right first time
     expect((await door("add_my_gear", { items: [{ name: "x" }] })).challenge).toContain('scope="write"');
-    const dead = await door("list_my_gear", {}, NEVER_MINTED);
+    const dead = await door("get_my_gear", {}, NEVER_MINTED);
     expect(dead.status).toBe(401);
     expect(dead.description).toContain("again");
     // a bearer that is not one of ours is not looked up: the connector is anonymous
-    const foreign = await door("list_my_gear", {}, "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_ABCDE");
+    const foreign = await door("get_my_gear", {}, "AbCdEfGhIjKlMnOpQrStUvWxYz0123456789-_ABCDE");
     expect(foreign.status).toBe(401);
     expect(foreign.description).toContain("Sign in");
     // and nothing else at the endpoint asks for a credential
@@ -146,7 +146,7 @@ describe("the gear tools", () => {
   });
 
   it("read an account that has no gear yet as empty", async () => {
-    const r = await tool("list_my_gear", {}, aliceRead);
+    const r = await tool("get_my_gear", {}, aliceRead);
     expect(r.refused, r.text).toBe(false);
     expect(r.data).toEqual({ gear: [], folders: [], total: 0, offset: 0 });
   });
@@ -192,18 +192,18 @@ describe("the gear tools", () => {
   });
 
   it("list everything, rank by a query, keep to a folder, and page", async () => {
-    const all = await tool("list_my_gear", {}, aliceRead);
+    const all = await tool("get_my_gear", {}, aliceRead);
     expect(all.data.total).toBe(2);
     expect(all.data.folders).toEqual(["Shelter", "Pack"]);
-    expect(names(await tool("list_my_gear", { query: "flash" }, aliceRead))).toEqual(["Flash 55"]);
-    expect(names(await tool("list_my_gear", { folder: "PACK" }, aliceRead))).toEqual(["Flash 55"]);
-    const nowhere = await tool("list_my_gear", { folder: "Kitchen" }, aliceRead);
+    expect(names(await tool("get_my_gear", { query: "flash" }, aliceRead))).toEqual(["Flash 55"]);
+    expect(names(await tool("get_my_gear", { folder: "PACK" }, aliceRead))).toEqual(["Flash 55"]);
+    const nowhere = await tool("get_my_gear", { folder: "Kitchen" }, aliceRead);
     expect(nowhere.refused).toBe(true);
     expect(nowhere.text).toContain("Shelter, Pack");
-    const page = await tool("list_my_gear", { limit: 1, offset: 1 }, aliceRead);
+    const page = await tool("get_my_gear", { limit: 1, offset: 1 }, aliceRead);
     expect(page.data).toMatchObject({ total: 2, offset: 1 });
     expect(page.data.gear).toHaveLength(1);
-    expect((await tool("list_my_gear", { query: "x" }, aliceRead)).refused).toBe(true);
+    expect((await tool("get_my_gear", { query: "x" }, aliceRead)).refused).toBe(true);
   });
 
   it("change one field, clear another, move the piece between folders, and refuse an empty change", async () => {
@@ -220,7 +220,7 @@ describe("the gear tools", () => {
     const bobsId = (bobs.data.results as { item: { id: number } }[])[0]!.item.id;
     expect((await tool("update_my_gear", { id: bobsId, weight_g: 1 }, aliceWrite)).refused).toBe(true);
     expect((await tool("remove_my_gear", { id: bobsId }, aliceWrite)).refused).toBe(true);
-    expect(names(await tool("list_my_gear", {}, aliceWrite))).not.toContain("Windburner");
+    expect(names(await tool("get_my_gear", {}, aliceWrite))).not.toContain("Windburner");
     // and the folder named beside a bad id is not made
     await tool("update_my_gear", { id: bobsId, folder: "Stoves" }, aliceWrite);
     expect((await db.select().from(schema.vaultFolders)).map((f) => f.name)).not.toContain("Stoves");
@@ -228,25 +228,25 @@ describe("the gear tools", () => {
 
   it("put a piece away and bring it back", async () => {
     expect((await tool("remove_my_gear", { id: tentId }, aliceWrite)).data).toEqual({ id: tentId, status: "removed" });
-    expect((await tool("list_my_gear", {}, aliceRead)).data.total).toBe(1);
+    expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(1);
     expect((await tool("remove_my_gear", { id: tentId }, aliceWrite)).refused).toBe(true);
     expect((await tool("remove_my_gear", { id: tentId, restore: true }, aliceWrite)).data).toEqual({ id: tentId, status: "restored" });
-    expect((await tool("list_my_gear", {}, aliceRead)).data.total).toBe(2);
+    expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(2);
   });
 
   it("charge the account's budget rather than the caller's address", async () => {
     vi.mocked(rateLimitSubject).mockClear();
-    await tool("list_my_gear", {}, aliceRead);
+    await tool("get_my_gear", {}, aliceRead);
     await tool("add_my_gear", { items: [{ name: "Spork" }] }, aliceWrite);
     expect(vi.mocked(rateLimitSubject).mock.calls).toEqual([["mcp-read", `gear:${alice}`], ["mcp-write", `gear:${alice}`]]);
   });
 
   it("stop working the moment the token is revoked, singly or with the account", async () => {
     expect(await revokeAllAccessTokens(db, alice)).toBe(2);
-    expect((await door("list_my_gear", {}, aliceWrite)).status).toBe(401);
+    expect((await door("get_my_gear", {}, aliceWrite)).status).toBe(401);
     await deleteAccount(db, bob, { deleteLists: false });
     expect(await db.select().from(schema.accessTokens)).toHaveLength(0);
-    expect((await door("list_my_gear", {}, bobWrite)).status).toBe(401);
+    expect((await door("get_my_gear", {}, bobWrite)).status).toBe(401);
   });
 });
 
@@ -276,7 +276,7 @@ describe("create_list filing under the token's account", () => {
     expect(r.data.saved_to_account).toBe(true);
     expect(r.data).not.toHaveProperty("account_note");
     expect(await filed()).toContain(r.data.share_code);
-    expect(names(await tool("list_my_gear", {}, carolRead))).toContain("Lone Peak 8");
+    expect(names(await tool("get_my_gear", {}, carolRead))).toContain("Lone Peak 8");
   });
 
   it("makes an anonymous list, with no note, when no token is sent", async () => {
@@ -352,7 +352,7 @@ describe("create_list filing under the token's account", () => {
     const none = await door("add_items", { share_code: code, items: [{ name: "Spork" }] });
     expect(none.status).toBe(401);
     expect(none.challenge).toContain('scope="write"');
-    const readOnly = await door("set_trip", { share_code: code, title: "Nope" }, carolRead);
+    const readOnly = await door("update_list", { share_code: code, title: "Nope" }, carolRead);
     expect(readOnly.status).toBe(403);
     expect(readOnly.error).toBe("insufficient_scope");
 
@@ -363,7 +363,7 @@ describe("create_list filing under the token's account", () => {
     expect(JSON.stringify(added.data)).not.toContain("/e/");
     // the budget is the account's, as it is for gear, never the shared address
     expect(vi.mocked(rateLimitSubject).mock.calls[0]).toEqual(["mcp-write", `lists:${carol}`]);
-    const titled = await tool("set_trip", { share_code: `http://mahonia.test/s/${code}`, title: "Wonderland Trail" }, carolWrite);
+    const titled = await tool("update_list", { share_code: `http://mahonia.test/s/${code}`, title: "Wonderland Trail" }, carolWrite);
     expect(titled.refused, titled.text).toBe(false);
     const read = await tool("get_list", { share_code: code });
     expect(read.data.title).toBe("Wonderland Trail");
@@ -378,7 +378,7 @@ describe("create_list filing under the token's account", () => {
     const byLink = await tool("add_items", { edit_link: strayEditLink, items: [{ name: "Spoon" }] });
     expect(byLink.refused, byLink.text).toBe(false);
     // an edit link given beside a share code is the one used, and no sign-in is asked for
-    expect((await tool("set_trip", { edit_link: strayEditLink, share_code: code, title: "Stray" })).refused).toBe(false);
+    expect((await tool("update_list", { edit_link: strayEditLink, share_code: code, title: "Stray" })).refused).toBe(false);
     expect((await tool("get_list", { share_code: strayCode })).data.title).toBe("Stray");
     expect((await tool("get_list", { share_code: code })).data.title).toBe("Wonderland Trail");
   });
