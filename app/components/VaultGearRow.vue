@@ -6,6 +6,7 @@ import type { VaultEntry } from "~~/shared/vault";
 import { formatPrice } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { consumableIcon } from "~/utils/itemMarks";
+import { counted } from "~~/shared/tidyText";
 
 // One row of /gear: the name cell, the weight, the class mark and the trailing
 // controls — or, for a REMOVED piece, the way back.
@@ -16,9 +17,9 @@ import { consumableIcon } from "~/utils/itemMarks";
 // places: the folder list's press-to-drag lands on the root as a native listener, its
 // dragging state as a class, and the removed list simply asks for the other shape.
 //
-// A KIT is this same row with a disclosure: a kit mark before the name, its weight
-// read as a sum ("= 540 g"), and a "Kit · 3 parts" line that opens its parts beneath
-// it — indented and dimmed, the way a group opens on a list. Not a card: a kit and a
+// A KIT is this same row with a disclosure: a kit mark before the name, and a
+// "Kit · 3 items" line that opens its items beneath it — indented and dimmed, the way
+// a group opens on a list. Not a card: a kit and a
 // piece are one kind of thing here, a row of your gear, and they keep one rhythm.
 const props = defineProps<{
   entry: VaultEntry;
@@ -49,12 +50,14 @@ const emit = defineEmits<{
 
 const displayName = computed(() => itemDisplayName(props.entry.brand, props.entry.name, props.entry.variant));
 // ---- a kit ----
-// Its weight is DERIVED — its own plus its live parts × qty — so it reads "= 540 g", a
-// sum rather than a figure someone typed. A put-away part stays listed under it,
-// marked, and stops counting (kitWeightMg).
+// Its weight is DERIVED — its own plus its live items × count (kitWeightMg) — and shown
+// plainly: the kit mark already says it is a set. A put-away item stays listed under
+// it, marked, and stops counting.
 const isKit = computed(() => props.entry.kind === "kit" && !props.removed);
 const parts = computed(() => props.entry.parts ?? []);
-const partCount = computed(() => parts.value.reduce((n, p) => n + (p.removed ? 0 : p.qty), 0));
+// the LINES it holds, one per live item whatever its count — "3 items" over three lines,
+// with a ×3 on the line that has it, not a unit count no line adds up to
+const itemCount = computed(() => parts.value.filter((p) => !p.removed).length);
 const removedParts = computed(() => parts.value.filter((p) => p.removed).length);
 const partName = (p: { brand?: string; name: string; variant?: string }) => itemDisplayName(p.brand, p.name, p.variant);
 // Calories, gated on the class exactly as computeTotals gates them — so what the row
@@ -103,30 +106,28 @@ const meta = computed(() => {
       <p v-if="!removed && entry.description" class="t-sm t-muted vault__note" :title="entry.description">
         {{ entry.description }}
       </p>
-      <!-- a kit: how many parts, as the control that shows them. Text-sized, so the
+      <!-- a kit: how many items, as the control that shows them. Text-sized, so the
            row keeps the rhythm of its neighbours; the chevron is the shared .chev. -->
       <p v-if="isKit" class="t-sm vault__kitline">
         <button
           type="button"
           class="vault__kittoggle"
           :aria-expanded="!!open"
-          :aria-label="`${open ? 'Hide' : 'Show'} the parts of ${displayName}`"
+          :aria-label="`${open ? 'Hide' : 'Show'} the items in ${displayName}`"
           @click="emit('toggle')"
         >
-          <span>Kit · {{ partCount }} {{ partCount === 1 ? "part" : "parts" }}</span>
+          <span>Kit · {{ counted(itemCount, "item") }}</span>
           <span v-if="removedParts" class="t-muted"> · {{ removedParts }} removed</span>
           <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
         </button>
       </p>
-      <!-- a piece that is part of a kit says which — one line, clipped -->
-      <p v-else-if="!removed && kitNames?.length" class="t-sm t-muted vault__kitline t-clip" :title="`Part of ${kitNames.join(', ')}`">
-        Part of {{ kitNames.join(", ") }}
+      <!-- an item that is in a kit says which — one line, clipped. Only a flat view
+           shows it: in Folders view the item is under its kit. -->
+      <p v-else-if="!removed && kitNames?.length" class="t-sm t-muted vault__kitline t-clip" :title="`In ${kitNames.join(', ')}`">
+        In {{ kitNames.join(", ") }}
       </p>
     </div>
-    <span
-      class="t-num vault__weight"
-      :title="isKit ? 'The sum of its parts. Totals count the parts where they are filed, not here.' : undefined"
-    ><template v-if="isKit">= </template>{{ formatWeight(entry.weightMg, unit) }}</span>
+    <span class="t-num vault__weight">{{ formatWeight(entry.weightMg, unit) }}</span>
     <template v-if="!removed">
       <!-- the editor's own marks, in a fixed column whether or not the row carries
            one — an auto column would size to the count and steal a different amount
@@ -201,10 +202,10 @@ const meta = computed(() => {
       <HugeiconsIcon :icon="UndoIcon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back
     </button>
     </div>
-    <!-- a kit's parts, opened. Each is the piece itself, filed in its own folder:
-         tapping one edits it there. A put-away part stays listed and stops counting;
-         the kit's own weight, when it has one, closes the list. -->
-    <ul v-if="isKit && open" class="vault__parts" :aria-label="`Parts of ${displayName}`">
+    <!-- a kit's items, opened. Each is the piece itself: tapping one edits it. A
+         put-away item stays listed and stops counting; the kit's own weight, when it
+         has one, closes the list. -->
+    <ul v-if="isKit && open" class="vault__parts" :aria-label="`Items in ${displayName}`">
       <li v-for="p in parts" :key="p.id" class="vault__part" :class="{ 'vault__part--removed': p.removed }">
         <button
           v-if="!p.removed"

@@ -36,7 +36,7 @@ import {
   vaultNormKey,
   type VaultEntry,
 } from "../shared/vault";
-import { groupVaultRows, vaultTotalMg } from "../shared/vaultView";
+import { groupVaultRows, vaultShownMg, vaultTotalMg } from "../shared/vaultView";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport } from "../shared/vaultImport";
 import type { Item } from "../shared/types";
@@ -107,12 +107,47 @@ describe("kitWeightMg and countedWeightMg", () => {
   it("totals a set of rows counting each piece once", () => {
     const base = { normKey: "", name: "", timesSeen: 1, lastUsedAt: "", createdAt: "" };
     const rows: VaultEntry[] = [
-      { ...base, id: 1, weightMg: 73_000 },
-      { ...base, id: 2, kind: "kit", ownWeightMg: 20_000, weightMg: 93_000, parts: [] },
+      { ...base, id: 1, weightMg: 73_000, inKits: [2] },
+      { ...base, id: 2, kind: "kit", ownWeightMg: 20_000, weightMg: 93_000, parts: [{ id: 1, qty: 1, name: "", weightMg: 73_000 }] },
+      { ...base, id: 3, weightMg: 900_000 },
     ];
-    expect(vaultTotalMg(rows)).toBe(93_000);
-    const [section] = groupVaultRows(rows, [], { keepEmpty: false });
-    expect(section).toMatchObject({ count: 1, kits: 1, weightMg: 93_000 });
+    expect(vaultTotalMg(rows)).toBe(20_000 + 73_000 + 900_000);
+  });
+
+  it("weighs the page the way it shows it: a kit whole, at the counts it holds", () => {
+    const base = { normKey: "", name: "", timesSeen: 1, lastUsedAt: "", createdAt: "" };
+    const bic: VaultEntry = { ...base, id: 1, weightMg: 11_000, inKits: [2] };
+    const kit: VaultEntry = {
+      ...base, id: 2, kind: "kit", ownWeightMg: 20_000, weightMg: 20_000 + 3 * 11_000,
+      parts: [{ id: 1, qty: 3, name: "Mini Bic", weightMg: 11_000 }],
+    };
+    const tent: VaultEntry = { ...base, id: 3, weightMg: 900_000 };
+    // three lighters in the kit weigh three lighters, and the folders add up to it
+    expect(vaultShownMg([bic, kit, tent])).toBe(53_000 + 900_000);
+    const folders = groupVaultRows([bic, kit, tent], [], { keepEmpty: false, nest: true });
+    expect(folders.reduce((n, f) => n + f.weightMg, 0)).toBe(vaultShownMg([bic, kit, tent]));
+    // the flat reckoning, for a file, counts the one lighter row once
+    expect(vaultTotalMg([bic, kit, tent])).toBe(20_000 + 11_000 + 900_000);
+  });
+
+  it("files a part inside its kit, not as a row of its folder, and counts the kit whole there", () => {
+    const base = { normKey: "", name: "", timesSeen: 1, lastUsedAt: "", createdAt: "" };
+    const stove: VaultEntry = { ...base, id: 1, weightMg: 73_000, folderId: 10, inKits: [2] };
+    const kit: VaultEntry = {
+      ...base, id: 2, kind: "kit", ownWeightMg: 20_000, weightMg: 93_000, folderId: 20,
+      parts: [{ id: 1, qty: 1, name: "", weightMg: 73_000 }],
+    };
+    const tent: VaultEntry = { ...base, id: 3, weightMg: 900_000, folderId: 20 };
+    const sections = groupVaultRows([stove, kit, tent], [{ id: 10, name: "Kitchen" }, { id: 20, name: "Shelter" }], { keepEmpty: true, nest: true });
+    // the stove's own folder shows no row for it: it is under the kit
+    expect(sections[0]).toMatchObject({ entries: [], count: 0, kits: 0, weightMg: 0 });
+    // the kit's folder holds the kit whole, so its figure adds up by eye
+    expect(sections[1]!.entries.map((e) => e.id)).toEqual([2, 3]);
+    expect(sections[1]).toMatchObject({ count: 1, kits: 1, weightMg: 93_000 + 900_000 });
+    // a part whose every kit is put away is a row again
+    expect(groupVaultRows([{ ...stove, inKits: undefined }], [{ id: 10, name: "Kitchen" }], { keepEmpty: false, nest: true })[0]!.entries).toHaveLength(1);
+    // and an export, unnested, lists every piece where it is filed
+    expect(groupVaultRows([stove, kit, tent], [{ id: 10, name: "Kitchen" }, { id: 20, name: "Shelter" }], { keepEmpty: false })[0]!.entries).toHaveLength(1);
   });
 });
 

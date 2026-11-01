@@ -14,6 +14,7 @@ import {
 } from "~~/shared/vault";
 import { searchVaultRows } from "~~/shared/vaultView";
 import { formatPrice, parsePriceInput } from "~~/shared/money";
+import { counted } from "~~/shared/tidyText";
 import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 
@@ -40,7 +41,7 @@ const props = defineProps<{
   /** the page's live gear, which a kit's parts are picked from */
   gear?: VaultEntry[];
 }>();
-/** `kitChanged`: the parts moved, so OTHER rows changed too (each part's "Part of …"),
+/** `kitChanged`: the items moved, so OTHER rows changed too (each item's "In …"),
  *  and the page re-reads rather than patching the one row. */
 const emit = defineEmits<{ close: []; saved: [item: VaultEntry, kitChanged: boolean] }>();
 
@@ -314,7 +315,7 @@ async function onSubmit() {
     const res = await post({ t: "kit", id: props.entry.id, parts, ownWeightMg: ownWeightMg.value ?? 0 });
     if (!res.ok || !res.item) {
       saving.value = false;
-      error.value = "Couldn’t save the parts. Check your connection and try again.";
+      error.value = "Couldn’t save the items. Check your connection and try again.";
       return;
     }
     item = res.item;
@@ -384,8 +385,8 @@ async function onSubmit() {
         <!-- a kit's weight is a read-out: the field's box, not its input -->
         <div v-if="isKit" class="dlg__field">
           <span class="t-sm t-muted">Weight</span>
-          <p class="field vitem__derived t-num" title="A kit weighs its own weight plus its parts. Change a part to change it.">
-            = {{ formatWeight(kitTotalMg, unit) }}
+          <p class="field vitem__derived t-num" title="A kit weighs its items plus its own weight. Change an item to change it.">
+            {{ formatWeight(kitTotalMg, unit) }}
           </p>
         </div>
         <label v-else class="dlg__field">
@@ -448,18 +449,18 @@ async function onSubmit() {
            real piece with its own weight, and the kit weighs what they weigh; on a
            list it unfolds into a group with these under it. A piece already in a kit
            can't hold parts — kits are one level deep. -->
-      <section v-if="!inKits" class="vitem__parts" aria-label="Parts">
+      <section v-if="!inKits" class="vitem__parts" aria-label="Items in this kit">
         <div class="vitem__partshead">
-          <span class="t-sm t-muted">Parts</span>
+          <span class="t-sm t-muted">Items</span>
           <span v-if="isKit" class="t-sm t-muted t-num">
-            {{ partsDraft.length }} {{ partsDraft.length === 1 ? "part" : "parts" }} · = {{ formatWeight(kitTotalMg, unit) }}
+            {{ counted(partsDraft.length, "item") }} · {{ formatWeight(kitTotalMg, unit) }}
           </span>
         </div>
         <p v-if="!isKit" class="t-sm t-muted vitem__hint">
-          Is this a kit? Add the pieces it’s made of, and it weighs what they weigh.
+          Is this a kit? Add the items it holds, and it weighs what they weigh.
         </p>
         <p v-else-if="entry.kind !== 'kit' && entry.weightMg" class="t-sm t-muted vitem__hint">
-          Its {{ formatWeight(entry.weightMg, unit) }} becomes the parts’ sum, plus any weight of its own below.
+          Its {{ formatWeight(entry.weightMg, unit) }} becomes the items’ sum, plus any weight of its own below.
         </p>
         <ul v-if="isKit" class="vitem__partlist">
           <li v-for="p in partsDraft" :key="p.id" class="vitem__part">
@@ -497,8 +498,8 @@ async function onSubmit() {
           ref="partEl"
           v-model="partQuery"
           class="field"
-          placeholder="Add a part from your gear"
-          aria-label="Find a part in your gear"
+          placeholder="Add an item from your gear"
+          aria-label="Find an item in your gear"
           autocomplete="off"
           autocorrect="off"
           spellcheck="false"
@@ -513,10 +514,10 @@ async function onSubmit() {
           </li>
         </ul>
         <p v-else-if="partQuery.trim()" class="t-sm t-muted vitem__hint">
-          None of your gear matches. Add the piece to My Gear first, then pick it here.
+          None of your gear matches. Add it to My Gear first, then pick it here.
         </p>
         <label v-if="isKit" class="dlg__field">
-          <span class="t-sm t-muted">Its own weight, beyond the parts (a stuff sack, a strap)</span>
+          <span class="t-sm t-muted">Its own weight, beyond the items (a stuff sack, a strap)</span>
           <input
             v-model="ownWeight"
             class="field"
@@ -531,7 +532,7 @@ async function onSubmit() {
         </label>
       </section>
       <p v-else class="t-sm t-muted vitem__hint">
-        Part of {{ inKits === 1 ? "a kit" : `${inKits} kits` }}, so it can’t hold parts of its own.
+        In {{ inKits === 1 ? "a kit" : `${inKits} kits` }}, so it can’t hold items of its own.
       </p>
 
       <p v-if="error" class="t-sm vitem__err">{{ error }}</p>

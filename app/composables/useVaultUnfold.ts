@@ -72,10 +72,19 @@ export function addVaultKit(c: Controller, entry: VaultEntry, folderId: string |
  * under it — so a piece filed here that is one of those parts arrives INSIDE the kit,
  * not as a flat row beside it, which would be the same gear twice.
  *
+ * `gear` is the whole vault, where a kit's items are looked up: a nested category
+ * (groupVaultRows' `nest`) holds the kit but not its items, which may be filed
+ * anywhere. Defaults to the entries, for a caller that hands over every row itself.
+ *
  * Returns the new folder's id, or "" if there was nothing to add — the caller
  * shouldn't be left with an empty folder it didn't ask for.
  */
-export function addVaultFolder(c: Controller, name: string, entries: VaultEntry[]): string {
+export function addVaultFolder(
+  c: Controller,
+  name: string,
+  entries: VaultEntry[],
+  gear: readonly VaultEntry[] = entries,
+): string {
   const snap = c.snapshot.value;
   if (!snap || !entries.length) return "";
   const held = heldKeys(c);
@@ -88,7 +97,7 @@ export function addVaultFolder(c: Controller, name: string, entries: VaultEntry[
   const id = c.addFolder(name);
   for (const entry of entries) {
     if (entry.kind === "kit") {
-      if (kits.includes(entry)) addVaultKit(c, entry, id, entries);
+      if (kits.includes(entry)) addVaultKit(c, entry, id, gear);
     } else if (fresh.includes(entry)) {
       c.addVaultItem(entry, id);
     }

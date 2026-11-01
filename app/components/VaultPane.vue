@@ -198,30 +198,20 @@ const hl = (text: string) => highlightParts(text, query.value);
 const categories = computed(() =>
   // keepEmpty: false — an empty vault folder is a filing artefact, not a template
   // worth offering; and no unfiled section, since unfiled gear lives on the Items tab
-  groupVaultRows(items.value, vaultFolders.value, { keepEmpty: false })
+  // nested, as /gear's Folders view is: an item that is in a kit comes with the kit
+  // rather than on its own, so a category's figure is what adding it puts on the list
+  groupVaultRows(items.value, vaultFolders.value, { keepEmpty: false, nest: true })
     .filter((s) => s.folder)
     .map((s) => ({
       id: s.folder!.id,
       name: s.folder!.name,
       entries: s.entries,
-      weightMg: categoryAddsMg(s.entries),
+      weightMg: s.weightMg,
       // every piece of it is already on the list — the same rule the item rows
       // use, resolved for the whole set so the button can say so
       allInList: s.entries.length > 0 && s.entries.every((e) => inList.value.has(e.normKey)),
     })),
 );
-
-// What adding the category puts ON THE LIST — not /gear's folder figure, which
-// counts a kit's own weight only (its parts count where they are filed). Here a kit
-// unfolds whole, parts included, so it adds its full total; and a piece filed here
-// that is a part of one of those kits arrives inside it, not again beside it
-// (addVaultFolder makes the same call), so it is left out of the sum.
-function categoryAddsMg(entries: VaultEntry[]): number {
-  const inside = new Set(
-    entries.filter((e) => e.kind === "kit").flatMap((k) => (k.parts ?? []).filter((p) => !p.removed).map((p) => p.id)),
-  );
-  return entries.reduce((sum, e) => (e.kind !== "kit" && inside.has(e.id) ? sum : sum + e.weightMg), 0);
-}
 
 // ---- kits ----
 // A kit is offered among the gear, marked as one, and it does not go onto the list
@@ -230,7 +220,8 @@ function categoryAddsMg(entries: VaultEntry[]): number {
 // identity, the same way a piece's does; the parts the list already holds are
 // skipped as it unfolds, which is the pane's one-row-per-piece rule for each of them.
 const isKit = (entry: VaultEntry) => entry.kind === "kit";
-const partCount = (entry: VaultEntry) => (entry.parts ?? []).reduce((n, p) => n + (p.removed ? 0 : p.qty), 0);
+// the lines it unfolds into: one per live item, whatever its count
+const itemCount = (entry: VaultEntry) => (entry.parts ?? []).filter((p) => !p.removed).length;
 function addEntry(entry: VaultEntry, folderId: string | null): string {
   return isKit(entry) ? addVaultKit(c, entry, folderId, items.value) : c.addVaultItem(entry, folderId);
 }
@@ -245,7 +236,7 @@ const filteredCategories = computed(() => {
 });
 
 function addCategory(cat: { name: string; entries: VaultEntry[] }) {
-  const id = addVaultFolder(c, cat.name, cat.entries);
+  const id = addVaultFolder(c, cat.name, cat.entries, items.value);
   if (id) emit("added", cat.name);
 }
 
@@ -548,7 +539,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
               isInList(entry)
                 ? `${itemDisplayName(entry.brand, entry.name, entry.variant)} is already in this list`
                 : isKit(entry)
-                  ? `Add the ${itemDisplayName(entry.brand, entry.name, entry.variant)} kit to the list, with its ${partCount(entry)} parts under it`
+                  ? `Add the ${itemDisplayName(entry.brand, entry.name, entry.variant)} kit to the list, with its ${counted(itemCount(entry), 'item')} under it`
                   : `Add ${itemDisplayName(entry.brand, entry.name, entry.variant)} to the list`
             "
             @pointerdown="onRowPointerDown(entry, $event)"
@@ -575,7 +566,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
                    nobody can act on. A KIT's count is a different fact — how many
                    rows it unfolds into — and worth a line. -->
               <span v-if="isInList(entry)" class="t-sm vp__inlist">Already added</span>
-              <span v-else-if="isKit(entry)" class="t-sm vp__inlist">Kit · {{ partCount(entry) }} {{ partCount(entry) === 1 ? "part" : "parts" }}</span>
+              <span v-else-if="isKit(entry)" class="t-sm vp__inlist">Kit · {{ counted(itemCount(entry), "item") }}</span>
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
             <span class="vp__icon" aria-hidden="true">

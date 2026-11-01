@@ -12,7 +12,7 @@ import {
   groupVaultRows,
   searchVaultRows,
   sortVaultRows,
-  vaultTotalMg,
+  vaultShownMg,
   type VaultSection,
   type VaultShow,
   type VaultView,
@@ -130,14 +130,15 @@ const flat = computed(() => view.value !== "folders" || !!query.value.trim());
 const grouped = computed<VaultSection[]>(() =>
   flat.value
     ? []
-    : groupVaultRows(filtered.value, folders.value, { keepEmpty: show.value === "all" }),
+    // nested: an item that is in a kit shows under the kit, not also in its folder
+    : groupVaultRows(filtered.value, folders.value, { keepEmpty: show.value === "all", nest: true }),
 );
 const narrowed = computed(() => filtered.value.length !== items.value.length);
 
-// Each piece once: a kit adds only its own weight, its parts being pieces already
-// counted where they are filed (vaultTotalMg). Summing the rows' shown weights would
-// count a kit's parts twice.
-const totalMg = computed(() => vaultTotalMg(filtered.value));
+// The page's weight, the way the page shows it (vaultShownMg): a kit counted whole,
+// its items at the counts it holds them and nowhere else — the folder figures added
+// up, in every view, so switching to A–Z doesn't change the number.
+const totalMg = computed(() => vaultShownMg(filtered.value));
 // The count line counts PIECES and names the kits apart — "12 items" over a page of
 // ten pieces and two kits would be a third way of counting a part twice.
 const kitsOf = (rows: VaultEntry[]) => rows.filter((i) => i.kind === "kit").length;
@@ -158,7 +159,7 @@ watch(items, (list) => {
 function toggleKit(id: number) {
   kitOpen.value[id] = kitOpenStore.toggle(id);
 }
-// id → shown name for every live kit, for a piece's "Part of …" line
+// id → shown name for every live kit, for an item's "In …" line
 const kitNameById = computed(
   () => new Map(items.value.filter((i) => i.kind === "kit").map((i) => [i.id, itemDisplayName(i.brand, i.name, i.variant)])),
 );
@@ -434,7 +435,7 @@ function openEdit(entry: VaultEntry) {
 // Patch the one row in place rather than re-reading the vault: the endpoint returns
 // the row as it now stands, and a full reload would re-sort the page under a dialog
 // that just closed (a rename can move a row under A–Z). Changing a kit's parts is the
-// exception: it changes OTHER rows too (each part's "Part of …"), so the page re-reads.
+// exception: it changes OTHER rows too (each item's "In …"), so the page re-reads.
 function onItemSaved(item: VaultEntry, kitChanged = false) {
   const at = items.value.findIndex((i) => i.id === item.id);
   if (at >= 0) items.value[at] = item;
@@ -798,14 +799,10 @@ async function exportGear(kind: string) {
                        subtotal because the totals bar owns numbers there; here the
                        folder IS the unit you're comparing, and a shelf you can't
                        weigh is half a shelf. -->
-                  <!-- pieces, then kits, then the weight. A folder holding only kits
-                       shows no weight unless they weigh something of their own: their
-                       parts are counted in the folders they are filed in. -->
-                  <span
-                    v-if="section.count || section.kits"
-                    class="t-sm t-num vault__foldersum"
-                    :title="section.kits ? 'A kit’s parts are counted in the folders they’re filed in.' : undefined"
-                  >
+                  <!-- items, then kits, then the weight — the rows below added up, a
+                       kit counted whole since its items are under it and nowhere
+                       else on the page -->
+                  <span v-if="section.count || section.kits" class="t-sm t-num vault__foldersum">
                     <!-- the noun is read, not shown, on a folder of pieces — the number
                          before a weight says enough — but beside "1 kit" a bare "1"
                          reads as a stray figure, so there it is shown -->
@@ -813,7 +810,7 @@ async function exportGear(kind: string) {
                     <template v-else-if="section.count">{{ section.count }}<span class="visually-hidden"> {{ pluralNoun(section.count, "item") }}</span></template>
                     <template v-if="section.count && section.kits"> · </template>
                     <template v-if="section.kits">{{ section.kits }} {{ pluralNoun(section.kits, "kit") }}</template>
-                    <template v-if="section.count || section.weightMg"> · {{ weightLabel(section.weightMg) }}</template>
+                    · {{ weightLabel(section.weightMg) }}
                   </span>
 
                   <div v-if="section.folder" class="folder__actions">

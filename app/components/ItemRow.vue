@@ -1059,7 +1059,7 @@ async function onSaveToVault() {
       // One level deep: a piece that is already some kit's part can't hold parts of
       // its own, and the group would have made it one.
       : result === "nested"
-        ? "This is already part of a kit in My Gear, so it can’t be a kit itself"
+        ? "This is already in a kit in My Gear, so it can’t be a kit itself"
       // You removed this gear on /gear, and capture never resurrects a tombstone
       // — so "try again in a moment" would be a lie and a loop. Say where the way
       // back is, in the words that page uses for it.
