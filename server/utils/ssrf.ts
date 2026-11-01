@@ -131,3 +131,59 @@ export async function isResolvedHostSafe(host: string): Promise<boolean> {
   }
 }
 
+export interface SafeGetOptions {
+  /** redirects to follow, every hop re-vetted; 0 refuses the first one, for a document
+   *  whose address is its identity */
+  maxRedirects?: number;
+  timeoutMs?: number;
+  headers?: Record<string, string>;
+}
+
+/**
+ * GET a vetted URL, following redirects by hand and re-vetting every hop. Returns the
+ * final response, or null.
+ *
+ * The hops are walked with the REAL GET rather than probed ahead with HEAD, because
+ * sites routinely answer the two differently and then the probe's answer is a lie:
+ * www.notion.so returns 200 to HEAD but redirects GET onward to www.notion.com, so a
+ * HEAD-resolved "final" URL handed to a GET came back 3xx and got thrown away as
+ * not-ok. Walking the GET also halves the requests.
+ *
+ * `redirect: "follow"` is not an option — it would let a 302 from a vetted public host
+ * land on an internal address unchecked, which is the whole point of the guards above.
+ * Lived in trailFavicon.ts until the connector's client documents needed the same
+ * fetch with no hops allowed.
+ */
+export async function safeGet(
+  target: URL,
+  { maxRedirects = 5, timeoutMs = 5_000, headers = {} }: SafeGetOptions = {},
+): Promise<Response | null> {
+  let current: URL | null = target;
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    if (!current) return null;
+    // every hop, not just the first: shape + literal-IP checks, then a DNS lookup that
+    // catches a hostname resolving to a private address
+    if (!validateExternalUrl(current.href)) return null;
+    if (!(await isResolvedHostSafe(current.hostname))) return null;
+
+    // annotated: `current` is reassigned from this block, so inference would go circular
+    const res: Response = await fetch(current.href, {
+      signal: AbortSignal.timeout(timeoutMs),
+      redirect: "manual",
+      headers,
+    });
+
+    if (res.status >= 300 && res.status < 400) {
+      const nextHref: string | null = res.headers.get("location");
+      if (!nextHref) return null;
+      try {
+        current = new URL(nextHref, current);
+      } catch {
+        return null;
+      }
+      continue;
+    }
+    return res.ok ? res : null;
+  }
+  return null; // too many redirects
+}

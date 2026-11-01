@@ -10,7 +10,7 @@
 import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { createError, deleteCookie, getCookie, setCookie } from "h3";
-import { authTokens, credentials, sessions, users } from "../db/schema";
+import { authTokens, credentials, oauthCodes, sessions, users } from "../db/schema";
 import { useAccountDb, type Db } from "./db";
 import { setNoIndex, setPrivate } from "./http";
 import { rateLimit, type RateLimitAction } from "./rateLimit";
@@ -505,6 +505,9 @@ export async function endAllSessions(event: H3Event, userId: number): Promise<nu
 export async function sweepExpiredAuth(db: Db): Promise<void> {
   const now = new Date();
   await db.delete(sessions).where(lt(sessions.expiresAt, now));
+  // the connector's authorization codes live a minute; the ones nobody redeemed go
+  // with the same sweep rather than their own
+  await db.delete(oauthCodes).where(lt(oauthCodes.expiresAt, now));
   await db
     .delete(authTokens)
     .where(

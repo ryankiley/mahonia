@@ -291,7 +291,7 @@ export async function captureVaultItemsReporting(
   // creating any that don't exist yet. One statement for the whole set;
   // onConflictDoNothing makes it idempotent, so a replayed capture (the offline
   // queue, a flaky connection) neither duplicates a folder nor errors.
-  const folderId = await ensureFolders(db, vaultId, clean.map((c) => c.folder));
+  const folderId = await ensureVaultFolders(db, vaultId, clean.map((c) => c.folder));
 
   const written = await db
     .insert(vaultItems)
@@ -503,8 +503,10 @@ function keepIfPinned(flag: PgColumn, keep: PgColumn, rule: SQL): SQL {
 /**
  * Map the folder names in a capture to gear folder ids, creating the missing ones.
  * New folders land after the existing ones, in the order the names first appear.
+ * Exported because the MCP gear tools have the same job: nothing over the connector
+ * can pick a folder off a list, so a folder arrives as a name there too.
  */
-async function ensureFolders(
+export async function ensureVaultFolders(
   db: Db,
   vaultId: number,
   names: (string | undefined)[],
@@ -583,6 +585,22 @@ export async function vaultGearAmong(
   return rows.map((r) => [r.normKey, r.weightPinned ? null : r.weightMg]);
 }
 
+/**
+ * One row of the vault by id, live or put away, or null. The MCP gear tools read a
+ * piece back after a folder move, which applyVaultFolderOp answers with a boolean
+ * and no row. vaultId sits in the WHERE as on every other read here, so an id from
+ * some other vault is null, indistinguishable from an id that never existed.
+ */
+export async function vaultItemById(db: Db, vaultId: number, id: number): Promise<VaultEntry | null> {
+  if (!isSerialId(id)) return null;
+  const rows = await db
+    .select()
+    .from(vaultItems)
+    .where(and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId)))
+    .limit(1);
+  return rows[0] ? toEntry(rows[0]) : null;
+}
+
 /** A vault's folders in drag order (id breaks a tie, so the order is total). */
 export async function listVaultFolders(db: Db, vaultId: number): Promise<VaultFolder[]> {
   const rows = await db
@@ -623,13 +641,19 @@ export async function listRemovedVaultItems(db: Db, vaultId: number): Promise<Va
 /** Rank a user's vault against an autocomplete query. Recall is the whole (bounded)
  *  live set; the fine ranking is the shared JS cascade — the catalog's PGlite
  *  strategy, applied here on both engines because a vault is always small. */
-export async function searchVaultItems(db: Db, vaultId: number, q: string): Promise<VaultEntry[]> {
+export async function searchVaultItems(
+  db: Db,
+  vaultId: number,
+  q: string,
+  limit?: number,
+): Promise<VaultEntry[]> {
   // The ranker asks this too; asking first saves the query for a "keep typing".
   if (!enoughToSearch((q ?? "").trim())) return [];
   const rows = await liveRows(db, vaultId);
   // rank the ROWS, then convert the handful that survive — toEntry allocates two
-  // Dates and two ISO strings per row, and the ranker reads neither
-  return rankVaultRows(rows, q).map(toEntry);
+  // Dates and two ISO strings per row, and the ranker reads neither. `limit` falls
+  // back to the autocomplete's six; a search over the connector asks for a page.
+  return rankVaultRows(rows, q, limit).map(toEntry);
 }
 
 /**
@@ -901,7 +925,7 @@ export async function applyVaultItemOp(
 ): Promise<{ item: VaultEntry } | { refused: "duplicate" | "full" } | null> {
   switch (op?.t) {
     case "add":
-      return addVaultItem(db, vaultId, op);
+      return (await addVaultItems(db, vaultId, [op]))[0] ?? null;
     case "edit":
       return editVaultItem(db, vaultId, op);
     default:
@@ -909,8 +933,13 @@ export async function applyVaultItemOp(
   }
 }
 
+type AddOutcome = { item: VaultEntry } | { refused: "duplicate" | "full" } | null;
+
 /**
- * Add a piece of gear nobody's list has carried yet.
+ * Add pieces of gear nobody's list has carried yet — one from the gear page, or up
+ * to fifty from the connector — in one round of queries: the named folders checked
+ * in scope together, the count taken once, and a single INSERT for the lot. The
+ * answer is one outcome per op, in order.
  *
  * Cannot route through captureVaultItems, and the difference is the point: capture
  * is an automatic side effect of editing a list, so it can never clear a field, can
@@ -918,55 +947,90 @@ export async function applyVaultItemOp(
  * holding the gear would resurrect it, and "remove" would mean nothing). Typing a
  * row in by hand is the opposite of all three — it is you saying so.
  */
-async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { t: "add" }>) {
-  // Straight through capture's own sanitizer, so a hand-typed row is capped, tidied
-  // and IDENTIFIED by exactly the rules a captured one is. One identity rule, not two.
-  const [clean] = sanitize([
-    { ...op, normKey: "", weightMg: op.weightMg ?? 0, folder: undefined } as VaultCapture,
-  ]);
-  if (!clean) return null;
+export async function addVaultItems(
+  db: Db,
+  vaultId: number,
+  ops: Extract<VaultItemOp, { t: "add" }>[],
+): Promise<AddOutcome[]> {
+  const results: AddOutcome[] = ops.map(() => null);
+  // Straight through capture's own sanitizer, one op at a time so each keeps its
+  // answer: a hand-typed row is capped, tidied and IDENTIFIED by exactly the rules a
+  // captured one is. One identity rule, not two.
+  const cleaned = ops.map((op) => sanitize([{ ...op, normKey: "", weightMg: op.weightMg ?? 0, folder: undefined } as VaultCapture])[0] ?? null);
 
   // folderId is an ID here, not a name — on /gear you pick a folder, you don't type
-  // one — so it takes the same in-scope check the "move" op does. Filing gear under
-  // a heading its owner can never see would be worse than not filing it at all.
-  if (op.folderId != null) {
-    if (!isSerialId(op.folderId)) return null;
-    if (!(await ownsFolder(db, vaultId, op.folderId))) return null;
-  }
+  // one — so it takes the same in-scope check the "move" op does, for the whole set
+  // in one query. Filing gear under a heading its owner can never see would be worse
+  // than not filing it at all.
+  const named = [...new Set(ops.flatMap((op) => (op.folderId != null && isSerialId(op.folderId) ? [op.folderId] : [])))];
+  const owned = new Set(
+    named.length
+      ? (await db.select({ id: vaultFolders.id }).from(vaultFolders).where(and(eq(vaultFolders.vaultId, vaultId), inArray(vaultFolders.id, named)))).map((r) => r.id)
+      : [],
+  );
 
-  // The ceiling. Counted lazily and disambiguated only when this request could cross
-  // the line, like capture — but a DELIBERATE add REFUSES where capture drops
-  // silently, the same way applyVaultFolderOp's "add" does. Landing on a key the
-  // gear already holds adds no row, so it's allowed at any count.
-  if ((await vaultItemCount(db, vaultId)) >= VAULT_ITEMS_MAX) {
-    const [prior] = await db
-      .select({ id: vaultItems.id })
-      .from(vaultItems)
-      .where(and(eq(vaultItems.vaultId, vaultId), eq(vaultItems.normKey, clean.normKey)));
-    if (!prior) return { refused: "full" as const };
+  // each key once: a second op on the same key in one call is a duplicate of the
+  // first, and the INSERT may not touch a row twice
+  const rows: { index: number; cap: VaultCapture; folderId: number | null }[] = [];
+  const seen = new Set<string>();
+  ops.forEach((op, index) => {
+    const cap = cleaned[index];
+    if (!cap) return;
+    if (op.folderId != null && !owned.has(op.folderId)) return;
+    if (seen.has(cap.normKey)) {
+      results[index] = { refused: "duplicate" };
+      return;
+    }
+    seen.add(cap.normKey);
+    rows.push({ index, cap, folderId: op.folderId ?? null });
+  });
+  if (!rows.length) return results;
+
+  // The ceiling, counted once and disambiguated only when this call could cross the
+  // line, like capture — but a DELIBERATE add REFUSES where capture drops silently,
+  // the same way applyVaultFolderOp's "add" does. Landing on a key the gear already
+  // holds adds no row, so it's allowed at any count.
+  let room = VAULT_ITEMS_MAX - (await vaultItemCount(db, vaultId));
+  let landing = rows;
+  if (rows.length > room) {
+    const held = new Set(
+      (await db.select({ normKey: vaultItems.normKey }).from(vaultItems).where(and(eq(vaultItems.vaultId, vaultId), inArray(vaultItems.normKey, rows.map((r) => r.cap.normKey))))).map((r) => r.normKey),
+    );
+    landing = rows.filter((r) => {
+      if (held.has(r.cap.normKey)) return true;
+      if (room > 0) {
+        room--;
+        return true;
+      }
+      results[r.index] = { refused: "full" };
+      return false;
+    });
   }
+  if (!landing.length) return results;
 
   const now = new Date();
   const done = await db
     .insert(vaultItems)
-    .values({
-      ...rowValues(clean, vaultId, now, op.folderId ?? null),
-      // Typing it in is choosing it: every field you supplied is yours, and no list
-      // may overwrite it. A zero weight pins nothing — see cleanVaultPatch.
-      namePinned: true,
-      weightPinned: clean.weightMg > 0,
-      commonNamePinned: clean.commonName != null,
-      classificationPinned: clean.classification != null,
-      kcalPinned: clean.kcal != null,
-      productUrlPinned: clean.productUrl != null,
-      descriptionPinned: clean.description != null,
-      pricePinned: clean.priceCents != null,
-    })
+    .values(
+      landing.map(({ cap, folderId }) => ({
+        ...rowValues(cap, vaultId, now, folderId),
+        // Typing it in is choosing it: every field you supplied is yours, and no list
+        // may overwrite it. A zero weight pins nothing — see cleanVaultPatch.
+        namePinned: true,
+        weightPinned: cap.weightMg > 0,
+        commonNamePinned: cap.commonName != null,
+        classificationPinned: cap.classification != null,
+        kcalPinned: cap.kcal != null,
+        productUrlPinned: cap.productUrl != null,
+        descriptionPinned: cap.description != null,
+        pricePinned: cap.priceCents != null,
+      })),
+    )
     .onConflictDoUpdate({
       target: [vaultItems.vaultId, vaultItems.normKey],
       // THE difference from capture, and the whole reason this can't route through
       // it: an explicit add LIFTS a tombstone. It also means a conflict with a LIVE
-      // row updates nothing and returns nothing — which is how the caller below
+      // row updates nothing and returns nothing — which is how the mapping below
       // tells "you already have this" from "welcome back". Re-adding gear you
       // already hold should say so, not silently rewrite the row you were looking at.
       setWhere: isNotNull(vaultItems.removedAt),
@@ -1006,8 +1070,13 @@ async function addVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
       },
     })
     .returning();
-  // no row back = the conflict was with a live row and setWhere declined it
-  return done[0] ? { item: toEntry(done[0]) } : { refused: "duplicate" as const };
+  // no row back for a key = its conflict was with a live row and setWhere declined it
+  const back = new Map(done.map((row) => [row.normKey, row]));
+  for (const r of landing) {
+    const row = back.get(r.cap.normKey);
+    results[r.index] = row ? { item: toEntry(row) } : { refused: "duplicate" };
+  }
+  return results;
 }
 
 /**
@@ -1106,7 +1175,7 @@ export async function importVaultItems(
   if (!clean.length) return { added: 0, skipped: all.length };
 
   const now = new Date();
-  const folderId = await ensureFolders(db, vaultId, clean.map((c) => c.cap.folder));
+  const folderId = await ensureVaultFolders(db, vaultId, clean.map((c) => c.cap.folder));
   const done = await db
     .insert(vaultItems)
     .values(

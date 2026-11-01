@@ -21,7 +21,7 @@ import { displayHost, safeUrl } from "../../shared/trailLink";
 // the streaming, cancel-at-the-cap body reader — it started life in this file and
 // now lives beside its sibling readJsonBodyCapped, since /api/import needs it too
 import { readResponseCapped } from "./http";
-import { isResolvedHostSafe, validateExternalUrl } from "./ssrf";
+import { safeGet, validateExternalUrl } from "./ssrf";
 
 const FETCH_TIMEOUT_MS = 5_000;
 const FETCH_USER_AGENT = "Mahonia trail-link/1.0 (+https://mahonia.app)";
@@ -46,54 +46,13 @@ const REFRESH_BATCH = 25;
 // internet from one IP.
 const REFRESH_CONCURRENCY = 5;
 
-/**
- * GET a vetted URL, following redirects by hand and re-vetting every hop. Returns the
- * final response, or null.
- *
- * The hops are walked with the REAL GET rather than probed ahead with HEAD, because
- * sites routinely answer the two differently and then the probe's answer is a lie:
- * www.notion.so returns 200 to HEAD but redirects GET onward to www.notion.com, so a
- * HEAD-resolved "final" URL handed to a GET came back 3xx and got thrown away as
- * not-ok. Walking the GET also halves the requests.
- *
- * `redirect: "follow"` is not an option — it would let a 302 from a vetted public host
- * land on an internal address unchecked, which is the whole point of the guards below.
- */
-async function safeGet(target: URL): Promise<Response | null> {
-  let current: URL | null = target;
-  for (let hop = 0; hop <= MAX_REDIRECT_HOPS; hop++) {
-    if (!current) return null;
-    // every hop, not just the first: shape + literal-IP checks, then a DNS lookup that
-    // catches a hostname resolving to a private address
-    if (!validateExternalUrl(current.href)) return null;
-    if (!(await isResolvedHostSafe(current.hostname))) return null;
-
-    // annotated: `current` is reassigned from this block, so inference would go circular
-    const res: Response = await fetch(current.href, {
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-      redirect: "manual",
-      headers: { "user-agent": FETCH_USER_AGENT },
-    });
-
-    if (res.status >= 300 && res.status < 400) {
-      const nextHref: string | null = res.headers.get("location");
-      if (!nextHref) return null;
-      try {
-        current = new URL(nextHref, current);
-      } catch {
-        return null;
-      }
-      continue;
-    }
-    return res.ok ? res : null;
-  }
-  return null; // too many redirects
-}
+/** the favicon fetch: five hops, the trail-link agent string */
+const FETCH = { maxRedirects: MAX_REDIRECT_HOPS, timeoutMs: FETCH_TIMEOUT_MS, headers: { "user-agent": FETCH_USER_AGENT } };
 
 /** Fetch one image URL as a data: URL, or null if it isn't a usable image.
  *  Swallows its OWN errors so a thrown /favicon.ico doesn't abort the HTML fallback. */
 async function imageAsDataUrl(target: URL): Promise<string | null> {
-  const res = await safeGet(target).catch(() => null);
+  const res = await safeGet(target, FETCH).catch(() => null);
   if (!res) return null;
   // Plenty of sites answer a missing favicon with a 200 HTML page rather than a 404 —
   // fatmap.com serves text/html from /favicon.ico. Without this check that page would
@@ -131,7 +90,7 @@ const ICON_LINK_RES = [
 async function discoverIconUrl(host: string): Promise<URL | null> {
   const home = validateExternalUrl(`https://${host}/`);
   if (!home) return null;
-  const res = await safeGet(home).catch(() => null);
+  const res = await safeGet(home, FETCH).catch(() => null);
   if (!res) return null;
   if (!(res.headers.get("content-type") ?? "").includes("html")) return null;
   const read = await readResponseCapped(res, MAX_HTML_BYTES, "truncate");

@@ -10,8 +10,15 @@
 // person holding one is in, no more. It travels in the JSON-RPC body and never in a
 // query string, and nothing here logs it.
 //
-// My Gear stays out. Reaching it means an account token, which is a new surface and a
-// separate decision; the issue that asked for this server says so.
+// My Gear is the one exception, and it brings the one credential that is neither a
+// share code nor an edit link. Gear belongs to an account, not to a link, so there is
+// nothing for a tool argument to carry; the four gear tools instead take a bearer in
+// the Authorization header — a token minted by hand on the account page
+// (server/utils/accessTokens.ts), or the access token of an app the person signed in
+// through the connector's OAuth flow (server/utils/oauth.ts). The list tools never
+// look at that header. The route checks it for the gear tools before any of them
+// runs and answers a missing one with the 401 that starts a sign-in (mcp.post.ts);
+// the gear section at the end of this file is what runs once it has passed.
 //
 // The protocol layer (JSON-RPC over one HTTP endpoint) is server/routes/mcp.post.ts;
 // this file is the tools, so they can be tested as functions and read as a list.
@@ -22,7 +29,7 @@ import { exportSections } from "../../shared/exporters/rows";
 import { colorKeyForName, usedColorKeys } from "../../shared/categories";
 import { uid } from "../../shared/id";
 import { editLinkPath, normalizeShareCode } from "../../shared/links";
-import { isCatalogId, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_TITLE_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
+import { isCatalogId, isSerialId, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_TITLE_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
 import { carrierName } from "../../shared/people";
 import { dayClimbs, parseProfile } from "../../shared/profile";
 import { enoughToSearch } from "../../shared/searchText";
@@ -30,13 +37,31 @@ import { tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
 import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type Unit, CLASSIFICATIONS } from "../../shared/types";
+import { captureFromList, type VaultEntry } from "../../shared/vault";
 import { computeTotals, effectiveClassification, itemDisplayName, nextSortOrder } from "../../shared/weights";
+import type { AccessScope } from "../../shared/types";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
-import { useCatalogDb } from "./db";
+import { claimLists } from "./claimRepo";
+import { useAccountDb, useCatalogDb, useVaultDb, type Db } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
 import { trustedOrigin } from "./origin";
 import { rateLimit, rateLimitSubject, useKv } from "./rateLimit";
 import { sha256Hex } from "./tokens";
+import { mintVault, touchVaultByUser } from "./vaultAuth";
+import {
+  addVaultItems,
+  applyVaultFolderOp,
+  applyVaultItemOp,
+  captureVaultItems,
+  ensureVaultFolders,
+  listVaultFolders,
+  listVaultItems,
+  removeVaultItem,
+  restoreVaultItem,
+  searchVaultItems,
+  vaultItemById,
+  type VaultItemOp,
+} from "./vaultRepo";
 
 /**
  * The protocol revisions this server answers, oldest first. Both are the same wire
@@ -58,7 +83,8 @@ export const MCP_INSTRUCTIONS = [
   "Mahonia is a gear-list and pack-weight tracker for hikers. Lists need no account.",
   "A share link (mahonia.app/s/CODE) is permission to read that list: pass its code or the whole link to the read tools.",
   "An edit link (mahonia.app/e/CODE#token) is permission to change that list: pass it whole to the write tools, keep it private, and never show it to anyone who should only read.",
-  "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way back into the list.",
+  "My Gear is one account's own gear. list_my_gear, add_my_gear, update_my_gear and remove_my_gear reach it once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
+  "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way back into the list. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in.",
   "Weights are in grams everywhere. A row's classification is base (in the pack), worn (on your body) or consumable (food, fuel, water).",
   PROVENANCE,
 ].join(" ");
@@ -264,7 +290,7 @@ const PRODUCT_OUTPUT = complete({
   },
 });
 
-const CREATE_OUTPUT = complete({
+const CREATE_FIELDS = {
   title: str(USER_TEXT),
   edit_link: str("The write capability. Keep it; it is the only way back into the list."),
   share_link: str("The read capability, safe to pass on."),
@@ -272,7 +298,16 @@ const CREATE_OUTPUT = complete({
   folders: { type: "integer", description: "Folders made." },
   items: { type: "integer", description: "Rows made." },
   totals: TOTALS_SCHEMA,
-});
+  saved_to_account: { type: "boolean", description: "True when the connector's read-and-write access token filed the list under its account, where the owner sees it on every device they sign in on." },
+};
+const CREATE_OUTPUT = {
+  type: "object",
+  properties: {
+    ...CREATE_FIELDS,
+    account_note: str("Only when the connector sent an access token and the list still could not be filed under its account: the reason, and what to do instead."),
+  },
+  required: Object.keys(CREATE_FIELDS),
+};
 
 const ADD_OUTPUT = complete({
   added: { type: "integer", description: "Rows added." },
@@ -293,6 +328,94 @@ const TRIP_OUTPUT = complete({
   share_link: str(),
 });
 
+// ---- My Gear ---------------------------------------------------------------------
+// One account's gear. Its capability is the access token in the Authorization header
+// rather than an argument; the gear section at the end says how that is read.
+
+const GEAR_ROW = complete({
+  id: { type: "integer", description: "Names the piece to update_my_gear and remove_my_gear." },
+  display_name: str(`Brand, name and variant joined, the way the gear page shows a piece. ${USER_TEXT}`),
+  name: str(USER_TEXT),
+  brand: nullable("string", USER_TEXT),
+  variant: nullable("string", USER_TEXT),
+  gear_type: nullable("string", `Tent, Quilt, Stove. ${USER_TEXT}`),
+  weight_g: { type: "number", description: "Grams for one, to a tenth; 0 when it has never been weighed." },
+  classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null when the owner leaves it to each list." },
+  kcal: nullable("number", "Calories in one, on food."),
+  note: nullable("string", USER_TEXT),
+  price: nullable("number", "What one cost, in the currency's main unit."),
+  currency: nullable("string", "ISO 4217 code of price, when one was recorded."),
+  product_url: nullable("string"),
+  folder: nullable("string", `The folder it is filed in; null when unfiled. ${USER_TEXT}`),
+  times_used: { type: "integer", description: "How many list saves have carried this piece into My Gear." },
+  last_used: str("When a list last carried it, ISO 8601."),
+});
+const GEAR_LIST_OUTPUT = complete({
+  gear: { type: "array", items: GEAR_ROW, description: "This page of the matches." },
+  folders: { type: "array", items: str(USER_TEXT), description: "Every folder My Gear has, in the owner's order, empty ones included." },
+  total: { type: "integer", description: "Matches in all, before offset and limit." },
+  offset: { type: "integer" },
+});
+const GEAR_ADD_OUTPUT = complete({
+  added: { type: "integer", description: "Pieces that were new to My Gear." },
+  results: {
+    type: "array",
+    description: "One per piece sent, in the order sent.",
+    items: {
+      type: "object",
+      properties: {
+        index: { type: "integer", description: "Position in the request's items." },
+        status: { type: "string", enum: ["added", "already_have", "invalid", "full"], description: "already_have: the same brand, name and variant is there already, untouched. invalid: no name. full: My Gear is at its ceiling." },
+        item: GEAR_ROW,
+      },
+      required: ["index", "status"],
+    },
+  },
+});
+const GEAR_UPDATE_OUTPUT = complete({ item: GEAR_ROW });
+const GEAR_REMOVE_OUTPUT = complete({
+  id: { type: "integer" },
+  status: { type: "string", enum: ["removed", "restored"] },
+});
+
+const GEAR_PAGE_MAX = 1000;
+const GEAR_PAGE_DEFAULT = 300;
+const GEAR_ADD_MAX = 50;
+/** the vault's own caps on free text (shared/vault), stated in the schemas the way
+ *  the reducer's are above */
+const GEAR_NAME_LEN = 200;
+const GEAR_FIELD_LEN = 120;
+const GEAR_NOTE_LEN = 2000;
+
+/**
+ * The fields of one piece of gear as the write tools take them. For add_my_gear every
+ * field is a value; for update_my_gear each may also be null, which clears it, and
+ * the descriptions say so.
+ */
+function gearInput(mode: "add" | "update") {
+  const nullable = mode === "update";
+  const t = (type: string) => (nullable ? [type, "null"] : type);
+  const orNull = nullable ? " Null clears it." : "";
+  return {
+    name: { type: "string", minLength: 1, maxLength: GEAR_NAME_LEN, description: "The product or item name, without brand or variant." },
+    brand: { type: t("string"), maxLength: GEAR_FIELD_LEN, description: `The maker.${orNull}` },
+    variant: { type: t("string"), maxLength: GEAR_FIELD_LEN, description: `Size, length or rating: Long, 20F.${orNull}` },
+    gear_type: { type: t("string"), maxLength: GEAR_FIELD_LEN, description: `What kind of thing it is: Tent, Quilt.${orNull}` },
+    weight_g: { type: "number", minimum: 0, description: "Grams for one. 0 records it as not weighed yet." },
+    classification: { type: t("string"), enum: nullable ? [...CLASSIFICATIONS, null] : CLASSIFICATIONS, description: `base, worn or consumable.${orNull}` },
+    kcal: { type: t("integer"), minimum: 0, description: `Calories in one, for food.${orNull}` },
+    note: { type: t("string"), maxLength: GEAR_NOTE_LEN, description: `A note about the piece itself, not about any one trip.${orNull}` },
+    product_url: { type: t("string"), maxLength: TRAIL_URL_LEN, description: `The maker's or a shop's page for it.${orNull}` },
+    price: { type: t("number"), minimum: 0, description: `What one cost, in the currency's main unit: 199.95.${orNull}` },
+    currency: { type: "string", minLength: 3, maxLength: 3, description: "ISO 4217 code for price, such as USD. Ignored without a price." },
+    folder: {
+      type: "string",
+      maxLength: MAX_FOLDER_NAME_LEN,
+      description: nullable ? "The folder to file it in, by name; a new name makes the folder, and an empty string unfiles it." : "The folder to file it in, by name; a new name makes the folder.",
+    },
+  };
+}
+
 export interface McpTool {
   name: string;
   title: string;
@@ -304,7 +427,13 @@ export interface McpTool {
 }
 
 type McpToolHandler = (event: H3Event, args: Record<string, unknown>) => Promise<ToolResult>;
-type RegisteredMcpTool = McpTool & { run: McpToolHandler };
+type RegisteredMcpTool = McpTool & {
+  run: McpToolHandler;
+  /** what the tool wants from the account behind the request's bearer: the scope it
+   *  can't run without, or "optional" for a tool that uses one when it is there. The
+   *  route reads this before dispatch (mcp.post.ts); unset means the tool never looks. */
+  account?: AccessScope | "optional";
+};
 
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 const ADD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
@@ -368,7 +497,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "create_list",
     title: "Make a new list",
     description:
-      "Creates a list and returns its edit link and share link. Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders. Keep the edit link: it is the only way back into the list.",
+      "Creates a list and returns its edit link and share link. Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders. Keep the edit link: it is the only way back into the list. If this connector carries a read-and-write access token the list is filed under that account too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
     inputSchema: {
       type: "object",
       properties: {
@@ -397,6 +526,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     },
     outputSchema: CREATE_OUTPUT,
     annotations: ADD,
+    account: "optional",
     run: create,
   },
   {
@@ -444,10 +574,83 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     annotations: SET,
     run: setTrip,
   },
+  {
+    name: "list_my_gear",
+    title: "Read My Gear",
+    description:
+      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, grams for one, classification, calories, note, price, product link and folder, plus the account's folder names. A query ranks by a search instead; a folder name keeps to that folder. Works only when this connector carries the account's access token. Brands, names, variants, gear types, notes and folder names are text the account holder typed, returned unchanged.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        query: { type: "string", description: "Two characters or more (one is enough in Chinese). Ranks by brand, name, variant and gear type instead of by recent use." },
+        folder: { type: "string", description: "Keep to one folder, by name. An empty string means the unfiled pieces." },
+        limit: { type: "integer", minimum: 1, maximum: GEAR_PAGE_MAX, description: `At most ${GEAR_PAGE_MAX}; ${GEAR_PAGE_DEFAULT} when omitted.` },
+        offset: { type: "integer", minimum: 0, description: "How many matches to skip, for the next page." },
+      },
+    },
+    outputSchema: GEAR_LIST_OUTPUT,
+    annotations: READ,
+    account: "read",
+    run: readGear,
+  },
+  {
+    name: "add_my_gear",
+    title: "Add to My Gear",
+    description:
+      "Puts new pieces of gear into the connector's account's My Gear. A piece the account already holds (same brand, name and variant) comes back as already_have and is left as it was; change it with update_my_gear instead. What is given here counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs a read-and-change access token.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        items: { type: "array", minItems: 1, maxItems: GEAR_ADD_MAX, items: { type: "object", properties: gearInput("add"), required: ["name"] } },
+      },
+      required: ["items"],
+    },
+    outputSchema: GEAR_ADD_OUTPUT,
+    annotations: ADD,
+    account: "write",
+    run: addGear,
+  },
+  {
+    name: "update_my_gear",
+    title: "Change a piece of My Gear",
+    description:
+      "Changes one piece by the id list_my_gear gave it. Only the fields sent change, and null clears one. A changed field counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs a read-and-change access token.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "integer", minimum: 1 }, ...gearInput("update") },
+      required: ["id"],
+    },
+    outputSchema: GEAR_UPDATE_OUTPUT,
+    annotations: SET,
+    account: "write",
+    run: changeGear,
+  },
+  {
+    name: "remove_my_gear",
+    title: "Put away a piece of My Gear",
+    description:
+      "Puts one piece away by its id: it stops being offered on lists, and the lists that still carry it will not bring it back. Pass restore: true to bring a put-away piece back. Needs a read-and-change access token.",
+    inputSchema: {
+      type: "object",
+      properties: { id: { type: "integer", minimum: 1 }, restore: { type: "boolean", description: "True to bring a put-away piece back instead." } },
+      required: ["id"],
+    },
+    outputSchema: GEAR_REMOVE_OUTPUT,
+    annotations: SET,
+    account: "write",
+    run: putAwayGear,
+  },
 ];
 
-/** Public protocol metadata. Handlers stay server-only and never reach tools/list. */
-export const MCP_TOOLS: McpTool[] = MCP_TOOL_REGISTRY.map(({ run: _run, ...tool }) => tool);
+/** Public protocol metadata. Handlers and the account rule stay server-only and never
+ *  reach tools/list. */
+export const MCP_TOOLS: McpTool[] = MCP_TOOL_REGISTRY.map(({ run: _run, account: _account, ...tool }) => tool);
+/** The tools that use the account behind the bearer, and how (see RegisteredMcpTool),
+ *  for the route's gate — read off the registry, so a tool can't be in one and not
+ *  the other. */
+export const ACCOUNT_TOOLS: Record<string, AccessScope | "optional"> = Object.fromEntries(
+  MCP_TOOL_REGISTRY.flatMap((tool) => (tool.account ? [[tool.name, tool.account]] : [])),
+);
 const mcpToolByName = new Map(MCP_TOOL_REGISTRY.map((tool) => [tool.name, tool]));
 
 export interface ToolResult {
@@ -1022,6 +1225,7 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
   const data: ListData = { folders: plan.folders.folders, items: plan.items };
   const { editToken, snapshot } = await createList({ ...meta, data });
   const origin = trustedOrigin(event);
+  const filed = await fileUnderAccount(event, editToken, snapshot);
   return ok({
     title: snapshot.title,
     edit_link: `${origin}${editLinkPath(snapshot.shareCode, editToken)}`,
@@ -1030,7 +1234,52 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
     folders: snapshot.folders.length,
     items: snapshot.items.length,
     totals: describeTotals(snapshot),
+    saved_to_account: filed === true,
+    ...(typeof filed === "string" ? { account_note: filed } : {}),
   });
+}
+
+/**
+ * File the list create_list just made under the connector's account, if it has one
+ * with the right scope: the same claim the browser makes for a list it makes while
+ * signed in (/api/lists/claim), then the list's own gear folded into My Gear, as a
+ * capture from an open editor would fold it. Three answers: true, it is filed; false,
+ * the connector carries no bearer, which is the ordinary anonymous call and gets no
+ * sentence; or the sentence that explains why a bearer that WAS sent didn't file it.
+ *
+ * Only a read-and-write bearer files. Filing changes the account — the list joins its
+ * lists, its gear joins My Gear — and the owner who allowed read only said the
+ * assistant was to change nothing of theirs.
+ *
+ * Nothing in here may throw past this function. By the time it runs the list exists
+ * and its edit link is in the caller's hands, or about to be; a dead bearer, a spent
+ * budget or a database fault must end as a note beside that link, not as a failed
+ * call that drops the one way back into the list.
+ */
+async function fileUnderAccount(event: H3Event, editToken: string, snapshot: ListSnapshot): Promise<boolean | string> {
+  const where = `${trustedOrigin(event)}/account`;
+  const byHand = "Opening the edit link while signed in files it too.";
+  try {
+    const caller = whoCalls(event);
+    if (caller === "anonymous") return false;
+    if (caller === "unknown") return `The list was made, but not filed under an account: the connector's sign-in no longer opens one. Sign in again, or mint a new token at ${where}. ${byHand}`;
+    if (caller.scope !== "write") return `The list was made, but read-only access can't file it under your account; read-and-change access from ${where} can. ${byHand}`;
+    // the claim budget is the account's, as it is for the browser, rather than the
+    // shared address every claude.ai call arrives from
+    await rateLimitSubject("list-claim", `claim:${caller.userId}`);
+    await claimLists(await useAccountDb(), caller.userId, [editToken]);
+    // the vault tables as well as the account's: on Neon they're ensured on first use
+    // rather than migrated, and the capture below writes them
+    const db = await useVaultDb();
+    const vaultId = (await touchVaultByUser(db, caller.userId)) ?? (await mintVault(db, caller.userId));
+    await captureVaultItems(db, vaultId, captureFromList(snapshot.items, snapshot.folders)).catch((e) => {
+      console.error("[vault capture]", e);
+    });
+    return true;
+  } catch (e) {
+    console.error("[mcp file list]", e);
+    return `The list was made, but filing it under your account didn't go through just now. ${byHand}`;
+  }
 }
 
 /** The meta fields the two trip tools share, validated, or the sentence that failed.
@@ -1180,4 +1429,235 @@ async function setTrip(event: H3Event, args: Record<string, unknown>): Promise<T
     trail: described.trail ?? null,
     share_link: described.share_link,
   });
+}
+
+// ---- My Gear ---------------------------------------------------------------------
+// The tools below are about an ACCOUNT, where everything above is about a link. A
+// list's capability rides in the arguments; an account's cannot, so it arrives as a
+// bearer in the Authorization header: a token minted on the account page or the
+// access token of an app the person signed in through the connector
+// (server/utils/accessTokens.ts). The route resolves that bearer once, before
+// dispatch, for every tool whose registry entry names an account use; for the four
+// gear tools it also refuses a missing or dead one with the 401 that opens Claude's
+// sign-in, and a read-only one on a write tool with a 403 (mcp.post.ts). So by the
+// time a gear tool runs the account is on the event, and create_list — which only
+// uses an account when there is one — reads the same answer.
+
+/** Who is calling, as the route left it on the event: an account with a scope, nobody
+ *  ("anonymous": no bearer of ours was carried), or a bearer that opens nothing
+ *  ("unknown": never issued, revoked, or an app's access token past its hour). */
+function whoCalls(event: H3Event): { userId: number; scope: AccessScope } | "anonymous" | "unknown" {
+  const caller = event.context.connector;
+  if (caller === undefined) return "anonymous";
+  return caller ?? "unknown";
+}
+
+interface GearHandle {
+  db: Db;
+  userId: number;
+  /** null until the account has gear: vaults are minted on the first piece */
+  vaultId: number | null;
+}
+
+/** The caller's My Gear, opened for a read or a write; the route has already seen to
+ *  the sign-in and the scope, so the one refusal left is a call that never passed it. */
+async function openGear(event: H3Event, need: AccessScope): Promise<GearHandle | string> {
+  const caller = event.context.connector;
+  if (!caller) return "My Gear is reached through the MCP endpoint, which asks for a sign-in first.";
+  // the budget is the account's, as a list tool's is the list's: one busy assistant
+  // runs down its own allowance and nobody else's, whatever address it calls from
+  await rateLimitSubject(need === "write" ? "mcp-write" : "mcp-read", `gear:${caller.userId}`);
+  const db = await useVaultDb();
+  return { db, userId: caller.userId, vaultId: await touchVaultByUser(db, caller.userId) };
+}
+
+const NO_SUCH_GEAR = "Nothing in My Gear has that id; list_my_gear gives the ids.";
+
+/** how two folder names are judged the same: the gear page folds case and the
+ *  typographic cleanup tidyText applies, so "Shelter", "shelter" and "SHELTER" are one */
+const folderKey = (name: string) => tidyText(name).toLowerCase();
+
+interface GearFolders {
+  /** folderKey → id, for filing by name */
+  idOf: Map<string, number>;
+  /** id → name as the page shows it, for answering */
+  nameOf: Map<number, string>;
+}
+
+/**
+ * The vault's folders both ways, from one read — and names in `wanted` the vault
+ * lacks made first, which costs the making and a second read. A name that can't be
+ * made because the folder ceiling is reached is simply absent from idOf, and the
+ * caller decides what that means.
+ */
+async function gearFolders(db: Db, vaultId: number, wanted: string[] = []): Promise<GearFolders> {
+  let folders = await listVaultFolders(db, vaultId);
+  const have = new Set(folders.map((f) => folderKey(f.name)));
+  const missing = [...new Set(wanted.filter((n) => n && !have.has(folderKey(n))).map((n) => tidyText(n).slice(0, MAX_FOLDER_NAME_LEN)))];
+  if (missing.length) {
+    await ensureVaultFolders(db, vaultId, missing);
+    folders = await listVaultFolders(db, vaultId);
+  }
+  return { idOf: new Map(folders.map((f) => [folderKey(f.name), f.id])), nameOf: new Map(folders.map((f) => [f.id, f.name])) };
+}
+
+/** One piece as the tools return it. Named field by field, as describeList is, so a
+ *  column added to the vault later has to be chosen here before it leaves. */
+function gearAsRow(piece: VaultEntry, folderNames: Map<number, string>): Record<string, unknown> {
+  return {
+    id: piece.id,
+    display_name: itemDisplayName(piece.brand ?? null, piece.name, piece.variant ?? null),
+    name: piece.name,
+    brand: piece.brand ?? null,
+    variant: piece.variant ?? null,
+    gear_type: piece.commonName ?? null,
+    weight_g: grams(piece.weightMg),
+    classification: piece.classification ?? null,
+    kcal: piece.kcal ?? null,
+    note: piece.description ?? null,
+    price: piece.priceCents != null ? piece.priceCents / 100 : null,
+    currency: piece.currency ?? null,
+    product_url: piece.productUrl ?? null,
+    folder: piece.folderId != null ? (folderNames.get(piece.folderId) ?? null) : null,
+    times_used: piece.timesSeen,
+    last_used: piece.lastUsedAt,
+  };
+}
+
+/**
+ * The gear fields of a tool call, translated into the vault repo's own patch (its
+ * column names, milligrams, cents) with the folder name set aside. A field that is
+ * absent stays absent and one that is null stays null, so the same translation
+ * serves an add (where the repo drops a null) and an update (where a null clears).
+ * Only the TYPES are checked here; the repo caps, tidies and validates the values by
+ * the rules the gear page's own writes get, so the two paths can't disagree.
+ */
+function gearPatchFrom(raw: unknown): { patch: Record<string, unknown>; folder?: string } {
+  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const patch: Record<string, unknown> = {};
+  const take = (field: string, column: string) => {
+    if (typeof r[field] === "string" || r[field] === null) patch[column] = r[field];
+  };
+  take("name", "name");
+  take("brand", "brand");
+  take("variant", "variant");
+  take("gear_type", "commonName");
+  take("note", "description");
+  take("product_url", "productUrl");
+  if (typeof r.weight_g === "number" && r.weight_g >= 0 && Number.isFinite(r.weight_g)) patch.weightMg = Math.round(r.weight_g * 1000);
+  if (r.classification === null || CLASSIFICATIONS.includes(r.classification as Classification)) patch.classification = r.classification;
+  if (r.kcal === null || (typeof r.kcal === "number" && Number.isFinite(r.kcal))) patch.kcal = r.kcal;
+  if (r.price === null) patch.priceCents = null;
+  else if (typeof r.price === "number" && r.price >= 0 && Number.isFinite(r.price)) {
+    patch.priceCents = Math.round(r.price * 100);
+    if (typeof r.currency === "string") patch.currency = r.currency.trim().toUpperCase();
+  }
+  return { patch, folder: typeof r.folder === "string" ? r.folder.trim() : undefined };
+}
+
+async function readGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  const gear = await openGear(event, "read");
+  if (typeof gear === "string") return fail(gear);
+  const query = typeof args.query === "string" ? args.query.trim().slice(0, 100) : "";
+  if (query && !enoughToSearch(query)) return fail("A query needs two characters or more (one is enough in Chinese); leave it out to read everything.");
+  const limit = clampInt(args.limit, 1, GEAR_PAGE_MAX, GEAR_PAGE_DEFAULT);
+  const offset = clampInt(args.offset, 0, GEAR_PAGE_MAX, 0);
+  // no vault yet is the ordinary state of a new account, and it reads as empty
+  if (gear.vaultId == null) return ok({ gear: [], folders: [], total: 0, offset });
+  const { db, vaultId } = gear;
+  const [pieces, folders] = await Promise.all([
+    query ? searchVaultItems(db, vaultId, query, GEAR_PAGE_MAX) : listVaultItems(db, vaultId),
+    listVaultFolders(db, vaultId),
+  ]);
+  let matches = pieces;
+  if (typeof args.folder === "string") {
+    const want = args.folder.trim();
+    if (!want) matches = pieces.filter((p) => p.folderId == null);
+    else {
+      const inFolder = new Set(folders.filter((f) => folderKey(f.name) === folderKey(want)).map((f) => f.id));
+      if (!inFolder.size) return fail(`My Gear has no folder called "${want}". Its folders: ${folders.map((f) => f.name).join(", ") || "none yet"}.`);
+      matches = pieces.filter((p) => p.folderId != null && inFolder.has(p.folderId));
+    }
+  }
+  const names = new Map(folders.map((f) => [f.id, f.name]));
+  return ok({
+    gear: matches.slice(offset, offset + limit).map((p) => gearAsRow(p, names)),
+    folders: folders.map((f) => f.name),
+    total: matches.length,
+    offset,
+  });
+}
+
+async function addGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  const gear = await openGear(event, "write");
+  if (typeof gear === "string") return fail(gear);
+  if (!Array.isArray(args.items) || !args.items.length) return fail("items must be a non-empty array of pieces.");
+  if (args.items.length > GEAR_ADD_MAX) return fail(`At most ${GEAR_ADD_MAX} pieces in one call; send the rest in another.`);
+  const pieces = args.items.map(gearPatchFrom);
+  const hasName = (p: (typeof pieces)[number]) => typeof p.patch.name === "string" && p.patch.name.trim() !== "";
+  // a call with nothing nameable in it mints no vault for an account that had none
+  if (!pieces.some(hasName)) return fail("Every piece needs a name.");
+  const { db, userId } = gear;
+  const vaultId = gear.vaultId ?? (await mintVault(db, userId));
+  const folders = await gearFolders(db, vaultId, pieces.filter(hasName).flatMap((p) => (p.folder ? [p.folder] : [])));
+
+  // the named pieces go to the vault in one batch; the nameless keep their place in
+  // the answer as invalid
+  const named = pieces.map((p, index) => ({ p, index })).filter(({ p }) => hasName(p));
+  const outcomes = await addVaultItems(
+    db,
+    vaultId,
+    named.map(({ p }) => ({ t: "add", ...p.patch, folderId: p.folder ? (folders.idOf.get(folderKey(p.folder)) ?? null) : null }) as Extract<VaultItemOp, { t: "add" }>),
+  );
+  const results: { index: number; status: string; item?: Record<string, unknown> }[] = pieces.map((_, index) => ({ index, status: "invalid" }));
+  named.forEach(({ index }, i) => {
+    const outcome = outcomes[i];
+    if (!outcome) return;
+    if ("refused" in outcome) results[index] = { index, status: outcome.refused === "duplicate" ? "already_have" : "full" };
+    else results[index] = { index, status: "added", item: gearAsRow(outcome.item, folders.nameOf) };
+  });
+  return ok({ added: results.filter((r) => r.status === "added").length, results });
+}
+
+async function changeGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  const gear = await openGear(event, "write");
+  if (typeof gear === "string") return fail(gear);
+  if (!isSerialId(args.id)) return fail("Give the piece's id, from list_my_gear.");
+  const id = args.id;
+  const { patch, folder } = gearPatchFrom(args);
+  if (patch.name === null || patch.name === "") return fail("A piece keeps a name: change it, but it can't be cleared.");
+  if (!Object.keys(patch).length && folder === undefined) return fail("Nothing to change; send at least one field.");
+  if (gear.vaultId == null) return fail(NO_SUCH_GEAR);
+  const { db, vaultId } = gear;
+
+  // the fields first: the edit answers with the row, or with nothing for an id that
+  // isn't this vault's — and before any folder is made for it
+  let after: VaultEntry | null = null;
+  if (Object.keys(patch).length) {
+    const outcome = await applyVaultItemOp(db, vaultId, { t: "edit", id, patch } as VaultItemOp);
+    if (!outcome || "refused" in outcome) return fail(`${NO_SUCH_GEAR} Or that change would not leave a valid piece; nothing was changed.`);
+    after = outcome.item;
+  } else {
+    after = await vaultItemById(db, vaultId, id);
+    if (!after) return fail(NO_SUCH_GEAR);
+  }
+  const folders = await gearFolders(db, vaultId, folder ? [folder] : []);
+  if (folder !== undefined) {
+    const folderId = folder ? (folders.idOf.get(folderKey(folder)) ?? null) : null;
+    if (folder && folderId == null) return fail("My Gear has as many folders as it can hold; file this piece in one that exists.");
+    if (!(await applyVaultFolderOp(db, vaultId, { t: "move", itemId: id, folderId }))) return fail(NO_SUCH_GEAR);
+    after = { ...after, folderId: folderId ?? undefined };
+  }
+  return ok({ item: gearAsRow(after, folders.nameOf) });
+}
+
+async function putAwayGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  const gear = await openGear(event, "write");
+  if (typeof gear === "string") return fail(gear);
+  if (!isSerialId(args.id)) return fail("Give the piece's id, from list_my_gear.");
+  const restore = args.restore === true;
+  const { db, vaultId } = gear;
+  const done = vaultId != null && (restore ? await restoreVaultItem(db, vaultId, args.id) : await removeVaultItem(db, vaultId, args.id));
+  if (!done) return fail(restore ? "Nothing put away in My Gear has that id." : `${NO_SUCH_GEAR} It may be put away already.`);
+  return ok({ id: args.id, status: restore ? "restored" : "removed" });
 }

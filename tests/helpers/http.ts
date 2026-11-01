@@ -24,7 +24,10 @@ export function makeEvent(
     method = "GET",
     headers = {},
     body,
-  }: { method?: string; headers?: Record<string, string>; body?: unknown } = {},
+    // a string body is sent as JSON unless the caller says what it is: the OAuth
+    // token and revocation endpoints take forms
+    contentType = "application/json",
+  }: { method?: string; headers?: Record<string, string>; body?: unknown; contentType?: string } = {},
 ): H3Event {
   const req = new IncomingMessage(new Socket());
   req.method = method;
@@ -32,7 +35,7 @@ export function makeEvent(
   req.headers = { host: "mahonia.test", ...headers };
   if (body !== undefined) {
     const buf = typeof body === "string" ? Buffer.from(body) : Buffer.from(JSON.stringify(body));
-    req.headers["content-type"] = "application/json";
+    req.headers["content-type"] = contentType;
     req.headers["content-length"] = String(buf.length);
     req.push(buf);
   }
@@ -91,4 +94,10 @@ export function imageResponse(bytes: Uint8Array, contentType: string): Partial<R
       },
     } as unknown as Response["body"],
   };
+}
+
+/** A JSON document as a one-chunk streamed response — what the connector's client
+ *  metadata fetch reads, through the same reader the favicon fetcher uses. */
+export function jsonResponse(body: unknown): Partial<Response> {
+  return imageResponse(new TextEncoder().encode(JSON.stringify(body)), "application/json");
 }
