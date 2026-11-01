@@ -141,7 +141,7 @@ export default defineEventHandler(async (event) => {
     case "ping":
       return result(id, {});
     case "tools/list":
-      // one page, always: eleven tools fit without a cursor, and a cursor that arrives anyway
+      // one page, always: fourteen tools fit without a cursor, and a cursor that arrives anyway
       // names a page this server never handed out
       if (params.cursor != null) return error(id, -32602, "Invalid cursor");
       return result(id, { tools: MCP_TOOLS });

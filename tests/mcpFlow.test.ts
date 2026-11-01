@@ -3,7 +3,7 @@ import * as schema from "../server/db/schema";
 import mcp from "../server/routes/mcp.post";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL } from "../server/utils/db";
-import { createTestDb } from "./helpers/db";
+import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
 import { makeEvent, stubFetch } from "./helpers/http";
 import { expectResultConforms } from "./helpers/mcpSchema";
@@ -41,12 +41,13 @@ const call = async (name: string, args: unknown) => {
 
 let editLink = "";
 let shareCode = "";
+let db: TestDb;
 
 beforeAll(async () => {
   // the trail favicon warm-up and nothing else reaches for the network; it tolerates a
   // dead one and writes a blank row, which is all this suite needs to know about it
   stubFetch(() => null);
-  const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL, CATALOG_DDL);
+  db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL, CATALOG_DDL);
   await db.insert(schema.catalogItems).values([
     { brand: "Enlightened Equipment", name: "Revelation", variant: "20F Long", weightMg: 590_000, weightSource: "manufacturer", sourceUrl: "https://enlightenedequipment.com/revelation", verified: true, commonName: "Quilt", categoryHint: "sleep", searchTerms: "quilt sleep" },
     { brand: "Enlightened Equipment", name: "Revelation", variant: "20F Regular", weightMg: 550_000, weightSource: "manufacturer", sourceUrl: "https://enlightenedequipment.com/revelation", verified: true, commonName: "Quilt", categoryHint: "sleep", searchTerms: "quilt sleep" },
@@ -126,5 +127,106 @@ describe("an assistant's session, start to finish", () => {
     const byName = await call("get_catalog_product", { brand: "zpacks", name: "duplex" });
     expect(byName.data).toMatchObject({ brand: "Zpacks", name: "Duplex", variants: [{ variant: null, weight_g: 538, verified: true }] });
     expect((await call("get_catalog_product", { brand: "Nobody", name: "Duplex" })).isError).toBe(true);
+  });
+});
+
+// Changing what is already there: the same list, now edited through its edit link the
+// way an assistant asked to "move the stakes, rename the sleep folder, drop the bars"
+// would edit it — read the ids with get_list, then the three edit tools. Each change
+// is checked by reading the list back as a share reader sees it.
+describe("an assistant changing a list it already made", () => {
+  type Row = { id: string; name: string; qty: number; weight_g: number; note?: string; catalog_id?: number; classification: string };
+  type Section = { id?: string; name: string; items: Row[] };
+  const read = async () => (await call("get_list", { share_code: editLink })).data as { folders: Section[]; totals: Record<string, number> };
+  const row = (list: { folders: Section[] }, name: string) => list.folders.flatMap((f) => f.items).find((r) => r.name === name)!;
+  const layout = (list: { folders: Section[] }) => list.folders.map((f) => [f.name, f.items.map((r) => r.name)]);
+
+  it("reads every row's and folder's id, from the edit link as well as the share link", async () => {
+    const list = await read();
+    expect(list.folders.every((f) => typeof f.id === "string")).toBe(true);
+    expect(list.folders.flatMap((f) => f.items).every((r) => typeof r.id === "string")).toBe(true);
+    expect(layout(list)).toEqual([["Shelter", ["Duplex", "Stakes"]], ["Sleep", ["Revelation"]], ["Food", ["Bars"]]]);
+  });
+
+  it("edits fields, keeping a catalog row's link while its typed weight and name are the owner's", async () => {
+    const before = await read();
+    const { data, isError, text } = await call("update_items", {
+      edit_link: editLink,
+      items: [
+        { id: row(before, "Stakes").id, qty: 8, note: "MSR Groundhog" },
+        { id: row(before, "Duplex").id, name: "Duplex (2022)", weight_g: 545 },
+      ],
+    });
+    expect(isError, text).toBe(false);
+    expect(data).toMatchObject({ updated: 2, folders_made: [] });
+    const after = await read();
+    expect(row(after, "Stakes")).toMatchObject({ qty: 8, note: "MSR Groundhog" });
+    expect(row(after, "Duplex (2022)")).toMatchObject({ weight_g: 545, catalog_id: 3 });
+    // the typed weight and name are marked as the owner's, so the catalog won't undo them
+    const [stored] = await db.select().from(schema.lists);
+    const tent = (stored!.data as { items: { name: string; weightOverridden?: boolean; nameOverridden?: boolean }[] }).items.find((i) => i.name === "Duplex (2022)");
+    expect(tent).toMatchObject({ weightOverridden: true, nameOverridden: true });
+  });
+
+  it("moves a row into a folder it makes, and reorders rows within a folder", async () => {
+    const before = await read();
+    const { data, isError, text } = await call("update_items", {
+      edit_link: editLink,
+      items: [
+        { id: row(before, "Bars").id, folder: "Snacks" },
+        { id: row(before, "Stakes").id, position: 0 },
+      ],
+    });
+    expect(isError, text).toBe(false);
+    expect(data).toMatchObject({ updated: 2, folders_made: ["Snacks"] });
+    // Food is left empty, and get_list leaves an empty folder out
+    expect(layout(await read())).toEqual([["Shelter", ["Stakes", "Duplex (2022)"]], ["Sleep", ["Revelation"]], ["Snacks", ["Bars"]]]);
+  });
+
+  it("changes nothing when any row it names isn't there", async () => {
+    const before = await read();
+    const { isError, text } = await call("update_items", { edit_link: editLink, items: [{ id: row(before, "Revelation").id, qty: 2 }, { id: "nope", qty: 3 }] });
+    expect(isError).toBe(true);
+    expect(text).toContain('"nope"');
+    expect(row(await read(), "Revelation").qty).toBe(1);
+    expect((await call("remove_items", { edit_link: editLink, ids: ["nope"] })).isError).toBe(true);
+    expect((await call("update_items", { edit_link: editLink, items: [{ id: row(before, "Revelation").id, name: "" }] })).isError).toBe(true);
+    expect((await call("update_items", { edit_link: editLink, items: [{ id: row(before, "Revelation").id, carried_by: "Sam" }] })).text).toContain("names no people");
+  });
+
+  it("clears a field with null, and puts a row back to its folder's classification", async () => {
+    const before = await read();
+    const { isError, text } = await call("update_items", { edit_link: editLink, items: [{ id: row(before, "Stakes").id, note: null, classification: "worn" }] });
+    expect(isError, text).toBe(false);
+    expect(row(await read(), "Stakes")).toMatchObject({ classification: "worn" });
+    expect(row(await read(), "Stakes").note).toBeUndefined();
+    await call("update_items", { edit_link: editLink, items: [{ id: row(before, "Stakes").id, classification: null }] });
+    expect(row(await read(), "Stakes").classification).toBe("base");
+  });
+
+  it("renames, reorders and removes folders, a removed folder taking its rows", async () => {
+    const before = await read();
+    const sleep = before.folders.find((f) => f.name === "Sleep")!;
+    const { data, isError, text } = await call("update_folders", {
+      edit_link: editLink,
+      folders: [
+        { folder: sleep.id, name: "Sleep system", position: 0 },
+        { folder: "snacks", remove: true },
+      ],
+    });
+    expect(isError, text).toBe(false);
+    expect(data).toMatchObject({ updated: 2, rows_removed: 1, folders: ["Sleep system", "Shelter", "Food"] });
+    expect(layout(await read())).toEqual([["Sleep system", ["Revelation"]], ["Shelter", ["Stakes", "Duplex (2022)"]]]);
+    const clash = await call("update_folders", { edit_link: editLink, folders: [{ folder: "Shelter", name: "sleep SYSTEM" }] });
+    expect(clash.isError).toBe(true);
+    expect(clash.text).toContain('"Sleep system"');
+  });
+
+  it("removes rows by id", async () => {
+    const before = await read();
+    const { data, isError, text } = await call("remove_items", { edit_link: editLink, ids: [row(before, "Stakes").id] });
+    expect(isError, text).toBe(false);
+    expect(data).toMatchObject({ removed: 1, totals: { item_count: 2 } });
+    expect(layout(await read())).toEqual([["Sleep system", ["Revelation"]], ["Shelter", ["Duplex (2022)"]]]);
   });
 });

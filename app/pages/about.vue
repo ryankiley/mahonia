@@ -99,7 +99,8 @@ const copyrightYear = new Date().getFullYear();
         <p>
           Mahonia is also a connector. Add <code>https://mahonia.app/mcp</code> to an AI
           assistant that speaks MCP and it can read a list from its share link, search the
-          catalog, make a new list, and, given an edit link, add to one. No sign-in: a share link
+          catalog, make a new list, and, given an edit link, change one: add, edit, move and remove
+          rows, and rename or reorder folders. No sign-in: a share link
           is the permission to read and an edit link the permission to change, exactly as they
           are for a person.
         </p>
