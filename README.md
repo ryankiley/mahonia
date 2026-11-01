@@ -72,11 +72,14 @@ sessions, no event stream, GET answers 405), hand-rolled in `server/routes/mcp.p
 with the tools in `server/utils/mcp.ts`; both files carry the reasoning.
 
 Five more tools reach an **account**. `get_my_lists` names the lists filed under it, each
-by its share code, so an assistant can open one without being handed a link; `list_my_gear`,
-`add_my_gear`, `update_my_gear` and `remove_my_gear` reach **My Gear**. An account's lists
-and its gear belong to the account rather than a link, so these need the account behind
-the call, and there are two ways to give it. In Claude, add the URL as a connector and
-choose "Sign in when needed": the first call to an account tool shows a Connect card, you
+by its share code, so an assistant can open one without being handed a link, and with
+read-and-change access the write tools take that share code in place of the edit link,
+resolved through the same claim the site uses when a signed-in owner edits a list, so the
+edit token still never leaves the server; `list_my_gear`, `add_my_gear`, `update_my_gear`
+and `remove_my_gear` reach **My Gear**. An account's lists and its gear belong to the
+account rather than a link, so these need the account behind the call, and there are two
+ways to give it. In Claude, add the URL as a connector and choose "Sign in when needed":
+the first call to an account tool shows a Connect card, you
 sign in to Mahonia with your passkey or a link, allow read or read-and-change, and the call
 goes through. That is OAuth 2.1 with Mahonia as its own authorization server (discovery
 under `/.well-known`, `/authorize`, `/token`, `/revoke`, `/register`; PKCE S256; Client ID
@@ -84,16 +87,18 @@ Metadata Documents, so Claude registers nothing; hour-long access tokens with ro
 refresh tokens; `server/utils/oauth.ts` and `server/utils/oauthClients.ts` carry the
 reasoning). A client configured from a file takes a token minted under Assistant access on
 `/account` instead, sent as `Authorization: Bearer <token>`. Either way only hashes are
-stored, the credential names the account's lists, opens its gear and nothing more, and it lasts until it is
+stored, the credential reaches the account's filed lists and its gear and nothing more, and it lasts until it is
 revoked on that page or by "Sign out everywhere". With read-and-change, `create_list` also
 files the list it makes under the account, as a signed-in browser files the lists it
 creates, and reports `saved_to_account`.
 
 The gate is at the door, as Claude requires: a `tools/call` naming an account tool with no valid
 bearer answers 401 with a `WWW-Authenticate` header that points at the discovery document and
-names the scope the tool needs, and a read-only bearer on a tool that changes gear answers
-403 with `insufficient_scope`. `initialize`, `tools/list` and the ten list tools never
-ask for a credential, so a connector added with no sign-in works exactly as before.
+names the scope the tool needs, and a read-only bearer on a tool that changes gear or a list
+answers 403 with `insufficient_scope`. A write tool called with an edit link is not an
+account tool; one called with a share code instead is. `initialize`, `tools/list` and the
+ten list tools never ask for a credential on their own, so a connector added with no
+sign-in works exactly as before.
 
 Add it to a client:
 

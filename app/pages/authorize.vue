@@ -47,8 +47,8 @@ const errorBack = computed(() => (checked.value && !checked.value.ok && checked.
 const label = computed(() => (checked.value?.ok ? checked.value.client.label : ""));
 const wants = computed(() =>
   checked.value?.ok && checked.value.level === "write"
-    ? "read your My Gear and change it, and file the lists it makes under your account"
-    : "read your My Gear",
+    ? "read your My Gear and change it, change the lists filed under your account, and file the lists it makes there"
+    : "read your My Gear and see which lists are filed under your account",
 );
 
 onMounted(() => {
