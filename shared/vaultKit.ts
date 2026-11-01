@@ -60,14 +60,19 @@ export function kitFromGroup(
   folderName?: string,
 ): { kit: VaultKitCapture; parts: VaultCapture[] } | null {
   if (isWaterRow(parent)) return null;
-  const own = gearFromItem(parent, folderName);
-  if (!own) return null;
+  // marked the way captureFromList marks a row: a catalog pick nobody renamed is kept
+  // under the catalog's current spelling (the server's respell), like any capture
+  const spelled = (item: Item) => item.catalogItemId != null && !item.nameOverridden;
+  const base = gearFromItem(parent, folderName);
+  if (!base) return null;
+  const own = { ...base, catalogSpelling: spelled(parent) };
   const parts = new Map<string, VaultKitPartRef>();
   const captures = new Map<string, VaultCapture>();
   for (const child of children) {
     if (child.parentId !== parent.id || !isVaultWorthy(child, false)) continue;
-    const cap = gearFromItem(child, folderName);
-    if (!cap || cap.normKey === own.normKey) continue;
+    const found = gearFromItem(child, folderName);
+    if (!found || found.normKey === own.normKey) continue;
+    const cap = { ...found, catalogSpelling: spelled(child) };
     captures.set(cap.normKey, cap);
     const qty = Math.max(1, Math.round(child.qty) || 1);
     const have = parts.get(cap.normKey);

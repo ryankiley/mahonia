@@ -119,7 +119,7 @@ export type ListRow = typeof lists.$inferSelect;
 // cheap).
 // ---------------------------------------------------------------------------
 // legacy columns still in the database, undeclared: description, image_url,
-// msrp_cents, currency, merged_into_id (see the header)
+// msrp_cents, currency (see the header)
 export const catalogItems = pgTable(
   "catalog_items",
   {
@@ -147,6 +147,10 @@ export const catalogItems = pgTable(
     verified: boolean("verified").notNull().default(false), // owner-curated trust
     usageCount: integer("usage_count").notNull().default(0), // ranks autocomplete
     status: text("status").notNull().default("active"), // active|merged|removed
+    // Where a retired row's links now point: the row the research replaced it with
+    // (scripts/seedRetire.ts). Set only on `merged`; a `removed` row has no successor.
+    // A retired row is never deleted, because list rows and My Gear rows hold its id.
+    mergedIntoId: integer("merged_into_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   }
@@ -471,6 +475,91 @@ export const sessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
+  }
+);
+
+// ---------------------------------------------------------------------------
+// access_tokens — the bearer credentials an MCP client sends to reach an account's
+// My Gear, of two kinds in one table because they resolve the same way: hash the
+// bearer, find the row, read the account and the scope.
+//
+// kind "token" is minted by hand on the account page for a client configured from a
+// file: labelled by its owner, no expiry, revoked there. kind "app" is issued by the
+// token endpoint to an app the person signed in through the connector's OAuth flow
+// (server/utils/oauth.ts): labelled by the app, an access token that expires in an
+// hour and a refresh token (refresh_hash) that renews the pair in place, so the row
+// is the grant and its two hashes are the current pair. Both are hashed like a
+// session; neither opens anything but the gear, and filing a list the connector
+// made. The account page lists both and revokes either, and "Sign out everywhere"
+// and account deletion take them all.
+// ---------------------------------------------------------------------------
+export const accessTokens = pgTable(
+  "access_tokens",
+  {
+    id: serial("id").primaryKey(),
+    tokenHash: text("token_hash").notNull(),
+    userId: integer("user_id").notNull(),
+    kind: text("kind").notNull().default("token"),
+    label: text("label"),
+    // "read" or "write"; the CHECK in the DDL admits nothing else
+    scope: text("scope").notNull(),
+    // the app's client_id, for kind "app": only that client may refresh the pair
+    clientId: text("client_id"),
+    // null for a hand-minted token, which lasts until revoked
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
+    refreshHash: text("refresh_hash"),
+    // the refresh hash a rotation just retired: a refresh token that comes back after
+    // it was rotated away is the one sign of a stolen one, and ends the grant
+    refreshPrevHash: text("refresh_prev_hash"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+  }
+);
+
+// ---------------------------------------------------------------------------
+// The OAuth side of the connector: how Claude (and any client that speaks the MCP
+// authorization spec) signs a person in to reach their My Gear, with no token to
+// paste. Two tables here, and the grants themselves in access_tokens above. The flow
+// and its rules are in server/utils/oauth.ts and server/utils/oauthClients.ts.
+//
+// oauth_clients — clients that registered themselves (RFC 7591). Claude doesn't:
+// it identifies itself with a URL that serves its own metadata, which is fetched
+// and never stored. This table is for the clients that still register, and holds
+// no secret because every client here is public (PKCE is the proof, not a secret).
+// ---------------------------------------------------------------------------
+export const oauthClients = pgTable(
+  "oauth_clients",
+  {
+    id: serial("id").primaryKey(),
+    clientId: text("client_id").notNull(),
+    clientName: text("client_name"),
+    // JSON array of the exact redirect URIs the client may be sent back to
+    redirectUris: text("redirect_uris").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  }
+);
+
+// oauth_codes — an authorization code between the consent page's Allow and the
+// client's token request: a minute long, single use (consumed_at is stamped in the
+// same statement that reads it), and bound to the client, the redirect, the PKCE
+// challenge and the account that allowed it, so a code that leaks through a
+// redirect is useless to anyone but the client that holds the verifier. Hashed,
+// like every other one-shot secret here.
+export const oauthCodes = pgTable(
+  "oauth_codes",
+  {
+    id: serial("id").primaryKey(),
+    codeHash: text("code_hash").notNull(),
+    userId: integer("user_id").notNull(),
+    clientId: text("client_id").notNull(),
+    // what the consent page showed as the client's name, carried to the grant
+    clientName: text("client_name").notNull(),
+    redirectUri: text("redirect_uri").notNull(),
+    codeChallenge: text("code_challenge").notNull(),
+    scope: text("scope").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   }
 );
 

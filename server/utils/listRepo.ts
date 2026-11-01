@@ -5,7 +5,7 @@
 import { sweepWindow, toIso } from "./time";
 import { createError } from "h3";
 import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql, type SQL } from "drizzle-orm";
-import { listClaims, catalogItems, listSnapshots, lists, type ListRow, users } from "../db/schema";
+import { listClaims, listSnapshots, lists, type ListRow, users } from "../db/schema";
 import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeCalendarDate, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyListText, type Op, MAX_TITLE_LEN, isCatalogId } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
 import { computeTotals } from "../../shared/weights";
@@ -28,7 +28,7 @@ import { tidyProse, tidyText } from "../../shared/tidyText";
 import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
 import { ensureSnapshotSchema, ensureTrailFaviconSchema, isUniqueViolation, useAccountDb, useDb, type Db } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
-import { ensureCatalogSchema } from "./catalog";
+import { liveCatalogRows } from "./catalog";
 import { randomEditToken, randomShareCode, randomSlug, sha256Hex } from "./tokens";
 import { stageCandidates, type CandidateObservation } from "./candidates";
 
@@ -210,7 +210,9 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
 // Trickle-down: for items still linked to a catalog product (and not custom-
 // renamed), display the catalog's CURRENT brand/name/variant rather than the flat
 // snapshot baked in at add time — so catalog cleanups (e.g. variant normalization)
-// reach existing lists. The stored snapshot is the fallback (removed/merged rows).
+// reach existing lists. A row retired into a successor hands the link on: the row
+// reads as the successor and carries its id (liveCatalogRows). The stored snapshot is
+// the fallback only for a row retired with no successor.
 // Display-only: never written back to the list's `data` (mutations go through
 // applyOps on the stored row), so storage stays the user's original snapshot.
 export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<ListSnapshot> {
@@ -218,7 +220,8 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
   // below (nameOverridden the brand/name/variant, commonNameOverridden the gear type), so
   // filtering on one of them here would freeze the other's field too — a renamed product
   // would keep the gear type it had at rename time forever, which is not what
-  // shared/types.ts promises ("independent of name/nameOverridden").
+  // shared/types.ts promises ("independent of name/nameOverridden"). A row with both
+  // flags still comes along: its link may need handing on to a successor.
   const ids = [
     ...new Set(
       snap.items
@@ -226,30 +229,18 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
         // this query fail on every read of the list, and every write, since the write
         // path hydrates too. The reducer refuses such an id now; rows written before
         // it did are simply left un-hydrated rather than taking the list down.
-        .filter((i) => isCatalogId(i.catalogItemId) && !(i.nameOverridden && i.commonNameOverridden))
+        .filter((i) => isCatalogId(i.catalogItemId))
         .map((i) => i.catalogItemId as number),
     ),
   ];
   if (!ids.length) return snap;
-  // The catalog table self-ensures on its own endpoints, but THIS query can run
-  // first on a fresh database (a copied list carries catalogItemId) — ensure here
-  // or every list read 500s until some catalog endpoint happens to run (the exact
+  // liveCatalogRows ensures the catalog table first: THIS query can run first on a
+  // fresh database (a copied list carries catalogItemId), and without the ensure
+  // every list read 500s until some catalog endpoint happens to run (the exact
   // Neon-only latent bug db.ts's useCatalogDb exists to prevent). Memoized, and
-  // catalog-link-free lists never reach it (the early-out above), so no steady-
-  // state cost. Lives here (not in callers) to also cover caller-passed db handles.
-  await ensureCatalogSchema(db);
-  const rows = await db
-    .select({
-      id: catalogItems.id,
-      brand: catalogItems.brand,
-      name: catalogItems.name,
-      variant: catalogItems.variant,
-      commonName: catalogItems.commonName,
-    })
-    .from(catalogItems)
-    .where(and(inArray(catalogItems.id, ids), eq(catalogItems.status, "active")));
-  if (!rows.length) return snap;
-  const byId = new Map(rows.map((r) => [r.id, r]));
+  // catalog-link-free lists never reach it (the early-out above).
+  const byId = await liveCatalogRows(db, ids);
+  if (!byId.size) return snap;
   snap.items = snap.items.map((it) => {
     if (it.catalogItemId == null) return it;
     const c = byId.get(it.catalogItemId);
@@ -274,6 +265,9 @@ export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<L
     const commonName = c.commonName ? tidyText(c.commonName) : undefined;
     return {
       ...it,
+      // a retired row's successor takes the link over, so the row's weight check and
+      // "suggest a fix" path point at a product that still exists
+      ...(c.id !== it.catalogItemId ? { catalogItemId: c.id } : {}),
       ...(it.nameOverridden ? {} : { brand, name: tidyText(c.name), variant }),
       ...(it.commonNameOverridden ? {} : { commonName }),
     };

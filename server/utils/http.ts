@@ -43,6 +43,18 @@ export function setReadEdgeCache(event: H3Event): void {
   setHeader(event, "Cache-Control", READ_EDGE_CACHE_CONTROL);
 }
 
+/** Never held by any cache: the MCP endpoint's answers and the connector's token
+ *  responses, each of which is one caller's own. */
+export function setNoStore(event: H3Event): void {
+  setHeader(event, "Cache-Control", "no-store");
+}
+
+/** Five minutes at the edge for the connector's discovery documents: the same for
+ *  everyone, and Claude keeps its own copy for about that long anyway. */
+export function setBriefEdgeCache(event: H3Event): void {
+  setHeader(event, "Cache-Control", "public, max-age=0, s-maxage=300");
+}
+
 /** A day of edge cache for the static, same-for-everyone text routes (robots,
  *  llms.txt, the Apple app-site-association) — the daily counterpart of
  *  setReadEdgeCache, and one literal instead of three. */

@@ -12,8 +12,8 @@
 // Signing in and deleting an account are worse things to keep in sync by hand.
 import { counted } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Key01Icon } from "@hugeicons/core-free-icons";
-import type { PasskeySummary } from "~~/shared/types";
+import { ChatGptIcon, ChevronDownIcon, ClaudeIcon, Copy01Icon, CubeIcon, Key01Icon } from "@hugeicons/core-free-icons";
+import type { AccessScope, AccessTokenSummary, PasskeySummary } from "~~/shared/types";
 
 // In the MODAL you are already where you want to be, so finishing means closing and
 // nothing else. On the PAGE there is no context behind it, so finishing has to take
@@ -174,6 +174,9 @@ async function saveName() {
     : "Couldn’t save that. Try again?";
 }
 
+/** when a credential was last used, as the three lists on this page say it */
+const usedAgo = (iso: string | null) => (iso ? `last used ${timeAgo(Date.parse(iso))}` : "not used yet");
+
 // ---- passkeys ------------------------------------------------------------
 const passkeys = ref<PasskeySummary[]>([]);
 const pkBusy = ref(false);
@@ -218,6 +221,120 @@ function deviceLabel(): string {
   if (/Windows/.test(ua)) return "Windows PC";
   if (/Linux/.test(ua)) return "Linux";
   return "This device";
+}
+
+// ---- assistant access ----------------------------------------------------
+// The credentials on this page that are MEANT to leave the browser, in two kinds
+// (server/utils/accessTokens.ts). An app that signed in through the connector
+// (Claude, from a Connect card) holds a pair it got through /authorize and is listed
+// here to be disconnected. A client configured from a file (Claude Code without the
+// popup, Cursor, anything with an mcp.json) is given a token minted here and sends
+// that as a header instead.
+//
+// A minted token's value comes back from the mint and from nowhere else, ever — the
+// list below is labels and dates. So it is held in `freshToken` until the next
+// action on this section replaces it, and the page says, in so many words, to copy
+// it now.
+const tokens = ref<AccessTokenSummary[]>([]);
+const tokenLabel = ref("");
+const tokenScope = ref<AccessScope>("read");
+const tokenBusy = ref(false);
+const tokenNote = ref("");
+const freshToken = ref("");
+// the picker's rows; the key is the word the endpoint takes, the label is ours
+const SCOPES: readonly { key: AccessScope; label: string }[] = [
+  { key: "read", label: "Read only" },
+  { key: "write", label: "Read and change" },
+];
+const scopeName = (scope: AccessScope) => SCOPES.find((s) => s.key === scope)!.label.toLowerCase();
+const mcpUrl = `${useSiteOrigin()}/mcp`;
+// The buttons: each client's own "install this server" link with our address filled
+// in, the same ones the About page and the README carry; ChatGPT, Gemini and the rest
+// have no such link and take the address pasted in. Every one of them asks for the
+// sign-in itself the first time it reaches for My Gear, so there is nothing else to
+// hand over.
+const addToClaude = `https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Mahonia&connectorUrl=${encodeURIComponent(mcpUrl)}`;
+const addToCursor = `https://cursor.com/install-mcp?name=mahonia&config=${btoa(JSON.stringify({ url: mcpUrl }))}`;
+// ChatGPT has no install link: its button copies the address and opens the settings
+// page where a connector is made, so the paste is the only step left
+const chatGptConnectors = "https://chatgpt.com/#settings/Connectors";
+async function copyAddress() {
+  tokenNote.value = (await copyText(mcpUrl)) ? "Address copied." : "Couldn’t copy. Select it and copy it by hand.";
+}
+async function copyForChatGpt() {
+  tokenNote.value = (await copyText(mcpUrl))
+    ? "Address copied. In ChatGPT, turn on developer mode under Apps & Connectors and paste it into a new connector."
+    : "Couldn’t copy. Select the address and copy it by hand.";
+}
+// the hand-minted token is the second way in, for a client that can't open a
+// sign-in, and stays folded until asked for: the button above is the ordinary path
+const tokenForm = ref(false);
+// Claude Code is the client with a one-line install that takes the header; the
+// README carries the equivalent for the others
+const claudeCommand = computed(
+  () => `claude mcp add --transport http --scope user mahonia ${mcpUrl} --header "Authorization: Bearer ${freshToken.value}"`,
+);
+
+async function loadTokens() {
+  if (!signedIn.value) return;
+  try {
+    tokens.value = (await $fetch<{ tokens: AccessTokenSummary[] }>("/api/account/tokens")).tokens;
+  } catch {
+    // a failed read leaves the list empty and the form usable; it is not worth a note
+  }
+}
+watch(signedIn, () => loadTokens(), { immediate: true });
+
+async function makeToken() {
+  if (tokenBusy.value) return;
+  tokenBusy.value = true;
+  tokenNote.value = "";
+  freshToken.value = "";
+  try {
+    const made = await $fetch<{ ok: boolean; token?: string }>("/api/account/tokens", {
+      method: "POST",
+      // unnamed, a token takes the device's name, the way a new passkey does
+      body: { label: tokenLabel.value.trim() || deviceLabel(), scope: tokenScope.value },
+    });
+    if (made.ok && made.token) {
+      freshToken.value = made.token;
+      tokenLabel.value = "";
+      await loadTokens();
+    } else {
+      tokenNote.value = "That’s as many tokens as an account can hold. Revoke one to make room.";
+    }
+  } catch {
+    tokenNote.value = "Couldn’t make a token. Try again?";
+  }
+  tokenBusy.value = false;
+}
+
+// through the shared copyText(), awaited straight from the click so iOS Safari still
+// counts it as the user's own gesture
+async function copyFresh(what: "token" | "command") {
+  const ok = await copyText(what === "token" ? freshToken.value : claudeCommand.value);
+  tokenNote.value = ok ? "Copied." : "Couldn’t copy. Select it and copy it by hand.";
+}
+
+// the same action for both kinds, in each one's words: a token is revoked, an app
+// that signed in is disconnected and will ask again
+async function revokeToken(t: AccessTokenSummary) {
+  const app = t.kind === "app";
+  if (!(await askConfirm({
+    title: app ? `Disconnect ${t.label ?? "this app"}?` : "Revoke this token?",
+    message: app
+      ? "It stops reaching My Gear on its next call and will ask you to sign in again if you use it. Nothing in your gear changes."
+      : "Whatever was using it stops reaching My Gear on its next call. Nothing in your gear changes.",
+    confirmLabel: app ? "Disconnect" : "Revoke",
+  }))) return;
+  freshToken.value = "";
+  tokenNote.value = "";
+  try {
+    await $fetch("/api/account/tokens/revoke", { method: "POST", body: { id: t.id } });
+  } catch {
+    tokenNote.value = app ? "Couldn’t disconnect it. Try again?" : "Couldn’t revoke it. Try again?";
+  }
+  await loadTokens();
 }
 
 // ---- deleting the account ------------------------------------------------
@@ -309,7 +426,7 @@ async function onSignOutEverywhere() {
     !(await askConfirm({
       title: "Sign out everywhere?",
       message:
-        "Ends every session on every device, including this one. Do this if you think someone else has access; removing a passkey alone doesn't end the sessions it already started.",
+        "Ends every session on every device, including this one, and revokes every token under Assistant access. Do this if you think someone else has access; removing a passkey alone doesn't end the sessions it already started.",
       confirmLabel: "Sign out everywhere",
     }))
   )
@@ -350,8 +467,8 @@ async function onSignOut() {
                vault is the whole reason, and a stranger who tapped the person icon has
                not been told. Lists never needing it is the half that keeps the promise. -->
           <p class="t-sm t-muted acct__why">
-            An account holds My Gear: the kit you own, one pick away on every list, from any
-            device. Lists never need one.
+            An account keeps My Gear: your own gear and its weights, ready to add to any list
+            on any device. Lists work without one.
           </p>
           <button
             v-if="canPasskey"
@@ -467,9 +584,7 @@ async function onSignOut() {
             <ul v-if="passkeys.length" class="acct__list">
               <li v-for="k in passkeys" :key="k.id" class="acct__item">
                 <span>{{ k.label || "Passkey" }}</span>
-                <span class="t-sm t-muted acct__meta">
-                  {{ k.lastUsedAt ? `last used ${timeAgo(Date.parse(k.lastUsedAt))}` : "not used yet" }}
-                </span>
+                <span class="t-sm t-muted acct__meta">{{ usedAgo(k.lastUsedAt) }}</span>
                 <button type="button" class="btn btn--quiet" @click="removePasskey(k.id)">Remove</button>
               </li>
             </ul>
@@ -478,6 +593,79 @@ async function onSignOut() {
               them all locks nothing.
             </p>
             <p v-if="pkNote" class="t-sm acct__note">{{ pkNote }}</p>
+          </section>
+
+          <!-- ASSISTANT ACCESS: the connector. Below the passkeys because what it leaves
+               behind is the same kind of thing, a credential you review and revoke here. -->
+          <section class="acct__section">
+            <h2 class="t-label acct__label">Assistant access</h2>
+            <!-- each client's own mark on its button; Cursor's is the cube its logo is drawn as -->
+            <div class="acct__clients">
+              <a :href="addToClaude" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
+                <HugeiconsIcon :icon="ClaudeIcon" :size="16" :stroke-width="2" aria-hidden="true" /> Add to Claude
+              </a>
+              <!-- the copy runs inside the click, before the link opens the settings page -->
+              <a :href="chatGptConnectors" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn" @click="copyForChatGpt">
+                <HugeiconsIcon :icon="ChatGptIcon" :size="16" :stroke-width="2" aria-hidden="true" /> ChatGPT
+              </a>
+              <a :href="addToCursor" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn">
+                <HugeiconsIcon :icon="CubeIcon" :size="16" :stroke-width="2" aria-hidden="true" /> Cursor
+              </a>
+              <button type="button" class="btn btn--ghost acct__btn" @click="copyAddress">
+                <HugeiconsIcon :icon="Copy01Icon" :size="16" :stroke-width="2" aria-hidden="true" /> Copy address
+              </button>
+            </div>
+            <p class="t-sm t-muted">Any other MCP client takes the address. Each one asks you to sign in here the first time.</p>
+            <ul v-if="tokens.length" class="acct__list">
+              <li v-for="t in tokens" :key="t.id" class="acct__item">
+                <span>{{ t.label || "Token" }}</span>
+                <span class="t-sm t-muted acct__meta">
+                  {{ t.kind === "app" ? "signed in" : "token" }} · {{ scopeName(t.scope) }} · {{ usedAgo(t.lastUsedAt) }}
+                </span>
+                <button type="button" class="btn btn--quiet" @click="revokeToken(t)">{{ t.kind === "app" ? "Disconnect" : "Revoke" }}</button>
+              </li>
+            </ul>
+            <p v-if="!tokenForm" class="t-sm t-muted">
+              Using a client that can’t sign in?
+              <button type="button" class="acct__switch" @click="tokenForm = true">Make a token</button>
+            </p>
+            <form v-else class="acct__row acct__tokenrow" @submit.prevent="makeToken">
+              <input
+                v-model="tokenLabel"
+                class="field acct__input"
+                type="text"
+                maxlength="60"
+                placeholder="Name it, e.g. Claude Code"
+                aria-label="Token name"
+              />
+              <!-- the app's own picker rather than a native select — OptionMenu says why -->
+              <OptionMenu
+                :options="SCOPES"
+                :current="tokenScope"
+                label="What the token can do"
+                trigger-class="btn btn--ghost acct__btn acct__scope"
+                @pick="(k) => (tokenScope = k as AccessScope)"
+              >
+                <template #trigger="{ active, open }">
+                  <span>{{ active?.label }}</span>
+                  <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+                </template>
+              </OptionMenu>
+              <button type="submit" class="btn btn--ghost acct__btn" :disabled="tokenBusy">
+                {{ tokenBusy ? "Making…" : "Make token" }}
+              </button>
+            </form>
+            <div v-if="tokenForm && freshToken" class="acct__fresh">
+              <p class="t-sm acct__note">Shown once. Copy it before you leave this page.</p>
+              <code class="acct__secret">{{ freshToken }}</code>
+              <p class="t-sm t-muted">For Claude Code, this one line adds the connector with the token:</p>
+              <code class="acct__secret">{{ claudeCommand }}</code>
+              <div class="acct__copies">
+                <button type="button" class="btn btn--ghost acct__btn" @click="copyFresh('token')">Copy token</button>
+                <button type="button" class="btn btn--ghost acct__btn" @click="copyFresh('command')">Copy command</button>
+              </div>
+            </div>
+            <p v-if="tokenNote" class="t-sm acct__note">{{ tokenNote }}</p>
           </section>
 
           <section class="acct__section">
@@ -802,5 +990,56 @@ async function onSignOut() {
 }
 .acct__meta {
   flex: 1 1 auto;
+}
+/* Three controls in this row where the others carry two, so it is allowed to wrap.
+   At phone width the name field takes a line of its own (the 12rem basis is what
+   tips it over) and the picker and the button share the next, which beats three
+   pills each cut to an ellipsis on one line. */
+.acct__tokenrow {
+  flex-wrap: wrap;
+}
+.acct__tokenrow .acct__input {
+  flex: 1 1 12rem;
+}
+/* the picker's trigger wears the row's button recipe through triggerClass; the only
+   thing to add is that its longer label never breaks inside the pill */
+.acct__scope {
+  white-space: nowrap;
+}
+.acct__fresh {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+/* The token, and the command that carries it: shown in full, selected whole with
+   one tap (user-select: all), and allowed to break at any character so a 50-character
+   secret cannot widen the column at phone width. The chrome size, not the body's:
+   it is a value to copy, not a sentence to read. */
+.acct__secret {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  background: var(--paper);
+  font-size: var(--text-chrome);
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+.acct__copies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+/* the client buttons: the row gap every other row on this surface keeps, and the
+   .btn atom's own icon-to-label gap, so a pill with a mark reads like the sign-in's */
+.acct__clients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+/* a link wearing .btn: the atom's reset is written for <button>, so the one thing an
+   anchor brings of its own is taken off here */
+.acct__clients a {
+  text-decoration: none;
 }
 </style>

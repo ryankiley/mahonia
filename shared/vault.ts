@@ -80,6 +80,11 @@ export interface VaultCapture {
    *  vault folder. The server files a row on FIRST capture only, so a later list
    *  that groups differently can't reshuffle what you've already filed. */
   folder?: string;
+  /** True when brand/name/variant are the catalog's own text, untouched since the
+   *  pick (linked, not renamed). The server then captures the row under the catalog's
+   *  CURRENT spelling, so a list saved before a catalog tidy can't mint a second row
+   *  for the same product (vaultRepo's respellCatalogPicks). Never stored. */
+  catalogSpelling?: boolean;
 }
 
 /**
@@ -331,13 +336,17 @@ export function gearFromItem(item: Item, folderName?: string): VaultCapture | nu
 }
 
 /** Project a list Item as CAPTURE sees it: the projection above, behind the rule
- *  about which rows an open editor should be banking at all. */
+ *  about which rows an open editor should be banking at all, and marked when its
+ *  text is still the catalog's. Here and not in gearFromItem: an imported file says
+ *  nothing about whether its names were ever edited, so it is never respelled. */
 function captureFromItem(
   item: Item,
   hasChildren: boolean,
   folderName?: string,
 ): VaultCapture | null {
-  return isVaultWorthy(item, hasChildren) ? gearFromItem(item, folderName) : null;
+  if (!isVaultWorthy(item, hasChildren)) return null;
+  const cap = gearFromItem(item, folderName);
+  return cap && { ...cap, catalogSpelling: item.catalogItemId != null && !item.nameOverridden };
 }
 
 /**

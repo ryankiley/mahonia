@@ -57,13 +57,27 @@ describe("hydrateCatalogNames (trickle-down)", () => {
       { name: "my shelter", catalogItemId: cid, commonName: "stale", nameOverridden: true },
       // renamed the GEAR TYPE only: their label survives, the product name still resolves
       { name: "X-Mid OLD", catalogItemId: cid, commonName: "palace", commonNameOverridden: true },
-      // both pinned: nothing resolves, and the row never reaches the query
+      // both pinned: nothing about the text resolves (only a retired link would move)
       { name: "mine", catalogItemId: cid, commonName: "mine too", nameOverridden: true, commonNameOverridden: true },
     ]));
 
     expect(out.items[0]).toMatchObject({ name: "my shelter", commonName: "tent" });
     expect(out.items[1]).toMatchObject({ name: "X-Mid Pro 1", commonName: "palace" });
     expect(out.items[2]).toMatchObject({ name: "mine", commonName: "mine too" });
+  });
+
+  it("hands a retired row's link on to its successor, names and all", async () => {
+    const db = await createTestDb(CATALOG_DDL);
+    const bar = await seedCatalogRow(db, { brand: "Clif", name: "Builders Protein Bar (Chocolate Peanut Butter)", commonName: "Protein bar", weightMg: 68000, weightSource: "manufacturer", verified: true });
+    const old = await seedCatalogRow(db, { brand: "Clif", name: "Builders Protein Bar (Chocolate Peanut Butter)", variant: "single bar", weightMg: 68000, weightSource: "manufacturer", verified: true, status: "merged", mergedIntoId: bar.id });
+
+    const out = await hydrateCatalogNames(db, snap([
+      { name: "Builders Protein Bar (Chocolate Peanut Butter)", brand: "Clif", variant: "single bar", catalogItemId: old.id },
+      // renamed on both counts: keeps its text, but the link still moves on
+      { name: "my bar", commonName: "snack", catalogItemId: old.id, nameOverridden: true, commonNameOverridden: true },
+    ]));
+    expect(out.items[0]).toMatchObject({ catalogItemId: bar.id, name: "Builders Protein Bar (Chocolate Peanut Butter)", variant: undefined, commonName: "Protein bar" });
+    expect(out.items[1]).toMatchObject({ catalogItemId: bar.id, name: "my bar", commonName: "snack" });
   });
 
   it("falls back to the stored snapshot when the catalog row is gone", async () => {

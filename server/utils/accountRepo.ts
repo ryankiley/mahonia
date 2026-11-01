@@ -5,10 +5,12 @@
 
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
+  accessTokens,
   authTokens,
   credentials,
   listClaims,
   lists,
+  oauthCodes,
   sessions,
   users,
   vaultFolders,
@@ -28,10 +30,10 @@ interface AccountDeletion {
  * Delete `userId` and everything that exists only because of it.
  *
  * GOES, ALWAYS: the account row, its sessions and pending sign-in links, its
- * passkeys, its claims, and its vault with every item and folder in it. A vault has
- * exactly one owner, so none of that is shared — it's gone in the strong sense
- * rather than soft-deleted, because no link remains that could bring it back and
- * nobody else could miss it.
+ * passkeys, the access tokens its connectors hold and the apps that signed in
+ * through the connector, its claims, and its vault with every item and folder in it. A vault has exactly one owner, so none of that is
+ * shared — it's gone in the strong sense rather than soft-deleted, because no link
+ * remains that could bring it back and nobody else could miss it.
  *
  * STAYS BY DEFAULT: the lists. A list belongs to its EDIT LINK, not to the account;
  * a claim only ever added a bookmark on top. Deleting the account drops the
@@ -87,6 +89,8 @@ export async function deleteAccount(
 
   await db.delete(listClaims).where(eq(listClaims.userId, userId));
   await db.delete(credentials).where(eq(credentials.userId, userId));
+  await db.delete(accessTokens).where(eq(accessTokens.userId, userId));
+  await db.delete(oauthCodes).where(eq(oauthCodes.userId, userId));
   await db.delete(authTokens).where(eq(authTokens.userId, userId));
   await db.delete(sessions).where(eq(sessions.userId, userId));
   await db.delete(users).where(eq(users.id, userId));

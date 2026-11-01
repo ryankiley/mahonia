@@ -14,7 +14,7 @@ import {
   captureKit,
   captureVaultItems,
   captureVaultItemsReporting,
-  getVaultItem,
+  vaultItemById,
   importVaultItems,
   listRemovedVaultItems,
   listVaultFolders,
@@ -192,7 +192,7 @@ describe("a kit's weight is its parts'", () => {
   it("follows a re-weighed part the next time it is read", async () => {
     const k = await cookKit();
     await applyVaultItemOp(db, vault, { t: "edit", id: k.pot, patch: { weightMg: 110_000 } });
-    expect((await getVaultItem(db, vault, k.kit))!.weightMg).toBe(20_000 + 73_000 + 110_000 + 22_000);
+    expect((await vaultItemById(db, vault, k.kit))!.weightMg).toBe(20_000 + 73_000 + 110_000 + 22_000);
   });
 
   it("stops counting a put-away part, keeps it listed, and counts it again when it is back", async () => {
@@ -202,7 +202,7 @@ describe("a kit's weight is its parts'", () => {
     expect(kit.weightMg).toBe(20_000 + 73_000 + 22_000);
     expect(kit.parts!.find((p) => p.id === k.pot)).toMatchObject({ removed: true });
     await restoreVaultItem(db, vault, k.pot);
-    expect((await getVaultItem(db, vault, k.kit))!.weightMg).toBe(218_000);
+    expect((await vaultItemById(db, vault, k.kit))!.weightMg).toBe(218_000);
   });
 
   it("lets one piece belong to several kits, and a put-away kit stops claiming it", async () => {
@@ -244,7 +244,7 @@ describe("the rules a kit keeps", () => {
     expect(await setKitParts(db, vault, kit, [{ id: mine }, { id: theirs }], { ownWeightMg: 0 })).toBe(false);
     expect(await setKitParts(db, vault, kit, [{ id: kit }], { ownWeightMg: 0 })).toBe(false);
     expect(await setKitParts(db, vault, kit, [], { ownWeightMg: 0 })).toBe(false);
-    expect((await getVaultItem(db, vault, kit))!.kind).toBeUndefined();
+    expect((await vaultItemById(db, vault, kit))!.kind).toBeUndefined();
 
     expect(await setKitParts(db, vault, kit, [{ id: mine }], { ownWeightMg: 0 })).toBe(true);
     // one level deep: a kit can't be a part, and a part can't become a kit
@@ -259,7 +259,7 @@ describe("the rules a kit keeps", () => {
     const spoon = await piece("Spoon", 15);
     const replaced = await applyVaultItemOp(db, vault, { t: "kit", id: k.kit, parts: [{ id: k.pot }, { id: spoon }], ownWeightMg: 0 });
     expect(replaced && "item" in replaced && replaced.item).toMatchObject({ kind: "kit", weightMg: 118_000 });
-    expect((await getVaultItem(db, vault, k.stove))!.inKits).toBeUndefined();
+    expect((await vaultItemById(db, vault, k.stove))!.inKits).toBeUndefined();
     const cleared = await applyVaultItemOp(db, vault, { t: "kit", id: k.kit, parts: [] });
     expect(cleared && "item" in cleared && cleared.item).toMatchObject({ weightMg: 118_000 });
     expect((cleared as { item: VaultEntry }).item.kind).toBeUndefined();
@@ -298,9 +298,9 @@ describe("the rules a kit keeps", () => {
 describe("capture leaves a kit's weight alone", () => {
   it("an old list holding the kit as one flat row writes no weight into it, but usage moves", async () => {
     const k = await cookKit();
-    const before = (await getVaultItem(db, vault, k.kit))!;
+    const before = (await vaultItemById(db, vault, k.kit))!;
     await captureVaultItems(db, vault, captureFromList([row("Cook kit", 218), row("Toaks 750", 103)]));
-    const after = (await getVaultItem(db, vault, k.kit))!;
+    const after = (await vaultItemById(db, vault, k.kit))!;
     expect(after.ownWeightMg).toBe(20_000);
     expect(after.weightMg).toBe(218_000);
     expect(after.timesSeen).toBe(before.timesSeen + 1);
@@ -311,7 +311,7 @@ describe("capture leaves a kit's weight alone", () => {
     const k = await cookKit();
     const key = vaultNormKey(undefined, "Cook kit", undefined);
     const { keys } = await captureVaultItemsReporting(db, vault, captureFromList([row("Cook kit", 500)]), { overwriteWeight: true });
-    expect((await getVaultItem(db, vault, k.kit))!.ownWeightMg).toBe(20_000);
+    expect((await vaultItemById(db, vault, k.kit))!.ownWeightMg).toBe(20_000);
     expect(keys).toEqual([[key, null, "kit"]]);
     expect(await vaultGearAmong(db, vault, [key])).toEqual([[key, null, "kit"]]);
   });
@@ -356,7 +356,7 @@ describe("captureKit — the group row's own save", () => {
     const old = await piece("Cook kit", 218);
     const res = await captureKit(db, vault, made().kit, made().parts, { overwriteWeight: true });
     expect(res.kit).toBe("saved");
-    const kit = (await getVaultItem(db, vault, old))!;
+    const kit = (await vaultItemById(db, vault, old))!;
     expect(kit).toMatchObject({ kind: "kit", ownWeightMg: 20_000, weightMg: 218_000 });
     expect(kit.pinned ?? []).not.toContain("weight");
   });
@@ -376,7 +376,7 @@ describe("captureKit — the group row's own save", () => {
     const m = kitFromGroup(group[0]!, group)!;
     const res = await captureKit(db, vault, m.kit, m.parts);
     expect(res.kit).toBe("nested");
-    expect((await getVaultItem(db, vault, k.lighter))!.kind).toBeUndefined();
+    expect((await vaultItemById(db, vault, k.lighter))!.kind).toBeUndefined();
     // the part still landed as a piece
     expect((await listVaultItems(db, vault)).some((r) => r.name === "Flint")).toBe(true);
   });
@@ -396,7 +396,7 @@ describe("captureKit — the group row's own save", () => {
     const m = kitFromGroup(group[0]!, group)!;
     expect((await captureKit(db, vault, m.kit, m.parts)).kit).toBe("refused");
     expect((await listVaultItems(db, vault)).some((r) => r.name === "Everything")).toBe(false);
-    expect((await getVaultItem(db, vault, k.kit))!.kind).toBe("kit");
+    expect((await vaultItemById(db, vault, k.kit))!.kind).toBe("kit");
   });
 });
 

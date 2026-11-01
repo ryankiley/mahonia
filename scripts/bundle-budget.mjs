@@ -68,7 +68,14 @@ import { kb } from "./bundleReport.mjs";
 // framework's own patches are not the growth this line exists to price, and 5 KB
 // is room for a few of them without a shave each time. The levers still stand for
 // when the product spends it.
-const FIRST_LOAD_CEILING_KB = 155;
+//
+// MOVED 2026-10-31, 155 → 160, by decision. Main sat at 155.0, exactly on the line,
+// when My Gear over MCP (#473) put it at 155.4: +0.2 of chunk glue for the new
+// /authorize route that every page's router carries, +0.2 for the scope picker's
+// component and stylesheet moving onto the first load now the account panel uses it
+// too. Product spending it, this time, and a sliver of it. Offered the levers,
+// Ryan's call: "you can increase the size." Another 5 KB, the same room as last time.
+const FIRST_LOAD_CEILING_KB = 160;
 // THE TRIPWIRE, ~2 KB over the last measurement. Re-anchor to current + ~2 in the
 // PR that spends it; keep it under the ceiling.
 //
@@ -87,7 +94,10 @@ const FIRST_LOAD_CEILING_KB = 155;
 // they did from 2026-09-12 to 10-17. The ceiling stays: the room it was given on
 // 10-17 was for the framework's own moves, and this is one, with 1.0 KB of it left.
 // The next growth of any size meets the ceiling's message — that conversation.
-const FIRST_LOAD_BUDGET_KB = 155;
+//
+// Re-anchored 2026-10-31 at 155.4 measured (#473, My Gear over MCP; see the ceiling's
+// note for what it spent), when the ceiling moved to 160. 157 is the rule's ~2 over.
+const FIRST_LOAD_BUDGET_KB = 157;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set ~6 KB clear of the current total so it only speaks up
@@ -101,12 +111,16 @@ const FIRST_LOAD_BUDGET_KB = 155;
 //
 // Re-set 2026-10-17 at 294.3 measured (was 294): the spring motion system. No chunk grew.
 //
-// Re-set 2026-10-31 at 300.0 measured (was 300): kits in My Gear. All of it on lazy
-// chunks — the gear page's (the kit row and its parts, the dialog's Parts section)
-// and the pane's (a kit unfolding into a group, which moved out of the controller
-// with the category clone to get there) — which is the shape this backstop is not
-// meant to price. No chunk grew.
-const TOTAL_BUDGET_KB = 306;
+// Re-set 2026-10-31 at 300.2 measured (was 300): #473, My Gear over MCP. The 4.6 KB
+// is a new lazy route (the /authorize consent page, 1.3), the account panel's
+// assistant section (1.2), four product marks on its buttons (0.7) and the glue
+// between them. All of it behind a click or on its own route; no chunk grew.
+//
+// Re-set 2026-10-31 at 305.0 measured (was 306): kits in My Gear, on top of #473. All
+// of it on lazy chunks — the gear page's (the kit row, the dialog's Items section),
+// the pane's (a kit unfolding into a group), useVaultGroup and shared/vaultKit — the
+// shape this backstop is not meant to price. No chunk grew.
+const TOTAL_BUDGET_KB = 311;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

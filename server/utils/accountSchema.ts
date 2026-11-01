@@ -76,6 +76,62 @@ export const ACCOUNT_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions (expires_at)`,
 
+  // access_tokens — the connector's bearer credentials, hashed like sessions: tokens
+  // minted by hand and the pairs issued to apps that signed in, told apart by kind.
+  // The CHECKs are where the two vocabularies are enforced; the code reads them back
+  // through isAccessScope rather than trusting the column. See accessTokens.ts.
+  `CREATE TABLE IF NOT EXISTS access_tokens (
+    id serial PRIMARY KEY,
+    token_hash text NOT NULL,
+    user_id integer NOT NULL,
+    kind text NOT NULL DEFAULT 'token' CHECK (kind IN ('token', 'app')),
+    label text,
+    scope text NOT NULL CHECK (scope IN ('read', 'write')),
+    client_id text,
+    expires_at timestamptz,
+    refresh_hash text,
+    refresh_prev_hash text,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    last_used_at timestamptz
+  )`,
+  // the app columns, for a table made by an earlier build of this feature (a preview
+  // branch's database): the same idempotent shape every other column change here takes
+  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'token'`,
+  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS client_id text`,
+  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS expires_at timestamptz`,
+  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS refresh_hash text`,
+  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS refresh_prev_hash text`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_access_tokens_hash ON access_tokens (token_hash)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_access_tokens_refresh ON access_tokens (refresh_hash)`,
+  `CREATE INDEX IF NOT EXISTS idx_access_tokens_refresh_prev ON access_tokens (refresh_prev_hash)`,
+  `CREATE INDEX IF NOT EXISTS idx_access_tokens_user ON access_tokens (user_id)`,
+
+  // The connector's OAuth tables — see server/db/schema.ts for what each holds and
+  // server/utils/oauth.ts for the flow. Both store hashes or public data only; the
+  // grants themselves are access_tokens rows of kind 'app'.
+  `CREATE TABLE IF NOT EXISTS oauth_clients (
+    id serial PRIMARY KEY,
+    client_id text NOT NULL,
+    client_name text,
+    redirect_uris text NOT NULL,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_clients_client_id ON oauth_clients (client_id)`,
+  `CREATE TABLE IF NOT EXISTS oauth_codes (
+    id serial PRIMARY KEY,
+    code_hash text NOT NULL,
+    user_id integer NOT NULL,
+    client_id text NOT NULL,
+    client_name text NOT NULL,
+    redirect_uri text NOT NULL,
+    code_challenge text NOT NULL,
+    scope text NOT NULL,
+    expires_at timestamptz NOT NULL,
+    consumed_at timestamptz,
+    created_at timestamptz NOT NULL DEFAULT now()
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_codes_hash ON oauth_codes (code_hash)`,
+  `CREATE INDEX IF NOT EXISTS idx_oauth_codes_expiry ON oauth_codes (expires_at)`,
   // credentials — passkeys. Holds no secret: the private half never leaves the
   // authenticator, and a public key is useless to whoever steals it.
   `CREATE TABLE IF NOT EXISTS credentials (
