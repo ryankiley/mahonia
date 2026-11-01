@@ -113,7 +113,7 @@ describe("the endpoint's transport", () => {
     const res = resultOf(r)!;
     expect(res.protocolVersion).toBe("2025-06-18");
     expect(res.capabilities).toEqual({ tools: {} });
-    expect(res.serverInfo).toMatchObject({ name: "mahonia", version: "1.0.0" });
+    expect(res.serverInfo).toMatchObject({ name: "mahonia", version: "2.0.0" });
     expect(typeof res.instructions).toBe("string");
     expect(r.event.node.res.getHeader("mcp-session-id")).toBeUndefined();
     expect(r.event.node.res.getHeader("cache-control")).toBe("no-store");
@@ -141,29 +141,29 @@ describe("the endpoint's transport", () => {
     expect(resultOf(await post(rpc("ping", undefined, "abc")))).toEqual({});
   });
 
-  it("lists the fifteen tools, each with an object schema and honest annotations", async () => {
+  it("lists the six tools, each with an object schema, a declared shape and honest annotations", async () => {
     const res = resultOf(await post(rpc("tools/list")))!;
     const tools = res.tools as typeof MCP_TOOLS;
-    expect(tools.map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "create_list", "add_items", "update_list", "update_items", "remove_items", "update_folders", "get_my_lists", "get_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
+    expect(tools.map((t) => t.name)).toEqual(["get_list", "search_catalog", "create_list", "edit_list", "get_my_gear", "edit_my_gear"]);
     for (const t of tools) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.description.length).toBeGreaterThan(20);
       expect(t).not.toHaveProperty("run");
+      expect(t).not.toHaveProperty("account");
+      // every tool answers with data and declares its shape (compiled strictly in
+      // helpers/mcpSchema, which every call in this suite runs through)
+      expect(t.outputSchema?.type).toBe("object");
     }
-    expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "get_my_lists", "get_my_gear"]);
-    // the three adding tools only add. Everything that replaces, clears, moves or
-    // removes says so: update_list, the three list edits and the two gear changes
-    expect(tools.filter((t) => t.annotations.destructiveHint).map((t) => t.name)).toEqual(["update_list", "update_items", "remove_items", "update_folders", "update_my_gear", "remove_my_gear"]);
+    expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "search_catalog", "get_my_gear"]);
+    // create_list only adds. The two edits replace, clear, move and remove, and say so;
+    // and none of the three is idempotent, since the same add twice is two sets of rows
+    expect(tools.filter((t) => t.annotations.destructiveHint).map((t) => t.name)).toEqual(["edit_list", "edit_my_gear"]);
+    expect(tools.filter((t) => !t.annotations.idempotentHint).map((t) => t.name)).toEqual(["create_list", "edit_list", "edit_my_gear"]);
     // the schemas carry the reducer's caps, so a model learns them before a value is cut
-    const item = (tools[4]!.inputSchema as { properties: { items: { items: { properties: Record<string, { maxLength?: number }> } } } }).properties.items.items.properties;
+    const item = (tools[2]!.inputSchema as { properties: { items: { items: { properties: Record<string, { maxLength?: number }> } } } }).properties.items.items.properties;
     expect(item.name!.maxLength).toBe(200);
     expect(item.note!.maxLength).toBe(2000);
     expect(tools[0]!.description).toContain("free text typed by whoever holds the list's edit link");
-    // the fourteen tools that answer with data declare its shape (compiled strictly in
-    // helpers/mcpSchema, which every call in this suite runs through); the Markdown
-    // tool answers with text alone and declares nothing
-    expect(tools.filter((t) => t.outputSchema).map((t) => t.name)).toEqual(["get_list", "search_catalog", "get_catalog_product", "create_list", "add_items", "update_list", "update_items", "remove_items", "update_folders", "get_my_lists", "get_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
-    for (const t of tools) if (t.outputSchema) expect(t.outputSchema.type).toBe("object");
     // …and the check is live: a wrong shape is refused in the schema's own terms
     expect(() => expectConforms("search_catalog", { query: "x", results: [{ id: "7" }] })).toThrow(/search_catalog result does not match/);
     expect(() => expectConforms("get_list", { title: "x", share_code: "A", share_link: "u", unit: "stone", totals: {}, folders: [] })).toThrow(/unit|totals/);
@@ -223,14 +223,14 @@ describe("the endpoint's transport", () => {
     // …spent before the lookup, so a refused one reaches no database
     expect(limiter.rateLimitSubject.mock.invocationCallOrder[0]!).toBeLessThan(repo.getByShareCode.mock.invocationCallOrder[0]!);
     repo.getTextByShareCode.mockResolvedValue(snap());
-    await call("get_list_markdown", { share_code: "ABC123DEF456" });
+    await call("get_list", { share_code: "ABC123DEF456", format: "markdown" });
     expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-read", "ABC123DEF456");
 
     repo.getByEditHash.mockResolvedValue(null);
-    await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "Spoon" }] });
+    await call("edit_list", { edit_link: EDIT_LINK, add: [{ name: "Spoon" }] });
     expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-write", sha256Hex(TOKEN));
     repo.applyOpsByEditHash.mockResolvedValue(null);
-    await call("update_list", { edit_link: EDIT_LINK, title: "x" });
+    await call("edit_list", { edit_link: EDIT_LINK, list: { title: "x" } });
     expect(limiter.rateLimitSubject).toHaveBeenLastCalledWith("mcp-write", sha256Hex(TOKEN));
     // the address bucket is only the endpoint's own guard: nothing else keys on it…
     expect(limiter.rateLimit.mock.calls.map((c) => c[1])).toEqual(["mcp", "mcp", "mcp", "mcp"]);
@@ -239,7 +239,7 @@ describe("the endpoint's transport", () => {
     expect(limiter.rateLimit.mock.calls.map((c) => c[1]).slice(-2)).toEqual(["mcp", "mcp-write"]);
     // a call with no usable capability spends no list budget at all
     limiter.rateLimitSubject.mockClear();
-    await call("add_items", { edit_link: "https://mahonia.app/s/ABC123DEF456", items: [{ name: "x" }] });
+    await call("edit_list", { edit_link: "https://mahonia.app/s/ABC123DEF456", add: [{ name: "x" }] });
     await call("get_list", { share_code: "not a code #" });
     expect(limiter.rateLimitSubject).not.toHaveBeenCalled();
   });
@@ -345,11 +345,17 @@ describe("reading", () => {
     expect(text).toContain("No list");
   });
 
-  it("get_list_markdown returns the exporter's text", async () => {
+  it("get_list as Markdown answers the exporter's text and names the list in its data; with no code it asks for a sign-in", async () => {
     repo.getTextByShareCode.mockResolvedValue(snap());
-    const { text, isError } = toolText(await call("get_list_markdown", { share_code: "ABC123DEF456" }));
+    const { text, isError, structured } = toolText(await call("get_list", { share_code: "ABC123DEF456", format: "markdown" }));
     expect(isError).toBe(false);
     expect(text).toBe(listToMarkdown(snap()));
+    expect(structured).toEqual({ share_code: "ABC123DEF456", share_link: "http://mahonia.test/s/ABC123DEF456", markdown: text });
+    expect(toolText(await call("get_list", { share_code: "ABC123DEF456", format: "csv" })).isError).toBe(true);
+    // no share code is the account's own lists, and asks for one at the door
+    const mine = await post(rpc("tools/call", { name: "get_list", arguments: {} }));
+    expect(mine.status).toBe(401);
+    expect(String(mine.event.node.res.getHeader("www-authenticate"))).toContain('scope="read"');
   });
 
   it("search_catalog clamps the limit, trims the query and maps the rows to grams", async () => {
@@ -367,16 +373,20 @@ describe("reading", () => {
     expect(catalog.searchCatalog).toHaveBeenLastCalledWith(expect.anything(), "锅", 12);
   });
 
-  it("get_catalog_product takes an id or a brand and name, and says when nothing matches", async () => {
+  it("search_catalog with a product_id, or a brand and name, answers one product's variants with their sources", async () => {
     catalog.productVariants.mockResolvedValue({ brand: "Enlightened Equipment", name: "Revelation", commonName: "Quilt", categoryHint: "sleep", variants: [{ id: 3, variant: "20F Long", weightMg: 590_000, weightSource: "manufacturer", sourceUrl: "https://ee.example/rev", verified: true, kcal: null }] });
-    const { structured } = toolText(await call("get_catalog_product", { id: 3 }));
+    const { structured } = toolText(await call("search_catalog", { product_id: 3 }));
     expect(catalog.productVariants).toHaveBeenCalledWith(expect.anything(), { id: 3, brand: undefined, name: undefined });
-    expect(structured).toMatchObject({ brand: "Enlightened Equipment", name: "Revelation", variants: [{ id: 3, variant: "20F Long", weight_g: 590, source_url: "https://ee.example/rev" }] });
-    await call("get_catalog_product", { brand: "Zpacks", name: "Duplex" });
+    expect(structured).toEqual({
+      product: { brand: "Enlightened Equipment", name: "Revelation", gear_type: "Quilt", category: "sleep" },
+      results: [{ id: 3, brand: "Enlightened Equipment", name: "Revelation", variant: "20F Long", display_name: "Enlightened Equipment Revelation 20F Long", weight_g: 590, gear_type: "Quilt", category: "sleep", kcal: null, verified: true, weight_source: "manufacturer", source_url: "https://ee.example/rev" }],
+    });
+    await call("search_catalog", { brand: "Zpacks", name: "Duplex" });
     expect(catalog.productVariants).toHaveBeenLastCalledWith(expect.anything(), { id: undefined, brand: "Zpacks", name: "Duplex" });
+    expect(catalog.searchCatalog).not.toHaveBeenCalled();
     catalog.productVariants.mockResolvedValue(null);
-    expect(toolText(await call("get_catalog_product", { name: "Nothing" })).isError).toBe(true);
-    expect(toolText(await call("get_catalog_product", {})).isError).toBe(true);
+    expect(toolText(await call("search_catalog", { name: "Nothing" })).isError).toBe(true);
+    expect(toolText(await call("search_catalog", {})).isError).toBe(true);
   });
 });
 
@@ -459,54 +469,58 @@ describe("writing", () => {
 
   // A retry adds nothing twice: the same rows through the same link inside ten minutes
   // is answered from the first call, marked repeated; `again: true` is the way to mean
-  // it; a different link, or different rows, is a different call.
-  it("add_items answers an identical call from the first one, and adds again only when told to", async () => {
+  // it; a different link, or different rows, is a different call; and a call with no
+  // rows to add is not held to the window at all.
+  it("edit_list answers an identical call with rows to add from the first one, and does it again only when told to", async () => {
     repo.getByEditHash.mockResolvedValue(snap());
     repo.applyOpsByEditHash.mockResolvedValue(snap());
-    const args = { edit_link: EDIT_LINK, items: [{ name: "Spoon", weight_g: 10 }] };
-    const first = toolText(await call("add_items", args)).structured as Record<string, unknown>;
+    const args = { edit_link: EDIT_LINK, add: [{ name: "Spoon", weight_g: 10 }] };
+    const first = toolText(await call("edit_list", args)).structured as Record<string, unknown>;
     expect(first).toMatchObject({ added: 1, repeated: false });
     expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);
 
     // the same call, the keys in another order: nothing written, the first answer back
-    const r = await call("add_items", { items: [{ weight_g: 10, name: "Spoon" }], edit_link: EDIT_LINK });
+    const r = await call("edit_list", { add: [{ weight_g: 10, name: "Spoon" }], edit_link: EDIT_LINK });
     expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);
     const { structured, text } = toolText(r);
     expect(structured).toMatchObject({ added: 1, repeated: true, share_link: first.share_link });
     expect(text).toContain("again: true");
-    expectConforms("add_items", structured); // `call` checked the raw result already; the repeat's shape too
+    expectConforms("edit_list", structured); // `call` checked the raw result already; the repeat's shape too
 
     // meant twice: written again
-    const again = toolText(await call("add_items", { ...args, again: true })).structured;
+    const again = toolText(await call("edit_list", { ...args, again: true })).structured;
     expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(2);
     expect(again).toMatchObject({ added: 1, repeated: false });
 
     // different rows, or another list's link: their own calls
-    await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "Fork" }] });
-    await call("add_items", { edit_link: `https://mahonia.test/e/ABC123DEF456#${TOKEN.slice(0, -1)}Z`, items: [{ name: "Spoon", weight_g: 10 }] });
+    await call("edit_list", { edit_link: EDIT_LINK, add: [{ name: "Fork" }] });
+    await call("edit_list", { edit_link: `https://mahonia.test/e/ABC123DEF456#${TOKEN.slice(0, -1)}Z`, add: [{ name: "Spoon", weight_g: 10 }] });
     expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(4);
+    // the same fields twice is written twice: only an add is held to the window
+    await call("edit_list", { edit_link: EDIT_LINK, list: { title: "Same" } });
+    await call("edit_list", { edit_link: EDIT_LINK, list: { title: "Same" } });
+    expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(6);
   });
 
-  it("add_items remembers nothing from a call that failed", async () => {
+  it("edit_list remembers nothing from a call that failed", async () => {
     repo.getByEditHash.mockResolvedValue(snap());
     repo.applyOpsByEditHash.mockResolvedValueOnce(null).mockResolvedValue(snap());
-    const args = { edit_link: EDIT_LINK, items: [{ name: "Spoon" }] };
-    expect(toolText(await call("add_items", args)).isError).toBe(true);
-    const r = toolText(await call("add_items", args));
+    const args = { edit_link: EDIT_LINK, add: [{ name: "Spoon" }] };
+    expect(toolText(await call("edit_list", args)).isError).toBe(true);
+    const r = toolText(await call("edit_list", args));
     expect(r.structured).toMatchObject({ added: 1, repeated: false });
   });
 
-  it("add_items resolves the list by the token's hash, files rows into folders by name, and makes the folder it can't find", async () => {
+  it("edit_list resolves the list by the token's hash, files new rows into folders by name, and makes the folder it can't find", async () => {
     // Shelter holds a top-level row at sortOrder 0 and a nested one; a hole at 1 left by
     // a removed row is where a count would put the new row, mid-folder
     const s = snap();
     s.items[0]!.sortOrder = 4;
     repo.getByEditHash.mockResolvedValue(s);
     repo.applyOpsByEditHash.mockResolvedValue(snap());
-    const r = await call("add_items", {
+    const r = await call("edit_list", {
       edit_link: EDIT_LINK,
-      folder: "Kitchen",
-      items: [{ name: "Groundsheet", folder: "shelter", weight_g: 120 }, { name: "Fuel", weight_g: 230, classification: "consumable" }, { name: "Stove" }],
+      add: [{ name: "Groundsheet", folder: "shelter", weight_g: 120 }, { name: "Fuel", folder: "Kitchen", weight_g: 230, classification: "consumable" }, { name: "Stove", folder: "kitchen" }],
     });
     expect(repo.getByEditHash).toHaveBeenCalledWith(sha256Hex(TOKEN));
     const [hash, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, Record<string, unknown>[]];
@@ -515,7 +529,7 @@ describe("writing", () => {
     expect(ops[0]!.folder).toMatchObject({ name: "Kitchen", defaultClassification: "base", sortOrder: 2, colorKey: "kitchen" });
     // past Shelter's highest sortOrder, with the existing folder's id
     expect(ops[1]!.item).toMatchObject({ name: "Groundsheet", folderId: "f1", sortOrder: 5, unitWeightMg: 120_000 });
-    // the two rows that named no folder took the call's own, in order
+    // the two rows that named Kitchen, in either case, share the one folder made, in order
     const kitchen = (ops[0]!.folder as { id: string }).id;
     expect(ops[2]!.item).toMatchObject({ name: "Fuel", folderId: kitchen, sortOrder: 0, classification: "consumable" });
     expect(ops[3]!.item).toMatchObject({ name: "Stove", folderId: kitchen, sortOrder: 1 });
@@ -525,13 +539,13 @@ describe("writing", () => {
     expect(JSON.stringify(resultOf(r))).not.toContain(TOKEN);
   });
 
-  it("add_items finds a folder by its tidied name, and files a row named by catalog id with the catalog's weight", async () => {
+  it("edit_list finds a folder by its tidied name, and files a row named by catalog id with the catalog's weight", async () => {
     const s = snap();
     s.folders[0]!.name = "Ryan’s shelter";
     repo.getByEditHash.mockResolvedValue(s);
     repo.applyOpsByEditHash.mockResolvedValue(s);
     catalog.catalogRowsById.mockResolvedValue(new Map([[7, { id: 7, brand: "Zpacks", name: "Duplex", variant: null, weightMg: 538_000, weightSource: "manufacturer", verified: true, commonName: "Tent", categoryHint: "shelter", kcal: null }]]));
-    await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "duplex", folder: "ryan's  shelter", catalog_id: 7 }] });
+    await call("edit_list", { edit_link: EDIT_LINK, add: [{ name: "duplex", folder: "ryan's  shelter", catalog_id: 7 }] });
     const [, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, Record<string, unknown>[]];
     // no folder made: the straight apostrophe found the curly one
     expect(ops.map((o) => o.t)).toEqual(["addItem"]);
@@ -539,9 +553,9 @@ describe("writing", () => {
     expect((ops[0]!.item as { nameOverridden?: boolean }).nameOverridden).toBeUndefined();
   });
 
-  it("add_items refuses a catalog id that names nothing, before writing", async () => {
+  it("edit_list refuses a catalog id that names nothing, before writing", async () => {
     repo.getByEditHash.mockResolvedValue(snap());
-    const { isError, text } = toolText(await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "x", catalog_id: 404 }] }));
+    const { isError, text } = toolText(await call("edit_list", { edit_link: EDIT_LINK, add: [{ name: "x", catalog_id: 404 }] }));
     expect(isError).toBe(true);
     expect(text).toContain("isn't in the catalog");
     expect(repo.applyOpsByEditHash).not.toHaveBeenCalled();
@@ -558,47 +572,108 @@ describe("writing", () => {
     expect(items[2]).toMatchObject({ classification: "base" });
   });
 
-  it("add_items and update_list answer a link that opens nothing with the same sentence, and never read a token off the address", async () => {
+  it("edit_list answers a link that opens nothing with one sentence whatever the part, and never reads a token off the address", async () => {
     repo.getByEditHash.mockResolvedValue(null);
-    const dead = toolText(await call("add_items", { edit_link: EDIT_LINK, items: [{ name: "x" }] }));
+    const dead = toolText(await call("edit_list", { edit_link: EDIT_LINK, add: [{ name: "x" }] }));
     expect(dead.isError).toBe(true);
     expect(dead.text).toContain("doesn't open a list");
     repo.applyOpsByEditHash.mockResolvedValue(null);
-    expect(toolText(await call("update_list", { edit_link: EDIT_LINK, title: "x" })).text).toBe(dead.text);
+    expect(toolText(await call("edit_list", { edit_link: EDIT_LINK, list: { title: "x" } })).text).toBe(dead.text);
 
     // the address is not a place a capability may travel: a token there is ignored
     repo.getByEditHash.mockClear();
-    const viaQuery = toolText(await call("add_items", { items: [{ name: "x" }] }, {}, `/mcp?edit_link=${encodeURIComponent(EDIT_LINK)}&token=${TOKEN}`));
+    const viaQuery = toolText(await call("edit_list", { add: [{ name: "x" }] }, {}, `/mcp?edit_link=${encodeURIComponent(EDIT_LINK)}&token=${TOKEN}`));
     expect(viaQuery.isError).toBe(true);
     expect(viaQuery.text).toContain("isn't an edit link");
     expect(repo.getByEditHash).not.toHaveBeenCalled();
     // …and neither is a header: the REST API's bearer form and an account cookie are
     // not write capabilities here, only the link in the arguments is
-    const viaHeader = toolText(await call("add_items", { items: [{ name: "x" }] }, { authorization: `Bearer ${TOKEN}`, cookie: "mahonia_session=abc" }));
+    const viaHeader = toolText(await call("edit_list", { add: [{ name: "x" }] }, { authorization: `Bearer ${TOKEN}`, cookie: "mahonia_session=abc" }));
     expect(viaHeader.text).toContain("isn't an edit link");
     expect(repo.getByEditHash).not.toHaveBeenCalled();
-    expect(toolText(await call("add_items", { edit_link: "https://mahonia.app/s/ABC123DEF456", items: [{ name: "x" }] })).text).toContain("isn't an edit link");
+    expect(toolText(await call("edit_list", { edit_link: "https://mahonia.app/s/ABC123DEF456", add: [{ name: "x" }] })).text).toContain("isn't an edit link");
   });
 
-  it("update_list sends one setMeta with only the fields given, an empty string clearing", async () => {
+  it("edit_list's list part sends one setMeta with only the fields given, an empty string clearing", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
     repo.applyOpsByEditHash.mockResolvedValue(snap({ title: "Renamed" }));
-    const r = await call("update_list", { edit_link: TOKEN, title: "Renamed", start_date: "2026-08-01", end_date: "", trail_url: "https://caltopo.com/m/ABC", trail_label: "Loop", trail_distance_km: 12.5 });
+    const r = await call("edit_list", { edit_link: TOKEN, list: { title: "Renamed", start_date: "2026-08-01", end_date: "", trail_url: "https://caltopo.com/m/ABC", trail_label: "Loop", trail_distance_km: 12.5 } });
     const [, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, { t: string; patch: Record<string, unknown> }[]];
     // metres stored; the list's own distance unit is left as the owner set it
     expect(ops).toEqual([{ t: "setMeta", patch: { title: "Renamed", startDate: "2026-08-01", endDate: "", trailUrl: "https://caltopo.com/m/ABC", trailLabel: "Loop", trailDistanceM: 12_500 } }]);
-    expect(toolText(r).structured).toMatchObject({ title: "Renamed", share_link: "http://mahonia.test/s/ABC123DEF456" });
+    expect(toolText(r).structured).toMatchObject({ title: "Renamed", share_link: "http://mahonia.test/s/ABC123DEF456", added: 0, updated: 0, removed: 0, folders_changed: 0 });
     expect(JSON.stringify(resultOf(r))).not.toContain(TOKEN);
-    expect(toolText(await call("update_list", { edit_link: TOKEN })).isError).toBe(true);
-    expect(toolText(await call("update_list", { edit_link: TOKEN, start_date: "2026-13-40" })).isError).toBe(true);
+    expect(toolText(await call("edit_list", { edit_link: TOKEN })).isError).toBe(true);
+    expect(toolText(await call("edit_list", { edit_link: TOKEN, list: {} })).isError).toBe(true);
+    expect(toolText(await call("edit_list", { edit_link: TOKEN, list: { start_date: "2026-13-40" } })).isError).toBe(true);
+    expect(toolText(await call("edit_list", { edit_link: TOKEN, add: "Spoon" })).isError).toBe(true);
     expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);
   });
 
   it("clearing the trail clears everything that described its route, as the editor does", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
     repo.applyOpsByEditHash.mockResolvedValue(snap({ trailUrl: undefined, trailDistanceM: undefined, trailAscentM: undefined }));
-    const { structured } = toolText(await call("update_list", { edit_link: TOKEN, trail_url: "" }));
+    const { structured } = toolText(await call("edit_list", { edit_link: TOKEN, list: { trail_url: "" } }));
     const [, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, { t: string; patch: Record<string, unknown> }[]];
     expect(ops[0]!.patch).toEqual({ trailUrl: "", trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "", trailDescentM: "", routeGeometry: "" });
     expect(structured!.trail).toBeNull();
+  });
+
+  it("edit_list nests a new row under a group, moves rows into and out of one, and relinks a row where it sits", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockResolvedValue(snap());
+    catalog.catalogRowsById.mockResolvedValue(new Map([[3, { id: 3, brand: "Enlightened Equipment", name: "Revelation", variant: "20F Long", weightMg: 590_000, weightSource: "manufacturer", verified: true, commonName: "Quilt", categoryHint: "sleep", kcal: null }]]));
+    const r = await call("edit_list", {
+      edit_link: EDIT_LINK,
+      add: [{ name: "Guylines", weight_g: 20, group: "i1" }],
+      update: [
+        { id: "i3", group: "i1" }, // the bars join the tent's group, Food to Shelter
+        { id: "i2", group: "", position: 0 }, // the stakes leave it, first in Shelter
+        { id: "i4", catalog_id: 3 }, // the rain jacket relinked where it sits
+      ],
+    });
+    const { structured, isError, text } = toolText(r);
+    expect(isError, text).toBe(false);
+    const [, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, Record<string, unknown>[]];
+    // the new row: under the tent, in the tent's folder, after the stakes
+    expect(ops.find((o) => o.t === "addItem")!.item).toMatchObject({ name: "Guylines", parentId: "i1", folderId: "f1", sortOrder: 2 });
+    // the moves carry the parent: into the group, and out of it to the top of its folder
+    // (a row's own move is its last; an earlier one is a neighbour's quiet renumbering)
+    const lastMove = (id: string) => ops.filter((o) => o.t === "moveItem" && o.id === id).at(-1);
+    expect(lastMove("i3")).toMatchObject({ folderId: "f1", parentId: "i1" });
+    expect(lastMove("i2")).toMatchObject({ folderId: "f1", parentId: null, sortOrder: 0 });
+    // the relink: the editor's own pick, and no move
+    expect(ops.find((o) => o.t === "updateItem" && o.id === "i4")!.patch).toEqual({
+      catalogItemId: 3,
+      catalogWeightMgAtLink: 590_000,
+      unitWeightMg: 590_000,
+      weightOverridden: false,
+      brand: "Enlightened Equipment",
+      variant: "20F Long",
+      name: "Revelation",
+      nameOverridden: false,
+      commonName: "Quilt",
+      commonNameOverridden: false,
+    });
+    expect(ops.some((o) => o.t === "moveItem" && o.id === "i4")).toBe(false);
+    expect(structured).toMatchObject({ added: 1, updated: 3, removed: 0 });
+  });
+
+  it("edit_list refuses a group two deep, a group of a group, a row grouped across folders or under itself; null unlinks", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockResolvedValue(snap());
+    const edit = async (args: Record<string, unknown>) => toolText(await call("edit_list", { edit_link: EDIT_LINK, ...args }));
+    expect((await edit({ add: [{ name: "x", group: "i2" }] })).text).toContain("itself nested");
+    expect((await edit({ update: [{ id: "i1", group: "i3" }] })).text).toContain("rows nested under it");
+    expect((await edit({ update: [{ id: "i3", group: "i1", folder: "Food" }] })).text).toContain("not both");
+    expect((await edit({ add: [{ name: "x", group: "nope" }] })).text).toContain('"nope"');
+    expect((await edit({ update: [{ id: "i3", group: "i3" }] })).text).toContain("itself");
+    expect((await edit({ add: [{ name: "x", items: [{ name: "y", items: [{ name: "z" }] }] }] })).text).toContain("nest rows of its own");
+    expect(repo.applyOpsByEditHash).not.toHaveBeenCalled();
+    const unlink = await edit({ update: [{ id: "i1", catalog_id: null }] });
+    expect(unlink.isError, unlink.text).toBe(false);
+    const [, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, { t: string; patch: Record<string, unknown> }[]];
+    expect(ops).toEqual([{ t: "updateItem", id: "i1", patch: { catalogItemId: null } }]);
   });
 
   it("turns a throw inside a tool into a tool error, and says nothing else", async () => {
@@ -878,9 +953,9 @@ describe("fitMarkdown", () => {
     expect(bare).toContain("**Total:**");
   });
 
-  it("get_list_markdown answers the cut text", async () => {
+  it("get_list as Markdown answers the cut text", async () => {
     repo.getTextByShareCode.mockResolvedValue(wide(166));
-    const { text, isError } = toolText(await call("get_list_markdown", { share_code: "ABC123DEF456" }));
+    const { text, isError } = toolText(await call("get_list", { share_code: "ABC123DEF456", format: "markdown" }));
     expect(isError).toBe(false);
     expect(size(text)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
     expect(text).toMatch(/_\d+ more rows not shown; the totals count every row\._/);

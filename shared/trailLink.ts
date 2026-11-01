@@ -116,7 +116,7 @@ export function normalizeTrailUrl(raw: unknown): string | null {
  * profile or a line with no route to be the shape of. One object, because two copies
  * of this list is how the next field added here gets cleared on one path and left
  * behind on the other; ListHead spreads it when the link is emptied and the MCP
- * update_list tool does the same.
+ * edit_list tool does the same.
  */
 export const CLEARS_WITH_LINK = {
   trailLabel: "",
