@@ -9,6 +9,8 @@ import type { Item, ListData } from "../types";
 import { bySortOrder, groupItemsByFolder, groupItemsByParent, ungroupedTopLevel } from "../weights";
 
 interface ExportSection {
+  /** the folder's id; absent on the Unfiled section, which is no folder */
+  id?: string;
   name: string;
   rows: { item: Item; children: Item[] }[];
 }
@@ -20,6 +22,7 @@ export function exportSections(list: Pick<ListData, "folders" | "items">): Expor
   const byFolder = groupItemsByFolder(list.items);
   const row = (item: Item) => ({ item, children: byParent.get(item.id) ?? [] });
   const sections: ExportSection[] = [...list.folders].sort(bySortOrder).map((f) => ({
+    id: f.id,
     name: f.name,
     rows: (byFolder.get(f.id) ?? []).map(row),
   }));

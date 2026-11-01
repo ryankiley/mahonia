@@ -60,10 +60,12 @@ deployed on [Vercel](https://vercel.com).
 ## MCP connector
 
 The app serves a remote MCP server at `/mcp`, so an AI assistant can be handed
-`https://mahonia.app/mcp` as a connector with nothing to install. Seven tools need no
+`https://mahonia.app/mcp` as a connector with nothing to install. Ten tools need no
 sign-in: read a shared list as data or Markdown, search the catalog, fetch one product's
-variants, and, holding an edit link, make a list, add rows and set the trip's dates and
-trail. A share code is the read capability and the edit link's fragment token the write
+variants, and, holding an edit link, make a list, add rows, change, move or remove the
+rows already there, rename, reorder or remove folders, and set the trip's dates and trail.
+`get_list` gives every row and folder an id for those edits, and reads from an edit link
+too, by the share code in its address. A share code is the read capability and the edit link's fragment token the write
 one, hashed on arrival and passed only as a tool argument, so nothing new is trusted. The
 transport is stateless JSON-RPC over POST (MCP revisions 2025-06-18 and 2025-11-25, no
 sessions, no event stream, GET answers 405), hand-rolled in `server/routes/mcp.post.ts`

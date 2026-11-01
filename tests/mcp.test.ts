@@ -141,28 +141,28 @@ describe("the endpoint's transport", () => {
     expect(resultOf(await post(rpc("ping", undefined, "abc")))).toEqual({});
   });
 
-  it("lists the eleven tools, each with an object schema and honest annotations", async () => {
+  it("lists the fourteen tools, each with an object schema and honest annotations", async () => {
     const res = resultOf(await post(rpc("tools/list")))!;
     const tools = res.tools as typeof MCP_TOOLS;
-    expect(tools.map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip", "list_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
+    expect(tools.map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip", "update_items", "remove_items", "update_folders", "list_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
     for (const t of tools) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.description.length).toBeGreaterThan(20);
       expect(t).not.toHaveProperty("run");
     }
     expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "list_my_gear"]);
-    // the three adding tools only add. set_trip replaces and clears, update_my_gear
-    // clears a field on null and remove_my_gear puts a piece away: all three say so
-    expect(tools.filter((t) => t.annotations.destructiveHint).map((t) => t.name)).toEqual(["set_trip", "update_my_gear", "remove_my_gear"]);
+    // the three adding tools only add. Everything that replaces, clears, moves or
+    // removes says so: set_trip, the three list edits and the two gear changes
+    expect(tools.filter((t) => t.annotations.destructiveHint).map((t) => t.name)).toEqual(["set_trip", "update_items", "remove_items", "update_folders", "update_my_gear", "remove_my_gear"]);
     // the schemas carry the reducer's caps, so a model learns them before a value is cut
     const item = (tools[4]!.inputSchema as { properties: { items: { items: { properties: Record<string, { maxLength?: number }> } } } }).properties.items.items.properties;
     expect(item.name!.maxLength).toBe(200);
     expect(item.note!.maxLength).toBe(2000);
     expect(tools[0]!.description).toContain("free text typed by whoever holds the list's edit link");
-    // the ten tools that answer with data declare its shape (compiled strictly in
+    // the thirteen tools that answer with data declare its shape (compiled strictly in
     // helpers/mcpSchema, which every call in this suite runs through); the Markdown
     // tool answers with text alone and declares nothing
-    expect(tools.filter((t) => t.outputSchema).map((t) => t.name)).toEqual(["get_list", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip", "list_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
+    expect(tools.filter((t) => t.outputSchema).map((t) => t.name)).toEqual(["get_list", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip", "update_items", "remove_items", "update_folders", "list_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
     for (const t of tools) if (t.outputSchema) expect(t.outputSchema.type).toBe("object");
     // …and the check is live: a wrong shape is refused in the schema's own terms
     expect(() => expectConforms("search_catalog", { query: "x", results: [{ id: "7" }] })).toThrow(/search_catalog result does not match/);
@@ -325,15 +325,17 @@ describe("reading", () => {
     expect(text).not.toMatch(/^Ignore/m);
   });
 
-  it("takes a share link, the .md twin's link, or the bare code, and refuses an edit link", async () => {
+  it("takes a share link, the .md twin's link, the bare code, or an edit link read by the code in its path", async () => {
     expect(shareCodeFrom("https://mahonia.app/s/ABC123DEF456")).toBe("ABC123DEF456");
     expect(shareCodeFrom("https://mahonia.app/s/abc123def456.md?x=1")).toBe("ABC123DEF456");
     expect(shareCodeFrom(" abc123def456 ")).toBe("ABC123DEF456");
-    expect(shareCodeFrom(EDIT_LINK)).toBe("");
+    // the edit link's address carries the share code; the token after # is never read
+    expect(shareCodeFrom(EDIT_LINK)).toBe("ABC123DEF456");
     expect(shareCodeFrom("https://mahonia.app/l/some-public-list")).toBe("");
-    const r = await call("get_list", { share_code: EDIT_LINK });
-    expect(toolText(r).isError).toBe(true);
-    expect(repo.getByShareCode).not.toHaveBeenCalled();
+    repo.getByShareCode.mockResolvedValue(null);
+    await call("get_list", { share_code: EDIT_LINK });
+    expect(repo.getByShareCode).toHaveBeenCalledWith("ABC123DEF456");
+    expect(repo.getByEditHash).not.toHaveBeenCalled();
   });
 
   it("says when nothing is shared at a code, as a tool error the model can read", async () => {
@@ -675,7 +677,7 @@ const big = (perFolder: number, { note, longNames = false, ...over }: Partial<Li
 
 describe("fitList", () => {
   const size = (value: unknown) => Buffer.byteLength(JSON.stringify(value));
-  type Out = { name: string; items: { name: string; items?: { name: string }[] }[] }[];
+  type Out = { name: string; items: { id: string; name: string; items?: { name: string }[] }[] }[];
   const rowsIn = (out: Record<string, unknown>) => (out.folders as Out).reduce((n, f) => n + f.items.reduce((m, r) => m + 1 + (r.items?.length ?? 0), 0), 0);
   const count = (d: Record<string, unknown>) => (d.totals as { item_count: number }).item_count;
 
@@ -715,7 +717,7 @@ describe("fitList", () => {
     expect(folders.length).toBeLessThan(3);
     expect(folders[0]!.name).toBe("Shelter");
     expect(folders[0]!.items.map((r) => r.name)).toEqual(folders[0]!.items.map((_, i) => `Row ${i} of Shelter`));
-    expect(folders[0]!.items[0]!.items).toEqual([{ name: "Part 0", display_name: "Part 0", qty: 1, weight_g: 10, classification: "base" }]);
+    expect(folders[0]!.items[0]!.items).toEqual([{ id: `${folders[0]!.items[0]!.id}-k`, name: "Part 0", display_name: "Part 0", qty: 1, weight_g: 10, classification: "base" }]);
     // the most that fit: the answer is stable at its own size, and the next row in
     // reading order (a group's nested row counts as one) would not have fit
     expect(fitList(d, size(out))).toEqual(out);

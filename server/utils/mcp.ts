@@ -29,16 +29,16 @@ import { exportSections } from "../../shared/exporters/rows";
 import { colorKeyForName, usedColorKeys } from "../../shared/categories";
 import { uid } from "../../shared/id";
 import { editLinkPath, normalizeShareCode } from "../../shared/links";
-import { isCatalogId, isSerialId, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_TITLE_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
+import { applyOps, isCatalogId, isSerialId, type ItemPatch, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_TITLE_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
 import { carrierName } from "../../shared/people";
 import { dayClimbs, parseProfile } from "../../shared/profile";
 import { enoughToSearch } from "../../shared/searchText";
 import { tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
-import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type Unit, CLASSIFICATIONS } from "../../shared/types";
+import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type ListState, type Unit, CLASSIFICATIONS } from "../../shared/types";
 import { captureFromList, type VaultEntry } from "../../shared/vault";
-import { computeTotals, effectiveClassification, itemDisplayName, nextSortOrder } from "../../shared/weights";
+import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, nextSortOrder, siblingItems } from "../../shared/weights";
 import type { AccessScope } from "../../shared/types";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
 import { claimLists } from "./claimRepo";
@@ -85,6 +85,7 @@ export const MCP_INSTRUCTIONS = [
   "An edit link (mahonia.app/e/CODE#token) is permission to change that list: pass it whole to the write tools, keep it private, and never show it to anyone who should only read.",
   "My Gear is one account's own gear. list_my_gear, add_my_gear, update_my_gear and remove_my_gear reach it once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
   "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way back into the list. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in.",
+  "To change a list that already exists, read it with get_list first: every row and folder there carries an id. update_items edits rows and moves them between folders or within one, remove_items takes rows off, and update_folders renames, reorders or removes folders. All three take the edit link.",
   "Weights are in grams everywhere. A row's classification is base (in the pack), worn (on your body) or consumable (food, fuel, water).",
   PROVENANCE,
 ].join(" ");
@@ -122,7 +123,7 @@ const ITEM_SCHEMA = {
 
 const SHARE_ARG = {
   type: "string",
-  description: "The list's share code, or its share link (mahonia.app/s/CODE). Not an edit link.",
+  description: "The list's share code, its share link (mahonia.app/s/CODE), or its edit link. From an edit link only the code in the address is read, never the part after #.",
 };
 const EDIT_ARG = {
   type: "string",
@@ -171,6 +172,7 @@ const TOTALS_SCHEMA = {
 
 /** one row of get_list; a nested row is the same minus its own nesting */
 const ROW_PROPS = {
+  id: str("The row's id, which update_items and remove_items take."),
   name: str(`The product name, without brand or variant. ${USER_TEXT}`),
   display_name: str("Brand, name and variant joined, the way the list shows the row."),
   qty: { type: "number", description: "How many; weight_g is for one." },
@@ -186,7 +188,7 @@ const ROW_PROPS = {
   catalog_id: { type: "number", description: "The catalog row the item was picked from." },
   carried_by: str(`Who carries it. A nested row without one is carried by its parent's carrier. ${USER_TEXT}`),
 };
-const ROW_REQUIRED = ["name", "display_name", "qty", "weight_g", "classification"];
+const ROW_REQUIRED = ["id", "name", "display_name", "qty", "weight_g", "classification"];
 const NESTED_ROW = { type: "object", properties: ROW_PROPS, required: ROW_REQUIRED };
 const ROW = {
   type: "object",
@@ -245,8 +247,12 @@ const LIST_OUTPUT = {
     },
     folders: {
       type: "array",
-      description: "In the list's order, each with its rows in order. A folder with no rows is left out; rows in no folder come last, under Unfiled.",
-      items: complete({ name: str(USER_TEXT), items: { type: "array", items: ROW } }),
+      description: "In the list's order, each with its rows in order. A folder with no rows is left out; rows in no folder come last, under Unfiled, which has no id.",
+      items: {
+        type: "object",
+        properties: { id: str("The folder's id, which update_folders takes."), name: str(USER_TEXT), items: { type: "array", items: ROW } },
+        required: ["name", "items"],
+      },
     },
   },
   required: ["title", "share_code", "share_link", "unit", "totals", "folders"],
@@ -327,6 +333,52 @@ const TRIP_OUTPUT = complete({
   trail: { ...TRAIL_SCHEMA, type: ["object", "null"] },
   share_link: str(),
 });
+
+const EDIT_OUTPUT = complete({
+  updated: { type: "integer", description: "Rows changed." },
+  folders_made: { type: "array", items: str(USER_TEXT), description: "Folders that didn't exist and were made for rows moved into them." },
+  share_link: str(),
+  totals: TOTALS_SCHEMA,
+});
+const REMOVE_OUTPUT = complete({
+  removed: { type: "integer", description: "Rows taken off, the nested rows of a removed group counted." },
+  share_link: str(),
+  totals: TOTALS_SCHEMA,
+});
+const FOLDERS_OUTPUT = complete({
+  updated: { type: "integer", description: "Folders changed or removed." },
+  rows_removed: { type: "integer", description: "Rows that went with removed folders." },
+  folders: { type: "array", items: str(USER_TEXT), description: "Every folder's name, in the list's order, after the change." },
+  share_link: str(),
+  totals: TOTALS_SCHEMA,
+});
+
+/** how many rows or folders one edit call may touch */
+const EDIT_MAX = 200;
+
+/** One row's changes for update_items: the row by id, then any of the fields create_list
+ *  takes, each nullable where it can be cleared, plus where the row goes. */
+const UPDATE_ITEM_SCHEMA = {
+  type: "object",
+  properties: {
+    id: { type: "string", description: "The row's id, from get_list." },
+    name: { type: "string", minLength: 1, maxLength: MAX_ITEM_NAME_LEN, description: "A new name. A row keeps a name; it can't be cleared." },
+    brand: { type: ["string", "null"], maxLength: BRAND_LEN, description: "The maker. Null clears it." },
+    variant: { type: ["string", "null"], maxLength: BRAND_LEN, description: "Size, length or configuration. Null clears it." },
+    gear_type: { type: ["string", "null"], maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is. Null clears it." },
+    weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Kept as your own figure on a row picked from the catalog." },
+    qty: { type: "integer", minimum: 1, maximum: QTY_MAX },
+    classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null to follow the folder's default." },
+    worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried; 0 removes the split." },
+    note: { type: ["string", "null"], maxLength: MAX_ITEM_NOTE_LEN, description: "The row's note. Null clears it." },
+    kcal: { type: ["integer", "null"], minimum: 0, description: "Calories per unit, for food. Null clears it." },
+    needs_cooking: { type: "boolean" },
+    carried_by: { type: ["string", "null"], description: "Who carries it, by the name the list gives that person. Null clears it." },
+    folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "Move the row to this folder, by name; a new name makes the folder, and an empty string takes it out of every folder. A nested row moved this way comes out of its group." },
+    position: { type: "integer", minimum: 0, description: "Where the row goes among its neighbours, 0 for first. Without it a row moved to another folder goes last." },
+  },
+  required: ["id"],
+} as const;
 
 // ---- My Gear ---------------------------------------------------------------------
 // One account's gear. Its capability is the access token in the Authorization header
@@ -575,6 +627,66 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     run: setTrip,
   },
   {
+    name: "update_items",
+    title: "Change rows on a list",
+    description:
+      "Changes rows already on a list, by the ids get_list gives: any of their fields, the folder they are in, and their place among their neighbours. Only the fields given change, and null clears one that can be cleared. A name or weight changed on a row picked from the catalog is kept as the owner's own. Nothing is changed unless every row given is found. Takes the list's edit link.",
+    inputSchema: {
+      type: "object",
+      properties: { edit_link: EDIT_ARG, items: { type: "array", minItems: 1, maxItems: EDIT_MAX, items: UPDATE_ITEM_SCHEMA } },
+      required: ["edit_link", "items"],
+    },
+    outputSchema: EDIT_OUTPUT,
+    annotations: SET,
+    run: updateItems,
+  },
+  {
+    name: "remove_items",
+    title: "Remove rows from a list",
+    description:
+      "Takes rows off a list, by the ids get_list gives. Removing a row that has rows nested under it removes those too. Nothing is removed unless every id given is found. Takes the list's edit link.",
+    inputSchema: {
+      type: "object",
+      properties: { edit_link: EDIT_ARG, ids: { type: "array", minItems: 1, maxItems: EDIT_MAX, items: { type: "string" }, description: "The rows' ids, from get_list." } },
+      required: ["edit_link", "ids"],
+    },
+    outputSchema: REMOVE_OUTPUT,
+    annotations: SET,
+    run: removeItems,
+  },
+  {
+    name: "update_folders",
+    title: "Rename, reorder or remove folders",
+    description:
+      "Changes a list's folders: a new name, the classification rows in the folder follow by default, a new place in the list's order, or removal. Removing a folder removes every row in it. A folder is named by its id from get_list or by its current name. Nothing is changed unless every folder given is found. Takes the list's edit link.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        edit_link: EDIT_ARG,
+        folders: {
+          type: "array",
+          minItems: 1,
+          maxItems: EDIT_MAX,
+          items: {
+            type: "object",
+            properties: {
+              folder: { type: "string", description: "The folder's id from get_list, or its current name." },
+              name: { type: "string", minLength: 1, maxLength: MAX_FOLDER_NAME_LEN, description: "A new name, unique in the list." },
+              classification: { type: "string", enum: CLASSIFICATIONS, description: "What rows in this folder count as unless they say otherwise." },
+              position: { type: "integer", minimum: 0, description: "Its place in the list's folder order, 0 for first." },
+              remove: { type: "boolean", description: "True to remove the folder and every row in it." },
+            },
+            required: ["folder"],
+          },
+        },
+      },
+      required: ["edit_link", "folders"],
+    },
+    outputSchema: FOLDERS_OUTPUT,
+    annotations: SET,
+    run: updateFolders,
+  },
+  {
     name: "list_my_gear",
     title: "Read My Gear",
     description:
@@ -685,16 +797,21 @@ export async function callTool(event: H3Event, name: string, rawArgs: unknown): 
 
 // ---- reading ---------------------------------------------------------------------
 
-/** A share code out of whatever was pasted: the code, or a share link with or
- *  without the .md twin's suffix. "" when it can't be one. */
+/**
+ * A share code out of whatever was pasted: the code, a share link with or without
+ * the .md twin's suffix, or an edit link. An edit link's address is /e/CODE#token and
+ * its CODE is the share code, so a model holding only the edit link can still read
+ * the list it is about to change; the token after # is never looked at here. "" when
+ * it can't be a code.
+ */
 export function shareCodeFrom(input: unknown): string {
   if (typeof input !== "string") return "";
   const s = input.trim();
-  const m = /\/s\/([^/?#]+?)(?:\.md)?(?:[?#].*)?$/i.exec(s);
+  const m = /\/[se]\/([^/?#]+?)(?:\.md)?(?:[?#].*)?$/i.exec(s);
   return normalizeShareCode(m ? m[1]! : s);
 }
 
-const NO_SHARE = "That isn't a Mahonia share code or share link. A share link looks like mahonia.app/s/CODE; an edit link (with #) opens nothing here.";
+const NO_SHARE = "That isn't a Mahonia share code or link. A share link looks like mahonia.app/s/CODE, and an edit link like mahonia.app/e/CODE#token.";
 const NO_LIST = "No list is shared at that code. It may have been deleted, or the link replaced.";
 
 async function getList(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
@@ -745,6 +862,7 @@ function describeTotals(snap: ListSnapshot): Record<string, unknown> {
 export function describeList(snap: ListSnapshot, origin: string): Record<string, unknown> {
   const row = (it: Item, children: Item[], parent?: Item): Record<string, unknown> => {
     const out: Record<string, unknown> = {
+      id: it.id,
       name: it.name,
       display_name: itemDisplayName(it.brand, it.name, it.variant),
       qty: it.qty,
@@ -768,7 +886,7 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
   };
   const folders = exportSections(snap)
     .filter((s) => s.rows.length)
-    .map((s) => ({ name: s.name, items: s.rows.map((r) => row(r.item, r.children)) }));
+    .map((s) => ({ ...(s.id ? { id: s.id } : {}), name: s.name, items: s.rows.map((r) => row(r.item, r.children)) }));
   const out: Record<string, unknown> = {
     title: snap.title,
     share_code: snap.shareCode,
@@ -1428,6 +1546,288 @@ async function setTrip(event: H3Event, args: Record<string, unknown>): Promise<T
     dates: described.dates ?? null,
     trail: described.trail ?? null,
     share_link: described.share_link,
+  });
+}
+
+// ---- changing what is already on a list -------------------------------------------
+// The editor's own operations, sent the way the editor sends them: updateItem for a
+// row's fields, moveItem for its folder and place, removeItem, and updateFolder and
+// removeFolder for folders. Each tool reads the list once, plans its ops against a
+// working copy (applying each to the copy as it is planned, so a second move in the
+// same call sees where the first one left things), and sends them in one batch. A
+// row or folder that isn't found fails the whole call before anything is sent: a
+// half-applied edit is harder for the model to reason about than a refusal.
+
+const NO_ROW = (ids: string[]) =>
+  `No row on this list has the id${ids.length > 1 ? "s" : ""} ${ids.map((id) => `"${id}"`).join(", ")}. get_list gives every row's id.`;
+
+/** the list behind an edit link, its hash, and a working copy to plan against */
+async function openForEdit(args: Record<string, unknown>): Promise<{ hash: string; work: ListState; ops: Op[]; plan: (op: Op) => void } | string> {
+  const hash = editHashFrom(args.edit_link);
+  if (!hash) return NO_EDIT;
+  // the list's write budget, as add_items and set_trip spend it
+  await rateLimitSubject("mcp-write", hash);
+  const snap = await getByEditHash(hash);
+  if (!snap) return NO_EDIT_LIST;
+  const work = structuredClone(snap) as unknown as ListState;
+  const ops: Op[] = [];
+  return { hash, work, ops, plan: (op) => {
+    ops.push(op);
+    applyOps(work, [op]);
+  } };
+}
+
+/** send the planned ops and answer with the share link and totals */
+async function sendEdit(event: H3Event, hash: string, ops: Op[]): Promise<{ share_link: string; totals: unknown } | string> {
+  const after = await applyOpsByEditHash(hash, ops);
+  if (!after) return NO_EDIT_LIST;
+  const origin = trustedOrigin(event);
+  return { share_link: shareLink(origin, after.shareCode), totals: describeTotals(after) };
+}
+
+/**
+ * Put a row at `position` among its siblings in a folder (and under a parent), the
+ * way the editor's own move does it: the moved row is placed, and every neighbour
+ * whose place shifts is renumbered so the folder stays gapless. Only a change of
+ * folder is news in the list's history; a reorder and the neighbours' renumbering
+ * go out quiet, as the editor sends them.
+ */
+function placeRow(work: ListState, plan: (op: Op) => void, id: string, folderId: string | null, parentId: string | null, position: number | undefined): void {
+  const row = work.items.find((i) => i.id === id);
+  if (!row) return;
+  const changedFolder = row.folderId !== folderId;
+  // named its own folder again with no place: it is already where it was asked to be
+  if (position == null && !changedFolder && (row.parentId ?? null) === parentId) return;
+  const others = siblingItems(work.items, folderId, parentId)
+    .filter((i) => i.id !== id)
+    .sort(bySortOrder);
+  const idx = position == null ? others.length : Math.min(position, others.length);
+  const ordered = [...others.slice(0, idx), row, ...others.slice(idx)];
+  ordered.forEach((it, i) => {
+    if (it.id === id) {
+      if (it.folderId !== folderId || (it.parentId ?? null) !== parentId || it.sortOrder !== i)
+        plan({ t: "moveItem", id, folderId, parentId, sortOrder: i, ...(changedFolder ? {} : { quiet: true as const }) });
+    } else if (it.sortOrder !== i) {
+      plan({ t: "moveItem", id: it.id, folderId, sortOrder: i, quiet: true });
+    }
+  });
+}
+
+/** How a person on the list is named in an argument: the name, compared tidied and
+ *  case-folded as folder names are. */
+const personKey = (name: string) => tidyText(name).toLowerCase();
+
+/**
+ * One row's changes as the reducer's own patch, or the sentence saying why not.
+ * Values are typed and bounded here; cleanItemPatch caps and tidies them on the way
+ * in, the same rules the editor's writes get. The owner's-own marks follow the
+ * editor: a typed weight on a catalog-linked row is the owner's, and so is a typed
+ * name that differs from the catalog's, which keeps the link and the catalog's
+ * corrections from rewriting it.
+ */
+function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["people"]): ItemPatch | string {
+  const label = `"${itemDisplayName(it.brand, it.name, it.variant)}"`;
+  const patch: ItemPatch = {};
+  if (r.name !== undefined) {
+    if (typeof r.name !== "string" || !r.name.trim()) return `A row keeps a name; give ${label} a new one or leave name out.`;
+    patch.name = r.name.trim();
+    if (it.catalogItemId != null && tidyText(patch.name).toLowerCase() !== tidyText(it.name).toLowerCase()) patch.nameOverridden = true;
+  }
+  const text = (key: string, field: "brand" | "variant" | "commonName" | "description"): string | null => {
+    const v = r[key];
+    if (v === undefined) return null;
+    if (v !== null && typeof v !== "string") return `${key} on ${label} must be text, or null to clear it.`;
+    patch[field] = typeof v === "string" ? v.trim() : "";
+    return null;
+  };
+  for (const [key, field] of [["brand", "brand"], ["variant", "variant"], ["gear_type", "commonName"], ["note", "description"]] as const) {
+    const problem = text(key, field);
+    if (problem) return problem;
+  }
+  // a gear type the owner typed (or cleared) is theirs, as the editor marks it
+  if (r.gear_type !== undefined) patch.commonNameOverridden = true;
+  if (r.weight_g !== undefined) {
+    if (typeof r.weight_g !== "number" || !(r.weight_g >= 0)) return `weight_g on ${label} must be a number of grams, 0 or more.`;
+    patch.unitWeightMg = Math.round(r.weight_g * 1000);
+    if (it.catalogItemId != null) patch.weightOverridden = true;
+  }
+  if (r.qty !== undefined) {
+    if (typeof r.qty !== "number" || !Number.isFinite(r.qty)) return `qty on ${label} must be a whole number.`;
+    patch.qty = clampInt(r.qty, 1, QTY_MAX, 1);
+  }
+  if (r.classification !== undefined) {
+    if (r.classification !== null && !CLASSIFICATIONS.includes(r.classification as Classification)) {
+      return `"${String(r.classification)}" isn't a classification; use base, worn or consumable, or null to follow the folder.`;
+    }
+    patch.classification = r.classification as Classification | null;
+  }
+  if (r.worn_qty !== undefined) {
+    if (typeof r.worn_qty !== "number" || !Number.isFinite(r.worn_qty)) return `worn_qty on ${label} must be a whole number.`;
+    const qty = patch.qty ?? it.qty;
+    const worn = clampInt(r.worn_qty, 0, QTY_MAX, 0);
+    // a row that is entirely worn is a worn row, not a split the size of itself,
+    // which the reducer reads as no split at all (the rule create_list follows)
+    if (worn > 0 && worn >= qty) {
+      if (patch.classification === undefined) patch.classification = "worn";
+      patch.wornQty = 0;
+    } else patch.wornQty = worn;
+  }
+  if (r.kcal !== undefined) {
+    if (r.kcal !== null && (typeof r.kcal !== "number" || !(r.kcal >= 0))) return `kcal on ${label} must be a number, or null to clear it.`;
+    patch.kcal = r.kcal === null ? null : Math.round(r.kcal as number);
+  }
+  if (r.needs_cooking !== undefined) {
+    if (typeof r.needs_cooking !== "boolean") return `needs_cooking on ${label} must be true or false.`;
+    patch.needsCooking = r.needs_cooking;
+  }
+  if (r.carried_by !== undefined) {
+    if (r.carried_by === null || r.carried_by === "") patch.personId = null;
+    else if (typeof r.carried_by !== "string") return `carried_by on ${label} must be a name on the list, or null.`;
+    else {
+      const person = (people ?? []).find((p) => personKey(p.name) === personKey(r.carried_by as string));
+      if (!person) {
+        const names = (people ?? []).map((p) => p.name);
+        return `No one on this list is called "${r.carried_by}".${names.length ? ` The people are: ${names.join(", ")}.` : " The list names no people yet."}`;
+      }
+      patch.personId = person.id;
+    }
+  }
+  return patch;
+}
+
+async function updateItems(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  const opened = await openForEdit(args);
+  if (typeof opened === "string") return fail(opened);
+  const { hash, work, ops, plan } = opened;
+  const entries = Array.isArray(args.items) ? args.items : [];
+  if (!entries.length) return fail("items must be a non-empty array of rows, each with its id and the fields to change.");
+  if (entries.length > EDIT_MAX) return fail(`At most ${EDIT_MAX} rows in one call; send the rest in another.`);
+  const rows = entries.map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : {}));
+  const unknown = rows.map((r) => String(r.id ?? "")).filter((id) => !work.items.some((i) => i.id === id));
+  if (unknown.length) return fail(NO_ROW([...new Set(unknown)]));
+
+  // folders named by a row and missing from the list are made, in the editor's way
+  // (FolderBook), and added to the working copy before anything is moved into them
+  const book = new FolderBook(work.folders);
+  const folderNamed = (name: string): Folder | string => {
+    const made = book.made.length;
+    const folder = book.resolve(name);
+    if (typeof folder !== "string" && book.made.length > made) plan({ t: "addFolder", folder });
+    return folder;
+  };
+
+  let updated = 0;
+  for (const r of rows) {
+    const it = work.items.find((i) => i.id === r.id)!;
+    const patch = rowPatch(r, it, work.people);
+    if (typeof patch === "string") return fail(patch);
+    const before = ops.length;
+    if (Object.keys(patch).length) plan({ t: "updateItem", id: it.id, patch });
+
+    if (r.folder !== undefined || r.position !== undefined) {
+      if (r.folder !== undefined && typeof r.folder !== "string") return fail("folder must be a folder's name, or an empty string for none.");
+      if (r.position !== undefined && (typeof r.position !== "number" || !(r.position >= 0))) return fail("position must be a whole number, 0 for first.");
+      let folderId = it.folderId;
+      let parentId = it.parentId ?? null;
+      if (typeof r.folder === "string") {
+        const named = r.folder.trim();
+        if (!named) folderId = null;
+        else {
+          const folder = folderNamed(named);
+          if (typeof folder === "string") return fail(folder);
+          folderId = folder.id;
+        }
+        // a row moved to another folder leaves its group; a group keeps its rows
+        if (folderId !== it.folderId) parentId = null;
+      }
+      placeRow(work, plan, it.id, folderId, parentId, typeof r.position === "number" ? Math.round(r.position) : undefined);
+    }
+    if (ops.length > before) updated++;
+  }
+  if (!ops.length) return fail("Nothing to change: each row needs at least one field, a folder or a position.");
+  const sent = await sendEdit(event, hash, ops);
+  if (typeof sent === "string") return fail(sent);
+  return ok({ updated, folders_made: book.made.map((f) => f.name), ...sent });
+}
+
+async function removeItems(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  const opened = await openForEdit(args);
+  if (typeof opened === "string") return fail(opened);
+  const { hash, work, ops, plan } = opened;
+  const ids = Array.isArray(args.ids) ? [...new Set(args.ids.map(String))] : [];
+  if (!ids.length) return fail("ids must be a non-empty array of row ids from get_list.");
+  if (ids.length > EDIT_MAX) return fail(`At most ${EDIT_MAX} rows in one call; send the rest in another.`);
+  const unknown = ids.filter((id) => !work.items.some((i) => i.id === id));
+  if (unknown.length) return fail(NO_ROW(unknown));
+  const rowsBefore = work.items.length;
+  // as the editor does: removing a group takes its nested rows with it (the reducer's
+  // own cascade), so a nested row named alongside its parent is simply already gone
+  for (const id of ids) if (work.items.some((i) => i.id === id)) plan({ t: "removeItem", id });
+  const sent = await sendEdit(event, hash, ops);
+  if (typeof sent === "string") return fail(sent);
+  return ok({ removed: rowsBefore - work.items.length, ...sent });
+}
+
+async function updateFolders(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  const opened = await openForEdit(args);
+  if (typeof opened === "string") return fail(opened);
+  const { hash, work, ops, plan } = opened;
+  const entries = Array.isArray(args.folders) ? args.folders : [];
+  if (!entries.length) return fail("folders must be a non-empty array, each naming a folder by id or name.");
+  if (entries.length > EDIT_MAX) return fail(`At most ${EDIT_MAX} folders in one call.`);
+  const key = (name: string) => tidyText(name).toLowerCase();
+  const find = (ref: unknown) =>
+    typeof ref !== "string" ? undefined : (work.folders.find((f) => f.id === ref) ?? work.folders.find((f) => key(f.name) === key(ref)));
+  const changes = entries.map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : {}));
+  const missing = changes.filter((c) => !find(c.folder)).map((c) => String(c.folder ?? ""));
+  if (missing.length) {
+    const names = [...work.folders].sort(bySortOrder).map((f) => f.name);
+    return fail(`No folder on this list is ${missing.map((m) => `"${m}"`).join(", ")}. The folders are: ${names.join(", ") || "none yet"}.`);
+  }
+
+  const rowsBefore = work.items.length;
+  let updated = 0;
+  for (const c of changes) {
+    const folder = find(c.folder);
+    // a folder removed earlier in this same call has nothing left to change
+    if (!folder) continue;
+    const before = ops.length;
+    if (c.remove === true) {
+      plan({ t: "removeFolder", id: folder.id });
+      updated++;
+      continue;
+    }
+    const patch: Partial<Folder> = {};
+    if (c.name !== undefined) {
+      if (typeof c.name !== "string" || !c.name.trim()) return fail(`A folder keeps a name; give "${folder.name}" a new one or leave name out.`);
+      const clash = work.folders.find((f) => f.id !== folder.id && key(f.name) === key(c.name as string));
+      if (clash) return fail(`The list already has a folder called "${clash.name}".`);
+      patch.name = tidyText(c.name);
+    }
+    if (c.classification !== undefined) {
+      if (!CLASSIFICATIONS.includes(c.classification as Classification)) return fail(`"${String(c.classification)}" isn't a classification; use base, worn or consumable.`);
+      patch.defaultClassification = c.classification as Classification;
+    }
+    if (Object.keys(patch).length) plan({ t: "updateFolder", id: folder.id, patch });
+    if (c.position !== undefined) {
+      if (typeof c.position !== "number" || !(c.position >= 0)) return fail("position must be a whole number, 0 for first.");
+      // the editor's folder reorder: place it, renumber the rest gapless
+      const others = [...work.folders].filter((f) => f.id !== folder.id).sort(bySortOrder);
+      const idx = Math.min(Math.round(c.position), others.length);
+      [...others.slice(0, idx), folder, ...others.slice(idx)].forEach((f, i) => {
+        if (f.sortOrder !== i) plan({ t: "updateFolder", id: f.id, patch: { sortOrder: i } });
+      });
+    }
+    if (ops.length > before) updated++;
+  }
+  if (!ops.length) return fail("Nothing to change: give each folder a name, a classification, a position or remove: true.");
+  const sent = await sendEdit(event, hash, ops);
+  if (typeof sent === "string") return fail(sent);
+  return ok({
+    updated,
+    rows_removed: rowsBefore - work.items.length,
+    folders: [...work.folders].sort(bySortOrder).map((f) => f.name),
+    ...sent,
   });
 }
 
