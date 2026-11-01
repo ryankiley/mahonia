@@ -24,11 +24,11 @@ import { expectResultConforms } from "./helpers/mcpSchema";
 
 // The account side of the connector, driven through the real endpoint against a real
 // (in-memory) database: tokens are minted for two accounts, and requests carrying one
-// read, add to, change and put away gear, while requests carrying none, or a dead one,
-// are refused at the door with the 401 that starts a sign-in. Three things are held
-// here above all — a token reaches its own account's gear and no other's, a read-only
-// token writes nothing, and a revoked token is dead on the next call. The sign-in
-// itself is tests/oauth.test.ts.
+// read, add to, change and put away gear and name the account's lists, while requests
+// carrying none, or a dead one, are refused at the door with the 401 that starts a
+// sign-in. Three things are held here above all — a token reaches its own account's
+// gear and lists and no other's, a read-only token writes nothing, and a revoked token
+// is dead on the next call. The sign-in itself is tests/oauth.test.ts.
 
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 vi.mock("../server/utils/rateLimit", () => ({
@@ -266,6 +266,9 @@ describe("create_list filing under the token's account", () => {
 
   const LIST = { title: "Wonderland", items: [{ name: "Lone Peak 8", brand: "Altra", weight_g: 590, classification: "worn" }] };
   const filed = async () => (await listClaimedLists(db, carol)).map((l) => l.shareCode);
+  // the list made with no token below: filed under nobody, held by its edit link alone
+  let strayCode = "";
+  let strayEditLink = "";
 
   it("files the list with a read-and-change token, and its gear lands in My Gear", async () => {
     const r = await tool("create_list", LIST, carolWrite);
@@ -283,6 +286,8 @@ describe("create_list filing under the token's account", () => {
     expect(r.data).not.toHaveProperty("account_note");
     expect(r.data.edit_link).toContain("/e/");
     expect(await filed()).not.toContain(r.data.share_code);
+    strayCode = r.data.share_code as string;
+    strayEditLink = r.data.edit_link as string;
   });
 
   it("makes the list anyway when the token is dead, and says so beside the link", async () => {
@@ -312,5 +317,69 @@ describe("create_list filing under the token's account", () => {
     expect(r.data.account_note).toContain("edit link");
     expect(quiet).toHaveBeenCalled();
     expect(await filed()).not.toContain(r.data.share_code);
+  });
+
+  // What was filed above is what get_my_lists names: the one list made under the
+  // write token, by share code and link, and none of the lists made beside it.
+  it("names the filed lists to a read token, by share code, and nothing to an account that has none", async () => {
+    const none = await door("get_my_lists", {});
+    expect(none.status).toBe(401);
+    expect(none.challenge).toContain('scope="read"');
+
+    const r = await tool("get_my_lists", {}, carolRead);
+    expect(r.refused, r.text).toBe(false);
+    const lists = r.data.lists as Record<string, unknown>[];
+    expect(lists).toHaveLength(1);
+    expect(lists[0]).toMatchObject({ title: "Wonderland", unit: "g", total_g: 590 });
+    expect(lists[0]!.share_link).toBe(`http://mahonia.test/s/${lists[0]!.share_code}`);
+    expect(JSON.stringify(r.data)).not.toContain("/e/");
+    expect(lists.map((l) => l.share_code)).toEqual(await filed());
+    // the share code is the read capability, so the list opens from here
+    expect((await tool("get_list", { share_code: lists[0]!.share_code })).data.title).toBe("Wonderland");
+
+    const [dave] = (await db.insert(schema.users).values([{ email: "dave@example.com" }]).returning()).map((u) => u.id);
+    const daveRead = (await mintAccessToken(db, dave!, { scope: "read" }))!.token;
+    expect((await tool("get_my_lists", {}, daveRead)).data).toEqual({ lists: [] });
+  });
+
+  // A filed list can be changed by its share code under read-and-change access, the way
+  // the site lets a signed-in owner edit one without the link. The door asks for that
+  // access, as it does for gear; any other list still takes its edit link, which keeps
+  // working with no sign-in at all; and nothing hands an edit token back.
+  it("changes a filed list by share code with read-and-change access, and no other list", async () => {
+    const [mine] = (await tool("get_my_lists", {}, carolRead)).data.lists as { share_code: string }[];
+    const code = mine!.share_code;
+    const none = await door("add_items", { share_code: code, items: [{ name: "Spork" }] });
+    expect(none.status).toBe(401);
+    expect(none.challenge).toContain('scope="write"');
+    const readOnly = await door("set_trip", { share_code: code, title: "Nope" }, carolRead);
+    expect(readOnly.status).toBe(403);
+    expect(readOnly.error).toBe("insufficient_scope");
+
+    vi.mocked(rateLimitSubject).mockClear();
+    const added = await tool("add_items", { share_code: code, items: [{ name: "Spork", weight_g: 10 }] }, carolWrite);
+    expect(added.refused, added.text).toBe(false);
+    expect(added.data.added).toBe(1);
+    expect(JSON.stringify(added.data)).not.toContain("/e/");
+    // the budget is the account's, as it is for gear, never the shared address
+    expect(vi.mocked(rateLimitSubject).mock.calls[0]).toEqual(["mcp-write", `lists:${carol}`]);
+    const titled = await tool("set_trip", { share_code: `http://mahonia.test/s/${code}`, title: "Wonderland Trail" }, carolWrite);
+    expect(titled.refused, titled.text).toBe(false);
+    const read = await tool("get_list", { share_code: code });
+    expect(read.data.title).toBe("Wonderland Trail");
+    expect(JSON.stringify(read.data)).toContain("Spork");
+
+    // a list the account has not filed answers as one that doesn't exist…
+    const notMine = await tool("remove_items", { share_code: strayCode, ids: ["x"] }, carolWrite);
+    expect(notMine.refused).toBe(true);
+    expect(notMine.text).toContain("filed under this account");
+    expect((await tool("update_folders", { share_code: "ZZZZZZZZZZZZ", folders: [{ folder: "x", name: "y" }] }, carolWrite)).text).toBe(notMine.text);
+    // …and its edit link still opens it, with no sign-in at all
+    const byLink = await tool("add_items", { edit_link: strayEditLink, items: [{ name: "Spoon" }] });
+    expect(byLink.refused, byLink.text).toBe(false);
+    // an edit link given beside a share code is the one used, and no sign-in is asked for
+    expect((await tool("set_trip", { edit_link: strayEditLink, share_code: code, title: "Stray" })).refused).toBe(false);
+    expect((await tool("get_list", { share_code: strayCode })).data.title).toBe("Stray");
+    expect((await tool("get_list", { share_code: code })).data.title).toBe("Wonderland Trail");
   });
 });

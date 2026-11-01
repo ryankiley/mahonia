@@ -180,9 +180,9 @@ describe("the door", () => {
     const r = await gear();
     expect(r.status).toBe(401);
     expect(r.header("www-authenticate")).toBe(
-      `Bearer error="invalid_token", error_description="Sign in to Mahonia to reach My Gear.", resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp", scope="read"`,
+      `Bearer error="invalid_token", error_description="Sign in to Mahonia to reach your lists and My Gear.", resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp", scope="read"`,
     );
-    expect(r.body).toEqual({ error: "invalid_token", error_description: "Sign in to Mahonia to reach My Gear." });
+    expect(r.body).toEqual({ error: "invalid_token", error_description: "Sign in to Mahonia to reach your lists and My Gear." });
     expect((await gear(undefined, "update_my_gear", { id: 1 })).header("www-authenticate")).toContain('scope="write"');
   });
 

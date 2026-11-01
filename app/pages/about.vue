@@ -102,7 +102,8 @@ const copyrightYear = new Date().getFullYear();
           catalog, make a new list, and, given an edit link, change one: add, edit, move and remove
           rows, and rename or reorder folders. No sign-in: a share link
           is the permission to read and an edit link the permission to change, exactly as they
-          are for a person.
+          are for a person. Signed in, it can also find your lists and change them, and read or
+          change your My Gear.
         </p>
         <p>
           One click for

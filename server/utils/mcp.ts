@@ -10,15 +10,18 @@
 // person holding one is in, no more. It travels in the JSON-RPC body and never in a
 // query string, and nothing here logs it.
 //
-// My Gear is the one exception, and it brings the one credential that is neither a
-// share code nor an edit link. Gear belongs to an account, not to a link, so there is
-// nothing for a tool argument to carry; the four gear tools instead take a bearer in
-// the Authorization header — a token minted by hand on the account page
-// (server/utils/accessTokens.ts), or the access token of an app the person signed in
-// through the connector's OAuth flow (server/utils/oauth.ts). The list tools never
-// look at that header. The route checks it for the gear tools before any of them
-// runs and answers a missing one with the 401 that starts a sign-in (mcp.post.ts);
-// the gear section at the end of this file is what runs once it has passed.
+// The account tools are the one exception, and they bring the one credential that is
+// neither a share code nor an edit link. An account's lists and its gear belong to the
+// account, not to a link, so there is nothing for a tool argument to carry; get_my_lists
+// and the four gear tools instead take a bearer in the Authorization header — a token
+// minted by hand on the account page (server/utils/accessTokens.ts), or the access
+// token of an app the person signed in through the connector's OAuth flow
+// (server/utils/oauth.ts). The list tools never look at that header, with one
+// exception: a write tool that names its list by share_code rather than by edit link is
+// asking to change a list filed under the account, and is an account tool for that call
+// (byAccount). The route checks the header for the account tools before any of them
+// runs and answers a missing one with the 401 that starts a sign-in (mcp.post.ts); the
+// account section at the end of this file is what runs once it has passed.
 //
 // The protocol layer (JSON-RPC over one HTTP endpoint) is server/routes/mcp.post.ts;
 // this file is the tools, so they can be tested as functions and read as a list.
@@ -41,7 +44,7 @@ import { captureFromList, type VaultEntry } from "../../shared/vault";
 import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, nextSortOrder, siblingItems } from "../../shared/weights";
 import type { AccessScope } from "../../shared/types";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
-import { claimLists } from "./claimRepo";
+import { claimLists, claimedEditHash, listClaimedLists } from "./claimRepo";
 import { useAccountDb, useCatalogDb, useVaultDb, type Db } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
 import { trustedOrigin } from "./origin";
@@ -82,10 +85,10 @@ const PROVENANCE =
 export const MCP_INSTRUCTIONS = [
   "Mahonia is a gear-list and pack-weight tracker for hikers. Lists need no account.",
   "A share link (mahonia.app/s/CODE) is permission to read that list: pass its code or the whole link to the read tools.",
-  "An edit link (mahonia.app/e/CODE#token) is permission to change that list: pass it whole to the write tools, keep it private, and never show it to anyone who should only read.",
-  "My Gear is one account's own gear. list_my_gear, add_my_gear, update_my_gear and remove_my_gear reach it once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
-  "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way back into the list. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in.",
-  "To change a list that already exists, read it with get_list first: every row and folder there carries an id. update_items edits rows and moves them between folders or within one, remove_items takes rows off, and update_folders renames, reorders or removes folders. All three take the edit link.",
+  "An edit link (mahonia.app/e/CODE#token) is permission to change that list: pass it whole to the write tools, keep it private, and never show it to anyone who should only read. A list filed under the signed-in account can be changed without its edit link: name it by share_code instead, with read-and-change access.",
+  "An account has its own lists and its own gear. get_my_lists names the lists filed under the connector's account, each by its share code, so one can be read, and with read-and-change access changed, without being handed a link. My Gear is the account's gear: list_my_gear, add_my_gear, update_my_gear and remove_my_gear. These reach the account once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
+  "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way to change a list that isn't filed under the account. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in and get_my_lists names it.",
+  "To change a list that already exists, read it with get_list first: every row and folder there carries an id. update_items edits rows and moves them between folders or within one, remove_items takes rows off, and update_folders renames, reorders or removes folders. All three take the edit link, or the share code of a list filed under the signed-in account.",
   "Weights are in grams everywhere. A row's classification is base (in the pack), worn (on your body) or consumable (food, fuel, water).",
   PROVENANCE,
 ].join(" ");
@@ -127,7 +130,11 @@ const SHARE_ARG = {
 };
 const EDIT_ARG = {
   type: "string",
-  description: "The list's edit link, whole (mahonia.app/e/CODE#token). The part after # is the write capability.",
+  description: "The list's edit link, whole (mahonia.app/e/CODE#token). The part after # is the write capability. Leave it out to name a list filed under the signed-in account by share_code instead.",
+};
+const BY_ACCOUNT_ARG = {
+  type: "string",
+  description: "Instead of the edit link: the share code or share link of a list filed under the connector's account, as get_my_lists gives it. Takes a sign-in with read-and-change access, and reaches only the lists that account has filed.",
 };
 
 // ---- what the tools hand back ---------------------------------------------------
@@ -380,9 +387,31 @@ const UPDATE_ITEM_SCHEMA = {
   required: ["id"],
 } as const;
 
+// ---- Your lists -------------------------------------------------------------------
+// The lists filed under one account, as the account page's "Your lists" shows them.
+// Each is named by its share code, the read capability, and never by its edit token:
+// the connector changes a list the way a person does, by holding its edit link. The
+// capability is the access token in the Authorization header rather than an argument;
+// the account section at the end says how that is read.
+
+const MY_LISTS_OUTPUT = complete({
+  lists: {
+    type: "array",
+    description: "Most recently changed first.",
+    items: complete({
+      title: str(USER_TEXT),
+      share_code: str("Pass it to get_list or get_list_markdown."),
+      share_link: str("The same code as a link."),
+      unit: UNIT_SCHEMA,
+      total_g: { type: "number", description: "Everything on the list in grams, worn and consumable rows included." },
+      updated_at: str("When the list last changed, ISO 8601."),
+    }),
+  },
+});
+
 // ---- My Gear ---------------------------------------------------------------------
 // One account's gear. Its capability is the access token in the Authorization header
-// rather than an argument; the gear section at the end says how that is read.
+// rather than an argument; the account section at the end says how that is read.
 
 const GEAR_ROW = complete({
   id: { type: "integer", description: "Names the piece to update_my_gear and remove_my_gear." },
@@ -482,9 +511,10 @@ type McpToolHandler = (event: H3Event, args: Record<string, unknown>) => Promise
 type RegisteredMcpTool = McpTool & {
   run: McpToolHandler;
   /** what the tool wants from the account behind the request's bearer: the scope it
-   *  can't run without, or "optional" for a tool that uses one when it is there. The
-   *  route reads this before dispatch (mcp.post.ts); unset means the tool never looks. */
-  account?: AccessScope | "optional";
+   *  can't run without, or "optional" for a tool that uses one when it is there, or a
+   *  rule that answers from the call's arguments. The route reads this before dispatch
+   *  (mcp.post.ts); unset means the tool never looks. */
+  account?: AccessScope | "optional" | ((args: Record<string, unknown>) => AccessScope | "optional" | undefined);
 };
 
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
@@ -492,6 +522,15 @@ const ADD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false
 // destructive, honestly: set_trip REPLACES a title and can clear the dates or the
 // trail, and the hint's own definition says false means additive updates only
 const SET = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false };
+
+/** How a write tool names its list decides what it wants from the account. By edit
+ *  link, the capability itself, it never looks. By share_code, a list filed under the
+ *  signed-in account, it needs read-and-change access, and asking at the door is what
+ *  gets a missing sign-in the Connect card and a read-only one the step-up, rather
+ *  than a sentence (mcp.post.ts). An edit link given beside a share code is the one
+ *  used: it is the capability in hand. */
+const namesByAccount = (args: Record<string, unknown>) => args.edit_link == null && typeof args.share_code === "string";
+const byAccount = (args: Record<string, unknown>): AccessScope | undefined => (namesByAccount(args) ? "write" : undefined);
 
 const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
   {
@@ -584,11 +623,12 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
   {
     name: "add_items",
     title: "Add rows to a list",
-    description: "Adds rows to an existing list. Takes the list's edit link and the rows; each row may name a folder, and a folder that doesn't exist yet is created.",
+    description: "Adds rows to an existing list. Takes the rows and the list's edit link, or its share code under a signed-in account that has filed it; each row may name a folder, and a folder that doesn't exist yet is created.",
     inputSchema: {
       type: "object",
       properties: {
         edit_link: EDIT_ARG,
+        share_code: BY_ACCOUNT_ARG,
         items: { type: "array", minItems: 1, items: ITEM_SCHEMA },
         folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "A folder name for every row that doesn't name its own." },
         again: {
@@ -597,21 +637,23 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
             "A call identical to one made in the last ten minutes is taken as a retry and adds nothing: the earlier result comes back with repeated set. Pass true to add the same rows a second time on purpose.",
         },
       },
-      required: ["edit_link", "items"],
+      required: ["items"],
     },
     outputSchema: ADD_OUTPUT,
     annotations: ADD,
+    account: byAccount,
     run: addItems,
   },
   {
     name: "set_trip",
     title: "Set a list's title, dates, unit and trail",
     description:
-      "Sets any of a list's title, display unit, trip dates and trail on an existing list. Only the fields given change; an empty string clears a date or the trail. Takes the list's edit link.",
+      "Sets any of a list's title, display unit, trip dates and trail on an existing list. Only the fields given change; an empty string clears a date or the trail. Takes the list's edit link, or its share code under a signed-in account that has filed it.",
     inputSchema: {
       type: "object",
       properties: {
         edit_link: EDIT_ARG,
+        share_code: BY_ACCOUNT_ARG,
         title: { type: "string", maxLength: MAX_TITLE_LEN },
         unit: UNIT_SCHEMA,
         start_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
@@ -620,49 +662,52 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
         trail_label: { type: "string", maxLength: TRAIL_LABEL_LEN },
         trail_distance_km: { type: "number", minimum: 0, description: "Stored in metres and shown in the list's own distance unit." },
       },
-      required: ["edit_link"],
     },
     outputSchema: TRIP_OUTPUT,
     annotations: SET,
+    account: byAccount,
     run: setTrip,
   },
   {
     name: "update_items",
     title: "Change rows on a list",
     description:
-      "Changes rows already on a list, by the ids get_list gives: any of their fields, the folder they are in, and their place among their neighbours. Only the fields given change, and null clears one that can be cleared. A name or weight changed on a row picked from the catalog is kept as the owner's own. Nothing is changed unless every row given is found. Takes the list's edit link.",
+      "Changes rows already on a list, by the ids get_list gives: any of their fields, the folder they are in, and their place among their neighbours. Only the fields given change, and null clears one that can be cleared. A name or weight changed on a row picked from the catalog is kept as the owner's own. Nothing is changed unless every row given is found. Takes the list's edit link, or its share code under a signed-in account that has filed it.",
     inputSchema: {
       type: "object",
-      properties: { edit_link: EDIT_ARG, items: { type: "array", minItems: 1, maxItems: EDIT_MAX, items: UPDATE_ITEM_SCHEMA } },
-      required: ["edit_link", "items"],
+      properties: { edit_link: EDIT_ARG, share_code: BY_ACCOUNT_ARG, items: { type: "array", minItems: 1, maxItems: EDIT_MAX, items: UPDATE_ITEM_SCHEMA } },
+      required: ["items"],
     },
     outputSchema: EDIT_OUTPUT,
     annotations: SET,
+    account: byAccount,
     run: updateItems,
   },
   {
     name: "remove_items",
     title: "Remove rows from a list",
     description:
-      "Takes rows off a list, by the ids get_list gives. Removing a row that has rows nested under it removes those too. Nothing is removed unless every id given is found. Takes the list's edit link.",
+      "Takes rows off a list, by the ids get_list gives. Removing a row that has rows nested under it removes those too. Nothing is removed unless every id given is found. Takes the list's edit link, or its share code under a signed-in account that has filed it.",
     inputSchema: {
       type: "object",
-      properties: { edit_link: EDIT_ARG, ids: { type: "array", minItems: 1, maxItems: EDIT_MAX, items: { type: "string" }, description: "The rows' ids, from get_list." } },
-      required: ["edit_link", "ids"],
+      properties: { edit_link: EDIT_ARG, share_code: BY_ACCOUNT_ARG, ids: { type: "array", minItems: 1, maxItems: EDIT_MAX, items: { type: "string" }, description: "The rows' ids, from get_list." } },
+      required: ["ids"],
     },
     outputSchema: REMOVE_OUTPUT,
     annotations: SET,
+    account: byAccount,
     run: removeItems,
   },
   {
     name: "update_folders",
     title: "Rename, reorder or remove folders",
     description:
-      "Changes a list's folders: a new name, the classification rows in the folder follow by default, a new place in the list's order, or removal. Removing a folder removes every row in it. A folder is named by its id from get_list or by its current name. Nothing is changed unless every folder given is found. Takes the list's edit link.",
+      "Changes a list's folders: a new name, the classification rows in the folder follow by default, a new place in the list's order, or removal. Removing a folder removes every row in it. A folder is named by its id from get_list or by its current name. Nothing is changed unless every folder given is found. Takes the list's edit link, or its share code under a signed-in account that has filed it.",
     inputSchema: {
       type: "object",
       properties: {
         edit_link: EDIT_ARG,
+        share_code: BY_ACCOUNT_ARG,
         folders: {
           type: "array",
           minItems: 1,
@@ -680,11 +725,23 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
           },
         },
       },
-      required: ["edit_link", "folders"],
+      required: ["folders"],
     },
     outputSchema: FOLDERS_OUTPUT,
     annotations: SET,
+    account: byAccount,
     run: updateFolders,
+  },
+  {
+    name: "get_my_lists",
+    title: "Your lists",
+    description:
+      "The lists filed under the connector's account, most recently changed first: each one's title, share code and share link, display unit, total weight in grams and when it last changed. Read one with get_list by its share code, and with read-and-change access change it by passing that code as share_code to the write tools. A list is filed when it was made while signed in to Mahonia, added to the account from its sharing panel, or made by create_list with read-and-change access; a list its owner only ever opened by its link isn't here, and get_list still reads it from that link. Works only when this connector carries the account's access token. Titles are text the owner typed, returned unchanged.",
+    inputSchema: { type: "object", properties: {} },
+    outputSchema: MY_LISTS_OUTPUT,
+    annotations: READ,
+    account: "read",
+    run: readMyLists,
   },
   {
     name: "list_my_gear",
@@ -757,13 +814,19 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
 /** Public protocol metadata. Handlers and the account rule stay server-only and never
  *  reach tools/list. */
 export const MCP_TOOLS: McpTool[] = MCP_TOOL_REGISTRY.map(({ run: _run, account: _account, ...tool }) => tool);
-/** The tools that use the account behind the bearer, and how (see RegisteredMcpTool),
- *  for the route's gate — read off the registry, so a tool can't be in one and not
- *  the other. */
-export const ACCOUNT_TOOLS: Record<string, AccessScope | "optional"> = Object.fromEntries(
-  MCP_TOOL_REGISTRY.flatMap((tool) => (tool.account ? [[tool.name, tool.account]] : [])),
-);
 const mcpToolByName = new Map(MCP_TOOL_REGISTRY.map((tool) => [tool.name, tool]));
+const argsOf = (raw: unknown) => (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+
+/** What the account behind the bearer means to one call, for the route's gate: the
+ *  scope the tool can't run without, "optional" for a tool that uses an account when
+ *  it is there, undefined for one that never looks. Read off the registry, so a tool
+ *  can't be in one and not the other; a write tool's answer depends on how the call
+ *  names its list (byAccount). */
+export function accountUse(name: string, rawArgs: unknown): AccessScope | "optional" | undefined {
+  const tool = mcpToolByName.get(name);
+  if (!tool?.account) return undefined;
+  return typeof tool.account === "function" ? tool.account(argsOf(rawArgs)) : tool.account;
+}
 
 export interface ToolResult {
   content: { type: "text"; text: string }[];
@@ -790,9 +853,8 @@ export function isKnownTool(name: unknown): name is string {
  * went wrong and correct itself.
  */
 export async function callTool(event: H3Event, name: string, rawArgs: unknown): Promise<ToolResult> {
-  const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
   const tool = mcpToolByName.get(name);
-  return tool ? tool.run(event, args) : fail(`Unknown tool: ${name}`);
+  return tool ? tool.run(event, argsOf(rawArgs)) : fail(`Unknown tool: ${name}`);
 }
 
 // ---- reading ---------------------------------------------------------------------
@@ -1139,8 +1201,38 @@ export function editHashFrom(input: unknown): string | null {
   return /^[A-Za-z0-9_-]{16,128}$/.test(token) ? sha256Hex(token) : null;
 }
 
-const NO_EDIT = "That isn't an edit link. One looks like mahonia.app/e/CODE#token, and the part after # is what opens the list for changes; a share link can't.";
+const NO_EDIT = "That isn't an edit link. One looks like mahonia.app/e/CODE#token, and the part after # is what opens the list for changes; a share link can't. A list filed under the signed-in account can be named by share_code instead, with read-and-change access.";
 const NO_EDIT_LIST = "That edit link doesn't open a list. Check it was copied whole, including everything after the #.";
+const NO_CLAIMED = "No list filed under this account has that share code; get_my_lists names the ones that are. For any other list, pass its edit link.";
+
+/**
+ * The hash a write tool works under. From the edit link when one is given: the
+ * capability itself, as ever. Otherwise from share_code, a list filed under the
+ * signed-in account: the same claim the site resolves when a signed-in owner edits a
+ * list without its link (claimedEditHash), scoped to the account inside the query, so
+ * a code the account hasn't filed answers as one that doesn't exist and nothing here
+ * can probe for lists. The route has already asked for read-and-change access at the
+ * door (byAccount), so the one refusal left on that path is a call that never passed
+ * it. Either way the budget is spent before any lookup: the list's on its hash, the
+ * account's on the claim. The hash, or the sentence.
+ */
+async function writeHashFrom(event: H3Event, args: Record<string, unknown>): Promise<{ hash: string } | string> {
+  if (!namesByAccount(args)) {
+    const hash = editHashFrom(args.edit_link);
+    if (!hash) return NO_EDIT;
+    // the write budget is the list's: spent once the link has yielded a hash to key it
+    // on, so a call with no link costs nothing past the endpoint's own guard
+    await rateLimitSubject("mcp-write", hash);
+    return { hash };
+  }
+  const code = shareCodeFrom(args.share_code);
+  if (!code) return NO_SHARE;
+  const caller = event.context.connector;
+  if (!caller || caller.scope !== "write") return "Naming a list by share_code takes a sign-in with read-and-change access, which the MCP endpoint asks for first; or pass the edit link.";
+  await rateLimitSubject("mcp-write", `lists:${caller.userId}`);
+  const hash = await claimedEditHash(await useAccountDb(), caller.userId, code);
+  return hash ? { hash } : NO_CLAIMED;
+}
 
 function clampInt(raw: unknown, min: number, max: number, fallback: number): number {
   if (typeof raw !== "number" || !Number.isFinite(raw)) return fallback;
@@ -1467,7 +1559,7 @@ function tripMeta(args: Record<string, unknown>, creating = false): Record<strin
 // a spare list rather than a leaked capability.
 const REPLAY_WINDOW_S = 10 * 60;
 function replayKey(hash: string, tool: string, args: Record<string, unknown>): string {
-  const { edit_link: _link, again: _again, ...rest } = args;
+  const { edit_link: _link, share_code: _code, again: _again, ...rest } = args;
   return `mcp:replay:${sha256Hex(`${hash}|${tool}|${stableJson(rest)}`)}`;
 }
 function stableJson(v: unknown): string {
@@ -1479,11 +1571,9 @@ function stableJson(v: unknown): string {
 }
 
 async function addItems(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  const hash = editHashFrom(args.edit_link);
-  if (!hash) return fail(NO_EDIT);
-  // the write budget is the list's: spent once the link has yielded a hash to key it
-  // on, so a call with no link costs nothing past the endpoint's own guard
-  await rateLimitSubject("mcp-write", hash);
+  const opened = await writeHashFrom(event, args);
+  if (typeof opened === "string") return fail(opened);
+  const { hash } = opened;
   if (!Array.isArray(args.items) || !args.items.length) return fail("items must be a non-empty array of rows.");
   if (args.again != null && typeof args.again !== "boolean") return fail("again must be true or false.");
   const key = replayKey(hash, "add_items", args);
@@ -1530,9 +1620,9 @@ async function addItems(event: H3Event, args: Record<string, unknown>): Promise<
 }
 
 async function setTrip(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  const hash = editHashFrom(args.edit_link);
-  if (!hash) return fail(NO_EDIT);
-  await rateLimitSubject("mcp-write", hash);
+  const opened = await writeHashFrom(event, args);
+  if (typeof opened === "string") return fail(opened);
+  const { hash } = opened;
   const meta = tripMeta(args);
   if (typeof meta === "string") return fail(meta);
   if (!Object.keys(meta).length) return fail("Nothing to set: give a title, unit, start_date, end_date, trail_url, trail_label or trail_distance_km.");
@@ -1561,12 +1651,11 @@ async function setTrip(event: H3Event, args: Record<string, unknown>): Promise<T
 const NO_ROW = (ids: string[]) =>
   `No row on this list has the id${ids.length > 1 ? "s" : ""} ${ids.map((id) => `"${id}"`).join(", ")}. get_list gives every row's id.`;
 
-/** the list behind an edit link, its hash, and a working copy to plan against */
-async function openForEdit(args: Record<string, unknown>): Promise<{ hash: string; work: ListState; ops: Op[]; plan: (op: Op) => void } | string> {
-  const hash = editHashFrom(args.edit_link);
-  if (!hash) return NO_EDIT;
-  // the list's write budget, as add_items and set_trip spend it
-  await rateLimitSubject("mcp-write", hash);
+/** the list a write tool names, its hash, and a working copy to plan against */
+async function openForEdit(event: H3Event, args: Record<string, unknown>): Promise<{ hash: string; work: ListState; ops: Op[]; plan: (op: Op) => void } | string> {
+  const opened = await writeHashFrom(event, args);
+  if (typeof opened === "string") return opened;
+  const { hash } = opened;
   const snap = await getByEditHash(hash);
   if (!snap) return NO_EDIT_LIST;
   const work = structuredClone(snap) as unknown as ListState;
@@ -1696,7 +1785,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
 }
 
 async function updateItems(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  const opened = await openForEdit(args);
+  const opened = await openForEdit(event, args);
   if (typeof opened === "string") return fail(opened);
   const { hash, work, ops, plan } = opened;
   const entries = Array.isArray(args.items) ? args.items : [];
@@ -1751,7 +1840,7 @@ async function updateItems(event: H3Event, args: Record<string, unknown>): Promi
 }
 
 async function removeItems(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  const opened = await openForEdit(args);
+  const opened = await openForEdit(event, args);
   if (typeof opened === "string") return fail(opened);
   const { hash, work, ops, plan } = opened;
   const ids = Array.isArray(args.ids) ? [...new Set(args.ids.map(String))] : [];
@@ -1769,7 +1858,7 @@ async function removeItems(event: H3Event, args: Record<string, unknown>): Promi
 }
 
 async function updateFolders(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  const opened = await openForEdit(args);
+  const opened = await openForEdit(event, args);
   if (typeof opened === "string") return fail(opened);
   const { hash, work, ops, plan } = opened;
   const entries = Array.isArray(args.folders) ? args.folders : [];
@@ -1837,11 +1926,12 @@ async function updateFolders(event: H3Event, args: Record<string, unknown>): Pro
 // bearer in the Authorization header: a token minted on the account page or the
 // access token of an app the person signed in through the connector
 // (server/utils/accessTokens.ts). The route resolves that bearer once, before
-// dispatch, for every tool whose registry entry names an account use; for the four
-// gear tools it also refuses a missing or dead one with the 401 that opens Claude's
-// sign-in, and a read-only one on a write tool with a 403 (mcp.post.ts). So by the
-// time a gear tool runs the account is on the event, and create_list — which only
-// uses an account when there is one — reads the same answer.
+// dispatch, for every tool whose registry entry names an account use; for get_my_lists,
+// the four gear tools and a write tool naming its list by share_code it also refuses a
+// missing or dead one with the 401 that opens Claude's sign-in, and a read-only one on
+// a write with a 403 (mcp.post.ts). So by the time an account tool runs the account is
+// on the event, and create_list — which only uses an account when there is one — reads
+// the same answer.
 
 /** Who is calling, as the route left it on the event: an account with a scope, nobody
  *  ("anonymous": no bearer of ours was carried), or a bearer that opens nothing
@@ -1850,6 +1940,33 @@ function whoCalls(event: H3Event): { userId: number; scope: AccessScope } | "ano
   const caller = event.context.connector;
   if (caller === undefined) return "anonymous";
   return caller ?? "unknown";
+}
+
+/**
+ * The lists filed under the caller's account, as the account page's "Your lists"
+ * shows them: by share code, the read capability, so the assistant can open one with
+ * get_list without being handed a link. The edit token is never here; changing a list
+ * stays with whoever holds its edit link, from the connector as from anywhere. The
+ * route has already seen to the sign-in, so the one refusal left is a call that never
+ * passed it.
+ */
+async function readMyLists(event: H3Event): Promise<ToolResult> {
+  const caller = event.context.connector;
+  if (!caller) return fail("Your lists are reached through the MCP endpoint, which asks for a sign-in first.");
+  // the budget is the account's, as list_my_gear's is, never the shared address
+  await rateLimitSubject("mcp-read", `lists:${caller.userId}`);
+  const origin = trustedOrigin(event);
+  const lists = await listClaimedLists(await useAccountDb(), caller.userId);
+  return ok({
+    lists: lists.map((l) => ({
+      title: l.title,
+      share_code: l.shareCode,
+      share_link: shareLink(origin, l.shareCode),
+      unit: l.displayUnit,
+      total_g: grams(l.totalMg),
+      updated_at: l.updatedAt,
+    })),
+  });
 }
 
 interface GearHandle {

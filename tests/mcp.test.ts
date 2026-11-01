@@ -141,16 +141,16 @@ describe("the endpoint's transport", () => {
     expect(resultOf(await post(rpc("ping", undefined, "abc")))).toEqual({});
   });
 
-  it("lists the fourteen tools, each with an object schema and honest annotations", async () => {
+  it("lists the fifteen tools, each with an object schema and honest annotations", async () => {
     const res = resultOf(await post(rpc("tools/list")))!;
     const tools = res.tools as typeof MCP_TOOLS;
-    expect(tools.map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip", "update_items", "remove_items", "update_folders", "list_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
+    expect(tools.map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip", "update_items", "remove_items", "update_folders", "get_my_lists", "list_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
     for (const t of tools) {
       expect(t.inputSchema.type).toBe("object");
       expect(t.description.length).toBeGreaterThan(20);
       expect(t).not.toHaveProperty("run");
     }
-    expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "list_my_gear"]);
+    expect(tools.filter((t) => t.annotations.readOnlyHint).map((t) => t.name)).toEqual(["get_list", "get_list_markdown", "search_catalog", "get_catalog_product", "get_my_lists", "list_my_gear"]);
     // the three adding tools only add. Everything that replaces, clears, moves or
     // removes says so: set_trip, the three list edits and the two gear changes
     expect(tools.filter((t) => t.annotations.destructiveHint).map((t) => t.name)).toEqual(["set_trip", "update_items", "remove_items", "update_folders", "update_my_gear", "remove_my_gear"]);
@@ -159,10 +159,10 @@ describe("the endpoint's transport", () => {
     expect(item.name!.maxLength).toBe(200);
     expect(item.note!.maxLength).toBe(2000);
     expect(tools[0]!.description).toContain("free text typed by whoever holds the list's edit link");
-    // the thirteen tools that answer with data declare its shape (compiled strictly in
+    // the fourteen tools that answer with data declare its shape (compiled strictly in
     // helpers/mcpSchema, which every call in this suite runs through); the Markdown
     // tool answers with text alone and declares nothing
-    expect(tools.filter((t) => t.outputSchema).map((t) => t.name)).toEqual(["get_list", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip", "update_items", "remove_items", "update_folders", "list_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
+    expect(tools.filter((t) => t.outputSchema).map((t) => t.name)).toEqual(["get_list", "search_catalog", "get_catalog_product", "create_list", "add_items", "set_trip", "update_items", "remove_items", "update_folders", "get_my_lists", "list_my_gear", "add_my_gear", "update_my_gear", "remove_my_gear"]);
     for (const t of tools) if (t.outputSchema) expect(t.outputSchema.type).toBe("object");
     // …and the check is live: a wrong shape is refused in the schema's own terms
     expect(() => expectConforms("search_catalog", { query: "x", results: [{ id: "7" }] })).toThrow(/search_catalog result does not match/);
