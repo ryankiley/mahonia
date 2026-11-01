@@ -809,7 +809,8 @@ async function exportGear(kind: string) {
                     <!-- the noun is read, not shown, on a folder of pieces — the number
                          before a weight says enough — but beside "1 kit" a bare "1"
                          reads as a stray figure, so there it is shown -->
-                    <template v-if="section.count">{{ section.count }}<span :class="{ 'visually-hidden': !section.kits }"> {{ pluralNoun(section.count, "item") }}</span></template>
+                    <template v-if="section.count && section.kits">{{ counted(section.count, "item") }}</template>
+                    <template v-else-if="section.count">{{ section.count }}<span class="visually-hidden"> {{ pluralNoun(section.count, "item") }}</span></template>
                     <template v-if="section.count && section.kits"> · </template>
                     <template v-if="section.kits">{{ section.kits }} {{ pluralNoun(section.kits, "kit") }}</template>
                     <template v-if="section.count || section.weightMg"> · {{ weightLabel(section.weightMg) }}</template>
