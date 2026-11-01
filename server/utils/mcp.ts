@@ -339,7 +339,7 @@ const GEAR_ROW = complete({
   brand: nullable("string", USER_TEXT),
   variant: nullable("string", USER_TEXT),
   gear_type: nullable("string", `Tent, Quilt, Stove. ${USER_TEXT}`),
-  weight_g: { type: "number", description: "Grams for one, to a tenth; 0 when it has never been weighed." },
+  weight_g: { type: "number", description: "Grams for one, to a tenth; 0 when it has never been weighed. On a kit, the whole kit: its items plus its own weight." },
   classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null when the owner leaves it to each list." },
   kcal: nullable("number", "Calories in one, on food."),
   note: nullable("string", USER_TEXT),
@@ -349,6 +349,25 @@ const GEAR_ROW = complete({
   folder: nullable("string", `The folder it is filed in; null when unfiled. ${USER_TEXT}`),
   times_used: { type: "integer", description: "How many list saves have carried this piece into My Gear." },
   last_used: str("When a list last carried it, ISO 8601."),
+  kit: {
+    type: ["object", "null"],
+    description: "Null on a single piece. On a KIT, a set the owner keeps together: what it weighs by itself (a stuff sack) and the items it holds, each also a piece of My Gear by its own id. Its weight_g already counts them, so put a kit on a list either as one row or as its items, never both.",
+    properties: {
+      own_weight_g: { type: "number", description: "What the kit weighs by itself, in grams; usually 0." },
+      items: {
+        type: "array",
+        items: complete({
+          id: { type: "integer", description: "The item's own id in My Gear." },
+          display_name: str(USER_TEXT),
+          count: { type: "integer", description: "How many of it the kit holds." },
+          weight_g: { type: "number", description: "Grams for one." },
+          put_away: { type: "boolean", description: "Removed from My Gear: still listed in the kit, no longer counted in its weight." },
+        }),
+      },
+    },
+    required: ["own_weight_g", "items"],
+  },
+  in_kits: { type: "array", items: { type: "integer" }, description: "The ids of the kits this piece is in; empty when none." },
 });
 const GEAR_LIST_OUTPUT = complete({
   gear: { type: "array", items: GEAR_ROW, description: "This page of the matches." },
@@ -1521,6 +1540,20 @@ function gearAsRow(piece: VaultEntry, folderNames: Map<number, string>): Record<
     folder: piece.folderId != null ? (folderNames.get(piece.folderId) ?? null) : null,
     times_used: piece.timesSeen,
     last_used: piece.lastUsedAt,
+    kit:
+      piece.kind === "kit"
+        ? {
+            own_weight_g: grams(piece.ownWeightMg ?? 0),
+            items: (piece.parts ?? []).map((p) => ({
+              id: p.id,
+              display_name: itemDisplayName(p.brand ?? null, p.name, p.variant ?? null),
+              count: p.qty,
+              weight_g: grams(p.weightMg),
+              put_away: !!p.removed,
+            })),
+          }
+        : null,
+    in_kits: piece.inKits ?? [],
   };
 }
 
@@ -1566,7 +1599,8 @@ async function readGear(event: H3Event, args: Record<string, unknown>): Promise<
   if (gear.vaultId == null) return ok({ gear: [], folders: [], total: 0, offset });
   const { db, vaultId } = gear;
   const [pieces, folders] = await Promise.all([
-    query ? searchVaultItems(db, vaultId, query, GEAR_PAGE_MAX) : listVaultItems(db, vaultId),
+    // kits too, with what they hold: a kit is gear the owner keeps, and the row says what it is
+    query ? searchVaultItems(db, vaultId, query, GEAR_PAGE_MAX, { kits: true }) : listVaultItems(db, vaultId),
     listVaultFolders(db, vaultId),
   ]);
   let matches = pieces;
@@ -1635,7 +1669,12 @@ async function changeGear(event: H3Event, args: Record<string, unknown>): Promis
   let after: VaultEntry | null = null;
   if (Object.keys(patch).length) {
     const outcome = await applyVaultItemOp(db, vaultId, { t: "edit", id, patch } as VaultItemOp);
-    if (!outcome || "refused" in outcome) return fail(`${NO_SUCH_GEAR} Or that change would not leave a valid piece; nothing was changed.`);
+    if (!outcome || "refused" in outcome) {
+      // a kit's weight is its items', so a weight is refused on one; say so rather than "no such piece"
+      const row = "weightMg" in patch ? await vaultItemById(db, vaultId, id) : null;
+      if (row?.kind === "kit") return fail("That is a kit, and a kit weighs what its items weigh: change an item's weight instead. Nothing was changed.");
+      return fail(`${NO_SUCH_GEAR} Or that change would not leave a valid piece; nothing was changed.`);
+    }
     after = outcome.item;
   } else {
     after = await vaultItemById(db, vaultId, id);

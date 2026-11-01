@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon, Layers01Icon } from "@hugeicons/core-free-icons";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
@@ -8,6 +8,7 @@ import { groupVaultRows } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { counted, foldApostrophes } from "~~/shared/tidyText";
+import { addVaultFolder, addVaultKit } from "~/composables/useVaultUnfold";
 
 // The vault, alongside the list you're building — a floating palette you keep open
 // and pick from, rather than typing each item's name into the autocomplete one at a
@@ -197,7 +198,9 @@ const hl = (text: string) => highlightParts(text, query.value);
 const categories = computed(() =>
   // keepEmpty: false — an empty vault folder is a filing artefact, not a template
   // worth offering; and no unfiled section, since unfiled gear lives on the Items tab
-  groupVaultRows(items.value, vaultFolders.value, { keepEmpty: false })
+  // nested, as /gear's Folders view is: an item that is in a kit comes with the kit
+  // rather than on its own, so a category's figure is what adding it puts on the list
+  groupVaultRows(items.value, vaultFolders.value, { keepEmpty: false, nest: true })
     .filter((s) => s.folder)
     .map((s) => ({
       id: s.folder!.id,
@@ -210,6 +213,19 @@ const categories = computed(() =>
     })),
 );
 
+// ---- kits ----
+// A kit is offered among the gear, marked as one, and it does not go onto the list
+// as one row: it unfolds into a group — the kit's row as the parent, each live part
+// a row under it (useVaultUnfold.addVaultKit). "Already added" reads off the parent's
+// identity, the same way a piece's does; the parts the list already holds are
+// skipped as it unfolds, which is the pane's one-row-per-piece rule for each of them.
+const isKit = (entry: VaultEntry) => entry.kind === "kit";
+// the lines it unfolds into: one per live item, whatever its count
+const itemCount = (entry: VaultEntry) => (entry.parts ?? []).filter((p) => !p.removed).length;
+function addEntry(entry: VaultEntry, folderId: string | null): string {
+  return isKit(entry) ? addVaultKit(c, entry, folderId, items.value) : c.addVaultItem(entry, folderId);
+}
+
 // name-only match: a category has no brand/variant to fuzzy-rank, and the set is
 // small enough to scan
 const filteredCategories = computed(() => {
@@ -220,7 +236,7 @@ const filteredCategories = computed(() => {
 });
 
 function addCategory(cat: { name: string; entries: VaultEntry[] }) {
-  const id = c.addVaultFolder(cat.name, cat.entries);
+  const id = addVaultFolder(c, cat.name, cat.entries, items.value);
   if (id) emit("added", cat.name);
 }
 
@@ -263,7 +279,9 @@ const rowPress = createPressArm<VaultEntry>({
     // one-per-list rule; the gesture only resolves where the pointer let go
     dnd.startInsert((folderId, beforeId) => {
       if (isInList(entry)) return;
-      const id = c.addVaultItem(entry, folderId);
+      // a kit's parent row is what moves into the slot; its children render under it
+      // wherever it lands, since they order among themselves
+      const id = addEntry(entry, folderId);
       if (id && beforeId) c.moveItem(id, folderId, beforeId, null);
     }, ev);
   },
@@ -281,7 +299,7 @@ function onRowClick(entry: VaultEntry) {
     return;
   }
   if (isInList(entry)) return;
-  c.addVaultItem(entry, targetFolderId.value);
+  addEntry(entry, targetFolderId.value);
 }
 
 // ---- the sheet answers the scroll that lands on it ------------------------
@@ -520,11 +538,18 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             :aria-label="
               isInList(entry)
                 ? `${itemDisplayName(entry.brand, entry.name, entry.variant)} is already in this list`
-                : `Add ${itemDisplayName(entry.brand, entry.name, entry.variant)} to the list`
+                : isKit(entry)
+                  ? `Add the ${itemDisplayName(entry.brand, entry.name, entry.variant)} kit to the list, with its ${counted(itemCount(entry), 'item')} under it`
+                  : `Add ${itemDisplayName(entry.brand, entry.name, entry.variant)} to the list`
             "
             @pointerdown="onRowPointerDown(entry, $event)"
             @click="onRowClick(entry)"
           >
+            <!-- a kit's mark, so a set reads as one before you read a word of it;
+                 the same glyph /gear's row wears -->
+            <span v-if="isKit(entry)" class="vp__kit" aria-hidden="true">
+              <HugeiconsIcon :icon="Layers01Icon" :size="14" :stroke-width="2" />
+            </span>
             <span class="gear__main">
               <span class="gear__name t-clip">
                 <span v-if="entry.brand" class="gear__brand"
@@ -538,8 +563,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
               <!-- the row can't be added again, so it says so plainly. A COUNT was
                    the right label when a second copy was allowed; now that one row
                    per piece of gear is the rule, the number was answering a question
-                   nobody can act on. -->
+                   nobody can act on. A KIT's count is a different fact — how many
+                   rows it unfolds into — and worth a line. -->
               <span v-if="isInList(entry)" class="t-sm vp__inlist">Already added</span>
+              <span v-else-if="isKit(entry)" class="t-sm vp__inlist">Kit · {{ counted(itemCount(entry), "item") }}</span>
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
             <span class="vp__icon" aria-hidden="true">
@@ -838,6 +865,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 .vp__inlist {
   color: var(--ink-3);
+}
+/* the kit's mark sits on the first line beside the name, like the row's check does
+   on the trailing edge: a one-line-tall box centres the glyph on that line */
+.vp__kit {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  height: 1lh;
+  color: var(--ink-2);
 }
 .vp__w {
   flex: none;

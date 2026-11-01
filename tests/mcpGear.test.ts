@@ -17,6 +17,7 @@ import { listClaimedLists } from "../server/utils/claimRepo";
 import { LISTS_DDL } from "../server/utils/db";
 import { rateLimitSubject } from "../server/utils/rateLimit";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
+import { applyVaultItemOp } from "../server/utils/vaultRepo";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
 import { makeEvent } from "./helpers/http";
@@ -232,6 +233,22 @@ describe("the gear tools", () => {
     expect((await tool("remove_my_gear", { id: tentId }, aliceWrite)).refused).toBe(true);
     expect((await tool("remove_my_gear", { id: tentId, restore: true }, aliceWrite)).data).toEqual({ id: tentId, status: "restored" });
     expect((await tool("list_my_gear", {}, aliceRead)).data.total).toBe(2);
+  });
+
+  it("say what a kit holds, list its items as pieces of their own, and refuse a weight on one", async () => {
+    const added = await tool("add_my_gear", { items: [{ name: "Pocket stove", weight_g: 73 }, { name: "Cook kit" }] }, aliceWrite);
+    const [stoveId, kitId] = (added.data.results as { item: { id: number } }[]).map((r) => r.item.id);
+    const [row] = await db.select({ vaultId: schema.vaultItems.vaultId }).from(schema.vaultItems).where(eq(schema.vaultItems.id, stoveId!));
+    // made on the gear page; the connector reads it
+    expect(await applyVaultItemOp(db, row!.vaultId, { t: "kit", id: kitId!, parts: [{ id: stoveId!, qty: 2 }], ownWeightMg: 20_000 })).not.toBeNull();
+    const found = await tool("list_my_gear", { query: "cook kit" }, aliceRead);
+    const kit = (found.data.gear as { id: number }[]).find((g) => g.id === kitId);
+    expect(kit).toMatchObject({ weight_g: 166, kit: { own_weight_g: 20, items: [{ id: stoveId, count: 2, weight_g: 73, put_away: false }] }, in_kits: [] });
+    const stove = ((await tool("list_my_gear", {}, aliceRead)).data.gear as { id: number }[]).find((g) => g.id === stoveId);
+    expect(stove).toMatchObject({ kit: null, in_kits: [kitId] });
+    const refused = await tool("update_my_gear", { id: kitId, weight_g: 500 }, aliceWrite);
+    expect(refused.refused).toBe(true);
+    expect(refused.text).toContain("kit weighs what its items weigh");
   });
 
   it("charge the account's budget rather than the caller's address", async () => {

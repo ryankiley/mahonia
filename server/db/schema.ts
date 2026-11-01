@@ -15,7 +15,7 @@
 // columns the database still has (nullable or defaulted, so harmless — nothing
 // drops them), and a column added here must ALSO be added to the DDL.
 
-import { bigint, boolean, integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, boolean, integer, jsonb, pgTable, primaryKey, serial, text, timestamp } from "drizzle-orm/pg-core";
 import type { ListData } from "../../shared/types";
 import type { FullSnap, ListDiff } from "../../shared/snapshotDiff";
 
@@ -377,7 +377,36 @@ export const vaultItems = pgTable(
     removedAt: timestamp("removed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // piece | kit. A KIT is a set you itemize — a cook kit that is a stove, a pot
+    // and a lighter — and its weight_mg is only what it weighs by ITSELF (the stuff
+    // sack, usually nothing). What it weighs in all is read out of vault_kit_parts
+    // on every read, so re-weighing the pot re-weighs every kit it is in. A thing
+    // you weigh whole and never itemize stays a piece.
+    kind: text("kind").notNull().default("piece"),
   }
+);
+
+/**
+ * Which pieces a kit is made of, how many of each, in what order.
+ *
+ * One level deep, by rule rather than by constraint (see setKitParts): a part is
+ * always a piece, never a kit, which is also as deep as a list nests — so a kit put
+ * on a list unfolds into exactly one group. A piece may belong to several kits (the
+ * same lighter in the cook kit and the fire kit); the vault's totals count it once,
+ * where it is filed, and a kit adds only its own weight to them.
+ *
+ * No FK, like the rest of the vault: the links are deleted with the vault (the
+ * purge), and a put-away part keeps its link so it can come back counted.
+ */
+export const vaultKitParts = pgTable(
+  "vault_kit_parts",
+  {
+    kitId: integer("kit_id").notNull(),
+    partId: integer("part_id").notNull(),
+    qty: integer("qty").notNull().default(1),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.kitId, t.partId] })],
 );
 
 // ---------------------------------------------------------------------------

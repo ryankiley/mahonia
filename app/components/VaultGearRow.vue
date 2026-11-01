@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Delete02Icon, Edit02Icon, FolderIcon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Delete02Icon, Edit02Icon, FolderIcon, Layers01Icon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { formatPrice } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { consumableIcon } from "~/utils/itemMarks";
+import { counted } from "~~/shared/tidyText";
 
 // One row of /gear: the name cell, the weight, the class mark and the trailing
 // controls — or, for a REMOVED piece, the way back.
@@ -15,6 +16,11 @@ import { consumableIcon } from "~/utils/itemMarks";
 // three times is a row that drifts. The page keeps what differs between the three
 // places: the folder list's press-to-drag lands on the root as a native listener, its
 // dragging state as a class, and the removed list simply asks for the other shape.
+//
+// A KIT is this same row with a disclosure: a kit mark before the name, and a
+// "Kit · 3 items" line that opens its items beneath it — indented and dimmed, the way
+// a group opens on a list. Not a card: a kit and a
+// piece are one kind of thing here, a row of your gear, and they keep one rhythm.
 const props = defineProps<{
   entry: VaultEntry;
   unit: Unit;
@@ -24,6 +30,10 @@ const props = defineProps<{
   busy?: boolean;
   /** the removed list's shape: the name and weight, and "Put back" in place of the controls */
   removed?: boolean;
+  /** a kit's parts are showing — the page remembers it per kit, like a folder's collapse */
+  open?: boolean;
+  /** the kits a piece is in, by name — the page holds the names */
+  kitNames?: string[];
 }>();
 const emit = defineEmits<{
   edit: [];
@@ -32,9 +42,24 @@ const emit = defineEmits<{
   restore: [];
   /** the move menu opened or closed — the folder body lifts its clip while one is open */
   "overlay-toggle": [open: boolean];
+  /** show or hide a kit's parts */
+  toggle: [];
+  /** open a part's own editor: a part is a piece in its own folder, not the kit's */
+  "edit-part": [id: number];
 }>();
 
 const displayName = computed(() => itemDisplayName(props.entry.brand, props.entry.name, props.entry.variant));
+// ---- a kit ----
+// Its weight is DERIVED — its own plus its live items × count (kitWeightMg) — and shown
+// plainly: the kit mark already says it is a set. A put-away item stays listed under
+// it, marked, and stops counting.
+const isKit = computed(() => props.entry.kind === "kit" && !props.removed);
+const parts = computed(() => props.entry.parts ?? []);
+// the LINES it holds, one per live item whatever its count — "3 items" over three lines,
+// with a ×3 on the line that has it, not a unit count no line adds up to
+const itemCount = computed(() => parts.value.filter((p) => !p.removed).length);
+const removedParts = computed(() => parts.value.filter((p) => p.removed).length);
+const partName = (p: { brand?: string; name: string; variant?: string }) => itemDisplayName(p.brand, p.name, p.variant);
 // Calories, gated on the class exactly as computeTotals gates them — so what the row
 // shows is what a list would count, rather than a number the totals ignore. A removed
 // row shows its type only.
@@ -55,7 +80,13 @@ const meta = computed(() => {
 </script>
 
 <template>
-  <li class="vault__row">
+  <li class="vault__row" :class="{ 'vault__row--kit': isKit }">
+    <div class="vault__line">
+    <!-- a kit's mark: the stacked-layers glyph, so a set reads as one before you read
+         a word of it — the same glyph the editor's gear pane puts on a kit -->
+    <span v-if="isKit" class="vault__kitmark" aria-hidden="true">
+      <HugeiconsIcon :icon="Layers01Icon" :size="16" :stroke-width="2" />
+    </span>
     <div class="gear__main">
       <p class="gear__name t-clip">
         <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
@@ -74,6 +105,26 @@ const meta = computed(() => {
            where a paragraph goes. The dialog holds all of it. -->
       <p v-if="!removed && entry.description" class="t-sm t-muted vault__note" :title="entry.description">
         {{ entry.description }}
+      </p>
+      <!-- a kit: how many items, as the control that shows them. Text-sized, so the
+           row keeps the rhythm of its neighbours; the chevron is the shared .chev. -->
+      <p v-if="isKit" class="t-sm vault__kitline">
+        <button
+          type="button"
+          class="vault__kittoggle"
+          :aria-expanded="!!open"
+          :aria-label="`${open ? 'Hide' : 'Show'} the items in ${displayName}`"
+          @click="emit('toggle')"
+        >
+          <span>Kit · {{ counted(itemCount, "item") }}</span>
+          <span v-if="removedParts" class="t-muted"> · {{ removedParts }} removed</span>
+          <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
+        </button>
+      </p>
+      <!-- an item that is in a kit says which — one line, clipped. Only a flat view
+           shows it: in Folders view the item is under its kit. -->
+      <p v-else-if="!removed && kitNames?.length" class="t-sm t-muted vault__kitline t-clip" :title="`In ${kitNames.join(', ')}`">
+        In {{ kitNames.join(", ") }}
       </p>
     </div>
     <span class="t-num vault__weight">{{ formatWeight(entry.weightMg, unit) }}</span>
@@ -150,16 +201,124 @@ const meta = computed(() => {
     >
       <HugeiconsIcon :icon="UndoIcon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back
     </button>
+    </div>
+    <!-- a kit's items, opened. Each is the piece itself: tapping one edits it. A
+         put-away item stays listed and stops counting; the kit's own weight, when it
+         has one, closes the list. -->
+    <ul v-if="isKit && open" class="vault__parts" :aria-label="`Items in ${displayName}`">
+      <li v-for="p in parts" :key="p.id" class="vault__part" :class="{ 'vault__part--removed': p.removed }">
+        <button
+          v-if="!p.removed"
+          type="button"
+          class="vault__partname t-clip"
+          :title="`Edit ${partName(p)}`"
+          @click="emit('edit-part', p.id)"
+        >{{ partName(p) }}</button>
+        <span v-else class="vault__partname t-clip">{{ partName(p) }} <span class="vault__partgone">· removed</span></span>
+        <span v-if="p.qty > 1" class="t-num vault__partqty">×{{ p.qty }}</span>
+        <span class="t-num vault__partweight">{{ formatWeight(p.weightMg * p.qty, unit) }}</span>
+      </li>
+      <li v-if="entry.ownWeightMg" class="vault__part">
+        <span class="vault__partname">Its own weight</span>
+        <span class="t-num vault__partweight">{{ formatWeight(entry.ownWeightMg, unit) }}</span>
+      </li>
+    </ul>
   </li>
 </template>
 
 <style scoped lang="scss">
 /* --- the row --- */
-/* de-outlined rows, separated by hairlines */
-.vault__row {
+/* de-outlined rows, separated by hairlines. The LINE is the flex row (name, weight,
+   mark, controls); the row around it also holds a kit's opened parts, so the two are
+   separate boxes. */
+.vault__line {
   display: flex;
   align-items: baseline;
   gap: var(--space-4);
+}
+/* --- a kit --- */
+/* its mark sits on the first line beside the name, the mark column's recipe */
+.vault__kitmark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  height: 1lh;
+  color: var(--ink-2);
+}
+/* the part count is the control that opens the kit — text-sized, so the row keeps the
+   rhythm of its neighbours */
+.vault__kitline {
+  margin: 0;
+}
+.vault__kittoggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: color var(--spring-fade-dur) var(--spring-fade);
+}
+.vault__kittoggle:hover {
+  color: var(--ink);
+}
+/* The parts: indented past the kit's mark, dimmed, one line each at the small size,
+   so a six-part kit fits a 375px phone without wrapping. The right edge stops where
+   the line's trailing cluster begins — the mark column and the three controls, with
+   the line's gaps between — so each part's weight sits in the kit's own weight column. */
+.vault__parts {
+  --row-tail: calc(4 * var(--icon-btn) + 2 * var(--space-1) + 2 * var(--space-4));
+  list-style: none;
+  margin: var(--space-1) 0 0;
+  padding: 0 var(--row-tail) 0 calc(16px + var(--space-4));
+  color: var(--ink-2);
+}
+.vault__part {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding-block: var(--space-1);
+}
+.vault__part + .vault__part {
+  border-top: 1px solid var(--line);
+}
+.vault__partname {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+span.vault__partname {
+  cursor: default;
+}
+button.vault__partname:hover {
+  color: var(--ink);
+}
+.vault__part--removed {
+  color: var(--ink-3);
+}
+.vault__partgone {
+  font-style: italic;
+}
+.vault__partqty {
+  flex: none;
+  color: var(--ink-3);
+}
+.vault__partweight {
+  flex: none;
+  min-width: 5rem;
+  text-align: right;
+}
+.vault__row {
   /* The editor's own item rhythm, to the pixel: .folder__items > * at --space-2.
      The anchor this used to cite ("Your lists", --space-4) is a page that no longer
      exists, and the reference that survives is the editor's, because these ARE that
@@ -261,15 +420,35 @@ const meta = computed(() => {
     margin-block: var(--tap-pull);
     align-self: center;
   }
+  /* the trailing cluster grows to --tap, and the parts' weight column follows it */
+  .vault__parts {
+    --row-tail: calc(var(--icon-btn) + 3 * var(--tap) + 2 * var(--space-1) + 2 * var(--space-4));
+  }
 }
 @media (max-width: $bp-stack) {
   /* name on its own line, weight + marks + controls beneath — nothing cramped */
-  .vault__row {
+  .vault__line {
     flex-wrap: wrap;
     gap: var(--space-2);
   }
   .gear__main {
     flex-basis: 100%;
+  }
+  /* a kit's mark keeps its place beside the name, and the name gives up its width */
+  .vault__row--kit .gear__main {
+    flex-basis: calc(100% - 16px - var(--space-2));
+  }
+  /* The whole kit sits at ONE edge under its mark. Stacked, the weight drops to a
+     second line at the row's left, which on a plain row is where the name is — on a
+     kit the name starts after the mark, so the weight line steps in to meet it, and
+     the parts indent to the same edge rather than the desktop's wider one (the line's
+     gap is --space-2 here, --space-4 there). Their weights just take the right edge. */
+  .vault__row--kit .vault__weight {
+    margin-left: calc(16px + var(--space-2));
+  }
+  .vault__parts {
+    padding-right: 0;
+    padding-left: calc(16px + var(--space-2));
   }
   .vault__weight {
     min-width: 0;

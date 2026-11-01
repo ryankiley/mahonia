@@ -53,6 +53,7 @@ function baseStub(snapshot?: Ref<ListSnapshot>) {
     vaultAuto: ref(false),
     vaultDeclined: ref(new Set<string>()),
     vaultGear: ref(new Map()),
+    vaultKits: ref(new Set<string>()),
     vaultGearAsked: ref(new Set()),
     vaultGearSettled: ref(true),
   };

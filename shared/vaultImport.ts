@@ -17,20 +17,26 @@ import {
   VAULT_IMPORT_MAX,
   VAULT_PIN_FIELDS,
   gearFromItem,
+  vaultNormKey,
   type VaultCapture,
+  type VaultKitPartRef,
   type VaultPinField,
 } from "./vault";
 
 /**
- * A row on its way in: the gear, plus the pins it arrives already holding.
+ * A row on its way in: the gear, plus the pins it arrives already holding — and,
+ * for a kit, what it is made of.
  *
  * Only our own JSON states pins — they are a record of decisions you made on
  * /gear, and restoring them is most of what makes a backup faithful. A CSV states
  * none, and inventing them would be worse than leaving them off: a row pinned on
- * the way in never learns anything from a list again.
+ * the way in never learns anything from a list again. The same goes for kits: a
+ * backup names a kit's parts, by identity, so the set comes back as a set; a CSV
+ * flattens, and its kit row re-imports as the piece it reads as there.
  */
 export interface VaultImportRow extends VaultCapture {
   pinned?: VaultPinField[];
+  kit?: { ownWeightMg: number; parts: VaultKitPartRef[] };
 }
 
 export interface VaultImport {
@@ -98,9 +104,28 @@ export function vaultImportFromJson(text: string): VaultImport | null {
       pinned: Array.isArray(item.pinned)
         ? (item.pinned.filter((p) => typeof p === "string" && PINS.has(p)) as VaultPinField[])
         : undefined,
+      // A kit's parts leave as IDENTITIES, for the reason folders leave as names:
+      // the ids in the file belong to the vault that wrote it. The part rows
+      // themselves are in the file beside the kit, so the server can link them once
+      // they're in (importVaultItems).
+      kit: item.kind === "kit" && Array.isArray(item.parts) ? kitOf(item.parts, item.ownWeightMg) : undefined,
     });
   }
   return { rows, from: "json" };
+}
+
+function kitOf(parts: unknown[], ownWeightMg: unknown): VaultImportRow["kit"] {
+  const refs: VaultKitPartRef[] = [];
+  for (const p of parts) {
+    if (!isRecord(p) || typeof p.name !== "string") continue;
+    const normKey = vaultNormKey(
+      typeof p.brand === "string" ? p.brand : undefined,
+      p.name,
+      typeof p.variant === "string" ? p.variant : undefined,
+    );
+    if (normKey) refs.push({ normKey, qty: typeof p.qty === "number" && p.qty > 0 ? Math.round(p.qty) : 1 });
+  }
+  return { ownWeightMg: typeof ownWeightMg === "number" && ownWeightMg > 0 ? ownWeightMg : 0, parts: refs };
 }
 
 /**

@@ -12,6 +12,7 @@
 import { enoughToSearch, foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
 import type { VaultEntry, VaultFolder } from "./vault";
+import { countedWeightMg } from "./vaultKit";
 import { rankVaultRows } from "./vaultSearch";
 import { groupBy, itemDisplayName } from "./weights";
 
@@ -119,11 +120,49 @@ function byName(a: VaultEntry, b: VaultEntry): number {
   );
 }
 
-/** One folder's worth of the page, with the two figures its header states. */
+/**
+ * What a set of rows weighs, counting each piece once and a kit only by its own
+ * weight — the FLAT reckoning, for a file: every piece is a line of its own there,
+ * so a kit's items are already counted as the lines they are.
+ */
+export function vaultTotalMg(rows: readonly VaultEntry[]): number {
+  return rows.reduce((sum, e) => sum + countedWeightMg(e), 0);
+}
+
+/**
+ * The rows as the page shows them nested: an item that is in a kit among these rows
+ * lives under that kit and is not a row of its own. Only a kit that IS among the rows
+ * hides its items — under a filter that leaves the kit out (a worn item in a kit that
+ * isn't worn), the item is a row again.
+ */
+export function nestedRows(rows: readonly VaultEntry[]): VaultEntry[] {
+  const kitsHere = new Set(rows.filter((r) => r.kind === "kit").map((r) => r.id));
+  return kitsHere.size ? rows.filter((r) => !(r.inKits ?? []).some((id) => kitsHere.has(id))) : [...rows];
+}
+
+/**
+ * What the gear on the page weighs, the way the page shows it: each row's own weight,
+ * a kit counted whole with its items at the counts it holds them. The same sum the
+ * folder figures make, so the page's total is theirs added up — and a kit holding
+ * three lighters weighs three lighters here, where the flat reckoning (vaultTotalMg)
+ * would count the one lighter row once.
+ */
+export function vaultShownMg(rows: readonly VaultEntry[]): number {
+  return nestedRows(rows).reduce((sum, e) => sum + e.weightMg, 0);
+}
+
+/** One folder's worth of the page, with the figures its header states. */
 export interface VaultSection {
   folder: VaultFolder | null;
   entries: VaultEntry[];
+  /** the PIECES shown here as rows; kits are counted apart, in `kits` */
   count: number;
+  /** the kits filed here */
+  kits: number;
+  /** What the rows here weigh. Nested, a kit counts whole — its items are under it
+   *  and nowhere else on the page — so the figure is the rows' weights added up, the
+   *  sum you'd make by eye. Flat (an export), each piece counts once wherever it is
+   *  filed and a kit adds only its own weight (vaultTotalMg). */
   weightMg: number;
 }
 
@@ -142,21 +181,29 @@ export interface VaultSection {
  * But not while a filter is on — "Worn" would otherwise answer with a dozen empty
  * headings and the two rows that matched buried among them, which is the same
  * failure that makes a search flatten in the first place.
+ *
+ * nest: a piece that is in a kit lives UNDER that kit, not also as a row of its own
+ * folder (nestedRows) — the page you browse, and the pane's categories, which are
+ * that page's folders, show each thing you own once. Showing a part twice, once in
+ * its folder and once in its kit, left folder figures that couldn't be added up by
+ * eye. Off for the exporters, which want every piece as a line of its own.
  */
 export function groupVaultRows(
   rows: VaultEntry[],
   folders: VaultFolder[],
-  { keepEmpty }: { keepEmpty: boolean },
+  { keepEmpty, nest = false }: { keepEmpty: boolean; nest?: boolean },
 ): VaultSection[] {
+  const shown = nest ? nestedRows(rows) : rows;
   // null is the unfiled bucket, a real key
-  const byFolder = groupBy(rows, (entry) => entry.folderId ?? null);
+  const byFolder = groupBy(shown, (entry) => entry.folderId ?? null);
   const section = (folder: VaultFolder | null, entries: VaultEntry[]): VaultSection => ({
     folder,
     entries,
-    count: entries.length,
+    count: entries.filter((e) => e.kind !== "kit").length,
+    kits: entries.filter((e) => e.kind === "kit").length,
     // summed here rather than in the template: a section is built once per change
     // and read once per render, so the folder header's figure costs nothing extra
-    weightMg: entries.reduce((sum, e) => sum + e.weightMg, 0),
+    weightMg: nest ? entries.reduce((sum, e) => sum + e.weightMg, 0) : vaultTotalMg(entries),
   });
   return folders
     .map((f) => section(f, byFolder.get(f.id) ?? []))

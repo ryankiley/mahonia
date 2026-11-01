@@ -122,4 +122,24 @@ export const VAULT_DDL: string[] = [
      ALTER TABLE vault_items ADD CONSTRAINT vault_classification_ck
        CHECK (classification IS NULL OR classification IN ('base','worn','consumable'));
    EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+
+  // Kits. `kind` arrives by ALTER like every column after the first, and every row
+  // that exists is a piece — the only kind there was. The CHECK is added the
+  // tolerant way the classification one is.
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'piece'`,
+  `DO $$ BEGIN
+     ALTER TABLE vault_items ADD CONSTRAINT vault_kind_ck CHECK (kind IN ('piece','kit'));
+   EXCEPTION WHEN duplicate_object THEN NULL; END $$`,
+  // A kit's parts — see server/db/schema.ts. The primary key is the pair, so a
+  // piece is in a kit once, with one qty; part_id has its own index because the
+  // reads run the other way too ("which kits is this piece in", and setKitParts'
+  // "is this row already somebody's part").
+  `CREATE TABLE IF NOT EXISTS vault_kit_parts (
+    kit_id integer NOT NULL,
+    part_id integer NOT NULL,
+    qty integer NOT NULL DEFAULT 1,
+    sort_order integer NOT NULL DEFAULT 0,
+    PRIMARY KEY (kit_id, part_id)
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_vault_kit_part ON vault_kit_parts (part_id)`,
 ];

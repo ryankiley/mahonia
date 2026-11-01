@@ -408,7 +408,8 @@ describe("vaultGearAmong — the membership read the editor runs on", () => {
   });
 
   const among = async (keys: string[], vault = VAULT) =>
-    new Map(await vaultGearAmong(db, vault, keys));
+    // the key and the weight only: the third element names a kit, which no row here is
+    new Map((await vaultGearAmong(db, vault, keys)).map(([k, w]) => [k, w]));
 
   it("answers for the keys asked about, with the weight a capture could still write", async () => {
     expect(await among(both)).toEqual(

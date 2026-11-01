@@ -99,7 +99,7 @@ export interface VaultCapture {
  * automatic path wrote single characters into the Map. A cast at the fetch is not
  * a check; a shared name at least makes the contract greppable from both sides.
  */
-export type VaultGearKey = [normKey: string, weightMg: number | null];
+export type VaultGearKey = [normKey: string, weightMg: number | null, kind?: "kit"];
 
 /** A vault folder as the API returns it. Deliberately smaller than a list Folder:
  *  no colorKey, no defaultClassification — those describe how a LIST presents and
@@ -138,7 +138,7 @@ export const VAULT_PIN_FIELDS = [
 export type VaultPinField = (typeof VAULT_PIN_FIELDS)[number];
 
 /** A stored gear row as the API returns it. */
-export interface VaultEntry extends VaultCapture {
+export interface VaultEntry extends VaultCapture, VaultKitFields {
   /** which vault folder it's filed under; absent = unfiled */
   folderId?: number;
   /** Which fields you've corrected by hand, so capture leaves them alone. Absent =
@@ -150,6 +150,72 @@ export interface VaultEntry extends VaultCapture {
   timesSeen: number;
   lastUsedAt: string;
   createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// kits
+// ---------------------------------------------------------------------------
+// A KIT is a set you itemize: a cook kit that is a stove, a pot and a lighter. It is
+// a vault row like any other — a name, a folder, a note — whose weight is its parts'.
+// A thing you weigh whole and never itemize (the first-aid pouch you never open) is
+// not a kit; it is a piece with a weight, which the vault has always held.
+//
+// What a kit is FOR is the list. A list already nests one level — a row with rows
+// under it is a group, and the group's line shows the total — and My Gear used to
+// refuse exactly that shape (see isVaultWorthy): the set you built on a trip was
+// remembered as its pieces and forgotten as a set. A kit is that group, kept. It is
+// made from a group (kitFromGroup, behind the group row's own Save to My Gear) or by
+// hand on /gear, and it goes back onto a list as a group — a parent row carrying the
+// kit's own weight, each part a real child row you can drop, assign or annotate for
+// that trip.
+//
+// One level deep, like the list: a part is always a piece. A piece may sit in several
+// kits (the lighter in the cook kit and the fire kit), and totals count it once,
+// where it is filed. The arithmetic and the builder live in vaultKit.ts, off the
+// editor's first load; the types and the row's own gate (isKitWorthy) live here.
+
+export type VaultKind = "piece" | "kit";
+
+/** One part of a kit as a read hands it back: which piece, how many, and enough of
+ *  the piece to draw it under the kit — a put-away part is not in the live list the
+ *  page holds, and it is still listed here, flagged. */
+export interface VaultKitPart {
+  id: number;
+  qty: number;
+  brand?: string;
+  name: string;
+  variant?: string;
+  /** ONE unit of the part, as the part row stores it */
+  weightMg: number;
+  /** put away on /gear: still listed under the kit, no longer counted */
+  removed?: boolean;
+}
+
+/** The kit fields a read adds to an entry. On a kit the entry's own `weightMg` is the
+ *  DERIVED total (own + live parts × qty), so anything that shows or sorts one row
+ *  sees the true figure; a TOTAL over rows reckons it apart (vaultKit.ts). */
+export interface VaultKitFields {
+  /** absent on a piece */
+  kind?: "kit";
+  /** a kit's own weight (the stuff sack), as stored — usually 0 */
+  ownWeightMg?: number;
+  /** a kit's parts, in the kit's order, put-away ones included and flagged */
+  parts?: VaultKitPart[];
+  /** a piece's live kits, by id; absent when it is in none */
+  inKits?: number[];
+}
+
+/** A part named the way a capture can name it: by the gear's identity, with the
+ *  count the group carried. Ids belong to the vault, and a list has none. */
+export interface VaultKitPartRef {
+  normKey: string;
+  qty: number;
+}
+
+/** A group row offered to the vault as a kit: the parent as gear (its weightMg is
+ *  the group's OWN weight, the stuff sack), plus which of the children are its parts. */
+export interface VaultKitCapture extends VaultCapture {
+  parts: VaultKitPartRef[];
 }
 
 function trim(v: string | undefined | null, max: number): string | undefined {
@@ -215,7 +281,7 @@ export function isVaultWorthy(item: Item, hasChildren: boolean): boolean {
 
 /** Water is the one list row the editor synthesises from a volume (see
  *  shared/water.ts) — never gear. */
-function isWaterRow(item: Item): boolean {
+export function isWaterRow(item: Item): boolean {
   return item.classification === "consumable" && foldForSearch(item.name) === "water";
 }
 
@@ -308,6 +374,28 @@ export function captureFromList(
     if (cap) byKey.set(cap.normKey, cap);
   }
   return [...byKey.values()].slice(0, VAULT_CAPTURE_MAX);
+}
+
+/**
+ * Could this group row be saved as a KIT — the render gate for its save button, the
+ * way isVaultWorthy is for a piece's. A named group that isn't water, holding at
+ * least one child that is gear in its own right (and isn't the group's own name).
+ *
+ * Its own small test rather than "would kitFromGroup build one": this runs on every
+ * group row, so it lives here, in the module every row loads; the builder only runs
+ * on the press, and lives with the rest of the kit code (vaultKit.ts), off that path.
+ */
+export function isKitWorthy(parent: Item, children: readonly Item[]): boolean {
+  if (isWaterRow(parent)) return false;
+  const own = vaultNormKey(parent.brand, parent.name, parent.variant);
+  return (
+    !!own &&
+    children.some((c) => {
+      if (c.parentId !== parent.id || !isVaultWorthy(c, false)) return false;
+      const key = vaultNormKey(c.brand, c.name, c.variant);
+      return !!key && key !== own;
+    })
+  );
 }
 
 /**

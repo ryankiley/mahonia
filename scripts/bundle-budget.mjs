@@ -115,7 +115,12 @@ const FIRST_LOAD_BUDGET_KB = 157;
 // is a new lazy route (the /authorize consent page, 1.3), the account panel's
 // assistant section (1.2), four product marks on its buttons (0.7) and the glue
 // between them. All of it behind a click or on its own route; no chunk grew.
-const TOTAL_BUDGET_KB = 306;
+//
+// Re-set 2026-10-31 at 305.0 measured (was 306): kits in My Gear, on top of #473. All
+// of it on lazy chunks — the gear page's (the kit row, the dialog's Items section),
+// the pane's (a kit unfolding into a group), useVaultGroup and shared/vaultKit — the
+// shape this backstop is not meant to price. No chunk grew.
+const TOTAL_BUDGET_KB = 311;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

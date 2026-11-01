@@ -59,7 +59,7 @@ import { ASSUMED_FUEL_PER_BOIL_G, isFuelRow, offersKcal, offersWorn } from "~~/s
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
 // like useGearList's own vaultNormKey — this module is in the editor graph already)
-import { isVaultWorthy, vaultNormKey } from "~~/shared/vault";
+import { isKitWorthy, isVaultWorthy, vaultNormKey } from "~~/shared/vault";
 
 // The editor's row — editable by default, a checklist row in packing mode. A nested item
 // renders the SAME row with `nested` set (indented, one level only). The share views
@@ -934,7 +934,12 @@ const setPerson = (personId: string | null) => c.updateItem(props.item.id, { per
 // keystroke. So the button arrives once, when the row's facts do, not letter by
 // letter. (On a covered list both gates flip in the same commit, worthy AND
 // covered, so completing a row there never flashes a button it's about to take.)
-const vaultWorthy = computed(() => isVaultWorthy(props.item, isParent.value));
+// A GROUP is worthy as a KIT — the one way a container is gear, and the deliberate
+// one: pressed, the group and its children go to My Gear as a set (useVault's
+// captureGroup), which the automatic path never does for a heading.
+const vaultWorthy = computed(() =>
+  isParent.value ? isKitWorthy(props.item, children.value) : isVaultWorthy(props.item, false),
+);
 const vaultKey = computed(() => vaultNormKey(props.item.brand, props.item.name, props.item.variant));
 const vaultCovered = computed(() => {
   // Signed out there is no vault, so nothing can be in one and every worthy row
@@ -955,6 +960,11 @@ const vaultCovered = computed(() => {
   // settles even when it fails, times out, or is skipped for a visitor with no
   // account (see askVaultGear), so there is no state where it never answers.
   if (!vaultGearAsked.value.has(vaultKey.value)) return true;
+  // A group is covered when My Gear holds it AS A KIT — not when it holds a piece
+  // of the same name, which is exactly what pressing the group's save turns into
+  // the set. And never by the automatic path below: that path captures a group's
+  // children and never the group, so a kit is only ever made by this press.
+  if (isParent.value) return c.vaultKits.value.has(vaultKey.value);
   // THE TRUTHFUL TEST, and the one this button spent three attempts without: My
   // Gear either has this piece of gear or it doesn't. It holds however the row got
   // there — a list on another device, an import, a hand-typed row on /gear — and
@@ -990,7 +1000,9 @@ const vaultCovered = computed(() => {
 const vaultSaved = ref(false);
 const vaultBusy = ref(false);
 const vaultLabel = computed(() =>
-  vaultSaved.value ? "Saved to My Gear" : "Save to My Gear",
+  isParent.value
+    ? vaultSaved.value ? "Saved to My Gear as a kit" : "Save to My Gear as a kit"
+    : vaultSaved.value ? "Saved to My Gear" : "Save to My Gear",
 );
 /** Does this row offer the save affordance at all — the inline icon and the ⋯
  *  entry, which must agree.
@@ -1041,7 +1053,13 @@ async function onSaveToVault() {
   emit(
     "toast",
     result === "unworthy"
-      ? "Give the row a name and a weight first"
+      ? isParent.value
+        ? "Name the group and weigh the rows under it first"
+        : "Give the row a name and a weight first"
+      // One level deep: a piece that is already some kit's part can't hold parts of
+      // its own, and the group would have made it one.
+      : result === "nested"
+        ? "This is already in a kit in My Gear, so it can’t be a kit itself"
       // You removed this gear on /gear, and capture never resurrects a tombstone
       // — so "try again in a moment" would be a lie and a loop. Say where the way
       // back is, in the words that page uses for it.
