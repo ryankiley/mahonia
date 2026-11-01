@@ -815,6 +815,9 @@ export type VaultItemOp =
       weightMg?: number;
       classification?: Classification;
       kcal?: number;
+      /** The catalog row the piece is a pick of, when it is one: what a captured pick
+       *  carries, stated by hand. Bounded by sanitize() like a capture's. */
+      catalogItemId?: number;
       productUrl?: string;
       description?: string;
       priceCents?: number;
@@ -859,6 +862,9 @@ interface VaultItemPatch {
    *  amount is in without the amount being restated, which is how "£399" becomes
    *  "$399" by editing a field the dialog didn't show you. */
   currency?: string | null;
+  /** Link the piece to a catalog row, or null to unlink it. No pin: a link is a fact
+   *  about which product this is, not a value a list could argue with. */
+  catalogItemId?: number | null;
 }
 
 /** The pin flags a deliberate write asserts, returned in the SAME object as the
@@ -929,6 +935,11 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
       out.kcal = kcalOf(p.kcal) ?? null; // ≤0 reads as "clear", like the reducer's
       out.kcalPinned = true;
     }
+  }
+  if ("catalogItemId" in p) {
+    // the column is a Postgres integer: the bound sanitize() holds a capture to
+    if (p.catalogItemId === null) out.catalogItemId = null;
+    else if (isSerialId(p.catalogItemId)) out.catalogItemId = p.catalogItemId;
   }
   if (typeof p.description === "string" || p.description === null) {
     out.description = str(p.description, VAULT_NOTE_MAX) ?? null;

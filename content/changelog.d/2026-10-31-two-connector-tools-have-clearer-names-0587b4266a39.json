@@ -1,6 +1,0 @@
-{
-  "date": "2026-10-31",
-  "changed": [
-    "Two connector tools have clearer names: get_my_gear (was list_my_gear) and update_list (was set_trip)."
-  ]
-}

@@ -28,9 +28,10 @@ import { rateLimit } from "../utils/rateLimit";
 // sign-in works as it always has.
 //
 // The account tools are the exception, and the ONE place this endpoint answers 401 or
-// 403: get_my_lists, the four My Gear tools, and a write tool that names its list by
-// share_code rather than by edit link, which is asking to change a list filed under an
-// account and is gated as an account tool for that call. A 401 is the signal Claude's clients
+// 403: get_my_gear and edit_my_gear; a get_list with no share_code, which is asking
+// for the lists filed under an account; and an edit_list that names its list by
+// share_code rather than by edit link, which is asking to change one of them. The last
+// two are account tools for that call and list tools otherwise. A 401 is the signal Claude's clients
 // read as "this server wants a sign-in": on it, and only on it, Claude shows the
 // Connect card, runs the OAuth sign-in (server/utils/oauth.ts) and retries the call. So
 // a tools/call naming an account tool with no valid bearer — none, unknown, revoked, or
@@ -144,7 +145,7 @@ export default defineEventHandler(async (event) => {
     case "ping":
       return result(id, {});
     case "tools/list":
-      // one page, always: fifteen tools fit without a cursor, and a cursor that arrives anyway
+      // one page, always: six tools fit without a cursor, and a cursor that arrives anyway
       // names a page this server never handed out
       if (params.cursor != null) return error(id, -32602, "Invalid cursor");
       return result(id, { tools: MCP_TOOLS });

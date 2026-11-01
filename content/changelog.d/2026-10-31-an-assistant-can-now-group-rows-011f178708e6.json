@@ -1,0 +1,10 @@
+{
+  "date": "2026-10-31",
+  "added": [
+    "An assistant can now group rows, nest a new or existing row under a group, and relink a row to the catalog without moving it.",
+    "An assistant can link a piece of My Gear to the catalog, as it adds the piece or later."
+  ],
+  "changed": [
+    "The connector has six tools instead of fifteen, so an assistant asks for fewer permissions."
+  ]
+}
