@@ -1,0 +1,7 @@
+{
+  "date": "2026-10-31",
+  "fixed": [
+    "My Gear no longer adds a second copy of a product when the catalog later tidies how its size or variant is written.",
+    "A list row keeps its catalog link and current name when the catalog folds its product into another."
+  ]
+}
