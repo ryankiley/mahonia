@@ -22,14 +22,12 @@ const line = (d: string): IconChild => [
 ];
 const glyph = (...children: IconChild[]): IconNode => children;
 
-/** The mummy, after Ryan's sketch: an egg-shaped bag, the face opening as a soft
- *  window, the hood's edge sweeping from it to the side, two baffles floating below. */
+/** The mummy, from a sketch in review: an egg-shaped bag, the face opening as a soft
+ *  window, one baffle below. */
 export const SleepingBagGlyph = glyph(
   line("M12 2C15.2 2 17.6 4.3 17.6 7.5C17.6 11 17.2 14.5 16.3 17.8C15.6 20.3 14 22 12 22C10 22 8.4 20.3 7.7 17.8C6.8 14.5 6.4 11 6.4 7.5C6.4 4.3 8.8 2 12 2Z"),
   line("M10.1 4.4H13.9C14.67 4.4 15.3 5.03 15.3 5.8V7.2C15.3 7.97 14.67 8.6 13.9 8.6H10.1C9.33 8.6 8.7 7.97 8.7 7.2V5.8C8.7 5.03 9.33 4.4 10.1 4.4Z"),
-  line("M13.9 8.6C15.9 8.6 17.58 9.45 17.49 10.65"),
-  line("M8.9 12.7C10.9 13.05 13 13.05 15 12.7"),
-  line("M9.6 16.3C11.2 16.55 12.8 16.55 14.4 16.3"),
+  line("M8.9 13.5C10.9 13.85 13.1 13.85 15.1 13.5"),
 );
 
 /** A pair: grips, shafts, baskets. */
