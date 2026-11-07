@@ -1197,9 +1197,6 @@ async function exportGear(kind: string) {
 .vault__add {
   border-top: 1px solid var(--line);
   padding-top: var(--space-3);
-  /* in from the left by the rows' icon column, so "Add gear" (and the fields it opens)
-     line up with the gear names above it, not with their icons */
-  padding-inline-start: var(--gear-type-indent);
 }
 /* an EMPTY folder's add row is its FIRST row, so it drops the rule — a first row
    never carries a divider under the folder name, and it keeps the name line-free

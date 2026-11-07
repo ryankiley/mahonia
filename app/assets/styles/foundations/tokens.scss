@@ -527,8 +527,8 @@ $bp-full: 1024px !default;
      this width (CategoryBar), so the two must move together. */
   --swatch: 10px;
   /* My Gear's gear-type icon column (VaultGearRow) and how far a row's name sits in from
-     it — named because the folder's "Add gear" row indents by the same amount, so the
-     add row's text lines up with the names above it rather than with the icons. */
+     it. "Add gear" stays flush left with the folder name: indented, it floated under an
+     empty folder's title with nothing to line up with. */
   --gear-type-w: 1.5rem;
   --gear-type-indent: calc(var(--gear-type-w) + var(--space-2));
   /* touch targets — the ~44px Apple-HIG minimum box + the enlarged glyph,
