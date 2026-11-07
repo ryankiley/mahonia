@@ -37,7 +37,7 @@ import {
   ZzzIcon,
 } from "@hugeicons/core-free-icons";
 import type { IconNode } from "./hugeicon";
-import { gearGlyphFor, type GearGlyph } from "~~/shared/gearGlyph";
+import { GEAR_GLYPH_LABELS, GEAR_GLYPHS, gearGlyphFor, type GearGlyph } from "~~/shared/gearGlyph";
 import {
   CarabinerGlyph,
   HeadlampGlyph,
@@ -104,9 +104,31 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   games: ChessKnightIcon,
 };
 
-/** The icon a piece of gear wears, from its gear type (its name when it has none);
- *  null when nothing fits. */
-export function gearIcon(commonName: string | null | undefined, name?: string | null): IconNode | null {
-  const glyph = gearGlyphFor(commonName, name);
+/** The icon a piece of gear wears: the one you picked for it, else its gear type's
+ *  (its name's when it has none); null when nothing fits. */
+export function gearIcon(
+  commonName: string | null | undefined,
+  name?: string | null,
+  picked?: GearGlyph | null,
+): IconNode | null {
+  const glyph = picked ?? gearGlyphFor(commonName, name);
   return glyph ? GEAR_ICONS[glyph] : null;
 }
+
+/** The name the icon goes by, for whichever icon gearIcon would draw. */
+export function gearIconLabel(
+  commonName: string | null | undefined,
+  name?: string | null,
+  picked?: GearGlyph | null,
+): string | null {
+  const glyph = picked ?? gearGlyphFor(commonName, name);
+  return glyph ? GEAR_GLYPH_LABELS[glyph] : null;
+}
+
+/** Every icon in the set, in the set's own order (shelter, carrying, clothing, water
+ *  and kitchen, tools, electronics, body, camp), for picking one by hand. */
+export const GEAR_ICON_CHOICES = GEAR_GLYPHS.map((glyph) => ({
+  glyph,
+  icon: GEAR_ICONS[glyph],
+  label: GEAR_GLYPH_LABELS[glyph],
+}));

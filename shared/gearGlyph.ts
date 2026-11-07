@@ -48,6 +48,29 @@ export const GEAR_GLYPHS = [
 ] as const;
 export type GearGlyph = (typeof GEAR_GLYPHS)[number];
 
+const GLYPH_SET: ReadonlySet<string> = new Set(GEAR_GLYPHS);
+/** A name off the wire or out of a column that still names an icon in the set. A
+ *  stored pick whose icon has since been dropped from the set fails this and the row
+ *  falls back to its type's icon, rather than drawing nothing. */
+export function isGearGlyph(v: unknown): v is GearGlyph {
+  return typeof v === "string" && GLYPH_SET.has(v);
+}
+
+/** What each icon is called where you pick one by hand (the edit dialog's grid): its
+ *  tooltip and its accessible name. Plain words for the family, not the drawing. */
+export const GEAR_GLYPH_LABELS: Record<GearGlyph, string> = {
+  tent: "Tent", bug: "Bug net", cord: "Cord", poles: "Trekking poles", sleep: "Sleep",
+  pad: "Pad", backpack: "Backpack", bag: "Bag", container: "Container", wallet: "Wallet",
+  jacket: "Jacket", shirt: "Shirt", pants: "Pants", underwear: "Underwear", socks: "Socks",
+  shoe: "Shoes", boot: "Boots", hat: "Hat", neck: "Neckwear", glove: "Gloves",
+  glasses: "Glasses", bottle: "Bottle", hydration: "Water", filter: "Filter",
+  stove: "Stove", pot: "Pot", cup: "Cup", utensils: "Utensils", meal: "Meal",
+  food: "Snack", knife: "Knife", repair: "Repair", light: "Light", phone: "Phone",
+  watch: "Watch", earbuds: "Audio", camera: "Camera", electronics: "Electronics",
+  firstAid: "First aid", toiletry: "Toiletry", towel: "Towel", toilet: "Toilet",
+  chair: "Chair", carabiner: "Carabiner", games: "Games",
+};
+
 const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   // the names whose last word would send them to the wrong family
   [/\b(bottle cap|filter cap)\b/, "bottle"],

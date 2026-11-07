@@ -10,6 +10,7 @@
 // So a vault row is keyed by its TEXT, not by a catalog id: two list rows are the
 // same gear when their brand + name + variant fold to the same string.
 
+import type { GearGlyph } from "./gearGlyph";
 import { foldForSearch } from "./searchText";
 import type { Classification, Item } from "./types";
 
@@ -144,6 +145,8 @@ export interface VaultEntry extends VaultCapture {
   /** Which fields you've corrected by hand, so capture leaves them alone. Absent =
    *  nothing pinned, which is every row only a list has ever written. */
   pinned?: VaultPinField[];
+  /** The icon you picked for it by hand; absent = drawn from its gear type. */
+  icon?: GearGlyph;
   id: number;
   /** How many distinct captures have landed on this row — a "how often do I pack
    *  this" signal that ranks the autocomplete, like the catalog's usage_count. */

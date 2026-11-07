@@ -6,7 +6,7 @@ import type { VaultEntry } from "~~/shared/vault";
 import { formatPrice } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { consumableIcon } from "~/utils/itemMarks";
-import { gearIcon } from "~/utils/gearIcons";
+import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 
 // One row of /gear: the name cell, the weight, the class mark and the trailing
 // controls — or, for a REMOVED piece, the way back.
@@ -27,7 +27,8 @@ const props = defineProps<{
   removed?: boolean;
 }>();
 const emit = defineEmits<{
-  edit: [];
+  /** "icon" when the row's icon was pressed: the dialog opens on its icon grid */
+  edit: [focus?: "icon"];
   remove: [];
   move: [folderId: number | null];
   restore: [];
@@ -39,7 +40,8 @@ const displayName = computed(() => itemDisplayName(props.entry.brand, props.entr
 // What KIND of gear this is, as an icon: read off the gear type, or the name when the
 // row has no type (shared/gearGlyph.ts). Null leaves the column empty rather than
 // guessing — a wrong icon is worse than none.
-const typeIcon = computed(() => gearIcon(props.entry.commonName, props.entry.name));
+const typeIcon = computed(() => gearIcon(props.entry.commonName, props.entry.name, props.entry.icon));
+const typeLabel = computed(() => gearIconLabel(props.entry.commonName, props.entry.name, props.entry.icon));
 // Calories, gated on the class exactly as computeTotals gates them — so what the row
 // shows is what a list would count, rather than a number the totals ignore. A removed
 // row shows its type only.
@@ -64,9 +66,26 @@ const meta = computed(() => {
     <!-- the kind of gear, before its name: a fixed column whether or not this row has
          one, so every name starts at the same x. Decorative — the gear type says the
          same thing in words on the line below. -->
-    <span class="vault__type" aria-hidden="true">
+    <span v-if="removed" class="vault__type" aria-hidden="true">
       <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
     </span>
+    <!-- On a live row the icon is also the way to change it: pressing it opens the
+         edit dialog on its icon grid, and an empty slot is where you'd press to give
+         a row one. Out of the tab order and hidden from assistive tech, because it is
+         a shortcut to a field the row's Edit button already reaches — a second stop
+         per row would double the keyboard walk down a page of a hundred. -->
+    <button
+      v-else
+      type="button"
+      class="vault__type vault__type--pick"
+      :class="{ 'is-blank': !typeIcon }"
+      tabindex="-1"
+      aria-hidden="true"
+      :title="typeLabel ? `${typeLabel} · change icon` : 'Pick an icon'"
+      @click="emit('edit', 'icon')"
+    >
+      <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
+    </button>
     <div class="gear__main">
       <!-- the title is the whole name: clipped, two catalog names that differ only at
            the end ("… Regular" / "… Long Wide") read identically, and this is the way
@@ -202,6 +221,33 @@ const meta = computed(() => {
   height: 1lh;
   margin-inline-end: calc(var(--space-2) - var(--space-4));
   color: var(--ink-2);
+}
+/* the slot as a button: no box of its own, the glyph just deepens under a pointer */
+.vault__type--pick {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+/* an empty slot shows where an icon would go, faintly, so there is something to press */
+.vault__type--pick.is-blank::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 1.5px dashed var(--line-2);
+  border-radius: var(--radius-1);
+}
+@media (hover: hover) and (pointer: fine) {
+  .vault__type--pick:hover {
+    color: var(--ink);
+  }
+  .vault__type--pick.is-blank:hover::before {
+    border-color: var(--ink-3);
+  }
+}
+.vault__type--pick:active {
+  opacity: 0.7;
 }
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with the gear pane, which used to hand-mirror

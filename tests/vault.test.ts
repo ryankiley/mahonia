@@ -1211,6 +1211,21 @@ describe("editing a vault row", () => {
     expect(after.lastUsedAt).toBe(before.lastUsedAt);
   });
 
+  it("keeps a picked icon, refuses one outside the set, and clears back to the type's", async () => {
+    await captureVaultItems(db, VAULT, [cap({ commonName: "Sun hoodie" })]);
+    const id = (await only(db))!.id;
+    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { icon: "shirt" } } as any);
+    expect((await only(db))!.icon).toBe("shirt");
+    // a name the set doesn't have would draw nothing, so it is not stored over the pick
+    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { icon: "rocket" } } as any);
+    expect((await only(db))!.icon).toBe("shirt");
+    // a list landing on the same gear never carries an icon, so it can't undo the pick
+    await captureVaultItems(db, VAULT, [cap({ commonName: "Sun hoodie" })]);
+    expect((await only(db))!.icon).toBe("shirt");
+    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { icon: null } } as any);
+    expect((await only(db))!.icon).toBeUndefined();
+  });
+
   it("refuses an unknown op", async () => {
     expect(await applyVaultItemOp(db, VAULT, { t: "nope" } as any)).toBeNull();
   });

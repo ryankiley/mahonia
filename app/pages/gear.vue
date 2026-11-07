@@ -400,8 +400,12 @@ async function commitAdd(folderId: number | null) {
 // The dialog is Lazy + v-if on "has it ever opened", so its chunk never loads for
 // someone who only came to look — the LazyCatalogCorrectionModal idiom.
 const editing = ref<VaultEntry | null>(null);
+// "icon" when the row's icon was what you pressed: the dialog opens with its icon grid
+// showing, since picking one is why you came
+const editFocus = ref<"icon" | null>(null);
 const editorEverOpened = useLatch(() => editing.value);
-function openEdit(entry: VaultEntry) {
+function openEdit(entry: VaultEntry, focus: "icon" | null = null) {
+  editFocus.value = focus;
   editing.value = entry;
 }
 // Patch the one row in place rather than re-reading the vault: the endpoint returns
@@ -711,7 +715,7 @@ async function exportGear(kind: string) {
                 :unit="unit"
                 :folder-options="folderOptions"
                 :busy="removing === entry.id"
-                @edit="openEdit(entry)"
+                @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
                 @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                 @remove="remove(entry)"
               />
@@ -806,7 +810,7 @@ async function exportGear(kind: string) {
                         :busy="removing === entry.id"
                         :class="{ 'vault__row--dragging': itemMove?.id === entry.id }"
                         @pointerdown="rowPress.start(entry.id, $event)"
-                        @edit="openEdit(entry)"
+                        @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
                         @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                         @remove="remove(entry)"
                         @overlay-toggle="(o: boolean) => onOverlayToggle(sectionKey(section), o)"
@@ -948,6 +952,7 @@ async function exportGear(kind: string) {
     <LazyVaultItemModal
       v-if="editorEverOpened"
       :entry="editing"
+      :focus="editFocus"
       :unit="unit"
       :default-currency="vaultCurrency"
       @close="editing = null"

@@ -345,6 +345,9 @@ export const vaultItems = pgTable(
     name: text("name").notNull(),
     variant: text("variant"),
     commonName: text("common_name"),
+    // The icon you picked for it on /gear, by its name in shared/gearGlyph's set. Null =
+    // drawn from the gear type. Only you write it (no list carries one), so no pin.
+    icon: text("icon"),
     weightMg: bigint("weight_mg", { mode: "number" }).notNull().default(0),
     classification: text("classification"), // base|worn|consumable (null = unset)
     // Food energy per unit, whole kcal — the calorie twin of weight_mg, so the
