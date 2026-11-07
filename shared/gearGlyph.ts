@@ -33,7 +33,8 @@ export const GEAR_GLYPHS = [
   "jacket", "shirt", "pants", "socks", "shoe", "hat", "glove", "glasses",
   // water and kitchen
   "bottle", "filter", "stove", "pot", "food", "knife",
-  // anything with a battery or a cable: one icon, since each kind is a one-off on a page
+  // anything with a battery or a cable: one catch-all icon, since each kind is a
+  // one-off on a page
   "electronics",
   // body
   "firstAid", "toiletry", "toilet",

@@ -1,8 +1,8 @@
 import {
   Backpack02Icon,
-  BatteryCharging01Icon,
   ChocolateIcon,
   CookingPotIcon,
+  EnergyIcon,
   Fire02Icon,
   FirstAidKitIcon,
   GlassesIcon,
@@ -56,7 +56,7 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   pot: CookingPotIcon,
   food: ChocolateIcon,
   knife: PocketKnifeIcon,
-  electronics: BatteryCharging01Icon,
+  electronics: EnergyIcon,
   firstAid: FirstAidKitIcon,
   toiletry: TubeGlyph,
   toilet: ShovelIcon,

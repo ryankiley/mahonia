@@ -24,7 +24,7 @@ import {
   SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, ThirdBracketIcon, Txt01Icon,
   Undo02Icon, UserLock01Icon,
   // My Gear's gear-type icons (app/utils/gearIcons.ts)
-  BatteryCharging01Icon, ChocolateIcon, CookingPotIcon,
+  ChocolateIcon, CookingPotIcon,
   FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, PocketKnifeIcon,
   Shirt01Icon, ShovelIcon, SneakerIcon, SocksIcon,
   YogaMatIcon,
@@ -48,7 +48,7 @@ const ALL_ICONS = Object.entries({
   SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, ThirdBracketIcon, Txt01Icon,
   Undo02Icon, UserLock01Icon,
   // My Gear's gear-type icons (app/utils/gearIcons.ts)
-  BatteryCharging01Icon, ChocolateIcon, CookingPotIcon,
+  ChocolateIcon, CookingPotIcon,
   FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, PocketKnifeIcon,
   Shirt01Icon, ShovelIcon, SneakerIcon, SocksIcon,
   YogaMatIcon,
