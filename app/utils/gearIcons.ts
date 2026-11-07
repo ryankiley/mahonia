@@ -77,7 +77,7 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   glove: GloveIcon,
   glasses: GlassesIcon,
   bottle: WaterBottleGlyph,
-  reservoir: DropletIcon,
+  hydration: DropletIcon,
   filter: WaterEnergyIcon,
   stove: StoveGlyph,
   pot: CookingPotIcon,

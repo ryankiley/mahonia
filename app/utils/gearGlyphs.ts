@@ -12,10 +12,10 @@ import type { IconChild, IconNode } from "./hugeicon";
 // (it has no jacket at all), a water bottle, a canister stove, a toiletry tube, a
 // headlamp, a carabiner, a hiking boot and a neck gaiter.
 // Everything else is a Hugeicons glyph, several of them Ryan's picks made while
-// reviewing these drawings: Zzz for anything slept in, Droplet for a reservoir,
-// Chocolate for food, Hat, Glasses, Shirt01, Sneaker, MoneyBag01 for every bag,
-// Energy for electronics, WaterEnergy for a filter. app/utils/gearIcons.ts joins name
-// to icon.
+// reviewing these drawings: Zzz for anything slept in, Droplet for a reservoir and
+// electrolytes, Chocolate for food, Hat, Glasses, Shirt01, Sneaker, MoneyBag01 for every
+// bag, Energy for electronics, WaterEnergy for a filter. app/utils/gearIcons.ts joins
+// name to icon.
 
 const line = (d: string): IconChild => [
   "path",

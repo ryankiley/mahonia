@@ -35,7 +35,7 @@ export const GEAR_GLYPHS = [
   "jacket", "shirt", "pants", "underwear", "socks", "shoe", "boot", "hat", "neck",
   "glove", "glasses",
   // water and kitchen
-  "bottle", "reservoir", "filter", "stove", "pot", "cup", "utensils", "meal", "food",
+  "bottle", "hydration", "filter", "stove", "pot", "cup", "utensils", "meal", "food",
   // tools
   "knife", "repair",
   // electronics: the devices people recognise at a glance, and one catch-all for the
@@ -89,9 +89,10 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(gloves?|glove liners|mitts|mittens)\b/, "glove"],
   [/\b(sunglasses|glasses|goggles)\b/, "glasses"],
 
-  // water: the filter, the reservoir with the parts that hang off it, then the bottle
+  // water: the filter; then a droplet for the reservoir, the parts that hang off it and
+  // what you mix into it; then the bottle
   [/\b(water filter|filter|water treatment|purifier|cleaning tablets|water hang kit)\b/, "filter"],
-  [/\b(water reservoir|reservoir|bladder|hose|tube clip|tube insulator|cleaning coupling)\b/, "reservoir"],
+  [/\b(water reservoir|reservoir|bladder|hose|tube clip|tube insulator|cleaning coupling|electrolytes?|electrolyte mix|drink mix|hydration mix|sports drink)\b/, "hydration"],
   [/\b(water bottle|bottle|flask|soft flask|straw)\b/, "bottle"],
 
   // kitchen and food: the drinks and the eating before the pot, the snacks before the meals
@@ -99,7 +100,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(cup|mug|mug lid|coffee maker|french press|instant coffee|coffee)\b/, "cup"],
   [/\b(spork|spoon|utensils?|fork|chopsticks|spatula|tongs)\b/, "utensils"],
   [/\b(pot|cookset|frying pan|pan|kettle|pot lid|pot cozy|pot lifter|food cozy|funnel|egg holder|lid knob|handle grips)\b/, "pot"],
-  [/\b(bars?|waffle|chews|gummies|candy|fruit snack|snack mix|snacks?|trail mix|pretzels?|electrolyte mix|drink mix|nut butter|dog food)\b/, "food"],
+  [/\b(bars?|waffle|chews|gummies|candy|fruit snack|snack mix|snacks?|trail mix|pretzels?|nut butter|dog food)\b/, "food"],
   [/\b(meals?|dinner|breakfast|lunch|ramen|noodles|bowl|plate|grill plate)\b/, "meal"],
 
   // tools
