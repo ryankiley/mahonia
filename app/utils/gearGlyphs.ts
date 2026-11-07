@@ -9,9 +9,10 @@ import type { IconChild, IconNode } from "./hugeicon";
 //
 // What's here is what the free set has no good picture for among the icons the gear
 // page uses (shared/gearGlyph.ts keeps that set small): a sleeping bag, trekking
-// poles, a jacket (it has no jacket at all), a water bottle and a toiletry tube.
+// poles, a jacket (it has no jacket at all), a water bottle, a canister stove and a
+// toiletry tube.
 // Everything else is a Hugeicons glyph, several of them Ryan's picks made while
-// reviewing these drawings: Chocolate for food, Hat, Glasses, Fire02 for the stove,
+// reviewing these drawings: Chocolate for food, Hat, Glasses,
 // Shirt01, Sneaker, MoneyBag01 for every bag, Energy for electronics, WaterEnergy for
 // a filter. app/utils/gearIcons.ts joins name to icon.
 
@@ -19,18 +20,16 @@ const line = (d: string): IconChild => [
   "path",
   { d, stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "1.5" },
 ];
-const ring = (cx: number, cy: number, r: number): IconChild => [
-  "circle",
-  { cx: String(cx), cy: String(cy), r: String(r), stroke: "currentColor", strokeWidth: "1.5" },
-];
 const glyph = (...children: IconChild[]): IconNode => children;
 
-/** The mummy: a broad hood with its face opening, tapering hard to a narrow foot. */
+/** The mummy, after Ryan's sketch: an egg-shaped bag, the face opening as a soft
+ *  window, the hood's edge sweeping from it to the side, two baffles floating below. */
 export const SleepingBagGlyph = glyph(
-  line("M12 2C14.8 2 17 3.9 17 6.6C17 10 16 14 15.1 17.5L14.55 20.2C14.35 21.25 13.45 22 12.4 22H11.6C10.55 22 9.65 21.25 9.45 20.2L8.9 17.5C8 14 7 10 7 6.6C7 3.9 9.2 2 12 2Z"),
-  ring(12, 6.5, 2),
-  line("M7.6 12.5H16.4"),
-  line("M9.05 17H14.95"),
+  line("M12 2C15.2 2 17.6 4.3 17.6 7.5C17.6 11 17.2 14.5 16.3 17.8C15.6 20.3 14 22 12 22C10 22 8.4 20.3 7.7 17.8C6.8 14.5 6.4 11 6.4 7.5C6.4 4.3 8.8 2 12 2Z"),
+  line("M10.1 4.4H13.9C14.67 4.4 15.3 5.03 15.3 5.8V7.2C15.3 7.97 14.67 8.6 13.9 8.6H10.1C9.33 8.6 8.7 7.97 8.7 7.2V5.8C8.7 5.03 9.33 4.4 10.1 4.4Z"),
+  line("M13.9 8.6C15.9 8.6 17.58 9.45 17.49 10.65"),
+  line("M8.9 12.7C10.9 13.05 13 13.05 15 12.7"),
+  line("M9.6 16.3C11.2 16.55 12.8 16.55 14.4 16.3"),
 );
 
 /** A pair: grips, shafts, baskets. */
@@ -69,4 +68,15 @@ export const TubeGlyph = glyph(
   line("M7 2.5L8.5 16.5C8.6 17.35 9.2 18 10 18H14C14.8 18 15.4 17.35 15.5 16.5L17 2.5"),
   line("M7.3 5.5H16.7"),
   line("M9.5 18V21C9.5 21.55 9.95 22 10.5 22H13.5C14.05 22 14.5 21.55 14.5 21V18"),
+);
+
+/** A canister stove, after Ryan's sketch: the domed gas can, the burner on it, the stem
+ *  rising into a teardrop flame, and the pot supports reaching out flat. */
+export const StoveGlyph = glyph(
+  line("M4.6 22H19.4C19.73 22 20 21.73 20 21.4V18C20 15.2 17.5 12.84 14 12.84H10C6.5 12.84 4 15.2 4 18V21.4C4 21.73 4.27 22 4.6 22Z"),
+  line("M8 12.84V10.27C8 9.5 8.63 8.87 9.4 8.87H14.6C15.37 8.87 16 9.5 16 10.27V12.84"),
+  line("M12 5.7V8.87"),
+  line("M12 2C13.3 3.3 14.15 4.5 14.15 5.3C14.15 6.2 13.2 6.85 12 6.85C10.8 6.85 9.85 6.2 9.85 5.3C9.85 4.5 10.7 3.3 12 2Z"),
+  line("M7.3 5.3H3.6L8 10.8"),
+  line("M16.7 5.3H20.4L16 10.8"),
 );
