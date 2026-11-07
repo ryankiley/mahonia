@@ -26,7 +26,7 @@ import {
   // My Gear's gear-type icons (app/utils/gearIcons.ts)
   Airpod03Icon, BatteryCharging01Icon, Camera01Icon, ChocolateIcon, CookingPotIcon,
   FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, PocketKnifeIcon,
-  RunningShoesIcon, Shirt01Icon, ShovelIcon, SmartPhone01Icon, SmartWatch01Icon, SocksIcon,
+  Shirt01Icon, ShovelIcon, SmartPhone01Icon, SmartWatch01Icon, SneakerIcon, SocksIcon,
   YogaMatIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon as Local } from "~/utils/hugeicon";
@@ -50,7 +50,7 @@ const ALL_ICONS = Object.entries({
   // My Gear's gear-type icons (app/utils/gearIcons.ts)
   Airpod03Icon, BatteryCharging01Icon, Camera01Icon, ChocolateIcon, CookingPotIcon,
   FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, PocketKnifeIcon,
-  RunningShoesIcon, Shirt01Icon, ShovelIcon, SmartPhone01Icon, SmartWatch01Icon, SocksIcon,
+  Shirt01Icon, ShovelIcon, SmartPhone01Icon, SmartWatch01Icon, SneakerIcon, SocksIcon,
   YogaMatIcon,
 }) as [string, never][];
 
