@@ -62,8 +62,9 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   toilet: ShovelIcon,
 };
 
-/** The icon a piece of gear wears, from its gear type; null when nothing fits. */
-export function gearIcon(commonName: string | null | undefined): IconNode | null {
-  const glyph = gearGlyphFor(commonName);
+/** The icon a piece of gear wears, from its gear type (its name when it has none);
+ *  null when nothing fits. */
+export function gearIcon(commonName: string | null | undefined, name?: string | null): IconNode | null {
+  const glyph = gearGlyphFor(commonName, name);
   return glyph ? GEAR_ICONS[glyph] : null;
 }

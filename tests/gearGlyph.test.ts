@@ -71,6 +71,17 @@ describe("which icon a gear type wears", () => {
     expect(gearGlyphFor(type)).toBe(glyph);
   });
 
+  it("falls back to the name only when the row has no type", () => {
+    expect(gearGlyphFor(null, "Deodorant")).toBe("toiletry");
+    expect(gearGlyphFor("", "Meals - Dinner")).toBe("food");
+    expect(gearGlyphFor(undefined, "Snacks - Daily")).toBe("food");
+    expect(gearGlyphFor("  ", "Baggies Brimmer Hat")).toBe("hat");
+    // a type that matched nothing is still the row's answer
+    expect(gearGlyphFor("Camp chair", "Flexlite Air Chair Pack")).toBeNull();
+    // and a type that did match is never second-guessed by the name
+    expect(gearGlyphFor("Socks", "Hiker Boot Midweight")).toBe("socks");
+  });
+
   it("reads a typed type the same as the catalog's spelling", () => {
     expect(gearGlyphFor("  stuff   SACK ")).toBe("bag");
     expect(gearGlyphFor("hiking boots")).toBe("shoe");

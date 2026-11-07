@@ -36,10 +36,10 @@ const emit = defineEmits<{
 }>();
 
 const displayName = computed(() => itemDisplayName(props.entry.brand, props.entry.name, props.entry.variant));
-// What KIND of gear this is, as a picture: read off the gear type, so a hand-typed row
-// with a type gets one too (shared/gearGlyph.ts). Null leaves the column empty rather
-// than guessing — a wrong picture is worse than none.
-const typeIcon = computed(() => gearIcon(props.entry.commonName));
+// What KIND of gear this is, as an icon: read off the gear type, or the name when the
+// row has no type (shared/gearGlyph.ts). Null leaves the column empty rather than
+// guessing — a wrong icon is worse than none.
+const typeIcon = computed(() => gearIcon(props.entry.commonName, props.entry.name));
 // Calories, gated on the class exactly as computeTotals gates them — so what the row
 // shows is what a list would count, rather than a number the totals ignore. A removed
 // row shows its type only.

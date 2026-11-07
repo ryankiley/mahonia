@@ -77,7 +77,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   // kitchen and food
   [/\b(stove|canister stand|pot stand|windscreen|stove base|fuel canister|gas canister|fuel|lighter|matches|fire starter)\b/, "stove"],
   [/\b(pot|cookset|frying pan|pan|kettle|cup|mug|coffee maker|french press|spork|spoon|utensils?|fork|chopsticks|spatula|tongs|bowl|plate)\b/, "pot"],
-  [/\b(meals?|dinner|breakfast|lunch|bars?|waffle|chews|gummies|candy|fruit snack|snack mix|snack|trail mix|pretzels?|electrolyte mix|drink mix|nut butter|instant coffee|coffee)\b/, "food"],
+  [/\b(meals?|dinner|breakfast|lunch|bars?|waffle|chews|gummies|candy|fruit snack|snack mix|snacks?|trail mix|pretzels?|electrolyte mix|drink mix|nut butter|instant coffee|coffee)\b/, "food"],
   [/\b(knife|saw|multitool|sheath|scissors)\b/, "knife"],
 
   // electronics and light
@@ -94,10 +94,24 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(backpack|daypack|fastpack|duffel|fanny pack|hip pack|hip belt pocket|chest pack|sling bag|shoulder pocket|pack)\b/, "backpack"],
 ];
 
-/** The icon a gear type wears, or null when none fits well enough to show. */
-export function gearGlyphFor(commonName: string | null | undefined): GearGlyph | null {
-  const type = (commonName ?? "").trim().toLowerCase().replace(/\s+/g, " ");
-  if (!type) return null;
-  for (const [rule, glyph] of RULES) if (rule.test(type)) return glyph;
+function glyphOf(text: string | null | undefined): GearGlyph | null {
+  const words = (text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
+  if (!words) return null;
+  for (const [rule, glyph] of RULES) if (rule.test(words)) return glyph;
   return null;
+}
+
+/**
+ * The icon a piece of gear wears, or null when none fits well enough to show.
+ *
+ * The gear TYPE decides. Only a row with no type at all falls back to its name, which
+ * is how a hand-typed "Deodorant" or "Meals - Dinner" still gets one. A row whose type
+ * matched nothing ("Camp chair") stays blank: the type is the row's own answer to
+ * "what is this", and its name is often a model name that only sounds like a thing.
+ */
+export function gearGlyphFor(
+  commonName: string | null | undefined,
+  name?: string | null,
+): GearGlyph | null {
+  return (commonName ?? "").trim() ? glyphOf(commonName) : glyphOf(name);
 }
