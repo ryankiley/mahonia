@@ -9,7 +9,7 @@ import {
   UserAdd01Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
-import type { ListSnapshot, SnapshotMeta } from "~~/shared/types";
+import type { ChangeAuthor, ListSnapshot, SnapshotMeta } from "~~/shared/types";
 
 // Everything about who can see or change this list, in ONE place.
 //
@@ -157,6 +157,21 @@ onMounted(() => {
 // The oldest entry has nothing older to compare against, so it does too.
 const RESTORE_LABEL = "Restored an earlier version";
 
+/** "You", "Assistant", or the name another editor chose; nothing when nobody can
+ *  be named (the server decides which, see listSnapshotsByEditHash). */
+function whoLabel(by: ChangeAuthor | null): string | null {
+  if (!by) return null;
+  if (by.kind === "assistant") return "Assistant";
+  if (by.kind === "you") return "You";
+  return by.name;
+}
+// Only when more than one hand shows up in the log. A list only you have touched,
+// or only an assistant, would say so on every line and tell nobody anything. An
+// unnamed change counts as a hand of its own: beside an assistant's, it's the
+// difference worth seeing.
+const whoKey = (by: ChangeAuthor | null) => (!by ? "" : by.kind === "named" ? `named:${by.name}` : by.kind);
+const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).size > 1);
+
 function changeLabel(i: number): string {
   const s = activity.value[i];
   if (!s) return "Edited";
@@ -207,28 +222,11 @@ function changeLabel(i: number): string {
           Copy edit link
         </button>
       </li>
-      <li v-if="canAddToAccount" role="none">
-        <button
-          type="button"
-          data-row
-          role="menuitem"
-          class="menu__item"
-          :disabled="claim === 'claiming'"
-          @click="addToAccount"
-        >
-          <HugeiconsIcon :icon="UserAdd01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-          Add to your account
-        </button>
-      </li>
-      <li v-if="claim === 'failed'" role="alert" class="t-sm t-muted share__note">
-        That didn’t save. Check your connection and try again.
-      </li>
 
       <!-- RECENT CHANGES folds out like the ⋯ menu's Export (MenuSection's markup, with
            entries in place of rows). Collapsed: it's reassurance you go looking for.
-           These are the server's recovery points, so they say WHAT changed and WHEN,
-           not who: a link-owned list has no identities to attribute to. The one
-           exception is an edit made through the connector, which says so. -->
+           These are the server's recovery points: WHAT changed, WHEN, and who when
+           anyone can be named ("You", "Assistant", or a name an editor chose). -->
       <li role="none" class="menu__sect">
         <button
           type="button"
@@ -261,7 +259,7 @@ function changeLabel(i: number): string {
                   <span class="t-sm">{{ changeLabel(i) }}</span>
                   <span class="t-muted share__logwhen"
                     >{{ timeAgo(new Date(s.createdAt).getTime(), now, { short: true })
-                    }}<template v-if="s.actor === 'assistant'"> · Assistant</template></span
+                    }}<template v-if="showWho && whoLabel(s.by)"> · {{ whoLabel(s.by) }}</template></span
                   >
                 </li>
               </ul>
@@ -270,9 +268,27 @@ function changeLabel(i: number): string {
         </Transition>
       </li>
 
-      <!-- Replacing the link last and ruled off, where the ⋯ menu keeps Forget and
-           Delete: it cuts off everyone who has the old one. -->
+      <!-- THE FOOT, ruled off where the ⋯ menu keeps Forget and Delete: the two things
+           that change who holds this list. Keeping it on your account first (rare: it
+           only shows for a list the account doesn't have), replacing the link last,
+           since that cuts off everyone who has the old one. Above the rule is what
+           you open this for nearly every time: the two copies, then the log. -->
       <li role="none" class="menu__foot">
+        <button
+          v-if="canAddToAccount"
+          type="button"
+          data-row
+          role="menuitem"
+          class="menu__item"
+          :disabled="claim === 'claiming'"
+          @click="addToAccount"
+        >
+          <HugeiconsIcon :icon="UserAdd01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          Add to your account
+        </button>
+        <p v-if="claim === 'failed'" role="alert" class="t-sm t-muted share__note">
+          That didn’t save. Check your connection and try again.
+        </p>
         <button type="button" data-row role="menuitem" class="menu__item" @click="act(() => emit('rotate'))">
           <HugeiconsIcon :icon="Exchange01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ holdsEditLink ? "Replace edit link" : "Get a new edit link" }}

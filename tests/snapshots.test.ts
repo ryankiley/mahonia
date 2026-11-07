@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
 import { LISTS_DDL, SNAPSHOTS_DDL, ensureSnapshotSchema } from "../server/utils/db";
+import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import {
   applyOpsByEditHash,
   listSnapshotsByEditHash,
@@ -62,8 +63,8 @@ describe("snapshots — vandalism recovery", () => {
       { actor: "assistant" },
     );
     let snaps = await listSnapshotsByEditToken(editToken, db);
-    expect(snaps!.map((s) => [s.reason, s.actor])).toEqual([
-      ["Added Stakes", "assistant"],
+    expect(snaps!.map((s) => [s.reason, s.by])).toEqual([
+      ["Added Stakes", { kind: "assistant" }],
       ["Renamed Tent → Tent v2", null],
     ]);
     // the same assistant again, straight after: still one entry for it
@@ -74,6 +75,46 @@ describe("snapshots — vandalism recovery", () => {
     await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v3" } }], db);
     snaps = await listSnapshotsByEditToken(editToken, db);
     expect(snaps).toHaveLength(2);
+  });
+
+  // Who made a change: "You" to the person who made it, the name they chose to
+  // everyone else, and nothing for an account without one or an edit link used
+  // signed out. The session is only read when a point is actually taken.
+  it("names who made a change to whoever reads it, and asks who only when it records", async () => {
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
+    const [sam] = await db.insert(schema.users).values({ email: "sam@example.com", displayName: "Sam" }).returning();
+    const [quiet] = await db.insert(schema.users).values({ email: "quiet@example.com" }).returning();
+    const { editToken, row } = await seedList(db, { folders: [folder], items: [item("i1", "Tent")] });
+    const clearThrottle = () => db.update(lists).set({ lastSnapshotAt: new Date(0) }).where(eq(lists.id, row.id));
+    let asked = 0;
+    const as = (id: number | null) => ({ editor: async () => (asked++, id) });
+
+    await applyOpsByEditToken(editToken, [{ t: "addItem", item: item("i2", "Stakes") }], db, as(sam!.id));
+    // inside the window: no point is taken, so nobody is asked
+    await applyOpsByEditToken(editToken, [{ t: "addItem", item: item("i3", "Pot") }], db, as(quiet!.id));
+    expect(asked).toBe(1);
+    await clearThrottle();
+    await applyOpsByEditToken(editToken, [{ t: "addItem", item: item("i4", "Cup") }], db, as(quiet!.id));
+    await clearThrottle();
+    await applyOpsByEditToken(editToken, [{ t: "addItem", item: item("i5", "Lid") }], db, as(null));
+
+    const read = async (viewer: number | null) =>
+      (await listSnapshotsByEditToken(editToken, db, viewer))!.map((s) => [s.reason, s.by]);
+    expect(await read(sam!.id)).toEqual([
+      ["Added Lid", null],
+      ["Added Cup", null], // an account with no name stays unnamed to others
+      ["Added Stakes", { kind: "you" }],
+    ]);
+    expect(await read(quiet!.id)).toEqual([
+      ["Added Lid", null],
+      ["Added Cup", { kind: "you" }],
+      ["Added Stakes", { kind: "named", name: "Sam" }],
+    ]);
+    expect(await read(null)).toEqual([
+      ["Added Lid", null],
+      ["Added Cup", null],
+      ["Added Stakes", { kind: "named", name: "Sam" }],
+    ]);
   });
 
   it("restores a snapshot and snapshots the current state first (undoable)", async () => {

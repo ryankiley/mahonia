@@ -1,6 +1,6 @@
 {
   "date": "2026-11-07",
   "added": [
-    "Recent changes shows when an assistant edited your list."
+    "Recent changes says who made each change (you, an assistant, or another editor by name) once more than one person has edited the list."
   ]
 }

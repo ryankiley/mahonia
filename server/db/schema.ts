@@ -232,6 +232,9 @@ export const listSnapshots = pgTable(
     // who made the change this point was taken before: null for the list's own
     // editors, "assistant" for an edit through the connector (server/utils/mcp.ts)
     actor: text("actor"),
+    // the signed-in account that made the change, when there was one. Never sent to a
+    // client: it becomes "You" or the name that account chose (listSnapshotsByEditHash)
+    editorUserId: integer("editor_user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   }
 );

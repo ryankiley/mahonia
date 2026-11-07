@@ -10,13 +10,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { flushPromises, mount } from "@vue/test-utils";
 import SharePanel from "~/components/SharePanel.vue";
-import type { ClaimedList } from "~~/shared/types";
+import type { ChangeAuthor, ClaimedList, SnapshotMeta } from "~~/shared/types";
 import { snapshotFor } from "./helpers/list";
 
 // the panel's activity fetch on mount — not under test, kept quiet. A registered
 // route rather than a $fetch stub: under the Nuxt environment $fetch is already
 // test-utils' own mock, which answers an unregistered path with a 404.
-registerEndpoint("/api/edit/snapshots", () => ({ snapshots: [] }));
+let snapshotsData: SnapshotMeta[] = [];
+registerEndpoint("/api/edit/snapshots", () => ({ snapshots: snapshotsData }));
 
 const signedIn = ref(true);
 mockNuxtImport("useSession", () => () => ({ signedIn }));
@@ -62,6 +63,7 @@ const addBtn = (w: ReturnType<typeof mountPanel>) =>
   w.findAll("button").find((b) => b.text().includes("Add to your account"));
 
 beforeEach(() => {
+  snapshotsData = [];
   signedIn.value = true;
   claimedLists.value = [];
   claimedLoaded.value = true;
@@ -126,5 +128,49 @@ describe("SharePanel — adding a list to your account", () => {
   it("fetches the claim set on open, so a straight-from-link open still knows", () => {
     mountPanel();
     expect(refresh).toHaveBeenCalled();
+  });
+});
+
+// Recent changes says who only when more than one hand shows up in it.
+describe("SharePanel — who made a change", () => {
+  const entry = (id: number, reason: string, by: ChangeAuthor | null): SnapshotMeta => ({
+    id,
+    version: id,
+    reason,
+    by,
+    createdAt: new Date().toISOString(),
+    itemCount: 1,
+  });
+  async function openLog() {
+    const w = mountPanel();
+    await flushPromises();
+    await w.findAll("button").find((b) => b.text().includes("Recent changes"))!.trigger("click");
+    await flushPromises();
+    return w;
+  }
+
+  it("says nothing when every change is yours", async () => {
+    snapshotsData = [entry(2, "Added Pot", { kind: "you" }), entry(1, "Added Stakes", { kind: "you" })];
+    const w = await openLog();
+    expect(w.text()).toContain("Added Pot");
+    expect(w.text()).not.toContain("You");
+  });
+
+  it("names each hand once there is more than one", async () => {
+    snapshotsData = [
+      entry(3, "Added Pot", { kind: "assistant" }),
+      entry(2, "Added Cup", { kind: "named", name: "Sam" }),
+      entry(1, "Added Stakes", { kind: "you" }),
+    ];
+    const w = await openLog();
+    expect(w.text()).toContain("· Assistant");
+    expect(w.text()).toContain("· Sam");
+    expect(w.text()).toContain("· You");
+  });
+
+  it("counts an unnamed change as a hand beside an assistant's", async () => {
+    snapshotsData = [entry(2, "Added Pot", { kind: "assistant" }), entry(1, "Added Stakes", null)];
+    const w = await openLog();
+    expect(w.text()).toContain("· Assistant");
   });
 });

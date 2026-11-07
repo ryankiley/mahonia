@@ -1,6 +1,7 @@
 import { createError, defineEventHandler } from "h3";
 import { applyOpsByEditHash } from "../../utils/listRepo";
 import { requireEditHash } from "../../utils/editAuth";
+import { resolveSession } from "../../utils/authSession";
 import { notFound, readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import type { Op } from "../../../shared/ops";
@@ -22,7 +23,10 @@ export default defineEventHandler(async (event) => {
   // and anything larger hits the 512KB body cap above anyway (~60-150 B/op).
   if (ops.length > 4000) throw createError({ statusCode: 400, statusMessage: "Too many ops" });
 
-  const snapshot = await applyOpsByEditHash(hash, ops);
+  // who, for recent changes: read from the session only if a point is taken
+  const snapshot = await applyOpsByEditHash(hash, ops, undefined, {
+    editor: async () => (await resolveSession(event))?.id ?? null,
+  });
   if (!snapshot) throw notFound();
   return { snapshot };
 });

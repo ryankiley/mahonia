@@ -17,7 +17,7 @@ import {
   type FullSnap,
 } from "../../shared/snapshotDiff";
 import { UNITS, CLAIMED_LIST_CAP, LIST_META_KEYS } from "../../shared/types";
-import type { ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
+import type { ChangeAuthor, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { normalizeShareCode } from "../../shared/links";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
@@ -475,6 +475,20 @@ const SNAPSHOT_CAP = 5; // keep the most recent N per list (older are pruned)
 export type EditActor = "assistant";
 
 /**
+ * The signed-in account behind an edit, asked for only when a recovery point is
+ * actually taken (at most once per throttle window), so the session read stays off
+ * the hot path. Best-effort like the capture: a failed lookup names nobody.
+ */
+export type EditorLookup = () => Promise<number | null>;
+async function lookupEditor(editor?: EditorLookup): Promise<number | null> {
+  try {
+    return editor ? await editor() : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Whether the newest recovery point is already `actor`'s, inside the throttle window.
  * An assistant's edit takes a point of its own whatever the throttle says (so it shows
  * in recent changes, and restoring that point undoes it), but a burst of calls from the
@@ -501,7 +515,12 @@ async function recentPointBy(db: Db, listId: number, actor: EditActor): Promise<
  * — NEVER throws (a snapshot failure must not break a write). The THROTTLE lives in
  * the caller (off the in-hand row's lastSnapshotAt) so the hot path needs no query.
  */
-async function captureSnapshot(db: Db, row: ListRow, reason: string, actor: EditActor | null = null): Promise<void> {
+async function captureSnapshot(
+  db: Db,
+  row: ListRow,
+  reason: string,
+  by: { actor?: EditActor | null; editorUserId?: number | null } = {},
+): Promise<void> {
   try {
     await ensureSnapshotSchema(db);
     const cur = rowToState(row);
@@ -549,7 +568,8 @@ async function captureSnapshot(db: Db, row: ListRow, reason: string, actor: Edit
       itemCount: cur.items.length,
       version: row.version,
       reason,
-      actor,
+      actor: by.actor ?? null,
+      editorUserId: by.editorUserId ?? null,
     });
     if (demote) {
       await db
@@ -597,6 +617,8 @@ async function reconstructSnapshotState(
 export async function listSnapshotsByEditHash(
   editHash: string,
   db?: Db,
+  /** the signed-in reader, so their own changes read "You" */
+  viewerUserId: number | null = null,
 ): Promise<SnapshotMeta[] | null> {
   const d = db ?? (await useDb());
   const listId = await findIdByEditHash(editHash, d);
@@ -610,6 +632,7 @@ export async function listSnapshotsByEditHash(
       version: listSnapshots.version,
       reason: listSnapshots.reason,
       actor: listSnapshots.actor,
+      editorUserId: listSnapshots.editorUserId,
       createdAt: listSnapshots.createdAt,
       itemCount: listSnapshots.itemCount,
     })
@@ -617,11 +640,38 @@ export async function listSnapshotsByEditHash(
     .where(eq(listSnapshots.listId, listId))
     .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
     .limit(SNAPSHOT_CAP);
+  // Other editors by the name they CHOSE, never their email, and nothing for an
+  // account without one (attachAuthorName's rule). Ids never leave the server.
+  const others = [
+    ...new Set(rows.map((r) => r.editorUserId).filter((u): u is number => u != null && u !== viewerUserId)),
+  ];
+  const names = new Map<number, string>();
+  if (others.length) {
+    try {
+      const found = await d
+        .select({ id: users.id, displayName: users.displayName })
+        .from(users)
+        .where(inArray(users.id, others));
+      for (const u of found) {
+        const name = u.displayName?.trim();
+        if (name) names.set(u.id, name);
+      }
+    } catch {
+      /* no account tables yet: nobody to name */
+    }
+  }
+  const byOf = (r: (typeof rows)[number]): ChangeAuthor | null => {
+    if (r.actor === "assistant") return { kind: "assistant" };
+    if (r.editorUserId == null) return null;
+    if (r.editorUserId === viewerUserId) return { kind: "you" };
+    const name = names.get(r.editorUserId);
+    return name ? { kind: "named", name } : null;
+  };
   return rows.map((r) => ({
     id: r.id,
     version: r.version,
     reason: r.reason ?? null,
-    actor: r.actor === "assistant" ? "assistant" : null,
+    by: byOf(r),
     createdAt: toIso(r.createdAt),
     itemCount: r.itemCount ?? 0,
   }));
@@ -638,6 +688,7 @@ export async function restoreSnapshotByEditHash(
   editHash: string,
   snapshotId: number,
   db?: Db,
+  opts: { editor?: EditorLookup } = {},
 ): Promise<ListSnapshot | null> {
   const d = db ?? (await useDb());
   // id only: the CAS loop below re-reads the full row anyway, and it must, since
@@ -706,7 +757,7 @@ export async function restoreSnapshotByEditHash(
       // recoverable — while failed attempts insert nothing. Capturing per attempt
       // would let a contended retry storm prune the whole recovery window with
       // post-vandalism states, which is the one scenario snapshots exist for.
-      await captureSnapshot(d, row, "before restore");
+      await captureSnapshot(d, row, "before restore", { editorUserId: await lookupEditor(opts.editor) });
       return withOwnerOnly(rowToSnapshot(updated[0]), updated[0]);
     }
     // version moved under us — retry against the latest
@@ -1007,8 +1058,9 @@ export async function applyOpsByEditHash(
   editHash: string,
   ops: Op[],
   db?: Db,
-  /** who is making the edit, when it isn't the list's own editors (see EditActor) */
-  opts: { actor?: EditActor } = {},
+  /** who is making the edit: an assistant (see EditActor), and the signed-in account
+   *  behind it when there is one (see EditorLookup) */
+  opts: { actor?: EditActor; editor?: EditorLookup } = {},
 ): Promise<ListSnapshot | null> {
   const d = db ?? (await useDb());
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -1111,7 +1163,10 @@ export async function applyOpsByEditHash(
       // description of the change — but the ops that caused it are right here, and
       // they are an exact one. Derived once on write; free to read back.
       if (doSnapshot)
-        await captureSnapshot(d, row, summarizeOps(ops, before).slice(0, MAX_SUMMARY_LEN) || "edit", opts.actor ?? null);
+        await captureSnapshot(d, row, summarizeOps(ops, before).slice(0, MAX_SUMMARY_LEN) || "edit", {
+          actor: opts.actor ?? null,
+          editorUserId: await lookupEditor(opts.editor),
+        });
       // community intake: stage typed (non-catalog) items touched by this batch so
       // the catalog can grow from real use. Best-effort — never break/slow a save.
       // "Touched" is any patch to what the candidate records: the name, but also the
