@@ -70,12 +70,11 @@ export const TubeGlyph = glyph(
   line("M9.5 18V21C9.5 21.55 9.95 22 10.5 22H13.5C14.05 22 14.5 21.55 14.5 21V18"),
 );
 
-/** A canister stove, after Ryan's sketch: the domed gas can, the burner on it, the stem
- *  rising into a teardrop flame, and the pot supports reaching out flat. */
+/** A canister stove, after Ryan's sketch: the domed gas can, the burner on it, a
+ *  teardrop flame above, and the pot supports reaching out flat. */
 export const StoveGlyph = glyph(
   line("M4.6 22H19.4C19.73 22 20 21.73 20 21.4V18C20 15.2 17.5 12.84 14 12.84H10C6.5 12.84 4 15.2 4 18V21.4C4 21.73 4.27 22 4.6 22Z"),
   line("M8 12.84V10.27C8 9.5 8.63 8.87 9.4 8.87H14.6C15.37 8.87 16 9.5 16 10.27V12.84"),
-  line("M12 5.7V8.87"),
   line("M12 2C13.3 3.3 14.15 4.5 14.15 5.3C14.15 6.2 13.2 6.85 12 6.85C10.8 6.85 9.85 6.2 9.85 5.3C9.85 4.5 10.7 3.3 12 2Z"),
   line("M7.3 5.3H3.6L8 10.8"),
   line("M16.7 5.3H20.4L16 10.8"),
