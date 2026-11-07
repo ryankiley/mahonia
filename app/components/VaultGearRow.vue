@@ -198,7 +198,7 @@ const meta = computed(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 1.5rem;
+  width: var(--gear-type-w);
   height: 1lh;
   margin-inline-end: calc(var(--space-2) - var(--space-4));
   color: var(--ink-2);
@@ -307,7 +307,7 @@ const meta = computed(() => {
     margin-inline-end: 0;
   }
   .vault__type + .gear__main {
-    flex-basis: calc(100% - 1.5rem - var(--space-2));
+    flex-basis: calc(100% - var(--gear-type-indent));
   }
   /* With a line of its own the name gets two of them before it clips. One line at
      phone width cut long catalog names ("Sea to Summit Ether Light XT Insulated Air

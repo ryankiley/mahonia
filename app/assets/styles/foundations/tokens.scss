@@ -519,6 +519,11 @@ $bp-full: 1024px !default;
      the app. Named because the category legend hangs its wrapped lines off exactly
      this width (CategoryBar), so the two must move together. */
   --swatch: 10px;
+  /* My Gear's gear-type icon column (VaultGearRow) and how far a row's name sits in from
+     it — named because the folder's "Add gear" row indents by the same amount, so the
+     add row's text lines up with the names above it rather than with the icons. */
+  --gear-type-w: 1.5rem;
+  --gear-type-indent: calc(var(--gear-type-w) + var(--space-2));
   /* touch targets — the ~44px Apple-HIG minimum box + the enlarged glyph,
      consumed by every `@media (pointer: coarse)` icon-button override */
   --tap: 44px;
