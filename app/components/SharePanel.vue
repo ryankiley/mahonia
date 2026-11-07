@@ -177,16 +177,15 @@ function changeLabel(i: number): string {
     </p>
 
     <template v-else>
-      <!-- Each link is ONE ROW: what it is, what it lets someone do, and Copy. It used
-           to be a label over a filled field showing the address over a line of help,
-           three tiers per link and two grey boxes, and the panel read as a form. The
-           address told nobody anything (a truncated code), and a copy the clipboard
-           refuses already opens it selectable (the editor's showLinkFallback). -->
+      <!-- Each link is ONE ROW: its name and Copy. It used to be a label over a filled
+           field showing the address over a line of help, three tiers per link and two
+           grey boxes, and the panel read as a form. The address told nobody anything
+           (a truncated code), and a copy the clipboard refuses already opens it
+           selectable (the editor's showLinkFallback). The help lines went too: "Anyone
+           with it can see / edit this list" only repeated the names, and copying the
+           edit link already asks first and says who it's for. -->
       <section class="share__row">
-        <div class="share__what">
-          <h3 class="share__name">Read-only link</h3>
-          <p class="t-sm t-muted">Anyone with it can see this list.</p>
-        </div>
+        <h3 class="share__name">Read-only link</h3>
         <button type="button" class="btn btn--quiet share__act" @click="emit('copyRead')">
           <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="2" /> Copy
         </button>
@@ -199,9 +198,7 @@ function changeLabel(i: number): string {
             <!-- the claimed-open case: opened from the account, and the server only ever
                  stored the link's hash, so there is nothing here to copy. Replacing it
                  is how this device gets one (and it cuts off the old link). -->
-            <p class="t-sm t-muted">
-              {{ holdsEditLink ? "Anyone with it can edit this list." : "Not on this device. Replace it to get a new one." }}
-            </p>
+            <p v-if="!holdsEditLink" class="t-sm t-muted">Not on this device. Replace it to get a new one.</p>
           </div>
           <button
             v-if="holdsEditLink"
