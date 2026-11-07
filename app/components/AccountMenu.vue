@@ -60,8 +60,6 @@ onMounted(() => (known.value = presence.value !== "signedOut"));
 watch(presence, (p) => (known.value = p !== "signedOut"));
 
 const open = ref(false);
-// the travelling wash shared with the other menus (see useMenuPlate)
-const { plateRef, listRef, on: plateOn } = useMenuPlate();
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
 // same close behaviour as the editor kebab and ReadonlyMenu: the action itself, an
 // outside tap, a scroll gesture on mobile, or Escape
@@ -137,12 +135,7 @@ const { open: openAccount } = useAccountModal();
       </button>
       </Tooltip>
       <Transition name="menu">
-        <ul v-if="open" ref="listRef" class="popover menu__list" role="menu" aria-label="Your account" v-on="plateOn">
-          <!-- the travelling wash (atoms/controls.scss + useMenuPlate). role="none"
-               so a decorative element can't read as a menu item. -->
-          <li role="none" aria-hidden="true">
-            <span ref="plateRef" class="menu__plate" />
-          </li>
+        <MenuList v-if="open" aria-label="Your account">
           <li v-if="showGear" role="none">
             <NuxtLink to="/gear" data-row role="menuitem" class="menu__item" @click="open = false">
               <HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" aria-hidden="true" />
@@ -161,7 +154,7 @@ const { open: openAccount } = useAccountModal();
               Sign out
             </button>
           </li>
-        </ul>
+        </MenuList>
       </Transition>
     </div>
   </ClientOnly>

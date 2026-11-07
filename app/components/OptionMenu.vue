@@ -54,11 +54,11 @@ const emit = defineEmits<{ pick: [key: string]; overlayToggle: [boolean] }>();
 
 const open = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
-// the travelling wash shared with every other menu (useMenuPlate)
-const { plateRef, listRef, on: plateOn } = useMenuPlate();
 // which sides to hang from, measured rather than declared — see useMenuPlacement.
-// On open, because a menu can't change size while it's up.
-const { atStart, above, place } = useMenuPlacement(listRef);
+// On open, because a menu can't change size while it's up. The card is MenuList's
+// element, handed out through its exposed `el`.
+const menuList = useTemplateRef<{ el: HTMLElement | null }>("menuList");
+const { atStart, above, place } = useMenuPlacement(computed(() => menuList.value?.el ?? null));
 watch(open, (o) => o && nextTick(place));
 
 // The list is position:absolute, so a clipping ancestor crops it — the unit menu on
@@ -107,18 +107,13 @@ function pick(key: string) {
       <slot name="trigger" :active="active" :open="open" />
     </button>
     <Transition name="menu" @after-leave="setLift(false)">
-      <ul
+      <MenuList
         v-if="open"
-        ref="listRef"
-        class="popover menu__list optmenu__list"
+        ref="menuList"
+        class="optmenu__list"
         :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
-        role="menu"
         :aria-label="label"
-        v-on="plateOn"
       >
-        <li role="none" aria-hidden="true">
-          <span ref="plateRef" class="menu__plate" />
-        </li>
         <li v-for="o in options" :key="o.key" role="none">
           <button
             type="button"
@@ -143,7 +138,7 @@ function pick(key: string) {
             />
           </button>
         </li>
-      </ul>
+      </MenuList>
     </Transition>
   </div>
 </template>

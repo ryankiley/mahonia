@@ -53,10 +53,6 @@ const emit = defineEmits<{
   (e: MenuEvent | FootEvent): void;
 }>();
 
-// the travelling wash shared with the other menus (see useMenuPlate). Section
-// HEADERS deliberately carry no [data-row] — they open a group rather than doing
-// something, so the wash shouldn't claim them as a destination.
-const { plateRef, listRef, on: plateOn } = useMenuPlate();
 
 // the four export actions, their chunk warm-up and the ROWS that draw them live in
 // useListExports, shared with the read views' ⋯ menu so neither the copy, the error
@@ -153,11 +149,7 @@ function act(event: MenuEvent | FootEvent) {
        the first open (already open), so without it the first reveal would snap where
        every later one eases — the same reason BaseModal carries it. -->
   <Transition name="menu" appear>
-    <ul v-if="open" ref="listRef" class="popover menu__list editor__actions" role="menu" aria-label="More actions" v-on="plateOn">
-      <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->
-      <li role="none" aria-hidden="true">
-        <span ref="plateRef" class="menu__plate" />
-      </li>
+    <MenuList v-if="open" class="editor__actions" aria-label="More actions">
       <!-- Close BEFORE the action runs, matching the old dispatch order. -->
       <li v-for="a in menuActions" :key="a.label" role="none">
         <button type="button" data-row role="menuitem" class="menu__item" @click="act(a.event)">
@@ -241,7 +233,7 @@ function act(event: MenuEvent | FootEvent) {
           Delete this list
         </button>
       </li>
-    </ul>
+    </MenuList>
   </Transition>
 </template>
 

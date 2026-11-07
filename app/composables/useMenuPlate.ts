@@ -44,7 +44,8 @@ import type { Ref } from "vue";
  * tabbed-to row wore two tints at once — and come back the moment the plate leaves
  * it for another row or goes out with the pointer.
  *
- * Usage — two things in the consuming component:
+ * Usage: through <MenuList>, which owns the list, the plate and this call; a menu
+ * puts its rows in its slot. Underneath, it is two things:
  *   const { plateRef, listRef, on } = useMenuPlate();
  *   <ul ref="listRef" v-on="on"> <span ref="plateRef" class="menu__plate" /> …
  * Rows are identified by `[data-row]`, so an item that shouldn't light (a separator,
