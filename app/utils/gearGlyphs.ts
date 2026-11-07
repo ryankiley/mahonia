@@ -96,10 +96,14 @@ export const CarabinerGlyph = glyph(
   line("M17 16.5L12.8 9.8"),
 );
 
-/** A hiking boot from the side: the high shaft with two laces, the toe, the lug sole. */
+/** A hiking boot from the side, from a sketch in review: the straight back of the shaft,
+ *  the padded collar, the tongue sweeping up, three eyelets down the front, the toe,
+ *  and a sole with its arch notch. */
 export const HikingBootGlyph = glyph(
-  line("M5.5 2.5H11L11.5 10C11.6 11 12.3 11.7 13.3 11.9L18 12.9C20.1 13.35 21.5 15.1 21.5 17.2V19H3V16.5C3 15 3.6 13.8 4.3 12.8C5 11.8 5.5 10.4 5.5 9V2.5Z"),
-  line("M3 19H21.5V20.5C21.5 21.05 21.05 21.5 20.5 21.5H4C3.45 21.5 3 21.05 3 20.5V19Z"),
-  line("M8.5 5.5H11.2"),
-  line("M8.7 8.5H11.4"),
+  line("M2.3 18.15V4.45C2.3 3.9 2.75 3.45 3.3 3.45H8.2C8.9 2.6 9.9 2.2 11 2.25L12 2.4C10.8 3.3 10.4 4.6 10.8 6.2C11.4 8.6 13.2 10.6 15.6 11.6C16.6 12 17.6 12.1 18.6 12.1H19.2C20.7 12.1 21.9 13.3 21.9 14.8V18.15H2.3Z"),
+  line("M2.3 7.1L6.5 6.2L7.8 3.9"),
+  line("M9.13 8.5H9.14"),
+  line("M10.6 11H10.61"),
+  line("M12.9 12.95H12.91"),
+  line("M2.3 18.15V20.6C2.3 21.16 2.78 21.62 3.35 21.62H7.9L9.05 20.2L10.1 20.95C10.4 21.4 10.9 21.62 11.4 21.62H20.9C21.45 21.62 21.9 21.17 21.9 20.6V18.15"),
 );
