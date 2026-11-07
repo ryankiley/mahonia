@@ -1,0 +1,8 @@
+{
+  "date": "2026-11-07",
+  "changed": [
+    "Sharing is a panel with two tabs: Share for both links and recent changes, Export for the four formats, moved out of the ⋯ menu.",
+    "Menus leave a little more room between each icon and its label.",
+    "Menus, popovers and dialogs have a clearer edge along the top."
+  ]
+}
