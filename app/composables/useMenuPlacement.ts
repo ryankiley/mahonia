@@ -46,7 +46,7 @@ const EDGE_PADDING = 8;
 const ANCHOR_GAP = 4;
 
 export function useMenuPlacement(
-  listRef: Ref<HTMLElement | null>,
+  listRef: Readonly<Ref<HTMLElement | null>>,
   opts: { fit?: "flip" | "shift" } = {},
 ): {
   atStart: Ref<boolean>;

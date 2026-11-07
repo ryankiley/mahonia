@@ -110,8 +110,8 @@ const shown = computed(() => {
 // and neither does a legacy entry, and "" === "" would mark a row at random.
 const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === currentShareCode;
 
-// The travelling wash — see useMenuPlate for the measurement traps it carries.
-// ONE instance for the whole card, footer included. It used to be two: the plate is
+// The travelling wash (MenuList, and useMenuPlate for the measurement traps it
+// carries). ONE instance for the whole card, footer included. It used to be two: the plate is
 // positioned by its row's offsetTop, .lm__rows SCROLLS, and the footer deliberately
 // sits outside it (a "New list" that scrolled away with forty lists above it would be
 // the wrong control to lose) — so a plate living in the scroller could not reach the
@@ -119,7 +119,6 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
 // matters here: the wash BLINKED across the hairline, crossfading between two plates,
 // where everywhere else in the app it slides. The composable measures across a
 // scroller now, so the plate sits in the panel and travels the whole way.
-const { plateRef, listRef, on: plateOn } = useMenuPlate();
 
 function close() {
   open.value = false;
@@ -187,17 +186,10 @@ watch(open, (o) => {
     </Transition>
 
     <Transition name="menu">
-      <div
-        v-if="open"
-        ref="listRef"
-        class="popover menu__list lm__panel"
-        role="menu"
-        aria-label="Your lists"
-        v-on="plateOn"
-      >
-        <!-- the travelling wash, in the PANEL rather than in either row area — the one
-             box both of them are measured into (atoms/controls.scss + useMenuPlate) -->
-        <span ref="plateRef" class="menu__plate" aria-hidden="true" />
+      <!-- a div, not a list: the card holds a search field, a scroller of lists and a
+           footer, and the wash sits in the PANEL rather than in either row area, the
+           one box both of them are measured into (MenuList, useMenuPlate) -->
+      <MenuList v-if="open" tag="div" class="lm__panel" aria-label="Your lists">
         <div v-if="filterable" class="lm__filter">
           <input
             ref="fieldRef"
@@ -249,7 +241,7 @@ watch(open, (o) => {
             New list
           </button>
         </div>
-      </div>
+      </MenuList>
     </Transition>
   </div>
 </template>

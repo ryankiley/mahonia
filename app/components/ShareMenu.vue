@@ -94,9 +94,6 @@ async function addToAccount() {
   claim.value = ok ? "idle" : "failed";
 }
 
-// the travelling wash every menu in the app shares (atoms/controls.scss)
-const { plateRef, listRef, on: plateOn } = useMenuPlate();
-
 // Close BEFORE the action runs, as the ⋯ menu's rows do. The copies and the replace
 // hand off to the editor, which toasts the result or asks first.
 function act(run: () => void) {
@@ -183,17 +180,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 </script>
 
 <template>
-  <ul
-    ref="listRef"
-    class="popover menu__list share"
-    role="menu"
-    aria-label="Sharing"
-    v-on="plateOn"
-  >
-    <li role="none" aria-hidden="true">
-      <span ref="plateRef" class="menu__plate" />
-    </li>
-
+  <MenuList class="share" aria-label="Sharing">
     <li v-if="isDraft" role="none" class="t-sm t-muted share__note">
       Add an item and this list gets its links.
     </li>
@@ -265,7 +252,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
         </button>
       </li>
     </template>
-  </ul>
+  </MenuList>
 </template>
 
 <!-- lang="scss" for $bp-stack (nuxt.config injects it into every scss block). In a
