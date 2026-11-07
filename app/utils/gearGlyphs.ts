@@ -58,9 +58,9 @@ export const JacketGlyph = glyph(
 
 /** A narrow-mouth bottle: cap, shoulders, a label band. */
 export const WaterBottleGlyph = glyph(
-  line("M10 4.5V3C10 2.45 10.45 2 11 2H13C13.55 2 14 2.45 14 3V4.5"),
-  line("M9.5 4.5H14.5C14.5 5.6 17 6.3 17 8.6V19.5C17 20.88 15.88 22 14.5 22H9.5C8.12 22 7 20.88 7 19.5V8.6C7 6.3 9.5 5.6 9.5 4.5Z"),
-  line("M7 11.5H17"),
+  line("M10.5 2H13.5C14.33 2 15 2.67 15 3.5V5.5H9V3.5C9 2.67 9.67 2 10.5 2Z"),
+  line("M9.5 5.5H14.5C14.5 6.6 17 7.3 17 9.6V19.5C17 20.88 15.88 22 14.5 22H9.5C8.12 22 7 20.88 7 19.5V9.6C7 7.3 9.5 6.6 9.5 5.5Z"),
+  line("M7 12.5H17"),
 );
 
 /** A squeeze filter: the cartridge, and clean water out of the bottom. */
