@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
-import { ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
 import type { Directive } from "vue";
-import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
+import type { ListSnapshot, Totals } from "~~/shared/types";
 import { estimateDay, heightIsDerived, shownHeightM } from "~~/shared/tripPlan";
 import { coolerByC, dayFactsForRanges, type DayFacts } from "~~/shared/dayFacts";
 import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/shared/dryCarry";
@@ -310,18 +310,17 @@ const coordOf = (alongM: number) => {
 };
 
 /**
- * A forecast for where each day ends: a LINK, never a fetch (shared/forecast.ts). Built
- * from the coordinate the row already shows, so it is owner-only for the same reason that
- * coordinate is, and nothing is asked of any weather service until the owner opens it.
- * Each camp gets one, and so does the finish, whichever row draws it: the day's own end
- * row, or the route's End pin when the last day walks all the way to it.
+ * A forecast for where each day ends — the camp, or the finish on the last day: a LINK,
+ * never a fetch (shared/forecast.ts). Built from the route's geometry, so it is owner-only
+ * for the same reason the camp's coordinate is, and nothing is asked of any weather service
+ * until the owner opens it. A day that owns no ground has no end to forecast.
  */
-const forecastAt = (alongM: number) => {
-  const at = pointAt(alongM);
-  return at ? forecastLink(at) : null;
-};
-const dayForecasts = computed(() => dayEnds.value.map((end) => (end ? forecastAt(end.alongM) : null)));
-const pinForecast = (w: Waypoint) => (w.kind === "end" ? forecastAt(w.alongM) : null);
+const dayForecasts = computed(() =>
+  ranges.value.map((r) => {
+    const at = r.toM > r.fromM ? pointAt(r.toM) : null;
+    return at ? forecastLink(at) : null;
+  }),
+);
 
 function onPlace(alongM: number) {
   c.addWaypoint(alongM);
@@ -839,6 +838,19 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             </Tooltip>
           </span>
 
+          <!-- The forecast where the day ends, on somebody else's site, in a new tab:
+               weather.gov inside the US, yr.no elsewhere. WORDS, not a weather glyph: a sun
+               or a cloud here would read as the day's weather, when this is only the way
+               to look it up. The arrow is the link's own mark — it leaves the app. -->
+          <a
+            v-if="dayForecasts[i]"
+            class="link plan__forecast"
+            :href="dayForecasts[i]!.href"
+            target="_blank"
+            rel="noopener noreferrer"
+            :aria-label="`Forecast where day ${i + 1} ends, on ${dayForecasts[i]!.site}`"
+          >Forecast<HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" /></a>
+
         </div>
 
         <!-- What the day is like, read off the profile: two derived sentences in the
@@ -894,7 +906,6 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
               :waypoint="w"
               :distance-unit="distanceUnit"
               :coord="coordOf(w.alongM)"
-              :forecast="pinForecast(w)"
             />
             <!-- ONE row for either kind of day's end, coming LAST because that is the
                  order you meet them in: you pass the spring and the col, and then you
@@ -934,19 +945,10 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
               </span>
               <span class="t-sm wprow__coord">{{ coordOf(dayEnds[i]!.alongM) }}</span>
               <span class="t-sm wprow__dist">{{ formatDistancePadded(dayEnds[i]!.alongM, distanceUnit) }}</span>
-              <!-- The delete column holds the forecast instead. A day's end is the end of a
-                   day, and removing it would mean removing the day, so the cell was empty;
-                   the forecast belongs to exactly this place, and the coordinate it is built
-                   from is the one printed beside it. Opens in a new tab: weather.gov inside
-                   the US, yr.no elsewhere. The cell stays either way, so every column in the
-                   list still lines up through this row. -->
-              <ForecastButton
-                v-if="dayForecasts[i]"
-                class="wprow__del"
-                :link="dayForecasts[i]!"
-                :place="`the ${dayEnds[i]!.kind === 'camp' ? 'camp' : 'finish'} at the end of day ${i + 1}`"
-              />
-              <span v-else class="wprow__del" aria-hidden="true" />
+              <!-- the delete column, left empty: a day's end is the end of a day, and
+                   removing it would mean removing the day. The cell stays so every other
+                   column in the list still lines up through this row. -->
+              <span class="wprow__del" aria-hidden="true" />
             </li>
           </ol>
           <!-- the add row, carrying the same rule and the same padding as a row above it,
@@ -982,7 +984,6 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             :waypoint="w"
             :distance-unit="distanceUnit"
             :coord="coordOf(w.alongM)"
-            :forecast="pinForecast(w)"
           />
         </ol>
         <button
@@ -1166,31 +1167,53 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   outline: none;
 }
 /* the row's data, as glyph-and-figure pairs — an item row's grammar at day scale */
-/* The day's figures line up DOWN the list, not just across one row.
+/* EACH CELL AS WIDE AS WHAT IT HOLDS, and one even gap between them.
  *
- * Fixed cell widths rather than a grid: every day is its own element, so separate grids
- * wouldn't share columns, and `subgrid` would mean restructuring the list into one grid
- * that the headers and pack bars also live in. A width per kind of figure gets the columns
- * for a fraction of the change, and these figures are bounded — a day is at most three
- * digits of distance and five of climb, which is what the widths are sized from.
+ * The cells used to hold fixed columns (7.5rem, 10rem for the climb) so a figure would sit
+ * over the same figure on the next day. But the days are a waypoint list apart, too far for
+ * the eye to run a column down, and the fixed widths left a hole after every short figure
+ * ("8.08 mi", "— ft") and none after the long ones ("10 h 13 min"): the row read as
+ * unevenly spaced, which is the one thing a row of figures must not.
+ *
+ * And every cell stands one input tall. The distance and the climb are fields, and a field
+ * is --field-h; the figures beside them were only a line of text. Once the row wraps, the
+ * line holding the fields stood taller than the lines without, so the gaps between lines
+ * differed for no reason the reader could see.
  */
 .plan__data {
   margin-top: var(--space-2);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
+  column-gap: var(--space-5);
 }
 .plan__cell {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  /* the column. Wide enough for the longest real figure plus its unit and a (?), so a
-     row never pushes the ones beside it out of line */
-  min-width: 7.5rem;
+  min-height: var(--field-h);
   color: var(--ink-2);
   /* the editor's row size — .field pins its inputs to a literal 1rem for the iOS
      zoom rule, and the text beside them has to sit on the same line as those */
+  font-size: var(--text-base);
+}
+/* A phone has room for two figures a line, so it gets two even columns: distance and
+   climb, time and light, burn and forecast, each pair starting at the same two edges. */
+@media (max-width: $bp-stack) {
+  .plan__data {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-3);
+  }
+}
+/* the day's forecast link: a word and its leaving arrow, at the row's size, sized to
+   itself rather than to a figure column (nothing lines up under it but itself) */
+.plan__forecast {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--space-px);
+  min-height: var(--field-h);
   font-size: var(--text-base);
 }
 /* estimates sit a step back from the figures you entered — the `~` carries the claim,
@@ -1217,19 +1240,10 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   margin-top: var(--space-2);
   color: var(--ink-3);
 }
-/* THE CLIMB AND ITS DROP SHARE ONE CELL, so they share one column.
-   Every other cell holds a different kind of fact, and the fixed width lines those up down
-   the list. These two are one fact read twice — up and down over the same ground, drawn as
-   a staircase and its own reflection. Giving the drop a cell of its own was not enough on
-   its own: the climb kept its full 7.5rem in front of it, so "970 ft" left some forty
-   pixels of nothing before the drop's glyph — a wider gap than the one between columns
-   holding unrelated figures, which is precisely backwards.
-   Wide enough for five digits of climb, the pair's own gap, and five of drop. */
-.plan__cell--climb {
-  min-width: 10rem;
-}
-/* A HAIR, not a column: narrower than the --space-3 between real columns, so the eye reads
-   these two as one thing. --space-1 on top of the cell's own --space-1 between its parts. */
+/* THE CLIMB AND ITS DROP SHARE ONE CELL: one fact read twice, up and down over the same
+   ground, drawn as a staircase and its own reflection. So the drop sits a HAIR from the
+   climb, far narrower than the gap between cells, and the eye reads the two as one thing.
+   --space-1 on top of the cell's own --space-1 between its parts. */
 .plan__drop {
   display: inline-flex;
   align-items: center;
@@ -1523,6 +1537,33 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
     /* back to the tighter gap: the slack that paid for --space-5 above is what the name is
        using now, and at this width the row has none to spare */
     --wprow-gap: var(--space-2);
+  }
+}
+/* NOTHING TO DELETE, NO DELETE COLUMN. The last track is there so a pin's delete lines up
+   with the rows around it; a list holding only rows with nothing to press (the trailhead,
+   the camp, the route's End) kept it open anyway, a blank button-wide strip at the right
+   edge, so its distances stopped a button short of the rule they sit on. With no delete in
+   the list there is nothing to line up, so the column goes, and the empty cells with it
+   (an area name with no track to resolve against would invent one per cell). */
+.plan__wplist:not(:has(button.wprow__del)) {
+  --wprow-cols:
+    minmax(0, 1fr)
+    calc(var(--wprow-btn) * 2 + var(--space-px))
+    auto
+    auto;
+  --wprow-areas: "name kind coord dist";
+}
+.plan__wplist:not(:has(button.wprow__del)) :deep(.wprow__del) {
+  display: none;
+}
+@media (max-width: $bp-stack) {
+  .plan__wplist:not(:has(button.wprow__del)) {
+    --wprow-cols:
+      minmax(0, 1fr)
+      calc(var(--wprow-btn) * 2 + var(--space-px));
+    --wprow-areas:
+      "name kind"
+      "coord dist";
   }
 }
 /* The unclaimed stretch is a day-shaped thing without being a day, so it takes the day's

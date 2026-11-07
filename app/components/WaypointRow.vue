@@ -2,7 +2,6 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
 import type { Waypoint, WaypointKind } from "~~/shared/types";
-import type { ForecastLink } from "~~/shared/forecast";
 import { formatDistance, formatDistancePadded, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { WAYPOINT_KIND_META, WAYPOINT_KIND_OPTIONS, waypointKindMeta } from "~/utils/waypointKinds";
 
@@ -20,8 +19,6 @@ const props = defineProps<{
   distanceUnit: DisplayDistanceUnit;
   /** where it actually is, worked out from the route by the panel — never stored */
   coord?: string;
-  /** the route's End only: its forecast link, in the delete cell it has no use for */
-  forecast?: ForecastLink | null;
 }>();
 
 const c = useGearList();
@@ -117,9 +114,8 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
          it somewhere else, where the distance is what you scan the list by. -->
     <span class="t-sm wprow__coord">{{ coord }}</span>
     <span class="t-sm wprow__dist">{{ at }}</span>
-    <!-- the cell stays either way, so every column above and below still lines up through
-         this row: a delete for a pin, nothing for the trailhead, and the forecast for the
-         route's End, which is where the last day finishes when it walks the whole route -->
+    <!-- the cell stays either way, empty for the route's ends, so every column above and
+         below still lines up through this row -->
     <button
       v-if="!isRouteEnd"
       type="button"
@@ -129,7 +125,6 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
     >
       <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
     </button>
-    <ForecastButton v-else-if="forecast" class="wprow__del" :link="forecast" place="the end of the route" />
     <span v-else class="wprow__del" aria-hidden="true" />
   </li>
 </template>
