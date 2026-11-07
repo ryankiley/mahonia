@@ -323,7 +323,11 @@ export default defineNuxtConfig({
           // is NOT fixed here — `minimum-scale=1` is inert on iOS (it always allows
           // pinch-zoom as an a11y override) — it's fixed in CSS via overflow-x:clip
           // on BOTH html and body (see app/assets/styles/foundations/reset.scss).
-          content: "width=device-width, initial-scale=1, viewport-fit=cover",
+          // interactive-widget=resizes-content: on Android Chrome the keyboard shrinks
+          // the LAYOUT viewport, so dvh and anything pinned to the bottom (the phone My
+          // Gear sheet) clear it with no measuring. iOS ignores the key; there the
+          // keyboard is measured off the visual viewport (app/utils/viewportRoom).
+          content: "width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content",
         },
         // Resolve light-dark() to the right mode on first paint (no flash).
         { name: "color-scheme", content: "light dark" },

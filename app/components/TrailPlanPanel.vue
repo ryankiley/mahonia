@@ -643,8 +643,8 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
     </p>
 
     <!-- A day arrives and leaves the way a gear row does: its box unfolds on the step
-         spring (one grid track, hence the single inner wrapper) and folds away when
-         removed, so "Add a day" and the day's delete move the days under them rather
+         role (one grid track, hence the single inner wrapper) and folds away, quicker,
+         when removed, so "Add a day" and the day's delete move the days under them rather
          than dropping them a row in one frame (measured 2026-10-17). -->
     <TransitionGroup v-else name="dayin" tag="ol" class="plan__days">
       <li v-for="(d, i) in days" :key="d?.id ?? `ghost-${i}`" class="plan__day">
@@ -1006,21 +1006,31 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   gap: var(--folder-gap, var(--space-6));
 }
 /* A day's arrival and departure: the <li> is a one-track grid around .plan__dayinner,
-   so the TransitionGroup's enter/leave can run the track 0fr↔1fr on the step spring
-   (height:auto doesn't animate in Safari) while the day fades. The clip exists only
-   while the track moves — the body holds tooltips that an always-on clip would cut.
-   The list's gap goes with it (margin-top on the step spring, not on the first day,
-   which has no gap above): a 0fr flex child still pays the gap otherwise. */
+   so the TransitionGroup's enter/leave can run the track 0fr↔1fr (height:auto doesn't
+   animate in Safari) while the day fades. The clip exists only while the track moves —
+   the body holds tooltips that an always-on clip would cut. The list's gap goes with it
+   (margin-top, not on the first day, which has no gap above): a 0fr flex child still
+   pays the gap otherwise.
+   Opening is the slot moving on screen: the step role, the ease-in-out at 250ms. A day
+   GOING is an exit, so it eases out and goes quicker — three quarters of that beat for
+   the slot, the exit beat for the fade (tokens.scss: EXITS); an ease-in-out close spends
+   its first frames looking stuck. The slot's beats are movement tokens, so reduced
+   motion keeps only the fades. */
 .plan__day {
   display: grid;
   grid-template-rows: 1fr;
 }
-.dayin-enter-active,
-.dayin-leave-active {
+.dayin-enter-active {
   transition:
     grid-template-rows var(--spring-step-dur) var(--spring-step),
     margin-top var(--spring-step-dur) var(--spring-step),
     opacity var(--spring-fade-dur) var(--spring-fade);
+}
+.dayin-leave-active {
+  transition:
+    grid-template-rows calc(var(--spring-step-dur) * 0.75) var(--ease-out),
+    margin-top calc(var(--spring-step-dur) * 0.75) var(--ease-out),
+    opacity var(--dur-exit) var(--ease-out);
 }
 .dayin-enter-active > *,
 .dayin-leave-active > * {

@@ -333,6 +333,10 @@ function changeLabel(i: number): string {
      and 55 bought exactly nothing. The pane sits under the whole bar now (--z-pane),
      so all this has to do is order correctly against its siblings in the bar. */
   z-index: var(--z-menu);
+  /* It arrives on the menu family's pop (the editor wraps it in <Transition name="menu">),
+     which scales from the trigger corner — and this panel hangs from the Sharing button's
+     right edge, so that corner is the top right. */
+  transform-origin: top right;
   width: min(22rem, calc(100vw - 2 * var(--space-4)));
   padding: var(--space-3);
   display: grid;
@@ -414,7 +418,10 @@ function changeLabel(i: number): string {
   background: var(--paper-3);
   border-radius: var(--popover-item-radius);
   color: var(--ink);
-  transition: background var(--spring-fade-dur) var(--spring-fade);
+  /* `scale` carries .btn's press, which this list replaces */
+  transition:
+    background var(--spring-fade-dur) var(--spring-fade),
+    scale var(--dur-press) var(--ease-out);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss). Copying
    doesn't dismiss the panel, so the deepened chip used to sit there for the rest of
@@ -436,9 +443,11 @@ function changeLabel(i: number): string {
   padding: 0;
   color: var(--ink-3);
 }
-.share__revoke:hover {
-  background: transparent;
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .share__revoke:hover {
+    background: transparent;
+    color: var(--ink);
+  }
 }
 .share__activity {
   padding-top: var(--space-2);
@@ -453,6 +462,11 @@ function changeLabel(i: number): string {
   gap: var(--space-2);
   width: 100%;
   cursor: pointer;
+}
+/* the panel's full width, so it gives on the WIDE step (tokens.scss: --press-scale-wide);
+   the press in its own selector lifts it over the reset's */
+.share__disclosure:active {
+  scale: var(--press-scale-wide);
 }
 /* the chevron is the .chev atom (controls.scss) — the same quiet mark that
    turns over on the ⋯ menu's Export section; it had a byte-identical copy here */

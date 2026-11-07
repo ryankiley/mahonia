@@ -37,6 +37,23 @@ interface PointerDragHooks<T> {
   within?: string;
 }
 
+/**
+ * Lock (or release) text selection on the page for the length of a drag, so a pointer
+ * sweeping over rows doesn't paint a selection across them.
+ *
+ * BOTH spellings, because WebKit reads only the prefixed one: Safari, on a Mac and on
+ * every iOS browser, ignores an unprefixed `user-select` set from script, so the lock
+ * that held in Chrome and Firefox did nothing on the phones most drags here happen on.
+ * Cleared the same way, both, so nothing lingers once the gesture ends. Exported for the
+ * one drag that isn't built on this scaffold (the vault pane's divider).
+ */
+export function lockTextSelection(on: boolean): void {
+  if (typeof document === "undefined") return;
+  const s = document.body.style;
+  s.userSelect = on ? "none" : "";
+  s.setProperty("-webkit-user-select", on ? "none" : "");
+}
+
 export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
   const dragId = ref<string | null>(null);
   // The pointer id we explicitly captured (see start()), so we can release it on
@@ -160,8 +177,8 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
   // (re-entrant drag start, interrupted gesture, list dispose).
   function reset() {
     detach();
+    lockTextSelection(false);
     if (typeof document !== "undefined") {
-      document.body.style.userSelect = "";
       if (capturedId !== -1) {
         try {
           document.documentElement.releasePointerCapture(capturedId);
@@ -223,7 +240,7 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     copyKey.value = copyable && ev.altKey;
     paintCursor();
     hooks.onStart?.(ev);
-    document.body.style.userSelect = "none";
+    lockTextSelection(true);
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("pointercancel", onCancel);
@@ -259,20 +276,44 @@ interface PressArmOptions<T> {
    *  arming move event, after the press record and listeners are already torn
    *  down — so a re-entrant press inside the handler starts clean. */
   onDrag: (payload: T, ev: PointerEvent) => void;
+  /** Touch, with a hold configured: the hold has elapsed, so the next move past the
+   *  threshold is a drag. Called from a timer AT that moment rather than on the next
+   *  move, because this is where the caller says the hold registered (a lifted row, a
+   *  tick of vibration) and that has to reach a finger that is still holding still.
+   *  A press-and-hold you can't feel take is a gesture you can't trust. */
+  onArm?: (payload: T) => void;
+  /** A press that ARMED ended without becoming a drag — lifted, cancelled, replaced
+   *  by another press, or torn down — so the caller can take its feedback back down.
+   *  Not called for a press that never armed, nor once onDrag has the gesture: what a
+   *  live drag looks like, and when it ends, is the caller's. */
+  onDisarm?: (payload: T) => void;
 }
 
 export function createPressArm<T>(opts: PressArmOptions<T>) {
   // One object for the gesture in flight. `armedAt` is the timestamp the drag
   // becomes available from — 0 for a mouse (immediately), now + the hold for a
-  // finger — which is the whole hold rule as a comparison at move time, with no
-  // timer to run or clear.
-  let press: { x: number; y: number; pointerId: number; armedAt: number; payload: T } | null = null;
+  // finger — which is the whole hold rule as a comparison at move time. The one
+  // timer (holdTimer) exists only to ANNOUNCE the arming (onArm), since nothing
+  // else happens at that instant to hang it on; the rule itself never waits on it.
+  let press: { x: number; y: number; pointerId: number; armedAt: number; armed: boolean; payload: T } | null =
+    null;
+  let holdTimer: ReturnType<typeof setTimeout> | undefined;
 
-  function end() {
+  /** Drop the press record and its listeners; hand back what it was. */
+  function teardown() {
+    const p = press;
     press = null;
+    clearTimeout(holdTimer);
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", end);
     window.removeEventListener("pointercancel", end);
+    return p;
+  }
+
+  /** The press ended without a drag: lifted, cancelled, replaced, or unmounted. */
+  function end() {
+    const p = teardown();
+    if (p?.armed) opts.onDisarm?.(p.payload);
   }
 
   function onMove(ev: PointerEvent) {
@@ -280,8 +321,7 @@ export function createPressArm<T>(opts: PressArmOptions<T>) {
     if (Math.hypot(ev.clientX - press.x, ev.clientY - press.y) < opts.threshold) return;
     // moved before the hold elapsed → this is a scroll, not a drag; stand down
     if (ev.timeStamp < press.armedAt) return end();
-    const payload = press.payload;
-    end();
+    const payload = teardown()!.payload;
     opts.onDrag(payload, ev);
   }
 
@@ -291,18 +331,37 @@ export function createPressArm<T>(opts: PressArmOptions<T>) {
     if (ev.button !== 0) return;
     if (opts.exclude && (ev.target as HTMLElement).closest(opts.exclude)) return;
     end();
+    const hold = opts.touchHoldMs && ev.pointerType === "touch" ? opts.touchHoldMs : 0;
     press = {
       x: ev.clientX,
       y: ev.clientY,
       pointerId: ev.pointerId,
-      armedAt: opts.touchHoldMs && ev.pointerType === "touch" ? ev.timeStamp + opts.touchHoldMs : 0,
+      armedAt: hold ? ev.timeStamp + hold : 0,
+      armed: false,
       payload,
     };
+    if (hold) {
+      holdTimer = setTimeout(() => {
+        if (!press) return;
+        press.armed = true;
+        opts.onArm?.(press.payload);
+      }, hold);
+    }
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", end);
     window.addEventListener("pointercancel", end);
   }
 
+  /** Whether a press is in flight that a move at `timeStamp` would turn into a drag —
+   *  its hold (if any) has elapsed. The question a scroll guard asks: once this is
+   *  true, a finger moving over the list is carrying a row, not scrolling it, and the
+   *  browser must not be handed the move (a touch scroll steals the pointer outright,
+   *  pointercancel and all). Takes the asking event's own timestamp rather than
+   *  trusting the timer, which can land a frame after a move that already qualifies. */
+  function armed(timeStamp: number): boolean {
+    return !!press && (press.armed || timeStamp >= press.armedAt);
+  }
+
   // `end` doubles as the unmount teardown — the press must not outlive its rows
-  return { start, end };
+  return { start, end, armed };
 }

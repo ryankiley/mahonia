@@ -31,12 +31,16 @@ const emit = defineEmits<{ pick: [selection: PersonSelection] }>();
 // ONE array driving one v-for — not three sibling groups sharing a ref name: a
 // template ref only collects into an array within a single v-for, so the mixed
 // shape left the arrows a ref that held whichever plain chip rendered last.
-const chips = computed<{ key: PersonSelection; label: string; color?: string; hollow?: boolean; weight?: string }[]>(() => [
+// `title` is a person chip's whole name, for when the chip clips it (.pplbar__name);
+// Everyone and Unassigned are the app's own short words and never clip, so they
+// carry none rather than a tooltip that repeats the chip.
+const chips = computed<{ key: PersonSelection; label: string; title?: string; color?: string; hollow?: boolean; weight?: string }[]>(() => [
   // Everyone carries no figure — the totals bar right above it is that figure
   { key: null, label: "Everyone" },
   ...props.people.map((p) => ({
     key: p.id as PersonSelection,
     label: p.name,
+    title: p.name,
     color: personColor(p),
     weight: props.weights?.[p.id],
   })),
@@ -70,6 +74,7 @@ const { onKey } = useRovingRadio(
         role="radio"
         :aria-checked="selected === c.key"
         :tabindex="selected === c.key ? 0 : -1"
+        :title="c.title"
         @click="pick(c.key)"
       >
         <span
@@ -79,7 +84,10 @@ const { onKey } = useRovingRadio(
           :style="c.color ? { background: c.color } : undefined"
           aria-hidden="true"
         />
-        {{ c.label }}<!--
+        <!-- the name in its own box so it can clip: a person's name runs to 60
+             characters, and the chip used to run out past the screen's edge with it.
+             The chip's title carries the whole name for a pointer. -->
+        <span class="pplbar__name">{{ c.label }}</span><!--
         the chip's carry, riding a step off the name in the chip's OWN ink — the
         bordered chip shape is what keeps it reading as a control, not a readout chip
         --><span v-if="c.weight" class="t-num pplbar__wt">{{ c.weight }}</span>
@@ -125,9 +133,39 @@ const { onKey } = useRovingRadio(
   font-size: var(--text-chrome);
   color: var(--ink-3);
   white-space: nowrap;
+  /* Never wider than the row. Uncapped, a name near the 60-character limit drew a
+     chip wider than a 320px screen and ran off it; capped, the chip stops at the
+     row's edge and the name inside it clips (.pplbar__name). */
+  max-width: 100%;
+  /* the containing block for the touch hit area below */
+  position: relative;
   transition:
     background-color var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade);
+    color var(--spring-fade-dur) var(--spring-fade),
+    scale var(--dur-press) var(--ease-out);
+}
+/* The one part of the chip that gives way. The dot and the carry are flex: none (the
+   dot by .swatch, the carry below) so a long name can never squeeze them out. */
+.pplbar__name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* THE TARGET, drawn apart from the chip — the .switch recipe (controls.scss). The chip
+   is --control-compact (30px) tall because it is read with the mode bar's options; a
+   thumb needs --tap. A transparent ::before overhangs the chip by the shortfall top
+   and bottom, so the target is 44px tall and the chip still looks and lays out as it
+   did. Not sideways: the chips sit --space-1 apart and are wide enough already, and an
+   overhang there would hand a neighbour's edge to the wrong chip. Coarse pointers only,
+   unlike the switch: a 30px chip is no small thing to catch with a mouse. Where chips
+   wrap onto a second row the two rows' overhangs overlap across the 4px between them
+   and 3px into each face; the lower chip, later in the tree, takes that strip. A small
+   cost against a target that was 14px short. */
+@media (pointer: coarse) {
+  .pplbar__chip::before {
+    content: "";
+    position: absolute;
+    inset: calc((var(--control-compact) - var(--tap)) / 2) 0;
+  }
 }
 @media (hover: hover) and (pointer: fine) {
   .pplbar__chip:hover {
@@ -161,6 +199,7 @@ const { onKey } = useRovingRadio(
    every chip but the lit one. No margin — the chip's flex gap is the spacing,
    and a margin on top of it doubled the step. */
 .pplbar__wt {
+  flex: none;
   color: inherit;
 }
 @media (max-width: $bp-stack) {

@@ -60,6 +60,7 @@ import { ASSUMED_FUEL_PER_BOIL_G, isFuelRow, offersKcal, offersWorn } from "~~/s
 // below can only ever claim what capture would actually take (statically imported
 // like useGearList's own vaultNormKey — this module is in the editor graph already)
 import { isVaultWorthy, vaultNormKey } from "~~/shared/vault";
+import { motionIsInstant } from "~/plugins/inputModality.client";
 
 // The editor's row — editable by default, a checklist row in packing mode. A nested item
 // renders the SAME row with `nested` set (indented, one level only). The share views
@@ -293,11 +294,14 @@ function onRowBlur(e: FocusEvent) {
 // The animations are left filling forward: a cancel before the dispatch would show
 // the full row for the frame between the two. Catchable: focus coming back mid-fold
 // reverses it from the frame it is at (onRowFocusIn), and nothing is discarded.
+// Not when focus left by the KEYBOARD (Tab or Escape out of a blank row) or with
+// reduced motion: the row goes in one frame, the way it always did without a fold —
+// a Web Animation is the one kind of motion atoms/modality.scss can't reach.
 const leaving = ref(false);
 let leaveAnims: Animation[] = [];
 function foldAway(): boolean {
   const wrap = wrapRef.value;
-  if (!wrap || !import.meta.client || matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+  if (!wrap || !import.meta.client || motionIsInstant()) return false;
   const step = springCss("step");
   const fade = springCss("fade");
   // the cluster's BOXED parts: .item__meta and the .item__trail inside it are both
@@ -343,6 +347,7 @@ function unfold() {
 function onRowFocusIn() {
   if (!leaving.value) return;
   leaving.value = false;
+  if (motionIsInstant()) return unfold(); // Shift+Tab back in: the row is simply there again
   const anims = leaveAnims;
   for (const a of anims) a.reverse();
   Promise.all(anims.map((a) => a.finished)).then(
@@ -649,8 +654,6 @@ const {
   onWeightFocus,
   onWeightKeydown,
   onWeightStep,
-  qtyFieldRef,
-  qtyPopping,
   rowKcal,
   rowUnit,
   stepQty,
@@ -1005,13 +1008,13 @@ const vaultOffered = computed(
 /**
  * Whether the reveal below is allowed to PLAY.
  *
- * The `vaultin` Transition carries no `appear` because, as its keyframes say, "a
- * fresh row (or page) animates nothing; the shine plays only when an EXISTING
- * row's button comes back". Coverage broke that promise without touching the
+ * The `vaultin` Transition carries no `appear` because, as its styles say, "a
+ * fresh row (or page) animates nothing"; the entrance plays only when an EXISTING
+ * row's button comes back. Coverage broke that promise without touching the
  * animation: the gate is now false at first paint for a signed-in visitor (the
  * vault read hasn't landed) and flips true a few hundred ms later, which IS an
- * enter transition — so opening a list set every worthy row shining at once, a
- * page-load event the design explicitly excludes.
+ * enter transition — so opening a list set every worthy row's button arriving at
+ * once, a page-load event the design explicitly excludes.
  *
  * Armed one tick after the gate first settles, so the button's first appearance
  * on any given row is silent and every later one — the row becoming gear, a key
@@ -1024,7 +1027,7 @@ watch(
   // every session change (the controller re-asks, because an answer about the
   // last account is not an answer about this one) — so an arm-only latch let an
   // in-page sign-in take every worthy row through covered and back, playing the
-  // whole list's shine at once. That is the same page-load burst this exists to
+  // whole list's entrance at once. That is the same page-load burst this exists to
   // prevent, reached by the most ordinary route into the feature.
   (settled) => (settled ? nextTick(() => (vaultRevealArmed.value = true)) : (vaultRevealArmed.value = false)),
   { immediate: true },
@@ -1160,8 +1163,9 @@ function dismissFix() {
     <!-- editing↔packing swap, decided by CSS rather than by this component. Which face
          shows follows the editor body's data-mode (atoms/item.scss); the fade the old
          <Transition> gave the entering face is a CSS animation there, gated on the
-         body's is-rowswitching beat so it plays exactly when a switch happens and not
-         when a row appears for any other reason. What this template decides is only
+         body's data-mode-from beat so it plays exactly when a Gear ↔ Packing switch
+         happens and not when a row appears for any other reason. (A row whose faces
+         differ in height eases to the new one: GearEditor's row fold.) What this template decides is only
          whether each face has ever been NEEDED (the useEditorMode latches): a face
          mounts the first time its mode is entered and then stays for the page's life,
          display:none'd in the other modes. So a mode switch mounts nothing, unmounts
@@ -1468,13 +1472,11 @@ function dismissFix() {
             >
               <HugeiconsIcon :icon="MinusSignIcon" :size="16" :stroke-width="2" />
             </button>
-            <!-- is-popping only ever comes from the STEPPER (popQty). Typing a
-                 number already shows you the number; popping the field on a commit
-                 you are looking at is motion reporting your own keystroke back. -->
+            <!-- No motion on the number, from the stepper or the keyboard: a count you
+                 are changing is a count you are looking at, and the new figure is the
+                 feedback (a pop replayed on every press of a + + + run). -->
             <input
-              ref="qtyFieldRef"
               class="field field--num item__qtyfield"
-              :class="{ 'is-popping': qtyPopping }"
               type="number"
               min="1"
               :max="QTY_MAX"
@@ -2183,9 +2185,13 @@ function dismissFix() {
    step up from the old 18px drawn box; the icons pin their stroke at ~1.33px
    (absolute-stroke-width) so the bigger box keeps the same line weight the
    surrounding 16px icons render. The row's only addition: the whole box is the tap
-   target, so pointing at it darkens the glyph like the row's other quiet marks. */
-.check:hover .check__icon {
-  color: var(--ink);
+   target, so pointing at it darkens the glyph like the row's other quiet marks.
+   Pointer-gated — it paints (see the note on .btn:hover, controls.scss): a tap on a
+   phone would leave the glyph inked after the finger had gone. */
+@media (hover: hover) and (pointer: fine) {
+  .check:hover .check__icon {
+    color: var(--ink);
+  }
 }
 .item__cname {
   min-width: 0;
@@ -2357,16 +2363,6 @@ function dismissFix() {
     height: 16px;
   }
 }
-/* the pop when the stepper moves the number — the shared `num-pop` keyframe
-   (main.scss), the one the big total takes when it changes. blur(0) at rest, never
-   `none`: the filter context has to persist between runs or WebKit drops it. */
-.item__qtyfield {
-  filter: blur(0);
-  transform: translateZ(0);
-}
-.item__qtyfield.is-popping {
-  animation: num-pop var(--spring-pop-dur) var(--spring-pop) both;
-}
 .item__unitwrap {
   position: relative;
   flex: none;
@@ -2415,7 +2411,11 @@ function dismissFix() {
 /* :has(), not a sibling combinator — the select is rendered AFTER the chevron, so
    `~` from it reaches nothing. Keyboard focus has to light the mark too, or the
    affordance exists for pointers only. */
-.item:hover .item__unitchev,
+@media (hover: hover) and (pointer: fine) {
+  .item:hover .item__unitchev {
+    color: var(--ink-2);
+  }
+}
 .item__unitwrap:focus-within .item__unitchev {
   color: var(--ink-2);
 }
@@ -2463,8 +2463,11 @@ function dismissFix() {
 .item__clsbtn {
   border-radius: var(--radius-pill);
 }
-.item__clsbtn:hover {
-  color: var(--ink);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .item__clsbtn:hover {
+    color: var(--ink);
+  }
 }
 @media (pointer: coarse) {
   /* the overshoot, as padding, so the chip's content box stays --icon-btn while the
@@ -2653,7 +2656,7 @@ function dismissFix() {
   .item-row .item__dup,
   .item-row .item__del {
     opacity: 0;
-    transition: opacity var(--spring-fade-dur) var(--spring-fade);
+    transition: opacity var(--spring-fade-dur) var(--spring-fade), scale var(--dur-press) var(--ease-out);
   }
   .item-row:hover .item__vault-btn,
   .item-row:hover .item__nestact,
@@ -2667,67 +2670,31 @@ function dismissFix() {
   }
 }
 /* The save button's coming and going is STATE — the automatic capture releasing a
-   row, or taking it. Arrival gets a little sizzle: the trigger pops in, and a
-   light front sweeps left-to-right through the glyph — a soft-edged mask wipe
-   over the icon held at full ink, whose final frame is the no-mask state, so the
-   sweep ends where rest begins. When the enter class lifts, the button's own
-   color transition (above) settles the lit glyph onto --ink-3 — the SAME token
-   every other icon in the cluster rests at, so a settled row reads as one even
-   set, not a set with one recently-excited member.
-   Leave is a quick quiet fade: the moment belongs to arrival.
-   Everything here is CSS — keyframes, mask, timing; the <Transition> wrapper only
-   gates the standard enter/leave classes, the same idiom as the row's menus. And
-   no `appear`: a fresh row (or page) animates nothing; the shine plays only when
-   an EXISTING row's button comes back, which is the beat that means something
-   ("you can save this now").
-   One duration for both animations, keyed off the ROOT: Vue times the transition
-   from the root element's animation, so a longer sweep on the inner svg would be
-   cut off mid-shine when the class comes off. The pop instead lands early inside
-   the shared window and holds; the sweep starts a beat later (delay +
-   fill backwards) so it runs through a glyph that has already landed. (The global
-   reduced-motion rule in main.scss flattens all of it.) */
+   row, or taking it. Its arrival is the beat that means something ("you can save this
+   now"), so it gets a short, plain entrance: up from 90% with a fade, on the ease-out,
+   in under 200ms. No overshoot and no shine — it used to grow from half size past
+   full (1.08) and then sweep a light front through the glyph over more than a
+   second, which is a celebration for a button that turns up every time a row is
+   named and weighed. Leaving is the same move back, quicker.
+   A transition, not keyframes, so a button that leaves mid-arrival turns round from
+   where it is. The <Transition> wrapper's `:css` is the gate: no `appear`, and
+   disarmed (vaultRevealArmed) until the vault's answer settles, so a fresh row or a
+   page load animates nothing. (The global reduced-motion rule in main.scss and the
+   keyboard flag, atoms/modality.scss, flatten both.) */
 .vaultin-enter-active {
-  animation: vault-pop calc(var(--spring-step-dur) * 3) var(--spring-step);
-}
-.vaultin-enter-active .item__vault-btn {
-  color: var(--ink);
-}
-.vaultin-enter-active .item__vault-btn svg {
-  mask-image: linear-gradient(100deg, #000 45%, rgba(0, 0, 0, 0) 65%);
-  mask-size: 250% 100%;
-  mask-repeat: no-repeat;
-  animation: vault-shine calc(var(--spring-fade-dur) * 2.25) var(--spring-fade) calc(var(--spring-fade-dur) * 0.75) backwards;
-}
-@keyframes vault-pop {
-  0% {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  35% {
-    opacity: 1;
-    transform: scale(1.08);
-  }
-  60%,
-  100% {
-    transform: scale(1);
-  }
-}
-@keyframes vault-shine {
-  from {
-    mask-position: 100% 0;
-  }
-  to {
-    mask-position: 0% 0;
-  }
+  transition:
+    opacity 180ms var(--ease-out),
+    transform 180ms var(--ease-out);
 }
 .vaultin-leave-active {
   transition:
-    opacity var(--spring-fade-dur) var(--spring-fade),
-    transform var(--spring-step-dur) var(--spring-step);
+    opacity var(--dur-exit) var(--ease-out),
+    transform var(--dur-exit) var(--ease-out);
 }
+.vaultin-enter-from,
 .vaultin-leave-to {
   opacity: 0;
-  transform: scale(0.5);
+  transform: scale(0.9);
 }
 /* drag-to-reorder */
 .item-wrap {
@@ -2824,7 +2791,7 @@ function dismissFix() {
 /* If one sub-line has a saved value, the shared reveal stays mounted when focus
    leaves. Let its empty sibling finish closing instead of disappearing mid-frame. */
 .reveal-field-leave-active {
-  transition: opacity var(--spring-step-dur) var(--spring-step);
+  transition: opacity var(--dur-exit) var(--ease-out);
 }
 .reveal-field-leave-to {
   opacity: 0;
@@ -2906,8 +2873,11 @@ textarea.item__note {
   text-align: left;
   cursor: pointer;
 }
-.item__under-link:hover {
-  color: var(--ink);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .item__under-link:hover {
+    color: var(--ink);
+  }
 }
 /* the suggest-a-fix nudge + an × to dismiss it from the page */
 .item__fixrow {

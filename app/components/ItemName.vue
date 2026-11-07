@@ -74,11 +74,15 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
   text-underline-offset: var(--underline-offset);
   transition: text-decoration-color var(--spring-fade-dur) var(--spring-fade);
 }
-/* Hover-capable pointers only. On touch there IS no hover, so the underline stays
-   painted — a reveal-on-hover rule would leave phone readers (most of a shared
-   link's traffic) with no affordance at all. Same reason it's `hover: hover` and not
-   a width breakpoint: a touch laptop must keep the persistent form. */
-@media (hover: hover) {
+/* Hover-capable pointers only — the app's one hover query, `(hover: hover) and
+   (pointer: fine)` (see .btn:hover, atoms/controls.scss). On touch there IS no hover, so
+   the underline stays painted — a reveal-on-hover rule would leave phone readers (most
+   of a shared link's traffic) with no affordance at all. Same reason it's a capability
+   query and not a width breakpoint: a touch laptop must keep the persistent form. And a
+   device that hovers only coarsely now keeps it too, which is the safe side to err on.
+   This is a reveal on ROWS the pointer sweeps across — colour only, by design: nothing
+   here moves. */
+@media (hover: hover) and (pointer: fine) {
   .iname__link {
     text-decoration-color: transparent;
   }
@@ -88,11 +92,19 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
   .item-row:hover .iname__link {
     text-decoration-color: var(--underline);
   }
+  /* the link itself firms up past the row's reveal. Row-qualified as well, because the
+     reveal above is (0,4,0) once scoped and a bare `.iname__link:hover` is (0,3,0): the
+     link sits in a hovered row whenever it is hovered, so the bare form never won and the
+     firm-up never showed. */
+  .iname__link:hover,
+  .item-row .iname__link:hover {
+    text-decoration-color: var(--ink-2);
+  }
 }
-/* keyboard tabbing and direct hover always firm it up, at every pointer type —
-   listed outside the media query so focus is never left without the cue */
-.iname__link:hover,
-.iname__link:focus-visible {
+/* keyboard tabbing firms it up at every pointer type — outside the media query so focus
+   is never left without the cue, and row-qualified for the same specificity reason */
+.iname__link:focus-visible,
+.item-row .iname__link:focus-visible {
   text-decoration-color: var(--ink-2);
 }
 </style>

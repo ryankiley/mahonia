@@ -283,9 +283,11 @@ watch(open, (o) => {
   font-size: var(--text-chrome);
   color: var(--ink-2);
   white-space: nowrap;
+  /* `scale` is the reset's press (reset.scss), which this list would otherwise replace */
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade);
+    color var(--spring-fade-dur) var(--spring-fade),
+    scale var(--dur-press) var(--ease-out);
 }
 /* Split from :hover, not merged with it: .is-on is the OPEN menu's state and has to
    paint on every pointer, while the hover twin paints only where hovering is real
@@ -379,6 +381,9 @@ watch(open, (o) => {
   position: absolute;
   top: calc(100% + var(--space-1));
   left: 0;
+  /* it comes and goes on the menu family's pop, which scales from the trigger corner —
+     and this hangs off the switcher's start edge, like the panel above */
+  transform-origin: top left;
   z-index: var(--z-menu);
   display: flex;
   align-items: center;
@@ -400,7 +405,9 @@ watch(open, (o) => {
   font-size: var(--text-base);
   line-height: 1;
 }
-.lm__hintclose:hover {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .lm__hintclose:hover {
+    color: var(--ink);
+  }
 }
 </style>

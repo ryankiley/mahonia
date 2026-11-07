@@ -17,10 +17,12 @@ $bp-full: 1024px !default;
 
 // A spring as a CSS easing: (nominal duration, bounce, launch). The duration is the
 // spring's period, about when it has settled; bounce 0 never overshoots, above ~0.2 it
-// shows. Sampled at 49 points over 1.5x the duration so the tail settles — every *-dur
-// token is that 1.5x. $launch is the starting speed in units of the natural speed: 0
-// sets off from rest (a thing with mass), 1 is the exponential ease-out, full speed on
-// the first frame (a response: a colour answering a hover, a pip chasing the pointer).
+// shows. Sampled at 49 points over 1.5x the duration so the tail settles — a sampled
+// token's *-dur is that 1.5x. $launch is the starting speed in units of the natural
+// speed: 0 sets off from rest (a thing with mass), 1 is the exponential ease-out, full
+// speed on the first frame (a response: a colour answering a hover, a pip chasing the
+// pointer). Two tokens below still use it (--spring-fade, --spring-track), both
+// launched; the rest of the motion table is cubic-béziers now.
 // Same closed form as app/utils/spring.ts; a retune changes both.
 @function spring-curve($ms, $bounce: 0, $launch: 0) {
   $d: math.div($ms, 1000);
@@ -51,6 +53,15 @@ $bp-full: 1024px !default;
   }
   @return linear($pts);
 }
+
+// The three curves of the motion table (see "motion" in :root below), as Sass values so
+// the role tokens can carry them LITERALLY. A role token written as var(--ease-out)
+// would also work in a stylesheet, but app/utils/spring.ts reads the role tokens off
+// :root to hand a Web Animation the same curve, and a literal is the value that read
+// can trust in every engine.
+$ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+$ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+$ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 
 // Fluid item-row track: $min wide at the $bp-stack mobile stack point, $max at
 // the $bp-full full-width point, linear between (clamped outside). The emitted
@@ -357,59 +368,112 @@ $bp-full: 1024px !default;
      would round a mark that small into a coin. */
   --radius-icon: 2px;
 
-  /* ---- motion: one table of springs ----
-     Every move in the app runs on one of four springs. Each is a (duration, bounce)
-     pair that spring-curve() above samples into a linear() easing at build time, with
-     its own *-dur token: a spring's length is part of the spring, so no rule pairs a
-     curve with a beat of its own choosing. The duration token is 1.5x the nominal so
-     the tail settles; the move looks done at the nominal.
-     Roles, not speeds:
+  /* ---- motion: one table ----
+     Every move in the app takes its curve AND its beat from here, as a pair: each curve
+     has its own *-dur token, so no rule pairs a curve with a beat of its own choosing.
+     The rules, since 2026-11-07 (they replaced the earlier spring table): entering and
+     leaving on a strong ease-out, moving on screen on an ease-in-out, things that
+     travel on the iOS drawer curve, never an ease-in, nothing bounces, and UI motion
+     done inside 300ms (a drawer's travel excepted: modals and drawers get up to 500).
+     THE NAMES ARE HISTORICAL. This was a table of four springs sampled into linear()
+     easings; three of the five are plain cubic-béziers now, and --spring-* is due a
+     mechanical rename (~250 call sites) in a change of its own. Read them as ROLES:
        --spring-fade  colour, opacity, shadow: the hover wash, a chip's ink, a face
-                      fading in. 200ms, no bounce, LAUNCHED (see spring-curve): a
-                      colour change is a response and starts at full speed.
-       --spring-step  small moves in the flow: a chevron turning, a row's second line
-                      sliding open, a tooltip, a menu on its way out. 260ms, no bounce.
+                      fading in. Still the sampled spring: critically damped and
+                      LAUNCHED (spring-curve above), which makes it an exponential
+                      ease-out — and that already IS the strong ease-out, within
+                      0.06 of cubic-bezier(0.23, 1, 0.32, 1) over 200ms at every frame
+                      and 99% of the way by 150ms. Its -dur keeps the spring's settle
+                      tail (1.5x the 200ms nominal, 300ms); the change you see is done
+                      in ~200. Fades are what reduced motion keeps (below).
+       --spring-step  small moves on screen, in the flow: a chevron turning, a row's
+                      second line opening, a day's slot unfolding. The ease-in-out,
+                      250ms. NOT for a thing leaving — see EXITS.
        --spring-move  things that travel: the vault column and the page giving up its
-                      width, the sheet, the plan and pack bars, the map growing.
-                      420ms, no bounce: a column holding words never overshoots.
-       --spring-pop   arrivals: a figure that changed, a menu or dialog coming in, the
-                      folders cascading on load, the pane itself. The one visible
-                      bounce. 380ms, bounce 0.2 (peaks about 1.5% past).
+                      width, the sheet, the plan and pack bars, the map growing. The
+                      drawer curve, 350ms.
+       --spring-pop   arrivals: a menu, popover, dialog, toast or pane coming in, a
+                      figure that changed, the folders cascading on load. The strong
+                      ease-out, 200ms. No bounce: it was the one visible overshoot in the
+                      app (380ms at bounce 0.2), and bounce belongs to drag and play,
+                      not to a menu opening.
        --spring-track an indicator chasing the pointer: the calendar's day pip, the
-                      menus' travelling plate. 140ms, no bounce, LAUNCHED — on the
-                      step spring the pip trailed the cursor by most of a beat and
-                      read as broken (Ryan, 2026-10-17). It follows a hand, so it has
-                      to be moving on the first frame and nearly there by the time
-                      the hand has moved on.
-     Exits keep their asymmetry by running on a fraction of the fade's beat, never on
-     a curve of their own: a thing leaving gets no spring to land on.
+                      menus' travelling plate, the switch's knob. Still the sampled
+                      launched spring, 140ms nominal / 210ms -dur — on the step beat the
+                      pip trailed the cursor by most of a beat and read as broken (Ryan,
+                      2026-10-17). It follows a hand, so it has to be moving on the first
+                      frame and nearly there by the time the hand has moved on.
+     Except fade's and track's, every -dur IS the visible duration: a bézier has no
+     tail to settle.
+     EXITS are faster than arrivals and always ease out — a thing leaving has nothing to
+     land on, and an ease-in or ease-in-out exit spends its first frames looking stuck.
+     Opacity leaves on --dur-exit with --ease-out (150ms, under every arrival). A
+     transform that moves on the way out takes its beat from its ARRIVAL's movement token
+     instead — calc(var(--spring-pop-dur) * 0.75), the same 150ms — because reduced motion
+     (below) finds movement by its token, and an exit drift timed on --dur-exit would
+     survive it.
      Interruptible by construction: these are CSS transitions, so a move caught by a
-     second click retargets from the frame it is drawn at. Carrying its speed across
-     the catch as well is app/utils/spring.ts, the same table in JS. */
+     second click retargets from the frame it is drawn at. Carrying its speed across the
+     catch as well is app/utils/spring.ts, the same table in JS. */
   --spring-fade: #{spring-curve(200, 0, 1)};
   --spring-fade-dur: 300ms;
-  --spring-step: #{spring-curve(260, 0)};
-  --spring-step-dur: 390ms;
-  --spring-move: #{spring-curve(420, 0)};
-  --spring-move-dur: 630ms;
-  --spring-pop: #{spring-curve(380, 0.2)};
-  --spring-pop-dur: 570ms;
+  --spring-step: #{$ease-in-out};
+  --spring-step-dur: 250ms;
+  --spring-move: #{$ease-drawer};
+  --spring-move-dur: 350ms;
+  --spring-pop: #{$ease-out};
+  --spring-pop-dur: 200ms;
   --spring-track: #{spring-curve(140, 0, 1)};
   --spring-track-dur: 210ms;
-  /* linear() landed in Safari 17.5 / Firefox 112 — older engines take the closest
-     cubic-bezier rather than dropping to the `linear` keyword.
+  /* The curves by name, for a rule that wants a curve without a role's beat: the press,
+     the tooltip, an exit. Same three values the roles above carry. */
+  --ease-out: #{$ease-out};
+  --ease-in-out: #{$ease-in-out};
+  --ease-drawer: #{$ease-drawer};
+  /* PRESS FEEDBACK — anything you can press shrinks while it's held, so the interface
+     answers the finger before the action lands (reset.scss puts it on every button,
+     controls.scss on .btn links and menu rows). The independent `scale` property, never
+     `transform`, so it composes with a transform the element already wears (.btn--icon's
+     standing translateZ(0) layer). A full-width ROW takes the wide step: 0.97 of a 300px
+     row is a 9px shrink, which reads as the row lurching rather than giving. */
+  --press-scale: 0.97;
+  --press-scale-wide: 0.98;
+  --dur-press: 160ms;
+  /* a tooltip's arrival (atoms/tooltip.scss) — the short end of a small popover's range */
+  --dur-tooltip: 125ms;
+  /* a leave: under every arrival above, so nothing takes longer to go than to come */
+  --dur-exit: 150ms;
+  /* linear() landed in Safari 17.5 / Firefox 112 — older engines take the strong
+     ease-out, which is what both sampled springs trace, rather than dropping to the
+     `linear` keyword.
      The test value MUST have two stops. `linear(0)` is not a valid easing (one stop
      doesn't define a curve), so every engine reports it unsupported, `not` flips true,
      and the fallback applies UNIVERSALLY — the sampled spring would never once run.
      The portfolio's copy of this guard has that exact bug; don't inherit it. */
   @supports not (animation-timing-function: linear(0, 1)) {
-    --spring-fade: cubic-bezier(0.16, 1, 0.3, 1);
-    --spring-step: cubic-bezier(0.22, 1, 0.36, 1);
-    --spring-move: cubic-bezier(0.22, 1, 0.36, 1);
-    --spring-pop: cubic-bezier(0.34, 1.3, 0.5, 1);
-    --spring-track: cubic-bezier(0.16, 1, 0.3, 1);
+    --spring-fade: #{$ease-out};
+    --spring-track: #{$ease-out};
   }
-  --stagger: 31ms; /* per-child cascade step — SPACE10's kinetic-type cadence */
+  /* REDUCED MOTION is fewer, gentler animations, not none: opacity and colour stay (they
+     carry meaning — a menu arriving, a row going), and anything that MOVES stops moving.
+     So it is decided here, by token, rather than by a blanket on every transition: the
+     movement roles drop to 0.01ms and --spring-fade, --dur-exit and --dur-tooltip keep
+     their beats. 0.01ms, not 0: app/utils/spring.ts reads these with parseFloat and
+     treats 0 as "no value", and 0.01ms still ends inside one frame.
+     Delays built from these tokens shrink with them — the mode switch's sequence, the
+     add row's fade-in — so nothing waits out a beat that no longer plays (with every
+     duration zeroed and those delays intact, Gear↔Trip showed an empty body for ~0.35s).
+     The press stops scaling (the reset and the atoms dim it instead). Keyframe
+     animations are still cut whole in main.scss: theirs carry the movement inside the
+     keyframe, where a token can't separate it from the fade. */
+  @media (prefers-reduced-motion: reduce) {
+    --spring-step-dur: 0.01ms;
+    --spring-move-dur: 0.01ms;
+    --spring-pop-dur: 0.01ms;
+    --spring-track-dur: 0.01ms;
+    --press-scale: 1;
+    --press-scale-wide: 1;
+  }
   --blur-pop: 2px; /* enter blur for pop-ins (webkit-safe: rest at blur(0), never from none) */
 
   /* ---- elevation: one floating-surface drop, shared so the lifted row + the toast

@@ -81,20 +81,13 @@ export function useItemRowFields({
     gear.updateItem(item.value.id, { qty });
     el.value = String(qty);
   }
-  const qtyFieldRef = useTemplateRef<HTMLInputElement>("qtyFieldRef");
-  const qtyPopping = ref(false);
-  function popQty() {
-    qtyPopping.value = false;
-    nextTick(() => {
-      void qtyFieldRef.value?.offsetHeight;
-      qtyPopping.value = true;
-    });
-  }
+  // The stepper just moves the number. It used to pop the field on every press, which
+  // is motion on the very figure you are watching change, replayed on each press of a
+  // run (+ + + for a fourth gas canister): the new count IS the feedback.
   function stepQty(dir: 1 | -1) {
     const next = clampQty(item.value.qty + dir);
     if (next === item.value.qty) return;
     gear.updateItem(item.value.id, { qty: next });
-    popQty();
   }
 
   function onCommonName(e: Event) {
@@ -139,8 +132,6 @@ export function useItemRowFields({
     onWeightFocus,
     onWeightKeydown,
     onWeightStep,
-    qtyFieldRef,
-    qtyPopping,
     rowKcal,
     rowUnit,
     stepQty,

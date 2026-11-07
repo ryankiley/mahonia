@@ -222,9 +222,12 @@ function importFile(text: string, file: File) {
 .import__hint {
   margin-top: var(--space-2);
 }
+/* No font-size of its own. .field sets the literal 16px (--text-input) that keeps
+   iOS from zooming the page when the box takes focus; a var(--text-base) here
+   overrode it with the fluid max(), which iOS mis-reads and zooms on anyway
+   (controls.scss, .field). */
 .import__text {
   width: 100%;
-  font-size: var(--text-base);
   padding: var(--space-3);
   /* no resize: the native grip drew a square notch over the rounded corner, and
      the box scrolls anyway (the dialog is fixed-width, rows are fixed) */
