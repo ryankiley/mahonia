@@ -4,6 +4,7 @@ import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
 import { formatPrice, parsePriceInput } from "~~/shared/money";
+import { CLASS_ICONS } from "~/utils/itemMarks";
 import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 
@@ -36,9 +37,9 @@ const { vaultFetch } = useVaultAccess();
 // the detail that only exists while it's on, so the row gains no third control; there
 // is no row to protect here, and a vault row has no qty, so it has no worn split.
 const CLASS_OPTIONS = [
-  { key: "base", label: "Base" },
-  { key: "worn", label: "Worn" },
-  { key: "consumable", label: "Consumable" },
+  { key: "base", label: "Base", icon: CLASS_ICONS.base },
+  { key: "worn", label: "Worn", icon: CLASS_ICONS.worn },
+  { key: "consumable", label: "Consumable", icon: CLASS_ICONS.consumable },
 ];
 // the same list without Worn, for a row that can't be (see classOptions) — a constant
 // rather than a filter per recompute, so the picker's options keep one identity

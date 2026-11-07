@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Cancel01Icon, ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Cancel01Icon, ChevronDownIcon, FolderIcon } from "@hugeicons/core-free-icons";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
@@ -426,7 +426,7 @@ onKeyStroke("Escape", () => emit("close"));
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
 // folder ids are STRINGS in the editor (the vault page's are numeric rows) — no cast
-const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, label: f.name })));
+const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, label: f.name, icon: FolderIcon })));
 </script>
 
 <template>
