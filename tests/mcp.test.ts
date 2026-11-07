@@ -726,6 +726,16 @@ describe("describeList", () => {
     expect(fly!.carried_by).toBe("Alex");
   });
 
+  it("gives a day its note when it has one, and no key when it doesn't", () => {
+    const out = describeList(
+      snap({ days: [{ id: "d1", sortOrder: 0, note: "Resupply at Reds" }, { id: "d2", sortOrder: 1 }] }),
+      "https://mahonia.app",
+    );
+    const [first, second] = out.days as Record<string, unknown>[];
+    expect(first!.note).toBe("Resupply at Reds");
+    expect(second).not.toHaveProperty("note");
+  });
+
   it("leaves out what the list doesn't have rather than printing nulls for it", () => {
     const bare = describeList(snap({ startDate: undefined, endDate: undefined, trailUrl: undefined, trailDistanceM: undefined, people: [], days: [], items: [], folders: [] }), "https://mahonia.app");
     expect(bare).toEqual({ title: "Timberline", share_code: "ABC123DEF456", share_link: "https://mahonia.app/s/ABC123DEF456", unit: "g", totals: { base_g: 0, worn_g: 0, consumable_g: 0, carried_g: 0, total_g: 0, item_count: 0 }, folders: [] });
