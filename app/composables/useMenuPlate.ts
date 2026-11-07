@@ -34,7 +34,15 @@ import type { Ref } from "vue";
  *
  * It follows FOCUS as well as the pointer, deliberately: a menu whose only
  * "you are here" mark is reserved for people with a mouse works worse the more you
- * rely on the keyboard.
+ * rely on the keyboard. It doesn't TRAVEL for the keyboard, though: a focus move is
+ * placed, like the first landing (`is-placing`). Tab and the arrows come in bursts, and
+ * keyboard actions get no animation at all — a wash sliding after
+ * each key press reads as the menu lagging the hand. The pointer is what it travels for.
+ *
+ * The row it is standing on carries `data-plated`, so that row's own :focus-visible
+ * wash can stand down while the plate is under it (controls.scss) — otherwise a
+ * tabbed-to row wore two tints at once — and come back the moment the plate leaves
+ * it for another row or goes out with the pointer.
  *
  * Usage — two things in the consuming component:
  *   const { plateRef, listRef, on } = useMenuPlate();
@@ -61,9 +69,18 @@ export function useMenuPlate(): {
   // back where that row went
   let at: HTMLElement | null = null;
 
+  // which row the plate is on, on the row itself — an attribute and not a class, so a
+  // re-render patching the row's bound `class` can't wipe it
+  function standOn(row: HTMLElement | null) {
+    if (at === row) return;
+    at?.removeAttribute("data-plated");
+    row?.setAttribute("data-plated", "");
+    at = row;
+  }
+
   function hide() {
     plateRef.value?.classList.remove("is-on");
-    at = null;
+    standOn(null);
   }
 
   /**
@@ -119,7 +136,8 @@ export function useMenuPlate(): {
       : "";
   }
 
-  function moveTo(row: HTMLElement | null) {
+  /** `place`: land without travelling (a keyboard move — see the header). */
+  function moveTo(row: HTMLElement | null, place = false) {
     const plate = plateRef.value;
     const list = listRef.value;
     if (!plate || !list) return;
@@ -128,10 +146,11 @@ export function useMenuPlate(): {
     // parked on the last row you touched while the pointer is elsewhere reads as a
     // second selection.
     if (!row || !list.contains(row) || (row as HTMLButtonElement).disabled) return hide();
-    at = row;
+    standOn(row);
 
     const first = !plate.classList.contains("is-on");
-    if (first) plate.classList.add("is-placing");
+    const still = first || place;
+    if (still) plate.classList.add("is-placing");
     plate.style.transform = `translateY(${offsetIn(row, list)}px)`;
     plate.style.height = `${row.offsetHeight}px`;
     clipTo(plate, row, list);
@@ -156,7 +175,7 @@ export function useMenuPlate(): {
     } else {
       plate.style.removeProperty("--hov-ink");
     }
-    if (first) {
+    if (still) {
       void plate.offsetHeight; // flush, so the placement can't be animated
       plate.classList.remove("is-placing");
     }
@@ -165,8 +184,9 @@ export function useMenuPlate(): {
 
   // Scrolling under a still pointer moves the row out from under the wash, and no
   // pointer event says so. Re-place it, silently: this is the row following the
-  // scroll rather than the plate travelling anywhere, and a 200ms ease on it would
-  // just make the wash lag the list it's meant to be lighting.
+  // scroll rather than the plate travelling anywhere, and the plate's travel (the
+  // track role, controls.scss) on it would just make the wash lag the list it's meant
+  // to be lighting.
   function follow() {
     const plate = plateRef.value;
     const list = listRef.value;
@@ -193,7 +213,9 @@ export function useMenuPlate(): {
     on: {
       pointerover: (e: PointerEvent) => moveTo(rowFrom(e.target)),
       pointerleave: hide,
-      focusin: (e: FocusEvent) => moveTo(rowFrom(e.target)),
+      // placed, not travelled — a focus move is the keyboard's (or follows a click
+      // the pointer has already carried the plate to, where placing changes nothing)
+      focusin: (e: FocusEvent) => moveTo(rowFrom(e.target), true),
       focusout: (e: FocusEvent) => {
         if (!listRef.value?.contains(e.relatedTarget as Node)) hide();
       },

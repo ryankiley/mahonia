@@ -74,15 +74,23 @@ html:has(.ovl, .routemap.is-expanded) {
   overflow: hidden;
 }
 
-// No rubber-band bounce at the page's top and bottom on desktop trackpads.
-// Gated on a fine pointer so touch devices keep their native bounce and
-// pull-to-refresh. The -y longhand, not the shorthand: overscroll-behavior-x
-// on the root turns off Chrome's two-finger swipe for back/forward on a Mac.
-// Inner scrollers (vault pane, menus, dialogs) already carry `contain`.
-@media (pointer: fine) {
-  html {
-    overscroll-behavior-y: none;
-  }
+// The PAGE doesn't rubber-band or pull to refresh, on any device. Phones used to keep
+// both, on the reasoning that they're native — but this is an app, with surfaces that
+// take a drag of their own (the vault sheet, the dialogs, the map, the drag grips), and
+// on a phone at the top of the page a downward drag on anything that isn't itself a
+// scroller moves the whole page instead: the bar and the list lurch down under your
+// thumb, or Chrome on Android reloads the list you were packing. Installed, it is the
+// one gesture that still says "web page": pull-to-refresh hijacking
+// the scroll.
+// On html AND body: the root's value is what the viewport takes,
+// and body is there for an engine that still treats it as the scroller.
+// The -y longhand, not the shorthand: overscroll-behavior-x on the root
+// turns off Chrome's two-finger swipe for back/forward on a Mac, and the page has
+// nothing to bounce sideways anyway (overflow-x is clipped above). The inner scrollers
+// keep `contain` — their own bounce, without chaining to the page.
+html,
+body {
+  overscroll-behavior-y: none;
 }
 
 body {

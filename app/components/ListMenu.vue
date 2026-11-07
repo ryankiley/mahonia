@@ -400,7 +400,9 @@ watch(open, (o) => {
   font-size: var(--text-base);
   line-height: 1;
 }
-.lm__hintclose:hover {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .lm__hintclose:hover {
+    color: var(--ink);
+  }
 }
 </style>

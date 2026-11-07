@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, InternetIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
 import {
   distanceFieldValue,
@@ -481,7 +481,7 @@ onClickOutside(trailEl, closeTrail);
             width="16"
             height="16"
           />
-          <HugeiconsIcon :icon="GlobeIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="InternetIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="head__name t-clip">{{ link.name }}</span>
           <!-- The one fact about the route that isn't in its name. Muted and after the
                name, so it reads as a detail OF the trail rather than a second link;
@@ -503,7 +503,7 @@ onClickOutside(trailEl, closeTrail);
             width="14"
             height="14"
           />
-          <HugeiconsIcon :icon="GlobeIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="InternetIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
           <a
             class="head__cardurl t-clip"
             :href="link.href"
@@ -794,10 +794,18 @@ onClickOutside(trailEl, closeTrail);
     visibility var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
 }
-.head__titlewrap:hover .head__pencil,
+/* focus reveals it at every pointer; the hover is pointer-gated like every hover (see
+   .btn:hover, controls.scss) — the rule below takes the hint off touch anyway, so the gate
+   is the house rule here rather than a fix */
 .head__titlewrap:focus-within .head__pencil {
   opacity: 1;
   visibility: visible;
+}
+@media (hover: hover) and (pointer: fine) {
+  .head__titlewrap:hover .head__pencil {
+    opacity: 1;
+    visibility: visible;
+  }
 }
 .head__titlewrap:focus-within .head__pencil {
   color: var(--ink-2);
@@ -1001,9 +1009,13 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink-3);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
-.head__cardurl:hover,
 .head__cardurl:focus-visible {
   color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .head__cardurl:hover {
+    color: var(--ink);
+  }
 }
 /* the actions are the emphasis in this card: full ink, regular weight. The explicit
    font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
@@ -1204,9 +1216,13 @@ onClickOutside(trailEl, closeTrail);
   cursor: help;
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
-.head__gpxwhy:hover,
 .head__gpxwhy:focus-visible {
   color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .head__gpxwhy:hover {
+    color: var(--ink);
+  }
 }
 .head__gpxerr {
   color: var(--ink-2);
@@ -1229,11 +1245,15 @@ onClickOutside(trailEl, closeTrail);
   margin-left: var(--space-2);
   color: var(--ink-3);
 }
-.head__gpxyes:hover,
 .head__gpxyes:focus-visible,
-.head__gpxno:hover,
 .head__gpxno:focus-visible {
   color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .head__gpxyes:hover,
+  .head__gpxno:hover {
+    color: var(--ink);
+  }
 }
 .head__paneldiv {
   width: 100%;
@@ -1286,6 +1306,9 @@ onClickOutside(trailEl, closeTrail);
   position: absolute;
   top: calc(100% + var(--space-1));
   left: 0;
+  /* grows out of the Dates button's corner like the trail panel beside it, not from
+     its own middle */
+  transform-origin: top left;
   z-index: var(--z-menu);
   display: grid;
   gap: var(--space-2);

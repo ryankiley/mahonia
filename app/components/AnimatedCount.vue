@@ -16,6 +16,7 @@
       v-for="(char, i) in chars"
       :key="`${generation}-${i}`"
       class="acount__ch"
+      :class="{ 'is-late': i >= born }"
       aria-hidden="true"
       :style="{ '--i': i }"
     >{{ char }}</span>
@@ -23,6 +24,8 @@
 </template>
 
 <script setup lang="ts">
+import { motionIsInstant } from "~/plugins/inputModality.client";
+
 // `--acount-len` (the character count, published on the root) is what lets a caller
 // keep a long figure inside a narrow screen: the display size is a single unbreakable
 // token that neither wraps nor ellipsizes, so past a certain length it simply ran off
@@ -41,23 +44,53 @@ const animating = ref(false);
 const generation = ref(0);
 const chars = ref<string[]>([...props.value]);
 
+// ONE RUN AT A TIME. A run is the cascade: every character re-mounted (a new generation
+// of keys) and popped in, each a --stagger-ch after the one before. Only a change that
+// arrives with nothing playing starts one. A change from the KEYBOARD (holding ↑ in a
+// weight field steps the total at the key-repeat rate) or one that lands while a run is
+// still playing (the ± stepper pressed in a quick run) is written into the nodes already
+// there instead: same keys, same nodes, so no character starts over. Starting over is
+// what blanked the total — every restart threw each character back to the keyframe's
+// transparent first frame and held the later ones there through their stagger delay,
+// so a fast enough run of changes left most of the figure invisible.
+//
+// `born`: how many positions the run's own render created. A position past it got its
+// node from one of those in-place writes (the figure grew a digit mid-run, or from the
+// keyboard), and sits the run out (.is-late) rather than joining it a stagger late,
+// transparent until it does.
+const born = ref(chars.value.length);
+let runUntil = 0; // performance.now() at which the run playing now has landed
+
+function runMs(): number {
+  const stagger = (el.value && parseFloat(getComputedStyle(el.value).getPropertyValue("--stagger-ch"))) || 40;
+  return springCss("pop").duration + stagger * Math.max(0, chars.value.length - 1);
+}
+function play() {
+  born.value = chars.value.length;
+  runUntil = performance.now() + runMs();
+  animating.value = true;
+}
+
 watch(
   () => props.value,
   (next) => {
     if (next === chars.value.join("")) return;
+    if (motionIsInstant() || performance.now() < runUntil) {
+      chars.value = [...next];
+      born.value = Math.min(born.value, chars.value.length);
+      return;
+    }
     animating.value = false;
     chars.value = [...next];
     generation.value++;
     nextTick(() => {
       void el.value?.offsetHeight; // force reflow so the keyframe restarts
-      animating.value = true;
+      play();
     });
   },
 );
 
-onMounted(() => {
-  animating.value = true;
-});
+onMounted(play);
 </script>
 
 <style scoped>
@@ -90,6 +123,10 @@ onMounted(() => {
 .acount.is-animating .acount__ch {
   animation: num-pop var(--spring-pop-dur) var(--spring-pop) both;
   animation-delay: calc(var(--i, 0) * var(--stagger-ch)); /* 0 for the first char */
+}
+/* a node born after its run began (`born`, above): already in place, never transparent */
+.acount.is-animating .acount__ch.is-late {
+  animation: none;
 }
 @media (prefers-reduced-motion: reduce) {
   .acount.is-animating .acount__ch {

@@ -7,6 +7,7 @@
 @use "atoms/folder";
 @use "atoms/gear";
 @use "atoms/item";
+@use "atoms/modality";
 @use "atoms/modeswitch";
 @use "atoms/tooltip";
 @use "print";
@@ -150,9 +151,12 @@
   border-bottom: 1px solid var(--line-2);
   transition: border-color var(--spring-fade-dur) var(--spring-fade);
 }
-.prose a:not(.btn):hover {
-  // deepen on hover, but never to full ink — keeps the underline soft (see --underline)
-  border-bottom-color: var(--ink-2);
+// deepen on hover, but never to full ink — keeps the underline soft (see --underline).
+// Pointer-gated like every hover (see .btn:hover, controls.scss).
+@media (hover: hover) and (pointer: fine) {
+  .prose a:not(.btn):hover {
+    border-bottom-color: var(--ink-2);
+  }
 }
 /* A token set in running text: an address to copy, a thing to type. The shortcuts sheet's
    keycap (.keys__kbd), in a sentence rather than a column. The browser's default is the
@@ -208,6 +212,11 @@
   }
 }
 
+// Reduced motion: every animation and transition lands at once. The DELAYS go too, not
+// only the durations: a sequence timed off them (the mode switch brings the arriving
+// view in at --mode-in, ~0.35s) would otherwise hold its starting state, invisible,
+// for the length of a delay whose motion no longer plays, and then snap — Gear ↔ Trip
+// showed an empty editor for that long.
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
@@ -215,5 +224,6 @@
     animation-duration: 0.01ms !important;
     animation-delay: 0ms !important;
     transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
   }
 }

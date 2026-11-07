@@ -409,6 +409,10 @@ $bp-full: 1024px !default;
     --spring-pop: cubic-bezier(0.34, 1.3, 0.5, 1);
     --spring-track: cubic-bezier(0.16, 1, 0.3, 1);
   }
+  /* Outside the table: the iOS sheet curve, for the one move that follows the keyboard
+     rather than a click — the phone sheet lifting clear of it (VaultPane's keyboard
+     lift), on --spring-step-dur. */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --stagger: 31ms; /* per-child cascade step — SPACE10's kinetic-type cadence */
   --blur-pop: 2px; /* enter blur for pop-ins (webkit-safe: rest at blur(0), never from none) */
 

@@ -32,11 +32,19 @@ const props = defineProps<{
    * TotalsBar), and that argument holds exactly as long as the number means the
    * whole list; narrowed to one person's pack, the same reasoning demands the
    * name. Absent = the label-less headline this has always been.
+   *
+   * A plain string clips whole. The split form keeps `suffix` whole and clips only
+   * `name` — "Aleksandra Wiśniewska-Kowalczyk’s pack" clipped as one run lost the
+   * "’s pack" that says what the figure is, which is the caption's only job.
    */
-  caption?: string;
+  caption?: string | { name: string; suffix: string };
 }>();
 
 defineEmits<{ pick: [key: string] }>();
+
+const captionParts = computed(() =>
+  !props.caption ? undefined : typeof props.caption === "string" ? { name: props.caption, suffix: "" } : props.caption,
+);
 </script>
 
 <template>
@@ -71,7 +79,10 @@ defineEmits<{ pick: [key: string] }>();
         </span>
       </template>
     </OptionMenu>
-    <span v-if="props.caption" class="headline__caption t-clip">{{ props.caption }}</span>
+    <span v-if="captionParts" class="headline__caption">
+      <span class="headline__captionname t-clip">{{ captionParts.name }}</span>
+      <span v-if="captionParts.suffix" class="headline__captionsuffix">{{ captionParts.suffix }}</span>
+    </span>
   </div>
 </template>
 
@@ -119,12 +130,18 @@ defineEmits<{ pick: [key: string] }>();
    else. They start a step apart — the chevron is the quieter of the two — and meet at
    --ink, which is the lift the total's own chevron takes (TotalsBar) and the vault's
    (gear.vue). Hung off the trigger, not the whole .headline, so the caption beside it
-   isn't a hover target for a menu it has nothing to do with. */
-.headline__amount:hover .headline__unit,
-.headline__amount:hover .chev,
+   isn't a hover target for a menu it has nothing to do with.
+   The pointer half is gated: on touch a tap latches :hover on the figure and the
+   unit would stay lit after the picker closed. Focus is the lift touch and keys get. */
 .headline__amount:focus-within .headline__unit,
 .headline__amount:focus-within .chev {
   color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .headline__amount:hover .headline__unit,
+  .headline__amount:hover .chev {
+    color: var(--ink);
+  }
 }
 
 /* The caption sits on the figure's baseline, one step past the unit, and holds
@@ -133,11 +150,21 @@ defineEmits<{ pick: [key: string] }>();
    matches the total's --text-title, following it would set a person's name at 22px
    beside the figure, which is the second heading this deliberately isn't (the same
    reason it isn't t-label, bigger and bolder still). So the size is stated here rather
-   than inherited by coincidence. Truncates rather than wraps (.t-clip): a name runs to
-   60 chars, and the figure is the headline — same guard the ListHead names wear. */
+   than inherited by coincidence. Truncates rather than wraps: a name runs to 60 chars,
+   and the figure is the headline — same guard the ListHead names wear. But only the
+   NAME truncates (.headline__captionname, .t-clip); the suffix after it is flex: none,
+   so "’s pack" survives any name. The budget is the caption's whole, as before, so the
+   figure beside it gets no less room. Baseline-aligned inside, so the two halves sit on
+   one line of type, and on the figure's baseline through the .headline row. */
 .headline__caption {
+  display: flex;
+  align-items: baseline;
   font-size: var(--text-chrome);
   color: var(--ink-3);
+  white-space: nowrap;
   max-width: min(40vw, 26ch);
+}
+.headline__captionsuffix {
+  flex: none;
 }
 </style>

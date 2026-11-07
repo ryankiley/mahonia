@@ -94,9 +94,12 @@
   --chev-glyph: 16px;
   margin-left: -1px;
 }
-.folder__collapse:hover,
-.item__nestcollapse:hover {
-  color: var(--ink);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .folder__collapse:hover,
+  .item__nestcollapse:hover {
+    color: var(--ink);
+  }
 }
 /* touch: the chevron is the primary per-folder control (and the ONLY interactive
    control on a share view), so it gets the same ~44px tap target as the icon

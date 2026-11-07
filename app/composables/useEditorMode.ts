@@ -17,6 +17,7 @@
 // guarded anyway so importing this in a server context stays inert.
 
 import { recall, remember } from "../utils/remember";
+import { motionIsInstant } from "../plugins/inputModality.client";
 
 export type EditorMode = "edit" | "pack" | "plan";
 export const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
@@ -54,7 +55,9 @@ function create() {
   // True for a beat after each switch. The CSS fade (atoms/item.scss) is gated on this
   // so it plays exactly when the old <Transition> enter played — on a mode switch — and
   // not when a row APPEARS for any other reason (a newly added item, the latch's
-  // first mount on initial load).
+  // first mount on initial load). A switch with no motion to run — made from the
+  // keyboard, or with reduced motion on — raises no beat at all: nothing would play
+  // inside it, and the starting styles it gates would only be there to undo.
   const switching = ref(false);
   let switchTimer: ReturnType<typeof setTimeout> | undefined;
 
@@ -67,8 +70,12 @@ function create() {
       everPlan.value = true;
       tally("trip_opened");
     }
-    switching.value = true;
     clearTimeout(switchTimer);
+    if (motionIsInstant()) {
+      switching.value = false;
+      return;
+    }
+    switching.value = true;
     switchTimer = setTimeout(() => (switching.value = false), SWITCH_ANIM_MS);
   });
 

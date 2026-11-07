@@ -583,7 +583,7 @@ async function onSignOut() {
             </div>
             <ul v-if="passkeys.length" class="acct__list">
               <li v-for="k in passkeys" :key="k.id" class="acct__item">
-                <span>{{ k.label || "Passkey" }}</span>
+                <span class="acct__name">{{ k.label || "Passkey" }}</span>
                 <span class="t-sm t-muted acct__meta">{{ usedAgo(k.lastUsedAt) }}</span>
                 <button type="button" class="btn btn--quiet" @click="removePasskey(k.id)">Remove</button>
               </li>
@@ -618,7 +618,7 @@ async function onSignOut() {
             <p class="t-sm t-muted">Any other MCP client takes the address. Each one asks you to sign in here the first time.</p>
             <ul v-if="tokens.length" class="acct__list">
               <li v-for="t in tokens" :key="t.id" class="acct__item">
-                <span>{{ t.label || "Token" }}</span>
+                <span class="acct__name">{{ t.label || "Token" }}</span>
                 <span class="t-sm t-muted acct__meta">
                   {{ t.kind === "app" ? "signed in" : "token" }} · {{ scopeName(t.scope) }} · {{ usedAgo(t.lastUsedAt) }}
                 </span>
@@ -824,9 +824,15 @@ async function onSignOut() {
   text-decoration-color: var(--underline);
   text-underline-offset: var(--underline-offset);
 }
-.acct__switch:hover,
 .acct__switch:focus-visible {
   text-decoration-color: var(--ink-2);
+}
+/* pointer-gated, ink included: a tap latches :hover on touch, and the underline would
+   stay deepened on a switch nobody is pointing at */
+@media (hover: hover) and (pointer: fine) {
+  .acct__switch:hover {
+    text-decoration-color: var(--ink-2);
+  }
 }
 .acct__empty .acct__alt {
   width: 100%;
@@ -979,17 +985,38 @@ async function onSignOut() {
   display: flex;
   flex-direction: column;
 }
+/* A credential row: its name and its button on the first line, the facts about it
+   (how it signed in, what it can do, when it was last used) on a line of their own
+   beneath. One line held all three once, and at 320px or in the 26rem modal the
+   three-way squeeze broke "Claude" mid-word and pushed "Disconnect" out of its own
+   button (reset.scss lets every flex child shrink below its content). The facts run
+   to about fifty characters; given the row's whole width they take a line or two,
+   where wedged between a name and a button they took three or more.
+   The button's track is max-content, the grid's flex: none: it is never narrower than
+   its label. The name's track takes the rest, and a name too long for it (a token
+   label runs to 60 characters) wraps rather than clips, since it is the thing that
+   says which credential you are about to revoke. */
 .acct__item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
   align-items: baseline;
-  gap: var(--space-3);
+  column-gap: var(--space-3);
+  row-gap: var(--space-px);
   padding-block: var(--space-3);
 }
 .acct__item + .acct__item {
   border-top: 1px solid var(--line);
 }
+.acct__name {
+  overflow-wrap: anywhere;
+}
+.acct__item > .btn {
+  grid-column: 2;
+  grid-row: 1;
+}
 .acct__meta {
-  flex: 1 1 auto;
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 /* Three controls in this row where the others carry two, so it is allowed to wrap.
    At phone width the name field takes a line of its own (the 12rem basis is what

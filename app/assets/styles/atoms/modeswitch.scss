@@ -13,8 +13,10 @@
 // The destination state's transition list is the one that runs: arriving lands on a
 // rule's base state, leaving on its mode state, which is why each state carries its own.
 // Gear ↔ Packing is a swap of slots (the totals breakdown for the pack bar, the rows'
-// second lines and add rows folding); Gear ↔ Trip is a crossfade, the leaving view
-// pinned where it stands by GearEditor's script while it fades.
+// heights and add rows folding); Gear ↔ Trip is a crossfade, the leaving view pinned
+// where it stands by GearEditor's script while it fades.
+// A switch made from the keyboard runs none of it: atoms/modality.scss zeroes every
+// duration and delay, and useEditorMode raises no beat.
 .editor__body {
   --mode-slot: calc(var(--spring-fade-dur) / 2);
   --mode-in: calc(var(--spring-fade-dur) / 2 + var(--spring-step-dur) / 2);
@@ -64,7 +66,7 @@
 
 // ── Gear ↔ Packing: the totals breakdown ────────────────────────────────────
 .totals__breakdown {
-  /* folds on the mode switch's one sequence (GearEditor's --t-slot / --t-in / --t-out)
+  /* folds on the mode switch's one sequence (--t-slot / --t-in / --t-out above)
      instead of taking 22–108px out of the page in one frame; the clip exists only
      while the track moves and when folded, since the chips hold tooltips */
   transition:
@@ -95,10 +97,11 @@
 }
 
 // ── Gear ↔ Packing: each folder's add row ────────────────────────────────────
-/* The add row FOLDS on a mode switch (GearEditor's --t-slot / --t-in / --t-out), rather
+/* The add row FOLDS on a mode switch (--t-slot / --t-in / --t-out above), rather
    than vanishing 45px per folder in one frame: a one-track grid whose track, top
-   padding and divider close with the other slots; visibility flips at the end so the
-   button leaves the tab order exactly as unmounting did. */
+   padding and divider close with the other slots (the button's own padding too,
+   atoms/item.scss); visibility flips at the end so the button leaves the tab order
+   exactly as unmounting did. */
 .folder__add {
   display: grid;
   grid-template-rows: 1fr;
@@ -140,28 +143,17 @@
   padding-block: 0; /* the button's own 12px, or the fold stops there */
 }
 
-// ── Gear ↔ Packing: each row's second line ───────────────────────────────────
-/* The row's second line (gear type + note) FOLDS on a mode switch (GearEditor's
-   --t-slot / --t-in / --t-out) rather than taking 18px out of the row in one frame.
-   The two faces are the same height, so with this the rows never move. */
-.editor__body .item-wrap > .reveal {
-  transition:
-    grid-template-rows var(--t-slot),
-    margin-top var(--t-slot),
-    opacity var(--t-in),
-    visibility 0s linear 0s;
-}
-.editor__body[data-mode="pack"] .item-wrap > .reveal {
-  grid-template-rows: minmax(0, 0fr);
-  margin-top: 0;
-  opacity: 0;
-  visibility: hidden;
-  transition:
-    grid-template-rows var(--t-slot),
-    margin-top var(--t-slot),
-    opacity var(--spring-fade-dur) var(--spring-fade),
-    visibility 0s linear var(--mode-end);
-}
+// ── Gear ↔ Packing: each row's height ────────────────────────────────────────
+/* A row swaps faces in one frame (atoms/item.scss), and its two faces are not always
+   one height. The edit face carries the note on a line of its own, and on a row whose
+   weight has drifted from its catalog link the suggest-a-fix line under the row
+   (.item-wrap > .reveal, which leaves with the edit face); the checklist face shows
+   the gear type and nothing else. So a row's HEIGHT is one of this switch's slots:
+   GearEditor's row fold (a script on the mode watch, nothing in this file) reads every
+   on-screen row's height before the swap and after it, and eases each one that
+   changed from the old to the new on --t-slot's timing (the step spring, after
+   --mode-slot), with the other slots. The rows below it move with it rather than
+   jumping a line in one frame. */
 
 // ── Gear ↔ Trip: a crossfade ─────────────────────────────────────────────────
 /* The plan's hidden state is display:none — it leaves layout, paint, the a11y tree and

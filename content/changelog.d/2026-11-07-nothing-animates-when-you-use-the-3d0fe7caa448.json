@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-07",
+  "changed": [
+    "Nothing animates when you use the keyboard: a shortcut, an arrow key or Tab shows its result at once.",
+    "On a phone the page no longer rubber-bands or pulls to refresh, and the small controls are easier to tap."
+  ],
+  "fixed": [
+    "On a phone, suggestions and My Gear search results are no longer hidden under the keyboard.",
+    "Searching a product that comes in several sizes shows each size instead of the same cut-off name on every row.",
+    "Holding an arrow key in a weight field or pressing + quickly no longer blanks the total, and reordering folders no longer makes one blink.",
+    "Swiping over the route map on a phone scrolls the page, and dragging gear out of My Gear works after a short hold.",
+    "Long names no longer spill out of the account page, people chips or the headline, and a one-item list no longer says 1 items."
+  ]
+}

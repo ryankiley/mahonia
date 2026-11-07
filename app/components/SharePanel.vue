@@ -436,9 +436,11 @@ function changeLabel(i: number): string {
   padding: 0;
   color: var(--ink-3);
 }
-.share__revoke:hover {
-  background: transparent;
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .share__revoke:hover {
+    background: transparent;
+    color: var(--ink);
+  }
 }
 .share__activity {
   padding-top: var(--space-2);

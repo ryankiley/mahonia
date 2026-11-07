@@ -22,15 +22,16 @@
     color var(--spring-fade-dur) var(--spring-fade),
     opacity var(--spring-fade-dur) var(--spring-fade);
 }
-/* HOVER IS POINTER-GATED, HERE AND EVERYWHERE IT PAINTS.
+/* HOVER IS POINTER-GATED, HERE AND EVERYWHERE — ink included.
    iOS leaves :hover latched on the last thing you tapped until you tap something
    else, so an ungated fill parks a grey pill under the button you just pressed and
    leaves it there — the app's most-tapped affordance wearing a state nobody asked
-   for. The gate goes on the rules that PAINT (a background, a filter, an opacity):
-   those are what read as stuck. Hovers that only deepen ink are left alone on
-   purpose — a shade darker doesn't announce itself, and gating them would mean
-   duplicating every :focus-visible they share a selector list with, which is a real
-   cost for an invisible win. `pointer: fine` joins `hover: hover` so a hybrid
+   for. Hovers that only deepen INK used to be left ungated, on the argument that a
+   shade darker doesn't announce itself; the rule now is every hover, and it is
+   right — a link left a step darker after the finger has gone is still a false
+   "you're on this". So a hover that shares a selector list with :focus-visible is
+   split from it: focus keeps painting at every pointer (it isn't a pointer state),
+   hover only where hovering is real. `pointer: fine` joins `hover: hover` so a hybrid
    laptop's mouse still gets the affordance (same query as ListHead's link card).
    :active below stays ungated — that IS the touch feedback, and it can't latch.
 
@@ -97,8 +98,10 @@
 }
 // icon buttons: no fill on hover — the icon just darkens (via the colour rules
 // on .btn--ghost / the per-button colour), which is enough
-.btn--icon:hover {
-  background: transparent;
+@media (hover: hover) and (pointer: fine) {
+  .btn--icon:hover {
+    background: transparent;
+  }
 }
 
 // text-only button — reads as a plain link (no box, no fill): same size + weight
@@ -112,9 +115,11 @@
   background: transparent;
   color: var(--ink-2);
 }
-.btn--link:hover {
-  background: transparent;
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .btn--link:hover {
+    background: transparent;
+    color: var(--ink);
+  }
 }
 
 // Text link that goes somewhere off-site — the trail link, in the editor and in both
@@ -129,10 +134,15 @@
     color var(--spring-fade-dur) var(--spring-fade),
     text-decoration-color var(--spring-fade-dur) var(--spring-fade);
 }
-.link:hover,
 .link:focus-visible {
   color: var(--ink);
   text-decoration-color: var(--ink-2);
+}
+@media (hover: hover) and (pointer: fine) {
+  .link:hover {
+    color: var(--ink);
+    text-decoration-color: var(--ink-2);
+  }
 }
 
 // Quiet text button — bare like --link, one step calmer: regular weight, faint
@@ -149,11 +159,17 @@
   color: var(--ink-3);
 }
 /* lifts for the keyboard as it does for the pointer: a quiet button whose only
-   affordance is a shade of ink owes focus the same shade */
-.btn--quiet:hover,
+   affordance is a shade of ink owes focus the same shade. Focus at every pointer, the
+   hover only where it's real (see .btn:hover). */
 .btn--quiet:focus-visible {
   background: transparent;
   color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn--quiet:hover {
+    background: transparent;
+    color: var(--ink);
+  }
 }
 // Icons render as blocks (centred by each button's flexbox). An inline SVG sits on
 // the text baseline at a fractional offset that Safari re-snaps by ~1px on the
@@ -527,6 +543,16 @@ input[type="search"]::-webkit-search-decoration {
 .menu__item > svg {
   flex: none;
 }
+/* A row is a TAP TARGET on a phone, and at the desktop's 8px padding it is 35–40px tall
+   (a button row sets 1.2 leading, a link row 1.5) — under the 44 every other control
+   there grows to. Centred already (align-items above), so the floor adds air evenly. The floor goes on the row itself
+   (not an invisible hit area, as the switch and the mode tabs take) because the rows
+   are stacked flush: a hit area reaching past one row would land on the next. */
+@media (pointer: coarse) {
+  .menu__item {
+    min-height: var(--tap);
+  }
+}
 // THE TRAILING MARK — a check on the row you're already on (the list switcher's
 // current list, an option menu's current value). It takes a column on EVERY row and
 // is only shown on that one: dropped from the others, the checked row became the
@@ -679,9 +705,13 @@ input[type="search"]::-webkit-search-decoration {
   background: color-mix(in oklab, var(--hov-ink, var(--ink)) var(--popover-wash), transparent);
   opacity: 0;
   pointer-events: none;
+  // The travel is on the TRACK role, the one tokens.scss names this plate under: it
+  // follows a hand, so it moves on the first frame and has nearly landed by the time
+  // the hand is on the next row. (It ran on the step spring for a while, which made it
+  // trail the pointer — the calendar pip's bug, in the menus.)
   transition:
-    transform var(--spring-step-dur) var(--spring-step),
-    height var(--spring-step-dur) var(--spring-step),
+    transform var(--spring-track-dur) var(--spring-track),
+    height var(--spring-track-dur) var(--spring-track),
     opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
     // ...and the HUE eases too, so travelling onto a destructive row bleeds red
     // into the wash instead of swapping colour mid-slide. Faster than the travel
@@ -692,7 +722,10 @@ input[type="search"]::-webkit-search-decoration {
 .menu__plate.is-on {
   opacity: 1;
 }
-// placed, not travelled — the first landing after the pointer arrives
+// PLACED, not travelled: the first landing after the pointer arrives, a scroll moving
+// the row under a still pointer, and every move the KEYBOARD makes — Tab and the arrows
+// are actions repeated in bursts, and those get no animation at all
+// (useMenuPlate sets this; see there).
 .menu__plate.is-placing {
   transition: none;
 }
@@ -705,12 +738,6 @@ input[type="search"]::-webkit-search-decoration {
 .menu__list:has(.menu__plate) .menu__item {
   position: relative;
   z-index: 1;
-}
-// ...and give up their own tint, or two washes argue about which row is "on".
-// :has() scopes this to menus that actually opted in, so every other menu in the
-// app keeps the per-row hover exactly as it was.
-.menu__list:has(.menu__plate) .menu__item:hover {
-  background: none;
 }
 /* Split from :hover, not merged with it: a menu row's wash is the loudest latch in
    the app (the menu can stay open after the tap, so the row you touched keeps
@@ -725,6 +752,21 @@ input[type="search"]::-webkit-search-decoration {
     background: var(--popover-hover);
     outline: none;
   }
+  // ...and in a menu with a plate the rows give up their own hover tint, or two washes
+  // argue about which row is "on". :has() scopes this to menus that actually opted
+  // in, so every other menu in the app keeps the per-row hover exactly as it was.
+  .menu__list:has(.menu__plate) .menu__item:hover {
+    background: none;
+  }
+}
+// The same for FOCUS, but only on the row the plate is standing on (useMenuPlate marks
+// it [data-plated]): the plate follows focus, so a tabbed-to row used to wear its own
+// wash with the plate's under it — a doubled tint, darker than any hovered row. Keyed
+// on the plate actually being THERE, not on the menu having one, because the two can
+// part: the pointer takes the plate to another row, or leaves the card and the plate
+// goes out — and the focused row must not be left with no mark at all.
+.menu__item[data-plated]:focus-visible {
+  background: none;
 }
 .menu__item:disabled {
   color: var(--ink-3);
@@ -794,10 +836,14 @@ input[type="search"]::-webkit-search-decoration {
 // the text reads before the pop finishes — and leaves quick + quiet on the step
 // spring, a small sink. Every state shares one transform function, translate(-50%, …)
 // scale(…), so Safari interpolates cleanly (mismatched functions it won't).
+// The bottom offset clears the HOME INDICATOR: viewport-fit=cover (nuxt.config) lets the
+// page run under it, and in the installed app a toast 24px up sat on the bar. max(),
+// as .wrap does for the side insets: the gap stays the floor, and the inset only wins
+// where there is one (0 on a desktop, ~34px on a Face ID iPhone).
 .toast {
   position: fixed;
   left: 50%;
-  bottom: var(--space-5);
+  bottom: max(var(--space-5), env(safe-area-inset-bottom));
   z-index: var(--z-float); // above --z-topbar and --z-menu
   transform: translate(-50%, 0) scale(1);
   // size to the text, up to a cap. `width: max-content` is load-bearing: a fixed box
@@ -868,6 +914,23 @@ input[type="search"]::-webkit-search-decoration {
   text-underline-offset: var(--underline-offset);
   cursor: pointer;
 }
+// THE TARGET, drawn apart from the word — the .switch::before pattern (above). "Undo"
+// is one line of 16px type, ~19px tall, and it is the one control in the app you have a
+// few seconds to hit before it's gone. On a coarse pointer a transparent ::before grows
+// the hit area to --tap tall (1lh is the button's own line) and a step wider each side,
+// without moving a pixel of the toast: absolutely positioned, so it costs no layout. It
+// reaches a few px past the centre toast's edge, which is fine — nothing under a toast
+// is meant to be tapped through it.
+@media (pointer: coarse) {
+  .undobar__btn {
+    position: relative;
+  }
+  .undobar__btn::before {
+    content: "";
+    position: absolute;
+    inset: calc((1lh - var(--tap)) / 2) calc(-1 * var(--space-2));
+  }
+}
 
 // Corner variant — a snackbar that STAYS until dismissed, rather than a message
 // that passes through the centre. Bottom-RIGHT on desktop: the centre is where the
@@ -881,10 +944,12 @@ input[type="search"]::-webkit-search-decoration {
 // panel that sits there, so it takes the same --radius-4 the other persistent
 // floating surfaces wear (the autocomplete, the kebab menu, the vault pane) rather
 // than the radius a passing message uses.
+// The corner clears the home indicator the way the centre toast does, and the side
+// inset too — the same max() .wrap uses, for a phone turned on its side.
 .toast--corner {
   left: auto;
-  right: var(--space-4);
-  bottom: var(--space-4);
+  right: max(var(--space-4), env(safe-area-inset-right));
+  bottom: max(var(--space-4), env(safe-area-inset-bottom));
   transform: translate(0, 0) scale(1);
   display: flex;
   align-items: center;
@@ -901,9 +966,9 @@ input[type="search"]::-webkit-search-decoration {
 // A phone has no corner to spare — span the gutters like the centre toast does.
 @media (max-width: t.$bp-stack) {
   .toast--corner {
-    left: var(--space-3);
-    right: var(--space-3);
-    bottom: var(--space-3);
+    left: max(var(--space-3), env(safe-area-inset-left));
+    right: max(var(--space-3), env(safe-area-inset-right));
+    bottom: max(var(--space-3), env(safe-area-inset-bottom));
     width: auto;
     max-width: none;
   }
@@ -1164,8 +1229,10 @@ input[type="search"]::-webkit-search-decoration {
   cursor: pointer;
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
-.addfolder__btn:hover {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .addfolder__btn:hover {
+    color: var(--ink);
+  }
 }
 .addfolder__input {
   color: var(--ink);
@@ -1222,13 +1289,18 @@ input[type="search"]::-webkit-search-decoration {
 // Composes with .btn--icon.btn--ghost and .menu__btn, and stands alone on a span or
 // a link. LAST IN THE FILE on purpose: equal specificity with every resting ink above
 // it (.btn's --ink, .btn--ghost's and .menu__btn's --ink-2), so order is what lets it
-// win, which is its whole job. Ink-only, so the hover is ungated (see .btn:hover).
+// win, which is its whole job. The hover is pointer-gated even though it's ink-only,
+// like every hover now (see .btn:hover); focus lifts it at every pointer.
 // The transition names colour alone, as every site's own copy did.
 .ink-quiet {
   color: var(--ink-3);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
-.ink-quiet:hover,
 .ink-quiet:focus-visible {
   color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .ink-quiet:hover {
+    color: var(--ink);
+  }
 }

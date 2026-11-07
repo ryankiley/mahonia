@@ -65,12 +65,15 @@ export function useGearEditorView({
     const items = filteredItems.value;
     return { list: { ...list, items }, totals: computeTotals({ folders: list.folders, items }) };
   });
-  const filterCaption = computed(() => {
+  // The headline's caption. A person's comes in two parts so Headline can clip the
+  // name and keep "’s pack" whole: a 60-character name clipped as one run lost the
+  // words that say whose figure it is.
+  const filterCaption = computed<string | { name: string; suffix: string } | undefined>(() => {
     const selected = personFilter.selected.value;
     if (!selected || mode.value === "plan") return undefined;
     if (selected === UNASSIGNED) return "Unassigned gear";
     const name = personName(snapshot.value?.people, selected);
-    return name ? `${name}’s pack` : undefined;
+    return name ? { name, suffix: "’s pack" } : undefined;
   });
   const chipWeights = computed<Record<string, string> | undefined>(() => {
     const list = snapshot.value;
