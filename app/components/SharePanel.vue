@@ -4,8 +4,8 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import {
   ChevronDownIcon,
   Clock01Icon,
-  PencilEdit01Icon,
-  Refresh01Icon,
+  Edit02Icon,
+  Exchange01Icon,
   UserAdd01Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
@@ -194,7 +194,7 @@ function changeLabel(i: number): string {
     <template v-else>
       <li role="none">
         <button type="button" data-row role="menuitem" class="menu__item" @click="act(() => emit('copyRead'))">
-          <HugeiconsIcon :icon="ViewIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="ViewIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           Copy read-only link
         </button>
       </li>
@@ -203,7 +203,7 @@ function changeLabel(i: number): string {
            below says "Get a new edit link" instead, which is how this device gets one. -->
       <li v-if="holdsEditLink" role="none">
         <button type="button" data-row role="menuitem" class="menu__item" @click="act(() => emit('copyEdit'))">
-          <HugeiconsIcon :icon="PencilEdit01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Copy edit link
         </button>
       </li>
@@ -216,7 +216,7 @@ function changeLabel(i: number): string {
           :disabled="claim === 'claiming'"
           @click="addToAccount"
         >
-          <HugeiconsIcon :icon="UserAdd01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="UserAdd01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Add to your account
         </button>
       </li>
@@ -237,7 +237,7 @@ function changeLabel(i: number): string {
           :aria-expanded="activityOpen"
           @click="activityOpen = !activityOpen"
         >
-          <HugeiconsIcon :icon="Clock01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="Clock01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="menu__sectlabel">Recent changes</span>
           <HugeiconsIcon
             :icon="ChevronDownIcon"
@@ -274,7 +274,7 @@ function changeLabel(i: number): string {
            Delete: it cuts off everyone who has the old one. -->
       <li role="none" class="menu__foot">
         <button type="button" data-row role="menuitem" class="menu__item" @click="act(() => emit('rotate'))">
-          <HugeiconsIcon :icon="Refresh01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="Exchange01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ holdsEditLink ? "Replace edit link" : "Get a new edit link" }}
         </button>
       </li>

@@ -161,7 +161,7 @@ function act(event: MenuEvent | FootEvent) {
       <!-- Close BEFORE the action runs, matching the old dispatch order. -->
       <li v-for="a in menuActions" :key="a.label" role="none">
         <button type="button" data-row role="menuitem" class="menu__item" @click="act(a.event)">
-          <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ a.label }}
         </button>
       </li>
@@ -190,15 +190,15 @@ function act(event: MenuEvent | FootEvent) {
           class="menu__item"
           @click="act(a.event)"
         >
-          <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ a.label }}
         </button>
         <NuxtLink to="/about" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="InformationCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="InformationCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           About
         </NuxtLink>
         <NuxtLink to="/legal" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="LegalDocument01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="LegalDocument01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Legal
         </NuxtLink>
       </li>
@@ -226,7 +226,7 @@ function act(event: MenuEvent | FootEvent) {
           class="menu__item editor__footact"
           @click="act('forget')"
         >
-          <HugeiconsIcon :icon="RemoveCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           Forget this list
         </button>
         <button
@@ -237,7 +237,7 @@ function act(event: MenuEvent | FootEvent) {
           class="menu__item editor__footact editor__delete"
           @click="act('delete')"
         >
-          <HugeiconsIcon :icon="Delete02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Delete this list
         </button>
       </li>

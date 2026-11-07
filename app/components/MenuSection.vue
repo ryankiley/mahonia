@@ -81,7 +81,7 @@ function run(item: (typeof props.items)[number]) {
       :aria-expanded="open"
       @click="toggle"
     >
-      <HugeiconsIcon :icon="icon" :size="14" :stroke-width="2" aria-hidden="true" />
+      <HugeiconsIcon :icon="icon" :size="16" :stroke-width="2" aria-hidden="true" />
       <!-- the label takes the slack, so the chevron keeps the trailing edge now that a
            glyph holds the leading one -->
       <span class="menu__sectlabel">{{ label }}</span>
@@ -110,7 +110,7 @@ function run(item: (typeof props.items)[number]) {
               class="menu__item menu__sectitem"
               @click="run(item)"
             >
-              <HugeiconsIcon :icon="item.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+              <HugeiconsIcon :icon="item.icon" :size="16" :stroke-width="2" aria-hidden="true" />
               {{ item.label }}
             </button>
           </li>

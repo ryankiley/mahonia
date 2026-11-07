@@ -130,7 +130,7 @@ function pick(key: string) {
           >
             <!-- :icon, NOT <component :is>. A hugeicons icon is PATH DATA rather than
                  a component, so :is would try to render an array and fail. -->
-            <HugeiconsIcon v-if="o.icon" :icon="o.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon v-if="o.icon" :icon="o.icon" :size="16" :stroke-width="2" aria-hidden="true" />
             <span>{{ o.label }}</span>
             <!-- rendered on EVERY row and hidden rather than dropped — see the style -->
             <HugeiconsIcon

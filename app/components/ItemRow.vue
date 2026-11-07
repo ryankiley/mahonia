@@ -1852,7 +1852,7 @@ function dismissFix() {
             >
               <li v-for="a in nestActions" :key="a.label" role="none">
                 <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
-                  <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                  <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
                   {{ a.label }}
                 </button>
               </li>
@@ -1969,7 +1969,7 @@ function dismissFix() {
               </li>
               <li v-for="a in overflowActions" :key="a.label" role="none" :class="{ item__nestact: a.nest }">
                 <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
-                  <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                  <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
                   {{ a.label }}
                 </button>
               </li>
