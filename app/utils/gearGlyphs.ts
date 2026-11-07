@@ -9,11 +9,11 @@ import type { IconChild, IconNode } from "./hugeicon";
 //
 // What's here is what the free set has no good picture for among the icons the gear
 // page uses (shared/gearGlyph.ts keeps that set small): a sleeping bag, trekking
-// poles, a jacket (it has no jacket at all), a water bottle, a filter and a toiletry
-// tube. Everything else is a Hugeicons glyph, several of them Ryan's picks made while
+// poles, a jacket (it has no jacket at all), a water bottle and a toiletry tube.
+// Everything else is a Hugeicons glyph, several of them Ryan's picks made while
 // reviewing these drawings: Chocolate for food, Hat, Glasses, Fire02 for the stove,
-// Shirt01, Sneaker, MoneyBag01 for every bag, Energy for electronics.
-// app/utils/gearIcons.ts joins name to icon.
+// Shirt01, Sneaker, MoneyBag01 for every bag, Energy for electronics, WaterEnergy for
+// a filter. app/utils/gearIcons.ts joins name to icon.
 
 const line = (d: string): IconChild => [
   "path",
@@ -61,13 +61,6 @@ export const WaterBottleGlyph = glyph(
   line("M10.5 2H13.5C14.33 2 15 2.67 15 3.5V5.5H9V3.5C9 2.67 9.67 2 10.5 2Z"),
   line("M9.5 5.5H14.5C14.5 6.6 17 7.3 17 9.6V19.5C17 20.88 15.88 22 14.5 22H9.5C8.12 22 7 20.88 7 19.5V9.6C7 7.3 9.5 6.6 9.5 5.5Z"),
   line("M7 12.5H17"),
-);
-
-/** A squeeze filter: the cartridge, and clean water out of the bottom. */
-export const WaterFilterGlyph = glyph(
-  line("M9.5 2.5H14.5C15.33 2.5 16 3.17 16 4V11.5C16 12.33 15.33 13 14.5 13H9.5C8.67 13 8 12.33 8 11.5V4C8 3.17 8.67 2.5 9.5 2.5Z"),
-  line("M8 7.75H16"),
-  line("M12 16C12 16 9.75 18.75 9.75 19.75C9.75 20.99 10.76 22 12 22C13.24 22 14.25 20.99 14.25 19.75C14.25 18.75 12 16 12 16Z"),
 );
 
 /** A tube standing on its cap: sunscreen, toothpaste, cream. */

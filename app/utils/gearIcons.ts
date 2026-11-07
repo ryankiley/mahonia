@@ -16,6 +16,7 @@ import {
   SneakerIcon,
   SocksIcon,
   TentIcon,
+  WaterEnergyIcon,
   YogaMatIcon,
 } from "@hugeicons/core-free-icons";
 import type { IconNode } from "./hugeicon";
@@ -26,7 +27,6 @@ import {
   TrekkingPolesGlyph,
   TubeGlyph,
   WaterBottleGlyph,
-  WaterFilterGlyph,
 } from "./gearGlyphs";
 
 // The icon for each name shared/gearGlyph.ts can answer. A Record over the whole
@@ -51,7 +51,7 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   glove: GloveIcon,
   glasses: GlassesIcon,
   bottle: WaterBottleGlyph,
-  filter: WaterFilterGlyph,
+  filter: WaterEnergyIcon,
   stove: Fire02Icon,
   pot: CookingPotIcon,
   food: ChocolateIcon,
