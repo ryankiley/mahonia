@@ -70,8 +70,7 @@ const holdsEditLink = computed(() => !!props.editToken);
 // who holds this list.
 const { signedIn } = useSession();
 const claimed = useClaimedLists();
-const claiming = ref(false);
-const claimFailed = ref(false);
+const claim = ref<"idle" | "claiming" | "failed">("idle");
 // Gated on `loaded`, not just on the array: before the first fetch answers, an
 // already-claimed list would flash the button — offering to do what's done.
 const canAddToAccount = computed(
@@ -83,16 +82,14 @@ const canAddToAccount = computed(
 );
 
 async function addToAccount() {
-  if (claiming.value) return;
-  claiming.value = true;
-  claimFailed.value = false;
+  if (claim.value === "claiming") return;
+  claim.value = "claiming";
   // claimOne folds the server's refreshed claim set into useClaimedLists, so
   // success flips canAddToAccount and the button simply leaves. Nothing takes its
   // place: the list is on the account, which is what you asked for and what the
   // absence now means.
   const ok = await useClaimedLists().claimOne(props.editToken);
-  claimFailed.value = !ok;
-  claiming.value = false;
+  claim.value = ok ? "idle" : "failed";
 }
 
 /**
@@ -263,13 +260,13 @@ function changeLabel(i: number): string {
           v-if="canAddToAccount"
           type="button"
           class="btn btn--quiet share__revoke"
-          :disabled="claiming"
+          :disabled="claim === 'claiming'"
           @click="addToAccount"
         >
           <HugeiconsIcon :icon="UserAdd01Icon" :size="14" :stroke-width="2" />
           Add to your account
         </button>
-        <p v-if="claimFailed" class="t-sm t-muted share__hint" role="alert">
+        <p v-if="claim === 'failed'" class="t-sm t-muted share__hint" role="alert">
           That didn’t save. Check your connection and try again.
         </p>
       </section>

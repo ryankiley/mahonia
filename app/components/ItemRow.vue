@@ -987,8 +987,8 @@ const vaultCovered = computed(() => {
   // pressing it is then the only way the row gets banked.
   return c.vaultAuto.value && vaultWorthy.value && !c.vaultDeclined.value.has(vaultKey.value);
 });
-const vaultSaved = ref(false);
-const vaultBusy = ref(false);
+const vaultSave = ref<"idle" | "saving" | "saved">("idle");
+const vaultSaved = computed(() => vaultSave.value === "saved");
 const vaultLabel = computed(() =>
   vaultSaved.value ? "Saved to My Gear" : "Save to My Gear",
 );
@@ -1033,11 +1033,14 @@ async function onSaveToVault() {
   // a covered row renders no button, but coverage can flip mid-press (the chooser
   // and the vault answer live outside the row) — the covered guard makes that
   // beat a no-op instead of a save the automatic path already made
-  if (vaultBusy.value || vaultSaved.value || vaultCovered.value) return;
-  vaultBusy.value = true;
+  if (vaultSave.value !== "idle" || vaultCovered.value) return;
+  vaultSave.value = "saving";
+  const asked = savedAs();
   const result = await c.saveItemToVault(props.item.id);
-  vaultBusy.value = false;
-  if (result === "saved") return void (vaultSaved.value = true);
+  // renamed or re-weighed while it was out: what got banked is the gear as it WAS, so
+  // the tick would speak for gear the vault doesn't hold
+  vaultSave.value = result === "saved" && savedAs() === asked ? "saved" : "idle";
+  if (result === "saved") return;
   emit(
     "toast",
     result === "unworthy"
@@ -1060,10 +1063,12 @@ async function onSaveToVault() {
 }
 // a rename or re-weigh makes it a different piece of gear, so the tick stops
 // speaking for it and the row can be banked again
-watch(
-  () => [props.item.name, props.item.brand, props.item.variant, props.item.unitWeightMg],
-  () => (vaultSaved.value = false),
-);
+function savedAs() {
+  return JSON.stringify([props.item.name, props.item.brand, props.item.variant, props.item.unitWeightMg]);
+}
+watch(savedAs, () => {
+  if (vaultSaved.value) vaultSave.value = "idle";
+});
 
 // the same actions the inline icons run: the one nesting action that applies to this
 // row's state (add-nested / nest-up / un-nest), then the vault save, and last the removal — all inline on a desktop row
@@ -1802,7 +1807,7 @@ function dismissFix() {
                   class="btn btn--icon btn--ghost item__vault-btn ink-quiet"
                   :class="{ 'is-active': vaultSaved }"
                   type="button"
-                  :disabled="vaultBusy"
+                  :disabled="vaultSave === 'saving'"
                   :aria-label="vaultLabel"
                   @mousedown.prevent
                   @click="onSaveToVault"

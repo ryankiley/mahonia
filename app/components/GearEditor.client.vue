@@ -39,8 +39,7 @@ const vaultPicker = c.vaultPicker;
 // opens it, and kept after, like the other lazy dialogs below.
 const vaultPickerEverOpened = useLatch(() => vaultPicker.value);
 // whether the open list is a CLAIMED one (session + share code, no edit token on
-// this device) — the reactive flag the chrome gates on, since c.editToken is a
-// plain getter nothing can track
+// this device) — the flag the chrome gates on
 const openedByCode = c.openedByCode;
 const keylessCode = c.keylessCode;
 
@@ -494,12 +493,10 @@ const origin = () => (typeof location !== "undefined" ? location.origin : "");
 // pasting the result somewhere public.
 // A draft has no share code yet — no link rather than a broken one (same guard
 // copyShare() makes before offering to copy it).
-// The two links a list is handed out by, each spelled once. READ is a computed off the
-// share code; EDIT is a FUNCTION, because c.editToken is a plain getter nothing can
-// track — a computed over it would go stale across a rotate.
+// The two links a list is handed out by, each spelled once.
 const readUrl = computed(() => (snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : ""));
 // the token stays in the fragment (see shared/links.editLinkPath)
-const editUrl = () => (c.editToken ? `${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}` : "");
+const editUrl = computed(() => (c.editToken ? `${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}` : ""));
 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
 // Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
@@ -540,7 +537,7 @@ async function copyEditLink() {
   }))) return;
   tally("share_link_copied"); // after the confirm: a cancelled copy is not a copy
   // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
-  copy(editUrl(), "Edit link copied", "Edit link");
+  copy(editUrl.value, "Edit link copied", "Edit link");
 }
 async function rotate() {
   if (!(await askConfirm({
@@ -576,10 +573,10 @@ async function cloneList() {
 // rows only have to be told apart at a glance, and they are: one is red and throws
 // the list away, the other is plain and takes it off a shelf.
 //
-// Off on an unsaved draft. shareCode is the reactive stand-in for "has a server
-// row": it and the edit token are set in the same breath (createFromDraft), and
-// c.editToken is a plain getter that no computed can track. A draft is not yet a
-// list — "Create a list" above is what replaces one.
+// Off on an unsaved draft. shareCode is the stand-in for "has a server row": it and
+// the edit token are set in the same breath (createFromDraft), and a claimed open has
+// the code with no token at all. A draft is not yet a list — "Create a list" above is
+// what replaces one.
 const isSaved = computed(() => !!snapshot.value?.shareCode);
 
 // FORGET: drop this device's claim, leave the list standing. The gentler of the two
@@ -603,9 +600,9 @@ async function forgetThisList() {
   if (!token) return;
   // Captured before the await: the poll could 404 mid-dialog, and the act should
   // match the message the user actually read, not a state that moved under it.
-  // Status, not a new remoteMissing getter — "missing" with the editor rendered is
-  // exactly the dead-token-with-copy state, and it keeps the dialog agreeing with
-  // the chrome: it turns frank on the same beat SyncStatus says "No longer online".
+  // "missing" with the editor rendered is exactly the dead-token-with-copy state, and
+  // reading it keeps the dialog agreeing with the chrome: it turns frank on the same
+  // beat SyncStatus says "No longer online".
   const dead = status.value === "missing";
   const title = savedListTitle(snapshot.value?.title ?? "");
   if (!(await askConfirm({
@@ -675,12 +672,10 @@ async function deleteThisList() {
 // dead. The dead end now names the list it couldn't open and offers to forget it:
 // the only act left that means anything for a row like that.
 //
-// Registry lookup by the token load() just tried. c.editToken is a plain getter no
-// computed can track, but every change to it moves `status` (load → "loading",
-// dispose → "idle"), so the status gate keeps this computed honest. forgetSuperseded
-// runs in the same breath the 404 sets the status — a rotate leftover with a live
-// sibling row is gone before this state ever renders — so a row found here is the
-// list's ONLY row, and forgetting it is not covered by any self-heal.
+// Registry lookup by the token load() just tried. forgetSuperseded runs in the same
+// breath the 404 sets the status — a rotate leftover with a live sibling row is gone
+// before this state ever renders — so a row found here is the list's ONLY row, and
+// forgetting it is not covered by any self-heal.
 const missingEntry = computed(() =>
   status.value === "missing"
     ? my.entries.value.find((x) => !!c.editToken && x.editToken === c.editToken)
@@ -904,7 +899,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :edit-token="c.editToken"
                 :auth-headers="c.authHeaders()"
                 :read-url="readUrl"
-                :edit-url="editUrl()"
+                :edit-url="editUrl"
                 @close="shareOpen = false"
                 @copy-read="copyShare"
                 @copy-edit="copyEditLink"

@@ -365,13 +365,24 @@ function exactMatch(typed: string): AcOption | null {
   const hits = results.value.filter((r) => keysOf(r).includes(key));
   return hits.length === 1 ? { result: hits[0]! } : null;
 }
+// The same row in two versions of the menu. `active` is an index, and the two searches
+// settle independently with My Gear going first, so a landing shifts what it points at.
+const sameOption = (a: AcOption, b: AcOption) =>
+  "vault" in a ? "vault" in b && a.vault === b.vault : "result" in a ? "result" in b && a.result === b.result : "water" in b;
 // The menu points at that product the moment the results settle, so what Enter or
 // Tab will take is on screen before it is pressed: the row lights as if arrowed onto,
 // and aria-activedescendant says so. Only onto an unpointed menu (a hover or an arrow
 // key has already chosen); each keystroke clears the pointer (the draft watcher) and
-// the next settle re-derives it.
-watch(options, (opts) => {
-  if (active.value >= 0 || !open.value) return;
+// the next settle re-derives it. A pointer already set stays on its row through a
+// settle, and lets go if the row has left the menu rather than land on its neighbour.
+watch(options, (opts, prev) => {
+  if (!open.value) return;
+  if (active.value >= 0) {
+    const was = prev[active.value];
+    const at = was ? opts.findIndex((o) => sameOption(o, was)) : -1;
+    active.value = at;
+    if (at >= 0) return;
+  }
   const hit = exactMatch(splitWeightTail(draft.value).name);
   if (!hit) return;
   const at = opts.findIndex((o) =>

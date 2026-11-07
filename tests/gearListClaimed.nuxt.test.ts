@@ -29,7 +29,7 @@ import { LIST_CODE_HEADER } from "~~/shared/links";
 import { resumeTarget } from "~~/shared/switcher";
 import type { ListSnapshot } from "~~/shared/types";
 import type { Op } from "~~/shared/ops";
-import { _setFlushDebounce } from "~/composables/useGearList";
+import { _setFlushBackoff, _setFlushDebounce } from "~/composables/useGearList";
 
 // ---- boundary stubs (same shape as gearList.nuxt.test.ts) ---------------------
 const records = new Map<string, LocalListRecord>();
@@ -65,8 +65,13 @@ let refuseOpens = false;
 // When set, the server is simply not there: the shape of an OFFLINE open, which the
 // controller tells apart from a refusal (no 401/404 → "offline", never "missing").
 let failOpens = false;
-registerEndpoint("/api/edit/list", (event) => {
+// When set, that answer waits, so a case can put two requests in the order it needs.
+let openHeld: Promise<void> | null = null;
+let mutateHeld: Promise<void> | null = null;
+let refuseMutates = false;
+registerEndpoint("/api/edit/list", async (event) => {
   listAuth.push(authOf(event));
+  if (openHeld) await openHeld;
   if (refuseOpens) throw createError({ statusCode: 401, statusMessage: "Missing edit capability" });
   if (failOpens) throw createError({ statusCode: 503, statusMessage: "Unreachable" });
   return { snapshot: serverList };
@@ -76,14 +81,12 @@ registerEndpoint("/api/edit/list", (event) => {
 // composable runs here (nothing mocks it), so its state is set the way /api/auth/me
 // would leave it.
 function sessionResolved(signedIn: boolean) {
-  useState<{ owner: string; email: string; displayName: string | null } | null>("session-user").value = signedIn
-    ? { owner: "1", email: "ryan@example.com", displayName: null }
-    : null;
-  useState<boolean>("session-loaded").value = true;
+  useState<unknown>("session").value = signedIn
+    ? { state: "signedIn", user: { owner: "1", email: "ryan@example.com", displayName: null } }
+    : { state: "signedOut" };
 }
 function sessionUnresolved() {
-  useState<{ email: string; displayName: string | null } | null>("session-user").value = null;
-  useState<boolean>("session-loaded").value = false;
+  useState<unknown>("session").value = { state: "unresolved" };
 }
 
 let mutateAuth: (SeenAuth & { ops?: Op[] })[] = [];
@@ -94,6 +97,8 @@ registerEndpoint("/api/edit/mutate", {
     mutateAuth.push(seen);
     const body = await readBody<{ ops?: Op[] }>(event);
     seen.ops = body?.ops;
+    if (mutateHeld) await mutateHeld;
+    if (refuseMutates) throw createError({ statusCode: 401, statusMessage: "Missing edit capability" });
     // echo the ops onto the snapshot the way the reducer would for the one op
     // these tests send (setMeta title), so the controller adopts a truthful merge
     const rename = body?.ops?.findLast((o) => o.t === "setMeta");
@@ -361,11 +366,104 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     }
   });
 
+  // "missing" is the server's verdict, and the network can't change it: a list that read
+  // as merely offline for the length of a dropped connection took the dead-end's frank
+  // wording down with it, and came back to re-fire everything that watches for the verdict.
+  it("stays missing through a dropped connection, with a copy on screen", async () => {
+    records.set(claimedLocalKey(CODE), { snapshot: snapshotFor("Alpine Loop"), pending: [], updatedAt: 1 });
+    sessionResolved(true);
+    refuseOpens = true;
+    try {
+      const c = useGearList();
+      await c.load({ code: CODE });
+      expect(c.snapshot.value).not.toBeNull();
+      expect(c.status.value).toBe("missing");
+
+      window.dispatchEvent(new Event("offline"));
+      await nextTick();
+      expect(c.status.value).toBe("missing");
+
+      window.dispatchEvent(new Event("online"));
+      await nextTick();
+      expect(c.status.value).toBe("missing");
+    } finally {
+      refuseOpens = false;
+      window.dispatchEvent(new Event("online"));
+    }
+  });
+
+  // A copy on the device is editable before the server has answered for it, so a load
+  // and a flush overlap. Only a 404 is a verdict from a flush; a refused mutate answering
+  // after the open was refused must not read as the list having come back, which started
+  // the retries, the queue and the ledger stamp all over again.
+  it("stays missing when a flush answers after the open was refused", async () => {
+    records.set(claimedLocalKey(CODE), { snapshot: snapshotFor("Alpine Loop"), pending: [], updatedAt: 1 });
+    sessionResolved(true);
+    _setFlushBackoff(5);
+    refuseOpens = true;
+    refuseMutates = true;
+    let answerOpen = () => {};
+    let answerMutate = () => {};
+    openHeld = new Promise((r) => (answerOpen = r));
+    mutateHeld = new Promise((r) => (answerMutate = r));
+    try {
+      const c = useGearList();
+      const opened = c.load({ code: CODE });
+      await vi.waitFor(() => expect(c.snapshot.value).not.toBeNull());
+      c.setMeta({ title: "Typed before the answer" });
+      await vi.waitFor(() => expect(mutateAuth).toHaveLength(1));
+
+      answerOpen();
+      await opened;
+      expect(c.status.value).toBe("missing");
+      answerMutate();
+      await new Promise((r) => setTimeout(r, 60));
+      expect(c.status.value).toBe("missing");
+      expect(mutateAuth).toHaveLength(1);
+
+      c.setMeta({ title: "Typed after it" });
+      await new Promise((r) => setTimeout(r, 60));
+      expect(mutateAuth).toHaveLength(1);
+      expect(claimedOpens()).toEqual([]);
+    } finally {
+      _setFlushBackoff();
+      refuseOpens = false;
+      refuseMutates = false;
+      openHeld = null;
+      mutateHeld = null;
+    }
+  });
+
+  it("names what an open holds, one way in at a time", async () => {
+    const c = useGearList();
+    c.startKeyless(CODE);
+    expect(c.keylessCode.value).toBe(CODE);
+    expect(c.openedByCode.value).toBe(false);
+
+    await c.load({ code: CODE });
+    expect(c.keylessCode.value).toBe("");
+    expect(c.openedByCode.value).toBe(true);
+    expect(c.claimCode).toBe(CODE);
+
+    // the token is the stronger claim, on both paths in
+    await c.load({ token: "a-token", code: CODE });
+    expect(c.editToken).toBe("a-token");
+    expect(c.claimCode).toBe("");
+    expect(c.openedByCode.value).toBe(false);
+
+    c.dispose();
+    expect(c.editToken).toBe("");
+    expect(c.claimCode).toBe("");
+  });
+
   it("rotate graduates the open to the token path and re-keys everything", async () => {
     const c = useGearList();
     await c.load({ code: CODE });
     c.setMeta({ title: "Before rotate" });
     await flushed();
+    // the share panel's edit link is a computed over this, and must follow a rotate
+    const tracked = computed(() => c.editToken);
+    expect(tracked.value).toBe("");
 
     const next = await c.rotate();
     expect(next).toBe(ROTATED_TOKEN);
@@ -373,6 +471,7 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     expect(rotateAuth[0]).toEqual({ bearer: undefined, listCode: CODE });
     expect(c.openedByCode.value).toBe(false);
     expect(c.editToken).toBe(ROTATED_TOKEN);
+    expect(tracked.value).toBe(ROTATED_TOKEN);
 
     // the device now holds the capability: a registry row exists…
     const rows = useMyLists().entries.value;

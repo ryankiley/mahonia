@@ -18,16 +18,19 @@ interface CorrectionResult {
   itemName?: string;
 }
 
-const target = ref<CorrectionTarget | null>(null);
-const submitting = ref(false);
+// Closed, open on a target, or sending for it. One value, so nothing can be sending for
+// a dialog that isn't up, and a request knows whether the dialog is still the one it was
+// sent from.
+const correction = shallowRef<{ target: CorrectionTarget; sending: boolean } | null>(null);
+const target = computed(() => correction.value?.target ?? null);
+const submitting = computed(() => correction.value?.sending ?? false);
 
 export function useCatalogCorrection() {
   function open(t: CorrectionTarget) {
-    target.value = t;
+    correction.value = { target: t, sending: false };
   }
   function close() {
-    target.value = null;
-    submitting.value = false;
+    correction.value = null;
   }
   async function submit(payload: {
     weight?: string;
@@ -35,13 +38,16 @@ export function useCatalogCorrection() {
     sourceUrl?: string;
     reason?: string;
   }): Promise<CorrectionResult | null> {
-    if (!target.value) return null;
-    submitting.value = true;
+    // the button is gated, but Enter in any of the fields comes straight here
+    const held = correction.value;
+    if (!held || held.sending) return null;
+    const sent = { target: held.target, sending: true };
+    correction.value = sent;
     try {
       return await $fetch<CorrectionResult>("/api/catalog/correct", {
         method: "POST",
         body: {
-          catalogItemId: target.value.catalogItemId,
+          catalogItemId: held.target.catalogItemId,
           weight: payload.weight,
           weightMg: payload.weightMg,
           sourceUrl: payload.sourceUrl,
@@ -51,7 +57,7 @@ export function useCatalogCorrection() {
     } catch {
       return { status: "rejected" };
     } finally {
-      submitting.value = false;
+      if (correction.value === sent) correction.value = { target: held.target, sending: false };
     }
   }
   return { target, submitting, open, close, submit };

@@ -21,45 +21,54 @@ const emit = defineEmits<{ close: []; imported: [] }>();
 const { vaultFetch } = useVaultAccess();
 
 const text = ref("");
-const busy = ref(false);
-const error = ref("");
-// the outcome, shown in place of the form once there is one — an import you can't
-// see the result of is an import you run twice
-const done = ref<{ added: number; skipped: number } | null>(null);
+// The form (with what went wrong last, if anything), the request, or the outcome, shown
+// in place of the form once there is one — an import you can't see the result of is an
+// import you run twice
+type Step =
+  | { step: "form"; error: string }
+  | { step: "sending" }
+  | { step: "done"; added: number; skipped: number };
+const FRESH: Step = { step: "form", error: "" };
+const state = ref<Step>(FRESH);
+const error = computed(() => (state.value.step === "form" ? state.value.error : ""));
+// Which opening of the dialog a request belongs to: one still out when it was closed
+// and reopened has no say over the form that's up now.
+let opening = 0;
 
 // fresh each time it opens, like ImportModal's own reset
 watch(
   () => props.open,
   (o) => {
     if (!o) return;
+    opening++;
     text.value = "";
-    error.value = "";
-    busy.value = false;
-    done.value = null;
+    state.value = FRESH;
   },
 );
 
 async function send(raw: string) {
+  // the file button stays live beside a request in flight; one import at a time
+  if (state.value.step === "sending") return;
   const { rows } = parseVaultImport(raw);
   if (!rows.length) {
-    error.value = "No gear found in that. A CSV needs a header row with an item name.";
+    state.value = { step: "form", error: "No gear found in that. A CSV needs a header row with an item name." };
     return;
   }
-  busy.value = true;
-  error.value = "";
+  const mine = opening;
+  state.value = { step: "sending" };
   try {
     const res = await vaultFetch<{ ok: boolean; added: number; skipped: number }>(
       "/api/vault/import",
       { method: "POST", body: { items: rows } },
     );
-    done.value = { added: res.added, skipped: res.skipped };
+    if (mine === opening) state.value = { step: "done", added: res.added, skipped: res.skipped };
     // the page reloads its gear behind the open dialog, so closing lands on the
-    // result rather than on a list that hasn't caught up
+    // result rather than on a list that hasn't caught up. Whichever opening it was: the
+    // gear landed either way.
     emit("imported");
   } catch {
-    error.value = "Couldn’t import that. Check your connection and try again.";
+    if (mine === opening) state.value = { step: "form", error: "Couldn’t import that. Check your connection and try again." };
   }
-  busy.value = false;
 }
 
 // What happened, in as few words as say it. Two shapes are worth spelling out
@@ -67,8 +76,8 @@ async function send(raw: string) {
 // IS a second fact, and "added 0" is said as what it means — a count of nothing
 // reads as a failure, when it is almost always the same file arriving twice.
 const summary = computed(() => {
-  const d = done.value;
-  if (!d) return "";
+  const d = state.value;
+  if (d.step !== "done") return "";
   if (!d.added) {
     return d.skipped === 1
       ? "Nothing new. You already had that one."
@@ -84,7 +93,7 @@ const summary = computed(() => {
   <BaseModal :open="open" label="Import gear" @close="emit('close')">
     <h2 class="t-label">Import gear</h2>
 
-    <template v-if="done">
+    <template v-if="state.step === 'done'">
       <p class="dlg__lede">{{ summary }}</p>
       <div class="dlg__actions">
         <button class="btn btn--primary" @click="emit('close')">Done</button>
@@ -113,8 +122,8 @@ const summary = computed(() => {
              choosing a file imports immediately -->
         <FilePickButton @text="send" />
         <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
-        <button class="btn btn--primary" :disabled="busy || !text.trim()" @click="send(text)">
-          {{ busy ? "Importing…" : "Import" }}
+        <button class="btn btn--primary" :disabled="state.step === 'sending' || !text.trim()" @click="send(text)">
+          {{ state.step === "sending" ? "Importing…" : "Import" }}
         </button>
       </div>
     </template>

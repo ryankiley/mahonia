@@ -24,6 +24,7 @@ registerEndpoint("/api/auth/me", () => {
   if (answer === "two") return { user: { owner: "2", email: "sam@example.com", displayName: null } };
   return { user: null };
 });
+registerEndpoint("/api/account/profile", () => ({ ok: true, displayName: "Ryan" }));
 
 const ROWS_KEY = "gear.claimed.rows.v2.1";
 const OPENS_KEY = "gear.claimed.opens.v2.1";
@@ -33,8 +34,7 @@ beforeEach(() => {
   answer = "no-user";
   document.cookie = "mh_signed_in=1; path=/";
   document.cookie = "mh_session_owner=1; path=/";
-  useState<unknown>("session-user").value = null;
-  useState<boolean>("session-loaded").value = false;
+  useState<unknown>("session").value = { state: "unresolved" };
   useState<boolean>("session-pending").value = false;
   useClaimedLists().resetClaimMark();
 });
@@ -86,6 +86,22 @@ describe("a forced re-read that fails", () => {
     expect(useSession().signedIn.value).toBe(false);
     // `loaded` stays the licence it was meant to be: a failure here used to leave it
     // true from the last success, and the switcher then threw the cached rows away
+    expect(useSession().loaded.value).toBe(false);
+  });
+});
+
+describe("saving the display name", () => {
+  it("adopts the answer into the signed-in user and leaves the rest of it alone", async () => {
+    answer = "one";
+    await useSession().refresh();
+    expect(await useSession().saveProfile({ displayName: "Ryan" })).toBe(true);
+    expect(useSession().user.value).toEqual({ owner: "1", email: "ryan@example.com", displayName: "Ryan" });
+    expect(useSession().presence.value).toBe("signedIn");
+  });
+
+  it("never makes a user out of an answer that arrives with nobody signed in", async () => {
+    expect(await useSession().saveProfile({ displayName: "Ryan" })).toBe(true);
+    expect(useSession().user.value).toBeNull();
     expect(useSession().loaded.value).toBe(false);
   });
 });

@@ -254,6 +254,33 @@ describe("the save button, against what My Gear actually holds", () => {
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
   });
 
+  it("can be pressed again after a save that didn't land", async () => {
+    saveItemToVault.mockResolvedValueOnce("full");
+    const w = mountRow(gear());
+    await vaultBtn(w).trigger("click");
+    await vi.waitFor(() => expect(w.emitted("toast")).toBeTruthy());
+    expect(vaultBtn(w).attributes("disabled")).toBeUndefined();
+    await vaultBtn(w).trigger("click");
+    await vi.waitFor(() => expect(vaultBtn(w).attributes("aria-label")).toBe("Saved to My Gear"));
+    expect(saveItemToVault).toHaveBeenCalledTimes(2);
+  });
+
+  // the save banks the row as it was when pressed; a rename that lands meanwhile makes
+  // it different gear, which the tick must not claim
+  it("claims no tick for a row renamed while its save was out", async () => {
+    let land!: (r: CaptureOneResult) => void;
+    saveItemToVault.mockReturnValueOnce(new Promise((r) => (land = r)));
+    const renamed = { ...gear(), name: "Duplex Flex" };
+    // the list has an answer for the new name too, so the row isn't waiting on one
+    vaultGearAsked.value = new Set([keyFor(gear()), keyFor(renamed)]);
+    const w = mountRow(gear());
+    await vaultBtn(w).trigger("click");
+    await w.setProps({ item: renamed });
+    land("saved");
+    await vi.waitFor(() => expect(vaultBtn(w).attributes("disabled")).toBeUndefined());
+    expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
+  });
+
   it("does not send someone to their removed gear when the vault is simply full", async () => {
     saveItemToVault.mockResolvedValueOnce("full");
     const w = mountRow(gear());

@@ -28,16 +28,17 @@ watch(
 async function onSubmit() {
   // if the field is untouched, send the EXACT integer mg (formatWeight→parse is
   // lossy and locale-dependent); only parse the string when the user edited it
+  const asked = target.value;
   const res = await submit({
     weight: edited.value ? weight.value : undefined,
     weightMg: edited.value ? undefined : target.value?.suggestedMg,
     sourceUrl: sourceUrl.value.trim() || undefined,
     reason: reason.value.trim() || undefined,
   });
-  if (res) {
-    emit("done", res);
-    close();
-  }
+  if (!res) return;
+  emit("done", res);
+  // cancelled and reopened on another item while this was out: that dialog isn't ours
+  if (target.value === asked) close();
 }
 </script>
 
