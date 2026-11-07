@@ -65,10 +65,8 @@ export const WaterBottleGlyph = glyph(
 /** A squeeze filter: the cartridge, and clean water out of the bottom. */
 export const WaterFilterGlyph = glyph(
   line("M9.5 2.5H14.5C15.33 2.5 16 3.17 16 4V11.5C16 12.33 15.33 13 14.5 13H9.5C8.67 13 8 12.33 8 11.5V4C8 3.17 8.67 2.5 9.5 2.5Z"),
-  line("M8 6H16"),
-  line("M8 9.5H16"),
-  line("M12 13V14.25"),
-  line("M12 16.5C12 16.5 9.75 19 9.75 20C9.75 21.1 10.76 22 12 22C13.24 22 14.25 21.1 14.25 20C14.25 19 12 16.5 12 16.5Z"),
+  line("M8 7.75H16"),
+  line("M12 16C12 16 9.75 18.75 9.75 19.75C9.75 20.99 10.76 22 12 22C13.24 22 14.25 20.99 14.25 19.75C14.25 18.75 12 16 12 16Z"),
 );
 
 /** A stuff sack: the body, the cinched neck, the cord lock. */
