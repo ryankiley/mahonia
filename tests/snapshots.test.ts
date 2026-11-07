@@ -47,6 +47,35 @@ describe("snapshots — vandalism recovery", () => {
     expect(snaps).toHaveLength(1);
   });
 
+  // An edit through the connector always leaves a point, named as an assistant's, so
+  // it shows in recent changes and restoring that point undoes it. A burst of calls is
+  // one entry: otherwise five quick calls would push every earlier point out of the cap.
+  it("records an assistant's edit whatever the throttle says, once per burst", async () => {
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const { editToken } = await seedList(db, { folders: [folder], items: [item("i1", "Tent")] });
+    await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v2" } }], db);
+    // inside the window: the owner's next edit would be skipped, the assistant's isn't
+    await applyOpsByEditToken(
+      editToken,
+      [{ t: "addItem", item: item("i2", "Stakes") }],
+      db,
+      { actor: "assistant" },
+    );
+    let snaps = await listSnapshotsByEditToken(editToken, db);
+    expect(snaps!.map((s) => [s.reason, s.actor])).toEqual([
+      ["Added Stakes", "assistant"],
+      ["Renamed Tent → Tent v2", null],
+    ]);
+    // the same assistant again, straight after: still one entry for it
+    await applyOpsByEditToken(editToken, [{ t: "addItem", item: item("i3", "Pot") }], db, { actor: "assistant" });
+    snaps = await listSnapshotsByEditToken(editToken, db);
+    expect(snaps).toHaveLength(2);
+    // and the owner, inside the window, is throttled as before
+    await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v3" } }], db);
+    snaps = await listSnapshotsByEditToken(editToken, db);
+    expect(snaps).toHaveLength(2);
+  });
+
   it("restores a snapshot and snapshots the current state first (undoable)", async () => {
     const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     const { editToken } = await seedList(db, { folders: [folder], items: [item("i1", "Tent"), item("i2", "Quilt")] });

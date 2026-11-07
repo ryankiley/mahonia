@@ -229,6 +229,9 @@ export const listSnapshots = pgTable(
     itemCount: integer("item_count").notNull().default(0),
     version: integer("version").notNull(),
     reason: text("reason"),
+    // who made the change this point was taken before: null for the list's own
+    // editors, "assistant" for an edit through the connector (server/utils/mcp.ts)
+    actor: text("actor"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   }
 );

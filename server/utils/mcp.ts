@@ -1934,7 +1934,8 @@ async function editList(event: H3Event, args: Record<string, unknown>): Promise<
   }
   if (!w.ops.length) return fail("Nothing to change.");
 
-  const after = await applyOpsByEditHash(hash, w.ops);
+  // marked as an assistant's, so the list's recent changes say who made it
+  const after = await applyOpsByEditHash(hash, w.ops, undefined, { actor: "assistant" });
   if (!after) return fail(NO_EDIT_LIST);
   const described = describeList(after, trustedOrigin(event));
   const result = {

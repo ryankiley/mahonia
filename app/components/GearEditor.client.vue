@@ -652,9 +652,9 @@ async function copyEditLink() {
     return flash("This device doesn’t hold the edit link. Replace it in Sharing to get one");
   if (!c.editToken) return flash("Add an item first to get an edit link");
   if (!(await askConfirm({
-    title: "Copy edit link",
-    message: "Anyone with this link can edit your list. Only send it to people you trust.",
-    confirmLabel: "Copy edit link",
+    title: "Copy the edit link?",
+    message: "Anyone with it can edit this list. Only send it to people you trust.",
+    confirmLabel: "Copy link",
   }))) return;
   tally("share_link_copied"); // after the confirm: a cancelled copy is not a copy
   // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
@@ -662,16 +662,16 @@ async function copyEditLink() {
 }
 async function rotate() {
   if (!(await askConfirm({
-    title: "Rotate edit link",
-    message: "Make the old edit link stop working and create a new one? Anyone you shared the old link with will lose edit access.",
-    confirmLabel: "Rotate link",
+    title: "Replace the edit link?",
+    message: "The old link stops working, so anyone you sent it to can no longer edit. You get a new one.",
+    confirmLabel: "Replace link",
     danger: true,
   }))) return;
   const next = await c.rotate();
   if (next) {
     // keep the pretty path (rotate only swaps the token, not the share code)
     history.replaceState(null, "", editLinkPath(snapshot.value?.shareCode, next));
-    flash("Edit link rotated");
+    flash("Edit link replaced");
   }
 }
 const { copyList } = useCopyList();
@@ -727,13 +727,13 @@ async function forgetThisList() {
   const dead = status.value === "missing";
   const title = savedListTitle(snapshot.value?.title ?? "");
   if (!(await askConfirm({
-    title: "Forget this list",
+    title: "Forget this list?",
     // Honest about the cost in both states: alive, the list survives and only this
     // browser's way back into it is what's being dropped; dead, the copy being
     // dropped is the thing itself.
     message: dead
-      ? `Forget “${title}”? Its link stopped working, so the copy saved on this device may be all that’s left; forgetting discards it.`
-      : `Forget “${title}” on this device? The list stays online for anyone with its link, but you’ll need its edit link to open it again.`,
+      ? `“${title}” no longer works online, so the copy on this device may be the last one. Forgetting it deletes that copy.`
+      : `“${title}” stays online for anyone with its link. You’ll need the edit link to open it here again.`,
     confirmLabel: "Forget",
     // marked the way the delete's dialog is: dead, this costs something no link
     // can recover. (Today the dialog renders danger monochrome, like everything
@@ -760,8 +760,8 @@ async function deleteThisList() {
   const code = token ? "" : c.claimCode;
   if (!token && !code) return;
   if (!(await askConfirm({
-    title: "Delete this list",
-    message: `Delete “${savedListTitle(snapshot.value?.title ?? "")}” for everyone? Anyone with the link will lose it, and this can’t be undone.`,
+    title: "Delete this list?",
+    message: `“${savedListTitle(snapshot.value?.title ?? "")}” is deleted for everyone with its link. This can’t be undone.`,
     confirmLabel: "Delete",
     danger: true,
   }))) return;
@@ -830,8 +830,8 @@ async function forgetMissingList() {
   const entry = missingEntry.value;
   if (!entry) return;
   if (!(await askConfirm({
-    title: "Forget this list",
-    message: `Forget “${savedListTitle(entry.title)}”? Its link no longer works; this only removes it from your lists on this device.`,
+    title: "Forget this list?",
+    message: `“${savedListTitle(entry.title)}” no longer works. This takes it off your lists on this device.`,
     confirmLabel: "Forget",
   }))) return;
   // Same teardown-first order as the pair above. Nothing here can write it back
@@ -1019,8 +1019,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :snapshot="snapshot"
                 :edit-token="c.editToken"
                 :auth-headers="c.authHeaders()"
-                :read-url="readUrl"
-                :edit-url="editUrl"
                 @close="shareOpen = false"
                 @copy-read="copyShare"
                 @copy-edit="copyEditLink"

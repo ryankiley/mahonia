@@ -51,8 +51,6 @@ function mountPanel(over: { editToken?: string } = {}) {
       snapshot,
       editToken: over.editToken ?? "held-token",
       authHeaders: { Authorization: "Bearer held-token" },
-      readUrl: `https://x/s/${SHARE}`,
-      editUrl: `https://x/e/${SHARE}#held-token`,
     },
     attachTo: document.body,
   });

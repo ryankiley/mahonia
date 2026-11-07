@@ -116,8 +116,8 @@ export function useGearEditorView({
   async function clearChecks() {
     if (!snapshot.value) return;
     if (!(await askConfirm({
-      title: "Clear checks",
-      message: "Uncheck every packed item? Your gear stays. Only the check marks reset.",
+      title: "Clear all checks?",
+      message: "Your gear stays. Only the checks go.",
       confirmLabel: "Clear checks",
     }))) return;
     if (!snapshot.value) return;

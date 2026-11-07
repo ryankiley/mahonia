@@ -21,9 +21,8 @@ import type { ListSnapshot, SnapshotMeta } from "~~/shared/types";
 //
 // Rendered lazily by the editor, so its snapshot fetch and this markup cost nothing
 // until someone actually asks about sharing.
-// The two URLs arrive BUILT rather than being derived here. The editor already owns
-// the origin helper and the edit-link path rule, and re-deriving them in a second
-// place is how the panel ends up showing a link the copy button doesn't produce.
+// The links themselves never reach this panel: Copy emits, and the editor builds and
+// copies them (it owns the origin and the edit-link path rule).
 const props = defineProps<{
   snapshot: ListSnapshot;
   editToken: string;
@@ -31,8 +30,6 @@ const props = defineProps<{
    *  header for a claimed open. Built by the editor (which owns the capability)
    *  so this panel can't grow a second opinion about auth. */
   authHeaders: Record<string, string>;
-  readUrl: string;
-  editUrl: string;
 }>();
 const emit = defineEmits<{
   close: [];
@@ -90,21 +87,6 @@ async function addToAccount() {
   // absence now means.
   const ok = await useClaimedLists().claimOne(props.editToken);
   claim.value = ok ? "idle" : "failed";
-}
-
-/**
- * Clicking a link field takes the whole link, not a caret.
- *
- * The field is truncated, so dragging to select means dragging past the right edge
- * and waiting for it to scroll — the worst way to get a URL. There is nothing to put
- * a caret in front of here (the input is readonly), so a click has no other job.
- *
- * On @click as well as @focus: focus only fires the first time, and the second click
- * on an already-focused field is exactly the "that didn't work, try again" reflex
- * this is meant to answer.
- */
-function selectAll(e: Event) {
-  (e.target as HTMLInputElement).select();
 }
 
 // ---- recent activity ----
@@ -195,67 +177,50 @@ function changeLabel(i: number): string {
     </p>
 
     <template v-else>
-      <!-- Each link is a LABELLED FIELD with its copy beside it, rather than a row of
-           prose over a wrapped URL. The edit link is ~60 characters of base64 token:
-           printed in full it wrapped to three lines of noise and became the loudest
-           thing in the panel, which is precisely backwards for the item you are
-           meant to think twice about. Truncated in a field it reads as "a link",
-           which is all you need to see before pressing Copy. -->
-      <section class="share__field">
-        <h3 class="t-label share__subtitle">Read-only link</h3>
-        <div class="share__inputrow">
-          <input
-            class="share__input"
-            :value="readUrl"
-            readonly
-            tabindex="-1"
-            :aria-label="'Read-only link'"
-            @focus="selectAll"
-            @click="selectAll"
-          />
-          <button type="button" class="btn btn--quiet share__act" @click="emit('copyRead')">
-            <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="2" /> Copy
-          </button>
+      <!-- Each link is ONE ROW: what it is, what it lets someone do, and Copy. It used
+           to be a label over a filled field showing the address over a line of help,
+           three tiers per link and two grey boxes, and the panel read as a form. The
+           address told nobody anything (a truncated code), and a copy the clipboard
+           refuses already opens it selectable (the editor's showLinkFallback). -->
+      <section class="share__row">
+        <div class="share__what">
+          <h3 class="share__name">Read-only link</h3>
+          <p class="t-sm t-muted">Anyone with it can see this list.</p>
         </div>
-        <p class="t-sm t-muted share__hint">Anyone with it can look, not change.</p>
+        <button type="button" class="btn btn--quiet share__act" @click="emit('copyRead')">
+          <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="2" /> Copy
+        </button>
       </section>
 
       <section class="share__field">
-        <h3 class="t-label share__subtitle">Edit link</h3>
-        <template v-if="holdsEditLink">
-          <div class="share__inputrow">
-            <input
-              class="share__input"
-              :value="editUrl"
-              readonly
-              tabindex="-1"
-              :aria-label="'Edit link'"
-              @focus="selectAll"
-              @click="selectAll"
-            />
-            <button type="button" class="btn btn--quiet share__act" @click="emit('copyEdit')">
-              <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="2" /> Copy
-            </button>
+        <div class="share__row">
+          <div class="share__what">
+            <h3 class="share__name">Edit link</h3>
+            <!-- the claimed-open case: opened from the account, and the server only ever
+                 stored the link's hash, so there is nothing here to copy. Replacing it
+                 is how this device gets one (and it cuts off the old link). -->
+            <p class="t-sm t-muted">
+              {{ holdsEditLink ? "Anyone with it can edit this list." : "Not on this device. Replace it to get a new one." }}
+            </p>
           </div>
-          <p class="t-sm t-muted share__hint">Anyone with it can change this list.</p>
-        </template>
-        <!-- the claimed-open case: opened from the account, no link held here.
-             Honest about why there's nothing to copy; the replace action below is
-             the way to mint one on this device (and it cuts off the old link, the
-             same trade it has always been). -->
-        <p v-else class="t-sm t-muted share__hint">
-          Opened from your account; this device doesn’t hold the edit link.
-          Replacing it creates a new link here and stops the old one working.
-        </p>
+          <button
+            v-if="holdsEditLink"
+            type="button"
+            class="btn btn--quiet share__act"
+            @click="emit('copyEdit')"
+          >
+            <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="2" /> Copy
+          </button>
+        </div>
         <!-- revocation is a quiet text link under the thing it revokes, not a row of
-             its own — it belongs to this link, and giving it equal weight to the two
-             copies made replacing your link look like a normal next step -->
+             its own: it belongs to this link, and giving it a button's weight made
+             replacing your link look like a normal next step -->
         <button type="button" class="btn btn--quiet share__revoke" @click="emit('rotate')">
           <HugeiconsIcon :icon="Refresh01Icon" :size="14" :stroke-width="2" /> Replace this link
         </button>
         <!-- The other thing you can do about who holds this list, in the same quiet
-             voice as replacing the link — and only while it would do something. A
-             list already on the account says nothing here; see the script. -->
+             voice, and only while it would do something. A list already on the
+             account says nothing here; see the script. -->
         <button
           v-if="canAddToAccount"
           type="button"
@@ -266,7 +231,7 @@ function changeLabel(i: number): string {
           <HugeiconsIcon :icon="UserAdd01Icon" :size="14" :stroke-width="2" />
           Add to your account
         </button>
-        <p v-if="claim === 'failed'" class="t-sm t-muted share__hint" role="alert">
+        <p v-if="claim === 'failed'" class="t-sm t-muted" role="alert">
           That didn’t save. Check your connection and try again.
         </p>
       </section>
@@ -274,8 +239,9 @@ function changeLabel(i: number): string {
       <!-- ACTIVITY, collapsed. It's reassurance you go looking for, not something you
            need every time you copy a link — and expanded by default it was half the
            panel's height. Deliberately modest even when open: these are the server's
-           recovery points, so they say WHEN the list changed and how big it was, not
-           who did it. A link-owned list has no identities to attribute to. -->
+           recovery points, so they say WHAT changed and WHEN, not who: a link-owned
+           list has no identities to attribute to. The one exception is an edit made
+           through the connector, which says it was an assistant's. -->
       <section class="share__activity">
         <button
           type="button"
@@ -302,7 +268,12 @@ function changeLabel(i: number): string {
               <p v-else-if="!activity.length" class="t-sm t-muted">No changes recorded yet.</p>
               <ul v-else class="share__log">
                 <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
-                  <span class="t-sm share__logwhat">{{ changeLabel(i) }}</span>
+                  <span class="t-sm share__logwhat"
+                    >{{ changeLabel(i) }}
+                    <!-- its own line: run on after a dot, it broke wherever the label
+                         happened to end and left the dot hanging -->
+                    <span v-if="s.actor === 'assistant'" class="t-muted share__logwho">By an assistant</span></span
+                  >
                   <!-- the count moved to the label where it says something; the trailing
                        column is just when -->
                   <span class="t-sm t-muted share__logwhen">{{ timeAgo(new Date(s.createdAt).getTime(), now) }}</span>
@@ -359,51 +330,36 @@ function changeLabel(i: number): string {
      hold the title off that rule. The vault pane, which is the same header at the same
      size with the same close button, never had either. The card's own gap separates. */
 }
-/* a link and everything that belongs to it, as one block */
+/* the edit link and the two quiet actions that belong to it, as one block */
 .share__field {
   display: grid;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
-/* A STEP DOWN from the panel title, which it used to match exactly — same size, same
-   weight, same ink — so the panel read as a list of equal headings with no way to tell
-   which one named the whole surface.
-   --text-micro is the tier the tokens already describe as "the small labels sitting
-   above its fields", and that is what these are: each one names the input beneath it.
-   Same treatment as .head__panellabel in the trail-link panel, so the two panels label
-   their fields the same way. */
+/* what the link is on the left, Copy on the right, centred on the pair of lines */
+.share__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.share__what {
+  min-width: 0;
+}
+.share__name {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--ink);
+}
+/* The activity disclosure's label: a step down from the panel title, the tier the
+   tokens describe as the small labels above a group. */
 .share__subtitle {
   color: var(--ink-3);
   font-size: var(--text-micro);
   line-height: 1.2;
 }
-.share__inputrow {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-/* The link, shown as a FILLED, truncated field rather than printed prose. Two
-   reasons it's an <input readonly> and not a <span>: it truncates without wrapping
-   at any width, and a pointer landing on it selects the whole link in one click.
-   No tab stop — Copy beside it is the keyboard path, and stopping on a read-only
-   field on the way there earns nothing. It is NOT aria-hidden: it takes focus on
-   click, and hiding a focusable element from the a11y tree is the one thing that
-   combination must never do. */
-.share__input {
-  flex: 1;
-  min-width: 0;
-  min-height: var(--icon-btn);
-  padding-inline: var(--space-2);
-  border-radius: var(--popover-item-radius);
-  background: var(--paper-2);
-  color: var(--ink-2);
-  font-size: var(--text-base);
-  text-overflow: ellipsis;
-}
-/* Copy is FILLED a step deeper than the field beside it: it is the one thing you
-   came to this panel to press, and beside the paper-2 field a bare text button
-   disappeared into it — while an outline was a box in a de-outlined chrome
-   (controls.scss). Distinct ground does the separating; hover deepens a step, the
-   same move the .well makes. */
+/* Copy is FILLED: it is the one thing you came to this panel to press. A bare text
+   button read as one more line of words, and an outline was a box in a de-outlined
+   chrome (controls.scss). Hover deepens a step, the same move the .well makes. */
 .share__act {
   flex: none;
   display: inline-flex;
@@ -481,6 +437,9 @@ function changeLabel(i: number): string {
    word, which is what pushed the overflow onto its neighbour instead of wrapping here */
 .share__logwhat {
   min-width: 0;
+}
+.share__logwho {
+  display: block;
 }
 .share__logwhen {
   flex: none;

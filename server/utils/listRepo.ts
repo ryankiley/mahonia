@@ -471,12 +471,37 @@ export async function findLiveByEditHashes(
 const SNAPSHOT_THROTTLE_MS = 10 * 60_000; // at most one auto-snapshot per list / 10 min
 const SNAPSHOT_CAP = 5; // keep the most recent N per list (older are pruned)
 
+/** Who made an edit, when it wasn't the list's own editors. */
+export type EditActor = "assistant";
+
+/**
+ * Whether the newest recovery point is already `actor`'s, inside the throttle window.
+ * An assistant's edit takes a point of its own whatever the throttle says (so it shows
+ * in recent changes, and restoring that point undoes it), but a burst of calls from the
+ * same assistant is one entry, not five: otherwise it would push every earlier point,
+ * the owner's included, out of the cap. Best-effort: a failed read says no.
+ */
+async function recentPointBy(db: Db, listId: number, actor: EditActor): Promise<boolean> {
+  try {
+    await ensureSnapshotSchema(db);
+    const [newest] = await db
+      .select({ actor: listSnapshots.actor, createdAt: listSnapshots.createdAt })
+      .from(listSnapshots)
+      .where(eq(listSnapshots.listId, listId))
+      .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
+      .limit(1);
+    return !!newest && newest.actor === actor && Date.now() - new Date(newest.createdAt).getTime() < SNAPSHOT_THROTTLE_MS;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Insert a recovery point of `row`'s CURRENT state + prune to the cap. Best-effort
  * — NEVER throws (a snapshot failure must not break a write). The THROTTLE lives in
  * the caller (off the in-hand row's lastSnapshotAt) so the hot path needs no query.
  */
-async function captureSnapshot(db: Db, row: ListRow, reason: string): Promise<void> {
+async function captureSnapshot(db: Db, row: ListRow, reason: string, actor: EditActor | null = null): Promise<void> {
   try {
     await ensureSnapshotSchema(db);
     const cur = rowToState(row);
@@ -524,6 +549,7 @@ async function captureSnapshot(db: Db, row: ListRow, reason: string): Promise<vo
       itemCount: cur.items.length,
       version: row.version,
       reason,
+      actor,
     });
     if (demote) {
       await db
@@ -583,6 +609,7 @@ export async function listSnapshotsByEditHash(
       id: listSnapshots.id,
       version: listSnapshots.version,
       reason: listSnapshots.reason,
+      actor: listSnapshots.actor,
       createdAt: listSnapshots.createdAt,
       itemCount: listSnapshots.itemCount,
     })
@@ -594,6 +621,7 @@ export async function listSnapshotsByEditHash(
     id: r.id,
     version: r.version,
     reason: r.reason ?? null,
+    actor: r.actor === "assistant" ? "assistant" : null,
     createdAt: toIso(r.createdAt),
     itemCount: r.itemCount ?? 0,
   }));
@@ -979,6 +1007,8 @@ export async function applyOpsByEditHash(
   editHash: string,
   ops: Op[],
   db?: Db,
+  /** who is making the edit, when it isn't the list's own editors (see EditActor) */
+  opts: { actor?: EditActor } = {},
 ): Promise<ListSnapshot | null> {
   const d = db ?? (await useDb());
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -1049,7 +1079,11 @@ export async function applyOpsByEditHash(
     // the SAME CAS update serializes the decision by the version guard, so two
     // concurrent writers can't both snapshot (the loser retries + sees it set).
     const lastSnap = row.lastSnapshotAt ? new Date(row.lastSnapshotAt).getTime() : 0;
-    const doSnapshot = Date.now() - lastSnap >= SNAPSHOT_THROTTLE_MS;
+    // An assistant's edit is recorded whatever the throttle says, once per burst (see
+    // recentPointBy); everyone else's, once per window.
+    const doSnapshot =
+      Date.now() - lastSnap >= SNAPSHOT_THROTTLE_MS ||
+      (opts.actor !== undefined && !(await recentPointBy(d, row.id, opts.actor)));
 
     const updated = await d
       .update(lists)
@@ -1077,7 +1111,7 @@ export async function applyOpsByEditHash(
       // description of the change — but the ops that caused it are right here, and
       // they are an exact one. Derived once on write; free to read back.
       if (doSnapshot)
-        await captureSnapshot(d, row, summarizeOps(ops, before).slice(0, MAX_SUMMARY_LEN) || "edit");
+        await captureSnapshot(d, row, summarizeOps(ops, before).slice(0, MAX_SUMMARY_LEN) || "edit", opts.actor ?? null);
       // community intake: stage typed (non-catalog) items touched by this batch so
       // the catalog can grow from real use. Best-effort — never break/slow a save.
       // "Touched" is any patch to what the candidate records: the name, but also the

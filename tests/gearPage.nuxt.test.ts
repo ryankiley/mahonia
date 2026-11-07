@@ -286,13 +286,13 @@ describe("the /gear page's words and names", () => {
 
   it("asks about one piece of gear in the singular", async () => {
     expect(await deleteQuestion(1)).toBe(
-      "The piece of gear in it stays in My Gear; it just won’t be filed under anything.",
+      "The gear in it stays in My Gear, just not in a folder.",
     );
   });
 
   it("asks about several in the plural", async () => {
     expect(await deleteQuestion(2)).toBe(
-      "The 2 pieces of gear in it stay in My Gear; they just won’t be filed under anything.",
+      "The 2 pieces of gear in it stay in My Gear, just not in a folder.",
     );
   });
 

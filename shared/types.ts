@@ -434,6 +434,9 @@ export interface SnapshotMeta {
   id: number;
   version: number;
   reason: string | null;
+  /** Who made the change: null for the list's own editors, "assistant" for an edit
+   *  made through the connector. */
+  actor: "assistant" | null;
   createdAt: string;
   itemCount: number;
 }

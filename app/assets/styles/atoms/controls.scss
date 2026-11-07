@@ -1035,14 +1035,17 @@ input[type="search"]::-webkit-search-decoration {
 // became the thing you were using. That is the Worn/Consumable switch's bug (#216)
 // exactly, in the atom the switch's fix was written next to.
 // Mixed from ink, the fill composites over whatever it lands on and cannot match its
-// surface. Every ground gains and none regresses: 1.248 light, 1.344 dark on a popover,
-// 1.207 dark on the page, and focus lifts to 1.412/1.615. ONE percentage, not a
+// surface. At 7% it reads 1.169 light and 1.226 dark on a popover, 1.120 dark on the
+// page — all clear of the 1.10 that vanished — and focus lifts to 10%: 1.254 / 1.352 /
+// 1.200. It was 10% and 15% until 2026-11-07, which read as a dark grey slab on a white
+// popover (the lists menu's search is focused the moment it opens, so that was the only
+// state anyone saw); 6% would put the dark page under 1.10. ONE percentage, not a
 // light-dark() pair: var(--ink) already flips with the theme, and these two measured out
 // equal. Do not read that as a rule — sRGB is not symmetric and --lit needed 6.5/8.5 for
 // the same job; it is just what this amount does on these grounds.
 .well {
   border: 0;
-  background: color-mix(in oklab, var(--ink) 10%, transparent);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
   border-radius: calc(var(--radius-4) - var(--space-2));
   color: var(--ink);
   transition: background var(--spring-fade-dur) var(--spring-fade);
@@ -1055,7 +1058,7 @@ input[type="search"]::-webkit-search-decoration {
 // vanishes.
 .well:focus {
   outline: none;
-  background: color-mix(in oklab, var(--ink) 15%, transparent);
+  background: color-mix(in oklab, var(--ink) 10%, transparent);
 }
 
 // Disclosure slide — a grid whose single row animates 1fr↔0fr.
