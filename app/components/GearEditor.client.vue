@@ -607,9 +607,9 @@ async function copy(text: string, msg: string, linkFallbackTitle?: string) {
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
-// The four export actions and the rows that draw them are the ⋯ menu's (EditorMenu,
-// through useListExports). What the editor hands it is the link the plain-text copy
-// appends: the READ-ONLY link — explicitly, not location.href, which here is
+// The four export actions and the rows that draw them are the sharing panel's
+// (SharePanel's Export tab, through useListExports). What the editor hands it is the
+// link the plain-text copy appends: the READ-ONLY link — explicitly, not location.href, which here is
 // /e/{code}#{token}. That token is edit access, and this action's whole purpose is
 // pasting the result somewhere public.
 // A draft has no share code yet — no link rather than a broken one (same guard
@@ -626,7 +626,7 @@ const editUrl = computed(() => (c.editToken ? `${origin()}${editLinkPath(snapsho
 // gesture on mobile (the toolbar is sticky, so nothing else would), or Escape.
 useMenuDismiss(menuOpen, menuRef);
 
-// the sharing menu — same dismiss contract as the ⋯ menu beside it (outside click,
+// the sharing panel — same dismiss contract as the ⋯ menu beside it (outside click,
 // Escape), and the two are mutually exclusive: they sit adjacent in the topbar, and
 // two open popovers over one toolbar read as a glitch
 const shareRef = useTemplateRef<HTMLElement>("shareRef");
@@ -848,10 +848,8 @@ async function forgetMissingList() {
 //
 // It used to be eight peers in one column: making a list, moving data in and out,
 // and handing out edit access all read as the same kind of thing. The two sharing
-// items moved to the sharing menu; what's left splits into the plain actions and
-// two SECTIONS you open in place — import and export are each a small set of
-// alternatives, and a flat list made you scan six labels to find the one format you
-// wanted. One section open at a time, so the menu never doubles in height.
+// items moved to the sharing panel, and the export formats followed them onto its
+// Export tab; what's left is the plain actions, the site foot and the destructive one.
 //
 // One table drives the markup AND the dispatch, so an action can't exist in one
 // without the other (a string-keyed lookup would let a typo no-op).
@@ -997,8 +995,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
                in, reach your account, or sign out — on the one screen people spend
                their time. `compact` gives it the icon shape this glyph row needs. -->
           <AccountMenu compact has-gear-button />
-          <!-- Sharing is one panel, not an icon plus two buried menu items. The
-               trigger keeps the same glyph and slot it had as a bare copy button. -->
+          <!-- Sharing is one panel: the links on one tab, the exports on the other.
+               The trigger keeps the same glyph and slot it had as a bare copy button. -->
           <div ref="shareRef" class="menu editor__sharemenu">
             <Tooltip text="Sharing" preferred-placement="bottom" :disabled="shareOpen">
               <button
@@ -1014,11 +1012,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
               </button>
             </Tooltip>
             <Transition name="menu">
-              <LazyShareMenu
+              <LazySharePanel
                 v-if="shareOpen && snapshot"
                 :snapshot="snapshot"
                 :edit-token="c.editToken"
                 :auth-headers="c.authHeaders()"
+                :share-url="readUrl"
+                :flash="flash"
                 @close="shareOpen = false"
                 @copy-read="copyShare"
                 @copy-edit="copyEditLink"
@@ -1049,7 +1049,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
               </button>
             </Tooltip>
-            <!-- The menu itself — rows, export section, foot — is EditorMenu, Lazy
+            <!-- The menu itself — rows and feet — is EditorMenu, Lazy
                  behind everOpened like the dialogs: fetched and mounted on the first
                  open, off the first load until then. Its transition lives inside it
                  (with `appear`, for that first mount). What comes back up is one
@@ -1060,10 +1060,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
               :first-run="isFirstRun"
               :saved="isSaved"
               :opened-by-code="openedByCode"
-              :snapshot="snapshot"
-              :share-url="readUrl"
               @close="menuOpen = false"
-              @flash="flash"
               @people="peopleOpen = true"
               @duplicate="cloneList"
               @import="importOpen = true"
@@ -1481,11 +1478,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink);
   background: var(--paper-2);
 }
-/* The sharing menu hangs off a 32px button near the right end of the bar. `.menu`
-   makes that button the containing block, so `right: 0` puts the menu's right edge at
-   the BUTTON's. When it was a ~343px panel, that landed its left edge at -11 on a
-   375px phone; the menu (about 230px) fits, but anchored to the bar it keeps the page
-   gutter whatever its rows come to.
+/* The sharing panel hangs off a 32px button near the right end of the bar. `.menu`
+   makes that button the containing block, so `right: 0` puts the panel's right edge at
+   the BUTTON's, which on a 375px phone landed a ~343px panel's left edge at -11.
+   Anchored to the bar instead, it takes the page gutter on both sides (SharePanel).
    Dropping the wrapper out of the positioning chain on small screens hands the menu
    the sticky .topbar instead, which spans the viewport. Scoped to this one wrapper on
    purpose: `.menu` is a shared atom (the row popovers use it too), and making IT
@@ -1495,13 +1491,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
     position: static;
   }
 }
-/* the sharing menu is open — same held-state treatment the vault toggle uses, so
+/* the sharing panel is open — same held-state treatment the vault toggle uses, so
    the two topbar popovers signal their state identically */
 .editor__share.is-on {
   color: var(--ink);
   background: var(--paper-2);
 }
-/* the ⋯ menu's Export section, its ruled-off feet, its short-phone scroller
+/* the ⋯ menu's ruled-off feet, its short-phone scroller
    (.editor__actions) and the one coloured row in the chrome (.editor__delete) are
    EditorMenu's now, styled there — a scoped rule here can't reach a child's rows */
 /* the popover's look + open/close come from the shared .menu atom (controls.scss);

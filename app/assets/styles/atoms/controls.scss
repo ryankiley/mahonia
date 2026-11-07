@@ -527,7 +527,9 @@ input[type="search"]::-webkit-search-decoration {
 .menu__item {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  // 12, not 8 (Ryan, 2026-11-07: "for all menus the space between icon and text is a
+  // little small"). The next step on the scale; the section header matches.
+  gap: var(--space-3);
   width: 100%;
   padding: var(--space-2) var(--space-3);
   // concentric with the .popover container (pinned there, shared with .ac__opt)
@@ -608,7 +610,7 @@ input[type="search"]::-webkit-search-decoration {
 // gap is only the minimum between a header's label and its mark.
 .menu__secthead {
   justify-content: space-between;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 // the section header's chevron is the app's .chev (below) — nothing extra needed
 .menu__sectlist {
