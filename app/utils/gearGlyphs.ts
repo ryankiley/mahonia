@@ -34,9 +34,8 @@ export const SleepingBagGlyph = glyph(
 
 /** A pair: grips, shafts, baskets. */
 export const TrekkingPolesGlyph = glyph(
-  line("M7.75 2V8.5"),
-  line("M7.75 8.5V21.5"),
-  line("M16.25 2V21.5"),
+  line("M7.75 8V21.5"),
+  line("M16.25 8V21.5"),
   line("M5.75 18H9.75"),
   line("M14.25 18H18.25"),
   line("M6.25 2.5H9.25V8H6.25V2.5Z"),
