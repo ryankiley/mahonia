@@ -53,7 +53,7 @@ const c = useGearList();
 // timer only keeps the set from growing for the life of the folder.
 const seen = new Set<string>();
 const fresh = shallowRef(new Set<string>());
-const FRESH_MS = 450; // past --spring-step-dur (390ms), the slide's beat
+const FRESH_MS = 300; // past --spring-step-dur (250ms), the arrival's beat
 let freshTimer: ReturnType<typeof setTimeout> | undefined;
 watch(
   () => props.items,
@@ -153,12 +153,16 @@ function addBlank() {
    content-visibility stands down because its paint containment would clip. One track,
    so a row that is several grid items (a restored parent: .reveal, .nestcollapse) only
    fades — a multi-track template inflates its empty siblings mid-animation. Initial load
-   stays static (`fresh`). :deep() because the row's children carry ItemRow's scope. */
+   stays static (`fresh`). :deep() because the row's children carry ItemRow's scope.
+   The growth is an ARRIVAL, so it eases out (the curve for anything entering) on
+   the step role's beat, 250ms: the row is there at once and settles, rather than
+   gathering itself first the way the step role's ease-in-out would. Reduced motion
+   cuts these keyframes whole (main.scss). */
 .folder__items > .is-new:not(:has(> .reveal, > .nestcollapse)) {
   display: grid;
   grid-template-rows: 1fr;
   content-visibility: visible;
-  animation: item-in var(--spring-step-dur) var(--spring-step);
+  animation: item-in var(--spring-step-dur) var(--ease-out);
 }
 .folder__items > .is-new:has(> .reveal, > .nestcollapse) {
   animation: item-fade var(--spring-fade-dur) var(--spring-fade);
@@ -185,13 +189,14 @@ function addBlank() {
   }
 }
 /* the next link: hidden while the field stands in its place, then in once the box has
-   carried it most of a row down (a third of the step beat). Its top padding grows from
-   0 on the same spring: the row keeps its own 8px above the field from the first frame
-   (that is what holds the field still), so the link hands over its 8px and the folder's
-   height changes by exactly 0 on that frame. */
+   carried it most of a row down (a third of the beat: the ease-out is ~85% of the way
+   there by then). Its top padding grows from 0 on the same curve and beat as the row: the
+   row keeps its own 8px above the field from the first frame (that is what holds the
+   field still), so the link hands over its 8px and the folder's height changes by
+   exactly 0 on that frame. */
 .folder__add.is-arriving {
   animation:
-    add-in var(--spring-step-dur) var(--spring-step),
+    add-in var(--spring-step-dur) var(--ease-out),
     item-fade var(--spring-fade-dur) var(--spring-fade) calc(var(--spring-step-dur) / 3) backwards;
 }
 @keyframes add-in {
@@ -201,10 +206,14 @@ function addBlank() {
 }
 /* …and the reverse: a blank row you click away from folds back into the link (ItemRow's
    foldAway, .is-leaving while it runs). The link waits out of sight and pulls itself up
-   by the row's 8px on the fold's spring, so the frame the row goes — its 8px with it,
+   by the row's 8px on the fold's own timing, so the frame the row goes — its 8px with it,
    the pull released at once — is a net 0 and the label stands exactly where the field
    was. A margin, not the padding: the atom transitions padding-top for the packing fold
-   and a padding would ease back over the next beat; nothing transitions margin at rest. */
+   and a padding would ease back over the next beat; nothing transitions margin at rest.
+   THE STEP ROLE ON PURPOSE, though this is an exit and exits ease out: foldAway runs the
+   row's collapse as a Web Animation on springCss("step"), and the pull has to land with
+   it on the same frame or the label jumps. If the fold moves to an exit curve, this
+   moves with it. */
 .folder__items:has(> .is-leaving) ~ .folder__add {
   opacity: 0;
   margin-top: calc(-1 * var(--space-2));
@@ -212,7 +221,7 @@ function addBlank() {
     margin-top var(--spring-step-dur) var(--spring-step),
     opacity 0s;
 }
-/* (the link's own transitions — opacity on the fade spring, for the reverse of a
+/* (the link's own transitions — opacity on the fade role, for the reverse of a
    fold, and the packing fold — are the atom's: atoms/folder.scss) */
 /* (no item leave animation: removal goes through useGearList's dispatch(), which
    splices the item out in place before the re-render, so the row is simply gone

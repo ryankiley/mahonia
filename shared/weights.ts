@@ -10,6 +10,7 @@ import type {
   Totals,
   Unit,
 } from "./types";
+import { counted } from "./tidyText";
 
 /** Milligrams per one display unit. */
 export const MG_PER_UNIT: Record<Unit, number> = {
@@ -596,7 +597,9 @@ export function computeTotals(list: ListData): Totals {
 // edge-cached, so the HTML every visitor gets carries whichever locale the lambda
 // happened to have. Pinning makes the two sides agree by construction. This is the
 // same rule the date formatters already follow — see app/pages/about.vue and
-// app/pages/changes.vue, which pin for exactly this reason.
+// app/pages/changes.vue, which pin for exactly this reason. tidyText's counted()
+// restates it rather than importing it (that module is imported here), so a change
+// to this pin is made in both places.
 const NUM_LOCALE = "en-US";
 
 /**
@@ -686,7 +689,8 @@ export function autoUnit(mg: number, system: WeightSystem): Unit {
  * already holds weights and must not take on the card model.
  */
 export function listSummaryBits(totals: Totals, displayUnit?: Unit): string[] {
-  const bits = [`${totals.itemCount} items`];
+  // counted(), not a hand-built `${n} items`: a one-row list's unfurl said "1 items"
+  const bits = [counted(totals.itemCount, "item")];
   if (totals.hasWeights)
     bits.push(`${formatWeightAuto(totals.baseMg, { system: unitSystem(displayUnit) })} base weight`);
   return bits;

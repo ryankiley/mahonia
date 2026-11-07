@@ -14,6 +14,7 @@ import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { readBody } from "h3";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import GearPage from "~/pages/gear.vue";
+import { useDialogs } from "~/composables/useDialogs";
 
 // hasVault true so the page loads; vaultFetch REAL so the page's URL choice has to
 // resolve against the routes below — the same passthrough gearList.nuxt.test.ts uses.
@@ -100,5 +101,44 @@ describe("the /gear page's vault calls", () => {
     await vi.waitFor(() => expect(rows(w)).toHaveLength(0));
     expect(removedIds).toEqual([7]);
     expect(w.find(".vault__error").exists()).toBe(false);
+  });
+});
+
+describe("the /gear page's words and names", () => {
+  afterEach(() => {
+    // answer any question a case left open, so no promise outlives its test
+    useDialogs().settleConfirm(false);
+    document.body.innerHTML = "";
+    storage.clear();
+  });
+
+  /** Ask to delete the "Cook kit" folder and return the question's sentence. */
+  async function deleteQuestion(held: number) {
+    listFolders = [{ id: 1, name: "Cook kit" }];
+    listRows = Array.from({ length: held }, (_, i) => ({ ...entry(i + 1, `Pot ${i + 1}`), folderId: 1 }));
+    const w = await openPage();
+    await w.get('button[aria-label="Remove Cook kit"]').trigger("click");
+    const { confirmState } = useDialogs();
+    await vi.waitFor(() => expect(confirmState.open).toBe(true));
+    return confirmState.message;
+  }
+
+  it("asks about one piece of gear in the singular", async () => {
+    expect(await deleteQuestion(1)).toBe(
+      "The piece of gear in it stays in My Gear; it just won’t be filed under anything.",
+    );
+  });
+
+  it("asks about several in the plural", async () => {
+    expect(await deleteQuestion(2)).toBe(
+      "The 2 pieces of gear in it stay in My Gear; they just won’t be filed under anything.",
+    );
+  });
+
+  it("puts a row's whole name in its title, for when the row clips it", async () => {
+    listFolders = [];
+    listRows = [{ ...entry(1, "Ether Light XT Insulated Air Sleeping Mat"), variant: "Regular Wide" }];
+    const w = await openPage();
+    expect(w.get(".gear__name").attributes("title")).toBe("Brand Ether Light XT Insulated Air Sleeping Mat Regular Wide");
   });
 });

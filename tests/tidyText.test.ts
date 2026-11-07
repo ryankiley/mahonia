@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { foldApostrophes, tidyProse, tidyText } from "../shared/tidyText";
+import { counted, foldApostrophes, pluralNoun, tidyProse, tidyText } from "../shared/tidyText";
 
 // The character class the tidy strips, spelled out here so a test failure names the
 // character rather than showing two identical-looking strings.
@@ -368,5 +368,22 @@ describe("tidyText — bidi controls and blank-width characters", () => {
 
   it("still keeps the joiners that hold an emoji together", () => {
     expect(tidyText("\u{1F469}\u200D\u{1F680} kit")).toBe("\u{1F469}\u200D\u{1F680} kit");
+  });
+});
+
+describe("counted — a count and its noun", () => {
+  it("agrees the noun with the count, irregulars included", () => {
+    expect(counted(1, "item")).toBe("1 item");
+    expect(counted(0, "item")).toBe("0 items");
+    expect(counted(3, "item")).toBe("3 items");
+    expect(counted(2, "piece of gear", "pieces of gear")).toBe("2 pieces of gear");
+    expect(pluralNoun(1, "day")).toBe("day");
+  });
+
+  it("groups the number the way a weight beside it is grouped", () => {
+    // "1284 pieces" next to "312,450 g" read as two different kinds of number
+    expect(counted(1284, "piece")).toBe("1,284 pieces");
+    expect(counted(1_000_000, "item")).toBe("1,000,000 items");
+    expect(counted(999, "item")).toBe("999 items");
   });
 });

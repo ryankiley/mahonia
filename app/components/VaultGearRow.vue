@@ -57,7 +57,10 @@ const meta = computed(() => {
 <template>
   <li class="vault__row">
     <div class="gear__main">
-      <p class="gear__name t-clip">
+      <!-- the title is the whole name: clipped, two catalog names that differ only at
+           the end ("… Regular" / "… Long Wide") read identically, and this is the way
+           to tell them apart without opening the dialog -->
+      <p class="gear__name t-clip" :title="displayName">
         <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
         <span>{{ entry.name }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
@@ -270,6 +273,19 @@ const meta = computed(() => {
   }
   .gear__main {
     flex-basis: 100%;
+  }
+  /* With a line of its own the name gets two of them before it clips. One line at
+     phone width cut long catalog names ("Sea to Summit Ether Light XT Insulated Air
+     Mat · Regular Wide") back to their shared opening, so a row couldn't say which
+     size it was, and a title has no hover to show it on a phone. Two lines, not
+     unbounded: this is a list that can run to hundreds, and a stray four-line name
+     would set the page's rhythm from its longest row (the note's reasoning, above). */
+  .gear__name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
   }
   .vault__weight {
     min-width: 0;

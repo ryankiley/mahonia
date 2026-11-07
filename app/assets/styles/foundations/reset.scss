@@ -74,15 +74,23 @@ html:has(.ovl, .routemap.is-expanded) {
   overflow: hidden;
 }
 
-// No rubber-band bounce at the page's top and bottom on desktop trackpads.
-// Gated on a fine pointer so touch devices keep their native bounce and
-// pull-to-refresh. The -y longhand, not the shorthand: overscroll-behavior-x
-// on the root turns off Chrome's two-finger swipe for back/forward on a Mac.
-// Inner scrollers (vault pane, menus, dialogs) already carry `contain`.
-@media (pointer: fine) {
-  html {
-    overscroll-behavior-y: none;
-  }
+// The PAGE doesn't rubber-band or pull to refresh, on any device. Phones used to keep
+// both, on the reasoning that they're native — but this is an app, with surfaces that
+// take a drag of their own (the vault sheet, the dialogs, the map, the drag grips), and
+// on a phone at the top of the page a downward drag on anything that isn't itself a
+// scroller moves the whole page instead: the bar and the list lurch down under your
+// thumb, or Chrome on Android reloads the list you were packing. Installed, it is the
+// one gesture that still says "web page": pull-to-refresh hijacking
+// the scroll.
+// On html AND body: the root's value is what the viewport takes,
+// and body is there for an engine that still treats it as the scroller.
+// The -y longhand, not the shorthand: overscroll-behavior-x on the root
+// turns off Chrome's two-finger swipe for back/forward on a Mac, and the page has
+// nothing to bounce sideways anyway (overflow-x is clipped above). The inner scrollers
+// keep `contain` — their own bounce, without chaining to the page.
+html,
+body {
+  overscroll-behavior-y: none;
 }
 
 body {
@@ -186,20 +194,34 @@ textarea {
 }
 button {
   cursor: pointer;
+  // the press below, eased both ways. A button class that declares a `transition` of its
+  // own replaces this one (it's a shorthand, and a class outranks an element), so every
+  // such class lists `scale` in its own — or its press snaps rather than easing.
+  transition: scale var(--dur-press) var(--ease-out);
 }
 // Press feedback for every button. The html{} rule above removes the tap highlight,
-// and every hover that paints is gated to pointers that can hover (controls.scss), so
-// on a phone a button with no :active of its own answered a tap with nothing at all:
-// the menu rows, the switch, the add-folder affordance, the undo link. This is the
-// same step `.btn:active` has always taken, as the floor for the rest. A dimming, not
-// a scale, so it is not motion and needs no reduced-motion gate. It snaps where the
-// button has no transition of its own; .btn transitions opacity and fades both ways,
-// as it always has. Specificity is
-// (0,2,1) — :not(:disabled) counts a pseudo-class — so a single-class scoped rule
-// (0,2,0) cannot set a button's opacity while it is pressed; a class that must hold
-// its opacity through a press says so with the press in its own selector.
+// and every hover is gated to pointers that can hover (controls.scss), so on a phone a
+// button with no :active of its own would answer a tap with nothing at all: the menu
+// rows, the switch, the add-folder affordance, the undo link. The press: the
+// button gives a little under the finger (--press-scale, tokens.scss), on the
+// independent `scale` property so a transform the button already wears — .btn--icon's
+// standing layer — composes with it instead of being replaced.
+// It replaced a 0.7 opacity dim. TEXT buttons now scale whole, label and all, which is
+// the point; it also makes WebKit promote each one to a layer for the press
+// and drop it after (concepts/webkit-relayers-on-animation-boundaries), so a label at
+// a fractional x can shift a pixel on release — the thing to look for on an iPhone.
+// Specificity is (0,2,1) — :not(:disabled) counts a pseudo-class — so a single-class
+// scoped rule (0,2,0) can't undo a button's press; a class that wants a different one
+// (the wide rows' --press-scale-wide) says so with the press in its own selector.
 button:not(:disabled):active {
-  opacity: 0.7;
+  scale: var(--press-scale);
+}
+// Under reduced motion the tokens hold the scale at 1, and the press goes back to being
+// the dim it was: a change of opacity, not of size, so the button still answers.
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active {
+    opacity: 0.7;
+  }
 }
 // Kill double-tap-to-zoom on the controls that get tapped in bursts — the ±
 // quantity steppers (a row's qty is MEANT to take three presses in a row, see

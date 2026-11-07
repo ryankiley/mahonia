@@ -48,9 +48,15 @@ mockNuxtImport("useGearList", () => () => ({
   vaultGearAsked: ref(new Set()),
   vaultGearSettled: ref(true),
 }));
-mockNuxtImport("useItemDnd", () => () => ({ startInsert: vi.fn() }));
+// dragId is the live-drag flag the touch guard reads (a non-null id = a drag in flight)
+const dragId = ref<string | null>(null);
+const startInsert = vi.fn();
+mockNuxtImport("useItemDnd", () => () => ({ startInsert, dragId }));
 
 let wrapper: ReturnType<typeof mount> | undefined;
+
+// the pane hangs an Escape listener on window; unmounting takes it with it
+enableAutoUnmount(afterEach);
 
 /** Mount the pane with its gear loaded, and hand back its root + row list. */
 async function openPane() {
@@ -92,9 +98,8 @@ function swipe(from: Element, dy: number, fingers = 1): boolean {
 describe("the vault sheet's touch guard", () => {
   beforeEach(() => {
     rowCount = 30;
+    dragId.value = null;
   });
-  // the pane hangs an Escape listener on window; unmounting takes it with it
-  enableAutoUnmount(afterEach);
   afterEach(() => {
     document.body.innerHTML = ""; // the cases append raw nodes beside the mount
   });
@@ -146,5 +151,150 @@ describe("the vault sheet's touch guard", () => {
   it("leaves a two-finger gesture alone", async () => {
     const { pane } = await openPane();
     expect(swipe(pane.querySelector(".vp__head")!, -120, 2)).toBe(false);
+  });
+});
+
+// A ROW BEING CARRIED IS NEVER A SCROLL. The report: dragging a row out of the phone
+// sheet died on the first move. The guard above hands a move to the browser whenever the
+// rows can still travel that way — right for a swipe, fatal for a drag, because a touch
+// scroll steals the pointer (pointercancel) and the drag is gone. Once the row's hold has
+// armed, or the drag it became is live, the guard swallows every move.
+describe("a held row on the vault sheet", () => {
+  beforeEach(() => {
+    rowCount = 30;
+    dragId.value = null;
+    startInsert.mockClear();
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    vi.useRealTimers();
+  });
+
+  /** Event timestamps, pinned: the hold rule compares them (see pointerDrag's tests). */
+  const at = <E extends Event>(ev: E, t: number): E => {
+    Object.defineProperty(ev, "timeStamp", { value: t });
+    return ev;
+  };
+  /** A finger down on the first row at time t. */
+  function press(list: HTMLElement, t: number) {
+    const row = list.querySelector<HTMLElement>(".vp__add")!;
+    row.dispatchEvent(
+      at(new PointerEvent("pointerdown", { pointerId: 1, pointerType: "touch", button: 0, clientX: 40, clientY: 500, bubbles: true }), t),
+    );
+    return row;
+  }
+  /** The same finger's next touchmove at time t; true when the sheet kept it from the browser. */
+  function moveAt(target: Element, t: number, dy = -120): boolean {
+    const send = (type: string, y: number, time: number) => {
+      const ev = at(new Event(type, { bubbles: true, cancelable: true }), time);
+      Object.defineProperty(ev, "touches", { value: [{ clientY: y } as Touch] });
+      target.dispatchEvent(ev);
+      return ev;
+    };
+    send("touchstart", 500, t - 1);
+    return send("touchmove", 500 + dy, t).defaultPrevented;
+  }
+
+  it("swallows the move once the hold has armed, though the rows could scroll", async () => {
+    const { list } = await openPane();
+    fakeScroll(list!, { scrollTop: 0, range: 800 });
+    const row = press(list!, 1000);
+    expect(moveAt(row, 1300)).toBe(true);
+  });
+
+  it("still hands the rows a swipe that starts before the hold", async () => {
+    const { list } = await openPane();
+    fakeScroll(list!, { scrollTop: 0, range: 800 });
+    const row = press(list!, 1000);
+    expect(moveAt(row, 1100)).toBe(false);
+  });
+
+  it("swallows every move while the drag it became is live", async () => {
+    const { list } = await openPane();
+    fakeScroll(list!, { scrollTop: 300, range: 800 });
+    dragId.value = " insert";
+    expect(moveAt(list!, 5000, 120)).toBe(true);
+  });
+
+  it("lifts the row and ticks the phone when the hold takes, and sets it down after", async () => {
+    const vibrate = vi.fn();
+    Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
+    const { list } = await openPane();
+    vi.useFakeTimers();
+    const row = press(list!, performance.now());
+    vi.advanceTimersByTime(250);
+    await nextTick();
+    expect(row.classList.contains("is-lifted")).toBe(true);
+    expect(vibrate).toHaveBeenCalledWith(10);
+    // lifted without moving: a tap after all, so the row comes back down
+    window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 1, bubbles: true }));
+    await nextTick();
+    expect(row.classList.contains("is-lifted")).toBe(false);
+  });
+});
+
+describe("the vault sheet's rows", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  // the name truncates on a phone; the full one is a hover away on a desktop
+  it("give each gear name its full name as a title", async () => {
+    rowCount = 2;
+    const { pane } = await openPane();
+    const names = [...pane.querySelectorAll(".vp__list .gear__name")].map((n) => n.getAttribute("title"));
+    expect(names).toEqual(["Brand Item 1", "Brand Item 2"]);
+  });
+});
+
+// The sheet focuses its search on open, which raises the keyboard over a sheet pinned to
+// the bottom of the screen. It lifts by the strip the keyboard covers (--kb) and caps its
+// height to what's left (--sheet-room) — both read off the visual viewport, which only a
+// phone has a real one of, so it's stubbed: an 844px layout viewport, keyboard covering
+// the bottom 336, a 61px topbar.
+describe("the vault sheet and the keyboard", () => {
+  const listeners: Record<string, () => void> = {};
+  const vv = {
+    height: 844,
+    offsetTop: 0,
+    addEventListener: (type: string, fn: () => void) => void (listeners[type] = fn),
+    removeEventListener: vi.fn(),
+  };
+  beforeEach(() => {
+    rowCount = 2;
+    vv.height = 844;
+    Object.defineProperty(window, "innerHeight", { value: 844, configurable: true });
+    Object.defineProperty(window, "visualViewport", { value: vv, configurable: true });
+    const bar = document.createElement("header");
+    bar.className = "topbar";
+    bar.getBoundingClientRect = (() => ({ top: 0, bottom: 61 })) as never;
+    document.body.appendChild(bar);
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+    Object.defineProperty(window, "visualViewport", { value: undefined, configurable: true });
+  });
+
+  // the <aside> itself — the mount's root element is a wrapper around the pane
+  const sheet = () => document.querySelector<HTMLElement>("[data-vault-pane]")!;
+
+  it("sits where it always did with no keyboard", async () => {
+    await openPane();
+    expect(sheet().style.getPropertyValue("--kb")).toBe("0px");
+    expect(sheet().style.getPropertyValue("--sheet-room")).toBe(`${844 - 61}px`);
+  });
+
+  it("lifts by the keyboard's height when it rises, and shrinks to the room left", async () => {
+    await openPane();
+    vv.height = 508;
+    const raf = vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => (cb(0), 1));
+    try {
+      listeners.resize!();
+      await nextTick();
+      expect(sheet().style.getPropertyValue("--kb")).toBe("336px");
+      expect(sheet().style.getPropertyValue("--sheet-room")).toBe(`${508 - 61}px`);
+    } finally {
+      raf.mockRestore();
+    }
   });
 });

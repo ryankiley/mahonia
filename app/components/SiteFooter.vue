@@ -67,9 +67,13 @@ const here = (p: string) => route.path === p;
   border-bottom: 1px solid transparent;
   transition: color var(--spring-fade-dur) var(--spring-fade), border-color var(--spring-fade-dur) var(--spring-fade);
 }
-.foot__link:hover {
-  color: var(--ink);
-  /* underline appears on hover but stays soft — never full-strength ink */
-  border-bottom-color: var(--ink-2);
+/* underline appears on hover but stays soft — never full-strength ink. Pointer-gated
+   like every hover in the app (see .btn:hover, atoms/controls.scss): iOS latches :hover
+   on whatever was last tapped. */
+@media (hover: hover) and (pointer: fine) {
+  .foot__link:hover {
+    color: var(--ink);
+    border-bottom-color: var(--ink-2);
+  }
 }
 </style>

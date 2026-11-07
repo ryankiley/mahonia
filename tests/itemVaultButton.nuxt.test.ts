@@ -211,7 +211,7 @@ describe("the save button, against what My Gear actually holds", () => {
     // The vaultin Transition carries no `appear` because "a fresh row (or page)
     // animates nothing". Holding the button back until the vault answers turned
     // the first paint INTO a false→true flip, so opening a list set every worthy
-    // row shining at once — a page-load event the design excludes. The reveal is
+    // row's button arriving at once — a page-load event the design excludes. The reveal is
     // armed a tick after the gate first settles, so the first appearance is silent.
     // the row holds several Transitions (the popovers); this is the button's own
     const reveal = (v: ReturnType<typeof mountRow>) =>
@@ -226,12 +226,12 @@ describe("the save button, against what My Gear actually holds", () => {
     expect(vaultBtn(w).exists()).toBe(true); // ...arrives without animating
     expect(reveal(w).props("css")).toBe(false); // still disarmed on that very render
     // ...and armed just after it, so a later return — the row becoming gear, a key
-    // leaving the vault — plays the shine the way it always did
+    // leaving the vault — plays the entrance the way it always did
     await vi.waitFor(() => expect(reveal(w).props("css")).toBe(true));
 
     // ...and DISARMS again when the answer is withdrawn. `known` returns to false
     // on every session change, so an arm-only latch let an in-page sign-in play
-    // the whole list's shine at once — the burst this exists to prevent.
+    // the whole list's entrance at once — the burst this exists to prevent.
     vaultGearSettled.value = false;
     await nextTick();
     expect(reveal(w).props("css")).toBe(false);

@@ -207,7 +207,20 @@ export function pluralNoun(n: number, one: string, many = `${one}s`): string {
   return n === 1 ? one : many;
 }
 
-/** The count and its noun together — "3 items", "1 item". */
+/** Pinned, as weights.ts pins the locale its formatWeight groups with: a count renders
+ *  on the server-rendered share views too, and an ambient locale would group it one way
+ *  in the HTML and another on hydration. Restated rather than imported, because
+ *  weights.ts imports this module (listSummaryBits counts with counted()), and
+ *  importing back would make the two a cycle. */
+const NUM_LOCALE = "en-US";
+
+/** A count grouped the way formatWeight groups a weight — "1,284" — so a count read
+ *  beside "312,450 g" doesn't arrive as a bare "1284". */
+export function formatCount(n: number): string {
+  return n.toLocaleString(NUM_LOCALE);
+}
+
+/** The count and its noun together — "3 items", "1 item", "1,284 pieces". */
 export function counted(n: number, one: string, many?: string): string {
-  return `${n} ${pluralNoun(n, one, many)}`;
+  return `${formatCount(n)} ${pluralNoun(n, one, many)}`;
 }

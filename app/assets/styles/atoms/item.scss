@@ -44,10 +44,12 @@
    Editor-only by scope (.editor__body): the share views render one face and no
    editor body, the vault pane sits outside it, so neither is touched. display:none
    keeps the hidden face out of layout, paint and the accessibility tree exactly as
-   not-being-mounted did. The under-row catalog-fix reveal (the gear type / note
-   sub-line lives inside the edit face's name cell and goes with it) and
-   the nested block's "Add an item" are edit-mode furniture, hidden the same way —
-   they used to be v-ifs on the same prop, unmounted for the same cost. */
+   not-being-mounted did. The under-row catalog-fix line (.item-wrap > .reveal; the
+   gear type / note sub-line lives inside the edit face's name cell and goes with it)
+   and the nested block's "Add an item" are edit-mode furniture, hidden the same way —
+   they used to be v-ifs on the same prop, unmounted for the same cost. A row whose
+   faces differ in height (the note, the fix line) eases to its new height on the
+   switch's slot beat: GearEditor's row fold, see modeswitch.scss. */
 /* !important, like print.scss's chrome-off rule and for the same reason: this is a
    STATE gate, not layout, and it has to beat whatever layout the faces carry. It
    already lost once — ItemRow's mobile stack (`.item-wrap .item:not(.item--check)`,
@@ -59,27 +61,32 @@
   display: none !important;
 }
 .editor__body[data-mode="pack"] .item-row:not(.item--check),
-.editor__body[data-mode="pack"] .item-nest__add {
+.editor__body[data-mode="pack"] .item-nest__add,
+.editor__body[data-mode="pack"] .item-wrap > .reveal {
   display: none !important;
 }
-/* the row's second line folds on a mode switch: modeswitch.scss */
 
-/* the entering face fades in, exactly as the old <Transition name="rowmode"> enter
-   did (opacity from 0, 0.9 × the fade spring's beat; the leaving face is dropped
-   instantly, so the two never stack). An ANIMATION, not a transition — display can't
-   transition, but flipping display:none→grid restarts an animation, which is
-   precisely the hook wanted here. Gated on .is-rowswitching (a ~420ms beat GearEditor
-   holds up after each switch) so the fade plays on mode switches only — not on
+/* the entering face fades in (opacity from 0 on the fade token; the leaving face is
+   dropped instantly, so the two never stack). An ANIMATION, not a transition —
+   display can't transition, but flipping display:none→grid restarts an animation,
+   which is precisely the hook wanted here. Gated on data-mode-from, the mode being
+   LEFT, which GearEditor writes only for the beat after a switch (useEditorMode's
+   switchedFrom), so the fade plays on a Gear ↔ Packing switch and nothing else: not on
    initial load, not when the latch first mounts a face, not when a new item's row
-   appears. reduced-motion → the global duration kill-switch makes it instant. */
+   appears — and not on a switch into or out of Trip, where the rows sit inside the
+   view that is crossfading as a whole (modeswitch.scss) and a second fade on each row
+   would only run under the first. The fix line arrives with the edit face it belongs
+   to. Reduced motion keeps this fade (fades are what it keeps); a switch made from the
+   keyboard raises no beat at all. */
 @keyframes rowmode-fade {
   from {
     opacity: 0;
   }
 }
-.editor__body.is-rowswitching[data-mode="pack"] .item--check,
-.editor__body.is-rowswitching:not([data-mode="pack"]) .item-row:not(.item--check) {
-  animation: rowmode-fade calc(var(--spring-fade-dur) * 0.9) var(--spring-fade);
+.editor__body[data-mode-from="edit"][data-mode="pack"] .item--check,
+.editor__body[data-mode-from="pack"][data-mode="edit"] .item-row:not(.item--check),
+.editor__body[data-mode-from="pack"][data-mode="edit"] .item-wrap > .reveal {
+  animation: rowmode-fade var(--spring-fade-dur) var(--spring-fade);
 }
 
 /* ---- the person filter -----------------------------------------------------------
@@ -433,15 +440,20 @@
   font-size: var(--text-base);
   color: var(--ink-3);
   cursor: pointer;
-  /* padding-block on the step spring: the packing fold (atoms/folder.scss) closes it
-     with the track, or the row would stop 12px short */
+  /* padding-block on the mode switch's slot beat (--t-slot, set on .editor__body): the
+     packing fold (modeswitch.scss) closes it with the track, or the row would stop 12px
+     short. Outside the editor there is no beat and no fold, and the step token stands in. */
   transition:
     color var(--spring-fade-dur) var(--spring-fade),
-    padding-block var(--spring-step-dur) var(--spring-step);
+    padding-block var(--t-slot, var(--spring-step-dur) var(--spring-step)),
+    scale var(--dur-press) var(--ease-out);
 }
-.folder__addbtn:hover,
-.item-nest__add:hover {
-  color: var(--ink);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .folder__addbtn:hover,
+  .item-nest__add:hover {
+    color: var(--ink);
+  }
 }
 
 @media (max-width: t.$bp-stack) {

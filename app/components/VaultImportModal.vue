@@ -123,10 +123,11 @@ const summary = computed(() => {
 
 <style scoped>
 /* the overlay, shell and action row are atoms/dialog.scss; the tint is .well */
+/* no font-size: .field's literal 16px is what stops iOS zooming on focus, and the
+   fluid --text-base that used to override it here zoomed (ImportModal says more) */
 .vimport__text {
   width: 100%;
   font-family: var(--font);
-  font-size: var(--text-base);
   padding: var(--space-3);
   /* no resize — ImportModal's reasoning: the grip notches the rounded corner and
      the box scrolls anyway */

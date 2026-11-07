@@ -1,6 +1,31 @@
+<script lang="ts">
+/**
+ * Hold `cls` on `el` for one run of its children's entrance, then take it off for good,
+ * so the animation it switches on can't play again. Off when the LAST child's animation
+ * ends (it starts last, so it lands last), or after `ms` whatever happened: a hidden
+ * tab, a last child hidden by a person filter, a view not on screen (a list opened in
+ * Trip) — none of those fire an animationend. Returns the cleanup, for an unmount
+ * mid-run.
+ */
+export function playOnce(el: HTMLElement, cls: string, ms: number): () => void {
+  el.classList.add(cls);
+  const end = () => {
+    clearTimeout(timer);
+    el.removeEventListener("animationend", onEnd);
+    el.classList.remove(cls);
+  };
+  const onEnd = (e: Event) => {
+    if (e.target === el.lastElementChild) end();
+  };
+  const timer = setTimeout(end, ms);
+  el.addEventListener("animationend", onEnd);
+  return end;
+}
+</script>
+
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import type { Spring } from "~/utils/spring";
+import { keyboardModality, motionIsInstant } from "~/plugins/inputModality.client";
 // The ⋯ menu's own glyphs are NOT here — they ride its lazy chunk (EditorMenu);
 // the toolbar keeps only the one that opens it.
 import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
@@ -142,15 +167,20 @@ const {
 // back?"). Read in the watcher, before the render that flips data-mode and the
 // v-shows, so the rects are the old layout's. Restored property by property: v-show
 // writes display on these same elements in between, and a saved cssText would put
-// the hidden ones back. The pin lasts --mode-slot (half the fade's beat), read off
-// the token so the two can't drift.
+// the hidden ones back. The pin lasts --mode-slot (the switch's out phase,
+// atoms/modeswitch.scss), read off the body so the two can't drift. A switch made from
+// the keyboard pins nothing: its transitions are instant, so the leaving view is gone in
+// the same frame. Reduced motion still pins, because it keeps the crossfade (fades are
+// what it keeps) and the leaving view is on screen for that long.
 const PIN_PROPS = ["position", "top", "left", "width", "margin", "box-sizing", "pointer-events"] as const;
 let unpin: (() => void) | undefined;
+/** A time custom property on `el` ("75ms"), in ms; 0 when absent. */
+const msVar = (el: Element, name: string) => parseFloat(getComputedStyle(el).getPropertyValue(name)) || 0;
 watch(mode, (m, prev) => {
   if (m !== "plan" && prev !== "plan") return;
+  unpin?.(); // a switch caught mid-pin: the last one's leaving view may be this one's arrival
   const body = editorRef.value?.querySelector<HTMLElement>(".editor__body");
-  if (!body || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  unpin?.();
+  if (!body || keyboardModality()) return;
   const b = body.getBoundingClientRect();
   // every rect BEFORE any style: pinning one block out of the flow moves the ones
   // below it, and a rect read after that is the collapsed layout's (the folders went
@@ -169,7 +199,7 @@ watch(mode, (m, prev) => {
       el.style.setProperty("pointer-events", "none");
       return { el, before };
     });
-  const timer = setTimeout(() => unpin?.(), springCss("fade").duration / 2 + 20);
+  const timer = setTimeout(() => unpin?.(), msVar(body, "--mode-slot") + 20);
   unpin = () => {
     clearTimeout(timer);
     for (const { el, before } of pinned) for (const [k, v] of before) v ? el.style.setProperty(k, v) : el.style.removeProperty(k);
@@ -177,6 +207,70 @@ watch(mode, (m, prev) => {
   };
 });
 onBeforeUnmount(() => unpin?.());
+
+// GEAR ↔ PACKING: THE ROWS' HEIGHT. Each row swaps faces in one frame (atoms/item.scss),
+// and its two faces aren't always one height — the edit face has the note on a line of
+// its own and the suggest-a-fix line under the row, the checklist face neither — so a
+// row with a note used to drop or gain a line in one frame and shove every row below
+// it. Here the row's height is one of the switch's slots: read each on-screen row's
+// height before the render that flips data-mode, read it again after, and ease every
+// one that changed from the old to the new on --t-slot (delay --mode-slot, duration
+// --mode-slot-dur, the step curve; atoms/modeswitch.scss), with the pack bar and the
+// add rows. The row clips its own overflow already (its content-visibility brings paint
+// containment), so the face that is taller than the row for now is cut at the row's
+// edge, not drawn over the next. Rows off screen keep a remembered size and are
+// skipped. A switch caught mid-fold starts from the height the row is drawn at.
+// Layout, not transform — the one height animation in the switch that isn't a grid
+// track — because the thing that changes is how much room the row takes, and only a
+// height says that to the rows under it; it rides frames the slots above are already
+// laying out.
+const { switchedFrom: modeFrom } = useEditorMode();
+let rowFolds: Animation[] = [];
+watch(mode, (m, prev) => {
+  const body = editorRef.value?.querySelector<HTMLElement>(".editor__body");
+  const swap = (m === "pack" && prev === "edit") || (m === "edit" && prev === "pack");
+  const vh = window.innerHeight;
+  // in-flight heights are read BEFORE the cancel, so a reversal starts where it's drawn
+  const rows = body && swap && !motionIsInstant()
+    ? [...body.querySelectorAll<HTMLElement>(".item-wrap")].flatMap((el) => {
+        const r = el.getBoundingClientRect();
+        return r.height && r.bottom > 0 && r.top < vh ? [{ el, from: r.height }] : [];
+      })
+    : [];
+  for (const a of rowFolds) a.cancel();
+  rowFolds = [];
+  if (!body || !rows.length) return;
+  nextTick(() => {
+    const delay = msVar(body, "--mode-slot");
+    const duration = msVar(body, "--mode-slot-dur");
+    const easing = getComputedStyle(body).getPropertyValue("--spring-step").trim() || "ease-out";
+    const to = rows.map(({ el }) => el.getBoundingClientRect().height); // every read, then every write
+    rows.forEach(({ el, from }, i) => {
+      if (!duration || Math.abs(to[i]! - from) < 1) return;
+      rowFolds.push(el.animate([{ height: `${from}px` }, { height: `${to[i]}px` }], { delay, duration, easing, fill: "backwards" }));
+    });
+  });
+});
+onBeforeUnmount(() => rowFolds.forEach((a) => a.cancel()));
+
+// THE FOLDERS' ENTRANCE, once per list opened. The container mounts fresh for every list
+// (the body is v-if'd on the snapshot, which a load clears), so its mount IS the list
+// opening: .is-opening goes on before the first paint and comes off when the cascade
+// has landed (playOnce, above; the motion itself is in the styles below). Nothing
+// re-adds it — a reorder, a filter, a return from Trip and a new folder all show their
+// folders as they are. Not at all from the keyboard or with reduced motion.
+const FOLDERS_OPEN_MS = 1000; // the backstop only; the cascade itself lands by ~270ms
+const foldersRef = useTemplateRef<HTMLElement>("foldersRef");
+let foldersOpened: (() => void) | undefined;
+watch(
+  foldersRef,
+  (el) => {
+    foldersOpened?.();
+    foldersOpened = el && !motionIsInstant() ? playOnce(el, "is-opening", FOLDERS_OPEN_MS) : undefined;
+  },
+  { flush: "post" },
+);
+onBeforeUnmount(() => foldersOpened?.());
 provide(CHILDREN_BY_PARENT, childrenByParent);
 provide(PEOPLE_CTX, { sorted: people, slotById: personSlotById });
 provide(VARIANT_SHOWN, variantShown);
@@ -225,46 +319,54 @@ const editorRef = ref<HTMLElement | null>(null);
 watchPostEffect(() => {
   editorRef.value?.style.setProperty("--vault-w", `${vaultWidth.value}px`);
 });
-// THE COLUMN MOVES ON A WEB ANIMATION, not a CSS transition, for one reason: a click
-// that catches it mid-move. A transition retargets from the frame it is drawn at but
-// sets off again from rest, and handing it a curve that starts at speed meant
-// out-guessing the browser's reversal shortening. An animation we start ourselves has
-// no such rule: read where the column is and how fast from the spring we gave it,
-// cancel it, start the next from that state. The topbar's break-out margin rides the
-// same keyframes, so the two stay on one clock. The CSS states (.editor--split, below)
-// are the rest positions; with no fill they take over when the animation ends, and
-// a phone, where the inset never changes, animates nothing.
-let column: { anims: Animation[]; sp: Spring; v0: number; from: number; to: number } | undefined;
-function setVault(open: boolean) {
-  const el = editorRef.value;
-  vaultOpen.value = open;
-  if (!el || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  const from = parseFloat(getComputedStyle(el).paddingRight) || 0;
-  let velocity = 0; // px per ms, signed along the inset
-  if (column) {
-    const { anims, sp, v0, to: was, from: began } = column;
-    const t = Number(anims[0]?.currentTime ?? 0) / 1000;
-    const at = (s: number) => 1 + springAt(s, sp, -1, v0);
-    velocity = ((at(t + 0.001) - at(t)) / 0.001) * ((was - began) / 1000);
-    for (const a of anims) a.cancel();
-    column = undefined;
+// THE PANE MOVES; THE PAGE DOESN'T. Opening My Gear gives the list its new width at
+// once — .editor--split (styles below) is a rest state with no motion between the two —
+// and only the pane travels: in from the edge it lives on (the right as a desktop
+// column, the bottom as a phone sheet) with a fade, on the drawer curve, and back out
+// quicker. The column used to spring the editor's padding and the topbar's margin
+// along with the pane (~630ms on the travel spring), so the list flowed aside as the
+// pane arrived and back as it left: one movement, but a LAYOUT one, re-laying out every
+// row of the list on every frame of it. Transform and opacity cost the page nothing.
+// The distance stays short (VaultPane's documented call: an orientation cue, not a
+// reveal) — --space-3 in, --space-4 out.
+// A Web Animation driven from the <Transition>'s hooks rather than CSS classes, so a
+// close caught mid-arrival turns round from the frame the pane is drawn at, and so the
+// keyboard can skip it: the toolbar button pressed with Enter, or Escape in the pane,
+// opens and closes it in one frame, as does reduced motion.
+const PANE_IN_MS = 280;
+const PANE_OUT_MS = 200;
+let paneAnim: Animation | undefined;
+function paneMotion(el: HTMLElement, out: boolean) {
+  const root = getComputedStyle(document.documentElement);
+  const px = parseFloat(root.getPropertyValue(out ? "--space-4" : "--space-3")) || (out ? 16 : 12);
+  // the edge it lives on — --vault-edge, set beside the split's rest states below
+  const shift = getComputedStyle(el).getPropertyValue("--vault-edge").trim() === "bottom" ? `translateY(${px}px)` : `translateX(${px}px)`;
+  const easing = root.getPropertyValue("--ease-drawer").trim() || "cubic-bezier(0.32, 0.72, 0, 1)";
+  return { shift, easing };
+}
+function paneIn(el: Element, done: () => void) {
+  paneAnim?.cancel();
+  if (!(el instanceof HTMLElement) || motionIsInstant()) return done();
+  const { shift, easing } = paneMotion(el, false);
+  const anim = (paneAnim = el.animate([{ opacity: 0, transform: shift }, { opacity: 1, transform: "none" }], { duration: PANE_IN_MS, easing }));
+  anim.finished.then(done, () => {}); // a cancel is a reversal or an unmount; the next hook owns the pane
+}
+function paneOut(el: Element, done: () => void) {
+  if (!(el instanceof HTMLElement) || motionIsInstant()) {
+    paneAnim?.cancel();
+    return done();
   }
-  // after the flush the inset is at its new rest; the animation starts before the paint
-  nextTick(() => {
-    const to = parseFloat(getComputedStyle(el).paddingRight) || 0;
-    if (Math.abs(to - from) < 1) return;
-    const sp = spring("move");
-    const { duration, easing, v0 } = springTiming(sp, velocity / (to - from), Math.abs(to - from));
-    const bar = el.querySelector<HTMLElement>(":scope > .topbar");
-    const opts: KeyframeAnimationOptions = { duration, easing };
-    const lead = el.animate([{ paddingRight: `${from}px` }, { paddingRight: `${to}px` }], opts);
-    const anims = [lead];
-    if (bar) anims.push(bar.animate([{ marginRight: `${-from}px` }, { marginRight: `${-to}px` }], opts));
-    const mine = (column = { anims, sp, v0, from, to });
-    lead.finished.then(() => {
-      if (column === mine) column = undefined;
-    }, () => {});
-  });
+  // from where it's drawn — an arrival caught mid-flight turns round, not back to rest first
+  const now = getComputedStyle(el);
+  const from = { opacity: now.opacity, transform: now.transform };
+  paneAnim?.cancel();
+  const { shift, easing } = paneMotion(el, true);
+  const anim = (paneAnim = el.animate([from, { opacity: 0, transform: shift }], { duration: PANE_OUT_MS, easing, fill: "forwards" }));
+  anim.finished.then(done, done);
+}
+onBeforeUnmount(() => paneAnim?.cancel());
+function setVault(open: boolean) {
+  vaultOpen.value = open;
 }
 // The undo toast holds its dismiss timer while hovered or containing focus, and
 // restarts the window on leave/blur. Two flags (pointer, focus) so releasing one
@@ -435,12 +537,18 @@ function onFocusIn(ev: FocusEvent) {
   if (!el?.matches?.("input, textarea")) return;
   if (el.getAttribute("list") === "gear-types") void loadGearTypes();
   if (el.closest(".topbar")) return;
-  const wait = window.matchMedia("(pointer: coarse)").matches ? 300 : 0;
+  // Nor the My Gear pane's fields (its search): the pane is FIXED, so scrolling the page
+  // can't move them — it only dragged the list behind the sheet for nothing — and on a
+  // phone the sheet rides above the keyboard by itself (VaultPane's viewport watch).
+  if (el.closest("[data-vault-pane]")) return;
+  const coarse = window.matchMedia("(pointer: coarse)").matches;
+  const wait = coarse ? 300 : 0;
   clearTimeout(focusScrollTimer);
   focusScrollTimer = setTimeout(() => {
     // Only intervene if the field is ACTUALLY obscured (hidden under the keyboard or
     // scrolled off the top). When iOS's own focus-scroll already made it visible, a
-    // second scroll is a visible double-reposition.
+    // second scroll is a visible double-reposition. The one exception is a field that
+    // opens suggestions, on touch — see `lift` below.
     //
     // Everything here is measured in the VISUAL viewport — the area left above the
     // keyboard — because that is the space the field has to end up inside. The two
@@ -455,6 +563,21 @@ function onFocusIn(ev: FocusEvent) {
     const top = r.top - vvTop;
     const bottom = r.bottom - vvTop;
 
+    // A field that OPENS SUGGESTIONS (aria-autocomplete="list": the add-item and rename
+    // boxes) goes further, on touch. Its menu hangs below it, and with the keyboard up a
+    // field in the lower half of the screen has no room under it: the minimum move below
+    // parked it 12px above the keyboard and the suggestions, the whole point of typing
+    // there, opened behind the keyboard. So a field in the lower half goes to the top
+    // instead, FOCUS_MARGIN under the sticky topbar, and the menu gets the screen; in the
+    // upper half it already has the room and stays where you tapped it. The menu sizes
+    // itself to whatever this leaves, and flips above only when the page had no more
+    // scroll to give (ItemInput's placeMenu; the arithmetic is app/utils/viewportRoom).
+    // A fine pointer has no keyboard eating the screen, so it keeps the minimum move.
+    if (coarse && el.getAttribute("aria-autocomplete") === "list") {
+      const lift = liftForSuggestions(r, { top: vvTop, bottom: vvTop + vvH }, visibleBand().top, FOCUS_MARGIN);
+      if (lift) return void window.scrollBy({ top: lift, behavior: motionIsInstant() ? "auto" : "smooth" });
+    }
+
     // Move the LEAST that makes the field visible, not scrollIntoView({block:"center"}).
     // Centring was measured moving the page 448px to fix an overlap of about 110 — and
     // it centred in the LAYOUT viewport, the one this function had already decided not
@@ -468,7 +591,7 @@ function onFocusIn(ev: FocusEvent) {
         : top < FOCUS_MARGIN
           ? top - FOCUS_MARGIN
           : 0;
-    if (delta) window.scrollBy({ top: delta, behavior: "smooth" });
+    if (delta) window.scrollBy({ top: delta, behavior: motionIsInstant() ? "auto" : "smooth" });
   }, wait);
 }
 useWindowEvent("focusin", onFocusIn); // auto-removes on unmount
@@ -965,9 +1088,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
     <!-- data-mode drives the gear↔packing row swap in CSS (atoms/item.scss) — the rows
          themselves never learn the mode, which is what keeps a switch from re-rendering
-         all of them. is-rowswitching gates the entering face's fade to actual switches,
-         so a row appearing for any other reason (a new item, the first mount) doesn't
-         flash the animation. -->
+         all of them. is-rowswitching holds for the beat after a switch, and
+         data-mode-from names the mode being left for that same beat: together they gate
+         the switch's arrival styles (atoms/modeswitch.scss) and the entering face's
+         fade to actual Gear ↔ Packing switches, so a row appearing for any other reason
+         (a new item, the first mount) doesn't flash the animation. -->
     <!-- data-filter-person narrows the rows to one person the same way data-mode
          swaps their faces: one body attribute, matched in CSS against each row's
          own data-person (atoms/item.scss). Absent = everyone. -->
@@ -981,6 +1106,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       class="wrap editor__body"
       :class="{ 'is-rowswitching': modeSwitching, 'has-people': people.length > 0 }"
       :data-mode="mode"
+      :data-mode-from="modeFrom ?? undefined"
       :data-filter-person="personFilterAttr"
     >
       <!-- One list for all rows; its vocabulary loads only on field focus. -->
@@ -1132,7 +1258,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
            half-second stall the row swap had, for the same reason; see ItemRow's
            two-Transition comment). display:none takes the rows out of layout, paint
            and the accessibility tree exactly as absence did. -->
-      <div v-show="mode !== 'plan'" data-view="gear" class="editor__folders">
+      <!-- foldersRef: the folders' entrance plays once, when this mounts — a list opened
+           (the cascade, script + styles below) -->
+      <div v-show="mode !== 'plan'" ref="foldersRef" data-view="gear" class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
           :key="f.id"
@@ -1211,9 +1339,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
 
-    <!-- the pane arrives from the edge it lives on; motion is in VaultPane's own
-         styles, next to the geometry that decides which edge that is -->
-    <Transition name="vaultpane">
+    <!-- the pane arrives from the edge it lives on (--vault-edge, styles below) and
+         leaves back to it: a Web Animation from these hooks, the only thing that moves
+         when My Gear opens (paneIn / paneOut, script above). :css="false" — no
+         enter/leave classes, so nothing in VaultPane's styles runs a second motion. -->
+    <Transition :css="false" @enter="paneIn" @leave="paneOut">
       <!-- adding a whole category lands a folder plus N rows further down the page
            than the pane you clicked in, so it gets a toast — a single item's row
            answers for itself in place ("Already added"), a set doesn't -->
@@ -1248,9 +1378,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
    stopping it short of the vault made it look like a second panel had been cut out
    of the page. Desktop only — below $bp-full the pane is a bottom sheet that
    overlays by design, and the list needs its full width. */
+/* --vault-edge: which edge the pane lives on, so its motion (paneIn / paneOut in the
+   script) travels from that edge: the bottom for the phone and tablet sheet, the right
+   for the desktop column — the same breakpoint VaultPane's own geometry turns on. */
+.editor {
+  --vault-edge: bottom;
+}
 @media (min-width: $bp-full + 1px) {
   .editor {
     --split-pad: calc(var(--vault-w) + 2 * var(--space-4));
+    --vault-edge: right;
   }
   .editor--split {
     padding-right: var(--split-pad);
@@ -1262,8 +1399,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
   .editor--split > .topbar {
     margin-right: calc(-1 * var(--split-pad));
   }
-  /* the inset's MOTION between the two is setVault's Web Animation (script above);
-     these are its two rest states */
+  /* No motion between the two: the list takes its new width in one frame, and the
+     pane is the only thing that travels (paneIn / paneOut, script above). Springing
+     this inset was a layout animation of the whole list. */
 }
 .editor > main {
   flex: 1 0 auto;
@@ -1458,31 +1596,35 @@ function onCorrected(res: { status: string; itemName?: string }) {
   flex-direction: column;
   gap: var(--folder-gap);
 }
-/* load reveal: folders cascade in (SPACE10 signature), ~50ms apart.
+/* THE FOLDERS' ENTRANCE — once per list opened, on its first paint, and never again.
+   .is-opening is put on by the script when this container mounts and taken off when
+   the last folder has landed, so the animation exists for that one run. It used to sit
+   on every folder for good, and an animation restarts whenever its element is
+   re-inserted or re-displayed: a folder reordered (by pointer, or ↑/↓ on its grip —
+   Vue moves the node), a person filter cleared, a return from Trip all replayed it,
+   the `backwards` fill blanking a moved folder through its delay, and a newly added
+   folder sat invisible through its own.
+   Steps that shrink (30 · 25 · 20 · 15ms) across the first five, the rest arriving
+   with the fifth, 180ms each on the ease-out: the whole group has landed by 270ms.
    fill-mode `backwards` (not `both`): holds the hidden start-state during each
-   folder's stagger delay, then settles to the natural style afterwards. `both`
-   would retain an identity `transform` post-animation, making every folder a
-   stacking context that traps the add-item autocomplete dropdown's z-index
-   inside its folder (so later folders paint over it). */
-.editor__folders > * {
-  animation: rise var(--spring-pop-dur) var(--spring-pop) backwards;
+   folder's delay, then settles to the natural style afterwards. `both` would retain an
+   identity `transform` post-animation, making every folder a stacking context that
+   traps the add-item autocomplete dropdown's z-index inside its folder (so later
+   folders paint over it). The keyframe is the global `rise` (main.scss). */
+.editor__folders.is-opening > * {
+  animation: rise 180ms var(--ease-out) backwards;
 }
-/* cascade cadence lives in one token (--stagger, ~31ms — SPACE10's kinetic-type
-   step), not five magic numbers; child 1 leads at 0, the rest step off it */
-.editor__folders > *:nth-child(2) {
-  animation-delay: var(--stagger);
+.editor__folders.is-opening > :nth-child(2) {
+  animation-delay: 30ms;
 }
-.editor__folders > *:nth-child(3) {
-  animation-delay: calc(var(--stagger) * 2);
+.editor__folders.is-opening > :nth-child(3) {
+  animation-delay: 55ms;
 }
-.editor__folders > *:nth-child(4) {
-  animation-delay: calc(var(--stagger) * 3);
+.editor__folders.is-opening > :nth-child(4) {
+  animation-delay: 75ms;
 }
-.editor__folders > *:nth-child(5) {
-  animation-delay: calc(var(--stagger) * 4);
-}
-.editor__folders > *:nth-child(n + 6) {
-  animation-delay: calc(var(--stagger) * 5);
+.editor__folders.is-opening > :nth-child(n + 5) {
+  animation-delay: 90ms;
 }
 .editor__ungrouped {
   padding: var(--space-3) var(--space-4) var(--space-4);

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { counted, pluralNoun } from "~~/shared/tidyText";
+import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChartAverageIcon, ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
@@ -306,14 +306,17 @@ function renameFolder(f: VaultFolder, e: Event) {
 async function deleteFolder(f: VaultFolder) {
   // counted over ALL the gear, not the filtered view: the number in the question has
   // to be the number that actually moves, and a "Show: Worn" filter would otherwise
-  // promise that two pieces are affected while eleven are
+  // promise that two pieces are affected while eleven are. One piece gets its own
+  // sentence, verb and pronoun singular: "the 1 piece … stay …; they" read as a typo.
   const held = items.value.filter((i) => i.folderId === f.id).length;
   if (
     !(await askConfirm({
       title: `Delete “${f.name}”?`,
-      message: held
-        ? `The ${counted(held, "piece")} of gear in it stay in My Gear; they just won’t be filed under anything.`
-        : "The folder goes; nothing else changes.",
+      message: !held
+        ? "The folder goes; nothing else changes."
+        : held === 1
+          ? "The piece of gear in it stays in My Gear; it just won’t be filed under anything."
+          : `The ${counted(held, "piece")} of gear in it stay in My Gear; they just won’t be filed under anything.`,
       confirmLabel: "Delete folder",
     }))
   )
@@ -661,8 +664,8 @@ async function exportGear(kind: string) {
                that puts gear back into them lives inside one. -->
           <template v-else-if="items.length || folders.length">
             <p class="t-sm t-muted vault__count">
-              <template v-if="narrowed">{{ filtered.length }} of {{ items.length }}</template>
-              <template v-else>{{ items.length }}</template>
+              <template v-if="narrowed">{{ formatCount(filtered.length) }} of {{ formatCount(items.length) }}</template>
+              <template v-else>{{ formatCount(items.length) }}</template>
               {{ pluralNoun(items.length, "item") }} ·
               <!-- The total IS the unit control, the same object the editor's
                    TotalsBar puts up: figure and chevron, opening the app's own picker.
@@ -1033,7 +1036,6 @@ async function exportGear(kind: string) {
   color: var(--ink-2);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
-.vault__view:hover,
 .vault__view:focus-within {
   color: var(--ink);
 }
@@ -1047,19 +1049,29 @@ async function exportGear(kind: string) {
   gap: var(--space-px);
   color: var(--ink-2);
 }
-.vault__total:hover {
-  color: var(--ink);
-}
-/* the mark and its turn are the shared .chev (atoms/controls.scss); pointing at either
-   control lights it */
-.vault__total:hover .chev,
+/* the mark and its turn are the shared .chev (atoms/controls.scss); focus on either
+   control lights it, and so does the pointer (below) */
 .vault__total:focus-within .chev,
-.vault__view:hover .chev,
 .vault__view:focus-within .chev {
   color: var(--ink);
 }
+/* Pointer-gated, like every hover on this page that paints, ink included: on touch
+   a tap leaves :hover latched on the picker after its menu has closed, a lit control
+   nothing is pointing at. Focus (the rules above) is what touch and keys get. */
+@media (hover: hover) and (pointer: fine) {
+  .vault__view:hover,
+  .vault__view:hover .chev,
+  .vault__total:hover,
+  .vault__total:hover .chev {
+    color: var(--ink);
+  }
+}
+/* Tabular figures for the whole line: the count re-renders on every search keystroke
+   ("12 of 340", "9 of 340"), and proportional digits made the total and the price
+   after it shuffle sideways each time a 1 replaced an 8. */
 .vault__count {
   margin-bottom: var(--space-2);
+  font-variant-numeric: tabular-nums;
 }
 
 /* --- the rows --- */
