@@ -97,8 +97,7 @@ const MENU_ACTIONS = [
   // and a clipboard here would spend the word before you got to it.
   { label: "Duplicate this list", icon: CopyPlusIcon, run: copyThis, busy: copying },
   // …and THIS one is the clipboard, so it wears the app's clipboard mark — the same
-  // Copy01 pair of sheets ListHead and SharePanel put on the buttons that copy this
-  // very link.
+  // Copy01 pair of sheets ListHead puts on the button that copies this very link.
   { label: "Copy link", icon: Copy01Icon, run: copyLink },
   { label: "Send feedback…", icon: Bug02Icon, run: () => feedback.open() },
 ];

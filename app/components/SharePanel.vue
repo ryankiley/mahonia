@@ -2,15 +2,23 @@
 import { counted } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import {
-  Cancel01Icon,
   ChevronDownIcon,
-  Copy01Icon,
+  Clock01Icon,
+  PencilEdit01Icon,
   Refresh01Icon,
   UserAdd01Icon,
+  ViewIcon,
 } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, SnapshotMeta } from "~~/shared/types";
 
 // Everything about who can see or change this list, in ONE place.
+//
+// Built as a MENU, the ⋯ menu's twin: the same rows, glyphs, travelling plate, rules
+// and fold-out section. It was a panel (a titled card, a label over a field showing
+// each address, a line of help under each) and read as a form to fill in, when all
+// it ever offered was four things to do. Rows say the whole act ("Copy edit link"),
+// so nothing needs a heading or a help line, and the glyph says which link before
+// the label does.
 //
 // These four things existed already and were scattered: the read-only link behind
 // its own topbar icon, the edit link and "rotate" buried in a flat ⋯ menu between
@@ -61,10 +69,9 @@ const holdsEditLink = computed(() => !!props.editToken);
 // What's left is the rare case that IS actionable: a list this device holds a
 // link for that the account doesn't have. Sign-in sweeps up the lists this
 // browser made, and the server adds anything old enough to predate origin
-// tracking (see claimRepo), so what reaches this button is essentially a list
-// someone shared with you that you want to keep. It sits under "Replace this
-// link" because it belongs to the edit link — the two things you can do about
-// who holds this list.
+// tracking (see claimRepo), so what reaches this row is essentially a list
+// someone shared with you that you want to keep. Unlike the other rows it keeps
+// the menu open: the claim is a request, and a failure has to be said here.
 const { signedIn } = useSession();
 const claimed = useClaimedLists();
 const claim = ref<"idle" | "claiming" | "failed">("idle");
@@ -87,6 +94,16 @@ async function addToAccount() {
   // absence now means.
   const ok = await useClaimedLists().claimOne(props.editToken);
   claim.value = ok ? "idle" : "failed";
+}
+
+// the travelling wash every menu in the app shares (atoms/controls.scss)
+const { plateRef, listRef, on: plateOn } = useMenuPlate();
+
+// Close BEFORE the action runs, as the ⋯ menu's rows do. The copies and the replace
+// hand off to the editor, which toasts the result or asks first.
+function act(run: () => void) {
+  emit("close");
+  run();
 }
 
 // ---- recent activity ----
@@ -159,287 +176,165 @@ function changeLabel(i: number): string {
 </script>
 
 <template>
-  <div class="popover share" role="dialog" aria-label="Sharing">
-    <header class="panel__head share__head">
-      <h2 class="t-label panel__title">Sharing</h2>
-      <button
-        type="button"
-        class="btn btn--icon btn--ghost btn--flush-end"
-        aria-label="Close sharing"
-        @click="emit('close')"
-      >
-        <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
-      </button>
-    </header>
+  <ul
+    ref="listRef"
+    class="popover menu__list share"
+    role="menu"
+    aria-label="Sharing"
+    v-on="plateOn"
+  >
+    <li role="none" aria-hidden="true">
+      <span ref="plateRef" class="menu__plate" />
+    </li>
 
-    <p v-if="isDraft" class="t-sm t-muted share__note">
-      Add an item and this list gets its links: one to read, one to edit.
-    </p>
+    <li v-if="isDraft" role="none" class="t-sm t-muted share__note">
+      Add an item and this list gets its links.
+    </li>
 
     <template v-else>
-      <!-- Each link is ONE ROW: its name and Copy. It used to be a label over a filled
-           field showing the address over a line of help, three tiers per link and two
-           grey boxes, and the panel read as a form. The address told nobody anything
-           (a truncated code), and a copy the clipboard refuses already opens it
-           selectable (the editor's showLinkFallback). The help lines went too: "Anyone
-           with it can see / edit this list" only repeated the names, and copying the
-           edit link already asks first and says who it's for. -->
-      <section class="share__row">
-        <h3 class="share__name">Read-only link</h3>
-        <button type="button" class="btn btn--quiet share__act" @click="emit('copyRead')">
-          <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="2" /> Copy
+      <li role="none">
+        <button type="button" data-row role="menuitem" class="menu__item" @click="act(() => emit('copyRead'))">
+          <HugeiconsIcon :icon="ViewIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+          Copy read-only link
         </button>
-      </section>
-
-      <section class="share__field">
-        <div class="share__row">
-          <div class="share__what">
-            <h3 class="share__name">Edit link</h3>
-            <!-- the claimed-open case: opened from the account, and the server only ever
-                 stored the link's hash, so there is nothing here to copy. Replacing it
-                 is how this device gets one (and it cuts off the old link). -->
-            <p v-if="!holdsEditLink" class="t-sm t-muted">Not on this device. Replace it to get a new one.</p>
-          </div>
-          <button
-            v-if="holdsEditLink"
-            type="button"
-            class="btn btn--quiet share__act"
-            @click="emit('copyEdit')"
-          >
-            <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="2" /> Copy
-          </button>
-        </div>
-        <!-- revocation is a quiet text link under the thing it revokes, not a row of
-             its own: it belongs to this link, and giving it a button's weight made
-             replacing your link look like a normal next step -->
-        <button type="button" class="btn btn--quiet share__revoke" @click="emit('rotate')">
-          <HugeiconsIcon :icon="Refresh01Icon" :size="14" :stroke-width="2" /> Replace this link
+      </li>
+      <!-- A claimed open (opened from the account) holds no edit link: the server only
+           ever stored its hash. No row rather than one that can't copy; the replace row
+           below says "Get a new edit link" instead, which is how this device gets one. -->
+      <li v-if="holdsEditLink" role="none">
+        <button type="button" data-row role="menuitem" class="menu__item" @click="act(() => emit('copyEdit'))">
+          <HugeiconsIcon :icon="PencilEdit01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          Copy edit link
         </button>
-        <!-- The other thing you can do about who holds this list, in the same quiet
-             voice, and only while it would do something. A list already on the
-             account says nothing here; see the script. -->
+      </li>
+      <li v-if="canAddToAccount" role="none">
         <button
-          v-if="canAddToAccount"
           type="button"
-          class="btn btn--quiet share__revoke"
+          data-row
+          role="menuitem"
+          class="menu__item"
           :disabled="claim === 'claiming'"
           @click="addToAccount"
         >
-          <HugeiconsIcon :icon="UserAdd01Icon" :size="14" :stroke-width="2" />
+          <HugeiconsIcon :icon="UserAdd01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
           Add to your account
         </button>
-        <p v-if="claim === 'failed'" class="t-sm t-muted" role="alert">
-          That didn’t save. Check your connection and try again.
-        </p>
-      </section>
+      </li>
+      <li v-if="claim === 'failed'" role="alert" class="t-sm t-muted share__note">
+        That didn’t save. Check your connection and try again.
+      </li>
 
-      <!-- ACTIVITY, collapsed. It's reassurance you go looking for, not something you
-           need every time you copy a link — and expanded by default it was half the
-           panel's height. Deliberately modest even when open: these are the server's
-           recovery points, so they say WHAT changed and WHEN, not who: a link-owned
-           list has no identities to attribute to. The one exception is an edit made
-           through the connector, which says it was an assistant's. -->
-      <section class="share__activity">
+      <!-- RECENT CHANGES folds out like the ⋯ menu's Export (MenuSection's markup, with
+           entries in place of rows). Collapsed: it's reassurance you go looking for.
+           These are the server's recovery points, so they say WHAT changed and WHEN,
+           not who: a link-owned list has no identities to attribute to. The one
+           exception is an edit made through the connector, which says so. -->
+      <li role="none" class="menu__sect">
         <button
           type="button"
-          class="share__disclosure"
+          data-row
+          class="menu__item menu__secthead"
           :aria-expanded="activityOpen"
           @click="activityOpen = !activityOpen"
         >
-          <span class="t-label share__subtitle">Recent changes</span>
-          <HugeiconsIcon :icon="ChevronDownIcon" class="chev"
+          <HugeiconsIcon :icon="Clock01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <span class="menu__sectlabel">Recent changes</span>
+          <HugeiconsIcon
+            :icon="ChevronDownIcon"
+            class="chev"
             :class="{ 'is-open': activityOpen }"
             :size="14"
             :stroke-width="2"
-            aria-hidden="true" />
+            aria-hidden="true"
+          />
         </button>
-        <!-- slides open like the app's other disclosures — the shared .reveal
-             recipe this surface is named as a consumer of (controls.scss) -->
         <Transition name="reveal">
           <div v-if="activityOpen" class="reveal">
-            <div>
+            <div class="share__activity">
               <p v-if="activityState === 'loading'" class="t-sm t-muted">Loading…</p>
               <p v-else-if="activityState === 'error'" class="t-sm t-muted">
                 Couldn’t load recent changes.
               </p>
-              <p v-else-if="!activity.length" class="t-sm t-muted">No changes recorded yet.</p>
+              <p v-else-if="!activity.length" class="t-sm t-muted">No changes yet.</p>
               <ul v-else class="share__log">
                 <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
-                  <span class="t-sm share__logwhat"
-                    >{{ changeLabel(i) }}
-                    <!-- its own line: run on after a dot, it broke wherever the label
-                         happened to end and left the dot hanging -->
-                    <span v-if="s.actor === 'assistant'" class="t-muted share__logwho">By an assistant</span></span
+                  <span class="t-sm">{{ changeLabel(i) }}</span>
+                  <span class="t-muted share__logwhen"
+                    >{{ timeAgo(new Date(s.createdAt).getTime(), now)
+                    }}<template v-if="s.actor === 'assistant'"> · by an assistant</template></span
                   >
-                  <!-- the count moved to the label where it says something; the trailing
-                       column is just when -->
-                  <span class="t-sm t-muted share__logwhen">{{ timeAgo(new Date(s.createdAt).getTime(), now) }}</span>
                 </li>
               </ul>
             </div>
           </div>
         </Transition>
-      </section>
+      </li>
+
+      <!-- Replacing the link last and ruled off, where the ⋯ menu keeps Forget and
+           Delete: it cuts off everyone who has the old one. -->
+      <li role="none" class="menu__foot">
+        <button type="button" data-row role="menuitem" class="menu__item" @click="act(() => emit('rotate'))">
+          <HugeiconsIcon :icon="Refresh01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          {{ holdsEditLink ? "Replace edit link" : "Get a new edit link" }}
+        </button>
+      </li>
     </template>
-  </div>
+  </ul>
 </template>
 
 <!-- lang="scss" for $bp-stack (nuxt.config injects it into every scss block). In a
      plain CSS block `@media (max-width: $bp-stack)` is not reported as an error — the
      rule is just silently dropped. -->
 <style scoped lang="scss">
-/* Anchored under its trigger in the topbar. The .popover atom supplies the surface
-   (lift, radius, shadow) and hands down --popover-item-radius, so nothing here
-   redraws what the autocomplete and kebab already agree on. */
-.share {
-  position: absolute;
-  top: calc(100% + var(--space-1));
-  right: 0;
-  /* The same layer every other topbar popover takes. It carried a layer of its own
-     (--z-panel: 55) to climb over the vault pane, which could never have worked —
-     the topbar's own z-index makes a stacking context, so this is resolved inside it
-     and 55 bought exactly nothing. The pane sits under the whole bar now (--z-pane),
-     so all this has to do is order correctly against its siblings in the bar. */
-  z-index: var(--z-menu);
-  width: min(22rem, calc(100vw - 2 * var(--space-4)));
-  padding: var(--space-3);
-  display: grid;
-  gap: var(--space-3);
-  text-align: left;
-}
-/* On a phone the editor drops this panel's wrapper out of the positioning chain (see
-   .editor__sharemenu), so `right` now measures from the viewport rather than from the
-   trigger. Take the same gutter the width above already reserves, and the panel sits
-   centred between the two edges instead of flush against one. */
+/* The surface, the rows, the rules, the section head and the plate are the menu
+   atoms (atoms/controls.scss), the same ones the ⋯ menu beside it wears. Only what a
+   menu doesn't usually hold is styled here: a line of prose and the change log. */
+
+/* On a phone the editor drops this menu's wrapper out of the positioning chain (see
+   .editor__sharemenu), so `right` measures from the viewport rather than from the
+   trigger. Take the page gutter instead of sitting flush against the edge. */
 @media (max-width: $bp-stack) {
   .share {
     right: var(--space-4);
   }
 }
-/* THE PANEL HEADER is the .panel__head atom (controls.scss); only the offset onto
-   this container's edge is ours. */
-.share__head {
-  /* the optical nudge the account dialog carries too: a line of type sits lower inside
-     its box than a padding value suggests, so a header aligned by the box alone reads
-     as more inset at the top than at the sides */
-  margin-top: calc(-1 * var(--space-1));
-  /* No rule under the title, and no padding under it either — the padding was there to
-     hold the title off that rule. The vault pane, which is the same header at the same
-     size with the same close button, never had either. The card's own gap separates. */
+/* A touch wider than its rows need (they come to about 13rem), so a change in the
+   log ("Added MSR Pocket Rocket 2") sits on one line instead of breaking in two. */
+.share {
+  min-width: 16rem;
 }
-/* the edit link and the two quiet actions that belong to it, as one block */
-.share__field {
-  display: grid;
-  gap: var(--space-2);
-}
-/* what the link is on the left, Copy on the right, centred on the pair of lines */
-.share__row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-.share__what {
-  min-width: 0;
-}
-.share__name {
-  font-size: var(--text-base);
-  font-weight: 500;
-  color: var(--ink);
-}
-/* The activity disclosure's label: a step down from the panel title, the tier the
-   tokens describe as the small labels above a group. */
-.share__subtitle {
-  color: var(--ink-3);
-  font-size: var(--text-micro);
-  line-height: 1.2;
-}
-/* Copy is FILLED: it is the one thing you came to this panel to press. A bare text
-   button read as one more line of words, and an outline was a box in a de-outlined
-   chrome (controls.scss). Hover deepens a step, the same move the .well makes. */
-.share__act {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: var(--icon-btn);
-  padding-inline: var(--space-3);
-  background: var(--paper-3);
-  border-radius: var(--popover-item-radius);
-  color: var(--ink);
-  transition: background var(--spring-fade-dur) var(--spring-fade);
-}
-/* pointer-gated — it paints (see the note on .btn:hover, controls.scss). Copying
-   doesn't dismiss the panel, so the deepened chip used to sit there for the rest of
-   the visit, under a finger that had already gone. */
-@media (hover: hover) and (pointer: fine) {
-  .share__act:hover {
-    background: color-mix(in oklab, var(--ink) 6%, var(--paper-3));
-  }
-}
-/* Replacing the link is quiet TEXT under the field it replaces. It is destructive
-   and rarely wanted; giving it a button's weight beside the copies would have made
-   it read as a third equal option. */
-.share__revoke {
-  justify-self: start;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  min-height: 0;
-  padding: 0;
-  color: var(--ink-3);
-}
-@media (hover: hover) and (pointer: fine) {
-  .share__revoke:hover {
-    background: transparent;
-    color: var(--ink);
-  }
-}
+/* Prose where a row would be, inset like a row. Sized BY the rows rather than sizing
+   them (width 0, min-width 100%): the menu is as wide as its labels, and a long line
+   wraps inside that instead of widening it. */
+.share__note,
 .share__activity {
-  padding-top: var(--space-2);
-  border-top: 1px solid var(--line);
-  display: grid;
-  gap: var(--space-1);
+  width: 0;
+  min-width: 100%;
 }
-.share__disclosure {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2);
-  width: 100%;
-  cursor: pointer;
+.share__note {
+  padding: var(--space-2) var(--space-3);
 }
-/* the chevron is the .chev atom (controls.scss) — the same quiet mark that
-   turns over on the ⋯ menu's Export section; it had a byte-identical copy here */
+/* The entries take a row's inset, not its label's: indented past the glyph as well,
+   a change ("Added MSR Pocket Rocket 2") wrapped in a menu only as wide as its rows. */
+.share__activity {
+  padding: var(--space-1) var(--space-3) var(--space-2);
+}
 .share__log {
   display: grid;
-  gap: var(--space-1);
-  /* a long-lived list can hold many recovery points; the panel stays a panel */
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  /* a long-lived list can hold many recovery points; the menu stays a menu */
   max-height: 11rem;
   overflow-y: auto;
 }
-/* WHAT changed, then WHEN. Both were bare flex items, which let the two columns
-   negotiate for width as equals — so a long entry ("Removed Arc'teryx Sinsola Cinch
-   Cap") squeezed the timestamp until "1 hour ago" broke across two lines, and the
-   right-hand column stopped being a column at all. The split isn't symmetric: the
-   timestamp is a short fixed phrase and the thing you scan down, the label is the part
-   with something to say and the only one that should ever take a second line. */
+/* what changed, and under it when (and, for a connector's edit, by whom), a size
+   down so the pair reads as one entry and not two */
 .share__logrow {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-2);
-}
-/* min-width, because a flex item's is `auto` — it refuses to shrink below its longest
-   word, which is what pushed the overflow onto its neighbour instead of wrapping here */
-.share__logwhat {
-  min-width: 0;
-}
-.share__logwho {
-  display: block;
+  display: grid;
 }
 .share__logwhen {
-  flex: none;
-  white-space: nowrap;
+  font-size: var(--text-micro);
 }
 </style>

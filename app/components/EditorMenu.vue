@@ -118,7 +118,7 @@ const MENU_ACTIONS: MenuAction[] = [
   // one-pack visitor with no way to start a second.)
   // NOT a clipboard mark, however well one would fit the word "copy". The Export
   // rows below are genuine clipboard writes, and so is the Copy01 pair of sheets
-  // that ListHead and SharePanel put on their Copy buttons — this row is the odd
+  // that ListHead puts on its Copy button — this row is the odd
   // one out, minting an independent list and navigating you into it. That is the
   // argument ReadonlyMenu.vue already makes for calling it "Duplicate" and not
   // "Copy"; the glyph is read first, so it has to agree or it spends the label.
