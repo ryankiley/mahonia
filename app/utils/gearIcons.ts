@@ -1,5 +1,4 @@
 import {
-  Airpod03Icon,
   Backpack02Icon,
   Camera01Icon,
   Chair02Icon,
@@ -13,6 +12,7 @@ import {
   HatIcon,
   JoggerPantsIcon,
   MoneyBag01Icon,
+  Music3Icon,
   PocketKnifeIcon,
   Shirt01Icon,
   ShovelIcon,
@@ -69,7 +69,7 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   light: HeadlampGlyph,
   phone: SmartPhone01Icon,
   watch: SmartWatch01Icon,
-  earbuds: Airpod03Icon,
+  earbuds: Music3Icon,
   camera: Camera01Icon,
   electronics: EnergyIcon,
   firstAid: FirstAidKitIcon,

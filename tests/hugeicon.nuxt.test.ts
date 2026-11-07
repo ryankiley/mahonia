@@ -28,7 +28,7 @@ import {
   FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, MoneyBag01Icon, PocketKnifeIcon,
   Shirt01Icon, ShovelIcon, SneakerIcon, SocksIcon,
   YogaMatIcon, WaterEnergyIcon,
-  Airpod03Icon, Camera01Icon, Chair02Icon, ChessKnightIcon, SmartPhone01Icon, SmartWatch01Icon,
+  Music3Icon, Camera01Icon, Chair02Icon, ChessKnightIcon, SmartPhone01Icon, SmartWatch01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon as Local } from "~/utils/hugeicon";
 
@@ -53,7 +53,7 @@ const ALL_ICONS = Object.entries({
   FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, MoneyBag01Icon, PocketKnifeIcon,
   Shirt01Icon, ShovelIcon, SneakerIcon, SocksIcon,
   YogaMatIcon, WaterEnergyIcon,
-  Airpod03Icon, Camera01Icon, Chair02Icon, ChessKnightIcon, SmartPhone01Icon, SmartWatch01Icon,
+  Music3Icon, Camera01Icon, Chair02Icon, ChessKnightIcon, SmartPhone01Icon, SmartWatch01Icon,
 }) as [string, never][];
 
 // The prop combinations the app actually draws with (see the call sites), plus the
