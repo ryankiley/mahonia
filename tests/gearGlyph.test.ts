@@ -13,8 +13,10 @@ describe("which icon a gear type wears", () => {
     ["Tent stakes", "tent"],
     ["Quilt", "sleep"],
     ["Sleeping bag", "sleep"],
-    ["Pillow", "sleepAid"],
-    ["Earplugs", "sleepAid"],
+    ["Pillow", "sleep"],
+    ["Earplugs", "sleep"],
+    ["Hammock", "sleep"],
+    ["Mouth guard", "sleep"],
     ["Sleeping pad", "pad"],
     ["Trekking poles", "poles"],
     ["Stuff sack", "bag"],
@@ -31,7 +33,8 @@ describe("which icon a gear type wears", () => {
     ["Beanie", "hat"],
     ["Water bottle", "bottle"],
     ["Soft flask", "bottle"],
-    ["Water reservoir", "bottle"],
+    ["Water reservoir", "reservoir"],
+    ["Hydration bladder", "reservoir"],
     ["Water filter", "filter"],
     ["Stove", "stove"],
     ["Fuel canister", "stove"],
@@ -47,7 +50,9 @@ describe("which icon a gear type wears", () => {
     ["Guyline", "cord"],
     ["Bear canister", "container"],
     ["Microspikes", "boot"],
-    ["Hose", "bottle"],
+    ["Hose", "reservoir"],
+    ["Tube clip", "reservoir"],
+    ["Squeeze bottle", "bottle"],
     ["Compression straps", "backpack"],
     ["Headlamp", "light"],
     ["GPS watch", "watch"],
@@ -60,6 +65,7 @@ describe("which icon a gear type wears", () => {
     ["Sunscreen", "toiletry"],
     ["Toothbrush", "toiletry"],
     ["Trowel", "toilet"],
+    ["Wipes", "toilet"],
     ["First aid kit", "firstAid"],
   ])("%s → %s", (type, glyph) => {
     expect(gearGlyphFor(type)).toBe(glyph);
@@ -89,7 +95,8 @@ describe("which icon a gear type wears", () => {
     ["Toothbrush case", "toiletry"],
     ["Pack liner", "bag"],
     ["Toiletry bag", "bag"],
-    ["Face wipe", "toilet"],
+    ["Face wipe", "toiletry"],
+    ["Face wipes", "toiletry"],
   ])("%s → %s, not the broader rule", (type, glyph) => {
     expect(gearGlyphFor(type)).toBe(glyph);
   });

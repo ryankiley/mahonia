@@ -28,14 +28,14 @@
 
 export const GEAR_GLYPHS = [
   // shelter and sleep
-  "tent", "cord", "poles", "sleep", "sleepAid", "pad",
+  "tent", "cord", "poles", "sleep", "pad",
   // carrying
   "backpack", "bag", "container", "wallet",
   // clothing, split the way a Clothing folder needs it
   "jacket", "shirt", "pants", "underwear", "socks", "shoe", "boot", "hat", "neck",
   "glove", "glasses",
   // water and kitchen
-  "bottle", "filter", "stove", "pot", "cup", "utensils", "meal", "food",
+  "bottle", "reservoir", "filter", "stove", "pot", "cup", "utensils", "meal", "food",
   // tools
   "knife", "repair",
   // electronics: the devices people recognise at a glance, and one catch-all for the
@@ -54,7 +54,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(stake bag|pole bag)\b/, "bag"],
   [/\bpill bottle\b/, "firstAid"],
   [/\bfuel bottle\b/, "stove"],
-  [/\b(dropper bottle|toiletry bottle|spray bottle|toothbrush case)\b/, "toiletry"],
+  [/\b(dropper bottle|toiletry bottle|spray bottle|toothbrush case|face wipes?)\b/, "toiletry"],
   [/\b(phone case|phone holder|phone pocket)\b/, "phone"],
   [/\b(camera case|camera clip|lens adapter)\b/, "camera"],
   [/\b(hydration vest|running vest|hydration pack)\b/, "backpack"],
@@ -73,8 +73,8 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(stakes?|pegs?|snow anchors?|stake tool)\b/, "tent"],
   [/\b(guylines?|cord|paracord|cord reel|bungee cord|line tensioner|ridgeline|rigging kit|rope)\b/, "cord"],
   [/\b(trekking poles?|hiking staff|poles?|pole holder)\b/, "poles"],
-  [/\b(pillow|pillowcase|pillow strap|earplugs|eye mask)\b/, "sleepAid"],
-  [/\b(sleeping bag|sleeping bag liner|quilt|blanket|sheet|hammock)\b/, "sleep"],
+  // what you sleep in and what helps you sleep: one Zzz, bag and pillow alike
+  [/\b(sleeping bag|sleeping bag liner|quilt|blanket|sheet|hammock|pillow|pillowcase|pillow strap|earplugs|eye mask|mouth guard|night guard)\b/, "sleep"],
   [/\b(sleeping pad|foam pad|sit pad|back pad|vestibule mat|pad)\b/, "pad"],
 
   // clothing
@@ -89,9 +89,10 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(gloves?|glove liners|mitts|mittens)\b/, "glove"],
   [/\b(sunglasses|glasses|goggles)\b/, "glasses"],
 
-  // water, with the hydration parts that go with it
+  // water: the filter, the reservoir with the parts that hang off it, then the bottle
   [/\b(water filter|filter|water treatment|purifier|cleaning tablets|water hang kit)\b/, "filter"],
-  [/\b(water bottle|bottle|flask|soft flask|reservoir|bladder|hose|straw|tube clip|tube insulator|cleaning coupling)\b/, "bottle"],
+  [/\b(water reservoir|reservoir|bladder|hose|tube clip|tube insulator|cleaning coupling)\b/, "reservoir"],
+  [/\b(water bottle|bottle|flask|soft flask|straw)\b/, "bottle"],
 
   // kitchen and food: the drinks and the eating before the pot, the snacks before the meals
   [/\b(stove|canister stand|pot stand|windscreen|stove base|fuel canister|gas canister|canister tool|fuel|lighter|matches|fire starter)\b/, "stove"],
@@ -115,7 +116,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
 
   // body
   [/\b(first aid|blister care|moleskin|bandages?|tick remover|tweezers|antacid|pills?|medication)\b/, "firstAid"],
-  [/\b(trowel|shovel|wipes?|face wipe|toilet paper|pee cloth|bidet|tissues?|waste tablets|bathroom kit)\b/, "toilet"],
+  [/\b(trowel|shovel|wipes?|toilet paper|pee cloth|bidet|tissues?|waste tablets|bathroom kit)\b/, "toilet"],
   [/\btowels?\b/, "towel"],
   [/\b(toothbrush|toothpaste|sunscreen|spf|lip balm|lip guards|deodorant|balm|salve|lotion|cream|moisturi[sz]er|cleanser|soap|sanitizer|bite relief|insect repellent|hairbrush|brush|nail clippers)\b/, "toiletry"],
 
