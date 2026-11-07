@@ -120,7 +120,14 @@ const FIRST_LOAD_BUDGET_KB = 159.5;
 // is a new lazy route (the /authorize consent page, 1.3), the account panel's
 // assistant section (1.2), four product marks on its buttons (0.7) and the glue
 // between them. All of it behind a click or on its own route; no chunk grew.
-const TOTAL_BUDGET_KB = 306;
+//
+// Re-set 2026-11-07 at 319.7 measured (was 306; main at f60625e builds to 303.5): #494,
+// a picture beside each piece of gear on My Gear. 14.5 KB of the 16.2 is icon path
+// data in /gear's own route chunk — 62 Hugeicons glyphs at 12.8 (their soft corners
+// make long paths) and the 24 drawn for it at 1.9 — and FIRST LOAD is unmoved at 158.1.
+// If it needs to come back, the heaviest Hugeicons are the place to look: redrawn in
+// the house's plainer grammar they cost about a sixth as much.
+const TOTAL_BUDGET_KB = 326;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
