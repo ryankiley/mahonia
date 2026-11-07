@@ -6,6 +6,7 @@ import type { VaultEntry } from "~~/shared/vault";
 import { formatPrice } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { consumableIcon } from "~/utils/itemMarks";
+import { gearIcon } from "~/utils/gearIcons";
 
 // One row of /gear: the name cell, the weight, the class mark and the trailing
 // controls — or, for a REMOVED piece, the way back.
@@ -35,6 +36,10 @@ const emit = defineEmits<{
 }>();
 
 const displayName = computed(() => itemDisplayName(props.entry.brand, props.entry.name, props.entry.variant));
+// What KIND of gear this is, as a picture: read off the gear type, so a hand-typed row
+// with a type gets one too (shared/gearGlyph.ts). Null leaves the column empty rather
+// than guessing — a wrong picture is worse than none.
+const typeIcon = computed(() => gearIcon(props.entry.commonName));
 // Calories, gated on the class exactly as computeTotals gates them — so what the row
 // shows is what a list would count, rather than a number the totals ignore. A removed
 // row shows its type only.
@@ -56,6 +61,12 @@ const meta = computed(() => {
 
 <template>
   <li class="vault__row">
+    <!-- the kind of gear, before its name: a fixed column whether or not this row has
+         one, so every name starts at the same x. Decorative — the gear type says the
+         same thing in words on the line below. -->
+    <span class="vault__type" aria-hidden="true">
+      <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
+    </span>
     <div class="gear__main">
       <!-- the title is the whole name: clipped, two catalog names that differ only at
            the end ("… Regular" / "… Long Wide") read identically, and this is the way
@@ -176,6 +187,22 @@ const meta = computed(() => {
 .vault__row + .vault__row {
   border-top: 1px solid var(--line);
 }
+/* The picture column. Its box is the name's first line (1lh tall), so the glyph
+   centres on that line however many lines the row grows, the same reasoning that
+   puts the trailing marks at flex-start. Secondary ink: it supports the name, it
+   doesn't outrank it. Pulled closer to the name than the row's gap, because the two
+   are one object and the row's --space-4 is the gap BETWEEN objects. */
+.vault__type {
+  flex: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1lh;
+  margin-inline-end: calc(var(--space-2) - var(--space-4));
+  color: var(--ink-2);
+}
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with the gear pane, which used to hand-mirror
    these rules. Only the page's own mobile stack below touches it. */
@@ -273,6 +300,14 @@ const meta = computed(() => {
   }
   .gear__main {
     flex-basis: 100%;
+  }
+  /* the picture stays beside the name rather than taking a line of its own: the name
+     takes the rest of the first line, and the row's own --space-2 is the gap here */
+  .vault__type {
+    margin-inline-end: 0;
+  }
+  .vault__type + .gear__main {
+    flex-basis: calc(100% - 1.5rem - var(--space-2));
   }
   /* With a line of its own the name gets two of them before it clips. One line at
      phone width cut long catalog names ("Sea to Summit Ether Light XT Insulated Air

@@ -23,6 +23,18 @@ import {
   SafeBoxIcon, Share08Icon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon,
   SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, ThirdBracketIcon, Txt01Icon,
   Undo02Icon, UserLock01Icon,
+  // My Gear's gear-type pictures (app/utils/gearIcons.ts)
+  Airpod03Icon,
+  BatteryCharging01Icon, BinocularsIcon, Book01Icon, CableIcon, Camera01Icon, CandyIcon,
+  CapIcon, Cards01Icon, Chair02Icon, ChocolateIcon, Coffee02Icon, CompassIcon,
+  CookingPotIcon, DentalToothIcon, FirstAidKitIcon, FlashlightIcon, GlassesIcon, GloveIcon,
+  GpsSignal01Icon, HatIcon, HeadphonesIcon, HoodieIcon, JarIcon, JoggerPantsIcon,
+  KettleIcon, LanternIcon, LongSleeveShirtIcon, MapIcon, MatchesIcon, MoneyBag01Icon,
+  PillowIcon, PillsTabletIcon, PocketKnifeIcon, RiceBowl01Icon, RunningShoesIcon,
+  SandalsIcon, ScissorIcon, ShoesIcon, ShortsPantsIcon, ShovelIcon, SmartPhone01Icon,
+  SmartWatch01Icon, SneakerIcon, SoapDispenserDropletIcon, SocksIcon, SolarPanel01Icon,
+  SpoonIcon, ThermometerIcon, TissuePaperIcon, TowelsIcon, TShirtIcon, UmbrellaIcon,
+  UnderpantsIcon, VestIcon, Wallet01Icon, WhistleIcon, YogaMatIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon as Local } from "~/utils/hugeicon";
 
@@ -42,6 +54,18 @@ const ALL_ICONS = Object.entries({
   SafeBoxIcon, Share08Icon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon,
   SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, ThirdBracketIcon, Txt01Icon,
   Undo02Icon, UserLock01Icon,
+  // My Gear's gear-type pictures (app/utils/gearIcons.ts)
+  Airpod03Icon,
+  BatteryCharging01Icon, BinocularsIcon, Book01Icon, CableIcon, Camera01Icon, CandyIcon,
+  CapIcon, Cards01Icon, Chair02Icon, ChocolateIcon, Coffee02Icon, CompassIcon,
+  CookingPotIcon, DentalToothIcon, FirstAidKitIcon, FlashlightIcon, GlassesIcon, GloveIcon,
+  GpsSignal01Icon, HatIcon, HeadphonesIcon, HoodieIcon, JarIcon, JoggerPantsIcon,
+  KettleIcon, LanternIcon, LongSleeveShirtIcon, MapIcon, MatchesIcon, MoneyBag01Icon,
+  PillowIcon, PillsTabletIcon, PocketKnifeIcon, RiceBowl01Icon, RunningShoesIcon,
+  SandalsIcon, ScissorIcon, ShoesIcon, ShortsPantsIcon, ShovelIcon, SmartPhone01Icon,
+  SmartWatch01Icon, SneakerIcon, SoapDispenserDropletIcon, SocksIcon, SolarPanel01Icon,
+  SpoonIcon, ThermometerIcon, TissuePaperIcon, TowelsIcon, TShirtIcon, UmbrellaIcon,
+  UnderpantsIcon, VestIcon, Wallet01Icon, WhistleIcon, YogaMatIcon,
 }) as [string, never][];
 
 // The prop combinations the app actually draws with (see the call sites), plus the
