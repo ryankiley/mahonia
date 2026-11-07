@@ -25,12 +25,13 @@ const ring = (cx: number, cy: number, r: number): IconChild => [
 ];
 const glyph = (...children: IconChild[]): IconNode => children;
 
-/** The mummy: a hood with its face opening, tapering to the foot. */
+/** The mummy: a narrow hood with its face opening, wide at the shoulders, tapering to
+ *  the foot. */
 export const SleepingBagGlyph = glyph(
-  line("M12 2C14.8 2 17 3.9 17 6.6C17 9.6 16.4 13 16 16.2L15.6 20C15.5 21.1 14.6 22 13.5 22H10.5C9.4 22 8.5 21.1 8.4 20L8 16.2C7.6 13 7 9.6 7 6.6C7 3.9 9.2 2 12 2Z"),
-  ring(12, 6.5, 2),
-  line("M7.4 12.5H16.6"),
-  line("M8 17H16"),
+  line("M12 2C14.35 2 15.9 3.75 16.05 5.8C16.15 7.3 17.4 8.1 17.45 10.2C17.5 12.9 16.7 15.7 16.2 18.4L15.95 20C15.8 21.15 14.85 22 13.7 22H10.3C9.15 22 8.2 21.15 8.05 20L7.8 18.4C7.3 15.7 6.5 12.9 6.55 10.2C6.6 8.1 7.85 7.3 7.95 5.8C8.1 3.75 9.65 2 12 2Z"),
+  ring(12, 5.9, 1.6),
+  line("M6.8 13H17.2"),
+  line("M7.5 17.2H16.5"),
 );
 
 /** A pair: grips, shafts, baskets. */
