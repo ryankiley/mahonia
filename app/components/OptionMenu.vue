@@ -58,7 +58,13 @@ const rootRef = useTemplateRef<HTMLElement>("rootRef");
 // On open, because a menu can't change size while it's up. The card is MenuList's
 // element, handed out through its exposed `el`.
 const menuList = useTemplateRef<{ el: HTMLElement | null }>("menuList");
-const { atStart, above, place } = useMenuPlacement(computed(() => menuList.value?.el ?? null));
+// `within`: an option list can be long (a folder picker holds every folder), and these
+// pickers sit inside clipping cards (the My Gear sheet, a dialog), so it fits the card
+// it lives in and scrolls when neither side has room.
+const { atStart, above, maxHeight, place } = useMenuPlacement(
+  computed(() => menuList.value?.el ?? null),
+  { within: true },
+);
 watch(open, (o) => o && nextTick(place));
 
 // The list is position:absolute, so a clipping ancestor crops it — the unit menu on
@@ -111,7 +117,8 @@ function pick(key: string) {
         v-if="open"
         ref="menuList"
         class="optmenu__list"
-        :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
+        :class="{ 'menu__list--start': atStart, 'menu__list--above': above, 'optmenu__list--capped': maxHeight != null }"
+        :style="maxHeight != null ? { maxHeight: `${maxHeight}px` } : undefined"
         :aria-label="label"
       >
         <li v-for="o in options" :key="o.key" role="none">
@@ -177,6 +184,14 @@ function pick(key: string) {
 }
 .optmenu__list {
   min-width: 7rem;
+}
+/* Capped to the room its clipping card leaves (useMenuPlacement's `within`): the rows
+   scroll inside the card. The travelling plate is a child of the list, so it scrolls
+   with the row it sits on, and `contain` keeps a scroll that reaches the end from
+   carrying on into the sheet or the page underneath. */
+.optmenu__list--capped {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 /* icon · label · check is .menu__item's own row (atoms/controls.scss), the check is the
    shared .menu__check, and both glyphs are pinned by the atom's `flex: none` — without
