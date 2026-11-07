@@ -8,12 +8,12 @@ import type { IconChild, IconNode } from "./hugeicon";
 // so <HugeiconsIcon :icon> draws it unchanged (the stroke width is stamped at render).
 //
 // What's here is what the free set has no good picture for among the icons the gear
-// page uses (shared/gearGlyph.ts keeps that set small): a sleeping bag, trekking poles,
-// a jacket (it has no jacket at all), a water bottle, a filter and a toiletry
-// tube. Everything else is a Hugeicons glyph — several of them
-// Ryan's picks, made while reviewing these drawings (Airpod03, Chocolate, Hat,
-// Glasses, Fire02 for the stove, Shirt01, Sneaker,
-// MoneyBag01 for every bag, Energy for electronics). app/utils/gearIcons.ts joins name to icon.
+// page uses (shared/gearGlyph.ts keeps that set small): a sleeping bag, trekking
+// poles, a jacket (it has no jacket at all), a water bottle, a filter and a toiletry
+// tube. Everything else is a Hugeicons glyph, several of them Ryan's picks made while
+// reviewing these drawings: Chocolate for food, Hat, Glasses, Fire02 for the stove,
+// Shirt01, Sneaker, MoneyBag01 for every bag, Energy for electronics.
+// app/utils/gearIcons.ts joins name to icon.
 
 const line = (d: string): IconChild => [
   "path",
