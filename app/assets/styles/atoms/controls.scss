@@ -780,12 +780,12 @@ input[type="search"]::-webkit-search-decoration {
 // families is the TRANSFORM, and it differs on purpose — a scrim that popped from a
 // corner would be as wrong as a menu that merely faded.
 //
-//   .menu     anchored popovers: the ⋯ menus, the sharing panel, a row's worn and
+//   .menu     anchored popovers: the ⋯ menus, the sharing menu, a row's worn and
 //             consumable popovers, the dates panel, the autocomplete. Pops from the
 //             trigger corner. Reach for this by default — if a surface hangs off a
 //             control, it is a menu.
 //   .reveal   in-flow disclosures: a row's note, the ⋯ menu's Export section, the
-//             sharing panel's activity log. Slides the row open (1fr↔0fr) because
+//             sharing menu's recent changes. Slides the row open (1fr↔0fr) because
 //             the content is PART of the page, not over it.
 //   .ovl      modal scrims (atoms/dialog.scss), with .dlg rising inside them.
 //
@@ -975,7 +975,7 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 // An icon button parked at a panel's TRAILING edge — the close × on the vault pane,
-// the sharing panel, and anything else that grows this shape.
+// the account dialog, and anything else that grows this shape.
 //
 // The button is a 32px box around a 16px mark, so half the difference (8px) is
 // invisible padding. Inset the BOX by the panel's padding and the MARK lands 8px
@@ -1067,8 +1067,8 @@ input[type="search"]::-webkit-search-decoration {
 // inner child clips. reduced-motion is handled globally by the duration kill-switch.
 //
 // Lives here rather than in a component because three surfaces now disclose the same
-// way: an item row's note, the editor menu's Export section, and the sharing panel's
-// activity log. It was scoped to ItemRow, so the other two silently got the class
+// way: an item row's note, the editor menu's Export section, and the sharing menu's
+// recent changes. It was scoped to ItemRow, so the other two silently got the class
 // names and none of the transition — a disclosure that snapped instead of sliding.
 .reveal {
   display: grid;
@@ -1270,8 +1270,8 @@ input[type="search"]::-webkit-search-decoration {
   cursor: grabbing;
 }
 
-/* THE PANEL HEADER — title left, flush-end X right — worn by the share panel, the vault
-   pane and the account dialog. Each surface keeps only the offset that puts it on its
+/* THE PANEL HEADER — title left, flush-end X right — worn by the vault pane and the
+   account dialog. Each surface keeps only the offset that puts it on its
    own container's edge (a negative top nudge, a padding-block-start). */
 .panel__head {
   display: flex;

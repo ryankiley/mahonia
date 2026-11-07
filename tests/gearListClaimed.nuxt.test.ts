@@ -461,7 +461,7 @@ describe("useGearList — a claimed open (share code + session, no token held)",
     await c.load({ code: CODE });
     c.setMeta({ title: "Before rotate" });
     await flushed();
-    // the share panel's edit link is a computed over this, and must follow a rotate
+    // the editor's edit link is a computed over this, and must follow a rotate
     const tracked = computed(() => c.editToken);
     expect(tracked.value).toBe("");
 

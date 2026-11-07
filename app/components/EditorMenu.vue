@@ -23,7 +23,7 @@ import type { ListSnapshot } from "~~/shared/types";
 // first load 151.1 → 147.8 KB brotli with this split alone).
 //
 // State lives with the caller — the parent owns `open` (its dismiss contract, its
-// mutual exclusion with the share panel, the tooltip that stands down) and every
+// mutual exclusion with the sharing menu, the tooltip that stands down) and every
 // action is an emit, so the rows here are a table and nothing else: a row is one
 // entry, not a hand-written <li> plus a case in a dispatch switch (the argument
 // ReadonlyMenu already makes for the read views' twin of this menu).

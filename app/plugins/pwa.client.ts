@@ -16,7 +16,7 @@
 // page boots straight onto the new shell with no reload. Activating it any earlier
 // deletes the previous build's chunks from the precache while a tab is still
 // running on them ("/" and "/e" boot from that precache), and every lazy chunk the
-// tab hasn't loaded yet (dialogs, the share panel, the exporters) then fails, as
+// tab hasn't loaded yet (dialogs, the sharing menu, the exporters) then fails, as
 // does Vercel for old hashes online. Forcing it at launch was tried and dropped: an
 // open page can hold activation off for as long as an event in the old worker runs
 // (a background-sync replay, say), so the reload landed mid-session after all.

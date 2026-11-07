@@ -875,14 +875,11 @@ async function onSignOut() {
 .acct__section:last-child {
   padding-bottom: 0;
 }
-/* NOT the sharing panel's --text-micro field label, though both sit under a t-label
-   title. Sharing's labels name an INPUT directly beneath them, so a small quiet label
-   reads as attached to its control. These name a SECTION of prose — at 12px they came
-   out smaller and fainter than the paragraph they introduce, which puts the heading
-   below its own body text.
-   The contrast this surface needs is structural rather than typographic: the sections
-   are already separated by hairlines (see .acct__section), which is the work sharing
-   was asking its type to do alone. */
+/* NOT a 12px --text-micro label: a small quiet label reads as attached to an input
+   directly beneath it, and these name a SECTION of prose. At 12px they came out
+   smaller and fainter than the paragraph they introduce, which puts the heading below
+   its own body text. The contrast this surface needs is structural rather than
+   typographic: the sections are already separated by hairlines (see .acct__section). */
 .acct__label {
   color: var(--ink-2);
 }

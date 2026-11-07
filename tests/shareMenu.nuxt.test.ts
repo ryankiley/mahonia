@@ -1,5 +1,5 @@
-// The Sharing panel's "Add to your account" — the one control that attaches a
-// list this browser holds to the signed-in account.
+// The sharing menu: "Add to your account" (the one control that attaches a list
+// this browser holds to the signed-in account), and who its recent changes name.
 //
 // It is an ACTION and nothing else: no heading, no status line, no confirmation.
 // A list already on the account says nothing at all here, because a list being
@@ -9,7 +9,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { flushPromises, mount } from "@vue/test-utils";
-import SharePanel from "~/components/SharePanel.vue";
+import ShareMenu from "~/components/ShareMenu.vue";
 import type { ChangeAuthor, ClaimedList, SnapshotMeta } from "~~/shared/types";
 import { snapshotFor } from "./helpers/list";
 
@@ -47,7 +47,7 @@ const claimedRow = (shareCode: string): ClaimedList => ({
 });
 
 function mountPanel(over: { editToken?: string } = {}) {
-  return mount(SharePanel, {
+  return mount(ShareMenu, {
     props: {
       snapshot,
       editToken: over.editToken ?? "held-token",
@@ -71,7 +71,7 @@ beforeEach(() => {
   refresh.mockClear();
 });
 
-describe("SharePanel — adding a list to your account", () => {
+describe("ShareMenu — adding a list to your account", () => {
   it("offers the action for a held list the account doesn't have", () => {
     expect(addBtn(mountPanel())).toBeTruthy();
   });
@@ -132,7 +132,7 @@ describe("SharePanel — adding a list to your account", () => {
 });
 
 // Recent changes says who only when more than one hand shows up in it.
-describe("SharePanel — who made a change", () => {
+describe("ShareMenu — who made a change", () => {
   const entry = (id: number, reason: string, by: ChangeAuthor | null): SnapshotMeta => ({
     id,
     version: id,

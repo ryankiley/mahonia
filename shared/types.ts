@@ -429,7 +429,7 @@ export interface ClaimedList {
  *  can anything not in it be called gone (see useClaimedLists' opens ledger). */
 export const CLAIMED_LIST_CAP = 200;
 
-/** One recovery point, as the sharing panel's activity log lists them. */
+/** One recovery point, as the sharing menu's recent changes list them. */
 /**
  * Who made a change in a list's recent changes: an assistant (an edit through the
  * connector), the reader themself, or another signed-in editor by the name they chose.

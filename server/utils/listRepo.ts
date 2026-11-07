@@ -471,7 +471,7 @@ export async function findLiveByEditHashes(
 const SNAPSHOT_THROTTLE_MS = 10 * 60_000; // at most one auto-snapshot per list / 10 min
 const SNAPSHOT_CAP = 5; // keep the most recent N per list (older are pruned)
 
-/** Who made an edit, when it wasn't the list's own editors. */
+/** An edit that wasn't a person's: one made through the connector. */
 export type EditActor = "assistant";
 
 /**

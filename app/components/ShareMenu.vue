@@ -2,7 +2,6 @@
 import { counted } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import {
-  ChevronDownIcon,
   Clock01Icon,
   Edit02Icon,
   Exchange01Icon,
@@ -49,10 +48,9 @@ const emit = defineEmits<{
 // A draft has no share code until its first real item lands, so every link here
 // would be broken. Say so once, rather than four disabled rows.
 const isDraft = computed(() => !props.snapshot.shareCode);
-// A CLAIMED open is saved and shareable, but this device holds no edit link to
-// print — the server only ever stored its hash. The edit-link section says so and
-// offers "replace" (a rotate hands this device the fresh link) instead of showing
-// an empty field with a Copy button that copies nothing.
+// A CLAIMED open is saved and shareable, but this device holds no edit link to copy:
+// the server only ever stored its hash. So there's no "Copy edit link" row, and the
+// replace row reads "Get a new edit link" (a rotate hands this device a fresh one).
 const holdsEditLink = computed(() => !!props.editToken);
 
 // ---- the account ----
@@ -106,15 +104,16 @@ function act(run: () => void) {
   run();
 }
 
-// ---- recent activity ----
-// The recovery points the server already keeps. They are the closest thing to an
-// activity log this app has, and they are honest about what they are: a version
-// count and a time, not a per-field diff. Fetched on OPEN rather than on mount, so
-// the editor never pays for it.
+// ---- recent changes ----
+// The recovery points the server already keeps: the closest thing to an activity log
+// this app has. One per throttle window, so a summary of the change that opened the
+// window, a time, and who made it when anyone can be named; not a per-field diff.
+// Fetched when the menu mounts, which is when it opens (the editor renders it lazily),
+// so the editor never pays for it.
 const activity = ref<SnapshotMeta[]>([]);
 const activityState = ref<"idle" | "loading" | "error">("idle");
-// re-rendered against a ticking clock would be churn for no gain — the panel is
-// open for seconds, so one read at fetch time is enough
+// re-rendered against a ticking clock would be churn for no gain: the menu is open
+// for seconds, so one read at fetch time is enough
 const now = ref(Date.now());
 // collapsed by default — see the markup for why
 const activityOpen = ref(false);
@@ -135,27 +134,37 @@ async function loadActivity() {
 }
 onMounted(() => {
   void loadActivity();
-  // The claim set, fetched the same way: on open, because the panel is the first
-  // surface that needs it when a list is opened straight from its link (the
-  // switcher hasn't necessarily run). refresh() resolves to empty without a
-  // request when signed out, and `claimKnown` keeps the section unrendered until
-  // a real answer has landed.
+  // The claim set, fetched the same way: on open, because this is the first surface
+  // that needs it when a list is opened straight from its link (the switcher hasn't
+  // necessarily run). refresh() resolves to empty without a request when signed out,
+  // and canAddToAccount waits on `loaded`, so the row never shows before a real
+  // answer has landed.
   void claimed.refresh();
 });
 
-// Say WHAT changed, not just that something did.
+// Say WHAT changed, not just that something did: a column of five identical
+// "Edited"s is a column of noise.
 //
-// A column of five identical "Edited"s is a column of noise. The server doesn't
-// describe changes — a recovery point carries only a reason, a time and an item
-// count — but the counts are a sequence, and consecutive ones give the delta. The
-// list is newest-first, so entry i's count is the state at that point and entry i+1
-// is the state before it.
-//
-// Honest about its limits: this can only see the COUNT. Renaming an item, fixing a
-// weight, or adding one thing while removing another all leave the count unmoved,
-// and those correctly fall back to "Edited" rather than inventing a description.
-// The oldest entry has nothing older to compare against, so it does too.
+// Points written since summaries shipped carry one in `reason` (see
+// shared/changeSummary). Older ones say only "edit", and for those the item counts
+// are a sequence: the list is newest-first, so entry i's count is the state at that
+// point and entry i+1 the state before it, and their delta can still tell add from
+// remove. A rename or a weight fix leaves the count unmoved and falls back to
+// "Edited" rather than inventing a description, as does the oldest entry.
 const RESTORE_LABEL = "Restored an earlier version";
+
+function changeLabel(i: number): string {
+  const s = activity.value[i];
+  if (!s) return "Edited";
+  if (s.reason === "before restore") return RESTORE_LABEL;
+  if (s.reason && s.reason !== "edit") return s.reason;
+  const older = activity.value[i + 1];
+  if (!older) return "Edited";
+  const delta = s.itemCount - older.itemCount;
+  if (delta === 0) return "Edited";
+  const n = Math.abs(delta);
+  return `${delta > 0 ? "Added" : "Removed"} ${counted(n, "item")}`;
+}
 
 /** "You", "Assistant", or the name another editor chose; nothing when nobody can
  *  be named (the server decides which, see listSnapshotsByEditHash). */
@@ -171,23 +180,6 @@ function whoLabel(by: ChangeAuthor | null): string | null {
 // difference worth seeing.
 const whoKey = (by: ChangeAuthor | null) => (!by ? "" : by.kind === "named" ? `named:${by.name}` : by.kind);
 const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).size > 1);
-
-function changeLabel(i: number): string {
-  const s = activity.value[i];
-  if (!s) return "Edited";
-  if (s.reason === "before restore") return RESTORE_LABEL;
-  // Snapshots written since summaries shipped carry one in `reason` (see
-  // shared/changeSummary). "edit" is the old constant, and everything older than
-  // this change has it — those fall back to the count delta, which can still tell
-  // add from remove.
-  if (s.reason && s.reason !== "edit") return s.reason;
-  const older = activity.value[i + 1];
-  if (!older) return "Edited";
-  const delta = s.itemCount - older.itemCount;
-  if (delta === 0) return "Edited";
-  const n = Math.abs(delta);
-  return `${delta > 0 ? "Added" : "Removed"} ${counted(n, "item")}`;
-}
 </script>
 
 <template>
@@ -223,50 +215,28 @@ function changeLabel(i: number): string {
         </button>
       </li>
 
-      <!-- RECENT CHANGES folds out like the ⋯ menu's Export (MenuSection's markup, with
-           entries in place of rows). Collapsed: it's reassurance you go looking for.
+      <!-- RECENT CHANGES folds out like the ⋯ menu's Export: the same MenuSection, with
+           entries in place of rows. Collapsed: it's reassurance you go looking for.
            These are the server's recovery points: WHAT changed, WHEN, and who when
            anyone can be named ("You", "Assistant", or a name an editor chose). -->
-      <li role="none" class="menu__sect">
-        <button
-          type="button"
-          data-row
-          class="menu__item menu__secthead"
-          :aria-expanded="activityOpen"
-          @click="activityOpen = !activityOpen"
-        >
-          <HugeiconsIcon :icon="Clock01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="menu__sectlabel">Recent changes</span>
-          <HugeiconsIcon
-            :icon="ChevronDownIcon"
-            class="chev"
-            :class="{ 'is-open': activityOpen }"
-            :size="14"
-            :stroke-width="2"
-            aria-hidden="true"
-          />
-        </button>
-        <Transition name="reveal">
-          <div v-if="activityOpen" class="reveal">
-            <div class="share__activity">
-              <p v-if="activityState === 'loading'" class="t-sm t-muted">Loading…</p>
-              <p v-else-if="activityState === 'error'" class="t-sm t-muted">
-                Couldn’t load recent changes.
-              </p>
-              <p v-else-if="!activity.length" class="t-sm t-muted">No changes yet.</p>
-              <ul v-else class="share__log">
-                <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
-                  <span class="t-sm">{{ changeLabel(i) }}</span>
-                  <span class="t-muted share__logwhen"
-                    >{{ timeAgo(new Date(s.createdAt).getTime(), now, { short: true })
-                    }}<template v-if="showWho && whoLabel(s.by)"> · {{ whoLabel(s.by) }}</template></span
-                  >
-                </li>
-              </ul>
-            </div>
-          </div>
-        </Transition>
-      </li>
+      <MenuSection v-model:open="activityOpen" label="Recent changes" :icon="Clock01Icon">
+        <div class="share__activity">
+          <p v-if="activityState === 'loading'" class="t-sm t-muted">Loading…</p>
+          <p v-else-if="activityState === 'error'" class="t-sm t-muted">
+            Couldn’t load recent changes.
+          </p>
+          <p v-else-if="!activity.length" class="t-sm t-muted">No changes yet.</p>
+          <ul v-else class="share__log">
+            <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
+              <span class="t-sm">{{ changeLabel(i) }}</span>
+              <span class="t-muted share__logwhen"
+                >{{ timeAgo(new Date(s.createdAt).getTime(), now, { short: true })
+                }}<template v-if="showWho && whoLabel(s.by)"> · {{ whoLabel(s.by) }}</template></span
+              >
+            </li>
+          </ul>
+        </div>
+      </MenuSection>
 
       <!-- THE FOOT, ruled off where the ⋯ menu keeps Forget and Delete: the two things
            that change who holds this list. Keeping it on your account first (rare: it
@@ -325,8 +295,8 @@ function changeLabel(i: number): string {
 .share__note {
   padding: var(--space-2) var(--space-3);
 }
-/* The entries take a row's inset, not its label's: indented past the glyph as well,
-   a change ("Added MSR Pocket Rocket 2") wrapped in a menu only as wide as its rows. */
+/* The entries take a row's inset, not its label's: indented past the glyph too, a
+   change like "Added MSR Pocket Rocket 2" wrapped in a menu only as wide as its rows. */
 .share__activity {
   padding: var(--space-1) var(--space-3) var(--space-2);
 }
@@ -340,7 +310,7 @@ function changeLabel(i: number): string {
   max-height: 11rem;
   overflow-y: auto;
 }
-/* what changed, and under it when (and, for a connector's edit, by whom), a size
+/* what changed, and under it when (and who, once more than one person has), a size
    down so the pair reads as one entry and not two */
 .share__logrow {
   display: grid;

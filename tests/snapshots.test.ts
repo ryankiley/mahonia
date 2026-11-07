@@ -33,7 +33,7 @@ describe("snapshots — vandalism recovery", () => {
     let snaps = await listSnapshotsByEditToken(editToken, db);
     expect(snaps).toHaveLength(1);
     // `reason` carries a SUMMARY of the batch now, not the constant "edit" — see
-    // shared/changeSummary. This is what the sharing panel renders, so pinning it
+    // shared/changeSummary. This is what the sharing menu renders, so pinning it
     // here is what stops it silently regressing to a bare "Edited".
     //
     // It NAMES the row, which is only possible because this path hands the summary
