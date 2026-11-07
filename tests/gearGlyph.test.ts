@@ -55,7 +55,9 @@ describe("which icon a gear type wears", () => {
     ["Electrolyte mix", "hydration"],
     ["Drink mix", "hydration"],
     ["Squeeze bottle", "bottle"],
-    ["Compression straps", "backpack"],
+    ["Compression straps", "bag"],
+    ["Insoles", "shoe"],
+    ["Head net", "bug"],
     ["Headlamp", "light"],
     ["GPS watch", "watch"],
     ["Power bank", "electronics"],
@@ -86,7 +88,8 @@ describe("which icon a gear type wears", () => {
     ["Coffee filter", "cup"],
     ["Fuel bottle", "stove"],
     ["Tent poles", "tent"],
-    ["Bug net", "tent"],
+    ["Bug net", "bug"],
+    ["Emergency blanket", "firstAid"],
     ["E-reader", "phone"],
     ["Hip belt", "backpack"],
     ["Pee funnel", "toilet"],
@@ -105,6 +108,7 @@ describe("which icon a gear type wears", () => {
 
   it("falls back to the name only when the row has no type", () => {
     expect(gearGlyphFor(null, "Deodorant")).toBe("toiletry");
+    expect(gearGlyphFor(null, "Relief Sun: Rice + Probiotics SPF50+")).toBe("toiletry");
     expect(gearGlyphFor("", "Meals - Dinner")).toBe("meal");
     expect(gearGlyphFor(undefined, "Snacks - Daily")).toBe("food");
     expect(gearGlyphFor("  ", "Baggies Brimmer Hat")).toBe("hat");

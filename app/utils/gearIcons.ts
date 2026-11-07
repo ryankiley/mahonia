@@ -1,5 +1,6 @@
 import {
   Backpack02Icon,
+  Bug02Icon,
   Camera01Icon,
   Chair02Icon,
   ChessKnightIcon,
@@ -57,6 +58,7 @@ import {
 // belongs to the pages that draw it and never to the editor's first load.
 const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   tent: TentIcon,
+  bug: Bug02Icon,
   cord: LassoTool01Icon,
   poles: TrekkingPolesGlyph,
   sleep: ZzzIcon,

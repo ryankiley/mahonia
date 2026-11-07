@@ -28,7 +28,7 @@
 
 export const GEAR_GLYPHS = [
   // shelter and sleep
-  "tent", "cord", "poles", "sleep", "pad",
+  "tent", "bug", "cord", "poles", "sleep", "pad",
   // carrying
   "backpack", "bag", "container", "wallet",
   // clothing, split the way a Clothing folder needs it
@@ -58,14 +58,17 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(phone case|phone holder|phone pocket)\b/, "phone"],
   [/\b(camera case|camera clip|lens adapter)\b/, "camera"],
   [/\b(hydration vest|running vest|hydration pack)\b/, "backpack"],
-  [/\b(hip belt|hip belt pocket|shoulder straps?|shoulder pads|sternum strap|compression straps|straps|mesh sleeve)\b/, "backpack"],
+  // a compression cap is a stuff-sack lid for a quilt, not a pack part
+  [/\b(compression straps?|compression cap)\b/, "bag"],
+  [/\b(hip belt|hip belt pocket|shoulder straps?|shoulder pads|sternum strap|straps|mesh sleeve)\b/, "backpack"],
   [/\bfleece pants\b/, "pants"],
   [/\bpee funnel\b/, "toilet"],
   [/\b(coffee filter|coffee straw)\b/, "cup"],
   [/\bbreakfast bar\b/, "food"],
   [/\bbear hang kit\b/, "cord"],
   [/\b(bear canister|bear can|bear can key)\b/, "container"],
-  [/\bbug net\b/, "tent"],
+  [/\b(bug net|head net|bug shelter|mosquito net)\b/, "bug"],
+  [/\b(emergency blanket|space blanket)\b/, "firstAid"],
   [/\b(neck gaiter|buff|bandana|balaclava|scarf|headband)\b/, "neck"],
 
   // shelter and sleep
@@ -82,10 +85,10 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(underwear|boxers?|briefs?)\b/, "underwear"],
   [/\b(pants|leggings|tights|joggers|chaps|trousers|base layer bottoms|shorts|skirt|belt)\b/, "pants"],
   [/\b(shirt|tee|t-shirt|tank top|top|base layer top|long sleeve|sun shirt|arm sleeves|sports bra|bra|dress)\b/, "shirt"],
-  [/\b(socks?|sock liners|booties|insoles)\b/, "socks"],
+  [/\b(socks?|sock liners|booties)\b/, "socks"],
   [/\b(hiking boots?|mountaineering boots?|boots?|gaiters?|microspikes|crampons|snowshoes|laces)\b/, "boot"],
-  [/\b(trail runners?|running shoes?|shoes?|sandals?)\b/, "shoe"],
-  [/\b(beanie|toque|hat|cap|brimmer|head net)\b/, "hat"],
+  [/\b(trail runners?|running shoes?|shoes?|sandals?|insoles?)\b/, "shoe"],
+  [/\b(beanie|toque|hat|cap|brimmer)\b/, "hat"],
   [/\b(gloves?|glove liners|mitts|mittens)\b/, "glove"],
   [/\b(sunglasses|glasses|goggles)\b/, "glasses"],
 
@@ -119,7 +122,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(first aid|blister care|moleskin|bandages?|tick remover|tweezers|antacid|pills?|medication)\b/, "firstAid"],
   [/\b(trowel|shovel|wipes?|toilet paper|pee cloth|bidet|tissues?|waste tablets|bathroom kit)\b/, "toilet"],
   [/\btowels?\b/, "towel"],
-  [/\b(toothbrush|toothpaste|sunscreen|spf|lip balm|lip guards|deodorant|balm|salve|lotion|cream|moisturi[sz]er|cleanser|soap|sanitizer|bite relief|insect repellent|hairbrush|brush|nail clippers)\b/, "toiletry"],
+  [/\b(toothbrush|toothpaste|sunscreen|spf\d*|lip balm|lip guards|deodorant|balm|salve|lotion|cream|moisturi[sz]er|cleanser|soap|sanitizer|bite relief|insect repellent|hairbrush|brush|nail clippers)\b/, "toiletry"],
 
   // a jar, a container, a cooler: after the toiletries, so "cleanser + container" is a
   // toiletry and only a bare container is one
