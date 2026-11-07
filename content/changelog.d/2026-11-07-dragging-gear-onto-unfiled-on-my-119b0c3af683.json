@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-07",
+  "fixed": [
+    "Dragging gear onto Unfiled on My Gear now moves it there.",
+    "Importing a list can no longer make it twice, and Cancel no longer takes you to it when it finishes.",
+    "Pressing Enter twice no longer sends a catalog weight fix twice.",
+    "The row lit in the item menu stays lit when your own gear arrives above it, so Enter takes what you saw.",
+    "Adding gear on My Gear keeps the cursor in the name field, and keeps what you type while the last add saves.",
+    "Pressing Enter on Add a trail or Edit now opens the trail panel instead of closing it again at once.",
+    "A row renamed while it saves to My Gear no longer shows a tick for gear that wasn't saved."
+  ]
+}

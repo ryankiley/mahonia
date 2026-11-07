@@ -60,6 +60,30 @@ registerEndpoint("/api/vault/remove", {
   },
 });
 
+// what a drag filed — the op is the assertion, the reload after it is the page's own
+let folderOps: Record<string, unknown>[] = [];
+registerEndpoint("/api/vault/folders", {
+  method: "POST",
+  handler: async (event) => {
+    const body = await readBody<{ op: Record<string, unknown> }>(event);
+    folderOps.push(body.op);
+    return { ok: true };
+  },
+});
+
+// an add, optionally held so a case can type while it's out
+let itemsHeld: Promise<void> | null = null;
+let addedNames: string[] = [];
+registerEndpoint("/api/vault/items", {
+  method: "POST",
+  handler: async (event) => {
+    const body = await readBody<{ op: { name: string } }>(event);
+    addedNames.push(body.op.name);
+    if (itemsHeld) await itemsHeld;
+    return { ok: true };
+  },
+});
+
 enableAutoUnmount(afterEach);
 
 /** How many rows the page shows. A registered endpoint's round trip crosses more than
@@ -74,11 +98,30 @@ async function openPage() {
   return w;
 }
 
+/** Drag a row onto a section with the real pointer events: the press arms, the first
+ *  move past the threshold lifts it, the next one reads what's under the pointer.
+ *  Sideways, because happy-dom's page has no height and any vertical travel would read
+ *  as leaving it, which cancels. */
+async function dragRowOnto(row: Element, section: Element) {
+  const at = (x: number) => ({ pointerId: 1, button: 0, clientX: x, clientY: 0, bubbles: true });
+  vi.spyOn(document, "elementFromPoint").mockReturnValue(section);
+  row.dispatchEvent(new PointerEvent("pointerdown", at(0)));
+  window.dispatchEvent(new PointerEvent("pointermove", at(40)));
+  window.dispatchEvent(new PointerEvent("pointermove", at(80)));
+  await nextTick();
+  window.dispatchEvent(new PointerEvent("pointerup", at(80)));
+  await nextTick();
+}
+
 describe("the /gear page's vault calls", () => {
   afterEach(() => {
+    vi.restoreAllMocks();
     document.body.innerHTML = "";
     storage.clear();
     removedIds = [];
+    folderOps = [];
+    addedNames = [];
+    itemsHeld = null;
   });
 
   it("loads the gear from /api/vault/list rather than erroring", async () => {
@@ -100,5 +143,123 @@ describe("the /gear page's vault calls", () => {
     await vi.waitFor(() => expect(rows(w)).toHaveLength(0));
     expect(removedIds).toEqual([7]);
     expect(w.find(".vault__error").exists()).toBe(false);
+  });
+
+  describe("dragging a row between sections", () => {
+    const filed = { ...entry(1, "Duplex"), folderId: 3 };
+    const loose = entry(2, "Kakwa 40");
+    const cook: VaultFolder = { id: 3, name: "Cook kit", sortOrder: 0 } as VaultFolder;
+    const rowNamed = (w: ReturnType<typeof mount>, name: string) =>
+      rows(w).find((r) => r.text().includes(name))!.element;
+
+    it("files a row into a folder", async () => {
+      listRows = [filed, loose];
+      listFolders = [cook];
+      const w = await openPage();
+      await dragRowOnto(rowNamed(w, "Kakwa 40"), w.get('[data-gear-folder="3"]').element);
+      await vi.waitFor(() => expect(folderOps).toEqual([{ t: "move", itemId: 2, folderId: 3 }]));
+      // the gesture ends with the drop: nothing stays lifted or lit
+      expect(w.find(".vault__row--dragging").exists()).toBe(false);
+      expect(w.find(".folder--drop-into").exists()).toBe(false);
+    });
+
+    // per pointermove, so an unchanged target has to cost nothing: every row on the page
+    // re-renders with the page, and a vault runs to a couple of hundred of them
+    it("re-renders nothing while the pointer stays over one section", async () => {
+      listRows = [filed, loose];
+      listFolders = [cook];
+      const w = await openPage();
+      vi.spyOn(document, "elementFromPoint").mockReturnValue(w.get('[data-gear-folder=""]').element);
+      const at = (x: number) => ({ pointerId: 1, button: 0, clientX: x, clientY: 0, bubbles: true });
+      rowNamed(w, "Duplex").dispatchEvent(new PointerEvent("pointerdown", at(0)));
+      window.dispatchEvent(new PointerEvent("pointermove", at(40)));
+      window.dispatchEvent(new PointerEvent("pointermove", at(80)));
+      await nextTick();
+
+      const updated = vi.fn();
+      for (const row of w.findAllComponents({ name: "VaultGearRow" })) {
+        // `u` is the instance's own updated-hook list; there's no public way in from outside
+        const instance = row.getCurrentComponent() as unknown as { u: (() => void)[] | null };
+        (instance.u ??= []).push(updated);
+      }
+      for (let x = 90; x < 100; x++) {
+        window.dispatchEvent(new PointerEvent("pointermove", at(x)));
+        await nextTick();
+      }
+      expect(updated).not.toHaveBeenCalled();
+      window.dispatchEvent(new PointerEvent("pointercancel", at(100)));
+    });
+
+    it("lights the section under the pointer, Unfiled included, and only that one", async () => {
+      listRows = [filed, loose];
+      listFolders = [cook];
+      const w = await openPage();
+      const row = rowNamed(w, "Duplex");
+      const unfiled = w.get('[data-gear-folder=""]').element;
+      vi.spyOn(document, "elementFromPoint").mockReturnValue(unfiled);
+      const at = (x: number) => ({ pointerId: 1, button: 0, clientX: x, clientY: 0, bubbles: true });
+      row.dispatchEvent(new PointerEvent("pointerdown", at(0)));
+      window.dispatchEvent(new PointerEvent("pointermove", at(40)));
+      await nextTick();
+      expect(w.find(".vault__row--dragging").exists()).toBe(true);
+      expect(w.find(".folder--drop-into").exists()).toBe(false); // lifted, over nothing yet
+      window.dispatchEvent(new PointerEvent("pointermove", at(80)));
+      await nextTick();
+      expect(w.findAll(".folder--drop-into").map((s) => s.element)).toEqual([unfiled]);
+      window.dispatchEvent(new PointerEvent("pointercancel", at(80)));
+      await nextTick();
+      expect(w.find(".folder--drop-into").exists()).toBe(false);
+      expect(folderOps).toEqual([]);
+    });
+
+    // "unfiled" is a real destination whose folder id is null, so it must not read as
+    // "no drop target": the section lit up under the pointer and the drop did nothing.
+    it("takes a row out of its folder when it lands on Unfiled", async () => {
+      listRows = [filed, loose];
+      listFolders = [cook];
+      const w = await openPage();
+      await dragRowOnto(rowNamed(w, "Duplex"), w.get('[data-gear-folder=""]').element);
+      await vi.waitFor(() => expect(folderOps).toEqual([{ t: "move", itemId: 1, folderId: null }]));
+    });
+  });
+
+  describe("adding gear by hand", () => {
+    const filed = { ...entry(1, "Duplex"), folderId: 3 };
+    const cook: VaultFolder = { id: 3, name: "Cook kit", sortOrder: 0 } as VaultFolder;
+    const nameField = (w: ReturnType<typeof mount>) => w.get<HTMLInputElement>(".vaddrow__name");
+    const openForm = async (w: ReturnType<typeof mount>) => {
+      await w.get(".folder__addbtn").trigger("click");
+      await nextTick();
+    };
+
+    it("opens a fresh pair after an add, with the caret back in the name", async () => {
+      listRows = [filed];
+      listFolders = [cook];
+      const w = await openPage();
+      await openForm(w);
+      await nameField(w).setValue("Stove");
+      await w.get("form.vaddrow").trigger("submit");
+      await vi.waitFor(() => expect(addedNames).toEqual(["Stove"]));
+      await vi.waitFor(() => expect(nameField(w).element.value).toBe(""));
+      await nextTick();
+      expect(document.activeElement).toBe(nameField(w).element);
+    });
+
+    it("keeps what was typed while the add was out", async () => {
+      let land = () => {};
+      itemsHeld = new Promise((r) => (land = r));
+      listRows = [filed];
+      listFolders = [cook];
+      const w = await openPage();
+      await openForm(w);
+      await nameField(w).setValue("Stove");
+      await w.get("form.vaddrow").trigger("submit");
+      await vi.waitFor(() => expect(addedNames).toEqual(["Stove"]));
+
+      await nameField(w).setValue("Windscreen");
+      land();
+      await new Promise((r) => setTimeout(r, 40));
+      expect(nameField(w).element.value).toBe("Windscreen");
+    });
   });
 });

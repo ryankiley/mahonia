@@ -211,18 +211,19 @@ async function folderOp(op: Record<string, unknown>) {
 // createPointerDrag scaffold (capture, Escape/cancel, the text-selection lock). The
 // editor's useFolderDnd itself can't be reused: it's a singleton bound to
 // useGearList's op reducer, and a vault folder is a row behind a REST call.
-const draggingFolder = ref<number | null>(null);
-const folderDrop = ref<number | null>(null);
+//
+// The folder in hand, and the one it would land before once it has been over one.
+const folderMove = ref<{ id: number; over: number | null } | null>(null);
 const folderDrag = createPointerDrag<number>({
   track(ev, el) {
     const over = el?.closest("[data-gear-folder]") as HTMLElement | null;
     const id = Number(over?.getAttribute("data-gear-folder"));
     // above the first / below the last, or over the unfiled heading (which has no
     // id): keep the last target so the indicator doesn't flicker mid-drag
-    if (!id) return;
-    folderDrop.value = id;
+    if (!id || !folderMove.value) return;
+    folderMove.value.over = id;
   },
-  target: () => folderDrop.value,
+  target: () => folderMove.value?.over ?? null,
   commit: (dragId, overId) => {
     const ids = folders.value.map((f) => f.id);
     const from = ids.indexOf(Number(dragId));
@@ -231,18 +232,14 @@ const folderDrag = createPointerDrag<number>({
     ids.splice(to, 0, ...ids.splice(from, 1));
     void folderOp({ t: "reorder", ids });
   },
-  onStart() {
-    folderDrop.value = null;
-  },
   onReset() {
-    draggingFolder.value = null;
-    folderDrop.value = null;
+    folderMove.value = null;
   },
   within: ".vault__page",
 });
 function startFolderDrag(id: number, ev: PointerEvent) {
-  draggingFolder.value = id;
-  folderDrag.start(String(id), ev);
+  folderDrag.start(String(id), ev); // resets any gesture before it, so this comes after
+  folderMove.value = { id, over: null };
 }
 
 // Drag a piece of gear into another folder. Same scaffold, a separate gesture: a
@@ -252,31 +249,33 @@ function startFolderDrag(id: number, ev: PointerEvent) {
 // The drop target is the FOLDER, not a slot within it: a vault folder's rows come
 // in the server's order (most recently used first), so there is no position to aim
 // at — unlike the list, where dropping between two rows is the whole point.
-const draggingItem = ref<number | null>(null);
-// number = a folder, null = unfiled, undefined = not over a drop target
-const itemDrop = ref<number | null | undefined>(undefined);
-const itemDrag = createPointerDrag<number | null>({
+//
+// The row in hand, and the section it would land in once it has been over one. `over`
+// wraps the folder id because Unfiled is a real destination whose id is null: bare, it
+// reads as "no target", and a drop on it did nothing.
+type ItemDrop = { folderId: number | null };
+const itemMove = ref<{ id: number; over: ItemDrop | null } | null>(null);
+const itemDrag = createPointerDrag<ItemDrop>({
   track(ev, el) {
     const over = el?.closest("[data-gear-folder]") as HTMLElement | null;
     // off every section (the page margins, the header) — hold the last target so a
     // wobble mid-drag doesn't drop the indicator
-    if (!over) return;
+    if (!over || !itemMove.value) return;
     const attr = over.getAttribute("data-gear-folder");
-    itemDrop.value = attr ? Number(attr) : null; // "" is the unfiled section
+    const folderId = attr ? Number(attr) : null; // "" is the unfiled section
+    // only on a change of section: this runs per pointermove, and a fresh object each
+    // time would re-render every row on the page
+    if (itemMove.value.over?.folderId !== folderId) itemMove.value.over = { folderId };
   },
-  target: () => (itemDrop.value === undefined ? null : itemDrop.value),
-  commit: (dragId, folderId) => {
+  target: () => itemMove.value?.over ?? null,
+  commit: (dragId, { folderId }) => {
     const itemId = Number(dragId);
     const from = items.value.find((i) => i.id === itemId)?.folderId ?? null;
     if (from === folderId) return; // dropped where it already was
     void folderOp({ t: "move", itemId, folderId });
   },
-  onStart() {
-    itemDrop.value = undefined;
-  },
   onReset() {
-    draggingItem.value = null;
-    itemDrop.value = undefined;
+    itemMove.value = null;
   },
   within: ".vault__page",
 });
@@ -294,8 +293,8 @@ const rowPress = createPressArm<number>({
 onBeforeUnmount(rowPress.end);
 
 function startItemDrag(id: number, ev: PointerEvent) {
-  draggingItem.value = id;
-  itemDrag.start(String(id), ev);
+  itemDrag.start(String(id), ev); // resets any gesture before it, so this comes after
+  itemMove.value = { id, over: null };
 }
 
 function renameFolder(f: VaultFolder, e: Event) {
@@ -334,7 +333,9 @@ const addingIn = ref<string | null>(null);
 const addName = ref("");
 const addWeight = ref("");
 const addBusy = ref(false);
-const addRow = useTemplateRef<{ focus: () => void }>("addRow");
+type AddRow = { focus: () => void };
+// one mounted at a time, but the folder view's sits in a v-for, where a ref is an array
+const addRow = useTemplateRef<AddRow | AddRow[]>("addRow");
 
 function openAdd(folderId: number | null) {
   addingIn.value = folderId === null ? "unfiled" : String(folderId);
@@ -378,10 +379,14 @@ async function commitAdd(folderId: number | null) {
     await loadVault();
     // Committing re-opens a fresh pair — the editor's `advance` behaviour, which is
     // what makes typing in five things bearable rather than five separate presses.
-    addName.value = "";
-    addWeight.value = "";
-    // the whole gear re-rendered under it, so the field is a new element
-    nextTick(() => addRow.value?.focus());
+    // Only the pair that was sent, though: the fields stay live through the round
+    // trip, and anything typed meanwhile is the next one.
+    if (addName.value.trim() === name && addWeight.value.trim() === raw) {
+      addName.value = "";
+      addWeight.value = "";
+      // the whole gear re-rendered under it, so the field is a new element
+      nextTick(() => [addRow.value ?? []].flat()[0]?.focus());
+    }
   } catch {
     loadError.value = "Couldn’t add that. Check your connection and try again.";
   }
@@ -719,12 +724,10 @@ async function exportGear(kind: string) {
                 :key="sectionKey(section)"
                 class="folder"
                 :class="{
-                  'folder--dragging': section.folder && draggingFolder === section.folder.id,
-                  'folder--drop-before': section.folder && draggingFolder !== null && folderDrop === section.folder.id,
+                  'folder--dragging': section.folder && folderMove?.id === section.folder.id,
+                  'folder--drop-before': section.folder && folderMove?.over === section.folder.id,
                   'folder--drop-into':
-                    draggingItem !== null &&
-                    itemDrop !== undefined &&
-                    itemDrop === (section.folder ? section.folder.id : null),
+                    itemMove?.over && itemMove.over.folderId === (section.folder ? section.folder.id : null),
                 }"
                 :data-gear-folder="section.folder ? section.folder.id : ''"
                 :data-collapsed="section.folder && collapsed[section.folder.id] ? true : null"
@@ -798,7 +801,7 @@ async function exportGear(kind: string) {
                         :unit="unit"
                         :folder-options="folderOptions"
                         :busy="removing === entry.id"
-                        :class="{ 'vault__row--dragging': draggingItem === entry.id }"
+                        :class="{ 'vault__row--dragging': itemMove?.id === entry.id }"
                         @pointerdown="rowPress.start(entry.id, $event)"
                         @edit="openEdit(entry)"
                         @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"

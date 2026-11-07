@@ -606,6 +606,23 @@ describe("useGearList — whose gear is this?", () => {
     expect(captureCalls).toBe(0);
   });
 
+  // The chooser is the same question, further along: the decision stays "ask" until it
+  // is confirmed, so an edit behind it would otherwise raise the toast it came from.
+  it("keeps the chooser up, with no prompt over it, when an edit lands behind it", async () => {
+    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    c.updateItem("i1", { qty: 2 });
+    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    await c.answerVaultPrompt(true);
+    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+
+    c.updateItem("i1", { qty: 3 });
+    await new Promise((r) => setTimeout(r, 20)); // sync's chunk load, then its decision
+    expect(c.vaultPicker.value).not.toBeNull();
+    expect(c.vaultPrompt.value).toBeNull();
+  });
+
   it("captures only what was ticked, and never re-offers the rest", async () => {
     listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
     const c = useGearList();

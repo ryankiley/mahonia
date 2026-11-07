@@ -21,21 +21,31 @@ interface SessionState {
   displayName: string | null;
 }
 
+/** What this tab knows of the session. "unresolved" means not asked yet, or the last
+ *  ask failed, and is a different answer from signed out: without it the vault page
+ *  flashes its signed-out state before /api/auth/me answers, and a failed re-read tells
+ *  the switcher to throw the account's cached lists away. A user only exists inside
+ *  "signedIn", so there is no such thing as a user nobody has resolved. */
+type SessionAnswer =
+  | { state: "unresolved" }
+  | { state: "signedOut" }
+  | { state: "signedIn"; user: SessionState };
+
 /** The session as three answers, not two — see `presence` below. */
 export type Presence = "signedIn" | "signedOut" | "presumed";
 
 export function useSession() {
-  const user = useState<SessionState | null>("session-user", () => null);
-  // Distinguishes "not fetched yet" from "fetched, signed out" — without it the
-  // vault page flashes its signed-out state before /api/auth/me answers.
-  const loaded = useState<boolean>("session-loaded", () => false);
+  const session = useState<SessionAnswer>("session", () => ({ state: "unresolved" }));
+  const user = computed(() => (session.value.state === "signedIn" ? session.value.user : null));
+  const loaded = computed(() => session.value.state !== "unresolved");
+  // the request in flight, which de-dupes callers; a re-read happens under any answer
   const pending = useState<boolean>("session-pending", () => false);
 
   // Presence of the user, NOT of an email. An account created with a passkey has
   // no address until someone attaches one, so keying this off `email` would read
   // every one of them as signed out — and take the vault, capture and the byline
   // down with it. The account is the identity; the address is only the way back in.
-  const signedIn = computed(() => user.value !== null);
+  const signedIn = computed(() => session.value.state === "signedIn");
 
   /**
    * The session as the three-way answer the surfaces that cannot wait for
@@ -45,10 +55,10 @@ export function useSession() {
    * definition of "offline with a hint": the switcher's cache, the account menu and
    * the vault gate each used to spell it from signedIn, loaded and the cookie in
    * their own words. The cookie read is not reactive; the answer moves when
-   * `loaded` or `user` do, which is every moment the cookie itself is changed here.
+   * `session` does, which is every moment the cookie itself is changed here.
    */
   const presence = computed<Presence>(() =>
-    loaded.value ? (user.value ? "signedIn" : "signedOut") : hasSessionHint() ? "presumed" : "signedOut",
+    session.value.state !== "unresolved" ? session.value.state : hasSessionHint() ? "presumed" : "signedOut",
   );
 
   /** The readable companion flag the server sets alongside the HttpOnly session
@@ -78,8 +88,7 @@ export function useSession() {
     if (!hasSessionHint()) {
       forgetAccountMemos(user.value?.owner ?? sessionCacheOwner());
       clearSessionHint();
-      user.value = null;
-      loaded.value = true;
+      session.value = { state: "signedOut" };
       return;
     }
     pending.value = true;
@@ -101,7 +110,7 @@ export function useSession() {
       if (previousOwner !== null && previousOwner !== nextUser?.owner) {
         forgetAccountMemos(previousOwner);
       }
-      user.value = nextUser;
+      session.value = nextUser ? { state: "signedIn", user: nextUser } : { state: "signedOut" };
       // A hint with no session behind it (expired, or signed out in another tab)
       // would otherwise keep costing a request on every page load — drop it. And
       // drop what this device kept FOR that account with it: a session ending here
@@ -114,18 +123,16 @@ export function useSession() {
         clearSessionHint();
       }
     } catch {
-      // offline or a server blip — treat as signed out for rendering purposes,
-      // but leave `loaded` false so the next call retries rather than caching a
-      // wrong answer for the rest of the session. SET false, not merely left: a
-      // forced re-read (after a sign-in, say) arrives with `loaded` already true
-      // from the last success, and a failure then read as a RESOLVED signed-out —
-      // the reading that tells the switcher to throw the account's cached lists away.
-      user.value = null;
-      loaded.value = false;
+      // offline or a server blip — no user for rendering purposes, but unresolved,
+      // so the next call retries rather than caching a wrong answer for the rest of the
+      // session. SET unresolved, not merely left: a forced re-read (after a sign-in, say)
+      // arrives already resolved from the last success, and a failure then read as a
+      // RESOLVED signed-out — the reading that tells the switcher to throw the account's
+      // cached lists away.
+      session.value = { state: "unresolved" };
       pending.value = false;
       return;
     }
-    loaded.value = true;
     pending.value = false;
   }
 
@@ -168,8 +175,7 @@ export function useSession() {
       // the signed-out state holds even if that request never landed
       forgetAccountMemos(owner);
       clearSessionHint();
-      user.value = null;
-      loaded.value = true;
+      session.value = { state: "signedOut" };
     }
   }
 
@@ -181,10 +187,10 @@ export function useSession() {
         "/api/account/profile",
         { method: "POST", body: patch },
       );
-      if (user.value)
-        user.value = {
-          ...user.value,
-          displayName: res.displayName,
+      if (session.value.state === "signedIn")
+        session.value = {
+          state: "signedIn",
+          user: { ...session.value.user, displayName: res.displayName },
         };
       return res.ok;
     } catch {
