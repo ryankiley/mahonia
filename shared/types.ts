@@ -137,6 +137,11 @@ export interface TripDay {
   sortOrder: number;
   /** the owner's own name for it — "Over Muir Pass", "Resupply at Reds" */
   label?: string;
+  /**
+   * The owner's words about the day — "Resupply at Reds, shuttle at 8". Public like the
+   * rest of the day, so the shared itinerary shows it under the day it belongs to.
+   */
+  note?: string;
   /** metres walked */
   distanceM?: number;
   /** metres climbed */

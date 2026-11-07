@@ -220,6 +220,8 @@ export const MAX_GEAR_TYPE_LEN = 120; // commonName
 const MAX_BRAND_LEN = 120;
 /** a day's or a waypoint's label */
 const MAX_LABEL_LEN = 120;
+/** a day's or a waypoint's note: "Resupply at Reds, shuttle at 8" */
+export const MAX_NOTE_LEN = 500;
 /** a row's count, and its worn split */
 const MAX_QTY = 9999;
 export const MAX_VARIANT_LEN = 120; // the size/config qualifier, typed or picked
@@ -453,6 +455,8 @@ export type DayPatch = Omit<Partial<TripDay>, "distanceM" | "ascentM" | "descent
 function cleanDayPatch(patch: DayPatch): Partial<TripDay> {
   const out: Partial<TripDay> = {};
   if (typeof patch.label === "string") out.label = patch.label.slice(0, MAX_LABEL_LEN) || undefined;
+  // a string survives JSON whole, so "" is its own clear and needs no sentinel
+  if (typeof patch.note === "string") out.note = cleanNote(patch.note);
   // `in` rather than a truthiness test: these are all clearable, and an explicit
   // undefined/0/"" has to be able to erase a value, not be skipped as "nothing sent".
   if ("distanceM" in patch) out.distanceM = boundedRound(patch.distanceM, 1, MAX_DAY_DISTANCE_M);
@@ -503,12 +507,18 @@ export function seedRouteEnds(geo: string): Waypoint[] {
   return out;
 }
 
+/** A note as stored: trimmed, capped, and absent rather than empty. */
+function cleanNote(raw: unknown): string | undefined {
+  return raw ? String(raw).trim().slice(0, MAX_NOTE_LEN) || undefined : undefined;
+}
+
 /** A raw day → its stored form. Same contract as normalizeFolder/normalizeItem. */
 export function normalizeDay(raw: TripDay): TripDay {
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     sortOrder: Number(raw.sortOrder) || 0,
     label: raw.label ? String(raw.label).slice(0, MAX_LABEL_LEN) : undefined,
+    note: cleanNote(raw.note),
     distanceM: boundedRound(raw.distanceM, 1, MAX_DAY_DISTANCE_M),
     ascentM: boundedRound(raw.ascentM, 1, MAX_DAY_ASCENT_M),
     descentM: boundedRound(raw.descentM, 1, MAX_DAY_ASCENT_M),
@@ -540,7 +550,7 @@ export function normalizeWaypoint(raw: Waypoint): Waypoint | null {
     kind: WAYPOINT_KINDS.includes(raw.kind) ? raw.kind : "landmark",
     alongM,
     label: raw.label ? String(raw.label).slice(0, MAX_LABEL_LEN) : undefined,
-    note: raw.note ? String(raw.note).slice(0, 500) : undefined,
+    note: cleanNote(raw.note),
   };
 }
 
@@ -553,7 +563,7 @@ function cleanWaypointPatch(patch: Partial<Waypoint>): Partial<Waypoint> {
     if (m != null) out.alongM = m; // a patch can move a pin, never un-place it
   }
   if ("label" in patch) out.label = patch.label ? String(patch.label).slice(0, MAX_LABEL_LEN) : undefined;
-  if ("note" in patch) out.note = patch.note ? String(patch.note).slice(0, 500) : undefined;
+  if ("note" in patch) out.note = cleanNote(patch.note);
   return out;
 }
 

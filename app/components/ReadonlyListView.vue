@@ -254,6 +254,9 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
             <HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
             {{ asHeight(climbFor(i)!) }}
           </span>
+          <!-- the owner's note on the day, on its own line under the figures, in the
+               same voice an item's note takes on this page -->
+          <p v-if="d.note" class="t-sm view__daynote">{{ d.note }}</p>
         </li>
       </ol>
     </section>
@@ -475,6 +478,13 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 .view__dayfig > svg {
   flex: none;
   align-self: center;
+}
+/* a whole line of the wrapping row, so it always lands under the name and figures */
+.view__daynote {
+  flex: 1 0 100%;
+  margin: 0;
+  color: var(--ink-3);
+  font-style: italic;
 }
 .view__folders {
   display: flex;

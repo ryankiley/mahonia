@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
 import { ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
-import type { ListSnapshot, Totals } from "~~/shared/types";
+import type { Directive } from "vue";
+import type { ListSnapshot, Totals, Waypoint } from "~~/shared/types";
 import { estimateDay, heightIsDerived, shownHeightM } from "~~/shared/tripPlan";
 import { coolerByC, dayFactsForRanges, type DayFacts } from "~~/shared/dayFacts";
 import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/shared/dryCarry";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
-import { MAX_DAYS } from "~~/shared/ops";
+import { MAX_DAYS, MAX_NOTE_LEN } from "~~/shared/ops";
 import { shiftIsoDate } from "~~/shared/calendar";
 import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
@@ -25,6 +26,8 @@ import {
   parseDistanceM,
 } from "~~/shared/trailDistance";
 import { tripDays } from "~~/shared/foodPlan";
+import { forecastLink } from "~~/shared/forecast";
+import { fitTextarea } from "~/composables/dom";
 import { useTrailPlanRoute } from "~/composables/useTrailPlanRoute";
 import { useTripLoadModel } from "~/composables/useTripLoadModel";
 
@@ -299,10 +302,26 @@ const routePoints = computed(() =>
 // the route's spine, summed once per geometry rather than once per row per render —
 // see the note on the walkers in shared/polyline.ts
 const routeCum = computed(() => cumulativeM(routePoints.value));
+const pointAt = (alongM: number) =>
+  routePoints.value.length ? pointAlong(routePoints.value, alongM, routeCum.value) : null;
 const coordOf = (alongM: number) => {
-  const at = routePoints.value.length ? pointAlong(routePoints.value, alongM, routeCum.value) : null;
+  const at = pointAt(alongM);
   return at ? formatLatLon(at) : "";
 };
+
+/**
+ * A forecast for where each day ends: a LINK, never a fetch (shared/forecast.ts). Built
+ * from the coordinate the row already shows, so it is owner-only for the same reason that
+ * coordinate is, and nothing is asked of any weather service until the owner opens it.
+ * Each camp gets one, and so does the finish, whichever row draws it: the day's own end
+ * row, or the route's End pin when the last day walks all the way to it.
+ */
+const forecastAt = (alongM: number) => {
+  const at = pointAt(alongM);
+  return at ? forecastLink(at) : null;
+};
+const dayForecasts = computed(() => dayEnds.value.map((end) => (end ? forecastAt(end.alongM) : null)));
+const pinForecast = (w: Waypoint) => (w.kind === "end" ? forecastAt(w.alongM) : null);
 
 function onPlace(alongM: number) {
   c.addWaypoint(alongM);
@@ -455,8 +474,9 @@ const descentFor = (i: number) =>
 // One commit for both metre fields. Distance reads in the trip's km/mi; ascent is
 // a HEIGHT and reads in metres or feet, never the km/mi beside it — same parser,
 // the fallback unit is the whole difference.
-async function commitDayMetres(id: string | null, field: "distanceM" | "ascentM", e: Event) {
-  if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
+async function commitDayMetres(maybeId: string | null, field: "distanceM" | "ascentM", e: Event) {
+  const id = await realDayId(maybeId);
+  if (!id) return;
   const raw = (e.target as HTMLInputElement).value.trim();
   const unit = field === "distanceM" ? distanceUnit.value : distanceUnit.value === "mi" ? "ft" : "m";
   // "" and NOT undefined, spelled out per field. The patch is JSON on its way to
@@ -471,6 +491,26 @@ async function commitDayMetres(id: string | null, field: "distanceM" | "ascentM"
       : { ascentM: raw ? (parseDistanceM(raw, unit) ?? "") : "" },
   );
 }
+
+/** The id to patch: the row's own, or, for a ghost that ensureDay just made real, the
+ *  day its add created — which lands on the next tick, at the end of the stored days. */
+async function realDayId(id: string | null): Promise<string | null> {
+  if (id) return id;
+  await nextTick();
+  return stored.value[stored.value.length - 1]?.id ?? null;
+}
+
+// The day's note commits on change like the figures do. "" is the clear: a string
+// survives the JSON trip whole, so it needs no sentinel (see DayPatch).
+async function commitDayNote(maybeId: string | null, e: Event) {
+  const id = await realDayId(maybeId);
+  if (id) c.updateDay(id, { note: (e.target as HTMLTextAreaElement).value.trim() });
+}
+// The note grows to fit its text: natively through field-sizing, by hand where that is
+// missing, and fitTextarea is the gate (a no-op where it isn't needed). On mount AND on
+// update, because a note can arrive from outside (the list loading, a collaborator's
+// edit) and a folded day only mounts its note when it opens.
+const vFit: Directive<HTMLTextAreaElement> = { mounted: (el) => fitTextarea(el), updated: (el) => fitTextarea(el) };
 
 // The two field formatters are shared/trailDistance.ts's: feet to the nearest 10 and
 // ungrouped so the value parses back (heightFieldValue), and a distance padded to at
@@ -688,6 +728,23 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
         <Transition name="reveal">
         <div v-if="!collapsed[d?.id ?? '']" class="reveal">
         <div class="plan__body">
+        <!-- The owner's own words about the day, under its name the way an item's note sits
+             under the item's: the same quiet italic caption, one line until it wraps, and
+             Enter commits rather than opening a line, like every field in the editor. A
+             ghost day becomes real on its first note, as on its first distance. -->
+        <textarea
+          v-fit
+          class="plan__daynote"
+          rows="1"
+          :maxlength="MAX_NOTE_LEN"
+          :value="d?.note ?? ''"
+          placeholder="Add a note"
+          :aria-label="`Note for day ${i + 1}`"
+          spellcheck="true"
+          @input="fitTextarea($event.target as HTMLTextAreaElement)"
+          @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
+          @change="commitDayNote(d?.id ?? ensureDay(i), $event)"
+        />
         <!-- The data reads as one line of glyph-and-figure pairs, the way an item row
              does: what you TYPE first, then what follows from it. -->
         <div class="plan__data">
@@ -837,6 +894,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
               :waypoint="w"
               :distance-unit="distanceUnit"
               :coord="coordOf(w.alongM)"
+              :forecast="pinForecast(w)"
             />
             <!-- ONE row for either kind of day's end, coming LAST because that is the
                  order you meet them in: you pass the spring and the col, and then you
@@ -876,10 +934,19 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
               </span>
               <span class="t-sm wprow__coord">{{ coordOf(dayEnds[i]!.alongM) }}</span>
               <span class="t-sm wprow__dist">{{ formatDistancePadded(dayEnds[i]!.alongM, distanceUnit) }}</span>
-              <!-- the delete column, left empty: a day's end is the end of a day, and
-                   removing it would mean removing the day. The cell stays so every other
-                   column in the list still lines up through this row. -->
-              <span class="wprow__del" aria-hidden="true" />
+              <!-- The delete column holds the forecast instead. A day's end is the end of a
+                   day, and removing it would mean removing the day, so the cell was empty;
+                   the forecast belongs to exactly this place, and the coordinate it is built
+                   from is the one printed beside it. Opens in a new tab: weather.gov inside
+                   the US, yr.no elsewhere. The cell stays either way, so every column in the
+                   list still lines up through this row. -->
+              <ForecastButton
+                v-if="dayForecasts[i]"
+                class="wprow__del"
+                :link="dayForecasts[i]!"
+                :place="`the ${dayEnds[i]!.kind === 'camp' ? 'camp' : 'finish'} at the end of day ${i + 1}`"
+              />
+              <span v-else class="wprow__del" aria-hidden="true" />
             </li>
           </ol>
           <!-- the add row, carrying the same rule and the same padding as a row above it,
@@ -915,6 +982,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             :waypoint="w"
             :distance-unit="distanceUnit"
             :coord="coordOf(w.alongM)"
+            :forecast="pinForecast(w)"
           />
         </ol>
         <button
@@ -1076,6 +1144,26 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 /* …and only the delete goes to the far edge */
 .plan__del--end {
   margin-left: auto;
+}
+/* The day's note: the item note's caption voice (ItemRow's .item__note), at day scale —
+   the lightest ink, italic, no box and no handle, one line until the text wraps. 16px,
+   static, so focusing it on a phone never zooms the page. */
+.plan__daynote {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  color: var(--ink-3);
+  font-size: var(--text-input);
+  font-style: italic;
+  field-sizing: content;
+  resize: none;
+  overflow: hidden;
+}
+.plan__daynote::placeholder {
+  color: var(--ink-3);
+}
+.plan__daynote:focus {
+  outline: none;
 }
 /* the row's data, as glyph-and-figure pairs — an item row's grammar at day scale */
 /* The day's figures line up DOWN the list, not just across one row.
