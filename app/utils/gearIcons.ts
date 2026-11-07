@@ -1,5 +1,9 @@
 import {
+  Airpod03Icon,
   Backpack02Icon,
+  Camera01Icon,
+  Chair02Icon,
+  ChessKnightIcon,
   ChocolateIcon,
   CookingPotIcon,
   EnergyIcon,
@@ -12,6 +16,8 @@ import {
   PocketKnifeIcon,
   Shirt01Icon,
   ShovelIcon,
+  SmartPhone01Icon,
+  SmartWatch01Icon,
   SneakerIcon,
   SocksIcon,
   TentIcon,
@@ -21,6 +27,9 @@ import {
 import type { IconNode } from "./hugeicon";
 import { gearGlyphFor, type GearGlyph } from "~~/shared/gearGlyph";
 import {
+  CarabinerGlyph,
+  HeadlampGlyph,
+  HikingBootGlyph,
   JacketGlyph,
   SleepingBagGlyph,
   StoveGlyph,
@@ -47,6 +56,7 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   pants: JoggerPantsIcon,
   socks: SocksIcon,
   shoe: SneakerIcon,
+  boot: HikingBootGlyph,
   hat: HatIcon,
   glove: GloveIcon,
   glasses: GlassesIcon,
@@ -56,10 +66,18 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   pot: CookingPotIcon,
   food: ChocolateIcon,
   knife: PocketKnifeIcon,
+  light: HeadlampGlyph,
+  phone: SmartPhone01Icon,
+  watch: SmartWatch01Icon,
+  earbuds: Airpod03Icon,
+  camera: Camera01Icon,
   electronics: EnergyIcon,
   firstAid: FirstAidKitIcon,
   toiletry: TubeGlyph,
   toilet: ShovelIcon,
+  chair: Chair02Icon,
+  carabiner: CarabinerGlyph,
+  games: ChessKnightIcon,
 };
 
 /** The icon a piece of gear wears, from its gear type (its name when it has none);

@@ -10,8 +10,8 @@
 // recognise. So this is one icon per family, split only where rows in the SAME folder
 // need telling apart — a Clothing folder holds jackets, shirts, pants, socks, shoes,
 // hats, gloves and glasses; a kitchen holds the stove, the pot, the bottle and the
-// filter. Everything else goes without: a chair, a deck of cards, a compass, a
-// carabiner. No icon is better than a one-off one.
+// filter. Everything else goes without: a compass, earplugs, a mouth guard. No icon
+// is better than a one-off one.
 //
 // The answer is a NAME, not a drawing: the drawings are Hugeicons glyphs and a few of
 // our own (app/utils/gearGlyphs.ts), and the server and the tests have no business
@@ -30,14 +30,16 @@ export const GEAR_GLYPHS = [
   // carrying
   "backpack", "bag",
   // clothing, split the way a Clothing folder needs it
-  "jacket", "shirt", "pants", "socks", "shoe", "hat", "glove", "glasses",
+  "jacket", "shirt", "pants", "socks", "shoe", "boot", "hat", "glove", "glasses",
   // water and kitchen
   "bottle", "filter", "stove", "pot", "food", "knife",
-  // anything with a battery or a cable: one catch-all icon, since each kind is a
-  // one-off on a page
-  "electronics",
+  // electronics: the devices people recognise at a glance, and one catch-all for the
+  // rest (power banks, cables, chargers, solar)
+  "light", "phone", "watch", "earbuds", "camera", "electronics",
   // body
   "firstAid", "toiletry", "toilet",
+  // camp
+  "chair", "carabiner", "games",
 ] as const;
 export type GearGlyph = (typeof GEAR_GLYPHS)[number];
 
@@ -47,7 +49,8 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(stake bag|pole bag)\b/, "bag"],
   [/\bpill bottle\b/, "firstAid"],
   [/\b(dropper bottle|toiletry bottle|spray bottle|toothbrush case)\b/, "toiletry"],
-  [/\b(phone case|phone holder|phone pocket|camera case|camera clip|lens adapter)\b/, "electronics"],
+  [/\b(phone case|phone holder|phone pocket)\b/, "phone"],
+  [/\b(camera case|camera clip|lens adapter)\b/, "camera"],
   [/\b(hydration vest|running vest|hydration pack)\b/, "backpack"],
   [/\bfleece pants\b/, "pants"],
   [/\b(neck gaiter|buff|bandana|balaclava|scarf|headband|head net|bug net)\b/, "hat"],
@@ -64,7 +67,8 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(pants|leggings|tights|joggers|chaps|trousers|base layer bottoms|shorts|skirt|underwear|boxers?|briefs?)\b/, "pants"],
   [/\b(shirt|tee|t-shirt|tank top|top|base layer top|long sleeve|sun shirt|arm sleeves|sports bra|bra|dress)\b/, "shirt"],
   [/\b(socks?|sock liners|gaiters?|booties|insoles)\b/, "socks"],
-  [/\b(trail runners?|running shoes?|shoes?|boots?|sandals?)\b/, "shoe"],
+  [/\b(hiking boots?|mountaineering boots?|boots?)\b/, "boot"],
+  [/\b(trail runners?|running shoes?|shoes?|sandals?)\b/, "shoe"],
   [/\b(beanie|toque|hat|cap|brimmer)\b/, "hat"],
   [/\b(gloves?|glove liners|mitts|mittens)\b/, "glove"],
   [/\b(sunglasses|glasses|goggles)\b/, "glasses"],
@@ -81,12 +85,22 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(knife|saw|multitool|sheath|scissors)\b/, "knife"],
 
   // electronics and light
-  [/\b(headlamp|flashlight|torch|lantern|smartwatch|gps watch|watch|phone|gps handheld|gps|satellite messenger|plb|inreach|e-reader|kindle|power bank|battery|battery pack|wall charger|charger|solar|solar panel|charging cable|cable|earbuds|airpods|earphones|headphones|camera)\b/, "electronics"],
+  [/\b(headlamp|flashlight|torch|lantern)\b/, "light"],
+  [/\b(smartwatch|gps watch|watch)\b/, "watch"],
+  [/\b(phone|gps handheld|gps|satellite messenger|plb|inreach)\b/, "phone"],
+  [/\b(earbuds|airpods|earphones|headphones)\b/, "earbuds"],
+  [/\bcamera\b/, "camera"],
+  [/\b(power bank|battery|battery pack|wall charger|charger|solar|solar panel|charging cable|cable|e-reader|kindle|air pump|inflator|pump)\b/, "electronics"],
 
   // body
   [/\b(first aid|blister care|moleskin|bandages?|tick remover|tweezers|antacid|pills?|medication)\b/, "firstAid"],
   [/\b(trowel|shovel|wipes?|face wipe|toilet paper|pee cloth|bidet|tissues?)\b/, "toilet"],
   [/\b(toothbrush|toothpaste|sunscreen|lip balm|deodorant|balm|salve|lotion|cream|moisturi[sz]er|cleanser|soap|sanitizer|towel|bite relief|insect repellent)\b/, "toiletry"],
+
+  // camp
+  [/\b(camp chair|chair|camp stool|stool)\b/, "chair"],
+  [/\b(carabiner|gear hooks?)\b/, "carabiner"],
+  [/\b(card game|cards|games?|chess|dice|cribbage)\b/, "games"],
 
   // a bag or a case of anything not named above: after every rule that knows what
   // the case holds, so a camera case is a camera and a pack liner a bag

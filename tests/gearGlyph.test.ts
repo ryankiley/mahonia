@@ -26,6 +26,7 @@ describe("which icon a gear type wears", () => {
     ["Shorts", "pants"],
     ["Trail runners", "shoe"],
     ["Sandals", "shoe"],
+    ["Hiking boots", "boot"],
     ["Beanie", "hat"],
     ["Water bottle", "bottle"],
     ["Soft flask", "bottle"],
@@ -37,10 +38,14 @@ describe("which icon a gear type wears", () => {
     ["Spork", "pot"],
     ["Energy bar", "food"],
     ["Meal", "food"],
-    ["Headlamp", "electronics"],
-    ["GPS watch", "electronics"],
+    ["Headlamp", "light"],
+    ["GPS watch", "watch"],
     ["Power bank", "electronics"],
-    ["Earbuds", "electronics"],
+    ["Air pump", "electronics"],
+    ["Earbuds", "earbuds"],
+    ["Camp chair", "chair"],
+    ["Carabiner", "carabiner"],
+    ["Card game", "games"],
     ["Sunscreen", "toiletry"],
     ["Toothbrush", "toiletry"],
     ["Trowel", "toilet"],
@@ -61,8 +66,8 @@ describe("which icon a gear type wears", () => {
     ["Coffee filter", "pot"],
     ["Pill bottle", "firstAid"],
     ["Toiletry bottle", "toiletry"],
-    ["Phone case", "electronics"],
-    ["Camera case", "electronics"],
+    ["Phone case", "phone"],
+    ["Camera case", "camera"],
     ["Toothbrush case", "toiletry"],
     ["Pack liner", "bag"],
     ["Toiletry bag", "bag"],
@@ -77,19 +82,19 @@ describe("which icon a gear type wears", () => {
     expect(gearGlyphFor(undefined, "Snacks - Daily")).toBe("food");
     expect(gearGlyphFor("  ", "Baggies Brimmer Hat")).toBe("hat");
     // a type that matched nothing is still the row's answer
-    expect(gearGlyphFor("Camp chair", "Flexlite Air Chair Pack")).toBeNull();
+    expect(gearGlyphFor("Compression straps", "Compression Cap Hat")).toBeNull();
     // and a type that did match is never second-guessed by the name
     expect(gearGlyphFor("Socks", "Hiker Boot Midweight")).toBe("socks");
   });
 
   it("reads a typed type the same as the catalog's spelling", () => {
     expect(gearGlyphFor("  stuff   SACK ")).toBe("bag");
-    expect(gearGlyphFor("hiking boots")).toBe("shoe");
+    expect(gearGlyphFor("hiking boots")).toBe("boot");
   });
 
   // the long tail goes without: a one-off icon is a picture to decode
   it("answers null for the long tail rather than giving it a one-off icon", () => {
-    for (const type of ["Camp chair", "Card game", "Compass", "Carabiner", "Umbrella", "Ice axe", "Earplugs"]) {
+    for (const type of ["Compass", "Umbrella", "Ice axe", "Earplugs", "Compression straps"]) {
       expect(gearGlyphFor(type)).toBeNull();
     }
     expect(gearGlyphFor("")).toBeNull();
@@ -98,7 +103,7 @@ describe("which icon a gear type wears", () => {
   });
 
   it("keeps the set small", () => {
-    expect(GEAR_GLYPHS.length).toBeLessThanOrEqual(30);
+    expect(GEAR_GLYPHS.length).toBeLessThanOrEqual(34);
   });
 
   // A floor, not a target: the catalog is where most gear types come from, and a new

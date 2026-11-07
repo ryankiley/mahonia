@@ -9,8 +9,8 @@ import type { IconChild, IconNode } from "./hugeicon";
 //
 // What's here is what the free set has no good picture for among the icons the gear
 // page uses (shared/gearGlyph.ts keeps that set small): a sleeping bag, trekking
-// poles, a jacket (it has no jacket at all), a water bottle, a canister stove and a
-// toiletry tube.
+// poles, a jacket (it has no jacket at all), a water bottle, a canister stove, a
+// toiletry tube, a headlamp, a carabiner and a hiking boot.
 // Everything else is a Hugeicons glyph, several of them Ryan's picks made while
 // reviewing these drawings: Chocolate for food, Hat, Glasses,
 // Shirt01, Sneaker, MoneyBag01 for every bag, Energy for electronics, WaterEnergy for
@@ -19,6 +19,10 @@ import type { IconChild, IconNode } from "./hugeicon";
 const line = (d: string): IconChild => [
   "path",
   { d, stroke: "currentColor", strokeLinecap: "round", strokeLinejoin: "round", strokeWidth: "1.5" },
+];
+const ring = (cx: number, cy: number, r: number): IconChild => [
+  "circle",
+  { cx: String(cx), cy: String(cy), r: String(r), stroke: "currentColor", strokeWidth: "1.5" },
 ];
 const glyph = (...children: IconChild[]): IconNode => children;
 
@@ -76,4 +80,26 @@ export const StoveGlyph = glyph(
   line("M12 2C14 3.9 15.2 5.6 15.2 7C15.2 8.5 13.8 9.4 12 9.4C10.2 9.4 8.8 8.5 8.8 7C8.8 5.6 10 3.9 12 2Z"),
   line("M6.3 7.2H3.4L8.5 13.2"),
   line("M17.7 7.2H20.6L15.5 13.2"),
+);
+
+/** A headlamp: the lamp and its lens, on its strap. */
+export const HeadlampGlyph = glyph(
+  line("M10 7H14C15.66 7 17 8.34 17 10V14C17 15.66 15.66 17 14 17H10C8.34 17 7 15.66 7 14V10C7 8.34 8.34 7 10 7Z"),
+  ring(12, 12, 1.75),
+  line("M7 12H2.5"),
+  line("M17 12H21.5"),
+);
+
+/** A carabiner: a D, its spine straight, its gate swung open. */
+export const CarabinerGlyph = glyph(
+  line("M17 7.5V6C17 3.79 15.21 2 13 2H11C8.79 2 7 3.79 7 6V18C7 20.21 8.79 22 11 22H13C15.21 22 17 20.21 17 18V16.5"),
+  line("M17 16.5L12.8 9.8"),
+);
+
+/** A hiking boot from the side: the high shaft with two laces, the toe, the lug sole. */
+export const HikingBootGlyph = glyph(
+  line("M5.5 2.5H11L11.5 10C11.6 11 12.3 11.7 13.3 11.9L18 12.9C20.1 13.35 21.5 15.1 21.5 17.2V19H3V16.5C3 15 3.6 13.8 4.3 12.8C5 11.8 5.5 10.4 5.5 9V2.5Z"),
+  line("M3 19H21.5V20.5C21.5 21.05 21.05 21.5 20.5 21.5H4C3.45 21.5 3 21.05 3 20.5V19Z"),
+  line("M8.5 5.5H11.2"),
+  line("M8.7 8.5H11.4"),
 );
