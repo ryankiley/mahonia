@@ -9,10 +9,10 @@ import type { IconChild, IconNode } from "./hugeicon";
 //
 // What's here is what the free set has no good picture for among the icons the gear
 // page uses (shared/gearGlyph.ts keeps that set small): a sleeping bag, trekking poles,
-// a jacket (it has no jacket at all), a water bottle, a filter, a stuff sack, a
-// headlamp and a toiletry tube. Everything else is a Hugeicons glyph — several of them
+// a jacket (it has no jacket at all), a water bottle, a filter, a stuff sack and a
+// toiletry tube. Everything else is a Hugeicons glyph — several of them
 // Ryan's picks, made while reviewing these drawings (Airpod03, Chocolate, Hat,
-// Glasses, Fire02 for the stove, Shirt01). app/utils/gearIcons.ts joins name to icon.
+// Glasses, Fire02 for the stove, Shirt01, Sneaker). app/utils/gearIcons.ts joins name to icon.
 
 const line = (d: string): IconChild => [
   "path",
@@ -75,14 +75,6 @@ export const StuffSackGlyph = glyph(
   line("M9.5 7L10.5 3.5H13.5L14.5 7"),
   line("M12 7V9"),
   line("M11 10C11 9.45 11.45 9 12 9C12.55 9 13 9.45 13 10V11C13 11.55 12.55 12 12 12C11.45 12 11 11.55 11 11V10Z"),
-);
-
-/** A headlamp: the lamp and its lens, on its strap. */
-export const HeadlampGlyph = glyph(
-  line("M10 7H14C15.66 7 17 8.34 17 10V14C17 15.66 15.66 17 14 17H10C8.34 17 7 15.66 7 14V10C7 8.34 8.34 7 10 7Z"),
-  ring(12, 12, 1.75),
-  line("M7 12H2.5"),
-  line("M17 12H21.5"),
 );
 
 /** A tube standing on its cap: sunscreen, toothpaste, cream. */

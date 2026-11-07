@@ -1,8 +1,6 @@
 import {
-  Airpod03Icon,
   Backpack02Icon,
   BatteryCharging01Icon,
-  Camera01Icon,
   ChocolateIcon,
   CookingPotIcon,
   Fire02Icon,
@@ -14,8 +12,6 @@ import {
   PocketKnifeIcon,
   Shirt01Icon,
   ShovelIcon,
-  SmartPhone01Icon,
-  SmartWatch01Icon,
   SneakerIcon,
   SocksIcon,
   TentIcon,
@@ -24,7 +20,6 @@ import {
 import type { IconNode } from "./hugeicon";
 import { gearGlyphFor, type GearGlyph } from "~~/shared/gearGlyph";
 import {
-  HeadlampGlyph,
   JacketGlyph,
   SleepingBagGlyph,
   StuffSackGlyph,
@@ -61,12 +56,7 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   pot: CookingPotIcon,
   food: ChocolateIcon,
   knife: PocketKnifeIcon,
-  light: HeadlampGlyph,
-  phone: SmartPhone01Icon,
-  watch: SmartWatch01Icon,
-  power: BatteryCharging01Icon,
-  earbuds: Airpod03Icon,
-  camera: Camera01Icon,
+  electronics: BatteryCharging01Icon,
   firstAid: FirstAidKitIcon,
   toiletry: TubeGlyph,
   toilet: ShovelIcon,

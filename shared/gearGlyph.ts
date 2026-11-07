@@ -33,8 +33,8 @@ export const GEAR_GLYPHS = [
   "jacket", "shirt", "pants", "socks", "shoe", "hat", "glove", "glasses",
   // water and kitchen
   "bottle", "filter", "stove", "pot", "food", "knife",
-  // electronics and light
-  "light", "phone", "watch", "power", "earbuds", "camera",
+  // anything with a battery or a cable: one icon, since each kind is a one-off on a page
+  "electronics",
   // body
   "firstAid", "toiletry", "toilet",
 ] as const;
@@ -46,8 +46,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(stake bag|pole bag)\b/, "bag"],
   [/\bpill bottle\b/, "firstAid"],
   [/\b(dropper bottle|toiletry bottle|spray bottle|toothbrush case)\b/, "toiletry"],
-  [/\b(phone case|phone holder|phone pocket)\b/, "phone"],
-  [/\b(camera case|camera clip|lens adapter)\b/, "camera"],
+  [/\b(phone case|phone holder|phone pocket|camera case|camera clip|lens adapter)\b/, "electronics"],
   [/\b(hydration vest|running vest|hydration pack)\b/, "backpack"],
   [/\bfleece pants\b/, "pants"],
   [/\b(neck gaiter|buff|bandana|balaclava|scarf|headband|head net|bug net)\b/, "hat"],
@@ -81,12 +80,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(knife|saw|multitool|sheath|scissors)\b/, "knife"],
 
   // electronics and light
-  [/\b(headlamp|flashlight|torch|lantern)\b/, "light"],
-  [/\b(smartwatch|gps watch|watch)\b/, "watch"],
-  [/\b(phone|gps handheld|gps|satellite messenger|plb|inreach|e-reader|kindle)\b/, "phone"],
-  [/\b(power bank|battery|battery pack|wall charger|charger|solar|solar panel|charging cable|cable)\b/, "power"],
-  [/\b(earbuds|airpods|earphones|headphones)\b/, "earbuds"],
-  [/\bcamera\b/, "camera"],
+  [/\b(headlamp|flashlight|torch|lantern|smartwatch|gps watch|watch|phone|gps handheld|gps|satellite messenger|plb|inreach|e-reader|kindle|power bank|battery|battery pack|wall charger|charger|solar|solar panel|charging cable|cable|earbuds|airpods|earphones|headphones|camera)\b/, "electronics"],
 
   // body
   [/\b(first aid|blister care|moleskin|bandages?|tick remover|tweezers|antacid|pills?|medication)\b/, "firstAid"],
