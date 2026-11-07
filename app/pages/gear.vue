@@ -5,6 +5,7 @@ import { ChartAverageIcon, ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIco
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
+import type { NameCommit } from "~/composables/useCatalogSearch";
 import { formatPrice, sumPrices } from "~~/shared/money";
 import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import {
@@ -359,12 +360,45 @@ async function commitAdd(folderId: number | null) {
     loadError.value = "That weight doesn’t read as a number. Try “540 g” or “1.2 kg”.";
     return;
   }
+  // Only the pair that was sent is cleared: the fields stay live through the round
+  // trip, and anything typed meanwhile is the next one.
+  await sendAdd({ t: "add", name, weightMg, folderId }, () => addName.value.trim() === name && addWeight.value.trim() === raw);
+}
+// A catalog product picked from the add row's suggestions, added AS that product: its
+// brand, size, gear type, catalog link and calories, and its weight unless you typed
+// your own beside it (the weight you measured is the one My Gear keeps).
+async function commitPick(folderId: number | null, c: NameCommit) {
+  if (addBusy.value) return;
+  const raw = addWeight.value.trim();
+  const typed = raw ? parseWeightInput(raw, unit.value) : null;
+  if (raw && typed == null) {
+    loadError.value = "That weight doesn’t read as a number. Try “540 g” or “1.2 kg”.";
+    return;
+  }
+  // the name field emptied itself on the pick, so "unchanged" is: still empty
+  await sendAdd(
+    {
+      t: "add",
+      brand: c.brand,
+      name: c.name,
+      variant: c.variant,
+      commonName: c.commonName,
+      weightMg: typed ?? c.weightMg ?? 0,
+      classification: c.classification,
+      kcal: c.kcal,
+      catalogItemId: c.catalogItemId,
+      folderId,
+    },
+    () => !addName.value.trim() && addWeight.value.trim() === raw,
+  );
+}
+async function sendAdd(op: Record<string, unknown>, unchanged: () => boolean) {
   addBusy.value = true;
   loadError.value = "";
   try {
     const res = await vaultFetch<{ ok: boolean; reason?: string }>("/api/vault/items", {
       method: "POST",
-      body: { op: { t: "add", name, weightMg, folderId } },
+      body: { op },
     });
     if (!res.ok) {
       // The refusals are worth naming: "you already have that" tells you to search
@@ -382,9 +416,7 @@ async function commitAdd(folderId: number | null) {
     await loadVault();
     // Committing re-opens a fresh pair — the editor's `advance` behaviour, which is
     // what makes typing in five things bearable rather than five separate presses.
-    // Only the pair that was sent, though: the fields stay live through the round
-    // trip, and anything typed meanwhile is the next one.
-    if (addName.value.trim() === name && addWeight.value.trim() === raw) {
+    if (unchanged()) {
       addName.value = "";
       addWeight.value = "";
       // the whole gear re-rendered under it, so the field is a new element
@@ -826,6 +858,8 @@ async function exportGear(kind: string) {
                         :unit="unit"
                         :busy="addBusy"
                         @submit="commitAdd(section.folder ? section.folder.id : null)"
+                        @pick="(c: NameCommit) => commitPick(section.folder ? section.folder.id : null, c)"
+                        @overlay-toggle="(o: boolean) => onOverlayToggle(sectionKey(section), o)"
                         @done="closeAdd"
                       />
                       <button
@@ -864,6 +898,7 @@ async function exportGear(kind: string) {
                 :unit="unit"
                 :busy="addBusy"
                 @submit="commitAdd(null)"
+                @pick="(c: NameCommit) => commitPick(null, c)"
                 @done="closeAdd"
               />
               <button v-else type="button" class="folder__addbtn" @click="openAdd(null)">Add gear</button>
@@ -887,6 +922,7 @@ async function exportGear(kind: string) {
               :unit="unit"
               :busy="addBusy"
               @submit="commitAdd(null)"
+              @pick="(c: NameCommit) => commitPick(null, c)"
               @done="closeAdd"
             />
             <div v-else class="vault__emptyacts">
