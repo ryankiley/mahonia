@@ -260,8 +260,8 @@ function changeLabel(i: number): string {
                 <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
                   <span class="t-sm">{{ changeLabel(i) }}</span>
                   <span class="t-muted share__logwhen"
-                    >{{ timeAgo(new Date(s.createdAt).getTime(), now)
-                    }}<template v-if="s.actor === 'assistant'"> · by an assistant</template></span
+                    >{{ timeAgo(new Date(s.createdAt).getTime(), now, { short: true })
+                    }}<template v-if="s.actor === 'assistant'"> · Assistant</template></span
                   >
                 </li>
               </ul>
@@ -298,11 +298,6 @@ function changeLabel(i: number): string {
     right: var(--space-4);
   }
 }
-/* A touch wider than its rows need (they come to about 13rem), so a change in the
-   log ("Added MSR Pocket Rocket 2") sits on one line instead of breaking in two. */
-.share {
-  min-width: 16rem;
-}
 /* Prose where a row would be, inset like a row. Sized BY the rows rather than sizing
    them (width 0, min-width 100%): the menu is as wide as its labels, and a long line
    wraps inside that instead of widening it. */
@@ -335,6 +330,6 @@ function changeLabel(i: number): string {
   display: grid;
 }
 .share__logwhen {
-  font-size: var(--text-micro);
+  font-size: var(--text-chrome);
 }
 </style>

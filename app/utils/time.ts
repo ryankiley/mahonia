@@ -17,15 +17,18 @@ export function parseIsoTime(iso: string | null | undefined): number | null {
   return Number.isFinite(t) ? t : null;
 }
 
-export function timeAgo(ts: number, now: number = Date.now()): string {
+//
+// `short` is for a column of them (the sharing menu's recent changes): "49m ago",
+// "3h ago", "2d ago". "just now", "yesterday" and the dates are short already.
+export function timeAgo(ts: number, now: number = Date.now(), opts: { short?: boolean } = {}): string {
   const s = Math.max(0, Math.round((now - ts) / 1000)); // clamp future skew to "just now"
   if (s < 45) return "just now";
 
   const m = Math.round(s / 60);
-  if (m < 60) return m === 1 ? "1 minute ago" : `${m} minutes ago`;
+  if (m < 60) return opts.short ? `${m}m ago` : m === 1 ? "1 minute ago" : `${m} minutes ago`;
 
   const h = Math.round(m / 60);
-  if (h < 24) return h === 1 ? "1 hour ago" : `${h} hours ago`;
+  if (h < 24) return opts.short ? `${h}h ago` : h === 1 ? "1 hour ago" : `${h} hours ago`;
 
   // past a day, count whole CALENDAR days so the wording matches the reader's
   // sense of the date ("yesterday" the moment the clock rolls over, not at +24h)
@@ -34,7 +37,7 @@ export function timeAgo(ts: number, now: number = Date.now()): string {
   const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
   const days = Math.round((startOfDay(today) - startOfDay(then)) / DAY_MS);
   if (days <= 1) return "yesterday";
-  if (days < 7) return `${days} days ago`;
+  if (days < 7) return opts.short ? `${days}d ago` : `${days} days ago`;
 
   // old enough that a relative phrase no longer helps → a plain date; add the year
   // only when it isn't the current one, so most dates stay short
