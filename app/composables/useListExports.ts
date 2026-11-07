@@ -2,10 +2,20 @@ import { Csv01Icon, HashIcon, ThirdBracketIcon, Txt01Icon } from "@hugeicons/cor
 import type { IconNode } from "~/utils/hugeicon";
 import type { ListSnapshot } from "~~/shared/types";
 
-// The ⋯ menus' four export actions (Copy as plain text / Copy as Markdown / Download
-// CSV / Download JSON) + the exporter warm-up + the ROWS that draw them — shared by
-// the editor's kebab (EditorMenu) and the read views' menu (ReadonlyMenu), so neither
-// the copy, the error handling nor the menu's own wording and marks can drift.
+export interface ExportItem {
+  key: string;
+  label: string;
+  format: string;
+  hint: string;
+  icon: IconNode;
+  run: () => Promise<void>;
+}
+
+// The four export actions (Copy as plain text / Copy as Markdown / Download CSV /
+// Download JSON) + the exporter warm-up + the ROWS that draw them — shared by the
+// editor's sharing panel (SharePanel, its Export tab) and the read views' ⋯ menu
+// (ReadonlyMenu), so neither the copy, the error handling nor the wording and marks
+// can drift.
 //
 // The exporters are menu actions, not part of either surface's boot path — they
 // load on demand. warmExporters() runs when a menu opens: the markdown action's
@@ -109,11 +119,18 @@ export function useListExports(
    * has no icon for, take the character each is actually written with — the # a
    * Markdown writer types for a heading, the braces a JSON file opens with.
    */
-  const exportItems: { key: string; label: string; icon: IconNode; run: () => Promise<void> }[] = [
-    { key: "text", label: "Copy as plain text", icon: Txt01Icon, run: copyPlainText },
-    { key: "markdown", label: "Copy as Markdown", icon: HashIcon, run: copyMarkdown },
-    { key: "csv", label: "Download CSV", icon: Csv01Icon, run: downloadCsv },
-    { key: "json", label: "Download JSON", icon: ThirdBracketIcon, run: downloadJson },
+  //
+  // `label` is the whole act, for a menu row (the read views' ⋯), and the accessible
+  // name everywhere. `format` and `hint` are the same entry drawn as the sharing
+  // panel's Export tab draws it: the format's name, and WHAT YOU GET, not where it's
+  // for ("A table to paste", not "For notes or a forum"). "To paste" against "file" is
+  // also what tells a copy from a download there, now that the rows carry no trailing
+  // mark.
+  const exportItems: ExportItem[] = [
+    { key: "text", label: "Copy as plain text", format: "Plain text", hint: "One paragraph to paste, link included", icon: Txt01Icon, run: copyPlainText },
+    { key: "markdown", label: "Copy as Markdown", format: "Markdown", hint: "A table to paste", icon: HashIcon, run: copyMarkdown },
+    { key: "csv", label: "Download CSV", format: "CSV", hint: "Spreadsheet file", icon: Csv01Icon, run: downloadCsv },
+    { key: "json", label: "Download JSON", format: "JSON", hint: "Full backup file", icon: ThirdBracketIcon, run: downloadJson },
   ];
 
   // exportItems ONLY. The four actions were returned individually too, and after both

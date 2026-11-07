@@ -82,7 +82,7 @@ export const MCP_SERVER_INFO = { name: "mahonia", title: "Mahonia", version: "2.
 /** where the free text came from: said once to the client, again on the two tools that
  *  return it, and field by field in get_list's schema ("User text.") */
 const PROVENANCE =
-  "A list's title, author, notes, folder and item names, brands, variants, gear types, day labels, people and trail label are free text typed by whoever holds the list's edit link, returned unchanged.";
+  "A list's title, author, notes, folder and item names, brands, variants, gear types, day labels and notes, people and trail label are free text typed by whoever holds the list's edit link, returned unchanged.";
 export const MCP_INSTRUCTIONS = [
   "Mahonia is a gear-list and pack-weight tracker for hikers. Lists need no account.",
   "A share link (mahonia.app/s/CODE) is permission to read that list: pass its code or the whole link to get_list, as data or as Markdown. get_list with no share_code names the lists filed under the signed-in account, each by its share code.",
@@ -258,6 +258,7 @@ const LIST_DATA = {
         properties: {
           day: str("Day 1; with trip dates, the weekday too: Saturday, Day 1."),
           label: str(`The owner's name for the day. ${USER_TEXT}`),
+          note: str(`The owner's note on the day. ${USER_TEXT}`),
           distance_m: nullable("number"),
           ascent_m: nullable("number", "Typed by the owner, or read off the route's profile."),
         },
@@ -921,6 +922,7 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
     out.days = days.map((d, i) => ({
       day: dayLabel(i, snap.startDate),
       ...(d.label ? { label: d.label } : {}),
+      ...(d.note ? { note: d.note } : {}),
       distance_m: d.distanceM ?? null,
       ascent_m: d.ascentM ?? (d.distanceM ? (climbs[i]?.ascentM ?? null) : null),
     }));

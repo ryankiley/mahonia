@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
-import { ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
+import type { Directive } from "vue";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 import { estimateDay, heightIsDerived, shownHeightM } from "~~/shared/tripPlan";
 import { coolerByC, dayFactsForRanges, type DayFacts } from "~~/shared/dayFacts";
 import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/shared/dryCarry";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
-import { MAX_DAYS } from "~~/shared/ops";
+import { MAX_DAYS, MAX_NOTE_LEN } from "~~/shared/ops";
 import { shiftIsoDate } from "~~/shared/calendar";
 import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
@@ -25,6 +26,8 @@ import {
   parseDistanceM,
 } from "~~/shared/trailDistance";
 import { tripDays } from "~~/shared/foodPlan";
+import { forecastLink } from "~~/shared/forecast";
+import { fitTextarea } from "~/composables/dom";
 import { useTrailPlanRoute } from "~/composables/useTrailPlanRoute";
 import { useTripLoadModel } from "~/composables/useTripLoadModel";
 
@@ -299,10 +302,25 @@ const routePoints = computed(() =>
 // the route's spine, summed once per geometry rather than once per row per render —
 // see the note on the walkers in shared/polyline.ts
 const routeCum = computed(() => cumulativeM(routePoints.value));
+const pointAt = (alongM: number) =>
+  routePoints.value.length ? pointAlong(routePoints.value, alongM, routeCum.value) : null;
 const coordOf = (alongM: number) => {
-  const at = routePoints.value.length ? pointAlong(routePoints.value, alongM, routeCum.value) : null;
+  const at = pointAt(alongM);
   return at ? formatLatLon(at) : "";
 };
+
+/**
+ * A forecast for where each day ends — the camp, or the finish on the last day: a LINK,
+ * never a fetch (shared/forecast.ts). Built from the route's geometry, so it is owner-only
+ * for the same reason the camp's coordinate is, and nothing is asked of any weather service
+ * until the owner opens it. A day that owns no ground has no end to forecast.
+ */
+const dayForecasts = computed(() =>
+  ranges.value.map((r) => {
+    const at = r.toM > r.fromM ? pointAt(r.toM) : null;
+    return at ? forecastLink(at) : null;
+  }),
+);
 
 function onPlace(alongM: number) {
   c.addWaypoint(alongM);
@@ -455,8 +473,9 @@ const descentFor = (i: number) =>
 // One commit for both metre fields. Distance reads in the trip's km/mi; ascent is
 // a HEIGHT and reads in metres or feet, never the km/mi beside it — same parser,
 // the fallback unit is the whole difference.
-async function commitDayMetres(id: string | null, field: "distanceM" | "ascentM", e: Event) {
-  if (!id) { await nextTick(); id = stored.value[stored.value.length - 1]?.id ?? null; if (!id) return; }
+async function commitDayMetres(maybeId: string | null, field: "distanceM" | "ascentM", e: Event) {
+  const id = await realDayId(maybeId);
+  if (!id) return;
   const raw = (e.target as HTMLInputElement).value.trim();
   const unit = field === "distanceM" ? distanceUnit.value : distanceUnit.value === "mi" ? "ft" : "m";
   // "" and NOT undefined, spelled out per field. The patch is JSON on its way to
@@ -471,6 +490,26 @@ async function commitDayMetres(id: string | null, field: "distanceM" | "ascentM"
       : { ascentM: raw ? (parseDistanceM(raw, unit) ?? "") : "" },
   );
 }
+
+/** The id to patch: the row's own, or, for a ghost that ensureDay just made real, the
+ *  day its add created — which lands on the next tick, at the end of the stored days. */
+async function realDayId(id: string | null): Promise<string | null> {
+  if (id) return id;
+  await nextTick();
+  return stored.value[stored.value.length - 1]?.id ?? null;
+}
+
+// The day's note commits on change like the figures do. "" is the clear: a string
+// survives the JSON trip whole, so it needs no sentinel (see DayPatch).
+async function commitDayNote(maybeId: string | null, e: Event) {
+  const id = await realDayId(maybeId);
+  if (id) c.updateDay(id, { note: (e.target as HTMLTextAreaElement).value.trim() });
+}
+// The note grows to fit its text: natively through field-sizing, by hand where that is
+// missing, and fitTextarea is the gate (a no-op where it isn't needed). On mount AND on
+// update, because a note can arrive from outside (the list loading, a collaborator's
+// edit) and a folded day only mounts its note when it opens.
+const vFit: Directive<HTMLTextAreaElement> = { mounted: (el) => fitTextarea(el), updated: (el) => fitTextarea(el) };
 
 // The two field formatters are shared/trailDistance.ts's: feet to the nearest 10 and
 // ungrouped so the value parses back (heightFieldValue), and a distance padded to at
@@ -688,6 +727,23 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
         <Transition name="reveal">
         <div v-if="!collapsed[d?.id ?? '']" class="reveal">
         <div class="plan__body">
+        <!-- The owner's own words about the day, under its name the way an item's note sits
+             under the item's: the same quiet italic caption, one line until it wraps, and
+             Enter commits rather than opening a line, like every field in the editor. A
+             ghost day becomes real on its first note, as on its first distance. -->
+        <textarea
+          v-fit
+          class="plan__daynote"
+          rows="1"
+          :maxlength="MAX_NOTE_LEN"
+          :value="d?.note ?? ''"
+          placeholder="Add a note"
+          :aria-label="`Note for day ${i + 1}`"
+          spellcheck="true"
+          @input="fitTextarea($event.target as HTMLTextAreaElement)"
+          @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
+          @change="commitDayNote(d?.id ?? ensureDay(i), $event)"
+        />
         <!-- The data reads as one line of glyph-and-figure pairs, the way an item row
              does: what you TYPE first, then what follows from it. -->
         <div class="plan__data">
@@ -781,6 +837,19 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
               </button>
             </Tooltip>
           </span>
+
+          <!-- The forecast where the day ends, on somebody else's site, in a new tab:
+               weather.gov inside the US, yr.no elsewhere. WORDS, not a weather glyph: a sun
+               or a cloud here would read as the day's weather, when this is only the way
+               to look it up. The arrow is the link's own mark — it leaves the app. -->
+          <a
+            v-if="dayForecasts[i]"
+            class="link plan__forecast"
+            :href="dayForecasts[i]!.href"
+            target="_blank"
+            rel="noopener noreferrer"
+            :aria-label="`Forecast where day ${i + 1} ends, on ${dayForecasts[i]!.site}`"
+          >Forecast<HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" /></a>
 
         </div>
 
@@ -1077,32 +1146,74 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__del--end {
   margin-left: auto;
 }
+/* The day's note: the item note's caption voice (ItemRow's .item__note), at day scale —
+   the lightest ink, italic, no box and no handle, one line until the text wraps. 16px,
+   static, so focusing it on a phone never zooms the page. */
+.plan__daynote {
+  display: block;
+  width: 100%;
+  min-height: 0;
+  color: var(--ink-3);
+  font-size: var(--text-input);
+  font-style: italic;
+  field-sizing: content;
+  resize: none;
+  overflow: hidden;
+}
+.plan__daynote::placeholder {
+  color: var(--ink-3);
+}
+.plan__daynote:focus {
+  outline: none;
+}
 /* the row's data, as glyph-and-figure pairs — an item row's grammar at day scale */
-/* The day's figures line up DOWN the list, not just across one row.
+/* EACH CELL AS WIDE AS WHAT IT HOLDS, and one even gap between them.
  *
- * Fixed cell widths rather than a grid: every day is its own element, so separate grids
- * wouldn't share columns, and `subgrid` would mean restructuring the list into one grid
- * that the headers and pack bars also live in. A width per kind of figure gets the columns
- * for a fraction of the change, and these figures are bounded — a day is at most three
- * digits of distance and five of climb, which is what the widths are sized from.
+ * The cells used to hold fixed columns (7.5rem, 10rem for the climb) so a figure would sit
+ * over the same figure on the next day. But the days are a waypoint list apart, too far for
+ * the eye to run a column down, and the fixed widths left a hole after every short figure
+ * ("8.08 mi", "— ft") and none after the long ones ("10 h 13 min"): the row read as
+ * unevenly spaced, which is the one thing a row of figures must not.
+ *
+ * And every cell stands one input tall. The distance and the climb are fields, and a field
+ * is --field-h; the figures beside them were only a line of text. Once the row wraps, the
+ * line holding the fields stood taller than the lines without, so the gaps between lines
+ * differed for no reason the reader could see.
  */
 .plan__data {
   margin-top: var(--space-2);
   display: flex;
   align-items: center;
   flex-wrap: wrap;
-  gap: var(--space-2) var(--space-3);
+  column-gap: var(--space-5);
 }
 .plan__cell {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  /* the column. Wide enough for the longest real figure plus its unit and a (?), so a
-     row never pushes the ones beside it out of line */
-  min-width: 7.5rem;
+  min-height: var(--field-h);
   color: var(--ink-2);
   /* the editor's row size — .field pins its inputs to a literal 1rem for the iOS
      zoom rule, and the text beside them has to sit on the same line as those */
+  font-size: var(--text-base);
+}
+/* A phone has room for two figures a line, so it gets two even columns: distance and
+   climb, time and light, burn and forecast, each pair starting at the same two edges. */
+@media (max-width: $bp-stack) {
+  .plan__data {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: var(--space-3);
+  }
+}
+/* the day's forecast link: a word and its leaving arrow, at the row's size, sized to
+   itself rather than to a figure column (nothing lines up under it but itself) */
+.plan__forecast {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: var(--space-px);
+  min-height: var(--field-h);
   font-size: var(--text-base);
 }
 /* estimates sit a step back from the figures you entered — the `~` carries the claim,
@@ -1129,19 +1240,10 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   margin-top: var(--space-2);
   color: var(--ink-3);
 }
-/* THE CLIMB AND ITS DROP SHARE ONE CELL, so they share one column.
-   Every other cell holds a different kind of fact, and the fixed width lines those up down
-   the list. These two are one fact read twice — up and down over the same ground, drawn as
-   a staircase and its own reflection. Giving the drop a cell of its own was not enough on
-   its own: the climb kept its full 7.5rem in front of it, so "970 ft" left some forty
-   pixels of nothing before the drop's glyph — a wider gap than the one between columns
-   holding unrelated figures, which is precisely backwards.
-   Wide enough for five digits of climb, the pair's own gap, and five of drop. */
-.plan__cell--climb {
-  min-width: 10rem;
-}
-/* A HAIR, not a column: narrower than the --space-3 between real columns, so the eye reads
-   these two as one thing. --space-1 on top of the cell's own --space-1 between its parts. */
+/* THE CLIMB AND ITS DROP SHARE ONE CELL: one fact read twice, up and down over the same
+   ground, drawn as a staircase and its own reflection. So the drop sits a HAIR from the
+   climb, far narrower than the gap between cells, and the eye reads the two as one thing.
+   --space-1 on top of the cell's own --space-1 between its parts. */
 .plan__drop {
   display: inline-flex;
   align-items: center;
@@ -1435,6 +1537,33 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
     /* back to the tighter gap: the slack that paid for --space-5 above is what the name is
        using now, and at this width the row has none to spare */
     --wprow-gap: var(--space-2);
+  }
+}
+/* NOTHING TO DELETE, NO DELETE COLUMN. The last track is there so a pin's delete lines up
+   with the rows around it; a list holding only rows with nothing to press (the trailhead,
+   the camp, the route's End) kept it open anyway, a blank button-wide strip at the right
+   edge, so its distances stopped a button short of the rule they sit on. With no delete in
+   the list there is nothing to line up, so the column goes, and the empty cells with it
+   (an area name with no track to resolve against would invent one per cell). */
+.plan__wplist:not(:has(button.wprow__del)) {
+  --wprow-cols:
+    minmax(0, 1fr)
+    calc(var(--wprow-btn) * 2 + var(--space-px))
+    auto
+    auto;
+  --wprow-areas: "name kind coord dist";
+}
+.plan__wplist:not(:has(button.wprow__del)) :deep(.wprow__del) {
+  display: none;
+}
+@media (max-width: $bp-stack) {
+  .plan__wplist:not(:has(button.wprow__del)) {
+    --wprow-cols:
+      minmax(0, 1fr)
+      calc(var(--wprow-btn) * 2 + var(--space-px));
+    --wprow-areas:
+      "name kind"
+      "coord dist";
   }
 }
 /* The unclaimed stretch is a day-shaped thing without being a day, so it takes the day's

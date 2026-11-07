@@ -4,8 +4,9 @@ import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 
 // A GROUP OF ROWS INSIDE A ⋯ MENU, folded behind a header that turns over.
 //
-// Both ⋯ menus want exactly this — the editor's kebab for Export, the read views' for
-// the same — and they each drew it by hand. The two copies had converged to the
+// Both ⋯ menus wanted exactly this for Export (the editor's has since moved to the
+// sharing panel, which keeps this for its recent changes), and they each drew it by
+// hand. The two copies had converged to the
 // character (same .menu__secthead, same glyph, same .menu__sectlabel, same .chev, same
 // <Transition name="reveal">, same role="group"), which is the state right before
 // drift rather than a state to leave alone; the WHEN had in fact already drifted, and

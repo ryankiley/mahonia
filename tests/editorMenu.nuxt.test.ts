@@ -5,7 +5,7 @@
 //     `@forget` listener falls through as a DOM attribute on the <ul> and the row does
 //     nothing. The list is built from a type-alias union (call-signature defineEmits);
 //     switching to the object form would drop the union and pass typecheck.
-//   · three states hide rows — the first-run screen (Duplicate, Export), an unsaved
+//   · three states hide rows — the first-run screen (Duplicate), an unsaved
 //     draft (the whole destructive foot), a claimed open (Forget) — and each is a prop
 //     the parent computes, so a dropped `hidden` or `v-if` shows a row that acts on
 //     nothing.
@@ -13,24 +13,11 @@
 //     a menu that is still there.
 //   · the site foot (#376) holds two rows that emit and two that navigate; the links
 //     close the menu too.
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { mockNuxtImport } from "@nuxt/test-utils/runtime";
+import { afterEach, describe, expect, it } from "vitest";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import EditorMenu from "~/components/EditorMenu.vue";
-import { blankList } from "./helpers/list";
 
 enableAutoUnmount(afterEach);
-
-const warmExporters = vi.fn();
-mockNuxtImport("useListExports", () => () => ({
-  warmExporters,
-  exportItems: [
-    { key: "text", label: "Copy as plain text", icon: [], run: () => Promise.resolve() },
-    { key: "markdown", label: "Copy as Markdown", icon: [], run: () => Promise.resolve() },
-    { key: "csv", label: "Download CSV", icon: [], run: () => Promise.resolve() },
-    { key: "json", label: "Download JSON", icon: [], run: () => Promise.resolve() },
-  ],
-}));
 
 const rows = (w: ReturnType<typeof mount>) => w.findAll('[role="menuitem"]').map((b) => b.text().trim());
 
@@ -41,8 +28,6 @@ function openMenu(props: Partial<InstanceType<typeof EditorMenu>["$props"]> = {}
       firstRun: false,
       saved: true,
       openedByCode: false,
-      snapshot: blankList(),
-      shareUrl: "https://mahonia.app/s/ABC",
       ...props,
     },
     attachTo: document.body,
@@ -54,11 +39,11 @@ describe("the editor's ⋯ menu", () => {
   it("declares every row's event, so no listener falls through as an attribute", () => {
     const emits = (EditorMenu as unknown as { emits: string[] }).emits;
     expect([...emits].sort()).toEqual(
-      ["close", "delete", "duplicate", "feedback", "flash", "forget", "import", "people", "shortcuts"].sort(),
+      ["close", "delete", "duplicate", "feedback", "forget", "import", "people", "shortcuts"].sort(),
     );
   });
 
-  it("reads: list rows, Export, the site foot, then the destructive foot", () => {
+  it("reads: list rows, the site foot, then the destructive foot", () => {
     const w = openMenu();
     expect(rows(w)).toEqual([
       "Add people",
@@ -71,15 +56,15 @@ describe("the editor's ⋯ menu", () => {
       "Forget this list",
       "Delete this list",
     ]);
-    expect(w.get(".menu__secthead").text()).toContain("Export");
+    // Export lives in the sharing panel now (SharePanel's Export tab)
+    expect(w.find(".menu__secthead").exists()).toBe(false);
     // #376's scroller, so a short phone can still reach the foot
     expect(w.get(".menu__list").classes()).toContain("editor__actions");
   });
 
-  it("stands Duplicate and Export down on the first-run screen", () => {
+  it("stands Duplicate down on the first-run screen", () => {
     const w = openMenu({ firstRun: true, saved: false });
     expect(rows(w)).not.toContain("Duplicate this list");
-    expect(w.find(".menu__secthead").exists()).toBe(false);
   });
 
   it("offers the destructive foot only for a saved list, and Forget only for its own device", () => {
@@ -108,14 +93,5 @@ describe("the editor's ⋯ menu", () => {
     const w = openMenu();
     await w.findAll('[role="menuitem"]').find((b) => b.text() === "About")!.trigger("click");
     expect(w.emitted().close).toHaveLength(1);
-  });
-
-  it("warms the exporters when Export opens, and reports through the parent's toast", async () => {
-    warmExporters.mockClear();
-    const w = openMenu();
-    expect(warmExporters).not.toHaveBeenCalled();
-    await w.get(".menu__secthead").trigger("click");
-    expect(warmExporters).toHaveBeenCalledOnce();
-    expect(rows(w)).toContain("Copy as Markdown");
   });
 });

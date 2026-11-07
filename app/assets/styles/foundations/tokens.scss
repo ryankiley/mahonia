@@ -428,8 +428,15 @@ $bp-full: 1024px !default;
      menu, a diffuse one for a tall panel — but the honest reading was that the old
      value was simply too heavy at BOTH ends, not mis-sized: a 0.2-alpha 48px layer
      that read mushy under a 32px card and looked like weather under a panel.
-     Lighter and pulled tighter, it works at both. */
-  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.04), 0 12px 28px -10px rgba(0, 0, 0, 0.13);
+     Lighter and pulled tighter, it works at both.
+     CENTRED, not dropped (Ryan, 2026-11-07: "the y position on the shadow of popovers
+     isn't helping the top of them"). The ambient layer was 0 12px 28px -10px: shrunk
+     10px a side and pushed 12px down, so its top sat INSIDE the card and every bit of
+     it landed below. On a white page that left a popover's top edge, the one nearest
+     its trigger, undrawn. Now a 1px soft edge all the way round defines the shape, and
+     the ambient layer sits nearly centred (2px down, no negative spread) so the top
+     gets its share of the lift. */
+  --shadow-soft: 0 0 1px rgba(0, 0, 0, 0.1), 0 2px 24px rgba(0, 0, 0, 0.1);
   /* floating-menu surface: bright white in light (NOT the grey paper-2 — popovers
      should read crisp, lifted off the page), a clearly-elevated grey in dark */
   --surface-float: light-dark(#ffffff, #1f1f1f);

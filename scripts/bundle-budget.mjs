@@ -121,12 +121,17 @@ const FIRST_LOAD_BUDGET_KB = 159.5;
 // assistant section (1.2), four product marks on its buttons (0.7) and the glue
 // between them. All of it behind a click or on its own route; no chunk grew.
 //
-// Re-set 2026-11-07 at 310.0 measured (was 306; main at f60625e builds to 303.5): #494,
-// an icon beside each piece of gear on My Gear, in /gear's own route chunk; FIRST LOAD
-// is unmoved at 158.0. The first cut used 85 icons and measured 319.7 — the Hugeicons
-// glyphs' soft corners make long paths — and trimming to 29 (shared/gearGlyph.ts) is
-// what brought it here. Grow that set and this is the number that will say so.
-const TOTAL_BUDGET_KB = 316;
+// Re-set 2026-11-07 at 306.4 measured (was 306): #495, notes on trip days and a forecast
+// link per day (1.4, of it 0.7 for shared/forecast.ts's border table, all on the Trip
+// tab's own chunk), landing on #496's Share and Export panel at 305.0 on main. Each fit on
+// its own; the sum crossed. First load untouched at 158.1, no chunk grew.
+//
+// Re-set 2026-11-07 at 315.6 measured (was 312; main at d6b9a18 is 306.4): #494, an icon
+// beside each piece of gear on My Gear, all of it in /gear's own route chunk; FIRST LOAD unmoved. The first cut used 85
+// icons and measured 16 KB over main — the Hugeicons glyphs' soft corners make long paths —
+// and the set in shared/gearGlyph.ts was trimmed and tuned from there. Grow that set and
+// this is the number that will say so.
+const TOTAL_BUDGET_KB = 322;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
