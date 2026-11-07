@@ -25,7 +25,7 @@ import {
   Undo02Icon, UserLock01Icon,
   // My Gear's gear-type icons (app/utils/gearIcons.ts)
   ChocolateIcon, CookingPotIcon,
-  FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, PocketKnifeIcon,
+  FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, MoneyBag01Icon, PocketKnifeIcon,
   Shirt01Icon, ShovelIcon, SneakerIcon, SocksIcon,
   YogaMatIcon,
 } from "@hugeicons/core-free-icons";
@@ -49,7 +49,7 @@ const ALL_ICONS = Object.entries({
   Undo02Icon, UserLock01Icon,
   // My Gear's gear-type icons (app/utils/gearIcons.ts)
   ChocolateIcon, CookingPotIcon,
-  FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, PocketKnifeIcon,
+  FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, MoneyBag01Icon, PocketKnifeIcon,
   Shirt01Icon, ShovelIcon, SneakerIcon, SocksIcon,
   YogaMatIcon,
 }) as [string, never][];
