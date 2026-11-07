@@ -66,27 +66,27 @@
   display: none !important;
 }
 
-/* the entering face fades in (opacity from 0 on the fade token; the leaving face is
-   dropped instantly, so the two never stack). An ANIMATION, not a transition —
-   display can't transition, but flipping display:none→grid restarts an animation,
-   which is precisely the hook wanted here. Gated on data-mode-from, the mode being
-   LEFT, which GearEditor writes only for the beat after a switch (useEditorMode's
-   switchedFrom), so the fade plays on a Gear ↔ Packing switch and nothing else: not on
+/* the entering face fades in, exactly as the old <Transition name="rowmode"> enter
+   did (opacity from 0, 0.9 × the fade spring's beat; the leaving face is dropped
+   instantly, so the two never stack). An ANIMATION, not a transition — display can't
+   transition, but flipping display:none→grid restarts an animation, which is
+   precisely the hook wanted here. Gated on .is-rowswitching (a ~420ms beat GearEditor
+   holds up after each switch) so the fade plays on mode switches only — not on
    initial load, not when the latch first mounts a face, not when a new item's row
-   appears — and not on a switch into or out of Trip, where the rows sit inside the
-   view that is crossfading as a whole (modeswitch.scss) and a second fade on each row
-   would only run under the first. The fix line arrives with the edit face it belongs
-   to. Reduced motion keeps this fade (fades are what it keeps); a switch made from the
-   keyboard raises no beat at all. */
+   appears. The edit face fades on a switch INTO Gear only ([data-mode="edit"], not
+   "anything but packing"): on a switch into Trip the rows are inside the view that is
+   fading out (modeswitch.scss), and a fade of their own restarted each row from
+   transparent under it. The fix line arrives with the edit face it belongs to.
+   reduced-motion → the global duration kill-switch makes it instant. */
 @keyframes rowmode-fade {
   from {
     opacity: 0;
   }
 }
-.editor__body[data-mode-from="edit"][data-mode="pack"] .item--check,
-.editor__body[data-mode-from="pack"][data-mode="edit"] .item-row:not(.item--check),
-.editor__body[data-mode-from="pack"][data-mode="edit"] .item-wrap > .reveal {
-  animation: rowmode-fade var(--spring-fade-dur) var(--spring-fade);
+.editor__body.is-rowswitching[data-mode="pack"] .item--check,
+.editor__body.is-rowswitching[data-mode="edit"] .item-row:not(.item--check),
+.editor__body.is-rowswitching[data-mode="edit"] .item-wrap > .reveal {
+  animation: rowmode-fade calc(var(--spring-fade-dur) * 0.9) var(--spring-fade);
 }
 
 /* ---- the person filter -----------------------------------------------------------
@@ -440,13 +440,11 @@
   font-size: var(--text-base);
   color: var(--ink-3);
   cursor: pointer;
-  /* padding-block on the mode switch's slot beat (--t-slot, set on .editor__body): the
-     packing fold (modeswitch.scss) closes it with the track, or the row would stop 12px
-     short. Outside the editor there is no beat and no fold, and the step token stands in. */
+  /* padding-block on the step spring: the packing fold (atoms/modeswitch.scss) closes
+     it with the track, or the row would stop 12px short */
   transition:
     color var(--spring-fade-dur) var(--spring-fade),
-    padding-block var(--t-slot, var(--spring-step-dur) var(--spring-step)),
-    scale var(--dur-press) var(--ease-out);
+    padding-block var(--spring-step-dur) var(--spring-step);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {

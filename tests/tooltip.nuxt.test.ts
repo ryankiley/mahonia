@@ -1,10 +1,8 @@
-// The tooltip's two sets of decisions: POSITIONING (where the popup lands, and the
-// point it scales out of) and the WARM-UP (when it waits, and when it opens at once
-// without animating). Needs the Nuxt environment for the same reason
-// gearList.nuxt.test.ts does: the component leans on auto-imports (useTemplateRef,
-// useId) and on a real DOM for the Teleport, and what's under test is geometry read off
-// live rects and timing read off a (fake) clock, not a pure function that could be
-// lifted out and checked as plain TS.
+// The tooltip's POSITIONING logic — the only part of <Tooltip> that makes decisions.
+// Needs the Nuxt environment for the same reason gearList.nuxt.test.ts does: the
+// component leans on auto-imports (useTemplateRef, useId) and on a real DOM for the
+// Teleport, and what's under test is geometry read off live rects, not a pure
+// function that could be lifted out and checked as plain TS.
 //
 // happy-dom lays nothing out, so every rect is 0×0 unless told otherwise. The suite
 // therefore drives layout from `geom` below — where the trigger sits, how big the
@@ -51,65 +49,48 @@ function mountTooltip(
   return wrapper;
 }
 
-// The first hover waits this long before the popup opens (Tooltip.vue, WARM-UP), and
-// a popup closed less than WARM_MS ago makes the next one instant. Restated rather
-// than imported: the component's module script doesn't export them, and the numbers are
-// part of what's under test.
-const HOVER_DELAY = 400;
-const WARM_MS = 300;
-
-// Hover, wait out the delay, and hand back the positioned popup (null if none was shown).
+// Hover and hand back the positioned popup (null if none was shown).
 async function hover() {
   await wrapper!.trigger("mouseenter");
-  vi.advanceTimersByTime(HOVER_DELAY);
   await flushPromises();
   return document.body.querySelector<HTMLElement>(".tooltip");
 }
 
-// The hover's wait is a timer and the warm-up reads Date.now(); both run on the fake
-// clock. Each case starts its clock an hour past the last one's start, so every case
-// begins cold whatever the one before it left open or closed — the warm-up is module
-// state, shared by every instance on the page and so by every case in this file. (Not
-// "advance from now": a fresh fake clock starts at the REAL time, which is behind a
-// close the previous case stamped after advancing its own.)
-let clock = Date.now();
-beforeEach(() => {
-  vi.useFakeTimers({ now: (clock += 3_600_000) });
-  // a 1200×800 viewport, and a pointer that can actually hover
-  Object.defineProperty(window, "innerWidth", { value: 1200, configurable: true });
-  Object.defineProperty(window, "innerHeight", { value: 800, configurable: true });
-  // the horizontal clamp reads the LAYOUT viewport (no scrollbar column), not innerWidth
-  Object.defineProperty(document.documentElement, "clientWidth", { value: 1200, configurable: true });
-  vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q }) as MediaQueryList);
-
-  geom.trigger = { top: 400, bottom: 424, left: 500, width: 32, height: 24 };
-  geom.tooltip = { width: 100, height: 24 };
-  geom.wrap = { left: 100, right: 1100 };
-
-  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
-    if (this.classList.contains("tooltip-trigger")) return rect(geom.trigger);
-    if (this.classList.contains("wrap")) return rect(geom.wrap);
-    return rect({});
-  });
-  // The popup is sized off offsetWidth/Height, not a client rect — see the comment
-  // in positionTooltip(): it's measured while the enter transform is still applied,
-  // so only the untransformed layout box gives the true size.
-  vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
-    return this.classList.contains("tooltip") ? (geom.tooltip.width ?? 0) : 0;
-  });
-  vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
-    return this.classList.contains("tooltip") ? (geom.tooltip.height ?? 0) : 0;
-  });
-});
-
-afterEach(() => {
-  document.body.innerHTML = ""; // the cases append raw nodes beside the mount
-  vi.restoreAllMocks();
-  vi.unstubAllGlobals();
-  vi.useRealTimers();
-});
-
 describe("Tooltip positioning", () => {
+  beforeEach(() => {
+    // a 1200×800 viewport, and a pointer that can actually hover
+    Object.defineProperty(window, "innerWidth", { value: 1200, configurable: true });
+    Object.defineProperty(window, "innerHeight", { value: 800, configurable: true });
+    // the horizontal clamp reads the LAYOUT viewport (no scrollbar column), not innerWidth
+    Object.defineProperty(document.documentElement, "clientWidth", { value: 1200, configurable: true });
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q }) as MediaQueryList);
+
+    geom.trigger = { top: 400, bottom: 424, left: 500, width: 32, height: 24 };
+    geom.tooltip = { width: 100, height: 24 };
+    geom.wrap = { left: 100, right: 1100 };
+
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+      if (this.classList.contains("tooltip-trigger")) return rect(geom.trigger);
+      if (this.classList.contains("wrap")) return rect(geom.wrap);
+      return rect({});
+    });
+    // The popup is sized off offsetWidth/Height, not a client rect — see the comment
+    // in positionTooltip(): it's measured while the enter transform is still applied,
+    // so only the untransformed layout box gives the true size.
+    vi.spyOn(HTMLElement.prototype, "offsetWidth", "get").mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains("tooltip") ? (geom.tooltip.width ?? 0) : 0;
+    });
+    vi.spyOn(HTMLElement.prototype, "offsetHeight", "get").mockImplementation(function (this: HTMLElement) {
+      return this.classList.contains("tooltip") ? (geom.tooltip.height ?? 0) : 0;
+    });
+  });
+
+  afterEach(() => {
+    document.body.innerHTML = ""; // the cases append raw nodes beside the mount
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
   it("prefers top, and centres the popup on the trigger", async () => {
     mountTooltip({ text: "Remove item" });
     const tip = (await hover())!;
@@ -217,9 +198,7 @@ describe("Tooltip positioning", () => {
   it("still opens on focus where a pointer can hover", async () => {
     mountTooltip({ text: "Remove item" });
 
-    // a real focus on the control (happy-dom's :focus-visible is "is the active
-    // element"), so this is the keyboard's path: at once, with no wait to advance past
-    wrapper!.find("button").element.focus();
+    await wrapper!.trigger("focusin");
     await flushPromises();
     expect(document.body.querySelector(".tooltip")).not.toBeNull();
   });
@@ -244,127 +223,5 @@ describe("Tooltip positioning", () => {
     await wrapper!.trigger("mouseleave");
     await flushPromises();
     expect(trigger.getAttribute("aria-describedby")).toBeNull();
-  });
-});
-
-// THE WARM-UP — the next tooltip doesn't wait. The first tooltip waits
-// before it opens, so a pointer crossing the toolbar on its way somewhere else raises
-// nothing; once one has been up, the next one along opens at once and without its
-// animation, because a pointer moving down a row of controls is reading them.
-// `data-instant` is the attribute atoms/tooltip.scss zeroes the transition on.
-describe("Tooltip warm-up", () => {
-  // two triggers side by side, the way a toolbar has them
-  function mountPair() {
-    const host = document.createElement("div");
-    host.className = "wrap";
-    document.body.appendChild(host);
-    const a = mount(Tooltip, { props: { text: "Duplicate" }, slots: { default: "<button>a</button>" }, attachTo: host });
-    const b = mount(Tooltip, { props: { text: "Remove" }, slots: { default: "<button>b</button>" }, attachTo: host });
-    return { a, b };
-  }
-  const tip = () => document.body.querySelector<HTMLElement>(".tooltip");
-
-  it("waits before the first one opens", async () => {
-    mountTooltip({ text: "Remove item" });
-    await wrapper!.trigger("mouseenter");
-    vi.advanceTimersByTime(HOVER_DELAY - 1);
-    await flushPromises();
-    expect(tip(), "opened before the wait was up").toBeNull();
-
-    vi.advanceTimersByTime(1);
-    await flushPromises();
-    expect(tip()).not.toBeNull();
-    // the first one is the one that animates
-    expect(tip()!.hasAttribute("data-instant")).toBe(false);
-  });
-
-  it("raises nothing for a pointer that leaves before the wait is up", async () => {
-    mountTooltip({ text: "Remove item" });
-    await wrapper!.trigger("mouseenter");
-    vi.advanceTimersByTime(HOVER_DELAY / 2);
-    await wrapper!.trigger("mouseleave");
-    vi.advanceTimersByTime(HOVER_DELAY);
-    await flushPromises();
-    expect(tip()).toBeNull();
-  });
-
-  it("opens the next one at once, and without animating, when it follows straight on", async () => {
-    const { a, b } = mountPair();
-    await a.trigger("mouseenter");
-    vi.advanceTimersByTime(HOVER_DELAY);
-    await flushPromises();
-    expect(tip()!.textContent).toBe("Duplicate");
-
-    // the pointer slides to the neighbour: leave one, enter the other
-    await a.trigger("mouseleave");
-    vi.advanceTimersByTime(WARM_MS / 3);
-    await b.trigger("mouseenter");
-    await flushPromises(); // no timer advanced: no wait at all
-    expect(tip()!.textContent).toBe("Remove");
-    expect(tip()!.hasAttribute("data-instant")).toBe(true);
-  });
-
-  it("goes cold again once the last one has been down a while", async () => {
-    const { a, b } = mountPair();
-    await a.trigger("mouseenter");
-    vi.advanceTimersByTime(HOVER_DELAY);
-    await flushPromises();
-    await a.trigger("mouseleave");
-
-    vi.advanceTimersByTime(WARM_MS);
-    await b.trigger("mouseenter");
-    await flushPromises();
-    expect(tip(), "the wait was skipped after the warm window closed").toBeNull();
-    vi.advanceTimersByTime(HOVER_DELAY);
-    await flushPromises();
-    expect(tip()!.textContent).toBe("Remove");
-    expect(tip()!.hasAttribute("data-instant")).toBe(false);
-  });
-
-  it("is warm while another is still up", async () => {
-    const { a, b } = mountPair();
-    // keyboard focus holds A's open while the pointer arrives on B
-    a.find("button").element.focus();
-    await flushPromises();
-    vi.advanceTimersByTime(WARM_MS * 10);
-    await b.trigger("mouseenter");
-    await flushPromises();
-    const tips = [...document.body.querySelectorAll<HTMLElement>(".tooltip")].map((t) => t.textContent);
-    expect(tips).toContain("Remove");
-  });
-
-  // Keyboard focus never waits and never animates: Tab is an action repeated in
-  // bursts, and those get no animation at all.
-  it("opens on keyboard focus at once and without animating, even cold", async () => {
-    mountTooltip({ text: "Remove item" });
-    wrapper!.find("button").element.focus();
-    await flushPromises();
-    expect(tip()).not.toBeNull();
-    expect(tip()!.hasAttribute("data-instant")).toBe(true);
-  });
-
-  // A click focuses the button in Chromium without :focus-visible. That focus goes the
-  // hover's way — it must not jump the wait the pointer is already serving.
-  it("doesn't let a pointer focus skip the hover's wait", async () => {
-    mountTooltip({ text: "Remove item" });
-    await wrapper!.trigger("mouseenter");
-    await wrapper!.trigger("focusin"); // dispatched on the wrapper: not the active element, so not :focus-visible
-    await flushPromises();
-    expect(tip()).toBeNull();
-    vi.advanceTimersByTime(HOVER_DELAY);
-    await flushPromises();
-    expect(tip()).not.toBeNull();
-  });
-
-  it("scales out of the trigger's own x, not the popup's centre", async () => {
-    // a trigger hard against the column's right edge: the clamp pushes the popup left,
-    // so the trigger sits right of the popup's middle (see the clamp case above)
-    geom.trigger = { top: 400, bottom: 424, left: 1052, width: 32, height: 24 };
-    geom.tooltip = { width: 160, height: 24 };
-    mountTooltip({ text: "Un-nest (move out)" });
-    const t = (await hover())!;
-
-    // popup clamped to left 924; the trigger's centre 1068 lands 144px into it
-    expect(t.style.getPropertyValue("--tooltip-origin-x")).toBe("144px");
   });
 });

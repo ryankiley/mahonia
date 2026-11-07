@@ -1,21 +1,24 @@
-<!-- A figure that shows its own change, and only its change. When the value changes,
-     the characters that CHANGED drop in; the rest are the same DOM nodes they were and
-     never move. Takes the already-formatted string so it works for "4,723 g",
-     "1.36 kg", "10.4 lb" alike. -->
+<!-- Number-counter pop-in, adapted from the portfolio's <AnimatedCount>: when the
+     value changes, each character (digits, separators, unit) re-mounts and pops in
+     with a staggered translate + fade. Takes the already-formatted string so it
+     works for "4,723 g", "1.36 kg", "10.4 lb" alike. -->
 <template>
-  <span class="acount" :style="{ '--acount-len': Math.max(1, chars.length) }">
+  <span
+    ref="el"
+    class="acount"
+    :class="{ 'is-animating': animating }"
+    :style="{ '--acount-len': Math.max(1, chars.length) }"
+  >
     <!-- screen readers get the value as one string; the per-char spans (a known
          AT-fragmentation trap) are hidden from them -->
     <span class="visually-hidden">{{ value }}</span>
-    <!-- keyed by POSITION + CHARACTER: an unchanged character keeps its key, so Vue
-         keeps its node and its finished animation is left alone; a changed one gets a
-         new key, a new node, and the drop-in plays once on that node's arrival -->
     <span
       v-for="(char, i) in chars"
-      :key="`${i}:${char}`"
+      :key="`${generation}-${i}`"
       class="acount__ch"
-      :class="{ 'is-new': fresh.has(i) }"
+      :class="{ 'is-late': i >= born }"
       aria-hidden="true"
+      :style="{ '--i': i }"
     >{{ char }}</span>
   </span>
 </template>
@@ -35,41 +38,59 @@ import { motionIsInstant } from "~/plugins/inputModality.client";
 // font-size declaration back to the inherited body size. The `, 6` fallback in
 // those rules only covers the property being absent, not being unusable.
 const props = defineProps<{ value: string }>();
-const chars = computed(() => [...props.value]);
 
-// WHEN IT MOVES. A number on a page is something being read, so it animates only to
-// show that it CHANGED, and only the part that did:
-//   · never on mount — the first paint (and a value that settles just after it, like
-//     a hydrating total) is the figure, not news about it;
-//   · on a change, the positions whose character differs, each once, together — no
-//     stagger, which made a five-digit total spell itself out over a quarter second;
-//   · not at all when the change came off the keyboard (holding ↑ in a weight field
-//     steps the total at the key-repeat rate, and a figure re-dropping on every step left
-//     most of its digits invisible) or lands within QUIET_MS of the last one (a
-//     stepper pressed in a run). Fast changes just show the number.
-// It used to re-key EVERY character on every change (a generation counter) and replay
-// the pop on all of them, with a forced reflow to restart it.
-const QUIET_MS = 200;
-const fresh = shallowRef<ReadonlySet<number>>(new Set());
-let lastChange = typeof performance === "undefined" ? 0 : performance.now();
+const el = useTemplateRef<HTMLElement>("el");
+const animating = ref(false);
+const generation = ref(0);
+const chars = ref<string[]>([...props.value]);
+
+// ONE RUN AT A TIME. A run is the cascade: every character re-mounted (a new generation
+// of keys) and popped in, each a --stagger-ch after the one before. Only a change that
+// arrives with nothing playing starts one. A change from the KEYBOARD (holding ↑ in a
+// weight field steps the total at the key-repeat rate) or one that lands while a run is
+// still playing (the ± stepper pressed in a quick run) is written into the nodes already
+// there instead: same keys, same nodes, so no character starts over. Starting over is
+// what blanked the total — every restart threw each character back to the keyframe's
+// transparent first frame and held the later ones there through their stagger delay,
+// so a fast enough run of changes left most of the figure invisible.
+//
+// `born`: how many positions the run's own render created. A position past it got its
+// node from one of those in-place writes (the figure grew a digit mid-run, or from the
+// keyboard), and sits the run out (.is-late) rather than joining it a stagger late,
+// transparent until it does.
+const born = ref(chars.value.length);
+let runUntil = 0; // performance.now() at which the run playing now has landed
+
+function runMs(): number {
+  const stagger = (el.value && parseFloat(getComputedStyle(el.value).getPropertyValue("--stagger-ch"))) || 40;
+  return springCss("pop").duration + stagger * Math.max(0, chars.value.length - 1);
+}
+function play() {
+  born.value = chars.value.length;
+  runUntil = performance.now() + runMs();
+  animating.value = true;
+}
+
 watch(
   () => props.value,
-  (next, prev) => {
-    const now = performance.now();
-    const rapid = now - lastChange < QUIET_MS;
-    lastChange = now;
-    if (rapid || motionIsInstant()) {
-      fresh.value = new Set();
+  (next) => {
+    if (next === chars.value.join("")) return;
+    if (motionIsInstant() || performance.now() < runUntil) {
+      chars.value = [...next];
+      born.value = Math.min(born.value, chars.value.length);
       return;
     }
-    const was = [...prev];
-    const changed = new Set<number>();
-    [...next].forEach((ch, i) => {
-      if (was[i] !== ch) changed.add(i);
+    animating.value = false;
+    chars.value = [...next];
+    generation.value++;
+    nextTick(() => {
+      void el.value?.offsetHeight; // force reflow so the keyframe restarts
+      play();
     });
-    fresh.value = changed;
   },
 );
+
+onMounted(play);
 </script>
 
 <style scoped>
@@ -78,6 +99,7 @@ watch(
   align-items: baseline;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  --stagger-ch: 40ms; /* per-digit cascade step (its own slower cadence vs the folder --stagger) */
 }
 .acount__ch {
   display: inline-block;
@@ -87,20 +109,28 @@ watch(
      filter animation at all unless the element is composited; Rung 1 (blur-at-rest
      alone) left the blur invisible on real iOS hardware. The layer is baked into the
      keyframe transforms too (a static transform here is overwritten while `transform`
-     animates), so it persists through and after the run. Kept as it was when the
-     drop-in moved from every character to the changed ones: a changed character is a
-     new node, so its run begins with the node, and these rest values are what it is
-     born into. */
+     animates), so it persists through and after the run. */
   filter: blur(0);
   transform: translateZ(0);
 }
 /* .acount__sr → migrated to the shared global .visually-hidden utility
    (app/assets/styles/foundations/reset.scss) */
-/* the keyframe itself → the shared global `num-pop` (main.scss): a 0.2em drop, a fade
-   and a 2px blur. `is-new` is set only on a character that changed on this render, so
-   the run plays once, on that node's arrival; the script decides when not to set it
-   (mount, the keyboard, a rapid run, reduced motion). */
-.acount__ch.is-new {
+/* the keyframe itself → the shared global `num-pop` (app/assets/styles/main.scss).
+   The row's quantity stepper pops its number with the same motion, and a scoped
+   @keyframes is renamed per component — kept here, the two would have been two
+   copies of one idea. The per-character stagger below stays local: it is what
+   makes this the TOTAL's version of the pop. */
+.acount.is-animating .acount__ch {
   animation: num-pop var(--spring-pop-dur) var(--spring-pop) both;
+  animation-delay: calc(var(--i, 0) * var(--stagger-ch)); /* 0 for the first char */
+}
+/* a node born after its run began (`born`, above): already in place, never transparent */
+.acount.is-animating .acount__ch.is-late {
+  animation: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .acount.is-animating .acount__ch {
+    animation: none;
+  }
 }
 </style>

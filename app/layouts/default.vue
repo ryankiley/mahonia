@@ -41,14 +41,12 @@
   background: var(--accent);
   color: var(--accent-ink);
   /* translate rather than display:none — a hidden element isn't focusable, and
-     `left: -9999px` fights the safe-area gutter on notched phones.
-     NO TRANSITION. It used to slide down on the step spring, but the only way it ever
-     appears is a Tab press, and keyboard actions get no animation at
-     all — the link is there the instant the key goes down, and gone the instant focus
-     moves on. (That also leaves nothing here for reduced motion to undo.) */
+     `left: -9999px` fights the safe-area gutter on notched phones */
   transform: translateY(calc(-100% - var(--space-4)));
+  transition: transform var(--spring-step-dur) var(--spring-step);
 }
 .skip:focus-visible {
   transform: translateY(0);
 }
+/* reduced-motion is handled by the global duration kill-switch (main.scss) */
 </style>

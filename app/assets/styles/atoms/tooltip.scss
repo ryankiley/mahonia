@@ -14,22 +14,21 @@
 
 .tooltip {
   // fixed + non-interactive never vary, so they belong here rather than in the
-  // inline style the component writes — that carries only the computed position
+  // inline style the component writes — that carries only the computed left/top
   position: fixed;
   pointer-events: none;
   // above every other floating layer: a tooltip can describe a control inside a
   // popover or a dialog, so it has to clear --z-float rather than tie with it
   z-index: var(--z-tooltip);
   max-width: 280px;
-  // SCALES OUT OF ITS TRIGGER: the edge that faces the control, at the control's own x.
-  // The component writes that x as --tooltip-origin-x — the trigger's centre measured
-  // in the popup's box, which is not the popup's centre once the column clamp has
-  // pushed it sideways — and the side flips with the placement. 50% stands in until
-  // the first measurement lands.
-  transform-origin: var(--tooltip-origin-x, 50%) 100%;
+  transform-origin: center;
+  // How far the enter/leave states travel, and in which direction — flipped by
+  // placement so the motion always reads as coming OUT of the trigger. As a custom
+  // property, the transform itself is written once below instead of once per side.
+  --tooltip-rise: 6px;
 }
 .tooltip[data-placement="bottom"] {
-  transform-origin: var(--tooltip-origin-x, 50%) 0;
+  --tooltip-rise: -6px;
 }
 
 // Inverted ink — the one surface here that flips the page's own colours, so a
@@ -48,37 +47,23 @@
   text-wrap: pretty;
 }
 
-// The tooltip's motion: in on the strong ease-out over --dur-tooltip
-// (125ms), from 0.97 and transparent, out quicker than it came (0.8 of that). No rise:
-// the scale from the trigger's edge is the direction.
+// Enter rides the step spring (critically damped — it settles into place with no
+// overshoot, which is what makes a popup feel placed rather than thrown). Leave
+// takes the same spring at 0.6× the beat: dismissal should feel lighter and
+// quicker than reveal, and there's nothing left to decelerate into.
+// (The global prefers-reduced-motion rule in main.scss flattens both.)
 .tooltip-enter-active {
   transition:
-    opacity var(--dur-tooltip) var(--ease-out),
-    transform var(--dur-tooltip) var(--ease-out);
+    opacity var(--spring-step-dur) var(--spring-step),
+    transform var(--spring-step-dur) var(--spring-step);
 }
 .tooltip-leave-active {
   transition:
-    opacity calc(var(--dur-tooltip) * 0.8) var(--ease-out),
-    transform calc(var(--dur-tooltip) * 0.8) var(--ease-out);
+    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
+    transform calc(var(--spring-step-dur) * 0.6) var(--spring-step);
 }
 .tooltip-enter-from,
 .tooltip-leave-to {
   opacity: 0;
-  transform: scale(0.97);
-}
-// INSTANT: the next tooltip raised soon after one closed — the pointer travelling along a
-// row of controls — and any raised by keyboard focus. No delay (the component skips it)
-// and no animation, both ways: once you've waited for one, the rest are answers, and a
-// tooltip that fades in behind a Tab key reads as the app lagging the hand. Outranks the
-// two -active rules above, so it zeroes their durations whichever is running.
-.tooltip[data-instant] {
-  transition-duration: 0ms;
-}
-// Reduced motion keeps the fade and drops the scale. The beat here is --dur-tooltip, not
-// a movement role, so the tokens can't do it on their own.
-@media (prefers-reduced-motion: reduce) {
-  .tooltip-enter-from,
-  .tooltip-leave-to {
-    transform: none;
-  }
+  transform: translateY(var(--tooltip-rise)) scale(0.96);
 }

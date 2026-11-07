@@ -315,8 +315,7 @@ onMounted(() => {
   color: var(--ink-2);
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 /* no background here — the pip IS the hover, and a fill under it would double the mark
    and kill the sense that one cursor is moving. Pointer-gated — it paints (see the note

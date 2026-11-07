@@ -141,8 +141,7 @@ const { onKey } = useRovingRadio(
   position: relative;
   transition:
     background-color var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 /* The one part of the chip that gives way. The dot and the carry are flex: none (the
    dot by .swatch, the carry below) so a long name can never squeeze them out. */

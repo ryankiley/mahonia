@@ -38,10 +38,7 @@
   max-height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  // the scrim just fades (.ovl-* below); the dialog itself rises in (same for every
-  // modal) on the arrival role, the strong ease-out at 200ms. CENTRED — no
-  // transform-origin of its own: a modal isn't anchored to the control that opened it,
-  // so unlike a popover it has no corner to grow from (the one exception).
+  // the scrim just fades (.ovl-* below); the dialog itself rises in (same for every modal)
   transition:
     transform var(--spring-pop-dur) var(--spring-pop),
     opacity var(--spring-fade-dur) var(--spring-fade);
@@ -102,12 +99,12 @@
 .ovl-enter-active {
   transition: opacity var(--spring-fade-dur) var(--spring-fade);
 }
-/* exit: FASTER than the entrance, on the exit beat and the ease-out (tokens.scss: EXITS)
-   — this was the one surface that took as long to leave as to arrive, and a dismissed
-   dialog lingering a full fade beat after Escape read as reluctant. Opacity only, so
-   reduced motion keeps all of it. */
+/* exit: FASTER than the entrance, the menu family's own rule (controls.scss) — this
+   was the one surface that took as long to leave as to arrive, and a dismissed dialog
+   lingering a full fade beat after Escape read as reluctant. Still opacity only: a
+   thing leaving gets no spring to land on. */
 .ovl-leave-active {
-  transition: opacity var(--dur-exit) var(--ease-out);
+  transition: opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
 }
 .ovl-enter-from,
 .ovl-leave-to {

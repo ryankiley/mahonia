@@ -878,7 +878,7 @@ async function setExpanded(on: boolean) {
  *  to the token's value if the read fails (SSR, a test).
  *
  *  ZERO when there is no slide to wait for, which a fixed wait couldn't tell: under
- *  reduced motion the move token drops to ~0 (tokens.scss), so the slide is instant, and
+ *  reduced motion the global kill-switch (main.scss) makes the transition instant, and
  *  closing from the KEYBOARD (Escape — <html data-input="keyboard"> is set on keydown and
  *  cleared by pointer input) answers at once rather than leaving the map parked over the
  *  page for 630ms after you asked it to go. A transitionend would have missed the first
@@ -1259,7 +1259,7 @@ onBeforeUnmount(() => {
 /* The clip is what animates. See setExpanded: the frame is full size from the first frame,
    so Leaflet is measured once and only the window onto it moves. */
 .routemap__frame {
-  // reduced motion: the move token drops to ~0 (tokens.scss), so this is instant
+  // reduced-motion is handled by the global duration kill-switch (main.scss)
   transition: clip-path var(--spring-move-dur) var(--spring-move);
 }
 .routemap__canvas {

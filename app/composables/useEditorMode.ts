@@ -25,12 +25,10 @@ export const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
 // to reset on reload. Planning is somewhere you WORK across sittings, so it stays put.
 const MODE_KEY = "gear.mode.v1";
 
-// How long the switch's motion needs to have finished by: the whole sequence is fitted
-// inside 300ms (atoms/modeswitch.scss — the arrivals land at 300, the slots settle at
-// --mode-end, the entering row face fades on the fade token, which is shorter), plus a
-// frame's grace. The clips, starting styles and row fades it gates belong to a switch
-// in progress and nothing else.
-const SWITCH_ANIM_MS = 320;
+// How long the switch's motion needs to have finished by: the entering row's fade
+// (0.9 × --spring-fade-dur = 270ms) and the slots that fold with --t-slot (done by
+// --mode-end, 150 + 390ms), whose clips and starting styles this beat gates.
+const SWITCH_ANIM_MS = 420;
 
 let singleton: ReturnType<typeof create> | undefined;
 
@@ -57,21 +55,13 @@ function create() {
   // True for a beat after each switch. The CSS fade (atoms/item.scss) is gated on this
   // so it plays exactly when the old <Transition> enter played — on a mode switch — and
   // not when a row APPEARS for any other reason (a newly added item, the latch's
-  // first mount on initial load). switchedFrom is the mode being LEFT, for the same
-  // beat: which faces fade depends on where the switch came from (Gear ↔ Packing
-  // fades the rows; into or out of Trip the whole view crossfades and the rows don't).
-  // A switch with no motion to run — made from the keyboard, or with reduced motion
-  // on — raises no beat at all: nothing would play inside it, and the starting styles
-  // it gates would only be there to undo.
+  // first mount on initial load). A switch with no motion to run — made from the
+  // keyboard, or with reduced motion on — raises no beat at all: nothing would play
+  // inside it, and the starting styles it gates would only be there to undo.
   const switching = ref(false);
-  const switchedFrom = ref<EditorMode | null>(null);
   let switchTimer: ReturnType<typeof setTimeout> | undefined;
-  const settle = () => {
-    switching.value = false;
-    switchedFrom.value = null;
-  };
 
-  watch(mode, (m, prev) => {
+  watch(mode, (m) => {
     if (m === "edit") everEdit.value = true;
     else if (m === "pack") {
       everPacked.value = true;
@@ -81,13 +71,15 @@ function create() {
       tally("trip_opened");
     }
     clearTimeout(switchTimer);
-    if (motionIsInstant()) return settle();
+    if (motionIsInstant()) {
+      switching.value = false;
+      return;
+    }
     switching.value = true;
-    switchedFrom.value = prev;
-    switchTimer = setTimeout(settle, SWITCH_ANIM_MS);
+    switchTimer = setTimeout(() => (switching.value = false), SWITCH_ANIM_MS);
   });
 
-  return { mode, everEdit, everPacked, everPlan, switching, switchedFrom };
+  return { mode, everEdit, everPacked, everPlan, switching };
 }
 
 export function useEditorMode() {

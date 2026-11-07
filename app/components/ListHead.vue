@@ -422,8 +422,8 @@ onClickOutside(trailEl, closeTrail);
            old leaves, the new arrives on the beat, and the row's min-height holds the
            line through the gap so nothing reflows.
            Its own name, not `menu`: this is an IN-FLOW content swap, not a surface
-           hanging off a control — but it spends the same motion tokens as
-           everything else, so it reads as the same interface moving. See the motion note in
+           hanging off a control — but it spends the same springs as everything
+           else, so it reads as the same interface moving. See the motion note in
            atoms/controls.scss. -->
       <Transition name="trailswap" mode="out-in">
       <button
@@ -1032,15 +1032,13 @@ onClickOutside(trailEl, closeTrail);
    the pointer; the scoped block now says only what is this button's. */
 .head__add {
   gap: var(--space-1);
-  /* EVERY property in one declaration, including the opacity the media query below
+  /* BOTH properties in one declaration, including the opacity the media query below
      animates. `transition` is a shorthand: a second declaration replaces the whole list
      rather than adding to it, so a `transition: opacity …` down there would silently drop
-     the colour ease and the hover would snap. For the same reason this list also
-     replaces .btn's, so it carries .btn's press (`scale`) itself. */
+     the colour ease and the hover would snap. */
   transition:
     opacity var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 /* Hover-capable pointers only. On touch there IS no hover, so these stay painted —
    hiding them would leave phone users with no way to reach the field at all. Opacity,
@@ -1206,10 +1204,7 @@ onClickOutside(trailEl, closeTrail);
   margin-left: var(--space-1);
   color: var(--ink-3);
   cursor: help;
-  /* `scale`: the reset's press, which this transition would otherwise replace */
-  transition:
-    color var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .head__gpxwhy:focus-visible {
   color: var(--ink);
@@ -1230,10 +1225,7 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxno {
   text-decoration: underline;
   text-underline-offset: var(--underline-offset);
-  /* `scale`: the reset's press, which this transition would otherwise replace */
-  transition:
-    color var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .head__gpxyes {
   margin-left: var(--space-1);
@@ -1304,10 +1296,6 @@ onClickOutside(trailEl, closeTrail);
   position: absolute;
   top: calc(100% + var(--space-1));
   left: 0;
-  /* the menu family's pop-in scales from the trigger corner (controls.scss sets this on
-     .menu__list), and this panel hangs off the dates button's start edge. On a phone it
-     re-anchors to the row's start (below), where the same corner is still the near one. */
-  transform-origin: top left;
   z-index: var(--z-menu);
   display: grid;
   gap: var(--space-2);
@@ -1342,11 +1330,6 @@ onClickOutside(trailEl, closeTrail);
   border-radius: var(--radius-2);
   color: var(--ink-3);
 }
-/* a full-width row, so it gives on the WIDE step (tokens.scss: --press-scale-wide); the
-   press in its own selector lifts it over .btn's and the reset's */
-.head__dateclear:active {
-  scale: var(--press-scale-wide);
-}
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss). The wash
    and the ink used to sit in two consecutive rules on the identical selector; they
    are one affordance, so they travel as one block now. */
@@ -1359,19 +1342,13 @@ onClickOutside(trailEl, closeTrail);
 
 /* The trail affordance → link swap. Short and small: this is one line inside a page
    header, and anything longer reads as the header being unstable. Same tokens as
-   every other family (see the motion note in atoms/controls.scss): the link ARRIVES on
-   the arrival role (the strong ease-out, 200ms), and what it replaces leaves quicker on
-   the exit beat — out-in, so the leave is also the wait before the arrival. The
-   translates ride movement tokens, so reduced motion keeps only the fades. */
-.trailswap-enter-active {
-  transition:
-    opacity var(--spring-fade-dur) var(--spring-fade),
-    translate var(--spring-pop-dur) var(--spring-pop);
-}
+   every other family (see the motion note in atoms/controls.scss); reduced-motion is
+   handled globally by the duration kill-switch. */
+.trailswap-enter-active,
 .trailswap-leave-active {
   transition:
-    opacity var(--dur-exit) var(--ease-out),
-    translate calc(var(--spring-pop-dur) * 0.75) var(--ease-out);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    translate var(--spring-step-dur) var(--spring-step);
 }
 /* the link RISES into place — it is the result of an action, so it comes up from
    under the line rather than dropping onto it */

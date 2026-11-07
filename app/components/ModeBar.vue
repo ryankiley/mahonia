@@ -133,11 +133,9 @@ const { onKey } = useRovingRadio(
   font-size: var(--text-chrome);
   color: var(--ink-3);
   white-space: nowrap;
-  // `scale` is the reset's press (reset.scss), which this list would otherwise replace
   transition:
     background-color var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 // THE TARGET on a phone, drawn apart from the tab — the .switch::before pattern
 // (controls.scss). 30px is the height this bar should LOOK (see above), and 14px short of

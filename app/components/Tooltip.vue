@@ -43,23 +43,6 @@ function isHoverless(): boolean {
   }
   return hoverlessMq?.matches ?? false;
 }
-
-// WARM-UP — the next tooltip doesn't wait. The first tooltip waits
-// HOVER_DELAY before it opens, so a pointer crossing the toolbar on its way somewhere
-// else doesn't raise a trail of popups behind it. Once one has been up, the next one
-// opened within WARM_MS of it going down is INSTANT — no wait and no animation
-// (`data-instant`, atoms/tooltip.scss) — because a pointer moving along a row of
-// controls is reading them, and making it wait at each is the toolbar feeling slow.
-//
-// Module scope, like the hover probe above: "a tooltip was just up" is a fact about the
-// page, not about one instance, and the next tooltip is by definition a different
-// instance from the last. `open` counts the ones on screen right now, so one raised
-// while another is still up (focus on one control, the pointer on its neighbour) is
-// instant too. Date.now(), not performance.now(), so a test's fake clock drives it.
-const HOVER_DELAY = 400;
-const WARM_MS = 300;
-const warm = { open: 0, closedAt: -Infinity };
-const isWarm = () => warm.open > 0 || Date.now() - warm.closedAt < WARM_MS;
 </script>
 
 <script setup lang="ts">
@@ -89,15 +72,11 @@ const { text, preferredPlacement = "top", disabled = false } = defineProps<{
 const triggerRef = useTemplateRef<HTMLElement>("triggerRef");
 const tooltipRef = useTemplateRef<HTMLElement>("tooltipRef");
 const isVisible = ref(false);
-/** raised without the wait or the animation — see WARM-UP at the top of the file */
-const instant = ref(false);
 const placement = ref<"top" | "bottom">(preferredPlacement);
 const tooltipId = useId();
-// only the computed values — `position: fixed` and `pointer-events: none` are constant,
-// so they live in the stylesheet with the rest of the popup's looks. The origin's x is
-// one of them: the popup scales out of its trigger, and only this file knows where the
-// trigger sits inside the clamped popup (atoms/tooltip.scss).
-const tooltipStyle = ref<Record<string, string>>({ left: "0px", top: "0px" });
+// only the two computed values — `position: fixed` and `pointer-events: none` are
+// constant, so they live in the stylesheet with the rest of the popup's looks
+const tooltipStyle = ref({ left: "0px", top: "0px" });
 
 const OFFSET = 8;
 const EDGE_PADDING = 12;
@@ -130,10 +109,10 @@ function positionTooltip() {
 
   const trigger = triggerRef.value.getBoundingClientRect();
   // offsetWidth/Height, NOT getBoundingClientRect — this runs on the tick the popup
-  // mounts, while the enter-from scale is still applied, and a client rect reports the
-  // TRANSFORMED box. Measuring that made the popup read small (4%, when it started from
-  // 0.96), so a 280px tooltip clamped to 11px past the column's right edge. The offset
-  // dimensions are the untransformed layout box, which is what we want.
+  // mounts, while the enter-from `scale(0.96) translateY(6px)` is still applied, and
+  // a client rect reports the TRANSFORMED box. Measuring that made the popup read 4%
+  // small, so a 280px tooltip clamped to 11px past the column's right edge. The
+  // offset dimensions are the untransformed layout box, which is what we want.
   const { offsetWidth: width, offsetHeight: height } = tooltipRef.value;
   const bounds = getHorizontalBounds();
 
@@ -157,14 +136,10 @@ function positionTooltip() {
   // it INHERITS — so one declaration on a cluster reaches every trigger inside it,
   // including the ones a child component renders, with no :deep() per control.
   const shift = parseFloat(getComputedStyle(triggerRef.value).getPropertyValue("--tip-shift")) || 0;
-  const ink = trigger.left + trigger.width / 2 + shift;
-  const left = Math.max(bounds.min, Math.min(ink - width / 2, bounds.max - width));
+  const left = Math.min(trigger.left + trigger.width / 2 + shift - width / 2, bounds.max - width);
   tooltipStyle.value = {
-    left: `${left}px`,
+    left: `${Math.max(bounds.min, left)}px`,
     top: `${placement.value === "top" ? trigger.top - height - OFFSET : trigger.bottom + OFFSET}px`,
-    // where the trigger's ink falls inside the popup, kept on the popup's own edge if a
-    // clamp has pushed it past
-    "--tooltip-origin-x": `${Math.max(0, Math.min(width, ink - left))}px`,
   };
 }
 
@@ -176,54 +151,18 @@ function positionTooltip() {
 // transition of a tooltip going back down still has a place to play.
 const everShown = ref(false);
 
-// The hover's wait, while it runs. One per instance: a trigger has one pointer over it.
-let pending: ReturnType<typeof setTimeout> | undefined;
-function cancelPending() {
-  clearTimeout(pending);
-  pending = undefined;
-}
-
-// Every change of visibility goes through here, so the page-wide warm-up count can't
-// drift from what's on screen.
-function setVisible(on: boolean) {
-  if (on === isVisible.value) return;
-  isVisible.value = on;
-  if (on) warm.open++;
-  else {
-    warm.open--;
-    warm.closedAt = Date.now();
-  }
-}
-
-/** Raise it now. `now` skips the animation as well (keyboard focus); otherwise it is
- *  skipped only while the page is warm (see WARM-UP). */
-async function open(now = false) {
-  cancelPending();
-  if (disabled || isVisible.value) return;
-  instant.value = now || isWarm();
+async function open() {
+  if (disabled) return;
   everShown.value = true;
-  setVisible(true);
-  listen();
+  isVisible.value = true;
   await nextTick();
   positionTooltip();
 }
 
-/**
- * Hover — refuses on a touch device, where there is no reliable way back down. Waits
- * HOVER_DELAY first, unless a tooltip was up a moment ago, in which case it opens at
- * once and without its fade (WARM-UP, top of file).
- */
+/** Hover — refuses on a touch device, where there is no reliable way back down. */
 function show() {
-  if (disabled || isHoverless() || isVisible.value || pending) return;
-  if (isWarm()) {
-    void open();
-    return;
-  }
-  listen(); // a scroll during the wait cancels it, as one after would dismiss it
-  pending = setTimeout(() => {
-    pending = undefined;
-    void open();
-  }, HOVER_DELAY);
+  if (isHoverless()) return;
+  void open();
 }
 
 /**
@@ -232,9 +171,8 @@ function show() {
  * — so there's no heuristic here to keep in step with the platforms.
  *
  * Engines without it throw on the selector rather than reporting false, and the safe
- * side of that guess is the quiet one: on a touch device a false raises nothing, which
- * is the whole point there, and where a pointer hovers it only sends the focus the
- * hover's way, so the tooltip still comes up, after the wait.
+ * side of that guess is the quiet one: this is only ever consulted on a touch device,
+ * where the whole point is to raise nothing.
  */
 function isKeyboardFocus(target: EventTarget | null): boolean {
   if (!(target instanceof Element)) return false;
@@ -246,25 +184,18 @@ function isKeyboardFocus(target: EventTarget | null): boolean {
 }
 
 /**
- * Focus — a KEYBOARD focus opens one on any device, at once and without animating: no
- * hover to wait out, and Tab is an action repeated in bursts, and those never
- * animate. On a touch device that is the only way focus opens one. The test is
- * needed because TAPPING a button focuses it: without it, everything the retired
- * tap-to-toggle path used to show would simply come back in through focusin, and
- * removing the click handler would have changed nothing. It also keeps the case the
- * hover guard alone would cost — a tablet with a keyboard reports `hover: none`, and its
- * user still has to be able to read this.
- *
- * A focus that ISN'T the keyboard's, where a pointer can hover — a click focusing the
- * button it landed on (Chromium does; Safari doesn't) — goes the hover's way, wait and
- * all. The pointer is on the trigger already, so that is usually a no-op; what it stops
- * is a click popping the description up instantly, ahead of the hover's own wait.
+ * Focus — always opens where a pointer can hover, and on a touch device only for a
+ * keyboard focus. The test is needed because TAPPING a button focuses it: without it,
+ * everything the retired tap-to-toggle path used to show would simply come back in
+ * through focusin, and removing the click handler would have changed nothing. It also
+ * keeps the case the hover guard alone would cost — a tablet with a keyboard reports
+ * `hover: none`, and its user still has to be able to read this.
  *
  * `focusin`, not `focus`, in the template: only the former bubbles from the trigger.
  */
 function showFromFocus(e: FocusEvent) {
-  if (isKeyboardFocus(e.target)) void open(true);
-  else show();
+  if (isHoverless() && !isKeyboardFocus(e.target)) return;
+  void open();
 }
 
 // dismiss one already on screen when the trigger opens its own surface — the hover
@@ -277,37 +208,24 @@ watch(
 );
 
 function hide() {
-  cancelPending();
-  setVisible(false);
-  unlisten();
+  isVisible.value = false;
 }
 
 // A scroll with the pointer parked on the trigger slides the anchor out from under a
 // `position: fixed` popup, and mouseout isn't reliably dispatched without pointer
 // movement. Dismiss rather than re-position: the pointer has effectively left the
 // thing being described. Capture, so a scroll inside any nested scroller counts too.
-// The same goes for a hover still WAITING to open: it would open on a trigger the
-// scroll has moved out from under the pointer.
 //
-// Bound only while a tooltip is open or about to be. At most one ever is, but every
-// <Tooltip> in the tree is an instance — the editor's toolbar alone has five — and a
-// capture-phase scroll listener fires for every scroller on the page, including the
-// vault pane's hundred-row list. Registering per-instance meant paying that whole set
-// on every scroll frame to do nothing. (Adding it twice is harmless: the same listener
-// with the same capture flag is only ever registered once.)
-function listen() {
-  window.addEventListener("scroll", hide, { passive: true, capture: true });
-}
-function unlisten() {
-  window.removeEventListener("scroll", hide, { capture: true });
-}
-// Unmounted while up — a row deleted under the pointer — still counts as going down,
-// so the page-wide count doesn't hold the next tooltip instant forever.
-onScopeDispose(() => {
-  cancelPending();
-  setVisible(false);
-  unlisten();
+// Bound only WHILE a tooltip is open. At most one ever is, but every <Tooltip> in the
+// tree is an instance — the editor's toolbar alone has five — and a capture-phase
+// scroll listener fires for every scroller on the page, including the vault pane's
+// hundred-row list. Registering per-instance meant paying that whole set on every
+// scroll frame to do nothing.
+watch(isVisible, (visible) => {
+  if (visible) window.addEventListener("scroll", hide, { passive: true, capture: true });
+  else window.removeEventListener("scroll", hide, { capture: true });
 });
+onScopeDispose(() => window.removeEventListener("scroll", hide, { capture: true }));
 </script>
 
 <template>
@@ -332,7 +250,6 @@ onScopeDispose(() => {
           ref="tooltipRef"
           class="tooltip"
           :data-placement="placement"
-          :data-instant="instant || undefined"
           :style="tooltipStyle"
           role="tooltip"
         >

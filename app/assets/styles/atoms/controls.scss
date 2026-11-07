@@ -17,13 +17,10 @@
   font-size: var(--text-base);
   font-weight: 600;
   letter-spacing: var(--track-tight);
-  /* `scale` for the press (below); `opacity` for the disabled state and the
-     reduced-motion press */
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade),
-    opacity var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+    opacity var(--spring-fade-dur) var(--spring-fade);
 }
 /* HOVER IS POINTER-GATED, HERE AND EVERYWHERE — ink included.
    iOS leaves :hover latched on the last thing you tapped until you tap something
@@ -54,15 +51,8 @@
     background: var(--paper-3);
   }
 }
-/* The press (reset.scss has the argument) — restated here because a .btn can be a LINK
-   (a NuxtLink styled as the primary action), which the reset's button rule can't reach. */
 .btn:active {
-  scale: var(--press-scale);
-}
-@media (prefers-reduced-motion: reduce) {
-  .btn:active {
-    opacity: 0.7;
-  }
+  opacity: 0.7;
 }
 .btn:disabled {
   opacity: 0.3;
@@ -96,16 +86,14 @@
   min-height: var(--icon-btn);
   width: var(--icon-btn);
   padding: 0;
-  /* Pin a standing compositing layer. :active animates `scale` (it animated opacity
-     before that; both are compositor properties), so WebKit promotes the button for
-     the press transition and demotes it at rest — re-rasterising the glyph at its
-     fractional flex x, a ~1px jitter per press/release (seen on the read-view ⋯; same
-     class as the mode-toggle fix). A static translateZ(0) holds one layer through and
-     after the run; will-change would be droppable since the button's own transform
-     never animates — the press is the separate `scale` property, which composes with
-     this rather than replacing it. Icon-only buttons, no text → no glyph-blur cost.
-     Chromium keeps layers warm, so the preview can't reproduce it. See
-     concepts/webkit-relayers-on-animation-boundaries. */
+  /* Pin a standing compositing layer. :active animates opacity (a compositor
+     property), so WebKit promotes the button for the press transition and demotes
+     it at rest — re-rasterising the glyph at its fractional flex x, a ~1px jitter
+     per press/release (seen on the read-view ⋯; same class as the mode-toggle fix).
+     A static translateZ(0) holds one layer through and after the run; will-change
+     would be droppable since the button's own transform never animates. Icon-only
+     buttons, no text → no glyph-blur cost. Chromium keeps layers warm, so the
+     preview can't reproduce it. See concepts/webkit-relayers-on-animation-boundaries. */
   transform: translateZ(0);
 }
 // icon buttons: no fill on hover — the icon just darkens (via the colour rules
@@ -139,16 +127,12 @@
 // full ink, underline one step to --ink-2, which is the floor the --underline token
 // sets (a link's rule may reach --ink-2, never --ink). Consumers add only their own
 // layout; the two trail links had been carrying byte-identical copies of this.
-// `scale` in the transition because one of them is a <button> (ListHead's resolved
-// link), which takes the reset's press — and a class's own transition replaces the
-// reset's.
 .link {
   color: var(--ink-2);
   text-decoration-color: var(--underline);
   transition:
     color var(--spring-fade-dur) var(--spring-fade),
-    text-decoration-color var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+    text-decoration-color var(--spring-fade-dur) var(--spring-fade);
 }
 .link:focus-visible {
   color: var(--ink);
@@ -231,10 +215,7 @@ button svg {
   border-radius: var(--radius-pill);
   background: var(--well);
   cursor: pointer;
-  /* `scale`: the reset's press, which this transition would otherwise replace */
-  transition:
-    background var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+  transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 // THE TARGET, which is a different object from the track. 28×16 is what a switch of
 // this weight should LOOK like, and it is also 8px under the 24×24 floor WCAG 2.5.8
@@ -537,20 +518,11 @@ input[type="search"]::-webkit-search-decoration {
 // own menu is the case that settles it: it wanted the shape, so it took a sixth copy.
 // The defence was against something that never arrived, at the price of one idea in six
 // places.
-/* Press feedback for every row, on the WIDE step (tokens.scss: --press-scale-wide) — a
-   menu row is the full width of its card, and the buttons' 0.97 shrinks it enough to
-   read as the row lurching. Stated here rather than left to the reset for two reasons:
-   the rows that are LINKS (About, Legal, a pack in the switcher) are out of the reset's
-   reach, and a menu where some rows give and some don't reads as half of them being
-   broken. :not(:disabled) both keeps a disabled row still and lifts this over the
-   reset's (0,2,1). */
-.menu__item:not(:disabled):active {
-  scale: var(--press-scale-wide);
-}
-@media (prefers-reduced-motion: reduce) {
-  .menu__item:not(:disabled):active {
-    opacity: 0.7;
-  }
+/* Press feedback for the rows that are LINKS (About, Legal, a pack in the switcher):
+   the reset's rule reaches buttons only, and a menu where some rows dim and some
+   don't reads as half of them being broken. */
+.menu__item:active {
+  opacity: 0.7;
 }
 .menu__item {
   display: flex;
@@ -566,9 +538,7 @@ input[type="search"]::-webkit-search-decoration {
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
-  transition:
-    background var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+  transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 .menu__item > svg {
   flex: none;
@@ -737,16 +707,16 @@ input[type="search"]::-webkit-search-decoration {
   pointer-events: none;
   // The travel is on the TRACK role, the one tokens.scss names this plate under: it
   // follows a hand, so it moves on the first frame and has nearly landed by the time
-  // the hand is on the next row. (It ran on the step beat for a while, which made it
-  // trail the pointer — the calendar pip's bug, in the menus.) Under reduced motion
-  // the token drops it to a jump and the opacity fade below stays.
+  // the hand is on the next row. (It ran on the step spring for a while, which made it
+  // trail the pointer — the calendar pip's bug, in the menus.)
   transition:
     transform var(--spring-track-dur) var(--spring-track),
     height var(--spring-track-dur) var(--spring-track),
     opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
     // ...and the HUE eases too, so travelling onto a destructive row bleeds red
-    // into the wash instead of swapping colour mid-slide. It rides opacity's
-    // timing, so the wash has its colour by about when the plate lands.
+    // into the wash instead of swapping colour mid-slide. Faster than the travel
+    // (it rides opacity's timing): the wash should have arrived at its colour by
+    // the time the plate lands, not still be catching up.
     background calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
 }
 .menu__plate.is-on {
@@ -758,6 +728,11 @@ input[type="search"]::-webkit-search-decoration {
 // (useMenuPlate sets this; see there).
 .menu__plate.is-placing {
   transition: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu__plate {
+    transition: opacity 1ms;
+  }
 }
 // the rows sit above it
 .menu__list:has(.menu__plate) .menu__item {
@@ -798,43 +773,39 @@ input[type="search"]::-webkit-search-decoration {
   cursor: default;
 }
 // ── MOTION: three families, one vocabulary ───────────────────────────────────
-// Every animated surface in the app draws its timing from the SAME motion table
-// (--spring-fade/-step/-move/-pop/-track and the exit beat, tokens.scss — the names
-// are historical, the values are the curves set out there), so nothing has its own idea of
-// how fast the interface moves, and reduced motion is decided once, by token, there.
-// What differs between families is the TRANSFORM, and it differs on purpose — a scrim
-// that popped from a corner would be as wrong as a menu that merely faded.
+// Every animated surface in the app draws its timing from the SAME four springs
+// (--spring-fade/-step/-move/-pop in tokens.scss, each with its own beat), so
+// nothing has its own idea of how fast the interface moves and reduced-motion is
+// one kill-switch. What differs between
+// families is the TRANSFORM, and it differs on purpose — a scrim that popped from a
+// corner would be as wrong as a menu that merely faded.
 //
 //   .menu     anchored popovers: the ⋯ menus, the sharing panel, a row's worn and
-//             consumable popovers, the dates panel, the autocomplete, the list
-//             switcher. Pops from the trigger corner: every one sets transform-origin
-//             to the corner it hangs from (.menu__list's below; a panel that hangs
-//             elsewhere sets its own). Reach for this by default — if a surface hangs
-//             off a control, it is a menu.
+//             consumable popovers, the dates panel, the autocomplete. Pops from the
+//             trigger corner. Reach for this by default — if a surface hangs off a
+//             control, it is a menu.
 //   .reveal   in-flow disclosures: a row's note, the ⋯ menu's Export section, the
 //             sharing panel's activity log. Slides the row open (1fr↔0fr) because
 //             the content is PART of the page, not over it.
-//   .ovl      modal scrims (atoms/dialog.scss), with .dlg rising inside them —
-//             centred, not from a corner: a modal isn't anchored to its trigger.
+//   .ovl      modal scrims (atoms/dialog.scss), with .dlg rising inside them.
 //
 // A fourth family should be a deliberate decision, not a component inventing one.
 // ─────────────────────────────────────────────────────────────────────────────
 
-// pops in from the trigger corner: the fade, and a short rise from 0.98 on the arrival
-// role (the strong ease-out, 200ms)
+// pops in from the trigger corner: quick fade + slight rise, spring on enter
 .menu-enter-active {
   transition:
     opacity var(--spring-fade-dur) var(--spring-fade),
     transform var(--spring-pop-dur) var(--spring-pop);
 }
-// exit: FASTER and FLATTER than the entrance, on the ease-out (tokens.scss: EXITS). No
-// scale — a scaling exit pins the row at the transform origin (on a tall menu the top
-// row visibly "hangs" while the rest pulls away). The drift's beat comes off the
-// arrival's movement token, so reduced motion drops it and keeps the fade.
+// exit: FASTER and FLATTER than the entrance. No scale — a scaling exit pins
+// the row at the transform origin (on a tall menu the top row visibly "hangs"
+// while the rest pulls away) — and the shorter duration cuts expo-out's long
+// low-opacity tail, which read as a lingering ghost.
 .menu-leave-active {
   transition:
-    opacity var(--dur-exit) var(--ease-out),
-    transform calc(var(--spring-pop-dur) * 0.75) var(--ease-out);
+    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
+    transform calc(var(--spring-step-dur) * 0.6) var(--spring-step);
 }
 .menu-enter-from {
   opacity: 0;
@@ -860,11 +831,11 @@ input[type="search"]::-webkit-search-decoration {
 // transition (NOT a keyframe/filter): Safari reliably animates both — including the
 // LEAVE, where a filter transition on removal just snaps off — and a transition rests
 // at the VISIBLE base state, so if animation is ever throttled the toast still shows
-// (a keyframe would hold its hidden from-frame). It arrives as the event — a rise from
-// 0.96 on the arrival role (the strong ease-out, 200ms), opacity on the fade — and
-// leaves quicker and quieter on the exit beat, a small sink (tokens.scss: EXITS). Every
-// state shares one transform function, translate(-50%, …) scale(…), so Safari
-// interpolates cleanly (mismatched functions it won't).
+// (a keyframe would hold its hidden from-frame). It arrives as the event — a pop
+// spring rise that settles a slight scale-up, opacity leading on the fade spring so
+// the text reads before the pop finishes — and leaves quick + quiet on the step
+// spring, a small sink. Every state shares one transform function, translate(-50%, …)
+// scale(…), so Safari interpolates cleanly (mismatched functions it won't).
 // The bottom offset clears the HOME INDICATOR: viewport-fit=cover (nuxt.config) lets the
 // page run under it, and in the installed app a toast 24px up sat on the bar. max(),
 // as .wrap does for the side insets: the gap stays the floor, and the inset only wins
@@ -899,12 +870,10 @@ input[type="search"]::-webkit-search-decoration {
     opacity var(--spring-fade-dur) var(--spring-fade),
     transform var(--spring-pop-dur) var(--spring-pop);
 }
-// the exit beat for the fade, the arrival's movement token for the sink (tokens.scss:
-// EXITS — so reduced motion keeps the one and drops the other)
 .toast-leave-active {
   transition:
-    opacity var(--dur-exit) var(--ease-out),
-    transform calc(var(--spring-pop-dur) * 0.75) var(--ease-out);
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    transform var(--spring-step-dur) var(--spring-step);
   // a departing toast is already dead (the undo bar's pendingUndo is null) but still
   // painted mid-fade — without this, its Undo button eats a late click that then
   // silently no-ops. Harmless on the plain message toasts, which aren't interactive.
@@ -1092,8 +1061,7 @@ input[type="search"]::-webkit-search-decoration {
 // Disclosure slide — a grid whose single row animates 1fr↔0fr.
 //
 // NOT height:auto↔0: Safari has no interpolate-size, so that just snaps there. The
-// inner child clips. Reduced motion is the tokens' (tokens.scss): every beat below is
-// a movement role's, so the slide becomes a jump there.
+// inner child clips. reduced-motion is handled globally by the duration kill-switch.
 //
 // Lives here rather than in a component because three surfaces now disclose the same
 // way: an item row's note, the editor menu's Export section, and the sharing panel's
@@ -1112,13 +1080,10 @@ input[type="search"]::-webkit-search-decoration {
   min-height: 0;
   overflow: hidden;
 }
-// Opening is the box moving on screen, so it runs on the step role (the ease-in-out,
-// 250ms). Closing is the content LEAVING, so it eases out, and quicker — three quarters
-// of the opening's beat (tokens.scss: EXITS). The 2026-09-05 pair this replaces ran the
-// other way round (decelerate open, ACCELERATE close), and an accelerating close is
-// an ease-in, which nothing here uses: it spends its first frames looking stuck. Every
-// part of a direction rides the one timing, so the clip, the offset and the fade land
-// together.
+// One spring both ways (the step spring, no overshoot — a row holding words never
+// bounces). The 2026-09-05 pair of curves (decelerate open, accelerate close) stood
+// in for what a spring's shape does on its own; if the close reads as lingering
+// again, that asymmetry is the first thing to bring back.
 .reveal-enter-active {
   transition:
     grid-template-rows var(--spring-step-dur) var(--spring-step),
@@ -1127,9 +1092,9 @@ input[type="search"]::-webkit-search-decoration {
 }
 .reveal-leave-active {
   transition:
-    grid-template-rows calc(var(--spring-step-dur) * 0.75) var(--ease-out),
-    margin-top calc(var(--spring-step-dur) * 0.75) var(--ease-out),
-    opacity calc(var(--spring-step-dur) * 0.75) var(--ease-out);
+    grid-template-rows var(--spring-step-dur) var(--spring-step),
+    margin-top var(--spring-step-dur) var(--spring-step),
+    opacity var(--spring-step-dur) var(--spring-step);
 }
 /* The content does NOT move on its own: it used to rise a few px as the box grew
    downward, two directions in one small motion (Ryan, 2026-10-17: "there's multiple
@@ -1154,15 +1119,9 @@ input[type="search"]::-webkit-search-decoration {
 // Lifted out of VaultPickerModal when the delete-account dialog needed the same
 // thing. The ink is inherited, so a row can darken its own box on hover by setting
 // `color` on an ancestor rule.
-// Press feedback: the box is an <input>, so the reset's button rule doesn't reach it. A
-// label press activates its control, so this fires from anywhere on the packing row,
-// which is the whole row's tap target.
-// A DIM, still, where every button now scales (reset.scss). What you press here is the
-// row, through its label, and 0.97 of a 20px box is half a pixel — feedback nobody
-// sees. The row giving under the finger would be the full version, and that belongs
-// to the row's own styles (atoms/item.scss), on the wide step; ItemRow also holds this
-// dim back by name when a press on the row's chevron climbs to the label
-// (`.item--check:has(button:active) .check`), so the two move together or not at all.
+// Press feedback, the way every button has it (reset.scss): the box is an <input>, so
+// the reset's button rule doesn't reach it. A label press activates its control, so
+// this fires from anywhere on the packing row, which is the whole row's tap target.
 .check:has(.check__box:not(:disabled):active) {
   opacity: 0.7;
 }
@@ -1201,20 +1160,13 @@ input[type="search"]::-webkit-search-decoration {
   color: var(--ink-3);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
-// THE TICK arrives from 0.9 — no scale here starts lower; nothing in the world appears from half
-// its size — on the arrival role, the strong ease-out at 200ms, with no bounce: a box
-// ticked tens of times a session gets a short, plain answer, not a show. It used to
-// rise from 0.5 on the bouncy pop spring. That timing is on the CHECKED rule below, the
-// state it lands in; this base rule's timing is the untick, which is an exit, so it is
-// quicker and on the ease-out too, the scale on the arrival's movement token so reduced
-// motion keeps only the fade (tokens.scss: EXITS).
 .check__icon--check {
   opacity: 0;
   color: var(--ink);
-  transform: scale(0.9);
+  transform: scale(0.5);
   transition:
-    transform calc(var(--spring-pop-dur) * 0.75) var(--ease-out),
-    opacity var(--dur-exit) var(--ease-out);
+    transform var(--spring-pop-dur) var(--spring-pop),
+    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
 }
 // The empty square steps aside for the tick — and for the dash, but ONLY where there
 // is a dash to step aside for. `:has()` is doing real work in that second selector:
@@ -1230,9 +1182,6 @@ input[type="search"]::-webkit-search-decoration {
 .check__box:checked ~ .check__icon--check {
   opacity: 1;
   transform: scale(1);
-  transition:
-    transform var(--spring-pop-dur) var(--spring-pop),
-    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
 }
 // The MIXED square — a dash — for a box that stands for several rows at once (the
 // checklist's group row, whose box is its children's: ItemRow) while only some of
@@ -1256,14 +1205,9 @@ input[type="search"]::-webkit-search-decoration {
 // the tick and the dash stacked in the one grid cell they share. The dash wins: it is
 // the weaker claim, and overstating "all of it is packed" is the costlier way to be
 // wrong the night before a trip.
-// (the base rule's exit timing restated: this outranks the checked rule's arrival by
-// order, and the tick going away here is still an exit)
 .check__box:indeterminate ~ .check__icon--check {
   opacity: 0;
-  transform: scale(0.9);
-  transition:
-    transform calc(var(--spring-pop-dur) * 0.75) var(--ease-out),
-    opacity var(--dur-exit) var(--ease-out);
+  transform: scale(0.5);
 }
 
 /* "Add folder" — the quiet label that becomes an inline field, worn by the editor's
@@ -1283,10 +1227,7 @@ input[type="search"]::-webkit-search-decoration {
 .addfolder__btn {
   color: var(--ink-3);
   cursor: pointer;
-  /* `scale`: the reset's press, which this transition would otherwise replace */
-  transition:
-    color var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 @media (hover: hover) and (pointer: fine) {
   .addfolder__btn:hover {
@@ -1325,13 +1266,6 @@ input[type="search"]::-webkit-search-decoration {
 .grip:active {
   cursor: grabbing;
 }
-/* …and the grip is the one button that doesn't give under a press. Pressing it starts a
-   DRAG, so :active holds for the whole of it: the reset's press would keep the handle
-   shrunk under your finger while the row it carries is what's moving — and the row
-   lifting is already the answer to the press. (0,3,0), over the reset and .btn:active. */
-.grip:not(:disabled):active {
-  scale: none;
-}
 
 /* THE PANEL HEADER — title left, flush-end X right — worn by the share panel, the vault
    pane and the account dialog. Each surface keeps only the offset that puts it on its
@@ -1357,14 +1291,10 @@ input[type="search"]::-webkit-search-decoration {
 // it (.btn's --ink, .btn--ghost's and .menu__btn's --ink-2), so order is what lets it
 // win, which is its whole job. The hover is pointer-gated even though it's ink-only,
 // like every hover now (see .btn:hover); focus lifts it at every pointer.
-// The transition names colour, as every site's own copy did, and `scale`: most of
-// these are buttons, and this replaces both .btn's transition and the reset's, so
-// without it their press would snap.
+// The transition names colour alone, as every site's own copy did.
 .ink-quiet {
   color: var(--ink-3);
-  transition:
-    color var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 .ink-quiet:focus-visible {
   color: var(--ink);

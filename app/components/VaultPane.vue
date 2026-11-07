@@ -44,8 +44,8 @@ const width = defineModel<number>("width", { required: true });
 // editor every frame just to deliver a number to a style attribute. The model commits
 // once, on release, which is also when the editor persists it.
 let endResize = () => {};
-// (A drag never eases: the inset is a plain var read, and opening or closing the pane
-// changes the page's width at once; only the pane itself moves, see paneIn in GearEditor.)
+// (A drag never eases: the inset is a plain var read, and the editor's open/close is a
+// Web Animation it starts itself — setVault there — not a transition on the inset.)
 function startResize(ev: PointerEvent) {
   ev.preventDefault();
   const divider = ev.currentTarget as HTMLElement;
@@ -783,8 +783,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   cursor: pointer;
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade),
-    scale var(--dur-press) var(--ease-out);
+    color var(--spring-fade-dur) var(--spring-fade);
 }
 @media (hover: hover) and (pointer: fine) {
   .vp__tab:hover {
@@ -1090,10 +1089,68 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   }
 }
 
-/* ---- entrance and exit ----
-   The pane's own arrival and departure are a Web Animation GearEditor runs on this
-   element (paneIn / paneOut there): opacity and a short `transform` from the edge the
-   pane lives on, on the drawer curve, with the page already at its new width. They
-   leave `translate` alone, which is the keyboard lift (the phone block above), so the
-   two compose while the keyboard rises during the entrance. */
+/* ---- entrance ------------------------------------------------------------
+   Pairs with <Transition name="vaultpane"> in GearEditor. The pane comes in from
+   the edge it actually sits on — inward from the right as a desktop column, up
+   from the bottom as a phone sheet — so the motion reads as the panel arriving
+   from off-screen rather than as a card materialising in place.
+   No scale: the menus and toasts scale because they're small objects popping out
+   of a control, but a full-height panel scaling looks like the page zooming.
+   Distance is deliberately short (--space-3). It's an orientation cue, not a
+   reveal — the pane is opened on purpose, and anything longer gets in the way of
+   the thing you opened it to do.
+   Entrance leads with opacity on the fade spring while the travel settles on the
+   pop spring; the exit stays quicker than the entrance, the same asymmetry .menu
+   and .toast use. (The global prefers-reduced-motion rule in main.scss flattens
+   both.)
+
+   The EXIT is not the menus' exit, though, and shouldn't be. A menu is a small
+   object popping off a control, so it leaves flat and in 120ms. This is a
+   full-height column, 23rem wide before anyone drags the divider, and at that size
+   the same treatment read as the panel being deleted rather than dismissed — 8px of
+   travel is invisible on a surface that wide, so all you saw was a large rectangle
+   blinking off. It leaves the way
+   it arrived instead: back out to the edge it lives on, far enough to read as
+   travel (--space-4, the entrance's distance and then some), on the step spring:
+   a thing leaving gets no spring of its own to land on, so it takes the small
+   move's and lets opacity run ahead, spent before the offset lands so nothing
+   clips at the end. Still well short of the entrance: the step beat out against
+   the pop beat in.
+
+   The LIST moves with it. GearEditor springs its own inset on the travel spring
+   (see .editor--split there), so the column gives up the space as the pane arrives
+   and flows back into it as the pane goes — one movement, not a panel animating
+   over a page that already jumped. */
+/* `translate` rides along in both: it is the keyboard lift (the phone block above), and
+   these replace that rule's own transition while they run — the keyboard rises during
+   the entrance, since opening is what focuses the search. */
+.vaultpane-enter-active {
+  transition:
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    transform var(--spring-pop-dur) var(--spring-pop),
+    translate var(--spring-step-dur) var(--ease-drawer);
+}
+.vaultpane-leave-active {
+  transition:
+    opacity calc(var(--spring-fade-dur) * 0.8) var(--spring-fade),
+    transform var(--spring-step-dur) var(--spring-step),
+    translate var(--spring-step-dur) var(--ease-drawer);
+}
+.vaultpane-enter-from {
+  opacity: 0;
+  transform: translateX(var(--space-3));
+}
+.vaultpane-leave-to {
+  opacity: 0;
+  transform: translateX(var(--space-4));
+}
+@media (max-width: $bp-full) {
+  /* the sheet's edge is the bottom one */
+  .vaultpane-enter-from {
+    transform: translateY(var(--space-3));
+  }
+  .vaultpane-leave-to {
+    transform: translateY(var(--space-4));
+  }
+}
 </style>

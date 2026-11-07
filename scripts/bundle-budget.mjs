@@ -98,10 +98,10 @@ const FIRST_LOAD_CEILING_KB = 160;
 // Re-anchored 2026-10-31 at 155.4 measured (#473, My Gear over MCP; see the ceiling's
 // note for what it spent), when the ceiling moved to 160. 157 is the rule's ~2 over.
 //
-// Re-anchored 2026-11-07 at 157.6 measured (#488: the keyboard-stillness plugin, the
-// tooltip warm-up, the suggestion menu's room and size grouping, the pane's own motion,
-// and the CSS for the new motion values, tap areas and hover gates). 159.5 keeps it
-// under the ceiling, so the next growth of any size is the ceiling's conversation.
+// Re-anchored 2026-11-07 at 157.7 measured (#488: the keyboard-stillness plugin, the
+// suggestion menu's room and size grouping, the rows' height fold on a mode switch, and
+// the CSS for the tap areas and hover gates). 159.5 keeps it under the ceiling, so the
+// next growth of any size is the ceiling's conversation.
 const FIRST_LOAD_BUDGET_KB = 159.5;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
