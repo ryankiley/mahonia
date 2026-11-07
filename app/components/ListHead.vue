@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, InternetIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
 import {
   distanceFieldValue,
@@ -471,7 +471,7 @@ onClickOutside(trailEl, closeTrail);
             width="16"
             height="16"
           />
-          <HugeiconsIcon :icon="GlobeIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="InternetIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="head__name t-clip">{{ link.name }}</span>
           <!-- The one fact about the route that isn't in its name. Muted and after the
                name, so it reads as a detail OF the trail rather than a second link;
@@ -493,7 +493,7 @@ onClickOutside(trailEl, closeTrail);
             width="14"
             height="14"
           />
-          <HugeiconsIcon :icon="GlobeIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="InternetIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
           <a
             class="head__cardurl t-clip"
             :href="link.href"
@@ -1296,6 +1296,9 @@ onClickOutside(trailEl, closeTrail);
   position: absolute;
   top: calc(100% + var(--space-1));
   left: 0;
+  /* grows out of the Dates button's corner like the trail panel beside it, not from
+     its own middle */
+  transform-origin: top left;
   z-index: var(--z-menu);
   display: grid;
   gap: var(--space-2);
