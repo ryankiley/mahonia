@@ -65,9 +65,13 @@ const shownIcon = computed(() => gearIcon(commonName.value, name.value, icon.val
 const shownLabel = computed(() => gearIconLabel(commonName.value, name.value, icon.value));
 // what "Automatic" would draw: the type's icon, read from the fields as they stand
 const autoIcon = computed(() => gearIcon(commonName.value, name.value));
+const iconBtn = useTemplateRef<HTMLButtonElement>("iconBtn");
 function pickIcon(glyph: GearGlyph | null) {
   icon.value = glyph;
   iconsOpen.value = false;
+  // the grid goes with the press, and the button that was pressed with it: hand focus
+  // back to the box that opened it, rather than dropping a keyboard user on the page
+  nextTick(() => iconBtn.value?.focus());
 }
 const saving = ref(false);
 const error = ref("");
@@ -290,6 +294,7 @@ async function onSubmit() {
         <div class="dlg__field">
           <span class="t-sm t-muted">Icon</span>
           <button
+            ref="iconBtn"
             type="button"
             class="field vitem__iconbtn"
             :aria-expanded="iconsOpen"
@@ -487,10 +492,12 @@ async function onSubmit() {
   padding-inline: var(--space-2);
   text-align: start;
 }
-/* the one you have: a quiet plate under it, ink full strength */
+/* the one you have: a plate of ink at the menus' wash, under full-strength ink. Ink
+   mixed thin, not --paper-3, because --paper-3 IS the dialog's surface in dark and the
+   plate vanished into it. */
 .vitem__icon[aria-pressed="true"],
 .vitem__auto[aria-pressed="true"] {
-  background: var(--paper-3);
+  background: color-mix(in oklab, var(--ink) var(--popover-wash, 8%), transparent);
   color: var(--ink);
 }
 @media (hover: hover) and (pointer: fine) {

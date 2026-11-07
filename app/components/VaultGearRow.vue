@@ -371,6 +371,9 @@ const meta = computed(() => {
   .vault__weight {
     min-width: 0;
     text-align: left;
+    /* the second line starts under the name, not under the icon: the icon column
+       holds the first line alone, as it does on a wide screen */
+    margin-inline-start: var(--gear-type-indent);
   }
   .vault__actions {
     margin-left: auto;
