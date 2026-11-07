@@ -20,13 +20,17 @@ import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 //
 // Every class here is a global atom in atoms/controls.scss, so this file needs no
 // styles of its own and no :deep() to reach them.
-const props = defineProps<{
+type SectionItem = { key?: string; label: string; icon: IconNode; run: () => unknown };
+
+defineProps<{
   /** the header's word, and the group's accessible name */
   label: string;
   /** the header's mark, in the same glyph column as every row above it */
   icon: IconNode;
-  /** the rows, in the order they are drawn — see useListExports' exportItems */
-  items: readonly { key?: string; label: string; icon: IconNode; run: () => unknown }[];
+  /** the rows, in the order they are drawn — see useListExports' exportItems. Or
+   *  none, and the default slot fills the section instead: the sharing menu's recent
+   *  changes are entries to read, not rows to press, and wear the same header. */
+  items?: readonly SectionItem[];
 }>();
 
 /**
@@ -66,7 +70,7 @@ function toggle() {
 }
 
 // Close the menu BEFORE the row's own work, matching every plain row in both menus.
-function run(item: (typeof props.items)[number]) {
+function run(item: SectionItem) {
   emit("pick");
   void item.run();
 }
@@ -81,7 +85,7 @@ function run(item: (typeof props.items)[number]) {
       :aria-expanded="open"
       @click="toggle"
     >
-      <HugeiconsIcon :icon="icon" :size="14" :stroke-width="2" aria-hidden="true" />
+      <HugeiconsIcon :icon="icon" :size="16" :stroke-width="2" aria-hidden="true" />
       <!-- the label takes the slack, so the chevron keeps the trailing edge now that a
            glyph holds the leading one -->
       <span class="menu__sectlabel">{{ label }}</span>
@@ -101,20 +105,22 @@ function run(item: (typeof props.items)[number]) {
          would not. -->
     <Transition name="reveal">
       <div v-if="open" class="reveal">
-        <ul class="menu__sectlist" role="group" :aria-label="label">
-          <li v-for="item in items" :key="item.key ?? item.label" role="none">
-            <button
-              type="button"
-              data-row
-              role="menuitem"
-              class="menu__item menu__sectitem"
-              @click="run(item)"
-            >
-              <HugeiconsIcon :icon="item.icon" :size="14" :stroke-width="2" aria-hidden="true" />
-              {{ item.label }}
-            </button>
-          </li>
-        </ul>
+        <slot>
+          <ul class="menu__sectlist" role="group" :aria-label="label">
+            <li v-for="item in items ?? []" :key="item.key ?? item.label" role="none">
+              <button
+                type="button"
+                data-row
+                role="menuitem"
+                class="menu__item menu__sectitem"
+                @click="run(item)"
+              >
+                <HugeiconsIcon :icon="item.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+                {{ item.label }}
+              </button>
+            </li>
+          </ul>
+        </slot>
       </div>
     </Transition>
   </li>

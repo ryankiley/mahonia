@@ -169,7 +169,7 @@ function importFile(text: string, file: File) {
          that an import ARRIVES as a new list rather than merging into the one you're
          looking at. The hint under the box carries the CSV shape. -->
     <p class="t-sm t-muted dlg__lede">
-      Paste a LighterPack link or CSV, or choose a file: a CSV, or a JSON backup from Export. It becomes a new list.
+      Paste a LighterPack link or a CSV, or choose a file. It becomes a new list.
     </p>
 
     <input
@@ -191,8 +191,8 @@ function importFile(text: string, file: File) {
     <!-- the column order stays on screen: as a placeholder it vanished on the first
          keystroke, exactly when someone composing a CSV by hand needs it -->
     <p class="t-sm t-muted import__hint">
-      A CSV needs a header row, with columns like Category, Item Name, Qty, Weight, Unit, Worn,
-      Consumable. A LighterPack export works as it is.
+      A CSV needs a header row: Category, Item Name, Qty, Weight, Unit, Worn, Consumable.
+      A file can also be a backup from Download JSON.
     </p>
 
     <p v-if="error" class="t-sm import__err">{{ error }}</p>

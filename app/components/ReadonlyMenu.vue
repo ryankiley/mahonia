@@ -97,8 +97,7 @@ const MENU_ACTIONS = [
   // and a clipboard here would spend the word before you got to it.
   { label: "Duplicate this list", icon: CopyPlusIcon, run: copyThis, busy: copying },
   // …and THIS one is the clipboard, so it wears the app's clipboard mark — the same
-  // Copy01 pair of sheets ListHead and SharePanel put on the buttons that copy this
-  // very link.
+  // Copy01 pair of sheets ListHead puts on the button that copies this very link.
   { label: "Copy link", icon: Copy01Icon, run: copyLink },
   { label: "Send feedback…", icon: Bug02Icon, run: () => feedback.open() },
 ];
@@ -112,7 +111,7 @@ const MENU_ACTIONS = [
            would mint a second list. -->
       <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
         <button type="button" data-row role="menuitem" class="menu__item" :disabled="a.busy?.value" @click="close(); a.run()">
-          <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ a.label }}
         </button>
       </li>
@@ -142,7 +141,7 @@ const MENU_ACTIONS = [
              should recognise without reading, and the one they should never hit by
              mistake reaching for the row above. -->
         <button type="button" data-row role="menuitem" class="menu__item" @click="close(); reportThis()">
-          <HugeiconsIcon :icon="Flag02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="Flag02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Report list
         </button>
       </li>

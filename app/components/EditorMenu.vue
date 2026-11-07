@@ -23,7 +23,7 @@ import type { ListSnapshot } from "~~/shared/types";
 // first load 151.1 → 147.8 KB brotli with this split alone).
 //
 // State lives with the caller — the parent owns `open` (its dismiss contract, its
-// mutual exclusion with the share panel, the tooltip that stands down) and every
+// mutual exclusion with the sharing menu, the tooltip that stands down) and every
 // action is an emit, so the rows here are a table and nothing else: a row is one
 // entry, not a hand-written <li> plus a case in a dispatch switch (the argument
 // ReadonlyMenu already makes for the read views' twin of this menu).
@@ -118,7 +118,7 @@ const MENU_ACTIONS: MenuAction[] = [
   // one-pack visitor with no way to start a second.)
   // NOT a clipboard mark, however well one would fit the word "copy". The Export
   // rows below are genuine clipboard writes, and so is the Copy01 pair of sheets
-  // that ListHead and SharePanel put on their Copy buttons — this row is the odd
+  // that ListHead puts on its Copy button — this row is the odd
   // one out, minting an independent list and navigating you into it. That is the
   // argument ReadonlyMenu.vue already makes for calling it "Duplicate" and not
   // "Copy"; the glyph is read first, so it has to agree or it spends the label.
@@ -161,7 +161,7 @@ function act(event: MenuEvent | FootEvent) {
       <!-- Close BEFORE the action runs, matching the old dispatch order. -->
       <li v-for="a in menuActions" :key="a.label" role="none">
         <button type="button" data-row role="menuitem" class="menu__item" @click="act(a.event)">
-          <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ a.label }}
         </button>
       </li>
@@ -190,15 +190,15 @@ function act(event: MenuEvent | FootEvent) {
           class="menu__item"
           @click="act(a.event)"
         >
-          <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ a.label }}
         </button>
         <NuxtLink to="/about" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="InformationCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="InformationCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           About
         </NuxtLink>
         <NuxtLink to="/legal" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="LegalDocument01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="LegalDocument01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Legal
         </NuxtLink>
       </li>
@@ -226,7 +226,7 @@ function act(event: MenuEvent | FootEvent) {
           class="menu__item editor__footact"
           @click="act('forget')"
         >
-          <HugeiconsIcon :icon="RemoveCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           Forget this list
         </button>
         <button
@@ -237,7 +237,7 @@ function act(event: MenuEvent | FootEvent) {
           class="menu__item editor__footact editor__delete"
           @click="act('delete')"
         >
-          <HugeiconsIcon :icon="Delete02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Delete this list
         </button>
       </li>

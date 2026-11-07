@@ -22,7 +22,7 @@ const label = computed(() => (presence.value !== "signedOut" ? "Your account" : 
          somewhere, which is why the panel takes the mount as a prop. -->
     <!-- The only modal here whose body is a whole surface rather than a form, so it
          has no dlg__actions row and had no visible way out — just Escape and a tap on
-         the scrim. The X is the same control the vault and sharing panels close with. -->
+         the scrim. The X is the same control the vault pane closes with. -->
     <header class="panel__head acctmodal__head">
       <!-- .t-label is --ink-2 by design; a panel TITLE steps up to full ink, which is
            what the sharing and vault headers already do. -->

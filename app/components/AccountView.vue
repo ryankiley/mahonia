@@ -202,9 +202,8 @@ async function addPasskey() {
 
 async function removePasskey(id: number) {
   if (!(await askConfirm({
-    title: "Remove this passkey",
-    message:
-      "Remove this passkey? You can still sign in with an emailed link, and add another any time.",
+    title: "Remove this passkey?",
+    message: "You can still sign in with an emailed link, and add another any time.",
     confirmLabel: "Remove",
   }))) return;
   if (await pk.remove(id)) await loadPasskeys();
@@ -323,8 +322,8 @@ async function revokeToken(t: AccessTokenSummary) {
   if (!(await askConfirm({
     title: app ? `Disconnect ${t.label ?? "this app"}?` : "Revoke this token?",
     message: app
-      ? "It stops reaching My Gear on its next call and will ask you to sign in again if you use it. Nothing in your gear changes."
-      : "Whatever was using it stops reaching My Gear on its next call. Nothing in your gear changes.",
+      ? "It loses access to My Gear and will ask you to sign in again. Your gear doesn’t change."
+      : "Whatever uses it loses access to My Gear. Your gear doesn’t change.",
     confirmLabel: app ? "Disconnect" : "Revoke",
   }))) return;
   freshToken.value = "";
@@ -381,14 +380,14 @@ async function deleteAccount() {
     !(await askConfirm({
       title: "Delete your account?",
       message:
-        "Your email, display name, passkeys and all your saved gear go, and can't be brought back.",
+        "Your email, name, passkeys and My Gear are deleted. This can’t be undone.",
       confirmLabel: "Delete account",
       checkbox: {
         label: "Delete my lists too",
         // Says what TICKING it does. A hint that explains the unticked state reads
         // backwards under a box you're deciding whether to tick, and this is the
         // consequence people don't anticipate: the lists aren't only yours.
-        hint: "Anyone you've shared a link with loses access too.",
+        hint: "Anyone you’ve sent a link to loses it too.",
       },
     }))
   )
@@ -426,7 +425,7 @@ async function onSignOutEverywhere() {
     !(await askConfirm({
       title: "Sign out everywhere?",
       message:
-        "Ends every session on every device, including this one, and revokes every token under Assistant access. Do this if you think someone else has access; removing a passkey alone doesn't end the sessions it already started.",
+        "Signs out every device, this one too, and disconnects every assistant. Use this if you think someone else got in.",
       confirmLabel: "Sign out everywhere",
     }))
   )
@@ -876,14 +875,11 @@ async function onSignOut() {
 .acct__section:last-child {
   padding-bottom: 0;
 }
-/* NOT the sharing panel's --text-micro field label, though both sit under a t-label
-   title. Sharing's labels name an INPUT directly beneath them, so a small quiet label
-   reads as attached to its control. These name a SECTION of prose — at 12px they came
-   out smaller and fainter than the paragraph they introduce, which puts the heading
-   below its own body text.
-   The contrast this surface needs is structural rather than typographic: the sections
-   are already separated by hairlines (see .acct__section), which is the work sharing
-   was asking its type to do alone. */
+/* NOT a 12px --text-micro label: a small quiet label reads as attached to an input
+   directly beneath it, and these name a SECTION of prose. At 12px they came out
+   smaller and fainter than the paragraph they introduce, which puts the heading below
+   its own body text. The contrast this surface needs is structural rather than
+   typographic: the sections are already separated by hairlines (see .acct__section). */
 .acct__label {
   color: var(--ink-2);
 }

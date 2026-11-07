@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Cancel01Icon, ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
@@ -581,14 +581,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
                 {{ cat.allInList ? "Already added" : counted(cat.entries.length, "item") }}
               </span>
             </span>
+            <!-- No mark at the end of the row. A "+" here was the same glyph on every row
+                 of a panel whose one job is adding, and the tick that replaced it only
+                 repeated the "Already added" line under the name. -->
             <span class="t-num t-sm vp__w">{{ formatWeight(cat.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
-            <!-- A check when it's IN the list, and nothing when it isn't. The "+" that
-                 used to sit here was the same glyph on every row of a panel whose one
-                 job is adding — it said what the panel already says, forty times. The
-                 column stays reserved so a row gaining its check shifts nothing. -->
-            <span class="vp__icon" aria-hidden="true">
-              <HugeiconsIcon :icon="CheckIcon" v-if="cat.allInList" :size="16" :stroke-width="2" class="vp__added" />
-            </span>
           </button>
         </li>
       </ul>
@@ -629,12 +625,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
               <span v-if="isInList(entry)" class="t-sm vp__inlist">Already added</span>
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
-            <span class="vp__icon" aria-hidden="true">
-              <HugeiconsIcon :icon="CheckIcon" v-if="isInList(entry)"
-                :size="16"
-                :stroke-width="2"
-                class="vp__added" />
-            </span>
           </button>
         </li>
       </ul>
@@ -844,6 +834,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   margin-bottom: var(--space-2);
 }
 /* the search field, its clear and their touch target are SearchField's own */
+/* The field's ground hangs into the panel's padding the way the active tab's chip does
+   above it (and every row's hover ground below it), with its text pulled in by the same
+   step, so the grounds share one edge and the words share another. Inset like the rest,
+   the box started 8px inside the tab's chip and the edge read as a mistake. */
+.vp__controls :deep(.sf) {
+  margin-inline: calc(-1 * var(--space-2));
+}
+.vp__controls :deep(.sf__input) {
+  padding-inline-start: var(--space-2);
+}
 /* the hand stays on the select alone — "Add to" is the label naming it, not a
    thing you click, and pointing at prose invites a click that does nothing */
 .vp__target {
@@ -969,27 +969,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__w {
   flex: none;
   color: var(--ink-2);
-}
-/* Pinned to the FIRST line, not centred on the row. An "Already added" row is two
-   lines tall, and centring across both dropped the tick below the weight sitting on
-   line one beside it. A one-line-tall box (1lh = the computed line-height, so it
-   can't drift from the type) centres the glyph on that line instead, and the two
-   agree whether or not the second line is there. */
-.vp__icon {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  height: 1lh;
-  color: var(--ink-3);
-}
-@media (hover: hover) and (pointer: fine) {
-  .vp__add:hover .vp__icon {
-    color: var(--ink);
-  }
-}
-.vp__added {
-  color: var(--ink);
 }
 /* CENTRED in the pane, both ways. These states have no rows to align to — they're
    a sentence about why the pane is empty — so left-aligning them at the top left

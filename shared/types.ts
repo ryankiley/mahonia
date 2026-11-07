@@ -429,11 +429,21 @@ export interface ClaimedList {
  *  can anything not in it be called gone (see useClaimedLists' opens ledger). */
 export const CLAIMED_LIST_CAP = 200;
 
-/** One recovery point, as the sharing panel's activity log lists them. */
+/** One recovery point, as the sharing menu's recent changes list them. */
+/**
+ * Who made a change in a list's recent changes: an assistant (an edit through the
+ * connector), the reader themself, or another signed-in editor by the name they chose.
+ * Absent when nobody can be named: an edit link used signed out, or an account with no
+ * display name. The same rule as the author line under a shared list's title.
+ */
+export type ChangeAuthor = { kind: "assistant" } | { kind: "you" } | { kind: "named"; name: string };
+
 export interface SnapshotMeta {
   id: number;
   version: number;
   reason: string | null;
+  /** Who made the change, as far as this reader can be told. */
+  by: ChangeAuthor | null;
   createdAt: string;
   itemCount: number;
 }

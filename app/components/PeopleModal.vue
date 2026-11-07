@@ -102,9 +102,8 @@ function remove(p: Person) {
   <BaseModal :open="true" label="People on this trip" @close="emit('close')">
     <h2 class="t-label">People</h2>
     <p class="t-sm t-muted dlg__lede">
-      Name who’s on this trip, then mark who carries what as you go down the list.
-      Removing someone keeps their gear; it just goes back up for grabs.
-      Filter to Unassigned to see what nobody has yet.
+      Add who’s coming, then mark who carries what. Removing someone puts their gear
+      back up for grabs.
     </p>
 
     <ul v-if="people.length" class="ppl__list">

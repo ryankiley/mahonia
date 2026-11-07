@@ -145,19 +145,19 @@ const { open: openAccount } = useAccountModal();
           </li>
           <li v-if="showGear" role="none">
             <NuxtLink to="/gear" data-row role="menuitem" class="menu__item" @click="open = false">
-              <HugeiconsIcon :icon="SafeBoxIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+              <HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" aria-hidden="true" />
               My Gear
             </NuxtLink>
           </li>
           <li v-if="!onAccount" role="none">
             <button type="button" data-row role="menuitem" class="menu__item" @click="open = false; openAccount()">
-              <HugeiconsIcon :icon="UserIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+              <HugeiconsIcon :icon="UserIcon" :size="16" :stroke-width="2" aria-hidden="true" />
               Your account
             </button>
           </li>
           <li role="none">
             <button type="button" data-row role="menuitem" class="menu__item" @click="onSignOut">
-              <HugeiconsIcon :icon="Logout01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+              <HugeiconsIcon :icon="Logout01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
               Sign out
             </button>
           </li>

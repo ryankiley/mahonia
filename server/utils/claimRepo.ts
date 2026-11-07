@@ -42,7 +42,7 @@ export const CLAIM_BATCH_MAX = CLAIMED_LIST_CAP;
  *
  * Deliberately the COMMIT instant rather than the deploy that followed it: erring
  * early only costs a list the automatic sweep (it can still be added by hand from
- * the sharing panel), while erring late would grandfather lists whose "opened" mark
+ * the sharing menu), while erring late would grandfather lists whose "opened" mark
  * is real and attach someone else's list to an account.
  */
 const ORIGIN_TRACKING_SINCE = new Date("2026-08-02T01:45:17Z");

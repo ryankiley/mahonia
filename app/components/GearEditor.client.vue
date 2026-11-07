@@ -626,7 +626,7 @@ const editUrl = computed(() => (c.editToken ? `${origin()}${editLinkPath(snapsho
 // gesture on mobile (the toolbar is sticky, so nothing else would), or Escape.
 useMenuDismiss(menuOpen, menuRef);
 
-// the sharing panel — same dismiss contract as the ⋯ menu beside it (outside click,
+// the sharing menu — same dismiss contract as the ⋯ menu beside it (outside click,
 // Escape), and the two are mutually exclusive: they sit adjacent in the topbar, and
 // two open popovers over one toolbar read as a glitch
 const shareRef = useTemplateRef<HTMLElement>("shareRef");
@@ -652,9 +652,9 @@ async function copyEditLink() {
     return flash("This device doesn’t hold the edit link. Replace it in Sharing to get one");
   if (!c.editToken) return flash("Add an item first to get an edit link");
   if (!(await askConfirm({
-    title: "Copy edit link",
-    message: "Anyone with this link can edit your list. Only send it to people you trust.",
-    confirmLabel: "Copy edit link",
+    title: "Copy the edit link?",
+    message: "Anyone with it can edit this list. Only send it to people you trust.",
+    confirmLabel: "Copy link",
   }))) return;
   tally("share_link_copied"); // after the confirm: a cancelled copy is not a copy
   // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
@@ -662,16 +662,16 @@ async function copyEditLink() {
 }
 async function rotate() {
   if (!(await askConfirm({
-    title: "Rotate edit link",
-    message: "Make the old edit link stop working and create a new one? Anyone you shared the old link with will lose edit access.",
-    confirmLabel: "Rotate link",
+    title: "Replace the edit link?",
+    message: "The old link stops working, so anyone you sent it to can no longer edit. You get a new one.",
+    confirmLabel: "Replace link",
     danger: true,
   }))) return;
   const next = await c.rotate();
   if (next) {
     // keep the pretty path (rotate only swaps the token, not the share code)
     history.replaceState(null, "", editLinkPath(snapshot.value?.shareCode, next));
-    flash("Edit link rotated");
+    flash("Edit link replaced");
   }
 }
 const { copyList } = useCopyList();
@@ -727,13 +727,13 @@ async function forgetThisList() {
   const dead = status.value === "missing";
   const title = savedListTitle(snapshot.value?.title ?? "");
   if (!(await askConfirm({
-    title: "Forget this list",
+    title: "Forget this list?",
     // Honest about the cost in both states: alive, the list survives and only this
     // browser's way back into it is what's being dropped; dead, the copy being
     // dropped is the thing itself.
     message: dead
-      ? `Forget “${title}”? Its link stopped working, so the copy saved on this device may be all that’s left; forgetting discards it.`
-      : `Forget “${title}” on this device? The list stays online for anyone with its link, but you’ll need its edit link to open it again.`,
+      ? `“${title}” no longer works online, so the copy on this device may be the last one. Forgetting it deletes that copy.`
+      : `“${title}” stays online for anyone with its link. You’ll need the edit link to open it here again.`,
     confirmLabel: "Forget",
     // marked the way the delete's dialog is: dead, this costs something no link
     // can recover. (Today the dialog renders danger monochrome, like everything
@@ -760,8 +760,8 @@ async function deleteThisList() {
   const code = token ? "" : c.claimCode;
   if (!token && !code) return;
   if (!(await askConfirm({
-    title: "Delete this list",
-    message: `Delete “${savedListTitle(snapshot.value?.title ?? "")}” for everyone? Anyone with the link will lose it, and this can’t be undone.`,
+    title: "Delete this list?",
+    message: `“${savedListTitle(snapshot.value?.title ?? "")}” is deleted for everyone with its link. This can’t be undone.`,
     confirmLabel: "Delete",
     danger: true,
   }))) return;
@@ -830,8 +830,8 @@ async function forgetMissingList() {
   const entry = missingEntry.value;
   if (!entry) return;
   if (!(await askConfirm({
-    title: "Forget this list",
-    message: `Forget “${savedListTitle(entry.title)}”? Its link no longer works; this only removes it from your lists on this device.`,
+    title: "Forget this list?",
+    message: `“${savedListTitle(entry.title)}” no longer works. This takes it off your lists on this device.`,
     confirmLabel: "Forget",
   }))) return;
   // Same teardown-first order as the pair above. Nothing here can write it back
@@ -848,7 +848,7 @@ async function forgetMissingList() {
 //
 // It used to be eight peers in one column: making a list, moving data in and out,
 // and handing out edit access all read as the same kind of thing. The two sharing
-// items moved to the sharing panel; what's left splits into the plain actions and
+// items moved to the sharing menu; what's left splits into the plain actions and
 // two SECTIONS you open in place — import and export are each a small set of
 // alternatives, and a flat list made you scan six labels to find the one format you
 // wanted. One section open at a time, so the menu never doubles in height.
@@ -977,7 +977,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                way this one does. It keeps the aria-label on the button (the
                accessible NAME) and adds the visible description. Nothing changes on
                touch — <Tooltip> declines to open where there's no hover. -->
-          <!-- …and it stands down while the pane is up, like the share panel and the
+          <!-- …and it stands down while the pane is up, like the sharing menu and the
                account menu beside it. The pane is a .popover in its own right and it
                opens directly under this button, so the description landed on its top
                corner — and the pane says what it is far better than a word does. -->
@@ -1014,13 +1014,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
               </button>
             </Tooltip>
             <Transition name="menu">
-              <LazySharePanel
+              <LazyShareMenu
                 v-if="shareOpen && snapshot"
                 :snapshot="snapshot"
                 :edit-token="c.editToken"
                 :auth-headers="c.authHeaders()"
-                :read-url="readUrl"
-                :edit-url="editUrl"
                 @close="shareOpen = false"
                 @copy-read="copyShare"
                 @copy-edit="copyEditLink"
@@ -1483,12 +1481,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink);
   background: var(--paper-2);
 }
-/* The sharing panel is ~343px of links and activity hanging off a 32px button that
-   sits near the right end of the bar. `.menu` makes that button the containing block,
-   so `right: 0` put the panel's right edge at the BUTTON's right edge — and on a
-   375px phone its left edge landed at -11, taking the rounded corner and half the
-   padding off-screen.
-   Dropping the wrapper out of the positioning chain on small screens hands the panel
+/* The sharing menu hangs off a 32px button near the right end of the bar. `.menu`
+   makes that button the containing block, so `right: 0` puts the menu's right edge at
+   the BUTTON's. When it was a ~343px panel, that landed its left edge at -11 on a
+   375px phone; the menu (about 230px) fits, but anchored to the bar it keeps the page
+   gutter whatever its rows come to.
+   Dropping the wrapper out of the positioning chain on small screens hands the menu
    the sticky .topbar instead, which spans the viewport. Scoped to this one wrapper on
    purpose: `.menu` is a shared atom (the row popovers use it too), and making IT
    static would move every anchored menu in the app. */
@@ -1497,7 +1495,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     position: static;
   }
 }
-/* the sharing panel is open — same held-state treatment the vault toggle uses, so
+/* the sharing menu is open — same held-state treatment the vault toggle uses, so
    the two topbar popovers signal their state identically */
 .editor__share.is-on {
   color: var(--ink);

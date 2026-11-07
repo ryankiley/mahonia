@@ -52,6 +52,16 @@ describe("timeAgo", () => {
     expect(label).toMatch(/2025/);
   });
 
+  it("abbreviates minutes, hours and days when asked; the rest are short already", () => {
+    const short = (ms: number) => timeAgo(now - ms, now, { short: true });
+    expect(short(30 * S)).toBe("just now");
+    expect(short(1 * M)).toBe("1m ago");
+    expect(short(49 * M)).toBe("49m ago");
+    expect(short(3 * H)).toBe("3h ago");
+    expect(timeAgo(new Date(2026, 6, 11).getTime(), now, { short: true })).toBe("yesterday");
+    expect(timeAgo(new Date(2026, 6, 10).getTime(), now, { short: true })).toBe("2d ago");
+  });
+
   it("clamps a future timestamp (clock skew) to 'just now'", () => {
     expect(timeAgo(now + 5 * M, now)).toBe("just now");
   });
