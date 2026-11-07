@@ -13,7 +13,8 @@ describe("which icon a gear type wears", () => {
     ["Tent stakes", "tent"],
     ["Quilt", "sleep"],
     ["Sleeping bag", "sleep"],
-    ["Pillow", "sleep"],
+    ["Pillow", "sleepAid"],
+    ["Earplugs", "sleepAid"],
     ["Sleeping pad", "pad"],
     ["Trekking poles", "poles"],
     ["Stuff sack", "bag"],
@@ -34,10 +35,20 @@ describe("which icon a gear type wears", () => {
     ["Water filter", "filter"],
     ["Stove", "stove"],
     ["Fuel canister", "stove"],
-    ["Cup", "pot"],
-    ["Spork", "pot"],
+    ["Cup", "cup"],
+    ["Spork", "utensils"],
     ["Energy bar", "food"],
-    ["Meal", "food"],
+    ["Meal", "meal"],
+    ["Breakfast bar", "food"],
+    ["Towel", "towel"],
+    ["Underwear", "underwear"],
+    ["Wallet", "wallet"],
+    ["Repair kit", "repair"],
+    ["Guyline", "cord"],
+    ["Bear canister", "container"],
+    ["Microspikes", "boot"],
+    ["Hose", "bottle"],
+    ["Compression straps", "backpack"],
     ["Headlamp", "light"],
     ["GPS watch", "watch"],
     ["Power bank", "electronics"],
@@ -56,14 +67,21 @@ describe("which icon a gear type wears", () => {
 
   // the narrow name sits above the broad one it would otherwise lose to
   it.each([
-    ["Neck gaiter", "hat"],
-    ["Gaiters", "socks"],
+    ["Neck gaiter", "neck"],
+    ["Bandana", "neck"],
+    ["Gaiters", "boot"],
     ["Running vest", "backpack"],
     ["Vest", "jacket"],
     ["Fleece pants", "pants"],
     ["Bottle cap", "bottle"],
     ["Stake bag", "bag"],
-    ["Coffee filter", "pot"],
+    ["Coffee filter", "cup"],
+    ["Fuel bottle", "stove"],
+    ["Tent poles", "tent"],
+    ["Bug net", "tent"],
+    ["E-reader", "phone"],
+    ["Hip belt", "backpack"],
+    ["Pee funnel", "toilet"],
     ["Pill bottle", "firstAid"],
     ["Toiletry bottle", "toiletry"],
     ["Phone case", "phone"],
@@ -78,11 +96,12 @@ describe("which icon a gear type wears", () => {
 
   it("falls back to the name only when the row has no type", () => {
     expect(gearGlyphFor(null, "Deodorant")).toBe("toiletry");
-    expect(gearGlyphFor("", "Meals - Dinner")).toBe("food");
+    expect(gearGlyphFor("", "Meals - Dinner")).toBe("meal");
     expect(gearGlyphFor(undefined, "Snacks - Daily")).toBe("food");
     expect(gearGlyphFor("  ", "Baggies Brimmer Hat")).toBe("hat");
+    expect(gearGlyphFor(null, "Face cleanser + Face Moisturizer + Container")).toBe("toiletry");
     // a type that matched nothing is still the row's answer
-    expect(gearGlyphFor("Compression straps", "Compression Cap Hat")).toBeNull();
+    expect(gearGlyphFor("Ice axe", "Summit Pro Hat")).toBeNull();
     // and a type that did match is never second-guessed by the name
     expect(gearGlyphFor("Socks", "Hiker Boot Midweight")).toBe("socks");
   });
@@ -94,7 +113,7 @@ describe("which icon a gear type wears", () => {
 
   // the long tail goes without: a one-off icon is a picture to decode
   it("answers null for the long tail rather than giving it a one-off icon", () => {
-    for (const type of ["Compass", "Umbrella", "Ice axe", "Earplugs", "Compression straps"]) {
+    for (const type of ["Compass", "Umbrella", "Ice axe", "Whistle", "Packraft"]) {
       expect(gearGlyphFor(type)).toBeNull();
     }
     expect(gearGlyphFor("")).toBeNull();
@@ -103,7 +122,7 @@ describe("which icon a gear type wears", () => {
   });
 
   it("keeps the set small", () => {
-    expect(GEAR_GLYPHS.length).toBeLessThanOrEqual(34);
+    expect(GEAR_GLYPHS.length).toBeLessThanOrEqual(48);
   });
 
   // A floor, not a target: the catalog is where most gear types come from, and a new

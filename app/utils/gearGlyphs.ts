@@ -10,7 +10,7 @@ import type { IconChild, IconNode } from "./hugeicon";
 // What's here is what the free set has no good picture for among the icons the gear
 // page uses (shared/gearGlyph.ts keeps that set small): a sleeping bag, trekking
 // poles, a jacket (it has no jacket at all), a water bottle, a canister stove, a
-// toiletry tube, a headlamp, a carabiner and a hiking boot.
+// toiletry tube, a headlamp, a carabiner, a hiking boot and a neck gaiter.
 // Everything else is a Hugeicons glyph, several of them Ryan's picks made while
 // reviewing these drawings: Chocolate for food, Hat, Glasses,
 // Shirt01, Sneaker, MoneyBag01 for every bag, Energy for electronics, WaterEnergy for
@@ -106,4 +106,13 @@ export const HikingBootGlyph = glyph(
   line("M10.6 11H10.61"),
   line("M12.9 12.95H12.91"),
   line("M2.3 18.15V20.6C2.3 21.16 2.78 21.62 3.35 21.62H7.9L9.05 20.2L10.1 20.95C10.4 21.4 10.9 21.62 11.4 21.62H20.9C21.45 21.62 21.9 21.17 21.9 20.6V18.15"),
+);
+
+/** A neck gaiter, worn: the tube pulled up over the neck and chin. Neckwear of every
+ *  kind wears it (buffs, bandanas, balaclavas, headbands, scarves). */
+export const NeckGaiterGlyph = glyph(
+  line("M8 8.5C8 6.01 9.79 4 12 4C14.21 4 16 6.01 16 8.5"),
+  line("M7.5 9H16.5V14.5C16.5 15.6 14.5 16.5 12 16.5C9.5 16.5 7.5 15.6 7.5 14.5V9Z"),
+  line("M4 21.5C4 19.5 5.6 18 8 17.6"),
+  line("M20 21.5C20 19.5 18.4 18 16 17.6"),
 );
