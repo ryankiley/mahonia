@@ -100,8 +100,8 @@ export const CarabinerGlyph = glyph(
  *  the padded collar, the tongue sweeping up, three eyelets down the front, the toe,
  *  and a sole with its arch notch. */
 export const HikingBootGlyph = glyph(
-  line("M2.3 18.15V4.45C2.3 3.9 2.75 3.45 3.3 3.45H8.2C8.9 2.6 9.9 2.2 11 2.25L12 2.4C10.8 3.3 10.4 4.6 10.8 6.2C11.4 8.6 13.2 10.6 15.6 11.6C16.6 12 17.6 12.1 18.6 12.1H19.2C20.7 12.1 21.9 13.3 21.9 14.8V18.15H2.3Z"),
-  line("M2.3 7.1L6.5 6.2L7.8 3.9"),
+  line("M2.3 18.15V4.45C2.3 3.9 2.75 3.45 3.3 3.45H8.2C8.8 2.6 9.8 2 11 2C11.9 2 12.5 2.6 12.4 3.3C12.3 3.8 11.9 4.2 11.6 4.7C11.2 5.4 11 6.2 11.2 7C11.7 9 13.3 10.7 15.6 11.6C16.6 12 17.6 12.1 18.6 12.1H19.2C20.7 12.1 21.9 13.3 21.9 14.8V18.15H2.3Z"),
+  line("M2.3 7.1L6.6 6.1L8.2 3.45"),
   line("M9.13 8.5H9.14"),
   line("M10.6 11H10.61"),
   line("M12.9 12.95H12.91"),
