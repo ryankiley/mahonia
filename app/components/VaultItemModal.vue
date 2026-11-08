@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Cancel01Icon, ChevronDownIcon, DashedLine02Icon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, ChevronDownIcon, DashedLine02Icon, Layers01Icon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
 import {
   VAULT_NAME_MAX,
@@ -107,6 +107,13 @@ const partChoices = computed(() => {
   return strongVaultRows(pool, q, 6);
 });
 const partEl = useTemplateRef<HTMLInputElement>("partEl");
+/** A piece's dialog offers "Make it a kit" rather than a search box on every open;
+ *  pressing it shows the search, focused. A kit always shows it. */
+const makingKit = ref(false);
+function startKit() {
+  makingKit.value = true;
+  nextTick(() => partEl.value?.focus());
+}
 function addPart(g: VaultEntry) {
   partsDraft.value = [
     ...partsDraft.value,
@@ -246,6 +253,7 @@ watch(
     partsDraft.value = (e.parts ?? []).map((p) => ({ ...p }));
     ownWeight.value = e.kind === "kit" && e.ownWeightMg ? formatWeight(e.ownWeightMg, props.unit, { raw: true }) : "";
     partQuery.value = "";
+    makingKit.value = false;
     openedParts = partsKey(partsDraft.value);
     openedOwn = ownWeight.value;
     icon.value = e.icon ?? null;
@@ -418,8 +426,8 @@ async function onSubmit() {
       <!-- A KIT is a set you made, not a product: it has a name, a note, its items and a
            weight of its own, and none of a product's fields (brand, size, type, icon,
            price, link, how many, what it counts as — its items each say that). So a kit
-           shows only those: its name and own weight on one line, its note, and its items
-           as a table, in a somewhat wider dialog (atoms/dialog.scss). The product fields
+           shows only those: its name and note on one line, and its items as a table, in
+           a somewhat wider dialog (atoms/dialog.scss). The product fields
            are hidden, not unmounted:
            a piece turns into a kit the moment its first item goes in, and the item search
            it was typed into has to keep its focus through the switch. -->
@@ -452,8 +460,8 @@ async function onSubmit() {
         </label>
       </div>
 
-      <!-- a kit's name and its own weight read together, on one line: the two things a
-           set has besides its items -->
+      <!-- a kit's name and its note on one line: all a set has besides its items. No
+           field for a weight of its own: a stuff sack is an item like any other. -->
       <div :class="isKit ? 'vitem__kitrow' : 'vitem__namerow'">
         <label class="dlg__field">
           <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
@@ -461,20 +469,11 @@ async function onSubmit() {
           <span class="t-sm t-muted">{{ isKit ? "Name" : "Product" }}</span>
           <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
         </label>
+        <!-- a kit's note beside its name: the bottom Note is the piece's, hidden on a
+             kit, and both write the one note -->
         <label v-if="isKit" class="dlg__field">
-          <span class="t-sm t-muted">Its own weight</span>
-          <input
-            v-model="ownWeight"
-            class="field"
-            :placeholder="`0 ${unit}`"
-            title="What the kit weighs by itself, a stuff sack or a strap"
-            inputmode="decimal"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            spellcheck="false"
-            @keydown.enter="onSubmit"
-          />
+          <span class="t-sm t-muted">Note</span>
+          <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
         </label>
       </div>
 
@@ -620,7 +619,7 @@ async function onSubmit() {
            verbatim, because it is the same text moved — a list wrote it, and this is
            where it stops being overwritten. Last, with the price and link: the fields
            you set now and then, below the ones you set on every piece. -->
-      <label class="dlg__field">
+      <label v-show="!isKit" class="dlg__field">
         <span class="t-sm t-muted">Note</span>
         <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
       </label>
@@ -630,22 +629,23 @@ async function onSubmit() {
            list it unfolds into a group with these under it. A piece already in a kit
            can't hold parts — kits are one level deep. -->
       <section v-if="!inKits" class="vitem__parts" aria-label="Items in this kit">
-        <div class="vitem__partshead">
-          <span class="t-sm t-muted">Items</span>
-          <span v-if="isKit" class="t-sm t-muted t-num">
-            {{ counted(partsDraft.length, "item") }} · {{ formatWeight(kitTotalMg, unit) }}
-          </span>
-        </div>
-        <p v-if="!isKit" class="t-sm t-muted vitem__hint">
-          Is this a kit? Add the items it holds, and it weighs what they weigh.
+        <!-- a piece: one quiet press, not a search box on every open. Most pieces are
+             never a kit, and the box read as a field the piece was missing. -->
+        <button v-if="!isKit && !makingKit" type="button" class="btn btn--quiet vitem__makekit" @click="startKit">
+          <HugeiconsIcon :icon="Layers01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          Make it a kit
+        </button>
+        <p v-else-if="!isKit" class="t-sm t-muted vitem__hint">
+          Add the items it holds, and it weighs what they weigh.
         </p>
         <p v-else-if="entry.kind !== 'kit' && entry.weightMg" class="t-sm t-muted vitem__hint">
-          Its {{ formatWeight(entry.weightMg, unit) }} becomes the items’ sum, plus any weight of its own below.
+          Its {{ formatWeight(entry.weightMg, unit) }} becomes what its items weigh.
         </p>
-        <!-- column heads, so the stepper's number reads as how many THE KIT holds, not
-             how many you own (the "×3" a piece wears on /gear) -->
+        <!-- one row of column heads, so the stepper's number reads as how many THE KIT
+             holds, not how many you own (the "×3" a piece wears on /gear); the count and
+             the total close the table, the total in the weight column -->
         <div v-if="isKit" class="vitem__part vitem__partcols t-sm t-muted" aria-hidden="true">
-          <span>Item</span>
+          <span>Items</span>
           <span class="vitem__partweight">Weight</span>
           <span class="vitem__qty">In kit</span>
           <span />
@@ -682,7 +682,25 @@ async function onSubmit() {
             </button>
           </li>
         </ul>
+        <!-- a weight of its own, from a group saved off a list whose heading had one or a
+             backup: listed like an item, as /gear lists it, and removable; there is no
+             field to add one, because a stuff sack is an item like any other -->
+        <div v-if="isKit && ownWeightMg" class="vitem__part">
+          <span class="t-muted vitem__partname">Its own weight</span>
+          <span class="t-sm t-num t-muted vitem__partweight">{{ formatWeight(ownWeightMg, unit) }}</span>
+          <span />
+          <button type="button" class="btn btn--icon btn--ghost vitem__drop" aria-label="Remove its own weight" title="Remove its own weight" @click="ownWeight = ''">
+            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          </button>
+        </div>
+        <div v-if="isKit" class="vitem__part vitem__parttotal t-sm t-num">
+          <span class="t-muted">{{ counted(partsDraft.length, "item") }}</span>
+          <span class="vitem__partweight">{{ formatWeight(kitTotalMg, unit) }}</span>
+          <span />
+          <span />
+        </div>
         <input
+          v-show="isKit || makingKit"
           ref="partEl"
           v-model="partQuery"
           class="field"
@@ -764,10 +782,10 @@ async function onSubmit() {
     grid-template-columns: 1fr;
   }
 }
-/* a kit's name and its own weight on one line, the name taking the room */
+/* a kit's name and note on one line, on the pairs' two columns */
 .vitem__kitrow {
   display: grid;
-  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
 }
 .vitem__namerow {
@@ -792,12 +810,6 @@ async function onSubmit() {
   padding-top: var(--space-3);
   border-top: 1px solid var(--line);
 }
-.vitem__partshead {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: var(--space-2);
-}
 .vitem__hint {
   margin: 0;
 }
@@ -819,6 +831,16 @@ async function onSubmit() {
 }
 .vitem__partcols {
   min-height: 0;
+}
+/* the count and the total under the items, the total in the weight column */
+.vitem__parttotal {
+  min-height: 0;
+  padding-top: var(--space-1);
+  border-top: 1px solid var(--line);
+}
+.vitem__makekit {
+  align-self: flex-start;
+  gap: var(--space-2);
 }
 .vitem__partweight {
   text-align: right;

@@ -343,7 +343,10 @@ const meta = computed(() => {
    the line's trailing cluster begins — the mark column and the three controls, with
    the line's gaps between — so each part's weight sits in the kit's own weight column. */
 .vault__parts {
-  --row-tail: calc(4 * var(--icon-btn) + 2 * var(--space-1) + 2 * var(--space-4));
+  /* + the unit picker's gap and chevron, which sit after the row's figure and which
+     a part's weight has none of: without them the part's "g" lined up with the
+     chevron, 20px right of the kit's own "g" */
+  --row-tail: calc(4 * var(--icon-btn) + 2 * var(--space-1) + 2 * var(--space-4) + var(--space-2) + 12px);
   list-style: none;
   margin: var(--space-1) 0 0;
   padding: 0 var(--row-tail) 0 var(--gear-type-indent);
@@ -560,7 +563,7 @@ button.vault__partname:hover {
   }
   /* the trailing cluster grows to --tap, and the parts' weight column follows it */
   .vault__parts {
-    --row-tail: calc(var(--icon-btn) + 3 * var(--tap) + 2 * var(--space-1) + 2 * var(--space-4));
+    --row-tail: calc(var(--icon-btn) + 3 * var(--tap) + 2 * var(--space-1) + 2 * var(--space-4) + var(--space-2) + 12px);
   }
   /* ...which makes the cluster's box exactly one text line already, so the desktop
      --icon-pull on the cluster would lift it a second time: 4.4px above the weight
