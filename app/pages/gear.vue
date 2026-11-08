@@ -618,6 +618,17 @@ async function exportGear(kind: string) {
 
         <!-- the gear -->
         <div v-else>
+          <!-- the gear you pack most, as tiles, above everything else (hidden while
+               you search: a query is a question about rows). A tile opens the piece;
+               "See all" is the Most used view. -->
+          <VaultMostUsed
+            v-if="!query.trim()"
+            :items="items"
+            :unit="unit"
+            @open="(entry: VaultEntry) => openEdit(entry)"
+            @all="view = 'most'"
+          />
+
           <!-- Nothing to search, order or narrow until there IS gear — three
                controls over "Nothing here yet" is furniture for a room with no
                floor. Keyed on the folders too, so a gear you've emptied still
