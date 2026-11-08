@@ -33,7 +33,7 @@ import {
   isVaultWorthy,
   vaultNormKey,
 } from "../shared/vault";
-import { rankVaultRows } from "../shared/vaultSearch";
+import { rankVaultRows, strongVaultRows } from "../shared/vaultSearch";
 import { vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport } from "../shared/vaultImport";
 import { createTestDb, seedVaultFolders, seedVaultItems, type TestDb } from "./helpers/db";
@@ -236,6 +236,32 @@ describe("rankVaultRows", () => {
       { id: 5, brand: "MSR", name: "PocketRocket 2", variant: undefined, commonName: "Stove", timesSeen: 50 },
     ];
     expect(rankVaultRows(mixed, "stove")[0]!.id).toBe(4);
+  });
+});
+
+describe("strongVaultRows", () => {
+  // the kit dialog's item search: real matches only, never a slot filled out with the
+  // gear you pack most because it shares a few letters with what you typed
+  const closet = [
+    { id: 1, brand: "Soto", name: "WindMaster Stove with TriFlex", variant: undefined, commonName: "Stove", timesSeen: 2 },
+    { id: 2, brand: "Toaks", name: "Titanium 750ml Pot", variant: undefined, commonName: "Pot", timesSeen: 2 },
+    { id: 3, brand: "Soto", name: "Ultralight Mug Lid", variant: undefined, commonName: "Lid", timesSeen: 1 },
+    { id: 4, brand: "Outdoor Research", name: "ActiveIce Chroma Full Sun Gloves", variant: undefined, commonName: "Sun gloves", timesSeen: 40 },
+    { id: 5, brand: "Zenbivy", name: "Ultralight Quilt", variant: "25F", commonName: "Quilt", timesSeen: 30 },
+  ];
+
+  it("finds what the query names, by name or by gear type", () => {
+    expect(strongVaultRows(closet, "stove").map((r) => r.id)).toEqual([1]);
+    expect(strongVaultRows(closet, "pot").map((r) => r.id)).toEqual([2]);
+    expect(strongVaultRows(closet, "ultralight").map((r) => r.id).sort()).toEqual([3, 5]);
+    // by its gear type alone, as rankVaultRows finds it
+    const rocket = [{ id: 6, brand: "MSR", name: "PocketRocket 2", variant: undefined, commonName: "Stove", timesSeen: 1 }];
+    expect(strongVaultRows(rocket, "stove").map((r) => r.id)).toEqual([6]);
+  });
+
+  it("offers nothing rather than near misses, where rankVaultRows would fill the slots", () => {
+    expect(rankVaultRows(closet, "lighter").length).toBeGreaterThan(0);
+    expect(strongVaultRows(closet, "lighter")).toEqual([]);
   });
 });
 

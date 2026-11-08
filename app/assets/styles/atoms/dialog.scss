@@ -55,6 +55,12 @@
 .dlg:has(> .acctmodal__head) {
   max-width: var(--account-measure);
 }
+/* A KIT's edit dialog is a little WIDER: its items are a table (item, weight, a
+   stepper, remove) that wraps its weights at 30rem (VaultItemModal). Opt-in by
+   :has(), as above. */
+.dlg:has(.vitem--kit) {
+  max-width: 36rem;
+}
 .dlg__field {
   display: flex;
   flex-direction: column;

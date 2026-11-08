@@ -285,6 +285,10 @@ const meta = computed(() => {
          has one, closes the list. -->
     <ul v-if="isKit && open" class="vault__parts" :aria-label="`Items in ${displayName}`">
       <li v-for="p in parts" :key="p.id" class="vault__part" :class="{ 'vault__part--removed': p.removed }">
+        <!-- how many THE KIT holds, before the name, the way a packing list reads ("2 ×
+             lighter"): the "×3" after a piece's own name, before its weight, is how many
+             you OWN, and the two must not look like one number -->
+        <span v-if="p.qty > 1" class="t-num vault__partqty">{{ p.qty }} ×</span>
         <button
           v-if="!p.removed"
           type="button"
@@ -293,7 +297,6 @@ const meta = computed(() => {
           @click="emit('edit-part', p.id)"
         >{{ partName(p) }}</button>
         <span v-else class="vault__partname t-clip">{{ partName(p) }} <span class="vault__partgone">· removed</span></span>
-        <span v-if="p.qty > 1" class="t-num vault__partqty">×{{ p.qty }}</span>
         <span class="t-num vault__partweight">{{ formatWeight(p.weightMg * p.qty, unit) }}</span>
       </li>
       <li v-if="entry.ownWeightMg" class="vault__part">

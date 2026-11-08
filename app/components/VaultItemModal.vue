@@ -11,7 +11,7 @@ import {
   type VaultKitPart,
 } from "~~/shared/vault";
 import { VAULT_KIT_QTY_MAX, kitWeightMg } from "~~/shared/vaultKit";
-import { searchVaultRows } from "~~/shared/vaultView";
+import { strongVaultRows } from "~~/shared/vaultSearch";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
 import { counted } from "~~/shared/tidyText";
@@ -102,7 +102,9 @@ const partChoices = computed(() => {
   if (!q || !props.entry) return [];
   const taken = new Set(partsDraft.value.map((p) => p.id));
   const pool = (props.gear ?? []).filter((g) => g.kind !== "kit" && g.id !== props.entry!.id && !taken.has(g.id));
-  return searchVaultRows(pool, q).slice(0, 6);
+  // real matches only: a picker filled out with near misses offers your most-used
+  // gloves for "lighter" (see strongVaultRows)
+  return strongVaultRows(pool, q, 6);
 });
 const partEl = useTemplateRef<HTMLInputElement>("partEl");
 function addPart(g: VaultEntry) {
@@ -405,15 +407,26 @@ async function onSubmit() {
 </script>
 
 <template>
-  <BaseModal :open="!!entry" label="Edit gear" @close="emit('close')">
+  <BaseModal :open="!!entry" :label="isKit ? 'Edit kit' : 'Edit gear'" @close="emit('close')">
     <template v-if="entry">
-      <h2 class="t-label">Edit gear</h2>
+      <h2 class="t-label">{{ isKit ? "Edit kit" : "Edit gear" }}</h2>
       <p class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
       <!-- No explainer under the title. What you change here is pinned (vaultRepo), so no
            list writes over it, and that is what anyone expects of an edit; a line saying
            so took a row on every open, and went in review. -->
 
-      <div class="vitem__pair">
+      <!-- A KIT is a set you made, not a product: it has a name, a note, its items and a
+           weight of its own, and none of a product's fields (brand, size, type, icon,
+           price, link, how many, what it counts as — its items each say that). So a kit
+           shows only those: its name and own weight on one line, its note, and its items
+           as a table, in a somewhat wider dialog (atoms/dialog.scss). The product fields
+           are hidden, not unmounted:
+           a piece turns into a kit the moment its first item goes in, and the item search
+           it was typed into has to keep its focus through the switch. -->
+      <div class="vitem">
+      <div class="vitem__cols" :class="{ 'vitem--kit': isKit }">
+      <div class="vitem__main">
+      <div v-show="!isKit" class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Brand</span>
           <!-- "Add a …" like the note's placeholder: these fields have no border, so an
@@ -439,18 +452,37 @@ async function onSubmit() {
         </label>
       </div>
 
-      <label class="dlg__field">
-        <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
-             is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
-        <span class="t-sm t-muted">Product</span>
-        <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
-      </label>
+      <!-- a kit's name and its own weight read together, on one line: the two things a
+           set has besides its items -->
+      <div :class="isKit ? 'vitem__kitrow' : 'vitem__namerow'">
+        <label class="dlg__field">
+          <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
+               is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
+          <span class="t-sm t-muted">{{ isKit ? "Name" : "Product" }}</span>
+          <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+        </label>
+        <label v-if="isKit" class="dlg__field">
+          <span class="t-sm t-muted">Its own weight</span>
+          <input
+            v-model="ownWeight"
+            class="field"
+            :placeholder="`0 ${unit}`"
+            title="What the kit weighs by itself, a stuff sack or a strap"
+            inputmode="decimal"
+            autocomplete="off"
+            autocorrect="off"
+            autocapitalize="off"
+            spellcheck="false"
+            @keydown.enter="onSubmit"
+          />
+        </label>
+      </div>
 
       <!-- The gear type, then the icon beside it, because the type decides the icon until
            you pick one: type "puffy" and the box beside it turns into a jacket. On the
            dialog's two columns like every other pair, so Gear type starts under Name and
            the icon under Size or version. -->
-      <div class="vitem__typed">
+      <div v-show="!isKit" class="vitem__typed">
         <!-- the placeholder is ItemRow's, word for word, so the field is named the same
              way in both places -->
         <label class="dlg__field">
@@ -484,7 +516,7 @@ async function onSubmit() {
       <!-- In the dialog's own flow, not a floating menu: forty-odd glyphs are a grid to
            look over, and the dialog already scrolls. "Automatic" first, since going back
            to the type's icon is the one choice that isn't a picture. -->
-      <div v-if="iconsOpen" id="vitem-icons" class="vitem__icons" role="group" aria-label="Icons">
+      <div v-if="iconsOpen && !isKit" id="vitem-icons" class="vitem__icons" role="group" aria-label="Icons">
         <button type="button" class="vitem__auto" :aria-pressed="icon === null" @click="pickIcon(null)">
           <HugeiconsIcon v-if="autoIcon" :icon="autoIcon" :size="20" :stroke-width="2" aria-hidden="true" />
           <span>{{ autoIcon ? "Match the gear type" : "No icon" }}</span>
@@ -503,15 +535,9 @@ async function onSubmit() {
         </button>
       </div>
 
-      <div class="vitem__pair">
-        <!-- a kit's weight is a read-out: the field's box, not its input -->
-        <div v-if="isKit" class="dlg__field">
-          <span class="t-sm t-muted">Weight</span>
-          <p class="field vitem__derived t-num" title="A kit weighs its items plus its own weight. Change an item to change it.">
-            {{ formatWeight(kitTotalMg, unit) }}
-          </p>
-        </div>
-        <label v-else class="dlg__field">
+      <!-- a kit's weight is its items' plus its own, read off the Items heading -->
+      <div v-show="!isKit" class="vitem__pair">
+        <label class="dlg__field">
           <span class="t-sm t-muted">Weight</span>
           <input
             v-model="weight"
@@ -548,7 +574,7 @@ async function onSubmit() {
            and a pair keeps the dialog's two columns. Calories only once it IS consumable,
            and not on fuel that has none to show — ItemRow's rule verbatim (see
            kcalOffered). -->
-      <div class="vitem__pair">
+      <div v-show="!isKit" class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">How many</span>
           <input v-model="owned" class="field" inputmode="numeric" placeholder="1" @keydown.enter="onSubmit" />
@@ -562,7 +588,7 @@ async function onSubmit() {
       <!-- what it cost and where it came from, read together, on the same two columns as
            every pair above: a narrower price track started the link's column 66px left
            of every other second column in the dialog -->
-      <div class="vitem__pair">
+      <div v-show="!isKit" class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Price</span>
           <!-- inputmode text, not decimal: a currency symbol is part of what this
@@ -598,6 +624,7 @@ async function onSubmit() {
         <span class="t-sm t-muted">Note</span>
         <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
       </label>
+      </div>
       <!-- Parts: what makes a row a KIT. Picked from your own gear, so each part is a
            real piece with its own weight, and the kit weighs what they weigh; on a
            list it unfolds into a group with these under it. A piece already in a kit
@@ -615,12 +642,20 @@ async function onSubmit() {
         <p v-else-if="entry.kind !== 'kit' && entry.weightMg" class="t-sm t-muted vitem__hint">
           Its {{ formatWeight(entry.weightMg, unit) }} becomes the items’ sum, plus any weight of its own below.
         </p>
+        <!-- column heads, so the stepper's number reads as how many THE KIT holds, not
+             how many you own (the "×3" a piece wears on /gear) -->
+        <div v-if="isKit" class="vitem__part vitem__partcols t-sm t-muted" aria-hidden="true">
+          <span>Item</span>
+          <span class="vitem__partweight">Weight</span>
+          <span class="vitem__qty">In kit</span>
+          <span />
+        </div>
         <ul v-if="isKit" class="vitem__partlist">
           <li v-for="p in partsDraft" :key="p.id" class="vitem__part">
-            <span class="t-clip vitem__partname">
+            <span class="t-clip vitem__partname" :title="itemDisplayName(p.brand, p.name, p.variant)">
               {{ itemDisplayName(p.brand, p.name, p.variant) }}<span v-if="p.removed" class="t-muted"> · removed</span>
             </span>
-            <span class="t-sm t-num t-muted">{{ formatWeight(p.weightMg, unit) }}</span>
+            <span class="t-sm t-num t-muted vitem__partweight">{{ formatWeight(p.weightMg * p.qty, unit) }}</span>
             <span class="vitem__qty">
               <button
                 type="button"
@@ -631,7 +666,7 @@ async function onSubmit() {
               >
                 <HugeiconsIcon :icon="MinusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
-              <span class="t-sm t-num">×{{ p.qty }}</span>
+              <span class="t-sm t-num">{{ p.qty }}</span>
               <button type="button" class="btn btn--icon btn--ghost" :aria-label="`One more ${p.name}`" @click="stepPart(p.id, 1)">
                 <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
@@ -669,24 +704,12 @@ async function onSubmit() {
         <p v-else-if="partQuery.trim()" class="t-sm t-muted vitem__hint">
           None of your gear matches. Add it to My Gear first, then pick it here.
         </p>
-        <label v-if="isKit" class="dlg__field">
-          <span class="t-sm t-muted">Its own weight, beyond the items (a stuff sack, a strap)</span>
-          <input
-            v-model="ownWeight"
-            class="field"
-            :placeholder="`0 ${unit}`"
-            inputmode="decimal"
-            autocomplete="off"
-            autocorrect="off"
-            autocapitalize="off"
-            spellcheck="false"
-            @keydown.enter="onSubmit"
-          />
-        </label>
       </section>
       <p v-else class="t-sm t-muted vitem__hint">
         In {{ inKits === 1 ? "a kit" : `${inKits} kits` }}, so it can’t hold items of its own.
       </p>
+      </div>
+      </div>
 
       <p v-if="error" class="t-sm vitem__err">{{ error }}</p>
 
@@ -722,6 +745,35 @@ async function onSubmit() {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
 }
+/* The dialog's own width decides its columns, not the window's: a 30rem dialog has
+   room for two fields side by side in a narrow pane as much as on a wide screen, and
+   only a phone-narrow dialog stacks them. .vitem is the container .vitem__cols and the
+   pairs ask. */
+.vitem {
+  container-type: inline-size;
+}
+.vitem__cols,
+.vitem__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+@container (max-width: 22rem) {
+  .vitem__pair,
+  .vitem__kitrow {
+    grid-template-columns: 1fr;
+  }
+}
+/* a kit's name and its own weight on one line, the name taking the room */
+.vitem__kitrow {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+.vitem__namerow {
+  display: flex;
+  flex-direction: column;
+}
 /* the picker wears the field's own box, so it sits level with the weight input
    beside it rather than reading as a different kind of control */
 .vitem__cls {
@@ -731,11 +783,6 @@ async function onSubmit() {
   gap: var(--space-1);
 }
 /* its chevron is the .chev atom (controls.scss), not a copy */
-/* a kit's weight: the field's box, not its input — it reads, it doesn't take */
-.vitem__derived {
-  margin: 0;
-  color: var(--ink-2);
-}
 /* Parts: a hairline above sets it apart from the row's own fields — it edits which
    OTHER gear this row is made of */
 .vitem__parts {
@@ -760,11 +807,22 @@ async function onSubmit() {
   padding: 0;
   list-style: none;
 }
+/* the items as a table — item, the line's weight, how many the kit holds, remove —
+   on one set of columns shared with the heads above them, so a weight never wraps
+   under its own figure and the steppers line up down the list */
 .vitem__part {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 7ch calc(2 * var(--icon-btn) + 3ch) var(--icon-btn);
   align-items: center;
-  gap: var(--space-2);
+  column-gap: var(--space-2);
   min-height: var(--icon-btn);
+}
+.vitem__partcols {
+  min-height: 0;
+}
+.vitem__partweight {
+  text-align: right;
+  white-space: nowrap;
 }
 .vitem__part + .vitem__part {
   border-top: 1px solid var(--line);
@@ -774,9 +832,9 @@ async function onSubmit() {
   min-width: 0;
 }
 .vitem__qty {
-  flex: none;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: var(--space-1);
 }
 .vitem__qty .t-num {
@@ -893,10 +951,5 @@ async function onSubmit() {
    Matches /gear's own .vault__error. */
 .vitem__err {
   color: var(--ink);
-}
-@media (max-width: $bp-stack) {
-  .vitem__pair {
-    grid-template-columns: 1fr;
-  }
 }
 </style>
