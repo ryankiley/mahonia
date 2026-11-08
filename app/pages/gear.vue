@@ -777,14 +777,6 @@ async function exportGear(kind: string) {
                     />
                   </div>
 
-                  <!-- what the folder HOLDS. The editor's folder header has no
-                       subtotal because the totals bar owns numbers there; here the
-                       folder IS the unit you're comparing, and a shelf you can't
-                       weigh is half a shelf. -->
-                  <span v-if="section.count" class="t-sm t-num vault__foldersum">
-                    {{ section.count }}<span class="visually-hidden"> {{ pluralNoun(section.count, "item") }}</span>
-                    · {{ weightLabel(section.weightMg) }}
-                  </span>
 
                   <div v-if="section.folder" class="folder__actions">
                     <button
@@ -1127,36 +1119,28 @@ async function exportGear(kind: string) {
 .folder + .folder {
   margin-top: var(--space-6);
 }
-/* /gear's folder header carries one thing the editor's does not: what the folder
-   HOLDS. Fed in as --head-cols rather than patched into the atom — the editor's
-   template is a LIST's data columns (qty · weight · class · actions), none of which
-   a vault folder has, so this is exactly the "supply only what legitimately differs"
-   case that hook exists for. */
+/* /gear's folder header is the name and the folder's own buttons. It used to carry
+   the folder's count and weight between them; that went in review, since the rows
+   under it already say both and the figure was one more number to read past. Fed in
+   as --head-cols rather than patched into the atom — the editor's template is a
+   LIST's data columns (qty · weight · class · actions), none of which a vault folder
+   has, so this is exactly the "supply only what legitimately differs" case that hook
+   exists for. */
 .folder__head {
-  /* A folder's figure is a WEIGHT, sitting directly over a column of weights, so it
-     belongs in that column. The header is a grid and the rows are flex, so the only
-     way they agree is for the header's trailing track to be the row's whole trailing
-     cluster — the mark column, its gap, and the three buttons — and for the grid's
-     own gap to be the row's gap. Written as the same arithmetic the row is built
-     from rather than a measured number, so a retune of either token moves both.
-     It also has to be SIZED rather than auto: Unfiled owns no actions (there is
-     nothing to rename or delete about "everything else"), so an auto track
-     collapsed to nothing there and ran its subtotal out past every other folder's. */
+  /* The trailing track is the row's whole trailing cluster — the mark column, its
+     gap, and the three buttons — with the grid's own gap the row's gap, so the
+     header's delete and grip sit over the rows' buttons. Written as the same
+     arithmetic the row is built from rather than a measured number, so a retune of
+     either token moves both. */
   --head-actions: calc(3 * var(--icon-btn) + 2 * var(--space-1));
-  --head-cols: 1fr auto calc(var(--icon-btn) + var(--space-4) + var(--head-actions));
+  --head-cols: 1fr calc(var(--icon-btn) + var(--space-4) + var(--head-actions));
   gap: var(--space-4);
 }
 .folder__title {
   grid-column: 1;
 }
-.vault__foldersum {
-  grid-column: 2;
-  justify-self: end;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
 .folder__actions {
-  grid-column: 3;
+  grid-column: 2;
 }
 /* ONE trailing column, shared by the header and the rows under it.
    atoms/folder.scss tunes this cluster to sit over the EDITOR's item rows: the
@@ -1288,28 +1272,10 @@ async function exportGear(kind: string) {
   }
   /* the row's own phone stack (name on its own line, the rest beneath) is
      VaultGearRow's */
-  /* three header columns don't survive 375px next to three --tap buttons, so the
-     subtotal takes its own line under the folder name — the way a read row's
-     sub-line does */
+  /* on a phone the actions take only what the --tap buttons need, not the desktop
+     row's trailing cluster */
   .folder__head {
     --head-cols: 1fr auto;
-    /* the column gap set above is for the DESKTOP column alignment; once the
-       subtotal drops onto its own line it reads as a sub-line of the folder name,
-       and 16px of air between the two makes it look like a stray figure */
-    row-gap: var(--space-1);
-  }
-  .folder__title {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .folder__actions {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .vault__foldersum {
-    grid-column: 1;
-    grid-row: 2;
-    justify-self: start;
   }
 }
 </style>
