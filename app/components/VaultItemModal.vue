@@ -293,9 +293,17 @@ async function onSubmit() {
         <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
-      <!-- The icon beside the gear type, because the type decides it until you pick one:
-           type "puffy" and the box beside it turns into a jacket. -->
+      <!-- The gear type, then the icon beside it, because the type decides the icon until
+           you pick one: type "puffy" and the box beside it turns into a jacket. On the
+           dialog's two columns like every other pair, so Gear type starts under Name and
+           the icon under Size or version. -->
       <div class="vitem__typed">
+        <!-- the placeholder is ItemRow's, word for word, so the field is named the same
+             way in both places -->
+        <label class="dlg__field">
+          <span class="t-sm t-muted">Gear type</span>
+          <input v-model="commonName" class="field" placeholder="Type of gear" @keydown.enter="onSubmit" />
+        </label>
         <div class="dlg__field">
           <span class="t-sm t-muted">Icon</span>
           <button
@@ -312,12 +320,6 @@ async function onSubmit() {
             <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': iconsOpen }" :size="14" :stroke-width="2" aria-hidden="true" />
           </button>
         </div>
-        <!-- the placeholder is ItemRow's, word for word, so the field is named the same
-             way in both places -->
-        <label class="dlg__field">
-          <span class="t-sm t-muted">Gear type</span>
-          <input v-model="commonName" class="field" placeholder="Type of gear" @keydown.enter="onSubmit" />
-        </label>
       </div>
       <!-- In the dialog's own flow, not a floating menu: forty-odd glyphs are a grid to
            look over, and the dialog already scrolls. "Automatic" first, since going back
@@ -382,9 +384,10 @@ async function onSubmit() {
         <input v-model="kcal" class="field" inputmode="numeric" placeholder="0" @keydown.enter="onSubmit" />
       </label>
 
-      <!-- what it cost and where it came from, read together. Price takes the
-           narrower track: it is four characters next to an address. -->
-      <div class="vitem__pair vitem__pair--money">
+      <!-- what it cost and where it came from, read together, on the same two columns as
+           every pair above: a narrower price track started the link's column 66px left
+           of every other second column in the dialog -->
+      <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Price</span>
           <!-- inputmode text, not decimal: a currency symbol is part of what this
@@ -436,11 +439,6 @@ async function onSubmit() {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
 }
-/* a price is four characters and a URL is a line of them, so this pair is not an
-   even split — the address gets the room */
-.vitem__pair--money {
-  grid-template-columns: minmax(0, 9rem) 1fr;
-}
 /* the picker wears the field's own box, so it sits level with the weight input
    beside it rather than reading as a different kind of control */
 .vitem__cls {
@@ -450,15 +448,19 @@ async function onSubmit() {
   gap: var(--space-1);
 }
 /* its chevron is the .chev atom (controls.scss), not a copy */
-/* the icon box and the gear type: the box as wide as its glyph and chevron, the type
-   taking the rest. Its own class rather than a .vitem__pair, so it stays one line on a
-   phone — the box is too small to deserve a row of its own. */
+/* the gear type and the icon box, on the same two columns as every pair so the second
+   column starts in one place down the dialog. Its own class rather than a .vitem__pair,
+   so it stays one line on a phone — the box is too small to deserve a row of its own. */
+/* the icon button only as wide as its glyph and chevron, at the start of its column */
 .vitem__typed {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
 }
 .vitem__iconbtn {
+  /* .field sets a field's full width; this one is a glyph and a chevron */
+  align-self: flex-start;
+  width: auto;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -527,8 +529,7 @@ async function onSubmit() {
   color: var(--ink);
 }
 @media (max-width: $bp-stack) {
-  .vitem__pair,
-  .vitem__pair--money {
+  .vitem__pair {
     grid-template-columns: 1fr;
   }
 }
