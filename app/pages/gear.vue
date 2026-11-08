@@ -199,10 +199,25 @@ async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], o
   }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry });
   kitSaving.value = new Set([...kitSaving.value].filter((id) => id !== entry.id));
   if (!res.ok) loadError.value = "Couldn’t save the kit. Check your connection and try again.";
-  // a piece that just took its first item is a kit now, and stays open where you were
-  else if (kitStarting.value === entry.id) {
-    kitStarting.value = null;
-    if (!kitOpen.value[entry.id]) toggleKit(entry.id);
+  else {
+    // took something out: say what, and put it back on Undo
+    const kept = new Set(parts.map((r) => r.id));
+    const gone = (before.parts ?? []).filter((p) => !kept.has(p.id));
+    const lostOwn = !!before.ownWeightMg && !ownWeightMg;
+    if (gone.length || lostOwn) {
+      const back = (before.parts ?? []).map((p) => ({ id: p.id, qty: p.qty }));
+      offerUndo({
+        verb: "Took",
+        label: gone.length === 1 ? itemDisplayName(gone[0]!.brand, gone[0]!.name, gone[0]!.variant) : gone.length ? counted(gone.length, "item") : "its own weight",
+        tail: ` out of ${itemDisplayName(before.brand, before.name, before.variant)}`,
+        restore: () => setKit(items.value.find((i) => i.id === entry.id) ?? before, back, before.ownWeightMg ?? 0),
+      });
+    }
+    // a piece that just took its first item is a kit now, and stays open where you were
+    if (kitStarting.value === entry.id) {
+      kitStarting.value = null;
+      if (!kitOpen.value[entry.id]) toggleKit(entry.id);
+    }
   }
   await loadVault();
 }
@@ -210,11 +225,21 @@ async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], o
 // what it did, and its items stay the pieces they are.
 async function unkit(id: number) {
   editing.value = null;
+  const was = items.value.find((i) => i.id === id);
   const res = await vaultFetch<{ ok: boolean }>("/api/vault/items", {
     method: "POST",
     body: { op: { t: "kit", id, parts: [] } },
   }).catch(() => ({ ok: false }));
   if (!res.ok) loadError.value = "Couldn’t change that. Check your connection and try again.";
+  else if (was?.parts?.length) {
+    const back = was.parts.map((p) => ({ id: p.id, qty: p.qty }));
+    offerUndo({
+      verb: "Made",
+      label: itemDisplayName(was.brand, was.name, was.variant),
+      tail: " a single piece",
+      restore: () => setKit(items.value.find((i) => i.id === id) ?? was, back, was.ownWeightMg ?? 0),
+    });
+  }
   await loadVault();
 }
 // "Make it a kit", pressed in a piece's dialog: the dialog closes and the piece's row
@@ -614,9 +639,13 @@ const weightLabel = (mg: number) => formatWeight(mg, unit.value);
 // modal per row. (Deleting a whole LIST keeps its dialog — that one isn't
 // reversible.)
 const removing = ref<number | null>(null);
-// the undo bar is a toast that holds the row rather than a line of text — ten seconds,
-// the timer cleared on unmount, the same way the editor's and the read menu's own
-const { toast: undoable, flash: offerUndo, clear: clearUndo } = useToast<VaultEntry>(10_000);
+// The undo bar: a toast that holds what happened and how to take it back, rather than
+// a line of text — ten seconds, the timer cleared on unmount, the editor's own shape.
+// Every change here that takes something away offers it: a piece removed, an item
+// taken out of a kit, a kit made a single piece (Ryan: "we should audit for toasts
+// that don't allow undo").
+type Undo = { verb: string; label: string; tail?: string; restore: () => Promise<void> | void };
+const { toast: undoable, flash: offerUndo, clear: clearUndo } = useToast<Undo>(10_000);
 
 async function remove(entry: VaultEntry) {
   removing.value = entry.id;
@@ -624,18 +653,19 @@ async function remove(entry: VaultEntry) {
   try {
     await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id } });
     items.value = items.value.filter((i) => i.id !== entry.id);
-    offerUndo(entry);
+    // restoring is restoring — the same call the Removed section makes
+    offerUndo({ verb: "Removed", label: itemDisplayName(entry.brand, entry.name, entry.variant), restore: () => putBack(entry) });
   } catch {
     loadError.value = "Couldn’t remove that. Check your connection and try again.";
   }
   removing.value = null;
 }
 
-async function undoRemove() {
-  const entry = undoable.value;
-  if (!entry) return;
+async function undo() {
+  const u = undoable.value;
+  if (!u) return;
   clearUndo();
-  await putBack(entry); // restoring is restoring — same call the Removed section makes
+  await u.restore();
 }
 
 // Sign in without losing the vault behind it — the account opens over this page.
@@ -1163,9 +1193,9 @@ async function exportGear(kind: string) {
     <Transition name="toast">
       <div v-if="undoable" class="toast undobar">
         <span class="t-sm">
-          Removed <strong>{{ itemDisplayName(undoable.brand, undoable.name, undoable.variant) }}</strong>
+          {{ undoable.verb }} <strong>{{ undoable.label }}</strong>{{ undoable.tail ?? "" }}
         </span>
-        <button class="undobar__btn t-sm" @click="undoRemove">
+        <button class="undobar__btn t-sm" @click="undo">
           <HugeiconsIcon :icon="UndoIcon" :size="14" :stroke-width="2" /> Undo
         </button>
       </div>
