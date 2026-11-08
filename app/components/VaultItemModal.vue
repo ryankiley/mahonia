@@ -270,11 +270,10 @@ async function onSubmit() {
     <template v-if="entry">
       <h2 class="t-label">Edit gear</h2>
       <p class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
-      <!-- The one thing a dialog has room to say that a row doesn't: these three
-           fields ARE how the vault recognises this piece of gear. -->
-      <p class="t-sm t-muted dlg__lede">
-        Your changes here stick. A list won’t overwrite a field you’ve fixed.
-      </p>
+      <!-- The one thing a dialog has room to say that a row doesn't: what you change here
+           is pinned (vaultRepo), so no list can write over it. One line; it shows on every
+           open, and it was two. -->
+      <p class="t-sm t-muted dlg__lede">A list won’t overwrite what you change here.</p>
 
       <div class="vitem__pair">
         <label class="dlg__field">
@@ -342,14 +341,6 @@ async function onSubmit() {
         </button>
       </div>
 
-      <!-- the row's own sub-line, in the dialog's words: ItemRow's note placeholder
-           verbatim, because it is the same text moved — a list wrote it, and this is
-           where it stops being overwritten -->
-      <label class="dlg__field">
-        <span class="t-sm t-muted">Note</span>
-        <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
-      </label>
-
       <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Weight</span>
@@ -366,7 +357,9 @@ async function onSubmit() {
           />
         </label>
         <div class="dlg__field">
-          <span class="t-sm t-muted">Type</span>
+          <!-- "Counts as", not "Type": the field above is the GEAR type, and two labels
+               saying "type" asked which was which -->
+          <span class="t-sm t-muted">Counts as</span>
           <OptionMenu
             class="vitem__cls field"
             :options="classOptions"
@@ -408,6 +401,15 @@ async function onSubmit() {
           <input v-model="productUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
         </label>
       </div>
+
+      <!-- the row's own sub-line, in the dialog's words: ItemRow's note placeholder
+           verbatim, because it is the same text moved — a list wrote it, and this is
+           where it stops being overwritten. Last, with the price and link: the fields
+           you set now and then, below the ones you set on every piece. -->
+      <label class="dlg__field">
+        <span class="t-sm t-muted">Note</span>
+        <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
+      </label>
 
       <p v-if="error" class="t-sm vitem__err">{{ error }}</p>
 
