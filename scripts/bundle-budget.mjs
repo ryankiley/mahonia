@@ -131,7 +131,13 @@ const FIRST_LOAD_BUDGET_KB = 159.5;
 // unmoved. The first cut used 85 icons and measured 16 KB over main (the Hugeicons
 // glyphs' soft corners make long paths), and the set in shared/gearGlyph.ts was trimmed
 // and tuned from there. Grow that set and this is the number that will say so.
-const TOTAL_BUDGET_KB = 322;
+//
+// Re-set 2026-11-07 at 321.3 measured (was 322): #497, catalog suggestions in My Gear's
+// Add gear row, landing on main after #498, #500, #501 and #502 (menu icons, Create a list
+// in the menu, the placeholder and ice axe, the Most used shelf) took it to ~320. The
+// row reuses the editor's name field, which moved that field into a chunk shared with
+// /gear; the rest is /gear's own route chunk.
+const TOTAL_BUDGET_KB = 327;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
