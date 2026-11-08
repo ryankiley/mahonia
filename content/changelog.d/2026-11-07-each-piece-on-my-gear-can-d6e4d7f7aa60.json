@@ -1,7 +1,7 @@
 {
   "date": "2026-11-07",
   "added": [
-    "Each piece on My Gear can show its weight in its own unit, picked beside the weight the way list rows do, and it carries into a list when you add the piece."
+    "Each piece on My Gear can show its weight in its own unit, picked beside the weight like on list rows."
   ],
   "changed": [
     "The price field on My Gear's edit dialog shows 0 as its placeholder instead of an example price."
