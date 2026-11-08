@@ -118,6 +118,9 @@ export const VAULT_DDL: string[] = [
   // The unit a piece's weight reads in on /gear, picked per piece the way a list row's
   // entryUnit is; null follows the page's unit. Display only, never a second weight.
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS entry_unit text`,
+  // How many of a piece you own; null is one. Set only on /gear (and by the connector
+  // and an import, on your behalf), so it has no pin: no capture writes it.
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS owned integer`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_identity ON vault_items (vault_id, norm_key)`,
   // /vault's browse order and the autocomplete's candidate pool: live rows,
   // most-recently-used first

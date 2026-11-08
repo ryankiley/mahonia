@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChartAverageIcon, ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, FolderRemoveIcon, GridViewIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, FolderRemoveIcon, GridViewIcon, GripVerticalIcon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
@@ -589,16 +589,16 @@ async function undoRemove() {
 
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
-// The page's own order. A–Z / Heaviest / Lightest wear the sort-key glyph family;
-// Folders takes the folder mark because it is a LAYOUT, not a sort key, and
-// shouldn't borrow one.
+// The page's own order. A–Z / Heaviest / Lightest wear sort glyphs (A–Z the ordered
+// list with A over Z); Folders takes the folder mark because it is a LAYOUT, not a
+// sort key, and shouldn't borrow one.
 const VIEW_OPTIONS = [
   { key: "folders", label: "Folders", icon: FolderIcon },
-  { key: "az", label: "A–Z", icon: SortingAZ01Icon },
+  { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
   { key: "heaviest", label: "Heaviest", icon: SortingNineOneIcon },
   { key: "lightest", label: "Lightest", icon: SortingOneNineIcon },
   { key: "recent", label: "Recently used", icon: Clock01Icon },
-  { key: "most", label: "Most used", icon: ChartAverageIcon },
+  { key: "most", label: "Most used", icon: StarIcon },
 ];
 // Marked like the View menu beside it: the classes wear the marks the rows carry,
 // "Unfiled" the out-of-a-folder mark the move menu uses for the same place.
@@ -609,8 +609,11 @@ const SHOW_OPTIONS = [
   { key: "worn", label: "Worn", icon: CLASS_ICONS.worn },
   { key: "consumable", label: "Consumable", icon: CLASS_ICONS.consumable },
 ];
-const viewLabel = computed(() => VIEW_OPTIONS.find((o) => o.key === view.value)?.label ?? "");
-const showLabel = computed(() => SHOW_OPTIONS.find((o) => o.key === show.value)?.label ?? "");
+// Each trigger wears its current option's mark in place of a "View" / "Show" word: the
+// values already say which question they answer (Heaviest is an order, Worn a filter),
+// and the mark is the one the open menu puts beside the same row.
+const viewOption = computed(() => VIEW_OPTIONS.find((o) => o.key === view.value) ?? VIEW_OPTIONS[0]!);
+const showOption = computed(() => SHOW_OPTIONS.find((o) => o.key === show.value) ?? SHOW_OPTIONS[0]!);
 // every destination a row can move to. "" is Unfiled, which is a real destination
 // here rather than an empty state — the vault keeps unfiled gear.
 const folderOptions = computed(() => [
@@ -722,14 +725,12 @@ async function exportGear(kind: string) {
         <!-- the gear -->
         <div v-else>
           <!-- the gear you pack most, as tiles, above everything else (hidden while
-               you search: a query is a question about rows). A tile opens the piece;
-               "See all" is the Most used view. -->
+               you search: a query is a question about rows). A tile opens the piece. -->
           <VaultMostUsed
             v-if="!query.trim()"
             :items="items"
             :unit="unit"
             @open="(entry: VaultEntry) => openEdit(entry)"
-            @all="view = 'most'"
           />
 
           <!-- Nothing to search, order or narrow until there IS gear — three
@@ -758,8 +759,8 @@ async function exportGear(kind: string) {
                 @pick="(k) => (view = k as VaultView)"
               >
                 <template #trigger="{ open }">
-                  <span class="t-muted">View</span>
-                  <span>{{ viewLabel }}</span>
+                  <HugeiconsIcon :icon="viewOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
+                  <span>{{ viewOption.label }}</span>
                   <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
               </OptionMenu>
@@ -771,8 +772,8 @@ async function exportGear(kind: string) {
                 @pick="(k) => (show = k as VaultShow)"
               >
                 <template #trigger="{ open }">
-                  <span class="t-muted">Show</span>
-                  <span>{{ showLabel }}</span>
+                  <HugeiconsIcon :icon="showOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
+                  <span>{{ showOption.label }}</span>
                   <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
               </OptionMenu>
@@ -1161,8 +1162,8 @@ async function exportGear(kind: string) {
   gap: var(--space-4);
   margin-left: auto;
 }
-/* label + value + mark, the gear pane's own "Add to" recipe — so the page's two
-   pickers and the pane's read as the same object rather than as lookalikes */
+/* mark + value + chevron: the current option's own mark stands where a "View" /
+   "Show" word used to, since the values already say which question they answer */
 .vault__view {
   display: inline-flex;
   align-items: center;
@@ -1173,6 +1174,11 @@ async function exportGear(kind: string) {
 }
 .vault__view:focus-within {
   color: var(--ink);
+}
+/* a step quieter than the value beside it, as the word it replaced was */
+.vault__viewmark {
+  flex: none;
+  color: var(--ink-3);
 }
 /* The total, doubling as the unit control — the editor's .totals__amount recipe at
    this page's smaller type: a relative box holding the figure and its chevron, with
@@ -1201,12 +1207,11 @@ async function exportGear(kind: string) {
     color: var(--ink);
   }
 }
-/* Tabular figures for the whole line: the count re-renders on every search keystroke
-   ("12 of 340", "9 of 340"), and proportional digits made the total and the price
-   after it shuffle sideways each time a 1 replaced an 8. */
+/* Proportional figures, the text's own: tabular ones kept the total from shuffling
+   sideways as a search's "12 of 340" changed, but set every digit monospace-wide on a
+   line read far more often at rest than mid-search, and went in review. */
 .vault__count {
   margin-bottom: var(--space-2);
-  font-variant-numeric: tabular-nums;
 }
 
 /* --- the rows --- */
@@ -1385,10 +1390,14 @@ async function exportGear(kind: string) {
 }
 
 @media (max-width: $bp-stack) {
-  /* the pickers drop beneath the search */
+  /* the pickers keep the trailing edge here too, beside the search or on their own
+     line beneath it; only their gap tightens */
   .vault__views {
-    margin-left: 0;
     gap: var(--space-3);
+  }
+  /* and the search drops its cap, so it ends on that same edge rather than short of it */
+  .vault__searchwrap {
+    max-width: none;
   }
   /* the row's own phone stack (name on its own line, the rest beneath) is
      VaultGearRow's */

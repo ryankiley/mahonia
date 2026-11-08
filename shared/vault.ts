@@ -138,6 +138,20 @@ export const VAULT_PIN_FIELDS = [
 ] as const;
 export type VaultPinField = (typeof VAULT_PIN_FIELDS)[number];
 
+/** The most of one piece My Gear will count: past this a typo is likelier than a closet. */
+export const OWNED_MAX = 999;
+
+/**
+ * A count of owned pieces off the wire, a file or a column, as it's stored: a whole
+ * number 2..OWNED_MAX, or undefined for one (and for anything that isn't a count), so
+ * "one" has a single representation and a row that says nothing means one.
+ */
+export function ownedOf(v: unknown): number | undefined {
+  if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
+  const n = Math.min(OWNED_MAX, Math.round(v));
+  return n > 1 ? n : undefined;
+}
+
 /** A stored gear row as the API returns it. */
 export interface VaultEntry extends VaultCapture, VaultKitFields {
   /** which vault folder it's filed under; absent = unfiled */
@@ -150,6 +164,9 @@ export interface VaultEntry extends VaultCapture, VaultKitFields {
   /** The unit its weight reads in, picked per piece like a list row's entryUnit;
    *  absent = the page's unit. Display only: weightMg is the figure. */
   entryUnit?: Unit;
+  /** How many of it you own, when that's more than one; absent = one. A fact about
+   *  your closet, not about a trip (a list's qty is how many you carry). */
+  owned?: number;
   id: number;
   /** How many distinct captures have landed on this row — a "how often do I pack
    *  this" signal that ranks the autocomplete, like the catalog's usage_count. */

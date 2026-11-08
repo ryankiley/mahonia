@@ -26,6 +26,7 @@ import {
   type VaultKitPart,
   type VaultKitPartRef,
   type VaultPinField,
+  ownedOf,
 } from "../../shared/vault";
 import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX, kitWeightMg } from "../../shared/vaultKit";
 import { CLASSIFICATIONS, UNITS, type Classification, type Unit } from "../../shared/types";
@@ -102,6 +103,7 @@ function toEntry(row: Row): VaultEntry {
     // a pick whose icon has left the set reads as no pick, so the type's icon shows
     icon: isGearGlyph(row.icon) ? row.icon : undefined,
     entryUnit: unitOf(row.entryUnit),
+    owned: ownedOf(row.owned),
     weightMg: Number(row.weightMg),
     classification: CLASSIFICATIONS.includes(row.classification as Classification)
       ? (row.classification as Classification)
@@ -960,6 +962,8 @@ export type VaultItemOp =
       folderId?: number | null;
       /** The unit its weight was typed in ("3.8 oz"), so it reads back the same way. */
       entryUnit?: Unit;
+      /** How many you own; absent is one. */
+      owned?: number;
     }
   | {
       t: "edit";
@@ -1017,6 +1021,8 @@ interface VaultItemPatch {
   /** The unit the weight reads in, or null for the page's. No pin: only /gear writes
    *  it, so there is no capture to protect it from. */
   entryUnit?: Unit | null;
+  /** How many you own; 1 or null goes back to one. No pin, for entryUnit's reason. */
+  owned?: number | null;
 }
 
 /** The pin flags a deliberate write asserts, returned in the SAME object as the
@@ -1092,6 +1098,11 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
     // the column is a Postgres integer: the bound sanitize() holds a capture to
     if (p.catalogItemId === null) out.catalogItemId = null;
     else if (isSerialId(p.catalogItemId)) out.catalogItemId = p.catalogItemId;
+  }
+  if ("owned" in p) {
+    // a count, or back to one; anything else is ignored rather than stored
+    if (p.owned === null) out.owned = null;
+    else if (typeof p.owned === "number" && Number.isFinite(p.owned)) out.owned = ownedOf(p.owned) ?? null;
   }
   if ("entryUnit" in p) {
     // anything but a unit is ignored, not stored: the row would read in nothing
@@ -1229,6 +1240,7 @@ export async function addVaultItems(
       landing.map(({ index, cap, folderId }) => ({
         ...rowValues(cap, vaultId, now, folderId),
         entryUnit: unitOf(ops[index]!.entryUnit) ?? null,
+        owned: ownedOf(ops[index]!.owned) ?? null,
         // Typing it in is choosing it: every field you supplied is yours, and no list
         // may overwrite it. A zero weight pins nothing — see cleanVaultPatch.
         namePinned: true,
@@ -1634,11 +1646,16 @@ export async function captureKit(
 // import: putting a file's worth of gear back
 // ---------------------------------------------------------------------------
 
-/** A row on its way in — the gear plus the pins it arrives holding, and, for a kit
- *  from our own JSON, its parts by identity. Mirrors shared/vaultImport's
- *  VaultImportRow; only our own JSON ever states either. */
+/** A row on its way in — the gear plus the pins it arrives holding, what only /gear
+ *  writes (the count you own, a picked icon, the weight's unit), all off the wire and
+ *  checked on the way in, and, for a kit from our own JSON, its parts by identity.
+ *  Mirrors shared/vaultImport's VaultImportRow; only our own JSON ever states pins or
+ *  a kit. */
 export type VaultImportRow = VaultCapture & {
   pinned?: readonly string[];
+  owned?: unknown;
+  icon?: unknown;
+  entryUnit?: unknown;
   kit?: { ownWeightMg: number; parts: VaultKitPartRef[] };
 };
 
@@ -1680,7 +1697,7 @@ export async function importVaultItems(
   // Sanitized ONE AT A TIME so each row's pins stay with it — sanitize dedupes by a
   // key it derives itself, and pairing that key back to a source row afterwards
   // would mean re-deriving it here with the same tidying, in a second place.
-  const byKey = new Map<string, { cap: VaultCapture; pins: Record<string, boolean>; kit?: VaultImportRow["kit"] }>();
+  const byKey = new Map<string, { cap: VaultCapture; pins: Record<string, boolean>; kit?: VaultImportRow["kit"]; row: VaultImportRow }>();
   for (const row of rows.slice(0, VAULT_IMPORT_MAX)) {
     const [cap] = sanitize([row]);
     if (!cap) continue;
@@ -1692,7 +1709,7 @@ export async function importVaultItems(
         ? { ownWeightMg: clampUnitWeightMg(row.kit.ownWeightMg), parts: cleanPartRefs(row.kit.parts) }
         : undefined;
     if (kit) cap.weightMg = kit.ownWeightMg;
-    byKey.set(cap.normKey, { cap, pins: pinFlags(row), kit }); // last wins, like sanitize's own dedupe
+    byKey.set(cap.normKey, { cap, pins: pinFlags(row), kit, row }); // last wins, like sanitize's own dedupe
   }
   if (!byKey.size) return { added: 0, skipped: 0 };
 
@@ -1712,12 +1729,17 @@ export async function importVaultItems(
       // at 1: it counts the lists that reached for a piece of gear, and a file is not
       // a list — a restored vault's ranking rebuilds itself the next time you pack);
       // the pins ride on top, which is what sets an import apart from a capture
-      clean.map(({ cap, pins, kit }) => ({
+      clean.map(({ cap, pins, kit, row }) => ({
         ...rowValues(cap, vaultId, now, (cap.folder && folderId.get(cap.folder)) || null),
         kind: kit ? "kit" : "piece",
         ...pins,
         // a kit's weight is nobody's to pin (see setKitParts)
         ...(kit ? { weightPinned: false } : {}),
+        // what only /gear writes, so no capture carries it: a backup's count, picked
+        // icon and unit, each checked the way an edit checks it
+        owned: ownedOf(row.owned) ?? null,
+        icon: isGearGlyph(row.icon) ? row.icon : null,
+        entryUnit: unitOf(row.entryUnit) ?? null,
       })),
     )
     // no target: the identity index (vault_id, norm_key) is the only conflict a

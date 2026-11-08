@@ -353,6 +353,10 @@ export const vaultItems = pgTable(
     // entryUnit for your own gear. Display only: weight_mg stays the one stored figure,
     // so totals and sorting never see it. Null = the page's unit.
     entryUnit: text("entry_unit"),
+    // How many of this piece you own (three of the same bottle), set on /gear. A fact
+    // about the closet, not a trip: a list's qty is how many you CARRY, and no list
+    // writes this. Null = one. Totals count one of each.
+    owned: integer("owned"),
     classification: text("classification"), // base|worn|consumable (null = unset)
     // Food energy per unit, whole kcal — the calorie twin of weight_mg, so the
     // trail food you pack every trip comes back with its calories. Null = unknown.

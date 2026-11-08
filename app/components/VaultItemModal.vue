@@ -142,6 +142,8 @@ const variant = ref("");
 const commonName = ref("");
 const weight = ref("");
 const kcal = ref("");
+// how many you own, as typed; blank or 1 is one
+const owned = ref("");
 const note = ref("");
 const price = ref("");
 const productUrl = ref("");
@@ -202,6 +204,7 @@ let opened = {
   commonName: "",
   weight: "",
   kcal: "",
+  owned: "",
   note: "",
   price: "",
   productUrl: "",
@@ -230,6 +233,7 @@ watch(
     // field when the list row was inheriting its folder's default
     classification.value = e.classification ?? "base";
     kcal.value = e.kcal ? String(e.kcal) : "";
+    owned.value = e.owned ? String(e.owned) : "";
     note.value = e.description ?? "";
     // FORMATTED, not the bare cents: "$399.00" is what the row shows and what
     // parsePriceInput reads straight back, so the symbol you'd otherwise have to
@@ -253,6 +257,7 @@ watch(
       commonName: commonName.value,
       weight: weight.value,
       kcal: kcal.value,
+      owned: owned.value,
       note: note.value,
       price: price.value,
       productUrl: productUrl.value,
@@ -279,6 +284,16 @@ async function onSubmit() {
   if (variant.value !== opened.variant) patch.variant = variant.value.trim().slice(0, VAULT_SHORT_MAX) || null;
   if (commonName.value !== opened.commonName) {
     patch.commonName = commonName.value.trim().slice(0, VAULT_SHORT_MAX) || null;
+  }
+  if (owned.value !== opened.owned) {
+    // a whole number above one, or back to one (blank, 0 and 1 all mean one); the server
+    // caps it the same way (ownedOf)
+    const n = Math.round(Number(owned.value.trim() || "1"));
+    if (!Number.isFinite(n) || n < 0) {
+      error.value = "How many should be a whole number, like 3.";
+      return;
+    }
+    patch.owned = n > 1 ? n : null;
   }
   if (icon.value !== opened.icon) patch.icon = icon.value;
   if (classification.value !== opened.classification) {
@@ -529,12 +544,20 @@ async function onSubmit() {
         </div>
       </div>
 
-      <!-- calories only once it IS consumable, and not on fuel that has none to show
-           — ItemRow's rule verbatim (see kcalOffered) -->
-      <label v-if="kcalOffered" class="dlg__field">
-        <span class="t-sm t-muted">kcal each</span>
-        <input v-model="kcal" class="field" inputmode="numeric" placeholder="0" @keydown.enter="onSubmit" />
-      </label>
+      <!-- How many you own, beside the calories: both are counts about the piece itself,
+           and a pair keeps the dialog's two columns. Calories only once it IS consumable,
+           and not on fuel that has none to show — ItemRow's rule verbatim (see
+           kcalOffered). -->
+      <div class="vitem__pair">
+        <label class="dlg__field">
+          <span class="t-sm t-muted">How many</span>
+          <input v-model="owned" class="field" inputmode="numeric" placeholder="1" @keydown.enter="onSubmit" />
+        </label>
+        <label v-if="kcalOffered" class="dlg__field">
+          <span class="t-sm t-muted">kcal each</span>
+          <input v-model="kcal" class="field" inputmode="numeric" placeholder="0" @keydown.enter="onSubmit" />
+        </label>
+      </div>
 
       <!-- what it cost and where it came from, read together, on the same two columns as
            every pair above: a narrower price track started the link's column 66px left

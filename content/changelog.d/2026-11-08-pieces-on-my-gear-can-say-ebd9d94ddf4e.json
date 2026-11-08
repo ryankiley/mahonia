@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-08",
+  "added": [
+    "Pieces on My Gear can say how many you own, shown as ×3 beside the weight and set in the edit dialog."
+  ],
+  "changed": [
+    "My Gear's order and filter pickers show the current choice's icon instead of the words View and Show.",
+    "My Gear's Most used shelf drops its See all link; the order picker just below it does the same thing."
+  ]
+}

@@ -41,7 +41,7 @@ import { tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
 import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type ListState, type Unit, CLASSIFICATIONS } from "../../shared/types";
-import { captureFromList, vaultNormKey, type VaultEntry } from "../../shared/vault";
+import { captureFromList, OWNED_MAX, vaultNormKey, type VaultEntry } from "../../shared/vault";
 import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX } from "../../shared/vaultKit";
 import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, nextSortOrder, siblingItems } from "../../shared/weights";
 import type { AccessScope } from "../../shared/types";
@@ -451,6 +451,7 @@ const GEAR_ROW = complete({
   variant: nullable("string", USER_TEXT),
   gear_type: nullable("string", `Tent, Quilt, Stove. ${USER_TEXT}`),
   weight_g: { type: "number", description: "Grams for one, to a tenth; 0 when it has never been weighed. On a kit, the whole kit: its items plus its own weight." },
+  owned: { type: "integer", minimum: 1, description: "How many of this piece the owner has: three of the same bottle is one piece with owned 3. Not how many a trip carries, which is a list row's qty, nor how many a kit holds, which is its item's count. The gear page's totals count one of each." },
   classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null when the owner leaves it to each list." },
   kcal: nullable("number", "Calories in one, on food."),
   catalog_id: nullable("number", "The catalog row the piece is linked to; null when it isn't."),
@@ -548,6 +549,12 @@ function gearInput(mode: "add" | "update") {
     variant: { type: t("string"), maxLength: GEAR_FIELD_LEN, description: `Size, length or rating: Long, 20F.${orNull}` },
     gear_type: { type: t("string"), maxLength: GEAR_FIELD_LEN, description: `What kind of thing it is: Tent, Quilt.${orNull}` },
     weight_g: { type: "number", minimum: 0, description: "Grams for one. 0 records it as not weighed yet." },
+    owned: {
+      type: t("integer"),
+      minimum: 1,
+      maximum: OWNED_MAX,
+      description: `How many of it the owner has, when more than one: three of the same bottle is one piece with owned 3, not three pieces.${nullable ? " Null sets it back to one." : ""}`,
+    },
     classification: { type: t("string"), enum: nullable ? [...CLASSIFICATIONS, null] : CLASSIFICATIONS, description: `base, worn or consumable.${orNull}` },
     kcal: { type: t("integer"), minimum: 0, description: `Calories in one, for food.${orNull}` },
     catalog_id: {
@@ -2113,6 +2120,7 @@ function gearAsRow(piece: VaultEntry, folderNames: Map<number, string>): Record<
     variant: piece.variant ?? null,
     gear_type: piece.commonName ?? null,
     weight_g: grams(piece.weightMg),
+    owned: piece.owned ?? 1,
     classification: piece.classification ?? null,
     kcal: piece.kcal ?? null,
     catalog_id: piece.catalogItemId ?? null,
@@ -2163,6 +2171,7 @@ function gearPatchFrom(raw: unknown): { patch: Record<string, unknown>; folder?:
   if (typeof r.weight_g === "number" && r.weight_g >= 0 && Number.isFinite(r.weight_g)) patch.weightMg = Math.round(r.weight_g * 1000);
   if (r.classification === null || CLASSIFICATIONS.includes(r.classification as Classification)) patch.classification = r.classification;
   if (r.kcal === null || (typeof r.kcal === "number" && Number.isFinite(r.kcal))) patch.kcal = r.kcal;
+  if (r.owned === null || (typeof r.owned === "number" && Number.isFinite(r.owned))) patch.owned = r.owned;
   // typed here, checked in editGear: an id that isn't a catalog row refuses the call
   if (r.catalog_id === null || isCatalogId(r.catalog_id)) patch.catalogItemId = r.catalog_id;
   if (r.price === null) patch.priceCents = null;
