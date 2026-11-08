@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Delete02Icon, Edit02Icon, FolderIcon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { DashedLine02Icon, Delete02Icon, Edit02Icon, FolderIcon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { formatPrice } from "~~/shared/money";
@@ -85,6 +85,8 @@ const meta = computed(() => {
       @click="emit('edit', 'icon')"
     >
       <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
+      <!-- empty: Hugeicons' dashed square, the shape an icon would fill, quietly -->
+      <HugeiconsIcon v-else :icon="DashedLine02Icon" :size="20" :stroke-width="2" />
     </button>
     <div class="gear__main">
       <!-- the title is the whole name: clipped, two catalog names that differ only at
@@ -230,20 +232,15 @@ const meta = computed(() => {
   font: inherit;
   cursor: pointer;
 }
-/* an empty slot shows where an icon would go, faintly, so there is something to press */
-.vault__type--pick.is-blank::before {
-  content: "";
-  width: 14px;
-  height: 14px;
-  border: 1.5px dashed var(--line-2);
-  border-radius: var(--radius-1);
+/* An empty slot wears Hugeicons' dashed square in the faintest ink, where an icon
+   would sit. It used to be a 14px dashed border drawn in CSS, whose dashes rendered
+   unevenly at that size and read on a real page as an image that failed to load. */
+.vault__type--pick.is-blank {
+  color: var(--ink-ghost);
 }
 @media (hover: hover) and (pointer: fine) {
   .vault__type--pick:hover {
     color: var(--ink);
-  }
-  .vault__type--pick.is-blank:hover::before {
-    border-color: var(--ink-3);
   }
 }
 .vault__type--pick:active {

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, DashedLine02Icon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
 import { formatPrice, parsePriceInput } from "~~/shared/money";
@@ -304,7 +304,7 @@ async function onSubmit() {
             @click="iconsOpen = !iconsOpen"
           >
             <HugeiconsIcon v-if="shownIcon" :icon="shownIcon" :size="20" :stroke-width="2" aria-hidden="true" />
-            <span v-else class="vitem__noicon" aria-hidden="true" />
+            <HugeiconsIcon v-else :icon="DashedLine02Icon" class="vitem__noicon" :size="20" :stroke-width="2" aria-hidden="true" />
             <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': iconsOpen }" :size="14" :stroke-width="2" aria-hidden="true" />
           </button>
         </div>
@@ -456,13 +456,9 @@ async function onSubmit() {
   color: var(--ink);
   cursor: pointer;
 }
-/* nothing to draw yet: the same faint dashed square an empty row slot shows */
+/* nothing to draw yet: the dashed square an empty row slot wears */
 .vitem__noicon {
-  width: 14px;
-  height: 14px;
-  margin: 3px;
-  border: 1.5px dashed var(--line-2);
-  border-radius: var(--radius-1);
+  color: var(--ink-3);
 }
 /* fixed cells spread edge to edge, so a cell's glyph inset is a known number that
    "Match the gear type" can repeat, and its icon sits in the first column */

@@ -37,7 +37,7 @@ export const GEAR_GLYPHS = [
   // water and kitchen
   "bottle", "hydration", "filter", "stove", "pot", "cup", "utensils", "meal", "food",
   // tools
-  "knife", "repair",
+  "knife", "repair", "iceAxe",
   // electronics: the devices people recognise at a glance, and one catch-all for the
   // rest (power banks, cables, chargers, pumps)
   "light", "phone", "watch", "earbuds", "camera", "electronics",
@@ -65,7 +65,7 @@ export const GEAR_GLYPH_LABELS: Record<GearGlyph, string> = {
   shoe: "Shoes", boot: "Boots", hat: "Hat", neck: "Neckwear", glove: "Gloves",
   glasses: "Glasses", bottle: "Bottle", hydration: "Water", filter: "Filter",
   stove: "Stove", pot: "Pot", cup: "Cup", utensils: "Utensils", meal: "Meal",
-  food: "Snack", knife: "Knife", repair: "Repair", light: "Light", phone: "Phone",
+  food: "Snack", knife: "Knife", repair: "Repair", iceAxe: "Ice axe", light: "Light", phone: "Phone",
   watch: "Watch", earbuds: "Audio", camera: "Camera", electronics: "Electronics",
   firstAid: "First aid", toiletry: "Toiletry", towel: "Towel", toilet: "Toilet",
   chair: "Chair", carabiner: "Carabiner", games: "Games",
@@ -131,6 +131,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
 
   // tools
   [/\b(knife|saw|multitool|sheath|scissors)\b/, "knife"],
+  [/\b(ice axe|ice tool|piolet)\b/, "iceAxe"],
   [/\b(repair kit|repair patches|patches|repair buckle|buckle|tape|duct tape|sewing kit|sewing awl|screwdriver|zipper pulls)\b/, "repair"],
 
   // electronics and light
@@ -163,11 +164,26 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(backpack|daypack|fastpack|duffel|fanny pack|hip pack|chest pack|sling bag|shoulder pocket|pack)\b/, "backpack"],
 ];
 
+function matchRules(words: string): GearGlyph | null {
+  for (const [rule, glyph] of RULES) if (rule.test(words)) return glyph;
+  return null;
+}
+
+// A typed type is as often plural as not ("Bungee cords", "Stuff sacks", "Pouches"),
+// and the rules name things one at a time, so a type that matched nothing is read once
+// more with its plurals taken off. Only as a second try: "glasses" and "dress" match as
+// written and never reach it, and a word ending in "ss" ("compass") is left alone.
+const singular = (words: string) =>
+  words
+    .split(" ")
+    .map((w) => (w.length <= 3 ? w : /(?:ch|sh|x|z|ss)es$/.test(w) ? w.slice(0, -2) : /[^s]s$/.test(w) ? w.slice(0, -1) : w))
+    .join(" ");
+
 function glyphOf(text: string | null | undefined): GearGlyph | null {
   const words = (text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
   if (!words) return null;
-  for (const [rule, glyph] of RULES) if (rule.test(words)) return glyph;
-  return null;
+  const one = singular(words);
+  return matchRules(words) ?? (one !== words ? matchRules(one) : null);
 }
 
 /**
