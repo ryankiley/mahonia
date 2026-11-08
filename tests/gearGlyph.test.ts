@@ -174,6 +174,11 @@ describe("the families My Gear groups by", () => {
     // and a pack isn't a stuff sack
     expect(gearFamilyOf(gearGlyphFor("Backpack"))).toBe("packs");
     expect(gearFamilyOf(gearGlyphFor("Stuff sack"))).toBe("storage");
+    // first aid apart from hygiene, and poles a kind of their own, not shelter
+    expect(gearFamilyOf(gearGlyphFor("First aid kit"))).toBe("firstaid");
+    expect(gearFamilyOf(gearGlyphFor("Toothbrush"))).toBe("hygiene");
+    expect(gearFamilyOf(gearGlyphFor("Trekking poles"))).toBe("trekking");
+    expect(gearFamilyOf(gearGlyphFor("Tent poles"))).toBe("shelter");
     expect(gearFamilyOf(null)).toBeNull();
   });
 });

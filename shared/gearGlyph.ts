@@ -28,7 +28,7 @@
 
 export const GEAR_GLYPHS = [
   // shelter and sleep
-  "tent", "bug", "cord", "poles", "sleep", "pad",
+  "tent", "bug", "cord", "sleep", "pad",
   // carrying
   "backpack", "bag", "container", "wallet",
   // clothing, split the way a Clothing folder needs it
@@ -37,15 +37,15 @@ export const GEAR_GLYPHS = [
   "shoe", "boot",
   // water, kitchen, food
   "bottle", "hydration", "filter", "stove", "pot", "cup", "utensils", "meal", "food",
-  // tools
-  "knife", "repair", "iceAxe",
   // electronics: the devices people recognise at a glance, and one catch-all for the
   // rest (power banks, cables, chargers, pumps)
   "light", "phone", "watch", "earbuds", "camera", "electronics",
-  // body
+  // first aid, then hygiene
   "firstAid", "toiletry", "towel", "toilet",
-  // camp
-  "chair", "carabiner", "games",
+  // trekking
+  "poles", "iceAxe",
+  // camp and tools
+  "chair", "games", "carabiner", "knife", "repair",
 ] as const;
 export type GearGlyph = (typeof GEAR_GLYPHS)[number];
 
@@ -68,10 +68,17 @@ export function isGearGlyph(v: unknown): v is GearGlyph {
  * Fine enough to find a thing by: the first cut lumped shoes into Clothing and the
  * water filter into one long "Food, water & kitchen", and Ryan read the kinds as too
  * coarse ("seeing footwear with clothing"), and a pack is not a stuff sack ("i don't
- * like packs and storage as one"). The sections a hiker's own list tends to have.
+ * like packs and storage as one"). The sections a hiker's own list tends to have,
+ * checked against Hikt's 21 and Ryan's own 150 pieces: first aid apart from the
+ * hygiene that was 26 of its 30, poles out of Shelter, and Tools (empty) with Camp.
+ *
+ * Nothing stores a family: it's read off the icon on every render, so changing this
+ * list regroups everyone's gear at once and needs no migration. The order of the
+ * glyphs above has to follow it (a test holds the two together), and that order is
+ * also the icon picker's.
  */
 export const GEAR_FAMILIES = [
-  { key: "shelter", label: "Shelter", glyphs: ["tent", "bug", "cord", "poles"] },
+  { key: "shelter", label: "Shelter", glyphs: ["tent", "bug", "cord"] },
   { key: "sleep", label: "Sleep", glyphs: ["sleep", "pad"] },
   { key: "packs", label: "Packs", glyphs: ["backpack"] },
   { key: "storage", label: "Storage", glyphs: ["bag", "container", "wallet"] },
@@ -80,10 +87,11 @@ export const GEAR_FAMILIES = [
   { key: "water", label: "Water", glyphs: ["bottle", "hydration", "filter"] },
   { key: "kitchen", label: "Kitchen", glyphs: ["stove", "pot", "cup", "utensils"] },
   { key: "food", label: "Food", glyphs: ["meal", "food"] },
-  { key: "tools", label: "Tools", glyphs: ["knife", "repair", "iceAxe"] },
   { key: "electronics", label: "Electronics", glyphs: ["light", "phone", "watch", "earbuds", "camera", "electronics"] },
-  { key: "body", label: "First aid & hygiene", glyphs: ["firstAid", "toiletry", "towel", "toilet"] },
-  { key: "camp", label: "Camp", glyphs: ["chair", "carabiner", "games"] },
+  { key: "firstaid", label: "First aid", glyphs: ["firstAid"] },
+  { key: "hygiene", label: "Hygiene", glyphs: ["toiletry", "towel", "toilet"] },
+  { key: "trekking", label: "Trekking", glyphs: ["poles", "iceAxe"] },
+  { key: "camp", label: "Camp & tools", glyphs: ["chair", "games", "carabiner", "knife", "repair"] },
 ] as const satisfies readonly { key: string; label: string; glyphs: readonly GearGlyph[] }[];
 export type GearFamily = (typeof GEAR_FAMILIES)[number]["key"];
 const FAMILY_OF: ReadonlyMap<GearGlyph, GearFamily> = new Map(
