@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChartAverageIcon, ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChartAverageIcon, ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, FolderRemoveIcon, GridViewIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
@@ -18,6 +18,7 @@ import {
   type VaultView,
 } from "~~/shared/vaultView";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
+import { CLASS_ICONS } from "~/utils/classIcons";
 
 // "My Gear" — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping. That's the name the chrome uses
@@ -432,8 +433,12 @@ async function sendAdd(op: Record<string, unknown>, unchanged: () => boolean) {
 // The dialog is Lazy + v-if on "has it ever opened", so its chunk never loads for
 // someone who only came to look — the LazyCatalogCorrectionModal idiom.
 const editing = ref<VaultEntry | null>(null);
+// "icon" when the row's icon was what you pressed: the dialog opens with its icon grid
+// showing, since picking one is why you came
+const editFocus = ref<"icon" | null>(null);
 const editorEverOpened = useLatch(() => editing.value);
-function openEdit(entry: VaultEntry) {
+function openEdit(entry: VaultEntry, focus: "icon" | null = null) {
+  editFocus.value = focus;
   editing.value = entry;
 }
 // Patch the one row in place rather than re-reading the vault: the endpoint returns
@@ -524,20 +529,22 @@ const VIEW_OPTIONS = [
   { key: "recent", label: "Recently used", icon: Clock01Icon },
   { key: "most", label: "Most used", icon: ChartAverageIcon },
 ];
+// Marked like the View menu beside it: the classes wear the marks the rows carry,
+// "Unfiled" the out-of-a-folder mark the move menu uses for the same place.
 const SHOW_OPTIONS = [
-  { key: "all", label: "All gear" },
-  { key: "unfiled", label: "Unfiled" },
-  { key: "base", label: "Base" },
-  { key: "worn", label: "Worn" },
-  { key: "consumable", label: "Consumable" },
+  { key: "all", label: "All gear", icon: GridViewIcon },
+  { key: "unfiled", label: "Unfiled", icon: FolderRemoveIcon },
+  { key: "base", label: "Base", icon: CLASS_ICONS.base },
+  { key: "worn", label: "Worn", icon: CLASS_ICONS.worn },
+  { key: "consumable", label: "Consumable", icon: CLASS_ICONS.consumable },
 ];
 const viewLabel = computed(() => VIEW_OPTIONS.find((o) => o.key === view.value)?.label ?? "");
 const showLabel = computed(() => SHOW_OPTIONS.find((o) => o.key === show.value)?.label ?? "");
 // every destination a row can move to. "" is Unfiled, which is a real destination
 // here rather than an empty state — the vault keeps unfiled gear.
 const folderOptions = computed(() => [
-  { key: "", label: "Unfiled" },
-  ...folders.value.map((f) => ({ key: String(f.id), label: f.name })),
+  { key: "", label: "Unfiled", icon: FolderRemoveIcon },
+  ...folders.value.map((f) => ({ key: String(f.id), label: f.name, icon: FolderIcon })),
 ]);
 
 // ---- taking it with you --------------------------------------------------
@@ -595,22 +602,23 @@ async function exportGear(kind: string) {
          looser gaps ran "Create a list" onto two lines at 375px once the ⋯ arrived,
          and the account control changed between a word and a glyph with the session. -->
     <SiteTopbar compact label="My Gear">
-      <NuxtLink to="/e" class="btn btn--link">Create a list</NuxtLink>
-      <!-- The bar's end-cap, where every ⋯ on the site sits — after the page's own
-           action and the account control (see SiteTopbar's #end). It holds the
-           export, which is an action on the whole page rather than a way of looking
-           at it, so it doesn't belong beside View and Show.
-           Present for anyone signed in, because Import works on an empty vault —
-           restoring a backup onto a new machine is the case with nothing to export
-           and the most reason to be here. The DOWNLOAD rows are the ones gated on
-           having gear (canExport): a control worth no action is absent, not inert.
+      <!-- The bar's end-cap, where every ⋯ on the site sits — after the account
+           control (see SiteTopbar's #end). It leads with "Create a list", which used to
+           be a word in the bar and crowded it, then holds the import and export, which
+           are actions on the whole page rather than ways of looking at it, so they don't
+           belong beside View and Show.
+           Present for everyone: signed out it is only the way to a new list. Import
+           needs an account, and works on an empty vault (restoring a backup onto a new
+           machine is the case with nothing to export); the DOWNLOAD rows are the ones
+           gated on having gear (canExport): a control worth no action is absent, not
+           inert.
            ClientOnly for the reason the page body is: the server has no session, and
            a signed-in browser hydrates with one, so a v-if on it mismatches. -->
       <template #end>
         <ClientOnly>
           <VaultMenu
-            v-if="hasVault"
-            :can-export="items.length > 0"
+            :signed-in="hasVault"
+            :can-export="hasVault && items.length > 0"
             @open="warmExport"
             @pick="onMenuPick"
           />
@@ -642,6 +650,17 @@ async function exportGear(kind: string) {
 
         <!-- the gear -->
         <div v-else>
+          <!-- the gear you pack most, as tiles, above everything else (hidden while
+               you search: a query is a question about rows). A tile opens the piece;
+               "See all" is the Most used view. -->
+          <VaultMostUsed
+            v-if="!query.trim()"
+            :items="items"
+            :unit="unit"
+            @open="(entry: VaultEntry) => openEdit(entry)"
+            @all="view = 'most'"
+          />
+
           <!-- Nothing to search, order or narrow until there IS gear — three
                controls over "Nothing here yet" is furniture for a room with no
                floor. Keyed on the folders too, so a gear you've emptied still
@@ -743,7 +762,7 @@ async function exportGear(kind: string) {
                 :unit="unit"
                 :folder-options="folderOptions"
                 :busy="removing === entry.id"
-                @edit="openEdit(entry)"
+                @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
                 @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                 @remove="remove(entry)"
               />
@@ -838,7 +857,7 @@ async function exportGear(kind: string) {
                         :busy="removing === entry.id"
                         :class="{ 'vault__row--dragging': itemMove?.id === entry.id }"
                         @pointerdown="rowPress.start(entry.id, $event)"
-                        @edit="openEdit(entry)"
+                        @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
                         @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                         @remove="remove(entry)"
                         @overlay-toggle="(o: boolean) => onOverlayToggle(sectionKey(section), o)"
@@ -984,6 +1003,7 @@ async function exportGear(kind: string) {
     <LazyVaultItemModal
       v-if="editorEverOpened"
       :entry="editing"
+      :focus="editFocus"
       :unit="unit"
       :default-currency="vaultCurrency"
       @close="editing = null"

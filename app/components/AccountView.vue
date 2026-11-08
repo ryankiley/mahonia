@@ -12,7 +12,8 @@
 // Signing in and deleting an account are worse things to keep in sync by hand.
 import { counted } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChatGptIcon, ChevronDownIcon, ClaudeIcon, Copy01Icon, CubeIcon, Key01Icon } from "@hugeicons/core-free-icons";
+import { ChatGptIcon, ChevronDownIcon, ClaudeIcon, Copy01Icon, CubeIcon, Edit02Icon, Key01Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import type { IconNode } from "~/utils/hugeicon";
 import type { AccessScope, AccessTokenSummary, PasskeySummary } from "~~/shared/types";
 
 // In the MODAL you are already where you want to be, so finishing means closing and
@@ -240,10 +241,11 @@ const tokenScope = ref<AccessScope>("read");
 const tokenBusy = ref(false);
 const tokenNote = ref("");
 const freshToken = ref("");
-// the picker's rows; the key is the word the endpoint takes, the label is ours
-const SCOPES: readonly { key: AccessScope; label: string }[] = [
-  { key: "read", label: "Read only" },
-  { key: "write", label: "Read and change" },
+// the picker's rows; the key is the word the endpoint takes, the label is ours, and the
+// marks are the share panel's for a read-only and an edit link
+const SCOPES: readonly { key: AccessScope; label: string; icon: IconNode }[] = [
+  { key: "read", label: "Read only", icon: ViewIcon },
+  { key: "write", label: "Read and change", icon: Edit02Icon },
 ];
 const scopeName = (scope: AccessScope) => SCOPES.find((s) => s.key === scope)!.label.toLowerCase();
 const mcpUrl = `${useSiteOrigin()}/mcp`;

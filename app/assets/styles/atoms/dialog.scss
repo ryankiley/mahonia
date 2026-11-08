@@ -59,6 +59,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  /* the reset gives <label> 1.2 and nothing else: a field that is a <div> (one holding
+     a picker rather than an input) drew its caption 24px tall beside a label's 19.2,
+     and sat its control 4.8px low next to the field it pairs with */
+  line-height: 1.2;
 }
 .dlg__lede {
   margin-bottom: var(--space-2);

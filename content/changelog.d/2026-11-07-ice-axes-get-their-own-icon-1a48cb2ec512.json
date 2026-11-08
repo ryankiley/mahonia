@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-07",
+  "added": [
+    "Ice axes get their own icon on My Gear."
+  ],
+  "fixed": [
+    "An empty icon spot on My Gear now shows a quiet dashed outline instead of something that looked like a broken image.",
+    "Gear types written in the plural, like Bungee cords, now get their icon on My Gear."
+  ]
+}
