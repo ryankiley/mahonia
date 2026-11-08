@@ -212,6 +212,19 @@ describe("the gear tools", () => {
     expect((await tool("get_my_gear", { query: "x" }, aliceRead)).refused).toBe(true);
   });
 
+  // how many of a piece the owner has: one piece with owned 3, never three pieces, and
+  // read back on every piece so an agent can tell three bottles from one
+  it("reads and sets how many of a piece the owner has", async () => {
+    const before = (await tool("get_my_gear", {}, aliceRead)).data.gear as Record<string, unknown>[];
+    expect(before.every((g) => g.owned === 1)).toBe(true);
+    const set = (await tool("edit_my_gear", { update: [{ id: tentId, owned: 3 }] }, aliceWrite)).data.updated as { item: Record<string, unknown> }[];
+    expect(set[0]!.item).toMatchObject({ id: tentId, owned: 3 });
+    const read = (await tool("get_my_gear", {}, aliceRead)).data.gear as Record<string, unknown>[];
+    expect(read.find((g) => g.id === tentId)).toMatchObject({ owned: 3 });
+    const back = (await tool("edit_my_gear", { update: [{ id: tentId, owned: null }] }, aliceWrite)).data.updated as { item: Record<string, unknown> }[];
+    expect(back[0]!.item).toMatchObject({ owned: 1 });
+  });
+
   it("change one field, clear another, move the piece between folders, and mark an empty change invalid", async () => {
     const r = await tool("edit_my_gear", { update: [{ id: tentId, weight_g: 1010, price: null, folder: "Big three" }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);

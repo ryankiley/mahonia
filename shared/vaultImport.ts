@@ -31,6 +31,11 @@ import {
  */
 export interface VaultImportRow extends VaultCapture {
   pinned?: VaultPinField[];
+  /** What only /gear writes, carried by a backup: how many you own, the icon you
+   *  picked, the unit the weight reads in. Checked server-side like an edit. */
+  owned?: number;
+  icon?: string;
+  entryUnit?: string;
 }
 
 export interface VaultImport {
@@ -95,6 +100,9 @@ export function vaultImportFromJson(text: string): VaultImport | null {
       priceCents: typeof item.priceCents === "number" ? item.priceCents : undefined,
       currency: typeof item.currency === "string" ? item.currency : undefined,
       folder: typeof item.folderId === "number" ? folderName.get(item.folderId) : undefined,
+      owned: typeof item.owned === "number" ? item.owned : undefined,
+      icon: typeof item.icon === "string" ? item.icon : undefined,
+      entryUnit: typeof item.entryUnit === "string" ? item.entryUnit : undefined,
       pinned: Array.isArray(item.pinned)
         ? (item.pinned.filter((p) => typeof p === "string" && PINS.has(p)) as VaultPinField[])
         : undefined,
@@ -132,7 +140,9 @@ export function vaultImportFromCsv(text: string): VaultImport {
   for (const item of list.items as Item[]) {
     if (parents.has(item.id)) continue;
     const gear = gearFromItem(item, item.folderId ? name.get(item.folderId) : undefined);
-    if (gear) rows.push(gear);
+    // the Qty column the gear CSV writes is how many you own (vaultToCsv); a list's
+    // CSV means how many it carries, which is at least as many as you have
+    if (gear) rows.push(item.qty > 1 ? { ...gear, owned: item.qty } : gear);
     if (rows.length >= VAULT_IMPORT_MAX) break;
   }
   return { rows, from: "csv" };

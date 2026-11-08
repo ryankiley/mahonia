@@ -103,6 +103,11 @@ const meta = computed(() => {
         <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
         <span>{{ entry.name }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
+        <!-- how many you own, when it's more than one: three of the same bottle is one
+             piece wearing ×3, not three rows -->
+        <span v-if="entry.owned" class="vault__owned" :title="`You own ${entry.owned}`">
+          <span aria-hidden="true">×{{ entry.owned }}</span><span class="visually-hidden">, {{ entry.owned }} owned</span>
+        </span>
       </p>
       <!-- the sub-line: the gear type, then what it cost, with the calories trailing
            for food. kcal is stored on every row that ever had one, but only counted
@@ -293,6 +298,13 @@ const meta = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* the count after the name: quiet, like the variant before it, and in figures that
+   line up */
+.vault__owned {
+  margin-left: 0.4ch;
+  color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
 }
 /* the unit picker beside the figure: content-sized, centred on its own text like the
    list row's .item__unitwrap, and as quiet at rest — a chevron on every row */

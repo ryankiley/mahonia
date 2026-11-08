@@ -93,6 +93,8 @@ describe("vaultToCsv", () => {
     expect(data[header.indexOf("Times Used")]).toBe("7");
     // the day, not the instant — the column answers "when did I last pack this"
     expect(data[header.indexOf("Last Used")]).toBe("2026-08-01");
+    // how many you own, one when the piece doesn't say
+    expect(data[header.indexOf("Qty")]).toBe("1");
   });
 
   it("de-fangs a cell a spreadsheet would run as a formula", () => {
