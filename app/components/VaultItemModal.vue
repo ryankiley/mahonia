@@ -463,9 +463,13 @@ async function onSubmit() {
   border: 1.5px dashed var(--line-2);
   border-radius: var(--radius-1);
 }
+/* fixed cells spread edge to edge, so a cell's glyph inset is a known number that
+   "Match the gear type" can repeat, and its icon sits in the first column */
 .vitem__icons {
+  --vitem-cell: 2.5rem;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(2.5rem, 1fr));
+  grid-template-columns: repeat(auto-fill, var(--vitem-cell));
+  justify-content: space-between;
   gap: var(--space-1);
 }
 .vitem__icon,
@@ -489,7 +493,7 @@ async function onSubmit() {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding-inline: var(--space-2);
+  padding-inline: calc((var(--vitem-cell) - 20px) / 2);
   text-align: start;
 }
 /* the one you have: a plate of ink at the menus' wash, under full-strength ink. Ink

@@ -529,7 +529,7 @@ $bp-full: 1024px !default;
   /* My Gear's gear-type icon column (VaultGearRow) and how far a row's name sits in from
      it. "Add gear" stays flush left with the folder name: indented, it floated under an
      empty folder's title with nothing to line up with. */
-  --gear-type-w: 1.5rem;
+  --gear-type-w: 1.25rem; /* the 20px glyph's own width: its edge is the folder name's */
   --gear-type-indent: calc(var(--gear-type-w) + var(--space-2));
   /* touch targets — the ~44px Apple-HIG minimum box + the enlarged glyph,
      consumed by every `@media (pointer: coarse)` icon-button override */

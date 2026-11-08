@@ -337,6 +337,12 @@ const meta = computed(() => {
     margin-block: var(--tap-pull);
     align-self: center;
   }
+  /* ...which makes the cluster's box exactly one text line already, so the desktop
+     --icon-pull on the cluster would lift it a second time: 4.4px above the weight
+     beside it on a phone's second line */
+  .vault__actions {
+    margin-block: 0;
+  }
 }
 @media (max-width: $bp-stack) {
   /* name on its own line, weight + marks + controls beneath — nothing cramped */
