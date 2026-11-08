@@ -5,7 +5,7 @@
 // hand-written fixtures, so the two can't drift apart without a failure here.
 
 import { describe, expect, it } from "vitest";
-import { vaultFolder as folder, vaultRow as row } from "./helpers/vault";
+import { vaultRow as row } from "./helpers/vault";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport, vaultImportFromCsv, vaultImportFromJson } from "../shared/vaultImport";
 import { MAX_CATALOG_ID, MAX_FOLDERS } from "../shared/ops";
@@ -18,7 +18,6 @@ describe("vaultImportFromJson — our own backup, back", () => {
         name: "Duplex",
         brand: "Zpacks",
         commonName: "Tent",
-        folderId: 1,
         description: "Seam-sealed 2024",
         priceCents: 69_900,
         currency: "USD",
@@ -27,7 +26,6 @@ describe("vaultImportFromJson — our own backup, back", () => {
       }),
       row({ name: "Bar", classification: "consumable", kcal: 250, weightMg: 68_000 }),
     ],
-    folders: [folder(1, "Shelter")],
   };
 
   it("carries every field the export wrote", () => {
@@ -45,17 +43,16 @@ describe("vaultImportFromJson — our own backup, back", () => {
 
   it("carries what only /gear writes: how many you own, a picked icon, the weight's unit", () => {
     const back = vaultImportFromJson(
-      vaultToJson({ items: [row({ name: "NOBO Bottle", owned: 3, icon: "bottle", entryUnit: "oz" })], folders: [] }),
+      vaultToJson({ items: [row({ name: "NOBO Bottle", owned: 3, icon: "bottle", entryUnit: "oz" })] }),
     )!;
     expect(back.rows[0]).toMatchObject({ owned: 3, icon: "bottle", entryUnit: "oz" });
   });
 
-  it("resolves a folder id back to its NAME", () => {
-    // ids belong to the vault that issued them; a name is the only currency the
-    // server's find-or-create speaks
-    const back = vaultImportFromJson(vaultToJson(gear))!;
-    expect(back.rows.find((r) => r.name === "Duplex")!.folder).toBe("Shelter");
-    expect(back.rows.find((r) => r.name === "Bar")!.folder).toBeUndefined();
+  it("reads past an older backup's folders: My Gear groups by kind now", () => {
+    const old = JSON.stringify({ folders: [{ id: 1, name: "Shelter" }], items: [{ ...row({ name: "Duplex" }), folderId: 1 }] });
+    const back = vaultImportFromJson(old)!;
+    expect(back.rows.map((r) => r.name)).toEqual(["Duplex"]);
+    expect(back.rows[0]!.folder).toBeUndefined();
   });
 
   it("restores the pins — most of what makes a backup faithful", () => {
@@ -101,10 +98,9 @@ describe("vaultImportFromCsv — any spreadsheet, as gear", () => {
     const csv = vaultToCsv(
       {
         items: [
-          row({ name: "Duplex", brand: "Zpacks", commonName: "Tent", folderId: 1 }),
+          row({ name: "Duplex", brand: "Zpacks", commonName: "Tent" }),
           row({ name: "Bar", classification: "consumable", kcal: 250, weightMg: 68_000 }),
         ],
-        folders: [folder(1, "Shelter")],
       },
       "g",
     );
@@ -112,13 +108,12 @@ describe("vaultImportFromCsv — any spreadsheet, as gear", () => {
     expect(back.from).toBe("csv");
     expect(back.rows.map((r) => r.name)).toEqual(["Duplex", "Bar"]);
     expect(back.rows[0]!.brand).toBe("Zpacks");
-    expect(back.rows[0]!.folder).toBe("Shelter");
     expect(back.rows[0]!.weightMg).toBe(539_000);
     expect(back.rows[1]!.kcal).toBe(250);
   });
 
   it("reads the count you own back from the Qty column the CSV writes", () => {
-    const csv = vaultToCsv({ items: [row({ name: "NOBO Bottle", owned: 3 }), row({ name: "Duplex" })], folders: [] }, "g");
+    const csv = vaultToCsv({ items: [row({ name: "NOBO Bottle", owned: 3 }), row({ name: "Duplex" })] }, "g");
     const back = vaultImportFromCsv(csv);
     expect(back.rows.find((r) => r.name === "NOBO Bottle")!.owned).toBe(3);
     expect(back.rows.find((r) => r.name === "Duplex")!.owned).toBeUndefined();
@@ -137,7 +132,7 @@ describe("vaultImportFromCsv — any spreadsheet, as gear", () => {
     expect(back.rows[0]!.pinned).toBeUndefined();
   });
 
-  it("keeps folder names beyond a packing list's folder limit", () => {
+  it("keeps every row past a packing list's folder limit", () => {
     const csv = [
       "Category,Item Name,Weight,Unit",
       ...Array.from({ length: MAX_FOLDERS + 1 }, (_, i) => `Folder ${i},Item ${i},1,g`),
@@ -145,7 +140,7 @@ describe("vaultImportFromCsv — any spreadsheet, as gear", () => {
 
     const back = vaultImportFromCsv(csv);
     expect(back.rows).toHaveLength(MAX_FOLDERS + 1);
-    expect(back.rows.find((row) => row.name === `Item ${MAX_FOLDERS}`)?.folder).toBe(`Folder ${MAX_FOLDERS}`);
+    expect(back.rows.find((row) => row.name === `Item ${MAX_FOLDERS}`)).toBeDefined();
   });
 
   it("fills its own ceiling from the rows that are gear, past a packing list's item limit", () => {
@@ -166,7 +161,7 @@ describe("vaultImportFromCsv — any spreadsheet, as gear", () => {
 
 describe("parseVaultImport — the sniff", () => {
   it("reads a JSON backup as JSON and anything else as CSV", () => {
-    expect(parseVaultImport(vaultToJson({ items: [row()], folders: [] })).from).toBe("json");
+    expect(parseVaultImport(vaultToJson({ items: [row()] })).from).toBe("json");
     expect(parseVaultImport("Item Name,Weight\nDuplex,539").from).toBe("csv");
   });
 

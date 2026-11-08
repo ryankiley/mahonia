@@ -75,11 +75,9 @@ export interface VaultCapture {
   /** ISO 4217 for priceCents, when it's known. Moves with the price and is pinned
    *  with it — "$399" is one decision, not two. */
   currency?: string;
-  /** The NAME of the list folder this gear sat in, so a vault fills itself
-   *  organised instead of arriving as one flat pile. A name, not an id: list
-   *  folder ids are per-list, and the same "Shelter" in two lists should mean one
-   *  vault folder. The server files a row on FIRST capture only, so a later list
-   *  that groups differently can't reshuffle what you've already filed. */
+  /** The NAME of the list folder (or file category) this gear sat in, for the
+   *  chooser to group its rows under. My Gear itself has no folders — it groups by
+   *  kind — so the server stores nothing from it. */
   folder?: string;
   /** True when brand/name/variant are the catalog's own text, untouched since the
    *  pick (linked, not renamed). The server then captures the row under the catalog's
@@ -101,14 +99,6 @@ export interface VaultCapture {
  * a check; a shared name at least makes the contract greppable from both sides.
  */
 export type VaultGearKey = [normKey: string, weightMg: number | null, kind?: "kit"];
-
-/** A vault folder as the API returns it. Deliberately smaller than a list Folder:
- *  no colorKey, no defaultClassification — those describe how a LIST presents and
- *  classifies rows, and a vault row already carries its own classification. */
-export interface VaultFolder {
-  id: number;
-  name: string;
-}
 
 /**
  * The fields a /gear edit can PIN.
@@ -154,8 +144,6 @@ export function ownedOf(v: unknown): number | undefined {
 
 /** A stored gear row as the API returns it. */
 export interface VaultEntry extends VaultCapture, VaultKitFields {
-  /** which vault folder it's filed under; absent = unfiled */
-  folderId?: number;
   /** Which fields you've corrected by hand, so capture leaves them alone. Absent =
    *  nothing pinned, which is every row only a list has ever written. */
   pinned?: VaultPinField[];
@@ -449,7 +437,6 @@ export function captureFingerprint(caps: VaultCapture[]): string {
         c.description ?? "",
         c.priceCents ?? "",
         c.currency ?? "",
-        c.folder ?? "",
       ].join(
         "",
       ),

@@ -15,11 +15,9 @@ import { vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { mintVault, touchVaultByUser } from "../server/utils/vaultAuth";
 import {
-  applyVaultFolderOp,
   applyVaultItemOp,
   captureVaultItems,
   captureVaultItemsReporting,
-  listVaultFolders,
   listVaultItems,
   reapAbandonedVaults,
   removeVaultItem,
@@ -151,22 +149,6 @@ describe("vault isolation — one vault can never reach another's gear", () => {
     expect((await listVaultItems(db, theirs))[0]!.weightMg).toBe(100_000);
   });
 
-  it("won't file a hand-typed add into another gear's folder", async () => {
-    await applyVaultFolderOp(db, theirs, { t: "add", name: "Theirs" });
-    const [theirFolder] = await listVaultFolders(db, theirs);
-
-    expect(
-      await applyVaultItemOp(db, mine, {
-        t: "add",
-        name: "Duplex",
-        weightMg: 1,
-        folderId: theirFolder!.id,
-      }),
-    ).toBeNull();
-    // and nothing was stored — the check runs before the insert, not after
-    expect(await listVaultItems(db, mine)).toHaveLength(0);
-  });
-
   it("a pin in one gear does not protect the identical row in another", async () => {
     await captureVaultItems(db, mine, [cap("Duplex")]);
     await captureVaultItems(db, theirs, [cap("Duplex")]);
@@ -193,61 +175,6 @@ describe("vault isolation — one vault can never reach another's gear", () => {
     expect(await listVaultItems(db, mine)).toHaveLength(0);
     // theirs is untouched, though the gear is identical
     expect(await listVaultItems(db, theirs)).toHaveLength(1);
-  });
-
-  // Folders are a second id space over the same vault, so every folder verb needs
-  // the same scoping the row verbs have — and the "move" op needs it TWICE, since
-  // it names an item id and a folder id in one call.
-  it("refuses to rename or delete another vault's folder", async () => {
-    await applyVaultFolderOp(db, theirs, { t: "add", name: "Shelter" });
-    const [theirFolder] = await listVaultFolders(db, theirs);
-
-    expect(await applyVaultFolderOp(db, mine, { t: "rename", id: theirFolder!.id, name: "hax" })).toBe(false);
-    expect(await applyVaultFolderOp(db, mine, { t: "remove", id: theirFolder!.id })).toBe(false);
-
-    // untouched, and still named what they named it
-    const after = await listVaultFolders(db, theirs);
-    expect(after).toHaveLength(1);
-    expect(after[0]!.name).toBe("Shelter");
-  });
-
-  it("won't file my gear into another vault's folder", async () => {
-    await applyVaultFolderOp(db, theirs, { t: "add", name: "Theirs" });
-    const [theirFolder] = await listVaultFolders(db, theirs);
-    await captureVaultItems(db, mine, [cap("Duplex")]);
-    const row = (await listVaultItems(db, mine))[0]!;
-
-    // the folder id is verified in MY scope before it's written — otherwise gear
-    // would end up filed under a heading its owner can never see
-    expect(await applyVaultFolderOp(db, mine, { t: "move", itemId: row.id, folderId: theirFolder!.id })).toBe(false);
-    expect((await listVaultItems(db, mine))[0]!.folderId).toBeUndefined();
-  });
-
-  it("won't move another vault's gear, even into a folder I own", async () => {
-    await applyVaultFolderOp(db, mine, { t: "add", name: "Mine" });
-    const [myFolder] = await listVaultFolders(db, mine);
-    await captureVaultItems(db, theirs, [cap("Quilt")]);
-    const theirRow = (await listVaultItems(db, theirs))[0]!;
-
-    expect(await applyVaultFolderOp(db, mine, { t: "move", itemId: theirRow.id, folderId: myFolder!.id })).toBe(false);
-    expect((await listVaultItems(db, theirs))[0]!.folderId).toBeUndefined();
-  });
-
-  it("reorders only my folders, whatever ids the payload names", async () => {
-    await applyVaultFolderOp(db, mine, { t: "add", name: "A" });
-    await applyVaultFolderOp(db, mine, { t: "add", name: "B" });
-    await applyVaultFolderOp(db, theirs, { t: "add", name: "Theirs" });
-    const mineIds = (await listVaultFolders(db, mine)).map((f) => f.id);
-    const [theirFolder] = await listVaultFolders(db, theirs);
-
-    // their id ridden along in the array is simply ignored — it matches nothing in
-    // my scope, rather than reordering a folder I don't own
-    await applyVaultFolderOp(db, mine, {
-      t: "reorder",
-      ids: [mineIds[1]!, theirFolder!.id, mineIds[0]!],
-    });
-    expect((await listVaultFolders(db, mine)).map((f) => f.name)).toEqual(["B", "A"]);
-    expect((await listVaultFolders(db, theirs)).map((f) => f.name)).toEqual(["Theirs"]);
   });
 });
 

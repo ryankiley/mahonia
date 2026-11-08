@@ -17,16 +17,15 @@
 // repair affordance behind a disclosure, not part of the kit you own.
 
 import type { Unit } from "../types";
-import type { VaultEntry, VaultFolder } from "../vault";
+import type { VaultEntry } from "../vault";
 import { countedWeightMg } from "../vaultKit";
-import { groupVaultRows } from "../vaultView";
+import { groupVaultByKind } from "../vaultView";
 import { fromMg, itemDisplayName } from "../weights";
 import { csvCell } from "./csvCell";
 
-/** What both exporters are handed: the page's live rows and its folders. */
+/** What both exporters are handed: the page's live rows. */
 export interface VaultExport {
   items: VaultEntry[];
-  folders: VaultFolder[];
 }
 
 // Column names are csvToListData's own vocabulary wherever the two overlap
@@ -40,9 +39,10 @@ const HEADER =
 /**
  * The gear as a spreadsheet, in the order the page shows it.
  *
- * Ordering is groupVaultRows — the SAME traversal /gear renders from, so the file
- * lands in the order the page shows and the two can't drift. Empty folders are
- * dropped: a heading with nothing under it is a fact about the page, not the gear.
+ * Ordering is groupVaultByKind — the SAME traversal /gear renders from, so the file
+ * lands in the order the page shows and the two can't drift. The Folder column holds
+ * the KIND (Kits, Shelter & sleep, Clothing…): My Gear has no folders, and a file
+ * that re-imports as a list then lands grouped the way the page groups it.
  *
  * Every row exports in ONE unit, unlike a list's CSV: a piece's own unit (entryUnit)
  * is how it READS on /gear, and a spreadsheet adds a column up, so the file keeps the
@@ -53,15 +53,15 @@ const HEADER =
  * so a spreadsheet summing the column would otherwise count them twice. The CSV has
  * no column for what a kit is made of; the JSON does.
  */
-export function vaultToCsv({ items, folders }: VaultExport, unit: Unit): string {
+export function vaultToCsv({ items }: VaultExport, unit: Unit): string {
   const out = [HEADER];
-  for (const section of groupVaultRows(items, folders, { keepEmpty: false })) {
+  for (const section of groupVaultByKind(items)) {
     for (const e of section.entries) {
       const mg = countedWeightMg(e);
       const w = mg > 0 ? +fromMg(mg, unit).toFixed(unit === "g" ? 0 : 3) : "";
       out.push(
         [
-          csvCell(section.folder?.name ?? ""),
+          csvCell(section.label),
           // brand has its own column, so the name field carries model + variant —
           // the list exporter's split, so the two files read alike
           csvCell(itemDisplayName(null, e.name, e.variant)),
@@ -109,7 +109,7 @@ export function vaultToJson(vault: VaultExport): string {
 
 /** The backup's object before it is text, for the account takeout to embed whole:
  *  one shape for the gear wherever it is written out. */
-export function vaultExportObject({ items, folders }: VaultExport): { folders: VaultFolder[]; items: VaultEntry[] } {
-  const ordered = groupVaultRows(items, folders, { keepEmpty: false }).flatMap((s) => s.entries);
-  return { folders, items: ordered };
+export function vaultExportObject({ items }: VaultExport): { items: VaultEntry[] } {
+  const ordered = groupVaultByKind(items).flatMap((s) => s.entries);
+  return { items: ordered };
 }

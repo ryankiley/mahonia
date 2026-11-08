@@ -21,7 +21,6 @@ import {
   type VaultCapture,
   type VaultEntry,
   type VaultGearKey,
-  type VaultFolder,
   type VaultKitCapture,
   type VaultKitPart,
   type VaultKitPartRef,
@@ -48,10 +47,6 @@ const POOL_LIMIT = 1000;
  *  own owner — the ceiling bounds junk, not use. Capture drops new keys over the
  *  cap rather than erroring; updates to existing rows always land. */
 export const VAULT_ITEMS_MAX = 2000;
-
-/** Ceiling on folders per vault, same spirit. Capture stops creating folders at
- *  the cap (items land unfiled); a deliberate add on /vault refuses quietly. */
-export const VAULT_FOLDERS_MAX = 200;
 
 
 type Row = typeof vaultItems.$inferSelect;
@@ -116,7 +111,6 @@ function toEntry(row: Row): VaultEntry {
     priceCents: row.priceCents ?? undefined,
     // never on its own: a currency with no amount is a unit with nothing to measure
     currency: row.priceCents != null ? (row.currency ?? undefined) : undefined,
-    folderId: row.folderId ?? undefined,
     pinned: pinsOf(row),
     timesSeen: row.timesSeen,
     lastUsedAt: toIso(row.lastUsedAt),
@@ -287,9 +281,8 @@ async function respellCatalogPicks(db: Db, caps: VaultCapture[]): Promise<VaultC
  *  a forged key could otherwise collide two unrelated items into one row (or dodge
  *  a tombstone). Drops anything that doesn't survive normalization. Fields are
  *  rebuilt explicitly (no spread) so nothing rides in untyped or uncapped: the
- *  caps are the same ones captureFromList applies client-side, and the folder
- *  name takes the folder table's own cap — an oversized one used to blow the
- *  btree index limit and 500 the whole capture. */
+ *  caps are the same ones captureFromList applies client-side. A capture's folder
+ *  name is not kept: My Gear groups by kind, not by the list's folders. */
 function sanitize(caps: VaultCapture[]): VaultCapture[] {
   const out = new Map<string, VaultCapture>();
   for (const c of caps.slice(0, VAULT_CAPTURE_MAX)) {
@@ -310,7 +303,6 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
       priceCents: centsOf(c.priceCents),
       // dropped without an amount, so the pair can never half-exist in the table
       currency: centsOf(c.priceCents) != null ? currencyOf(c.currency) : undefined,
-      folder: str(c.folder, FOLDER_NAME_MAX),
       weightMg: Number.isFinite(c.weightMg) ? clampUnitWeightMg(c.weightMg) : 0,
       classification: CLASSIFICATIONS.includes(c.classification as Classification)
         ? c.classification
@@ -412,15 +404,11 @@ export async function captureVaultItemsReporting(
   // Safe as a single statement precisely because sanitize() deduped by normKey:
   // Postgres rejects an ON CONFLICT DO UPDATE that would touch the same row twice
   // within one command, so the dedup isn't just tidiness, it's load-bearing.
-  // Resolve the list-folder NAMES this capture carries to vault folder ids,
-  // creating any that don't exist yet. One statement for the whole set;
-  // onConflictDoNothing makes it idempotent, so a replayed capture (the offline
-  // queue, a flaky connection) neither duplicates a folder nor errors.
-  const folderId = await ensureVaultFolders(db, vaultId, clean.map((c) => c.folder));
-
+  // No folders: My Gear groups by kind now (shared/vaultView), so the list-folder
+  // name a capture still carries (the client groups its chooser by it) files nothing.
   const written = await db
     .insert(vaultItems)
-    .values(clean.map((c) => rowValues(c, vaultId, now, (c.folder && folderId.get(c.folder)) || null)))
+    .values(clean.map((c) => rowValues(c, vaultId, now)))
     .onConflictDoUpdate({
       target: [vaultItems.vaultId, vaultItems.normKey],
       set: {
@@ -499,7 +487,6 @@ export async function captureVaultItemsReporting(
         // "Shelter" in one list and "Big 3" in another, and a capture must not
         // reshuffle a vault you've already arranged. Moving it is a deliberate act
         // on /gear (the folders route's "move"), and it stays put afterwards.
-        folderId: sql`coalesce(${vaultItems.folderId}, excluded.folder_id)`,
         // Usage, not content. A pinned row is still gear a list just reached for,
         // and the autocomplete ranks on exactly these two — so they are never
         // guarded, however much of the row you've corrected by hand.
@@ -557,7 +544,7 @@ export async function captureVaultItems(
  *  column off a sanitized capture, plus the usage stamps a brand-new row starts
  *  with. The pins are NOT here: capture asserts none and an add asserts them
  *  all, which is the whole difference between the two (see addVaultItem). */
-function rowValues(c: VaultCapture, vaultId: number, now: Date, folderId: number | null) {
+function rowValues(c: VaultCapture, vaultId: number, now: Date) {
   return {
     vaultId,
     normKey: c.normKey,
@@ -573,7 +560,6 @@ function rowValues(c: VaultCapture, vaultId: number, now: Date, folderId: number
     description: c.description ?? null,
     priceCents: c.priceCents ?? null,
     currency: c.currency ?? null,
-    folderId,
     timesSeen: 1,
     lastUsedAt: now,
     updatedAt: now,
@@ -591,17 +577,6 @@ async function vaultItemCount(db: Db, vaultId: number): Promise<number> {
   return Number(n);
 }
 
-/** Is this folder id one of THIS vault's? A folderId from another vault would
- *  file gear under a heading its owner can never see, so both writes that take
- *  an id off the wire (add, move) verify it in scope before writing. */
-async function ownsFolder(db: Db, vaultId: number, folderId: number): Promise<boolean> {
-  const owner = await db
-    .select({ id: vaultFolders.id })
-    .from(vaultFolders)
-    .where(and(eq(vaultFolders.id, folderId), eq(vaultFolders.vaultId, vaultId)));
-  return owner.length > 0;
-}
-
 /** A vault's live rows, most-recently-used first, bounded to POOL_LIMIT — the
  *  one read behind both the /vault browse and the autocomplete's candidate pool
  *  (idx_vault_recent serves exactly this shape). */
@@ -613,7 +588,7 @@ function liveRows(db: Db, vaultId: number) {
     // id breaks the tie, so the order is TOTAL — captureVaultItems stamps one
     // `now` onto a whole batch, so a 200-row import leaves 200 rows sharing a
     // last_used_at, and an untotal order lets two queries truncate at POOL_LIMIT
-    // on different subsets of them. listVaultFolders already orders this way.
+    // on different subsets of them.
     .orderBy(desc(vaultItems.lastUsedAt), asc(vaultItems.id))
     .limit(POOL_LIMIT);
 }
@@ -631,49 +606,10 @@ function liveIn(vaultId: number) {
  * Wrap a merge rule so a PINNED field keeps whatever the gear already holds.
  *
  * One helper rather than six hand-written CASEs, so a field cannot be made pinnable
- * with its guard accidentally left off — the same reason the folder verbs share one
- * scoped switch instead of six endpoints.
+ * with its guard accidentally left off.
  */
 function keepIfPinned(flag: PgColumn, keep: PgColumn, rule: SQL): SQL {
   return sql`case when ${flag} then ${keep} else ${rule} end`;
-}
-
-/**
- * Map the folder names in a capture to gear folder ids, creating the missing ones.
- * New folders land after the existing ones, in the order the names first appear.
- * Exported because the MCP gear tools have the same job: nothing over the connector
- * can pick a folder off a list, so a folder arrives as a name there too.
- */
-export async function ensureVaultFolders(
-  db: Db,
-  vaultId: number,
-  names: (string | undefined)[],
-): Promise<Map<string, number>> {
-  const wanted = [...new Set(names.filter((n): n is string => !!n))];
-  if (!wanted.length) return new Map();
-  const have = await db
-    .select({ id: vaultFolders.id, name: vaultFolders.name, sortOrder: vaultFolders.sortOrder })
-    .from(vaultFolders)
-    .where(eq(vaultFolders.vaultId, vaultId));
-  const byName = new Map(have.map((r) => [r.name, r.id]));
-  // Only names that need creating count against the folder ceiling — captures
-  // naming existing folders are idempotent whatever the count. Past the cap the
-  // extra folders simply aren't made and their items land unfiled, which keeps an
-  // automatic path from erroring (a deliberate add on /vault refuses instead).
-  const missing = wanted.filter((n) => !byName.has(n)).slice(0, Math.max(0, VAULT_FOLDERS_MAX - have.length));
-  if (!missing.length) return byName;
-  const max = have.reduce((m, r) => Math.max(m, r.sortOrder), 0);
-  await db
-    .insert(vaultFolders)
-    .values(missing.map((name, i) => ({ vaultId, name, sortOrder: max + i + 1 })))
-    .onConflictDoNothing({ target: [vaultFolders.vaultId, vaultFolders.name] });
-  // re-read rather than trusting returning(): a racing capture may have created
-  // some of `missing` first, in which case our insert skipped them
-  const rows = await db
-    .select({ id: vaultFolders.id, name: vaultFolders.name })
-    .from(vaultFolders)
-    .where(eq(vaultFolders.vaultId, vaultId));
-  return new Map(rows.map((r) => [r.name, r.id]));
 }
 
 /** Every live row in a user's vault, most-recently-used first — the /vault page's
@@ -727,7 +663,7 @@ export async function vaultGearAmong(
 
 /**
  * One row of the vault by id, live or put away, or null. The MCP gear tools read a
- * piece back after a folder move, which applyVaultFolderOp answers with a boolean
+ * piece back after an edit that answered with a boolean
  * and no row. vaultId sits in the WHERE as on every other read here, so an id from
  * some other vault is null, indistinguishable from an id that never existed.
  */
@@ -752,23 +688,6 @@ export async function vaultItemByNormKey(db: Db, vaultId: number, normKey: strin
   if (!normKey) return null;
   const rows = await db.select().from(vaultItems).where(and(liveIn(vaultId), eq(vaultItems.normKey, normKey))).limit(1);
   return rows[0] ? ((await withKits(db, vaultId, [toEntry(rows[0])]))[0] ?? null) : null;
-}
-
-/** A vault's folders in drag order (id breaks a tie, so the order is total). */
-export async function listVaultFolders(db: Db, vaultId: number): Promise<VaultFolder[]> {
-  const rows = await db
-    .select()
-    .from(vaultFolders)
-    .where(eq(vaultFolders.vaultId, vaultId))
-    .orderBy(asc(vaultFolders.sortOrder), asc(vaultFolders.id));
-  // tidied on read like the items are (toEntry) — these names are copied from list
-  // folder names, so an old one reads "Men's layers" beside a list showing "Men’s
-  // layers". The stored name is the unique key here, so it is deliberately NOT
-  // rewritten: only what the page renders changes.
-  return rows.map((r) => ({
-    id: r.id,
-    name: tidyText(r.name),
-  }));
 }
 
 /**
@@ -899,8 +818,9 @@ export async function reapAbandonedVaults(
   return { vaultsReaped: done.length };
 }
 
-/** Hard-delete vaults soft-deleted more than `graceDays` ago, with their gear and
- *  folders. This is the stage that actually reclaims the storage. */
+/** Hard-delete vaults soft-deleted more than `graceDays` ago, with their gear (and
+ *  any folders left from before My Gear dropped them). This is the stage that
+ *  actually reclaims the storage. */
 export async function purgeDeletedVaults(
   db: Db,
   opts?: { graceDays?: number; limit?: number },
@@ -936,9 +856,7 @@ export async function purgeDeletedVaults(
 // the row verbs: add a piece of gear by hand, correct one in place
 // ---------------------------------------------------------------------------
 
-/** The two things you can do to a vault ROW from /gear — see
- *  server/api/vault/items.post.ts for why they share a route with each other but
- *  not with the folder verbs. */
+/** What you can do to a vault ROW from /gear — see server/api/vault/items.post.ts. */
 export type VaultItemOp =
   | {
       t: "add";
@@ -958,8 +876,6 @@ export type VaultItemOp =
       description?: string;
       priceCents?: number;
       currency?: string;
-      /** File it as you create it; null = unfiled. Verified in this gear's scope. */
-      folderId?: number | null;
       /** The unit its weight was typed in ("3.8 oz"), so it reads back the same way. */
       entryUnit?: Unit;
       /** How many you own; absent is one. */
@@ -992,8 +908,6 @@ export type VaultItemOp =
  * bogus product URL would be undone by the next capture's coalesce. The same
  * semantics cleanItemPatch gives a list row in shared/ops.
  *
- * No folderId: re-filing a row is the folders route's "move" verb, and a second copy
- * of a scoped write is a second chance to scope it wrong.
  */
 interface VaultItemPatch {
   brand?: string | null;
@@ -1133,7 +1047,7 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
 /**
  * Apply one row op, always scoped to the caller's gear.
  *
- * Same discipline as applyVaultFolderOp: every WHERE carries vaultId alongside the
+ * Every WHERE carries vaultId alongside the
  * id, so an id from another gear matches nothing rather than being checked and
  * rejected. Returns the row as the client should now see it, or null — and null is
  * deliberately the one answer for "not yours", "doesn't exist" and "wouldn't
@@ -1162,8 +1076,8 @@ type AddOutcome = { item: VaultEntry } | { refused: "duplicate" | "full" } | nul
 
 /**
  * Add pieces of gear nobody's list has carried yet — one from the gear page, or up
- * to fifty from the connector — in one round of queries: the named folders checked
- * in scope together, the count taken once, and a single INSERT for the lot. The
+ * to fifty from the connector — in one round of queries: the count taken once, and a
+ * single INSERT for the lot. The
  * answer is one outcome per op, in order.
  *
  * Cannot route through captureVaultItems, and the difference is the point: capture
@@ -1183,37 +1097,25 @@ export async function addVaultItems(
   // captured one is. One identity rule, not two.
   const cleaned = ops.map((op) => sanitize([{ ...op, normKey: "", weightMg: op.weightMg ?? 0, folder: undefined } as VaultCapture])[0] ?? null);
 
-  // folderId is an ID here, not a name — on /gear you pick a folder, you don't type
-  // one — so it takes the same in-scope check the "move" op does, for the whole set
-  // in one query. Filing gear under a heading its owner can never see would be worse
-  // than not filing it at all.
-  const named = [...new Set(ops.flatMap((op) => (op.folderId != null && isSerialId(op.folderId) ? [op.folderId] : [])))];
-  const owned = new Set(
-    named.length
-      ? (await db.select({ id: vaultFolders.id }).from(vaultFolders).where(and(eq(vaultFolders.vaultId, vaultId), inArray(vaultFolders.id, named)))).map((r) => r.id)
-      : [],
-  );
-
   // each key once: a second op on the same key in one call is a duplicate of the
   // first, and the INSERT may not touch a row twice
-  const rows: { index: number; cap: VaultCapture; folderId: number | null }[] = [];
+  const rows: { index: number; cap: VaultCapture }[] = [];
   const seen = new Set<string>();
   ops.forEach((op, index) => {
     const cap = cleaned[index];
     if (!cap) return;
-    if (op.folderId != null && !owned.has(op.folderId)) return;
     if (seen.has(cap.normKey)) {
       results[index] = { refused: "duplicate" };
       return;
     }
     seen.add(cap.normKey);
-    rows.push({ index, cap, folderId: op.folderId ?? null });
+    rows.push({ index, cap });
   });
   if (!rows.length) return results;
 
   // The ceiling, counted once and disambiguated only when this call could cross the
   // line, like capture — but a DELIBERATE add REFUSES where capture drops silently,
-  // the same way applyVaultFolderOp's "add" does. Landing on a key the gear already
+  // the way a deliberate press should. Landing on a key the gear already
   // holds adds no row, so it's allowed at any count.
   let room = VAULT_ITEMS_MAX - (await vaultItemCount(db, vaultId));
   let landing = rows;
@@ -1237,8 +1139,8 @@ export async function addVaultItems(
   const done = await db
     .insert(vaultItems)
     .values(
-      landing.map(({ index, cap, folderId }) => ({
-        ...rowValues(cap, vaultId, now, folderId),
+      landing.map(({ index, cap }) => ({
+        ...rowValues(cap, vaultId, now),
         entryUnit: unitOf(ops[index]!.entryUnit) ?? null,
         owned: ownedOf(ops[index]!.owned) ?? null,
         // Typing it in is choosing it: every field you supplied is yours, and no list
@@ -1277,10 +1179,6 @@ export async function addVaultItems(
         description: sql`coalesce(excluded.description, ${vaultItems.description})`,
         priceCents: sql`coalesce(excluded.price_cents, ${vaultItems.priceCents})`,
         currency: sql`case when excluded.price_cents is not null then excluded.currency else ${vaultItems.currency} end`,
-        // You named a folder → it wins; you didn't → it stays filed where it was.
-        // The REVERSE of capture's coalesce, deliberately: capture is automatic and
-        // must not reshuffle a gear, whereas an add is you doing the filing.
-        folderId: sql`coalesce(excluded.folder_id, ${vaultItems.folderId})`,
         // pins UNION — an add must never RELEASE one an earlier edit earned
         namePinned: sql`true`,
         weightPinned: sql`${vaultItems.weightPinned} or excluded.weight_pinned`,
@@ -1586,10 +1484,9 @@ export async function captureKit(
   if (!prior && (await vaultItemCount(db, vaultId)) >= VAULT_ITEMS_MAX) return { ...landed, full: true, kit: "full" };
 
   const now = new Date();
-  const folderId = await ensureVaultFolders(db, vaultId, [clean.folder]);
   const [row] = await db
     .insert(vaultItems)
-    .values({ ...rowValues(clean, vaultId, now, (clean.folder && folderId.get(clean.folder)) || null), kind: "kit" })
+    .values({ ...rowValues(clean, vaultId, now), kind: "kit" })
     .onConflictDoUpdate({
       target: [vaultItems.vaultId, vaultItems.normKey],
       set: {
@@ -1619,7 +1516,6 @@ export async function captureKit(
           vaultItems.description,
           sql`coalesce(${vaultItems.description}, excluded.description)`,
         ),
-        folderId: sql`coalesce(${vaultItems.folderId}, excluded.folder_id)`,
         timesSeen: sql`${vaultItems.timesSeen} + 1`,
         lastUsedAt: now,
         updatedAt: now,
@@ -1721,7 +1617,6 @@ export async function importVaultItems(
   if (!clean.length) return { added: 0, skipped: all.length };
 
   const now = new Date();
-  const folderId = await ensureVaultFolders(db, vaultId, clean.map((c) => c.cap.folder));
   const done = await db
     .insert(vaultItems)
     .values(
@@ -1730,7 +1625,7 @@ export async function importVaultItems(
       // a list — a restored vault's ranking rebuilds itself the next time you pack);
       // the pins ride on top, which is what sets an import apart from a capture
       clean.map(({ cap, pins, kit, row }) => ({
-        ...rowValues(cap, vaultId, now, (cap.folder && folderId.get(cap.folder)) || null),
+        ...rowValues(cap, vaultId, now),
         kind: kit ? "kit" : "piece",
         ...pins,
         // a kit's weight is nobody's to pin (see setKitParts)
@@ -1762,121 +1657,3 @@ export async function importVaultItems(
   return { added: done.length, skipped: all.length - done.length };
 }
 
-/** The folder verbs /gear offers, as one small tagged union — see
- *  server/api/vault/folders.post.ts for why they share a route. */
-export type VaultFolderOp =
-  | { t: "add"; name: string }
-  | { t: "rename"; id: number; name: string }
-  | { t: "remove"; id: number }
-  | { t: "reorder"; ids: number[] }
-  /** null folderId = unfile it */
-  | { t: "move"; itemId: number; folderId: number | null };
-
-const FOLDER_NAME_MAX = 120;
-
-/**
- * Apply one folder op, always scoped to the caller's vault.
- *
- * Every WHERE carries vaultId alongside the id, so an id from another vault
- * matches nothing rather than being checked and rejected — no existence oracle,
- * and no path where a missing scope leaks a row.
- */
-export async function applyVaultFolderOp(
-  db: Db,
-  vaultId: number,
-  op: unknown,
-): Promise<boolean> {
-  // This is the JSON boundary for /api/vault/folders. Keep the public tagged
-  // union above for callers, but validate the actual wire value here rather than
-  // trusting a TypeScript cast in the route.
-  if (!op || typeof op !== "object") return false;
-  const raw = op as Record<string, unknown>;
-  switch (raw.t) {
-    case "add": {
-      const name = str(raw.name, FOLDER_NAME_MAX);
-      if (!name) return false;
-      const [{ max, n } = { max: 0, n: 0 }] = await db
-        .select({
-          max: sql<number>`coalesce(max(${vaultFolders.sortOrder}), 0)`,
-          n: sql<number>`count(*)`,
-        })
-        .from(vaultFolders)
-        .where(eq(vaultFolders.vaultId, vaultId));
-      // at the ceiling, refuse like the empty-name case — quietly false, the same
-      // "nothing was made" the caller already handles
-      if (Number(n) >= VAULT_FOLDERS_MAX) return false;
-      // a name that already exists is a no-op, not an error — the folder you asked
-      // for is there either way
-      const done = await db
-        .insert(vaultFolders)
-        .values({ vaultId, name, sortOrder: Number(max) + 1 })
-        .onConflictDoNothing({ target: [vaultFolders.vaultId, vaultFolders.name] })
-        .returning();
-      return done.length > 0;
-    }
-    case "rename": {
-      const name = str(raw.name, FOLDER_NAME_MAX);
-      if (!name || !isSerialId(raw.id)) return false;
-      // An add treats an existing name as a harmless no-op. Match that for a rename
-      // into a sibling's name: the unique index on (vault, name) is the one check that
-      // also holds against a concurrent add, so it is the only check — a preflight
-      // SELECT would be a second round trip that still couldn't close that window.
-      try {
-        const done = await db
-          .update(vaultFolders)
-          .set({ name })
-          .where(and(eq(vaultFolders.id, raw.id), eq(vaultFolders.vaultId, vaultId)))
-          .returning();
-        return done.length > 0;
-      } catch (error) {
-        if (isUniqueViolation(error)) return false;
-        throw error;
-      }
-    }
-    case "remove": {
-      if (!isSerialId(raw.id)) return false;
-      // The GEAR survives — deleting a folder unfiles what was in it rather than
-      // taking it with it. A folder is a label here, not a container, and losing
-      // gear because you tidied a heading would be indefensible.
-      await db
-        .update(vaultItems)
-        .set({ folderId: null, updatedAt: new Date() })
-        .where(and(eq(vaultItems.folderId, raw.id), eq(vaultItems.vaultId, vaultId)));
-      const done = await db
-        .delete(vaultFolders)
-        .where(and(eq(vaultFolders.id, raw.id), eq(vaultFolders.vaultId, vaultId)))
-        .returning();
-      return done.length > 0;
-    }
-    case "reorder": {
-      if (!Array.isArray(raw.ids)) return false;
-      const ids = [...new Set(raw.ids.filter(isSerialId))].slice(0, VAULT_FOLDERS_MAX);
-      if (!ids.length) return false;
-      // sequential rather than one CASE statement: a vault has a handful of
-      // folders, and the readable version is worth more than the round trips here
-      for (const [i, id] of ids.entries()) {
-        await db
-          .update(vaultFolders)
-          .set({ sortOrder: i + 1 })
-          .where(and(eq(vaultFolders.id, id), eq(vaultFolders.vaultId, vaultId)));
-      }
-      return true;
-    }
-    case "move": {
-      // absent reads as null — unfile — the way the wire contract has always been
-      const folderId = raw.folderId ?? null;
-      if (!isSerialId(raw.itemId) || (folderId !== null && !isSerialId(folderId))) return false;
-      // a folderId from another vault would file gear under a heading you can't
-      // see, so it's verified in the same scope before being written
-      if (folderId !== null && !(await ownsFolder(db, vaultId, folderId))) return false;
-      const done = await db
-        .update(vaultItems)
-        .set({ folderId, updatedAt: new Date() })
-        .where(and(eq(vaultItems.id, raw.itemId), eq(vaultItems.vaultId, vaultId)))
-        .returning();
-      return done.length > 0;
-    }
-    default:
-      return false;
-  }
-}

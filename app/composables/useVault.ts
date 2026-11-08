@@ -408,7 +408,6 @@ export function useVaultCapture() {
     let caps: VaultCapture[];
     try {
       const { captureFromList } = await loadVault();
-      // the folder list is passed so the row lands filed, not in a flat pile
       caps = captureFromList([item], folders);
     } catch {
       // chunk fetch failed (offline before the SW cached it)

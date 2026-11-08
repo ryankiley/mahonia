@@ -56,6 +56,37 @@ export function isGearGlyph(v: unknown): v is GearGlyph {
   return typeof v === "string" && GLYPH_SET.has(v);
 }
 
+/**
+ * The eight FAMILIES the icons fall into, in the set's own order: how My Gear groups
+ * your gear now that it has no folders (Ryan: "I'm not even sure the folders make a lot
+ * of sense"). A folder said where a piece was filed, copied from a list's section
+ * name; a family says what kind of thing it is, read off its gear type the way its
+ * icon is, so nothing has to be filed and nothing drifts. What goes together is a
+ * KIT's job. A piece whose type matches no icon has no family, and sits under Other.
+ */
+export const GEAR_FAMILIES = [
+  { key: "shelter", label: "Shelter & sleep", glyphs: ["tent", "bug", "cord", "poles", "sleep", "pad"] },
+  { key: "carrying", label: "Packs & storage", glyphs: ["backpack", "bag", "container", "wallet"] },
+  {
+    key: "clothing",
+    label: "Clothing",
+    glyphs: ["jacket", "shirt", "pants", "underwear", "socks", "shoe", "boot", "hat", "neck", "glove", "glasses"],
+  },
+  { key: "kitchen", label: "Food, water & kitchen", glyphs: ["bottle", "hydration", "filter", "stove", "pot", "cup", "utensils", "meal", "food"] },
+  { key: "tools", label: "Tools", glyphs: ["knife", "repair", "iceAxe"] },
+  { key: "electronics", label: "Electronics", glyphs: ["light", "phone", "watch", "earbuds", "camera", "electronics"] },
+  { key: "body", label: "First aid & hygiene", glyphs: ["firstAid", "toiletry", "towel", "toilet"] },
+  { key: "camp", label: "Camp", glyphs: ["chair", "carabiner", "games"] },
+] as const satisfies readonly { key: string; label: string; glyphs: readonly GearGlyph[] }[];
+export type GearFamily = (typeof GEAR_FAMILIES)[number]["key"];
+const FAMILY_OF: ReadonlyMap<GearGlyph, GearFamily> = new Map(
+  GEAR_FAMILIES.flatMap((f) => f.glyphs.map((g) => [g as GearGlyph, f.key as GearFamily] as const)),
+);
+/** The family an icon belongs to, or null for no icon. */
+export function gearFamilyOf(glyph: GearGlyph | null | undefined): GearFamily | null {
+  return glyph ? (FAMILY_OF.get(glyph) ?? null) : null;
+}
+
 /** What each icon is called where you pick one by hand (the edit dialog's grid): its
  *  tooltip and its accessible name. Plain words for the family, not the drawing. */
 export const GEAR_GLYPH_LABELS: Record<GearGlyph, string> = {

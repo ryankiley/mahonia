@@ -6,7 +6,6 @@ import {
   DashedLine02Icon,
   Delete02Icon,
   Edit02Icon,
-  FolderIcon,
   Layers01Icon,
   MinusSignIcon,
   PlusSignIcon,
@@ -40,8 +39,6 @@ import { strongVaultRows } from "~~/shared/vaultSearch";
 const props = defineProps<{
   entry: VaultEntry;
   unit: Unit;
-  /** every destination the move control offers — "" is Unfiled (see the page) */
-  folderOptions?: { key: string; label: string }[];
   /** the row's own request is in flight (a remove, or a put-back) */
   busy?: boolean;
   /** the removed list's shape: the name and weight, and "Put back" in place of the controls */
@@ -62,15 +59,14 @@ const emit = defineEmits<{
   /** "icon" when the row's icon was pressed: the dialog opens on its icon grid */
   edit: [focus?: "icon"];
   remove: [];
-  move: [folderId: number | null];
   restore: [];
   /** a unit picked for this piece's weight (the list row's unit picker, on /gear) */
   unit: [unit: Unit];
-  /** the move menu opened or closed — the folder body lifts its clip while one is open */
+  /** a menu on the row opened or closed — the kind's body lifts its clip while one is open */
   "overlay-toggle": [open: boolean];
   /** show or hide a kit's parts */
   toggle: [];
-  /** open a part's own editor: a part is a piece in its own folder, not the kit's */
+  /** open a part's own editor: a part is a piece of its own, not the kit's */
   "edit-part": [id: number];
   /** the kit's items as they should now be, each by id with how many, and its own
    *  weight — the whole set, the way the vault's kit op takes it */
@@ -258,8 +254,8 @@ const meta = computed(() => {
           <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
         </button>
       </p>
-      <!-- an item that is in a kit says which — one line, clipped. Only a flat view
-           shows it: in Folders view the item is under its kit. -->
+      <!-- an item that is in a kit says which — one line, clipped. A piece in a kit is
+           still a row of its own kind, so every view shows it. -->
       <p v-else-if="!removed && kitNames?.length" class="t-sm t-muted vault__kitline t-clip" :title="`In ${kitNames.join(', ')}`">
         In {{ kitNames.join(", ") }}
       </p>
@@ -328,26 +324,6 @@ const meta = computed(() => {
         >
           <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
         </button>
-        <!-- Move-to-folder: a quiet glyph opening the app's own picker — the same
-             recipe as the folder header's sort control. It used to render the
-             folder's NAME on every row, which under a "Cook kit" heading meant every
-             row repeating "Cook kit"; the heading already says where you are. The
-             picker still names every destination when you open it, and it's the
-             keyboard and touch path for moving gear. -->
-        <OptionMenu
-          class="vault__movewrap ink-quiet"
-          trigger-class="btn btn--icon btn--ghost"
-          :options="folderOptions ?? []"
-          :current="String(entry.folderId ?? '')"
-          :label="`Folder for ${displayName}`"
-          :title="`Move ${displayName} to a folder`"
-          @overlay-toggle="(o) => emit('overlay-toggle', o)"
-          @pick="(k) => emit('move', k ? Number(k) : null)"
-        >
-          <template #trigger>
-            <HugeiconsIcon :icon="FolderIcon" class="vault__moveicon" :size="16" :stroke-width="2" aria-hidden="true" />
-          </template>
-        </OptionMenu>
         <!-- glyph only, like every other row action on the site: the word was the
              widest thing in the row and said what the bin already says. The label
              lives on aria-label + title. -->
@@ -507,7 +483,7 @@ const meta = computed(() => {
   /* + the unit picker's gap and chevron, which sit after the row's figure and which
      a part's weight has none of: without them the part's "g" lined up with the
      chevron, 20px right of the kit's own "g" */
-  --row-tail: calc(4 * var(--icon-btn) + 2 * var(--space-1) + 2 * var(--space-4) + var(--space-2) + 12px);
+  --row-tail: calc(3 * var(--icon-btn) + var(--space-1) + 2 * var(--space-4) + var(--space-2) + 12px);
   list-style: none;
   margin: var(--space-1) 0 0;
   padding: 0 0 0 var(--gear-type-indent);
@@ -742,42 +718,17 @@ button.vault__partname:hover {
 .vault__act {
   flex: none;
 }
-/* the folder header's sort control at row scale: a glyph that shows the control
-   exists, opening the app's own picker (OptionMenu) */
-.vault__movewrap {
-  position: relative;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-btn);
-  min-height: var(--icon-btn);
-}
-.vault__moveicon {
-  pointer-events: none;
-}
-/* touch: the hand-rolled icon controls meet the --tap minimum like every
-   .btn--icon does (controls.scss). The move control mirrors the folder header's
-   sortwrap recipe, glyph bump included (atoms/folder.scss). The row's three
-   controls take --tap-pull, whose layout box is exactly the 1.45rem text line — so
+/* touch: the row's controls take --tap-pull, whose layout box is exactly the 1.45rem text line — so
    enlarging the hit area for a thumb no longer stands a phone row 8px taller than
    the same row on a desktop. */
 @media (pointer: coarse) {
-  .vault__movewrap {
-    width: var(--tap);
-    min-height: var(--tap);
-  }
-  .vault__moveicon {
-    width: var(--icon-touch);
-    height: var(--icon-touch);
-  }
   .vault__actions > * {
     margin-block: var(--tap-pull);
     align-self: center;
   }
   /* the trailing cluster grows to --tap, and the parts' weight column follows it */
   .vault__parts {
-    --row-tail: calc(var(--icon-btn) + 3 * var(--tap) + 2 * var(--space-1) + 2 * var(--space-4) + var(--space-2) + 12px);
+    --row-tail: calc(var(--icon-btn) + 2 * var(--tap) + var(--space-1) + 2 * var(--space-4) + var(--space-2) + 12px);
   }
   /* ...which makes the cluster's box exactly one text line already, so the desktop
      --icon-pull on the cluster would lift it a second time: 4.4px above the weight

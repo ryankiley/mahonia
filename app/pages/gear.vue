@@ -1,21 +1,21 @@
 <script setup lang="ts">
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, FolderRemoveIcon, GridViewIcon, GripVerticalIcon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Clock01Icon, GridViewIcon, LayoutGridIcon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
-import type { VaultEntry, VaultFolder } from "~~/shared/vault";
+import type { VaultEntry } from "~~/shared/vault";
 import { kitWeightMg } from "~~/shared/vaultKit";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { formatPrice, sumPrices } from "~~/shared/money";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import {
   filterVaultRows,
-  groupVaultRows,
+  groupVaultByKind,
   searchVaultRows,
   sortVaultRows,
   vaultShownMg,
-  type VaultSection,
+  type VaultKindSection,
   type VaultShow,
   type VaultView,
 } from "~~/shared/vaultView";
@@ -54,7 +54,6 @@ const items = ref<VaultEntry[]>([]);
 // somewhere to see them, removal would be permanent past the undo toast's few
 // seconds. This is the way back, and it's deliberate rather than guessed.
 const removed = ref<VaultEntry[]>([]);
-const folders = ref<VaultFolder[]>([]);
 const showRemoved = ref(false);
 const loading = ref(false);
 const loadError = ref("");
@@ -65,14 +64,9 @@ async function loadVault() {
   loading.value = true;
   loadError.value = "";
   try {
-    const res = await vaultFetch<{
-      items: VaultEntry[];
-      removed: VaultEntry[];
-      folders: VaultFolder[];
-    }>("/api/vault/list");
+    const res = await vaultFetch<{ items: VaultEntry[]; removed: VaultEntry[] }>("/api/vault/list");
     items.value = res.items || [];
     removed.value = res.removed || [];
-    folders.value = res.folders || [];
   } catch {
     loadError.value = "Couldn’t load your gear. Check your connection and try again.";
   }
@@ -86,7 +80,6 @@ watch(
     if (v) return void loadVault();
     items.value = [];
     removed.value = [];
-    folders.value = [];
   },
   { immediate: true },
 );
@@ -108,14 +101,14 @@ const restoring = ref<number | null>(null);
 
 // ---- how you're looking at it --------------------------------------------
 // Two questions, two controls: WHICH gear (Show) and IN WHAT ORDER (View). Neither
-// is persisted, unlike a folder's collapse state — a collapsed folder still shows
-// its heading, whereas a remembered "Worn only" would greet you next visit with a
-// gear that looks like it has lost most of your gear.
+// is persisted, unlike a kind's collapse state — a collapsed kind still shows its
+// heading, whereas a remembered "Worn only" would greet you next visit with a gear
+// that looks like it has lost most of your gear.
 //
 // The pipeline itself is shared/vaultView.ts: pure, and unit-tested without a
 // browser, which is where the rules that are invisible until they're wrong live (the
 // ranker's limit, "base means absent too", when a heading disappears).
-const view = ref<VaultView>("folders");
+const view = ref<VaultView>("kinds");
 const show = ref<VaultShow>("all");
 
 const shown = computed(() => filterVaultRows(items.value, show.value));
@@ -126,21 +119,16 @@ const found = computed(() => searchVaultRows(shown.value, query.value));
 // relevance: you asked for heaviest first, and quietly re-ordering by match quality
 // would be the page ignoring the control you just used.
 const filtered = computed(() =>
-  view.value === "folders" ? found.value : sortVaultRows(found.value, view.value),
+  view.value === "kinds" ? found.value : sortVaultRows(found.value, view.value),
 );
-// A chosen order flattens, and so does a search — see groupVaultRows for why.
-const flat = computed(() => view.value !== "folders" || !!query.value.trim());
-const grouped = computed<VaultSection[]>(() =>
-  flat.value
-    ? []
-    // nested: an item that is in a kit shows under the kit, not also in its folder
-    : groupVaultRows(filtered.value, folders.value, { keepEmpty: show.value === "all", nest: true }),
-);
+// A chosen order flattens, and so does a search — see groupVaultByKind for why.
+const flat = computed(() => view.value !== "kinds" || !!query.value.trim());
+const grouped = computed<VaultKindSection[]>(() => (flat.value ? [] : groupVaultByKind(filtered.value)));
 const narrowed = computed(() => filtered.value.length !== items.value.length);
 
 // The page's weight, the way the page shows it (vaultShownMg): a kit counted whole,
-// its items at the counts it holds them and nowhere else — the folder figures added
-// up, in every view, so switching to A–Z doesn't change the number.
+// its items at the counts it holds them, and a piece in a kit not counted again —
+// the same in every view, so switching to A–Z doesn't change the number.
 const totalMg = computed(() => vaultShownMg(filtered.value));
 // The count line counts PIECES and names the kits apart — "12 items" over a page of
 // ten pieces and two kits would be a third way of counting a part twice.
@@ -279,163 +267,29 @@ const priceTitle = computed(() => {
 // sentence would leave you guessing which control to undo.
 const noneLine = computed(() => {
   if (query.value.trim()) return `Nothing here matches “${query.value.trim()}”.`;
-  if (show.value === "unfiled") return "Everything is filed.";
   if (show.value !== "all") return `No ${show.value} gear in My Gear yet.`;
   return "";
 });
 
-// ---- folders -------------------------------------------------------------
-// Collapse, the same mechanism the editor's folders use: persisted per folder id so
-// a collapsed folder stays collapsed across reloads, and never sent to the server —
-// it's how YOU are looking at the vault, not a fact about the gear. Keyed under
-// gear.vfold.* rather than the editor's gear.fold.* because a vault folder id (an
-// integer) and a list folder id (a uuid) share a namespace otherwise.
-const vfoldCollapse = usePersistedCollapse("gear.vfold.");
-const collapsed = ref<Record<number, boolean>>({});
-// folders is [] until the async load assigns it, so the watch covers the first
-// fill and every later change — there's nothing for an onMounted pass to read
-watch(folders, (list) => list.forEach((f) => (collapsed.value[f.id] = vfoldCollapse.isCollapsed(f.id))));
-function toggleCollapsed(id: number) {
-  collapsed.value[id] = vfoldCollapse.toggle(id);
+// ---- kinds ---------------------------------------------------------------
+// Collapse, the editor's folder mechanism: persisted per kind on this device and never
+// sent to the server — it's how YOU are looking at your gear, not a fact about it.
+const kindCollapse = usePersistedCollapse("gear.vkind.");
+const kindCollapsed = ref<Record<string, boolean>>({});
+watch(grouped, (sections) => {
+  for (const s of sections) if (!(s.key in kindCollapsed.value)) kindCollapsed.value[s.key] = kindCollapse.isCollapsed(s.key);
+});
+function toggleKind(key: string) {
+  kindCollapsed.value[key] = kindCollapse.toggle(key);
 }
 
-// A row's folder picker is absolutely positioned and .folder__bodyinner clips
-// (overflow: hidden, for the collapse animation), so a menu opened on the last row
-// of a folder was guillotined — useMenuPlacement flips against the VIEWPORT, which
-// knows nothing about the clip. Count the open overlays per folder and lift the clip
-// while any is, exactly as FolderSection does for its own rows.
+// A row's menus are absolutely positioned and .folder__bodyinner clips (overflow:
+// hidden, for the collapse animation), so a menu opened on the last row of a section
+// was guillotined. Count the open overlays per section and lift the clip while any is,
+// exactly as FolderSection does for its own rows.
 const overlays = ref<Record<string, number>>({});
 function onOverlayToggle(key: string, open: boolean) {
   overlays.value[key] = Math.max(0, (overlays.value[key] ?? 0) + (open ? 1 : -1));
-}
-const sectionKey = (s: VaultSection) => (s.folder ? String(s.folder.id) : "unfiled");
-
-// Every folder change goes through the one ops route, then reloads — a vault is a
-// hundred rows and one small read, so re-reading is simpler and never leaves the
-// page disagreeing with the server about an order or a filing.
-async function folderOp(op: Record<string, unknown>) {
-  loadError.value = "";
-  try {
-    await vaultFetch("/api/vault/folders", { method: "POST", body: { op } });
-    await loadVault();
-  } catch {
-    loadError.value = "Couldn’t save that change. Check your connection and try again.";
-  }
-}
-// Drag a folder to reorder it — the editor's gesture, on the shared
-// createPointerDrag scaffold (capture, Escape/cancel, the text-selection lock). The
-// editor's useFolderDnd itself can't be reused: it's a singleton bound to
-// useGearList's op reducer, and a vault folder is a row behind a REST call.
-//
-// The folder in hand, and the one it would land before once it has been over one.
-const folderMove = ref<{ id: number; over: number | null } | null>(null);
-const folderDrag = createPointerDrag<number>({
-  track(ev, el) {
-    const over = el?.closest("[data-gear-folder]") as HTMLElement | null;
-    const id = Number(over?.getAttribute("data-gear-folder"));
-    // above the first / below the last, or over the unfiled heading (which has no
-    // id): keep the last target so the indicator doesn't flicker mid-drag
-    if (!id || !folderMove.value) return;
-    folderMove.value.over = id;
-  },
-  target: () => folderMove.value?.over ?? null,
-  commit: (dragId, overId) => {
-    const ids = folders.value.map((f) => f.id);
-    const from = ids.indexOf(Number(dragId));
-    const to = ids.indexOf(overId);
-    if (from < 0 || to < 0 || from === to) return;
-    ids.splice(to, 0, ...ids.splice(from, 1));
-    void folderOp({ t: "reorder", ids });
-  },
-  onReset() {
-    folderMove.value = null;
-  },
-  within: ".vault__page",
-});
-function startFolderDrag(id: number, ev: PointerEvent) {
-  folderDrag.start(String(id), ev); // resets any gesture before it, so this comes after
-  folderMove.value = { id, over: null };
-}
-
-// Drag a piece of gear into another folder. Same scaffold, a separate gesture: a
-// folder drag reorders headings, this one re-files a row, and one `track` trying to
-// mean both would have to guess from the grab point which you meant.
-//
-// The drop target is the FOLDER, not a slot within it: a vault folder's rows come
-// in the server's order (most recently used first), so there is no position to aim
-// at — unlike the list, where dropping between two rows is the whole point.
-//
-// The row in hand, and the section it would land in once it has been over one. `over`
-// wraps the folder id because Unfiled is a real destination whose id is null: bare, it
-// reads as "no target", and a drop on it did nothing.
-type ItemDrop = { folderId: number | null };
-const itemMove = ref<{ id: number; over: ItemDrop | null } | null>(null);
-const itemDrag = createPointerDrag<ItemDrop>({
-  track(ev, el) {
-    const over = el?.closest("[data-gear-folder]") as HTMLElement | null;
-    // off every section (the page margins, the header) — hold the last target so a
-    // wobble mid-drag doesn't drop the indicator
-    if (!over || !itemMove.value) return;
-    const attr = over.getAttribute("data-gear-folder");
-    const folderId = attr ? Number(attr) : null; // "" is the unfiled section
-    // only on a change of section: this runs per pointermove, and a fresh object each
-    // time would re-render every row on the page
-    if (itemMove.value.over?.folderId !== folderId) itemMove.value.over = { folderId };
-  },
-  target: () => itemMove.value?.over ?? null,
-  commit: (dragId, { folderId }) => {
-    const itemId = Number(dragId);
-    const from = items.value.find((i) => i.id === itemId)?.folderId ?? null;
-    if (from === folderId) return; // dropped where it already was
-    void folderOp({ t: "move", itemId, folderId });
-  },
-  onReset() {
-    itemMove.value = null;
-  },
-  within: ".vault__page",
-});
-// Grab a row anywhere — unlike the pane's rows these aren't click targets, so
-// there's nothing to tell the gesture apart from and no handle to add (and no
-// touch hold either: with no click to protect, travel alone is the reading).
-// The shared press-arm scaffold separates a drag from a stray press by a small
-// travel threshold, and a press that starts on a control (the folder picker, the
-// pencil, the bin) is left alone.
-const rowPress = createPressArm<number>({
-  threshold: 5,
-  exclude: "select, button", // a select or a button owns its own press
-  onDrag: startItemDrag,
-});
-onBeforeUnmount(rowPress.end);
-
-function startItemDrag(id: number, ev: PointerEvent) {
-  itemDrag.start(String(id), ev); // resets any gesture before it, so this comes after
-  itemMove.value = { id, over: null };
-}
-
-function renameFolder(f: VaultFolder, e: Event) {
-  const name = (e.target as HTMLInputElement).value.trim();
-  if (!name || name === f.name) return;
-  void folderOp({ t: "rename", id: f.id, name });
-}
-async function deleteFolder(f: VaultFolder) {
-  // counted over ALL the gear, not the filtered view: the number in the question has
-  // to be the number that actually moves, and a "Show: Worn" filter would otherwise
-  // promise that two pieces are affected while eleven are. One piece gets its own
-  // sentence, verb and pronoun singular: "the 1 piece … stay …; they" read as a typo.
-  const held = items.value.filter((i) => i.folderId === f.id).length;
-  if (
-    !(await askConfirm({
-      title: `Delete “${f.name}”?`,
-      message: !held
-        ? "Nothing else changes."
-        : held === 1
-          ? "The gear in it stays in My Gear, just not in a folder."
-          : `The ${counted(held, "piece")} of gear in it stay in My Gear, just not in a folder.`,
-      confirmLabel: "Delete folder",
-    }))
-  )
-    return;
-  void folderOp({ t: "remove", id: f.id });
 }
 
 // ---- adding gear by hand -------------------------------------------------
@@ -443,29 +297,28 @@ async function deleteFolder(f: VaultFolder) {
 // which covers the common case beautifully and answers nothing at all for the pack
 // you bought yesterday and haven't packed yet.
 //
-// Per-folder rather than one control at the top, so the affordance IS the
-// destination — a page-level add would need a "file it in…" picker beside it, which
-// is a whole extra control on a page that should stay quiet. Press-to-open, like
-// "Add folder" right below it: a quiet label, not an empty form the page is waiting on.
-const addingIn = ref<string | null>(null);
+// One add row for the page, under the count: with no folders there is nowhere to
+// choose, and the piece lands under its kind by itself. Press-to-open: a quiet label,
+// not an empty form the page is waiting on.
+const adding = ref(false);
 const addName = ref("");
 const addWeight = ref("");
 const addBusy = ref(false);
 type AddRow = { focus: () => void };
-// one mounted at a time, but the folder view's sits in a v-for, where a ref is an array
+// one mounted at a time: the page's, or the empty state's
 const addRow = useTemplateRef<AddRow | AddRow[]>("addRow");
 
-function openAdd(folderId: number | null) {
-  addingIn.value = folderId === null ? "unfiled" : String(folderId);
+function openAdd() {
+  adding.value = true;
   addName.value = "";
   addWeight.value = "";
 }
 function closeAdd() {
-  addingIn.value = null;
+  adding.value = false;
   addName.value = "";
   addWeight.value = "";
 }
-async function commitAdd(folderId: number | null) {
+async function commitAdd() {
   const name = addName.value.trim();
   if (!name || addBusy.value) return;
   const raw = addWeight.value.trim();
@@ -478,12 +331,12 @@ async function commitAdd(folderId: number | null) {
   // trip, and anything typed meanwhile is the next one.
   // a weight typed with its unit ("3.8 oz") reads back in that unit on the row
   const entryUnit = entryUnitFromInput(raw) ?? undefined;
-  await sendAdd({ t: "add", name, weightMg, folderId, entryUnit }, () => addName.value.trim() === name && addWeight.value.trim() === raw);
+  await sendAdd({ t: "add", name, weightMg, entryUnit }, () => addName.value.trim() === name && addWeight.value.trim() === raw);
 }
 // A catalog product picked from the add row's suggestions, added AS that product: its
 // brand, size, gear type, catalog link and calories, and its weight unless you typed
 // your own beside it (the weight you measured is the one My Gear keeps).
-async function commitPick(folderId: number | null, c: NameCommit) {
+async function commitPick(c: NameCommit) {
   if (addBusy.value) return;
   const raw = addWeight.value.trim();
   const typed = raw ? parseWeightInput(raw, unit.value) : null;
@@ -505,7 +358,6 @@ async function commitPick(folderId: number | null, c: NameCommit) {
       classification: c.classification,
       kcal: c.kcal,
       catalogItemId: c.catalogItemId,
-      folderId,
     },
     () => !addName.value.trim() && addWeight.value.trim() === raw,
   );
@@ -671,21 +523,19 @@ async function undo() {
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
 // The page's own order. A–Z / Heaviest / Lightest wear sort glyphs (A–Z the ordered
-// list with A over Z); Folders takes the folder mark because it is a LAYOUT, not a
-// sort key, and shouldn't borrow one.
+// list with A over Z); By kind takes a grid mark because it is a LAYOUT, not a sort
+// key, and shouldn't borrow one.
 const VIEW_OPTIONS = [
-  { key: "folders", label: "Folders", icon: FolderIcon },
+  { key: "kinds", label: "By kind", icon: LayoutGridIcon },
   { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
   { key: "heaviest", label: "Heaviest", icon: SortingNineOneIcon },
   { key: "lightest", label: "Lightest", icon: SortingOneNineIcon },
   { key: "recent", label: "Recently used", icon: Clock01Icon },
   { key: "most", label: "Most used", icon: StarIcon },
 ];
-// Marked like the View menu beside it: the classes wear the marks the rows carry,
-// "Unfiled" the out-of-a-folder mark the move menu uses for the same place.
+// Marked like the View menu beside it: the classes wear the marks the rows carry.
 const SHOW_OPTIONS = [
   { key: "all", label: "All gear", icon: GridViewIcon },
-  { key: "unfiled", label: "Unfiled", icon: FolderRemoveIcon },
   { key: "base", label: "Base", icon: CLASS_ICONS.base },
   { key: "worn", label: "Worn", icon: CLASS_ICONS.worn },
   { key: "consumable", label: "Consumable", icon: CLASS_ICONS.consumable },
@@ -695,12 +545,6 @@ const SHOW_OPTIONS = [
 // and the mark is the one the open menu puts beside the same row.
 const viewOption = computed(() => VIEW_OPTIONS.find((o) => o.key === view.value) ?? VIEW_OPTIONS[0]!);
 const showOption = computed(() => SHOW_OPTIONS.find((o) => o.key === show.value) ?? SHOW_OPTIONS[0]!);
-// every destination a row can move to. "" is Unfiled, which is a real destination
-// here rather than an empty state — the vault keeps unfiled gear.
-const folderOptions = computed(() => [
-  { key: "", label: "Unfiled", icon: FolderRemoveIcon },
-  ...folders.value.map((f) => ({ key: String(f.id), label: f.name, icon: FolderIcon })),
-]);
 
 // ---- taking it with you --------------------------------------------------
 // My Gear is the one thing an account holds rather than a link, which makes it the
@@ -736,7 +580,7 @@ async function exportGear(kind: string) {
   loadError.value = "";
   try {
     const { vaultToCsv, vaultToJson } = await exporter();
-    const gear = { items: items.value, folders: folders.value };
+    const gear = { items: items.value };
     if (kind === "json") {
       downloadFile("my-gear.json", vaultToJson(gear), "application/json");
     } else {
@@ -816,9 +660,8 @@ async function exportGear(kind: string) {
 
           <!-- Nothing to search, order or narrow until there IS gear — three
                controls over "Nothing here yet" is furniture for a room with no
-               floor. Keyed on the folders too, so a gear you've emptied still
-               offers them rather than flickering the bar away as the last row goes. -->
-          <div v-if="items.length || folders.length" class="vault__bar">
+               floor. -->
+          <div v-if="items.length" class="vault__bar">
             <!-- the field and its own clear — SearchField, the same control the gear
                  pane draws; only the sizing is this page's -->
             <SearchField
@@ -868,10 +711,7 @@ async function exportGear(kind: string) {
                length of a round trip reads as the page losing your gear. -->
           <p v-if="loading && !items.length" class="t-muted vault__empty">Loading your gear…</p>
 
-          <!-- folders.length, not just the rows: a gear whose gear is all removed
-               (or all filtered out) still has the headings you made, and the add row
-               that puts gear back into them lives inside one. -->
-          <template v-else-if="items.length || folders.length">
+          <template v-else-if="items.length">
             <p class="t-sm t-muted vault__count">
               <template v-if="narrowed">{{ formatCount(pieceShown) }} of {{ formatCount(pieceTotal) }}</template>
               <template v-else>{{ formatCount(pieceTotal) }}</template>
@@ -903,6 +743,23 @@ async function exportGear(kind: string) {
               </template>
             </p>
 
+            <!-- the page's one add row, at the head of the gear: with no folders there
+                 is nowhere to choose, and a piece lands under its kind by itself -->
+            <div v-if="!query" class="vault__add vault__add--top">
+              <VaultAddRow
+                v-if="adding"
+                ref="addRow"
+                v-model:name="addName"
+                v-model:weight="addWeight"
+                :unit="unit"
+                :busy="addBusy"
+                @submit="commitAdd"
+                @pick="commitPick"
+                @done="closeAdd"
+              />
+              <button v-else type="button" class="folder__addbtn" @click="openAdd">Add gear</button>
+            </div>
+
             <!-- FLAT: a chosen order, or a search. One list, one order, no headings —
                  a folder already owns an order of its own, and two authorities over
                  the same rows is what makes "heaviest" mean nothing. -->
@@ -914,7 +771,6 @@ async function exportGear(kind: string) {
                 :key="entry.id"
                 :entry="entry"
                 :unit="unit"
-                :folder-options="folderOptions"
                 :busy="removing === entry.id"
                 :open="!!kitOpen[entry.id]"
                 :kit-names="kitNames(entry)"
@@ -926,171 +782,70 @@ async function exportGear(kind: string) {
                 @kit="(parts: { id: number; qty: number }[], own: number) => setKit(entry, parts, own)"
                 @cancel-kit="kitStarting = null"
                 @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
-                @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                 @remove="remove(entry)"
                 @unit="(u: Unit) => setEntryUnit(entry, u)"
               />
             </ul>
 
-            <!-- FOLDERS. The editor's folder, class for class — the header grid, the
-                 collapse chevron, the trailing delete · grip cluster and the
-                 1fr↔0fr body all come from atoms/folder.scss, so the two surfaces
-                 can't drift. -->
+            <!-- BY KIND. The editor's folder, class for class — the header grid, the
+                 collapse chevron and the 1fr↔0fr body all come from atoms/folder.scss —
+                 with a kind's name for a heading: nothing to rename, delete or drag,
+                 because nobody filed anything. -->
             <template v-else>
               <section
                 v-for="section in grouped"
-                :key="sectionKey(section)"
+                :key="section.key"
                 class="folder"
-                :class="{
-                  'folder--dragging': section.folder && folderMove?.id === section.folder.id,
-                  'folder--drop-before': section.folder && folderMove?.over === section.folder.id,
-                  'folder--drop-into':
-                    itemMove?.over && itemMove.over.folderId === (section.folder ? section.folder.id : null),
-                }"
-                :data-gear-folder="section.folder ? section.folder.id : ''"
-                :data-collapsed="section.folder && collapsed[section.folder.id] ? true : null"
+                :data-collapsed="kindCollapsed[section.key] ? true : null"
               >
                 <header class="folder__head">
                   <div class="folder__title">
-                    <input
-                      v-if="section.folder"
-                      class="field folder__name"
-                      :value="section.folder.name"
-                      aria-label="Folder name"
-                      autocorrect="off"
-                      spellcheck="false"
-                      @change="renameFolder(section.folder, $event)"
-                    />
-                    <!-- unfiled isn't a folder you made: no name to edit, nothing to
-                         delete — just a heading over what's left over -->
-                    <span v-else class="field folder__name vault__unfiled">Unfiled</span>
+                    <h2 class="field folder__name vault__kind">{{ section.label }}</h2>
                     <NestChevron
-                      v-if="section.folder"
                       folder
-                      :collapsed="!!collapsed[section.folder.id]"
-                      :label="section.folder.name"
-                      @toggle="toggleCollapsed(section.folder.id)"
+                      :collapsed="!!kindCollapsed[section.key]"
+                      :label="section.label"
+                      @toggle="toggleKind(section.key)"
                     />
-                  </div>
-
-
-                  <div v-if="section.folder" class="folder__actions">
-                    <button
-                      class="btn btn--icon btn--ghost folder__del ink-quiet"
-                      title="Remove folder"
-                      :aria-label="`Remove ${section.folder.name}`"
-                      @click="deleteFolder(section.folder)"
-                    >
-                      <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
-                    </button>
-                    <button
-                      class="btn btn--icon btn--ghost grip folder__grip ink-quiet"
-                      title="Drag to reorder folder"
-                      :aria-label="`Reorder ${section.folder.name}`"
-                      @pointerdown="startFolderDrag(section.folder.id, $event)"
-                    >
-                      <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
-                    </button>
                   </div>
                 </header>
 
                 <div class="folder__body">
-                  <div
-                    class="folder__bodyinner"
-                    :class="{ 'is-overlay-open': (overlays[sectionKey(section)] ?? 0) > 0 }"
-                  >
-                    <!-- VaultGearRow, with what only a folder's row has: the press
-                         that becomes a drag (a native listener on the row's root)
-                         and its lifted state, plus the overlay count that lifts the
-                         body's clip while a row's move menu is open. -->
-                    <ul v-if="section.entries.length" class="vault__list">
+                  <div class="folder__bodyinner" :class="{ 'is-overlay-open': (overlays[section.key] ?? 0) > 0 }">
+                    <ul class="vault__list">
                       <VaultGearRow
                         v-for="entry in section.entries"
                         :key="entry.id"
                         :entry="entry"
                         :unit="unit"
-                        :folder-options="folderOptions"
                         :busy="removing === entry.id"
                         :open="!!kitOpen[entry.id]"
                         :kit-names="kitNames(entry)"
                         :gear="items"
                         :kit-busy="kitSaving.has(entry.id)"
                         :start-kit="kitStarting === entry.id"
-                        :class="{ 'vault__row--dragging': itemMove?.id === entry.id }"
                         @toggle="toggleKit(entry.id)"
                         @edit-part="editPart"
                         @kit="(parts: { id: number; qty: number }[], own: number) => setKit(entry, parts, own)"
                         @cancel-kit="kitStarting = null"
-                        @pointerdown="rowPress.start(entry.id, $event)"
                         @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
-                        @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                         @remove="remove(entry)"
-                @unit="(u: Unit) => setEntryUnit(entry, u)"
-                        @overlay-toggle="(o: boolean) => onOverlayToggle(sectionKey(section), o)"
+                        @unit="(u: Unit) => setEntryUnit(entry, u)"
+                        @overlay-toggle="(o: boolean) => onOverlayToggle(section.key, o)"
                       />
                     </ul>
-
-                    <!-- the add row IS the destination: press it and what you type
-                         lands in this folder. Same wrapper rhythm as the editor's
-                         (FolderRows) — the rule line above it, dropped when it's the
-                         folder's first row. -->
-                    <div class="vault__add" :class="{ 'vault__add--first': !section.entries.length }">
-                      <VaultAddRow
-                        v-if="addingIn === sectionKey(section)"
-                        ref="addRow"
-                        v-model:name="addName"
-                        v-model:weight="addWeight"
-                        :unit="unit"
-                        :busy="addBusy"
-                        @submit="commitAdd(section.folder ? section.folder.id : null)"
-                        @pick="(c: NameCommit) => commitPick(section.folder ? section.folder.id : null, c)"
-                        @overlay-toggle="(o: boolean) => onOverlayToggle(sectionKey(section), o)"
-                        @done="closeAdd"
-                      />
-                      <button
-                        v-else
-                        type="button"
-                        class="folder__addbtn"
-                        @click="openAdd(section.folder ? section.folder.id : null)"
-                      >
-                        Add gear
-                      </button>
-                    </div>
                   </div>
                 </div>
               </section>
-
-              <!-- new folders are made here rather than by a button that invents an
-                   "Untitled folder" you then have to find and rename: the same quiet
-                   label-turned-field the editor's folder foot has (AddFolder). It used to
-                   be a permanently-open input with an "Add" button beside it, which read
-                   as an empty form the page was waiting on rather than an action. -->
-              <AddFolder class="vault__addfolder" @add="(name) => folderOp({ t: 'add', name })" />
             </template>
 
             <!-- a filter or a search that matched nothing. The line names the control
                  that emptied the page, so you know which one to undo. -->
             <p v-if="!filtered.length && noneLine" class="t-muted vault__none">{{ noneLine }}</p>
 
-            <!-- a flat view has no folder to hang an add row off, so it gets one at
-                 the foot. Unfiled, because there is no destination on screen to mean. -->
-            <div v-if="flat && !query" class="vault__add vault__add--flat">
-              <VaultAddRow
-                v-if="addingIn === 'unfiled'"
-                ref="addRow"
-                v-model:name="addName"
-                v-model:weight="addWeight"
-                :unit="unit"
-                :busy="addBusy"
-                @submit="commitAdd(null)"
-                @pick="(c: NameCommit) => commitPick(null, c)"
-                @done="closeAdd"
-              />
-              <button v-else type="button" class="folder__addbtn" @click="openAdd(null)">Add gear</button>
-            </div>
           </template>
 
-          <!-- Nothing at all: no gear, no folders. Adding is offered FIRST — the
+          <!-- Nothing at all: no gear yet. Adding is offered FIRST — the
                capture sentence is still true and still the faster path, but it
                answers "how does gear get here eventually", not "how do I put the
                pack I bought yesterday in". -->
@@ -1100,18 +855,18 @@ async function exportGear(kind: string) {
               itself here.
             </p>
             <VaultAddRow
-              v-if="addingIn === 'unfiled'"
+              v-if="adding"
               ref="addRow"
               v-model:name="addName"
               v-model:weight="addWeight"
               :unit="unit"
               :busy="addBusy"
-              @submit="commitAdd(null)"
-              @pick="(c: NameCommit) => commitPick(null, c)"
+              @submit="commitAdd"
+              @pick="commitPick"
               @done="closeAdd"
             />
             <div v-else class="vault__emptyacts">
-              <button type="button" class="btn btn--primary" @click="openAdd(null)">Add gear</button>
+              <button type="button" class="btn btn--primary" @click="openAdd">Add gear</button>
               <NuxtLink to="/e" class="btn btn--ghost">Create a list</NuxtLink>
             </div>
           </div>
@@ -1328,121 +1083,33 @@ async function exportGear(kind: string) {
   padding-block: var(--space-4);
 }
 
-/* --- folders --- */
-/* Everything about a folder's LOOK — the header grid, the name field, the collapse
-   chevron, the trailing delete · grip cluster, the 1fr↔0fr body — comes from
-   atoms/folder.scss, the same rules the editor renders. Only what's specific to a
-   GEAR folder lives here. */
+/* --- kinds --- */
+/* A kind's LOOK — the header grid, the collapse chevron, the 1fr↔0fr body — comes
+   from atoms/folder.scss, the same rules the editor's folders render. A kind has no
+   buttons of its own (nothing to rename, delete or drag), so its header is the name
+   and the chevron alone. */
 .folder + .folder {
   margin-top: var(--space-6);
 }
-/* /gear's folder header is the name and the folder's own buttons. It used to carry
-   the folder's count and weight between them; that went in review, since the rows
-   under it already say both and the figure was one more number to read past. Fed in
-   as --head-cols rather than patched into the atom — the editor's template is a
-   LIST's data columns (qty · weight · class · actions), none of which a vault folder
-   has, so this is exactly the "supply only what legitimately differs" case that hook
-   exists for. */
 .folder__head {
-  /* The trailing track is the row's whole trailing cluster — the mark column, its
-     gap, and the three buttons — with the grid's own gap the row's gap, so the
-     header's delete and grip sit over the rows' buttons. Written as the same
-     arithmetic the row is built from rather than a measured number, so a retune of
-     either token moves both. */
-  --head-actions: calc(3 * var(--icon-btn) + 2 * var(--space-1));
-  --head-cols: 1fr calc(var(--icon-btn) + var(--space-4) + var(--head-actions));
+  --head-cols: 1fr;
   gap: var(--space-4);
 }
 .folder__title {
   grid-column: 1;
 }
-.folder__actions {
-  grid-column: 2;
-}
-/* ONE trailing column, shared by the header and the rows under it.
-   atoms/folder.scss tunes this cluster to sit over the EDITOR's item rows: the
-   glyphs are pushed to the trailing edge of their boxes, and the grip's box is
-   pulled 9px left so its narrow dots land flush in the gutter. /gear's rows are a
-   different grid — three centred .btn--icon glyphs — so that tuning put the
-   header's three marks about 17px right of the row's three, and the two clusters
-   read as two columns that nearly line up, which is worse than either. The rows own
-   the geometry here, so the header takes theirs: same boxes, same centres.
-   :deep, so it reaches every button in the cluster whichever component renders it
-   (the move picker's is OptionMenu's, carrying ITS scope id, not this page's). */
-.folder__actions :deep(.btn--icon) {
-  justify-content: center;
-}
-.folder__grip {
-  margin-left: 0;
-}
-.folder__grip svg {
-  transform: none;
-}
-/* the lifted folder + its drop line, the same two states the editor shows (its own
-   copies stay scoped there because they also cover the item-drag pass) */
-.folder--dragging {
-  opacity: 0.4;
-}
-/* the folder a dragged row will land in — a tint rather than an insertion line,
-   because a vault folder has no slot to aim at (its rows come in the server's
-   most-recently-used order) */
-.folder--drop-into {
-  background: var(--paper-2);
-  border-radius: var(--radius-2);
-  box-shadow: 0 0 0 var(--space-2) var(--paper-2);
-}
-.vault__row--dragging {
-  opacity: 0.4;
-}
-.folder--drop-before::before {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(-1 * var(--space-3));
-  height: var(--space-px);
-  background: var(--ink);
-  pointer-events: none;
-}
-/* "Unfiled" is a heading, not an editable name — it borrows the name's type so it
-   sits on the same line as a real folder's, without being a field */
-.vault__unfiled {
-  color: var(--ink-2);
+/* a heading, not an editable name: it borrows the name field's type so it sits where
+   a folder's name sat, without being a field */
+.vault__kind {
+  margin: 0;
+  color: var(--ink);
   cursor: default;
 }
 /* --- adding gear --- */
-/* the add row is the next row in the list rhythm: the same top padding as a row,
-   plus the rule line between them, so "Add gear" lands where the next item name
-   would. The editor's FolderRows carries the identical pair for the identical
-   reason — at its own --space-2 rhythm rather than this page's --space-3. */
-.vault__add {
-  border-top: 1px solid var(--line);
-  padding-top: var(--space-3);
-}
-/* an EMPTY folder's add row is its FIRST row, so it drops the rule — a first row
-   never carries a divider under the folder name, and it keeps the name line-free
-   through the 0→1 add instead of the line jumping down under the new gear */
-.vault__add--first {
-  border-top: 0;
-}
-/* a flat view has no folder to sit inside, so its add row needs the separation the
-   folder body was giving it */
-.vault__add--flat {
-  margin-top: var(--space-5);
-}
-/* the pair of fields itself is VaultAddRow — one instance per position, because a
-   template ref declared inside a v-for collects into an array and could never focus
-   the field it opened */
-/* making a folder is typing its name — no button that invents an "Untitled folder"
-   for you to hunt down and rename */
-/* No rule above it. Hairlines here separate ROWS of gear from each other; this is an
-   action at the foot of the page, and a seam under the last folder only drew a line
-   between the gear and the thing that makes more of it. Whitespace does the
-   separating, which is the house default — the hairline was the exception that had
-   to earn its place, and it didn't. */
-/* the .addfolder atom (controls.scss) — only its distance from the list is ours */
-.vault__addfolder {
-  margin-top: var(--space-6);
+/* the page's one add row, between the count and the gear: the list's own spacing,
+   no rule above it (nothing above it is a row of gear) */
+.vault__add--top {
+  margin-bottom: var(--space-4);
 }
 
 /* the removed-gear disclosure sits as a quiet footer to
@@ -1471,16 +1138,6 @@ async function exportGear(kind: string) {
     opacity: 1;
   }
 }
-/* touch: the row's controls grow to --tap inside VaultGearRow (and the search's
-   clear inside SearchField); what follows them here is the folder header. */
-@media (pointer: coarse) {
-  /* the trailing track follows the buttons up to --tap, or the folder figures drift
-     out of the weight column again on a touch screen */
-  .folder__head {
-    --head-actions: calc(3 * var(--tap) + 2 * var(--space-1));
-  }
-}
-
 @media (max-width: $bp-stack) {
   /* the pickers keep the trailing edge here too, beside the search or on their own
      line beneath it; only their gap tightens */
@@ -1493,10 +1150,5 @@ async function exportGear(kind: string) {
   }
   /* the row's own phone stack (name on its own line, the rest beneath) is
      VaultGearRow's */
-  /* on a phone the actions take only what the --tap buttons need, not the desktop
-     row's trailing cluster */
-  .folder__head {
-    --head-cols: 1fr auto;
-  }
 }
 </style>

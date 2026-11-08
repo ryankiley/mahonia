@@ -9,15 +9,12 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { isUniqueViolation } from "../server/utils/db";
 import { UNIT_WEIGHT_MAX_MG } from "../shared/ops";
 import {
-  VAULT_FOLDERS_MAX,
   VAULT_ITEMS_MAX,
-  applyVaultFolderOp,
   applyVaultItemOp,
   captureVaultItems,
   captureVaultItemsReporting,
   importVaultItems,
   listRemovedVaultItems,
-  listVaultFolders,
   listVaultItems,
   vaultGearAmong,
   purgeDeletedVaults,
@@ -36,7 +33,7 @@ import {
 import { rankVaultRows, strongVaultRows } from "../shared/vaultSearch";
 import { vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport } from "../shared/vaultImport";
-import { createTestDb, seedVaultFolders, seedVaultItems, type TestDb } from "./helpers/db";
+import { createTestDb, seedVaultItems, type TestDb } from "./helpers/db";
 
 // ---------------------------------------------------------------------------
 // identity
@@ -347,17 +344,15 @@ describe("vault capture — the upsert's merge rules", () => {
     expect((await listVaultItems(db, 2))[0]!.weightMg).toBe(100_000);
   });
 
-  it("caps and types a direct POST's fields — an oversized folder name can't error the capture", async () => {
+  it("caps and types a direct POST's fields, and files nothing under a folder it names", async () => {
     await captureVaultItems(db, VAULT, [
       cap({ brand: "B".repeat(500), folder: "F".repeat(5_000), productUrl: 123 }),
     ]);
     const row = (await listVaultItems(db, VAULT))[0]!;
     expect(row.brand!.length).toBe(120);
     expect(row.productUrl).toBeUndefined();
-    const folders = await listVaultFolders(db, VAULT);
-    expect(folders).toHaveLength(1);
-    expect(folders[0]!.name.length).toBe(120);
-    expect(row.folderId).toBe(folders[0]!.id);
+    // My Gear has no folders: the list-folder name a capture carries makes none
+    expect(await db.select().from(vaultFolders)).toHaveLength(0);
   });
 
   it("drops rows that don't normalize (no name)", async () => {
@@ -613,136 +608,6 @@ describe("vault search", () => {
   });
 });
 
-// The rules that make a vault fill itself organised instead of arriving as one flat
-// pile — and the one that stops it being rearranged behind your back.
-describe("vault folders", () => {
-  let db: TestDb;
-  const VAULT = 1;
-  beforeEach(async () => {
-    db = await createTestDb(VAULT_DDL);
-  });
-
-  it("creates a folder from the list folder a capture names, and files the gear in it", async () => {
-    await captureVaultItems(db, VAULT, [cap({ name: "Duplex", folder: "Shelter" }), cap({ name: "Quilt", folder: "Sleep" })]);
-
-    const folders = await listVaultFolders(db, VAULT);
-    expect(folders.map((f) => f.name)).toEqual(["Shelter", "Sleep"]);
-
-    const rows = await listVaultItems(db, VAULT);
-    const byName = new Map(rows.map((r) => [r.name, r.folderId]));
-    expect(byName.get("Duplex")).toBe(folders[0]!.id);
-    expect(byName.get("Quilt")).toBe(folders[1]!.id);
-  });
-
-  it("reuses one folder for the same name, however many lists send it", async () => {
-    await captureVaultItems(db, VAULT, [cap({ name: "Duplex", folder: "Shelter" })]);
-    await captureVaultItems(db, VAULT, [cap({ name: "Quilt", folder: "Shelter" })]);
-    // "Shelter" in two lists is ONE vault folder — the name is the identity
-    expect(await listVaultFolders(db, VAULT)).toHaveLength(1);
-  });
-
-  it("FIRST filing wins — a later list can't reshuffle a vault you've arranged", async () => {
-    await captureVaultItems(db, VAULT, [cap({ name: "Duplex", folder: "Shelter" })]);
-    const shelter = (await listVaultFolders(db, VAULT))[0]!;
-
-    // the same gear, captured from a list that groups it differently
-    await captureVaultItems(db, VAULT, [cap({ name: "Duplex", folder: "Big 3" })]);
-
-    // the new folder exists (another list really does use it) but the row stays put
-    expect((await listVaultFolders(db, VAULT)).map((f) => f.name)).toEqual(["Shelter", "Big 3"]);
-    expect((await listVaultItems(db, VAULT))[0]!.folderId).toBe(shelter.id);
-  });
-
-  it("a capture with no folder leaves an already-filed row where it is", async () => {
-    await captureVaultItems(db, VAULT, [cap({ name: "Duplex", folder: "Shelter" })]);
-    const shelter = (await listVaultFolders(db, VAULT))[0]!;
-    await captureVaultItems(db, VAULT, [cap({ name: "Duplex" })]); // ungrouped list row
-    expect((await listVaultItems(db, VAULT))[0]!.folderId).toBe(shelter.id);
-  });
-
-  it("deleting a folder UNFILES its gear rather than taking it along", async () => {
-    await captureVaultItems(db, VAULT, [cap({ name: "Duplex", folder: "Shelter" }), cap({ name: "Quilt", folder: "Shelter" })]);
-    const shelter = (await listVaultFolders(db, VAULT))[0]!;
-
-    expect(await applyVaultFolderOp(db, VAULT, { t: "remove", id: shelter.id })).toBe(true);
-
-    // a folder is a heading, not a container — losing gear because you tidied one
-    // would be indefensible
-    const rows = await listVaultItems(db, VAULT);
-    expect(rows).toHaveLength(2);
-    expect(rows.every((r) => r.folderId === undefined)).toBe(true);
-    expect(await listVaultFolders(db, VAULT)).toHaveLength(0);
-  });
-
-  it("rename keeps the gear filed, and reorder is what the drag commits", async () => {
-    await captureVaultItems(db, VAULT, [cap({ name: "Duplex", folder: "Shelter" })]);
-    const shelter = (await listVaultFolders(db, VAULT))[0]!;
-    await applyVaultFolderOp(db, VAULT, { t: "rename", id: shelter.id, name: "Tents" });
-    expect((await listVaultItems(db, VAULT))[0]!.folderId).toBe(shelter.id);
-
-    await applyVaultFolderOp(db, VAULT, { t: "add", name: "Cook" });
-    const ids = (await listVaultFolders(db, VAULT)).map((f) => f.id);
-    await applyVaultFolderOp(db, VAULT, { t: "reorder", ids: [ids[1]!, ids[0]!] });
-    expect((await listVaultFolders(db, VAULT)).map((f) => f.name)).toEqual(["Cook", "Tents"]);
-  });
-
-  it("normalizes folder names and rejects malformed or colliding wire operations", async () => {
-    expect(await applyVaultFolderOp(db, VAULT, { t: "add", name: "  Ryan's   shelter  " })).toBe(true);
-    expect(await applyVaultFolderOp(db, VAULT, { t: "add", name: "Cook" })).toBe(true);
-    const [shelter, cook] = await listVaultFolders(db, VAULT);
-    expect(shelter!.name).toBe("Ryan’s shelter");
-
-    // A rename into a sibling's name is an ordinary rejected operation, not a
-    // unique-index exception that turns into a 500.
-    await expect(
-      applyVaultFolderOp(db, VAULT, { t: "rename", id: shelter!.id, name: cook!.name }),
-    ).resolves.toBe(false);
-    await expect(
-      applyVaultFolderOp(db, VAULT, { t: "add", name: 42 } as never),
-    ).resolves.toBe(false);
-    await expect(
-      applyVaultFolderOp(db, VAULT, { t: "remove", id: "nope" } as never),
-    ).resolves.toBe(false);
-    await expect(
-      applyVaultFolderOp(db, VAULT, { t: "reorder", ids: {} } as never),
-    ).resolves.toBe(false);
-    await expect(
-      applyVaultFolderOp(db, VAULT, { t: "move", itemId: 1, folderId: "nope" } as never),
-    ).resolves.toBe(false);
-    await expect(applyVaultFolderOp(db, VAULT, null)).resolves.toBe(false);
-    await expect(removeVaultItem(db, VAULT, 2_147_483_648)).resolves.toBe(false);
-  });
-
-  it("recognises a unique violation the way drizzle throws it — wrapped, code on the cause", async () => {
-    // drizzle wraps every driver error in a DrizzleQueryError and keeps the driver's
-    // own error on `cause`; a check that read `.code` off the thrown value never
-    // matched, so the rename above only ever returned false because of a preflight
-    // SELECT that has since gone. Both shapes, so a driver that throws bare still passes.
-    expect(isUniqueViolation({ cause: { code: "23505" } })).toBe(true);
-    expect(isUniqueViolation({ code: "23505" })).toBe(true);
-    expect(isUniqueViolation({ cause: { code: "42P01" } })).toBe(false);
-    expect(isUniqueViolation(new Error("nope"))).toBe(false);
-    expect(isUniqueViolation(null)).toBe(false);
-    // and the real thing: a second folder with the same name, straight into the index
-    await applyVaultFolderOp(db, VAULT, { t: "add", name: "Cook" });
-    await expect(
-      db.insert(vaultFolders).values({ vaultId: VAULT, name: "Cook", sortOrder: 9 }),
-    ).rejects.toSatisfy((e: unknown) => isUniqueViolation(e));
-  });
-
-  it("unfiles on a move whose folderId is absent, as it does on an explicit null", async () => {
-    // JSON drops an undefined key, so `{ folderId: undefined }` arrives with no key at
-    // all — and that has always meant "unfile", not "malformed"
-    await applyVaultFolderOp(db, VAULT, { t: "add", name: "Shelter" });
-    const [shelter] = await listVaultFolders(db, VAULT);
-    await captureVaultItems(db, VAULT, [cap({ name: "Duplex" })]);
-    const [duplex] = await listVaultItems(db, VAULT);
-    expect(await applyVaultFolderOp(db, VAULT, { t: "move", itemId: duplex!.id, folderId: shelter!.id })).toBe(true);
-    expect((await listVaultItems(db, VAULT))[0]!.folderId).toBe(shelter!.id);
-    expect(await applyVaultFolderOp(db, VAULT, JSON.parse(JSON.stringify({ t: "move", itemId: duplex!.id, folderId: undefined })))).toBe(true);
-    expect((await listVaultItems(db, VAULT))[0]!.folderId).toBeUndefined();
-  });
-});
 
 // ---------------------------------------------------------------------------
 // the nightly reaper
@@ -786,16 +651,17 @@ describe("vault reaping — bounding a table nothing else ever shrinks", () => {
     expect(await db.select().from(vaults)).toHaveLength(1);
   });
 
-  it("purges past the grace, taking the gear and folders with it", async () => {
+  it("purges past the grace, taking the gear and any old folders with it", async () => {
     const id = await seedVault(400);
-    await applyVaultFolderOp(db, id, { t: "add", name: "Shelter" });
+    // a folder from before My Gear dropped them: still swept up with the vault
+    await db.insert(vaultFolders).values({ vaultId: id, name: "Shelter", sortOrder: 1 });
     await db.update(vaults).set({ deletedAt: ago(120) }).where(eq(vaults.id, id));
 
     expect(await purgeDeletedVaults(db)).toEqual({ vaultsPurged: 1 });
     expect(await db.select().from(vaults)).toHaveLength(0);
     // no orphans left behind — there's no DB-level FK doing this for us
     expect(await listVaultItems(db, id)).toHaveLength(0);
-    expect(await listVaultFolders(db, id)).toHaveLength(0);
+    expect(await db.select().from(vaultFolders).where(eq(vaultFolders.vaultId, id))).toHaveLength(0);
   });
 
   it("leaves another vault's gear alone when it purges one", async () => {
@@ -846,26 +712,7 @@ describe("vault ceilings", () => {
     expect(seed0[0]!.timesSeen).toBe(2);
   });
 
-  it("capture stops minting folders at the ceiling; the gear still lands, unfiled", async () => {
-    await seedVaultFolders(db, VAULT, VAULT_FOLDERS_MAX);
-    await captureVaultItems(db, VAULT, [cap({ folder: "One Folder Too Many" })]);
-    const folders = await listVaultFolders(db, VAULT);
-    expect(folders).toHaveLength(VAULT_FOLDERS_MAX);
-    expect((await listVaultItems(db, VAULT))[0]!.folderId).toBeUndefined();
 
-    // a folder that already exists still files its gear, ceiling or not
-    await captureVaultItems(db, VAULT, [
-      cap({ name: "Neoair", brand: "Therm-a-Rest", folder: "F0" }),
-    ]);
-    const neo = (await listVaultItems(db, VAULT)).find((r) => r.name === "Neoair")!;
-    expect(neo.folderId).toBe(folders.find((f) => f.name === "F0")!.id);
-  });
-
-  it("a deliberate folder add refuses quietly at the ceiling", async () => {
-    await seedVaultFolders(db, VAULT, VAULT_FOLDERS_MAX);
-    expect(await applyVaultFolderOp(db, VAULT, { t: "add", name: "Overflow" })).toBe(false);
-    expect(await listVaultFolders(db, VAULT)).toHaveLength(VAULT_FOLDERS_MAX);
-  });
 });
 
 // ---------------------------------------------------------------------------
@@ -1126,19 +973,7 @@ describe("adding gear by hand", () => {
     expect((await only(db))!.timesSeen).toBe(1); // the capture's 1, not 2
   });
 
-  it("files it in a folder you own", async () => {
-    await applyVaultFolderOp(db, VAULT, { t: "add", name: "Shelter" });
-    const folder = (await listVaultFolders(db, VAULT))[0]!;
-    await add({ folderId: folder.id });
-    expect((await only(db))!.folderId).toBe(folder.id);
-  });
 
-  it("refuses a folder from another gear, and stores nothing", async () => {
-    await applyVaultFolderOp(db, 2, { t: "add", name: "Theirs" });
-    const theirs = (await listVaultFolders(db, 2))[0]!;
-    expect(await add({ folderId: theirs.id })).toBeNull();
-    expect(await listVaultItems(db, VAULT)).toHaveLength(0);
-  });
 
   it("refuses a nameless add", async () => {
     expect(await add({ name: "   " })).toBeNull();
@@ -1519,11 +1354,10 @@ describe("vault import — putting a file's worth of gear back", () => {
     expect((await only(db))!.weightMg).toBe(539_000);
   });
 
-  it("files rows under the folder names they name, creating them", async () => {
+  it("files nothing under the folder names a file carries", async () => {
     await importVaultItems(db, VAULT, [imported({ folder: "Shelter" })]);
-    const folders = await listVaultFolders(db, VAULT);
-    expect(folders.map((f) => f.name)).toEqual(["Shelter"]);
-    expect((await only(db))!.folderId).toBe(folders[0]!.id);
+    expect(await only(db)).toBeDefined();
+    expect(await db.select().from(vaultFolders)).toHaveLength(0);
   });
 
   it("takes at most one request's worth of rows", async () => {
@@ -1544,12 +1378,11 @@ describe("vault import — putting a file's worth of gear back", () => {
   it("round-trips a whole vault: export, import, same gear", async () => {
     // the promise the pair actually makes — a backup you can restore
     await captureVaultItems(db, VAULT, [
-      cap({ commonName: "Tent", folder: "Shelter" }),
+      cap({ commonName: "Tent" }),
       { normKey: vaultNormKey(null, "Bar", null), name: "Bar", weightMg: 68_000, kcal: 250, classification: "consumable" } as any,
     ]);
     const before = await listVaultItems(db, VAULT);
-    const folders = await listVaultFolders(db, VAULT);
-    const file = vaultToJson({ items: before, folders });
+    const file = vaultToJson({ items: before });
 
     const fresh = await createTestDb(VAULT_DDL);
     const res = await importVaultItems(fresh, 1, parseVaultImport(file).rows);
@@ -1568,6 +1401,5 @@ describe("vault import — putting a file's worth of gear back", () => {
         }))
         .sort((a, b) => a.name.localeCompare(b.name));
     expect(shape(after)).toEqual(shape(before));
-    expect((await listVaultFolders(fresh, 1)).map((f) => f.name)).toEqual(["Shelter"]);
   });
 });

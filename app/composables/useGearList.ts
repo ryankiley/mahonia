@@ -410,6 +410,12 @@ function create() {
     clearTimeout(undoTimer);
     undoTimer = setTimeout(() => (pendingUndo.value = null), UNDO_MS);
   }
+  // Something just ADDED as a set (a kit from My Gear, unfolded into a group): offer to
+  // take it back off. The group's row goes and its rows with it (the reducer's
+  // cascade), with no "Removed" of its own — undoing an add means it was never there.
+  function offerUndoAdd(label: string, parentId: string) {
+    offerUndo(label, () => dispatch({ t: "removeItem", id: parentId }), "Added");
+  }
   function undoRemove() {
     const u = pendingUndo.value;
     if (!u) return;
@@ -1853,7 +1859,7 @@ function create() {
     vaultGear, vaultKits, vaultGearAsked, vaultGearSettled,
     addBlankItem, addBlankItemAfter, pasteItemsAfter, addVaultItem, saveItemToVault, discardEmpty, isEmptyRow, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest, duplicateItem,
-    pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
+    pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo, offerUndoAdd,
   };
 }
 

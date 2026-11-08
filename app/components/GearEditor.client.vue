@@ -1327,15 +1327,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <!-- the pane arrives from the edge it lives on; motion is in VaultPane's own
          styles, next to the geometry that decides which edge that is -->
     <Transition name="vaultpane">
-      <!-- adding a whole category lands a folder plus N rows further down the page
-           than the pane you clicked in, so it gets a toast — a single item's row
-           answers for itself in place ("Already added"), a set doesn't -->
-      <LazyVaultPane
-        v-if="vaultOpen"
-        v-model:width="vaultWidth"
-        @close="setVault(false)"
-        @added="(name: string) => flash(`Added ${name}`)"
-      />
+      <!-- a kit added from the pane says so in the undo bar (the pane calls the
+           controller's offerUndoAdd); a single item's row answers for itself in place -->
+      <LazyVaultPane v-if="vaultOpen" v-model:width="vaultWidth" @close="setVault(false)" />
     </Transition>
 
     <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />

@@ -58,11 +58,8 @@ const PINS = new Set<string>(VAULT_PIN_FIELDS);
  * Returns null when the text isn't that shape, so the caller can fall through to
  * CSV — the same sniff-and-fall-back jsonToListImport gives a list backup.
  *
- * Folders arrive as ids on the rows and a table beside them, and leave as NAMES,
- * because that is the only currency a capture speaks: vault folder ids belong to
- * the vault that issued them, and a backup restored into a different account would
- * otherwise file gear under headings that account has never seen. Resolving to the
- * name lets the server's ensureFolders find-or-create exactly as a list capture does.
+ * A backup from before My Gear dropped folders carries a folder table and ids on the
+ * rows; both are read past, since My Gear groups by kind now.
  */
 export function vaultImportFromJson(text: string): VaultImport | null {
   let raw: unknown;
@@ -73,14 +70,6 @@ export function vaultImportFromJson(text: string): VaultImport | null {
   }
   if (!isRecord(raw) || !Array.isArray(raw.items)) return null;
 
-  const folderName = new Map<number, string>();
-  if (Array.isArray(raw.folders)) {
-    for (const f of raw.folders) {
-      if (isRecord(f) && typeof f.id === "number" && typeof f.name === "string") {
-        folderName.set(f.id, f.name);
-      }
-    }
-  }
 
   const rows: VaultImportRow[] = [];
   for (const item of raw.items.slice(0, VAULT_IMPORT_MAX)) {
@@ -88,7 +77,7 @@ export function vaultImportFromJson(text: string): VaultImport | null {
     // Everything is carried across as-is and bounded server-side rather than here:
     // sanitize() re-derives the identity and re-clamps every field, so a
     // hand-edited backup can't seed a row the app couldn't have produced. What
-    // this loop owns is the SHAPE — which keys exist and what a folder means.
+    // this loop owns is the SHAPE — which keys exist.
     rows.push({
       normKey: "", // re-derived from the spelling, server-side; never trusted from a file
       name: item.name,
@@ -105,7 +94,6 @@ export function vaultImportFromJson(text: string): VaultImport | null {
       description: typeof item.description === "string" ? item.description : undefined,
       priceCents: typeof item.priceCents === "number" ? item.priceCents : undefined,
       currency: typeof item.currency === "string" ? item.currency : undefined,
-      folder: typeof item.folderId === "number" ? folderName.get(item.folderId) : undefined,
       owned: typeof item.owned === "number" ? item.owned : undefined,
       icon: typeof item.icon === "string" ? item.icon : undefined,
       entryUnit: typeof item.entryUnit === "string" ? item.entryUnit : undefined,
@@ -154,8 +142,8 @@ export function vaultImportFromCsv(text: string): VaultImport {
   // Keep a category for every importable row, and read every row: the ceiling that
   // applies here is VAULT_IMPORT_MAX, taken below over the rows that ARE gear — a cap
   // on list items would count the nameless and the container rows gearFromItem drops,
-  // and stop short of gear the server would have accepted. Vault persistence applies
-  // its own folder ceiling when it creates folders for the restored gear.
+  // and stop short of gear the server would have accepted. The category only groups
+  // the preview: My Gear files nothing by it.
   const list = csvToListData(text, { maxFolders: VAULT_IMPORT_MAX, maxItems: Number.POSITIVE_INFINITY });
   const name = new Map(list.folders.map((f) => [f.id, f.name]));
   // parents are containers, not gear — the one capture exclusion that still holds

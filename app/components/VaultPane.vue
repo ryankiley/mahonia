@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ArrowUpRight01Icon, Cancel01Icon, ChevronDownIcon, FolderIcon, Layers01Icon } from "@hugeicons/core-free-icons";
-import type { VaultEntry, VaultFolder } from "~~/shared/vault";
+import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
-import { groupVaultRows } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
-import { counted, foldApostrophes } from "~~/shared/tidyText";
-import { addVaultFolder, addVaultKit } from "~/composables/useVaultUnfold";
+import { counted } from "~~/shared/tidyText";
+import { addVaultKit } from "~/composables/useVaultUnfold";
 
 // The vault, alongside the list you're building — a floating palette you keep open
 // and pick from, rather than typing each item's name into the autocomplete one at a
@@ -23,7 +22,7 @@ import { addVaultFolder, addVaultKit } from "~/composables/useVaultUnfold";
 // Rendered via <LazyVaultPane v-if>, so this component AND the shared vault module
 // it imports are a separate chunk — someone who never opens the pane never
 // downloads it, which is what keeps it off the editor's bundle budget.
-const emit = defineEmits<{ close: []; added: [string] }>();
+const emit = defineEmits<{ close: [] }>();
 
 // Split-pane width, owned by the editor (which also needs it, to inset the list out
 // from under the pane) and adjusted from the divider below. Desktop only — on a
@@ -109,17 +108,14 @@ const dnd = useItemDnd();
 const { hasVault, vaultFetch } = useVaultAccess();
 
 const items = ref<VaultEntry[]>([]);
-// The vault's own folders — gear is filed into them by the NAME of the list folder
-// it was captured from, so they are already the categories you build with. The pane
-// used to drop them on the floor and show one flat list; the Categories tab below is
-// what gets a whole "Cook kit" back out in one go.
-const vaultFolders = ref<VaultFolder[]>([]);
-const tab = ref<"items" | "categories">("items");
+// Items, or just your kits: the sets you add in one go. (This was Categories, your
+// My Gear folders; My Gear has no folders now, and a kit is the set you reuse.)
+const tab = ref<"items" | "kits">("items");
 const loading = ref(true);
 const loadError = ref("");
 // one query ref per tab: switching back to a tab you were searching shouldn't hand
 // you its results filtered by a term you typed for the other one
-const queries = ref<{ items: string; categories: string }>({ items: "", categories: "" });
+const queries = ref<{ items: string; kits: string }>({ items: "", kits: "" });
 const query = computed({
   get: () => queries.value[tab.value],
   set: (v: string) => (queries.value[tab.value] = v),
@@ -152,9 +148,8 @@ async function load() {
   loading.value = true;
   loadError.value = "";
   try {
-    const res = await vaultFetch<{ items: VaultEntry[]; folders?: VaultFolder[] }>("/api/vault/list");
+    const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
     items.value = res.items || [];
-    vaultFolders.value = res.folders || [];
   } catch {
     loadError.value = "Couldn’t load your gear.";
   }
@@ -191,29 +186,6 @@ const filtered = computed(() => {
 // same emphasis, as the autocomplete's rows
 const hl = (text: string) => highlightParts(text, query.value);
 
-// ---- categories ----
-// A vault folder plus the gear filed under it. Built from the SAME loaded rows the
-// Items tab shows, so nothing is fetched twice and the two tabs can never disagree
-// about what the vault holds. The grouping is /gear's own (shared/vaultView), so a
-// category here holds exactly what the folder shows there, in the folder's own order.
-const categories = computed(() =>
-  // keepEmpty: false — an empty vault folder is a filing artefact, not a template
-  // worth offering; and no unfiled section, since unfiled gear lives on the Items tab
-  // nested, as /gear's Folders view is: an item that is in a kit comes with the kit
-  // rather than on its own, so a category's figure is what adding it puts on the list
-  groupVaultRows(items.value, vaultFolders.value, { keepEmpty: false, nest: true })
-    .filter((s) => s.folder)
-    .map((s) => ({
-      id: s.folder!.id,
-      name: s.folder!.name,
-      entries: s.entries,
-      weightMg: s.weightMg,
-      // every piece of it is already on the list — the same rule the item rows
-      // use, resolved for the whole set so the button can say so
-      allInList: s.entries.length > 0 && s.entries.every((e) => inList.value.has(e.normKey)),
-    })),
-);
-
 // ---- kits ----
 // A kit is offered among the gear, marked as one, and it does not go onto the list
 // as one row: it unfolds into a group — the kit's row as the parent, each live part
@@ -221,25 +193,26 @@ const categories = computed(() =>
 // identity, the same way a piece's does; the parts the list already holds are
 // skipped as it unfolds, which is the pane's one-row-per-piece rule for each of them.
 const isKit = (entry: VaultEntry) => entry.kind === "kit";
-// the lines it unfolds into: one per live item, whatever its count
-const itemCount = (entry: VaultEntry) => (entry.parts ?? []).filter((p) => !p.removed).length;
+// what it holds, counting each item as many times as the kit has it (as /gear counts)
+const itemCount = (entry: VaultEntry) => (entry.parts ?? []).reduce((n, p) => (p.removed ? n : n + p.qty), 0);
+// A kit lands as a group further down the list than the pane you clicked in, so it
+// says so in the editor's undo bar — "Added Cook kit · Undo" — and Undo takes the
+// group back off, its rows with it. A single piece answers for itself in place
+// ("Already added"). Ryan: "clicking a category item doesn't allow undo on the toast".
 function addEntry(entry: VaultEntry, folderId: string | null): string {
-  return isKit(entry) ? addVaultKit(c, entry, folderId, items.value) : c.addVaultItem(entry, folderId);
+  if (!isKit(entry)) return c.addVaultItem(entry, folderId);
+  const parentId = addVaultKit(c, entry, folderId, items.value);
+  if (parentId) c.offerUndoAdd(itemDisplayName(entry.brand, entry.name, entry.variant), parentId);
+  return parentId;
 }
+const kits = computed(() => items.value.filter(isKit));
 
-// name-only match: a category has no brand/variant to fuzzy-rank, and the set is
-// small enough to scan
-const filteredCategories = computed(() => {
-  // folded both sides — category names come from folder names, which are stored tidied
-  const q = foldApostrophes(query.value.trim().toLowerCase());
-  if (!q) return categories.value;
-  return categories.value.filter((c) => foldApostrophes(c.name.toLowerCase()).includes(q));
+// the kits tab searches the way the items tab does, over the kits alone
+const filteredKits = computed(() => {
+  const q = query.value.trim();
+  if (!q) return kits.value;
+  return rankVaultRows(kits.value, q, Number.POSITIVE_INFINITY);
 });
-
-function addCategory(cat: { name: string; entries: VaultEntry[] }) {
-  const id = addVaultFolder(c, cat.name, cat.entries, items.value);
-  if (id) emit("added", cat.name);
-}
 
 // The gear the open list already holds, keyed by the SAME identity rule the vault
 // uses — so "Zpacks Duplex" in the list matches the vault row whatever the spacing
@@ -530,7 +503,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            out into the editor's chrome. -->
       <div class="vp__tabs" role="tablist" aria-label="My Gear view">
         <button
-          v-for="t in (['items', 'categories'] as const)"
+          v-for="t in (['items', 'kits'] as const)"
           :key="t"
           type="button"
           role="tab"
@@ -539,8 +512,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
           :aria-selected="tab === t"
           @click="tab = t"
         >
-          {{ t === "items" ? "Items" : "Categories" }}
-          <span class="vp__tabcount t-num">{{ t === "items" ? items.length : categories.length }}</span>
+          {{ t === "items" ? "Items" : "Kits" }}
+          <span class="vp__tabcount t-num">{{ t === "items" ? items.length : kits.length }}</span>
         </button>
       </div>
 
@@ -549,12 +522,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         <SearchField
           ref="searchEl"
           v-model="query"
-          :placeholder="tab === 'items' ? 'Search gear…' : 'Search categories…'"
-          :label="tab === 'items' ? 'Search gear' : 'Search categories'"
+          :placeholder="tab === 'items' ? 'Search gear…' : 'Search kits…'"
+          :label="tab === 'items' ? 'Search gear' : 'Search kits'"
         />
-        <!-- the destination picker is meaningless on Categories — a cloned category
-             brings its own folder with it -->
-        <div v-if="folders.length && tab === 'items'" class="vp__target">
+        <div v-if="folders.length" class="vp__target">
           <span class="t-sm t-muted">Add to</span>
           <!-- the last native dropdown in the app, converted with the rest: it wasn't
                the transparent-overlay pattern, just an ordinary <select>, which left it
@@ -577,32 +548,29 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       <p v-if="loadError" class="t-sm vp__error">{{ loadError }}</p>
       <p v-else-if="loading" class="t-sm t-muted vp__note">Loading your gear…</p>
 
-      <!-- CATEGORIES: a whole set, added in one go. No drag here — a category brings
-           its own folder, so there is no destination to aim at, and the click is the
-           entire interaction. -->
-      <ul v-else-if="tab === 'categories' && filteredCategories.length" class="vp__list">
-        <li v-for="cat in filteredCategories" :key="cat.id">
+      <!-- KITS: a whole set, added in one go into the "Add to" folder, as a group
+           with its items under it. -->
+      <ul v-else-if="tab === 'kits' && filteredKits.length" class="vp__list">
+        <li v-for="kit in filteredKits" :key="kit.id">
           <button
             type="button"
             class="vp__add"
-            :disabled="cat.allInList"
+            :disabled="isInList(kit)"
             :aria-label="
-              cat.allInList
-                ? `Every item in ${cat.name} is already in this list`
-                : `Add the ${cat.name} category to the list`
+              isInList(kit)
+                ? `${itemDisplayName(kit.brand, kit.name, kit.variant)} is already in this list`
+                : `Add the ${itemDisplayName(kit.brand, kit.name, kit.variant)} kit to the list, with its ${counted(itemCount(kit), 'item')} under it`
             "
-            @click="addCategory(cat)"
+            @click="addEntry(kit, targetFolderId)"
           >
-            <span class="gear__main">
-              <span class="gear__name t-clip" :title="cat.name">{{ cat.name }}</span>
-              <span class="t-sm vp__inlist">
-                {{ cat.allInList ? "Already added" : counted(cat.entries.length, "item") }}
-              </span>
+            <span class="vp__kit" aria-hidden="true">
+              <HugeiconsIcon :icon="Layers01Icon" :size="14" :stroke-width="2" />
             </span>
-            <!-- No mark at the end of the row. A "+" here was the same glyph on every row
-                 of a panel whose one job is adding, and the tick that replaced it only
-                 repeated the "Already added" line under the name. -->
-            <span class="t-num t-sm vp__w">{{ formatWeight(cat.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
+            <span class="gear__main">
+              <span class="gear__name t-clip" :title="itemDisplayName(kit.brand, kit.name, kit.variant)">{{ itemDisplayName(kit.brand, kit.name, kit.variant) }}</span>
+              <span class="t-sm vp__inlist">{{ isInList(kit) ? "Already added" : `Kit · ${counted(itemCount(kit), "item")}` }}</span>
+            </span>
+            <span class="t-num t-sm vp__w">{{ formatWeight(kit.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
           </button>
         </li>
       </ul>
@@ -658,11 +626,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 
       <p v-else-if="query" class="t-sm t-muted vp__note">Nothing here matches “{{ query }}”.</p>
       <!-- the two tabs fail differently: an empty vault has no gear yet, an empty
-           Categories tab has gear that was never filed into one -->
-      <div v-else-if="tab === 'categories'" class="vp__empty">
+           Kits tab has gear that hasn't been made into a set -->
+      <div v-else-if="tab === 'kits'" class="vp__empty">
         <p class="t-sm t-muted">
-          No categories yet. Gear files itself under the folder you add it to, so build a
-          list with folders and they’ll show up here to reuse.
+          No kits yet. On My Gear, open a piece and make it a kit, or save a group on a
+          list to My Gear as one.
         </p>
       </div>
       <div v-else class="vp__empty">

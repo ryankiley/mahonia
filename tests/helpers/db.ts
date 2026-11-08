@@ -132,12 +132,3 @@ export async function seedVaultItems(db: TestDb, vaultId: number, n: number): Pr
   );
 }
 
-/** `n` folders F0..F(n-1) in a vault, sort_order 1..n, in one statement (see seedVaultItems). */
-export async function seedVaultFolders(db: TestDb, vaultId: number, n: number): Promise<void> {
-  await db.execute(
-    sql.raw(
-      `insert into vault_folders (vault_id, name, sort_order)
-       select ${Number(vaultId)}, 'F' || i, i + 1 from generate_series(0, ${Number(n) - 1}) as i`,
-    ),
-  );
-}

@@ -1,9 +1,9 @@
-// The vault suites' fixtures: a stored row as /gear reads it (VaultEntry), a folder,
-// and the one capture every persistence case starts from. vaultView, vaultImport and
+// The vault suites' fixtures: a stored row as /gear reads it (VaultEntry) and the one
+// capture every persistence case starts from. vaultView, vaultImport and
 // vaultExport each carried the row and folder factories; vault.test.ts and
 // vaultAuth.test.ts between them carried nine copies of the Duplex capture.
 
-import { vaultNormKey, type VaultEntry, type VaultFolder } from "../../shared/vault";
+import { vaultNormKey, type VaultEntry } from "../../shared/vault";
 
 let nextId = 1;
 
@@ -19,8 +19,6 @@ export const vaultRow = (over: Partial<VaultEntry> = {}): VaultEntry => ({
   createdAt: "2026-07-01T00:00:00.000Z",
   ...over,
 });
-
-export const vaultFolder = (id: number, name: string): VaultFolder => ({ id, name });
 
 /** The one row every persistence case starts from. */
 export const DUPLEX = {

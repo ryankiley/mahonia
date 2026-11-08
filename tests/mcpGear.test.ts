@@ -155,7 +155,7 @@ describe("the gear tools", () => {
   it("read an account that has no gear yet as empty", async () => {
     const r = await tool("get_my_gear", {}, aliceRead);
     expect(r.refused, r.text).toBe(false);
-    expect(r.data).toEqual({ gear: [], folders: [], total: 0, offset: 0 });
+    expect(r.data).toEqual({ gear: [], total: 0, offset: 0 });
   });
 
   it("let a read-only token change nothing, not even mint the vault: a 403 that asks for write", async () => {
@@ -168,13 +168,13 @@ describe("the gear tools", () => {
   });
 
   let tentId = 0;
-  it("add pieces, file them by folder name, and report a piece the account already holds", async () => {
+  it("add pieces, and report a piece the account already holds", async () => {
     const r = await tool(
       "edit_my_gear",
       {
         add: [
-          { name: "X-Mid 2", brand: "Durston", gear_type: "Tent", weight_g: 1000, folder: "Shelter", price: 329, currency: "usd" },
-          { name: "Flash 55", brand: "REI", variant: "M", weight_g: 1190, folder: "Pack", classification: "base" },
+          { name: "X-Mid 2", brand: "Durston", gear_type: "Tent", weight_g: 1000, price: 329, currency: "usd" },
+          { name: "Flash 55", brand: "REI", variant: "M", weight_g: 1190, classification: "base" },
           { name: "" },
         ],
       },
@@ -184,13 +184,12 @@ describe("the gear tools", () => {
     expect(r.data.added).toBe(2);
     const results = r.data.results as { index: number; status: string; item?: Record<string, unknown> }[];
     expect(results.map((x) => x.status)).toEqual(["added", "added", "invalid"]);
-    expect(results[0]!.item).toMatchObject({ display_name: "Durston X-Mid 2", gear_type: "Tent", weight_g: 1000, folder: "Shelter", price: 329, currency: "USD" });
+    expect(results[0]!.item).toMatchObject({ display_name: "Durston X-Mid 2", gear_type: "Tent", weight_g: 1000, price: 329, currency: "USD" });
     tentId = results[0]!.item!.id as number;
 
-    // identity is brand + name + variant, case-folded; "shelter" is the folder "Shelter"
-    const again = await tool("edit_my_gear", { add: [{ name: "x-mid 2", brand: "DURSTON", folder: "shelter" }] }, aliceWrite);
+    // identity is brand + name + variant, case-folded
+    const again = await tool("edit_my_gear", { add: [{ name: "x-mid 2", brand: "DURSTON" }] }, aliceWrite);
     expect((again.data.results as { status: string }[]).map((x) => x.status)).toEqual(["already_have"]);
-    expect((await db.select().from(schema.vaultFolders)).map((f) => f.name).sort()).toEqual(["Pack", "Shelter"]);
   });
 
   it("pin every field an add gives, so a later list save leaves them alone", async () => {
@@ -198,15 +197,10 @@ describe("the gear tools", () => {
     expect(tent).toMatchObject({ namePinned: true, weightPinned: true, commonNamePinned: true, pricePinned: true });
   });
 
-  it("list everything, rank by a query, keep to a folder, and page", async () => {
+  it("list everything, rank by a query, and page", async () => {
     const all = await tool("get_my_gear", {}, aliceRead);
     expect(all.data.total).toBe(2);
-    expect(all.data.folders).toEqual(["Shelter", "Pack"]);
     expect(names(await tool("get_my_gear", { query: "flash" }, aliceRead))).toEqual(["Flash 55"]);
-    expect(names(await tool("get_my_gear", { folder: "PACK" }, aliceRead))).toEqual(["Flash 55"]);
-    const nowhere = await tool("get_my_gear", { folder: "Kitchen" }, aliceRead);
-    expect(nowhere.refused).toBe(true);
-    expect(nowhere.text).toContain("Shelter, Pack");
     const page = await tool("get_my_gear", { limit: 1, offset: 1 }, aliceRead);
     expect(page.data).toMatchObject({ total: 2, offset: 1 });
     expect(page.data.gear).toHaveLength(1);
@@ -226,13 +220,11 @@ describe("the gear tools", () => {
     expect(back[0]!.item).toMatchObject({ owned: 1 });
   });
 
-  it("change one field, clear another, move the piece between folders, and mark an empty change invalid", async () => {
-    const r = await tool("edit_my_gear", { update: [{ id: tentId, weight_g: 1010, price: null, folder: "Big three" }] }, aliceWrite);
+  it("change one field, clear another, and mark an empty change invalid", async () => {
+    const r = await tool("edit_my_gear", { update: [{ id: tentId, weight_g: 1010, price: null }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);
     const [done] = r.data.updated as { id: number; status: string; item: Record<string, unknown> }[];
-    expect(done).toMatchObject({ id: tentId, status: "updated", item: { id: tentId, weight_g: 1010, price: null, currency: null, folder: "Big three" } });
-    const unfiled = (await tool("edit_my_gear", { update: [{ id: tentId, folder: "" }] }, aliceWrite)).data.updated as { item: Record<string, unknown> }[];
-    expect(unfiled[0]!.item).toMatchObject({ folder: null });
+    expect(done).toMatchObject({ id: tentId, status: "updated", item: { id: tentId, weight_g: 1010, price: null, currency: null } });
     // a piece keeps a name, and an entry with nothing to change is said so, piece by piece
     const bad = (await tool("edit_my_gear", { update: [{ id: tentId, name: null }, { id: tentId }] }, aliceWrite)).data.updated as { status: string }[];
     expect(bad.map((u) => u.status)).toEqual(["invalid", "invalid"]);
@@ -248,9 +240,6 @@ describe("the gear tools", () => {
     expect((touched.data.updated as { status: string }[])[0]!.status).toBe("not_found");
     expect((touched.data.removed as { status: string }[])[0]!.status).toBe("not_found");
     expect(names(await tool("get_my_gear", {}, aliceWrite))).not.toContain("Windburner");
-    // and the folder named beside a bad id is not made
-    await tool("edit_my_gear", { update: [{ id: bobsId, folder: "Stoves" }] }, aliceWrite);
-    expect((await db.select().from(schema.vaultFolders)).map((f) => f.name)).not.toContain("Stoves");
   });
 
   it("put a piece away and bring it back", async () => {
@@ -262,12 +251,12 @@ describe("the gear tools", () => {
   });
 
   it("link a piece to the catalog as it is added or later, taking the catalog's fields where none were given, and unlink", async () => {
-    const r = await tool("edit_my_gear", { add: [{ catalog_id: 1, folder: "Shelter" }, { name: "Spare Duplex", catalog_id: 1, weight_g: 90 }] }, aliceWrite);
+    const r = await tool("edit_my_gear", { add: [{ catalog_id: 1 }, { name: "Spare Duplex", catalog_id: 1, weight_g: 90 }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);
     const results = r.data.results as { status: string; item?: Record<string, unknown> }[];
     expect(results.map((x) => x.status)).toEqual(["added", "added"]);
     // named by the catalog alone: the catalog's brand, name, gear type and weight
-    expect(results[0]!.item).toMatchObject({ display_name: "Zpacks Duplex", gear_type: "Tent", weight_g: 538, catalog_id: 1, folder: "Shelter" });
+    expect(results[0]!.item).toMatchObject({ display_name: "Zpacks Duplex", gear_type: "Tent", weight_g: 538, catalog_id: 1 });
     // the fields given stand over the catalog's; the link is the same
     expect(results[1]!.item).toMatchObject({ name: "Spare Duplex", brand: "Zpacks", weight_g: 90, catalog_id: 1 });
     const duplexId = results[0]!.item!.id as number;
@@ -311,12 +300,12 @@ describe("the gear tools", () => {
     const [potId, sporkId, lighterId] = (pieces.data.results as { item: { id: number } }[]).map((r) => r.item.id);
 
     // made as it is added: its items by id, with counts, and a weight of its own
-    const made = await tool("edit_my_gear", { add: [{ name: "Kitchen kit", folder: "Kitchen", kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 2 }], own_weight_g: 12 } }] }, aliceWrite);
+    const made = await tool("edit_my_gear", { add: [{ name: "Kitchen kit", kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 2 }], own_weight_g: 12 } }] }, aliceWrite);
     expect(made.refused, made.text).toBe(false);
     const [res] = made.data.results as { status: string; item: Record<string, unknown> }[];
     expect(res!.status).toBe("added");
     const kitId = res!.item.id as number;
-    expect(res!.item).toMatchObject({ weight_g: 159, folder: "Kitchen", kit: { own_weight_g: 12, items: [{ id: potId, count: 1 }, { id: sporkId, count: 1 }, { id: lighterId, count: 2 }] } });
+    expect(res!.item).toMatchObject({ weight_g: 159, kit: { own_weight_g: 12, items: [{ id: potId, count: 1 }, { id: sporkId, count: 1 }, { id: lighterId, count: 2 }] } });
 
     // items REPLACE what it held
     const changed = await tool("edit_my_gear", { update: [{ id: kitId, kit: { items: [{ id: potId }, { id: lighterId, count: 1 }] } }] }, aliceWrite);

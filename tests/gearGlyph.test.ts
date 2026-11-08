@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { GEAR_GLYPHS, gearGlyphFor } from "../shared/gearGlyph";
+import { GEAR_FAMILIES, GEAR_GLYPHS, gearFamilyOf, gearGlyphFor } from "../shared/gearGlyph";
 import { parseCsv } from "../shared/exporters/csv";
 import { CATALOG_CSV } from "../scripts/paths";
 
@@ -155,5 +155,18 @@ describe("which icon a gear type wears", () => {
     const typed = rows.filter((r) => r[col]);
     const pictured = typed.filter((r) => gearGlyphFor(r[col]) !== null);
     expect(pictured.length / typed.length).toBeGreaterThanOrEqual(0.9);
+  });
+});
+
+describe("the families My Gear groups by", () => {
+  it("puts every icon in exactly one family, in the set's own order", () => {
+    expect(GEAR_FAMILIES.flatMap((f) => [...f.glyphs])).toEqual([...GEAR_GLYPHS]);
+  });
+
+  it("reads a piece's family off its icon, and none for no icon", () => {
+    expect(gearFamilyOf(gearGlyphFor("Tent"))).toBe("shelter");
+    expect(gearFamilyOf(gearGlyphFor("Stove"))).toBe("kitchen");
+    expect(gearFamilyOf(gearGlyphFor("Rain jacket"))).toBe("clothing");
+    expect(gearFamilyOf(null)).toBeNull();
   });
 });

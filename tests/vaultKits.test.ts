@@ -17,7 +17,6 @@ import {
   vaultItemById,
   importVaultItems,
   listRemovedVaultItems,
-  listVaultFolders,
   listVaultItems,
   purgeDeletedVaults,
   removeVaultItem,
@@ -28,7 +27,7 @@ import {
 } from "../server/utils/vaultRepo";
 import { captureFromList, isKitWorthy, isVaultWorthy, vaultNormKey, type VaultEntry } from "../shared/vault";
 import { countedWeightMg, kitFromGroup, kitWeightMg } from "../shared/vaultKit";
-import { groupVaultRows, vaultShownMg, vaultTotalMg } from "../shared/vaultView";
+import { groupVaultByKind, nestedRows, vaultShownMg, vaultTotalMg } from "../shared/vaultView";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport } from "../shared/vaultImport";
 import type { Item } from "../shared/types";
@@ -114,32 +113,28 @@ describe("kitWeightMg and countedWeightMg", () => {
       parts: [{ id: 1, qty: 3, name: "Mini Bic", weightMg: 11_000 }],
     };
     const tent: VaultEntry = { ...base, id: 3, weightMg: 900_000 };
-    // three lighters in the kit weigh three lighters, and the folders add up to it
+    // three lighters in the kit weigh three lighters
     expect(vaultShownMg([bic, kit, tent])).toBe(53_000 + 900_000);
-    const folders = groupVaultRows([bic, kit, tent], [], { keepEmpty: false, nest: true });
-    expect(folders.reduce((n, f) => n + f.weightMg, 0)).toBe(vaultShownMg([bic, kit, tent]));
     // the flat reckoning, for a file, counts the one lighter row once
     expect(vaultTotalMg([bic, kit, tent])).toBe(20_000 + 11_000 + 900_000);
   });
 
-  it("files a part inside its kit, not as a row of its folder, and counts the kit whole there", () => {
+  it("lists a kit first, and each of its pieces in its own kind too", () => {
     const base = { normKey: "", name: "", timesSeen: 1, lastUsedAt: "", createdAt: "" };
-    const stove: VaultEntry = { ...base, id: 1, weightMg: 73_000, folderId: 10, inKits: [2] };
+    const stove: VaultEntry = { ...base, id: 1, name: "Stove", commonName: "Stove", weightMg: 73_000, inKits: [2] };
     const kit: VaultEntry = {
-      ...base, id: 2, kind: "kit", ownWeightMg: 20_000, weightMg: 93_000, folderId: 20,
-      parts: [{ id: 1, qty: 1, name: "", weightMg: 73_000 }],
+      ...base, id: 2, name: "Cook kit", kind: "kit", ownWeightMg: 20_000, weightMg: 93_000,
+      parts: [{ id: 1, qty: 1, name: "Stove", weightMg: 73_000 }],
     };
-    const tent: VaultEntry = { ...base, id: 3, weightMg: 900_000, folderId: 20 };
-    const sections = groupVaultRows([stove, kit, tent], [{ id: 10, name: "Kitchen" }, { id: 20, name: "Shelter" }], { keepEmpty: true, nest: true });
-    // the stove's own folder shows no row for it: it is under the kit
-    expect(sections[0]).toMatchObject({ entries: [], count: 0, kits: 0, weightMg: 0 });
-    // the kit's folder holds the kit whole, so its figure adds up by eye
-    expect(sections[1]!.entries.map((e) => e.id)).toEqual([2, 3]);
-    expect(sections[1]).toMatchObject({ count: 1, kits: 1, weightMg: 93_000 + 900_000 });
-    // a part whose every kit is put away is a row again
-    expect(groupVaultRows([{ ...stove, inKits: undefined }], [{ id: 10, name: "Kitchen" }], { keepEmpty: false, nest: true })[0]!.entries).toHaveLength(1);
-    // and an export, unnested, lists every piece where it is filed
-    expect(groupVaultRows([stove, kit, tent], [{ id: 10, name: "Kitchen" }, { id: 20, name: "Shelter" }], { keepEmpty: false })[0]!.entries).toHaveLength(1);
+    const tent: VaultEntry = { ...base, id: 3, name: "Duplex", commonName: "Tent", weightMg: 900_000 };
+    const sections = groupVaultByKind([stove, kit, tent]);
+    expect(sections.map((s) => [s.key, s.entries.map((e) => e.id)])).toEqual([
+      ["kits", [2]],
+      ["shelter", [3]],
+      ["kitchen", [1]],
+    ]);
+    // the flat view, for searching or sorting, still lists the stove under its kit only
+    expect(nestedRows([stove, kit, tent]).map((e) => e.id)).toEqual([2, 3]);
   });
 });
 
@@ -155,7 +150,6 @@ describe("kitFromGroup — a group row as a kit", () => {
   it("takes the parent's own weight and the children as parts, by identity, counts added", () => {
     const made = kitFromGroup(group, [group, ...kids], "Kitchen")!;
     expect(made.kit.weightMg).toBe(20_000);
-    expect(made.kit.folder).toBe("Kitchen");
     expect(made.kit.parts).toEqual([
       { normKey: vaultNormKey(undefined, "PocketRocket 2", undefined), qty: 1 },
       { normKey: vaultNormKey(undefined, "Mini Bic", undefined), qty: 3 },
@@ -337,15 +331,13 @@ describe("captureKit — the group row's own save", () => {
   ];
   const made = () => kitFromGroup(list[0]!, list, "Kitchen")!;
 
-  it("lands the parts as pieces and the group as a kit of them, filed, with the group's own weight", async () => {
+  it("lands the parts as pieces and the group as a kit of them, with the group's own weight", async () => {
     const res = await captureKit(db, vault, made().kit, made().parts, { overwriteWeight: true });
     expect(res.kit).toBe("saved");
     const rows = await listVaultItems(db, vault);
     const kit = rows.find((r) => r.kind === "kit")!;
     expect(kit).toMatchObject({ name: "Cook kit", ownWeightMg: 20_000, weightMg: 20_000 + 73_000 + 103_000 + 22_000 });
     expect(kit.parts!.map((p) => [p.name, p.qty])).toEqual([["PocketRocket 2", 1], ["Toaks 750", 1], ["Mini Bic", 2]]);
-    expect((await listVaultFolders(db, vault)).map((f) => f.name)).toEqual(["Kitchen"]);
-    expect(rows.every((r) => r.folderId === kit.folderId)).toBe(true);
     // the answer names every row that landed, the kit as a kit
     const key = vaultNormKey(undefined, "Cook kit", undefined);
     expect(res.keys).toContainEqual([key, null, "kit"]);
@@ -407,14 +399,14 @@ describe("a kit in a file", () => {
   it("exports its own weight to the CSV, so the column sums once", async () => {
     await cookKit();
     const items = await listVaultItems(db, vault);
-    const csv = vaultToCsv({ items, folders: [] }, "g");
+    const csv = vaultToCsv({ items }, "g");
     const kitLine = csv.split("\n").find((l) => l.includes("Cook kit"))!;
     expect(kitLine.split(",")[4]).toBe("20");
   });
 
   it("comes back from our own JSON as a kit, parts linked, into an empty vault", async () => {
     await cookKit();
-    const json = vaultToJson({ items: await listVaultItems(db, vault), folders: await listVaultFolders(db, vault) });
+    const json = vaultToJson({ items: await listVaultItems(db, vault) });
     const other = await newVault();
     const parsed = parseVaultImport(json);
     expect(parsed.from).toBe("json");

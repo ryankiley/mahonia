@@ -5,12 +5,7 @@ import { requireVault, resolveOrMintVault } from "../../utils/vaultAuth";
 import { applyVaultItemOp, type VaultItemOp } from "../../utils/vaultRepo";
 
 // Add a piece of gear by hand, correct one in place, or set a kit's parts — all
-// through ONE route taking an op, the same shape /api/vault/folders takes and for the
-// same reason.
-//
-// Separate from the folders route rather than a seventh verb on it, because these
-// two write the ITEM table and resolve their vault differently (below), and folding
-// them in would make that fork a branch inside a switch nobody reads twice.
+// through ONE route taking an op, so the scoping below is written once.
 //
 // Every op is scoped by vaultId at the repo layer, so an id belonging to another
 // vault matches nothing and comes back `{ ok: false }` — the same answer as an id
@@ -22,7 +17,7 @@ export default defineEventHandler(async (event) => {
   setPrivate(event);
   await rateLimit(event, "vault-write");
 
-  // Read BEFORE resolving, unlike the folders route: an add may need to MINT the
+  // Read BEFORE resolving: an add may need to MINT the
   // vault and an edit must not, so which resolver runs depends on the op. Both still
   // 401 a signed-out caller, so nothing about the gate is weaker — only the order
   // moves, and it moves behind a rate limit and a 4 KB cap.
