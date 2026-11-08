@@ -167,6 +167,10 @@ describe("the families My Gear groups by", () => {
     expect(gearFamilyOf(gearGlyphFor("Tent"))).toBe("shelter");
     expect(gearFamilyOf(gearGlyphFor("Stove"))).toBe("kitchen");
     expect(gearFamilyOf(gearGlyphFor("Rain jacket"))).toBe("clothing");
+    // fine enough to find a thing by: shoes aren't clothing, a filter isn't the kitchen
+    expect(gearFamilyOf(gearGlyphFor("Trail runners"))).toBe("footwear");
+    expect(gearFamilyOf(gearGlyphFor("Water filter"))).toBe("water");
+    expect(gearFamilyOf(gearGlyphFor("Quilt"))).toBe("sleep");
     expect(gearFamilyOf(null)).toBeNull();
   });
 });

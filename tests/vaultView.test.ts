@@ -143,7 +143,7 @@ describe("groupVaultByKind — the default view", () => {
       row({ name: "Mystery widget", commonName: "Widget" }),
     ];
     const out = groupVaultByKind(rows);
-    expect(out.map((s) => s.label)).toEqual(["Kits", "Shelter & sleep", "Food, water & kitchen", "Other"]);
+    expect(out.map((s) => s.label)).toEqual(["Kits", "Shelter", "Kitchen", "Other"]);
     expect(out.map((s) => names(s.entries))).toEqual([["Cook kit"], ["Duplex"], ["Mug"], ["Mystery widget"]]);
   });
 

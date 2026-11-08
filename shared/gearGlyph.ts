@@ -32,9 +32,10 @@ export const GEAR_GLYPHS = [
   // carrying
   "backpack", "bag", "container", "wallet",
   // clothing, split the way a Clothing folder needs it
-  "jacket", "shirt", "pants", "underwear", "socks", "shoe", "boot", "hat", "neck",
-  "glove", "glasses",
-  // water and kitchen
+  "jacket", "shirt", "pants", "underwear", "socks", "hat", "neck", "glove", "glasses",
+  // footwear
+  "shoe", "boot",
+  // water, kitchen, food
   "bottle", "hydration", "filter", "stove", "pot", "cup", "utensils", "meal", "food",
   // tools
   "knife", "repair", "iceAxe",
@@ -57,22 +58,27 @@ export function isGearGlyph(v: unknown): v is GearGlyph {
 }
 
 /**
- * The eight FAMILIES the icons fall into, in the set's own order: how My Gear groups
+ * The FAMILIES the icons fall into, in the set's own order: how My Gear groups
  * your gear now that it has no folders (Ryan: "I'm not even sure the folders make a lot
  * of sense"). A folder said where a piece was filed, copied from a list's section
  * name; a family says what kind of thing it is, read off its gear type the way its
  * icon is, so nothing has to be filed and nothing drifts. What goes together is a
  * KIT's job. A piece whose type matches no icon has no family, and sits under Other.
+ *
+ * Fine enough to find a thing by: the first cut lumped shoes into Clothing and the
+ * water filter into one long "Food, water & kitchen", and Ryan read the kinds as too
+ * coarse ("seeing footwear with clothing"). Twelve, the sections a hiker's own list
+ * tends to have.
  */
 export const GEAR_FAMILIES = [
-  { key: "shelter", label: "Shelter & sleep", glyphs: ["tent", "bug", "cord", "poles", "sleep", "pad"] },
+  { key: "shelter", label: "Shelter", glyphs: ["tent", "bug", "cord", "poles"] },
+  { key: "sleep", label: "Sleep", glyphs: ["sleep", "pad"] },
   { key: "carrying", label: "Packs & storage", glyphs: ["backpack", "bag", "container", "wallet"] },
-  {
-    key: "clothing",
-    label: "Clothing",
-    glyphs: ["jacket", "shirt", "pants", "underwear", "socks", "shoe", "boot", "hat", "neck", "glove", "glasses"],
-  },
-  { key: "kitchen", label: "Food, water & kitchen", glyphs: ["bottle", "hydration", "filter", "stove", "pot", "cup", "utensils", "meal", "food"] },
+  { key: "clothing", label: "Clothing", glyphs: ["jacket", "shirt", "pants", "underwear", "socks", "hat", "neck", "glove", "glasses"] },
+  { key: "footwear", label: "Footwear", glyphs: ["shoe", "boot"] },
+  { key: "water", label: "Water", glyphs: ["bottle", "hydration", "filter"] },
+  { key: "kitchen", label: "Kitchen", glyphs: ["stove", "pot", "cup", "utensils"] },
+  { key: "food", label: "Food", glyphs: ["meal", "food"] },
   { key: "tools", label: "Tools", glyphs: ["knife", "repair", "iceAxe"] },
   { key: "electronics", label: "Electronics", glyphs: ["light", "phone", "watch", "earbuds", "camera", "electronics"] },
   { key: "body", label: "First aid & hygiene", glyphs: ["firstAid", "toiletry", "towel", "toilet"] },

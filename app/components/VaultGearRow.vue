@@ -14,7 +14,7 @@ import {
 } from "@hugeicons/core-free-icons";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
-import type { VaultEntry } from "~~/shared/vault";
+import { VAULT_NAME_MAX, type VaultEntry } from "~~/shared/vault";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { formatPrice } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
@@ -75,6 +75,10 @@ const emit = defineEmits<{
   kit: [parts: { id: number; qty: number }[], ownWeightMg: number];
   /** "Make it a kit" given up on before an item went in */
   "cancel-kit": [];
+  /** a kit's new name, typed on its open row */
+  rename: [name: string];
+  /** "Make it a single piece", pressed on an open kit */
+  unkit: [];
 }>();
 
 const displayName = computed(() => itemDisplayName(props.entry.brand, props.entry.name, props.entry.variant));
@@ -161,6 +165,25 @@ watch(
   { immediate: true },
 );
 const partName = (p: { brand?: string; name: string; variant?: string }) => itemDisplayName(p.brand, p.name, p.variant);
+
+// A kit is edited where it's shown, all of it: once it's open its name is a field, and
+// "Make it a single piece" sits under its items — so a kit row has no Edit button and
+// no dialog. Ryan: "maybe no notes for kits? i wanna delete that pencil icon". Saved on
+// change (Enter or leaving the field); Escape puts the name back, and so does a blank.
+function commitName(e: Event) {
+  const el = e.target as HTMLInputElement;
+  const next = el.value.trim();
+  if (!next || next === props.entry.name) {
+    el.value = props.entry.name;
+    return;
+  }
+  emit("rename", next);
+}
+function revertName(e: KeyboardEvent) {
+  const el = e.target as HTMLInputElement;
+  el.value = props.entry.name;
+  el.blur();
+}
 // The unit THIS piece reads in: the one picked for it, else the page's. A list row's
 // rowUnit, for the same reason: you buy gear labelled in whatever the maker chose, so a
 // metric closet can hold a 3.8 oz stake set and still total in grams.
@@ -241,7 +264,19 @@ const meta = computed(() => {
       <!-- the title is the whole name: clipped, two catalog names that differ only at
            the end ("… Regular" / "… Long Wide") read identically, and this is the way
            to tell them apart without opening the dialog -->
-      <p class="gear__name t-clip" :title="displayName">
+      <input
+        v-if="isKit && open"
+        class="field gear__name vault__kitname"
+        :value="entry.name"
+        :maxlength="VAULT_NAME_MAX"
+        :aria-label="`Name of ${displayName}`"
+        autocomplete="off"
+        spellcheck="false"
+        @change="commitName"
+        @keydown.enter.prevent="($event.target as HTMLInputElement).blur()"
+        @keydown.esc="revertName"
+      />
+      <p v-else class="gear__name t-clip" :title="displayName">
         <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
         <span>{{ entry.name }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
@@ -256,7 +291,7 @@ const meta = computed(() => {
       </p>
       <!-- your note, one line and clipped: it can be a paragraph, and a row is not
            where a paragraph goes. The dialog holds all of it. -->
-      <p v-if="!removed && entry.description" class="t-sm t-muted vault__note" :title="entry.description">
+      <p v-if="!removed && !isKit && entry.description" class="t-sm t-muted vault__note" :title="entry.description">
         {{ entry.description }}
       </p>
       <!-- a kit: how many items, as the control that shows them. Text-sized, so the
@@ -336,6 +371,7 @@ const meta = computed(() => {
              move — and it puts the destructive control furthest from the new
              arrival. -->
         <button
+          v-if="!isKit"
           type="button"
           class="btn btn--icon btn--ghost vault__act ink-quiet"
           :title="`Edit ${displayName}`"
@@ -389,7 +425,9 @@ const meta = computed(() => {
         <span v-else class="vault__partname t-clip">{{ partName(p) }} <span class="vault__partgone">· removed</span></span>
         <span class="t-num vault__partweight">{{ formatWeight(p.weightMg * p.qty, unit) }}</span>
         <span class="vault__partctl">
-          <span v-if="!p.removed" class="vault__partstep">
+          <!-- held out of sight, not dropped, when you own one and the kit holds one:
+               both buttons would be dead, and the × keeps its column either way -->
+          <span v-if="!p.removed" class="vault__partstep" :class="{ 'is-idle': p.qty <= 1 && partMax(p.id) <= 1 }">
             <button
               type="button"
               class="btn btn--icon btn--ghost ink-quiet"
@@ -461,6 +499,13 @@ const meta = computed(() => {
         </ul>
         <p v-else-if="addQuery.trim()" class="t-sm t-muted vault__partnone">None of your gear matches. Add it to My Gear first.</p>
       </li>
+      <!-- the way back: one piece weighing what the kit does, its items left as the
+           pieces they are, with Undo on the page's toast -->
+      <li v-if="isKit" class="vault__partfoot">
+        <button type="button" class="btn btn--quiet t-sm ink-quiet vault__unkit" :disabled="kitBusy" @click="emit('unkit')">
+          Make it a single piece
+        </button>
+      </li>
     </ul>
   </li>
 </template>
@@ -501,14 +546,20 @@ const meta = computed(() => {
    the line's trailing cluster begins — the mark column and the three controls, with
    the line's gaps between — so each part's weight sits in the kit's own weight column. */
 .vault__parts {
-  /* + the unit picker's gap and chevron, which sit after the row's figure and which
-     a part's weight has none of: without them the part's "g" lined up with the
-     chevron, 20px right of the kit's own "g" */
-  --row-tail: calc(3 * var(--icon-btn) + var(--space-1) + 2 * var(--space-4) + var(--space-2) + 12px);
+  /* + the unit picker's chevron and its gap (12 + 8), which sit after the row's figure
+     and which a part's weight has none of; that 8 is the part grid's own column gap,
+     so it isn't added here, or every item stops 8px short of the kit's "g" */
+  --row-tail: calc(3 * var(--icon-btn) + var(--space-1) + 2 * var(--space-4) + 12px);
   list-style: none;
   margin: var(--space-1) 0 0;
   padding: 0 0 0 var(--gear-type-indent);
   color: var(--ink-2);
+}
+/* a kit's cluster is one button short — no Edit, since a kit is edited on its row —
+   so its band is one button and its gap narrower, or the items' weights stop a
+   button's width short of the kit's own "g" */
+.vault__row--kit .vault__parts {
+  --row-tail: calc(2 * var(--icon-btn) + 2 * var(--space-4) + 12px);
 }
 /* name, the line's weight in the kit's weight column, then the controls in the band
    the row's own trailing cluster takes, so × sits under the row's bin */
@@ -528,6 +579,9 @@ const meta = computed(() => {
   display: inline-flex;
   align-items: center;
 }
+.vault__partstep.is-idle {
+  visibility: hidden;
+}
 .vault__partcount {
   min-width: 2.5ch;
   text-align: center;
@@ -535,8 +589,20 @@ const meta = computed(() => {
 }
 /* "Add an item": the name and weight columns' width, the field's own borderless box */
 .vault__partadd {
-  padding: var(--space-1) var(--row-tail) var(--space-1) 0;
+  /* to the weight column's edge: the tail plus the grid gap before it */
+  padding: var(--space-1) calc(var(--row-tail) + var(--space-2)) var(--space-1) 0;
   border-top: 1px solid var(--line);
+}
+/* the kit's name as a field: the row's own name, at its size and weight, that takes a
+   caret — the editor's item names are fields the same way */
+.vault__kitname {
+  min-height: 0;
+  padding: 0;
+  font-weight: inherit;
+}
+/* quiet, on the items' left edge: a link-weight way out, not an action you reach for */
+.vault__partfoot {
+  padding-top: var(--space-1);
 }
 .vault__partinput {
   width: 100%;
@@ -755,7 +821,10 @@ button.vault__partname:hover {
   }
   /* the trailing cluster grows to --tap, and the parts' weight column follows it */
   .vault__parts {
-    --row-tail: calc(var(--icon-btn) + 2 * var(--tap) + var(--space-1) + 2 * var(--space-4) + var(--space-2) + 12px);
+    --row-tail: calc(var(--icon-btn) + 2 * var(--tap) + var(--space-1) + 2 * var(--space-4) + 12px);
+  }
+  .vault__row--kit .vault__parts {
+    --row-tail: calc(var(--icon-btn) + var(--tap) + 2 * var(--space-4) + 12px);
   }
   /* ...which makes the cluster's box exactly one text line already, so the desktop
      --icon-pull on the cluster would lift it a second time: 4.4px above the weight
@@ -794,9 +863,27 @@ button.vault__partname:hover {
     line-clamp: 2;
     white-space: normal;
   }
-  /* a kit's items indent to the names' edge, and their weights take the right edge */
+  /* A kit's item stacks the way the row above it does: its name on a line of its own,
+     its weight and controls beneath. On one line the stepper and × left a phone's name
+     four letters ("Soto …"), and two Soto pieces read the same. */
   .vault__part {
-    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name name name"
+      "weight . ctl";
+    row-gap: var(--space-1);
+    padding-top: var(--space-2);
+  }
+  .vault__partname {
+    grid-area: name;
+  }
+  .vault__partweight {
+    grid-area: weight;
+    min-width: 0;
+    text-align: left;
+  }
+  .vault__partctl {
+    grid-area: ctl;
   }
   .vault__partadd {
     padding-right: 0;

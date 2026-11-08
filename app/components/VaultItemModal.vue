@@ -56,17 +56,16 @@ function mergeVocab(mine: string[] = [], theirs: string[] | null): string[] {
 const brandOptions = computed(() => mergeVocab(props.known?.brands, catalogBrands.names.value));
 const typeOptions = computed(() => mergeVocab(props.known?.types, catalogTypes.names.value));
 /** `make-kit`: "Make it a kit" was pressed. The page closes the dialog and opens the
- *  row with its "Add an item" line, where a kit's items are edited. `unkit`: "Make it
- *  a single piece", the way back, pressed on a kit. */
-const emit = defineEmits<{ close: []; saved: [item: VaultEntry]; "make-kit": [id: number]; unkit: [id: number] }>();
+ *  row with its "Add an item" line, where a kit's items are edited. */
+const emit = defineEmits<{ close: []; saved: [item: VaultEntry]; "make-kit": [id: number] }>();
 
 const { vaultFetch } = useVaultAccess();
 
-// ---- a kit -------------------------------------------------------------------
-// A kit's items, their counts and its own weight are edited on its row on /gear
-// (VaultGearRow), where you see them; this dialog is only what a set shares with a
-// piece: a name and a note. Ryan: "Do we need to do this in a modal?"
-const isKit = computed(() => props.entry?.kind === "kit");
+// ---- becoming a kit -------------------------------------------------------------
+// This dialog is a PIECE's. A kit is edited on its row on /gear (VaultGearRow) — its
+// name, its items and their counts, and the way back to a single piece — so a kit row
+// has no Edit button and never opens this. Ryan: "maybe no notes for kits? i wanna
+// delete that pencil icon".
 // One level deep: a piece that is already some kit's item can't become a kit itself.
 const inKits = computed(() => props.entry?.inKits?.length ?? 0);
 // "Make it a kit": anything typed here is saved first, then the page opens the row's
@@ -76,15 +75,6 @@ async function onMakeKit() {
   const id = props.entry.id;
   await onSubmit();
   if (!error.value) emit("make-kit", id);
-}
-// and back: a kit becomes one piece weighing what the kit did, its items left as the
-// pieces they are (the vault's clearKit). On a kit's row the last item can't come out,
-// so this is the one way.
-async function onUnkit() {
-  if (!props.entry) return;
-  const id = props.entry.id;
-  await onSubmit();
-  if (!error.value) emit("unkit", id);
 }
 
 // Three-way, not the editor's two toggles. Those are toggles because each ALSO opens
@@ -289,8 +279,7 @@ async function onSubmit() {
   // Only when the string CHANGED. formatWeight → parseWeightInput is lossy (0.1 oz
   // resolution) and locale-shaped, so round-tripping a field nobody typed in would
   // silently re-weigh the row. CatalogCorrectionModal splits the same way.
-  // A kit's weight is its items' — never sent (the server refuses one too).
-  if (!isKit.value && weight.value !== opened.weight) {
+  if (weight.value !== opened.weight) {
     const raw = weight.value.trim();
     // Blank clears to 0 — gear you own but haven't weighed is a legitimate state
     // here, unlike an automatic capture, which waits (see isVaultWorthy).
@@ -326,26 +315,18 @@ async function onSubmit() {
 </script>
 
 <template>
-  <BaseModal :open="!!entry" :label="isKit ? 'Edit kit' : 'Edit gear'" @close="emit('close')">
+  <BaseModal :open="!!entry" label="Edit gear" @close="emit('close')">
     <template v-if="entry">
-      <h2 class="t-label">{{ isKit ? "Edit kit" : "Edit gear" }}</h2>
+      <h2 class="t-label">Edit gear</h2>
       <p class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
       <!-- No explainer under the title. What you change here is pinned (vaultRepo), so no
            list writes over it, and that is what anyone expects of an edit; a line saying
            so took a row on every open, and went in review. -->
 
-      <!-- A KIT is a set you made, not a product: it has a name, a note, its items and a
-           weight of its own, and none of a product's fields (brand, size, type, icon,
-           price, link, how many, what it counts as — its items each say that). So a kit
-           shows only those: its name and note on one line, and its items as a table, in
-           a somewhat wider dialog (atoms/dialog.scss). The product fields
-           are hidden, not unmounted:
-           a piece turns into a kit the moment its first item goes in, and the item search
-           it was typed into has to keep its focus through the switch. -->
       <div class="vitem">
-      <div class="vitem__cols" :class="{ 'vitem--kit': isKit }">
+      <div class="vitem__cols">
       <div class="vitem__main">
-      <div v-show="!isKit" class="vitem__pair">
+      <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Brand</span>
           <!-- "Add a …" like the note's placeholder: these fields have no border, so an
@@ -371,20 +352,12 @@ async function onSubmit() {
         </label>
       </div>
 
-      <!-- a kit's name and its note on one line: all a set has besides its items. No
-           field for a weight of its own: a stuff sack is an item like any other. -->
-      <div :class="isKit ? 'vitem__kitrow' : 'vitem__namerow'">
+      <div class="vitem__namerow">
         <label class="dlg__field">
           <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
                is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
-          <span class="t-sm t-muted">{{ isKit ? "Name" : "Product" }}</span>
+          <span class="t-sm t-muted">Product</span>
           <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
-        </label>
-        <!-- a kit's note beside its name: the bottom Note is the piece's, hidden on a
-             kit, and both write the one note -->
-        <label v-if="isKit" class="dlg__field">
-          <span class="t-sm t-muted">Note</span>
-          <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
         </label>
       </div>
 
@@ -392,7 +365,7 @@ async function onSubmit() {
            you pick one: type "puffy" and the box beside it turns into a jacket. On the
            dialog's two columns like every other pair, so Gear type starts under Name and
            the icon under Size or version. -->
-      <div v-show="!isKit" class="vitem__typed">
+      <div class="vitem__typed">
         <!-- the placeholder is ItemRow's, word for word, so the field is named the same
              way in both places -->
         <label class="dlg__field">
@@ -427,8 +400,7 @@ async function onSubmit() {
         </div>
       </div>
 
-      <!-- a kit's weight is its items' plus its own, read off the Items heading -->
-      <div v-show="!isKit" class="vitem__pair">
+      <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Weight</span>
           <input
@@ -466,7 +438,7 @@ async function onSubmit() {
            and a pair keeps the dialog's two columns. Calories only once it IS consumable,
            and not on fuel that has none to show — ItemRow's rule verbatim (see
            kcalOffered). -->
-      <div v-show="!isKit" class="vitem__pair">
+      <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">How many</span>
           <input v-model="owned" class="field" inputmode="numeric" placeholder="1" @keydown.enter="onSubmit" />
@@ -480,7 +452,7 @@ async function onSubmit() {
       <!-- what it cost and where it came from, read together, on the same two columns as
            every pair above: a narrower price track started the link's column 66px left
            of every other second column in the dialog -->
-      <div v-show="!isKit" class="vitem__pair">
+      <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Price</span>
           <!-- inputmode text, not decimal: a currency symbol is part of what this
@@ -512,20 +484,16 @@ async function onSubmit() {
            verbatim, because it is the same text moved — a list wrote it, and this is
            where it stops being overwritten. Last, with the price and link: the fields
            you set now and then, below the ones you set on every piece. -->
-      <label v-show="!isKit" class="dlg__field">
+      <label class="dlg__field">
         <span class="t-sm t-muted">Note</span>
         <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
       </label>
       </div>
       <!-- A piece can become a kit: one quiet press, which saves what's typed here and
            opens the row's "Add an item" line, where a kit's items are edited. A piece
-           already in a kit can't (kits are one level deep). A kit's items are on its row;
-           here it has only the way back to a single piece. -->
-      <section v-if="isKit || !inKits" class="vitem__parts">
-        <button v-if="isKit" type="button" class="btn btn--quiet vitem__makekit" :disabled="saving" @click="onUnkit">
-          Make it a single piece
-        </button>
-        <button v-else type="button" class="btn btn--quiet vitem__makekit" :disabled="saving" @click="onMakeKit">
+           already in a kit can't (kits are one level deep). -->
+      <section v-if="!inKits" class="vitem__parts">
+        <button type="button" class="btn btn--quiet vitem__makekit" :disabled="saving" @click="onMakeKit">
           <HugeiconsIcon :icon="Layers01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Make it a kit
         </button>
@@ -581,16 +549,9 @@ async function onSubmit() {
   gap: var(--space-3);
 }
 @container (max-width: 22rem) {
-  .vitem__pair,
-  .vitem__kitrow {
+  .vitem__pair {
     grid-template-columns: 1fr;
   }
-}
-/* a kit's name and note on one line, on the pairs' two columns */
-.vitem__kitrow {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
 }
 .vitem__namerow {
   display: flex;

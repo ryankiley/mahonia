@@ -136,7 +136,7 @@ describe("the /gear page's vault calls", () => {
       { ...entry(3, "Cook kit"), kind: "kit", parts: [] },
     ];
     const w = await openPage();
-    expect(w.findAll(".vault__kind").map((h) => h.text())).toEqual(["Kits", "Shelter & sleep", "Other"]);
+    expect(w.findAll(".vault__kind").map((h) => h.text())).toEqual(["Kits", "Shelter", "Other"]);
   });
 
   it("removes a row through /api/vault/remove", async () => {

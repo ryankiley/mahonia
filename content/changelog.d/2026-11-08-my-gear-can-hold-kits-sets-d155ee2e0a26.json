@@ -14,7 +14,7 @@
     "A kit holds no more of a piece than you own.",
     "Pick a piece's icon from a popover on its row in My Gear, or from the Icon box in its edit dialog.",
     "The My Gear panel in a list shows where a click adds gear beside its tabs.",
-    "A kit's edit dialog is just its name and a note; its items are edited on its row.",
+    "A kit is edited on its row in My Gear: rename it, change its items, or make it a single piece. Kits no longer have an edit dialog or a note.",
     "My Gear's edit dialog keeps its paired fields side by side in a narrow window instead of stacking them."
   ],
   "fixed": [

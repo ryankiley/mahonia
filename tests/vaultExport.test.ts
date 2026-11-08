@@ -30,7 +30,7 @@ describe("vaultToCsv", () => {
     expect(list.items[0]!.commonName).toBe("Tent");
     expect(list.items[0]!.unitWeightMg).toBe(539_000);
     // each piece's KIND is its folder, so the list lands grouped the way /gear is
-    expect(list.folders.map((f) => f.name)).toEqual(["Shelter & sleep", "Food, water & kitchen"]);
+    expect(list.folders.map((f) => f.name)).toEqual(["Shelter", "Food"]);
     // the consumable's class and its calories survive the trip
     expect(list.items[1]!.classification).toBe("consumable");
     expect(list.items[1]!.kcal).toBe(250);
@@ -50,7 +50,7 @@ describe("vaultToCsv", () => {
     );
     const list = csvToListData(csv);
     expect(list.items.map((i) => i.name)).toEqual(["Cook kit", "Duplex", "Mug", "Widget"]);
-    expect(list.folders.map((f) => f.name)).toEqual(["Kits", "Shelter & sleep", "Food, water & kitchen", "Other"]);
+    expect(list.folders.map((f) => f.name)).toEqual(["Kits", "Shelter", "Kitchen", "Other"]);
   });
 
   it("writes the price as a bare number, with the currency in its own column", () => {

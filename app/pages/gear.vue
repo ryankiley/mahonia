@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, Clock01Icon, GridViewIcon, ShapesIcon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Clock01Icon, GridViewIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -211,7 +211,7 @@ async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], o
   }
   await loadVault();
 }
-// "Make it a single piece", pressed in a kit's dialog: it becomes one piece weighing
+// "Make it a single piece", pressed on an open kit's row: it becomes one piece weighing
 // what it did, and its items stay the pieces they are.
 async function unkit(id: number) {
   editing.value = null;
@@ -421,7 +421,11 @@ function openEdit(entry: VaultEntry) {
 // One field picked on a row — a piece's own unit, or its icon — the way a list row
 // takes it: shown at once, then saved. The server's answer replaces the row; a save
 // that fails puts the old value back.
-async function patchEntry(entry: VaultEntry, patch: Pick<VaultEntry, "entryUnit"> | { icon: VaultEntry["icon"] | null }, what: string) {
+async function patchEntry(
+  entry: VaultEntry,
+  patch: Pick<VaultEntry, "entryUnit"> | Pick<VaultEntry, "name"> | { icon: VaultEntry["icon"] | null },
+  what: string,
+) {
   const at = items.value.findIndex((i) => i.id === entry.id);
   if (at < 0) return;
   const before = items.value[at]!;
@@ -437,6 +441,10 @@ async function patchEntry(entry: VaultEntry, patch: Pick<VaultEntry, "entryUnit"
   if (res.ok && res.item) return put(res.item);
   put(before);
   loadError.value = `Couldn’t save that ${what}. Check your connection and try again.`;
+}
+// a kit's name, typed on its open row (the only thing about a kit a dialog held)
+function renameKit(entry: VaultEntry, name: string) {
+  void patchEntry(entry, { name }, "name");
 }
 function setEntryUnit(entry: VaultEntry, u: Unit) {
   if (entry.entryUnit !== u) void patchEntry(entry, { entryUnit: u }, "unit");
@@ -548,7 +556,7 @@ const { open: openAccount } = useAccountModal();
 // list with A over Z); By kind takes a grid mark because it is a LAYOUT, not a sort
 // key, and shouldn't borrow one.
 const VIEW_OPTIONS = [
-  { key: "kinds", label: "By kind", icon: ShapesIcon },
+  { key: "kinds", label: "By kind", icon: Shapes01Icon },
   { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
   { key: "heaviest", label: "Heaviest", icon: SortingNineOneIcon },
   { key: "lightest", label: "Lightest", icon: SortingOneNineIcon },
@@ -803,6 +811,8 @@ async function exportGear(kind: string) {
                 @edit-part="editPart"
                 @kit="(parts: { id: number; qty: number }[], own: number) => setKit(entry, parts, own)"
                 @cancel-kit="kitStarting = null"
+                @rename="(n: string) => renameKit(entry, n)"
+                @unkit="unkit(entry.id)"
                 @edit="openEdit(entry)"
                 @remove="remove(entry)"
                 @unit="(u: Unit) => setEntryUnit(entry, u)"
@@ -851,6 +861,8 @@ async function exportGear(kind: string) {
                         @edit-part="editPart"
                         @kit="(parts: { id: number; qty: number }[], own: number) => setKit(entry, parts, own)"
                         @cancel-kit="kitStarting = null"
+                        @rename="(n: string) => renameKit(entry, n)"
+                        @unkit="unkit(entry.id)"
                         @edit="openEdit(entry)"
                         @remove="remove(entry)"
                         @unit="(u: Unit) => setEntryUnit(entry, u)"
@@ -954,7 +966,6 @@ async function exportGear(kind: string) {
       @close="editing = null"
       @saved="onItemSaved"
       @make-kit="startKitFor"
-      @unkit="unkit"
     />
 
     <!-- Same lazy idiom: nobody who never imports downloads the parser. -->
