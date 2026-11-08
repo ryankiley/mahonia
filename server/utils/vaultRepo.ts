@@ -740,6 +740,18 @@ export async function vaultItemById(db: Db, vaultId: number, id: number): Promis
   return rows[0] ? ((await withKits(db, vaultId, [toEntry(rows[0])]))[0] ?? null) : null;
 }
 
+/**
+ * The live row with this identity (brand + name + variant, folded as vaultNormKey
+ * folds them), or null. The MCP gear tools answer an add that came back as a
+ * duplicate with the piece it duplicated, so an assistant has the id it needs next
+ * (to put that piece in a kit, say) without a second search.
+ */
+export async function vaultItemByNormKey(db: Db, vaultId: number, normKey: string): Promise<VaultEntry | null> {
+  if (!normKey) return null;
+  const rows = await db.select().from(vaultItems).where(and(liveIn(vaultId), eq(vaultItems.normKey, normKey))).limit(1);
+  return rows[0] ? ((await withKits(db, vaultId, [toEntry(rows[0])]))[0] ?? null) : null;
+}
+
 /** A vault's folders in drag order (id breaks a tie, so the order is total). */
 export async function listVaultFolders(db: Db, vaultId: number): Promise<VaultFolder[]> {
   const rows = await db

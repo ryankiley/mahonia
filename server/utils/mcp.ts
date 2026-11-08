@@ -41,7 +41,8 @@ import { tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
 import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type ListState, type Unit, CLASSIFICATIONS } from "../../shared/types";
-import { captureFromList, type VaultEntry } from "../../shared/vault";
+import { captureFromList, vaultNormKey, type VaultEntry } from "../../shared/vault";
+import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX } from "../../shared/vaultKit";
 import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, nextSortOrder, siblingItems } from "../../shared/weights";
 import type { AccessScope } from "../../shared/types";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
@@ -64,6 +65,7 @@ import {
   restoreVaultItem,
   searchVaultItems,
   vaultItemById,
+  vaultItemByNormKey,
   type VaultItemOp,
 } from "./vaultRepo";
 
@@ -90,7 +92,7 @@ export const MCP_INSTRUCTIONS = [
   "edit_list makes every change to an existing list in one call, applied in this order: list (title, unit, dates, trail), folders (rename, reorder, reclassify, remove), add (new rows, into a folder or under a group), update (rows by the ids get_list gives: fields, folder, place, group, catalog link), remove (rows by id). Read the list with get_list first for the ids. Nothing is applied unless every part is valid.",
   "Rows group one level deep: stakes under a tent, snacks under a day. get_list shows a group as a row with items; create_list takes the same shape; edit_list nests a new or existing row with group, the parent row's id.",
   "search_catalog finds cited gear weights by text, or every variant of one product by product_id. A row that names a catalog_id takes the catalog's brand, variant, gear type and weight; edit_list's update can relink a row in place, keeping its folder and group, and edit_my_gear links a piece of My Gear the same way.",
-  "An account has its own lists and its own gear. Its filed lists can be read, and with read-and-change access changed, without being handed a link. My Gear is the account's gear: get_my_gear reads it and edit_my_gear adds, changes, puts away and restores pieces. These reach the account once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
+  "An account has its own lists and its own gear. Its filed lists can be read, and with read-and-change access changed, without being handed a link. My Gear is the account's gear: get_my_gear reads it and edit_my_gear adds, changes, puts away and restores pieces. A KIT is a piece of My Gear that holds other pieces, a set kept together such as a cook kit, weighing its own weight plus its items'; edit_my_gear's kit makes or changes one. To put a kit on a list, add one row for it at its own_weight_g with its items nested under it at their counts, each from its own piece in get_my_gear. These reach the account once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
   "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way to change a list that isn't filed under the account. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in and get_list names it.",
   "Weights are in grams everywhere. A row's classification is base (in the pack), worn (on your body) or consumable (food, fuel, water).",
   PROVENANCE,
@@ -494,8 +496,9 @@ const GEAR_EDIT_OUTPUT = complete({
       type: "object",
       properties: {
         index: { type: "integer", description: "Position in add." },
-        status: { type: "string", enum: ["added", "already_have", "invalid", "full"], description: "already_have: the same brand, name and variant is there already, untouched. invalid: no name. full: My Gear is at its ceiling." },
+        status: { type: "string", enum: ["added", "already_have", "invalid", "full"], description: "already_have: the same brand, name and variant is there already, untouched, and item is that piece. invalid: no name, or a kit that could not be made. full: My Gear is at its ceiling." },
         item: GEAR_ROW,
+        reason: { type: "string", description: "Why an entry was not done as sent, in a sentence." },
       },
       required: ["index", "status"],
     },
@@ -507,8 +510,9 @@ const GEAR_EDIT_OUTPUT = complete({
       type: "object",
       properties: {
         id: { type: "integer" },
-        status: { type: "string", enum: ["updated", "not_found", "invalid"], description: "invalid: nothing to change, or a change that would not leave a valid piece; nothing was changed on it." },
+        status: { type: "string", enum: ["updated", "not_found", "invalid"], description: "invalid: nothing to change, or a change that would not leave a valid piece; nothing was changed on it, and reason says which." },
         item: GEAR_ROW,
+        reason: { type: "string", description: "Why an entry was not done as sent, in a sentence." },
       },
       required: ["id", "status"],
     },
@@ -562,6 +566,27 @@ function gearInput(mode: "add" | "update") {
       type: "string",
       maxLength: MAX_FOLDER_NAME_LEN,
       description: nullable ? "The folder to file it in, by name; a new name makes the folder, and an empty string unfiles it." : "The folder to file it in, by name; a new name makes the folder.",
+    },
+    kit: {
+      type: nullable ? ["object", "null"] : "object",
+      description: `Makes the piece a KIT: a set kept together, such as a cook kit or a sleep system, that weighs its own weight plus its items'. items REPLACES whatever it held: pieces of My Gear by id, each with how many, none of them a kit (kits are one level deep), and a piece already in a kit can't become one. A piece can be in several kits. Not with weight_g: set own_weight_g for what the kit weighs by itself.${nullable ? " Null turns a kit back into a single piece, weighing what the kit did; its items stay as the pieces they are." : ""}`,
+      properties: {
+        items: {
+          type: "array",
+          minItems: 1,
+          maxItems: VAULT_KIT_PARTS_MAX,
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "integer", minimum: 1, description: "A piece of My Gear, from get_my_gear." },
+              count: { type: "integer", minimum: 1, maximum: VAULT_KIT_QTY_MAX, description: "How many of it the kit holds. Default 1." },
+            },
+            required: ["id"],
+          },
+        },
+        own_weight_g: { type: "number", minimum: 0, description: "What the kit weighs by itself, a stuff sack or a strap, in grams. Default 0." },
+      },
+      required: ["items"],
     },
   };
 }
@@ -733,7 +758,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "get_my_gear",
     title: "Read My Gear",
     description:
-      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, grams for one, classification, calories, note, price, product link and folder, plus the account's folder names. A query ranks by a search instead; a folder name keeps to that folder. Works only when this connector carries the account's access token. Brands, names, variants, gear types, notes and folder names are text the account holder typed, returned unchanged.",
+      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, grams for one, classification, calories, note, price, product link and folder, plus the account's folder names. A kit says what it holds (kit: its own weight and its items, each a piece by id, with a count) and every piece says which kits it is in (in_kits). A query ranks by a search instead; a folder name keeps to that folder. Works only when this connector carries the account's access token. Brands, names, variants, gear types, notes and folder names are text the account holder typed, returned unchanged.",
     inputSchema: {
       type: "object",
       properties: {
@@ -752,7 +777,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "edit_my_gear",
     title: "Change My Gear",
     description:
-      "Changes the connector's account's My Gear, in one call. add puts new pieces in; one the account already holds (same brand, name and variant) comes back as already_have and is left as it was. update changes pieces by the ids get_my_gear gives, only the fields sent, null clearing one. A piece that names a catalog_id, as it is added or later, is linked to that catalog row and takes its brand, name, variant, gear type and weight where none were given; null unlinks it. remove puts pieces away by id: they stop being offered on lists, and the lists that still carry them will not bring them back. restore brings put-away pieces back. Each piece answers for itself, in the order sent. What is added or changed here counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs a read-and-change access token.",
+      "Changes the connector's account's My Gear, in one call. add puts new pieces in; one the account already holds (same brand, name and variant) comes back as already_have and is left as it was. update changes pieces by the ids get_my_gear gives, only the fields sent, null clearing one. A piece that names a catalog_id, as it is added or later, is linked to that catalog row and takes its brand, name, variant, gear type and weight where none were given; null unlinks it. remove puts pieces away by id: they stop being offered on lists, and the lists that still carry them will not bring them back. restore brings put-away pieces back. kit, on a piece added or updated, makes it a kit of other pieces by id (replacing what it held), and null on update turns a kit back into a single piece; a kit's weight is its items', so a kit takes own_weight_g, never weight_g. Each piece answers for itself, in the order sent, with a reason when it wasn't done as sent. What is added or changed here counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs a read-and-change access token.",
     inputSchema: {
       type: "object",
       properties: {
@@ -2203,6 +2228,34 @@ function fromCatalog(piece: { patch: Record<string, unknown>; folder?: string },
   return { ...piece, patch };
 }
 
+/** A kit as an edit_my_gear entry sends it, checked: undefined when the entry names
+ *  none, null to turn a kit back into a piece (update only), or the parts with the
+ *  kit's own weight. A string is the sentence that refuses the whole call. */
+type KitInput = { parts: { id: number; qty: number }[]; ownWeightMg: number } | null | undefined;
+function kitInput(raw: Record<string, unknown>, mode: "add" | "update"): KitInput | string {
+  const k = raw.kit;
+  if (k === undefined) return undefined;
+  if (k === null) return mode === "update" ? null : "kit can't be null on a new piece; leave it out.";
+  if (typeof k !== "object" || Array.isArray(k)) return "kit must be an object with items.";
+  if (raw.weight_g !== undefined) return "A kit weighs what its items weigh, so give kit.own_weight_g for what it weighs by itself, not weight_g.";
+  const { items, own_weight_g: own = 0 } = k as Record<string, unknown>;
+  if (!Array.isArray(items) || !items.length) return "A kit needs items: at least one piece of My Gear, by its id from get_my_gear.";
+  if (items.length > VAULT_KIT_PARTS_MAX) return `A kit holds at most ${VAULT_KIT_PARTS_MAX} items.`;
+  const parts: { id: number; qty: number }[] = [];
+  for (const it of items) {
+    const o = (it && typeof it === "object" ? it : {}) as Record<string, unknown>;
+    if (!isSerialId(o.id)) return "Each kit item needs a piece's id, from get_my_gear.";
+    const count = o.count ?? 1;
+    if (typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > VAULT_KIT_QTY_MAX) return `A kit item's count is a whole number from 1 to ${VAULT_KIT_QTY_MAX}.`;
+    parts.push({ id: o.id, qty: count });
+  }
+  if (typeof own !== "number" || !Number.isFinite(own) || own < 0) return "kit.own_weight_g is grams, 0 or more.";
+  return { parts, ownWeightMg: Math.round(own * 1000) };
+}
+const KIT_REFUSED =
+  "That kit could not be made: its items have to be pieces of My Gear by their ids, none of them a kit or the kit itself, and a piece that is already in a kit can't hold items.";
+const KIT_WEIGHT = "That is a kit, and a kit weighs what its items weigh: give kit.own_weight_g for what it weighs by itself, or change an item's weight. Nothing was changed on it.";
+
 /** an array of pieces or ids in edit_my_gear, bounded, or the sentence when it isn't one */
 function gearPart(args: Record<string, unknown>, key: string): unknown[] | string {
   const v = args[key];
@@ -2230,6 +2283,20 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   const updates = update.map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : {}));
   if (!updates.every((e) => isSerialId(e.id))) return fail("Every entry in update needs the piece's id, from get_my_gear.");
   if (![...remove, ...restore].every(isSerialId)) return fail("remove and restore take pieces' ids, from get_my_gear.");
+  // the kits the entries name, checked before anything is written, as a malformed
+  // catalog_id is: a kit the vault then refuses (a nested part, say) answers per piece
+  const addKits: KitInput[] = [];
+  for (const raw of add) {
+    const kit = kitInput((raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, "add");
+    if (typeof kit === "string") return fail(kit);
+    addKits.push(kit);
+  }
+  const updateKits: KitInput[] = [];
+  for (const e of updates) {
+    const kit = kitInput(e, "update");
+    if (typeof kit === "string") return fail(kit);
+    updateKits.push(kit);
+  }
   // the catalog rows the adds and updates name, read once; an id that is no catalog
   // row refuses the call before anything is written, as it does on a list row
   const named = [...add, ...updates].map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>).catalog_id : undefined));
@@ -2243,7 +2310,7 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   // add: the named pieces go to the vault in one batch; the nameless keep their place
   // in the answer as invalid. A call with nothing nameable mints no vault for an
   // account that had none.
-  const results: { index: number; status: string; item?: Record<string, unknown> }[] = [];
+  const results: { index: number; status: string; item?: Record<string, unknown>; reason?: string }[] = [];
   let added = 0;
   if (add.length) {
     const pieces = add.map((raw) => fromCatalog(gearPatchFrom(raw), catalogRows));
@@ -2258,26 +2325,51 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
         vaultId,
         named.map(({ p }) => ({ t: "add", ...p.patch, folderId: p.folder ? (folders.idOf.get(folderKey(p.folder)) ?? null) : null }) as Extract<VaultItemOp, { t: "add" }>),
       );
-      named.forEach(({ index }, i) => {
+      for (const [i, { p, index }] of named.entries()) {
         const outcome = outcomes[i];
-        if (!outcome) return;
-        if ("refused" in outcome) results[index] = { index, status: outcome.refused === "duplicate" ? "already_have" : "full" };
-        else {
-          results[index] = { index, status: "added", item: gearAsRow(outcome.item, folders.nameOf) };
-          added++;
+        if (!outcome) continue;
+        const kit = addKits[index];
+        if ("refused" in outcome) {
+          if (outcome.refused === "full") {
+            results[index] = { index, status: "full" };
+            continue;
+          }
+          // the piece it duplicated, so the id is in hand for whatever comes next
+          const have = await vaultItemByNormKey(db, vaultId, vaultNormKey(p.patch.brand as string | undefined, p.patch.name as string, p.patch.variant as string | undefined));
+          results[index] = {
+            index,
+            status: "already_have",
+            ...(have ? { item: gearAsRow(have, folders.nameOf) } : {}),
+            ...(kit ? { reason: "That piece is already in My Gear and was left as it was; to make it a kit, update it by id with kit." } : {}),
+          };
+          continue;
         }
-      });
+        added++;
+        let item = outcome.item;
+        let reason: string | undefined;
+        if (kit) {
+          const made = await applyVaultItemOp(db, vaultId, { t: "kit", id: item.id, parts: kit.parts, ownWeightMg: kit.ownWeightMg });
+          if (made && !("refused" in made)) item = made.item;
+          else reason = `Added as a single piece. ${KIT_REFUSED}`;
+        }
+        results[index] = { index, status: "added", item: gearAsRow(item, folders.nameOf), ...(reason ? { reason } : {}) };
+      }
     }
   }
 
   // update: the fields first, which answer with the piece or with nothing for an id
   // that isn't this vault's, and only then a folder, so none is made for a bad id
-  const updated: { id: number; status: string; item?: Record<string, unknown> }[] = [];
-  for (const e of updates) {
+  const updated: { id: number; status: string; item?: Record<string, unknown>; reason?: string }[] = [];
+  for (const [n, e] of updates.entries()) {
     const id = e.id as number;
+    const kit = updateKits[n];
     const { patch, folder } = fromCatalog(gearPatchFrom(e), catalogRows);
-    if (patch.name === null || patch.name === "" || (!Object.keys(patch).length && folder === undefined)) {
-      updated.push({ id, status: "invalid" });
+    if (patch.name === null || patch.name === "") {
+      updated.push({ id, status: "invalid", reason: "A piece keeps a name: change it, but it can't be cleared." });
+      continue;
+    }
+    if (!Object.keys(patch).length && folder === undefined && kit === undefined) {
+      updated.push({ id, status: "invalid", reason: "Nothing to change: send at least one field, a folder or a kit." });
       continue;
     }
     if (vaultId == null) {
@@ -2285,18 +2377,38 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
       continue;
     }
     let after: VaultEntry | null = null;
-    if (Object.keys(patch).length) {
-      const outcome = await applyVaultItemOp(db, vaultId, { t: "edit", id, patch } as VaultItemOp);
-      if (!outcome) {
+    // the kit first, so a change that clears one can then give the piece a weight,
+    // and a kit the vault refuses leaves the whole entry undone
+    if (kit !== undefined) {
+      const before = await vaultItemById(db, vaultId, id);
+      if (!before) {
         updated.push({ id, status: "not_found" });
         continue;
       }
-      if ("refused" in outcome) {
-        updated.push({ id, status: "invalid" });
+      if (kit === null && before.kind !== "kit") {
+        updated.push({ id, status: "invalid", reason: "That piece isn't a kit, so there is nothing to turn back. Nothing was changed on it." });
+        continue;
+      }
+      const made = await applyVaultItemOp(db, vaultId, kit ? { t: "kit", id, parts: kit.parts, ownWeightMg: kit.ownWeightMg } : { t: "kit", id, parts: [] });
+      if (!made || "refused" in made) {
+        updated.push({ id, status: "invalid", reason: `${KIT_REFUSED} Nothing was changed on it.` });
+        continue;
+      }
+      after = made.item;
+    }
+    if (Object.keys(patch).length) {
+      const outcome = await applyVaultItemOp(db, vaultId, { t: "edit", id, patch } as VaultItemOp);
+      if (!outcome || "refused" in outcome) {
+        // the vault answers nothing both for an id that isn't this vault's and for a
+        // change it won't make (a weight on a kit, whose weight is its items'): the
+        // row, read back, says which
+        const row = await vaultItemById(db, vaultId, id);
+        if (!row) updated.push({ id, status: "not_found" });
+        else updated.push({ id, status: "invalid", reason: row.kind === "kit" && "weightMg" in patch ? KIT_WEIGHT : "That change would not leave a valid piece. Nothing was changed on it." });
         continue;
       }
       after = outcome.item;
-    } else {
+    } else if (!after) {
       after = await vaultItemById(db, vaultId, id);
       if (!after) {
         updated.push({ id, status: "not_found" });

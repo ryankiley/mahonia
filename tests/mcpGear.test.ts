@@ -276,19 +276,67 @@ describe("the gear tools", () => {
   });
 
   it("say what a kit holds, list its items as pieces of their own, and refuse a weight on one", async () => {
-    const added = await tool("add_my_gear", { items: [{ name: "Pocket stove", weight_g: 73 }, { name: "Cook kit" }] }, aliceWrite);
+    const added = await tool("edit_my_gear", { add: [{ name: "Pocket stove", weight_g: 73 }, { name: "Cook kit" }] }, aliceWrite);
     const [stoveId, kitId] = (added.data.results as { item: { id: number } }[]).map((r) => r.item.id);
     const [row] = await db.select({ vaultId: schema.vaultItems.vaultId }).from(schema.vaultItems).where(eq(schema.vaultItems.id, stoveId!));
     // made on the gear page; the connector reads it
     expect(await applyVaultItemOp(db, row!.vaultId, { t: "kit", id: kitId!, parts: [{ id: stoveId!, qty: 2 }], ownWeightMg: 20_000 })).not.toBeNull();
-    const found = await tool("list_my_gear", { query: "cook kit" }, aliceRead);
+    const found = await tool("get_my_gear", { query: "cook kit" }, aliceRead);
     const kit = (found.data.gear as { id: number }[]).find((g) => g.id === kitId);
     expect(kit).toMatchObject({ weight_g: 166, kit: { own_weight_g: 20, items: [{ id: stoveId, count: 2, weight_g: 73, put_away: false }] }, in_kits: [] });
-    const stove = ((await tool("list_my_gear", {}, aliceRead)).data.gear as { id: number }[]).find((g) => g.id === stoveId);
+    const stove = ((await tool("get_my_gear", {}, aliceRead)).data.gear as { id: number }[]).find((g) => g.id === stoveId);
     expect(stove).toMatchObject({ kit: null, in_kits: [kitId] });
-    const refused = await tool("update_my_gear", { id: kitId, weight_g: 500 }, aliceWrite);
-    expect(refused.refused).toBe(true);
-    expect(refused.text).toContain("kit weighs what its items weigh");
+    const refused = await tool("edit_my_gear", { update: [{ id: kitId, weight_g: 500 }] }, aliceWrite);
+    expect(refused.refused, refused.text).toBe(false);
+    const [answer] = refused.data.updated as { status: string; reason?: string }[];
+    expect(answer).toMatchObject({ status: "invalid" });
+    expect(answer!.reason).toContain("kit weighs what its items weigh");
+  });
+
+  it("make a kit, change what it holds, and turn it back into a piece, as the gear page does", async () => {
+    const pieces = await tool("edit_my_gear", { add: [{ name: "Titanium pot", weight_g: 110 }, { name: "Spork", brand: "Toaks", weight_g: 15 }, { name: "Mini lighter", weight_g: 11 }] }, aliceWrite);
+    const [potId, sporkId, lighterId] = (pieces.data.results as { item: { id: number } }[]).map((r) => r.item.id);
+
+    // made as it is added: its items by id, with counts, and a weight of its own
+    const made = await tool("edit_my_gear", { add: [{ name: "Kitchen kit", folder: "Kitchen", kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 2 }], own_weight_g: 12 } }] }, aliceWrite);
+    expect(made.refused, made.text).toBe(false);
+    const [res] = made.data.results as { status: string; item: Record<string, unknown> }[];
+    expect(res!.status).toBe("added");
+    const kitId = res!.item.id as number;
+    expect(res!.item).toMatchObject({ weight_g: 159, folder: "Kitchen", kit: { own_weight_g: 12, items: [{ id: potId, count: 1 }, { id: sporkId, count: 1 }, { id: lighterId, count: 2 }] } });
+
+    // items REPLACE what it held
+    const changed = await tool("edit_my_gear", { update: [{ id: kitId, kit: { items: [{ id: potId }, { id: lighterId, count: 1 }] } }] }, aliceWrite);
+    const [up] = changed.data.updated as { status: string; item: Record<string, unknown> }[];
+    expect(up).toMatchObject({ status: "updated", item: { weight_g: 121, kit: { own_weight_g: 0, items: [{ id: potId }, { id: lighterId, count: 1 }] } } });
+    const spork = ((await tool("get_my_gear", { query: "spork" }, aliceRead)).data.gear as { id: number; in_kits: number[] }[]).find((g) => g.id === sporkId);
+    expect(spork!.in_kits).toEqual([]);
+
+    // one level deep: a piece already in a kit can't hold items, and a kit can't be an item
+    const nested = await tool("edit_my_gear", { update: [{ id: potId, kit: { items: [{ id: sporkId }] } }] }, aliceWrite);
+    expect((nested.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("already in a kit") });
+    const kitAsItem = await tool("edit_my_gear", { add: [{ name: "Everything kit", kit: { items: [{ id: kitId }] } }] }, aliceWrite);
+    expect((kitAsItem.data.results as { status: string; reason: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "added", reason: expect.stringContaining("Added as a single piece"), item: { kit: null } });
+
+    // a malformed kit refuses the whole call before anything is written
+    const both = await tool("edit_my_gear", { update: [{ id: kitId, weight_g: 300, kit: { items: [{ id: potId }] } }] }, aliceWrite);
+    expect(both.refused).toBe(true);
+    expect(both.text).toContain("own_weight_g");
+    expect((await tool("edit_my_gear", { add: [{ name: "Empty kit", kit: { items: [] } }] }, aliceWrite)).refused).toBe(true);
+
+    // null turns it back into a piece weighing what the kit did; its items stay pieces
+    const undone = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
+    expect((undone.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { weight_g: 121, kit: null } });
+    const notAKit = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
+    expect((notAKit.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("isn't a kit") });
+    const pot = ((await tool("get_my_gear", { query: "titanium pot" }, aliceRead)).data.gear as { id: number; in_kits: number[]; weight_g: number }[]).find((g) => g.id === potId);
+    expect(pot).toMatchObject({ in_kits: [], weight_g: 110 });
+  });
+
+  it("answer an add the account already holds with that piece, so its id is in hand", async () => {
+    const again = await tool("edit_my_gear", { add: [{ name: "Titanium pot" }] }, aliceWrite);
+    const [res] = again.data.results as { status: string; item: Record<string, unknown> }[];
+    expect(res).toMatchObject({ status: "already_have", item: { name: "Titanium pot", weight_g: 110 } });
   });
 
   it("charge the account's budget rather than the caller's address", async () => {
