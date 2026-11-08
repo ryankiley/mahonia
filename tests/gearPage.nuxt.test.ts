@@ -178,7 +178,7 @@ describe("the /gear page's vault calls", () => {
     // the list editor's own name field (ItemInput), catalog-only and pick-only
     const nameField = (w: ReturnType<typeof mount>) => w.get<HTMLInputElement>(".vaddrow .ac__input");
     const openForm = async (w: ReturnType<typeof mount>) => {
-      await w.get(".folder__addbtn").trigger("click");
+      await w.get(".vault__tabadd").trigger("click");
       await nextTick();
     };
 

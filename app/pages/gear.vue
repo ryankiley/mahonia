@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Backpack03Icon, ChevronDownIcon, Clock01Icon, GridViewIcon, ToolCaseIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { Backpack03Icon, ChevronDownIcon, PlusSignIcon, Clock01Icon, GridViewIcon, ToolCaseIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -266,6 +266,17 @@ function startKitFor(id: number) {
 // "Add an item" line, where the first item makes it a kit — the dialog's "Make it a
 // kit" without the detour through a piece.
 const newKitName = ref("");
+const newKitOpen = ref(false);
+const newKitEl = useTemplateRef<HTMLInputElement>("newKitEl");
+function openNewKit() {
+  query.value = "";
+  newKitOpen.value = true;
+  nextTick(() => newKitEl.value?.focus());
+}
+function closeNewKit() {
+  newKitOpen.value = false;
+  newKitName.value = "";
+}
 async function commitNewKit() {
   const name = newKitName.value.trim();
   if (!name || addBusy.value) return;
@@ -280,7 +291,7 @@ async function commitNewKit() {
     loadError.value = res.reason === "duplicate" ? "You already have that in My Gear." : "Couldn’t make that kit. Check your connection and try again.";
     return;
   }
-  newKitName.value = "";
+  closeNewKit();
   kitStarting.value = res.item.id;
   await loadVault();
 }
@@ -737,7 +748,20 @@ async function exportGear(kind: string) {
 
         <!-- the gear -->
         <div v-else>
-          <ModeBar class="vault__tabs" :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
+          <!-- the tabs, and opposite them the one way to add to what the tab holds —
+               a piece on Gear, a kit on Kits. The field it opens sits at the head of
+               the list, where the new row will land. -->
+          <div class="vault__tabbar">
+            <ModeBar :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
+            <button v-if="tab === 'kits'" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openNewKit">
+              <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              New kit
+            </button>
+            <button v-else type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="query = ''; openAdd()">
+              <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              Add gear
+            </button>
+          </div>
           <!-- the gear you pack most, as tiles, above everything else (hidden while
                you search: a query is a question about rows). A tile opens the piece. -->
           <VaultMostUsed
@@ -835,8 +859,9 @@ async function exportGear(kind: string) {
             <!-- the page's one add row, at the head of the gear: with no folders there
                  is nowhere to choose, and a piece lands under its kind by itself -->
             <!-- Kits: name a new one, and it opens on its "Add an item" line -->
-            <form v-if="!query && tab === 'kits'" class="vault__add vault__add--top vault__newkit" @submit.prevent="commitNewKit">
+            <form v-if="!query && tab === 'kits' && newKitOpen" class="vault__add vault__add--top vault__newkit" @submit.prevent="commitNewKit">
               <input
+                ref="newKitEl"
                 v-model="newKitName"
                 class="field"
                 placeholder="New kit"
@@ -844,11 +869,12 @@ async function exportGear(kind: string) {
                 autocomplete="off"
                 :maxlength="200"
                 :disabled="addBusy"
+                @keydown.esc="closeNewKit"
+                @blur="!newKitName.trim() && closeNewKit()"
               />
             </form>
-            <div v-else-if="!query" class="vault__add vault__add--top">
+            <div v-else-if="!query && tab === 'gear' && adding" class="vault__add vault__add--top">
               <VaultAddRow
-                v-if="adding"
                 ref="addRow"
                 v-model:name="addName"
                 v-model:weight="addWeight"
@@ -858,7 +884,6 @@ async function exportGear(kind: string) {
                 @pick="commitPick"
                 @done="closeAdd"
               />
-              <button v-else type="button" class="folder__addbtn" @click="openAdd">Add gear</button>
             </div>
 
             <!-- FLAT: a chosen order, or a search. One list, one order, no headings —
@@ -1225,15 +1250,20 @@ async function exportGear(kind: string) {
   margin-bottom: var(--space-4);
 }
 /* The list's mode bar, in the list's exact spot: the editor's body pads its top by
-   --space-1 (.editor__body), a page by --space-5 (.page), so the bar is pulled up by
-   the difference and its first tab lands where the list's does, 8px under the bar. */
-.vault__tabs {
-  /* block-level, as it is in the list's flex column: inline, its line box ate the
-     negative margin above */
+   --space-1 (.editor__body), a page by --space-5 (.page), so the row is pulled up by
+   the difference and its first tab lands where the list's does, 8px under the bar.
+   A flex row, as the list's column is, so the margin isn't eaten by a line box. */
+.vault__tabbar {
   display: flex;
-  width: fit-content;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
   margin-top: calc(var(--space-1) - var(--space-5));
   margin-bottom: var(--space-3);
+}
+.vault__tabadd {
+  flex: none;
+  gap: var(--space-1);
 }
 
 /* the removed-gear disclosure sits as a quiet footer to
