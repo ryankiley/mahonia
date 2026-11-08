@@ -110,14 +110,14 @@ export const NeckGaiterGlyph = glyph(
   line("M20 21.5C20 19.5 18.4 18 16 17.6"),
 );
 
-/** An ice axe, traced from a reference in review: one outline running from the adze's
- *  flat end over the head and down the curved pick, back under it into the shaft, down
- *  to the spike and up the shaft's other side; the hole through the head, and the grip
- *  line across the shaft. The shaft is a band like the reference's, a little wider than
- *  it so its two edges stay apart at 20px. */
+/** An ice axe, traced from a reference in review: one outline from the adze's blunt end
+ *  over the long arched head to the pick's point, back under it to the straight shaft,
+ *  down to the wider rounded grip and up again, with two dots for the grip's texture.
+ *  The head is left plain (the reference's hole, slot and teeth fill a head this
+ *  shallow in at 20px, and were simplified away in review). */
 export const IceAxeGlyph = glyph(
-  line("M3.4 3.4C3.97 3.27 5.71 2.8 6.84 2.6C7.97 2.4 9.16 2.22 10.2 2.2C11.24 2.18 12.23 2.27 13.08 2.5C13.93 2.73 14.65 3.08 15.3 3.6C15.95 4.12 16.48 4.83 17 5.6C17.52 6.37 18.05 7.37 18.4 8.2C18.75 9.03 18.98 10.2 19.1 10.6C18.73 10.5 17.62 10.3 16.9 10C16.18 9.7 15.43 9.22 14.8 8.8C14.17 8.38 13.58 7.77 13.1 7.5C12.62 7.23 12.2 7.05 11.9 7.2C11.6 7.35 11.47 7.73 11.3 8.4C11.13 9.07 10.98 10.3 10.9 11.2C10.82 12.1 10.77 12.9 10.8 13.8C10.83 14.7 10.97 15.7 11.1 16.6C11.23 17.5 11.78 18.33 11.6 19.2C11.42 20.07 10.27 21.37 10 21.8C9.7 21.47 8.63 20.67 8.2 19.8C7.77 18.93 7.6 17.68 7.4 16.6C7.2 15.52 7.05 14.33 7 13.3C6.95 12.27 7 11.32 7.1 10.4C7.2 9.48 7.4 8.48 7.6 7.8C7.8 7.12 8.37 6.68 8.3 6.3C8.23 5.92 7.65 5.62 7.2 5.5C6.75 5.38 6.08 5.42 5.6 5.6C5.12 5.78 4.52 6.43 4.3 6.6L3.4 3.4Z"),
-  line("M10.9 4.8H10.91"),
-  line("M7.2 15.1L10.9 14.6"),
+  line("M3.2 3.6C5.2 2.6 7.8 1.9 10 1.85C13.7 1.8 17.7 3.5 20.8 5.9L20.2 7.4C18.9 6.6 16.8 5.8 15.1 5.8C13.6 5.8 12.2 6.3 11.15 6.6V12.4H11.15C11.6 12.4 11.95 12.75 11.95 13.2V19.7C11.95 20.97 10.92 22 9.65 22C8.38 22 7.35 20.97 7.35 19.7V13.2C7.35 12.75 7.7 12.4 8.15 12.4V6.6C6.7 6.2 5 6 3.5 6.1L3.2 3.6Z"),
+  line("M9.65 15.4H9.66"),
+  line("M9.65 18.6H9.66"),
 );
 
