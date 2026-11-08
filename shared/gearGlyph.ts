@@ -136,9 +136,10 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\bbreakfast bar\b/, "food"],
   [/\bbear hang kit\b/, "cord"],
   [/\b(bear canister|bear can|bear can key)\b/, "container"],
-  [/\b(bug net|head net|bug shelter|mosquito net)\b/, "bug"],
+  // a HEAD net is worn, so it's neckwear below (and Clothing), not a shelter's bug net
+  [/\b(bug net|bug shelter|mosquito net)\b/, "bug"],
   [/\b(emergency blanket|space blanket)\b/, "firstAid"],
-  [/\b(neck gaiter|buff|bandana|balaclava|scarf|headband)\b/, "neck"],
+  [/\b(neck gaiter|buff|bandana|balaclava|scarf|headband|head ?net)\b/, "neck"],
 
   // shelter and sleep
   [/\b(tent|inner tent|vestibule|tarp|bivy|groundsheet|ground sheet|footprint|tent floor|tent poles?)\b/, "tent"],
