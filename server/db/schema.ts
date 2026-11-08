@@ -349,6 +349,10 @@ export const vaultItems = pgTable(
     // drawn from the gear type. Only you write it (no list carries one), so no pin.
     icon: text("icon"),
     weightMg: bigint("weight_mg", { mode: "number" }).notNull().default(0),
+    // The unit this piece's weight READS in on /gear (g|kg|oz|lb), a list row's
+    // entryUnit for your own gear. Display only: weight_mg stays the one stored figure,
+    // so totals and sorting never see it. Null = the page's unit.
+    entryUnit: text("entry_unit"),
     classification: text("classification"), // base|worn|consumable (null = unset)
     // Food energy per unit, whole kcal — the calorie twin of weight_mg, so the
     // trail food you pack every trip comes back with its calories. Null = unknown.

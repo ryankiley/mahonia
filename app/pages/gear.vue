@@ -6,7 +6,7 @@ import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { formatPrice, sumPrices } from "~~/shared/money";
-import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
+import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import {
   filterVaultRows,
   groupVaultRows,
@@ -365,7 +365,8 @@ async function commitAdd(folderId: number | null) {
   try {
     const res = await vaultFetch<{ ok: boolean; reason?: string }>("/api/vault/items", {
       method: "POST",
-      body: { op: { t: "add", name, weightMg, folderId } },
+      // a weight typed with its unit ("3.8 oz") reads back in that unit on the row
+      body: { op: { t: "add", name, weightMg, folderId, entryUnit: entryUnitFromInput(raw) ?? undefined } },
     });
     if (!res.ok) {
       // The refusals are worth naming: "you already have that" tells you to search
@@ -408,6 +409,25 @@ const editorEverOpened = useLatch(() => editing.value);
 function openEdit(entry: VaultEntry, focus: "icon" | null = null) {
   editFocus.value = focus;
   editing.value = entry;
+}
+// A piece's own unit, picked on its row the way a list row's is: shown at once, then
+// saved. The server's answer replaces the row; a save that fails puts the old unit back.
+async function setEntryUnit(entry: VaultEntry, u: Unit) {
+  const at = items.value.findIndex((i) => i.id === entry.id);
+  if (at < 0 || items.value[at]!.entryUnit === u) return;
+  const before = items.value[at]!;
+  items.value[at] = { ...before, entryUnit: u };
+  const put = (row: VaultEntry) => {
+    const i = items.value.findIndex((x) => x.id === row.id);
+    if (i >= 0) items.value[i] = row;
+  };
+  const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", {
+    method: "POST",
+    body: { op: { t: "edit", id: entry.id, patch: { entryUnit: u } } },
+  }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry });
+  if (res.ok && res.item) return put(res.item);
+  put(before);
+  loadError.value = "Couldn’t save that unit. Check your connection and try again.";
 }
 // Patch the one row in place rather than re-reading the vault: the endpoint returns
 // the row as it now stands, and a full reload would re-sort the page under a dialog
@@ -733,6 +753,7 @@ async function exportGear(kind: string) {
                 @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
                 @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                 @remove="remove(entry)"
+                @unit="(u: Unit) => setEntryUnit(entry, u)"
               />
             </ul>
 
@@ -828,6 +849,7 @@ async function exportGear(kind: string) {
                         @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
                         @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                         @remove="remove(entry)"
+                @unit="(u: Unit) => setEntryUnit(entry, u)"
                         @overlay-toggle="(o: boolean) => onOverlayToggle(sectionKey(section), o)"
                       />
                     </ul>

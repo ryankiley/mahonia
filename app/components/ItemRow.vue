@@ -483,6 +483,8 @@ function onNameCommit(p: NameCommit) {
     if (p.weightMg != null && p.weightMg > 0) {
       patch.unitWeightMg = p.weightMg;
       patch.weightOverridden = true;
+      // and in the unit you chose for it on /gear, when you chose one
+      if (p.entryUnit) patch.entryUnit = p.entryUnit;
     }
     // catalogWeightMgAtLink is deliberately NOT set: it's the baseline for the
     // "the catalog's weight changed" nudge, and your own weight is not that

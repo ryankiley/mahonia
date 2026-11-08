@@ -5,7 +5,7 @@ import type { Classification, Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
 import { formatPrice, parsePriceInput } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
-import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
+import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { GEAR_ICON_CHOICES, gearIcon, gearIconLabel } from "~/utils/gearIcons";
@@ -74,6 +74,8 @@ function pickIcon(glyph: GearGlyph | null) {
   // back to the box that opened it, rather than dropping a keyboard user on the page
   nextTick(() => iconBtn.value?.focus());
 }
+// the unit this piece's weight reads in: its own, else the page's (the row's rowUnit)
+const rowUnit = computed<Unit>(() => props.entry?.entryUnit ?? props.unit);
 const saving = ref(false);
 const error = ref("");
 const nameEl = useTemplateRef<HTMLInputElement>("nameEl");
@@ -136,7 +138,7 @@ watch(
     // UNIT stays in the string (CatalogCorrectionModal prefills the same way), so a
     // field showing "1.2" can't be misread when the page is in kg — and
     // parseWeightInput reads the suffix straight back.
-    weight.value = e.weightMg ? formatWeight(e.weightMg, props.unit, { raw: true }) : "";
+    weight.value = e.weightMg ? formatWeight(e.weightMg, e.entryUnit ?? props.unit, { raw: true }) : "";
     // absent means "never stated", which for a vault row IS base: capture drops the
     // field when the list row was inheriting its folder's default
     classification.value = e.classification ?? "base";
@@ -236,12 +238,15 @@ async function onSubmit() {
     const raw = weight.value.trim();
     // Blank clears to 0 — gear you own but haven't weighed is a legitimate state
     // here, unlike an automatic capture, which waits (see isVaultWorthy).
-    const parsed = raw ? parseWeightInput(raw, props.unit) : 0;
+    const parsed = raw ? parseWeightInput(raw, rowUnit.value) : 0;
     if (parsed == null || parsed < 0) {
       error.value = "That weight doesn’t read as a number. Try “540 g” or “1.2 kg”.";
       return;
     }
     patch.weightMg = parsed;
+    // a weight typed WITH its unit ("3.8 oz") reads back in that unit, as on a list row
+    const named = entryUnitFromInput(raw);
+    if (named) patch.entryUnit = named;
   }
 
   // Nothing changed: closing is the honest answer. Sending an empty patch would be a
@@ -351,7 +356,7 @@ async function onSubmit() {
           <input
             v-model="weight"
             class="field"
-            :placeholder="`0 ${unit}`"
+            :placeholder="`0 ${rowUnit}`"
             inputmode="decimal"
             autocomplete="off"
             autocorrect="off"
@@ -391,7 +396,9 @@ async function onSubmit() {
           <span class="t-sm t-muted">Price</span>
           <!-- inputmode text, not decimal: a currency symbol is part of what this
                field reads, and a numeric keypad can't type one -->
-          <input v-model="price" class="field" placeholder="399" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+          <!-- "0", like the weight and kcal beside it: an example figure ("399") read as
+               a real price on a protein bar -->
+          <input v-model="price" class="field" placeholder="0" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
         </label>
         <label class="dlg__field">
           <span class="t-sm t-muted">

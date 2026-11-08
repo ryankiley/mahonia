@@ -449,6 +449,7 @@ function selectVault(v: VaultEntry) {
     priceCents: v.priceCents,
     currency: v.currency,
     productUrl: v.productUrl,
+    entryUnit: v.entryUnit,
     fromVault: true,
   });
   // the same "Brand Model" as selectResult, for the same reason

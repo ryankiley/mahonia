@@ -3,7 +3,7 @@
 // cascade (tier→verified→usage→similarity→id; see shared/catalogSearch.ts).
 
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
-import type { Classification } from "~~/shared/types";
+import type { Classification, Unit } from "~~/shared/types";
 import type { useCatalogCache } from "./useCatalogCache";
 
 // Exactly what /api/catalog/search returns — the shared type IS the contract, so a
@@ -34,6 +34,9 @@ export interface NameCommit {
   // food energy per unit, when the vault remembers it — same journey as the price:
   // recorded once, carried back into every later list
   kcal?: number;
+  // the unit the piece reads in on /gear, when one was picked there: a vault pick's row
+  // reads back in it, as it would had the weight been typed "3.8 oz"
+  entryUnit?: Unit;
   // Came from the holder's vault rather than the catalog. The fields look the same,
   // but their AUTHORITY differs: a vault row's weight and name are the holder's own,
   // so the handler marks them overridden instead of letting the catalog's

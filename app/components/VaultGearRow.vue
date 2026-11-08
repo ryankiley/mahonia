@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { DashedLine02Icon, Delete02Icon, Edit02Icon, FolderIcon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, DashedLine02Icon, Delete02Icon, Edit02Icon, FolderIcon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { formatPrice } from "~~/shared/money";
@@ -32,11 +33,17 @@ const emit = defineEmits<{
   remove: [];
   move: [folderId: number | null];
   restore: [];
+  /** a unit picked for this piece's weight (the list row's unit picker, on /gear) */
+  unit: [unit: Unit];
   /** the move menu opened or closed — the folder body lifts its clip while one is open */
   "overlay-toggle": [open: boolean];
 }>();
 
 const displayName = computed(() => itemDisplayName(props.entry.brand, props.entry.name, props.entry.variant));
+// The unit THIS piece reads in: the one picked for it, else the page's. A list row's
+// rowUnit, for the same reason: you buy gear labelled in whatever the maker chose, so a
+// metric closet can hold a 3.8 oz stake set and still total in grams.
+const rowUnit = computed<Unit>(() => props.entry.entryUnit ?? props.unit);
 // What KIND of gear this is, as an icon: read off the gear type, or the name when the
 // row has no type (shared/gearGlyph.ts). Null leaves the column empty rather than
 // guessing — a wrong icon is worse than none.
@@ -111,7 +118,36 @@ const meta = computed(() => {
         {{ entry.description }}
       </p>
     </div>
-    <span class="t-num vault__weight">{{ formatWeight(entry.weightMg, unit) }}</span>
+    <!-- The weight in this piece's own unit, and on a live row the unit is a picker:
+         the list row's own (ItemRow), unit text and a quiet chevron, so one gesture
+         means one thing across the two surfaces. -->
+    <span class="t-num vault__weight">
+      <template v-if="removed">{{ formatWeight(entry.weightMg, rowUnit) }}</template>
+      <template v-else>
+        <span>{{ formatWeight(entry.weightMg, rowUnit, { withUnit: false }) }}</span>
+        <OptionMenu
+          class="vault__unitwrap"
+          :options="WEIGHT_UNIT_OPTIONS"
+          :current="rowUnit"
+          :label="`Weight unit for ${displayName}`"
+          :title="`Unit for ${displayName}`"
+          @overlay-toggle="(o) => emit('overlay-toggle', o)"
+          @pick="(u) => emit('unit', u as Unit)"
+        >
+          <template #trigger="{ open }">
+            <span class="t-sm t-muted">{{ rowUnit }}</span>
+            <HugeiconsIcon
+              :icon="ChevronDownIcon"
+              class="chev vault__unitchev"
+              :class="{ 'is-open': open }"
+              :size="12"
+              :stroke-width="2"
+              aria-hidden="true"
+            />
+          </template>
+        </OptionMenu>
+      </template>
+    </span>
     <template v-if="!removed">
       <!-- the editor's own marks, in a fixed column whether or not the row carries
            one — an auto column would size to the count and steal a different amount
@@ -257,6 +293,28 @@ const meta = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* the unit picker beside the figure: content-sized, centred on its own text like the
+   list row's .item__unitwrap, and as quiet at rest — a chevron on every row */
+.vault__unitwrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.25ch;
+}
+@media (pointer: coarse) {
+  .vault__unitwrap :deep(.optmenu__btn) {
+    min-height: var(--tap);
+    margin-block: var(--tap-pull);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .vault__row:hover .vault__unitchev {
+    color: var(--ink-2);
+  }
+}
+.vault__unitwrap:focus-within .vault__unitchev {
+  color: var(--ink-2);
 }
 .vault__weight {
   flex: none;
