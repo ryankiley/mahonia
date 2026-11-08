@@ -67,13 +67,14 @@ export function isGearGlyph(v: unknown): v is GearGlyph {
  *
  * Fine enough to find a thing by: the first cut lumped shoes into Clothing and the
  * water filter into one long "Food, water & kitchen", and Ryan read the kinds as too
- * coarse ("seeing footwear with clothing"). Twelve, the sections a hiker's own list
- * tends to have.
+ * coarse ("seeing footwear with clothing"), and a pack is not a stuff sack ("i don't
+ * like packs and storage as one"). The sections a hiker's own list tends to have.
  */
 export const GEAR_FAMILIES = [
   { key: "shelter", label: "Shelter", glyphs: ["tent", "bug", "cord", "poles"] },
   { key: "sleep", label: "Sleep", glyphs: ["sleep", "pad"] },
-  { key: "carrying", label: "Packs & storage", glyphs: ["backpack", "bag", "container", "wallet"] },
+  { key: "packs", label: "Packs", glyphs: ["backpack"] },
+  { key: "storage", label: "Storage", glyphs: ["bag", "container", "wallet"] },
   { key: "clothing", label: "Clothing", glyphs: ["jacket", "shirt", "pants", "underwear", "socks", "hat", "neck", "glove", "glasses"] },
   { key: "footwear", label: "Footwear", glyphs: ["shoe", "boot"] },
   { key: "water", label: "Water", glyphs: ["bottle", "hydration", "filter"] },
