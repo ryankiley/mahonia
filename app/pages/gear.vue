@@ -570,22 +570,23 @@ async function exportGear(kind: string) {
          looser gaps ran "Create a list" onto two lines at 375px once the ⋯ arrived,
          and the account control changed between a word and a glyph with the session. -->
     <SiteTopbar compact label="My Gear">
-      <NuxtLink to="/e" class="btn btn--link">Create a list</NuxtLink>
-      <!-- The bar's end-cap, where every ⋯ on the site sits — after the page's own
-           action and the account control (see SiteTopbar's #end). It holds the
-           export, which is an action on the whole page rather than a way of looking
-           at it, so it doesn't belong beside View and Show.
-           Present for anyone signed in, because Import works on an empty vault —
-           restoring a backup onto a new machine is the case with nothing to export
-           and the most reason to be here. The DOWNLOAD rows are the ones gated on
-           having gear (canExport): a control worth no action is absent, not inert.
+      <!-- The bar's end-cap, where every ⋯ on the site sits — after the account
+           control (see SiteTopbar's #end). It leads with "Create a list", which used to
+           be a word in the bar and crowded it, then holds the import and export, which
+           are actions on the whole page rather than ways of looking at it, so they don't
+           belong beside View and Show.
+           Present for everyone: signed out it is only the way to a new list. Import
+           needs an account, and works on an empty vault (restoring a backup onto a new
+           machine is the case with nothing to export); the DOWNLOAD rows are the ones
+           gated on having gear (canExport): a control worth no action is absent, not
+           inert.
            ClientOnly for the reason the page body is: the server has no session, and
            a signed-in browser hydrates with one, so a v-if on it mismatches. -->
       <template #end>
         <ClientOnly>
           <VaultMenu
-            v-if="hasVault"
-            :can-export="items.length > 0"
+            :signed-in="hasVault"
+            :can-export="hasVault && items.length > 0"
             @open="warmExport"
             @pick="onMenuPick"
           />
