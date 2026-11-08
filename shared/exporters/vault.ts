@@ -34,7 +34,7 @@ export interface VaultExport {
 // Used — are APPENDED rather than woven in, matching the list exporter's rule:
 // tooling that reads a column by position must not have it move under them.
 const HEADER =
-  "Folder,Item Name,Gear Type,Brand,Weight,Unit,Worn,Consumable,Price,URL,Note,Kcal,Currency,Times Used,Last Used";
+  "Folder,Item Name,Gear Type,Brand,Weight,Unit,Worn,Consumable,Price,URL,Note,Kcal,Currency,Times Used,Last Used,Qty";
 
 /**
  * The gear as a spreadsheet, in the order the page shows it.
@@ -43,9 +43,9 @@ const HEADER =
  * lands in the order the page shows and the two can't drift. Empty folders are
  * dropped: a heading with nothing under it is a fact about the page, not the gear.
  *
- * Every row exports in ONE unit, unlike a list's CSV: a vault row has no entryUnit
- * (a weight there is a fact about the gear, not about how one list types it), so
- * the unit is the page's and the column says so on every line.
+ * Every row exports in ONE unit, unlike a list's CSV: a piece's own unit (entryUnit)
+ * is how it READS on /gear, and a spreadsheet adds a column up, so the file keeps the
+ * page's unit throughout and the column says so on every line.
  */
 export function vaultToCsv({ items, folders }: VaultExport, unit: Unit): string {
   const out = [HEADER];
@@ -78,6 +78,10 @@ export function vaultToCsv({ items, folders }: VaultExport, unit: Unit): string 
           // the day, not the instant — this column answers "when did I last pack
           // this", and a spreadsheet reads a date where an ISO timestamp is text
           (e.lastUsedAt || "").slice(0, 10),
+          // how many you own, under the list importer's own column name so the file
+          // reads back (vaultImportFromCsv); last, so nothing that reads columns by
+          // position sees its old ones move
+          e.owned ?? 1,
         ].join(","),
       );
     }

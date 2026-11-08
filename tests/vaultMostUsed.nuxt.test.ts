@@ -43,12 +43,11 @@ describe("the Most used shelf", () => {
     expect(w.findAll(".mu__meta").map((m) => m.text())).toEqual(["Socks", "Nitecore", "Sun hoodie"]);
   });
 
-  it("opens the piece from its tile, and the Most used view from See all", async () => {
+  it("opens the piece from its tile", async () => {
     const items = [entry(1, "A", 9), entry(2, "B", 8), entry(3, "C", 7)];
     const w = shelf(items);
     await w.findAll(".mu__tile")[1]!.trigger("click");
     expect(w.emitted("open")?.[0]?.[0]).toMatchObject({ id: 2 });
-    await w.get(".mu__head button").trigger("click");
-    expect(w.emitted("all")).toHaveLength(1);
+    expect(w.find(".mu button:not(.mu__tile)").exists()).toBe(false);
   });
 });

@@ -8,13 +8,15 @@ import { formatWeight } from "~~/shared/weights";
 // The top of My Gear: the handful of pieces you pack most, as tiles with a big icon,
 // so the page opens on the gear you actually carry rather than on a search box and a
 // hundred rows. Ranked by timesSeen, the count of lists that reached for a piece (the
-// same signal the Most used view sorts by), and "See all" is that view.
+// same signal the Most used view sorts by). No "See all": the order picker under the
+// shelf is that view, one control away, and a link that only flipped it read as
+// doing nothing whenever it was already the order.
 //
 // Gone until there is a history to rank: a closet whose every piece has been seen once
 // (a fresh import, a new account) has no "most", and a shelf of six arbitrary rows
 // would claim one.
 const props = defineProps<{ items: VaultEntry[]; unit: Unit }>();
-const emit = defineEmits<{ open: [entry: VaultEntry]; all: [] }>();
+const emit = defineEmits<{ open: [entry: VaultEntry] }>();
 
 /** One row of tiles on a laptop: a shelf, not a second list. */
 const SHELF = 6;
@@ -33,10 +35,7 @@ const top = computed(() => {
 
 <template>
   <section v-if="top.length" class="mu" aria-labelledby="mu-head">
-    <div class="mu__head">
-      <h2 id="mu-head" class="t-sm t-muted mu__title">Most used</h2>
-      <button type="button" class="btn btn--link t-sm" @click="emit('all')">See all</button>
-    </div>
+    <h2 id="mu-head" class="t-sm t-muted mu__title">Most used</h2>
     <ul class="mu__list">
       <li v-for="{ entry, icon } in top" :key="entry.id" class="mu__item">
         <button
@@ -67,14 +66,8 @@ const top = computed(() => {
 .mu {
   margin-bottom: var(--space-5);
 }
-.mu__head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  margin-bottom: var(--space-2);
-}
 .mu__title {
-  margin: 0;
+  margin: 0 0 var(--space-2);
   font-weight: inherit;
 }
 /* Flat tiles separated by their gutters, not outlines: surfaces here are told apart

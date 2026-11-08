@@ -21,8 +21,8 @@ import {
   GripVerticalIcon, HashIcon, HelpCircleIcon, RemoveCircleIcon,
   Key01Icon, KeyboardIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, Location01Icon,
   NodeAddIcon, NoteAddIcon, RacingFlagIcon, Refresh01Icon, Route02Icon, RouteIcon,
-  SafeBoxIcon, Share08Icon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon,
-  SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, ThirdBracketIcon, Txt01Icon,
+  SafeBoxIcon, Share08Icon, ShirtIcon, ListOrderedAzIcon, SortingNineOneIcon,
+  SortingOneNineIcon, SquareIcon, Stairs01Icon, StarIcon, TentIcon, ThirdBracketIcon, Txt01Icon,
   Undo02Icon, UserLock01Icon,
   // My Gear's gear-type icons (app/utils/gearIcons.ts)
   ChocolateIcon, CookingPotIcon,
@@ -49,8 +49,8 @@ const ALL_ICONS = Object.entries({
   GripVerticalIcon, HashIcon, HelpCircleIcon, RemoveCircleIcon,
   Key01Icon, KeyboardIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, Location01Icon,
   NodeAddIcon, NoteAddIcon, RacingFlagIcon, Refresh01Icon, Route02Icon, RouteIcon,
-  SafeBoxIcon, Share08Icon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon,
-  SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, ThirdBracketIcon, Txt01Icon,
+  SafeBoxIcon, Share08Icon, ShirtIcon, ListOrderedAzIcon, SortingNineOneIcon,
+  SortingOneNineIcon, SquareIcon, Stairs01Icon, StarIcon, TentIcon, ThirdBracketIcon, Txt01Icon,
   Undo02Icon, UserLock01Icon,
   // My Gear's gear-type icons (app/utils/gearIcons.ts)
   ChocolateIcon, CookingPotIcon,

@@ -43,6 +43,13 @@ describe("vaultImportFromJson — our own backup, back", () => {
     expect(tent.productUrl).toBe("https://example.com/tent");
   });
 
+  it("carries what only /gear writes: how many you own, a picked icon, the weight's unit", () => {
+    const back = vaultImportFromJson(
+      vaultToJson({ items: [row({ name: "NOBO Bottle", owned: 3, icon: "bottle", entryUnit: "oz" })], folders: [] }),
+    )!;
+    expect(back.rows[0]).toMatchObject({ owned: 3, icon: "bottle", entryUnit: "oz" });
+  });
+
   it("resolves a folder id back to its NAME", () => {
     // ids belong to the vault that issued them; a name is the only currency the
     // server's find-or-create speaks
@@ -108,6 +115,13 @@ describe("vaultImportFromCsv — any spreadsheet, as gear", () => {
     expect(back.rows[0]!.folder).toBe("Shelter");
     expect(back.rows[0]!.weightMg).toBe(539_000);
     expect(back.rows[1]!.kcal).toBe(250);
+  });
+
+  it("reads the count you own back from the Qty column the CSV writes", () => {
+    const csv = vaultToCsv({ items: [row({ name: "NOBO Bottle", owned: 3 }), row({ name: "Duplex" })], folders: [] }, "g");
+    const back = vaultImportFromCsv(csv);
+    expect(back.rows.find((r) => r.name === "NOBO Bottle")!.owned).toBe(3);
+    expect(back.rows.find((r) => r.name === "Duplex")!.owned).toBeUndefined();
   });
 
   it("keeps gear you own but haven't weighed", () => {
