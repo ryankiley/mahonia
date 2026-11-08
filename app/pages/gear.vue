@@ -1153,12 +1153,11 @@ async function exportGear(kind: string) {
     color: var(--ink);
   }
 }
-/* Tabular figures for the whole line: the count re-renders on every search keystroke
-   ("12 of 340", "9 of 340"), and proportional digits made the total and the price
-   after it shuffle sideways each time a 1 replaced an 8. */
+/* Proportional figures, the text's own: tabular ones kept the total from shuffling
+   sideways as a search's "12 of 340" changed, but set every digit monospace-wide on a
+   line read far more often at rest than mid-search, and went in review. */
 .vault__count {
   margin-bottom: var(--space-2);
-  font-variant-numeric: tabular-nums;
 }
 
 /* --- the rows --- */

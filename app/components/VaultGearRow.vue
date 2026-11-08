@@ -103,11 +103,6 @@ const meta = computed(() => {
         <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
         <span>{{ entry.name }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
-        <!-- how many you own, when it's more than one: three of the same bottle is one
-             piece wearing ×3, not three rows -->
-        <span v-if="entry.owned" class="vault__owned" :title="`You own ${entry.owned}`">
-          <span aria-hidden="true">×{{ entry.owned }}</span><span class="visually-hidden">, {{ entry.owned }} owned</span>
-        </span>
       </p>
       <!-- the sub-line: the gear type, then what it cost, with the calories trailing
            for food. kcal is stored on every row that ever had one, but only counted
@@ -127,6 +122,12 @@ const meta = computed(() => {
          the list row's own (ItemRow), unit text and a quiet chevron, so one gesture
          means one thing across the two surfaces. -->
     <span class="t-num vault__weight">
+      <!-- how many you own, when it's more than one, beside the weight it multiplies:
+           three of the same bottle is one piece wearing ×3, not three rows. Before the
+           figure, so the weights still line up down a right-aligned column. -->
+      <span v-if="entry.owned" class="vault__owned" :title="`You own ${entry.owned}`">
+        <span aria-hidden="true">×{{ entry.owned }}</span><span class="visually-hidden">{{ entry.owned }} owned, </span>
+      </span>
       <template v-if="removed">{{ formatWeight(entry.weightMg, rowUnit) }}</template>
       <template v-else>
         <span>{{ formatWeight(entry.weightMg, rowUnit, { withUnit: false }) }}</span>
@@ -299,12 +300,11 @@ const meta = computed(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-/* the count after the name: quiet, like the variant before it, and in figures that
-   line up */
+/* the count before the weight: quieter than the figure it multiplies, with a gap that
+   keeps "×2" from reading as part of the number */
 .vault__owned {
-  margin-left: 0.4ch;
+  margin-right: 0.75ch;
   color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
 }
 /* the unit picker beside the figure: content-sized, centred on its own text like the
    list row's .item__unitwrap, and as quiet at rest — a chevron on every row */
@@ -447,6 +447,16 @@ const meta = computed(() => {
     /* the second line starts under the name, not under the icon: the icon column
        holds the first line alone, as it does on a wide screen */
     margin-inline-start: var(--gear-type-indent);
+    /* a flex line, so the count can trade sides (below) */
+    display: inline-flex;
+    align-items: baseline;
+  }
+  /* Here the weights are LEFT-aligned, so a count in front would push this row's figure
+     out of line with every other; it follows the weight instead ("65 g ×2"). */
+  .vault__owned {
+    order: 1;
+    margin-right: 0;
+    margin-left: 0.75ch;
   }
   .vault__actions {
     margin-left: auto;
