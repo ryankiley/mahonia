@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-07",
+  "added": [
+    "Brand and gear type on My Gear's edit dialog suggest as you type, your own first."
+  ],
+  "changed": [
+    "My Gear's edit dialog labels the model Product, and its empty fields say Add a brand and Add a size."
+  ]
+}

@@ -441,6 +441,16 @@ const editing = ref<VaultEntry | null>(null);
 // showing, since picking one is why you came
 const editFocus = ref<"icon" | null>(null);
 const editorEverOpened = useLatch(() => editing.value);
+// The brands and gear types your gear already uses, most used first: the dialog suggests
+// them ahead of the catalog's under Brand and Gear type.
+const knownVocab = computed(() => {
+  const rank = (values: (string | undefined)[]) => {
+    const n = new Map<string, number>();
+    for (const v of values) if (v?.trim()) n.set(v.trim(), (n.get(v.trim()) ?? 0) + 1);
+    return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).map(([v]) => v);
+  };
+  return { brands: rank(items.value.map((i) => i.brand)), types: rank(items.value.map((i) => i.commonName)) };
+});
 function openEdit(entry: VaultEntry, focus: "icon" | null = null) {
   editFocus.value = focus;
   editing.value = entry;
@@ -1023,6 +1033,7 @@ async function exportGear(kind: string) {
       :focus="editFocus"
       :unit="unit"
       :default-currency="vaultCurrency"
+      :known="knownVocab"
       @close="editing = null"
       @saved="onItemSaved"
     />

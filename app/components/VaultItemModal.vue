@@ -32,7 +32,31 @@ const props = defineProps<{
   defaultCurrency?: string;
   /** "icon" opens the dialog with its icon grid showing (the row's icon was pressed). */
   focus?: "icon" | null;
+  /** The brands and gear types already in your gear, most used first: suggested ahead
+   *  of the catalog's, since what you already call things is the likelier answer. */
+  known?: { brands: string[]; types: string[] };
 }>();
+
+// Suggestions under Brand and Gear type: yours first, then the catalog's, loaded on the
+// field's first focus so a dialog opened to fix a weight never fetches them.
+const catalogBrands = useCatalogVocab("/api/catalog/brands");
+const catalogTypes = useCatalogVocab("/api/catalog/types");
+const vocabId = useId();
+/** Yours, then theirs, each label once however it's capitalised. */
+function mergeVocab(mine: string[] = [], theirs: string[] | null): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const v of [...mine, ...(theirs ?? [])]) {
+    const label = v.trim();
+    const key = label.toLowerCase();
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    out.push(label);
+  }
+  return out;
+}
+const brandOptions = computed(() => mergeVocab(props.known?.brands, catalogBrands.names.value));
+const typeOptions = computed(() => mergeVocab(props.known?.types, catalogTypes.names.value));
 const emit = defineEmits<{ close: []; saved: [VaultEntry] }>();
 
 const { vaultFetch } = useVaultAccess();
@@ -270,26 +294,40 @@ async function onSubmit() {
     <template v-if="entry">
       <h2 class="t-label">Edit gear</h2>
       <p class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
-      <!-- The one thing a dialog has room to say that a row doesn't: what you change here
-           is pinned (vaultRepo), so no list can write over it. One line; it shows on every
-           open, and it was two. -->
-      <p class="t-sm t-muted dlg__lede">A list won’t overwrite what you change here.</p>
+      <!-- No explainer under the title. What you change here is pinned (vaultRepo), so no
+           list writes over it, and that is what anyone expects of an edit; a line saying
+           so took a row on every open, and went in review. -->
 
       <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Brand</span>
-          <input v-model="brand" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+          <!-- "Add a …" like the note's placeholder: these fields have no border, so an
+               empty one was blank space under its label. Not an example ("Patagonia"),
+               which reads as data the way "399" did as a price. -->
+          <input
+            v-model="brand"
+            class="field"
+            placeholder="Add a brand"
+            :list="`${vocabId}-brands`"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            @focus="catalogBrands.load()"
+            @keydown.enter="onSubmit"
+          />
         </label>
         <label class="dlg__field">
           <!-- the same words as the editor row's field for this value (ItemRow):
                "variant" is the catalog's word, not a person's -->
           <span class="t-sm t-muted">Size or version</span>
-          <input v-model="variant" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+          <input v-model="variant" class="field" placeholder="Add a size" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
         </label>
       </div>
 
       <label class="dlg__field">
-        <span class="t-sm t-muted">Name</span>
+        <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
+             is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
+        <span class="t-sm t-muted">Product</span>
         <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
@@ -302,7 +340,14 @@ async function onSubmit() {
              way in both places -->
         <label class="dlg__field">
           <span class="t-sm t-muted">Gear type</span>
-          <input v-model="commonName" class="field" placeholder="Type of gear" @keydown.enter="onSubmit" />
+          <input
+            v-model="commonName"
+            class="field"
+            placeholder="Type of gear"
+            :list="`${vocabId}-types`"
+            @focus="catalogTypes.load()"
+            @keydown.enter="onSubmit"
+          />
         </label>
         <div class="dlg__field">
           <span class="t-sm t-muted">Icon</span>
@@ -415,6 +460,15 @@ async function onSubmit() {
       </label>
 
       <p v-if="error" class="t-sm vitem__err">{{ error }}</p>
+
+      <!-- the two suggestion lists, yours first: native datalists, the editor's own
+           gear-type mechanism (GearEditor's #gear-types) -->
+      <datalist :id="`${vocabId}-brands`">
+        <option v-for="b in brandOptions" :key="b" :value="b" />
+      </datalist>
+      <datalist :id="`${vocabId}-types`">
+        <option v-for="t in typeOptions" :key="t" :value="t" />
+      </datalist>
 
       <div class="dlg__actions">
         <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
