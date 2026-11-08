@@ -132,7 +132,16 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(hip belt|hip belt pocket|shoulder straps?|shoulder pads|back pad|lumbar pad|sternum strap|mesh sleeve|ventilation frame)\b/, "backpack"],
   [/\b(fleece pants|knee pads?)\b/, "pants"],
   [/\bpee funnel\b/, "toilet"],
-  [/\b(coffee filter|coffee straw)\b/, "cup"],
+  // the gear you make a drink WITH is the kitchen; the drink itself (below) is food
+  [/\b(coffee filter|coffee straw|coffee maker|french press|coffee press|pour over|tea kettle)\b/, "cup"],
+  // Ryan's leans on the audit's judgment calls (2026-11-08): what you drink is food, as
+  // his own lists file it; a sit pad goes beside the chair; traction goes with the ice
+  // axe; a hammock is a shelter; a toiletry bag goes with what it holds
+  [/\b(electrolytes?|electrolyte mix|drink mix|hydration mix|sports drink|instant coffee|coffee|tea|cocoa|hot chocolate)\b/, "food"],
+  [/\b(sit pads?|seat pads?|z seat)\b/, "chair"],
+  [/\b(microspikes|crampons|snowshoes?|snow shoes?|traction devices?|ice cleats|yaktrax)\b/, "iceAxe"],
+  [/\b(hammocks?|hammock straps|hammock suspension)\b/, "tent"],
+  [/\b(toiletry bags?|toiletry case|toiletry kit|wash bag|dopp kit)\b/, "toiletry"],
   [/\bbreakfast bar\b/, "food"],
   [/\b(bear canister|bear can|bear can key|bear hang kit)\b/, "container"],
   // a HEAD net is worn, so it's neckwear below (and Clothing), not a shelter's bug net
@@ -161,7 +170,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(guy ?lines?|cord|paracord|cord reel|bungee cord|line tensioner|ridgeline|rigging kit|rope)\b/, "cord"],
   [/\b(trekking poles?|hiking staff|poles?|pole holder)\b/, "poles"],
   // what you sleep in and what helps you sleep: one Zzz, bag and pillow alike
-  [/\b(sleeping bag|sleeping bag liner|quilt|blanket|sheet|hammock|pillow|pillowcase|pillow strap|earplugs|eye mask|mouth guard|night guard|underquilt)\b/, "sleep"],
+  [/\b(sleeping bag|sleeping bag liner|quilt|blanket|sheet|pillow|pillowcase|pillow strap|earplugs|eye mask|mouth guard|night guard|underquilt)\b/, "sleep"],
   [/\b(sleeping pad|foam pad|sit pad|vestibule mat|pad)\b/, "pad"],
 
   // clothing
@@ -170,21 +179,21 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(pants|leggings|tights|joggers|chaps|trousers|base layer bottoms|shorts|skirt|belt)\b/, "pants"],
   [/\b(shirt|tee|t-shirt|tank top|top|base layer top|base ?layer|mid ?layer|long sleeve|sun shirt|arm sleeves|sports bra|bra|dress)\b/, "shirt"],
   [/\b(socks?|sock liners|booties)\b/, "socks"],
-  [/\b(hiking boots?|mountaineering boots?|boots?|gaiters?|microspikes|crampons|snowshoes|laces)\b/, "boot"],
+  [/\b(hiking boots?|mountaineering boots?|boots?|gaiters?|laces)\b/, "boot"],
   [/\b(trail runners?|running shoes?|shoes?|sandals?|insoles?)\b/, "shoe"],
   [/\b(beanie|toque|hat|cap|brimmer)\b/, "hat"],
   [/\b(gloves?|glove liners|mitts|mittens)\b/, "glove"],
   [/\b(sunglasses|glasses|goggles)\b/, "glasses"],
 
-  // water: the filter; then a droplet for the reservoir, the parts that hang off it and
-  // what you mix into it; then the bottle
+  // water: the filter; then a droplet for the reservoir and the parts that hang off it;
+  // then the bottle (what you mix into it is food, above)
   [/\b(water filter|filter|water treatment|purifier|cleaning tablets|purification tablets|aquatabs|water hang kit)\b/, "filter"],
-  [/\b(water reservoir|reservoir|bladder|hose|tube clip|tube insulator|cleaning coupling|electrolytes?|electrolyte mix|drink mix|hydration mix|sports drink)\b/, "hydration"],
+  [/\b(water reservoir|reservoir|bladder|hose|tube clip|tube insulator|cleaning coupling)\b/, "hydration"],
   [/\b(water bottle|bottle|flask|soft flask|straw)\b/, "bottle"],
 
   // kitchen and food: the drinks and the eating before the pot, the snacks before the meals
   [/\b(stove|canister stand|pot stand|windscreen|stove base|fuel canister|gas canister|canister tool|fuel|lighter|matches|fire starter)\b/, "stove"],
-  [/\b(cup|mug|mug lid|lip guards|coffee maker|french press|instant coffee|coffee)\b/, "cup"],
+  [/\b(cup|mug|mug lid|lip guards)\b/, "cup"],
   [/\b(spork|spoon|utensils?|fork|chopsticks|spatula|tongs)\b/, "utensils"],
   [/\b(pot|cookset|frying pan|pan|kettle|pot lid|pot cozy|pot lifter|food cozy|funnel|egg holder|lid knob|handle grips|bowl|plate)\b/, "pot"],
   [/\b(bars?|waffle|chews|gummies|candy|fruit snack|snack mix|snacks?|trail mix|pretzels?|nut butter|dog food|gels?|jerky|granola)\b/, "food"],
@@ -221,7 +230,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   // a bag or a case of anything not named above: after every rule that knows what
   // the case holds, so a camera case is a camera and a pack liner a bag
   [/\bwallet\b/, "wallet"],
-  [/\b(stuff sack|compression sack|dry bag|pack liner|pouch|toiletry bag|packing cubes?|zip ?lock|food bag|odou?r[- ]proof bag|smell proof bag|freezer bag|waste bags?|bear bag|ziploc|sack|case|bag)\b/, "bag"],
+  [/\b(stuff sack|compression sack|dry bag|pack liner|pouch|packing cubes?|zip ?lock|food bag|odou?r[- ]proof bag|smell proof bag|freezer bag|waste bags?|bear bag|ziploc|sack|case|bag)\b/, "bag"],
   [/\b(backpack|daypack|fastpack|duffel|fanny pack|hip pack|chest pack|shoulder pocket|pack|straps)\b/, "backpack"],
 
   // last, a type that is only a kind's own name ("Shelter", "Toiletries"): everything
