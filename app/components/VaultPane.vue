@@ -4,6 +4,7 @@ import { ArrowUpRight01Icon, Cancel01Icon, ChevronDownIcon, FolderIcon, Layers01
 import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
+import { groupVaultByKind } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { counted } from "~~/shared/tidyText";
@@ -182,6 +183,12 @@ const filtered = computed(() => {
   if (!q) return items.value;
   return rankVaultRows(items.value, q, Number.POSITIVE_INFINITY);
 });
+// With nothing typed, the gear reads by kind — kits, then shelter, clothing and so on —
+// the way /gear groups it, so the pane and the page read alike. A search ranks across
+// all of it instead: the best match first matters more than where it lives.
+const sections = computed<{ key: string; label: string | null; entries: VaultEntry[] }[]>(() =>
+  query.value.trim() ? [{ key: "results", label: null, entries: filtered.value }] : groupVaultByKind(items.value),
+);
 // bold the characters that overlap what's been typed — the same helper, and so the
 // same emphasis, as the autocomplete's rows
 const hl = (text: string) => highlightParts(text, query.value);
@@ -501,30 +508,25 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            and the two can't disagree. The search below belongs to whichever is open,
            which is what keeps the panel self-sufficient: finding gear never reaches
            out into the editor's chrome. -->
-      <div class="vp__tabs" role="tablist" aria-label="My Gear view">
-        <button
-          v-for="t in (['items', 'kits'] as const)"
-          :key="t"
-          type="button"
-          role="tab"
-          class="vp__tab"
-          :class="{ 'is-active': tab === t }"
-          :aria-selected="tab === t"
-          @click="tab = t"
-        >
-          {{ t === "items" ? "Items" : "Kits" }}
-          <span class="vp__tabcount t-num">{{ t === "items" ? items.length : kits.length }}</span>
-        </button>
-      </div>
-
-      <div class="vp__controls">
-        <!-- the field and its own clear — SearchField, the same control /gear draws -->
-        <SearchField
-          ref="searchEl"
-          v-model="query"
-          :placeholder="tab === 'items' ? 'Search gear…' : 'Search kits…'"
-          :label="tab === 'items' ? 'Search gear' : 'Search kits'"
-        />
+      <!-- the tabs, and opposite them where a click puts what you pick: up here, the
+           folder you're adding into stays in view beside what you're picking from,
+           where under the search it read as one more row of the list -->
+      <div class="vp__bar">
+        <div class="vp__tabs" role="tablist" aria-label="My Gear view">
+          <button
+            v-for="t in (['items', 'kits'] as const)"
+            :key="t"
+            type="button"
+            role="tab"
+            class="vp__tab"
+            :class="{ 'is-active': tab === t }"
+            :aria-selected="tab === t"
+            @click="tab = t"
+          >
+            {{ t === "items" ? "Items" : "Kits" }}
+            <span class="vp__tabcount t-num">{{ t === "items" ? items.length : kits.length }}</span>
+          </button>
+        </div>
         <div v-if="folders.length" class="vp__target">
           <span class="t-sm t-muted">Add to</span>
           <!-- the last native dropdown in the app, converted with the rest: it wasn't
@@ -543,6 +545,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             </template>
           </OptionMenu>
         </div>
+      </div>
+
+      <div class="vp__controls">
+        <!-- the field and its own clear — SearchField, the same control /gear draws -->
+        <SearchField
+          ref="searchEl"
+          v-model="query"
+          :placeholder="tab === 'items' ? 'Search gear…' : 'Search kits…'"
+          :label="tab === 'items' ? 'Search gear' : 'Search kits'"
+        />
       </div>
 
       <p v-if="loadError" class="t-sm vp__error">{{ loadError }}</p>
@@ -576,7 +588,9 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       </ul>
 
       <ul v-else-if="tab === 'items' && filtered.length" ref="listEl" class="vp__list">
-        <li v-for="entry in filtered" :key="entry.id">
+        <template v-for="section in sections" :key="section.key">
+        <li v-if="section.label" class="vp__kind"><h3 class="t-sm t-muted vp__kindname">{{ section.label }}</h3></li>
+        <li v-for="entry in section.entries" :key="entry.id">
           <!-- Click adds to the "Add to" folder; press and drag puts it in whichever
                folder you let go over. See onRowPointerDown for how the two are told
                apart. Keyboard users are not stranded — the select + click IS that path. -->
@@ -622,6 +636,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
           </button>
         </li>
+        </template>
       </ul>
 
       <p v-else-if="query" class="t-sm t-muted vp__note">Nothing here matches “{{ query }}”.</p>
@@ -733,7 +748,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 /* the rows carry their own --space-2 inline padding, so the header and controls
    need the same inset to line up with them rather than hugging the card edge */
 .vp__head,
-.vp__tabs,
+.vp__bar,
 .vp__controls,
 .vp__note,
 .vp__error,
@@ -743,10 +758,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 /* Items / Categories — a segmented pair, not a link row: they switch what this panel
    IS looking at, so the active one takes a filled ground rather than an underline.
    Same quiet-grey chip the row toggles use, so "selected" reads the same everywhere. */
+.vp__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
 .vp__tabs {
+  flex: none;
   display: flex;
   gap: var(--space-1);
-  margin-bottom: var(--space-2);
   /* The tab's LABEL lands on the panel's gutter, not its chip. Everything else down
      this edge — the title, "Add to", every row name — starts at the content edge; a
      tab carries its own --space-2 of chip padding on top of the shared inset, so
@@ -845,6 +866,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  /* the far end of the tab row, and the side that gives way: a long folder name
+     ellipsizes before the tabs do */
+  margin-inline-start: auto;
+  min-width: 0;
 }
 /* "Add to" is two words and was wrapping onto two lines next to the select,
    throwing the row's baseline out */
@@ -897,6 +922,22 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   overscroll-behavior: contain; /* reaching the end must not scroll the list behind */
   scrollbar-width: thin;
   scrollbar-color: var(--line-2) transparent;
+}
+/* a kind's name over its rows, held at the top of the list while its rows scroll
+   under it, so a long kind still says what it is */
+.vp__kind {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--space-3) var(--space-2) var(--space-1);
+  background: var(--surface-float);
+}
+.vp__kind:first-child {
+  padding-top: var(--space-1);
+}
+.vp__kindname {
+  margin: 0;
+  font-weight: 500;
 }
 /* the whole row is the button — a small "+" target would be a poor tap area on the
    one surface built for adding many things quickly, and the row is also the drag

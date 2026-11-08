@@ -42,8 +42,8 @@ async function newVault(): Promise<number> {
 }
 
 /** Add a piece by hand, the way /gear's add row does; returns its id. */
-async function piece(name: string, grams: number, vaultId = vault): Promise<number> {
-  const res = await applyVaultItemOp(db, vaultId, { t: "add", name, weightMg: grams * 1000 });
+async function piece(name: string, grams: number, vaultId = vault, owned?: number): Promise<number> {
+  const res = await applyVaultItemOp(db, vaultId, { t: "add", name, weightMg: grams * 1000, owned });
   if (!res || !("item" in res)) throw new Error(`could not add ${name}`);
   return res.item.id;
 }
@@ -54,7 +54,7 @@ const byId = (rows: VaultEntry[], id: number) => rows.find((r) => r.id === id)!;
 async function cookKit() {
   const stove = await piece("PocketRocket 2", 73);
   const pot = await piece("Toaks 750", 103);
-  const lighter = await piece("Mini Bic", 11);
+  const lighter = await piece("Mini Bic", 11, vault, 2);
   const kit = await piece("Cook kit", 0);
   const ok = await setKitParts(db, vault, kit, [{ id: stove }, { id: pot }, { id: lighter, qty: 2 }], {
     ownWeightMg: 20_000,
@@ -248,6 +248,20 @@ describe("the rules a kit keeps", () => {
     expect(await setKitParts(db, other, kit, [{ id: theirs }], { ownWeightMg: 0 })).toBe(false);
   });
 
+  it("holds no more of a piece than you own: a count past it is held to it, and owning fewer brings kits down", async () => {
+    const bottle = await piece("Smartwater", 35);
+    const kit = await piece("Water kit", 0);
+    expect(await setKitParts(db, vault, kit, [{ id: bottle, qty: 3 }], { ownWeightMg: 0 })).toBe(true);
+    expect((await vaultItemById(db, vault, kit))!.parts!.map((p) => p.qty)).toEqual([1]);
+    // own three, and the kit can hold three
+    await applyVaultItemOp(db, vault, { t: "edit", id: bottle, patch: { owned: 3 } });
+    await setKitParts(db, vault, kit, [{ id: bottle, qty: 3 }], { ownWeightMg: 0 });
+    expect((await vaultItemById(db, vault, kit))!).toMatchObject({ weightMg: 105_000 });
+    // own two again, and every kit holding three holds two
+    await applyVaultItemOp(db, vault, { t: "edit", id: bottle, patch: { owned: 2 } });
+    expect((await vaultItemById(db, vault, kit))!).toMatchObject({ weightMg: 70_000, parts: [expect.objectContaining({ qty: 2 })] });
+  });
+
   it("the kit op replaces the parts, and an empty parts list makes it a piece at the total it showed", async () => {
     const k = await cookKit();
     const spoon = await piece("Spoon", 15);
@@ -338,6 +352,8 @@ describe("captureKit — the group row's own save", () => {
     const kit = rows.find((r) => r.kind === "kit")!;
     expect(kit).toMatchObject({ name: "Cook kit", ownWeightMg: 20_000, weightMg: 20_000 + 73_000 + 103_000 + 22_000 });
     expect(kit.parts!.map((p) => [p.name, p.qty])).toEqual([["PocketRocket 2", 1], ["Toaks 750", 1], ["Mini Bic", 2]]);
+    // the group carried two lighters, so you own two: a kit never holds more than that
+    expect(rows.find((r) => r.name === "Mini Bic")!.owned).toBe(2);
     // the answer names every row that landed, the kit as a kit
     const key = vaultNormKey(undefined, "Cook kit", undefined);
     expect(res.keys).toContainEqual([key, null, "kit"]);

@@ -576,7 +576,7 @@ function gearInput(mode: "add" | "update") {
             type: "object",
             properties: {
               id: { type: "integer", minimum: 1, description: "A piece of My Gear, from get_my_gear." },
-              count: { type: "integer", minimum: 1, maximum: VAULT_KIT_QTY_MAX, description: "How many of it the kit holds. Default 1." },
+              count: { type: "integer", minimum: 1, maximum: VAULT_KIT_QTY_MAX, description: "How many of it the kit holds. Default 1, and never more than the piece's owned: a higher count is held to it, so raise owned first." },
             },
             required: ["id"],
           },

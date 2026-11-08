@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, Clock01Icon, GridViewIcon, LayoutGridIcon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Clock01Icon, GridViewIcon, ShapesIcon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
+import { GEAR_FAMILIES, type GearGlyph } from "~~/shared/gearGlyph";
 import { kitWeightMg } from "~~/shared/vaultKit";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { formatPrice, sumPrices } from "~~/shared/money";
@@ -14,6 +15,7 @@ import {
   groupVaultByKind,
   searchVaultRows,
   sortVaultRows,
+  vaultFamilyOf,
   vaultShownMg,
   type VaultKindSection,
   type VaultShow,
@@ -402,9 +404,6 @@ async function sendAdd(op: Record<string, unknown>, unchanged: () => boolean) {
 // The dialog is Lazy + v-if on "has it ever opened", so its chunk never loads for
 // someone who only came to look — the LazyCatalogCorrectionModal idiom.
 const editing = ref<VaultEntry | null>(null);
-// "icon" when the row's icon was what you pressed: the dialog opens with its icon grid
-// showing, since picking one is why you came
-const editFocus = ref<"icon" | null>(null);
 const editorEverOpened = useLatch(() => editing.value);
 // The brands and gear types your gear already uses, most used first: the dialog suggests
 // them ahead of the catalog's under Brand and Gear type.
@@ -416,28 +415,47 @@ const knownVocab = computed(() => {
   };
   return { brands: rank(items.value.map((i) => i.brand)), types: rank(items.value.map((i) => i.commonName)) };
 });
-function openEdit(entry: VaultEntry, focus: "icon" | null = null) {
-  editFocus.value = focus;
+function openEdit(entry: VaultEntry) {
   editing.value = entry;
 }
-// A piece's own unit, picked on its row the way a list row's is: shown at once, then
-// saved. The server's answer replaces the row; a save that fails puts the old unit back.
-async function setEntryUnit(entry: VaultEntry, u: Unit) {
+// One field picked on a row — a piece's own unit, or its icon — the way a list row
+// takes it: shown at once, then saved. The server's answer replaces the row; a save
+// that fails puts the old value back.
+async function patchEntry(entry: VaultEntry, patch: Pick<VaultEntry, "entryUnit"> | { icon: VaultEntry["icon"] | null }, what: string) {
   const at = items.value.findIndex((i) => i.id === entry.id);
-  if (at < 0 || items.value[at]!.entryUnit === u) return;
+  if (at < 0) return;
   const before = items.value[at]!;
-  items.value[at] = { ...before, entryUnit: u };
+  items.value[at] = { ...before, ...patch, icon: "icon" in patch ? (patch.icon ?? undefined) : before.icon };
   const put = (row: VaultEntry) => {
     const i = items.value.findIndex((x) => x.id === row.id);
     if (i >= 0) items.value[i] = row;
   };
   const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", {
     method: "POST",
-    body: { op: { t: "edit", id: entry.id, patch: { entryUnit: u } } },
+    body: { op: { t: "edit", id: entry.id, patch } },
   }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry });
   if (res.ok && res.item) return put(res.item);
   put(before);
-  loadError.value = "Couldn’t save that unit. Check your connection and try again.";
+  loadError.value = `Couldn’t save that ${what}. Check your connection and try again.`;
+}
+function setEntryUnit(entry: VaultEntry, u: Unit) {
+  if (entry.entryUnit !== u) void patchEntry(entry, { entryUnit: u }, "unit");
+}
+// A new icon can move the piece to another kind, and so out from under your pointer:
+// when it does, say where it went, with the way back.
+async function setEntryIcon(entry: VaultEntry, glyph: GearGlyph | null) {
+  const was = entry.icon ?? null;
+  if (was === glyph) return;
+  const from = vaultFamilyOf(entry);
+  const to = vaultFamilyOf({ ...entry, icon: glyph ?? undefined });
+  await patchEntry(entry, { icon: glyph }, "icon");
+  if (from === to || (items.value.find((i) => i.id === entry.id)?.icon ?? null) !== glyph) return;
+  offerUndo({
+    verb: "Moved",
+    label: itemDisplayName(entry.brand, entry.name, entry.variant),
+    tail: ` to ${GEAR_FAMILIES.find((f) => f.key === to)?.label ?? "Other"}`,
+    restore: () => patchEntry({ ...entry, icon: glyph ?? undefined }, { icon: was }, "icon"),
+  });
 }
 // Patch the one row in place rather than re-reading the vault: the endpoint returns
 // the row as it now stands, and a full reload would re-sort the page under a dialog
@@ -445,8 +463,12 @@ async function setEntryUnit(entry: VaultEntry, u: Unit) {
 // exception: it changes OTHER rows too (each item's "In …"), so the page re-reads.
 function onItemSaved(item: VaultEntry) {
   const at = items.value.findIndex((i) => i.id === item.id);
+  const was = at >= 0 ? items.value[at]! : null;
   if (at >= 0) items.value[at] = item;
   editing.value = null;
+  // owning fewer than a kit held brings the kit down to it (the vault does that), so
+  // the kits it is in read again
+  if (item.inKits?.length && (item.owned ?? 1) < (was?.owned ?? 1)) void loadVault();
 }
 
 // ---- units ---------------------------------------------------------------
@@ -526,7 +548,7 @@ const { open: openAccount } = useAccountModal();
 // list with A over Z); By kind takes a grid mark because it is a LAYOUT, not a sort
 // key, and shouldn't borrow one.
 const VIEW_OPTIONS = [
-  { key: "kinds", label: "By kind", icon: LayoutGridIcon },
+  { key: "kinds", label: "By kind", icon: ShapesIcon },
   { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
   { key: "heaviest", label: "Heaviest", icon: SortingNineOneIcon },
   { key: "lightest", label: "Lightest", icon: SortingOneNineIcon },
@@ -781,9 +803,10 @@ async function exportGear(kind: string) {
                 @edit-part="editPart"
                 @kit="(parts: { id: number; qty: number }[], own: number) => setKit(entry, parts, own)"
                 @cancel-kit="kitStarting = null"
-                @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
+                @edit="openEdit(entry)"
                 @remove="remove(entry)"
                 @unit="(u: Unit) => setEntryUnit(entry, u)"
+                @icon="(g: GearGlyph | null) => setEntryIcon(entry, g)"
               />
             </ul>
 
@@ -828,9 +851,10 @@ async function exportGear(kind: string) {
                         @edit-part="editPart"
                         @kit="(parts: { id: number; qty: number }[], own: number) => setKit(entry, parts, own)"
                         @cancel-kit="kitStarting = null"
-                        @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
+                        @edit="openEdit(entry)"
                         @remove="remove(entry)"
                         @unit="(u: Unit) => setEntryUnit(entry, u)"
+                        @icon="(g: GearGlyph | null) => setEntryIcon(entry, g)"
                         @overlay-toggle="(o: boolean) => onOverlayToggle(section.key, o)"
                       />
                     </ul>
@@ -924,7 +948,6 @@ async function exportGear(kind: string) {
     <LazyVaultItemModal
       v-if="editorEverOpened"
       :entry="editing"
-      :focus="editFocus"
       :unit="unit"
       :default-currency="vaultCurrency"
       :known="knownVocab"

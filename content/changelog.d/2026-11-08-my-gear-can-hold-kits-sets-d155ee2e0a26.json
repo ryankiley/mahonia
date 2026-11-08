@@ -5,9 +5,15 @@
     "Open a kit on My Gear to change it right there: how many of each item it holds, take one out, or add one from your gear.",
     "Make any piece a kit from its edit dialog, or save a group on a list with its own Save to My Gear.",
     "A kit from My Gear goes onto a list as a group, each item a row under it, so you can leave one out for that trip.",
+    "The My Gear panel in a list has a Kits tab, and adding a kit from it can be undone.",
+    "Changing a kit on My Gear, or making it a single piece, can be undone.",
     "An assistant connected to Mahonia can make and change your kits."
   ],
   "changed": [
+    "My Gear groups your gear by kind, with kits first, instead of folders you file by hand; the My Gear panel in a list does too.",
+    "A kit holds no more of a piece than you own.",
+    "Pick a piece's icon from a popover on its row in My Gear, or from the Icon box in its edit dialog.",
+    "The My Gear panel in a list shows where a click adds gear beside its tabs.",
     "A kit's edit dialog is just its name and a note; its items are edited on its row.",
     "My Gear's edit dialog keeps its paired fields side by side in a narrow window instead of stacking them."
   ],

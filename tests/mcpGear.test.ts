@@ -278,7 +278,7 @@ describe("the gear tools", () => {
   });
 
   it("say what a kit holds, list its items as pieces of their own, and refuse a weight on one", async () => {
-    const added = await tool("edit_my_gear", { add: [{ name: "Pocket stove", weight_g: 73 }, { name: "Cook kit" }] }, aliceWrite);
+    const added = await tool("edit_my_gear", { add: [{ name: "Pocket stove", weight_g: 73, owned: 2 }, { name: "Cook kit" }] }, aliceWrite);
     const [stoveId, kitId] = (added.data.results as { item: { id: number } }[]).map((r) => r.item.id);
     const [row] = await db.select({ vaultId: schema.vaultItems.vaultId }).from(schema.vaultItems).where(eq(schema.vaultItems.id, stoveId!));
     // made on the gear page; the connector reads it
@@ -296,7 +296,7 @@ describe("the gear tools", () => {
   });
 
   it("make a kit, change what it holds, and turn it back into a piece, as the gear page does", async () => {
-    const pieces = await tool("edit_my_gear", { add: [{ name: "Titanium pot", weight_g: 110 }, { name: "Spork", brand: "Toaks", weight_g: 15 }, { name: "Mini lighter", weight_g: 11 }] }, aliceWrite);
+    const pieces = await tool("edit_my_gear", { add: [{ name: "Titanium pot", weight_g: 110 }, { name: "Spork", brand: "Toaks", weight_g: 15 }, { name: "Mini lighter", weight_g: 11, owned: 2 }] }, aliceWrite);
     const [potId, sporkId, lighterId] = (pieces.data.results as { item: { id: number } }[]).map((r) => r.item.id);
 
     // made as it is added: its items by id, with counts, and a weight of its own
@@ -306,6 +306,10 @@ describe("the gear tools", () => {
     expect(res!.status).toBe("added");
     const kitId = res!.item.id as number;
     expect(res!.item).toMatchObject({ weight_g: 159, kit: { own_weight_g: 12, items: [{ id: potId, count: 1 }, { id: sporkId, count: 1 }, { id: lighterId, count: 2 }] } });
+
+    // never more of a piece than its owned: a higher count is held to it
+    const over = await tool("edit_my_gear", { update: [{ id: kitId, kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 9 }], own_weight_g: 12 } }] }, aliceWrite);
+    expect((over.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ weight_g: 159, kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 2 }] } });
 
     // items REPLACE what it held
     const changed = await tool("edit_my_gear", { update: [{ id: kitId, kit: { items: [{ id: potId }, { id: lighterId, count: 1 }] } }] }, aliceWrite);

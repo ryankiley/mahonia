@@ -1247,7 +1247,16 @@ async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, {
       ),
     )
     .returning();
-  return done[0] ? { item: toEntry(done[0]) } : null;
+  if (!done[0]) return null;
+  // owning fewer than a kit holds: every kit holding this piece comes down to it
+  if ("owned" in set) {
+    const owned = ownedOf(done[0].owned) ?? 1;
+    await db
+      .update(vaultKitParts)
+      .set({ qty: owned })
+      .where(and(eq(vaultKitParts.partId, done[0].id), sql`${vaultKitParts.qty} > ${owned}`));
+  }
+  return { item: toEntry(done[0]) };
 }
 
 // ---------------------------------------------------------------------------
@@ -1296,6 +1305,10 @@ async function isSomeonesPart(db: Db, id: number): Promise<boolean> {
  *    deep, the rule list nesting keeps, so a kit always maps onto a list group;
  *  • a kit is never its own part, and has at least one.
  *
+ * A count is held to how many of the piece you own (`owned`, one when unsaid): a kit
+ * can't hold two lighters you have one of. Clamped rather than refused, so a save that
+ * changes something else still lands, and the row reads back what the kit now holds.
+ *
  * `ownWeightMg` is required rather than defaulted to what the row holds: making a
  * kit of a row that was typed in as the whole set ("Cook kit, 540 g") has to say what
  * is left of that figure once the parts count for themselves — usually nothing — or
@@ -1327,10 +1340,11 @@ export async function setKitParts(
   if (!kit) return false;
   if (await isSomeonesPart(db, kitId)) return false;
   const found = await db
-    .select({ id: vaultItems.id, kind: vaultItems.kind })
+    .select({ id: vaultItems.id, kind: vaultItems.kind, owned: vaultItems.owned })
     .from(vaultItems)
     .where(and(eq(vaultItems.vaultId, vaultId), inArray(vaultItems.id, ids)));
   if (found.length !== ids.length || found.some((r) => r.kind !== "piece")) return false;
+  for (const r of found) qtyOf.set(r.id, Math.min(qtyOf.get(r.id)!, ownedOf(r.owned) ?? 1));
 
   await db
     .update(vaultItems)
@@ -1394,6 +1408,10 @@ function cleanPartRefs(raw: unknown): VaultKitPartRef[] {
  * skipped: the capture that ran just before this (captureKit) landed every part it
  * could, so what's missing was refused for space or was never gear. Returns how many
  * linked, so a caller can tell a kit with no parts from one that was written.
+ *
+ * A kit never holds more of a piece than you own, and here the list is the evidence:
+ * a group carrying two lighters says you have two, so a piece owned fewer times is
+ * raised to the group's count (never lowered) rather than the kit cut short of it.
  */
 async function linkKitPartsByKey(
   db: Db,
@@ -1403,7 +1421,7 @@ async function linkKitPartsByKey(
 ): Promise<number> {
   if (!parts.length) return 0;
   const rows = await db
-    .select({ id: vaultItems.id, normKey: vaultItems.normKey, kind: vaultItems.kind })
+    .select({ id: vaultItems.id, normKey: vaultItems.normKey, kind: vaultItems.kind, owned: vaultItems.owned })
     .from(vaultItems)
     .where(
       and(
@@ -1414,10 +1432,16 @@ async function linkKitPartsByKey(
         ),
       ),
     );
-  const idOf = new Map(rows.filter((r) => r.kind === "piece" && r.id !== kitId).map((r) => [r.normKey, r.id]));
-  const links = parts
-    .map((p) => ({ partId: idOf.get(p.normKey), qty: p.qty }))
-    .filter((l): l is { partId: number; qty: number } => l.partId !== undefined);
+  const rowOf = new Map(rows.filter((r) => r.kind === "piece" && r.id !== kitId).map((r) => [r.normKey, r]));
+  const links: { partId: number; qty: number }[] = [];
+  for (const p of parts) {
+    const row = rowOf.get(p.normKey);
+    if (!row) continue;
+    links.push({ partId: row.id, qty: p.qty });
+    if (p.qty > (ownedOf(row.owned) ?? 1)) {
+      await db.update(vaultItems).set({ owned: p.qty }).where(and(eq(vaultItems.id, row.id), eq(vaultItems.vaultId, vaultId)));
+    }
+  }
   if (!links.length) return 0;
   await writeKitLinks(db, kitId, links);
   return links.length;

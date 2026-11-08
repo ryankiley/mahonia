@@ -15,6 +15,7 @@ import {
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
+import type { GearGlyph } from "~~/shared/gearGlyph";
 import { formatPrice } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { consumableIcon } from "~/utils/itemMarks";
@@ -56,8 +57,9 @@ const props = defineProps<{
   startKit?: boolean;
 }>();
 const emit = defineEmits<{
-  /** "icon" when the row's icon was pressed: the dialog opens on its icon grid */
-  edit: [focus?: "icon"];
+  edit: [];
+  /** an icon picked from the row's own icon (null: back to the gear type's) */
+  icon: [glyph: GearGlyph | null];
   remove: [];
   restore: [];
   /** a unit picked for this piece's weight (the list row's unit picker, on /gear) */
@@ -100,8 +102,12 @@ function sendParts(next: { id: number; qty: number }[], own = props.entry.ownWei
   if (props.kitBusy) return;
   emit("kit", next, own);
 }
+// A kit holds no more of a piece than you own (the vault holds it to that too): + stops
+// there, and says where the number lives.
+const ownedOf = (id: number) => props.gear?.find((g) => g.id === id)?.owned ?? 1;
+const partMax = (id: number) => Math.min(VAULT_KIT_QTY_MAX, ownedOf(id));
 function stepPart(id: number, by: number) {
-  sendParts(refs().map((r) => (r.id === id ? { id: r.id, qty: Math.min(VAULT_KIT_QTY_MAX, Math.max(1, r.qty + by)) } : r)));
+  sendParts(refs().map((r) => (r.id === id ? { id: r.id, qty: Math.min(partMax(id), Math.max(1, r.qty + by)) } : r)));
 }
 function dropPart(id: number) {
   sendParts(refs().filter((r) => r.id !== id));
@@ -164,6 +170,8 @@ const rowUnit = computed<Unit>(() => props.entry.entryUnit ?? props.unit);
 // guessing — a wrong icon is worse than none.
 const typeIcon = computed(() => gearIcon(props.entry.commonName, props.entry.name, props.entry.icon));
 const typeLabel = computed(() => gearIconLabel(props.entry.commonName, props.entry.name, props.entry.icon));
+// what "Match the gear type" would draw, in the icon popover
+const autoIcon = computed(() => gearIcon(props.entry.commonName, props.entry.name));
 // Calories, gated on the class exactly as computeTotals gates them — so what the row
 // shows is what a list would count, rather than a number the totals ignore. A removed
 // row shows its type only.
@@ -199,24 +207,36 @@ const meta = computed(() => {
       <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
     </span>
     <!-- On a live row the icon is also the way to change it: pressing it opens the
-         edit dialog on its icon grid, and an empty slot is where you'd press to give
-         a row one. Out of the tab order and hidden from assistive tech, because it is
-         a shortcut to a field the row's Edit button already reaches — a second stop
-         per row would double the keyboard walk down a page of a hundred. -->
-    <button
+         icon popover right there, and an empty slot is where you'd press to give a row
+         one. The button is out of the tab order and hidden from assistive tech, because
+         it is a shortcut to a field the row's Edit button already reaches — a second
+         stop per row would double the keyboard walk down a page of a hundred. -->
+    <GearIconPicker
       v-else
-      type="button"
-      class="vault__type vault__type--pick"
-      :class="{ 'is-blank': !typeIcon }"
-      tabindex="-1"
-      aria-hidden="true"
-      :title="typeLabel ? `${typeLabel} · change icon` : 'Pick an icon'"
-      @click="emit('edit', 'icon')"
+      class="vault__type"
+      :model-value="entry.icon ?? null"
+      :auto="autoIcon"
+      :label="`Icon for ${displayName}`"
+      @update:model-value="(g) => emit('icon', g)"
+      @overlay-toggle="(o) => emit('overlay-toggle', o)"
     >
-      <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
-      <!-- empty: Hugeicons' dashed square, the shape an icon would fill, quietly -->
-      <HugeiconsIcon v-else :icon="DashedLine02Icon" :size="20" :stroke-width="2" />
-    </button>
+      <template #trigger="{ toggle, attrs }">
+        <button
+          type="button"
+          class="vault__typebtn"
+          :class="{ 'is-blank': !typeIcon }"
+          tabindex="-1"
+          v-bind="attrs"
+          aria-hidden="true"
+          :title="typeLabel ? `${typeLabel} · change icon` : 'Pick an icon'"
+          @click="toggle"
+        >
+          <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
+          <!-- empty: Hugeicons' dashed square, the shape an icon would fill, quietly -->
+          <HugeiconsIcon v-else :icon="DashedLine02Icon" :size="20" :stroke-width="2" />
+        </button>
+      </template>
+    </GearIconPicker>
     <div class="gear__main">
       <!-- the title is the whole name: clipped, two catalog names that differ only at
            the end ("… Regular" / "… Long Wide") read identically, and this is the way
@@ -383,8 +403,9 @@ const meta = computed(() => {
             <button
               type="button"
               class="btn btn--icon btn--ghost ink-quiet"
-              :disabled="kitBusy || p.qty >= VAULT_KIT_QTY_MAX"
+              :disabled="kitBusy || p.qty >= partMax(p.id)"
               :aria-label="`One more ${partName(p)} in ${displayName}`"
+              :title="p.qty >= ownedOf(p.id) ? `You own ${ownedOf(p.id)}. Change how many in its Edit.` : undefined"
               @click="stepPart(p.id, 1)"
             >
               <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
@@ -614,25 +635,31 @@ button.vault__partname:hover {
   color: var(--ink-2);
 }
 /* the slot as a button: no box of its own, the glyph just deepens under a pointer */
-.vault__type--pick {
+.vault__typebtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
   padding: 0;
   border: 0;
   background: none;
+  color: inherit;
   font: inherit;
   cursor: pointer;
 }
 /* An empty slot wears Hugeicons' dashed square in the faintest ink, where an icon
    would sit. It used to be a 14px dashed border drawn in CSS, whose dashes rendered
    unevenly at that size and read on a real page as an image that failed to load. */
-.vault__type--pick.is-blank {
+.vault__typebtn.is-blank {
   color: var(--ink-ghost);
 }
 @media (hover: hover) and (pointer: fine) {
-  .vault__type--pick:hover {
+  .vault__typebtn:hover {
     color: var(--ink);
   }
 }
-.vault__type--pick:active {
+.vault__typebtn:active {
   opacity: 0.7;
 }
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
