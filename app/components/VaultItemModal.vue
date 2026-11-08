@@ -1,20 +1,10 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Cancel01Icon, ChevronDownIcon, DashedLine02Icon, Layers01Icon, MinusSignIcon, PlusSignIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, DashedLine02Icon, Layers01Icon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
-import {
-  VAULT_NAME_MAX,
-  VAULT_NOTE_MAX,
-  VAULT_SHORT_MAX,
-  VAULT_URL_MAX,
-  type VaultEntry,
-  type VaultKitPart,
-} from "~~/shared/vault";
-import { VAULT_KIT_QTY_MAX, kitWeightMg } from "~~/shared/vaultKit";
-import { strongVaultRows } from "~~/shared/vaultSearch";
+import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
-import { counted } from "~~/shared/tidyText";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 import type { GearGlyph } from "~~/shared/gearGlyph";
@@ -40,8 +30,6 @@ const props = defineProps<{
   /** The money the rest of your gear is priced in, when it is priced in one. A bare
    *  number falls back to it, so stating a currency once is enough — see onSubmit. */
   defaultCurrency?: string;
-  /** the page's live gear, which a kit's parts are picked from */
-  gear?: VaultEntry[];
   /** "icon" opens the dialog with its icon grid showing (the row's icon was pressed). */
   focus?: "icon" | null;
   /** The brands and gear types already in your gear, most used first: suggested ahead
@@ -69,68 +57,36 @@ function mergeVocab(mine: string[] = [], theirs: string[] | null): string[] {
 }
 const brandOptions = computed(() => mergeVocab(props.known?.brands, catalogBrands.names.value));
 const typeOptions = computed(() => mergeVocab(props.known?.types, catalogTypes.names.value));
-/** `kitChanged`: the items moved, so OTHER rows changed too (each item's "In …"),
- *  and the page re-reads rather than patching the one row. */
-const emit = defineEmits<{ close: []; saved: [item: VaultEntry, kitChanged: boolean] }>();
+/** `make-kit`: "Make it a kit" was pressed. The page closes the dialog and opens the
+ *  row with its "Add an item" line, where a kit's items are edited. `unkit`: "Make it
+ *  a single piece", the way back, pressed on a kit. */
+const emit = defineEmits<{ close: []; saved: [item: VaultEntry]; "make-kit": [id: number]; unkit: [id: number] }>();
 
 const { vaultFetch } = useVaultAccess();
 
-// ---- parts: what makes a row a kit -----------------------------------------
-// The draft of the row's parts. Any makes it a kit on Save; emptying a kit's turns it
-// back into a piece, at the total it showed. While it holds parts the weight field is
-// a read-out, not an input: a kit weighs its own weight plus its parts, and a total
-// typed into it would count every part twice (the server refuses one too).
-const partsDraft = ref<VaultKitPart[]>([]);
-const ownWeight = ref("");
-const partQuery = ref("");
-let openedParts = "";
-let openedOwn = "";
-const partsKey = (ps: VaultKitPart[]) => ps.map((p) => `${p.id}x${p.qty}`).join(",");
-const isKit = computed(() => partsDraft.value.length > 0);
-// One level deep: a piece that is already some kit's part can't hold parts itself.
+// ---- a kit -------------------------------------------------------------------
+// A kit's items, their counts and its own weight are edited on its row on /gear
+// (VaultGearRow), where you see them; this dialog is only what a set shares with a
+// piece: a name and a note. Ryan: "Do we need to do this in a modal?"
+const isKit = computed(() => props.entry?.kind === "kit");
+// One level deep: a piece that is already some kit's item can't become a kit itself.
 const inKits = computed(() => props.entry?.inKits?.length ?? 0);
-const ownWeightMg = computed(() => {
-  const raw = ownWeight.value.trim();
-  return raw ? parseWeightInput(raw, props.unit) : 0;
-});
-const kitTotalMg = computed(() => kitWeightMg(ownWeightMg.value ?? 0, partsDraft.value));
-// What can go in: your other PIECES — not kits (one level deep), not this row, not
-// one it already holds. The page's own search, so a part is found the way the page
-// finds it, typos and notes included.
-const partChoices = computed(() => {
-  const q = partQuery.value.trim();
-  if (!q || !props.entry) return [];
-  const taken = new Set(partsDraft.value.map((p) => p.id));
-  const pool = (props.gear ?? []).filter((g) => g.kind !== "kit" && g.id !== props.entry!.id && !taken.has(g.id));
-  // real matches only: a picker filled out with near misses offers your most-used
-  // gloves for "lighter" (see strongVaultRows)
-  return strongVaultRows(pool, q, 6);
-});
-const partEl = useTemplateRef<HTMLInputElement>("partEl");
-/** A piece's dialog offers "Make it a kit" rather than a search box on every open;
- *  pressing it shows the search, focused. A kit always shows it. */
-const makingKit = ref(false);
-function startKit() {
-  makingKit.value = true;
-  nextTick(() => partEl.value?.focus());
+// "Make it a kit": anything typed here is saved first, then the page opens the row's
+// "Add an item" line, where the first item makes the piece a kit.
+async function onMakeKit() {
+  if (!props.entry) return;
+  const id = props.entry.id;
+  await onSubmit();
+  if (!error.value) emit("make-kit", id);
 }
-function addPart(g: VaultEntry) {
-  partsDraft.value = [
-    ...partsDraft.value,
-    { id: g.id, qty: 1, brand: g.brand, name: g.name, variant: g.variant, weightMg: g.weightMg },
-  ];
-  partQuery.value = "";
-  // back to the search, so a kit's parts go in one after another: the first part
-  // re-lays the dialog out as a kit's, and that re-render drops the field's focus
-  nextTick(() => partEl.value?.focus());
-}
-function stepPart(id: number, by: number) {
-  partsDraft.value = partsDraft.value.map((p) =>
-    p.id === id ? { ...p, qty: Math.min(VAULT_KIT_QTY_MAX, Math.max(1, p.qty + by)) } : p,
-  );
-}
-function dropPart(id: number) {
-  partsDraft.value = partsDraft.value.filter((p) => p.id !== id);
+// and back: a kit becomes one piece weighing what the kit did, its items left as the
+// pieces they are (the vault's clearKit). On a kit's row the last item can't come out,
+// so this is the one way.
+async function onUnkit() {
+  if (!props.entry) return;
+  const id = props.entry.id;
+  await onSubmit();
+  if (!error.value) emit("unkit", id);
 }
 
 // Three-way, not the editor's two toggles. Those are toggles because each ALSO opens
@@ -250,12 +206,6 @@ watch(
     // weight field uses (below) keeps the round trip from re-pricing anything.
     price.value = e.priceCents != null ? formatPrice(e.priceCents, e.currency) : "";
     productUrl.value = e.productUrl ?? "";
-    partsDraft.value = (e.parts ?? []).map((p) => ({ ...p }));
-    ownWeight.value = e.kind === "kit" && e.ownWeightMg ? formatWeight(e.ownWeightMg, props.unit, { raw: true }) : "";
-    partQuery.value = "";
-    makingKit.value = false;
-    openedParts = partsKey(partsDraft.value);
-    openedOwn = ownWeight.value;
     icon.value = e.icon ?? null;
     iconsOpen.value = props.focus === "icon";
     saving.value = false;
@@ -351,7 +301,7 @@ async function onSubmit() {
   // Only when the string CHANGED. formatWeight → parseWeightInput is lossy (0.1 oz
   // resolution) and locale-shaped, so round-tripping a field nobody typed in would
   // silently re-weigh the row. CatalogCorrectionModal splits the same way.
-  // A kit's weight is its parts' — shown, never sent (the server refuses one too).
+  // A kit's weight is its items' — never sent (the server refuses one too).
   if (!isKit.value && weight.value !== opened.weight) {
     const raw = weight.value.trim();
     // Blank clears to 0 — gear you own but haven't weighed is a legitimate state
@@ -367,17 +317,9 @@ async function onSubmit() {
     if (named) patch.entryUnit = named;
   }
 
-  // The parts are their own op: they write other rows' links, not this row's fields.
-  const kitChanged =
-    partsKey(partsDraft.value) !== openedParts || (isKit.value && ownWeight.value !== openedOwn);
-  if (kitChanged && isKit.value && (ownWeightMg.value == null || ownWeightMg.value < 0)) {
-    error.value = "The kit’s own weight doesn’t read as a number. Try “0” or “40 g”.";
-    return;
-  }
-
   // Nothing changed: closing is the honest answer. Sending an empty patch would be a
   // round trip to write nothing, and the endpoint refuses one anyway.
-  if (!Object.keys(patch).length && !kitChanged) return emit("close");
+  if (!Object.keys(patch).length) return emit("close");
 
   saving.value = true;
   error.value = "";
@@ -385,32 +327,13 @@ async function onSubmit() {
     vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", { method: "POST", body: { op } }).catch(
       () => ({ ok: false }) as { ok: boolean; item?: VaultEntry },
     );
-  let item: VaultEntry | undefined;
-  // The kit first: a row that just stopped being one takes a typed weight only once it
-  // is a piece again (the server refuses a weight on a kit).
-  if (kitChanged) {
-    const parts = partsDraft.value.map((p) => ({ id: p.id, qty: p.qty }));
-    const res = await post({ t: "kit", id: props.entry.id, parts, ownWeightMg: ownWeightMg.value ?? 0 });
-    if (!res.ok || !res.item) {
-      saving.value = false;
-      error.value = "Couldn’t save the items. Check your connection and try again.";
-      return;
-    }
-    item = res.item;
-  }
-  if (Object.keys(patch).length) {
-    const res = await post({ t: "edit", id: props.entry.id, patch });
-    if (!res.ok || !res.item) {
-      saving.value = false;
-      error.value = "Couldn’t save that. Check your connection and try again.";
-      // the parts did land: let the page show them even though the fields didn't
-      if (item) emit("saved", item, true);
-      return;
-    }
-    item = res.item;
-  }
+  const res = await post({ t: "edit", id: props.entry.id, patch });
   saving.value = false;
-  if (item) emit("saved", item, kitChanged);
+  if (!res.ok || !res.item) {
+    error.value = "Couldn’t save that. Check your connection and try again.";
+    return;
+  }
+  emit("saved", res.item);
 }
 </script>
 
@@ -624,108 +547,19 @@ async function onSubmit() {
         <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
       </label>
       </div>
-      <!-- Parts: what makes a row a KIT. Picked from your own gear, so each part is a
-           real piece with its own weight, and the kit weighs what they weigh; on a
-           list it unfolds into a group with these under it. A piece already in a kit
-           can't hold parts — kits are one level deep. -->
-      <section v-if="!inKits" class="vitem__parts" aria-label="Items in this kit">
-        <!-- a piece: one quiet press, not a search box on every open. Most pieces are
-             never a kit, and the box read as a field the piece was missing. -->
-        <button v-if="!isKit && !makingKit" type="button" class="btn btn--quiet vitem__makekit" @click="startKit">
+      <!-- A piece can become a kit: one quiet press, which saves what's typed here and
+           opens the row's "Add an item" line, where a kit's items are edited. A piece
+           already in a kit can't (kits are one level deep). A kit's items are on its row;
+           here it has only the way back to a single piece. -->
+      <section v-if="isKit || !inKits" class="vitem__parts">
+        <button v-if="isKit" type="button" class="btn btn--quiet vitem__makekit" :disabled="saving" @click="onUnkit">
+          Make it a single piece
+        </button>
+        <button v-else type="button" class="btn btn--quiet vitem__makekit" :disabled="saving" @click="onMakeKit">
           <HugeiconsIcon :icon="Layers01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Make it a kit
         </button>
-        <p v-else-if="!isKit" class="t-sm t-muted vitem__hint">
-          Add the items it holds, and it weighs what they weigh.
-        </p>
-        <p v-else-if="entry.kind !== 'kit' && entry.weightMg" class="t-sm t-muted vitem__hint">
-          Its {{ formatWeight(entry.weightMg, unit) }} becomes what its items weigh.
-        </p>
-        <!-- one row of column heads, so the stepper's number reads as how many THE KIT
-             holds, not how many you own (the "×3" a piece wears on /gear); the count and
-             the total close the table, the total in the weight column -->
-        <div v-if="isKit" class="vitem__part vitem__partcols t-sm t-muted" aria-hidden="true">
-          <span>Items</span>
-          <span class="vitem__partweight">Weight</span>
-          <span class="vitem__qty">In kit</span>
-          <span />
-        </div>
-        <ul v-if="isKit" class="vitem__partlist">
-          <li v-for="p in partsDraft" :key="p.id" class="vitem__part">
-            <span class="t-clip vitem__partname" :title="itemDisplayName(p.brand, p.name, p.variant)">
-              {{ itemDisplayName(p.brand, p.name, p.variant) }}<span v-if="p.removed" class="t-muted"> · removed</span>
-            </span>
-            <span class="t-sm t-num t-muted vitem__partweight">{{ formatWeight(p.weightMg * p.qty, unit) }}</span>
-            <span class="vitem__qty">
-              <button
-                type="button"
-                class="btn btn--icon btn--ghost"
-                :disabled="p.qty <= 1"
-                :aria-label="`One fewer ${p.name}`"
-                @click="stepPart(p.id, -1)"
-              >
-                <HugeiconsIcon :icon="MinusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-              </button>
-              <span class="t-sm t-num">{{ p.qty }}</span>
-              <button type="button" class="btn btn--icon btn--ghost" :aria-label="`One more ${p.name}`" @click="stepPart(p.id, 1)">
-                <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-              </button>
-            </span>
-            <button
-              type="button"
-              class="btn btn--icon btn--ghost vitem__drop"
-              :aria-label="`Take ${p.name} out of the kit`"
-              :title="`Take ${p.name} out of the kit`"
-              @click="dropPart(p.id)"
-            >
-              <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-            </button>
-          </li>
-        </ul>
-        <!-- a weight of its own, from a group saved off a list whose heading had one or a
-             backup: listed like an item, as /gear lists it, and removable; there is no
-             field to add one, because a stuff sack is an item like any other -->
-        <div v-if="isKit && ownWeightMg" class="vitem__part">
-          <span class="t-muted vitem__partname">Its own weight</span>
-          <span class="t-sm t-num t-muted vitem__partweight">{{ formatWeight(ownWeightMg, unit) }}</span>
-          <span />
-          <button type="button" class="btn btn--icon btn--ghost vitem__drop" aria-label="Remove its own weight" title="Remove its own weight" @click="ownWeight = ''">
-            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-          </button>
-        </div>
-        <div v-if="isKit" class="vitem__part vitem__parttotal t-sm t-num">
-          <span class="t-muted">{{ counted(partsDraft.length, "item") }}</span>
-          <span class="vitem__partweight">{{ formatWeight(kitTotalMg, unit) }}</span>
-          <span />
-          <span />
-        </div>
-        <input
-          v-show="isKit || makingKit"
-          ref="partEl"
-          v-model="partQuery"
-          class="field"
-          placeholder="Add an item from your gear"
-          aria-label="Find an item in your gear"
-          autocomplete="off"
-          autocorrect="off"
-          spellcheck="false"
-          @keydown.enter.prevent="partChoices[0] && addPart(partChoices[0])"
-        />
-        <ul v-if="partChoices.length" class="vitem__choices">
-          <li v-for="g in partChoices" :key="g.id">
-            <button type="button" class="vitem__choice" @click="addPart(g)">
-              <span class="t-clip">{{ itemDisplayName(g.brand, g.name, g.variant) }}</span>
-              <span class="t-sm t-num t-muted">{{ formatWeight(g.weightMg, unit) }}</span>
-            </button>
-          </li>
-        </ul>
-        <p v-else-if="partQuery.trim()" class="t-sm t-muted vitem__hint">
-          None of your gear matches. Add it to My Gear first, then pick it here.
-        </p>
       </section>
-      <p v-else class="t-sm t-muted vitem__hint">
-        In {{ inKits === 1 ? "a kit" : `${inKits} kits` }}, so it can’t hold items of its own.
-      </p>
       </div>
       </div>
 
@@ -801,8 +635,8 @@ async function onSubmit() {
   gap: var(--space-1);
 }
 /* its chevron is the .chev atom (controls.scss), not a copy */
-/* Parts: a hairline above sets it apart from the row's own fields — it edits which
-   OTHER gear this row is made of */
+/* "Make it a kit", under a hairline: it isn't a field of this piece, it turns the
+   piece into a set of others */
 .vitem__parts {
   display: flex;
   flex-direction: column;
@@ -810,89 +644,9 @@ async function onSubmit() {
   padding-top: var(--space-3);
   border-top: 1px solid var(--line);
 }
-.vitem__hint {
-  margin: 0;
-}
-.vitem__partlist,
-.vitem__choices {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-/* the items as a table — item, the line's weight, how many the kit holds, remove —
-   on one set of columns shared with the heads above them, so a weight never wraps
-   under its own figure and the steppers line up down the list */
-.vitem__part {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 7ch calc(2 * var(--icon-btn) + 3ch) var(--icon-btn);
-  align-items: center;
-  column-gap: var(--space-2);
-  min-height: var(--icon-btn);
-}
-.vitem__partcols {
-  min-height: 0;
-}
-/* the count and the total under the items, the total in the weight column */
-.vitem__parttotal {
-  min-height: 0;
-  padding-top: var(--space-1);
-  border-top: 1px solid var(--line);
-}
 .vitem__makekit {
   align-self: flex-start;
   gap: var(--space-2);
-}
-.vitem__partweight {
-  text-align: right;
-  white-space: nowrap;
-}
-.vitem__part + .vitem__part {
-  border-top: 1px solid var(--line);
-}
-.vitem__partname {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.vitem__qty {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-1);
-}
-.vitem__qty .t-num {
-  min-width: 2.2ch;
-  text-align: center;
-}
-.vitem__drop {
-  color: var(--ink-3);
-}
-/* the search's answers, in flow under the field: a dialog has the room, and an
-   absolutely placed menu inside the modal's scroll box would clip at its edge */
-.vitem__choices {
-  border: 1px solid var(--line);
-  border-radius: var(--radius-2);
-  overflow: hidden;
-}
-.vitem__choices li + li {
-  border-top: 1px solid var(--line);
-}
-.vitem__choice {
-  display: flex;
-  width: 100%;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.vitem__choice:hover,
-.vitem__choice:focus-visible {
-  background: var(--popover-hover);
 }
 /* the gear type and the icon box, on the same two columns as every pair so the second
    column starts in one place down the dialog. Its own class rather than a .vitem__pair,
@@ -973,33 +727,5 @@ async function onSubmit() {
    Matches /gear's own .vault__error. */
 .vitem__err {
   color: var(--ink);
-}
-/* Last in the sheet, so it wins over the table's own rules above.
-   A phone-narrow dialog has no room for an item's name beside its weight and
-   stepper ("Soto Wi…"), so each item takes two lines: its whole name, then its
-   weight, the stepper and remove. The column heads go; the stepper between − and +
-   reads as a count on its own, and the total stays. */
-@container (max-width: 26rem) {
-  .vitem__part {
-    grid-template-columns: minmax(0, 1fr) auto auto;
-    row-gap: 0;
-    padding-block: var(--space-1);
-  }
-  .vitem__partname {
-    grid-column: 1 / -1;
-    white-space: normal;
-  }
-  .vitem__partweight {
-    text-align: left;
-  }
-  .vitem__partcols {
-    display: none;
-  }
-  .vitem__parttotal {
-    display: flex;
-  }
-  .vitem__parttotal .vitem__partweight {
-    margin-left: auto;
-  }
 }
 </style>

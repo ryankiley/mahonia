@@ -5,6 +5,7 @@ import { ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, FolderRemoveIco
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
+import { kitWeightMg } from "~~/shared/vaultKit";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { formatPrice, sumPrices } from "~~/shared/money";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
@@ -171,6 +172,57 @@ const kitNames = (entry: VaultEntry) =>
 function editPart(id: number) {
   const part = items.value.find((i) => i.id === id);
   if (part) openEdit(part);
+}
+// A kit's items are edited on its open row (VaultGearRow); each change sends the whole
+// set. Shown at once — the counts, the line weights and the kit's total from what the
+// page already holds — then saved, then the page re-reads, because the change touches
+// OTHER rows too (each item's "In …"). A save that fails is put right by the re-read.
+const kitSaving = ref<ReadonlySet<number>>(new Set());
+async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], ownWeightMg: number) {
+  if (kitSaving.value.has(entry.id)) return;
+  const at = items.value.findIndex((i) => i.id === entry.id);
+  if (at < 0) return;
+  const before = items.value[at]!;
+  const held = new Map((before.parts ?? []).map((p) => [p.id, p]));
+  const byId = new Map(items.value.map((i) => [i.id, i]));
+  const next = parts.flatMap((r) => {
+    const had = held.get(r.id);
+    if (had) return [{ ...had, qty: r.qty }];
+    const g = byId.get(r.id);
+    return g ? [{ id: g.id, qty: r.qty, brand: g.brand, name: g.name, variant: g.variant, weightMg: g.weightMg }] : [];
+  });
+  items.value[at] = { ...before, kind: "kit", parts: next, ownWeightMg, weightMg: kitWeightMg(ownWeightMg, next) };
+  kitSaving.value = new Set([...kitSaving.value, entry.id]);
+  const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", {
+    method: "POST",
+    body: { op: { t: "kit", id: entry.id, parts, ownWeightMg } },
+  }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry });
+  kitSaving.value = new Set([...kitSaving.value].filter((id) => id !== entry.id));
+  if (!res.ok) loadError.value = "Couldn’t save the kit. Check your connection and try again.";
+  // a piece that just took its first item is a kit now, and stays open where you were
+  else if (kitStarting.value === entry.id) {
+    kitStarting.value = null;
+    if (!kitOpen.value[entry.id]) toggleKit(entry.id);
+  }
+  await loadVault();
+}
+// "Make it a single piece", pressed in a kit's dialog: it becomes one piece weighing
+// what it did, and its items stay the pieces they are.
+async function unkit(id: number) {
+  editing.value = null;
+  const res = await vaultFetch<{ ok: boolean }>("/api/vault/items", {
+    method: "POST",
+    body: { op: { t: "kit", id, parts: [] } },
+  }).catch(() => ({ ok: false }));
+  if (!res.ok) loadError.value = "Couldn’t change that. Check your connection and try again.";
+  await loadVault();
+}
+// "Make it a kit", pressed in a piece's dialog: the dialog closes and the piece's row
+// shows its "Add an item" line, where the first item makes it a kit.
+const kitStarting = ref<number | null>(null);
+function startKitFor(id: number) {
+  editing.value = null;
+  kitStarting.value = id;
 }
 // What the gear on screen cost. Follows `filtered` like the weight beside it — both
 // figures describe what you are looking at, so narrowing to Worn answers "what did
@@ -514,11 +566,10 @@ async function setEntryUnit(entry: VaultEntry, u: Unit) {
 // the row as it now stands, and a full reload would re-sort the page under a dialog
 // that just closed (a rename can move a row under A–Z). Changing a kit's parts is the
 // exception: it changes OTHER rows too (each item's "In …"), so the page re-reads.
-function onItemSaved(item: VaultEntry, kitChanged = false) {
+function onItemSaved(item: VaultEntry) {
   const at = items.value.findIndex((i) => i.id === item.id);
   if (at >= 0) items.value[at] = item;
   editing.value = null;
-  if (kitChanged) void loadVault();
 }
 
 // ---- units ---------------------------------------------------------------
@@ -837,8 +888,13 @@ async function exportGear(kind: string) {
                 :busy="removing === entry.id"
                 :open="!!kitOpen[entry.id]"
                 :kit-names="kitNames(entry)"
+                :gear="items"
+                :kit-busy="kitSaving.has(entry.id)"
+                :start-kit="kitStarting === entry.id"
                 @toggle="toggleKit(entry.id)"
                 @edit-part="editPart"
+                @kit="(parts: { id: number; qty: number }[], own: number) => setKit(entry, parts, own)"
+                @cancel-kit="kitStarting = null"
                 @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
                 @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                 @remove="remove(entry)"
@@ -927,9 +983,14 @@ async function exportGear(kind: string) {
                         :busy="removing === entry.id"
                         :open="!!kitOpen[entry.id]"
                         :kit-names="kitNames(entry)"
+                        :gear="items"
+                        :kit-busy="kitSaving.has(entry.id)"
+                        :start-kit="kitStarting === entry.id"
                         :class="{ 'vault__row--dragging': itemMove?.id === entry.id }"
                         @toggle="toggleKit(entry.id)"
                         @edit-part="editPart"
+                        @kit="(parts: { id: number; qty: number }[], own: number) => setKit(entry, parts, own)"
+                        @cancel-kit="kitStarting = null"
                         @pointerdown="rowPress.start(entry.id, $event)"
                         @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
                         @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
@@ -1081,10 +1142,11 @@ async function exportGear(kind: string) {
       :focus="editFocus"
       :unit="unit"
       :default-currency="vaultCurrency"
-      :gear="items"
       :known="knownVocab"
       @close="editing = null"
       @saved="onItemSaved"
+      @make-kit="startKitFor"
+      @unkit="unkit"
     />
 
     <!-- Same lazy idiom: nobody who never imports downloads the parser. -->

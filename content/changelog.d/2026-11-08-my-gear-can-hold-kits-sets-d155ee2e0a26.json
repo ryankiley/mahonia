@@ -2,12 +2,13 @@
   "date": "2026-11-08",
   "added": [
     "My Gear can hold kits, sets of items that weigh what their items weigh.",
-    "Make a kit on the My Gear page by adding items to it, or save a group on a list with its own Save to My Gear.",
+    "Open a kit on My Gear to change it right there: how many of each item it holds, take one out, or add one from your gear.",
+    "Make any piece a kit from its edit dialog, or save a group on a list with its own Save to My Gear.",
     "A kit from My Gear goes onto a list as a group, each item a row under it, so you can leave one out for that trip.",
     "An assistant connected to Mahonia can make and change your kits."
   ],
   "changed": [
-    "A kit's edit dialog shows only what a kit has: its name and own weight, a note, and its items with how many of each it holds.",
+    "A kit's edit dialog is just its name and a note; its items are edited on its row.",
     "My Gear's edit dialog keeps its paired fields side by side in a narrow window instead of stacking them."
   ],
   "fixed": [

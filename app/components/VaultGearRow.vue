@@ -1,6 +1,18 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, DashedLine02Icon, Delete02Icon, Edit02Icon, FolderIcon, Layers01Icon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import {
+  Cancel01Icon,
+  ChevronDownIcon,
+  DashedLine02Icon,
+  Delete02Icon,
+  Edit02Icon,
+  FolderIcon,
+  Layers01Icon,
+  MinusSignIcon,
+  PlusSignIcon,
+  ShirtIcon,
+  UndoIcon,
+} from "@hugeicons/core-free-icons";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -9,6 +21,8 @@ import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { consumableIcon } from "~/utils/itemMarks";
 import { counted } from "~~/shared/tidyText";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
+import { VAULT_KIT_QTY_MAX } from "~~/shared/vaultKit";
+import { strongVaultRows } from "~~/shared/vaultSearch";
 
 // One row of /gear: the name cell, the weight, the class mark and the trailing
 // controls — or, for a REMOVED piece, the way back.
@@ -36,6 +50,13 @@ const props = defineProps<{
   open?: boolean;
   /** the kits a piece is in, by name — the page holds the names */
   kitNames?: string[];
+  /** your gear, where an open kit's "Add an item" finds what to add */
+  gear?: VaultEntry[];
+  /** a change to this kit's items is saving: its controls wait */
+  kitBusy?: boolean;
+  /** "Make it a kit" was pressed for this piece: it shows the "Add an item" line, and
+   *  the first item added makes it a kit */
+  startKit?: boolean;
 }>();
 const emit = defineEmits<{
   /** "icon" when the row's icon was pressed: the dialog opens on its icon grid */
@@ -51,6 +72,11 @@ const emit = defineEmits<{
   toggle: [];
   /** open a part's own editor: a part is a piece in its own folder, not the kit's */
   "edit-part": [id: number];
+  /** the kit's items as they should now be, each by id with how many, and its own
+   *  weight — the whole set, the way the vault's kit op takes it */
+  kit: [parts: { id: number; qty: number }[], ownWeightMg: number];
+  /** "Make it a kit" given up on before an item went in */
+  "cancel-kit": [];
 }>();
 
 const displayName = computed(() => itemDisplayName(props.entry.brand, props.entry.name, props.entry.variant));
@@ -60,10 +86,78 @@ const displayName = computed(() => itemDisplayName(props.entry.brand, props.entr
 // it, marked, and stops counting.
 const isKit = computed(() => props.entry.kind === "kit" && !props.removed);
 const parts = computed(() => props.entry.parts ?? []);
-// the LINES it holds, one per live item whatever its count — "3 items" over three lines,
-// with a ×3 on the line that has it, not a unit count no line adds up to
-const itemCount = computed(() => parts.value.filter((p) => !p.removed).length);
+// what the kit HOLDS, counting each item as many times as the kit has it: two mug lids
+// and a stove is three items, not two lines (Ryan: "this doesn't seem to keep count")
+const itemCount = computed(() => parts.value.reduce((n, p) => (p.removed ? n : n + p.qty), 0));
 const removedParts = computed(() => parts.value.filter((p) => p.removed).length);
+
+// ---- editing a kit's items, on the row -------------------------------------
+// Ryan: "Do we need to do this in a modal?" — no: the items are right here once the
+// kit is open, so they are changed here, each change saved as it is made (the unit
+// picker's way). Every change sends the WHOLE set, which is what the vault's kit op
+// takes. A kit keeps at least one item: emptying one would turn it back into a single
+// piece at the weight it showed, which is not what taking the last item out means.
+const refs = () => parts.value.map((p) => ({ id: p.id, qty: p.qty }));
+const liveCount = computed(() => parts.value.filter((p) => !p.removed).length);
+const editingItems = computed(() => (isKit.value && props.open) || (!!props.startKit && !props.removed));
+function sendParts(next: { id: number; qty: number }[], own = props.entry.ownWeightMg ?? 0) {
+  if (props.kitBusy) return;
+  emit("kit", next, own);
+}
+function stepPart(id: number, by: number) {
+  sendParts(refs().map((r) => (r.id === id ? { id: r.id, qty: Math.min(VAULT_KIT_QTY_MAX, Math.max(1, r.qty + by)) } : r)));
+}
+function dropPart(id: number) {
+  sendParts(refs().filter((r) => r.id !== id));
+}
+const canDrop = (p: { removed?: boolean }) => !!p.removed || liveCount.value > 1;
+
+// "Add an item": your other PIECES — not kits (one level deep), not this row, not one
+// it already holds — by the picker's search, which offers real matches only.
+const addQuery = ref("");
+const addEl = useTemplateRef<HTMLInputElement>("addEl");
+const addChoices = computed(() => {
+  const q = addQuery.value.trim();
+  if (!q || !editingItems.value) return [];
+  const taken = new Set(parts.value.map((p) => p.id));
+  const pool = (props.gear ?? []).filter((g) => g.kind !== "kit" && g.id !== props.entry.id && !taken.has(g.id));
+  return strongVaultRows(pool, q, 6);
+});
+// The field stays live while a change saves (a disabled field drops its focus, and
+// the next item is the next thing you type); Enter waits for the save to land, and
+// the cursor is put back once it has.
+let refocus = false;
+function addPart(g: VaultEntry) {
+  if (props.kitBusy) return;
+  addQuery.value = "";
+  refocus = true;
+  sendParts([...refs(), { id: g.id, qty: 1 }]);
+}
+watch(
+  () => props.kitBusy,
+  (busy) => {
+    if (busy || !refocus) return;
+    refocus = false;
+    nextTick(() => addEl.value?.focus());
+  },
+);
+function onAddKey(e: KeyboardEvent) {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    if (addChoices.value[0]) addPart(addChoices.value[0]);
+  } else if (e.key === "Escape") {
+    if (addQuery.value) addQuery.value = "";
+    else if (!isKit.value) emit("cancel-kit");
+  }
+}
+// pressed "Make it a kit": the line is where you type next
+watch(
+  () => props.startKit,
+  (on) => {
+    if (on) nextTick(() => addEl.value?.focus());
+  },
+  { immediate: true },
+);
 const partName = (p: { brand?: string; name: string; variant?: string }) => itemDisplayName(p.brand, p.name, p.variant);
 // The unit THIS piece reads in: the one picked for it, else the page's. A list row's
 // rowUnit, for the same reason: you buy gear labelled in whatever the maker chose, so a
@@ -280,15 +374,15 @@ const meta = computed(() => {
       <HugeiconsIcon :icon="UndoIcon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back
     </button>
     </div>
-    <!-- a kit's items, opened. Each is the piece itself: tapping one edits it. A
-         put-away item stays listed and stops counting; the kit's own weight, when it
-         has one, closes the list. -->
-    <ul v-if="isKit && open" class="vault__parts" :aria-label="`Items in ${displayName}`">
+    <!-- A kit's items, opened, and edited right here: each line is the piece itself
+         (its name opens the piece's own dialog), its weight for the line, how many the
+         kit holds between − and +, and remove. The controls sit under the row's own
+         trailing cluster, so the weights stay in the kit's weight column. A put-away
+         item stays listed and stops counting; it can only come out. A weight of the
+         kit's own (from a group saved off a list whose heading had one) is a line of
+         its own, and can come out too. Then "Add an item". -->
+    <ul v-if="editingItems" class="vault__parts" :aria-label="`Items in ${displayName}`">
       <li v-for="p in parts" :key="p.id" class="vault__part" :class="{ 'vault__part--removed': p.removed }">
-        <!-- how many THE KIT holds, before the name, the way a packing list reads ("2 ×
-             lighter"): the "×3" after a piece's own name, before its weight, is how many
-             you OWN, and the two must not look like one number -->
-        <span v-if="p.qty > 1" class="t-num vault__partqty">{{ p.qty }} ×</span>
         <button
           v-if="!p.removed"
           type="button"
@@ -298,10 +392,77 @@ const meta = computed(() => {
         >{{ partName(p) }}</button>
         <span v-else class="vault__partname t-clip">{{ partName(p) }} <span class="vault__partgone">· removed</span></span>
         <span class="t-num vault__partweight">{{ formatWeight(p.weightMg * p.qty, unit) }}</span>
+        <span class="vault__partctl">
+          <span v-if="!p.removed" class="vault__partstep">
+            <button
+              type="button"
+              class="btn btn--icon btn--ghost ink-quiet"
+              :disabled="kitBusy || p.qty <= 1"
+              :aria-label="`One fewer ${partName(p)} in ${displayName}`"
+              @click="stepPart(p.id, -1)"
+            >
+              <HugeiconsIcon :icon="MinusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+            </button>
+            <span class="t-sm t-num vault__partcount" :aria-label="`${p.qty} in the kit`">{{ p.qty }}</span>
+            <button
+              type="button"
+              class="btn btn--icon btn--ghost ink-quiet"
+              :disabled="kitBusy || p.qty >= VAULT_KIT_QTY_MAX"
+              :aria-label="`One more ${partName(p)} in ${displayName}`"
+              @click="stepPart(p.id, 1)"
+            >
+              <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+            </button>
+          </span>
+          <button
+            type="button"
+            class="btn btn--icon btn--ghost ink-quiet"
+            :disabled="kitBusy || !canDrop(p)"
+            :aria-label="`Take ${partName(p)} out of ${displayName}`"
+            :title="canDrop(p) ? `Take ${partName(p)} out of the kit` : 'A kit holds at least one item'"
+            @click="dropPart(p.id)"
+          >
+            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          </button>
+        </span>
       </li>
       <li v-if="entry.ownWeightMg" class="vault__part">
         <span class="vault__partname">Its own weight</span>
         <span class="t-num vault__partweight">{{ formatWeight(entry.ownWeightMg, unit) }}</span>
+        <span class="vault__partctl">
+          <button
+            type="button"
+            class="btn btn--icon btn--ghost ink-quiet"
+            :disabled="kitBusy"
+            :aria-label="`Remove ${displayName}'s own weight`"
+            title="Remove its own weight"
+            @click="sendParts(refs(), 0)"
+          >
+            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          </button>
+        </span>
+      </li>
+      <li class="vault__partadd">
+        <input
+          ref="addEl"
+          v-model="addQuery"
+          class="field vault__partinput"
+          placeholder="Add an item"
+          :aria-label="`Add an item from your gear to ${displayName}`"
+          autocomplete="off"
+          autocorrect="off"
+          spellcheck="false"
+          @keydown="onAddKey"
+        />
+        <ul v-if="addChoices.length" class="vault__partchoices">
+          <li v-for="g in addChoices" :key="g.id">
+            <button type="button" class="vault__partchoice" @click="addPart(g)">
+              <span class="t-clip">{{ itemDisplayName(g.brand, g.name, g.variant) }}</span>
+              <span class="t-sm t-num t-muted">{{ formatWeight(g.weightMg, unit) }}</span>
+            </button>
+          </li>
+        </ul>
+        <p v-else-if="addQuery.trim()" class="t-sm t-muted vault__partnone">None of your gear matches. Add it to My Gear first.</p>
       </li>
     </ul>
   </li>
@@ -349,14 +510,72 @@ const meta = computed(() => {
   --row-tail: calc(4 * var(--icon-btn) + 2 * var(--space-1) + 2 * var(--space-4) + var(--space-2) + 12px);
   list-style: none;
   margin: var(--space-1) 0 0;
-  padding: 0 var(--row-tail) 0 var(--gear-type-indent);
+  padding: 0 0 0 var(--gear-type-indent);
   color: var(--ink-2);
 }
+/* name, the line's weight in the kit's weight column, then the controls in the band
+   the row's own trailing cluster takes, so × sits under the row's bin */
 .vault__part {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto var(--row-tail);
+  align-items: center;
+  column-gap: var(--space-2);
+}
+.vault__partctl {
   display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-1);
+}
+.vault__partstep {
+  display: inline-flex;
+  align-items: center;
+}
+.vault__partcount {
+  min-width: 2.5ch;
+  text-align: center;
+  color: var(--ink);
+}
+/* "Add an item": the name and weight columns' width, the field's own borderless box */
+.vault__partadd {
+  padding: var(--space-1) var(--row-tail) var(--space-1) 0;
+  border-top: 1px solid var(--line);
+}
+.vault__partinput {
+  width: 100%;
+}
+.vault__partnone {
+  margin: var(--space-1) 0 0;
+}
+/* its answers in flow under the field, a hairline list like the dialog's was */
+.vault__partchoices {
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  list-style: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+}
+.vault__partchoices li + li {
+  border-top: 1px solid var(--line);
+}
+.vault__partchoice {
+  display: flex;
+  width: 100%;
   align-items: baseline;
-  gap: var(--space-2);
-  padding-block: var(--space-1);
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.vault__partchoice:hover,
+.vault__partchoice:focus-visible {
+  background: var(--popover-hover);
 }
 .vault__part + .vault__part {
   border-top: 1px solid var(--line);
@@ -384,12 +603,7 @@ button.vault__partname:hover {
 .vault__partgone {
   font-style: italic;
 }
-.vault__partqty {
-  flex: none;
-  color: var(--ink-3);
-}
 .vault__partweight {
-  flex: none;
   min-width: 5rem;
   text-align: right;
 }
@@ -603,6 +817,12 @@ button.vault__partname:hover {
     white-space: normal;
   }
   /* a kit's items indent to the names' edge, and their weights take the right edge */
+  .vault__part {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+  }
+  .vault__partadd {
+    padding-right: 0;
+  }
   .vault__parts {
     padding-right: 0;
     padding-left: var(--gear-type-indent);
