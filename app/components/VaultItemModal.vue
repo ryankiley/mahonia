@@ -974,4 +974,32 @@ async function onSubmit() {
 .vitem__err {
   color: var(--ink);
 }
+/* Last in the sheet, so it wins over the table's own rules above.
+   A phone-narrow dialog has no room for an item's name beside its weight and
+   stepper ("Soto Wi…"), so each item takes two lines: its whole name, then its
+   weight, the stepper and remove. The column heads go; the stepper between − and +
+   reads as a count on its own, and the total stays. */
+@container (max-width: 26rem) {
+  .vitem__part {
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    row-gap: 0;
+    padding-block: var(--space-1);
+  }
+  .vitem__partname {
+    grid-column: 1 / -1;
+    white-space: normal;
+  }
+  .vitem__partweight {
+    text-align: left;
+  }
+  .vitem__partcols {
+    display: none;
+  }
+  .vitem__parttotal {
+    display: flex;
+  }
+  .vitem__parttotal .vitem__partweight {
+    margin-left: auto;
+  }
+}
 </style>
