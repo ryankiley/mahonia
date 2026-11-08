@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, Clock01Icon, GridViewIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { Backpack03Icon, ChevronDownIcon, Clock01Icon, GridViewIcon, ToolCaseIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -113,7 +113,31 @@ const restoring = ref<number | null>(null);
 const view = ref<VaultView>("kinds");
 const show = ref<VaultShow>("all");
 
-const shown = computed(() => filterVaultRows(items.value, show.value));
+// ---- Gear | Kits ---------------------------------------------------------------
+// Two tabs at the top, the list's own Gear / Packing / Trip bar (ModeBar) in its spot
+// (Ryan: "tabs at the top for kits vs all gear. similar to how pack lists have them").
+// Gear is your pieces by kind; Kits is the sets. Remembered on this device, like the
+// list's mode. A piece being made into a kit (kitStarting) shows on Kits, where its
+// first item will keep it.
+type GearTab = "gear" | "kits";
+const TAB_KEY = "gear.vault.tab.v1";
+const TABS = [
+  { key: "gear", label: "Gear", icon: Backpack03Icon },
+  { key: "kits", label: "Kits", icon: ToolCaseIcon },
+] as const;
+const tab = ref<GearTab>("gear");
+onMounted(() => {
+  if (recall(TAB_KEY) === "kits") tab.value = "kits";
+});
+function pickTab(next: string) {
+  tab.value = next === "kits" ? "kits" : "gear";
+  remember(TAB_KEY, tab.value);
+}
+const isKitRow = (i: VaultEntry) => i.kind === "kit" || i.id === kitStarting.value;
+const onTab = computed(() => items.value.filter((i) => isKitRow(i) === (tab.value === "kits")));
+
+// what a kit is, it isn't base, worn or consumable: Show narrows only the Gear tab
+const shown = computed(() => filterVaultRows(onTab.value, tab.value === "kits" ? "all" : show.value));
 const found = computed(() => searchVaultRows(shown.value, query.value));
 // A query and a View both claim the order, so one has to yield. RELEVANCE wins under
 // the default view — you typed a question and the best answers belong at the top,
@@ -123,21 +147,18 @@ const found = computed(() => searchVaultRows(shown.value, query.value));
 const filtered = computed(() =>
   view.value === "kinds" ? found.value : sortVaultRows(found.value, view.value),
 );
-// A chosen order flattens, and so does a search — see groupVaultByKind for why.
-const flat = computed(() => view.value !== "kinds" || !!query.value.trim());
+// A chosen order flattens, and so does a search — see groupVaultByKind for why. Kits
+// are one kind of thing, so their tab is always one list.
+const flat = computed(() => tab.value === "kits" || view.value !== "kinds" || !!query.value.trim());
 const grouped = computed<VaultKindSection[]>(() => (flat.value ? [] : groupVaultByKind(filtered.value)));
-const narrowed = computed(() => filtered.value.length !== items.value.length);
+const narrowed = computed(() => filtered.value.length !== onTab.value.length);
 
 // The page's weight, the way the page shows it (vaultShownMg): a kit counted whole,
 // its items at the counts it holds them, and a piece in a kit not counted again —
 // the same in every view, so switching to A–Z doesn't change the number.
 const totalMg = computed(() => vaultShownMg(filtered.value));
-// The count line counts PIECES and names the kits apart — "12 items" over a page of
-// ten pieces and two kits would be a third way of counting a part twice.
-const kitsOf = (rows: VaultEntry[]) => rows.filter((i) => i.kind === "kit").length;
-const pieceTotal = computed(() => items.value.length - kitsOf(items.value));
-const pieceShown = computed(() => filtered.value.length - kitsOf(filtered.value));
-const kitShown = computed(() => kitsOf(filtered.value));
+// The count line counts what the tab holds: pieces on Gear, kits on Kits.
+const countNoun = computed(() => (tab.value === "kits" ? "kit" : "item"));
 
 // ---- kits ----------------------------------------------------------------
 // A kit opens to show its parts. Closed by default and remembered per kit on this
@@ -238,6 +259,30 @@ const kitStarting = ref<number | null>(null);
 function startKitFor(id: number) {
   editing.value = null;
   kitStarting.value = id;
+  // to the tab it will live on, so its first item doesn't carry it off the page
+  pickTab("kits");
+}
+// "New kit", on the Kits tab: a name makes a piece, and the piece opens on its
+// "Add an item" line, where the first item makes it a kit — the dialog's "Make it a
+// kit" without the detour through a piece.
+const newKitName = ref("");
+async function commitNewKit() {
+  const name = newKitName.value.trim();
+  if (!name || addBusy.value) return;
+  addBusy.value = true;
+  loadError.value = "";
+  const res = await vaultFetch<{ ok: boolean; reason?: string; item?: VaultEntry }>("/api/vault/items", {
+    method: "POST",
+    body: { op: { t: "add", name, weightMg: 0 } },
+  }).catch(() => ({ ok: false }) as { ok: boolean; reason?: string; item?: VaultEntry });
+  addBusy.value = false;
+  if (!res.ok || !res.item) {
+    loadError.value = res.reason === "duplicate" ? "You already have that in My Gear." : "Couldn’t make that kit. Check your connection and try again.";
+    return;
+  }
+  newKitName.value = "";
+  kitStarting.value = res.item.id;
+  await loadVault();
 }
 // What the gear on screen cost. Follows `filtered` like the weight beside it — both
 // figures describe what you are looking at, so narrowing to Worn answers "what did
@@ -269,7 +314,7 @@ const priceTitle = computed(() => {
 // sentence would leave you guessing which control to undo.
 const noneLine = computed(() => {
   if (query.value.trim()) return `Nothing here matches “${query.value.trim()}”.`;
-  if (show.value !== "all") return `No ${show.value} gear in My Gear yet.`;
+  if (tab.value === "gear" && show.value !== "all") return `No ${show.value} gear in My Gear yet.`;
   return "";
 });
 
@@ -630,7 +675,20 @@ async function exportGear(kind: string) {
          — the read views' exact shape, which is what the flag is for. Without it the
          looser gaps ran "Create a list" onto two lines at 375px once the ⋯ arrived,
          and the account control changed between a word and a glyph with the session. -->
-    <SiteTopbar compact label="My Gear">
+    <!-- No page label: the Gear / Kits tabs under the bar say where you are, and the
+         h1 below keeps the page's name for the outline. -->
+    <SiteTopbar compact>
+      <!-- Not the wordmark: the editor's own "Your packs" switcher, in the spot it holds
+           on a list, so the two bars read alike and every list is one tap away (the
+           wordmark only went home). Client-only: the lists it names live in this
+           browser and the account, and the server has neither. The fallback holds its
+           width so "My Gear" doesn't jump when it arrives. -->
+      <template #lead>
+        <ClientOnly>
+          <ListMenu :current-share-code="null" @new-list="navigateTo('/e')" />
+          <template #fallback><span class="gear__leadhold" aria-hidden="true">Your packs</span></template>
+        </ClientOnly>
+      </template>
       <!-- The bar's end-cap, where every ⋯ on the site sits — after the account
            control (see SiteTopbar's #end). It leads with "Create a list", which used to
            be a word in the bar and crowded it, then holds the import and export, which
@@ -679,10 +737,11 @@ async function exportGear(kind: string) {
 
         <!-- the gear -->
         <div v-else>
+          <ModeBar class="vault__tabs" :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
           <!-- the gear you pack most, as tiles, above everything else (hidden while
                you search: a query is a question about rows). A tile opens the piece. -->
           <VaultMostUsed
-            v-if="!query.trim()"
+            v-if="tab === 'gear' && !query.trim()"
             :items="items"
             :unit="unit"
             @open="(entry: VaultEntry) => openEdit(entry)"
@@ -697,8 +756,8 @@ async function exportGear(kind: string) {
             <SearchField
               v-model="query"
               class="vault__searchwrap"
-              placeholder="Search gear…"
-              label="Search gear"
+              :placeholder="tab === 'kits' ? 'Search kits…' : 'Search gear…'"
+              :label="tab === 'kits' ? 'Search kits' : 'Search gear'"
             />
 
             <!-- The two questions a gear of two hundred rows raises, as the app's
@@ -719,6 +778,7 @@ async function exportGear(kind: string) {
                 </template>
               </OptionMenu>
               <OptionMenu
+                v-if="tab === 'gear'"
                 class="vault__view"
                 :options="SHOW_OPTIONS"
                 :current="show"
@@ -743,10 +803,9 @@ async function exportGear(kind: string) {
 
           <template v-else-if="items.length">
             <p class="t-sm t-muted vault__count">
-              <template v-if="narrowed">{{ formatCount(pieceShown) }} of {{ formatCount(pieceTotal) }}</template>
-              <template v-else>{{ formatCount(pieceTotal) }}</template>
-              {{ pluralNoun(pieceTotal, "item") }} ·
-              <template v-if="kitShown">{{ formatCount(kitShown) }} {{ pluralNoun(kitShown, "kit") }} · </template>
+              <template v-if="narrowed">{{ formatCount(filtered.length) }} of {{ formatCount(onTab.length) }}</template>
+              <template v-else>{{ formatCount(onTab.length) }}</template>
+              {{ pluralNoun(onTab.length, countNoun) }} ·
               <!-- The total IS the unit control, the same object the editor's
                    TotalsBar puts up: figure and chevron, opening the app's own picker.
                    A separate g/oz toggle sat off in the search bar, away from the only
@@ -775,7 +834,19 @@ async function exportGear(kind: string) {
 
             <!-- the page's one add row, at the head of the gear: with no folders there
                  is nowhere to choose, and a piece lands under its kind by itself -->
-            <div v-if="!query" class="vault__add vault__add--top">
+            <!-- Kits: name a new one, and it opens on its "Add an item" line -->
+            <form v-if="!query && tab === 'kits'" class="vault__add vault__add--top vault__newkit" @submit.prevent="commitNewKit">
+              <input
+                v-model="newKitName"
+                class="field"
+                placeholder="New kit"
+                aria-label="Name a new kit"
+                autocomplete="off"
+                :maxlength="200"
+                :disabled="addBusy"
+              />
+            </form>
+            <div v-else-if="!query" class="vault__add vault__add--top">
               <VaultAddRow
                 v-if="adding"
                 ref="addRow"
@@ -878,6 +949,9 @@ async function exportGear(kind: string) {
             <!-- a filter or a search that matched nothing. The line names the control
                  that emptied the page, so you know which one to undo. -->
             <p v-if="!filtered.length && noneLine" class="t-muted vault__none">{{ noneLine }}</p>
+            <p v-else-if="tab === 'kits' && !onTab.length" class="t-muted vault__none">
+              No kits yet. Name one above, or open a piece and choose Make it a kit.
+            </p>
 
           </template>
 
@@ -993,6 +1067,11 @@ async function exportGear(kind: string) {
 </template>
 
 <style scoped lang="scss">
+/* the switcher's width before it hydrates: its word and chevron, unseen */
+.gear__leadhold {
+  visibility: hidden;
+  padding-inline-end: calc(14px + var(--space-1));
+}
 /* Signed out there is one thing to do, so the column centres and narrows — the
    same shape /account uses for the same reason. Signed in the page is a wide,
    left-aligned list of gear, which is why this is scoped to the signed-out block
@@ -1144,6 +1223,17 @@ async function exportGear(kind: string) {
    no rule above it (nothing above it is a row of gear) */
 .vault__add--top {
   margin-bottom: var(--space-4);
+}
+/* The list's mode bar, in the list's exact spot: the editor's body pads its top by
+   --space-1 (.editor__body), a page by --space-5 (.page), so the bar is pulled up by
+   the difference and its first tab lands where the list's does, 8px under the bar. */
+.vault__tabs {
+  /* block-level, as it is in the list's flex column: inline, its line box ate the
+     negative margin above */
+  display: flex;
+  width: fit-content;
+  margin-top: calc(var(--space-1) - var(--space-5));
+  margin-bottom: var(--space-3);
 }
 
 /* the removed-gear disclosure sits as a quiet footer to

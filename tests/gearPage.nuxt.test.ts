@@ -129,14 +129,21 @@ describe("the /gear page's vault calls", () => {
   });
 
   // My Gear has no folders to keep: it groups itself by what each piece is.
-  it("groups the gear by kind, kits first and Other last", async () => {
+  it("groups the gear by kind, Other last, and keeps kits on their own tab", async () => {
     listRows = [
       entry(1, "Widget"),
       { ...entry(2, "Duplex"), commonName: "Tent" },
       { ...entry(3, "Cook kit"), kind: "kit", parts: [] },
     ];
-    const w = await openPage();
-    expect(w.findAll(".vault__kind").map((h) => h.text())).toEqual(["Kits", "Shelter", "Other"]);
+    const w = mount(GearPage, { attachTo: document.body });
+    // the Gear tab: the pieces, by kind
+    await vi.waitFor(() => expect(rows(w)).toHaveLength(2));
+    expect(w.findAll(".vault__kind").map((h) => h.text())).toEqual(["Shelter", "Other"]);
+    // the Kits tab: the kit, and no kind headings
+    const kitsTab = w.findAll(".modebar__opt").find((b) => b.text().includes("Kits"))!;
+    await kitsTab.trigger("click");
+    await vi.waitFor(() => expect(rows(w).map((r) => r.text())).toEqual([expect.stringContaining("Cook kit")]));
+    expect(w.findAll(".vault__kind")).toHaveLength(0);
   });
 
   it("removes a row through /api/vault/remove", async () => {

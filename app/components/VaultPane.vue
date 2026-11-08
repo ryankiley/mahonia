@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Cancel01Icon, ChevronDownIcon, FolderIcon, Layers01Icon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Cancel01Icon, ChevronDownIcon, FolderIcon, ToolCaseIcon } from "@hugeicons/core-free-icons";
 import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
@@ -576,7 +576,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             @click="addEntry(kit, targetFolderId)"
           >
             <span class="vp__kit" aria-hidden="true">
-              <HugeiconsIcon :icon="Layers01Icon" :size="14" :stroke-width="2" />
+              <HugeiconsIcon :icon="ToolCaseIcon" :size="14" :stroke-width="2" />
             </span>
             <span class="gear__main">
               <span class="gear__name t-clip" :title="itemDisplayName(kit.brand, kit.name, kit.variant)">{{ itemDisplayName(kit.brand, kit.name, kit.variant) }}</span>
@@ -612,7 +612,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             <!-- a kit's mark, so a set reads as one before you read a word of it;
                  the same glyph /gear's row wears -->
             <span v-if="isKit(entry)" class="vp__kit" aria-hidden="true">
-              <HugeiconsIcon :icon="Layers01Icon" :size="14" :stroke-width="2" />
+              <HugeiconsIcon :icon="ToolCaseIcon" :size="14" :stroke-width="2" />
             </span>
             <span class="gear__main">
               <!-- the full name on hover, for the rows the ellipsis cut short -->

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, DashedLine02Icon, Layers01Icon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, DashedLine02Icon, ToolCaseIcon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
@@ -494,7 +494,7 @@ async function onSubmit() {
            already in a kit can't (kits are one level deep). -->
       <section v-if="!inKits" class="vitem__parts">
         <button type="button" class="btn btn--quiet vitem__makekit" :disabled="saving" @click="onMakeKit">
-          <HugeiconsIcon :icon="Layers01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="ToolCaseIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           Make it a kit
         </button>
       </section>
