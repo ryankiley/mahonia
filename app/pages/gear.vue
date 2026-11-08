@@ -7,7 +7,7 @@ import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { formatPrice, sumPrices } from "~~/shared/money";
-import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
+import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import {
   filterVaultRows,
   groupVaultRows,
@@ -363,7 +363,9 @@ async function commitAdd(folderId: number | null) {
   }
   // Only the pair that was sent is cleared: the fields stay live through the round
   // trip, and anything typed meanwhile is the next one.
-  await sendAdd({ t: "add", name, weightMg, folderId }, () => addName.value.trim() === name && addWeight.value.trim() === raw);
+  // a weight typed with its unit ("3.8 oz") reads back in that unit on the row
+  const entryUnit = entryUnitFromInput(raw) ?? undefined;
+  await sendAdd({ t: "add", name, weightMg, folderId, entryUnit }, () => addName.value.trim() === name && addWeight.value.trim() === raw);
 }
 // A catalog product picked from the add row's suggestions, added AS that product: its
 // brand, size, gear type, catalog link and calories, and its weight unless you typed
@@ -385,6 +387,8 @@ async function commitPick(folderId: number | null, c: NameCommit) {
       variant: c.variant,
       commonName: c.commonName,
       weightMg: typed ?? c.weightMg ?? 0,
+      // your own typed weight keeps the unit you typed it in, like a plain add
+      entryUnit: (typed != null && entryUnitFromInput(raw)) || undefined,
       classification: c.classification,
       kcal: c.kcal,
       catalogItemId: c.catalogItemId,
@@ -440,6 +444,25 @@ const editorEverOpened = useLatch(() => editing.value);
 function openEdit(entry: VaultEntry, focus: "icon" | null = null) {
   editFocus.value = focus;
   editing.value = entry;
+}
+// A piece's own unit, picked on its row the way a list row's is: shown at once, then
+// saved. The server's answer replaces the row; a save that fails puts the old unit back.
+async function setEntryUnit(entry: VaultEntry, u: Unit) {
+  const at = items.value.findIndex((i) => i.id === entry.id);
+  if (at < 0 || items.value[at]!.entryUnit === u) return;
+  const before = items.value[at]!;
+  items.value[at] = { ...before, entryUnit: u };
+  const put = (row: VaultEntry) => {
+    const i = items.value.findIndex((x) => x.id === row.id);
+    if (i >= 0) items.value[i] = row;
+  };
+  const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", {
+    method: "POST",
+    body: { op: { t: "edit", id: entry.id, patch: { entryUnit: u } } },
+  }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry });
+  if (res.ok && res.item) return put(res.item);
+  put(before);
+  loadError.value = "Couldn’t save that unit. Check your connection and try again.";
 }
 // Patch the one row in place rather than re-reading the vault: the endpoint returns
 // the row as it now stands, and a full reload would re-sort the page under a dialog
@@ -765,6 +788,7 @@ async function exportGear(kind: string) {
                 @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
                 @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                 @remove="remove(entry)"
+                @unit="(u: Unit) => setEntryUnit(entry, u)"
               />
             </ul>
 
@@ -852,6 +876,7 @@ async function exportGear(kind: string) {
                         @edit="(focus?: 'icon') => openEdit(entry, focus ?? null)"
                         @move="(folderId: number | null) => folderOp({ t: 'move', itemId: entry.id, folderId })"
                         @remove="remove(entry)"
+                @unit="(u: Unit) => setEntryUnit(entry, u)"
                         @overlay-toggle="(o: boolean) => onOverlayToggle(sectionKey(section), o)"
                       />
                     </ul>

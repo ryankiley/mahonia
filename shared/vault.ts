@@ -12,7 +12,7 @@
 
 import type { GearGlyph } from "./gearGlyph";
 import { foldForSearch } from "./searchText";
-import type { Classification, Item } from "./types";
+import type { Classification, Item, Unit } from "./types";
 
 /** Max vault suggestions returned to the autocomplete. Deliberately smaller than
  *  the catalog's SEARCH_LIMIT: the vault renders ABOVE the catalog results in the
@@ -147,6 +147,9 @@ export interface VaultEntry extends VaultCapture {
   pinned?: VaultPinField[];
   /** The icon you picked for it by hand; absent = drawn from its gear type. */
   icon?: GearGlyph;
+  /** The unit its weight reads in, picked per piece like a list row's entryUnit;
+   *  absent = the page's unit. Display only: weightMg is the figure. */
+  entryUnit?: Unit;
   id: number;
   /** How many distinct captures have landed on this row — a "how often do I pack
    *  this" signal that ranks the autocomplete, like the catalog's usage_count. */

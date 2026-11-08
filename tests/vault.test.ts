@@ -1055,6 +1055,13 @@ describe("adding gear by hand", () => {
     expect(row.timesSeen).toBe(1);
   });
 
+  it("remembers the unit a weight was typed in, and ignores one that isn't a unit", async () => {
+    await add({ entryUnit: "oz" });
+    expect((await only(db))!.entryUnit).toBe("oz");
+    await add({ name: "Plex Solo", entryUnit: "furlongs" });
+    expect((await listVaultItems(db, VAULT)).find((r) => r.name === "Plex Solo")!.entryUnit).toBeUndefined();
+  });
+
   it("pins what you typed, so the next capture can't undo it", async () => {
     await add({ weightMg: 545_000 });
     await captureVaultItems(db, VAULT, [cap()]);
@@ -1224,6 +1231,22 @@ describe("editing a vault row", () => {
     expect((await only(db))!.icon).toBe("shirt");
     await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { icon: null } } as any);
     expect((await only(db))!.icon).toBeUndefined();
+  });
+
+  it("keeps a unit picked for the piece, refuses anything else, and clears back to the page's", async () => {
+    await captureVaultItems(db, VAULT, [cap()]);
+    const id = (await only(db))!.id;
+    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { entryUnit: "oz" } } as any);
+    expect((await only(db))!.entryUnit).toBe("oz");
+    // the stored figure is untouched: the unit only says how it reads
+    expect((await only(db))!.weightMg).toBe(cap().weightMg);
+    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { entryUnit: "stone" } } as any);
+    expect((await only(db))!.entryUnit).toBe("oz");
+    // a list landing on the same gear has no say in how /gear reads it
+    await captureVaultItems(db, VAULT, [cap()]);
+    expect((await only(db))!.entryUnit).toBe("oz");
+    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { entryUnit: null } } as any);
+    expect((await only(db))!.entryUnit).toBeUndefined();
   });
 
   it("refuses an unknown op", async () => {

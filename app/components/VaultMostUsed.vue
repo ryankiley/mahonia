@@ -42,7 +42,7 @@ const top = computed(() => {
         <button
           type="button"
           class="mu__tile"
-          :aria-label="`${entry.brand ? `${entry.brand} ` : ''}${entry.name}, ${formatWeight(entry.weightMg, unit)}`"
+          :aria-label="`${entry.brand ? `${entry.brand} ` : ''}${entry.name}, ${formatWeight(entry.weightMg, entry.entryUnit ?? unit)}`"
           @click="emit('open', entry)"
         >
           <!-- absolute stroke: 1.75px lines at 32px, close to the rows' 1.67 at 20px,

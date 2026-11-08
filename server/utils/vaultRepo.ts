@@ -24,7 +24,7 @@ import {
   type VaultFolder,
   type VaultPinField,
 } from "../../shared/vault";
-import { CLASSIFICATIONS, type Classification } from "../../shared/types";
+import { CLASSIFICATIONS, UNITS, type Classification, type Unit } from "../../shared/types";
 import { clampUnitWeightMg, isSerialId, KCAL_MAX } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { tidyText } from "../../shared/tidyText";
@@ -84,6 +84,9 @@ function pinsOf(row: Row): VaultPinField[] | undefined {
 // the SAME key. Tidying what's shown cannot re-key a row, split one in two, or miss the
 // upsert target. The stored column keeps whatever it had until the next capture
 // rewrites it from an already-tidied list item.
+/** A unit off the wire or out of the column, or undefined for anything else. */
+const unitOf = (v: unknown): Unit | undefined => (UNITS.includes(v as Unit) ? (v as Unit) : undefined);
+
 function toEntry(row: Row): VaultEntry {
   return {
     id: row.id,
@@ -94,6 +97,7 @@ function toEntry(row: Row): VaultEntry {
     commonName: row.commonName ? tidyText(row.commonName) || undefined : undefined,
     // a pick whose icon has left the set reads as no pick, so the type's icon shows
     icon: isGearGlyph(row.icon) ? row.icon : undefined,
+    entryUnit: unitOf(row.entryUnit),
     weightMg: Number(row.weightMg),
     classification: CLASSIFICATIONS.includes(row.classification as Classification)
       ? (row.classification as Classification)
@@ -827,6 +831,8 @@ export type VaultItemOp =
       currency?: string;
       /** File it as you create it; null = unfiled. Verified in this gear's scope. */
       folderId?: number | null;
+      /** The unit its weight was typed in ("3.8 oz"), so it reads back the same way. */
+      entryUnit?: Unit;
     }
   | {
       t: "edit";
@@ -871,6 +877,9 @@ interface VaultItemPatch {
   /** The icon picked by hand, or null to go back to the gear type's. No pin, like the
    *  catalog link: nothing but this dialog ever writes it. */
   icon?: GearGlyph | null;
+  /** The unit the weight reads in, or null for the page's. No pin: only /gear writes
+   *  it, so there is no capture to protect it from. */
+  entryUnit?: Unit | null;
 }
 
 /** The pin flags a deliberate write asserts, returned in the SAME object as the
@@ -946,6 +955,11 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
     // the column is a Postgres integer: the bound sanitize() holds a capture to
     if (p.catalogItemId === null) out.catalogItemId = null;
     else if (isSerialId(p.catalogItemId)) out.catalogItemId = p.catalogItemId;
+  }
+  if ("entryUnit" in p) {
+    // anything but a unit is ignored, not stored: the row would read in nothing
+    if (p.entryUnit === null) out.entryUnit = null;
+    else if (unitOf(p.entryUnit)) out.entryUnit = unitOf(p.entryUnit)!;
   }
   if ("icon" in p) {
     // a name outside the set is ignored, not stored: it would draw nothing
@@ -1071,8 +1085,9 @@ export async function addVaultItems(
   const done = await db
     .insert(vaultItems)
     .values(
-      landing.map(({ cap, folderId }) => ({
+      landing.map(({ index, cap, folderId }) => ({
         ...rowValues(cap, vaultId, now, folderId),
+        entryUnit: unitOf(ops[index]!.entryUnit) ?? null,
         // Typing it in is choosing it: every field you supplied is yours, and no list
         // may overwrite it. A zero weight pins nothing — see cleanVaultPatch.
         namePinned: true,

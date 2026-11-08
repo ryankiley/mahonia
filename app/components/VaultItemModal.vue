@@ -5,7 +5,7 @@ import type { Classification, Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
 import { formatPrice, parsePriceInput } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
-import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
+import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { GEAR_ICON_CHOICES, gearIcon, gearIconLabel } from "~/utils/gearIcons";
@@ -74,6 +74,8 @@ function pickIcon(glyph: GearGlyph | null) {
   // back to the box that opened it, rather than dropping a keyboard user on the page
   nextTick(() => iconBtn.value?.focus());
 }
+// the unit this piece's weight reads in: its own, else the page's (the row's rowUnit)
+const rowUnit = computed<Unit>(() => props.entry?.entryUnit ?? props.unit);
 const saving = ref(false);
 const error = ref("");
 const nameEl = useTemplateRef<HTMLInputElement>("nameEl");
@@ -136,7 +138,7 @@ watch(
     // UNIT stays in the string (CatalogCorrectionModal prefills the same way), so a
     // field showing "1.2" can't be misread when the page is in kg — and
     // parseWeightInput reads the suffix straight back.
-    weight.value = e.weightMg ? formatWeight(e.weightMg, props.unit, { raw: true }) : "";
+    weight.value = e.weightMg ? formatWeight(e.weightMg, e.entryUnit ?? props.unit, { raw: true }) : "";
     // absent means "never stated", which for a vault row IS base: capture drops the
     // field when the list row was inheriting its folder's default
     classification.value = e.classification ?? "base";
@@ -236,12 +238,15 @@ async function onSubmit() {
     const raw = weight.value.trim();
     // Blank clears to 0 — gear you own but haven't weighed is a legitimate state
     // here, unlike an automatic capture, which waits (see isVaultWorthy).
-    const parsed = raw ? parseWeightInput(raw, props.unit) : 0;
+    const parsed = raw ? parseWeightInput(raw, rowUnit.value) : 0;
     if (parsed == null || parsed < 0) {
       error.value = "That weight doesn’t read as a number. Try “540 g” or “1.2 kg”.";
       return;
     }
     patch.weightMg = parsed;
+    // a weight typed WITH its unit ("3.8 oz") reads back in that unit, as on a list row
+    const named = entryUnitFromInput(raw);
+    if (named) patch.entryUnit = named;
   }
 
   // Nothing changed: closing is the honest answer. Sending an empty patch would be a
@@ -265,11 +270,10 @@ async function onSubmit() {
     <template v-if="entry">
       <h2 class="t-label">Edit gear</h2>
       <p class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
-      <!-- The one thing a dialog has room to say that a row doesn't: these three
-           fields ARE how the vault recognises this piece of gear. -->
-      <p class="t-sm t-muted dlg__lede">
-        Your changes here stick. A list won’t overwrite a field you’ve fixed.
-      </p>
+      <!-- The one thing a dialog has room to say that a row doesn't: what you change here
+           is pinned (vaultRepo), so no list can write over it. One line; it shows on every
+           open, and it was two. -->
+      <p class="t-sm t-muted dlg__lede">A list won’t overwrite what you change here.</p>
 
       <div class="vitem__pair">
         <label class="dlg__field">
@@ -289,9 +293,17 @@ async function onSubmit() {
         <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
-      <!-- The icon beside the gear type, because the type decides it until you pick one:
-           type "puffy" and the box beside it turns into a jacket. -->
+      <!-- The gear type, then the icon beside it, because the type decides the icon until
+           you pick one: type "puffy" and the box beside it turns into a jacket. On the
+           dialog's two columns like every other pair, so Gear type starts under Name and
+           the icon under Size or version. -->
       <div class="vitem__typed">
+        <!-- the placeholder is ItemRow's, word for word, so the field is named the same
+             way in both places -->
+        <label class="dlg__field">
+          <span class="t-sm t-muted">Gear type</span>
+          <input v-model="commonName" class="field" placeholder="Type of gear" @keydown.enter="onSubmit" />
+        </label>
         <div class="dlg__field">
           <span class="t-sm t-muted">Icon</span>
           <button
@@ -308,12 +320,6 @@ async function onSubmit() {
             <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': iconsOpen }" :size="14" :stroke-width="2" aria-hidden="true" />
           </button>
         </div>
-        <!-- the placeholder is ItemRow's, word for word, so the field is named the same
-             way in both places -->
-        <label class="dlg__field">
-          <span class="t-sm t-muted">Gear type</span>
-          <input v-model="commonName" class="field" placeholder="Type of gear" @keydown.enter="onSubmit" />
-        </label>
       </div>
       <!-- In the dialog's own flow, not a floating menu: forty-odd glyphs are a grid to
            look over, and the dialog already scrolls. "Automatic" first, since going back
@@ -337,21 +343,13 @@ async function onSubmit() {
         </button>
       </div>
 
-      <!-- the row's own sub-line, in the dialog's words: ItemRow's note placeholder
-           verbatim, because it is the same text moved — a list wrote it, and this is
-           where it stops being overwritten -->
-      <label class="dlg__field">
-        <span class="t-sm t-muted">Note</span>
-        <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
-      </label>
-
       <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Weight</span>
           <input
             v-model="weight"
             class="field"
-            :placeholder="`0 ${unit}`"
+            :placeholder="`0 ${rowUnit}`"
             inputmode="decimal"
             autocomplete="off"
             autocorrect="off"
@@ -361,7 +359,9 @@ async function onSubmit() {
           />
         </label>
         <div class="dlg__field">
-          <span class="t-sm t-muted">Type</span>
+          <!-- "Counts as", not "Type": the field above is the GEAR type, and two labels
+               saying "type" asked which was which -->
+          <span class="t-sm t-muted">Counts as</span>
           <OptionMenu
             class="vitem__cls field"
             :options="classOptions"
@@ -384,14 +384,17 @@ async function onSubmit() {
         <input v-model="kcal" class="field" inputmode="numeric" placeholder="0" @keydown.enter="onSubmit" />
       </label>
 
-      <!-- what it cost and where it came from, read together. Price takes the
-           narrower track: it is four characters next to an address. -->
-      <div class="vitem__pair vitem__pair--money">
+      <!-- what it cost and where it came from, read together, on the same two columns as
+           every pair above: a narrower price track started the link's column 66px left
+           of every other second column in the dialog -->
+      <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Price</span>
           <!-- inputmode text, not decimal: a currency symbol is part of what this
                field reads, and a numeric keypad can't type one -->
-          <input v-model="price" class="field" placeholder="399" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+          <!-- "0", like the weight and kcal beside it: an example figure ("399") read as
+               a real price on a protein bar -->
+          <input v-model="price" class="field" placeholder="0" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
         </label>
         <label class="dlg__field">
           <span class="t-sm t-muted">
@@ -401,6 +404,15 @@ async function onSubmit() {
           <input v-model="productUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
         </label>
       </div>
+
+      <!-- the row's own sub-line, in the dialog's words: ItemRow's note placeholder
+           verbatim, because it is the same text moved — a list wrote it, and this is
+           where it stops being overwritten. Last, with the price and link: the fields
+           you set now and then, below the ones you set on every piece. -->
+      <label class="dlg__field">
+        <span class="t-sm t-muted">Note</span>
+        <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
+      </label>
 
       <p v-if="error" class="t-sm vitem__err">{{ error }}</p>
 
@@ -427,11 +439,6 @@ async function onSubmit() {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
 }
-/* a price is four characters and a URL is a line of them, so this pair is not an
-   even split — the address gets the room */
-.vitem__pair--money {
-  grid-template-columns: minmax(0, 9rem) 1fr;
-}
 /* the picker wears the field's own box, so it sits level with the weight input
    beside it rather than reading as a different kind of control */
 .vitem__cls {
@@ -441,15 +448,19 @@ async function onSubmit() {
   gap: var(--space-1);
 }
 /* its chevron is the .chev atom (controls.scss), not a copy */
-/* the icon box and the gear type: the box as wide as its glyph and chevron, the type
-   taking the rest. Its own class rather than a .vitem__pair, so it stays one line on a
-   phone — the box is too small to deserve a row of its own. */
+/* the gear type and the icon box, on the same two columns as every pair so the second
+   column starts in one place down the dialog. Its own class rather than a .vitem__pair,
+   so it stays one line on a phone — the box is too small to deserve a row of its own. */
+/* the icon button only as wide as its glyph and chevron, at the start of its column */
 .vitem__typed {
   display: grid;
-  grid-template-columns: auto 1fr;
+  grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
 }
 .vitem__iconbtn {
+  /* .field sets a field's full width; this one is a glyph and a chevron */
+  align-self: flex-start;
+  width: auto;
   display: flex;
   align-items: center;
   gap: var(--space-2);
@@ -518,8 +529,7 @@ async function onSubmit() {
   color: var(--ink);
 }
 @media (max-width: $bp-stack) {
-  .vitem__pair,
-  .vitem__pair--money {
+  .vitem__pair {
     grid-template-columns: 1fr;
   }
 }

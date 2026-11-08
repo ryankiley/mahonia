@@ -91,10 +91,17 @@ registerEndpoint("/api/vault/folders", {
 let itemsHeld: Promise<void> | null = null;
 let addedNames: string[] = [];
 let addedOps: Record<string, unknown>[] = [];
+// an edit answers with the row as it now stands, the way the real route does
+let editedOps: Record<string, unknown>[] = [];
 registerEndpoint("/api/vault/items", {
   method: "POST",
   handler: async (event) => {
-    const body = await readBody<{ op: { name: string } }>(event);
+    const body = await readBody<{ op: { t: string; name: string; id: number; patch: Record<string, unknown> } }>(event);
+    if (body.op.t === "edit") {
+      editedOps.push(body.op);
+      const row = listRows.find((r) => r.id === body.op.id);
+      return { ok: true, item: { ...row, ...body.op.patch } };
+    }
     addedNames.push(body.op.name);
     addedOps.push(body.op);
     if (itemsHeld) await itemsHeld;
@@ -140,6 +147,7 @@ describe("the /gear page's vault calls", () => {
     folderOps = [];
     addedNames = [];
     addedOps = [];
+    editedOps = [];
     itemsHeld = null;
   });
 
@@ -239,6 +247,25 @@ describe("the /gear page's vault calls", () => {
       const w = await openPage();
       await dragRowOnto(rowNamed(w, "Duplex"), w.get('[data-gear-folder=""]').element);
       await vi.waitFor(() => expect(folderOps).toEqual([{ t: "move", itemId: 1, folderId: null }]));
+    });
+  });
+
+  // A piece's weight reads in the unit picked for it, the list row's unit picker on /gear:
+  // shown at once, saved as an edit, and the stored figure never touched.
+  describe("a piece's own weight unit", () => {
+    it("reads in the unit picked on its row, and saves the pick", async () => {
+      listRows = [entry(1, "Duplex")];
+      listFolders = [];
+      const w = await openPage();
+      const weight = () => rows(w).find((r) => r.text().includes("Duplex"))!.get(".vault__weight").text();
+      expect(weight()).toContain("250");
+      await w.get('button[aria-label="Weight unit for Brand Duplex"]').trigger("click");
+      await nextTick();
+      const oz = w.findAll('[role="menuitem"]').find((b) => b.text().trim() === "oz")!;
+      await oz.trigger("click");
+      await vi.waitFor(() => expect(editedOps).toEqual([{ t: "edit", id: 1, patch: { entryUnit: "oz" } }]));
+      expect(weight()).toContain("8.8");
+      expect(weight()).toContain("oz");
     });
   });
 
