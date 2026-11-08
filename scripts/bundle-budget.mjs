@@ -102,7 +102,13 @@ const FIRST_LOAD_CEILING_KB = 160;
 // suggestion menu's room and size grouping, the rows' height fold on a mode switch, and
 // the CSS for the tap areas and hover gates). 159.5 keeps it under the ceiling, so the
 // next growth of any size is the ceiling's conversation.
-const FIRST_LOAD_BUDGET_KB = 159.5;
+//
+// Re-anchored 2026-11-07 at 159.6 measured (#497: catalog suggestions in My Gear's Add
+// gear row reuse the editor's name field, which moved it into a chunk shared with /gear,
+// with its own stylesheet). The rule's ~2 over would cross the ceiling, so it sits ON it:
+// the two lines coincide at 160 again, and the next growth of any size meets the
+// ceiling's message.
+const FIRST_LOAD_BUDGET_KB = 160;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set ~6 KB clear of the current total so it only speaks up
@@ -131,7 +137,13 @@ const FIRST_LOAD_BUDGET_KB = 159.5;
 // unmoved. The first cut used 85 icons and measured 16 KB over main (the Hugeicons
 // glyphs' soft corners make long paths), and the set in shared/gearGlyph.ts was trimmed
 // and tuned from there. Grow that set and this is the number that will say so.
-const TOTAL_BUDGET_KB = 322;
+//
+// Re-set 2026-11-07 at 321.3 measured (was 322): #497, catalog suggestions in My Gear's
+// Add gear row, landing on main after #498, #500, #501 and #502 (menu icons, Create a list
+// in the menu, the placeholder and ice axe, the Most used shelf) took it to ~320. The
+// row reuses the editor's name field, which moved that field into a chunk shared with
+// /gear; the rest is /gear's own route chunk.
+const TOTAL_BUDGET_KB = 327;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

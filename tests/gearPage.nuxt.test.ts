@@ -42,6 +42,21 @@ const entry = (id: number, name: string): VaultEntry => ({
   createdAt: "2026-08-01T00:00:00.000Z",
 });
 
+// the add row's suggestions
+let catalogHits: Record<string, unknown>[] = [];
+registerEndpoint("/api/catalog/search", () => ({ results: catalogHits }));
+registerEndpoint("/api/catalog/use", { method: "POST", handler: () => ({ ok: true }) });
+const NANO_PUFF = {
+  id: 2106,
+  brand: "Patagonia",
+  name: "Nano Puff Jacket",
+  variant: "Men’s Medium",
+  commonName: "Insulated jacket",
+  weightMg: 369_000,
+  verified: true,
+  categoryHint: "clothing",
+};
+
 let listRows: VaultEntry[] = [];
 let listFolders: VaultFolder[] = [];
 registerEndpoint("/api/vault/list", () => ({
@@ -75,6 +90,7 @@ registerEndpoint("/api/vault/folders", {
 // an add, optionally held so a case can type while it's out
 let itemsHeld: Promise<void> | null = null;
 let addedNames: string[] = [];
+let addedOps: Record<string, unknown>[] = [];
 // an edit answers with the row as it now stands, the way the real route does
 let editedOps: Record<string, unknown>[] = [];
 registerEndpoint("/api/vault/items", {
@@ -87,6 +103,7 @@ registerEndpoint("/api/vault/items", {
       return { ok: true, item: { ...row, ...body.op.patch } };
     }
     addedNames.push(body.op.name);
+    addedOps.push(body.op);
     if (itemsHeld) await itemsHeld;
     return { ok: true };
   },
@@ -129,6 +146,7 @@ describe("the /gear page's vault calls", () => {
     removedIds = [];
     folderOps = [];
     addedNames = [];
+    addedOps = [];
     editedOps = [];
     itemsHeld = null;
   });
@@ -254,7 +272,8 @@ describe("the /gear page's vault calls", () => {
   describe("adding gear by hand", () => {
     const filed = { ...entry(1, "Duplex"), folderId: 3 };
     const cook: VaultFolder = { id: 3, name: "Cook kit", sortOrder: 0 } as VaultFolder;
-    const nameField = (w: ReturnType<typeof mount>) => w.get<HTMLInputElement>(".vaddrow__name");
+    // the list editor's own name field (ItemInput), catalog-only and pick-only
+    const nameField = (w: ReturnType<typeof mount>) => w.get<HTMLInputElement>(".vaddrow .ac__input");
     const openForm = async (w: ReturnType<typeof mount>) => {
       await w.get(".folder__addbtn").trigger("click");
       await nextTick();
@@ -288,6 +307,47 @@ describe("the /gear page's vault calls", () => {
       land();
       await new Promise((r) => setTimeout(r, 40));
       expect(nameField(w).element.value).toBe("Windscreen");
+    });
+
+    // Picking a catalog product adds it AS that product, in one press: the gear type is
+    // what gives a hand-added row its icon and its place in a search, and before this a
+    // name typed here never had one.
+    it("adds a picked catalog product with its type, link and weight", async () => {
+      catalogHits = [NANO_PUFF];
+      listRows = [filed];
+      listFolders = [cook];
+      const w = await openPage();
+      await openForm(w);
+      await nameField(w).setValue("nano puff");
+      await vi.waitFor(() => expect(w.findAll('.vaddrow [role="option"]').length).toBe(1), { timeout: 2_000 });
+      await w.get('.vaddrow [role="option"]').trigger("mousedown");
+      await vi.waitFor(() =>
+        expect(addedOps).toEqual([
+          expect.objectContaining({
+            t: "add",
+            brand: "Patagonia",
+            name: "Nano Puff Jacket",
+            variant: "Men’s Medium",
+            commonName: "Insulated jacket",
+            catalogItemId: 2106,
+            weightMg: 369_000,
+            folderId: 3,
+          }),
+        ]),
+      );
+    });
+
+    it("keeps a weight you typed over the catalog's", async () => {
+      catalogHits = [NANO_PUFF];
+      listRows = [filed];
+      listFolders = [cook];
+      const w = await openPage();
+      await openForm(w);
+      await w.get(".vaddrow__weight").setValue("352");
+      await nameField(w).setValue("nano puff");
+      await vi.waitFor(() => expect(w.findAll('.vaddrow [role="option"]').length).toBe(1), { timeout: 2_000 });
+      await w.get('.vaddrow [role="option"]').trigger("mousedown");
+      await vi.waitFor(() => expect(addedOps).toEqual([expect.objectContaining({ catalogItemId: 2106, weightMg: 352_000 })]));
     });
   });
 });

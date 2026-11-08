@@ -5,6 +5,7 @@ import { ChartAverageIcon, ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIco
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
+import type { NameCommit } from "~/composables/useCatalogSearch";
 import { formatPrice, sumPrices } from "~~/shared/money";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import {
@@ -360,13 +361,49 @@ async function commitAdd(folderId: number | null) {
     loadError.value = "That weight doesn’t read as a number. Try “540 g” or “1.2 kg”.";
     return;
   }
+  // Only the pair that was sent is cleared: the fields stay live through the round
+  // trip, and anything typed meanwhile is the next one.
+  // a weight typed with its unit ("3.8 oz") reads back in that unit on the row
+  const entryUnit = entryUnitFromInput(raw) ?? undefined;
+  await sendAdd({ t: "add", name, weightMg, folderId, entryUnit }, () => addName.value.trim() === name && addWeight.value.trim() === raw);
+}
+// A catalog product picked from the add row's suggestions, added AS that product: its
+// brand, size, gear type, catalog link and calories, and its weight unless you typed
+// your own beside it (the weight you measured is the one My Gear keeps).
+async function commitPick(folderId: number | null, c: NameCommit) {
+  if (addBusy.value) return;
+  const raw = addWeight.value.trim();
+  const typed = raw ? parseWeightInput(raw, unit.value) : null;
+  if (raw && typed == null) {
+    loadError.value = "That weight doesn’t read as a number. Try “540 g” or “1.2 kg”.";
+    return;
+  }
+  // the name field emptied itself on the pick, so "unchanged" is: still empty
+  await sendAdd(
+    {
+      t: "add",
+      brand: c.brand,
+      name: c.name,
+      variant: c.variant,
+      commonName: c.commonName,
+      weightMg: typed ?? c.weightMg ?? 0,
+      // your own typed weight keeps the unit you typed it in, like a plain add
+      entryUnit: (typed != null && entryUnitFromInput(raw)) || undefined,
+      classification: c.classification,
+      kcal: c.kcal,
+      catalogItemId: c.catalogItemId,
+      folderId,
+    },
+    () => !addName.value.trim() && addWeight.value.trim() === raw,
+  );
+}
+async function sendAdd(op: Record<string, unknown>, unchanged: () => boolean) {
   addBusy.value = true;
   loadError.value = "";
   try {
     const res = await vaultFetch<{ ok: boolean; reason?: string }>("/api/vault/items", {
       method: "POST",
-      // a weight typed with its unit ("3.8 oz") reads back in that unit on the row
-      body: { op: { t: "add", name, weightMg, folderId, entryUnit: entryUnitFromInput(raw) ?? undefined } },
+      body: { op },
     });
     if (!res.ok) {
       // The refusals are worth naming: "you already have that" tells you to search
@@ -384,9 +421,7 @@ async function commitAdd(folderId: number | null) {
     await loadVault();
     // Committing re-opens a fresh pair — the editor's `advance` behaviour, which is
     // what makes typing in five things bearable rather than five separate presses.
-    // Only the pair that was sent, though: the fields stay live through the round
-    // trip, and anything typed meanwhile is the next one.
-    if (addName.value.trim() === name && addWeight.value.trim() === raw) {
+    if (unchanged()) {
       addName.value = "";
       addWeight.value = "";
       // the whole gear re-rendered under it, so the field is a new element
@@ -798,14 +833,6 @@ async function exportGear(kind: string) {
                     />
                   </div>
 
-                  <!-- what the folder HOLDS. The editor's folder header has no
-                       subtotal because the totals bar owns numbers there; here the
-                       folder IS the unit you're comparing, and a shelf you can't
-                       weigh is half a shelf. -->
-                  <span v-if="section.count" class="t-sm t-num vault__foldersum">
-                    {{ section.count }}<span class="visually-hidden"> {{ pluralNoun(section.count, "item") }}</span>
-                    · {{ weightLabel(section.weightMg) }}
-                  </span>
 
                   <div v-if="section.folder" class="folder__actions">
                     <button
@@ -867,6 +894,8 @@ async function exportGear(kind: string) {
                         :unit="unit"
                         :busy="addBusy"
                         @submit="commitAdd(section.folder ? section.folder.id : null)"
+                        @pick="(c: NameCommit) => commitPick(section.folder ? section.folder.id : null, c)"
+                        @overlay-toggle="(o: boolean) => onOverlayToggle(sectionKey(section), o)"
                         @done="closeAdd"
                       />
                       <button
@@ -905,6 +934,7 @@ async function exportGear(kind: string) {
                 :unit="unit"
                 :busy="addBusy"
                 @submit="commitAdd(null)"
+                @pick="(c: NameCommit) => commitPick(null, c)"
                 @done="closeAdd"
               />
               <button v-else type="button" class="folder__addbtn" @click="openAdd(null)">Add gear</button>
@@ -928,6 +958,7 @@ async function exportGear(kind: string) {
               :unit="unit"
               :busy="addBusy"
               @submit="commitAdd(null)"
+              @pick="(c: NameCommit) => commitPick(null, c)"
               @done="closeAdd"
             />
             <div v-else class="vault__emptyacts">
@@ -1149,36 +1180,28 @@ async function exportGear(kind: string) {
 .folder + .folder {
   margin-top: var(--space-6);
 }
-/* /gear's folder header carries one thing the editor's does not: what the folder
-   HOLDS. Fed in as --head-cols rather than patched into the atom — the editor's
-   template is a LIST's data columns (qty · weight · class · actions), none of which
-   a vault folder has, so this is exactly the "supply only what legitimately differs"
-   case that hook exists for. */
+/* /gear's folder header is the name and the folder's own buttons. It used to carry
+   the folder's count and weight between them; that went in review, since the rows
+   under it already say both and the figure was one more number to read past. Fed in
+   as --head-cols rather than patched into the atom — the editor's template is a
+   LIST's data columns (qty · weight · class · actions), none of which a vault folder
+   has, so this is exactly the "supply only what legitimately differs" case that hook
+   exists for. */
 .folder__head {
-  /* A folder's figure is a WEIGHT, sitting directly over a column of weights, so it
-     belongs in that column. The header is a grid and the rows are flex, so the only
-     way they agree is for the header's trailing track to be the row's whole trailing
-     cluster — the mark column, its gap, and the three buttons — and for the grid's
-     own gap to be the row's gap. Written as the same arithmetic the row is built
-     from rather than a measured number, so a retune of either token moves both.
-     It also has to be SIZED rather than auto: Unfiled owns no actions (there is
-     nothing to rename or delete about "everything else"), so an auto track
-     collapsed to nothing there and ran its subtotal out past every other folder's. */
+  /* The trailing track is the row's whole trailing cluster — the mark column, its
+     gap, and the three buttons — with the grid's own gap the row's gap, so the
+     header's delete and grip sit over the rows' buttons. Written as the same
+     arithmetic the row is built from rather than a measured number, so a retune of
+     either token moves both. */
   --head-actions: calc(3 * var(--icon-btn) + 2 * var(--space-1));
-  --head-cols: 1fr auto calc(var(--icon-btn) + var(--space-4) + var(--head-actions));
+  --head-cols: 1fr calc(var(--icon-btn) + var(--space-4) + var(--head-actions));
   gap: var(--space-4);
 }
 .folder__title {
   grid-column: 1;
 }
-.vault__foldersum {
-  grid-column: 2;
-  justify-self: end;
-  color: var(--ink-3);
-  white-space: nowrap;
-}
 .folder__actions {
-  grid-column: 3;
+  grid-column: 2;
 }
 /* ONE trailing column, shared by the header and the rows under it.
    atoms/folder.scss tunes this cluster to sit over the EDITOR's item rows: the
@@ -1310,28 +1333,10 @@ async function exportGear(kind: string) {
   }
   /* the row's own phone stack (name on its own line, the rest beneath) is
      VaultGearRow's */
-  /* three header columns don't survive 375px next to three --tap buttons, so the
-     subtotal takes its own line under the folder name — the way a read row's
-     sub-line does */
+  /* on a phone the actions take only what the --tap buttons need, not the desktop
+     row's trailing cluster */
   .folder__head {
     --head-cols: 1fr auto;
-    /* the column gap set above is for the DESKTOP column alignment; once the
-       subtotal drops onto its own line it reads as a sub-line of the folder name,
-       and 16px of air between the two makes it look like a stray figure */
-    row-gap: var(--space-1);
-  }
-  .folder__title {
-    grid-column: 1;
-    grid-row: 1;
-  }
-  .folder__actions {
-    grid-column: 2;
-    grid-row: 1;
-  }
-  .vault__foldersum {
-    grid-column: 1;
-    grid-row: 2;
-    justify-self: start;
   }
 }
 </style>

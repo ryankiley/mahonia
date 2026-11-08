@@ -33,8 +33,26 @@ const props = withDefaults(
     // children. Off means no request and no menu — typing and committing free text are
     // untouched, so renaming a group still works exactly as it did.
     suggest?: boolean;
+    // Where suggestions come from. "catalog" is the catalog alone: no My Gear rows and
+    // no water row. For the place that ADDS to My Gear (/gear's add row), where your own
+    // gear could only be offered back to you as a duplicate, and water isn't gear.
+    sources?: "all" | "catalog";
+    // Free text is the parent's to submit, not this field's to commit. Only a pick (or
+    // a name typed exactly as one product the menu shows) emits `commit`; Enter on
+    // anything else emits `submit`, and leaving the field commits nothing. For a form
+    // with a second field beside this one (/gear's add row: name, then weight), where
+    // the list row's commit-on-blur would fire on tabbing across to the weight.
+    pickOnly?: boolean;
   }>(),
-  { initial: "", placeholder: "Add an item…", clearOnCommit: true, autofocus: false, suggest: true },
+  {
+    initial: "",
+    placeholder: "Add an item…",
+    clearOnCommit: true,
+    autofocus: false,
+    suggest: true,
+    sources: "all",
+    pickOnly: false,
+  },
 );
 const emit = defineEmits<{
   commit: [NameCommit];
@@ -51,6 +69,10 @@ const emit = defineEmits<{
   // undo. `rest` are the lines after it, one row each, for the parent to make below
   // this one (see onPaste).
   pasteRows: [{ first: NameCommit | null; rest: string[] }];
+  // pickOnly: Enter on text that isn't a pick — the parent submits its own form
+  submit: [];
+  // the text as typed, every change: a pickOnly parent submits it, so it has to have it
+  draft: [string];
 }>();
 
 const { results, search, clear } = useCatalogSearch();
@@ -118,10 +140,11 @@ function setDraftQuiet(v: string) {
   draft.value = v;
   nextTick(() => (suppressOpen = false));
 }
+watch(draft, (v) => emit("draft", v));
 watch(draft, (v) => {
   if (suppressOpen || !props.suggest) return; // no suggestions asked for → no request
   search(v);
-  vaultSearch(v);
+  if (props.sources !== "catalog") vaultSearch(v);
   active.value = -1;
   open.value = true;
 });
@@ -173,6 +196,7 @@ onScopeDispose(() => openScope?.stop());
 // adds a consumable with the derived weight. "water" alone defaults to 1 L.
 type WaterSug = { ml: number; label: string; weightMg: number };
 const waterSuggestion = computed<WaterSug | null>(() => {
+  if (props.sources === "catalog") return null;
   const low = draft.value.trim().toLowerCase();
   if (!low) return null;
   let volStr: string | null = null;
@@ -561,6 +585,8 @@ function commitFree() {
 // it (the paste's undo gives that row back). One line is left to the browser, so an
 // ordinary paste of a product name behaves exactly as it always has.
 function onPaste(e: ClipboardEvent) {
+  // a pickOnly field has no rows to make below it: the browser folds the lines into one
+  if (props.pickOnly) return;
   const rows = pasteRows(e.clipboardData?.getData("text/plain") ?? "");
   if (rows.length < 2) return;
   e.preventDefault();
@@ -582,6 +608,11 @@ function onPaste(e: ClipboardEvent) {
 function onFocusOut(e: FocusEvent) {
   if (rootRef.value?.contains(e.relatedTarget as Node | null)) return;
   focused.value = false;
+  // pickOnly: the text waits for its form's submit; only the menu goes
+  if (props.pickOnly) {
+    open.value = false;
+    return;
+  }
   commitFree();
 }
 function onKeydown(e: KeyboardEvent) {
@@ -604,6 +635,13 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault();
     if (open.value && active.value >= 0 && options.value[active.value]) {
       selectOption(options.value[active.value]!);
+    } else if (props.pickOnly) {
+      // A product's own name typed in full still links, as tabbing away does in a
+      // list (exactMatch); anything else is the form's to submit, weight and all.
+      const hit = draft.value.trim() ? exactMatch(tidyText(draft.value.trim())) : null;
+      if (hit) selectOption(hit);
+      else emit("submit");
+      return;
     } else if (props.suggest && waterSuggestion.value) {
       // `props.suggest` here as well as in `options` above: this branch reads the
       // computed directly, so emptying the list alone would not have closed it
