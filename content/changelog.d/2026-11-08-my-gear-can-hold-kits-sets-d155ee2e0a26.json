@@ -21,6 +21,7 @@
     "My Gear's edit dialog keeps its paired fields side by side in a narrow window instead of stacking them."
   ],
   "fixed": [
-    "Searching your gear to add an item to a kit offers only real matches, not your most-used gear."
+    "Searching your gear to add an item to a kit offers only real matches, not your most-used gear.",
+    "Gear that a stray word sent to the wrong kind lands where you'd look for it: head nets with clothing, bowls in the kitchen, sling bags with packs, tape in first aid, a charging cord with electronics, and more."
   ]
 }
