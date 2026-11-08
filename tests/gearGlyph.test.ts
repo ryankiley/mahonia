@@ -71,6 +71,7 @@ describe("which icon a gear type wears", () => {
     ["Trowel", "toilet"],
     ["Wipes", "toilet"],
     ["First aid kit", "firstAid"],
+    ["Ice axe", "iceAxe"],
   ])("%s → %s", (type, glyph) => {
     expect(gearGlyphFor(type)).toBe(glyph);
   });
@@ -114,9 +115,17 @@ describe("which icon a gear type wears", () => {
     expect(gearGlyphFor("  ", "Baggies Brimmer Hat")).toBe("hat");
     expect(gearGlyphFor(null, "Face cleanser + Face Moisturizer + Container")).toBe("toiletry");
     // a type that matched nothing is still the row's answer
-    expect(gearGlyphFor("Ice axe", "Summit Pro Hat")).toBeNull();
+    expect(gearGlyphFor("Umbrella", "Summit Pro Hat")).toBeNull();
     // and a type that did match is never second-guessed by the name
     expect(gearGlyphFor("Socks", "Hiker Boot Midweight")).toBe("socks");
+  });
+
+  it("reads a plural the way it reads the singular", () => {
+    expect(gearGlyphFor("Bungee cords")).toBe("cord");
+    expect(gearGlyphFor("Pouches")).toBe("bag");
+    expect(gearGlyphFor("Stuff sacks")).toBe("bag");
+    // a word that only looks plural is left alone, so the long tail stays blank
+    expect(gearGlyphFor("Compass")).toBeNull();
   });
 
   it("reads a typed type the same as the catalog's spelling", () => {
@@ -126,7 +135,7 @@ describe("which icon a gear type wears", () => {
 
   // the long tail goes without: a one-off icon is a picture to decode
   it("answers null for the long tail rather than giving it a one-off icon", () => {
-    for (const type of ["Compass", "Umbrella", "Ice axe", "Whistle", "Packraft"]) {
+    for (const type of ["Compass", "Umbrella", "Whistle", "Packraft"]) {
       expect(gearGlyphFor(type)).toBeNull();
     }
     expect(gearGlyphFor("")).toBeNull();
