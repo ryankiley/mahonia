@@ -92,7 +92,7 @@ async function send() {
             {{ remaining }}
           </p>
           <p class="t-sm t-muted fb__notice">
-            This is posted publicly to the issue tracker. Don’t include anything private.
+            This is posted publicly, so leave out anything private.
           </p>
         </div>
 

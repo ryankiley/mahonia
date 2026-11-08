@@ -25,11 +25,16 @@ const title = ref("");
 const importNote = useImportNote();
 const importing = ref(false);
 const error = ref("");
+// Which opening of the dialog a request belongs to. Nothing can recall a request already
+// sent, but closing is still an answer: what comes back afterwards must not go on to the
+// next step, write into a form that has moved on, or take you off the list you stayed on.
+let opening = 0;
 
 // fresh form each time the dialog is opened
 watch(
   () => props.open,
   (o) => {
+    opening++;
     if (o) {
       text.value = "";
       title.value = "";
@@ -43,9 +48,11 @@ watch(
 // read off a GPX, the trip dates) around its content; CSV/LighterPack imports are
 // content alone and keep the stock title.
 async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
+  const mine = opening;
   // a folders-only JSON backup is still a real restore; an empty CSV is not
   if (!list.data.items.length && !list.data.folders.length) {
     error.value = "No items found. Paste a CSV with a header row.";
+    importing.value = false;
     return;
   }
   importing.value = true;
@@ -55,6 +62,7 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
     // matcher is exact-only). One request; if it fails the list still imports, unlinked —
     // the link is a nicety on top of the import, never a condition of it.
     const linked = await linkToCatalog(list.data.items);
+    if (mine !== opening) return;
     const data: ListData = { ...list.data, items: linked.items };
     // the backup forwarded whole, meta and content. It was thirteen `x: meta?.x`
     // lines, one per ListMeta field — the shape that once let trip dates go
@@ -67,8 +75,11 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
       data,
       title: title.value.trim() || list.title || "Imported list",
     });
-    emit("close");
     tally("import");
+    // Past the point of recall: the list exists and is in your lists. You just don't get
+    // moved to it, having left.
+    if (mine !== opening) return;
+    emit("close");
     // set before the navigation, so the editor finds it the moment the list lands; a
     // list where nothing matched gets no note — "0 of 25" reads as a failure it isn't
     importNote.value = linked.matched
@@ -76,9 +87,9 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
       : null;
     router.push(editLinkPath(snapshot.shareCode, token));
   } catch {
-    error.value = "Import failed. Check the file and try again.";
+    if (mine === opening) error.value = "Import failed. Check the file and try again.";
   } finally {
-    importing.value = false;
+    if (mine === opening) importing.value = false;
   }
 }
 
@@ -101,6 +112,7 @@ async function importFromText() {
   if (!raw) return;
   // a LighterPack share link → resolve + parse its sanctioned CSV export server-side
   if (lighterpackId(raw)) {
+    const mine = opening;
     importing.value = true;
     error.value = "";
     try {
@@ -108,8 +120,10 @@ async function importFromText() {
         method: "POST",
         body: { url: raw },
       });
+      if (mine !== opening) return;
       await createFrom({ data });
     } catch (e: unknown) {
+      if (mine !== opening) return;
       const err = e as { data?: { statusMessage?: string; message?: string } };
       error.value =
         err?.data?.statusMessage || err?.data?.message || "Couldn’t import that LighterPack link.";
@@ -132,6 +146,8 @@ async function importFromText() {
 // backup — full-fidelity restore. Sniff {-leading content too, so a mis-extensioned
 // backup still restores.
 function importFile(text: string, file: File) {
+  // the file button stays live beside a request in flight; one import at a time
+  if (importing.value) return;
   const isJson = /\.json$/i.test(file.name) || file.type === "application/json";
   if (isJson || text.trimStart().startsWith("{")) {
     const parsed = jsonToListImport(text);
@@ -153,7 +169,7 @@ function importFile(text: string, file: File) {
          that an import ARRIVES as a new list rather than merging into the one you're
          looking at. The hint under the box carries the CSV shape. -->
     <p class="t-sm t-muted dlg__lede">
-      Paste a LighterPack link or CSV, or choose a file: a CSV, or a JSON backup from Export. It becomes a new list.
+      Paste a LighterPack link or a CSV, or choose a file. It becomes a new list.
     </p>
 
     <input
@@ -175,8 +191,8 @@ function importFile(text: string, file: File) {
     <!-- the column order stays on screen: as a placeholder it vanished on the first
          keystroke, exactly when someone composing a CSV by hand needs it -->
     <p class="t-sm t-muted import__hint">
-      A CSV needs a header row, with columns like Category, Item Name, Qty, Weight, Unit, Worn,
-      Consumable. A LighterPack export works as it is.
+      A CSV needs a header row: Category, Item Name, Qty, Weight, Unit, Worn, Consumable.
+      A file can also be a backup from Download JSON.
     </p>
 
     <p v-if="error" class="t-sm import__err">{{ error }}</p>
@@ -206,9 +222,12 @@ function importFile(text: string, file: File) {
 .import__hint {
   margin-top: var(--space-2);
 }
+/* No font-size of its own. .field sets the literal 16px (--text-input) that keeps
+   iOS from zooming the page when the box takes focus; a var(--text-base) here
+   overrode it with the fluid max(), which iOS mis-reads and zooms on anyway
+   (controls.scss, .field). */
 .import__text {
   width: 100%;
-  font-size: var(--text-base);
   padding: var(--space-3);
   /* no resize: the native grip drew a square notch over the rounded corner, and
      the box scrolls anyway (the dialog is fixed-width, rows are fixed) */

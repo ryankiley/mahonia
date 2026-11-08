@@ -86,7 +86,7 @@ async function hit(
 }
 
 const rpc = (name: string, args: unknown = {}) => ({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } });
-const gear = (bearer?: string, name = "list_my_gear", args: unknown = {}) =>
+const gear = (bearer?: string, name = "get_my_gear", args: unknown = {}) =>
   hit(mcp, "/mcp", { json: rpc(name, args), headers: bearer ? { authorization: `Bearer ${bearer}` } : {} });
 
 /** the request Claude's client builds, with a fresh PKCE pair */
@@ -180,10 +180,10 @@ describe("the door", () => {
     const r = await gear();
     expect(r.status).toBe(401);
     expect(r.header("www-authenticate")).toBe(
-      `Bearer error="invalid_token", error_description="Sign in to Mahonia to reach My Gear.", resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp", scope="read"`,
+      `Bearer error="invalid_token", error_description="Sign in to Mahonia to reach your lists and My Gear.", resource_metadata="${ORIGIN}/.well-known/oauth-protected-resource/mcp", scope="read"`,
     );
-    expect(r.body).toEqual({ error: "invalid_token", error_description: "Sign in to Mahonia to reach My Gear." });
-    expect((await gear(undefined, "update_my_gear", { id: 1 })).header("www-authenticate")).toContain('scope="write"');
+    expect(r.body).toEqual({ error: "invalid_token", error_description: "Sign in to Mahonia to reach your lists and My Gear." });
+    expect((await gear(undefined, "edit_my_gear", { update: [{ id: 1 }] })).header("www-authenticate")).toContain('scope="write"');
   });
 
   it("leaves the list tools and the handshake open", async () => {
@@ -356,7 +356,7 @@ describe("a signed-in app at the gear tools", () => {
 
   it("opens the gear with its access token, at the scope it was allowed", async () => {
     ({ access, refresh } = await connect(cookie, "write offline_access"));
-    const add = await gear(access, "add_my_gear", { items: [{ name: "Windburner", brand: "MSR" }] });
+    const add = await gear(access, "edit_my_gear", { add: [{ name: "Windburner", brand: "MSR" }] });
     expect(add.status, JSON.stringify(add.body)).toBe(200);
     const list = await gear(access);
     expect(list.status).toBe(200);
@@ -364,7 +364,7 @@ describe("a signed-in app at the gear tools", () => {
 
     readAccess = (await connect(cookie, "read")).access;
     expect((await gear(readAccess)).status).toBe(200);
-    const stepUp = await gear(readAccess, "add_my_gear", { items: [{ name: "x" }] });
+    const stepUp = await gear(readAccess, "edit_my_gear", { add: [{ name: "x" }] });
     expect(stepUp.status).toBe(403);
     expect(stepUp.header("www-authenticate")).toContain('error="insufficient_scope"');
     expect(stepUp.header("www-authenticate")).toContain('scope="write"');

@@ -12,6 +12,7 @@ import { itemDisplayName, nameRepeatsBrand, rowDisplayKcal,
   groupItemsByParent,
   groupLineMg,
   isBareGroup,
+  listSummaryBits,
   nextSortOrder,
   parseWeightInput,
   splitWornQty,
@@ -687,5 +688,19 @@ describe("itemDisplayName says the brand once", () => {
     expect(nameRepeatsBrand("Apple", "Apple Watch")).toBe(true);
     expect(nameRepeatsBrand("Apple", "iPhone")).toBe(false);
     expect(nameRepeatsBrand("", "Apple Watch")).toBe(false);
+  });
+});
+
+describe("listSummaryBits — the facts a list's unfurl states", () => {
+  it("counts a one-row list as one item, not \"1 items\"", () => {
+    expect(listSummaryBits(totals({ itemCount: 1 }))).toEqual(["1 item"]);
+    expect(listSummaryBits(totals({ itemCount: 2 }))).toEqual(["2 items"]);
+    expect(listSummaryBits(totals({ itemCount: 0 }))).toEqual(["0 items"]);
+  });
+  it("groups a big count and adds the base weight when the list has weights", () => {
+    expect(listSummaryBits(totals({ itemCount: 1284, hasWeights: true, baseMg: 4_100_000 }))).toEqual([
+      "1,284 items",
+      "4.1 kg base weight",
+    ]);
   });
 });

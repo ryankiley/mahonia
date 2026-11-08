@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, GlobeIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, InternetIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
 import {
   distanceFieldValue,
@@ -45,16 +45,24 @@ const props = withDefaults(
 );
 
 const c = useGearList();
-// null = at rest. "add" is a single URL box — the one job on the way in. "edit" is the
-// full set, reached only by hovering an existing link, so naming it stays a deliberate
-// second step rather than a second thing to fill in.
-const mode = ref<"add" | "edit" | null>(null);
-// Whether the link card is held open. This is what a PRESS on the name does, and it's
+// Everything that hangs off this row overlaps in the same space, so which one is up is
+// one value and at most one can be. null = at rest.
+//
+// "add" and "edit" are the trail panel. "add" is a single URL box — the one job on the
+// way in. "edit" is the full set, reached only by hovering an existing link, so naming
+// it stays a deliberate second step rather than a second thing to fill in.
+//
+// "card" is the link card held open. This is what a PRESS on the name does, and it's
 // the only way in on a touch device, where there is no hover to reveal it. A fine
 // pointer gets hover on top of it, not instead of it — the card is one surface with two
 // ways to ask for it, rather than a floating card on the desktop and a second permanent
 // in-flow layout on the phone.
-const pinned = ref(false);
+//
+// "dates" is the trip-dates picker, below.
+const surface = ref<"add" | "edit" | "card" | "dates" | null>(null);
+const mode = computed(() => (surface.value === "add" || surface.value === "edit" ? surface.value : null));
+const pinned = computed(() => surface.value === "card");
+const datesOpen = computed(() => surface.value === "dates");
 const open = computed(() => mode.value !== null);
 const fieldsId = useId();
 const fieldsEl = useTemplateRef<HTMLElement>("fieldsEl");
@@ -144,7 +152,7 @@ watch(
 const icon = computed(() => props.snapshot.trailFaviconDataUrl ?? fetchedIcon.value);
 
 // Everything that describes the route the link pointed AT is cleared with it: one
-// object (shared/trailLink CLEARS_WITH_LINK), spread here and by the MCP set_trip
+// object (shared/trailLink CLEARS_WITH_LINK), spread here and by the MCP edit_list
 // tool, so the next field added there is cleared on both paths.
 
 // Commits on @change (blur/Enter), the uncontrolled :value pattern the title uses — not
@@ -279,7 +287,7 @@ function commitDistance(e: Event) {
 function remove() {
   // the distance describes the ROUTE, so it goes with the link rather than outliving it
   c.setMeta({ trailUrl: "", ...CLEARS_WITH_LINK });
-  mode.value = null;
+  surface.value = null;
 }
 
 // Copy the destination — that URL, not the list's own share link (the toolbar handles
@@ -299,32 +307,26 @@ async function copyLink() {
 // The itinerary those dates now imply is NOT here — planning mode owns the days, the
 // waypoints and the estimates (see TrailPlanPanel). This row stays the two ends of the
 // range, which is the one fact about a trip that belongs beside its title.
-const datesOpen = ref(false);
 const datesEl = useTemplateRef<HTMLElement>("datesEl");
 const dateLabel = computed(() => formatDateRange(props.snapshot.startDate, props.snapshot.endDate));
 
-// THREE surfaces hang off this one row — the trail panel (`mode`), the trail card
-// (`pinned`) and this picker (`datesOpen`) — and they overlap in the same space, so at
-// most one may be up. That's two states on the trail side, which is what the rule kept
-// missing: `openDates` used to clear `mode` alone, so opening the calendar over a
-// pinned card left both on screen, and toggling the card left the calendar up. Closing
-// the trail side is therefore one named thing rather than a line each opener has to
-// remember; every opener below closes the surfaces it isn't.
+// Opening a surface replaces whatever was up, so no opener has anything to remember.
+// Dismissing is the opposite: each one is about its own side. closeDates hears every
+// click outside the calendar, which includes the ones landing on the card, and those
+// are not its to close.
 function closeTrail() {
-  mode.value = null;
-  pinned.value = false;
+  if (surface.value !== "dates") surface.value = null;
+}
+function closeDates() {
+  if (surface.value === "dates") surface.value = null;
 }
 
-// The card is a toggle, so it can't just call an `open` — but it still owes the
-// invariant a closed calendar on the way up.
 function toggleCard() {
-  pinned.value = !pinned.value;
-  if (pinned.value) datesOpen.value = false;
+  surface.value = surface.value === "card" ? null : "card";
 }
 
 function openDates() {
-  datesOpen.value = true;
-  closeTrail(); // the trail surfaces and this one share the row; never both
+  surface.value = "dates";
   // focus is the picker's own job: it lands on the grid's one tab stop from onMounted,
   // which fires on every open (it sits under a v-if) — a lookup here found nothing on
   // the very first open, the Lazy chunk still loading, and was redundant on the rest
@@ -337,16 +339,24 @@ function commitDates(next: { start?: string; end?: string }) {
 }
 function clearDates() {
   c.setMeta({ startDate: "", endDate: "" });
-  datesOpen.value = false;
+  closeDates();
 }
-onClickOutside(datesEl, () => (datesOpen.value = false));
+onClickOutside(datesEl, closeDates);
 
 async function openFields(next: "add" | "edit") {
-  mode.value = next;
-  pinned.value = false;
-  datesOpen.value = false;
+  surface.value = next;
   await nextTick();
   document.getElementById(`${fieldsId}-url`)?.focus();
+}
+
+// Enter commits and closes, on KEYDOWN. The Enter that opens the panel from a button
+// releases its keyup in the field the panel has just focused, so closing on keyup shut
+// the panel the moment a keyboard opened it. Blurring first fires the field's change,
+// which is its commit, before the panel goes.
+function commitAndClose(e: KeyboardEvent) {
+  if (e.isComposing) return; // an IME confirming a composition, not a commit
+  (e.target as HTMLInputElement).blur();
+  closeTrail();
 }
 
 // Close when focus leaves the panel by keyboard. Tabbing between the two inputs (or to
@@ -360,7 +370,7 @@ function onFocusOut(e: FocusEvent) {
   const nextEl = e.relatedTarget as Node | null;
   // a click on non-focusable chrome gives relatedTarget null — leave that to
   // onClickOutside, which can tell "clicked elsewhere" from "the window lost focus"
-  if (nextEl && !fieldsEl.value?.contains(nextEl)) mode.value = null;
+  if (nextEl && !fieldsEl.value?.contains(nextEl)) closeTrail();
 }
 
 // …and on a click anywhere outside, the same dismissal GearEditor's ⋯ menu uses.
@@ -471,7 +481,7 @@ onClickOutside(trailEl, closeTrail);
             width="16"
             height="16"
           />
-          <HugeiconsIcon :icon="GlobeIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="InternetIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
           <span class="head__name t-clip">{{ link.name }}</span>
           <!-- The one fact about the route that isn't in its name. Muted and after the
                name, so it reads as a detail OF the trail rather than a second link;
@@ -493,7 +503,7 @@ onClickOutside(trailEl, closeTrail);
             width="14"
             height="14"
           />
-          <HugeiconsIcon :icon="GlobeIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="InternetIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
           <a
             class="head__cardurl t-clip"
             :href="link.href"
@@ -541,7 +551,7 @@ onClickOutside(trailEl, closeTrail);
           type="button"
           class="btn btn--quiet head__add head__datesbtn"
           :aria-expanded="datesOpen"
-          @click="datesOpen ? (datesOpen = false) : openDates()"
+          @click="datesOpen ? closeDates() : openDates()"
         >
           <HugeiconsIcon :icon="Calendar03Icon" :size="14" :stroke-width="2" aria-hidden="true" />
           {{ dateLabel || "Add dates" }}
@@ -597,7 +607,7 @@ onClickOutside(trailEl, closeTrail);
           class="head__panel popover"
           tabindex="-1"
           @focusout="onFocusOut"
-          @keyup.escape="mode = null"
+          @keyup.escape="closeTrail"
         >
           <!-- one line before the two fields, because they were two fields and no words:
                what a link does and what a file does. A span, not a p — the panel is
@@ -625,7 +635,7 @@ onClickOutside(trailEl, closeTrail);
             spellcheck="false"
             :value="snapshot.trailUrl ?? ''"
             @change="commitUrl"
-            @keyup.enter="mode = null"
+            @keydown.enter="commitAndClose"
           />
 
           <p class="head__gpx t-sm">
@@ -666,7 +676,7 @@ onClickOutside(trailEl, closeTrail);
               :placeholder="link?.name ?? ''"
               :value="snapshot.trailLabel ?? ''"
               @change="commitLabel"
-              @keyup.enter="mode = null"
+              @keydown.enter="commitAndClose"
             />
 
             <!-- Typed, because it cannot be fetched: the linked page answers a
@@ -694,7 +704,7 @@ onClickOutside(trailEl, closeTrail);
                 :placeholder="distanceUnit === 'mi' ? '7.5' : '12'"
                 :value="distanceValue"
                 @change="commitDistance"
-                @keyup.enter="mode = null"
+                @keydown.enter="commitAndClose"
               />
               <OptionMenu
                 class="head__distunit"
@@ -784,10 +794,18 @@ onClickOutside(trailEl, closeTrail);
     visibility var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
 }
-.head__titlewrap:hover .head__pencil,
+/* focus reveals it at every pointer; the hover is pointer-gated like every hover (see
+   .btn:hover, controls.scss) — the rule below takes the hint off touch anyway, so the gate
+   is the house rule here rather than a fix */
 .head__titlewrap:focus-within .head__pencil {
   opacity: 1;
   visibility: visible;
+}
+@media (hover: hover) and (pointer: fine) {
+  .head__titlewrap:hover .head__pencil {
+    opacity: 1;
+    visibility: visible;
+  }
 }
 .head__titlewrap:focus-within .head__pencil {
   color: var(--ink-2);
@@ -991,9 +1009,13 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink-3);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
-.head__cardurl:hover,
 .head__cardurl:focus-visible {
   color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .head__cardurl:hover {
+    color: var(--ink);
+  }
 }
 /* the actions are the emphasis in this card: full ink, regular weight. The explicit
    font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
@@ -1194,9 +1216,13 @@ onClickOutside(trailEl, closeTrail);
   cursor: help;
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
-.head__gpxwhy:hover,
 .head__gpxwhy:focus-visible {
   color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .head__gpxwhy:hover {
+    color: var(--ink);
+  }
 }
 .head__gpxerr {
   color: var(--ink-2);
@@ -1219,11 +1245,15 @@ onClickOutside(trailEl, closeTrail);
   margin-left: var(--space-2);
   color: var(--ink-3);
 }
-.head__gpxyes:hover,
 .head__gpxyes:focus-visible,
-.head__gpxno:hover,
 .head__gpxno:focus-visible {
   color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .head__gpxyes:hover,
+  .head__gpxno:hover {
+    color: var(--ink);
+  }
 }
 .head__paneldiv {
   width: 100%;
@@ -1276,6 +1306,9 @@ onClickOutside(trailEl, closeTrail);
   position: absolute;
   top: calc(100% + var(--space-1));
   left: 0;
+  /* grows out of the Dates button's corner like the trail panel beside it, not from
+     its own middle */
+  transform-origin: top left;
   z-index: var(--z-menu);
   display: grid;
   gap: var(--space-2);

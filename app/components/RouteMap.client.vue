@@ -209,6 +209,8 @@ const PIN_PX = 30;
 const gestures = computed(() =>
   [
     "Hold ⌘ or Ctrl while scrolling to zoom.",
+    // the touch half of panByDrag: on the page, one finger scrolls the page
+    coarsePointer() ? "Move the map with two fingers, or expand it to use one." : "",
     props.waypoints?.length ? "Press and hold a pin to move it along the route." : "",
   ]
     .filter(Boolean)
@@ -384,7 +386,9 @@ function resetLift(commit: boolean) {
   window.removeEventListener("pointermove", onLiftMove);
   window.removeEventListener("pointerup", endLift);
   window.removeEventListener("pointercancel", endLift);
-  map?.dragging.enable();
+  // back to whatever panning the map has where it is — NOT simply on: an inline map on a
+  // phone has none (see panByDrag), and a pin hold must not hand it one
+  syncDragging();
   if (!l) return;
   l.el.classList.remove("is-lifted");
   if (!commit) return;
@@ -758,6 +762,36 @@ const expanded = ref(false);
 const frameEl = ref<HTMLElement | null>(null);
 /** The hole the frame leaves in the page while it is fixed, so nothing below it jumps. */
 const parkedH = ref(0);
+
+/**
+ * Whether one finger pans the map — and on a phone, inline, it doesn't.
+ *
+ * Leaflet's drag handler sets `touch-action: none` on the whole map, so a swipe that
+ * crossed the 320px strip on its way down the page panned the terrain instead, and the
+ * page stopped scrolling under your thumb for the height of a map you weren't using.
+ * `touch-action: none` belongs only on something nobody needs to scroll past, and an
+ * inline map is something everybody scrolls past on the way down to the days. So on a
+ * coarse pointer it leaves one finger to the page (Leaflet's touch-zoom alone gives the
+ * container `pan-x pan-y`): two fingers still pinch, and pan as they pinch, and a pin's
+ * press-and-hold is its own handler. Expanded,
+ * the map IS the page and one finger pans it again. A mouse drags it everywhere, as it
+ * always has — a drag is the only way a mouse pans, and no wheel scroll is taken by it.
+ *
+ * Every place that turns dragging on goes through syncDragging, so nothing hands an
+ * inline phone map its drag back by accident (a pin's lift turns it off and on again).
+ */
+function coarsePointer(): boolean {
+  return window.matchMedia("(pointer: coarse)").matches;
+}
+function panByDrag(): boolean {
+  return expanded.value || !coarsePointer();
+}
+function syncDragging() {
+  // mid-lift the map holds still for the pin; the lift's own end calls this again
+  if (!map || lift) return;
+  if (panByDrag()) map.dragging.enable();
+  else map.dragging.disable();
+}
 /** The animated clip. Null once a transition has settled, so nothing is clipped at rest. */
 const clip = ref<string | null>(null);
 
@@ -806,6 +840,7 @@ async function setExpanded(on: boolean) {
     // holds the viewport still for exactly as long as the class is on.
     window.addEventListener("keydown", onKeydown);
     expanded.value = true;
+    syncDragging(); // a finger pans the map now that the map is the page
     await nextTick();
     // full size FIRST, and told about it once
     map?.invalidateSize();
@@ -820,11 +855,16 @@ async function setExpanded(on: boolean) {
 
   // CLOSING: the target is where the placeholder is standing NOW, not where the map was
   // when it opened. The page can be scrolled while the map is over it, and animating back
-  // to a remembered rectangle would fly off to somewhere the map isn't.
-  const back = parkedEl.value?.getBoundingClientRect();
-  clip.value = back ? insetOf(back) : "inset(0px round 0px)";
-  await new Promise<void>((r) => setTimeout(r, expandMs()));
+  // to a remembered rectangle would fly off to somewhere the map isn't. With no beat to
+  // wait out (closeMs is 0) there's no slide to aim either: the map just goes back.
+  const ms = closeMs();
+  if (ms > 0) {
+    const back = parkedEl.value?.getBoundingClientRect();
+    clip.value = back ? insetOf(back) : "inset(0px round 0px)";
+    await new Promise<void>((r) => setTimeout(r, ms));
+  }
   expanded.value = false;
+  syncDragging(); // back in the page, where a phone's finger scrolls the page
   clip.value = null;
   window.removeEventListener("keydown", onKeydown);
   await nextTick();
@@ -832,11 +872,22 @@ async function setExpanded(on: boolean) {
   if (!touched) frame();
 }
 
-/** The clip's beat, read off the token the CSS below runs on (--spring-move-dur), so a
- *  retune can't leave this waiting the wrong length and re-parking the map mid-slide; a
- *  transitionend would miss the reduced-motion case, where the transition never runs
- *  and so never ends. Falls back to the token's value if the read fails (SSR, a test). */
-const expandMs = () => springCss("move").duration;
+/** How long the close waits for the clip to slide home before re-parking the map: the
+ *  clip's beat, read off the token the CSS below runs on (--spring-move-dur), so a retune
+ *  can't leave this waiting the wrong length and re-parking the map mid-slide. Falls back
+ *  to the token's value if the read fails (SSR, a test).
+ *
+ *  ZERO when there is no slide to wait for, which a fixed wait couldn't tell: under
+ *  reduced motion the global kill-switch (main.scss) makes the transition instant, and
+ *  closing from the KEYBOARD (Escape — <html data-input="keyboard"> is set on keydown and
+ *  cleared by pointer input) answers at once rather than leaving the map parked over the
+ *  page for 630ms after you asked it to go. A transitionend would have missed the first
+ *  case, where the transition never runs and so never ends. */
+function closeMs(): number {
+  if (document.documentElement.dataset.input === "keyboard") return 0;
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
+  return springCss("move").duration;
+}
 const parkedEl = ref<HTMLElement | null>(null);
 
 onBeforeUnmount(() => {
@@ -925,6 +976,8 @@ async function draw() {
     // — which is `onWheel` below, because Leaflet's own handler has no modifier gate: it
     // is all scrolls or none. Off here, ours there.
     scrollWheelZoom: false,
+    // …and one-finger panning is the same trap on a phone. See panByDrag.
+    dragging: panByDrag(),
     zoomControl: true,
     attributionControl: true,
   });
@@ -1247,8 +1300,10 @@ onBeforeUnmount(() => {
   // or a category hue, and this is neither
   color: var(--danger);
 }
-.routemap__wpdel:hover {
-  text-decoration: underline;
+@media (hover: hover) and (pointer: fine) {
+  .routemap__wpdel:hover {
+    text-decoration: underline;
+  }
 }
 
 .routemap__overlay {
@@ -1287,6 +1342,15 @@ onBeforeUnmount(() => {
 @media (hover: hover) and (pointer: fine) {
   .routemap__expand:hover {
     background: var(--map-paper-muted);
+  }
+}
+// A finger's size on touch, as every icon button is (--tap): at 30px the one control that
+// gets you to a map you can pan was the smallest target on it. Zoom's +/− are Leaflet's
+// own and stay its size.
+@media (pointer: coarse) {
+  .routemap__expand {
+    width: var(--tap);
+    height: var(--tap);
   }
 }
 
@@ -1395,9 +1459,12 @@ onBeforeUnmount(() => {
 // HOVER: the drop grows a little. The whole job is answering "am I on it" before you
 // press, which is the only thing a hover on a 30px target is asked. Smaller than the
 // lifted state below, so picking one up still reads as a further step and not as more of
-// the same.
-.routemap__pin:hover i {
-  scale: 1.15;
+// the same. Pointer-gated: a tap fakes a hover that stays, and a pin left swollen after
+// you tapped it reads as picked up when it isn't.
+@media (hover: hover) and (pointer: fine) {
+  .routemap__pin:hover i {
+    scale: 1.15;
+  }
 }
 .routemap__pin.is-lifted i {
   scale: 1.35;

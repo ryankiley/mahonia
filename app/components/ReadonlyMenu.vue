@@ -11,17 +11,22 @@ import type { ListSnapshot, Totals } from "~~/shared/types";
 // editor's; this file is only the rows.
 //
 // And it READS in the same order as the editor's, which is the half that was missing:
-// plain rows, then Send feedback…, then Export last of the body, then a hairline and
-// the row that takes the list away — Report here, Forget/Delete there. The two menus
-// are seen by the same person minutes apart (you share a list, then open your own
-// link to check it), so a row that moves between them is a row you have to re-find.
+// plain rows, then Send feedback…, then a hairline and the row that takes the list
+// away — Report here, Forget/Delete there. The two menus are seen by the same person
+// minutes apart (you share a list, then open your own link to check it), so a row
+// that moves between them is a row you have to re-find.
+//
+// Export is the one deliberate difference. The editor keeps it in the sharing panel,
+// on a tab beside the links; a reader has no sharing panel (one link, no edit link,
+// no history), so here Copy link and Export are already in one menu, and this ⋯ is
+// the reader's sharing surface as well as everything else.
 const props = defineProps<{
   snapshot: ListSnapshot;
   totals: Totals | null;
 }>();
 
 const menuOpen = ref(false);
-// Export opens in place, through the shared <MenuSection> the editor's kebab uses. A
+// Export opens in place, through the shared <MenuSection>. A
 // re-opened menu starts collapsed — the previous session's open section is not a
 // preference, and restoring it would put a different item under the cursor.
 const exportOpen = ref(false);
@@ -32,7 +37,7 @@ watch(menuOpen, (open) => open || (exportOpen.value = false));
 const { toast, flash } = useToast();
 
 // the four export actions, their chunk warm-up and the rows that draw them live in
-// useListExports, shared with the editor's kebab so neither the copy, the error
+// useListExports, shared with the editor's sharing panel so neither the copy, the error
 // handling nor the wording can drift (the exporters stay on-demand chunks, out of
 // the read view's initial payload).
 //
@@ -48,8 +53,8 @@ const { showLinkFallback } = useDialogs();
 // Feedback used to be a link in the site footer. It moved to where you are when you
 // have something to say — which for a reader is this menu. Distinct from "Report
 // list" at the foot: that one is about THIS list being spam, this one is about the app.
-// Its SEAT is the editor's — last of the plain rows, directly above Export — so the two
-// ⋯ menus read in the same order and a hand that knows one knows the other.
+// Its SEAT is the editor's — last of the plain rows — so the two ⋯ menus read in the
+// same order and a hand that knows one knows the other.
 // The box itself is the app-wide mount useFeedback drives (Lazy, so a reader who never
 // sends anything pays nothing for it).
 const feedback = useFeedback();
@@ -97,8 +102,7 @@ const MENU_ACTIONS = [
   // and a clipboard here would spend the word before you got to it.
   { label: "Duplicate this list", icon: CopyPlusIcon, run: copyThis, busy: copying },
   // …and THIS one is the clipboard, so it wears the app's clipboard mark — the same
-  // Copy01 pair of sheets ListHead and SharePanel put on the buttons that copy this
-  // very link.
+  // Copy01 pair of sheets ListHead puts on the button that copies this very link.
   { label: "Copy link", icon: Copy01Icon, run: copyLink },
   { label: "Send feedback…", icon: Bug02Icon, run: () => feedback.open() },
 ];
@@ -112,15 +116,14 @@ const MENU_ACTIONS = [
            would mint a second list. -->
       <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
         <button type="button" data-row role="menuitem" class="menu__item" :disabled="a.busy?.value" @click="close(); a.run()">
-          <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ a.label }}
         </button>
       </li>
-      <!-- Export folds into a disclosure, as it already does in the editor's ⋯ —
-           four formats you'd otherwise scan past to reach the thing you came for,
-           and only one of them is ever the one you want. The SAME component draws
-           it in both menus, and the same SEAT: last of the body, so opening it
-           pushes nothing but the hairline down. -->
+      <!-- Export folds into a disclosure: four formats you'd otherwise scan past to
+           reach the thing you came for, and only one of them is ever the one you
+           want. Last of the body, so opening it pushes nothing but the hairline
+           down. -->
       <MenuSection
         v-model:open="exportOpen"
         label="Export"
@@ -142,7 +145,7 @@ const MENU_ACTIONS = [
              should recognise without reading, and the one they should never hit by
              mistake reaching for the row above. -->
         <button type="button" data-row role="menuitem" class="menu__item" @click="close(); reportThis()">
-          <HugeiconsIcon :icon="Flag02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="Flag02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Report list
         </button>
       </li>

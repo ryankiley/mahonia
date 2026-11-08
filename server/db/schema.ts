@@ -229,6 +229,12 @@ export const listSnapshots = pgTable(
     itemCount: integer("item_count").notNull().default(0),
     version: integer("version").notNull(),
     reason: text("reason"),
+    // "assistant" for a change made through the connector (server/utils/mcp.ts),
+    // null for a person's (who, when signed in, is editorUserId below)
+    actor: text("actor"),
+    // the signed-in account that made the change, when there was one. Never sent to a
+    // client: it becomes "You" or the name that account chose (listSnapshotsByEditHash)
+    editorUserId: integer("editor_user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   }
 );
@@ -339,7 +345,14 @@ export const vaultItems = pgTable(
     name: text("name").notNull(),
     variant: text("variant"),
     commonName: text("common_name"),
+    // The icon you picked for it on /gear, by its name in shared/gearGlyph's set. Null =
+    // drawn from the gear type. Only you write it (no list carries one), so no pin.
+    icon: text("icon"),
     weightMg: bigint("weight_mg", { mode: "number" }).notNull().default(0),
+    // The unit this piece's weight READS in on /gear (g|kg|oz|lb), a list row's
+    // entryUnit for your own gear. Display only: weight_mg stays the one stored figure,
+    // so totals and sorting never see it. Null = the page's unit.
+    entryUnit: text("entry_unit"),
     classification: text("classification"), // base|worn|consumable (null = unset)
     // Food energy per unit, whole kcal — the calorie twin of weight_mg, so the
     // trail food you pack every trip comes back with its calories. Null = unknown.

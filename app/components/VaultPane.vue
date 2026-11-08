@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Cancel01Icon, CheckIcon, ChevronDownIcon, Layers01Icon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Cancel01Icon, ChevronDownIcon, FolderIcon, Layers01Icon } from "@hugeicons/core-free-icons";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
@@ -81,14 +81,15 @@ function startResize(ev: PointerEvent) {
     window.removeEventListener("pointermove", onMove);
     window.removeEventListener("pointerup", stop);
     window.removeEventListener("pointercancel", stop);
-    document.body.style.userSelect = "";
+    lockTextSelection(false);
     endResize = () => {};
     // commit once — a press that never moved must not nudge the width by the
     // divider-center offset (the old per-frame flow only wrote after a move too)
     if (moved) width.value = clampVaultWidth(vw - pendingX);
   };
   endResize = stop;
-  document.body.style.userSelect = "none";
+  // both spellings — Safari only reads the prefixed one (see lockTextSelection)
+  lockTextSelection(true);
   window.addEventListener("pointermove", onMove);
   window.addEventListener("pointerup", stop);
   window.addEventListener("pointercancel", stop);
@@ -264,15 +265,32 @@ const isInList = (entry: VaultEntry) => inList.value.has(entry.normKey);
 //    browser as a scroll (which then cancels the press outright).
 //
 // Deliberately not `touch-action: none` on the rows for the same reason: the list
-// has 100+ entries and scrolling it must stay the default reading of a swipe.
+// has 100+ entries and scrolling it must stay the default reading of a swipe. What
+// keeps a held row's drag from turning into a scroll anyway is the sheet's touch
+// guard (onSheetTouchMove), which stops handing moves to the browser the moment the
+// hold arms.
+//
+// The hold SAYS when it has taken: the row lifts (`liftedId`, the .is-lifted ground)
+// and the phone ticks, where the hardware offers one — the same tick a map pin gives
+// when its hold registers (RouteMap's beginLift). Without it a quarter-second hold is a
+// guess: lift too soon and you scroll, lift too late and you've waited for nothing.
+// It stays lifted while the drag it became is live, and comes down when that ends.
 
 // the entry whose press turned into a drag, so the click that follows pointerup is
 // swallowed instead of adding the thing a second time
 let draggedEntryId: number | null = null;
+const liftedId = ref<number | null>(null);
 
 const rowPress = createPressArm<VaultEntry>({
   threshold: 5,
   touchHoldMs: 250,
+  onArm(entry) {
+    liftedId.value = entry.id;
+    navigator.vibrate?.(10);
+  },
+  onDisarm() {
+    liftedId.value = null;
+  },
   onDrag(entry, ev) {
     draggedEntryId = entry.id;
     // the pane owns what a drop MEANS — it creates the row and enforces its own
@@ -286,6 +304,15 @@ const rowPress = createPressArm<VaultEntry>({
     }, ev);
   },
 });
+
+// the drag a held row became has ended — dropped, cancelled or escaped — so the row it
+// came from sets back down
+watch(
+  () => dnd.dragId.value,
+  (id) => {
+    if (!id) liftedId.value = null;
+  },
+);
 
 function onRowPointerDown(entry: VaultEntry, ev: PointerEvent) {
   if (isInList(entry)) return;
@@ -321,6 +348,13 @@ function onRowClick(entry: VaultEntry) {
 // position until you put a finger OUTSIDE the sheet, which is the half of it that
 // already worked. Two fingers are left alone, so pinch-zoom over the sheet still
 // zooms.
+//
+// And a finger that is CARRYING A ROW is never a scroll, whatever room the list has.
+// Once a row's hold has armed (rowPress.armed) or the drag it became is live
+// (dnd.dragId), every move is swallowed. Before this the guard handed the first move to
+// the browser whenever the rows could still scroll that way, and a touch scroll steals
+// the pointer — pointercancel — so dragging a row out of the sheet died on its first
+// move unless the list happened to be at its end.
 const listEl = useTemplateRef<HTMLElement>("listEl");
 let touchStartY = 0;
 
@@ -330,6 +364,10 @@ function onSheetTouchStart(ev: TouchEvent) {
 
 function onSheetTouchMove(ev: TouchEvent) {
   if (ev.touches.length !== 1) return; // a pinch, not a scroll
+  if (rowPress.armed(ev.timeStamp) || dnd.dragId.value) {
+    if (ev.cancelable) ev.preventDefault();
+    return;
+  }
   const list = listEl.value;
   // Touch events retarget to wherever the gesture STARTED for its whole life, so
   // this stays true of a drag that has since wandered off the rows — which is what
@@ -346,13 +384,59 @@ function onSheetTouchMove(ev: TouchEvent) {
   if (ev.cancelable) ev.preventDefault();
 }
 
+// ---- the sheet rides above the keyboard ------------------------------------
+//
+// The phone sheet is pinned to the bottom of the screen, and it opens by focusing its
+// own search — which raises the keyboard straight over it. iOS keeps the LAYOUT
+// viewport full height under the keyboard and only shrinks the visual one, so a box
+// pinned to the bottom stays exactly where the keyboard now is: you opened My Gear to
+// search it and got a keyboard over an invisible panel.
+//
+// So while it's open the sheet watches the visual viewport, lifts itself by the strip
+// the keyboard covers (--kb) and caps its height to what's left between the topbar and
+// the keyboard (--sheet-room), so a short phone doesn't push its header, close button
+// and all, up under the bar. The arithmetic is app/utils/viewportRoom; the CSS that
+// spends both is the phone block below. Android, told to resize the layout for the
+// keyboard (interactive-widget=resizes-content, nuxt.config.ts), reads 0 here: its
+// layout viewport is already above the keyboard, and the sheet with it.
+const kb = ref(0);
+const sheetRoom = ref<number | null>(null);
+function measureViewport() {
+  const vv = window.visualViewport;
+  if (!vv) return;
+  kb.value = keyboardInset(window.innerHeight, vv.height, vv.offsetTop);
+  const band = visibleBand();
+  sheetRoom.value = Math.round(band.bottom - band.top);
+}
+// once per frame at most: iOS fires a burst of these while the keyboard settles
+let viewportFrame = 0;
+function onViewport() {
+  viewportFrame ||= requestAnimationFrame(() => {
+    viewportFrame = 0;
+    measureViewport();
+  });
+}
+onMounted(() => {
+  measureViewport();
+  window.visualViewport?.addEventListener("resize", onViewport);
+  window.visualViewport?.addEventListener("scroll", onViewport);
+});
+const sheetVars = computed(() => ({
+  "--kb": `${kb.value}px`,
+  ...(sheetRoom.value != null ? { "--sheet-room": `${sheetRoom.value}px` } : {}),
+}));
+
 // The pane can unmount mid-gesture — Escape closes it, and a drop can land it in a
 // state the parent tears down — so both pointer loops are stopped here rather than
 // only on their own pointerup. Otherwise their window listeners outlive the
-// component and keep its whole setup scope (the full vault array) reachable.
+// component and keep its whole setup scope (the full vault array) reachable. The
+// viewport watch above goes with them.
 onBeforeUnmount(() => {
   rowPress.end();
   endResize();
+  window.visualViewport?.removeEventListener("resize", onViewport);
+  window.visualViewport?.removeEventListener("scroll", onViewport);
+  cancelAnimationFrame(viewportFrame);
 });
 
 onKeyStroke("Escape", () => emit("close"));
@@ -360,7 +444,7 @@ onKeyStroke("Escape", () => emit("close"));
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
 // folder ids are STRINGS in the editor (the vault page's are numeric rows) — no cast
-const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, label: f.name })));
+const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, label: f.name, icon: FolderIcon })));
 </script>
 
 <template>
@@ -376,6 +460,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     data-vault-pane
     role="dialog"
     aria-label="My Gear"
+    :style="sheetVars"
     @touchstart.passive="onSheetTouchStart"
     @touchmove="onSheetTouchMove"
   >
@@ -509,19 +594,15 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             @click="addCategory(cat)"
           >
             <span class="gear__main">
-              <span class="gear__name t-clip">{{ cat.name }}</span>
+              <span class="gear__name t-clip" :title="cat.name">{{ cat.name }}</span>
               <span class="t-sm vp__inlist">
                 {{ cat.allInList ? "Already added" : counted(cat.entries.length, "item") }}
               </span>
             </span>
+            <!-- No mark at the end of the row. A "+" here was the same glyph on every row
+                 of a panel whose one job is adding, and the tick that replaced it only
+                 repeated the "Already added" line under the name. -->
             <span class="t-num t-sm vp__w">{{ formatWeight(cat.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
-            <!-- A check when it's IN the list, and nothing when it isn't. The "+" that
-                 used to sit here was the same glyph on every row of a panel whose one
-                 job is adding — it said what the panel already says, forty times. The
-                 column stays reserved so a row gaining its check shifts nothing. -->
-            <span class="vp__icon" aria-hidden="true">
-              <HugeiconsIcon :icon="CheckIcon" v-if="cat.allInList" :size="16" :stroke-width="2" class="vp__added" />
-            </span>
           </button>
         </li>
       </ul>
@@ -534,6 +615,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
           <button
             type="button"
             class="vp__add"
+            :class="{ 'is-lifted': liftedId === entry.id }"
             :disabled="isInList(entry)"
             :aria-label="
               isInList(entry)
@@ -551,7 +633,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
               <HugeiconsIcon :icon="Layers01Icon" :size="14" :stroke-width="2" />
             </span>
             <span class="gear__main">
-              <span class="gear__name t-clip">
+              <!-- the full name on hover, for the rows the ellipsis cut short -->
+              <span class="gear__name t-clip" :title="itemDisplayName(entry.brand, entry.name, entry.variant)">
                 <span v-if="entry.brand" class="gear__brand"
                   ><span v-for="(p, pi) in hl(entry.brand)" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
                 >
@@ -569,12 +652,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
               <span v-else-if="isKit(entry)" class="t-sm vp__inlist">Kit · {{ counted(itemCount(entry), "item") }}</span>
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
-            <span class="vp__icon" aria-hidden="true">
-              <HugeiconsIcon :icon="CheckIcon" v-if="isInList(entry)"
-                :size="16"
-                :stroke-width="2"
-                class="vp__added" />
-            </span>
           </button>
         </li>
       </ul>
@@ -673,9 +750,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   opacity: 0;
   transition: opacity var(--spring-fade-dur) var(--spring-fade);
 }
-.vp__resize:hover::after,
 .vp__resize:focus-visible::after {
   opacity: 1;
+}
+/* the hover twin is pointer-gated, as every hover that paints is (see .vp__add below) */
+@media (hover: hover) and (pointer: fine) {
+  .vp__resize:hover::after {
+    opacity: 1;
+  }
 }
 .vp__resize:focus-visible {
   outline: none;
@@ -707,6 +789,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   margin-inline-start: calc(-1 * var(--space-2));
 }
 .vp__tab {
+  position: relative; /* the hit area below hangs off it */
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
@@ -719,8 +802,28 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
 }
-.vp__tab:hover {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .vp__tab:hover {
+    color: var(--ink);
+  }
+}
+/* A FINGER-SIZED TARGET for a chip drawn at text size. The tab is ~27px tall and sits
+   between the header and the search field, a thumb's width from both; growing the chip
+   to --tap would stand the row 17px taller on a sheet that is short of height already.
+   So the box that answers the tap grows and the picture doesn't: an invisible --tap of
+   height centred on the chip, the .switch::before trick (controls.scss). It reaches
+   about as far as the 8px margins either side, so it doesn't steal taps meant for the
+   header above or the search field below.
+   Touch only — a mouse can hit the chip it can see. */
+@media (pointer: coarse) {
+  .vp__tab::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    top: 50%;
+    height: var(--tap);
+    translate: 0 -50%;
+  }
 }
 .vp__tab.is-active {
   background: var(--paper-3);
@@ -758,6 +861,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   margin-bottom: var(--space-2);
 }
 /* the search field, its clear and their touch target are SearchField's own */
+/* The field's ground hangs into the panel's padding the way the active tab's chip does
+   above it (and every row's hover ground below it), with its text pulled in by the same
+   step, so the grounds share one edge and the words share another. Inset like the rest,
+   the box started 8px inside the tab's chip and the edge read as a mistake. */
+.vp__controls :deep(.sf) {
+  margin-inline: calc(-1 * var(--space-2));
+}
+.vp__controls :deep(.sf__input) {
+  padding-inline-start: var(--space-2);
+}
 /* the hand stays on the select alone — "Add to" is the label naming it, not a
    thing you click, and pointing at prose invites a click that does nothing */
 .vp__target {
@@ -832,6 +945,20 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   border-radius: var(--popover-item-radius);
   text-align: left;
   cursor: pointer;
+  /* The row is a control and a drag handle, so holding it must not do what holding
+     text does on a phone: select the label, or raise iOS's callout. Both spellings —
+     WebKit reads only the prefixed one. */
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+/* HELD: the touch hold has armed (see liftedId), so the row is picked up and the next
+   move carries it. The --paper-3 ground the active tab wears, a step past the hover
+   tint, because this has to read as a different state from "under your finger" — it is
+   the moment a scroll became a drag. No transition: it lands with the vibration tick,
+   and feedback that a hold registered is instant or it isn't feedback. */
+.vp__add.is-lifted {
+  background: var(--paper-3);
 }
 /* Split from :hover, not merged with it: focus is not a pointer state and a keyboard
    driving a touch device still needs the highlight, while the hover twin paints only
@@ -880,25 +1007,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   flex: none;
   color: var(--ink-2);
 }
-/* Pinned to the FIRST line, not centred on the row. An "Already added" row is two
-   lines tall, and centring across both dropped the tick below the weight sitting on
-   line one beside it. A one-line-tall box (1lh = the computed line-height, so it
-   can't drift from the type) centres the glyph on that line instead, and the two
-   agree whether or not the second line is there. */
-.vp__icon {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  height: 1lh;
-  color: var(--ink-3);
-}
-.vp__add:hover .vp__icon {
-  color: var(--ink);
-}
-.vp__added {
-  color: var(--ink);
-}
 /* CENTRED in the pane, both ways. These states have no rows to align to — they're
    a sentence about why the pane is empty — so left-aligning them at the top left
    them hanging off the corner of a tall card with nothing under them. */
@@ -914,11 +1022,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
      padding-inline rule above, and a `padding: x 0 y` shorthand silently zeroes the
      inline half of it — which left the empty state's text one full step to the left
      of the header above it and the rows below it.
-     The bottom is deeper than the top and reaches for the safe area, because below
-     $bp-full this panel is a BOTTOM SHEET: 12px left the sign-in button sitting on the
-     sheet's own edge, and on a phone that edge is where the home indicator lives. The
-     max() keeps the desktop panel at a normal step, since env() resolves to 0 there. */
-  padding-block: var(--space-2) max(var(--space-5), env(safe-area-inset-bottom));
+     The bottom is deeper than the top: 12px left the sign-in button sitting on the
+     sheet's own edge. It no longer reaches for the safe area itself — the SHEET clears
+     the home indicator now (its bottom offset, the phone block below), and padding for
+     it here as well lifted the button twice over. */
+  padding-block: var(--space-2) var(--space-5);
 }
 /* balance, not the tooltip's pretty: pretty only protects the LAST line, and centred
    text makes a ragged edge read as a mistake. A short block can't strand a word. */
@@ -938,15 +1046,33 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 
 /* Phone: a bottom sheet instead of a side column — a 23rem panel floating over a
    375px screen would cover the list it's meant to sit beside. Capped at half the
-   viewport so the rows you're adding to stay visible above it. */
+   viewport so the rows you're adding to stay visible above it.
+
+   THE BOTTOM EDGE clears two things the gutter alone didn't:
+   - the home indicator. 12px put the installed app's sheet on top of it, so its
+     floor is the safe-area inset where there is one (env() is 0 everywhere else, and
+     the max() keeps the 12px gutter there).
+   - the keyboard. The sheet focuses its search on open, and on iOS the keyboard then
+     covers a sheet pinned to the bottom (see the viewport watch in the script). --kb is
+     the strip the keyboard covers; the sheet lifts to sit a gutter above it — not a
+     gutter plus the home indicator's inset, which the keyboard has already covered.
+     A translate rather than a moving `bottom`, so the lift is a compositor move and can
+     glide on the drawer curve as the keyboard settles instead of jumping when it has.
+   The height cap gains --sheet-room, the strip left between the topbar and the
+   keyboard, so a lifted sheet on a short phone shrinks rather than sliding its header
+   (and its close button) up under the bar. Without a keyboard 55dvh is the smaller of
+   the two everywhere, so nothing changes until one rises. */
 @media (max-width: $bp-full) {
   .vp {
     top: auto;
     right: var(--space-3);
-    bottom: var(--space-3);
+    bottom: max(var(--space-3), env(safe-area-inset-bottom, 0px));
     left: var(--space-3);
     width: auto;
-    max-height: min(27.5rem, 55dvh);
+    max-height: min(27.5rem, 55dvh, calc(var(--sheet-room, 100dvh) - 2 * var(--space-3)));
+    translate: 0
+      calc(-1 * max(0px, var(--kb, 0px) + var(--space-3) - max(var(--space-3), env(safe-area-inset-bottom, 0px))));
+    transition: translate var(--spring-step-dur) var(--ease-drawer);
   }
   /* A FIXED height, not a max, once there's gear to browse. As a max, the sheet
      shrank to fit whatever the filter left — so typing into the search resized the
@@ -955,9 +1081,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
      pinned top and bottom, so it's already a fixed height.)
      27.5rem = 440px, on the 8px grid. The dvh clamp still wins on a short phone —
      the sheet must not eat the list it sits beside — so the height is fixed per
-     device rather than always literally 440. */
+     device rather than always literally 440. The keyboard is the one thing that
+     changes it (the --sheet-room cap above): it changes once as the keyboard rises,
+     never as you type. */
   .vp--sized {
-    height: min(27.5rem, 55dvh);
+    height: min(27.5rem, 55dvh, calc(var(--sheet-room, 100dvh) - 2 * var(--space-3)));
   }
   /* nothing to resize when the sheet spans the gutters */
   .vp__resize {
@@ -1009,15 +1137,20 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    (see .editor--split there), so the column gives up the space as the pane arrives
    and flows back into it as the pane goes — one movement, not a panel animating
    over a page that already jumped. */
+/* `translate` rides along in both: it is the keyboard lift (the phone block above), and
+   these replace that rule's own transition while they run — the keyboard rises during
+   the entrance, since opening is what focuses the search. */
 .vaultpane-enter-active {
   transition:
     opacity var(--spring-fade-dur) var(--spring-fade),
-    transform var(--spring-pop-dur) var(--spring-pop);
+    transform var(--spring-pop-dur) var(--spring-pop),
+    translate var(--spring-step-dur) var(--ease-drawer);
 }
 .vaultpane-leave-active {
   transition:
     opacity calc(var(--spring-fade-dur) * 0.8) var(--spring-fade),
-    transform var(--spring-step-dur) var(--spring-step);
+    transform var(--spring-step-dur) var(--spring-step),
+    translate var(--spring-step-dur) var(--ease-drawer);
 }
 .vaultpane-enter-from {
   opacity: 0;

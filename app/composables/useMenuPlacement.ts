@@ -35,8 +35,37 @@ import type { Ref } from "vue";
 //    x≈180 on a 375px screen overruns the OTHER side, so the flip test fails and
 //    the card would stay cut off at the left — while a slide of a few pixels fits.
 
+// VERTICALLY a menu can also live inside a card that clips it — the My Gear sheet on a
+// phone is a 440px card with `overflow: hidden`, and its "Add to" folder picker sits
+// in the middle of it. Measured against the window, eight folders fit above the
+// trigger, so the menu flipped up and the card cut off its top five. `fit: "within"`
+// measures against the nearest ancestor that clips vertically instead (intersected
+// with the window), and when neither side fits there it takes the roomier side and
+// caps the card to that room (`maxHeight`), so the list scrolls inside the card rather
+// than past its edge. Opt-in, because a capped menu needs the caller to apply the
+// height; a folder body's own clip is already lifted by the time `place` runs (the
+// overlayToggle contract fires on open, and `place` waits a tick).
+
 /** Keep a menu this far from the window edge before calling it a collision. */
 const EDGE_PADDING = 8;
+/** A capped menu never shrinks below this: about two and a half rows, enough to read
+ *  as a list you can scroll rather than a sliver. */
+const MIN_CAPPED_HEIGHT = 96;
+
+/** The vertical span a menu inside `el` can paint into: the nearest ancestor that
+ *  clips on the y axis, cut to the window. The window alone when nothing clips. */
+function verticalBounds(el: HTMLElement): { top: number; bottom: number } {
+  let top = EDGE_PADDING;
+  let bottom = window.innerHeight - EDGE_PADDING;
+  for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
+    if (getComputedStyle(node).overflowY === "visible") continue;
+    const r = node.getBoundingClientRect();
+    top = Math.max(top, r.top + EDGE_PADDING);
+    bottom = Math.min(bottom, r.bottom - EDGE_PADDING);
+    break;
+  }
+  return { top, bottom };
+}
 /** The offset `.menu__list` sets between trigger and menu (`--space-1`). Stated rather
  *  than measured because the value has to be known BEFORE the flip class is applied,
  *  and by then the menu's own offsetTop is describing whichever side it is currently
@@ -46,18 +75,22 @@ const EDGE_PADDING = 8;
 const ANCHOR_GAP = 4;
 
 export function useMenuPlacement(
-  listRef: Ref<HTMLElement | null>,
-  opts: { fit?: "flip" | "shift" } = {},
+  listRef: Readonly<Ref<HTMLElement | null>>,
+  opts: { fit?: "flip" | "shift"; within?: boolean } = {},
 ): {
   atStart: Ref<boolean>;
   above: Ref<boolean>;
   /** px to translate rightward — only ever non-zero under `fit: "shift"` */
   shift: Ref<number>;
+  /** px the card may be tall, or null for its own height — only ever set under
+   *  `within`, when neither side of the trigger has room for the whole menu */
+  maxHeight: Ref<number | null>;
   place: () => void;
 } {
   const atStart = ref(false);
   const above = ref(false);
   const shift = ref(0);
+  const maxHeight = ref<number | null>(null);
 
   function place(): void {
     const list = listRef.value;
@@ -75,7 +108,9 @@ export function useMenuPlacement(
     // animating, so its rect is sound.
     const a = anchor.getBoundingClientRect();
     const w = list.offsetWidth;
-    const h = list.offsetHeight;
+    // scrollHeight, not offsetHeight: a cap from the previous open is still on the
+    // card at this point, and the fit test needs the whole menu's height
+    const h = opts.within ? list.scrollHeight : list.offsetHeight;
 
     const trailingLeft = a.right - w; // the default: right edges flush
     const leadingRight = a.left + w; // the flip: left edges flush
@@ -100,11 +135,28 @@ export function useMenuPlacement(
     // above does. A menu TALLER than the viewport fails both tests and stays below,
     // which is the right answer — flipping it would only change which end is cut off,
     // and below at least leaves its first row against the trigger you just pressed.
+    if (opts.within) {
+      const { top, bottom } = verticalBounds(anchor);
+      const roomBelow = bottom - (a.bottom + ANCHOR_GAP);
+      const roomAbove = a.top - ANCHOR_GAP - top;
+      if (h <= roomBelow) {
+        above.value = false;
+        maxHeight.value = null;
+      } else if (h <= roomAbove) {
+        above.value = true;
+        maxHeight.value = null;
+      } else {
+        above.value = roomAbove > roomBelow;
+        maxHeight.value = Math.max(MIN_CAPPED_HEIGHT, Math.floor(Math.max(roomAbove, roomBelow)));
+      }
+      return;
+    }
+
     const belowBottom = a.bottom + ANCHOR_GAP + h;
     const aboveTop = a.top - ANCHOR_GAP - h;
     above.value =
       belowBottom > window.innerHeight - EDGE_PADDING && aboveTop >= EDGE_PADDING;
   }
 
-  return { atStart, above, shift, place };
+  return { atStart, above, shift, maxHeight, place };
 }

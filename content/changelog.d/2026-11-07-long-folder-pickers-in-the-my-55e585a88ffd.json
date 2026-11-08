@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-07",
+  "fixed": [
+    "Long folder pickers in the My Gear sheet on a phone stay inside the sheet and scroll, instead of losing their top folders."
+  ]
+}

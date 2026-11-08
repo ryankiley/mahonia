@@ -60,6 +60,7 @@ import { ASSUMED_FUEL_PER_BOIL_G, isFuelRow, offersKcal, offersWorn } from "~~/s
 // below can only ever claim what capture would actually take (statically imported
 // like useGearList's own vaultNormKey — this module is in the editor graph already)
 import { isKitWorthy, isVaultWorthy, vaultNormKey } from "~~/shared/vault";
+import { motionIsInstant } from "~/plugins/inputModality.client";
 
 // The editor's row — editable by default, a checklist row in packing mode. A nested item
 // renders the SAME row with `nested` set (indented, one level only). The share views
@@ -293,11 +294,14 @@ function onRowBlur(e: FocusEvent) {
 // The animations are left filling forward: a cancel before the dispatch would show
 // the full row for the frame between the two. Catchable: focus coming back mid-fold
 // reverses it from the frame it is at (onRowFocusIn), and nothing is discarded.
+// Not when focus left by the KEYBOARD (Tab or Escape out of a blank row) or with
+// reduced motion: the row goes in one frame, the way it always did without a fold —
+// a Web Animation is the one kind of motion atoms/modality.scss can't reach.
 const leaving = ref(false);
 let leaveAnims: Animation[] = [];
 function foldAway(): boolean {
   const wrap = wrapRef.value;
-  if (!wrap || !import.meta.client || matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+  if (!wrap || !import.meta.client || motionIsInstant()) return false;
   const step = springCss("step");
   const fade = springCss("fade");
   // the cluster's BOXED parts: .item__meta and the .item__trail inside it are both
@@ -343,6 +347,7 @@ function unfold() {
 function onRowFocusIn() {
   if (!leaving.value) return;
   leaving.value = false;
+  if (motionIsInstant()) return unfold(); // Shift+Tab back in: the row is simply there again
   const anims = leaveAnims;
   for (const a of anims) a.reverse();
   Promise.all(anims.map((a) => a.finished)).then(
@@ -478,6 +483,8 @@ function onNameCommit(p: NameCommit) {
     if (p.weightMg != null && p.weightMg > 0) {
       patch.unitWeightMg = p.weightMg;
       patch.weightOverridden = true;
+      // and in the unit you chose for it on /gear, when you chose one
+      if (p.entryUnit) patch.entryUnit = p.entryUnit;
     }
     // catalogWeightMgAtLink is deliberately NOT set: it's the baseline for the
     // "the catalog's weight changed" nudge, and your own weight is not that
@@ -997,8 +1004,8 @@ const vaultCovered = computed(() => {
   // pressing it is then the only way the row gets banked.
   return c.vaultAuto.value && vaultWorthy.value && !c.vaultDeclined.value.has(vaultKey.value);
 });
-const vaultSaved = ref(false);
-const vaultBusy = ref(false);
+const vaultSave = ref<"idle" | "saving" | "saved">("idle");
+const vaultSaved = computed(() => vaultSave.value === "saved");
 const vaultLabel = computed(() =>
   isParent.value
     ? vaultSaved.value ? "Saved to My Gear as a kit" : "Save to My Gear as a kit"
@@ -1045,11 +1052,14 @@ async function onSaveToVault() {
   // a covered row renders no button, but coverage can flip mid-press (the chooser
   // and the vault answer live outside the row) — the covered guard makes that
   // beat a no-op instead of a save the automatic path already made
-  if (vaultBusy.value || vaultSaved.value || vaultCovered.value) return;
-  vaultBusy.value = true;
+  if (vaultSave.value !== "idle" || vaultCovered.value) return;
+  vaultSave.value = "saving";
+  const asked = savedAs();
   const result = await c.saveItemToVault(props.item.id);
-  vaultBusy.value = false;
-  if (result === "saved") return void (vaultSaved.value = true);
+  // renamed or re-weighed while it was out: what got banked is the gear as it WAS, so
+  // the tick would speak for gear the vault doesn't hold
+  vaultSave.value = result === "saved" && savedAs() === asked ? "saved" : "idle";
+  if (result === "saved") return;
   emit(
     "toast",
     result === "unworthy"
@@ -1078,10 +1088,12 @@ async function onSaveToVault() {
 }
 // a rename or re-weigh makes it a different piece of gear, so the tick stops
 // speaking for it and the row can be banked again
-watch(
-  () => [props.item.name, props.item.brand, props.item.variant, props.item.unitWeightMg],
-  () => (vaultSaved.value = false),
-);
+function savedAs() {
+  return JSON.stringify([props.item.name, props.item.brand, props.item.variant, props.item.unitWeightMg]);
+}
+watch(savedAs, () => {
+  if (vaultSaved.value) vaultSave.value = "idle";
+});
 
 // the same actions the inline icons run: the one nesting action that applies to this
 // row's state (add-nested / nest-up / un-nest), then the vault save, and last the removal — all inline on a desktop row
@@ -1174,7 +1186,8 @@ function dismissFix() {
          shows follows the editor body's data-mode (atoms/item.scss); the fade the old
          <Transition> gave the entering face is a CSS animation there, gated on the
          body's is-rowswitching beat so it plays exactly when a switch happens and not
-         when a row appears for any other reason. What this template decides is only
+         when a row appears for any other reason. (A row whose faces differ in height
+         eases to the new one: GearEditor's row fold.) What this template decides is only
          whether each face has ever been NEEDED (the useEditorMode latches): a face
          mounts the first time its mode is entered and then stays for the page's life,
          display:none'd in the other modes. So a mode switch mounts nothing, unmounts
@@ -1820,7 +1833,7 @@ function dismissFix() {
                   class="btn btn--icon btn--ghost item__vault-btn ink-quiet"
                   :class="{ 'is-active': vaultSaved }"
                   type="button"
-                  :disabled="vaultBusy"
+                  :disabled="vaultSave === 'saving'"
                   :aria-label="vaultLabel"
                   @mousedown.prevent
                   @click="onSaveToVault"
@@ -1859,7 +1872,7 @@ function dismissFix() {
             >
               <li v-for="a in nestActions" :key="a.label" role="none">
                 <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
-                  <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                  <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
                   {{ a.label }}
                 </button>
               </li>
@@ -1976,7 +1989,7 @@ function dismissFix() {
               </li>
               <li v-for="a in overflowActions" :key="a.label" role="none" :class="{ item__nestact: a.nest }">
                 <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
-                  <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+                  <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
                   {{ a.label }}
                 </button>
               </li>
@@ -2196,9 +2209,13 @@ function dismissFix() {
    step up from the old 18px drawn box; the icons pin their stroke at ~1.33px
    (absolute-stroke-width) so the bigger box keeps the same line weight the
    surrounding 16px icons render. The row's only addition: the whole box is the tap
-   target, so pointing at it darkens the glyph like the row's other quiet marks. */
-.check:hover .check__icon {
-  color: var(--ink);
+   target, so pointing at it darkens the glyph like the row's other quiet marks.
+   Pointer-gated — it paints (see the note on .btn:hover, controls.scss): a tap on a
+   phone would leave the glyph inked after the finger had gone. */
+@media (hover: hover) and (pointer: fine) {
+  .check:hover .check__icon {
+    color: var(--ink);
+  }
 }
 .item__cname {
   min-width: 0;
@@ -2428,7 +2445,11 @@ function dismissFix() {
 /* :has(), not a sibling combinator — the select is rendered AFTER the chevron, so
    `~` from it reaches nothing. Keyboard focus has to light the mark too, or the
    affordance exists for pointers only. */
-.item:hover .item__unitchev,
+@media (hover: hover) and (pointer: fine) {
+  .item:hover .item__unitchev {
+    color: var(--ink-2);
+  }
+}
 .item__unitwrap:focus-within .item__unitchev {
   color: var(--ink-2);
 }
@@ -2476,8 +2497,11 @@ function dismissFix() {
 .item__clsbtn {
   border-radius: var(--radius-pill);
 }
-.item__clsbtn:hover {
-  color: var(--ink);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .item__clsbtn:hover {
+    color: var(--ink);
+  }
 }
 @media (pointer: coarse) {
   /* the overshoot, as padding, so the chip's content box stays --icon-btn while the
@@ -2919,8 +2943,11 @@ textarea.item__note {
   text-align: left;
   cursor: pointer;
 }
-.item__under-link:hover {
-  color: var(--ink);
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .item__under-link:hover {
+    color: var(--ink);
+  }
 }
 /* the suggest-a-fix nudge + an × to dismiss it from the page */
 .item__fixrow {

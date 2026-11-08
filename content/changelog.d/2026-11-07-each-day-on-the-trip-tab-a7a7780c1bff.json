@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-07",
+  "added": [
+    "Each day on the Trip tab can carry a short note, like a resupply or a shuttle time, and the shared list shows it too.",
+    "Each day on the Trip tab has a Forecast link for the place it ends, opening that spot's weather forecast."
+  ],
+  "changed": [
+    "A day's figures on the Trip tab are evenly spaced, and its waypoint rows reach the edge when nothing in them can be deleted."
+  ]
+}

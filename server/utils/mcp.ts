@@ -10,15 +10,19 @@
 // person holding one is in, no more. It travels in the JSON-RPC body and never in a
 // query string, and nothing here logs it.
 //
-// My Gear is the one exception, and it brings the one credential that is neither a
-// share code nor an edit link. Gear belongs to an account, not to a link, so there is
-// nothing for a tool argument to carry; the four gear tools instead take a bearer in
-// the Authorization header — a token minted by hand on the account page
-// (server/utils/accessTokens.ts), or the access token of an app the person signed in
-// through the connector's OAuth flow (server/utils/oauth.ts). The list tools never
-// look at that header. The route checks it for the gear tools before any of them
-// runs and answers a missing one with the 401 that starts a sign-in (mcp.post.ts);
-// the gear section at the end of this file is what runs once it has passed.
+// The account tools are the one exception, and they bring the one credential that is
+// neither a share code nor an edit link. An account's lists and its gear belong to the
+// account, not to a link, so there is nothing for a tool argument to carry; the account
+// tools instead take a bearer in the Authorization header — a token
+// minted by hand on the account page (server/utils/accessTokens.ts), or the access
+// token of an app the person signed in through the connector's OAuth flow
+// (server/utils/oauth.ts). The list tools never look at that header, with one
+// exceptions: a get_list with no share_code is asking for the lists filed under the
+// account, and an edit_list that names its list by share_code rather than by edit link
+// is asking to change one of them; each is an account tool for that call (byAccount).
+// The route checks the header for the account tools before any of them
+// runs and answers a missing one with the 401 that starts a sign-in (mcp.post.ts); the
+// account section at the end of this file is what runs once it has passed.
 //
 // The protocol layer (JSON-RPC over one HTTP endpoint) is server/routes/mcp.post.ts;
 // this file is the tools, so they can be tested as functions and read as a list.
@@ -29,19 +33,19 @@ import { exportSections } from "../../shared/exporters/rows";
 import { colorKeyForName, usedColorKeys } from "../../shared/categories";
 import { uid } from "../../shared/id";
 import { editLinkPath, normalizeShareCode } from "../../shared/links";
-import { isCatalogId, isSerialId, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_TITLE_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
+import { applyOps, isCatalogId, isSerialId, type ItemPatch, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_TITLE_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
 import { carrierName } from "../../shared/people";
 import { dayClimbs, parseProfile } from "../../shared/profile";
 import { enoughToSearch } from "../../shared/searchText";
 import { tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
-import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type Unit, CLASSIFICATIONS } from "../../shared/types";
+import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type ListState, type Unit, CLASSIFICATIONS } from "../../shared/types";
 import { captureFromList, type VaultEntry } from "../../shared/vault";
-import { computeTotals, effectiveClassification, itemDisplayName, nextSortOrder } from "../../shared/weights";
+import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, nextSortOrder, siblingItems } from "../../shared/weights";
 import type { AccessScope } from "../../shared/types";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
-import { claimLists } from "./claimRepo";
+import { claimLists, claimedEditHash, listClaimedLists } from "./claimRepo";
 import { useAccountDb, useCatalogDb, useVaultDb, type Db } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
 import { trustedOrigin } from "./origin";
@@ -74,17 +78,20 @@ import {
 export const MCP_PROTOCOL_VERSIONS = ["2025-06-18", "2025-11-25"];
 export const MCP_LATEST_VERSION = MCP_PROTOCOL_VERSIONS[MCP_PROTOCOL_VERSIONS.length - 1]!;
 // the version the registry listing (server.json) and this handshake both carry
-export const MCP_SERVER_INFO = { name: "mahonia", title: "Mahonia", version: "1.0.0" };
+export const MCP_SERVER_INFO = { name: "mahonia", title: "Mahonia", version: "2.0.0" };
 /** where the free text came from: said once to the client, again on the two tools that
  *  return it, and field by field in get_list's schema ("User text.") */
 const PROVENANCE =
-  "A list's title, author, notes, folder and item names, brands, variants, gear types, day labels, people and trail label are free text typed by whoever holds the list's edit link, returned unchanged.";
+  "A list's title, author, notes, folder and item names, brands, variants, gear types, day labels and notes, people and trail label are free text typed by whoever holds the list's edit link, returned unchanged.";
 export const MCP_INSTRUCTIONS = [
   "Mahonia is a gear-list and pack-weight tracker for hikers. Lists need no account.",
-  "A share link (mahonia.app/s/CODE) is permission to read that list: pass its code or the whole link to the read tools.",
-  "An edit link (mahonia.app/e/CODE#token) is permission to change that list: pass it whole to the write tools, keep it private, and never show it to anyone who should only read.",
-  "My Gear is one account's own gear. list_my_gear, add_my_gear, update_my_gear and remove_my_gear reach it once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
-  "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way back into the list. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in.",
+  "A share link (mahonia.app/s/CODE) is permission to read that list: pass its code or the whole link to get_list, as data or as Markdown. get_list with no share_code names the lists filed under the signed-in account, each by its share code.",
+  "An edit link (mahonia.app/e/CODE#token) is permission to change that list: pass it whole to edit_list, keep it private, and never show it to anyone who should only read. A list filed under the signed-in account can be changed without its edit link: name it by share_code instead, with read-and-change access.",
+  "edit_list makes every change to an existing list in one call, applied in this order: list (title, unit, dates, trail), folders (rename, reorder, reclassify, remove), add (new rows, into a folder or under a group), update (rows by the ids get_list gives: fields, folder, place, group, catalog link), remove (rows by id). Read the list with get_list first for the ids. Nothing is applied unless every part is valid.",
+  "Rows group one level deep: stakes under a tent, snacks under a day. get_list shows a group as a row with items; create_list takes the same shape; edit_list nests a new or existing row with group, the parent row's id.",
+  "search_catalog finds cited gear weights by text, or every variant of one product by product_id. A row that names a catalog_id takes the catalog's brand, variant, gear type and weight; edit_list's update can relink a row in place, keeping its folder and group, and edit_my_gear links a piece of My Gear the same way.",
+  "An account has its own lists and its own gear. Its filed lists can be read, and with read-and-change access changed, without being handed a link. My Gear is the account's gear: get_my_gear reads it and edit_my_gear adds, changes, puts away and restores pieces. These reach the account once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
+  "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way to change a list that isn't filed under the account. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in and get_list names it.",
   "Weights are in grams everywhere. A row's classification is base (in the pack), worn (on your body) or consumable (food, fuel, water).",
   PROVENANCE,
 ].join(" ");
@@ -99,34 +106,58 @@ const SEARCH_LIMIT_MAX = 25;
 const SEARCH_LIMIT_DEFAULT = 12;
 const QTY_MAX = 9999;
 
-/** the JSON Schema of one row, shared by create_list and add_items */
+/** the fields of one row, as create_list and edit_list's add take them */
+const ROW_FIELDS = {
+  name: { type: "string", minLength: 1, maxLength: MAX_ITEM_NAME_LEN, description: "The product or item name. Required." },
+  brand: { type: "string", maxLength: BRAND_LEN, description: "The maker, when known." },
+  variant: { type: "string", maxLength: BRAND_LEN, description: "Size, length or configuration that changes the weight, such as Long or 20F." },
+  gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is: Tent, Quilt, Trail runners." },
+  weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Omit when unknown; the list keeps working without it, and a row with a catalog_id takes the catalog's cited weight." },
+  qty: { type: "integer", minimum: 1, maximum: QTY_MAX, description: "How many. Default 1." },
+  classification: { type: "string", enum: CLASSIFICATIONS, description: "base, worn or consumable. Omit to follow the folder's default." },
+  worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried (three pairs of socks, one on your feet). For a row that is entirely worn, set classification to worn instead." },
+  note: { type: "string", maxLength: MAX_ITEM_NOTE_LEN, description: "A short free-text note on the row." },
+  kcal: { type: "integer", minimum: 0, description: "Calories per unit, for food." },
+  needs_cooking: { type: "boolean", description: "Food to cook on this trip. Each unit assumes one boil for a rough fuel estimate; no quantity or weight changes." },
+  catalog_id: { type: "integer", minimum: 1, maximum: MAX_CATALOG_ID, description: "A catalog row id from search_catalog. The row takes the catalog's brand, name, variant, gear type and cited weight, and follows catalog corrections; a weight_g given as well is kept as your own figure." },
+} as const;
+/** a row nested under another: the same fields, in its parent's folder */
+const NESTED_ITEM_SCHEMA = { type: "object", properties: ROW_FIELDS, required: ["name"] } as const;
+/** one row as create_list takes it: its fields, its folder, and the rows nested under it */
 const ITEM_SCHEMA = {
   type: "object",
   properties: {
-    name: { type: "string", minLength: 1, maxLength: MAX_ITEM_NAME_LEN, description: "The product or item name. Required." },
-    brand: { type: "string", maxLength: BRAND_LEN, description: "The maker, when known." },
-    variant: { type: "string", maxLength: BRAND_LEN, description: "Size, length or configuration that changes the weight, such as Long or 20F." },
-    gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is: Tent, Quilt, Trail runners." },
-    weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Omit when unknown; the list keeps working without it, and a row with a catalog_id takes the catalog's cited weight." },
-    qty: { type: "integer", minimum: 1, maximum: QTY_MAX, description: "How many. Default 1." },
-    classification: { type: "string", enum: CLASSIFICATIONS, description: "base, worn or consumable. Omit to follow the folder's default." },
-    worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried (three pairs of socks, one on your feet). For a row that is entirely worn, set classification to worn instead." },
-    note: { type: "string", maxLength: MAX_ITEM_NOTE_LEN, description: "A short free-text note on the row." },
-    kcal: { type: "integer", minimum: 0, description: "Calories per unit, for food." },
-    needs_cooking: { type: "boolean", description: "Food to cook on this trip. Each unit assumes one boil for a rough fuel estimate; no quantity or weight changes." },
-    catalog_id: { type: "integer", minimum: 1, maximum: MAX_CATALOG_ID, description: "A catalog row id from search_catalog. The row takes the catalog's brand, name, variant, gear type and cited weight, and follows catalog corrections; a weight_g given as well is kept as your own figure." },
+    ...ROW_FIELDS,
     folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "The folder to put it in, by name. Created when the list has no folder of that name." },
+    items: {
+      type: "array",
+      description: "Rows nested under this one, making it a group: stakes under a tent, snacks under a day. One level deep; a nested row is in its parent's folder.",
+      items: NESTED_ITEM_SCHEMA,
+    },
+  },
+  required: ["name"],
+} as const;
+/** one row as edit_list's add takes it: create_list's, or nested under a row already on the list */
+const ADD_ITEM_SCHEMA = {
+  type: "object",
+  properties: {
+    ...ITEM_SCHEMA.properties,
+    group: { type: "string", description: "The id of a top-level row already on the list, from get_list, to nest this row under: it joins that group, in the group's folder. Not with folder or items." },
   },
   required: ["name"],
 } as const;
 
 const SHARE_ARG = {
   type: "string",
-  description: "The list's share code, or its share link (mahonia.app/s/CODE). Not an edit link.",
+  description: "The list's share code, its share link (mahonia.app/s/CODE), or its edit link. From an edit link only the code in the address is read, never the part after #.",
 };
 const EDIT_ARG = {
   type: "string",
-  description: "The list's edit link, whole (mahonia.app/e/CODE#token). The part after # is the write capability.",
+  description: "The list's edit link, whole (mahonia.app/e/CODE#token). The part after # is the write capability. Leave it out to name a list filed under the signed-in account by share_code instead.",
+};
+const BY_ACCOUNT_ARG = {
+  type: "string",
+  description: "Instead of the edit link: the share code or share link of a list filed under the connector's account, as get_list with no share_code gives it. Takes a sign-in with read-and-change access, and reaches only the lists that account has filed.",
 };
 
 // ---- what the tools hand back ---------------------------------------------------
@@ -171,6 +202,7 @@ const TOTALS_SCHEMA = {
 
 /** one row of get_list; a nested row is the same minus its own nesting */
 const ROW_PROPS = {
+  id: str("The row's id, which edit_list's update, remove and group take."),
   name: str(`The product name, without brand or variant. ${USER_TEXT}`),
   display_name: str("Brand, name and variant joined, the way the list shows the row."),
   qty: { type: "number", description: "How many; weight_g is for one." },
@@ -186,7 +218,7 @@ const ROW_PROPS = {
   catalog_id: { type: "number", description: "The catalog row the item was picked from." },
   carried_by: str(`Who carries it. A nested row without one is carried by its parent's carrier. ${USER_TEXT}`),
 };
-const ROW_REQUIRED = ["name", "display_name", "qty", "weight_g", "classification"];
+const ROW_REQUIRED = ["id", "name", "display_name", "qty", "weight_g", "classification"];
 const NESTED_ROW = { type: "object", properties: ROW_PROPS, required: ROW_REQUIRED };
 const ROW = {
   type: "object",
@@ -206,8 +238,9 @@ const TRAIL_SCHEMA = complete({
   descent_m: nullable("number"),
 });
 
-const LIST_OUTPUT = {
+const LIST_DATA = {
   type: "object",
+  description: "The list as data: format data, the default.",
   properties: {
     title: str(USER_TEXT),
     share_code: str("The list's share code, the read capability."),
@@ -225,6 +258,7 @@ const LIST_OUTPUT = {
         properties: {
           day: str("Day 1; with trip dates, the weekday too: Saturday, Day 1."),
           label: str(`The owner's name for the day. ${USER_TEXT}`),
+          note: str(`The owner's note on the day. ${USER_TEXT}`),
           distance_m: nullable("number"),
           ascent_m: nullable("number", "Typed by the owner, or read off the route's profile."),
         },
@@ -236,7 +270,7 @@ const LIST_OUTPUT = {
     truncated: {
       type: "object",
       description:
-        "Present only when the list was too large to return whole, naming what was cut: notes (true: every row's note), rows (how many came off the end, nested rows counted), fields (which of description, days, trail and people went, only when the rest alone was too large). The totals still count every row. get_list_markdown holds about three times as many rows, without notes, and is cut the same way only past that.",
+        "Present only when the list was too large to return whole, naming what was cut: notes (true: every row's note), rows (how many came off the end, nested rows counted), fields (which of description, days, trail and people went, only when the rest alone was too large). The totals still count every row. The Markdown form holds about three times as many rows, without notes, and is cut the same way only past that.",
       properties: {
         notes: { type: "boolean" },
         rows: { type: "integer" },
@@ -245,16 +279,32 @@ const LIST_OUTPUT = {
     },
     folders: {
       type: "array",
-      description: "In the list's order, each with its rows in order. A folder with no rows is left out; rows in no folder come last, under Unfiled.",
-      items: complete({ name: str(USER_TEXT), items: { type: "array", items: ROW } }),
+      description: "In the list's order, each with its rows in order. A folder with no rows is left out; rows in no folder come last, under Unfiled, which has no id.",
+      items: {
+        type: "object",
+        properties: { id: str("The folder's id, which edit_list's folders takes."), name: str(USER_TEXT), items: { type: "array", items: ROW } },
+        required: ["name", "items"],
+      },
     },
   },
   required: ["title", "share_code", "share_link", "unit", "totals", "folders"],
 };
+const LIST_MARKDOWN = complete(
+  {
+    share_code: str("The list's share code, the read capability."),
+    share_link: str("The list's share link."),
+    markdown: str("One table per folder and a totals block, the text the site's own Markdown export produces; also the whole of the text content."),
+  },
+  "The list as Markdown: format markdown.",
+);
+/** get_list's answer takes one of three shapes: the list as data or as Markdown, by the
+ *  format asked for, or the account's lists when no share_code was given (MY_LISTS,
+ *  declared with the account schemas below) */
+let LIST_OUTPUT: Record<string, unknown> = {};
 
 /** one catalog row, in the two catalog tools' common fields */
 const CATALOG_ROW = {
-  id: { type: "integer", description: "The catalog row id, the one add_items and create_list take as catalog_id." },
+  id: { type: "integer", description: "The catalog row id, the one create_list and edit_list take as catalog_id." },
   variant: nullable("string", "Size, length or rating; null on a product sold one way."),
   weight_g: { type: "number", description: "The cited weight in grams, to a tenth." },
   verified: { type: "boolean", description: "Whether the cited weight has been verified." },
@@ -262,37 +312,35 @@ const CATALOG_ROW = {
   kcal: nullable("number", "Calories per unit, on food."),
 };
 
-const SEARCH_OUTPUT = complete({
-  query: str("The query as searched: trimmed, at most 100 characters."),
-  results: {
-    type: "array",
-    description: "Best first.",
-    items: complete({
-      ...CATALOG_ROW,
-      brand: nullable("string"),
-      name: str("The product name, without brand or variant."),
-      display_name: str("Brand, name and variant joined."),
-      gear_type: nullable("string", "What kind of thing it is: Tent, Quilt, Trail runners."),
-      category: nullable("string", "The catalog's category: shelter, sleep, pack, and so on."),
-    }),
+const CATALOG_RESULT = {
+  type: "object",
+  properties: {
+    ...CATALOG_ROW,
+    brand: nullable("string"),
+    name: str("The product name, without brand or variant."),
+    display_name: str("Brand, name and variant joined."),
+    gear_type: nullable("string", "What kind of thing it is: Tent, Quilt, Trail runners."),
+    category: nullable("string", "The catalog's category: shelter, sleep, pack, and so on."),
+    source_url: nullable("string", "The page the weight was read from. On a product's variants."),
   },
-});
-
-const PRODUCT_OUTPUT = complete({
-  brand: nullable("string"),
-  name: str("The product name, without brand or variant."),
-  gear_type: nullable("string"),
-  category: nullable("string"),
-  variants: {
-    type: "array",
-    description: "Every active variant, in variant order.",
-    items: complete({ ...CATALOG_ROW, source_url: nullable("string", "The page the weight was read from.") }),
+  required: [...Object.keys(CATALOG_ROW), "brand", "name", "display_name", "gear_type", "category"],
+};
+const CATALOG_OUTPUT = {
+  type: "object",
+  properties: {
+    query: str("The query as searched: trimmed, at most 100 characters. On a search."),
+    product: complete(
+      { brand: nullable("string"), name: str("The product name, without brand or variant."), gear_type: nullable("string"), category: nullable("string") },
+      "The product looked up, when one was.",
+    ),
+    results: { type: "array", description: "A search's matches, best first; or a product's variants, in variant order.", items: CATALOG_RESULT },
   },
-});
+  required: ["results"],
+};
 
 const CREATE_FIELDS = {
   title: str(USER_TEXT),
-  edit_link: str("The write capability. Keep it; it is the only way back into the list."),
+  edit_link: str("The write capability. Keep it; it is the only way to change a list that isn't filed under an account."),
   share_link: str("The read capability, safe to pass on."),
   share_code: str(),
   folders: { type: "integer", description: "Folders made." },
@@ -309,31 +357,92 @@ const CREATE_OUTPUT = {
   required: Object.keys(CREATE_FIELDS),
 };
 
-const ADD_OUTPUT = complete({
-  added: { type: "integer", description: "Rows added." },
-  folders_made: { type: "array", items: str(USER_TEXT), description: "Folders that didn't exist and were made for these rows." },
-  share_link: str(),
-  totals: TOTALS_SCHEMA,
-  repeated: {
-    type: "boolean",
-    description: "True when this call repeated one made in the last ten minutes: nothing was added again, and the figures are that call's. Pass again: true to add the rows a second time.",
-  },
-});
-
-const TRIP_OUTPUT = complete({
+const EDIT_LIST_OUTPUT = complete({
   title: str(USER_TEXT),
   unit: UNIT_SCHEMA,
   dates: { ...DATES_SCHEMA, type: ["object", "null"] },
   trail: { ...TRAIL_SCHEMA, type: ["object", "null"] },
   share_link: str(),
+  totals: TOTALS_SCHEMA,
+  added: { type: "integer", description: "Rows added, nested ones counted." },
+  updated: { type: "integer", description: "Rows changed, moved or regrouped." },
+  removed: { type: "integer", description: "Rows taken off: by remove, with a removed group, or with a removed folder." },
+  folders_changed: { type: "integer", description: "Folders renamed, reordered, reclassified or removed." },
+  folders_made: { type: "array", items: str(USER_TEXT), description: "Folders that didn't exist and were made for rows named into them." },
+  folders: { type: "array", items: str(USER_TEXT), description: "Every folder's name, in the list's order, after the change." },
+  repeated: {
+    type: "boolean",
+    description: "True when this call, with rows to add, repeated one made in the last ten minutes: nothing was done again, and the figures are that call's. Pass again: true to do it a second time.",
+  },
 });
+
+/** how many rows or folders one edit call may touch */
+const EDIT_MAX = 200;
+
+/** One row's changes for edit_list's update: the row by id, then any of the fields
+ *  create_list takes, each nullable where it can be cleared, its catalog link, and where
+ *  the row goes: folder, place and group. */
+const UPDATE_ITEM_SCHEMA = {
+  type: "object",
+  properties: {
+    id: { type: "string", description: "The row's id, from get_list." },
+    name: { type: "string", minLength: 1, maxLength: MAX_ITEM_NAME_LEN, description: "A new name. A row keeps a name; it can't be cleared." },
+    brand: { type: ["string", "null"], maxLength: BRAND_LEN, description: "The maker. Null clears it." },
+    variant: { type: ["string", "null"], maxLength: BRAND_LEN, description: "Size, length or configuration. Null clears it." },
+    gear_type: { type: ["string", "null"], maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is. Null clears it." },
+    weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Kept as your own figure on a row picked from the catalog." },
+    qty: { type: "integer", minimum: 1, maximum: QTY_MAX },
+    classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null to follow the folder's default." },
+    worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried; 0 removes the split." },
+    note: { type: ["string", "null"], maxLength: MAX_ITEM_NOTE_LEN, description: "The row's note. Null clears it." },
+    kcal: { type: ["integer", "null"], minimum: 0, description: "Calories per unit, for food. Null clears it." },
+    needs_cooking: { type: "boolean" },
+    carried_by: { type: ["string", "null"], description: "Who carries it, by the name the list gives that person. Null clears it." },
+    catalog_id: {
+      type: ["integer", "null"],
+      minimum: 1,
+      maximum: MAX_CATALOG_ID,
+      description: "Link or relink the row to this catalog row, from search_catalog: it takes the catalog's brand, name, variant, gear type and cited weight, follows catalog corrections, and keeps its folder, place and group. A name, weight_g or gear_type given in the same change is kept as your own. Null unlinks the row, leaving it as it reads.",
+    },
+    folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "Move the row to this folder, by name; a new name makes the folder, and an empty string takes it out of every folder. A nested row moved to another folder comes out of its group." },
+    position: { type: "integer", minimum: 0, description: "Where the row goes among its neighbours, 0 for first. Without it a row moved to another folder or group goes last." },
+    group: { type: "string", description: "Nest the row under this top-level row, by its id from get_list, in that row's folder; an empty string takes it out of its group, to the top level of its folder. A row with rows under it can't be nested." },
+  },
+  required: ["id"],
+} as const;
+
+// ---- Your lists -------------------------------------------------------------------
+// The lists filed under one account, as the account page's "Your lists" shows them.
+// Each is named by its share code, the read capability, and never by its edit token:
+// the connector changes a list the way a person does, by holding its edit link. The
+// capability is the access token in the Authorization header rather than an argument;
+// the account section at the end says how that is read.
+
+const MY_LISTS = complete(
+  {
+    lists: {
+      type: "array",
+      description: "Most recently changed first.",
+      items: complete({
+        title: str(USER_TEXT),
+        share_code: str("Pass it to get_list, or to edit_list as share_code."),
+        share_link: str("The same code as a link."),
+        unit: UNIT_SCHEMA,
+        total_g: { type: "number", description: "Everything on the list in grams, worn and consumable rows included." },
+        updated_at: str("When the list last changed, ISO 8601."),
+      }),
+    },
+  },
+  "The lists filed under the account: no share_code.",
+);
+LIST_OUTPUT = { type: "object", anyOf: [LIST_DATA, LIST_MARKDOWN, MY_LISTS] };
 
 // ---- My Gear ---------------------------------------------------------------------
 // One account's gear. Its capability is the access token in the Authorization header
-// rather than an argument; the gear section at the end says how that is read.
+// rather than an argument; the account section at the end says how that is read.
 
 const GEAR_ROW = complete({
-  id: { type: "integer", description: "Names the piece to update_my_gear and remove_my_gear." },
+  id: { type: "integer", description: "Names the piece to edit_my_gear." },
   display_name: str(`Brand, name and variant joined, the way the gear page shows a piece. ${USER_TEXT}`),
   name: str(USER_TEXT),
   brand: nullable("string", USER_TEXT),
@@ -342,6 +451,7 @@ const GEAR_ROW = complete({
   weight_g: { type: "number", description: "Grams for one, to a tenth; 0 when it has never been weighed. On a kit, the whole kit: its items plus its own weight." },
   classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null when the owner leaves it to each list." },
   kcal: nullable("number", "Calories in one, on food."),
+  catalog_id: nullable("number", "The catalog row the piece is linked to; null when it isn't."),
   note: nullable("string", USER_TEXT),
   price: nullable("number", "What one cost, in the currency's main unit."),
   currency: nullable("string", "ISO 4217 code of price, when one was recorded."),
@@ -375,31 +485,45 @@ const GEAR_LIST_OUTPUT = complete({
   total: { type: "integer", description: "Matches in all, before offset and limit." },
   offset: { type: "integer" },
 });
-const GEAR_ADD_OUTPUT = complete({
+const GEAR_EDIT_OUTPUT = complete({
   added: { type: "integer", description: "Pieces that were new to My Gear." },
   results: {
     type: "array",
-    description: "One per piece sent, in the order sent.",
+    description: "One per piece in add, in the order sent.",
     items: {
       type: "object",
       properties: {
-        index: { type: "integer", description: "Position in the request's items." },
+        index: { type: "integer", description: "Position in add." },
         status: { type: "string", enum: ["added", "already_have", "invalid", "full"], description: "already_have: the same brand, name and variant is there already, untouched. invalid: no name. full: My Gear is at its ceiling." },
         item: GEAR_ROW,
       },
       required: ["index", "status"],
     },
   },
-});
-const GEAR_UPDATE_OUTPUT = complete({ item: GEAR_ROW });
-const GEAR_REMOVE_OUTPUT = complete({
-  id: { type: "integer" },
-  status: { type: "string", enum: ["removed", "restored"] },
+  updated: {
+    type: "array",
+    description: "One per entry in update, in the order sent.",
+    items: {
+      type: "object",
+      properties: {
+        id: { type: "integer" },
+        status: { type: "string", enum: ["updated", "not_found", "invalid"], description: "invalid: nothing to change, or a change that would not leave a valid piece; nothing was changed on it." },
+        item: GEAR_ROW,
+      },
+      required: ["id", "status"],
+    },
+  },
+  removed: {
+    type: "array",
+    description: "One per id in remove, then one per id in restore, in the order sent.",
+    items: complete({ id: { type: "integer" }, status: { type: "string", enum: ["removed", "restored", "not_found"] } }),
+  },
 });
 
 const GEAR_PAGE_MAX = 1000;
 const GEAR_PAGE_DEFAULT = 300;
-const GEAR_ADD_MAX = 50;
+/** how many pieces one part of an edit_my_gear call may name */
+const GEAR_EDIT_MAX = 50;
 /** the vault's own caps on free text (shared/vault), stated in the schemas the way
  *  the reducer's are above */
 const GEAR_NAME_LEN = 200;
@@ -407,9 +531,8 @@ const GEAR_FIELD_LEN = 120;
 const GEAR_NOTE_LEN = 2000;
 
 /**
- * The fields of one piece of gear as the write tools take them. For add_my_gear every
- * field is a value; for update_my_gear each may also be null, which clears it, and
- * the descriptions say so.
+ * The fields of one piece of gear as edit_my_gear takes them. In add every field is a
+ * value; in update each may also be null, which clears it, and the descriptions say so.
  */
 function gearInput(mode: "add" | "update") {
   const nullable = mode === "update";
@@ -423,6 +546,14 @@ function gearInput(mode: "add" | "update") {
     weight_g: { type: "number", minimum: 0, description: "Grams for one. 0 records it as not weighed yet." },
     classification: { type: t("string"), enum: nullable ? [...CLASSIFICATIONS, null] : CLASSIFICATIONS, description: `base, worn or consumable.${orNull}` },
     kcal: { type: t("integer"), minimum: 0, description: `Calories in one, for food.${orNull}` },
+    catalog_id: {
+      type: t("integer"),
+      minimum: 1,
+      maximum: MAX_CATALOG_ID,
+      description: nullable
+        ? "Link or relink the piece to this catalog row, from search_catalog: it takes the catalog's brand, name, variant, gear type and weight, each unless given here. Null unlinks it, leaving the piece as it reads."
+        : "A catalog row from search_catalog. The piece takes the catalog's brand, name, variant, gear type and weight, each unless given here; a name can be left out.",
+    },
     note: { type: t("string"), maxLength: GEAR_NOTE_LEN, description: `A note about the piece itself, not about any one trip.${orNull}` },
     product_url: { type: t("string"), maxLength: TRAIL_URL_LEN, description: `The maker's or a shop's page for it.${orNull}` },
     price: { type: t("number"), minimum: 0, description: `What one cost, in the currency's main unit: 199.95.${orNull}` },
@@ -449,74 +580,70 @@ type McpToolHandler = (event: H3Event, args: Record<string, unknown>) => Promise
 type RegisteredMcpTool = McpTool & {
   run: McpToolHandler;
   /** what the tool wants from the account behind the request's bearer: the scope it
-   *  can't run without, or "optional" for a tool that uses one when it is there. The
-   *  route reads this before dispatch (mcp.post.ts); unset means the tool never looks. */
-  account?: AccessScope | "optional";
+   *  can't run without, or "optional" for a tool that uses one when it is there, or a
+   *  rule that answers from the call's arguments. The route reads this before dispatch
+   *  (mcp.post.ts); unset means the tool never looks. */
+  account?: AccessScope | "optional" | ((args: Record<string, unknown>) => AccessScope | "optional" | undefined);
 };
 
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
 const ADD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false };
-// destructive, honestly: set_trip REPLACES a title and can clear the dates or the
-// trail, and the hint's own definition says false means additive updates only
-const SET = { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false };
+// destructive, honestly: an edit REPLACES a title, clears a field, removes a row, and
+// the hint's own definition says false means additive updates only; and not idempotent,
+// since the same add twice is two sets of rows (the replay window below is the guard)
+const EDIT = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false };
+
+/** How edit_list names its list decides what it wants from the account. By edit
+ *  link, the capability itself, it never looks. By share_code, a list filed under the
+ *  signed-in account, it needs read-and-change access, and asking at the door is what
+ *  gets a missing sign-in the Connect card and a read-only one the step-up, rather
+ *  than a sentence (mcp.post.ts). An edit link given beside a share code is the one
+ *  used: it is the capability in hand. */
+const namesByAccount = (args: Record<string, unknown>) => args.edit_link == null && typeof args.share_code === "string";
+const byAccount = (args: Record<string, unknown>): AccessScope | undefined => (namesByAccount(args) ? "write" : undefined);
 
 const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
   {
     name: "get_list",
-    title: "Read a shared list",
-    description: `A shared list as data: title, unit, dates, trail, totals in grams, and every folder with its rows (brand, name, variant, quantity, weight of one unit in grams, classification, note, calories, who carries it; a nested row without carried_by is carried by its parent's carrier). Takes a share code or share link. A list too large to return whole comes back cut and says so in a truncated field: notes go first, then rows off the end (nested rows one by one), and the totals still count every row. ${PROVENANCE}`,
-    inputSchema: { type: "object", properties: { share_code: SHARE_ARG }, required: ["share_code"] },
+    title: "Read a list",
+    description: `A shared list by its share code or link, as data or as Markdown; or, with no share_code, the lists filed under the connector's account. Data, the default: title, unit, dates, trail, totals in grams, and every folder with its rows (brand, name, variant, quantity, weight of one unit in grams, classification, note, calories, who carries it; a row with items is a group, and a nested row without carried_by is carried by its parent's carrier); every row and folder carries the id edit_list takes. Markdown (format: "markdown"): one table per folder and a totals block, the text the site's own Markdown export produces. An edit link's address carries the share code too. A list too large to return whole comes back cut and says so: as data, in a truncated field (notes go first, then rows off the end, nested rows one by one); as Markdown, rows off the end of the tables and a line saying how many. The totals still count every row. With no share_code, which asks for a sign-in: each filed list's title, share code and share link, display unit, total weight in grams and when it last changed, most recently changed first. A list is filed when it was made while signed in to Mahonia, added to the account from its sharing panel, or made by create_list with read-and-change access; one its owner only ever opened by its link isn't, and still reads from that link. ${PROVENANCE}`,
+    inputSchema: {
+      type: "object",
+      properties: {
+        share_code: SHARE_ARG,
+        format: { type: "string", enum: ["data", "markdown"], description: "data (the default) or markdown. Only with a share_code." },
+      },
+    },
     outputSchema: LIST_OUTPUT,
     annotations: READ,
+    // no share_code names nothing a link could: that call is the account's, read scope
+    account: (args) => (args.share_code == null ? "read" : undefined),
     run: getList,
-  },
-  {
-    name: "get_list_markdown",
-    title: "Read a shared list as Markdown",
-    description: `The same list as Markdown: one table per folder and a totals block, the text the site's own Markdown export produces. Takes a share code or share link. A list too large to return whole loses rows off the end of the tables, a line under them says how many, and the totals still count every row. ${PROVENANCE}`,
-    inputSchema: { type: "object", properties: { share_code: SHARE_ARG }, required: ["share_code"] },
-    annotations: READ,
-    run: (_event, args) => getListMarkdown(args),
   },
   {
     name: "search_catalog",
     title: "Search the gear catalog",
     description:
-      "Fuzzy search of Mahonia's cited gear catalog by brand, product or kind of gear (\"duplex\", \"zpacks\", \"quilt\"). Each result carries a catalog id, the cited weight in grams and whether it is verified. Use get_catalog_product for every variant of one product.",
+      "Mahonia's cited gear catalog. With query: a fuzzy search by brand, product or kind of gear (\"duplex\", \"zpacks\", \"quilt\"), best first, each result a catalog row with its id, the cited weight in grams and whether it is verified. With product_id (a row id from a search), or brand and name: every variant of that one product (sizes, lengths, temperature ratings) with the weight and source of each. A row on a list that names a catalog_id takes the catalog's brand, variant, gear type and weight.",
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Two characters or more; a single Chinese character is enough." },
-        limit: { type: "integer", minimum: 1, maximum: SEARCH_LIMIT_MAX, description: `Up to ${SEARCH_LIMIT_MAX}. Default ${SEARCH_LIMIT_DEFAULT}.` },
-      },
-      required: ["query"],
-    },
-    outputSchema: SEARCH_OUTPUT,
-    annotations: READ,
-    run: (_event, args) => search(args),
-  },
-  {
-    name: "get_catalog_product",
-    title: "One catalog product, every variant",
-    description:
-      "One product's variants (sizes, lengths, temperature ratings) with the cited weight and source of each. Give a catalog id from search_catalog, or the brand and product name.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        id: { type: "integer", minimum: 1, description: "A catalog row id; its siblings are the other variants." },
-        brand: { type: "string" },
-        name: { type: "string", description: "The product name without brand or variant." },
+        query: { type: "string", description: "What to search for: two characters or more, or a single Chinese character." },
+        limit: { type: "integer", minimum: 1, maximum: SEARCH_LIMIT_MAX, description: `Matches to return, up to ${SEARCH_LIMIT_MAX}. Default ${SEARCH_LIMIT_DEFAULT}.` },
+        product_id: { type: "integer", minimum: 1, description: "Instead of a query: a catalog row id, for that product's variants." },
+        brand: { type: "string", description: "With name, instead of a query: the product's maker." },
+        name: { type: "string", description: "With brand, instead of a query: the product name without brand or variant." },
       },
     },
-    outputSchema: PRODUCT_OUTPUT,
+    outputSchema: CATALOG_OUTPUT,
     annotations: READ,
-    run: (_event, args) => product(args),
+    run: (_event, args) => catalog(args),
   },
   {
     name: "create_list",
     title: "Make a new list",
     description:
-      "Creates a list and returns its edit link and share link. Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders. Keep the edit link: it is the only way back into the list. If this connector carries a read-and-write access token the list is filed under that account too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
+      "Creates a list and returns its edit link and share link. Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders; a row with items nested under it is a group (stakes under a tent, snacks under a day). Keep the edit link: it is the only way to change a list that isn't filed under an account. If this connector carries a read-and-write access token the list is filed under that account too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
     inputSchema: {
       type: "object",
       properties: {
@@ -549,52 +676,61 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     run: create,
   },
   {
-    name: "add_items",
-    title: "Add rows to a list",
-    description: "Adds rows to an existing list. Takes the list's edit link and the rows; each row may name a folder, and a folder that doesn't exist yet is created.",
+    name: "edit_list",
+    title: "Change a list",
+    description:
+      "Changes a list that already exists, all of it in one call. list sets the list's own title, display unit, trip dates and trail (only the fields given; an empty string clears a date or the trail). folders renames, reorders, reclassifies or removes folders, named by id or current name; removing one removes its rows. add puts new rows on, into a folder by name (made when missing) or under a group by the parent row's id. update changes rows by the ids get_list gives: any field, null clearing one that can be cleared; a new folder, place or group; a catalog_id to link or relink the row where it sits, null to unlink. remove takes rows off by id, a group's nested rows with it. The parts apply in that order as one change, and nothing is applied unless every part is valid: a row or folder named that isn't there fails the whole call. A name or weight changed on a catalog-linked row is kept as the owner's own. Takes the list's edit link, or its share code under a signed-in account that has filed it.",
     inputSchema: {
       type: "object",
       properties: {
         edit_link: EDIT_ARG,
-        items: { type: "array", minItems: 1, items: ITEM_SCHEMA },
-        folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "A folder name for every row that doesn't name its own." },
+        share_code: BY_ACCOUNT_ARG,
+        list: {
+          type: "object",
+          description: "The list's own fields. Only the fields given change.",
+          properties: {
+            title: { type: "string", maxLength: MAX_TITLE_LEN },
+            unit: UNIT_SCHEMA,
+            start_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
+            end_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
+            trail_url: { type: "string", maxLength: TRAIL_URL_LEN, description: "An http(s) link, or an empty string to clear the trail and everything that came with it (label, distance, climb, route)." },
+            trail_label: { type: "string", maxLength: TRAIL_LABEL_LEN },
+            trail_distance_km: { type: "number", minimum: 0, description: "Stored in metres and shown in the list's own distance unit." },
+          },
+        },
+        folders: {
+          type: "array",
+          maxItems: EDIT_MAX,
+          description: "Changes to folders that exist.",
+          items: {
+            type: "object",
+            properties: {
+              folder: { type: "string", description: "The folder's id from get_list, or its current name." },
+              name: { type: "string", minLength: 1, maxLength: MAX_FOLDER_NAME_LEN, description: "A new name, unique in the list." },
+              classification: { type: "string", enum: CLASSIFICATIONS, description: "What rows in this folder count as unless they say otherwise." },
+              position: { type: "integer", minimum: 0, description: "Its place in the list's folder order, 0 for first." },
+              remove: { type: "boolean", description: "True to remove the folder and every row in it." },
+            },
+            required: ["folder"],
+          },
+        },
+        add: { type: "array", description: "New rows. Each may name its folder, or the group to join.", items: ADD_ITEM_SCHEMA },
+        update: { type: "array", maxItems: EDIT_MAX, description: "Changes to rows that exist, each by id.", items: UPDATE_ITEM_SCHEMA },
+        remove: { type: "array", maxItems: EDIT_MAX, description: "Ids of rows to take off, from get_list.", items: { type: "string" } },
         again: {
           type: "boolean",
           description:
-            "A call identical to one made in the last ten minutes is taken as a retry and adds nothing: the earlier result comes back with repeated set. Pass true to add the same rows a second time on purpose.",
+            "A call with rows to add that is identical to one made in the last ten minutes is taken as a retry and does nothing: the earlier result comes back with repeated set. Pass true to make the same change a second time on purpose.",
         },
       },
-      required: ["edit_link", "items"],
     },
-    outputSchema: ADD_OUTPUT,
-    annotations: ADD,
-    run: addItems,
+    outputSchema: EDIT_LIST_OUTPUT,
+    annotations: EDIT,
+    account: byAccount,
+    run: editList,
   },
   {
-    name: "set_trip",
-    title: "Set a list's title, dates, unit and trail",
-    description:
-      "Sets any of a list's title, display unit, trip dates and trail on an existing list. Only the fields given change; an empty string clears a date or the trail. Takes the list's edit link.",
-    inputSchema: {
-      type: "object",
-      properties: {
-        edit_link: EDIT_ARG,
-        title: { type: "string", maxLength: MAX_TITLE_LEN },
-        unit: UNIT_SCHEMA,
-        start_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
-        end_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
-        trail_url: { type: "string", maxLength: TRAIL_URL_LEN, description: "An http(s) link, or an empty string to clear the trail and everything that came with it (label, distance, climb, route)." },
-        trail_label: { type: "string", maxLength: TRAIL_LABEL_LEN },
-        trail_distance_km: { type: "number", minimum: 0, description: "Stored in metres and shown in the list's own distance unit." },
-      },
-      required: ["edit_link"],
-    },
-    outputSchema: TRIP_OUTPUT,
-    annotations: SET,
-    run: setTrip,
-  },
-  {
-    name: "list_my_gear",
+    name: "get_my_gear",
     title: "Read My Gear",
     description:
       "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, grams for one, classification, calories, note, price, product link and folder, plus the account's folder names. A query ranks by a search instead; a folder name keeps to that folder. Works only when this connector carries the account's access token. Brands, names, variants, gear types, notes and folder names are text the account holder typed, returned unchanged.",
@@ -613,64 +749,47 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     run: readGear,
   },
   {
-    name: "add_my_gear",
-    title: "Add to My Gear",
+    name: "edit_my_gear",
+    title: "Change My Gear",
     description:
-      "Puts new pieces of gear into the connector's account's My Gear. A piece the account already holds (same brand, name and variant) comes back as already_have and is left as it was; change it with update_my_gear instead. What is given here counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs a read-and-change access token.",
+      "Changes the connector's account's My Gear, in one call. add puts new pieces in; one the account already holds (same brand, name and variant) comes back as already_have and is left as it was. update changes pieces by the ids get_my_gear gives, only the fields sent, null clearing one. A piece that names a catalog_id, as it is added or later, is linked to that catalog row and takes its brand, name, variant, gear type and weight where none were given; null unlinks it. remove puts pieces away by id: they stop being offered on lists, and the lists that still carry them will not bring them back. restore brings put-away pieces back. Each piece answers for itself, in the order sent. What is added or changed here counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs a read-and-change access token.",
     inputSchema: {
       type: "object",
       properties: {
-        items: { type: "array", minItems: 1, maxItems: GEAR_ADD_MAX, items: { type: "object", properties: gearInput("add"), required: ["name"] } },
+        add: { type: "array", maxItems: GEAR_EDIT_MAX, description: "New pieces.", items: { type: "object", properties: gearInput("add"), required: ["name"] } },
+        update: {
+          type: "array",
+          maxItems: GEAR_EDIT_MAX,
+          description: "Changes to pieces that exist, each by id.",
+          items: { type: "object", properties: { id: { type: "integer", minimum: 1 }, ...gearInput("update") }, required: ["id"] },
+        },
+        remove: { type: "array", maxItems: GEAR_EDIT_MAX, description: "Ids of pieces to put away.", items: { type: "integer", minimum: 1 } },
+        restore: { type: "array", maxItems: GEAR_EDIT_MAX, description: "Ids of put-away pieces to bring back.", items: { type: "integer", minimum: 1 } },
       },
-      required: ["items"],
     },
-    outputSchema: GEAR_ADD_OUTPUT,
-    annotations: ADD,
+    outputSchema: GEAR_EDIT_OUTPUT,
+    annotations: EDIT,
     account: "write",
-    run: addGear,
-  },
-  {
-    name: "update_my_gear",
-    title: "Change a piece of My Gear",
-    description:
-      "Changes one piece by the id list_my_gear gave it. Only the fields sent change, and null clears one. A changed field counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs a read-and-change access token.",
-    inputSchema: {
-      type: "object",
-      properties: { id: { type: "integer", minimum: 1 }, ...gearInput("update") },
-      required: ["id"],
-    },
-    outputSchema: GEAR_UPDATE_OUTPUT,
-    annotations: SET,
-    account: "write",
-    run: changeGear,
-  },
-  {
-    name: "remove_my_gear",
-    title: "Put away a piece of My Gear",
-    description:
-      "Puts one piece away by its id: it stops being offered on lists, and the lists that still carry it will not bring it back. Pass restore: true to bring a put-away piece back. Needs a read-and-change access token.",
-    inputSchema: {
-      type: "object",
-      properties: { id: { type: "integer", minimum: 1 }, restore: { type: "boolean", description: "True to bring a put-away piece back instead." } },
-      required: ["id"],
-    },
-    outputSchema: GEAR_REMOVE_OUTPUT,
-    annotations: SET,
-    account: "write",
-    run: putAwayGear,
+    run: editGear,
   },
 ];
 
 /** Public protocol metadata. Handlers and the account rule stay server-only and never
  *  reach tools/list. */
 export const MCP_TOOLS: McpTool[] = MCP_TOOL_REGISTRY.map(({ run: _run, account: _account, ...tool }) => tool);
-/** The tools that use the account behind the bearer, and how (see RegisteredMcpTool),
- *  for the route's gate — read off the registry, so a tool can't be in one and not
- *  the other. */
-export const ACCOUNT_TOOLS: Record<string, AccessScope | "optional"> = Object.fromEntries(
-  MCP_TOOL_REGISTRY.flatMap((tool) => (tool.account ? [[tool.name, tool.account]] : [])),
-);
 const mcpToolByName = new Map(MCP_TOOL_REGISTRY.map((tool) => [tool.name, tool]));
+const argsOf = (raw: unknown) => (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+
+/** What the account behind the bearer means to one call, for the route's gate: the
+ *  scope the tool can't run without, "optional" for a tool that uses an account when
+ *  it is there, undefined for one that never looks. Read off the registry, so a tool
+ *  can't be in one and not the other; a write tool's answer depends on how the call
+ *  names its list (byAccount). */
+export function accountUse(name: string, rawArgs: unknown): AccessScope | "optional" | undefined {
+  const tool = mcpToolByName.get(name);
+  if (!tool?.account) return undefined;
+  return typeof tool.account === "function" ? tool.account(argsOf(rawArgs)) : tool.account;
+}
 
 export interface ToolResult {
   content: { type: "text"; text: string }[];
@@ -697,42 +816,49 @@ export function isKnownTool(name: unknown): name is string {
  * went wrong and correct itself.
  */
 export async function callTool(event: H3Event, name: string, rawArgs: unknown): Promise<ToolResult> {
-  const args = (rawArgs && typeof rawArgs === "object" ? rawArgs : {}) as Record<string, unknown>;
   const tool = mcpToolByName.get(name);
-  return tool ? tool.run(event, args) : fail(`Unknown tool: ${name}`);
+  return tool ? tool.run(event, argsOf(rawArgs)) : fail(`Unknown tool: ${name}`);
 }
 
 // ---- reading ---------------------------------------------------------------------
 
-/** A share code out of whatever was pasted: the code, or a share link with or
- *  without the .md twin's suffix. "" when it can't be one. */
+/**
+ * A share code out of whatever was pasted: the code, a share link with or without
+ * the .md twin's suffix, or an edit link. An edit link's address is /e/CODE#token and
+ * its CODE is the share code, so a model holding only the edit link can still read
+ * the list it is about to change; the token after # is never looked at here. "" when
+ * it can't be a code.
+ */
 export function shareCodeFrom(input: unknown): string {
   if (typeof input !== "string") return "";
   const s = input.trim();
-  const m = /\/s\/([^/?#]+?)(?:\.md)?(?:[?#].*)?$/i.exec(s);
+  const m = /\/[se]\/([^/?#]+?)(?:\.md)?(?:[?#].*)?$/i.exec(s);
   return normalizeShareCode(m ? m[1]! : s);
 }
 
-const NO_SHARE = "That isn't a Mahonia share code or share link. A share link looks like mahonia.app/s/CODE; an edit link (with #) opens nothing here.";
+const NO_SHARE = "That isn't a Mahonia share code or link. A share link looks like mahonia.app/s/CODE, and an edit link like mahonia.app/e/CODE#token.";
 const NO_LIST = "No list is shared at that code. It may have been deleted, or the link replaced.";
 
 async function getList(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  // no share code: the account's own lists (the account section at the end)
+  if (args.share_code == null) return readMyLists(event);
   const code = shareCodeFrom(args.share_code);
   if (!code) return fail(NO_SHARE);
+  if (args.format != null && args.format !== "data" && args.format !== "markdown") return fail('format is "data" or "markdown".');
   // the read budget is the list's, not the caller's address's (see RATE_LIMITS "mcp")
   await rateLimitSubject("mcp-read", code);
+  const origin = trustedOrigin(event);
+  if (args.format === "markdown") {
+    const snap = await getTextByShareCode(code);
+    if (!snap) return fail(NO_LIST);
+    const markdown = fitMarkdown(listToMarkdown(snap));
+    // the text content is the Markdown itself, for the clients that read only text,
+    // and the structured answer names the list it is of
+    return ok({ share_code: code, share_link: shareLink(origin, code), markdown }, markdown);
+  }
   const snap = await getByShareCode(code);
   if (!snap) return fail(NO_LIST);
-  return ok(fitList(describeList(snap, trustedOrigin(event))));
-}
-
-async function getListMarkdown(args: Record<string, unknown>): Promise<ToolResult> {
-  const code = shareCodeFrom(args.share_code);
-  if (!code) return fail(NO_SHARE);
-  await rateLimitSubject("mcp-read", code);
-  const snap = await getTextByShareCode(code);
-  if (!snap) return fail(NO_LIST);
-  return { content: [{ type: "text", text: fitMarkdown(listToMarkdown(snap)) }] };
+  return ok(fitList(describeList(snap, origin)));
 }
 
 /** milligrams to grams, to a tenth: the precision a kitchen scale has */
@@ -747,7 +873,7 @@ const grams = (mg: number) => Math.round(mg / 100) / 10;
 const shareLink = (origin: string, code: string) => `${origin}/s/${code}`;
 
 /** The totals block every list-returning tool carries, in grams — get_list's, and the
- *  create and add_items echoes, which used to compute the whole description to read it. */
+ *  create and edit_list echoes, which used to compute the whole description to read it. */
 function describeTotals(snap: ListSnapshot): Record<string, unknown> {
   const totals = computeTotals(snap);
   return {
@@ -764,6 +890,7 @@ function describeTotals(snap: ListSnapshot): Record<string, unknown> {
 export function describeList(snap: ListSnapshot, origin: string): Record<string, unknown> {
   const row = (it: Item, children: Item[], parent?: Item): Record<string, unknown> => {
     const out: Record<string, unknown> = {
+      id: it.id,
       name: it.name,
       display_name: itemDisplayName(it.brand, it.name, it.variant),
       qty: it.qty,
@@ -787,7 +914,7 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
   };
   const folders = exportSections(snap)
     .filter((s) => s.rows.length)
-    .map((s) => ({ name: s.name, items: s.rows.map((r) => row(r.item, r.children)) }));
+    .map((s) => ({ ...(s.id ? { id: s.id } : {}), name: s.name, items: s.rows.map((r) => row(r.item, r.children)) }));
   const out: Record<string, unknown> = {
     title: snap.title,
     share_code: snap.shareCode,
@@ -814,6 +941,7 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
     out.days = days.map((d, i) => ({
       day: dayLabel(i, snap.startDate),
       ...(d.label ? { label: d.label } : {}),
+      ...(d.note ? { note: d.note } : {}),
       distance_m: d.distanceM ?? null,
       ascent_m: d.ascentM ?? (d.distanceM ? (climbs[i]?.ascentM ?? null) : null),
     }));
@@ -977,51 +1105,47 @@ export function fitMarkdown(text: string, max = GET_LIST_MAX_BYTES): string {
   return out.join("\n");
 }
 
-async function search(args: Record<string, unknown>): Promise<ToolResult> {
-  const query = typeof args.query === "string" ? args.query.trim().slice(0, 100) : "";
-  if (!enoughToSearch(query)) return fail("Give at least two characters to search for (one is enough in Chinese).");
-  const limit = clampInt(args.limit, 1, SEARCH_LIMIT_MAX, SEARCH_LIMIT_DEFAULT);
-  const rows = await searchCatalog(await useCatalogDb(), query, limit);
-  return ok({
-    query,
-    results: rows.map((r) => ({
-      id: r.id,
-      brand: r.brand,
-      name: r.name,
-      variant: r.variant,
-      display_name: itemDisplayName(r.brand, r.name, r.variant),
-      weight_g: grams(r.weightMg),
-      gear_type: r.commonName ?? null,
-      category: r.categoryHint ?? null,
-      kcal: r.kcal ?? null,
-      verified: r.verified,
-      weight_source: r.weightSource,
-    })),
-  });
+/** a catalog row as search_catalog hands it back, the product's fields joined on */
+function catalogResult(
+  product: { brand: string | null; name: string; commonName?: string | null; categoryHint?: string | null },
+  row: { id: number; variant: string | null; weightMg: number; weightSource: string; verified: boolean; kcal?: number | null; sourceUrl?: string | null },
+): Record<string, unknown> {
+  return {
+    id: row.id,
+    brand: product.brand,
+    name: product.name,
+    variant: row.variant,
+    display_name: itemDisplayName(product.brand, product.name, row.variant),
+    weight_g: grams(row.weightMg),
+    gear_type: product.commonName ?? null,
+    category: product.categoryHint ?? null,
+    kcal: row.kcal ?? null,
+    verified: row.verified,
+    weight_source: row.weightSource,
+    ...(row.sourceUrl !== undefined ? { source_url: row.sourceUrl } : {}),
+  };
 }
 
-async function product(args: Record<string, unknown>): Promise<ToolResult> {
-  const id = clampInt(args.id, 1, Number.MAX_SAFE_INTEGER, 0) || undefined;
+/** One tool, two questions: a search by text, or one product's variants by id or by
+ *  brand and name. A product reference wins when both are given, since it is the more
+ *  exact ask. */
+async function catalog(args: Record<string, unknown>): Promise<ToolResult> {
+  const id = clampInt(args.product_id, 1, Number.MAX_SAFE_INTEGER, 0) || undefined;
   const brand = typeof args.brand === "string" ? args.brand.trim().slice(0, 200) : undefined;
   const name = typeof args.name === "string" ? args.name.trim().slice(0, 200) : undefined;
-  if (!id && !name) return fail("Give a catalog id from search_catalog, or the product's name (and brand).");
-  const found = await productVariants(await useCatalogDb(), { id, brand, name });
-  if (!found) return fail("No active catalog product matches that. Try search_catalog first and pass an id from its results.");
-  return ok({
-    brand: found.brand,
-    name: found.name,
-    gear_type: found.commonName,
-    category: found.categoryHint,
-    variants: found.variants.map((v) => ({
-      id: v.id,
-      variant: v.variant,
-      weight_g: grams(v.weightMg),
-      verified: v.verified,
-      weight_source: v.weightSource,
-      source_url: v.sourceUrl,
-      kcal: v.kcal,
-    })),
-  });
+  if (id || name) {
+    const found = await productVariants(await useCatalogDb(), { id, brand, name });
+    if (!found) return fail("No active catalog product matches that. Search first and pass a product_id from the results.");
+    return ok({
+      product: { brand: found.brand, name: found.name, gear_type: found.commonName, category: found.categoryHint },
+      results: found.variants.map((v) => catalogResult(found, v)),
+    });
+  }
+  const query = typeof args.query === "string" ? args.query.trim().slice(0, 100) : "";
+  if (!enoughToSearch(query)) return fail("Give a query of two characters or more (one is enough in Chinese), or a product_id from an earlier search.");
+  const limit = clampInt(args.limit, 1, SEARCH_LIMIT_MAX, SEARCH_LIMIT_DEFAULT);
+  const rows = await searchCatalog(await useCatalogDb(), query, limit);
+  return ok({ query, results: rows.map((r) => catalogResult(r, r)) });
 }
 
 // ---- writing ---------------------------------------------------------------------
@@ -1040,8 +1164,38 @@ export function editHashFrom(input: unknown): string | null {
   return /^[A-Za-z0-9_-]{16,128}$/.test(token) ? sha256Hex(token) : null;
 }
 
-const NO_EDIT = "That isn't an edit link. One looks like mahonia.app/e/CODE#token, and the part after # is what opens the list for changes; a share link can't.";
+const NO_EDIT = "That isn't an edit link. One looks like mahonia.app/e/CODE#token, and the part after # is what opens the list for changes; a share link can't. A list filed under the signed-in account can be named by share_code instead, with read-and-change access.";
 const NO_EDIT_LIST = "That edit link doesn't open a list. Check it was copied whole, including everything after the #.";
+const NO_CLAIMED = "No list filed under this account has that share code; get_list with no share_code names the ones that are. For any other list, pass its edit link.";
+
+/**
+ * The hash a write tool works under. From the edit link when one is given: the
+ * capability itself, as ever. Otherwise from share_code, a list filed under the
+ * signed-in account: the same claim the site resolves when a signed-in owner edits a
+ * list without its link (claimedEditHash), scoped to the account inside the query, so
+ * a code the account hasn't filed answers as one that doesn't exist and nothing here
+ * can probe for lists. The route has already asked for read-and-change access at the
+ * door (byAccount), so the one refusal left on that path is a call that never passed
+ * it. Either way the budget is spent before any lookup: the list's on its hash, the
+ * account's on the claim. The hash, or the sentence.
+ */
+async function writeHashFrom(event: H3Event, args: Record<string, unknown>): Promise<{ hash: string } | string> {
+  if (!namesByAccount(args)) {
+    const hash = editHashFrom(args.edit_link);
+    if (!hash) return NO_EDIT;
+    // the write budget is the list's: spent once the link has yielded a hash to key it
+    // on, so a call with no link costs nothing past the endpoint's own guard
+    await rateLimitSubject("mcp-write", hash);
+    return { hash };
+  }
+  const code = shareCodeFrom(args.share_code);
+  if (!code) return NO_SHARE;
+  const caller = event.context.connector;
+  if (!caller || caller.scope !== "write") return "Naming a list by share_code takes a sign-in with read-and-change access, which the MCP endpoint asks for first; or pass the edit link.";
+  await rateLimitSubject("mcp-write", `lists:${caller.userId}`);
+  const hash = await claimedEditHash(await useAccountDb(), caller.userId, code);
+  return hash ? { hash } : NO_CLAIMED;
+}
 
 function clampInt(raw: unknown, min: number, max: number, fallback: number): number {
   if (typeof raw !== "number" || !Number.isFinite(raw)) return fallback;
@@ -1134,7 +1288,12 @@ async function linkCatalog(items: Item[]): Promise<string | null> {
 class FolderBook {
   readonly folders: Folder[];
   readonly made: Folder[] = [];
-  constructor(existing: readonly Folder[]) {
+  /** `onMade` hears of each folder as it is made: edit_list plans the addFolder op there,
+   *  so a folder exists on its working copy before a row is moved into it */
+  constructor(
+    existing: readonly Folder[],
+    private readonly onMade?: (folder: Folder) => void,
+  ) {
     this.folders = [...existing];
   }
   find(name: string): Folder | undefined {
@@ -1155,20 +1314,27 @@ class FolderBook {
     };
     this.folders.push(folder);
     this.made.push(folder);
+    this.onMade?.(folder);
     return folder;
   }
 }
 
 /**
- * The two write tools accept rows in different envelopes, but every row follows the
- * same path: an item-level folder wins over the surrounding folder, a missing named
- * folder is made, and its sort order is the next free slot in that folder. Keeping
- * that policy here means create_list and add_items cannot quietly diverge on a later
+ * create_list and edit_list's add accept rows in different envelopes, but every row
+ * follows the same path: an item-level folder wins over the surrounding folder, a
+ * missing named folder is made, and its sort order is the next free slot among its
+ * siblings. Keeping that policy here means the two cannot quietly diverge on a later
  * validation or ordering change.
+ *
+ * Groups, one level deep as the editor keeps them: a row's `items` are placed under
+ * it, in its folder; a row's `group` (edit_list only, it names an id) places it under a
+ * top-level row already on the list, in that row's folder. The reducer enforces the
+ * same two rules on its own (addItem coerces a bad parent to top level), so what is
+ * refused here would otherwise have been silently flattened.
  */
 class ItemPlan {
   readonly items: Item[] = [];
-  private readonly counted = new Map<string | null, number>();
+  private readonly counted = new Map<string, number>();
 
   constructor(
     readonly folders: FolderBook,
@@ -1176,18 +1342,45 @@ class ItemPlan {
   ) {}
 
   place(raw: unknown, fallbackFolder: Folder | null): string | null {
+    if (!raw || typeof raw !== "object") return "Each row must be an object with at least a name.";
+    const r = raw as Record<string, unknown>;
+    const name = typeof r.name === "string" ? r.name.trim() : "";
+    const nested = r.items;
+    if (nested != null && !Array.isArray(nested)) return `items on "${name}" must be an array of rows.`;
+    let parent: Item | null = null;
+    if (r.group != null) {
+      if (typeof r.group !== "string" || !r.group.trim()) return `group on "${name}" must be a row's id, from get_list.`;
+      if (Array.isArray(nested) && nested.length) return `"${name}" can't both join a group and have rows nested under it; groups are one level deep.`;
+      const id = r.group.trim();
+      const found = this.existingItems.find((i) => i.id === id);
+      if (!found) return `No row on this list has the id "${id}" to group "${name}" under. get_list gives every row's id.`;
+      if (found.parentId) return `"${itemDisplayName(found.brand, found.name, found.variant)}" is itself nested; a group is one level deep, so group "${name}" under its parent instead.`;
+      parent = found;
+    }
     let folder = fallbackFolder;
-    const named = raw && typeof raw === "object" ? (raw as Record<string, unknown>).folder : undefined;
+    const named = r.folder;
     if (typeof named === "string" && named.trim()) {
       const resolved = this.folders.resolve(named);
       if (typeof resolved === "string") return resolved;
+      if (parent && resolved.id !== parent.folderId) return `"${name}" is grouped under a row in another folder; a nested row is in its group's folder, so leave folder off it or drop group.`;
       folder = resolved;
     }
-    const folderId = folder?.id ?? null;
-    const sortOrder = this.nextSortOrder(folderId);
-    const item = toItem(raw, folderId, sortOrder);
+    const folderId = parent ? parent.folderId : (folder?.id ?? null);
+    const item = toItem(raw, folderId, this.nextSortOrder(folderId, parent?.id ?? null));
     if (typeof item === "string") return item;
+    if (parent) item.parentId = parent.id;
     this.items.push(item);
+    for (const child of Array.isArray(nested) ? nested : []) {
+      if (!child || typeof child !== "object") return `Each row nested under "${item.name}" must be an object with at least a name.`;
+      const c = child as Record<string, unknown>;
+      if (c.items != null || c.group != null || (typeof c.folder === "string" && c.folder.trim())) {
+        return `A row nested under "${item.name}" is in its folder and can't nest rows of its own; leave folder, group and items off it.`;
+      }
+      const kid = toItem(child, folderId, this.nextSortOrder(folderId, item.id));
+      if (typeof kid === "string") return kid;
+      kid.parentId = item.id;
+      this.items.push(kid);
+    }
     return null;
   }
 
@@ -1199,11 +1392,12 @@ class ItemPlan {
     return null;
   }
 
-  private nextSortOrder(folderId: string | null): number {
-    // New rows go after what the folder already holds: past its highest sortOrder,
-    // not its count, since a removed row leaves a hole the count would fill mid-folder.
-    const next = this.counted.get(folderId) ?? nextSortOrder(this.existingItems, folderId);
-    this.counted.set(folderId, next + 1);
+  private nextSortOrder(folderId: string | null, parentId: string | null): number {
+    // New rows go after what their siblings already hold: past the highest sortOrder,
+    // not the count, since a removed row leaves a hole the count would fill mid-folder.
+    const key = `${folderId ?? ""}|${parentId ?? ""}`;
+    const next = this.counted.get(key) ?? nextSortOrder(this.existingItems, folderId, parentId);
+    this.counted.set(key, next + 1);
     return next;
   }
 }
@@ -1351,11 +1545,13 @@ function tripMeta(args: Record<string, unknown>, creating = false): Record<strin
   return meta;
 }
 
-// A retried add_items must not add its rows twice. Clients retry a call that timed
-// out or lost its answer, and nothing in the protocol marks the retry; so an
-// add_items identical to one this list took in the last ten minutes (same rows, same
-// folder, same edit link: the arguments, stably serialised, hashed with the edit hash)
-// answers with that call's result and `repeated: true`, and adds nothing. The window
+// A retried edit_list must not add its rows twice. Clients retry a call that timed
+// out or lost its answer, and nothing in the protocol marks the retry; so an edit_list
+// with rows to add that is identical to one this list took in the last ten minutes
+// (the arguments, stably serialised, hashed with the edit hash) answers with that
+// call's result and `repeated: true`, and does nothing. A call with no rows to add is
+// not held to the window: its parts are a set of fields, moves and removals that a
+// second run repeats harmlessly or refuses by name. The window
 // is in the shared KV store the rate limiter uses, so it holds across serverless
 // instances; without a shared store it degrades to per instance, as the budgets do.
 // A person who means the same rows twice says so with `again: true`, which skips the
@@ -1368,7 +1564,7 @@ function tripMeta(args: Record<string, unknown>, creating = false): Record<strin
 // a spare list rather than a leaked capability.
 const REPLAY_WINDOW_S = 10 * 60;
 function replayKey(hash: string, tool: string, args: Record<string, unknown>): string {
-  const { edit_link: _link, again: _again, ...rest } = args;
+  const { edit_link: _link, share_code: _code, again: _again, ...rest } = args;
   return `mcp:replay:${sha256Hex(`${hash}|${tool}|${stableJson(rest)}`)}`;
 }
 function stableJson(v: unknown): string {
@@ -1379,75 +1575,409 @@ function stableJson(v: unknown): string {
   return JSON.stringify(v) ?? "null";
 }
 
-async function addItems(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  const hash = editHashFrom(args.edit_link);
-  if (!hash) return fail(NO_EDIT);
-  // the write budget is the list's: spent once the link has yielded a hash to key it
-  // on, so a call with no link costs nothing past the endpoint's own guard
-  await rateLimitSubject("mcp-write", hash);
-  if (!Array.isArray(args.items) || !args.items.length) return fail("items must be a non-empty array of rows.");
+// ---- changing a list that exists ---------------------------------------------------
+// The editor's own operations, sent the way the editor sends them: setMeta for the
+// list's own fields, updateFolder and removeFolder for folders, addFolder and addItem
+// for new rows, updateItem for a row's fields and moveItem for its folder, place and
+// group, removeItem. One call reads the list once, plans every part against a working
+// copy (applying each op to the copy as it is planned, so a later part sees where an
+// earlier one left things) and sends the whole batch at once. A row or folder that
+// isn't found fails the call before anything is sent: a half-applied edit is harder
+// for the model to reason about than a refusal.
+
+const NO_ROW = (ids: string[]) =>
+  `No row on this list has the id${ids.length > 1 ? "s" : ""} ${ids.map((id) => `"${id}"`).join(", ")}. get_list gives every row's id.`;
+
+interface Work {
+  work: ListState;
+  ops: Op[];
+  plan: (op: Op) => void;
+}
+
+/** the list a write names, as a working copy to plan against */
+async function openForEdit(hash: string): Promise<Work | string> {
+  const snap = await getByEditHash(hash);
+  if (!snap) return NO_EDIT_LIST;
+  const work = structuredClone(snap) as unknown as ListState;
+  const ops: Op[] = [];
+  return { work, ops, plan: (op) => {
+    ops.push(op);
+    applyOps(work, [op]);
+  } };
+}
+
+/**
+ * Put a row at `position` among its siblings in a folder (and under a parent), the
+ * way the editor's own move does it: the moved row is placed, and every neighbour
+ * whose place shifts is renumbered so the folder stays gapless. Only a change of
+ * folder is news in the list's history; a reorder and the neighbours' renumbering
+ * go out quiet, as the editor sends them.
+ */
+function placeRow(work: ListState, plan: (op: Op) => void, id: string, folderId: string | null, parentId: string | null, position: number | undefined): void {
+  const row = work.items.find((i) => i.id === id);
+  if (!row) return;
+  const changedFolder = row.folderId !== folderId;
+  // named its own folder again with no place: it is already where it was asked to be
+  if (position == null && !changedFolder && (row.parentId ?? null) === parentId) return;
+  const others = siblingItems(work.items, folderId, parentId)
+    .filter((i) => i.id !== id)
+    .sort(bySortOrder);
+  const idx = position == null ? others.length : Math.min(position, others.length);
+  const ordered = [...others.slice(0, idx), row, ...others.slice(idx)];
+  ordered.forEach((it, i) => {
+    if (it.id === id) {
+      if (it.folderId !== folderId || (it.parentId ?? null) !== parentId || it.sortOrder !== i)
+        plan({ t: "moveItem", id, folderId, parentId, sortOrder: i, ...(changedFolder ? {} : { quiet: true as const }) });
+    } else if (it.sortOrder !== i) {
+      plan({ t: "moveItem", id: it.id, folderId, sortOrder: i, quiet: true });
+    }
+  });
+}
+
+/** How a person on the list is named in an argument: the name, compared tidied and
+ *  case-folded as folder names are. */
+const personKey = (name: string) => tidyText(name).toLowerCase();
+
+/** the catalog rows an update's relinks name, fetched once for the call */
+type CatalogRows = Awaited<ReturnType<typeof catalogRowsById>>;
+
+/**
+ * One row's changes as the reducer's own patch, or the sentence saying why not.
+ * Values are typed and bounded here; cleanItemPatch caps and tidies them on the way
+ * in, the same rules the editor's writes get. The owner's-own marks follow the
+ * editor: a typed weight on a catalog-linked row is the owner's, and so is a typed
+ * name that differs from the catalog's, which keeps the link and the catalog's
+ * corrections from rewriting it. A catalog_id is the editor's own pick, done here
+ * (ItemRow.onNameCommit): the link and its weight baseline, the catalog's brand,
+ * variant, name, gear type and weight, each of which a value given in the same
+ * change overrides as the owner's own; null unlinks, and the reducer drops the
+ * baseline with the link.
+ */
+function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["people"], catalogRows: CatalogRows): ItemPatch | string {
+  const label = `"${itemDisplayName(it.brand, it.name, it.variant)}"`;
+  const patch: ItemPatch = {};
+  if (r.name !== undefined) {
+    if (typeof r.name !== "string" || !r.name.trim()) return `A row keeps a name; give ${label} a new one or leave name out.`;
+    patch.name = r.name.trim();
+    if (it.catalogItemId != null && tidyText(patch.name).toLowerCase() !== tidyText(it.name).toLowerCase()) patch.nameOverridden = true;
+  }
+  const text = (key: string, field: "brand" | "variant" | "commonName" | "description"): string | null => {
+    const v = r[key];
+    if (v === undefined) return null;
+    if (v !== null && typeof v !== "string") return `${key} on ${label} must be text, or null to clear it.`;
+    patch[field] = typeof v === "string" ? v.trim() : "";
+    return null;
+  };
+  for (const [key, field] of [["brand", "brand"], ["variant", "variant"], ["gear_type", "commonName"], ["note", "description"]] as const) {
+    const problem = text(key, field);
+    if (problem) return problem;
+  }
+  // a gear type the owner typed (or cleared) is theirs, as the editor marks it
+  if (r.gear_type !== undefined) patch.commonNameOverridden = true;
+  if (r.weight_g !== undefined) {
+    if (typeof r.weight_g !== "number" || !(r.weight_g >= 0)) return `weight_g on ${label} must be a number of grams, 0 or more.`;
+    patch.unitWeightMg = Math.round(r.weight_g * 1000);
+    if (it.catalogItemId != null) patch.weightOverridden = true;
+  }
+  if (r.qty !== undefined) {
+    if (typeof r.qty !== "number" || !Number.isFinite(r.qty)) return `qty on ${label} must be a whole number.`;
+    patch.qty = clampInt(r.qty, 1, QTY_MAX, 1);
+  }
+  if (r.classification !== undefined) {
+    if (r.classification !== null && !CLASSIFICATIONS.includes(r.classification as Classification)) {
+      return `"${String(r.classification)}" isn't a classification; use base, worn or consumable, or null to follow the folder.`;
+    }
+    patch.classification = r.classification as Classification | null;
+  }
+  if (r.worn_qty !== undefined) {
+    if (typeof r.worn_qty !== "number" || !Number.isFinite(r.worn_qty)) return `worn_qty on ${label} must be a whole number.`;
+    const qty = patch.qty ?? it.qty;
+    const worn = clampInt(r.worn_qty, 0, QTY_MAX, 0);
+    // a row that is entirely worn is a worn row, not a split the size of itself,
+    // which the reducer reads as no split at all (the rule create_list follows)
+    if (worn > 0 && worn >= qty) {
+      if (patch.classification === undefined) patch.classification = "worn";
+      patch.wornQty = 0;
+    } else patch.wornQty = worn;
+  }
+  if (r.kcal !== undefined) {
+    if (r.kcal !== null && (typeof r.kcal !== "number" || !(r.kcal >= 0))) return `kcal on ${label} must be a number, or null to clear it.`;
+    patch.kcal = r.kcal === null ? null : Math.round(r.kcal as number);
+  }
+  if (r.needs_cooking !== undefined) {
+    if (typeof r.needs_cooking !== "boolean") return `needs_cooking on ${label} must be true or false.`;
+    patch.needsCooking = r.needs_cooking;
+  }
+  if (r.carried_by !== undefined) {
+    if (r.carried_by === null || r.carried_by === "") patch.personId = null;
+    else if (typeof r.carried_by !== "string") return `carried_by on ${label} must be a name on the list, or null.`;
+    else {
+      const person = (people ?? []).find((p) => personKey(p.name) === personKey(r.carried_by as string));
+      if (!person) {
+        const names = (people ?? []).map((p) => p.name);
+        return `No one on this list is called "${r.carried_by}".${names.length ? ` The people are: ${names.join(", ")}.` : " The list names no people yet."}`;
+      }
+      patch.personId = person.id;
+    }
+  }
+  if (r.catalog_id !== undefined) {
+    if (r.catalog_id === null) patch.catalogItemId = null;
+    else {
+      if (!isCatalogId(r.catalog_id)) return `catalog_id on ${label} isn't a catalog id; take one from search_catalog.`;
+      const row = catalogRows.get(r.catalog_id);
+      if (!row) return `catalog_id ${r.catalog_id} isn't in the catalog; take an id from search_catalog.`;
+      patch.catalogItemId = row.id;
+      patch.catalogWeightMgAtLink = row.weightMg;
+      if (patch.unitWeightMg === undefined) {
+        patch.unitWeightMg = row.weightMg;
+        patch.weightOverridden = false;
+      } else patch.weightOverridden = true;
+      if (r.brand === undefined) patch.brand = row.brand ?? "";
+      if (r.variant === undefined) patch.variant = row.variant ?? "";
+      if (patch.name === undefined) {
+        patch.name = row.name;
+        patch.nameOverridden = false;
+      } else patch.nameOverridden = tidyText(patch.name).toLowerCase() !== tidyText(row.name).toLowerCase();
+      if (r.gear_type === undefined && !it.commonNameOverridden) {
+        patch.commonName = row.commonName ?? "";
+        patch.commonNameOverridden = false;
+      }
+      if (r.kcal === undefined && row.kcal != null) patch.kcal = row.kcal;
+    }
+  }
+  return patch;
+}
+
+/** the `list` part: the list's own fields, as one setMeta */
+function planMeta(raw: unknown, { plan }: Work): string | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "list must be an object of the list's own fields.";
+  const meta = tripMeta(raw as Record<string, unknown>);
+  if (typeof meta === "string") return meta;
+  if (!Object.keys(meta).length) return "list has nothing to set: give a title, unit, start_date, end_date, trail_url, trail_label or trail_distance_km.";
+  plan({ t: "setMeta", patch: meta as Extract<Op, { t: "setMeta" }>["patch"] });
+  return null;
+}
+
+/** the `folders` part: renames, reorders, reclassifications and removals of folders that exist */
+function planFolders(entries: unknown[], { work, ops, plan }: Work): { changed: number } | string {
+  if (entries.length > EDIT_MAX) return `At most ${EDIT_MAX} folders in one call.`;
+  const key = (name: string) => tidyText(name).toLowerCase();
+  const find = (ref: unknown) =>
+    typeof ref !== "string" ? undefined : (work.folders.find((f) => f.id === ref) ?? work.folders.find((f) => key(f.name) === key(ref)));
+  const changes = entries.map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : {}));
+  const missing = changes.filter((c) => !find(c.folder)).map((c) => String(c.folder ?? ""));
+  if (missing.length) {
+    const names = [...work.folders].sort(bySortOrder).map((f) => f.name);
+    return `No folder on this list is ${missing.map((m) => `"${m}"`).join(", ")}. The folders are: ${names.join(", ") || "none yet"}.`;
+  }
+  let changed = 0;
+  for (const c of changes) {
+    const folder = find(c.folder);
+    // a folder removed earlier in this same call has nothing left to change
+    if (!folder) continue;
+    const before = ops.length;
+    if (c.remove === true) {
+      plan({ t: "removeFolder", id: folder.id });
+      changed++;
+      continue;
+    }
+    const patch: Partial<Folder> = {};
+    if (c.name !== undefined) {
+      if (typeof c.name !== "string" || !c.name.trim()) return `A folder keeps a name; give "${folder.name}" a new one or leave name out.`;
+      const clash = work.folders.find((f) => f.id !== folder.id && key(f.name) === key(c.name as string));
+      if (clash) return `The list already has a folder called "${clash.name}".`;
+      patch.name = tidyText(c.name);
+    }
+    if (c.classification !== undefined) {
+      if (!CLASSIFICATIONS.includes(c.classification as Classification)) return `"${String(c.classification)}" isn't a classification; use base, worn or consumable.`;
+      patch.defaultClassification = c.classification as Classification;
+    }
+    if (Object.keys(patch).length) plan({ t: "updateFolder", id: folder.id, patch });
+    if (c.position !== undefined) {
+      if (typeof c.position !== "number" || !(c.position >= 0)) return "position must be a whole number, 0 for first.";
+      // the editor's folder reorder: place it, renumber the rest gapless
+      const others = [...work.folders].filter((f) => f.id !== folder.id).sort(bySortOrder);
+      const idx = Math.min(Math.round(c.position), others.length);
+      [...others.slice(0, idx), folder, ...others.slice(idx)].forEach((f, i) => {
+        if (f.sortOrder !== i) plan({ t: "updateFolder", id: f.id, patch: { sortOrder: i } });
+      });
+    }
+    if (ops.length > before) changed++;
+    else return `Nothing to change on "${folder.name}": give it a name, a classification, a position or remove: true.`;
+  }
+  return { changed };
+}
+
+/** the `add` part: new rows, into folders by name or under groups by id */
+async function planAdds(rows: unknown[], book: FolderBook, { work, plan }: Work): Promise<{ added: number } | string> {
+  if (work.items.length + rows.length > MAX_ITEMS) return `A list holds at most ${MAX_ITEMS} rows; this one has ${work.items.length}.`;
+  const planned = new ItemPlan(book, work.items);
+  const problem = planned.placeAll(rows, null);
+  if (problem) return problem;
+  if (work.items.length + planned.items.length > MAX_ITEMS) return `A list holds at most ${MAX_ITEMS} rows; this one has ${work.items.length}, and these rows with the ones nested under them are ${planned.items.length}.`;
+  const unlinked = await linkCatalog(planned.items);
+  if (unlinked) return unlinked;
+  for (const item of planned.items) plan({ t: "addItem", item });
+  return { added: planned.items.length };
+}
+
+/** the `update` part: rows that exist, by id — their fields, catalog link, folder, place and group */
+async function planUpdates(entries: unknown[], book: FolderBook, { work, ops, plan }: Work): Promise<{ updated: number } | string> {
+  if (entries.length > EDIT_MAX) return `At most ${EDIT_MAX} rows in one call; send the rest in another.`;
+  const rows = entries.map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : {}));
+  const unknown = rows.map((r) => String(r.id ?? "")).filter((id) => !work.items.some((i) => i.id === id));
+  if (unknown.length) return NO_ROW([...new Set(unknown)]);
+  // the catalog rows the relinks name, in one read; an id that isn't one is refused
+  // row by row below, as a catalog_id on a new row is
+  const linkIds = rows.map((r) => r.catalog_id).filter(isCatalogId);
+  const catalogRows: CatalogRows = linkIds.length ? await catalogRowsById(await useCatalogDb(), linkIds) : new Map();
+
+  let updated = 0;
+  for (const r of rows) {
+    const it = work.items.find((i) => i.id === r.id)!;
+    const label = `"${itemDisplayName(it.brand, it.name, it.variant)}"`;
+    const patch = rowPatch(r, it, work.people, catalogRows);
+    if (typeof patch === "string") return patch;
+    const before = ops.length;
+    if (Object.keys(patch).length) plan({ t: "updateItem", id: it.id, patch });
+
+    if (r.folder !== undefined || r.position !== undefined || r.group !== undefined) {
+      if (r.folder !== undefined && typeof r.folder !== "string") return "folder must be a folder's name, or an empty string for none.";
+      if (r.position !== undefined && (typeof r.position !== "number" || !(r.position >= 0))) return "position must be a whole number, 0 for first.";
+      if (r.group !== undefined && typeof r.group !== "string") return "group must be a row's id, or an empty string for none.";
+      let folderId = it.folderId;
+      let parentId = it.parentId ?? null;
+      if (typeof r.folder === "string") {
+        const named = r.folder.trim();
+        if (!named) folderId = null;
+        else {
+          const folder = book.resolve(named);
+          if (typeof folder === "string") return folder;
+          folderId = folder.id;
+        }
+        // a row moved to another folder leaves its group; a group keeps its rows
+        if (folderId !== it.folderId) parentId = null;
+      }
+      if (typeof r.group === "string") {
+        const want = r.group.trim();
+        if (!want) parentId = null;
+        else {
+          const parent = work.items.find((i) => i.id === want);
+          if (!parent) return `No row on this list has the id "${want}" to group ${label} under. get_list gives every row's id.`;
+          if (parent.id === it.id) return `${label} can't be grouped under itself.`;
+          if (parent.parentId) return `"${itemDisplayName(parent.brand, parent.name, parent.variant)}" is itself nested; a group is one level deep, so group ${label} under its parent instead.`;
+          if (work.items.some((c) => c.parentId === it.id)) return `${label} has rows nested under it, so it can't be nested itself; move its rows out first.`;
+          if (typeof r.folder === "string" && r.folder.trim() && folderId !== parent.folderId) return `${label} can't go to another folder and into a group at once; a nested row is in its group's folder, so give group or folder, not both.`;
+          parentId = parent.id;
+          folderId = parent.folderId;
+        }
+      }
+      placeRow(work, plan, it.id, folderId, parentId, typeof r.position === "number" ? Math.round(r.position) : undefined);
+    }
+    if (ops.length > before) updated++;
+    else return `Nothing to change on ${label}: give it at least one field, a folder, a position or a group.`;
+  }
+  return { updated };
+}
+
+/** the `remove` part: rows off by id, a group's nested rows with it */
+function planRemoves(raw: unknown[], { work, plan }: Work): string | null {
+  const ids = [...new Set(raw.map(String))];
+  if (ids.length > EDIT_MAX) return `At most ${EDIT_MAX} rows in one call; send the rest in another.`;
+  const unknown = ids.filter((id) => !work.items.some((i) => i.id === id));
+  if (unknown.length) return NO_ROW(unknown);
+  // as the editor does: removing a group takes its nested rows with it (the reducer's
+  // own cascade), so a nested row named alongside its parent is simply already gone
+  for (const id of ids) if (work.items.some((i) => i.id === id)) plan({ t: "removeItem", id });
+  return null;
+}
+
+/** an array part of edit_list, or the sentence when it isn't one */
+function arrayPart(args: Record<string, unknown>, key: string): unknown[] | string {
+  const v = args[key];
+  if (v == null) return [];
+  return Array.isArray(v) ? v : `${key} must be an array.`;
+}
+
+async function editList(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  const parts = { folders: arrayPart(args, "folders"), add: arrayPart(args, "add"), update: arrayPart(args, "update"), remove: arrayPart(args, "remove") };
+  for (const part of Object.values(parts)) if (typeof part === "string") return fail(part);
+  const { folders, add, update, remove } = parts as Record<keyof typeof parts, unknown[]>;
+  if (args.list == null && !folders.length && !add.length && !update.length && !remove.length) {
+    return fail("Nothing to change: give list, folders, add, update or remove.");
+  }
   if (args.again != null && typeof args.again !== "boolean") return fail("again must be true or false.");
-  const key = replayKey(hash, "add_items", args);
-  if (args.again !== true) {
+  const opened = await writeHashFrom(event, args);
+  if (typeof opened === "string") return fail(opened);
+  const { hash } = opened;
+  // the replay window, for a call that adds rows (the comment above says why only then)
+  const key = add.length ? replayKey(hash, "edit_list", args) : null;
+  if (key && args.again !== true) {
     const prior = await useKv().getItem<Record<string, unknown>>(key).catch(() => null);
     if (prior) {
       const structured = { ...prior, repeated: true };
-      return ok(structured, `${JSON.stringify(structured)}\nThis repeats a call made in the last ten minutes, so the rows were not added again. Pass again: true to add them a second time.`);
+      return ok(structured, `${JSON.stringify(structured)}\nThis repeats a call made in the last ten minutes, so nothing was done again. Pass again: true to make the same change a second time.`);
     }
   }
-  const snap = await getByEditHash(hash);
-  if (!snap) return fail(NO_EDIT_LIST);
-  if (snap.items.length + args.items.length > MAX_ITEMS) return fail(`A list holds at most ${MAX_ITEMS} rows; this one has ${snap.items.length}.`);
+  const w = await openForEdit(hash);
+  if (typeof w === "string") return fail(w);
+  const rowsBefore = w.work.items.length;
 
-  const plan = new ItemPlan(new FolderBook(snap.folders), snap.items);
-  let fallback: Folder | null = null;
-  if (typeof args.folder === "string" && args.folder.trim()) {
-    const got = plan.folders.resolve(args.folder);
-    if (typeof got === "string") return fail(got);
-    fallback = got;
+  if (args.list != null) {
+    const problem = planMeta(args.list, w);
+    if (problem) return fail(problem);
   }
-  const problem = plan.placeAll(args.items, fallback);
-  if (problem) return fail(problem);
-  const unlinked = await linkCatalog(plan.items);
-  if (unlinked) return fail(unlinked);
-  const ops: Op[] = [
-    ...plan.folders.made.map((folder): Op => ({ t: "addFolder", folder })),
-    ...plan.items.map((item): Op => ({ t: "addItem", item })),
-  ];
-  const after = await applyOpsByEditHash(hash, ops);
-  if (!after) return fail(NO_EDIT_LIST);
-  const origin = trustedOrigin(event);
-  const result = {
-    added: plan.items.length,
-    folders_made: plan.folders.made.map((f) => f.name),
-    share_link: shareLink(origin, after.shareCode),
-    totals: describeTotals(after),
-    repeated: false,
-  };
-  // remembered after the write, never before: a call that failed leaves no window,
-  // so its retry goes through
-  await useKv().setItem(key, result, { ttl: REPLAY_WINDOW_S }).catch(() => {});
-  return ok(result);
-}
+  let foldersChanged = 0;
+  if (folders.length) {
+    const done = planFolders(folders, w);
+    if (typeof done === "string") return fail(done);
+    foldersChanged = done.changed;
+  }
+  // folders named by a new or moved row and missing from the list are made, in the
+  // editor's way (FolderBook), and on the working copy before anything is put in them;
+  // read after the folders part, so a renamed or removed folder is seen as it now is
+  const book = new FolderBook(w.work.folders, (folder) => w.plan({ t: "addFolder", folder }));
+  let added = 0;
+  if (add.length) {
+    const done = await planAdds(add, book, w);
+    if (typeof done === "string") return fail(done);
+    added = done.added;
+  }
+  let updated = 0;
+  if (update.length) {
+    const done = await planUpdates(update, book, w);
+    if (typeof done === "string") return fail(done);
+    updated = done.updated;
+  }
+  if (remove.length) {
+    const problem = planRemoves(remove, w);
+    if (problem) return fail(problem);
+  }
+  if (!w.ops.length) return fail("Nothing to change.");
 
-async function setTrip(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  const hash = editHashFrom(args.edit_link);
-  if (!hash) return fail(NO_EDIT);
-  await rateLimitSubject("mcp-write", hash);
-  const meta = tripMeta(args);
-  if (typeof meta === "string") return fail(meta);
-  if (!Object.keys(meta).length) return fail("Nothing to set: give a title, unit, start_date, end_date, trail_url, trail_label or trail_distance_km.");
-  const after = await applyOpsByEditHash(hash, [{ t: "setMeta", patch: meta as Extract<Op, { t: "setMeta" }>["patch"] }]);
+  // marked as an assistant's, so the list's recent changes say who made it
+  const after = await applyOpsByEditHash(hash, w.ops, undefined, { actor: "assistant" });
   if (!after) return fail(NO_EDIT_LIST);
-  const origin = trustedOrigin(event);
-  const described = describeList(after, origin);
-  return ok({
+  const described = describeList(after, trustedOrigin(event));
+  const result = {
     title: described.title,
     unit: described.unit,
     dates: described.dates ?? null,
     trail: described.trail ?? null,
     share_link: described.share_link,
-  });
+    totals: described.totals,
+    added,
+    updated,
+    removed: rowsBefore + added - w.work.items.length,
+    folders_changed: foldersChanged,
+    folders_made: book.made.map((f) => f.name),
+    folders: [...w.work.folders].sort(bySortOrder).map((f) => f.name),
+    repeated: false,
+  };
+  // remembered after the write, never before: a call that failed leaves no window,
+  // so its retry goes through
+  if (key) await useKv().setItem(key, result, { ttl: REPLAY_WINDOW_S }).catch(() => {});
+  return ok(result);
 }
 
 // ---- My Gear ---------------------------------------------------------------------
@@ -1456,11 +1986,12 @@ async function setTrip(event: H3Event, args: Record<string, unknown>): Promise<T
 // bearer in the Authorization header: a token minted on the account page or the
 // access token of an app the person signed in through the connector
 // (server/utils/accessTokens.ts). The route resolves that bearer once, before
-// dispatch, for every tool whose registry entry names an account use; for the four
-// gear tools it also refuses a missing or dead one with the 401 that opens Claude's
-// sign-in, and a read-only one on a write tool with a 403 (mcp.post.ts). So by the
-// time a gear tool runs the account is on the event, and create_list — which only
-// uses an account when there is one — reads the same answer.
+// dispatch, for every tool whose registry entry names an account use; for the gear
+// tools, a get_list with no share_code and an edit_list naming its list by share_code it
+// also refuses a missing or dead one with the 401 that opens Claude's sign-in, and a
+// read-only one on a write with a 403 (mcp.post.ts). So by the time an account tool
+// runs the account is on the event, and create_list — which only uses an account when
+// there is one — reads the same answer.
 
 /** Who is calling, as the route left it on the event: an account with a scope, nobody
  *  ("anonymous": no bearer of ours was carried), or a bearer that opens nothing
@@ -1469,6 +2000,32 @@ function whoCalls(event: H3Event): { userId: number; scope: AccessScope } | "ano
   const caller = event.context.connector;
   if (caller === undefined) return "anonymous";
   return caller ?? "unknown";
+}
+
+/**
+ * The lists filed under the caller's account, as the account page's "Your lists"
+ * shows them (get_list with no share_code): by share code, the read capability, so
+ * the assistant can open one without being handed a link, and change it through
+ * edit_list's share_code. The edit token is never here. The route has already seen to
+ * the sign-in, so the one refusal left is a call that never passed it.
+ */
+async function readMyLists(event: H3Event): Promise<ToolResult> {
+  const caller = event.context.connector;
+  if (!caller) return fail("Your lists are reached through the MCP endpoint, which asks for a sign-in first.");
+  // the budget is the account's, as get_my_gear's is, never the shared address
+  await rateLimitSubject("mcp-read", `lists:${caller.userId}`);
+  const origin = trustedOrigin(event);
+  const lists = await listClaimedLists(await useAccountDb(), caller.userId);
+  return ok({
+    lists: lists.map((l) => ({
+      title: l.title,
+      share_code: l.shareCode,
+      share_link: shareLink(origin, l.shareCode),
+      unit: l.displayUnit,
+      total_g: grams(l.totalMg),
+      updated_at: l.updatedAt,
+    })),
+  });
 }
 
 interface GearHandle {
@@ -1490,7 +2047,7 @@ async function openGear(event: H3Event, need: AccessScope): Promise<GearHandle |
   return { db, userId: caller.userId, vaultId: await touchVaultByUser(db, caller.userId) };
 }
 
-const NO_SUCH_GEAR = "Nothing in My Gear has that id; list_my_gear gives the ids.";
+const NO_SUCH_GEAR = "Nothing in My Gear has that id; get_my_gear gives the ids.";
 
 /** how two folder names are judged the same: the gear page folds case and the
  *  typographic cleanup tidyText applies, so "Shelter", "shelter" and "SHELTER" are one */
@@ -1533,6 +2090,7 @@ function gearAsRow(piece: VaultEntry, folderNames: Map<number, string>): Record<
     weight_g: grams(piece.weightMg),
     classification: piece.classification ?? null,
     kcal: piece.kcal ?? null,
+    catalog_id: piece.catalogItemId ?? null,
     note: piece.description ?? null,
     price: piece.priceCents != null ? piece.priceCents / 100 : null,
     currency: piece.currency ?? null,
@@ -1580,6 +2138,8 @@ function gearPatchFrom(raw: unknown): { patch: Record<string, unknown>; folder?:
   if (typeof r.weight_g === "number" && r.weight_g >= 0 && Number.isFinite(r.weight_g)) patch.weightMg = Math.round(r.weight_g * 1000);
   if (r.classification === null || CLASSIFICATIONS.includes(r.classification as Classification)) patch.classification = r.classification;
   if (r.kcal === null || (typeof r.kcal === "number" && Number.isFinite(r.kcal))) patch.kcal = r.kcal;
+  // typed here, checked in editGear: an id that isn't a catalog row refuses the call
+  if (r.catalog_id === null || isCatalogId(r.catalog_id)) patch.catalogItemId = r.catalog_id;
   if (r.price === null) patch.priceCents = null;
   else if (typeof r.price === "number" && r.price >= 0 && Number.isFinite(r.price)) {
     patch.priceCents = Math.round(r.price * 100);
@@ -1622,81 +2182,144 @@ async function readGear(event: H3Event, args: Record<string, unknown>): Promise<
   });
 }
 
-async function addGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+/**
+ * The catalog's fields on a piece that names a catalog_id, each where the call gave
+ * none: brand, name, variant, gear type, weight and calories, the way a list row takes
+ * them from a pick (linkCatalog), so a piece linked here reads as one picked on the
+ * site. They go through the ordinary patch, so they are pinned as the owner's choice
+ * of product, like every field typed into My Gear.
+ */
+function fromCatalog(piece: { patch: Record<string, unknown>; folder?: string }, catalogRows: CatalogRows): typeof piece {
+  const id = piece.patch.catalogItemId;
+  const row = isCatalogId(id) ? catalogRows.get(id) : undefined;
+  if (!row) return piece;
+  const patch = { ...piece.patch };
+  if (patch.name === undefined) patch.name = row.name;
+  if (patch.brand === undefined) patch.brand = row.brand ?? null;
+  if (patch.variant === undefined) patch.variant = row.variant ?? null;
+  if (patch.commonName === undefined && row.commonName) patch.commonName = row.commonName;
+  if (patch.weightMg === undefined) patch.weightMg = row.weightMg;
+  if (patch.kcal === undefined && row.kcal != null) patch.kcal = row.kcal;
+  return { ...piece, patch };
+}
+
+/** an array of pieces or ids in edit_my_gear, bounded, or the sentence when it isn't one */
+function gearPart(args: Record<string, unknown>, key: string): unknown[] | string {
+  const v = args[key];
+  if (v == null) return [];
+  if (!Array.isArray(v)) return `${key} must be an array.`;
+  if (v.length > GEAR_EDIT_MAX) return `At most ${GEAR_EDIT_MAX} pieces in ${key} in one call; send the rest in another.`;
+  return v;
+}
+
+/**
+ * Every change to My Gear, in one call: add, update, remove, restore, in that order.
+ * The vault's writes are separate statements, not one batch like a list's ops, so the
+ * answer is per piece rather than all-or-nothing: each entry reports what became of
+ * it, and an id that names nothing in this vault is "not_found" rather than a refusal
+ * of the whole call. What IS refused whole is a malformed call (a part that isn't an
+ * array, an id that isn't one), before anything is written.
+ */
+async function editGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   const gear = await openGear(event, "write");
   if (typeof gear === "string") return fail(gear);
-  if (!Array.isArray(args.items) || !args.items.length) return fail("items must be a non-empty array of pieces.");
-  if (args.items.length > GEAR_ADD_MAX) return fail(`At most ${GEAR_ADD_MAX} pieces in one call; send the rest in another.`);
-  const pieces = args.items.map(gearPatchFrom);
-  const hasName = (p: (typeof pieces)[number]) => typeof p.patch.name === "string" && p.patch.name.trim() !== "";
-  // a call with nothing nameable in it mints no vault for an account that had none
-  if (!pieces.some(hasName)) return fail("Every piece needs a name.");
+  const parts = { add: gearPart(args, "add"), update: gearPart(args, "update"), remove: gearPart(args, "remove"), restore: gearPart(args, "restore") };
+  for (const part of Object.values(parts)) if (typeof part === "string") return fail(part);
+  const { add, update, remove, restore } = parts as Record<keyof typeof parts, unknown[]>;
+  if (!add.length && !update.length && !remove.length && !restore.length) return fail("Nothing to change: give add, update, remove or restore.");
+  const updates = update.map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : {}));
+  if (!updates.every((e) => isSerialId(e.id))) return fail("Every entry in update needs the piece's id, from get_my_gear.");
+  if (![...remove, ...restore].every(isSerialId)) return fail("remove and restore take pieces' ids, from get_my_gear.");
+  // the catalog rows the adds and updates name, read once; an id that is no catalog
+  // row refuses the call before anything is written, as it does on a list row
+  const named = [...add, ...updates].map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>).catalog_id : undefined));
+  for (const id of named) if (id != null && !isCatalogId(id)) return fail(`catalog_id ${String(id)} isn't a catalog id; take one from search_catalog.`);
+  const linkIds = named.filter(isCatalogId);
+  const catalogRows: CatalogRows = linkIds.length ? await catalogRowsById(await useCatalogDb(), linkIds) : new Map();
+  for (const id of linkIds) if (!catalogRows.has(id)) return fail(`catalog_id ${id} isn't in the catalog; take an id from search_catalog.`);
   const { db, userId } = gear;
-  const vaultId = gear.vaultId ?? (await mintVault(db, userId));
-  const folders = await gearFolders(db, vaultId, pieces.filter(hasName).flatMap((p) => (p.folder ? [p.folder] : [])));
+  let vaultId = gear.vaultId;
 
-  // the named pieces go to the vault in one batch; the nameless keep their place in
-  // the answer as invalid
-  const named = pieces.map((p, index) => ({ p, index })).filter(({ p }) => hasName(p));
-  const outcomes = await addVaultItems(
-    db,
-    vaultId,
-    named.map(({ p }) => ({ t: "add", ...p.patch, folderId: p.folder ? (folders.idOf.get(folderKey(p.folder)) ?? null) : null }) as Extract<VaultItemOp, { t: "add" }>),
-  );
-  const results: { index: number; status: string; item?: Record<string, unknown> }[] = pieces.map((_, index) => ({ index, status: "invalid" }));
-  named.forEach(({ index }, i) => {
-    const outcome = outcomes[i];
-    if (!outcome) return;
-    if ("refused" in outcome) results[index] = { index, status: outcome.refused === "duplicate" ? "already_have" : "full" };
-    else results[index] = { index, status: "added", item: gearAsRow(outcome.item, folders.nameOf) };
-  });
-  return ok({ added: results.filter((r) => r.status === "added").length, results });
-}
-
-async function changeGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  const gear = await openGear(event, "write");
-  if (typeof gear === "string") return fail(gear);
-  if (!isSerialId(args.id)) return fail("Give the piece's id, from list_my_gear.");
-  const id = args.id;
-  const { patch, folder } = gearPatchFrom(args);
-  if (patch.name === null || patch.name === "") return fail("A piece keeps a name: change it, but it can't be cleared.");
-  if (!Object.keys(patch).length && folder === undefined) return fail("Nothing to change; send at least one field.");
-  if (gear.vaultId == null) return fail(NO_SUCH_GEAR);
-  const { db, vaultId } = gear;
-
-  // the fields first: the edit answers with the row, or with nothing for an id that
-  // isn't this vault's — and before any folder is made for it
-  let after: VaultEntry | null = null;
-  if (Object.keys(patch).length) {
-    const outcome = await applyVaultItemOp(db, vaultId, { t: "edit", id, patch } as VaultItemOp);
-    if (!outcome || "refused" in outcome) {
-      // a kit's weight is its items', so a weight is refused on one; say so rather than "no such piece"
-      const row = "weightMg" in patch ? await vaultItemById(db, vaultId, id) : null;
-      if (row?.kind === "kit") return fail("That is a kit, and a kit weighs what its items weigh: change an item's weight instead. Nothing was changed.");
-      return fail(`${NO_SUCH_GEAR} Or that change would not leave a valid piece; nothing was changed.`);
+  // add: the named pieces go to the vault in one batch; the nameless keep their place
+  // in the answer as invalid. A call with nothing nameable mints no vault for an
+  // account that had none.
+  const results: { index: number; status: string; item?: Record<string, unknown> }[] = [];
+  let added = 0;
+  if (add.length) {
+    const pieces = add.map((raw) => fromCatalog(gearPatchFrom(raw), catalogRows));
+    const hasName = (p: (typeof pieces)[number]) => typeof p.patch.name === "string" && p.patch.name.trim() !== "";
+    for (const [index] of pieces.entries()) results.push({ index, status: "invalid" });
+    const named = pieces.map((p, index) => ({ p, index })).filter(({ p }) => hasName(p));
+    if (named.length) {
+      vaultId ??= await mintVault(db, userId);
+      const folders = await gearFolders(db, vaultId, named.flatMap(({ p }) => (p.folder ? [p.folder] : [])));
+      const outcomes = await addVaultItems(
+        db,
+        vaultId,
+        named.map(({ p }) => ({ t: "add", ...p.patch, folderId: p.folder ? (folders.idOf.get(folderKey(p.folder)) ?? null) : null }) as Extract<VaultItemOp, { t: "add" }>),
+      );
+      named.forEach(({ index }, i) => {
+        const outcome = outcomes[i];
+        if (!outcome) return;
+        if ("refused" in outcome) results[index] = { index, status: outcome.refused === "duplicate" ? "already_have" : "full" };
+        else {
+          results[index] = { index, status: "added", item: gearAsRow(outcome.item, folders.nameOf) };
+          added++;
+        }
+      });
     }
-    after = outcome.item;
-  } else {
-    after = await vaultItemById(db, vaultId, id);
-    if (!after) return fail(NO_SUCH_GEAR);
   }
-  const folders = await gearFolders(db, vaultId, folder ? [folder] : []);
-  if (folder !== undefined) {
-    const folderId = folder ? (folders.idOf.get(folderKey(folder)) ?? null) : null;
-    if (folder && folderId == null) return fail("My Gear has as many folders as it can hold; file this piece in one that exists.");
-    if (!(await applyVaultFolderOp(db, vaultId, { t: "move", itemId: id, folderId }))) return fail(NO_SUCH_GEAR);
-    after = { ...after, folderId: folderId ?? undefined };
-  }
-  return ok({ item: gearAsRow(after, folders.nameOf) });
-}
 
-async function putAwayGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  const gear = await openGear(event, "write");
-  if (typeof gear === "string") return fail(gear);
-  if (!isSerialId(args.id)) return fail("Give the piece's id, from list_my_gear.");
-  const restore = args.restore === true;
-  const { db, vaultId } = gear;
-  const done = vaultId != null && (restore ? await restoreVaultItem(db, vaultId, args.id) : await removeVaultItem(db, vaultId, args.id));
-  if (!done) return fail(restore ? "Nothing put away in My Gear has that id." : `${NO_SUCH_GEAR} It may be put away already.`);
-  return ok({ id: args.id, status: restore ? "restored" : "removed" });
+  // update: the fields first, which answer with the piece or with nothing for an id
+  // that isn't this vault's, and only then a folder, so none is made for a bad id
+  const updated: { id: number; status: string; item?: Record<string, unknown> }[] = [];
+  for (const e of updates) {
+    const id = e.id as number;
+    const { patch, folder } = fromCatalog(gearPatchFrom(e), catalogRows);
+    if (patch.name === null || patch.name === "" || (!Object.keys(patch).length && folder === undefined)) {
+      updated.push({ id, status: "invalid" });
+      continue;
+    }
+    if (vaultId == null) {
+      updated.push({ id, status: "not_found" });
+      continue;
+    }
+    let after: VaultEntry | null = null;
+    if (Object.keys(patch).length) {
+      const outcome = await applyVaultItemOp(db, vaultId, { t: "edit", id, patch } as VaultItemOp);
+      if (!outcome) {
+        updated.push({ id, status: "not_found" });
+        continue;
+      }
+      if ("refused" in outcome) {
+        updated.push({ id, status: "invalid" });
+        continue;
+      }
+      after = outcome.item;
+    } else {
+      after = await vaultItemById(db, vaultId, id);
+      if (!after) {
+        updated.push({ id, status: "not_found" });
+        continue;
+      }
+    }
+    const folders = await gearFolders(db, vaultId, folder ? [folder] : []);
+    if (folder !== undefined) {
+      const folderId = folder ? (folders.idOf.get(folderKey(folder)) ?? null) : null;
+      // a folder that can't be made (the ceiling) leaves the piece where it was
+      if ((!folder || folderId != null) && (await applyVaultFolderOp(db, vaultId, { t: "move", itemId: id, folderId }))) after = { ...after, folderId: folderId ?? undefined };
+    }
+    updated.push({ id, status: "updated", item: gearAsRow(after, folders.nameOf) });
+  }
+
+  const removed: { id: number; status: string }[] = [];
+  for (const id of remove as number[]) {
+    const done = vaultId != null && (await removeVaultItem(db, vaultId, id));
+    removed.push({ id, status: done ? "removed" : "not_found" });
+  }
+  for (const id of restore as number[]) {
+    const done = vaultId != null && (await restoreVaultItem(db, vaultId, id));
+    removed.push({ id, status: done ? "restored" : "not_found" });
+  }
+  return ok({ added, results, updated, removed });
 }

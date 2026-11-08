@@ -12,7 +12,8 @@
 // Signing in and deleting an account are worse things to keep in sync by hand.
 import { counted } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChatGptIcon, ChevronDownIcon, ClaudeIcon, Copy01Icon, CubeIcon, Key01Icon } from "@hugeicons/core-free-icons";
+import { ChatGptIcon, ChevronDownIcon, ClaudeIcon, Copy01Icon, CubeIcon, Edit02Icon, Key01Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import type { IconNode } from "~/utils/hugeicon";
 import type { AccessScope, AccessTokenSummary, PasskeySummary } from "~~/shared/types";
 
 // In the MODAL you are already where you want to be, so finishing means closing and
@@ -202,9 +203,8 @@ async function addPasskey() {
 
 async function removePasskey(id: number) {
   if (!(await askConfirm({
-    title: "Remove this passkey",
-    message:
-      "Remove this passkey? You can still sign in with an emailed link, and add another any time.",
+    title: "Remove this passkey?",
+    message: "You can still sign in with an emailed link, and add another any time.",
     confirmLabel: "Remove",
   }))) return;
   if (await pk.remove(id)) await loadPasskeys();
@@ -241,10 +241,11 @@ const tokenScope = ref<AccessScope>("read");
 const tokenBusy = ref(false);
 const tokenNote = ref("");
 const freshToken = ref("");
-// the picker's rows; the key is the word the endpoint takes, the label is ours
-const SCOPES: readonly { key: AccessScope; label: string }[] = [
-  { key: "read", label: "Read only" },
-  { key: "write", label: "Read and change" },
+// the picker's rows; the key is the word the endpoint takes, the label is ours, and the
+// marks are the share panel's for a read-only and an edit link
+const SCOPES: readonly { key: AccessScope; label: string; icon: IconNode }[] = [
+  { key: "read", label: "Read only", icon: ViewIcon },
+  { key: "write", label: "Read and change", icon: Edit02Icon },
 ];
 const scopeName = (scope: AccessScope) => SCOPES.find((s) => s.key === scope)!.label.toLowerCase();
 const mcpUrl = `${useSiteOrigin()}/mcp`;
@@ -323,8 +324,8 @@ async function revokeToken(t: AccessTokenSummary) {
   if (!(await askConfirm({
     title: app ? `Disconnect ${t.label ?? "this app"}?` : "Revoke this token?",
     message: app
-      ? "It stops reaching My Gear on its next call and will ask you to sign in again if you use it. Nothing in your gear changes."
-      : "Whatever was using it stops reaching My Gear on its next call. Nothing in your gear changes.",
+      ? "It loses access to My Gear and will ask you to sign in again. Your gear doesn’t change."
+      : "Whatever uses it loses access to My Gear. Your gear doesn’t change.",
     confirmLabel: app ? "Disconnect" : "Revoke",
   }))) return;
   freshToken.value = "";
@@ -381,14 +382,14 @@ async function deleteAccount() {
     !(await askConfirm({
       title: "Delete your account?",
       message:
-        "Your email, display name, passkeys and all your saved gear go, and can't be brought back.",
+        "Your email, name, passkeys and My Gear are deleted. This can’t be undone.",
       confirmLabel: "Delete account",
       checkbox: {
         label: "Delete my lists too",
         // Says what TICKING it does. A hint that explains the unticked state reads
         // backwards under a box you're deciding whether to tick, and this is the
         // consequence people don't anticipate: the lists aren't only yours.
-        hint: "Anyone you've shared a link with loses access too.",
+        hint: "Anyone you’ve sent a link to loses it too.",
       },
     }))
   )
@@ -426,7 +427,7 @@ async function onSignOutEverywhere() {
     !(await askConfirm({
       title: "Sign out everywhere?",
       message:
-        "Ends every session on every device, including this one, and revokes every token under Assistant access. Do this if you think someone else has access; removing a passkey alone doesn't end the sessions it already started.",
+        "Signs out every device, this one too, and disconnects every assistant. Use this if you think someone else got in.",
       confirmLabel: "Sign out everywhere",
     }))
   )
@@ -583,7 +584,7 @@ async function onSignOut() {
             </div>
             <ul v-if="passkeys.length" class="acct__list">
               <li v-for="k in passkeys" :key="k.id" class="acct__item">
-                <span>{{ k.label || "Passkey" }}</span>
+                <span class="acct__name">{{ k.label || "Passkey" }}</span>
                 <span class="t-sm t-muted acct__meta">{{ usedAgo(k.lastUsedAt) }}</span>
                 <button type="button" class="btn btn--quiet" @click="removePasskey(k.id)">Remove</button>
               </li>
@@ -618,7 +619,7 @@ async function onSignOut() {
             <p class="t-sm t-muted">Any other MCP client takes the address. Each one asks you to sign in here the first time.</p>
             <ul v-if="tokens.length" class="acct__list">
               <li v-for="t in tokens" :key="t.id" class="acct__item">
-                <span>{{ t.label || "Token" }}</span>
+                <span class="acct__name">{{ t.label || "Token" }}</span>
                 <span class="t-sm t-muted acct__meta">
                   {{ t.kind === "app" ? "signed in" : "token" }} · {{ scopeName(t.scope) }} · {{ usedAgo(t.lastUsedAt) }}
                 </span>
@@ -824,9 +825,15 @@ async function onSignOut() {
   text-decoration-color: var(--underline);
   text-underline-offset: var(--underline-offset);
 }
-.acct__switch:hover,
 .acct__switch:focus-visible {
   text-decoration-color: var(--ink-2);
+}
+/* pointer-gated, ink included: a tap latches :hover on touch, and the underline would
+   stay deepened on a switch nobody is pointing at */
+@media (hover: hover) and (pointer: fine) {
+  .acct__switch:hover {
+    text-decoration-color: var(--ink-2);
+  }
 }
 .acct__empty .acct__alt {
   width: 100%;
@@ -870,14 +877,11 @@ async function onSignOut() {
 .acct__section:last-child {
   padding-bottom: 0;
 }
-/* NOT the sharing panel's --text-micro field label, though both sit under a t-label
-   title. Sharing's labels name an INPUT directly beneath them, so a small quiet label
-   reads as attached to its control. These name a SECTION of prose — at 12px they came
-   out smaller and fainter than the paragraph they introduce, which puts the heading
-   below its own body text.
-   The contrast this surface needs is structural rather than typographic: the sections
-   are already separated by hairlines (see .acct__section), which is the work sharing
-   was asking its type to do alone. */
+/* NOT a 12px --text-micro label: a small quiet label reads as attached to an input
+   directly beneath it, and these name a SECTION of prose. At 12px they came out
+   smaller and fainter than the paragraph they introduce, which puts the heading below
+   its own body text. The contrast this surface needs is structural rather than
+   typographic: the sections are already separated by hairlines (see .acct__section). */
 .acct__label {
   color: var(--ink-2);
 }
@@ -979,17 +983,38 @@ async function onSignOut() {
   display: flex;
   flex-direction: column;
 }
+/* A credential row: its name and its button on the first line, the facts about it
+   (how it signed in, what it can do, when it was last used) on a line of their own
+   beneath. One line held all three once, and at 320px or in the 26rem modal the
+   three-way squeeze broke "Claude" mid-word and pushed "Disconnect" out of its own
+   button (reset.scss lets every flex child shrink below its content). The facts run
+   to about fifty characters; given the row's whole width they take a line or two,
+   where wedged between a name and a button they took three or more.
+   The button's track is max-content, the grid's flex: none: it is never narrower than
+   its label. The name's track takes the rest, and a name too long for it (a token
+   label runs to 60 characters) wraps rather than clips, since it is the thing that
+   says which credential you are about to revoke. */
 .acct__item {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content;
   align-items: baseline;
-  gap: var(--space-3);
+  column-gap: var(--space-3);
+  row-gap: var(--space-px);
   padding-block: var(--space-3);
 }
 .acct__item + .acct__item {
   border-top: 1px solid var(--line);
 }
+.acct__name {
+  overflow-wrap: anywhere;
+}
+.acct__item > .btn {
+  grid-column: 2;
+  grid-row: 1;
+}
 .acct__meta {
-  flex: 1 1 auto;
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 /* Three controls in this row where the others carry two, so it is allowed to wrap.
    At phone width the name field takes a line of its own (the 12rem basis is what

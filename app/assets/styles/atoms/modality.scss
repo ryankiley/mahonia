@@ -1,0 +1,22 @@
+// ── KEYBOARD-INITIATED MOTION IS INSTANT ─────────────────────────────────────
+// While the last input was a key (data-input="keyboard" on <html>, set and cleared by
+// app/plugins/inputModality.client.ts), every transition and animation lands in one
+// frame: a shortcut, an arrow key, Tab or Enter shows its result, it doesn't perform
+// it. The same shape as the reduced-motion kill-switch in main.scss, with one
+// difference that matters: ZERO, not 0.01ms. A zero-length transition never starts,
+// and Vue's <Transition> reads a zero duration off the computed style and finishes on
+// the spot rather than waiting for a transitionend that will never come; a zero-length
+// animation still fires animationend, so code listening for one still hears it.
+// Delays go too, or a delayed arrival (a mode switch's fade-in, a visibility flip at
+// the end of a fold) would still wait out a beat it no longer animates.
+// Script that runs its own Web Animation or times a wait asks motionIsInstant().
+:root[data-input="keyboard"] {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
+}

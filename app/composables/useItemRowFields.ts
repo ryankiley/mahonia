@@ -2,6 +2,7 @@ import type { Ref } from "vue";
 import type { Item, ListSnapshot, Unit } from "~~/shared/types";
 import { effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, rowDisplayKcal } from "~~/shared/weights";
 import { isWaterName, waterLiters, waterMgFromMl } from "~~/shared/water";
+import { motionIsInstant } from "~/plugins/inputModality.client";
 
 const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
 export const QTY_MAX = 9999;
@@ -83,7 +84,17 @@ export function useItemRowFields({
   }
   const qtyFieldRef = useTemplateRef<HTMLInputElement>("qtyFieldRef");
   const qtyPopping = ref(false);
+  // When the pop now playing has landed (performance.now()). A press before then lets
+  // it finish rather than starting it over: a restart throws the number back to the
+  // keyframe's transparent first frame, so + + + in a quick run (a fourth gas canister)
+  // kept blanking the count it was changing. A press from the keyboard (Enter or Space
+  // on the stepper) doesn't pop at all — keyboard actions don't animate — and nor does
+  // one under reduced motion.
+  let qtyPopUntil = 0;
   function popQty() {
+    const now = performance.now();
+    if (motionIsInstant() || now < qtyPopUntil) return;
+    qtyPopUntil = now + springCss("pop").duration;
     qtyPopping.value = false;
     nextTick(() => {
       void qtyFieldRef.value?.offsetHeight;

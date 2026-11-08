@@ -137,6 +137,22 @@ const { onKey } = useRovingRadio(
     background-color var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
 }
+// THE TARGET on a phone, drawn apart from the tab — the .switch::before pattern
+// (controls.scss). 30px is the height this bar should LOOK (see above), and 14px short of
+// the --tap every other control grows to on a coarse pointer; growing the tab would
+// change the look and stand the bar taller. A transparent ::before reaches 7px past it
+// above and below instead, absolutely positioned so it costs no layout. Vertical only:
+// the tabs sit 2px apart, and a hit area reaching sideways would land on the neighbour.
+@media (pointer: coarse) {
+  .modebar__opt {
+    position: relative;
+  }
+  .modebar__opt::before {
+    content: "";
+    position: absolute;
+    inset: calc((var(--control-compact) - var(--tap)) / 2) 0;
+  }
+}
 
 // The wash matters: without a plate, a pointer crossing the bar changes the word's colour
 // and leaves no target under it. It has to sit clearly UNDER the selected state's --lit,

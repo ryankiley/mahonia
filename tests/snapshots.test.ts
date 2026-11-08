@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { lists } from "../server/db/schema";
 import { LISTS_DDL, SNAPSHOTS_DDL, ensureSnapshotSchema } from "../server/utils/db";
+import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import {
   applyOpsByEditHash,
   listSnapshotsByEditHash,
@@ -32,7 +33,7 @@ describe("snapshots — vandalism recovery", () => {
     let snaps = await listSnapshotsByEditToken(editToken, db);
     expect(snaps).toHaveLength(1);
     // `reason` carries a SUMMARY of the batch now, not the constant "edit" — see
-    // shared/changeSummary. This is what the sharing panel renders, so pinning it
+    // shared/changeSummary. This is what the sharing menu renders, so pinning it
     // here is what stops it silently regressing to a bare "Edited".
     //
     // It NAMES the row, which is only possible because this path hands the summary
@@ -45,6 +46,75 @@ describe("snapshots — vandalism recovery", () => {
     await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v3" } }], db);
     snaps = await listSnapshotsByEditToken(editToken, db);
     expect(snaps).toHaveLength(1);
+  });
+
+  // An edit through the connector always leaves a point, named as an assistant's, so
+  // it shows in recent changes and restoring that point undoes it. A burst of calls is
+  // one entry: otherwise five quick calls would push every earlier point out of the cap.
+  it("records an assistant's edit whatever the throttle says, once per burst", async () => {
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const { editToken } = await seedList(db, { folders: [folder], items: [item("i1", "Tent")] });
+    await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v2" } }], db);
+    // inside the window: the owner's next edit would be skipped, the assistant's isn't
+    await applyOpsByEditToken(
+      editToken,
+      [{ t: "addItem", item: item("i2", "Stakes") }],
+      db,
+      { actor: "assistant" },
+    );
+    let snaps = await listSnapshotsByEditToken(editToken, db);
+    expect(snaps!.map((s) => [s.reason, s.by])).toEqual([
+      ["Added Stakes", { kind: "assistant" }],
+      ["Renamed Tent → Tent v2", null],
+    ]);
+    // the same assistant again, straight after: still one entry for it
+    await applyOpsByEditToken(editToken, [{ t: "addItem", item: item("i3", "Pot") }], db, { actor: "assistant" });
+    snaps = await listSnapshotsByEditToken(editToken, db);
+    expect(snaps).toHaveLength(2);
+    // and the owner, inside the window, is throttled as before
+    await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v3" } }], db);
+    snaps = await listSnapshotsByEditToken(editToken, db);
+    expect(snaps).toHaveLength(2);
+  });
+
+  // Who made a change: "You" to the person who made it, the name they chose to
+  // everyone else, and nothing for an account without one or an edit link used
+  // signed out. The session is only read when a point is actually taken.
+  it("names who made a change to whoever reads it, and asks who only when it records", async () => {
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
+    const [sam] = await db.insert(schema.users).values({ email: "sam@example.com", displayName: "Sam" }).returning();
+    const [quiet] = await db.insert(schema.users).values({ email: "quiet@example.com" }).returning();
+    const { editToken, row } = await seedList(db, { folders: [folder], items: [item("i1", "Tent")] });
+    const clearThrottle = () => db.update(lists).set({ lastSnapshotAt: new Date(0) }).where(eq(lists.id, row.id));
+    let asked = 0;
+    const as = (id: number | null) => ({ editor: async () => (asked++, id) });
+
+    await applyOpsByEditToken(editToken, [{ t: "addItem", item: item("i2", "Stakes") }], db, as(sam!.id));
+    // inside the window: no point is taken, so nobody is asked
+    await applyOpsByEditToken(editToken, [{ t: "addItem", item: item("i3", "Pot") }], db, as(quiet!.id));
+    expect(asked).toBe(1);
+    await clearThrottle();
+    await applyOpsByEditToken(editToken, [{ t: "addItem", item: item("i4", "Cup") }], db, as(quiet!.id));
+    await clearThrottle();
+    await applyOpsByEditToken(editToken, [{ t: "addItem", item: item("i5", "Lid") }], db, as(null));
+
+    const read = async (viewer: number | null) =>
+      (await listSnapshotsByEditToken(editToken, db, viewer))!.map((s) => [s.reason, s.by]);
+    expect(await read(sam!.id)).toEqual([
+      ["Added Lid", null],
+      ["Added Cup", null], // an account with no name stays unnamed to others
+      ["Added Stakes", { kind: "you" }],
+    ]);
+    expect(await read(quiet!.id)).toEqual([
+      ["Added Lid", null],
+      ["Added Cup", { kind: "you" }],
+      ["Added Stakes", { kind: "named", name: "Sam" }],
+    ]);
+    expect(await read(null)).toEqual([
+      ["Added Lid", null],
+      ["Added Cup", null],
+      ["Added Stakes", { kind: "named", name: "Sam" }],
+    ]);
   });
 
   it("restores a snapshot and snapshots the current state first (undoable)", async () => {

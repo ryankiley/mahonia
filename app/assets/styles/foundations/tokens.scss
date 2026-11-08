@@ -409,6 +409,10 @@ $bp-full: 1024px !default;
     --spring-pop: cubic-bezier(0.34, 1.3, 0.5, 1);
     --spring-track: cubic-bezier(0.16, 1, 0.3, 1);
   }
+  /* Outside the table: the iOS sheet curve, for the one move that follows the keyboard
+     rather than a click — the phone sheet lifting clear of it (VaultPane's keyboard
+     lift), on --spring-step-dur. */
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   --stagger: 31ms; /* per-child cascade step — SPACE10's kinetic-type cadence */
   --blur-pop: 2px; /* enter blur for pop-ins (webkit-safe: rest at blur(0), never from none) */
 
@@ -424,8 +428,15 @@ $bp-full: 1024px !default;
      menu, a diffuse one for a tall panel — but the honest reading was that the old
      value was simply too heavy at BOTH ends, not mis-sized: a 0.2-alpha 48px layer
      that read mushy under a 32px card and looked like weather under a panel.
-     Lighter and pulled tighter, it works at both. */
-  --shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.04), 0 12px 28px -10px rgba(0, 0, 0, 0.13);
+     Lighter and pulled tighter, it works at both.
+     CENTRED, not dropped (Ryan, 2026-11-07: "the y position on the shadow of popovers
+     isn't helping the top of them"). The ambient layer was 0 12px 28px -10px: shrunk
+     10px a side and pushed 12px down, so its top sat INSIDE the card and every bit of
+     it landed below. On a white page that left a popover's top edge, the one nearest
+     its trigger, undrawn. Now a 1px soft edge all the way round defines the shape, and
+     the ambient layer sits nearly centred (2px down, no negative spread) so the top
+     gets its share of the lift. */
+  --shadow-soft: 0 0 1px rgba(0, 0, 0, 0.1), 0 2px 24px rgba(0, 0, 0, 0.1);
   /* floating-menu surface: bright white in light (NOT the grey paper-2 — popovers
      should read crisp, lifted off the page), a clearly-elevated grey in dark */
   --surface-float: light-dark(#ffffff, #1f1f1f);
@@ -515,6 +526,11 @@ $bp-full: 1024px !default;
      the app. Named because the category legend hangs its wrapped lines off exactly
      this width (CategoryBar), so the two must move together. */
   --swatch: 10px;
+  /* My Gear's gear-type icon column (VaultGearRow) and how far a row's name sits in from
+     it. "Add gear" stays flush left with the folder name: indented, it floated under an
+     empty folder's title with nothing to line up with. */
+  --gear-type-w: 1.25rem; /* the 20px glyph's own width: its edge is the folder name's */
+  --gear-type-indent: calc(var(--gear-type-w) + var(--space-2));
   /* touch targets — the ~44px Apple-HIG minimum box + the enlarged glyph,
      consumed by every `@media (pointer: coarse)` icon-button override */
   --tap: 44px;

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Bug02Icon, CopyPlusIcon, Delete02Icon, FileExportIcon, FileImportIcon, InformationCircleIcon, KeyboardIcon, LegalDocument01Icon, RemoveCircleIcon, UserAddIcon } from "@hugeicons/core-free-icons";
-import type { ListSnapshot } from "~~/shared/types";
+import { Bug02Icon, CopyPlusIcon, Delete02Icon, FileImportIcon, InformationCircleIcon, KeyboardIcon, LegalDocument01Icon, RemoveCircleIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 
 // The editor's ⋯ menu — the list of actions, NOT the button that opens it. The
 // trigger stays in the toolbar (GearEditor), where it is one glyph on the first
@@ -15,30 +14,27 @@ import type { ListSnapshot } from "~~/shared/types";
 //
 // The split is the bundle ratchet's own rule — nothing that only runs on one
 // interaction belongs on the load before it — applied to a surface that had
-// escaped it: the rows below carry ten glyphs, the export section and its four
-// format marks (useListExports), and the two rows of the foot, every byte of it on
+// escaped it: the rows below carry their glyphs and the two rows of the foot, every
+// byte of it on
 // the editor's first load for a menu most visits never open. Priced the way the
 // lazy checkbox in scripts/bundle-budget-ledger.md was, and it comes out the other
 // way: a chunk boundary costs ~0.3 KB, this body is ten times that (measured: the
 // first load 151.1 → 147.8 KB brotli with this split alone).
 //
 // State lives with the caller — the parent owns `open` (its dismiss contract, its
-// mutual exclusion with the share panel, the tooltip that stands down) and every
+// mutual exclusion with the sharing menu, the tooltip that stands down) and every
 // action is an emit, so the rows here are a table and nothing else: a row is one
 // entry, not a hand-written <li> plus a case in a dispatch switch (the argument
 // ReadonlyMenu already makes for the read views' twin of this menu).
 const props = defineProps<{
   open: boolean;
-  /** the first-run screen: nothing to copy or export yet, so those rows stand down */
+  /** the first-run screen: nothing to duplicate yet, so that row stands down */
   firstRun: boolean;
   /** a list with a share code — the foot only ends a list that exists */
   saved: boolean;
   /** opened by a claimed code rather than an edit link: Forget is a device act, and
    *  a claimed open has no registry row to drop */
   openedByCode: boolean;
-  snapshot: ListSnapshot | null;
-  /** the READ-ONLY link the plain-text export appends — see the note in GearEditor */
-  shareUrl: string;
 }>();
 
 /** the rows' events — the table below names one per row, and the foot two more */
@@ -49,45 +45,23 @@ type FootEvent = "forget" | "delete";
 // types each name as its own overload and a union matches none of them
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "flash", msg: string): void;
   (e: MenuEvent | FootEvent): void;
 }>();
 
-// the travelling wash shared with the other menus (see useMenuPlate). Section
-// HEADERS deliberately carry no [data-row] — they open a group rather than doing
-// something, so the wash shouldn't claim them as a destination.
-const { plateRef, listRef, on: plateOn } = useMenuPlate();
-
-// the four export actions, their chunk warm-up and the ROWS that draw them live in
-// useListExports, shared with the read views' ⋯ menu so neither the copy, the error
-// handling nor the wording and marks can drift.
-const { warmExporters, exportItems } = useListExports(
-  () => props.snapshot,
-  (msg) => emit("flash", msg),
-  () => props.shareUrl,
-);
-
-// Export folds into a disclosure — <MenuSection>, shared with the read views' ⋯ menu,
-// which owns the header, the reveal and the warm-on-open. The rows are useListExports'.
-const exportOpen = ref(false);
-// a re-opened menu starts collapsed — the previous session's open section is not a
-// preference, and restoring it would put a different item under the cursor
-watch(() => props.open, (open) => open || (exportOpen.value = false));
+// NO EXPORT HERE. It was a fold-out in this menu, a glyph away from the links, so the
+// two ways of sending a list sat on two surfaces. It lives in the sharing panel now,
+// on a tab beside the links, under a card that offers the link first.
 
 // EVERY ROW LEADS WITH A GLYPH. It was words alone until the foot grew two rows that
 // needed marks to tell them apart, which left the menu looking like two kinds of list
 // stacked on each other.
 //
-// The Export items were the exception for one release — bare, on the design system's
-// rule that its nested rows carry nothing. That left the one place in the menu where
-// the eye had to fall back to reading, so they carry marks now too, one per FORMAT —
-// see useListExports.
-//
-// Import and Export take the mirrored pair deliberately; they are the same door in
-// two directions and the glyphs should say so before the words do.
+// Import keeps the mirror of the sharing panel's Export mark (FileImport against
+// FileExport): the same door in two directions, now on two surfaces, and the glyphs
+// should say so before the words do.
 // `hidden` keeps an action out of the menu while pressing it would do nothing worth
-// doing: an unsaved, empty draft has nothing to copy or export, and a row that yields
-// an empty file is worse than no row (inert controls are absent, not dimmed).
+// doing: an unsaved, empty draft has nothing to duplicate, and a row that makes an
+// empty copy is worse than no row (inert controls are absent, not dimmed).
 interface MenuAction {
   label: string;
   icon: typeof UserAddIcon;
@@ -116,9 +90,9 @@ const MENU_ACTIONS: MenuAction[] = [
   // the switcher now appears at ONE list rather than two — see ListMenu. Below that
   // threshold it wasn't on screen at all, and dropping this row would have stranded a
   // one-pack visitor with no way to start a second.)
-  // NOT a clipboard mark, however well one would fit the word "copy". The Export
-  // rows below are genuine clipboard writes, and so is the Copy01 pair of sheets
-  // that ListHead and SharePanel put on their Copy buttons — this row is the odd
+  // NOT a clipboard mark, however well one would fit the word "copy". The sharing
+  // panel's copies are genuine clipboard writes, and so is the Copy01 pair of sheets
+  // that ListHead puts on its Copy button — this row is the odd
   // one out, minting an independent list and navigating you into it. That is the
   // argument ReadonlyMenu.vue already makes for calling it "Duplicate" and not
   // "Copy"; the glyph is read first, so it has to agree or it spends the label.
@@ -153,30 +127,14 @@ function act(event: MenuEvent | FootEvent) {
        the first open (already open), so without it the first reveal would snap where
        every later one eases — the same reason BaseModal carries it. -->
   <Transition name="menu" appear>
-    <ul v-if="open" ref="listRef" class="popover menu__list editor__actions" role="menu" aria-label="More actions" v-on="plateOn">
-      <!-- the travelling wash (atoms/controls.scss + useMenuPlate) -->
-      <li role="none" aria-hidden="true">
-        <span ref="plateRef" class="menu__plate" />
-      </li>
+    <MenuList v-if="open" class="editor__actions" aria-label="More actions">
       <!-- Close BEFORE the action runs, matching the old dispatch order. -->
       <li v-for="a in menuActions" :key="a.label" role="none">
         <button type="button" data-row role="menuitem" class="menu__item" @click="act(a.event)">
-          <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ a.label }}
         </button>
       </li>
-      <!-- Export folds into <MenuSection>, and stays off the first-run screen
-           for the same reason Duplicate does: an unsaved, empty draft has
-           nothing to give (a header-only CSV). -->
-      <MenuSection
-        v-if="!firstRun"
-        v-model:open="exportOpen"
-        label="Export"
-        :icon="FileExportIcon"
-        :items="exportItems"
-        @opened="warmExporters"
-        @pick="emit('close')"
-      />
       <!-- The site foot: help, then the two pages the editor's footer used to carry
            before it had none (main #376). Ruled off from the list operations above
            by the shared .menu__foot, and from the destructive pair below by the next. -->
@@ -190,15 +148,15 @@ function act(event: MenuEvent | FootEvent) {
           class="menu__item"
           @click="act(a.event)"
         >
-          <HugeiconsIcon :icon="a.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ a.label }}
         </button>
         <NuxtLink to="/about" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="InformationCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="InformationCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           About
         </NuxtLink>
         <NuxtLink to="/legal" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="LegalDocument01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="LegalDocument01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Legal
         </NuxtLink>
       </li>
@@ -226,7 +184,7 @@ function act(event: MenuEvent | FootEvent) {
           class="menu__item editor__footact"
           @click="act('forget')"
         >
-          <HugeiconsIcon :icon="RemoveCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           Forget this list
         </button>
         <button
@@ -237,16 +195,16 @@ function act(event: MenuEvent | FootEvent) {
           class="menu__item editor__footact editor__delete"
           @click="act('delete')"
         >
-          <HugeiconsIcon :icon="Delete02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
           Delete this list
         </button>
       </li>
-    </ul>
+    </MenuList>
   </Transition>
 </template>
 
 <style scoped lang="scss">
-/* Export may expand on a short phone. Keep all links and actions reachable. */
+/* A short phone can't show the whole menu. Keep all links and actions reachable. */
 .editor__actions {
   max-height: calc(100svh - var(--space-9));
   overflow-y: auto;
@@ -254,8 +212,6 @@ function act(event: MenuEvent | FootEvent) {
 }
 /* The shared .menu__foot (controls.scss) separates list, site, and destructive
    actions. Its rule spans the same width as the travelling plate. */
-/* the ⋯ menu's Export section is the shared .menu__sect disclosure (controls.scss),
-   which the read views' menu uses too */
 /* ...and its FOOT holds the one action that ends the list, ruled off from the rest —
    the shared .menu__foot (controls.scss), which the switcher and the read views' menu
    wear too. The rule sits on the <li> rather than on the row, so it spans the same

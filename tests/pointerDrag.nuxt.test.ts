@@ -13,7 +13,7 @@
 //     pending target in onReset destroyed the payload commit was about to use.
 //     target() is therefore read first, deliberately.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createPointerDrag, createPressArm } from "~/utils/pointerDrag";
+import { createPointerDrag, createPressArm, lockTextSelection } from "~/utils/pointerDrag";
 
 // happy-dom has no layout, so elementFromPoint returns null and getBoundingClientRect
 // is all zeroes. Both are stubbed per-test: the scaffold's decisions are ABOUT those
@@ -237,6 +237,24 @@ describe("createPointerDrag", () => {
     window.dispatchEvent(up());
     expect(document.body.style.userSelect).toBe("");
   });
+
+  // WebKit (Safari, and every browser on iOS) reads only the prefixed property, so the
+  // unprefixed lock alone held everywhere except the phones most of these drags are on.
+  // happy-dom drops a vendor-prefixed property on the floor, so the write itself is
+  // what's checked.
+  it("locks selection in WebKit's spelling too, and clears both", () => {
+    const set = vi.spyOn(document.body.style, "setProperty");
+    try {
+      lockTextSelection(true);
+      expect(document.body.style.userSelect).toBe("none");
+      expect(set).toHaveBeenLastCalledWith("-webkit-user-select", "none");
+      lockTextSelection(false);
+      expect(document.body.style.userSelect).toBe("");
+      expect(set).toHaveBeenLastCalledWith("-webkit-user-select", "");
+    } finally {
+      set.mockRestore();
+    }
+  });
 });
 
 // The press that BECOMES a drag — the arming scaffold /vault's rows and the vault
@@ -257,12 +275,16 @@ describe("createPressArm", () => {
   };
   function armHarness(opts: { touchHoldMs?: number; exclude?: string } = {}) {
     const drags: [unknown, PointerEvent][] = [];
+    const arms: unknown[] = [];
+    const disarms: unknown[] = [];
     const arm = createPressArm<unknown>({
       threshold: 5,
       onDrag: (payload, ev) => void drags.push([payload, ev]),
+      onArm: (payload) => void arms.push(payload),
+      onDisarm: (payload) => void disarms.push(payload),
       ...opts,
     });
-    return { arm, drags };
+    return { arm, drags, arms, disarms };
   }
 
   it("hands off to onDrag once the press travels past the threshold", () => {
@@ -375,6 +397,100 @@ describe("createPressArm", () => {
     arm.end();
     window.dispatchEvent(pmove({ clientX: 200 }));
     expect(drags).toEqual([]);
+  });
+
+  // The vault sheet's touch guard asks this before it hands a move to the browser: once
+  // a held row has armed, a finger moving over the list is carrying it, not scrolling
+  // it, and a scroll would steal the pointer (pointercancel) and kill the drag.
+  describe("armed()", () => {
+    it("is false before the hold elapses and true from the moment it does", () => {
+      const { arm } = armHarness({ touchHoldMs: 250 });
+      arm.start("row-1", at(pdown({ pointerType: "touch" }), 1000));
+      expect(arm.armed(1100)).toBe(false);
+      expect(arm.armed(1250)).toBe(true);
+    });
+
+    it("is false once the press has ended", () => {
+      const { arm } = armHarness({ touchHoldMs: 250 });
+      arm.start("row-1", at(pdown({ pointerType: "touch" }), 1000));
+      window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 1, bubbles: true }));
+      expect(arm.armed(5000)).toBe(false);
+    });
+
+    it("is false once the press stood down for a scroll", () => {
+      const { arm } = armHarness({ touchHoldMs: 250 });
+      arm.start("row-1", at(pdown({ pointerType: "touch" }), 1000));
+      window.dispatchEvent(at(pmove({ pointerType: "touch", clientX: 40 }), 1100));
+      expect(arm.armed(1300)).toBe(false);
+    });
+
+    // a press that BECAME a drag is the drag's business now (the caller watches that)
+    it("is false once the drag has taken the press over", () => {
+      const { arm, drags } = armHarness({ touchHoldMs: 250 });
+      arm.start("row-1", at(pdown({ pointerType: "touch" }), 1000));
+      window.dispatchEvent(at(pmove({ pointerType: "touch", clientX: 40 }), 1300));
+      expect(drags).toHaveLength(1);
+      expect(arm.armed(1400)).toBe(false);
+    });
+
+    it("a mouse press is armed at once — distance alone decides it", () => {
+      const { arm } = armHarness({ touchHoldMs: 250 });
+      arm.start("row-1", at(pdown({ pointerType: "mouse" }), 1000));
+      expect(arm.armed(1000)).toBe(true);
+    });
+  });
+
+  // The feedback that a hold took: onArm fires AT the hold, with the finger still, not
+  // on the next move — a press-and-hold you can't feel take is one you can't trust.
+  describe("onArm / onDisarm", () => {
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    it("announces the hold the moment it elapses", () => {
+      const { arm, arms } = armHarness({ touchHoldMs: 250 });
+      arm.start("row-1", pdown({ pointerType: "touch" }));
+      vi.advanceTimersByTime(249);
+      expect(arms).toEqual([]);
+      vi.advanceTimersByTime(1);
+      expect(arms).toEqual(["row-1"]);
+    });
+
+    it("takes the feedback down when an armed press lifts without dragging", () => {
+      const { arm, disarms } = armHarness({ touchHoldMs: 250 });
+      arm.start("row-1", pdown({ pointerType: "touch" }));
+      vi.advanceTimersByTime(250);
+      window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 1, bubbles: true }));
+      expect(disarms).toEqual(["row-1"]);
+    });
+
+    it("never announces a press that let go first, or a mouse press", () => {
+      const { arm, arms, disarms } = armHarness({ touchHoldMs: 250 });
+      arm.start("row-1", pdown({ pointerType: "touch" }));
+      vi.advanceTimersByTime(100);
+      window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 1, bubbles: true }));
+      arm.start("row-2", pdown({ pointerType: "mouse" }));
+      vi.advanceTimersByTime(1000);
+      expect(arms).toEqual([]);
+      expect(disarms).toEqual([]); // nothing went up, so nothing comes down
+    });
+
+    // the drag that follows owns what the row looks like from here
+    it("does not disarm a press that became a drag", () => {
+      const { arm, drags, disarms } = armHarness({ touchHoldMs: 250 });
+      arm.start("row-1", at(pdown({ pointerType: "touch" }), 1000));
+      vi.advanceTimersByTime(250);
+      window.dispatchEvent(at(pmove({ pointerType: "touch", clientX: 40 }), 1300));
+      expect(drags).toHaveLength(1);
+      expect(disarms).toEqual([]);
+    });
+
+    it("end() — the unmount path — disarms an armed press", () => {
+      const { arm, disarms } = armHarness({ touchHoldMs: 250 });
+      arm.start("row-1", pdown({ pointerType: "touch" }));
+      vi.advanceTimersByTime(250);
+      arm.end();
+      expect(disarms).toEqual(["row-1"]);
+    });
   });
 });
 

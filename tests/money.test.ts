@@ -5,7 +5,7 @@
 // and buys a €1.29 tent — is pinned by a test rather than by a form.
 
 import { describe, expect, it } from "vitest";
-import { PRICE_MAX_CENTS, formatPrice, parsePriceInput, sumPrices } from "../shared/money";
+import { PRICE_MAX_CENTS, formatPrice, parsePriceInput, sumPrices, zeroPrice } from "../shared/money";
 
 describe("parsePriceInput — reading a price the way it was typed", () => {
   it("takes a bare number as whole units", () => {
@@ -117,3 +117,16 @@ describe("sumPrices — what a set of gear cost", () => {
     expect(sumPrices([{}, { priceCents: 0 }])).toBeNull();
   });
 });
+
+// The price field's placeholder: nothing, in the money a bare number will be saved in.
+describe("zeroPrice", () => {
+  it("names the currency with no cents", () => {
+    expect(zeroPrice("USD")).toMatch(/^\$\s?0$/);
+    expect(zeroPrice("gbp")).toMatch(/^£\s?0$/);
+  });
+  it("is a bare 0 with no currency, or one that isn't a code", () => {
+    expect(zeroPrice()).toBe("0");
+    expect(zeroPrice("dollars")).toBe("0");
+  });
+});
+

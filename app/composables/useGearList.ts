@@ -25,7 +25,26 @@ import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedList
 // is mirrored to IndexedDB (useLocalListStore) so a draft or an un-acked edit
 // survives a reload, a crash, or a dropped connection.
 
+// "missing" is the one state only a new open leaves: the server has no row under this
+// capability (deleted, the link rotated, the claim revoked), so nothing the network does
+// can change the answer. A local copy may still be on screen, readable and exportable;
+// edits to it persist to IndexedDB only, never queued or flushed against a dead row.
 type Status = "idle" | "loading" | "saving" | "synced" | "missing" | "error" | "offline";
+
+/** What this open holds, which is what every request and every local key hangs off.
+ *  "none" is a draft, or nothing open. "token" is an edit link on this device. "claimed"
+ *  is the share code of a list on the signed-in account, the session being the proof
+ *  (server/utils/editAuth). "keyless" is a fragment-less /e/{code} with no session: the
+ *  link lost its edit key, so all it can offer is the read view (startKeyless). */
+type ListAccess =
+  | { kind: "none" }
+  | { kind: "token"; token: string }
+  | { kind: "claimed"; code: string }
+  | { kind: "keyless"; code: string };
+
+/** The question a list you didn't start puts to you about its gear: the toast, then on
+ *  a yes the chooser. One at a time, or none. */
+type VaultAsk = { step: "prompt"; title: string } | { step: "picker"; rows: VaultCapture[] };
 
 /** How long after a dispatch the queued ops go to the server. Long enough that a burst
  *  of keystrokes is one request; short enough that a list closed a moment after an
@@ -57,18 +76,15 @@ function create() {
   // a freshly "Add an item" row that's still empty — it autofocuses on mount and
   // discards itself if you click away without typing (so the list isn't littered)
   const pendingBlankId = ref<string | null>(null);
-  let editToken = "";
-  // The OTHER way into a list: the share code of a CLAIMED one, opened through the
-  // signed-in session instead of an edit link (see server/utils/editAuth). Never
-  // set while editToken is — the token is the stronger claim and always wins.
-  let claimCode = "";
-  // Reactive mirror of "this open holds no token" for the template layer — the
-  // plain getters below can't be tracked, and the chrome needs to hide the
-  // token-only affordances (Forget, the copyable edit link) on a claimed open.
-  const openedByCode = ref(false);
-  // the share code of a fragment-less /e/{code} opened with no session: the link
-  // lost its edit key, so the page explains instead of minting a draft (startKeyless)
-  const keylessCode = ref("");
+  const access = shallowRef<ListAccess>({ kind: "none" });
+  const editToken = () => (access.value.kind === "token" ? access.value.token : "");
+  const claimCode = () => (access.value.kind === "claimed" ? access.value.code : "");
+  /** Whether this open reaches a server row, by either way in. Not a draft, not keyless. */
+  const holdsList = () => access.value.kind === "token" || access.value.kind === "claimed";
+  // the chrome hides the token-only affordances (Forget, the copyable edit link) on a
+  // claimed open, and the keyless page offers the read view of this code
+  const openedByCode = computed(() => access.value.kind === "claimed");
+  const keylessCode = computed(() => (access.value.kind === "keyless" ? access.value.code : ""));
   let pending: Op[] = [];
   let flushTimer: ReturnType<typeof setTimeout> | undefined;
   // The failure path's own timer, kept apart from flushTimer so a backoff already
@@ -83,11 +99,14 @@ function create() {
   // elsewhere, a field taking focus, the tab coming back — sets the poll cadence
   let liveAt = 0;
   let isEditing = false;
-  // The server has no row under this token (deleted, or the link was rotated) but
-  // a local copy is still on screen. Mutate's 404 is a permanent token-lookup
-  // failure, so while set, edits persist to IndexedDB only — never queued/flushed
-  // against the dead token.
-  let remoteMissing = false;
+  const remoteMissing = () => status.value === "missing";
+  /** Every status move within a session, which is all of them but the four that begin
+   *  one (load, startDraft, startKeyless, dispose). The server's verdict stands until
+   *  then: a load and a flush can overlap, and a later answer from the other one doesn't
+   *  overrule it, or everything reading it goes back to queuing against a dead row. */
+  function setStatus(next: Status) {
+    if (!remoteMissing()) status.value = next;
+  }
   // bumped on every load/dispose so in-flight responses for a previous list are ignored
   let epoch = 0;
   // The same count as a ref, for a consumer that has to REACT to the list changing
@@ -109,9 +128,10 @@ function create() {
   // Raised when gear would reach the vault from a list this device didn't create
   // and hasn't been answered for. The editor shows it as a toast; nothing is
   // captured until it's answered, and the answer is remembered per list.
-  const vaultPrompt = ref<{ title: string } | null>(null);
+  const vaultAsk = shallowRef<VaultAsk | null>(null);
+  const vaultPrompt = computed(() => (vaultAsk.value?.step === "prompt" ? vaultAsk.value : null));
   // the rows the chooser is offering, or null when it's closed
-  const vaultPicker = ref<VaultCapture[] | null>(null);
+  const vaultPicker = computed(() => (vaultAsk.value?.step === "picker" ? vaultAsk.value.rows : null));
   // Whether the AUTOMATIC capture path is on for this list (the stored answer is
   // "yes"), and which rows the chooser declined. The stored truth lives in
   // localStorage, which nothing can react to — so it's mirrored into refs here,
@@ -122,8 +142,8 @@ function create() {
   const vaultAuto = ref(false);
   const vaultDeclined = ref<ReadonlySet<string>>(new Set());
   function refreshVaultCover() {
-    vaultAuto.value = vaultDecisionFor(editToken) === "yes";
-    vaultDeclined.value = vaultExclusionsFor(editToken);
+    vaultAuto.value = vaultDecisionFor(editToken()) === "yes";
+    vaultDeclined.value = vaultExclusionsFor(editToken());
   }
 
   // ---- what My Gear already holds, OF THIS LIST'S GEAR --------------------
@@ -315,7 +335,7 @@ function create() {
 
   // The IndexedDB slot this open persists under: the edit token, a code-prefixed
   // key for a claimed open, or the draft slot before first save.
-  const storeKey = () => (claimCode ? claimedLocalKey(claimCode) : localKey(editToken));
+  const storeKey = () => (access.value.kind === "claimed" ? claimedLocalKey(access.value.code) : localKey(editToken()));
 
   // Write the current snapshot + queue to IndexedDB under this list's key.
   // Best-effort: the store swallows its own failures, so this never throws into
@@ -341,7 +361,7 @@ function create() {
   scope.run(() => {
     watch(online, (isOnline) => {
       if (!isOnline) {
-        if (snapshot.value && status.value !== "loading") status.value = "offline";
+        if (snapshot.value && status.value !== "loading") setStatus("offline");
         return;
       }
       if (!snapshot.value) {
@@ -351,19 +371,18 @@ function create() {
         if (status.value === "offline") retryLoad();
         return;
       }
-      if (!editToken && !claimCode) {
+      if (remoteMissing()) return; // still dead server-side: nothing to drain or poll
+      if (!holdsList()) {
         if (hasRealContent(snapshot.value)) createFromDraft();
-      } else if (remoteMissing) {
-        status.value = "missing"; // still dead server-side; nothing to drain
       } else if (pending.length) {
         scheduleFlush();
       } else if (status.value === "offline") {
-        status.value = "synced";
+        setStatus("synced");
       }
       // the network coming back is the tab coming back, as far as the poll is
       // concerned: whatever happened elsewhere while it was gone is worth showing
       // now, not wherever the idle cadence had got to
-      if ((editToken || claimCode) && !remoteMissing) wakePoll(true);
+      if (holdsList()) wakePoll(true);
     });
   });
 
@@ -408,8 +427,9 @@ function create() {
   // else the claimed list's code — the session cookie rides along on its own and
   // is the part that actually proves anything.
   function authHeaders() {
-    if (editToken) return { Authorization: `Bearer ${editToken}` } as Record<string, string>;
-    return { [LIST_CODE_HEADER]: claimCode } as Record<string, string>;
+    const token = editToken();
+    if (token) return { Authorization: `Bearer ${token}` } as Record<string, string>;
+    return { [LIST_CODE_HEADER]: claimCode() } as Record<string, string>;
   }
 
   // Keep this list's row in "Your lists" in step with the snapshot. Called after a
@@ -432,11 +452,12 @@ function create() {
       totalMg: totals.value?.totalMg ?? 0, // the memoized rollup — no fresh full-list pass
       displayUnit: snapshot.value.displayUnit, // keep the summary in the list's unit system
     };
-    if (editToken) useMyLists().touch(editToken, patch);
+    const held = access.value;
+    if (held.kind === "token") useMyLists().touch(held.token, patch);
     // a claimed open has no registry row — its switcher row reads the account
     // list, so a rename here has to reach THAT copy to show up in the dropdown
-    else if (claimCode) {
-      useClaimedLists().touchByCode(claimCode, patch);
+    else if (held.kind === "claimed") {
+      useClaimedLists().touchByCode(held.code, patch);
       // ...and the registry row is also where touch() stamps lastOpened, which is
       // how the bare address knows where you left off. A claimed open has nowhere
       // to stamp it, so it goes in the ledger beside the row copy. Here rather
@@ -446,7 +467,7 @@ function create() {
       // HAS answered that the claim is dead, though: the hydrate stamp lands before
       // that answer, and every device-only edit on the dead-end page would renew it
       // — the bare address then offered the dead list first on every launch.
-      if (!remoteMissing) markClaimedOpen(claimCode);
+      if (!remoteMissing()) markClaimedOpen(held.code);
     }
   }
 
@@ -459,11 +480,13 @@ function create() {
   // an optimistic op never moves it, only the server does.
   function registryStale() {
     if (!snapshot.value) return false;
-    const row = editToken
-      ? useMyLists().entries.value.find((e) => e.editToken === editToken)
-      : claimCode
-        ? useClaimedLists().lists.value.find((l) => l.shareCode === claimCode)
-        : undefined;
+    const held = access.value;
+    const row =
+      held.kind === "token"
+        ? useMyLists().entries.value.find((e) => e.editToken === held.token)
+        : held.kind === "claimed"
+          ? useClaimedLists().lists.value.find((l) => l.shareCode === held.code)
+          : undefined;
     if (!row) return false;
     return (
       row.title !== snapshot.value.title ||
@@ -489,18 +512,19 @@ function create() {
     // device has no on-device copy for the hydrate path to have run it on — so it
     // runs here, on the server's fresh title and total, the way registerCreated
     // below refreshes a token's row.
-    if (claimCode) {
+    if (claimCode()) {
       syncRegistry();
       return;
     }
-    if (!editToken) return;
+    const token = editToken();
+    if (!token) return;
     // registerCreated owns the snapshot→MyListEntry mapping — one source of truth.
     // Marked "opened", because this is the path where a list arrives via a link
     // someone SENT you: signing in must not quietly attach it to your account.
     // upsert keeps a prior "created" if you made this list yourself and are merely
     // reopening it, so your own lists aren't downgraded by coming back to them.
     useMyLists().registerCreated(
-      { editToken, snapshot: snapshot.value },
+      { editToken: token, snapshot: snapshot.value },
       totals.value?.totalMg ?? 0,
       "opened",
     );
@@ -512,8 +536,8 @@ function create() {
   }
 
   // Everything one list's session owns, zeroed. Every way a session begins or ends
-  // — load(), startDraft(), dispose() — runs this AFTER the capability (editToken /
-  // claimCode) is set for the new session, so a queue, an in-flight flag or a
+  // — load(), startDraft(), dispose() — runs this AFTER `access` is set for the new
+  // session, and sets `status` right after it, so a queue, an in-flight flag or a
   // backoff from the last list can never leak into the next one.
   function resetSession() {
     // the previous list's poll chain ends here, not when its next tick happens to
@@ -523,14 +547,12 @@ function create() {
     pending = [];
     inFlight = false;
     isEditing = false;
-    remoteMissing = false;
     // the vault question is about THIS list — an unanswered one must not ride
     // along to the next list opened (where it would ask about the wrong gear,
-    // and spend that list's one chance to ask). A draft is yours, and never asks.
-    vaultPrompt.value = null;
-    // ...and so must the chooser it opens: left standing, it would show the last
-    // list's gear over this one and record the answer against this list's token
-    vaultPicker.value = null;
+    // and spend that list's one chance to ask), and the chooser it opens, left
+    // standing, would show the last list's gear over this one and record the answer
+    // against this list's token. A draft is yours, and never asks.
+    vaultAsk.value = null;
     // ...and the rows must render against THIS list's answer (a draft's answer IS
     // yes: no token → yours by definition)
     refreshVaultCover();
@@ -550,26 +572,13 @@ function create() {
   // cookie as the proof; see server/utils/editAuth). Token wins if both arrive,
   // matching the server's precedence: it's the more specific claim, and it keeps a
   // signed-in user's behaviour on a shared link identical to a signed-out user's.
-  /**
-   * What this open holds — a token, a claimed code, or neither. The four fields move
-   * TOGETHER: openedByCode is the reactive mirror of "no token, but a code" (the
-   * chrome gates on it, since the two plain lets can't be tracked), and keylessCode is
-   * cleared by every start but the keyless one, which sets it after. Five sites each
-   * wrote the quartet out; one of them forgetting the mirror is the bug this prevents.
-   */
-  function setCapability(token: string, code: string) {
-    editToken = token;
-    claimCode = code;
-    openedByCode.value = !token && !!code;
-    keylessCode.value = "";
-  }
-
   async function load(cap: { token?: string; code?: string }) {
     const myEpoch = bumpEpoch();
     const token = cap.token ?? "";
     // normalized so a hand-typed /e/{code} URL and the canonical code the server
     // returns key the same IndexedDB record and claimed-lists row
-    setCapability(token, token ? "" : normalizeShareCode(cap.code));
+    const code = normalizeShareCode(cap.code);
+    access.value = token ? { kind: "token", token } : code ? { kind: "claimed", code } : { kind: "none" };
     resetSession();
     snapshot.value = null;
     status.value = "loading";
@@ -586,7 +595,7 @@ function create() {
       // apostrophes until the network answered, then visibly re-spell itself.
       snapshot.value = tidyListText(local.snapshot);
       pending = local.pending ?? [];
-      status.value = pending.length ? "saving" : "synced";
+      setStatus(pending.length ? "saving" : "synced");
       syncRegistry();
       // The rows are on screen now, so the question they render against is live
       // now. Silent and best-effort: it decides whether a save button shows, and
@@ -602,7 +611,7 @@ function create() {
       // server is authoritative; replay any un-acked local ops on top of it
       const merged = rebaseOnto(res.snapshot, pending);
       snapshot.value = merged;
-      status.value = pending.length ? "saving" : "synced";
+      setStatus(pending.length ? "saving" : "synced");
       registerOpened(); // server confirmed the token → remember this list in "Your lists"
       // A second ask, which costs a request only if the server's copy brought
       // gear the on-device one didn't have — every key already answered for is
@@ -662,10 +671,10 @@ function create() {
       if (
         typeof location !== "undefined" &&
         location.pathname === "/e" &&
-        editToken &&
+        editToken() &&
         merged.shareCode
       ) {
-        history.replaceState(history.state, "", editLinkPath(merged.shareCode, editToken));
+        history.replaceState(history.state, "", editLinkPath(merged.shareCode, editToken()));
       }
       persistLocal();
       if (pending.length) scheduleFlush();
@@ -678,19 +687,18 @@ function create() {
       // retrying can't fix either. Both land in the same honest dead-end. A
       // 401 on the TOKEN path stays out of here — a bearer is always presented,
       // so a 401 there is a server hiccup worth treating as transient.
-      if (statusOf(e) === 404 || (statusOf(e) === 401 && claimCode)) {
+      if (statusOf(e) === 404 || (statusOf(e) === 401 && claimCode())) {
         // If we still hold a local copy, keep it on screen so the data is
         // readable/exportable, but don't poll or flush against a dead capability —
-        // and don't claim "synced": later edits stay device-only (remoteMissing).
-        remoteMissing = true;
-        status.value = "missing";
+        // and don't claim "synced": later edits stay device-only.
+        setStatus("missing");
         // A dead token whose list ALSO has a live row in the registry is the
         // leftover half of a rotate — the switcher was showing that pack twice,
         // both rows marked current, and this is the one that no longer opens.
         // Only the row goes; the local copy on screen is untouched (see the
         // composable). The live-side heal is upsert's share-code claim, so it
         // takes one visit to either row, whichever you happened to pick.
-        if (editToken) useMyLists().forgetSuperseded(editToken);
+        if (editToken()) useMyLists().forgetSuperseded(editToken());
         // The claimed twin: the stamp the hydrate path made must not outlive the
         // server's verdict, or the bare address resumes into this dead list on
         // every launch. Only while the session is KNOWN good, though — a 401 here
@@ -699,10 +707,10 @@ function create() {
         // as the claim. Forgetting on that reading lost where you left off for a
         // list the account still holds; a truly dead claim is pruned by the next
         // read of the account's rows regardless (pruneClaimedOpens).
-        else if (claimCode && sessionSignedIn.value) forgetClaimedOpen(claimCode);
+        else if (claimCode() && sessionSignedIn.value) forgetClaimedOpen(claimCode());
       } else if (local) {
         // Network failure with a local copy: keep editing, sync when it returns.
-        status.value = "offline";
+        setStatus("offline");
         if (pending.length) scheduleFlush();
         startPoll();
       } else {
@@ -711,7 +719,7 @@ function create() {
         // back loads the list on its own (the online watcher); anything else is an
         // error the page offers to retry. Either way the page says so, where it
         // used to sit on "Loading…" for good.
-        status.value = online.value ? "error" : "offline";
+        setStatus(online.value ? "error" : "offline");
       }
     }
   }
@@ -723,8 +731,8 @@ function create() {
    *  the device and no server: the online watcher calls it when the network returns,
    *  the page's "Try again" by hand. A draft names nothing, so it is a no-op there. */
   function retryLoad(): void {
-    if (editToken) void load({ token: editToken });
-    else if (claimCode) void load({ code: claimCode });
+    if (editToken()) void load({ token: editToken() });
+    else if (claimCode()) void load({ code: claimCode() });
   }
 
   // A fragment-less /e/{code} from a visitor with no session: the link lost its edit
@@ -734,11 +742,10 @@ function create() {
   // The code is kept so the page can offer the read-only view it also opens.
   function startKeyless(code: string) {
     bumpEpoch();
-    setCapability("", "");
+    access.value = { kind: "keyless", code };
     resetSession();
     installListeners();
     snapshot.value = null;
-    keylessCode.value = code;
     status.value = "missing";
   }
 
@@ -747,7 +754,7 @@ function create() {
   // never adds anything never creates a server row.
   function startDraft() {
     const myEpoch = bumpEpoch();
-    setCapability("", "");
+    access.value = { kind: "none" };
     resetSession();
     installListeners();
     // A draft has no gear to ask about yet; settle it so nothing renders as
@@ -780,10 +787,10 @@ function create() {
     // Restore an in-progress, never-saved draft if one survived a reload/crash.
     // Async (IndexedDB), so the fresh starter paints first and is replaced if found.
     store.get(DRAFT_KEY).then((local) => {
-      if (myEpoch !== epoch || editToken || !local) return;
+      if (myEpoch !== epoch || editToken() || !local) return;
       snapshot.value = tidyListText(local.snapshot); // same backfill as the token path
       pending = local.pending ?? [];
-      status.value = "synced";
+      setStatus("synced");
       // a restored draft that already has real content resumes its create attempt
       if (hasRealContent(local.snapshot)) createFromDraft();
     });
@@ -794,14 +801,14 @@ function create() {
   // ids), so adopting it doesn't disturb focus or references. Ops typed during the
   // round-trip are queued and flushed right after.
   async function createFromDraft() {
-    // claimCode too: a claimed open is a SAVED list — letting it fall through
-    // here would mint a duplicate of it under a fresh token
-    if (inFlight || editToken || claimCode || !snapshot.value) return;
+    // a claimed open is a SAVED list too — letting it fall through here would mint a
+    // duplicate of it under a fresh token
+    if (inFlight || holdsList() || !snapshot.value) return;
     // offline: the draft is already persisted locally; create once back online
-    if (!online.value) { status.value = "offline"; return; }
+    if (!online.value) { setStatus("offline"); return; }
     const myEpoch = epoch;
     inFlight = true;
-    status.value = "saving";
+    setStatus("saving");
     try {
       const s = snapshot.value;
       const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
@@ -816,11 +823,11 @@ function create() {
         },
       });
       if (myEpoch !== epoch) return;
-      editToken = res.editToken;
+      access.value = { kind: "token", token: res.editToken };
       const merged = res.snapshot;
       if (pending.length) applyOps(merged, pending); // edits made mid-create
       snapshot.value = merged;
-      status.value = "synced";
+      setStatus("synced");
       // the draft is now a real list — move its on-device record onto the token key
       store.del(DRAFT_KEY);
       persistLocal();
@@ -836,15 +843,15 @@ function create() {
       startPoll();
     } catch {
       if (myEpoch !== epoch) return;
-      status.value = "error";
+      setStatus("error");
       // retry while there's still un-persisted content
       setTimeout(() => {
-        if (!editToken && snapshot.value && hasRealContent(snapshot.value)) createFromDraft();
+        if (!editToken() && snapshot.value && hasRealContent(snapshot.value)) createFromDraft();
       }, 1500);
     } finally {
       if (myEpoch === epoch) {
         inFlight = false;
-        if (editToken && pending.length) scheduleFlush();
+        if (editToken() && pending.length) scheduleFlush();
       }
     }
   }
@@ -873,13 +880,13 @@ function create() {
     // create the list once. While that create is in flight, queue ops for the
     // post-create flush. A claimed open is NOT a draft — it queues and flushes
     // below exactly like a token-held list.
-    if (!editToken && !claimCode) {
+    if (!holdsList()) {
       if (inFlight) pending.push(op);
       else if (hasRealContent(snapshot.value)) createFromDraft();
       return;
     }
     // the server row is gone (deleted/rotated token) — edits stay on-device only
-    if (remoteMissing) return;
+    if (remoteMissing()) return;
     pending.push(op);
     scheduleFlush();
   }
@@ -890,9 +897,9 @@ function create() {
   }
 
   async function flush() {
-    if (inFlight || remoteMissing || !pending.length || !snapshot.value) return;
+    if (inFlight || remoteMissing() || !pending.length || !snapshot.value) return;
     // offline: leave the queue intact + persisted; the online watcher re-flushes
-    if (!online.value) { status.value = "offline"; persistLocal(); return; }
+    if (!online.value) { setStatus("offline"); persistLocal(); return; }
     const myEpoch = epoch;
     // Captured for the orphan-recovery write in the catch — by the time it runs,
     // dispose() may already have cleared both of these.
@@ -910,7 +917,7 @@ function create() {
     // state worth reporting is "your edits haven't landed", and that stays true until
     // one does. A failing save used to swap the word (and its full-ink alert colour)
     // about once a second for as long as the failure lasted.
-    if (status.value !== "error") status.value = "saving";
+    if (status.value !== "error") setStatus("saving");
     try {
       const res = await $fetch<{ snapshot: ListSnapshot }>("/api/edit/mutate", {
         method: "POST",
@@ -929,7 +936,7 @@ function create() {
       }
       // While mid-edit: keep local content AND do NOT advance the local version,
       // so the post-blur poll (since < server version) still delivers the merge.
-      status.value = "synced";
+      setStatus("synced");
       flushFailures = 0; // anything landing means the next failure starts its backoff fresh
       syncRegistry();
       persistLocal(); // snapshot adopted + queue drained → update the on-device copy
@@ -961,13 +968,12 @@ function create() {
       // mutate's 404 is permanent (token deleted/rotated mid-session), never
       // transient — stop retrying; the queue stays persisted on device
       if (statusOf(e) === 404) {
-        remoteMissing = true;
-        status.value = "missing";
+        setStatus("missing");
         persistLocal();
         return;
       }
       // offline surfaces honestly; a genuine server error keeps the "Not saved" cue
-      status.value = online.value ? "error" : "offline";
+      setStatus(online.value ? "error" : "offline");
       persistLocal(); // keep the re-queued ops on device until they land
       failed = true;
       // BACK OFF, don't hammer. A server that just refused this batch is unlikely to
@@ -1102,9 +1108,9 @@ function create() {
     const onVisibility = () => { if (!document.hidden) wakePoll(true); };
     // warn before leaving with unsynced edits — but offline edits are safely held
     // on device (IndexedDB), so only nag when a server sync is pending AND reachable.
-    // A dead-token queue (remoteMissing) can never sync, so it never nags either.
+    // A dead-token queue can never sync, so it never nags either.
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if ((pending.length || inFlight) && online.value && !remoteMissing) { e.preventDefault(); e.returnValue = ""; }
+      if ((pending.length || inFlight) && online.value && !remoteMissing()) { e.preventDefault(); e.returnValue = ""; }
     };
     window.addEventListener("focusin", onFocusIn);
     window.addEventListener("focusout", onFocusOut);
@@ -1347,7 +1353,7 @@ function create() {
     const snap = snapshot.value;
     const item = snap?.items.find((i) => i.id === id);
     if (!snap || !item) return "failed";
-    const { result, landed } = await vault.captureOne(item, snap.items, snap.folders, editToken);
+    const { result, landed } = await vault.captureOne(item, snap.items, snap.folders, editToken());
     // Folded in HERE rather than inside capture: the answer belongs to this list's
     // state, so a response that outlives the list (or the account) writes into a
     // Map that resetSession has already replaced, and nothing leaks anywhere.
@@ -1369,13 +1375,16 @@ function create() {
     // The decision lives in sync(), which asks only once it knows there is gear
     // worth asking about — see useVault.
     vault.sync(snapshot.value.items, snapshot.value.folders, {
-      editToken,
+      editToken: editToken(),
       // ...and what the vault already holds of it, so a list whose every row is
       // banked never raises a modal asking permission for a no-op. Passed in
       // rather than read from a singleton: this is the open list's answer, and
       // sync() has no business knowing where it came from.
       held: vaultGearAsked.value.size ? vaultGear.value : null,
-      onAsk: () => (vaultPrompt.value = { title: snapshot.value?.title || "this list" }),
+      onAsk: () => {
+        // an open chooser is this same question, further along
+        if (!vaultPicker.value) vaultAsk.value = { step: "prompt", title: snapshot.value?.title || "this list" };
+      },
     });
   }
 
@@ -1388,9 +1397,9 @@ function create() {
    * isn't. All-or-nothing forces a wrong answer whichever way you go.
    */
   async function answerVaultPrompt(yes: boolean) {
-    vaultPrompt.value = null;
+    vaultAsk.value = null;
     if (!yes) {
-      setVaultDecisionFor(editToken, "no");
+      setVaultDecisionFor(editToken(), "no");
       return refreshVaultCover();
     }
     const s = snapshot.value;
@@ -1400,24 +1409,24 @@ function create() {
     // nothing to choose between — record the answer and take the (empty) set, so
     // an empty chooser never appears and the question doesn't come back
     if (caps.length < 2) {
-      setVaultDecisionFor(editToken, "yes");
+      setVaultDecisionFor(editToken(), "yes");
       refreshVaultCover();
       return captureIfMine();
     }
-    vaultPicker.value = caps;
+    vaultAsk.value = { step: "picker", rows: caps };
   }
 
   /** Confirm the chooser: `keep` is the normKeys ticked. Everything else is
    *  recorded as not-yours FOR THIS LIST, so later edits don't re-offer it. */
   function confirmVaultPicker(keep: string[]) {
     const offered = vaultPicker.value ?? [];
-    vaultPicker.value = null;
+    vaultAsk.value = null;
     const kept = new Set(keep);
     setVaultExclusionsFor(
-      editToken,
+      editToken(),
       offered.filter((c) => !kept.has(c.normKey)).map((c) => c.normKey),
     );
-    setVaultDecisionFor(editToken, "yes");
+    setVaultDecisionFor(editToken(), "yes");
     refreshVaultCover();
     captureIfMine();
   }
@@ -1426,7 +1435,7 @@ function create() {
    *  decide and didn't, so the question is still open and the banner returns on
    *  the next edit. */
   function cancelVaultPicker() {
-    vaultPicker.value = null;
+    vaultAsk.value = null;
   }
 
   // Enter in a row's name opens the NEXT row right below it (todo-list flow):
@@ -1734,12 +1743,12 @@ function create() {
         method: "POST",
         headers: authHeaders(),
       });
-      const old = editToken;
-      const oldCode = claimCode;
+      const old = editToken();
+      const oldCode = claimCode();
       // A rotate hands THIS device the new link whichever way it was holding the
       // list — so a claimed open graduates to the token path here, and the editor
       // behaves from now on exactly as if the link had been opened directly.
-      setCapability(res.editToken, "");
+      access.value = { kind: "token", token: res.editToken };
       // The vault answer rides along. It's keyed by the token, but it answers a
       // question about the GEAR ("is this list's gear mine?"), and a rotate is the
       // owner cycling a leaked link on a list they've already answered for. Losing
@@ -1752,9 +1761,9 @@ function create() {
       // (a claimed list is yours, the same rule capture follows), so the fresh
       // token inherits that and the ""-keyed clears below are no-ops.
       const decision = vaultDecisionFor(old);
-      if (decision !== "ask") setVaultDecisionFor(editToken, decision);
+      if (decision !== "ask") setVaultDecisionFor(editToken(), decision);
       const declined = vaultExclusionsFor(old);
-      if (declined.size) setVaultExclusionsFor(editToken, [...declined]);
+      if (declined.size) setVaultExclusionsFor(editToken(), [...declined]);
       clearVaultDecisionFor(old);
       refreshVaultCover(); // mirror the carried answer onto the rows
       const my = useMyLists();
@@ -1797,9 +1806,9 @@ function create() {
     // best-effort: flush unsynced edits before teardown (SPA nav / unmount) so
     // queued ops aren't silently dropped on the way out. Capped at the server's
     // 500-op batch limit (it rejects oversized batches); the remainder is safe in
-    // the on-device copy below and drains on the next open. A dead token
-    // (remoteMissing) would only 404, so don't bother.
-    if (pending.length && (editToken || claimCode) && !remoteMissing) {
+    // the on-device copy below and drains on the next open. A dead token would only
+    // 404, so don't bother.
+    if (pending.length && holdsList() && !remoteMissing()) {
       $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending.slice(0, 500) } }).catch(() => {});
     }
     // capture the latest state on device before teardown — the debounced persist
@@ -1815,15 +1824,15 @@ function create() {
     pendingUndo.value = null;
     teardownListeners?.();
     snapshot.value = null;
-    setCapability("", "");
+    access.value = { kind: "none" };
     resetSession();
     status.value = "idle";
   }
 
   return {
     snapshot, totals, status,
-    get editToken() { return editToken; },
-    get claimCode() { return claimCode; },
+    get editToken() { return editToken(); },
+    get claimCode() { return claimCode(); },
     get epoch() { return epoch; },
     epochRef,
     openedByCode,

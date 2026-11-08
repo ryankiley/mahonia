@@ -289,7 +289,9 @@ onMounted(() => {
   background: color-mix(in oklab, var(--ink) 12%, transparent);
   pointer-events: none;
   /* the track spring — quick, never overshoots — same rule as the menus' plate: a cursor that
-     overshoots lands on the wrong day, however briefly */
+     overshoots lands on the wrong day, however briefly. Under the POINTER only: walked by
+     the arrow keys it lands in one frame, like everything the keyboard moves
+     (atoms/modality.scss) */
   transition: translate var(--spring-track-dur) var(--spring-track);
   will-change: translate;
 }
@@ -316,9 +318,12 @@ onMounted(() => {
     color var(--spring-fade-dur) var(--spring-fade);
 }
 /* no background here — the pip IS the hover, and a fill under it would double the mark
-   and kill the sense that one cursor is moving */
-.cal__day:hover {
-  color: var(--ink);
+   and kill the sense that one cursor is moving. Pointer-gated — it paints (see the note
+   on .btn:hover, controls.scss): a tapped day kept its hover ink after the finger left. */
+@media (hover: hover) and (pointer: fine) {
+  .cal__day:hover {
+    color: var(--ink);
+  }
 }
 /* The grid is one tab stop and the arrows walk it, so the focused day has to be
    visible — without a cue you are moving an invisible caret around a month. Only on

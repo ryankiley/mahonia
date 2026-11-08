@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, Delete02Icon, Edit02Icon, FolderIcon, Layers01Icon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, DashedLine02Icon, Delete02Icon, Edit02Icon, FolderIcon, Layers01Icon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { formatPrice } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { consumableIcon } from "~/utils/itemMarks";
 import { counted } from "~~/shared/tidyText";
+import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 
 // One row of /gear: the name cell, the weight, the class mark and the trailing
 // controls — or, for a REMOVED piece, the way back.
@@ -36,10 +38,13 @@ const props = defineProps<{
   kitNames?: string[];
 }>();
 const emit = defineEmits<{
-  edit: [];
+  /** "icon" when the row's icon was pressed: the dialog opens on its icon grid */
+  edit: [focus?: "icon"];
   remove: [];
   move: [folderId: number | null];
   restore: [];
+  /** a unit picked for this piece's weight (the list row's unit picker, on /gear) */
+  unit: [unit: Unit];
   /** the move menu opened or closed — the folder body lifts its clip while one is open */
   "overlay-toggle": [open: boolean];
   /** show or hide a kit's parts */
@@ -60,6 +65,15 @@ const parts = computed(() => props.entry.parts ?? []);
 const itemCount = computed(() => parts.value.filter((p) => !p.removed).length);
 const removedParts = computed(() => parts.value.filter((p) => p.removed).length);
 const partName = (p: { brand?: string; name: string; variant?: string }) => itemDisplayName(p.brand, p.name, p.variant);
+// The unit THIS piece reads in: the one picked for it, else the page's. A list row's
+// rowUnit, for the same reason: you buy gear labelled in whatever the maker chose, so a
+// metric closet can hold a 3.8 oz stake set and still total in grams.
+const rowUnit = computed<Unit>(() => props.entry.entryUnit ?? props.unit);
+// What KIND of gear this is, as an icon: read off the gear type, or the name when the
+// row has no type (shared/gearGlyph.ts). Null leaves the column empty rather than
+// guessing — a wrong icon is worse than none.
+const typeIcon = computed(() => gearIcon(props.entry.commonName, props.entry.name, props.entry.icon));
+const typeLabel = computed(() => gearIconLabel(props.entry.commonName, props.entry.name, props.entry.icon));
 // Calories, gated on the class exactly as computeTotals gates them — so what the row
 // shows is what a list would count, rather than a number the totals ignore. A removed
 // row shows its type only.
@@ -82,13 +96,42 @@ const meta = computed(() => {
 <template>
   <li class="vault__row" :class="{ 'vault__row--kit': isKit }">
     <div class="vault__line">
-    <!-- a kit's mark: the stacked-layers glyph, so a set reads as one before you read
-         a word of it — the same glyph the editor's gear pane puts on a kit -->
-    <span v-if="isKit" class="vault__kitmark" aria-hidden="true">
-      <HugeiconsIcon :icon="Layers01Icon" :size="16" :stroke-width="2" />
+    <!-- the kind of gear, before its name: a fixed column whether or not this row has
+         one, so every name starts at the same x. Decorative — the gear type says the
+         same thing in words on the line below. A KIT wears the stacked-layers glyph
+         here instead, so a set reads as one before you read a word of it — the same
+         glyph the editor's gear pane puts on a kit; it is a set, not a kind of gear,
+         so it has no icon to pick. -->
+    <span v-if="isKit" class="vault__type" aria-hidden="true" title="Kit">
+      <HugeiconsIcon :icon="Layers01Icon" :size="20" :stroke-width="2" />
     </span>
+    <span v-else-if="removed" class="vault__type" aria-hidden="true">
+      <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
+    </span>
+    <!-- On a live row the icon is also the way to change it: pressing it opens the
+         edit dialog on its icon grid, and an empty slot is where you'd press to give
+         a row one. Out of the tab order and hidden from assistive tech, because it is
+         a shortcut to a field the row's Edit button already reaches — a second stop
+         per row would double the keyboard walk down a page of a hundred. -->
+    <button
+      v-else
+      type="button"
+      class="vault__type vault__type--pick"
+      :class="{ 'is-blank': !typeIcon }"
+      tabindex="-1"
+      aria-hidden="true"
+      :title="typeLabel ? `${typeLabel} · change icon` : 'Pick an icon'"
+      @click="emit('edit', 'icon')"
+    >
+      <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
+      <!-- empty: Hugeicons' dashed square, the shape an icon would fill, quietly -->
+      <HugeiconsIcon v-else :icon="DashedLine02Icon" :size="20" :stroke-width="2" />
+    </button>
     <div class="gear__main">
-      <p class="gear__name t-clip">
+      <!-- the title is the whole name: clipped, two catalog names that differ only at
+           the end ("… Regular" / "… Long Wide") read identically, and this is the way
+           to tell them apart without opening the dialog -->
+      <p class="gear__name t-clip" :title="displayName">
         <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
         <span>{{ entry.name }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
@@ -127,7 +170,36 @@ const meta = computed(() => {
         In {{ kitNames.join(", ") }}
       </p>
     </div>
-    <span class="t-num vault__weight">{{ formatWeight(entry.weightMg, unit) }}</span>
+    <!-- The weight in this piece's own unit, and on a live row the unit is a picker:
+         the list row's own (ItemRow), unit text and a quiet chevron, so one gesture
+         means one thing across the two surfaces. -->
+    <span class="t-num vault__weight">
+      <template v-if="removed">{{ formatWeight(entry.weightMg, rowUnit) }}</template>
+      <template v-else>
+        <span>{{ formatWeight(entry.weightMg, rowUnit, { withUnit: false }) }}</span>
+        <OptionMenu
+          class="vault__unitwrap"
+          :options="WEIGHT_UNIT_OPTIONS"
+          :current="rowUnit"
+          :label="`Weight unit for ${displayName}`"
+          :title="`Unit for ${displayName}`"
+          @overlay-toggle="(o) => emit('overlay-toggle', o)"
+          @pick="(u) => emit('unit', u as Unit)"
+        >
+          <template #trigger="{ open }">
+            <span class="t-sm t-muted">{{ rowUnit }}</span>
+            <HugeiconsIcon
+              :icon="ChevronDownIcon"
+              class="chev vault__unitchev"
+              :class="{ 'is-open': open }"
+              :size="12"
+              :stroke-width="2"
+              aria-hidden="true"
+            />
+          </template>
+        </OptionMenu>
+      </template>
+    </span>
     <template v-if="!removed">
       <!-- the editor's own marks, in a fixed column whether or not the row carries
            one — an auto column would size to the count and steal a different amount
@@ -237,15 +309,6 @@ const meta = computed(() => {
   gap: var(--space-4);
 }
 /* --- a kit --- */
-/* its mark sits on the first line beside the name, the mark column's recipe */
-.vault__kitmark {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  align-self: flex-start;
-  height: 1lh;
-  color: var(--ink-2);
-}
 /* the part count is the control that opens the kit — text-sized, so the row keeps the
    rhythm of its neighbours */
 .vault__kitline {
@@ -274,7 +337,7 @@ const meta = computed(() => {
   --row-tail: calc(4 * var(--icon-btn) + 2 * var(--space-1) + 2 * var(--space-4));
   list-style: none;
   margin: var(--space-1) 0 0;
-  padding: 0 var(--row-tail) 0 calc(16px + var(--space-4));
+  padding: 0 var(--row-tail) 0 var(--gear-type-indent);
   color: var(--ink-2);
 }
 .vault__part {
@@ -332,6 +395,44 @@ button.vault__partname:hover {
 .vault__row + .vault__row {
   border-top: 1px solid var(--line);
 }
+/* The picture column. Its box is the name's first line (1lh tall), so the glyph
+   centres on that line however many lines the row grows, the same reasoning that
+   puts the trailing marks at flex-start. Secondary ink: it supports the name, it
+   doesn't outrank it. Pulled closer to the name than the row's gap, because the two
+   are one object and the row's --space-4 is the gap BETWEEN objects. */
+.vault__type {
+  flex: none;
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--gear-type-w);
+  height: 1lh;
+  margin-inline-end: calc(var(--space-2) - var(--space-4));
+  color: var(--ink-2);
+}
+/* the slot as a button: no box of its own, the glyph just deepens under a pointer */
+.vault__type--pick {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+}
+/* An empty slot wears Hugeicons' dashed square in the faintest ink, where an icon
+   would sit. It used to be a 14px dashed border drawn in CSS, whose dashes rendered
+   unevenly at that size and read on a real page as an image that failed to load. */
+.vault__type--pick.is-blank {
+  color: var(--ink-ghost);
+}
+@media (hover: hover) and (pointer: fine) {
+  .vault__type--pick:hover {
+    color: var(--ink);
+  }
+}
+.vault__type--pick:active {
+  opacity: 0.7;
+}
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with the gear pane, which used to hand-mirror
    these rules. Only the page's own mobile stack below touches it. */
@@ -343,6 +444,28 @@ button.vault__partname:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+/* the unit picker beside the figure: content-sized, centred on its own text like the
+   list row's .item__unitwrap, and as quiet at rest — a chevron on every row */
+.vault__unitwrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  margin-left: 0.25ch;
+}
+@media (pointer: coarse) {
+  .vault__unitwrap :deep(.optmenu__btn) {
+    min-height: var(--tap);
+    margin-block: var(--tap-pull);
+  }
+}
+@media (hover: hover) and (pointer: fine) {
+  .vault__row:hover .vault__unitchev {
+    color: var(--ink-2);
+  }
+}
+.vault__unitwrap:focus-within .vault__unitchev {
+  color: var(--ink-2);
 }
 .vault__weight {
   flex: none;
@@ -424,6 +547,12 @@ button.vault__partname:hover {
   .vault__parts {
     --row-tail: calc(var(--icon-btn) + 3 * var(--tap) + 2 * var(--space-1) + 2 * var(--space-4));
   }
+  /* ...which makes the cluster's box exactly one text line already, so the desktop
+     --icon-pull on the cluster would lift it a second time: 4.4px above the weight
+     beside it on a phone's second line */
+  .vault__actions {
+    margin-block: 0;
+  }
 }
 @media (max-width: $bp-stack) {
   /* name on its own line, weight + marks + controls beneath — nothing cramped */
@@ -434,25 +563,38 @@ button.vault__partname:hover {
   .gear__main {
     flex-basis: 100%;
   }
-  /* a kit's mark keeps its place beside the name, and the name gives up its width */
-  .vault__row--kit .gear__main {
-    flex-basis: calc(100% - 16px - var(--space-2));
+  /* the picture stays beside the name rather than taking a line of its own: the name
+     takes the rest of the first line, and the row's own --space-2 is the gap here */
+  .vault__type {
+    margin-inline-end: 0;
   }
-  /* The whole kit sits at ONE edge under its mark. Stacked, the weight drops to a
-     second line at the row's left, which on a plain row is where the name is — on a
-     kit the name starts after the mark, so the weight line steps in to meet it, and
-     the parts indent to the same edge rather than the desktop's wider one (the line's
-     gap is --space-2 here, --space-4 there). Their weights just take the right edge. */
-  .vault__row--kit .vault__weight {
-    margin-left: calc(16px + var(--space-2));
+  .vault__type + .gear__main {
+    flex-basis: calc(100% - var(--gear-type-indent));
   }
+  /* With a line of its own the name gets two of them before it clips. One line at
+     phone width cut long catalog names ("Sea to Summit Ether Light XT Insulated Air
+     Mat · Regular Wide") back to their shared opening, so a row couldn't say which
+     size it was, and a title has no hover to show it on a phone. Two lines, not
+     unbounded: this is a list that can run to hundreds, and a stray four-line name
+     would set the page's rhythm from its longest row (the note's reasoning, above). */
+  .gear__name {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    white-space: normal;
+  }
+  /* a kit's items indent to the names' edge, and their weights take the right edge */
   .vault__parts {
     padding-right: 0;
-    padding-left: calc(16px + var(--space-2));
+    padding-left: var(--gear-type-indent);
   }
   .vault__weight {
     min-width: 0;
     text-align: left;
+    /* the second line starts under the name, not under the icon: the icon column
+       holds the first line alone, as it does on a wide screen */
+    margin-inline-start: var(--gear-type-indent);
   }
   .vault__actions {
     margin-left: auto;

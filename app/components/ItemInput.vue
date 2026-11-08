@@ -12,6 +12,7 @@ import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
 import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
+import { menuRoom, visibleBand } from "~/utils/viewportRoom";
 
 // Maps-grade autocomplete, used for BOTH adding a new item and renaming an
 // existing one in place. In add mode it clears after commit; in edit mode
@@ -32,8 +33,26 @@ const props = withDefaults(
     // children. Off means no request and no menu — typing and committing free text are
     // untouched, so renaming a group still works exactly as it did.
     suggest?: boolean;
+    // Where suggestions come from. "catalog" is the catalog alone: no My Gear rows and
+    // no water row. For the place that ADDS to My Gear (/gear's add row), where your own
+    // gear could only be offered back to you as a duplicate, and water isn't gear.
+    sources?: "all" | "catalog";
+    // Free text is the parent's to submit, not this field's to commit. Only a pick (or
+    // a name typed exactly as one product the menu shows) emits `commit`; Enter on
+    // anything else emits `submit`, and leaving the field commits nothing. For a form
+    // with a second field beside this one (/gear's add row: name, then weight), where
+    // the list row's commit-on-blur would fire on tabbing across to the weight.
+    pickOnly?: boolean;
   }>(),
-  { initial: "", placeholder: "Add an item…", clearOnCommit: true, autofocus: false, suggest: true },
+  {
+    initial: "",
+    placeholder: "Add an item…",
+    clearOnCommit: true,
+    autofocus: false,
+    suggest: true,
+    sources: "all",
+    pickOnly: false,
+  },
 );
 const emit = defineEmits<{
   commit: [NameCommit];
@@ -50,6 +69,10 @@ const emit = defineEmits<{
   // undo. `rest` are the lines after it, one row each, for the parent to make below
   // this one (see onPaste).
   pasteRows: [{ first: NameCommit | null; rest: string[] }];
+  // pickOnly: Enter on text that isn't a pick — the parent submits its own form
+  submit: [];
+  // the text as typed, every change: a pickOnly parent submits it, so it has to have it
+  draft: [string];
 }>();
 
 const { results, search, clear } = useCatalogSearch();
@@ -117,22 +140,24 @@ function setDraftQuiet(v: string) {
   draft.value = v;
   nextTick(() => (suppressOpen = false));
 }
+watch(draft, (v) => emit("draft", v));
 watch(draft, (v) => {
   if (suppressOpen || !props.suggest) return; // no suggestions asked for → no request
   search(v);
-  vaultSearch(v);
+  if (props.sources !== "catalog") vaultSearch(v);
   active.value = -1;
   open.value = true;
 });
-// Click-outside listeners exist only WHILE `open` — this component mounts once
-// per row (collapsed folders keep rows mounted), so an unconditional call would
-// pile two always-on window listeners per row, all running composedPath() on
-// every tap, to close a menu only the single focused row can have open.
-let outsideScope: EffectScope | null = null;
+// The menu's window listeners exist only WHILE `open` — click-outside, and the
+// viewport watch that sizes the menu (placeMenu, below). This component mounts once
+// per row (collapsed folders keep rows mounted), so an unconditional call would pile
+// half a dozen always-on window listeners per row, all running on every tap and
+// scroll, for a menu only the single focused row can have open.
+let openScope: EffectScope | null = null;
 watch(open, (v) => {
-  if (v && !outsideScope) {
-    outsideScope = effectScope(true);
-    outsideScope.run(() => {
+  if (v && !openScope) {
+    openScope = effectScope(true);
+    openScope.run(() => {
       // The scope can attach MID-press (the press that focused the input and
       // opened the menu), and onClickOutside seeds "press started outside" as
       // true — so a text-selection drag from the input releasing outside would
@@ -143,19 +168,35 @@ watch(open, (v) => {
       onClickOutside(rootRef, () => {
         if (sawPress) open.value = false;
       });
+      // The room under the field moves while you type: the keyboard finishes rising
+      // (the visual viewport resizes), the editor lifts this field toward the top
+      // (GearEditor's onFocusIn scrolls the page), a finger scrolls it, the window
+      // turns. Each re-measures, once per frame at most.
+      useWindowEvent("scroll", schedulePlace, { passive: true });
+      useWindowEvent("resize", schedulePlace, { passive: true });
+      const vv = window.visualViewport;
+      vv?.addEventListener("resize", schedulePlace);
+      vv?.addEventListener("scroll", schedulePlace);
+      onScopeDispose(() => {
+        vv?.removeEventListener("resize", schedulePlace);
+        vv?.removeEventListener("scroll", schedulePlace);
+        cancelAnimationFrame(placeFrame);
+        placeFrame = 0;
+      });
     });
-  } else if (!v && outsideScope) {
-    outsideScope.stop();
-    outsideScope = null;
+  } else if (!v && openScope) {
+    openScope.stop();
+    openScope = null;
   }
 });
-onScopeDispose(() => outsideScope?.stop());
+onScopeDispose(() => openScope?.stop());
 
 // Water folds into THIS input (no separate "add water"): typing a bare volume
 // ("1 L", "500 ml", "32 fl oz") or "water [volume]" surfaces a water option that
 // adds a consumable with the derived weight. "water" alone defaults to 1 L.
 type WaterSug = { ml: number; label: string; weightMg: number };
 const waterSuggestion = computed<WaterSug | null>(() => {
+  if (props.sources === "catalog") return null;
   const low = draft.value.trim().toLowerCase();
   if (!low) return null;
   let volStr: string | null = null;
@@ -226,6 +267,54 @@ const sectionAt = computed<Map<number, string>>(() => {
   return map;
 });
 
+// ONE PRODUCT IN SEVERAL SIZES is named once, and each of its rows leads with the size.
+//
+// A product's name typed in full ("alphalite") answers with every size it is sold in —
+// the ranker gives a product query all of them, and hundreds of products have sizes —
+// and those rows differ ONLY in the variant. Laid out as ordinary rows, the variant is
+// the part that yields first under width pressure (it is secondary on a mixed menu, where
+// the model is what tells two rows apart), so on a phone eight rows all read "El Coy…
+// AlphaLite 900 Qu… · 10F, …" and the one thing you are choosing between was the one
+// thing cut. Truncate where items differ: here they differ at the end.
+//
+// So a RUN of two or more consecutive catalog rows with the same brand + model, each with
+// a variant, gets the product as a heading over it, and its rows show the variant (and the
+// weight) with the whole width to themselves. Consecutive only: the ranker's order is the
+// menu's order and arrow keys walk it, so nothing is regrouped — a size ranked apart from
+// its siblings simply reads as a full row. Same index→heading idea as sectionAt, so
+// `options` stays flat and keyboard nav, option ids and aria-activedescendant don't move.
+// The heading is presentation only; each row still carries the product's full name for
+// assistive tech (a visually-hidden prefix), so no option's accessible name is the size
+// alone.
+const sizeRuns = computed(() => {
+  const heads = new Map<number, CatalogResult>();
+  const members = new Set<number>();
+  const opts = options.value;
+  const productKey = (o: AcOption | undefined) =>
+    o && "result" in o && o.result.variant ? `${foldName(o.result.brand ?? "")}|${foldName(o.result.name)}` : null;
+  for (let i = 0; i < opts.length; ) {
+    const key = productKey(opts[i]);
+    let end = i + 1;
+    if (key) while (end < opts.length && productKey(opts[end]) === key) end++;
+    if (key && end - i >= 2) {
+      heads.set(i, (opts[i] as { result: CatalogResult }).result);
+      for (let m = i; m < end; m++) members.add(m);
+    }
+    i = end;
+  }
+  return { heads, members };
+});
+// What the template walks: each option with its index and whatever heads it.
+const rows = computed(() =>
+  options.value.map((opt, i) => ({
+    opt,
+    i,
+    section: sectionAt.value.get(i),
+    product: sizeRuns.value.heads.get(i),
+    sized: sizeRuns.value.members.has(i),
+  })),
+);
+
 // the dropdown is position:absolute and can extend past the bottom of its folder,
 // whose body clips overflow for the collapse animation. Signal the ancestor while the
 // menu is showing so it can lift that clip (mirrors the drag-pass clip lift). Emit a
@@ -247,17 +336,74 @@ function setLift(v: boolean) {
 // fires after-leave, and setLift's dedup means the re-show is a no-op — the
 // clip just stays lifted through the whole blink.
 watch(menuVisible, (v) => {
-  if (v) setLift(true);
+  if (!v) return;
+  setLift(true);
+  // placed BEFORE the menu renders (a pre-flush watcher), so it mounts on the right side
+  // at the right height and the pop-in grows from the edge it actually hangs off
+  placeMenu();
 });
 onBeforeUnmount(() => setLift(false));
+
+// WHERE THE MENU OPENS, and how tall it may be — measured against the screen that is
+// actually visible, which on a phone with the keyboard up is a strip above it.
+//
+// The list's own cap (10.5 rows, or 50dvh) can't see the keyboard: iOS doesn't shrink
+// dvh for it, so a menu under a field in the lower half of the screen opened at full
+// height behind the keyboard and showed nothing. GearEditor's onFocusIn lifts such a
+// field toward the top on touch; this sizes the menu to the room that leaves (as
+// --ac-room, the list's third cap) and flips it ABOVE the field only when below has less
+// than a few rows even then — the page had no more scroll to give. The arithmetic is
+// app/utils/viewportRoom's menuRoom, measured from the menu's anchor (the box its
+// `top: 100%` hangs from — ItemRow's name box, not this root, which defers to it).
+/** The menu's offset from its anchor: the --space-1 in `top: calc(100% + …)`. */
+const MENU_GAP = 4;
+/** Breathing room from the keyboard's top edge, or from the topbar when flipped. */
+const MENU_EDGE = 8;
+/** Below with less than this (three rows) flips above, if above has more. */
+const MENU_MIN = 120;
+/** Never shorter than about one row plus the scroller's padding. */
+const MENU_FLOOR = 56;
+const menuAbove = ref(false);
+const menuRoomPx = ref<number | null>(null);
+function placeMenu() {
+  const root = rootRef.value;
+  if (!root) return;
+  const anchor = getComputedStyle(root).position === "static" ? root.offsetParent : root;
+  if (!anchor) return;
+  const r = menuRoom(anchor.getBoundingClientRect(), visibleBand(), {
+    gap: MENU_GAP,
+    edge: MENU_EDGE,
+    min: MENU_MIN,
+    floor: MENU_FLOOR,
+  });
+  menuAbove.value = r.above;
+  menuRoomPx.value = r.room;
+}
+let placeFrame = 0;
+function schedulePlace() {
+  if (placeFrame || !menuVisible.value) return;
+  placeFrame = requestAnimationFrame(() => {
+    placeFrame = 0;
+    if (menuVisible.value) placeMenu();
+  });
+}
 
 // keyboard nav in a list taller than the scroller: keep the active option in
 // view. Called ONLY from the arrow-key handlers — never from hover-set active:
 // scrolling on hover would move the half-cropped fold row under a stationary
 // pointer, and (Chrome/Firefox re-dispatch mouseenter when content scrolls under
 // the cursor) let a resting mouse yank the highlight away from the keyboard row.
+//
+// A size row brings its product heading along: arrowing onto the first size of a run
+// from below scrolled the row into view and left the name that says what it is a size
+// OF cropped above the fold. The heading goes in first, then the row (which wins).
 function scrollActiveIntoView() {
-  nextTick(() => document.getElementById(optId(active.value))?.scrollIntoView({ block: "nearest" }));
+  nextTick(() => {
+    const el = document.getElementById(optId(active.value));
+    const head = el?.previousElementSibling;
+    if (head?.classList.contains("ac__product")) head.scrollIntoView({ block: "nearest" });
+    el?.scrollIntoView({ block: "nearest" });
+  });
 }
 
 function close() {
@@ -327,6 +473,7 @@ function selectVault(v: VaultEntry) {
     priceCents: v.priceCents,
     currency: v.currency,
     productUrl: v.productUrl,
+    entryUnit: v.entryUnit,
     fromVault: true,
   });
   // the same "Brand Model" as selectResult, for the same reason
@@ -365,13 +512,24 @@ function exactMatch(typed: string): AcOption | null {
   const hits = results.value.filter((r) => keysOf(r).includes(key));
   return hits.length === 1 ? { result: hits[0]! } : null;
 }
+// The same row in two versions of the menu. `active` is an index, and the two searches
+// settle independently with My Gear going first, so a landing shifts what it points at.
+const sameOption = (a: AcOption, b: AcOption) =>
+  "vault" in a ? "vault" in b && a.vault === b.vault : "result" in a ? "result" in b && a.result === b.result : "water" in b;
 // The menu points at that product the moment the results settle, so what Enter or
 // Tab will take is on screen before it is pressed: the row lights as if arrowed onto,
 // and aria-activedescendant says so. Only onto an unpointed menu (a hover or an arrow
 // key has already chosen); each keystroke clears the pointer (the draft watcher) and
-// the next settle re-derives it.
-watch(options, (opts) => {
-  if (active.value >= 0 || !open.value) return;
+// the next settle re-derives it. A pointer already set stays on its row through a
+// settle, and lets go if the row has left the menu rather than land on its neighbour.
+watch(options, (opts, prev) => {
+  if (!open.value) return;
+  if (active.value >= 0) {
+    const was = prev[active.value];
+    const at = was ? opts.findIndex((o) => sameOption(o, was)) : -1;
+    active.value = at;
+    if (at >= 0) return;
+  }
   const hit = exactMatch(splitWeightTail(draft.value).name);
   if (!hit) return;
   const at = opts.findIndex((o) =>
@@ -427,6 +585,8 @@ function commitFree() {
 // it (the paste's undo gives that row back). One line is left to the browser, so an
 // ordinary paste of a product name behaves exactly as it always has.
 function onPaste(e: ClipboardEvent) {
+  // a pickOnly field has no rows to make below it: the browser folds the lines into one
+  if (props.pickOnly) return;
   const rows = pasteRows(e.clipboardData?.getData("text/plain") ?? "");
   if (rows.length < 2) return;
   e.preventDefault();
@@ -448,6 +608,11 @@ function onPaste(e: ClipboardEvent) {
 function onFocusOut(e: FocusEvent) {
   if (rootRef.value?.contains(e.relatedTarget as Node | null)) return;
   focused.value = false;
+  // pickOnly: the text waits for its form's submit; only the menu goes
+  if (props.pickOnly) {
+    open.value = false;
+    return;
+  }
   commitFree();
 }
 function onKeydown(e: KeyboardEvent) {
@@ -470,6 +635,13 @@ function onKeydown(e: KeyboardEvent) {
     e.preventDefault();
     if (open.value && active.value >= 0 && options.value[active.value]) {
       selectOption(options.value[active.value]!);
+    } else if (props.pickOnly) {
+      // A product's own name typed in full still links, as tabbing away does in a
+      // list (exactMatch); anything else is the form's to submit, weight and all.
+      const hit = draft.value.trim() ? exactMatch(tidyText(draft.value.trim())) : null;
+      if (hit) selectOption(hit);
+      else emit("submit");
+      return;
     } else if (props.suggest && waterSuggestion.value) {
       // `props.suggest` here as well as in `options` above: this branch reads the
       // computed directly, so emptying the list alone would not have closed it
@@ -538,23 +710,48 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
          <Transition name="menu"> = the kebab menu's pop-in (fade + spring rise),
          so the two floating menus arrive the same way. -->
     <Transition name="menu" @after-leave="setLift(false)">
-    <div v-if="menuVisible" class="popover ac__menu" @mouseleave="active = -1">
+    <!-- sized to the room left on screen, and flipped above when there is none below:
+         see placeMenu -->
+    <div
+      v-if="menuVisible"
+      class="popover ac__menu"
+      :class="{ 'ac__menu--above': menuAbove }"
+      :style="menuRoomPx != null ? { '--ac-room': `${menuRoomPx}px` } : undefined"
+      @mouseleave="active = -1"
+    >
     <ul :id="`${acId}-listbox`" class="ac__list" role="listbox">
       <template
-        v-for="(opt, i) in options"
+        v-for="{ opt, i, section, product, sized } in rows"
         :key="'water' in opt ? 'water' : 'vault' in opt ? `v${opt.vault.id}` : `c${opt.result.id}`"
       >
       <!-- a source heading, not an option: role="presentation" keeps it out of the
            listbox's option set, so it can't be arrowed onto or counted in it. Screen
            readers get the same fact from the visually-hidden qualifier on each vault
-           row below, which travels with the option it actually describes. -->
-      <li v-if="sectionAt.get(i)" class="ac__section" role="presentation">{{ sectionAt.get(i) }}</li>
+           row below, which travels with the option it actually describes.
+           mousedown.prevent, as on the options: a press on a heading is a press inside
+           the control, and letting it take focus from the field committed the half-typed
+           text as a free-text row. -->
+      <li v-if="section" class="ac__section" role="presentation" @mousedown.prevent>{{ section }}</li>
+      <!-- a PRODUCT heading over a run of its sizes (see sizeRuns): the brand + model the
+           rows under it share, said once. aria-hidden as well as presentation — each size
+           row carries the same name for assistive tech, so reading this too would say it
+           twice. -->
+      <li v-if="product" class="ac__product" role="presentation" aria-hidden="true" @mousedown.prevent>
+        <span class="ac__name">
+          <span v-if="product.brand && !nameRepeatsBrand(product.brand, product.name)" class="ac__brand t-clip">
+            <span v-for="(p, pi) in hl(product.brand)" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
+          </span>
+          <span class="ac__model t-clip">
+            <span v-for="(p, pi) in hl(product.name)" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
+          </span>
+        </span>
+      </li>
       <li
         :id="optId(i)"
         class="ac__opt"
         role="option"
         :aria-selected="i === active"
-        :class="{ 'is-active': i === active }"
+        :class="{ 'is-active': i === active, 'ac__opt--size': sized }"
         @mousedown.prevent="selectOption(opt)"
         @mouseenter="active = i"
       >
@@ -587,6 +784,19 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
               >{{ p.t }}</span>
             </span>
             <span v-if="opt.vault.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ opt.vault.variant }}</span>
+          </span>
+        </template>
+        <!-- one size of the product named in the heading above it: the size leads, with
+             the row's width to itself. The product's name is still in the row, hidden,
+             so the option reads "El Coyote AlphaLite 900 Quilt · 20F, Long" and not
+             just "20F, Long" -->
+        <template v-else-if="sized">
+          <span class="ac__name">
+            <span class="visually-hidden">{{ tidyText(itemDisplayName(opt.result.brand, opt.result.name)) }} · </span>
+            <span class="ac__size t-clip">
+              <span v-for="(p, pi) in hl(opt.result.variant ?? '')" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
+            </span>
+            <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
         </template>
         <template v-else>
@@ -677,6 +887,22 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   transform: none;
   clip-path: inset(-2px -2px 100% -2px round var(--radius-4));
 }
+/* FLIPPED ABOVE the field (placeMenu: the keyboard left no room below, even after the
+   editor lifted the field). Every motion mirrors with it, so the menu still grows out
+   of the field and folds back into it: it hangs from its anchor's top edge, pops in
+   rising from below (the shared menu entrance's 4px, sign flipped, as
+   .menu__list--above does), and its exit wipes DOWNWARD into the field. */
+.ac__menu--above {
+  top: auto;
+  bottom: calc(100% + var(--space-1));
+  transform-origin: bottom left;
+}
+.ac__menu--above.menu-enter-from {
+  transform: translateY(4px) scale(0.98);
+}
+.ac__menu--above.menu-leave-to {
+  clip-path: inset(100% -2px -2px -2px round var(--radius-4));
+}
 /* the scroller — INSIDE the card's inline padding, so the (thin, transparent-
    track) scrollbar sits inset from the edge, never over the rounded corners */
 .ac__list {
@@ -689,11 +915,18 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
      = 2×space-2 padding + a 1.5-line-height base-size line; phrasing it in the
      same vars keeps the fold mid-row past the 1920px anchor where the type (and
      the rows) scale fluidly. The dvh cap keeps it on-screen on small devices
-     (dvh tracks the collapsing mobile URL bar; vh line = older-browser fallback). */
+     (dvh tracks the collapsing mobile URL bar; vh line = older-browser fallback).
+     The THIRD cap is the one that sees the keyboard, which dvh doesn't on iOS:
+     --ac-room, the room actually left between the field and the keyboard (or the
+     topbar, when flipped above), measured live by placeMenu. Unset until it is. */
   /* +2px: an eye-tuned crop point rather than a derived one — a hair more of the fold
      row's glyphs, which is what makes the cut read as a fold and not a clip */
   max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px), 55vh);
-  max-height: min(calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px), 50dvh);
+  max-height: min(
+    calc(10.5 * (2 * var(--space-2) + 1.5 * var(--text-base)) + var(--space-2) + 2px),
+    50dvh,
+    var(--ac-room, 50dvh)
+  );
   overflow-y: auto;
   /* never a horizontal bar: overflow-y alone computes overflow-x to auto, and with
      classic (always-shown) scrollbars the vertical bar narrows the rows, so any
@@ -756,6 +989,25 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   flex: 0 1000 auto;
   font-style: italic;
   color: var(--ink-3);
+}
+/* A RUN OF SIZES (sizeRuns): the product heading names what the rows share, and each
+   row leads with its size. The heading is set as a row's name would be — same padding,
+   same type, brand in ink-2 and model in ink — because it IS that name, said once; it
+   just isn't a target (no hover, no active, nothing to press). The sizes under it step
+   in by --space-3, which is what says "these belong to that" without a rule or a box.
+   The size is the row's subject now, so it drops the trailing-qualifier dress (italic,
+   ink-3) a variant wears after a model name and takes the row's full ink, with the whole
+   width before the weight to itself. */
+.ac__product {
+  padding: var(--space-2);
+  font-size: var(--text-base);
+  cursor: default;
+}
+.ac__opt--size .ac__name {
+  padding-inline-start: var(--space-3);
+}
+.ac__size {
+  flex: 0 1 auto;
 }
 /* source heading — it separates, it doesn't compete with the rows. Inline padding
    matches .ac__opt so it sits on the rows' text edge; the first one drops its top

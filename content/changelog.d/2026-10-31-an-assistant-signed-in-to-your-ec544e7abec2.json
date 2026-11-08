@@ -1,0 +1,7 @@
+{
+  "date": "2026-10-31",
+  "added": [
+    "An assistant signed in to your account can now ask for your lists, and open one without being handed its link.",
+    "With read-and-change access, an assistant can change a list filed under your account by its share link, no edit link needed."
+  ]
+}

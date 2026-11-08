@@ -55,6 +55,18 @@ export async function catalogGearTypes(db: Db): Promise<string[]> {
   return rows.flatMap(({ name }) => name?.trim() ? [name] : []);
 }
 
+/** Every maker the verified catalog names, distinct and sorted: the vocabulary My Gear's
+ *  edit dialog offers under its Brand field, the way catalogGearTypes feeds Gear type.
+ *  Labels only, the same verified-and-active rows. */
+export async function catalogBrands(db: Db): Promise<string[]> {
+  await ensureCatalogSchema(db);
+  const rows = await db.selectDistinct({ brand: catalogItems.brand })
+    .from(catalogItems)
+    .where(and(eq(catalogItems.status, "active"), eq(catalogItems.verified, true)))
+    .orderBy(catalogItems.brand);
+  return rows.flatMap(({ brand }) => brand?.trim() ? [brand] : []);
+}
+
 const isNeon = () => Boolean(process.env.DATABASE_URL);
 
 // Safe on BOTH PGlite and Neon. Single source of truth; also spread into db.ts's

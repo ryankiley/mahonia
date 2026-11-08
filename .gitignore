@@ -15,6 +15,9 @@ node_modules
 .env.*
 !.env.example
 
+# scripts/mirror-account.ts input: a real account's lists and gear, by name
+seed/_mirror
+
 # misc
 .DS_Store
 *.log

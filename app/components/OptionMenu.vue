@@ -54,11 +54,17 @@ const emit = defineEmits<{ pick: [key: string]; overlayToggle: [boolean] }>();
 
 const open = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
-// the travelling wash shared with every other menu (useMenuPlate)
-const { plateRef, listRef, on: plateOn } = useMenuPlate();
 // which sides to hang from, measured rather than declared — see useMenuPlacement.
-// On open, because a menu can't change size while it's up.
-const { atStart, above, place } = useMenuPlacement(listRef);
+// On open, because a menu can't change size while it's up. The card is MenuList's
+// element, handed out through its exposed `el`.
+const menuList = useTemplateRef<{ el: HTMLElement | null }>("menuList");
+// `within`: an option list can be long (a folder picker holds every folder), and these
+// pickers sit inside clipping cards (the My Gear sheet, a dialog), so it fits the card
+// it lives in and scrolls when neither side has room.
+const { atStart, above, maxHeight, place } = useMenuPlacement(
+  computed(() => menuList.value?.el ?? null),
+  { within: true },
+);
 watch(open, (o) => o && nextTick(place));
 
 // The list is position:absolute, so a clipping ancestor crops it — the unit menu on
@@ -107,18 +113,14 @@ function pick(key: string) {
       <slot name="trigger" :active="active" :open="open" />
     </button>
     <Transition name="menu" @after-leave="setLift(false)">
-      <ul
+      <MenuList
         v-if="open"
-        ref="listRef"
-        class="popover menu__list optmenu__list"
-        :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
-        role="menu"
+        ref="menuList"
+        class="optmenu__list"
+        :class="{ 'menu__list--start': atStart, 'menu__list--above': above, 'optmenu__list--capped': maxHeight != null }"
+        :style="maxHeight != null ? { maxHeight: `${maxHeight}px` } : undefined"
         :aria-label="label"
-        v-on="plateOn"
       >
-        <li role="none" aria-hidden="true">
-          <span ref="plateRef" class="menu__plate" />
-        </li>
         <li v-for="o in options" :key="o.key" role="none">
           <button
             type="button"
@@ -130,7 +132,7 @@ function pick(key: string) {
           >
             <!-- :icon, NOT <component :is>. A hugeicons icon is PATH DATA rather than
                  a component, so :is would try to render an array and fail. -->
-            <HugeiconsIcon v-if="o.icon" :icon="o.icon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon v-if="o.icon" :icon="o.icon" :size="16" :stroke-width="2" aria-hidden="true" />
             <span>{{ o.label }}</span>
             <!-- rendered on EVERY row and hidden rather than dropped — see the style -->
             <HugeiconsIcon
@@ -143,7 +145,7 @@ function pick(key: string) {
             />
           </button>
         </li>
-      </ul>
+      </MenuList>
     </Transition>
   </div>
 </template>
@@ -182,6 +184,14 @@ function pick(key: string) {
 }
 .optmenu__list {
   min-width: 7rem;
+}
+/* Capped to the room its clipping card leaves (useMenuPlacement's `within`): the rows
+   scroll inside the card. The travelling plate is a child of the list, so it scrolls
+   with the row it sits on, and `contain` keeps a scroll that reaches the end from
+   carrying on into the sheet or the page underneath. */
+.optmenu__list--capped {
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 /* icon · label · check is .menu__item's own row (atoms/controls.scss), the check is the
    shared .menu__check, and both glyphs are pinned by the atom's `flex: none` — without

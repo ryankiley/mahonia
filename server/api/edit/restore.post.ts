@@ -1,6 +1,7 @@
 import { createError, defineEventHandler } from "h3";
 import { restoreSnapshotByEditHash } from "../../utils/listRepo";
 import { requireEditHash } from "../../utils/editAuth";
+import { resolveSession } from "../../utils/authSession";
 import { notFound, readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
@@ -15,7 +16,9 @@ export default defineEventHandler(async (event) => {
   const body = await readJsonBodyCapped<{ snapshotId?: number }>(event, 4_000);
   const id = Number(body?.snapshotId);
   if (!Number.isInteger(id) || id <= 0) throw createError({ statusCode: 400, statusMessage: "Bad snapshot id" });
-  const snapshot = await restoreSnapshotByEditHash(hash, id);
+  const snapshot = await restoreSnapshotByEditHash(hash, id, undefined, {
+    editor: async () => (await resolveSession(event))?.id ?? null,
+  });
   if (!snapshot) throw notFound();
   return { snapshot };
 });

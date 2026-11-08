@@ -1,6 +1,32 @@
+<script lang="ts">
+/**
+ * Hold `cls` on `el` for one run of its children's entrance, then take it off for good,
+ * so the animation it switches on can't play again. Off when the LAST child's animation
+ * ends (it starts last, so it lands last), or after `ms` whatever happened: a hidden
+ * tab, a last child hidden by a person filter, a view not on screen (a list opened in
+ * Trip) — none of those fire an animationend. Returns the cleanup, for an unmount
+ * mid-run.
+ */
+export function playOnce(el: HTMLElement, cls: string, ms: number): () => void {
+  el.classList.add(cls);
+  const end = () => {
+    clearTimeout(timer);
+    el.removeEventListener("animationend", onEnd);
+    el.classList.remove(cls);
+  };
+  const onEnd = (e: Event) => {
+    if (e.target === el.lastElementChild) end();
+  };
+  const timer = setTimeout(end, ms);
+  el.addEventListener("animationend", onEnd);
+  return end;
+}
+</script>
+
 <script setup lang="ts">
 import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import type { Spring } from "~/utils/spring";
+import { motionIsInstant } from "~/plugins/inputModality.client";
 // The ⋯ menu's own glyphs are NOT here — they ride its lazy chunk (EditorMenu);
 // the toolbar keeps only the one that opens it.
 import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
@@ -39,8 +65,7 @@ const vaultPicker = c.vaultPicker;
 // opens it, and kept after, like the other lazy dialogs below.
 const vaultPickerEverOpened = useLatch(() => vaultPicker.value);
 // whether the open list is a CLAIMED one (session + share code, no edit token on
-// this device) — the reactive flag the chrome gates on, since c.editToken is a
-// plain getter nothing can track
+// this device) — the flag the chrome gates on
 const openedByCode = c.openedByCode;
 const keylessCode = c.keylessCode;
 
@@ -143,14 +168,16 @@ const {
 // v-shows, so the rects are the old layout's. Restored property by property: v-show
 // writes display on these same elements in between, and a saved cssText would put
 // the hidden ones back. The pin lasts --mode-slot (half the fade's beat), read off
-// the token so the two can't drift.
+// the token so the two can't drift. A switch with no motion (the keyboard, reduced
+// motion) pins nothing: the leaving view is gone in the same frame, so there is
+// nothing to hold in place and no wait to time.
 const PIN_PROPS = ["position", "top", "left", "width", "margin", "box-sizing", "pointer-events"] as const;
 let unpin: (() => void) | undefined;
 watch(mode, (m, prev) => {
   if (m !== "plan" && prev !== "plan") return;
+  unpin?.(); // a switch caught mid-pin: the last one's leaving view may be this one's arrival
   const body = editorRef.value?.querySelector<HTMLElement>(".editor__body");
-  if (!body || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  unpin?.();
+  if (!body || motionIsInstant()) return;
   const b = body.getBoundingClientRect();
   // every rect BEFORE any style: pinning one block out of the flow moves the ones
   // below it, and a rect read after that is the collapsed layout's (the folders went
@@ -177,6 +204,69 @@ watch(mode, (m, prev) => {
   };
 });
 onBeforeUnmount(() => unpin?.());
+
+// GEAR ↔ PACKING: THE ROWS' HEIGHT. Each row swaps faces in one frame (atoms/item.scss),
+// and its two faces aren't always one height — the edit face has the note on a line of
+// its own and the suggest-a-fix line under the row, the checklist face neither — so a
+// row with a note used to drop or gain a line in one frame and shove every row below
+// it. Here the row's height is one of the switch's slots: read each on-screen row's
+// height before the render that flips data-mode, read it again after, and ease every
+// one that changed from the old to the new on --t-slot's timing (the step spring, after
+// --mode-slot, half the fade's beat; atoms/modeswitch.scss), read off the same tokens
+// as the pin above, with the pack bar and the add rows. The row clips its own overflow
+// already (its content-visibility brings paint containment), so the face that is
+// taller than the row for now is cut at the row's edge, not drawn over the next. Rows
+// off screen keep a remembered size and are skipped. A switch caught mid-fold starts
+// from the height the row is drawn at.
+// Layout, not transform — the one height animation in the switch that isn't a grid
+// track — because the thing that changes is how much room the row takes, and only a
+// height says that to the rows under it; it rides frames the slots above are already
+// laying out.
+let rowFolds: Animation[] = [];
+watch(mode, (m, prev) => {
+  const body = editorRef.value?.querySelector<HTMLElement>(".editor__body");
+  const swap = (m === "pack" && prev === "edit") || (m === "edit" && prev === "pack");
+  const vh = window.innerHeight;
+  // in-flight heights are read BEFORE the cancel, so a reversal starts where it's drawn
+  const rows = body && swap && !motionIsInstant()
+    ? [...body.querySelectorAll<HTMLElement>(".item-wrap")].flatMap((el) => {
+        const r = el.getBoundingClientRect();
+        return r.height && r.bottom > 0 && r.top < vh ? [{ el, from: r.height }] : [];
+      })
+    : [];
+  for (const a of rowFolds) a.cancel();
+  rowFolds = [];
+  if (!body || !rows.length) return;
+  nextTick(() => {
+    const delay = springCss("fade").duration / 2;
+    const { duration, easing } = springCss("step");
+    const to = rows.map(({ el }) => el.getBoundingClientRect().height); // every read, then every write
+    rows.forEach(({ el, from }, i) => {
+      if (!duration || Math.abs(to[i]! - from) < 1) return;
+      rowFolds.push(el.animate([{ height: `${from}px` }, { height: `${to[i]}px` }], { delay, duration, easing, fill: "backwards" }));
+    });
+  });
+});
+onBeforeUnmount(() => rowFolds.forEach((a) => a.cancel()));
+
+// THE FOLDERS' ENTRANCE, once per list opened. The container mounts fresh for every list
+// (the body is v-if'd on the snapshot, which a load clears), so its mount IS the list
+// opening: .is-opening goes on before the first paint and comes off when the cascade
+// has landed (playOnce, above; the motion itself is in the styles below). Nothing
+// re-adds it — a reorder, a filter, a return from Trip and a new folder all show their
+// folders as they are. Not at all from the keyboard or with reduced motion.
+const FOLDERS_OPEN_MS = 1000; // the backstop only; the cascade itself lands by ~725ms
+const foldersRef = useTemplateRef<HTMLElement>("foldersRef");
+let foldersOpened: (() => void) | undefined;
+watch(
+  foldersRef,
+  (el) => {
+    foldersOpened?.();
+    foldersOpened = el && !motionIsInstant() ? playOnce(el, "is-opening", FOLDERS_OPEN_MS) : undefined;
+  },
+  { flush: "post" },
+);
+onBeforeUnmount(() => foldersOpened?.());
 provide(CHILDREN_BY_PARENT, childrenByParent);
 provide(PEOPLE_CTX, { sorted: people, slotById: personSlotById });
 provide(VARIANT_SHOWN, variantShown);
@@ -233,12 +323,21 @@ watchPostEffect(() => {
 // cancel it, start the next from that state. The topbar's break-out margin rides the
 // same keyframes, so the two stay on one clock. The CSS states (.editor--split, below)
 // are the rest positions; with no fill they take over when the animation ends, and
-// a phone, where the inset never changes, animates nothing.
+// a phone, where the inset never changes, animates nothing. Nor does the keyboard: the
+// toolbar button pressed with Enter, or Escape in the pane, moves it in one frame.
 let column: { anims: Animation[]; sp: Spring; v0: number; from: number; to: number } | undefined;
 function setVault(open: boolean) {
   const el = editorRef.value;
   vaultOpen.value = open;
-  if (!el || matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  if (!el) return;
+  // nothing to move from the keyboard or with reduced motion: the inset lands at its new
+  // rest at once, and a move already under way (the pointer opened it, Escape closes
+  // it) stops where it is rather than finishing the trip it no longer means
+  if (motionIsInstant()) {
+    for (const a of column?.anims ?? []) a.cancel();
+    column = undefined;
+    return;
+  }
   const from = parseFloat(getComputedStyle(el).paddingRight) || 0;
   let velocity = 0; // px per ms, signed along the inset
   if (column) {
@@ -435,12 +534,18 @@ function onFocusIn(ev: FocusEvent) {
   if (!el?.matches?.("input, textarea")) return;
   if (el.getAttribute("list") === "gear-types") void loadGearTypes();
   if (el.closest(".topbar")) return;
-  const wait = window.matchMedia("(pointer: coarse)").matches ? 300 : 0;
+  // Nor the My Gear pane's fields (its search): the pane is FIXED, so scrolling the page
+  // can't move them — it only dragged the list behind the sheet for nothing — and on a
+  // phone the sheet rides above the keyboard by itself (VaultPane's viewport watch).
+  if (el.closest("[data-vault-pane]")) return;
+  const coarse = window.matchMedia("(pointer: coarse)").matches;
+  const wait = coarse ? 300 : 0;
   clearTimeout(focusScrollTimer);
   focusScrollTimer = setTimeout(() => {
     // Only intervene if the field is ACTUALLY obscured (hidden under the keyboard or
     // scrolled off the top). When iOS's own focus-scroll already made it visible, a
-    // second scroll is a visible double-reposition.
+    // second scroll is a visible double-reposition. The one exception is a field that
+    // opens suggestions, on touch — see `lift` below.
     //
     // Everything here is measured in the VISUAL viewport — the area left above the
     // keyboard — because that is the space the field has to end up inside. The two
@@ -455,6 +560,21 @@ function onFocusIn(ev: FocusEvent) {
     const top = r.top - vvTop;
     const bottom = r.bottom - vvTop;
 
+    // A field that OPENS SUGGESTIONS (aria-autocomplete="list": the add-item and rename
+    // boxes) goes further, on touch. Its menu hangs below it, and with the keyboard up a
+    // field in the lower half of the screen has no room under it: the minimum move below
+    // parked it 12px above the keyboard and the suggestions, the whole point of typing
+    // there, opened behind the keyboard. So a field in the lower half goes to the top
+    // instead, FOCUS_MARGIN under the sticky topbar, and the menu gets the screen; in the
+    // upper half it already has the room and stays where you tapped it. The menu sizes
+    // itself to whatever this leaves, and flips above only when the page had no more
+    // scroll to give (ItemInput's placeMenu; the arithmetic is app/utils/viewportRoom).
+    // A fine pointer has no keyboard eating the screen, so it keeps the minimum move.
+    if (coarse && el.getAttribute("aria-autocomplete") === "list") {
+      const lift = liftForSuggestions(r, { top: vvTop, bottom: vvTop + vvH }, visibleBand().top, FOCUS_MARGIN);
+      if (lift) return void window.scrollBy({ top: lift, behavior: motionIsInstant() ? "auto" : "smooth" });
+    }
+
     // Move the LEAST that makes the field visible, not scrollIntoView({block:"center"}).
     // Centring was measured moving the page 448px to fix an overlap of about 110 — and
     // it centred in the LAYOUT viewport, the one this function had already decided not
@@ -468,7 +588,7 @@ function onFocusIn(ev: FocusEvent) {
         : top < FOCUS_MARGIN
           ? top - FOCUS_MARGIN
           : 0;
-    if (delta) window.scrollBy({ top: delta, behavior: "smooth" });
+    if (delta) window.scrollBy({ top: delta, behavior: motionIsInstant() ? "auto" : "smooth" });
   }, wait);
 }
 useWindowEvent("focusin", onFocusIn); // auto-removes on unmount
@@ -487,19 +607,17 @@ async function copy(text: string, msg: string, linkFallbackTitle?: string) {
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
-// The four export actions and the rows that draw them are the ⋯ menu's (EditorMenu,
-// through useListExports). What the editor hands it is the link the plain-text copy
-// appends: the READ-ONLY link — explicitly, not location.href, which here is
+// The four export actions and the rows that draw them are the sharing panel's
+// (SharePanel's Export tab, through useListExports). What the editor hands it is the
+// link the plain-text copy appends: the READ-ONLY link — explicitly, not location.href, which here is
 // /e/{code}#{token}. That token is edit access, and this action's whole purpose is
 // pasting the result somewhere public.
 // A draft has no share code yet — no link rather than a broken one (same guard
 // copyShare() makes before offering to copy it).
-// The two links a list is handed out by, each spelled once. READ is a computed off the
-// share code; EDIT is a FUNCTION, because c.editToken is a plain getter nothing can
-// track — a computed over it would go stale across a rotate.
+// The two links a list is handed out by, each spelled once.
 const readUrl = computed(() => (snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : ""));
 // the token stays in the fragment (see shared/links.editLinkPath)
-const editUrl = () => (c.editToken ? `${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}` : "");
+const editUrl = computed(() => (c.editToken ? `${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}` : ""));
 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
 // Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
@@ -534,26 +652,26 @@ async function copyEditLink() {
     return flash("This device doesn’t hold the edit link. Replace it in Sharing to get one");
   if (!c.editToken) return flash("Add an item first to get an edit link");
   if (!(await askConfirm({
-    title: "Copy edit link",
-    message: "Anyone with this link can edit your list. Only send it to people you trust.",
-    confirmLabel: "Copy edit link",
+    title: "Copy the edit link?",
+    message: "Anyone with it can edit this list. Only send it to people you trust.",
+    confirmLabel: "Copy link",
   }))) return;
   tally("share_link_copied"); // after the confirm: a cancelled copy is not a copy
   // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
-  copy(editUrl(), "Edit link copied", "Edit link");
+  copy(editUrl.value, "Edit link copied", "Edit link");
 }
 async function rotate() {
   if (!(await askConfirm({
-    title: "Rotate edit link",
-    message: "Make the old edit link stop working and create a new one? Anyone you shared the old link with will lose edit access.",
-    confirmLabel: "Rotate link",
+    title: "Replace the edit link?",
+    message: "The old link stops working, so anyone you sent it to can no longer edit. You get a new one.",
+    confirmLabel: "Replace link",
     danger: true,
   }))) return;
   const next = await c.rotate();
   if (next) {
     // keep the pretty path (rotate only swaps the token, not the share code)
     history.replaceState(null, "", editLinkPath(snapshot.value?.shareCode, next));
-    flash("Edit link rotated");
+    flash("Edit link replaced");
   }
 }
 const { copyList } = useCopyList();
@@ -576,10 +694,10 @@ async function cloneList() {
 // rows only have to be told apart at a glance, and they are: one is red and throws
 // the list away, the other is plain and takes it off a shelf.
 //
-// Off on an unsaved draft. shareCode is the reactive stand-in for "has a server
-// row": it and the edit token are set in the same breath (createFromDraft), and
-// c.editToken is a plain getter that no computed can track. A draft is not yet a
-// list — "Create a list" above is what replaces one.
+// Off on an unsaved draft. shareCode is the stand-in for "has a server row": it and
+// the edit token are set in the same breath (createFromDraft), and a claimed open has
+// the code with no token at all. A draft is not yet a list — "Create a list" above is
+// what replaces one.
 const isSaved = computed(() => !!snapshot.value?.shareCode);
 
 // FORGET: drop this device's claim, leave the list standing. The gentler of the two
@@ -603,19 +721,19 @@ async function forgetThisList() {
   if (!token) return;
   // Captured before the await: the poll could 404 mid-dialog, and the act should
   // match the message the user actually read, not a state that moved under it.
-  // Status, not a new remoteMissing getter — "missing" with the editor rendered is
-  // exactly the dead-token-with-copy state, and it keeps the dialog agreeing with
-  // the chrome: it turns frank on the same beat SyncStatus says "No longer online".
+  // "missing" with the editor rendered is exactly the dead-token-with-copy state, and
+  // reading it keeps the dialog agreeing with the chrome: it turns frank on the same
+  // beat SyncStatus says "No longer online".
   const dead = status.value === "missing";
   const title = savedListTitle(snapshot.value?.title ?? "");
   if (!(await askConfirm({
-    title: "Forget this list",
+    title: "Forget this list?",
     // Honest about the cost in both states: alive, the list survives and only this
     // browser's way back into it is what's being dropped; dead, the copy being
     // dropped is the thing itself.
     message: dead
-      ? `Forget “${title}”? Its link stopped working, so the copy saved on this device may be all that’s left; forgetting discards it.`
-      : `Forget “${title}” on this device? The list stays online for anyone with its link, but you’ll need its edit link to open it again.`,
+      ? `“${title}” no longer works online, so the copy on this device may be the last one. Forgetting it deletes that copy.`
+      : `“${title}” stays online for anyone with its link. You’ll need the edit link to open it here again.`,
     confirmLabel: "Forget",
     // marked the way the delete's dialog is: dead, this costs something no link
     // can recover. (Today the dialog renders danger monochrome, like everything
@@ -642,8 +760,8 @@ async function deleteThisList() {
   const code = token ? "" : c.claimCode;
   if (!token && !code) return;
   if (!(await askConfirm({
-    title: "Delete this list",
-    message: `Delete “${savedListTitle(snapshot.value?.title ?? "")}” for everyone? Anyone with the link will lose it, and this can’t be undone.`,
+    title: "Delete this list?",
+    message: `“${savedListTitle(snapshot.value?.title ?? "")}” is deleted for everyone with its link. This can’t be undone.`,
     confirmLabel: "Delete",
     danger: true,
   }))) return;
@@ -675,12 +793,10 @@ async function deleteThisList() {
 // dead. The dead end now names the list it couldn't open and offers to forget it:
 // the only act left that means anything for a row like that.
 //
-// Registry lookup by the token load() just tried. c.editToken is a plain getter no
-// computed can track, but every change to it moves `status` (load → "loading",
-// dispose → "idle"), so the status gate keeps this computed honest. forgetSuperseded
-// runs in the same breath the 404 sets the status — a rotate leftover with a live
-// sibling row is gone before this state ever renders — so a row found here is the
-// list's ONLY row, and forgetting it is not covered by any self-heal.
+// Registry lookup by the token load() just tried. forgetSuperseded runs in the same
+// breath the 404 sets the status — a rotate leftover with a live sibling row is gone
+// before this state ever renders — so a row found here is the list's ONLY row, and
+// forgetting it is not covered by any self-heal.
 const missingEntry = computed(() =>
   status.value === "missing"
     ? my.entries.value.find((x) => !!c.editToken && x.editToken === c.editToken)
@@ -714,8 +830,8 @@ async function forgetMissingList() {
   const entry = missingEntry.value;
   if (!entry) return;
   if (!(await askConfirm({
-    title: "Forget this list",
-    message: `Forget “${savedListTitle(entry.title)}”? Its link no longer works; this only removes it from your lists on this device.`,
+    title: "Forget this list?",
+    message: `“${savedListTitle(entry.title)}” no longer works. This takes it off your lists on this device.`,
     confirmLabel: "Forget",
   }))) return;
   // Same teardown-first order as the pair above. Nothing here can write it back
@@ -732,10 +848,8 @@ async function forgetMissingList() {
 //
 // It used to be eight peers in one column: making a list, moving data in and out,
 // and handing out edit access all read as the same kind of thing. The two sharing
-// items moved to the sharing panel; what's left splits into the plain actions and
-// two SECTIONS you open in place — import and export are each a small set of
-// alternatives, and a flat list made you scan six labels to find the one format you
-// wanted. One section open at a time, so the menu never doubles in height.
+// items moved to the sharing panel, and the export formats followed them onto its
+// Export tab; what's left is the plain actions, the site foot and the destructive one.
 //
 // One table drives the markup AND the dispatch, so an action can't exist in one
 // without the other (a string-keyed lookup would let a typo no-op).
@@ -861,7 +975,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                way this one does. It keeps the aria-label on the button (the
                accessible NAME) and adds the visible description. Nothing changes on
                touch — <Tooltip> declines to open where there's no hover. -->
-          <!-- …and it stands down while the pane is up, like the share panel and the
+          <!-- …and it stands down while the pane is up, like the sharing menu and the
                account menu beside it. The pane is a .popover in its own right and it
                opens directly under this button, so the description landed on its top
                corner — and the pane says what it is far better than a word does. -->
@@ -881,8 +995,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
                in, reach your account, or sign out — on the one screen people spend
                their time. `compact` gives it the icon shape this glyph row needs. -->
           <AccountMenu compact has-gear-button />
-          <!-- Sharing is one panel, not an icon plus two buried menu items. The
-               trigger keeps the same glyph and slot it had as a bare copy button. -->
+          <!-- Sharing is one panel: the links on one tab, the exports on the other.
+               The trigger keeps the same glyph and slot it had as a bare copy button. -->
           <div ref="shareRef" class="menu editor__sharemenu">
             <Tooltip text="Sharing" preferred-placement="bottom" :disabled="shareOpen">
               <button
@@ -903,8 +1017,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :snapshot="snapshot"
                 :edit-token="c.editToken"
                 :auth-headers="c.authHeaders()"
-                :read-url="readUrl"
-                :edit-url="editUrl()"
+                :share-url="readUrl"
+                :flash="flash"
                 @close="shareOpen = false"
                 @copy-read="copyShare"
                 @copy-edit="copyEditLink"
@@ -935,7 +1049,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
               </button>
             </Tooltip>
-            <!-- The menu itself — rows, export section, foot — is EditorMenu, Lazy
+            <!-- The menu itself — rows and feet — is EditorMenu, Lazy
                  behind everOpened like the dialogs: fetched and mounted on the first
                  open, off the first load until then. Its transition lives inside it
                  (with `appear`, for that first mount). What comes back up is one
@@ -946,10 +1060,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
               :first-run="isFirstRun"
               :saved="isSaved"
               :opened-by-code="openedByCode"
-              :snapshot="snapshot"
-              :share-url="readUrl"
               @close="menuOpen = false"
-              @flash="flash"
               @people="peopleOpen = true"
               @duplicate="cloneList"
               @import="importOpen = true"
@@ -1132,7 +1243,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
            half-second stall the row swap had, for the same reason; see ItemRow's
            two-Transition comment). display:none takes the rows out of layout, paint
            and the accessibility tree exactly as absence did. -->
-      <div v-show="mode !== 'plan'" data-view="gear" class="editor__folders">
+      <!-- foldersRef: the folders' entrance plays once, when this mounts — a list opened
+           (the cascade, script + styles below) -->
+      <div v-show="mode !== 'plan'" ref="foldersRef" data-view="gear" class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
           :key="f.id"
@@ -1365,12 +1478,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink);
   background: var(--paper-2);
 }
-/* The sharing panel is ~343px of links and activity hanging off a 32px button that
-   sits near the right end of the bar. `.menu` makes that button the containing block,
-   so `right: 0` put the panel's right edge at the BUTTON's right edge — and on a
-   375px phone its left edge landed at -11, taking the rounded corner and half the
-   padding off-screen.
-   Dropping the wrapper out of the positioning chain on small screens hands the panel
+/* The sharing panel hangs off a 32px button near the right end of the bar. `.menu`
+   makes that button the containing block, so `right: 0` puts the panel's right edge at
+   the BUTTON's, which on a 375px phone landed a ~343px panel's left edge at -11.
+   Anchored to the bar instead, it takes the page gutter on both sides (SharePanel).
+   Dropping the wrapper out of the positioning chain on small screens hands the menu
    the sticky .topbar instead, which spans the viewport. Scoped to this one wrapper on
    purpose: `.menu` is a shared atom (the row popovers use it too), and making IT
    static would move every anchored menu in the app. */
@@ -1385,7 +1497,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink);
   background: var(--paper-2);
 }
-/* the ⋯ menu's Export section, its ruled-off feet, its short-phone scroller
+/* the ⋯ menu's ruled-off feet, its short-phone scroller
    (.editor__actions) and the one coloured row in the chrome (.editor__delete) are
    EditorMenu's now, styled there — a scoped rule here can't reach a child's rows */
 /* the popover's look + open/close come from the shared .menu atom (controls.scss);
@@ -1458,30 +1570,37 @@ function onCorrected(res: { status: string; itemName?: string }) {
   flex-direction: column;
   gap: var(--folder-gap);
 }
-/* load reveal: folders cascade in (SPACE10 signature), ~50ms apart.
+/* load reveal: folders cascade in (SPACE10 signature), a --stagger apart — once per
+   list opened, on its first paint, and never again. .is-opening is put on by the
+   script when this container mounts and taken off when the last folder has landed, so
+   the animation exists for that one run. It used to sit on every folder for good, and
+   an animation restarts whenever its element is re-inserted or re-displayed: a folder
+   reordered (by pointer, or ↑/↓ on its grip — Vue moves the node), a person filter
+   cleared, a return from Trip all replayed it, the `backwards` fill blanking a moved
+   folder through its delay, and a newly added folder sat invisible through its own.
    fill-mode `backwards` (not `both`): holds the hidden start-state during each
    folder's stagger delay, then settles to the natural style afterwards. `both`
    would retain an identity `transform` post-animation, making every folder a
    stacking context that traps the add-item autocomplete dropdown's z-index
    inside its folder (so later folders paint over it). */
-.editor__folders > * {
+.editor__folders.is-opening > * {
   animation: rise var(--spring-pop-dur) var(--spring-pop) backwards;
 }
 /* cascade cadence lives in one token (--stagger, ~31ms — SPACE10's kinetic-type
    step), not five magic numbers; child 1 leads at 0, the rest step off it */
-.editor__folders > *:nth-child(2) {
+.editor__folders.is-opening > *:nth-child(2) {
   animation-delay: var(--stagger);
 }
-.editor__folders > *:nth-child(3) {
+.editor__folders.is-opening > *:nth-child(3) {
   animation-delay: calc(var(--stagger) * 2);
 }
-.editor__folders > *:nth-child(4) {
+.editor__folders.is-opening > *:nth-child(4) {
   animation-delay: calc(var(--stagger) * 3);
 }
-.editor__folders > *:nth-child(5) {
+.editor__folders.is-opening > *:nth-child(5) {
   animation-delay: calc(var(--stagger) * 4);
 }
-.editor__folders > *:nth-child(n + 6) {
+.editor__folders.is-opening > *:nth-child(n + 6) {
   animation-delay: calc(var(--stagger) * 5);
 }
 .editor__ungrouped {

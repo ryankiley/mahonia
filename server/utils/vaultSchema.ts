@@ -111,6 +111,13 @@ export const VAULT_DDL: string[] = [
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS currency text`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS description_pinned boolean NOT NULL DEFAULT false`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS price_pinned boolean NOT NULL DEFAULT false`,
+  // The icon you picked by hand for a piece (a name from shared/gearGlyph's set); null
+  // means the gear type decides it. Nothing but the edit dialog writes it, so it has
+  // no pin: there is no capture to protect it from.
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS icon text`,
+  // The unit a piece's weight reads in on /gear, picked per piece the way a list row's
+  // entryUnit is; null follows the page's unit. Display only, never a second weight.
+  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS entry_unit text`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_identity ON vault_items (vault_id, norm_key)`,
   // /vault's browse order and the autocomplete's candidate pool: live rows,
   // most-recently-used first

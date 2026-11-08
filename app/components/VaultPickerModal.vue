@@ -62,8 +62,8 @@ const groups = computed(() => {
     <template v-if="caps">
       <h2 class="t-label">Add to My Gear</h2>
       <p class="t-sm t-muted dlg__lede">
-        You didn’t start this list, so some of it may not be your gear. Untick anything that
-        isn’t; you can change it later on the My Gear page.
+        You didn’t start this list, so some of it may not be yours. Untick anything that
+        isn’t.
       </p>
 
       <div class="vpick__bar">
