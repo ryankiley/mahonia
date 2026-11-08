@@ -1342,10 +1342,14 @@ async function exportGear(kind: string) {
 }
 
 @media (max-width: $bp-stack) {
-  /* the pickers drop beneath the search */
+  /* the pickers keep the trailing edge here too, beside the search or on their own
+     line beneath it; only their gap tightens */
   .vault__views {
-    margin-left: 0;
     gap: var(--space-3);
+  }
+  /* and the search drops its cap, so it ends on that same edge rather than short of it */
+  .vault__searchwrap {
+    max-width: none;
   }
   /* the row's own phone stack (name on its own line, the rest beneath) is
      VaultGearRow's */
