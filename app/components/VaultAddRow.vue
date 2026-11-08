@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Unit } from "~~/shared/types";
+import type { NameCommit } from "~/composables/useCatalogSearch";
 
 // The inline "add a piece of gear" pair on /gear — a name and a weight.
 //
@@ -12,30 +13,45 @@ import type { Unit } from "~~/shared/types";
 //
 // The VALUES live on the page rather than here: a failed add has to leave your text
 // where you typed it, and the page is what knows whether the request landed.
+//
+// The name is the list editor's own field (ItemInput), so typing offers the catalog the
+// way a list row does, and picking a product adds it AS that product: brand, size, gear
+// type, catalog link and weight in one press. Catalog-only (your own gear would only be
+// offered back to you as a duplicate) and pick-only (typed text waits for this form's
+// submit, weight and all, rather than committing when you tab across to the weight).
 const props = defineProps<{ unit: Unit; busy?: boolean }>();
-const emit = defineEmits<{ submit: []; done: [] }>();
+const emit = defineEmits<{
+  submit: [];
+  /** a catalog product picked from the name's suggestions */
+  pick: [NameCommit];
+  done: [];
+  /** the suggestions opened or closed: the folder lifts its clip while they show */
+  "overlay-toggle": [open: boolean];
+}>();
 
 const name = defineModel<string>("name", { required: true });
 const weight = defineModel<string>("weight", { required: true });
 
-const nameEl = useTemplateRef<HTMLInputElement>("nameEl");
-// press the label, land in the field — the affordance opened because you meant to type
-onMounted(() => nameEl.value?.focus());
-/** Called by the page once an add has landed, to start the next one. */
-defineExpose({ focus: () => nameEl.value?.focus() });
+const formEl = useTemplateRef<HTMLFormElement>("formEl");
+/** Called by the page once an add has landed, to start the next one. (The field focuses
+ *  itself on mount: press the label, land in the field.) */
+defineExpose({ focus: () => formEl.value?.querySelector<HTMLInputElement>(".ac__input")?.focus() });
 </script>
 
 <template>
-  <form class="vaddrow" @submit.prevent="emit('submit')">
-    <input
-      ref="nameEl"
-      v-model="name"
-      class="field vaddrow__name"
+  <form ref="formEl" class="vaddrow" @submit.prevent="emit('submit')">
+    <ItemInput
+      class="vaddrow__name"
+      :unit="props.unit"
+      :initial="name"
       placeholder="Name"
-      aria-label="Gear name"
-      autocomplete="off"
-      autocorrect="off"
-      spellcheck="false"
+      sources="catalog"
+      pick-only
+      autofocus
+      @draft="(v: string) => (name = v)"
+      @commit="(c: NameCommit) => emit('pick', c)"
+      @submit="emit('submit')"
+      @overlay-toggle="(o: boolean) => emit('overlay-toggle', o)"
       @keydown.esc="emit('done')"
     />
     <!-- A blank weight is allowed, and lands as 0. Gear you own but haven't weighed
