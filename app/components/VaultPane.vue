@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Cancel01Icon, ChevronDownIcon, FolderIcon, ToolCaseIcon } from "@hugeicons/core-free-icons";
+import { Cancel01Icon, ChevronDownIcon, ExpandIcon, FolderIcon, ToolCaseIcon } from "@hugeicons/core-free-icons";
+import { gearIcon } from "~/utils/gearIcons";
 import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
@@ -109,7 +110,7 @@ const dnd = useItemDnd();
 const { hasVault, vaultFetch } = useVaultAccess();
 
 const items = ref<VaultEntry[]>([]);
-// Items, or just your kits: the sets you add in one go. (This was Categories, your
+// Gear (your pieces), or just your kits: the sets you add in one go. (This was Categories, your
 // My Gear folders; My Gear has no folders now, and a kit is the set you reuse.)
 const tab = ref<"items" | "kits">("items");
 const loading = ref(true);
@@ -178,16 +179,19 @@ watch(hasVault, () => load());
 // No limit: the ranker caps at VAULT_SEARCH_LIMIT for a menu that must not push the
 // catalog off-screen, but this panel IS the list — showing six of a hundred matches
 // would hide gear you own.
+// The Gear tab is your pieces; kits have a tab of their own, the way /gear splits them
+// (Ryan: "keep kits out of items tab here since it has its own").
+const pieces = computed(() => items.value.filter((i) => i.kind !== "kit"));
 const filtered = computed(() => {
   const q = query.value.trim();
-  if (!q) return items.value;
-  return rankVaultRows(items.value, q, Number.POSITIVE_INFINITY);
+  if (!q) return pieces.value;
+  return rankVaultRows(pieces.value, q, Number.POSITIVE_INFINITY);
 });
-// With nothing typed, the gear reads by kind — kits, then shelter, clothing and so on —
-// the way /gear groups it, so the pane and the page read alike. A search ranks across
-// all of it instead: the best match first matters more than where it lives.
+// With nothing typed, the gear reads by kind — shelter, clothing and so on — the way
+// /gear groups it, so the pane and the page read alike. A search ranks across all of
+// it instead: the best match first matters more than where it lives.
 const sections = computed<{ key: string; label: string | null; entries: VaultEntry[] }[]>(() =>
-  query.value.trim() ? [{ key: "results", label: null, entries: filtered.value }] : groupVaultByKind(items.value),
+  query.value.trim() ? [{ key: "results", label: null, entries: filtered.value }] : groupVaultByKind(pieces.value),
 );
 // bold the characters that overlap what's been typed — the same helper, and so the
 // same emphasis, as the autocomplete's rows
@@ -467,9 +471,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            frequent action to reach the rare one. You have already asked for your gear
            by the time you can see this, so "all of it, with room to tidy" is one quiet
            link away at the moment you'd want it. -->
-      <NuxtLink v-if="hasVault" to="/gear" class="btn btn--quiet vp__open ink-quiet" title="Open My Gear as a full page">
-        Open
-        <HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+      <NuxtLink
+        v-if="hasVault"
+        to="/gear"
+        class="btn btn--icon btn--ghost ink-quiet vp__open"
+        aria-label="Open My Gear as a full page"
+        title="Open My Gear as a full page"
+      >
+        <HugeiconsIcon :icon="ExpandIcon" :size="16" :stroke-width="2" aria-hidden="true" />
       </NuxtLink>
       <button
         type="button"
@@ -503,7 +512,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     </div>
 
     <template v-else>
-      <!-- Items / Categories. Both tabs read the SAME loaded rows — one is the gear,
+      <!-- Gear / Kits. Both tabs read the SAME loaded rows — one is the gear,
            the other is the sets you've built out of it — so switching costs nothing
            and the two can't disagree. The search below belongs to whichever is open,
            which is what keeps the panel self-sufficient: finding gear never reaches
@@ -523,8 +532,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             :aria-selected="tab === t"
             @click="tab = t"
           >
-            {{ t === "items" ? "Items" : "Kits" }}
-            <span class="vp__tabcount t-num">{{ t === "items" ? items.length : kits.length }}</span>
+            {{ t === "items" ? "Gear" : "Kits" }}
+            <span class="vp__tabcount t-num">{{ t === "items" ? pieces.length : kits.length }}</span>
           </button>
         </div>
         <div v-if="folders.length" class="vp__target">
@@ -576,7 +585,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             @click="addEntry(kit, targetFolderId)"
           >
             <span class="vp__kit" aria-hidden="true">
-              <HugeiconsIcon :icon="ToolCaseIcon" :size="14" :stroke-width="2" />
+              <HugeiconsIcon :icon="ToolCaseIcon" :size="16" :stroke-width="2" />
             </span>
             <span class="gear__main">
               <span class="gear__name t-clip" :title="itemDisplayName(kit.brand, kit.name, kit.variant)">{{ itemDisplayName(kit.brand, kit.name, kit.variant) }}</span>
@@ -609,10 +618,9 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             @pointerdown="onRowPointerDown(entry, $event)"
             @click="onRowClick(entry)"
           >
-            <!-- a kit's mark, so a set reads as one before you read a word of it;
-                 the same glyph /gear's row wears -->
-            <span v-if="isKit(entry)" class="vp__kit" aria-hidden="true">
-              <HugeiconsIcon :icon="ToolCaseIcon" :size="14" :stroke-width="2" />
+            <!-- the piece's own icon, the one its row on /gear wears -->
+            <span class="vp__kit" aria-hidden="true">
+              <HugeiconsIcon v-if="gearIcon(entry.commonName, entry.name, entry.icon)" :icon="gearIcon(entry.commonName, entry.name, entry.icon)!" :size="16" :stroke-width="2" />
             </span>
             <span class="gear__main">
               <!-- the full name on hover, for the rows the ellipsis cut short -->
@@ -755,7 +763,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__empty {
   padding-inline: var(--space-2);
 }
-/* Items / Categories — a segmented pair, not a link row: they switch what this panel
+/* Gear / Kits — a segmented pair, not a link row: they switch what this panel
    IS looking at, so the active one takes a filled ground rather than an underline.
    Same quiet-grey chip the row toggles use, so "selected" reads the same everywhere. */
 .vp__bar {
@@ -771,7 +779,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   /* The tab's LABEL lands on the panel's gutter, not its chip. Everything else down
      this edge — the title, "Add to", every row name — starts at the content edge; a
      tab carries its own --space-2 of chip padding on top of the shared inset, so
-     "Items" alone sat 8px further in and the column read as bent. Pull the row back
+     "Gear" alone sat 8px further in and the column read as bent. Pull the row back
      by exactly that padding: the text aligns and the active chip's ground overhangs
      into the panel's own padding, which is the --tap-pull idiom (grow the box, not
      the picture). */
@@ -836,12 +844,9 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
      middle of it, reading as a third heading */
   margin-inline-end: auto;
 }
-/* quiet, and a link rather than a button: it navigates, and the glyph says so */
+/* a glyph beside Close, and a link rather than a button: it navigates to the full page */
 .vp__open {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
 }
 .vp__controls {
   display: flex;

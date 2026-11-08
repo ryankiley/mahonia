@@ -88,7 +88,8 @@ registerEndpoint("/api/vault/items", {
     addedNames.push(body.op.name);
     addedOps.push(body.op);
     if (itemsHeld) await itemsHeld;
-    return { ok: true };
+    // the row as it landed, the way the real route answers an add
+    return { ok: true, item: { ...entry(900 + addedNames.length, body.op.name), brand: undefined } };
   },
 });
 
@@ -192,6 +193,18 @@ describe("the /gear page's vault calls", () => {
       await vi.waitFor(() => expect(nameField(w).element.value).toBe(""));
       await nextTick();
       expect(document.activeElement).toBe(nameField(w).element);
+    });
+
+    // A piece sorts itself into its kind, so the page says where it went, with Undo.
+    it("says which kind an added piece went to, and offers Undo", async () => {
+      listRows = [filed];
+      const w = await openPage();
+      await openForm(w);
+      await nameField(w).setValue("Stove");
+      await w.get("form.vaddrow").trigger("submit");
+      await vi.waitFor(() => expect(w.find(".undobar").exists()).toBe(true));
+      expect(w.get(".undobar").text()).toContain("Added Stove to Kitchen");
+      expect(w.get(".undobar").text()).toContain("Undo");
     });
 
     it("keeps what was typed while the add was out", async () => {

@@ -157,5 +157,34 @@ const top = computed(() => {
   .mu__item {
     scroll-snap-align: start;
   }
+  /* Compact on a phone: the icon beside the name, the type left off. As tall cards the
+     shelf took 120px of a phone's first screen and pushed the first piece of gear to
+     474px of 812 (the 2026-11-08 UX audit); the icon still says what a name like
+     "Hiker Boot Midweight" is. */
+  .mu {
+    margin-bottom: var(--space-4);
+  }
+  .mu__list {
+    grid-auto-columns: 46%;
+  }
+  .mu__tile {
+    flex-direction: row;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-3);
+  }
+  .mu__icon {
+    flex: none;
+    width: 24px;
+    height: 24px;
+    margin-bottom: 0;
+  }
+  .mu__icon :deep(svg) {
+    width: 24px;
+    height: 24px;
+  }
+  .mu__meta {
+    display: none;
+  }
 }
 </style>

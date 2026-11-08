@@ -424,7 +424,7 @@ async function sendAdd(op: Record<string, unknown>, unchanged: () => boolean) {
   addBusy.value = true;
   loadError.value = "";
   try {
-    const res = await vaultFetch<{ ok: boolean; reason?: string }>("/api/vault/items", {
+    const res = await vaultFetch<{ ok: boolean; reason?: string; item?: VaultEntry }>("/api/vault/items", {
       method: "POST",
       body: { op },
     });
@@ -442,6 +442,7 @@ async function sendAdd(op: Record<string, unknown>, unchanged: () => boolean) {
       return;
     }
     await loadVault();
+    if (res.item) offerAdded(res.item);
     // Committing re-opens a fresh pair — the editor's `advance` behaviour, which is
     // what makes typing in five things bearable rather than five separate presses.
     if (unchanged()) {
@@ -454,6 +455,24 @@ async function sendAdd(op: Record<string, unknown>, unchanged: () => boolean) {
     loadError.value = "Couldn’t add that. Check your connection and try again.";
   }
   addBusy.value = false;
+}
+
+// A piece sorts itself into its kind, often far down the page or into a collapsed
+// section, so the add row reset under a piece that had silently gone somewhere else
+// (the 2026-11-08 UX audit's first finding). Say where, with the way back. No scroll:
+// the add row stays where you are typing the next one. Undo is a put-away, the only
+// removal there is (a tombstone; see remove.post.ts), so it waits under Removed gear.
+function offerAdded(item: VaultEntry) {
+  const kind = vaultFamilyOf(item);
+  offerUndo({
+    verb: "Added",
+    label: itemDisplayName(item.brand, item.name, item.variant),
+    tail: ` to ${GEAR_FAMILIES.find((f) => f.key === kind)?.label ?? "Other"}`,
+    restore: async () => {
+      await vaultFetch("/api/vault/remove", { method: "POST", body: { id: item.id } }).catch(() => {});
+      await loadVault();
+    },
+  });
 }
 
 // ---- editing in place ----------------------------------------------------
@@ -797,7 +816,7 @@ async function exportGear(kind: string) {
               >
                 <template #trigger="{ open }">
                   <HugeiconsIcon :icon="viewOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
-                  <span>{{ viewOption.label }}</span>
+                  <span class="vault__viewword">{{ viewOption.label }}</span>
                   <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
               </OptionMenu>
@@ -811,7 +830,7 @@ async function exportGear(kind: string) {
               >
                 <template #trigger="{ open }">
                   <HugeiconsIcon :icon="showOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
-                  <span>{{ showOption.label }}</span>
+                  <span class="vault__viewword">{{ showOption.label }}</span>
                   <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
               </OptionMenu>
@@ -1301,6 +1320,15 @@ async function exportGear(kind: string) {
   /* and the search drops its cap, so it ends on that same edge rather than short of it */
   .vault__searchwrap {
     max-width: none;
+  }
+  /* The pickers keep their mark and chevron and drop the word, so they fit on the
+     search's own line instead of taking one of their own: a line of a phone's first
+     screen spent on two controls you rarely touch. Their names stay on aria-label. */
+  .vault__viewword {
+    display: none;
+  }
+  .vault__bar {
+    flex-wrap: nowrap;
   }
   /* the row's own phone stack (name on its own line, the rest beneath) is
      VaultGearRow's */
