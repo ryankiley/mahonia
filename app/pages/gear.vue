@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChartAverageIcon, ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, FolderRemoveIcon, GridViewIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, FolderRemoveIcon, GridViewIcon, GripVerticalIcon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
@@ -551,16 +551,16 @@ async function undoRemove() {
 
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
-// The page's own order. A–Z / Heaviest / Lightest wear the sort-key glyph family;
-// Folders takes the folder mark because it is a LAYOUT, not a sort key, and
-// shouldn't borrow one.
+// The page's own order. A–Z / Heaviest / Lightest wear sort glyphs (A–Z the ordered
+// list with A over Z); Folders takes the folder mark because it is a LAYOUT, not a
+// sort key, and shouldn't borrow one.
 const VIEW_OPTIONS = [
   { key: "folders", label: "Folders", icon: FolderIcon },
-  { key: "az", label: "A–Z", icon: SortingAZ01Icon },
+  { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
   { key: "heaviest", label: "Heaviest", icon: SortingNineOneIcon },
   { key: "lightest", label: "Lightest", icon: SortingOneNineIcon },
   { key: "recent", label: "Recently used", icon: Clock01Icon },
-  { key: "most", label: "Most used", icon: ChartAverageIcon },
+  { key: "most", label: "Most used", icon: StarIcon },
 ];
 // Marked like the View menu beside it: the classes wear the marks the rows carry,
 // "Unfiled" the out-of-a-folder mark the move menu uses for the same place.
@@ -721,7 +721,7 @@ async function exportGear(kind: string) {
                 @pick="(k) => (view = k as VaultView)"
               >
                 <template #trigger="{ open }">
-                  <HugeiconsIcon :icon="viewOption.icon" class="vault__viewmark" :size="16" :stroke-width="1.75" aria-hidden="true" />
+                  <HugeiconsIcon :icon="viewOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
                   <span>{{ viewOption.label }}</span>
                   <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
@@ -734,7 +734,7 @@ async function exportGear(kind: string) {
                 @pick="(k) => (show = k as VaultShow)"
               >
                 <template #trigger="{ open }">
-                  <HugeiconsIcon :icon="showOption.icon" class="vault__viewmark" :size="16" :stroke-width="1.75" aria-hidden="true" />
+                  <HugeiconsIcon :icon="showOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
                   <span>{{ showOption.label }}</span>
                   <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
                 </template>
