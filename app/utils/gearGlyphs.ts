@@ -10,7 +10,8 @@ import type { IconChild, IconNode } from "./hugeicon";
 // What's here is what the free set has no good picture for among the icons the gear
 // page uses (shared/gearGlyph.ts keeps that set small): trekking poles, a jacket
 // (it has no jacket at all), a water bottle, a canister stove, a toiletry tube, a
-// headlamp, a carabiner, a hiking boot, a neck gaiter and an ice axe.
+// headlamp, a carabiner, a hiking boot, a neck gaiter, an ice axe and a lidded
+// canister.
 // Everything else is a Hugeicons glyph, several of them Ryan's picks made while
 // reviewing these drawings: Zzz for anything slept in, Droplet for a reservoir and
 // electrolytes, Chocolate for food, Hat, Glasses, Shirt01, Sneaker, MoneyBag01 for every
@@ -119,5 +120,13 @@ export const IceAxeGlyph = glyph(
   line("M3.2 3.6C5.2 2.6 7.8 1.9 10 1.85C13.7 1.8 17.7 3.5 20.8 5.9L20.2 7.4C18.9 6.6 16.8 5.8 15.1 5.8C13.6 5.8 12.2 6.3 11.15 6.6V12.4H11.15C11.6 12.4 11.95 12.75 11.95 13.2V19.7C11.95 20.97 10.92 22 9.65 22C8.38 22 7.35 20.97 7.35 19.7V13.2C7.35 12.75 7.7 12.4 8.15 12.4V6.6C6.7 6.2 5 6 3.5 6.1L3.2 3.6Z"),
   line("M9.65 15.4H9.66"),
   line("M9.65 18.6H9.66"),
+);
+
+/** A lidded canister: Hugeicons' Honey01 with its honeycomb front taken off in review,
+ *  so a bear canister, a jar or a cooler reads as a sealed container rather than as
+ *  honey. The lid and body are Hugeicons' own paths, unchanged. */
+export const CanisterGlyph = glyph(
+  line("M16.5 5H7.5C7.03406 5 6.80109 5 6.61732 4.92388C6.37229 4.82239 6.17761 4.62771 6.07612 4.38268C6 4.19891 6 3.96594 6 3.5C6 3.03406 6 2.80109 6.07612 2.61732C6.17761 2.37229 6.37229 2.17761 6.61732 2.07612C6.80109 2 7.03406 2 7.5 2H16.5C16.9659 2 17.1989 2 17.3827 2.07612C17.6277 2.17761 17.8224 2.37229 17.9239 2.61732C18 2.80109 18 3.03406 18 3.5C18 3.96594 18 4.19891 17.9239 4.38268C17.8224 4.62771 17.6277 4.82239 17.3827 4.92388C17.1989 5 16.9659 5 16.5 5Z"),
+  line("M7.5 5L7.31779 5.21866C6.17078 6.59506 5.59728 7.28326 5.29864 8.10812C5 8.93299 5 9.82882 5 11.6205V16C5 18.8284 5 20.2426 5.87868 21.1213C6.75736 22 8.17157 22 11 22H13C15.8284 22 17.2426 22 18.1213 21.1213C19 20.2426 19 18.8284 19 16V11.6205C19 9.82882 19 8.93299 18.7014 8.10812C18.4027 7.28326 17.8292 6.59506 16.6822 5.21866L16.5 5"),
 );
 

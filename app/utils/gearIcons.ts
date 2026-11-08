@@ -13,7 +13,6 @@ import {
   GlassesIcon,
   GloveIcon,
   HatIcon,
-  JarIcon,
   JoggerPantsIcon,
   LassoTool01Icon,
   MoneyBag01Icon,
@@ -39,6 +38,7 @@ import {
 import type { IconNode } from "./hugeicon";
 import { GEAR_GLYPH_LABELS, GEAR_GLYPHS, gearGlyphFor, type GearGlyph } from "~~/shared/gearGlyph";
 import {
+  CanisterGlyph,
   CarabinerGlyph,
   HeadlampGlyph,
   HikingBootGlyph,
@@ -66,7 +66,7 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   pad: YogaMatIcon,
   backpack: Backpack02Icon,
   bag: MoneyBag01Icon,
-  container: JarIcon,
+  container: CanisterGlyph,
   wallet: Wallet01Icon,
   jacket: JacketGlyph,
   shirt: Shirt01Icon,
