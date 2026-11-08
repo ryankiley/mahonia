@@ -1,6 +1,5 @@
-import { Backpack02Icon, CookieIcon, DropletIcon, Fuel01Icon, ShirtIcon } from "@hugeicons/core-free-icons";
+import { CookieIcon, DropletIcon, Fuel01Icon } from "@hugeicons/core-free-icons";
 import type { IconNode } from "./hugeicon";
-import type { Classification } from "~~/shared/types";
 import { isWaterName } from "~~/shared/water";
 import { isFuelRow, type Named } from "~~/shared/fuel";
 
@@ -34,12 +33,3 @@ import { isFuelRow, type Named } from "~~/shared/fuel";
  */
 export const consumableIcon = (row: Named): IconNode =>
   isWaterName(row.name) ? DropletIcon : isFuelRow(row) ? Fuel01Icon : CookieIcon;
-
-/** What each class wears where you CHOOSE one (My Gear's Show filter, the edit dialog's
- *  picker): the pack for base, and the two marks the rows already carry for the other
- *  two, the worn shirt and the consumable cookie. */
-export const CLASS_ICONS: Record<Classification, IconNode> = {
-  base: Backpack02Icon,
-  worn: ShirtIcon,
-  consumable: CookieIcon,
-};

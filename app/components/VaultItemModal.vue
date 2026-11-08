@@ -4,7 +4,7 @@ import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
 import { formatPrice, parsePriceInput } from "~~/shared/money";
-import { CLASS_ICONS } from "~/utils/itemMarks";
+import { CLASS_ICONS } from "~/utils/classIcons";
 import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 

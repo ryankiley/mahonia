@@ -17,7 +17,7 @@ import {
   type VaultView,
 } from "~~/shared/vaultView";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
-import { CLASS_ICONS } from "~/utils/itemMarks";
+import { CLASS_ICONS } from "~/utils/classIcons";
 
 // "My Gear" — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping. That's the name the chrome uses
