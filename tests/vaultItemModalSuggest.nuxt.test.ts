@@ -65,4 +65,14 @@ describe("suggestions in the edit dialog", () => {
   it("asks for a size with a placeholder, not an example", () => {
     expect(input(open(), "Size or version").attributes("placeholder")).toBe("Add a size");
   });
+
+  it("shows the price placeholder in the currency a bare number would be saved in", () => {
+    const priced = mount(VaultItemModal, {
+      props: { entry, unit: "g", defaultCurrency: "USD" },
+      attachTo: document.body,
+    });
+    expect(input(priced, "Price").attributes("placeholder")).toMatch(/^\$\s?0$/);
+    expect(input(open(), "Price").attributes("placeholder")).toBe("0");
+  });
 });
+

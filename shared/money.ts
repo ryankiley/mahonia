@@ -133,6 +133,25 @@ export function sumPrices(
  * Intl won't take throws rather than falling back, so the bare number is the catch —
  * the same shape a price with no currency at all takes.
  */
+/** Nothing, in a currency: "$0", "£0", or a bare "0" when there is no currency (or none
+ *  Intl knows). The price field's placeholder, so a bare number typed into it says
+ *  ahead of time which money it will be saved in. */
+export function zeroPrice(currency?: string): string {
+  if (currency && /^[A-Za-z]{3}$/.test(currency)) {
+    try {
+      return new Intl.NumberFormat(undefined, {
+        style: "currency",
+        currency: currency.toUpperCase(),
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0,
+      }).format(0);
+    } catch {
+      /* not a currency Intl knows */
+    }
+  }
+  return "0";
+}
+
 export function formatPrice(cents: number, currency?: string): string {
   const value = Math.max(0, Math.round(cents)) / 100;
   if (currency && /^[A-Za-z]{3}$/.test(currency)) {

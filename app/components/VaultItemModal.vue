@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon, DashedLine02Icon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
-import { formatPrice, parsePriceInput } from "~~/shared/money";
+import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
@@ -437,9 +437,19 @@ async function onSubmit() {
           <span class="t-sm t-muted">Price</span>
           <!-- inputmode text, not decimal: a currency symbol is part of what this
                field reads, and a numeric keypad can't type one -->
-          <!-- "0", like the weight and kcal beside it: an example figure ("399") read as
-               a real price on a protein bar -->
-          <input v-model="price" class="field" placeholder="0" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+          <!-- zero, like the weight and kcal beside it (an example figure, "399", read as a
+               real price on a protein bar), in the currency a bare number will be saved
+               in: the piece's own, else the one the rest of your gear is priced in. The
+               same order onSubmit applies, so "$0" is a promise, not a guess. -->
+          <input
+            v-model="price"
+            class="field"
+            :placeholder="zeroPrice(entry.currency ?? defaultCurrency)"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            @keydown.enter="onSubmit"
+          />
         </label>
         <label class="dlg__field">
           <span class="t-sm t-muted">
