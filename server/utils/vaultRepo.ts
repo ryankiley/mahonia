@@ -28,6 +28,7 @@ import { CLASSIFICATIONS, type Classification } from "../../shared/types";
 import { clampUnitWeightMg, isSerialId, KCAL_MAX } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { tidyText } from "../../shared/tidyText";
+import { isGearGlyph, type GearGlyph } from "../../shared/gearGlyph";
 import { enoughToSearch } from "../../shared/searchText";
 import { rankVaultRows } from "../../shared/vaultSearch";
 
@@ -91,6 +92,8 @@ function toEntry(row: Row): VaultEntry {
     name: tidyText(row.name),
     variant: row.variant ? tidyText(row.variant) || undefined : undefined,
     commonName: row.commonName ? tidyText(row.commonName) || undefined : undefined,
+    // a pick whose icon has left the set reads as no pick, so the type's icon shows
+    icon: isGearGlyph(row.icon) ? row.icon : undefined,
     weightMg: Number(row.weightMg),
     classification: CLASSIFICATIONS.includes(row.classification as Classification)
       ? (row.classification as Classification)
@@ -865,6 +868,9 @@ interface VaultItemPatch {
   /** Link the piece to a catalog row, or null to unlink it. No pin: a link is a fact
    *  about which product this is, not a value a list could argue with. */
   catalogItemId?: number | null;
+  /** The icon picked by hand, or null to go back to the gear type's. No pin, like the
+   *  catalog link: nothing but this dialog ever writes it. */
+  icon?: GearGlyph | null;
 }
 
 /** The pin flags a deliberate write asserts, returned in the SAME object as the
@@ -940,6 +946,11 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
     // the column is a Postgres integer: the bound sanitize() holds a capture to
     if (p.catalogItemId === null) out.catalogItemId = null;
     else if (isSerialId(p.catalogItemId)) out.catalogItemId = p.catalogItemId;
+  }
+  if ("icon" in p) {
+    // a name outside the set is ignored, not stored: it would draw nothing
+    if (p.icon === null) out.icon = null;
+    else if (isGearGlyph(p.icon)) out.icon = p.icon;
   }
   if (typeof p.description === "string" || p.description === null) {
     out.description = str(p.description, VAULT_NOTE_MAX) ?? null;

@@ -24,6 +24,14 @@ import {
   SafeBoxIcon, Share08Icon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon,
   SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, ThirdBracketIcon, Txt01Icon,
   Undo02Icon, UserLock01Icon,
+  // My Gear's gear-type icons (app/utils/gearIcons.ts)
+  ChocolateIcon, CookingPotIcon,
+  FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, MoneyBag01Icon, PocketKnifeIcon,
+  Shirt01Icon, ShovelIcon, SneakerIcon, SocksIcon,
+  YogaMatIcon, WaterEnergyIcon,
+  Music3Icon, Camera01Icon, Chair02Icon, ChessKnightIcon, SmartPhone01Icon, SmartWatch01Icon,
+  Coffee02Icon, SpoonIcon, RiceBowl01Icon, TowelsIcon, Underpants03Icon, Wallet01Icon,
+  Wrench01Icon, JarIcon, ZzzIcon, LassoTool01Icon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon as Local } from "~/utils/hugeicon";
 
@@ -44,6 +52,14 @@ const ALL_ICONS = Object.entries({
   SafeBoxIcon, Share08Icon, ShirtIcon, SortingAZ01Icon, SortingNineOneIcon,
   SortingOneNineIcon, SquareIcon, Stairs01Icon, TentIcon, ThirdBracketIcon, Txt01Icon,
   Undo02Icon, UserLock01Icon,
+  // My Gear's gear-type icons (app/utils/gearIcons.ts)
+  ChocolateIcon, CookingPotIcon,
+  FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, MoneyBag01Icon, PocketKnifeIcon,
+  Shirt01Icon, ShovelIcon, SneakerIcon, SocksIcon,
+  YogaMatIcon, WaterEnergyIcon,
+  Music3Icon, Camera01Icon, Chair02Icon, ChessKnightIcon, SmartPhone01Icon, SmartWatch01Icon,
+  Coffee02Icon, SpoonIcon, RiceBowl01Icon, TowelsIcon, Underpants03Icon, Wallet01Icon,
+  Wrench01Icon, JarIcon, ZzzIcon, LassoTool01Icon,
 }) as [string, never][];
 
 // The prop combinations the app actually draws with (see the call sites), plus the

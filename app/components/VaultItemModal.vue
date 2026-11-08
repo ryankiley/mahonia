@@ -7,6 +7,8 @@ import { formatPrice, parsePriceInput } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
 import { formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
+import type { GearGlyph } from "~~/shared/gearGlyph";
+import { GEAR_ICON_CHOICES, gearIcon, gearIconLabel } from "~/utils/gearIcons";
 
 // Correcting a piece of gear in place — the half of My Gear that capture can't do.
 //
@@ -28,6 +30,8 @@ const props = defineProps<{
   /** The money the rest of your gear is priced in, when it is priced in one. A bare
    *  number falls back to it, so stating a currency once is enough — see onSubmit. */
   defaultCurrency?: string;
+  /** "icon" opens the dialog with its icon grid showing (the row's icon was pressed). */
+  focus?: "icon" | null;
 }>();
 const emit = defineEmits<{ close: []; saved: [VaultEntry] }>();
 
@@ -55,6 +59,21 @@ const note = ref("");
 const price = ref("");
 const productUrl = ref("");
 const classification = ref<Classification>("base");
+// The icon you picked by hand; null = the gear type decides, live, as you type it.
+const icon = ref<GearGlyph | null>(null);
+const iconsOpen = ref(false);
+const shownIcon = computed(() => gearIcon(commonName.value, name.value, icon.value));
+const shownLabel = computed(() => gearIconLabel(commonName.value, name.value, icon.value));
+// what "Automatic" would draw: the type's icon, read from the fields as they stand
+const autoIcon = computed(() => gearIcon(commonName.value, name.value));
+const iconBtn = useTemplateRef<HTMLButtonElement>("iconBtn");
+function pickIcon(glyph: GearGlyph | null) {
+  icon.value = glyph;
+  iconsOpen.value = false;
+  // the grid goes with the press, and the button that was pressed with it: hand focus
+  // back to the box that opened it, rather than dropping a keyboard user on the page
+  nextTick(() => iconBtn.value?.focus());
+}
 const saving = ref(false);
 const error = ref("");
 const nameEl = useTemplateRef<HTMLInputElement>("nameEl");
@@ -98,6 +117,7 @@ let opened = {
   price: "",
   productUrl: "",
   classification: "base" as Classification,
+  icon: null as GearGlyph | null,
 };
 
 // `immediate`, because this component is Lazy-mounted on first use when `entry` is
@@ -128,6 +148,8 @@ watch(
     // weight field uses (below) keeps the round trip from re-pricing anything.
     price.value = e.priceCents != null ? formatPrice(e.priceCents, e.currency) : "";
     productUrl.value = e.productUrl ?? "";
+    icon.value = e.icon ?? null;
+    iconsOpen.value = props.focus === "icon";
     saving.value = false;
     error.value = "";
     opened = {
@@ -141,6 +163,7 @@ watch(
       price: price.value,
       productUrl: productUrl.value,
       classification: classification.value,
+      icon: icon.value,
     };
   },
   { immediate: true },
@@ -163,6 +186,7 @@ async function onSubmit() {
   if (commonName.value !== opened.commonName) {
     patch.commonName = commonName.value.trim().slice(0, VAULT_SHORT_MAX) || null;
   }
+  if (icon.value !== opened.icon) patch.icon = icon.value;
   if (classification.value !== opened.classification) {
     // "base" is stored as absent, the convention the capture path keeps
     patch.classification = classification.value === "base" ? null : classification.value;
@@ -265,12 +289,53 @@ async function onSubmit() {
         <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
-      <!-- the placeholder is ItemRow's, word for word, so the field is named the same
-           way in both places -->
-      <label class="dlg__field">
-        <span class="t-sm t-muted">Gear type</span>
-        <input v-model="commonName" class="field" placeholder="Type of gear" @keydown.enter="onSubmit" />
-      </label>
+      <!-- The icon beside the gear type, because the type decides it until you pick one:
+           type "puffy" and the box beside it turns into a jacket. -->
+      <div class="vitem__typed">
+        <div class="dlg__field">
+          <span class="t-sm t-muted">Icon</span>
+          <button
+            ref="iconBtn"
+            type="button"
+            class="field vitem__iconbtn"
+            :aria-expanded="iconsOpen"
+            aria-controls="vitem-icons"
+            :aria-label="`Icon: ${shownLabel ?? 'none'}`"
+            @click="iconsOpen = !iconsOpen"
+          >
+            <HugeiconsIcon v-if="shownIcon" :icon="shownIcon" :size="20" :stroke-width="2" aria-hidden="true" />
+            <span v-else class="vitem__noicon" aria-hidden="true" />
+            <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': iconsOpen }" :size="14" :stroke-width="2" aria-hidden="true" />
+          </button>
+        </div>
+        <!-- the placeholder is ItemRow's, word for word, so the field is named the same
+             way in both places -->
+        <label class="dlg__field">
+          <span class="t-sm t-muted">Gear type</span>
+          <input v-model="commonName" class="field" placeholder="Type of gear" @keydown.enter="onSubmit" />
+        </label>
+      </div>
+      <!-- In the dialog's own flow, not a floating menu: forty-odd glyphs are a grid to
+           look over, and the dialog already scrolls. "Automatic" first, since going back
+           to the type's icon is the one choice that isn't a picture. -->
+      <div v-if="iconsOpen" id="vitem-icons" class="vitem__icons" role="group" aria-label="Icons">
+        <button type="button" class="vitem__auto" :aria-pressed="icon === null" @click="pickIcon(null)">
+          <HugeiconsIcon v-if="autoIcon" :icon="autoIcon" :size="20" :stroke-width="2" aria-hidden="true" />
+          <span>{{ autoIcon ? "Match the gear type" : "No icon" }}</span>
+        </button>
+        <button
+          v-for="c in GEAR_ICON_CHOICES"
+          :key="c.glyph"
+          type="button"
+          class="vitem__icon"
+          :aria-pressed="icon === c.glyph"
+          :aria-label="c.label"
+          :title="c.label"
+          @click="pickIcon(c.glyph)"
+        >
+          <HugeiconsIcon :icon="c.icon" :size="20" :stroke-width="2" aria-hidden="true" />
+        </button>
+      </div>
 
       <!-- the row's own sub-line, in the dialog's words: ItemRow's note placeholder
            verbatim, because it is the same text moved — a list wrote it, and this is
@@ -376,6 +441,80 @@ async function onSubmit() {
   gap: var(--space-1);
 }
 /* its chevron is the .chev atom (controls.scss), not a copy */
+/* the icon box and the gear type: the box as wide as its glyph and chevron, the type
+   taking the rest. Its own class rather than a .vitem__pair, so it stays one line on a
+   phone — the box is too small to deserve a row of its own. */
+.vitem__typed {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-3);
+}
+.vitem__iconbtn {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--ink);
+  cursor: pointer;
+}
+/* nothing to draw yet: the same faint dashed square an empty row slot shows */
+.vitem__noicon {
+  width: 14px;
+  height: 14px;
+  margin: 3px;
+  border: 1.5px dashed var(--line-2);
+  border-radius: var(--radius-1);
+}
+/* fixed cells spread edge to edge, so a cell's glyph inset is a known number that
+   "Match the gear type" can repeat, and its icon sits in the first column */
+.vitem__icons {
+  --vitem-cell: 2.5rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, var(--vitem-cell));
+  justify-content: space-between;
+  gap: var(--space-1);
+}
+.vitem__icon,
+.vitem__auto {
+  min-height: 2.5rem;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-2);
+  background: none;
+  color: var(--ink-2);
+  font: inherit;
+  cursor: pointer;
+}
+.vitem__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.vitem__auto {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline: calc((var(--vitem-cell) - 20px) / 2);
+  text-align: start;
+}
+/* the one you have: a plate of ink at the menus' wash, under full-strength ink. Ink
+   mixed thin, not --paper-3, because --paper-3 IS the dialog's surface in dark and the
+   plate vanished into it. */
+.vitem__icon[aria-pressed="true"],
+.vitem__auto[aria-pressed="true"] {
+  background: color-mix(in oklab, var(--ink) var(--popover-wash, 8%), transparent);
+  color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .vitem__icon:hover,
+  .vitem__auto:hover {
+    color: var(--ink);
+  }
+}
+.vitem__icon:active,
+.vitem__auto:active {
+  opacity: 0.7;
+}
 /* Plain ink, not --danger: the monochrome rule reserves colour for irreversible acts
    and for the data viz (tokens.scss), and a save that didn't go through is neither.
    Matches /gear's own .vault__error. */
