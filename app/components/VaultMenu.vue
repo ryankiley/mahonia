@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { HugeiconsIcon } from "~/utils/hugeicon";
+import { Csv01Icon, FileImportIcon, ThirdBracketIcon } from "@hugeicons/core-free-icons";
 // My Gear's ⋯ actions menu — the same quiet kebab the editor and the read views
 // carry, in the one place that didn't have one.
 //
@@ -28,16 +30,27 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
            full one it is still the rarer, more deliberate act — the downloads
            below it are the ones you reach for without thinking. -->
       <li role="none">
-        <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'import')">Import gear…</button>
+        <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'import')">
+          <!-- the marks the editor's Import row and the list exports wear, so one act
+               keeps one picture wherever you meet it -->
+          <HugeiconsIcon :icon="FileImportIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+          Import gear…
+        </button>
       </li>
       <!-- the same two words the editor's and the read views' export rows use, so
            one action keeps one name wherever you meet it -->
       <template v-if="canExport">
         <li role="none">
-          <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'csv')">Download CSV</button>
+          <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'csv')">
+            <HugeiconsIcon :icon="Csv01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+            Download CSV
+          </button>
         </li>
         <li role="none">
-          <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'json')">Download JSON</button>
+          <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'json')">
+            <HugeiconsIcon :icon="ThirdBracketIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+            Download JSON
+          </button>
         </li>
       </template>
     </template>

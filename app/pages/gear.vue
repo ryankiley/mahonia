@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChartAverageIcon, ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import { ChartAverageIcon, ChevronDownIcon, Clock01Icon, Delete02Icon, FolderIcon, FolderRemoveIcon, GridViewIcon, GripVerticalIcon, SortingAZ01Icon, SortingNineOneIcon, SortingOneNineIcon, UndoIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultFolder } from "~~/shared/vault";
@@ -17,6 +17,7 @@ import {
   type VaultView,
 } from "~~/shared/vaultView";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
+import { CLASS_ICONS } from "~/utils/classIcons";
 
 // "My Gear" — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping. That's the name the chrome uses
@@ -492,20 +493,22 @@ const VIEW_OPTIONS = [
   { key: "recent", label: "Recently used", icon: Clock01Icon },
   { key: "most", label: "Most used", icon: ChartAverageIcon },
 ];
+// Marked like the View menu beside it: the classes wear the marks the rows carry,
+// "Unfiled" the out-of-a-folder mark the move menu uses for the same place.
 const SHOW_OPTIONS = [
-  { key: "all", label: "All gear" },
-  { key: "unfiled", label: "Unfiled" },
-  { key: "base", label: "Base" },
-  { key: "worn", label: "Worn" },
-  { key: "consumable", label: "Consumable" },
+  { key: "all", label: "All gear", icon: GridViewIcon },
+  { key: "unfiled", label: "Unfiled", icon: FolderRemoveIcon },
+  { key: "base", label: "Base", icon: CLASS_ICONS.base },
+  { key: "worn", label: "Worn", icon: CLASS_ICONS.worn },
+  { key: "consumable", label: "Consumable", icon: CLASS_ICONS.consumable },
 ];
 const viewLabel = computed(() => VIEW_OPTIONS.find((o) => o.key === view.value)?.label ?? "");
 const showLabel = computed(() => SHOW_OPTIONS.find((o) => o.key === show.value)?.label ?? "");
 // every destination a row can move to. "" is Unfiled, which is a real destination
 // here rather than an empty state — the vault keeps unfiled gear.
 const folderOptions = computed(() => [
-  { key: "", label: "Unfiled" },
-  ...folders.value.map((f) => ({ key: String(f.id), label: f.name })),
+  { key: "", label: "Unfiled", icon: FolderRemoveIcon },
+  ...folders.value.map((f) => ({ key: String(f.id), label: f.name, icon: FolderIcon })),
 ]);
 
 // ---- taking it with you --------------------------------------------------
