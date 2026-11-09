@@ -172,6 +172,22 @@ function frame() {
 }
 
 /**
+ * Tell the map its box changed, as OUR move. invalidateSize pans to hold the centre, and
+ * when the centre shifts it fires `moveend` synchronously, in this call — which the
+ * gesture listener read as the person's. So every resize the code itself made marked the
+ * view theirs: expanding never re-fit the route, and the ResizeObserver's re-frame never
+ * ran for a real resize. Leaflet's own window-resize handler is off (`trackResize`) for
+ * the same reason, its moveend landing 200 ms later where no flag could cover it; the
+ * observer below sees every size the map's box takes, window resizes included.
+ */
+function resize() {
+  if (!map) return;
+  framing = true;
+  map.invalidateSize();
+  framing = false;
+}
+
+/**
  * A Hugeicon as an SVG STRING.
  *
  * Leaflet's divIcon takes HTML, not a component, so the glyph can't be rendered by
@@ -843,7 +859,7 @@ async function setExpanded(on: boolean) {
     syncDragging(); // a finger pans the map now that the map is the page
     await nextTick();
     // full size FIRST, and told about it once
-    map?.invalidateSize();
+    resize();
     // Re-frame only while the view is still ours. Someone who has zoomed into a col wants
     // that col bigger, not the whole route back.
     if (!touched) frame();
@@ -868,7 +884,7 @@ async function setExpanded(on: boolean) {
   clip.value = null;
   window.removeEventListener("keydown", onKeydown);
   await nextTick();
-  map?.invalidateSize();
+  resize();
   if (!touched) frame();
 }
 
@@ -980,6 +996,8 @@ async function draw() {
     dragging: panByDrag(),
     zoomControl: true,
     attributionControl: true,
+    // the ResizeObserver below covers every resize, as one of ours (see resize())
+    trackResize: false,
   });
 
   // The caption under the map promised this and nothing delivered it: with Leaflet's
@@ -1061,10 +1079,10 @@ async function draw() {
     emit("place", Math.min(range.toM, Math.max(range.fromM, at)));
   });
 
-  map.invalidateSize();
+  resize();
   ro = new ResizeObserver(() => {
     if (!map) return;
-    map.invalidateSize();
+    resize();
     // A map framed at one height is cropped at another, and this one is inside a panel
     // that opens, a page that reflows and a window that resizes. invalidateSize alone
     // keeps the centre and the zoom, so the route quietly loses its ends — re-frame while

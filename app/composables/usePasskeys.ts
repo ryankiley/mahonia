@@ -200,8 +200,11 @@ export function usePasskeys() {
     if (end.at !== "done") return "failed";
     if (!end.res.ok) return end.res.reason === "taken" ? "taken" : "failed";
     // the session cookie is already set — this pulls the user into app state so
-    // the vault and the "add a way back in" prompt both light up without a reload
-    await refresh();
+    // the vault and the "add a way back in" prompt both light up without a reload.
+    // Forced, as sign-in's is: the form this runs from only shows once the session
+    // has resolved (signed out), and an unforced refresh of a resolved session
+    // returns without asking — which left a new account signed out until a reload.
+    await refresh(true);
     return "ok";
   }
 

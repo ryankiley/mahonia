@@ -140,6 +140,16 @@ describe("publishList — capability write, decision applied", () => {
     expect(state?.status).toBe("active"); // status untouched → /e + /s still resolve
   });
 
+  it("counts links in the trail label too — the field mutate and restore already check", async () => {
+    // links parked in the trail label while the list was private: no setMeta ran on a
+    // public list, so publishing is the only gate they ever pass through
+    const db = await createTestDb(LISTS_DDL);
+    const { editToken } = await seed(db, { itemCount: 2, trailLabel: "https://a.com https://b.com c.shop d.store" });
+    const state = await publishList(editToken, { isPublic: true }, db);
+    expect(state?.flagged).toBe(true);
+    expect((await db.select().from(lists))[0]!.flagged).toBe(true);
+  });
+
   it("flagging is sticky — a clean republish can't self-clear it", async () => {
     const db = await createTestDb(LISTS_DDL);
     const { editToken } = await seed(db, { itemCount: 1, flagged: true });
