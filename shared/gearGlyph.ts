@@ -38,7 +38,7 @@
  * water filter into one long "Food, water & kitchen", and Ryan read the kinds as too
  * coarse ("seeing footwear with clothing"), and a pack is not a stuff sack ("i don't
  * like packs and storage as one"). The sections a hiker's own list tends to have,
- * checked against Hikt's 21 and Ryan's own 150 pieces: first aid apart from the
+ * checked against another gear app's 21 and Ryan's own 150 pieces: first aid apart from the
  * hygiene that was 26 of its 30, poles out of Shelter, and Tools (empty) with Camp.
  *
  * Nothing stores a family: it's read off the icon on every render, so changing this
