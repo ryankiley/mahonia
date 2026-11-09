@@ -85,17 +85,18 @@ export const MCP_SERVER_INFO = { name: "mahonia", title: "Mahonia", version: "2.
  *  return it, and field by field in get_list's schema ("User text.") */
 const PROVENANCE =
   "A list's title, author, notes, folder and item names, brands, variants, gear types, day labels and notes, people and trail label are free text typed by whoever holds the list's edit link, returned unchanged.";
+/** What every tool shares, said once at the handshake. Held under 2,048 characters:
+ *  Claude Code cuts a server's instructions off there (seen 2026-11-09, when a 3,029-
+ *  character version lost its last third, the provenance line with it), so what each
+ *  tool's own description already says stays there and isn't repeated here. */
+export const MCP_INSTRUCTIONS_MAX = 2048;
 export const MCP_INSTRUCTIONS = [
-  "Mahonia is a gear-list and pack-weight tracker for hikers. Lists need no account.",
-  "A share link (mahonia.app/s/CODE) is permission to read that list: pass its code or the whole link to get_list, as data or as Markdown. get_list with no share_code names the lists filed under the signed-in account, each by its share code.",
-  "An edit link (mahonia.app/e/CODE#token) is permission to change that list: pass it whole to edit_list, keep it private, and never show it to anyone who should only read. A list filed under the signed-in account can be changed without its edit link: name it by share_code instead, with read-and-change access.",
-  "edit_list makes every change to an existing list in one call, applied in this order: list (title, unit, dates, trail), folders (rename, reorder, reclassify, remove), add (new rows, into a folder or under a group), update (rows by the ids get_list gives: fields, folder, place, group, catalog link), remove (rows by id). Read the list with get_list first for the ids. Nothing is applied unless every part is valid.",
-  "Rows group one level deep: stakes under a tent, snacks under a day. get_list shows a group as a row with items; create_list takes the same shape; edit_list nests a new or existing row with group, the parent row's id.",
-  "search_catalog finds cited gear weights by text, or every variant of one product by product_id. A row that names a catalog_id takes the catalog's brand, variant, gear type and weight; edit_list's update can relink a row in place, keeping its folder and group, and edit_my_gear links a piece of My Gear the same way.",
-  "An account has its own lists and its own gear. Its filed lists can be read, and with read-and-change access changed, without being handed a link. My Gear is the account's gear: get_my_gear reads it and edit_my_gear adds, changes, puts away and restores pieces. A KIT is a piece of My Gear that holds other pieces, a set kept together such as a cook kit, weighing its own weight plus its items'; edit_my_gear's kit makes or changes one. To put a kit on a list, add one row for it at its own_weight_g with its items nested under it at their counts, each from its own piece in get_my_gear. These reach the account once the person has signed in to Mahonia from this connector, or when the connector carries an access token made on their account page; until then a call asks them to sign in.",
-  "create_list returns a new list's edit link and share link. Keep the edit link; it is the only way to change a list that isn't filed under the account. If this connector carries a read-and-write access token, the new list is filed under that account as well, so its owner sees it wherever they sign in and get_list names it.",
-  "Weights are in grams everywhere. A row's classification is base (in the pack), worn (on your body) or consumable (food, fuel, water).",
+  "Mahonia is a gear-list and pack-weight tracker for hikers. Weights are in grams everywhere. A row's classification is base (in the pack), worn (on the body) or consumable (food, fuel, water).",
   PROVENANCE,
+  "Lists need no account. A share link (mahonia.app/s/CODE) is permission to read a list: pass its code or the whole link to get_list, as data or as Markdown. An edit link (mahonia.app/e/CODE#token) is permission to change it: pass it whole to edit_list, keep it private, and never show it to anyone who should only read. create_list returns both; keep the edit link, the only way back into a list that isn't filed under an account.",
+  "Read a list with get_list first for the ids edit_list takes. Rows group one level deep: stakes under a tent, snacks under a day. A catalog_id from search_catalog gives a row, or a piece of My Gear, the catalog's cited brand, variant, gear type and weight.",
+  "An account has its own lists and its own gear, My Gear. They open once the person signs in to Mahonia from this connector, or with an access token from their account page; until then a call that needs them asks the person to sign in. get_list with no share_code names the account's filed lists, edit_list can change one by share_code instead of its edit link, and create_list files the lists it makes there. get_my_gear reads My Gear; edit_my_gear adds, changes, puts away and restores pieces. Changing anything of the account's needs read-and-change access.",
+  "A KIT is a piece of My Gear that holds other pieces, a set kept together such as a cook kit, weighing its own weight plus its items'; edit_my_gear's kit makes or changes one. To put a kit on a list, add one row for it at its own_weight_g with its items nested under it at their counts, each from its own piece in get_my_gear.",
 ].join(" ");
 
 /** the reducer's own caps on free text (shared/ops), stated in the schemas so a model
@@ -348,7 +349,7 @@ const CREATE_FIELDS = {
   folders: { type: "integer", description: "Folders made." },
   items: { type: "integer", description: "Rows made." },
   totals: TOTALS_SCHEMA,
-  saved_to_account: { type: "boolean", description: "True when the connector's read-and-write access token filed the list under its account, where the owner sees it on every device they sign in on." },
+  saved_to_account: { type: "boolean", description: "True when the connector's read-and-change access filed the list under its account, where the owner sees it on every device they sign in on." },
 };
 const CREATE_OUTPUT = {
   type: "object",
@@ -612,13 +613,17 @@ const ADD = { readOnlyHint: false, destructiveHint: false, idempotentHint: false
 // since the same add twice is two sets of rows (the replay window below is the guard)
 const EDIT = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false };
 
+/** A link or code argument a model actually filled in: an empty string is one it
+ *  left blank, not a link that fails to parse, so it reads as absent. */
+const given = (v: unknown) => v != null && v !== "";
+
 /** How edit_list names its list decides what it wants from the account. By edit
  *  link, the capability itself, it never looks. By share_code, a list filed under the
  *  signed-in account, it needs read-and-change access, and asking at the door is what
  *  gets a missing sign-in the Connect card and a read-only one the 403, rather
  *  than a sentence (mcp.post.ts). An edit link given beside a share code is the one
  *  used: it is the capability in hand. */
-const namesByAccount = (args: Record<string, unknown>) => args.edit_link == null && typeof args.share_code === "string";
+const namesByAccount = (args: Record<string, unknown>) => !given(args.edit_link) && typeof args.share_code === "string" && given(args.share_code.trim());
 const byAccount = (args: Record<string, unknown>): AccessScope | undefined => (namesByAccount(args) ? "write" : undefined);
 
 const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
@@ -636,7 +641,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     outputSchema: LIST_OUTPUT,
     annotations: READ,
     // no share_code names nothing a link could: that call is the account's, read scope
-    account: (args) => (args.share_code == null ? "read" : undefined),
+    account: (args) => (given(args.share_code) ? undefined : "read"),
     run: getList,
   },
   {
@@ -662,7 +667,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "create_list",
     title: "Make a new list",
     description:
-      "Creates a list and returns its edit link and share link. Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders; a row with items nested under it is a group (stakes under a tent, snacks under a day). Keep the edit link: it is the only way to change a list that isn't filed under an account. If this connector carries a read-and-write access token the list is filed under that account too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
+      "Creates a list and returns its edit link and share link. Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders; a row with items nested under it is a group (stakes under a tent, snacks under a day). Keep the edit link: it is the only way to change a list that isn't filed under an account. With read-and-change access to an account the list is filed under it too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
     inputSchema: {
       type: "object",
       properties: {
@@ -752,7 +757,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "get_my_gear",
     title: "Read My Gear",
     description:
-      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, the kind the gear page files it under, grams for one, classification, calories, price and product link. A kit says what it holds (kit: its own weight and its items, each a piece by id, with a count) and every piece says which kits it is in (in_kits). A query ranks by a search instead. Works only when this connector carries the account's access token. Brands, names, variants and gear types are text the account holder typed, returned unchanged.",
+      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, the kind the gear page files it under, grams for one, classification, calories, price and product link. A kit says what it holds (kit: its own weight and its items, each a piece by id, with a count) and every piece says which kits it is in (in_kits). A query ranks by a search instead. Needs the person signed in to Mahonia from this connector, or an access token from their account page. Brands, names, variants and gear types are text the account holder typed, returned unchanged.",
     inputSchema: {
       type: "object",
       properties: {
@@ -770,11 +775,11 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "edit_my_gear",
     title: "Change My Gear",
     description:
-      "Changes the connector's account's My Gear, in one call. add puts new pieces in; one the account already holds (same brand, name and variant) comes back as already_have and is left as it was. update changes pieces by the ids get_my_gear gives, only the fields sent, null clearing one. A piece that names a catalog_id, as it is added or later, is linked to that catalog row and takes its brand, name, variant, gear type and weight where none were given; null unlinks it. remove puts pieces away by id: they stop being offered on lists, and the lists that still carry them will not bring them back. restore brings put-away pieces back. kit, on a piece added or updated, makes it a kit of other pieces by id (replacing what it held), and null on update turns a kit back into a single piece; a kit's weight is its items', so a kit takes own_weight_g, never weight_g. Each piece answers for itself, in the order sent, with a reason when it wasn't done as sent. What is added or changed here counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs a read-and-change access token.",
+      "Changes the connector's account's My Gear, in one call. add puts new pieces in; one the account already holds (same brand, name and variant) comes back as already_have and is left as it was. update changes pieces by the ids get_my_gear gives, only the fields sent, null clearing one. A piece that names a catalog_id, as it is added or later, is linked to that catalog row and takes its brand, name, variant, gear type and weight where none were given; null unlinks it. remove puts pieces away by id: they stop being offered on lists, and the lists that still carry them will not bring them back. restore brings put-away pieces back. kit, on a piece added or updated, makes it a kit of other pieces by id (replacing what it held), and null on update turns a kit back into a single piece; a kit's weight is its items', so a kit takes own_weight_g, never weight_g. Each piece answers for itself, in the order sent, with a reason when it wasn't done as sent. What is added or changed here counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs read-and-change access.",
     inputSchema: {
       type: "object",
       properties: {
-        add: { type: "array", maxItems: GEAR_EDIT_MAX, description: "New pieces.", items: { type: "object", properties: gearInput("add"), required: ["name"] } },
+        add: { type: "array", maxItems: GEAR_EDIT_MAX, description: "New pieces, each with a name or a catalog_id.", items: { type: "object", properties: gearInput("add") } },
         update: {
           type: "array",
           maxItems: GEAR_EDIT_MAX,
@@ -859,7 +864,7 @@ const NO_LIST = "No list is shared at that code. It may have been deleted, or th
 
 async function getList(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   // no share code: the account's own lists (the account section at the end)
-  if (args.share_code == null) return readMyLists(event);
+  if (!given(args.share_code)) return readMyLists(event);
   const code = shareCodeFrom(args.share_code);
   if (!code) return fail(NO_SHARE);
   if (args.format != null && args.format !== "data" && args.format !== "markdown") return fail('format is "data" or "markdown".');
@@ -1148,7 +1153,8 @@ function catalogResult(
  *  brand and name. A product reference wins when both are given, since it is the more
  *  exact ask. */
 async function catalog(args: Record<string, unknown>): Promise<ToolResult> {
-  const id = clampInt(args.product_id, 1, Number.MAX_SAFE_INTEGER, 0) || undefined;
+  if (args.product_id != null && !isCatalogId(args.product_id)) return fail("product_id is a catalog row's id, a whole number from search_catalog's results.");
+  const id = isCatalogId(args.product_id) ? args.product_id : undefined;
   const brand = typeof args.brand === "string" ? args.brand.trim().slice(0, 200) : undefined;
   const name = typeof args.name === "string" ? args.name.trim().slice(0, 200) : undefined;
   if (id || name) {
@@ -1288,6 +1294,10 @@ async function linkCatalog(items: Item[]): Promise<string | null> {
     if (!item.variant && row.variant) item.variant = row.variant;
     if (!item.commonName && row.commonName) item.commonName = row.commonName;
     if (item.kcal == null && row.kcal != null) item.kcal = row.kcal;
+    // food and fuel are never base weight, so a consumable row arrives classified, as
+    // the editor's pick does (ItemInput); the other categories can't say how YOU carry
+    // a thing, so they follow the folder
+    if (item.classification == null && row.categoryHint === "consumable") item.classification = "consumable";
     // the catalog's name for the product, the way a pick stores it, so the editor's
     // live-resolve keeps it current; a name the caller typed differently is theirs
     if (tidyText(item.name).toLowerCase() === tidyText(row.name).toLowerCase()) item.name = row.name;
@@ -1761,6 +1771,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
         patch.commonNameOverridden = false;
       }
       if (r.kcal === undefined && row.kcal != null) patch.kcal = row.kcal;
+      if (patch.classification === undefined && row.categoryHint === "consumable") patch.classification = "consumable";
     }
   }
   return patch;
@@ -1821,7 +1832,8 @@ function planFolders(entries: unknown[], { work, ops, plan }: Work): { changed: 
       });
     }
     if (ops.length > before) changed++;
-    else return `Nothing to change on "${folder.name}": give it a name, a classification, a position or remove: true.`;
+    // a folder asked to sit where it already sits is done, as a row is
+    else if (c.position === undefined) return `Nothing to change on "${folder.name}": give it a name, a classification, a position or remove: true.`;
   }
   return { changed };
 }
@@ -1859,7 +1871,8 @@ async function planUpdates(entries: unknown[], book: FolderBook, { work, ops, pl
     const before = ops.length;
     if (Object.keys(patch).length) plan({ t: "updateItem", id: it.id, patch });
 
-    if (r.folder !== undefined || r.position !== undefined || r.group !== undefined) {
+    const asksPlace = r.folder !== undefined || r.position !== undefined || r.group !== undefined;
+    if (asksPlace) {
       if (r.folder !== undefined && typeof r.folder !== "string") return "folder must be a folder's name, or an empty string for none.";
       if (r.position !== undefined && (typeof r.position !== "number" || !(r.position >= 0))) return "position must be a whole number, 0 for first.";
       if (r.group !== undefined && typeof r.group !== "string") return "group must be a row's id, or an empty string for none.";
@@ -1893,7 +1906,8 @@ async function planUpdates(entries: unknown[], book: FolderBook, { work, ops, pl
       placeRow(work, plan, it.id, folderId, parentId, typeof r.position === "number" ? Math.round(r.position) : undefined);
     }
     if (ops.length > before) updated++;
-    else return `Nothing to change on ${label}: give it at least one field, a folder, a position or a group.`;
+    // a row asked to be where it already is is done, and the rest of the call stands
+    else if (!asksPlace) return `Nothing to change on ${label}: give it at least one field, a folder, a position or a group.`;
   }
   return { updated };
 }
@@ -2114,9 +2128,21 @@ function gearAsRow(piece: VaultEntry): Record<string, unknown> {
  * Only the TYPES are checked here; the repo caps, tidies and validates the values by
  * the rules the gear page's own writes get, so the two paths can't disagree.
  */
-function gearPatchFrom(raw: unknown): { patch: Record<string, unknown> } {
+function gearPatchFrom(raw: unknown): { patch: Record<string, unknown>; problem?: string } {
   const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
   const patch: Record<string, unknown> = {};
+  // a value sent that the patch below would quietly skip: named instead, so the piece
+  // isn't reported done without it (edit_list refuses the same values in words)
+  const amount = (v: unknown) => v === undefined || v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0);
+  if (r.classification !== undefined && r.classification !== null && !classificationOf(r.classification)) {
+    return { patch, problem: `"${String(r.classification)}" isn't a classification; use base, worn or consumable.` };
+  }
+  if (r.weight_g !== undefined && !(typeof r.weight_g === "number" && Number.isFinite(r.weight_g) && r.weight_g >= 0)) {
+    return { patch, problem: "weight_g is grams for one, a number, 0 when it has never been weighed." };
+  }
+  for (const field of ["price", "kcal", "owned"] as const) {
+    if (!amount(r[field])) return { patch, problem: `${field} must be a number, 0 or more${field === "owned" ? " (1 or more)" : ""}, or null to clear it.` };
+  }
   const take = (field: string, column: string) => {
     if (typeof r[field] === "string" || r[field] === null) patch[column] = r[field];
   };
@@ -2165,18 +2191,21 @@ async function readGear(event: H3Event, args: Record<string, unknown>): Promise<
  * site. They go through the ordinary patch, so they are pinned as the owner's choice
  * of product, like every field typed into My Gear.
  */
-function fromCatalog(piece: { patch: Record<string, unknown> }, catalogRows: CatalogRows): typeof piece {
+function fromCatalog<P extends { patch: Record<string, unknown> }>(piece: P, catalogRows: CatalogRows): P & { catalogWeight?: true } {
   const id = piece.patch.catalogItemId;
   const row = isCatalogId(id) ? catalogRows.get(id) : undefined;
   if (!row) return piece;
   const patch = { ...piece.patch };
+  // food and fuel are never base weight, as a list row picked from the catalog knows
+  if (patch.classification === undefined && row.categoryHint === "consumable") patch.classification = "consumable";
   if (patch.name === undefined) patch.name = row.name;
   if (patch.brand === undefined) patch.brand = row.brand ?? null;
   if (patch.variant === undefined) patch.variant = row.variant ?? null;
   if (patch.commonName === undefined && row.commonName) patch.commonName = row.commonName;
-  if (patch.weightMg === undefined) patch.weightMg = row.weightMg;
+  const catalogWeight = patch.weightMg === undefined;
+  if (catalogWeight) patch.weightMg = row.weightMg;
   if (patch.kcal === undefined && row.kcal != null) patch.kcal = row.kcal;
-  return { ...piece, patch };
+  return { ...piece, patch, ...(catalogWeight ? { catalogWeight: true as const } : {}) };
 }
 
 /** A kit as an edit_my_gear entry sends it, checked: undefined when the entry names
@@ -2266,8 +2295,11 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   if (add.length) {
     const pieces = add.map((raw) => fromCatalog(gearPatchFrom(raw), catalogRows));
     const hasName = (p: (typeof pieces)[number]) => typeof p.patch.name === "string" && p.patch.name.trim() !== "";
-    for (const [index] of pieces.entries()) results.push({ index, status: "invalid" });
-    const named = pieces.map((p, index) => ({ p, index })).filter(({ p }) => hasName(p));
+    for (const [index, p] of pieces.entries()) {
+      const reason = p.problem ?? (hasName(p) ? undefined : "A piece needs a name, or a catalog_id to take one from.");
+      results.push({ index, status: "invalid", ...(reason ? { reason } : {}) });
+    }
+    const named = pieces.map((p, index) => ({ p, index })).filter(({ p }) => !p.problem && hasName(p));
     if (named.length) {
       vaultId ??= await mintVault(db, userId);
       const outcomes = await addVaultItems(
@@ -2313,7 +2345,11 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   for (const [n, e] of updates.entries()) {
     const id = e.id as number;
     const kit = updateKits[n];
-    const { patch } = fromCatalog(gearPatchFrom(e), catalogRows);
+    const { patch, problem, catalogWeight } = fromCatalog(gearPatchFrom(e), catalogRows);
+    if (problem) {
+      updated.push({ id, status: "invalid", reason: `${problem} Nothing was changed on it.` });
+      continue;
+    }
     if (patch.name === null || patch.name === "") {
       updated.push({ id, status: "invalid", reason: "A piece keeps a name: change it, but it can't be cleared." });
       continue;
@@ -2332,6 +2368,9 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
       updated.push({ id, status: "not_found" });
       continue;
     }
+    // a price sent without its currency keeps the one the piece had: the vault takes the
+    // two as one field, and would otherwise read the silence as no currency at all
+    if (typeof patch.priceCents === "number" && patch.currency === undefined && before.currency) patch.currency = before.currency;
     let after: VaultEntry = before;
     // the kit first, so a change that clears one can then give the piece a weight,
     // and a kit the vault refuses leaves the whole entry undone
@@ -2347,12 +2386,18 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
       }
       after = made.item;
     }
+    // a kit weighs its items, so a catalog link leaves the product's weight off it; a
+    // weight the call typed on a kit is still refused below, in words
+    if (catalogWeight && after.kind === "kit") delete patch.weightMg;
     if (Object.keys(patch).length) {
       const outcome = await applyVaultItemOp(db, vaultId, { t: "edit", id, patch } as VaultItemOp);
       if (!outcome || "refused" in outcome) {
         // the row exists (read above), so a refusal is a change the vault won't make:
         // a weight on a kit, whose weight is its items', says so
-        updated.push({ id, status: "invalid", reason: after.kind === "kit" && "weightMg" in patch ? KIT_WEIGHT : "That change would not leave a valid piece. Nothing was changed on it." });
+        const why = after.kind === "kit" && "weightMg" in patch ? KIT_WEIGHT : "That change would not leave a valid piece. Nothing was changed on it.";
+        // the kit part has landed by now, so the answer says that much is done
+        if (kit !== undefined) updated.push({ id, status: "updated", item: gearAsRow(after), reason: `The kit was changed; its other fields were not. ${why.replace(" Nothing was changed on it.", "")}` });
+        else updated.push({ id, status: "invalid", reason: why });
         continue;
       }
       after = outcome.item;

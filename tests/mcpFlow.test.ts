@@ -53,6 +53,7 @@ beforeAll(async () => {
     { brand: "Enlightened Equipment", name: "Revelation", variant: "20F Long", weightMg: 590_000, weightSource: "manufacturer", sourceUrl: "https://enlightenedequipment.com/revelation", verified: true, commonName: "Quilt", categoryHint: "sleep", searchTerms: "quilt sleep" },
     { brand: "Enlightened Equipment", name: "Revelation", variant: "20F Regular", weightMg: 550_000, weightSource: "manufacturer", sourceUrl: "https://enlightenedequipment.com/revelation", verified: true, commonName: "Quilt", categoryHint: "sleep", searchTerms: "quilt sleep" },
     { brand: "Zpacks", name: "Duplex", variant: null, weightMg: 538_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/duplex", verified: true, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter" },
+    { brand: "Clif", name: "Builders Bar", variant: null, weightMg: 68_000, weightSource: "manufacturer", sourceUrl: "https://clifbar.com/builders", verified: true, commonName: "Energy bar", categoryHint: "consumable", kcal: 290, searchTerms: "snack food" },
   ]);
   dbState.db = db;
 });
@@ -329,5 +330,50 @@ describe("groups and relinking, end to end", () => {
     expect(isError, text).toBe(false);
     expect(data).toMatchObject({ removed: 4, totals: { item_count: 2 } });
     expect(shape(await read())).toEqual([["Unfiled", [["Duplex", ["Stakes"]]]]]);
+  });
+});
+
+// The small things a model sends that shouldn't cost it the call: food from the
+// catalog, a blank argument, a row asked to stay put, a product id that isn't one.
+describe("what a model plausibly sends", () => {
+  type Row = { id: string; name: string; classification: string };
+  type Section = { name: string; items: Row[] };
+  const BAR = 4;
+
+  it("files catalog food as consumable, made or relinked, as the editor's pick does", async () => {
+    const made = await call("create_list", { title: "Snacks", folders: [{ name: "Pack", items: [{ name: "Builders Bar", catalog_id: BAR }, { name: "Trail mix", weight_g: 100 }] }] });
+    expect(made.isError, made.text).toBe(false);
+    const link = made.data.edit_link as string;
+    const read = async () => (await call("get_list", { share_code: link })).data as { folders: Section[]; totals: Record<string, number> };
+    let list = await read();
+    expect(list.folders[0]!.items.map((r) => [r.name, r.classification])).toEqual([["Builders Bar", "consumable"], ["Trail mix", "base"]]);
+    expect(list.totals).toMatchObject({ consumable_g: 68 });
+
+    const mix = list.folders[0]!.items.find((r) => r.name === "Trail mix")!;
+    const relinked = await call("edit_list", { edit_link: link, update: [{ id: mix.id, catalog_id: BAR }] });
+    expect(relinked.isError, relinked.text).toBe(false);
+    list = await read();
+    expect(list.folders[0]!.items.every((r) => r.classification === "consumable")).toBe(true);
+  });
+
+  it("lets a row or folder stay where it is without sinking the rest of the call", async () => {
+    const before = (await call("get_list", { share_code: editLink })).data as { folders: (Section & { id: string })[] };
+    const folder = before.folders[0]!;
+    const first = folder.items[0]!;
+    const r = await call("edit_list", { edit_link: editLink, list: { title: "Stayed put" }, update: [{ id: first.id, folder: folder.name }], folders: [{ folder: folder.name, position: 0 }] });
+    expect(r.isError, r.text).toBe(false);
+    expect(((await call("get_list", { share_code: editLink })).data as { title: string }).title).toBe("Stayed put");
+    // an entry that asks for nothing at all is still a mistake to hear about
+    expect((await call("edit_list", { edit_link: editLink, update: [{ id: first.id }] })).text).toContain("Nothing to change");
+  });
+
+  it("reads a blank edit link as one left out, and refuses a product id that isn't one", async () => {
+    const blank = await call("edit_list", { edit_link: "", list: { title: "x" } });
+    expect(blank.isError).toBe(true);
+    expect(blank.text).toContain("edit link");
+    const zero = await call("search_catalog", { product_id: 0 });
+    expect(zero.isError).toBe(true);
+    expect(zero.text).toContain("product_id");
+    expect((await call("search_catalog", { product_id: BAR })).data.product).toMatchObject({ name: "Builders Bar" });
   });
 });

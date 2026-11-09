@@ -3,7 +3,7 @@ import mcpDelete from "../server/routes/mcp.delete";
 import mcpGet from "../server/routes/mcp.get";
 import mcpHead from "../server/routes/mcp.head";
 import mcp from "../server/routes/mcp.post";
-import { GET_LIST_MAX_BYTES, MCP_TOOLS, describeList, editHashFrom, fitList, fitMarkdown, shareCodeFrom } from "../server/utils/mcp";
+import { GET_LIST_MAX_BYTES, MCP_INSTRUCTIONS, MCP_INSTRUCTIONS_MAX, MCP_TOOLS, describeList, editHashFrom, fitList, fitMarkdown, shareCodeFrom } from "../server/utils/mcp";
 import { sha256Hex } from "../server/utils/tokens";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { MAX_ITEMS, MAX_ITEM_NOTE_LEN } from "../shared/ops";
@@ -114,10 +114,19 @@ describe("the endpoint's transport", () => {
     expect(res.protocolVersion).toBe("2025-06-18");
     expect(res.capabilities).toEqual({ tools: {} });
     expect(res.serverInfo).toMatchObject({ name: "mahonia", version: "2.0.0" });
-    expect(typeof res.instructions).toBe("string");
+    expect(res.instructions).toBe(MCP_INSTRUCTIONS);
     expect(r.event.node.res.getHeader("mcp-session-id")).toBeUndefined();
     expect(r.event.node.res.getHeader("cache-control")).toBe("no-store");
     expect(r.event.node.res.getHeader("x-robots-tag")).toBe("noindex");
+  });
+
+  // Claude Code keeps the first 2,048 characters of a server's instructions and drops
+  // the rest without a word, so a line past the cut reaches no model. The provenance
+  // line is the one that must never be the casualty.
+  it("keeps its instructions short enough to arrive whole, the free-text warning among them", () => {
+    expect(MCP_INSTRUCTIONS.length).toBeLessThanOrEqual(MCP_INSTRUCTIONS_MAX);
+    expect(MCP_INSTRUCTIONS).toContain("free text typed by whoever holds the list's edit link");
+    for (const tool of MCP_TOOLS) expect(tool.description.length, tool.name).toBeLessThanOrEqual(MCP_INSTRUCTIONS_MAX);
   });
 
   it("echoes a revision it speaks and answers the newest it has to one it doesn't", async () => {
@@ -687,6 +696,15 @@ describe("writing", () => {
       if (action === "mcp-write") throw limited;
     });
     expect(toolText(await call("create_list", { title: "x" })).text).toContain("Too many requests");
+    // an open editor saving at the same moment, five times running: nothing applied,
+    // and the model is told the same call again is the answer, not that it failed
+    limiter.rateLimit.mockReset();
+    limiter.rateLimit.mockResolvedValue(undefined);
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockRejectedValueOnce(Object.assign(new Error("Save contention — retry"), { statusCode: 409 }));
+    const busy = toolText(await call("edit_list", { edit_link: EDIT_LINK, list: { title: "Busy" } }));
+    expect(busy.isError).toBe(true);
+    expect(busy.text).toContain("send the same call again");
   });
 });
 
