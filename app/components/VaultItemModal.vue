@@ -2,7 +2,7 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon, DashedLine02Icon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
-import { VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry, type VaultItemOp, type VaultItemPatch } from "~~/shared/vault";
+import { ownedOf, VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry, type VaultItemOp, type VaultItemPatch } from "~~/shared/vault";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
@@ -244,14 +244,14 @@ async function onSubmit() {
     patch.commonName = commonName.value.trim().slice(0, VAULT_SHORT_MAX) || null;
   }
   if (owned.value !== opened.owned) {
-    // a whole number above one, or back to one (blank, 0 and 1 all mean one); the server
-    // caps it the same way (ownedOf)
-    const n = Math.round(Number(owned.value.trim() || "1"));
+    // a whole number above one, or back to one (blank, 0 and 1 all mean one), by the
+    // server's own rule (ownedOf)
+    const n = Number(owned.value.trim() || "1");
     if (!Number.isFinite(n) || n < 0) {
       error.value = "How many you own should be a whole number, like 3.";
       return;
     }
-    patch.owned = n > 1 ? n : null;
+    patch.owned = ownedOf(n) ?? null;
   }
   if (icon.value !== opened.icon) patch.icon = icon.value;
   if (classification.value !== opened.classification) {

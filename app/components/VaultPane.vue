@@ -4,8 +4,7 @@ import { Cancel01Icon, ChevronDownIcon, ExpandIcon, FolderIcon, ToolCaseIcon } f
 import { gearIcon } from "~/utils/gearIcons";
 import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
-import { rankVaultRows } from "~~/shared/vaultSearch";
-import { vaultSections } from "~~/shared/vaultView";
+import { searchVaultRows, vaultSections } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { counted } from "~~/shared/tidyText";
@@ -167,30 +166,17 @@ onMounted(() => {
 });
 watch(hasVault, () => load());
 
-// The SAME fuzzy ranker the item autocomplete uses on this gear (shared/vaultSearch),
-// run over the already-loaded set — no request per keystroke.
-//
-// It used to be a literal substring filter, on the argument that you're scanning a
-// list you can see and a reshuffle under your eyes is disorienting. The reshuffle
-// part still holds; "literal" didn't. A vault is a hundred-odd rows, so you type
-// rather than scan, and a substring match answers a typo with an empty panel —
-// "katabatik" finding nothing while the autocomplete two inches away finds it is
-// the vault being harder to search than the catalog.
-//
-// No limit: the ranker caps at VAULT_SEARCH_LIMIT for a menu that must not push the
-// catalog off-screen, but this panel IS the list — showing six of a hundred matches
-// would hide gear you own.
+// The search is /gear's own (searchVaultRows): the autocomplete's fuzzy ranker over the
+// already-loaded set, every match rather than the menu's six, and one letter answered
+// as a prefix rather than with nothing. It was a second copy of that call without the
+// one-letter fallback, so "t" found your tent on /gear and nothing here.
 // The Gear tab is your pieces; kits have a tab of their own, the way /gear splits them
 // (Ryan: "keep kits out of items tab here since it has its own").
 const isKit = (entry: VaultEntry) => entry.kind === "kit";
 const pieces = computed(() => items.value.filter((i) => !isKit(i)));
 const kits = computed(() => items.value.filter(isKit));
 // the open tab's rows, ranked when a search is typed
-const filtered = computed(() => {
-  const pool = tab.value === "kits" ? kits.value : pieces.value;
-  const q = query.value.trim();
-  return q ? rankVaultRows(pool, q, Number.POSITIVE_INFINITY) : pool;
-});
+const filtered = computed(() => searchVaultRows(tab.value === "kits" ? kits.value : pieces.value, query.value));
 // With nothing typed, the gear reads by kind — shelter, clothing and so on — the way
 // /gear groups it, so the pane and the page read alike. A search ranks across all of
 // it instead: the best match first matters more than where it lives. Kits are one
