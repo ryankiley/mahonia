@@ -7,6 +7,7 @@ import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
+import { vaultTabOf } from "~~/shared/vaultView";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 import type { NameCommit } from "~/composables/useCatalogSearch";
@@ -163,8 +164,15 @@ const named = computed(() => ({ name: form.name, commonName: form.commonName }))
 // digit went would be a trap, not a rule. The field can still go while the dialog is
 // open, when the name is edited into fuel with a number typed but unsaved; onSubmit
 // drops that number rather than saving what the form no longer shows.
+//
+// On FOOD it is offered whatever the class: the Food tab reads every piece by its
+// calories, and most food here carries no class at all (it took its list folder's), so
+// gating on one left the tab's own number unenterable. Food is the tab's rule
+// (vaultTabOf), read live off the fields and the picked icon like everything else here.
 const kcalOffered = computed(
-  () => form.classification === "consumable" && offersKcal({ ...named.value, kcal: props.entry?.kcal }),
+  () =>
+    (form.classification === "consumable" || vaultTabOf({ ...named.value, icon: form.icon ?? undefined }) === "food") &&
+    offersKcal({ ...named.value, kcal: props.entry?.kcal }),
 );
 // ...and "Worn" leaves the picker on water and stove fuel, as the editor row drops its
 // worn toggle there (offersWorn, the one rule for both): nobody wears a gas canister.
@@ -512,9 +520,8 @@ async function add(p: VaultItemPatch) {
       </div>
 
       <!-- How many you own, beside the calories: both are counts about the piece itself,
-           and a pair keeps the dialog's two columns. Calories only once it IS consumable,
-           and not on fuel that has none to show — ItemRow's rule verbatim (see
-           kcalOffered). -->
+           and a pair keeps the dialog's two columns. Calories on food, or once it IS
+           consumable, and not on fuel that has none to show (see kcalOffered). -->
       <div class="vitem__pair">
         <label class="dlg__field">
           <!-- "Number owned", not "How many" or "Quantity": either reads as how many a

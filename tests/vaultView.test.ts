@@ -12,6 +12,7 @@ import {
   groupVaultByKind,
   searchVaultRows,
   sortVaultRows,
+  vaultTabOf,
 } from "../shared/vaultView";
 
 
@@ -89,6 +90,22 @@ describe("sortVaultRows — the order, across the whole vault", () => {
     expect(names(sortVaultRows(rows, "most"))).toEqual(["Workhorse", "Rare"]);
   });
 
+  it("calorie dense is calories per gram, with the unweighed and uncounted last", () => {
+    const rows = [
+      row({ name: "Dinner", kcal: 800, weightMg: 181_000 }), // 4.4 kcal/g
+      row({ name: "Unweighed", kcal: 300, weightMg: 0 }),
+      row({ name: "Pretzels", kcal: 470, weightMg: 93_600 }), // 5.0 kcal/g
+      row({ name: "Uncounted", weightMg: 50_000 }),
+      row({ name: "Fruit pouch", kcal: 70, weightMg: 113_400 }), // 0.6 kcal/g
+    ];
+    expect(names(sortVaultRows(rows, "dense"))).toEqual(["Pretzels", "Dinner", "Fruit pouch", "Unweighed", "Uncounted"]);
+  });
+
+  it("most calories is by kcal, the uncounted last", () => {
+    const rows = [row({ name: "Bar", kcal: 250 }), row({ name: "Unknown" }), row({ name: "Dinner", kcal: 800 })];
+    expect(names(sortVaultRows(rows, "kcal"))).toEqual(["Dinner", "Bar", "Unknown"]);
+  });
+
   it("ties break on id, so the order is total", () => {
     const a = row({ name: "A", weightMg: 100 });
     const b = row({ name: "B", weightMg: 100 });
@@ -151,5 +168,27 @@ describe("searchVaultRows — other scripts", () => {
   it("a single character is a prefix question about the gear", () => {
     const rows = [row({ name: "Tent" }), row({ name: "Pump" })];
     expect(names(searchVaultRows(rows, "t"))).toEqual(["Tent"]);
+  });
+});
+
+describe("vaultTabOf — Gear, Kits or Food", () => {
+  it("puts a kit on Kits, food on Food, and everything else on Gear", () => {
+    expect(vaultTabOf(row({ name: "Cook kit", kind: "kit", parts: [] }))).toBe("kits");
+    expect(vaultTabOf(row({ name: "Clif Bar", commonName: "Energy bar" }))).toBe("food");
+    expect(vaultTabOf(row({ name: "Risotto", commonName: "Dinner" }))).toBe("food");
+    expect(vaultTabOf(row({ name: "Skratch", commonName: "Electrolyte mix" }))).toBe("food");
+    expect(vaultTabOf(row({ name: "Duplex", commonName: "Tent" }))).toBe("gear");
+  });
+
+  it("goes by the kind, not the consumable class: fuel and sunscreen stay gear", () => {
+    expect(vaultTabOf(row({ name: "IsoPro 110g", commonName: "Fuel canister", classification: "consumable" }))).toBe("gear");
+    expect(vaultTabOf(row({ name: "Anessa", commonName: "Sunscreen", classification: "consumable" }))).toBe("gear");
+    // and food a list never classed is still food
+    expect(vaultTabOf(row({ name: "Gardetto's", commonName: "Snack" }))).toBe("food");
+  });
+
+  it("follows a hand-picked icon, so a new icon moves a piece between tabs", () => {
+    expect(vaultTabOf(row({ name: "Mystery tin", commonName: "Tin", icon: "food" }))).toBe("food");
+    expect(vaultTabOf(row({ name: "Bar bag", commonName: "Energy bar", icon: "bag" }))).toBe("gear");
   });
 });

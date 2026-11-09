@@ -11,11 +11,36 @@ import { foldApostrophes } from "./tidyText";
 import { GEAR_FAMILIES, gearFamilyLabel, gearFamilyOf, gearGlyphFor, type GearFamily } from "./gearGlyph";
 import type { VaultEntry } from "./vault";
 import { rankVaultRows } from "./vaultSearch";
-import { groupBy, itemDisplayName } from "./weights";
+import { groupBy, itemDisplayName, kcalPerGram } from "./weights";
 
-/** The page's layout-and-order control. "kinds" is the default and the only one that
- *  groups; the rest are one flat list — see groupVaultByKind for why. */
-export type VaultView = "kinds" | "az" | "heaviest" | "lightest" | "recent" | "most";
+/** The page's layout-and-order control. "kinds" is the Gear tab's default and the only
+ *  one that groups; the rest are one flat list — see groupVaultByKind for why. "dense"
+ *  (most calories per gram) is the Food tab's default, and it and "kcal" are offered
+ *  only there. */
+export type VaultView = "kinds" | "dense" | "kcal" | "az" | "heaviest" | "lightest" | "recent" | "most";
+
+/** The tabs My Gear reads in: your gear, your food, and the kits you've built. */
+export type VaultTab = "gear" | "food" | "kits";
+
+/**
+ * The tab a piece sits on: a kit on Kits, food on Food, everything else on Gear.
+ *
+ * Food is the Food KIND, read off the icon the way every kind is (vaultFamilyOf), so a
+ * new icon moves a piece between tabs exactly as it moves it between kinds, and nothing
+ * is stored. NOT the consumable class: that is a fact about how a list uses a thing,
+ * most pieces here carry none, and the consumables that aren't food behave like gear
+ * (a fuel canister lasts several trips, a tube of sunscreen a season). Food is the
+ * consumable judged by another number, calories, which is why it reads apart.
+ */
+export function vaultTabOf(e: Pick<VaultEntry, "kind" | "icon" | "commonName" | "name">): VaultTab {
+  if (e.kind === "kit") return "kits";
+  return vaultFamilyOf(e) === "food" ? "food" : "gear";
+}
+
+/** Biggest first, with the rows that have no figure at all last rather than read as
+ *  zero: an unweighed bar isn't the least calorie-dense thing you own. */
+const descMissingLast = (a: number | null, b: number | null): number =>
+  a == null ? (b == null ? 0 : 1) : b == null ? -1 : b - a;
 
 /**
  * Narrow by a query, using the SAME fuzzy ranker the autocomplete and the vault pane
@@ -63,6 +88,13 @@ export function sortVaultRows(rows: VaultEntry[], view: Exclude<VaultView, "kind
       return out.sort((a, b) => b.weightMg - a.weightMg || a.id - b.id);
     case "lightest":
       return out.sort((a, b) => a.weightMg - b.weightMg || a.id - b.id);
+    // food's two: calories for the weight, and calories outright
+    case "dense":
+      return out.sort(
+        (a, b) => descMissingLast(kcalPerGram(a.kcal, a.weightMg), kcalPerGram(b.kcal, b.weightMg)) || a.id - b.id,
+      );
+    case "kcal":
+      return out.sort((a, b) => descMissingLast(a.kcal || null, b.kcal || null) || a.id - b.id);
     // Compared as STRINGS. toEntry emits `new Date(x).toISOString()`, so these are
     // fixed-width Z-suffixed ISO-8601 and lexical order IS chronological — which
     // saves allocating two Dates per comparison down a thousand-row list.

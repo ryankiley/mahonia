@@ -4,9 +4,9 @@ import { Cancel01Icon, ChevronDownIcon, ExpandIcon, FolderIcon, ToolCaseIcon } f
 import { gearIcon } from "~/utils/gearIcons";
 import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
-import { searchVaultRows, vaultSections } from "~~/shared/vaultView";
+import { searchVaultRows, vaultSections, vaultTabOf, type VaultTab } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
-import { formatWeight, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
+import { formatKcal, formatWeight, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
 import { counted } from "~~/shared/tidyText";
 import { addVaultKit } from "~/composables/useVaultUnfold";
 import { kitItemCount } from "~~/shared/vaultKit";
@@ -109,12 +109,18 @@ const c = useGearList();
 const dnd = useItemDnd();
 // the gear, loaded as /gear loads it (useVaultList), and again on signing in or out
 const { hasVault, items, loading, loadError } = useVaultList();
-// Gear (your pieces), or just your kits: the sets you add in one go. (This was Categories, your
-// My Gear folders; My Gear has no folders now, and a kit is the set you reuse.)
-const tab = ref<"items" | "kits">("items");
+// Gear (your pieces), your kits (the sets you add in one go), or your food: /gear's
+// three tabs, by its rule (vaultTabOf). (Kits was Categories, your My Gear folders; My
+// Gear has no folders now, and a kit is the set you reuse.)
+const TABS = [
+  { key: "gear", label: "Gear" },
+  { key: "kits", label: "Kits" },
+  { key: "food", label: "Food" },
+] as const;
+const tab = ref<VaultTab>("gear");
 // one query ref per tab: switching back to a tab you were searching shouldn't hand
 // you its results filtered by a term you typed for the other one
-const queries = ref<{ items: string; kits: string }>({ items: "", kits: "" });
+const queries = ref<Record<VaultTab, string>>({ gear: "", kits: "", food: "" });
 const query = computed({
   get: () => queries.value[tab.value],
   set: (v: string) => (queries.value[tab.value] = v),
@@ -153,16 +159,20 @@ onMounted(() => {
 // The Gear tab is your pieces; kits have a tab of their own, the way /gear splits them
 // (Ryan: "keep kits out of items tab here since it has its own").
 const isKit = (entry: VaultEntry) => entry.kind === "kit";
-const pieces = computed(() => items.value.filter((i) => !isKit(i)));
-const kits = computed(() => items.value.filter(isKit));
+// each tab's rows, in one pass over the gear
+const byTab = computed(() => {
+  const out: Record<VaultTab, VaultEntry[]> = { gear: [], kits: [], food: [] };
+  for (const i of items.value) out[vaultTabOf(i)].push(i);
+  return out;
+});
 // the open tab's rows, ranked when a search is typed
-const filtered = computed(() => searchVaultRows(tab.value === "kits" ? kits.value : pieces.value, query.value));
+const filtered = computed(() => searchVaultRows(byTab.value[tab.value], query.value));
 // With nothing typed, the gear reads by kind — shelter, clothing and so on — the way
 // /gear groups it, so the pane and the page read alike. A search ranks across all of
-// it instead: the best match first matters more than where it lives. Kits are one
-// list either way.
+// it instead: the best match first matters more than where it lives. Kits and food are
+// one list either way (food is one kind, so a heading would only repeat the tab).
 const sections = computed(() => {
-  const flat = tab.value === "kits" || !!query.value.trim();
+  const flat = tab.value !== "gear" || !!query.value.trim();
   return vaultSections(filtered.value, flat);
 });
 // each row's mark, once per load rather than twice per row per render: a kit's tool
@@ -495,17 +505,19 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       <div class="vp__bar">
         <div class="vp__tabs" role="tablist" aria-label="My Gear view">
           <button
-            v-for="t in (['items', 'kits'] as const)"
-            :key="t"
+            v-for="t in TABS"
+            :key="t.key"
             type="button"
             role="tab"
             class="vp__tab"
-            :class="{ 'is-active': tab === t }"
-            :aria-selected="tab === t"
-            @click="tab = t"
+            :class="{ 'is-active': tab === t.key }"
+            :aria-selected="tab === t.key"
+            @click="tab = t.key"
           >
-            {{ t === "items" ? "Gear" : "Kits" }}
-            <span class="vp__tabcount t-num">{{ t === "items" ? pieces.length : kits.length }}</span>
+            <!-- no count: with a third tab the counts pushed "Add to"'s folder name
+                 down to two letters at the panel's opening width, and /gear's own tabs
+                 carry none -->
+            {{ t.label }}
           </button>
         </div>
         <div v-if="folders.length" class="vp__target">
@@ -533,8 +545,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         <SearchField
           ref="searchEl"
           v-model="query"
-          :placeholder="tab === 'items' ? 'Search my gear…' : 'Search my kits…'"
-          :label="tab === 'items' ? 'Search my gear' : 'Search my kits'"
+          :placeholder="`Search my ${tab}…`"
+          :label="`Search my ${tab}`"
         />
       </div>
 
@@ -585,6 +597,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
                    rows it unfolds into — and worth a line. -->
               <span v-if="isInList(entry)" class="t-sm vp__inlist">Already added</span>
               <span v-else-if="isKit(entry)" class="t-sm vp__inlist">Kit · {{ counted(itemCount(entry), "item") }}</span>
+              <!-- food says its calories, the number it's picked by (its weight is beside it) -->
+              <span v-else-if="tab === 'food' && entry.kcal" class="t-sm t-muted">{{ formatKcal(entry.kcal) }} kcal</span>
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, entry.entryUnit ?? unit, { withUnit: false }) }}<span class="t-muted"> {{ entry.entryUnit ?? unit }}</span></span>
           </button>
@@ -593,12 +607,18 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       </ul>
 
       <p v-else-if="query" class="t-sm t-muted vp__note">Nothing here matches “{{ query }}”.</p>
-      <!-- the two tabs fail differently: an empty vault has no gear yet, an empty
-           Kits tab has gear that hasn't been made into a set -->
+      <!-- the tabs fail differently: an empty vault has no gear yet, an empty Kits tab
+           has gear that hasn't been made into a set, an empty Food tab no food packed -->
       <div v-else-if="tab === 'kits'" class="vp__empty">
         <p class="t-sm t-muted">
           No kits yet. Make one with New kit on My Gear, or save a group on a list to My
           Gear as one.
+        </p>
+      </div>
+      <div v-else-if="tab === 'food'" class="vp__empty">
+        <p class="t-sm t-muted">
+          No food yet. Add food to this list and it’ll collect itself here, with its
+          calories.
         </p>
       </div>
       <div v-else class="vp__empty">
@@ -708,7 +728,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__empty {
   padding-inline: var(--space-2);
 }
-/* Gear / Kits — a segmented pair, not a link row: they switch what this panel
+/* Gear / Kits / Food — a segmented row, not links: they switch what this panel
    IS looking at, so the active one takes a filled ground rather than an underline.
    Same quiet-grey chip the row toggles use, so "selected" reads the same everywhere. */
 .vp__bar {
@@ -770,11 +790,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__tab.is-active {
   background: var(--paper-3);
   color: var(--ink);
-}
-/* the count rides at --ink-3 even on the active tab: it's a quantity, not the label,
-   and matching the label's weight made the two read as one long word */
-.vp__tabcount {
-  color: var(--ink-3);
 }
 /* THE PANEL HEADER is the .panel__head atom (controls.scss); only the offset onto
    this card's edge is its own. */

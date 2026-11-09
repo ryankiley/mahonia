@@ -451,7 +451,7 @@ const GEAR_ROW = complete({
   brand: nullable("string", USER_TEXT),
   variant: nullable("string", USER_TEXT),
   gear_type: nullable("string", `Tent, Quilt, Stove. ${USER_TEXT}`),
-  kind: str("The section the gear page files it under, read from its icon or gear type: Shelter, Sleep, Kitchen, Clothing and the like, Other when nothing matches, and Kits for a kit. Not set by hand."),
+  kind: str("The section the gear page files it under, read from its icon or gear type: Shelter, Sleep, Kitchen, Clothing and the like; Food, which the gear page keeps on a Food tab of its own, read by calories; Other when nothing matches; and Kits for a kit. Not set by hand."),
   weight_g: { type: "number", description: "Grams for one, to a tenth; 0 when it has never been weighed. On a kit, the whole kit: its items plus its own weight." },
   owned: { type: "integer", minimum: 1, description: "How many of this piece the owner has: three of the same bottle is one piece with owned 3. Not how many a trip carries, which is a list row's qty, nor how many a kit holds, which is its item's count. The gear page's totals count one of each." },
   classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null when the owner leaves it to each list." },
