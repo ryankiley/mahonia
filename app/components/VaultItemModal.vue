@@ -9,8 +9,13 @@ import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } f
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
+import type { NameCommit } from "~/composables/useCatalogSearch";
+import type { Ref } from "vue";
 
-// Correcting a piece of gear in place — the half of My Gear that capture can't do.
+// Correcting a piece of gear in place — the half of My Gear that capture can't do —
+// and adding one by hand (`adding`): the same form, blank, with a catalog search on top
+// whose pick fills it in. One form for both, so a piece is added with everything it can
+// hold rather than a name and a weight, and the two can't drift apart.
 //
 // A DIALOG rather than an in-flow .reveal, and the motion vocabulary is why: that
 // family is for "a row's note" (atoms/controls.scss), and ten fields is a form, not
@@ -22,7 +27,9 @@ import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 // down a column. Acceptable because /gear's row is DISPLAY — turning it into the
 // editor's live form is a bigger change than this page wants to be.
 const props = defineProps<{
+  /** the piece being edited; when `adding`, a blank one the form starts from */
   entry: VaultEntry | null;
+  adding?: boolean;
   unit: Unit;
   /** The money the rest of your gear is priced in, when it is priced in one. A bare
    *  number falls back to it, so stating a currency once is enough — see onSubmit. */
@@ -52,7 +59,7 @@ function mergeVocab(mine: string[] = [], theirs: string[] | null): string[] {
 }
 const brandOptions = computed(() => mergeVocab(props.known?.brands, catalogBrands.names.value));
 const typeOptions = computed(() => mergeVocab(props.known?.types, catalogTypes.names.value));
-const emit = defineEmits<{ close: []; saved: [item: VaultEntry] }>();
+const emit = defineEmits<{ close: []; saved: [item: VaultEntry]; added: [item: VaultEntry] }>();
 
 const { vaultFetch } = useVaultAccess();
 
@@ -93,6 +100,39 @@ const autoIcon = computed(() => gearIcon(commonName.value, name.value));
 const rowUnit = computed<Unit>(() => props.entry?.entryUnit ?? props.unit);
 const saving = ref(false);
 const error = ref("");
+
+// ---- adding: the catalog search -------------------------------------------------
+// A pick fills the form: what the product IS (brand, name, size, its catalog link)
+// always, and its gear type, weight and calories only where the field is empty or
+// still holds the last pick's, so a weight you typed first is kept (the one you
+// measured is the one My Gear keeps) and a second pick replaces the first's. The link
+// goes with the piece only while brand, name and size still say that product.
+const picked = ref<{ id: number; brand: string; name: string; variant: string } | null>(null);
+let pickFill = { commonName: "", weight: "", kcal: "" };
+function onPick(c: NameCommit) {
+  brand.value = c.brand ?? "";
+  name.value = c.name;
+  variant.value = c.variant ?? "";
+  const fill = (field: "commonName" | "weight" | "kcal", value: string, into: Ref<string>) => {
+    if (!value || (into.value && into.value !== pickFill[field])) return;
+    into.value = value;
+    pickFill[field] = value;
+  };
+  fill("commonName", c.commonName ?? "", commonName);
+  fill("weight", c.weightMg ? formatWeight(c.weightMg, rowUnit.value, { raw: true }) : "", weight);
+  fill("kcal", c.kcal ? String(c.kcal) : "", kcal);
+  if (c.classification && classification.value === "base") classification.value = c.classification;
+  picked.value = c.catalogItemId != null ? { id: c.catalogItemId, brand: brand.value, name: name.value, variant: variant.value } : null;
+}
+// Enter on text that isn't a product: it is the name you meant
+let searchText = "";
+function onSearchSubmit() {
+  if (searchText.trim()) name.value = searchText.trim();
+}
+const linkedId = (): number | undefined =>
+  picked.value && picked.value.brand === brand.value && picked.value.name === name.value && picked.value.variant === variant.value
+    ? picked.value.id
+    : undefined;
 // What the row says it is, read LIVE from the two fields as they are typed, the way the
 // class picker's own value is: the name and gear type decide the row's other controls
 // (shared/fuel), and the dialog answers as the editor row would for the same words.
@@ -167,6 +207,8 @@ watch(
     icon.value = e.icon ?? null;
     saving.value = false;
     error.value = "";
+    picked.value = null;
+    pickFill = { commonName: "", weight: "", kcal: "" };
     opened = {
       brand: brand.value,
       name: name.value,
@@ -269,6 +311,7 @@ async function onSubmit() {
     if (named) patch.entryUnit = named;
   }
 
+  if (props.adding) return add(patch);
   // Nothing changed: closing is the honest answer. Sending an empty patch would be a
   // round trip to write nothing, and the endpoint refuses one anyway.
   if (!Object.keys(patch).length) return emit("close");
@@ -286,13 +329,63 @@ async function onSubmit() {
   }
   emit("saved", res.item);
 }
+
+type OpResult = { ok: boolean; reason?: string; item?: VaultEntry };
+const post = (op: VaultItemOp) =>
+  vaultFetch<OpResult>("/api/vault/items", { method: "POST", body: { op } }).catch(() => ({ ok: false }) as OpResult);
+
+// Adding: the form read the same way an edit is (the patch against a blank form is
+// everything typed), sent as one add. An icon picked by hand follows as an edit, the
+// one field an add doesn't take.
+async function add(p: VaultItemPatch) {
+  const op: VaultItemOp = {
+    t: "add",
+    name: name.value.trim().slice(0, VAULT_NAME_MAX),
+    ...(p.brand ? { brand: p.brand } : {}),
+    ...(p.variant ? { variant: p.variant } : {}),
+    ...(p.commonName ? { commonName: p.commonName } : {}),
+    ...(p.weightMg ? { weightMg: p.weightMg } : {}),
+    ...(p.entryUnit ? { entryUnit: p.entryUnit } : {}),
+    ...(p.classification ? { classification: p.classification } : {}),
+    ...(p.kcal ? { kcal: p.kcal } : {}),
+    ...(p.priceCents ? { priceCents: p.priceCents, ...(p.currency ? { currency: p.currency } : {}) } : {}),
+    ...(p.productUrl ? { productUrl: p.productUrl } : {}),
+    ...(p.owned ? { owned: p.owned } : {}),
+    ...(linkedId() != null ? { catalogItemId: linkedId() } : {}),
+  };
+  saving.value = true;
+  error.value = "";
+  const res = await post(op);
+  if (!res.ok || !res.item) {
+    saving.value = false;
+    // the refusals are worth naming: "you already have that" says to search for it
+    error.value =
+      res.reason === "duplicate"
+        ? "You already have that in My Gear."
+        : res.reason === "full"
+          ? "My Gear is full. Remove something to make room."
+          : "Couldn’t add that. Check your connection and try again.";
+    return;
+  }
+  let item = res.item;
+  if (icon.value) {
+    const set = await post({ t: "edit", id: item.id, patch: { icon: icon.value } });
+    if (set.ok && set.item) item = set.item;
+  }
+  saving.value = false;
+  emit("added", item);
+}
 </script>
 
 <template>
-  <BaseModal :open="!!entry" label="Edit gear" @close="emit('close')">
+  <BaseModal :open="!!entry" :label="adding ? 'Add gear' : 'Edit gear'" @close="emit('close')">
     <template v-if="entry">
-      <h2 class="t-label">Edit gear</h2>
-      <p class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
+      <h2 class="t-label">{{ adding ? "Add gear" : "Edit gear" }}</h2>
+      <p v-if="!adding" class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
+      <!-- Adding: a catalog search over the form, given by the page (#search; /gear
+           passes the list editor's own name field). A pick fills the fields below and the
+           box clears; Enter on a name the catalog doesn't have puts it in Product. -->
+      <slot v-if="adding" name="search" :pick="onPick" :typed="(v: string) => (searchText = v)" :submit="onSearchSubmit" />
       <!-- No explainer under the title. What you change here is pinned (vaultRepo), so no
            list writes over it, and that is what anyone expects of an edit; a line saying
            so took a row on every open, and went in review. -->
@@ -468,7 +561,7 @@ async function onSubmit() {
       <div class="dlg__actions">
         <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
         <button class="btn btn--primary" :disabled="!canSave || saving" @click="onSubmit">
-          {{ saving ? "Saving…" : "Save" }}
+          {{ saving ? "Saving…" : adding ? "Add" : "Save" }}
         </button>
       </div>
     </template>

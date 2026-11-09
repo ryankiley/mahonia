@@ -7,9 +7,8 @@ import { UNITS } from "~~/shared/types";
 import type { VaultEntry, VaultItemOp } from "~~/shared/vault";
 import { gearFamilyLabel, type GearGlyph } from "~~/shared/gearGlyph";
 import { kitPartRefs, kitWeightMg } from "~~/shared/vaultKit";
-import type { NameCommit } from "~/composables/useCatalogSearch";
 import { formatPrice, sumPrices } from "~~/shared/money";
-import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
+import { itemDisplayName } from "~~/shared/weights";
 import {
   vaultSections,
   searchVaultRows,
@@ -17,7 +16,6 @@ import {
   vaultFamilyOf,
   type VaultView,
 } from "~~/shared/vaultView";
-import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 
 // "My Gear" — every piece of gear you've put in a list, in one place, so building
 // the next list is picking rather than retyping. That's the name the chrome uses
@@ -136,9 +134,6 @@ const flat = computed(() => view.value !== "kinds" || !!query.value.trim());
 const sections = computed(() => vaultSections(filtered.value, flat.value));
 const narrowed = computed(() => filtered.value.length !== onTab.value.length);
 
-// What the tab weighs: each row's weight, a kit's being its own plus its items at the
-// counts it holds them. The tabs keep kits and pieces apart, so nothing counts twice.
-const totalMg = computed(() => filtered.value.reduce((sum, e) => sum + e.weightMg, 0));
 // The count line counts what the tab holds: pieces on Gear, kits on Kits.
 const countNoun = computed(() => (tab.value === "kits" ? "kit" : "item"));
 
@@ -282,108 +277,32 @@ const noneLine = computed(() => (query.value.trim() ? `Nothing here matches “$
 // which covers the common case beautifully and answers nothing at all for the pack
 // you bought yesterday and haven't packed yet.
 //
-// One add row for the page, at the head of the list: a piece lands under its kind by
-// itself, so there is nowhere to choose. Opened from "Add gear" opposite the tabs.
+// "Add gear" opens the edit dialog blank (VaultItemModal's `adding`), with a catalog
+// search over the form: one form for adding and correcting, so a piece goes in with
+// everything it can hold. It replaced an inline name-and-weight row, which hid the
+// rest and read as broken. A piece lands under its kind by itself.
 const adding = ref(false);
-const addName = ref("");
-const addWeight = ref("");
-const addBusy = ref(false);
-// one mounted at a time: the page's, or the empty state's
-const addRow = useTemplateRef<{ focus: () => void }>("addRow");
-
+const BLANK_PIECE: VaultEntry = { id: 0, normKey: "", name: "", weightMg: 0, timesSeen: 0, lastUsedAt: "", createdAt: "" };
 function openAdd() {
+  query.value = "";
   adding.value = true;
-  addName.value = "";
-  addWeight.value = "";
+  editing.value = { ...BLANK_PIECE };
 }
-function closeAdd() {
+function closeDialog() {
+  editing.value = null;
   adding.value = false;
-  addName.value = "";
-  addWeight.value = "";
 }
-async function commitAdd() {
-  const name = addName.value.trim();
-  if (!name || addBusy.value) return;
-  const raw = addWeight.value.trim();
-  const weightMg = raw ? parseWeightInput(raw, unit.value) : 0;
-  if (weightMg == null) {
-    loadError.value = "That weight doesn’t read as a number. Try “540 g” or “1.2 kg”.";
-    return;
-  }
-  // Only the pair that was sent is cleared: the fields stay live through the round
-  // trip, and anything typed meanwhile is the next one.
-  // a weight typed with its unit ("3.8 oz") reads back in that unit on the row
-  const entryUnit = entryUnitFromInput(raw) ?? undefined;
-  await sendAdd({ t: "add", name, weightMg, entryUnit }, () => addName.value.trim() === name && addWeight.value.trim() === raw);
-}
-// A catalog product picked from the add row's suggestions, added AS that product: its
-// brand, size, gear type, catalog link and calories, and its weight unless you typed
-// your own beside it (the weight you measured is the one My Gear keeps).
-async function commitPick(c: NameCommit) {
-  if (addBusy.value) return;
-  const raw = addWeight.value.trim();
-  const typed = raw ? parseWeightInput(raw, unit.value) : null;
-  if (raw && typed == null) {
-    loadError.value = "That weight doesn’t read as a number. Try “540 g” or “1.2 kg”.";
-    return;
-  }
-  // the name field emptied itself on the pick, so "unchanged" is: still empty
-  await sendAdd(
-    {
-      t: "add",
-      brand: c.brand,
-      name: c.name,
-      variant: c.variant,
-      commonName: c.commonName,
-      weightMg: typed ?? c.weightMg ?? 0,
-      // your own typed weight keeps the unit you typed it in, like a plain add
-      entryUnit: (typed != null && entryUnitFromInput(raw)) || undefined,
-      classification: c.classification,
-      kcal: c.kcal,
-      catalogItemId: c.catalogItemId,
-    },
-    () => !addName.value.trim() && addWeight.value.trim() === raw,
-  );
-}
-async function sendAdd(op: VaultItemOp, unchanged: () => boolean) {
-  addBusy.value = true;
-  loadError.value = "";
-  try {
-    const res = await vaultOp(op);
-    if (!res.ok) {
-      // The refusals are worth naming: "you already have that" tells you to search
-      // for it, and a generic failure tells you to try again. Both are facts about
-      // your own gear, so reporting them gives nothing away.
-      loadError.value =
-        res.reason === "duplicate"
-          ? "You already have that in My Gear."
-          : res.reason === "full"
-            ? "My Gear is full. Remove something to make room."
-            : "Couldn’t add that. Check your connection and try again.";
-      addBusy.value = false;
-      return;
-    }
-    await loadVault();
-    if (res.item) offerAdded(res.item);
-    // Committing re-opens a fresh pair — the editor's `advance` behaviour, which is
-    // what makes typing in five things bearable rather than five separate presses.
-    if (unchanged()) {
-      addName.value = "";
-      addWeight.value = "";
-      // the whole gear re-rendered under it, so the field is a new element
-      nextTick(() => addRow.value?.focus());
-    }
-  } catch {
-    loadError.value = "Couldn’t add that. Check your connection and try again.";
-  }
-  addBusy.value = false;
+// in place, first in its kind (the page orders by last use), rather than a reload
+function onItemAdded(item: VaultEntry) {
+  closeDialog();
+  items.value = [item, ...items.value];
+  offerAdded(item);
 }
 
 // A piece sorts itself into its kind, often far down the page or into a collapsed
 // section, so the add row reset under a piece that had silently gone somewhere else
-// (the 2026-11-08 UX audit's first finding). Say where, with the way back. No scroll:
-// the add row stays where you are typing the next one. Undo is a put-away, the only
-// removal there is (a tombstone; see remove.post.ts).
+// (the 2026-11-08 UX audit's first finding). Say where, with the way back. Undo is a
+// put-away, the only removal there is (a tombstone; see remove.post.ts).
 function offerAdded(item: VaultEntry) {
   const kind = vaultFamilyOf(item);
   offerUndo({
@@ -475,8 +394,9 @@ function onItemSaved(item: VaultEntry) {
 
 // ---- units ---------------------------------------------------------------
 // The vault has no list to inherit a unit from, so it takes its default from the
-// most recent list on this device (whatever you already work in) and remembers an
-// explicit choice from there.
+// most recent list on this device (whatever you already work in), or from a choice
+// made on this page before its unit picker went (it sat on the weight total, which
+// went for answering no question). Each row picks its own unit as well.
 const UNIT_KEY = "gear.gear.unit.v1";
 // The key before it stored a SYSTEM ("metric" | "imperial") rather than a unit,
 // because the page formatted with formatWeightAuto and a system was all that took.
@@ -507,7 +427,6 @@ function setUnit(next: Unit) {
   unit.value = next;
   remember(UNIT_KEY, next);
 }
-const weightLabel = (mg: number) => formatWeight(mg, unit.value);
 
 // ---- remove + undo -------------------------------------------------------
 // No confirm dialog: removing gear is small, reversible, and something you'd do
@@ -540,13 +459,16 @@ const { open: openAccount } = useAccountModal();
 // The page's own order. A–Z / Heaviest / Lightest wear sort glyphs (A–Z the ordered
 // list with A over Z); By kind takes a grid mark because it is a LAYOUT, not a sort
 // key, and shouldn't borrow one.
+// In the order they're reached for: the layout, then weight (the reason anyone sorts
+// gear in a pack-weight app: what to cut), then use, and A–Z last, since the search
+// already finds a thing by its name.
 const VIEW_OPTIONS = [
   { key: "kinds", label: "By kind", icon: Shapes01Icon },
-  { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
   { key: "heaviest", label: "Heaviest", icon: SortingNineOneIcon },
   { key: "lightest", label: "Lightest", icon: SortingOneNineIcon },
   { key: "recent", label: "Recently used", icon: Clock01Icon },
   { key: "most", label: "Most used", icon: StarIcon },
+  { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
 ];
 // The trigger wears its current option's mark and name in place of a "View" word: the
 // value already says which question it answers, and the mark is the one the open menu
@@ -722,46 +644,17 @@ async function exportGear(kind: string) {
             <p class="t-sm t-muted vault__count">
               <template v-if="narrowed">{{ formatCount(filtered.length) }} of {{ formatCount(onTab.length) }}</template>
               <template v-else>{{ formatCount(onTab.length) }}</template>
-              {{ pluralNoun(onTab.length, countNoun) }} ·
-              <!-- The total IS the unit control, the same object the editor's
-                   TotalsBar puts up: figure and chevron, opening the app's own picker.
-                   A separate g/oz toggle sat off in the search bar, away from the only
-                   number it governed. -->
-              <OptionMenu
-                class="vault__total"
-                :options="WEIGHT_UNIT_OPTIONS"
-                :current="unit"
-                label="Weight unit"
-                title="Change unit"
-                @pick="(k) => setUnit(k as Unit)"
-              >
-                <template #trigger="{ open }">
-                  {{ weightLabel(totalMg) }}
-                  <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
-                </template>
-              </OptionMenu>
-              <!-- What it cost, after what it weighs — the closet's second number, and
-                   the reason a price is worth recording at all. Plain text, not a
-                   control: the weight opens a unit picker because there IS a choice
-                   about units, and there is no equivalent choice here. -->
+              {{ pluralNoun(onTab.length, countNoun) }}
+              <!-- No weight total: it added up everything you own, which nobody carries
+                   at once, so it answered no question (it went 2026-11-08, with the unit
+                   picker it doubled as; each row has its own, and the page opens in your
+                   last choice or your most recent list's unit). What it cost stays: that
+                   one is a real question about a closet, and the reason a price is worth
+                   recording at all. -->
               <template v-if="totalPrice">
                 · <span class="t-num" :title="priceTitle">{{ formatPrice(totalPrice.cents, totalPrice.currency) }}</span>
               </template>
             </p>
-
-            <!-- the page's one add row; a piece lands under its kind by itself -->
-            <div v-if="!query && tab === 'gear' && adding" class="vault__add">
-              <VaultAddRow
-                ref="addRow"
-                v-model:name="addName"
-                v-model:weight="addWeight"
-                :unit="unit"
-                :busy="addBusy"
-                @submit="commitAdd"
-                @pick="commitPick"
-                @done="closeAdd"
-              />
-            </div>
 
             <!-- KITS: each kit a section, the way a kind is on the Gear tab — its name for
                  the heading, its items as rows of gear (VaultKitSection) -->
@@ -832,18 +725,7 @@ async function exportGear(kind: string) {
               Nothing here yet. Add a piece of gear, or build a list and it’ll collect
               itself here.
             </p>
-            <VaultAddRow
-              v-if="adding"
-              ref="addRow"
-              v-model:name="addName"
-              v-model:weight="addWeight"
-              :unit="unit"
-              :busy="addBusy"
-              @submit="commitAdd"
-              @pick="commitPick"
-              @done="closeAdd"
-            />
-            <div v-else class="vault__emptyacts">
+            <div class="vault__emptyacts">
               <button type="button" class="btn btn--primary" @click="openAdd">Add gear</button>
               <NuxtLink to="/e" class="btn btn--ghost">Create a list</NuxtLink>
             </div>
@@ -862,17 +744,40 @@ async function exportGear(kind: string) {
     </main>
 
     <!-- Lazy + "has it ever opened", so the dialog's chunk never loads for someone
-         who came to look rather than to correct — the same idiom the editor uses for
-         its own modals. -->
+         who came to look rather than to correct or add — the same idiom the editor
+         uses for its own modals. -->
     <LazyVaultItemModal
       v-if="editorEverOpened"
       :entry="editing"
+      :adding="adding"
       :unit="unit"
       :default-currency="vaultCurrency"
       :known="knownVocab"
-      @close="editing = null"
+      @close="closeDialog"
       @saved="onItemSaved"
-    />
+      @added="onItemAdded"
+    >
+      <!-- The add dialog's catalog search, the list editor's own name field (ItemInput),
+           catalog-only and pick-only. The PAGE renders it and the dialog places it, so
+           the field stays in /gear's own chunk graph, as the inline add row kept it:
+           rendered inside the lazy dialog it left that graph, and the bundler split the
+           editor's shared chunk three ways around it, 0.7 KB more on the editor's
+           first load for the same code. -->
+      <template #search="{ pick, typed, submit }">
+        <ItemInput
+          class="vault__catalog"
+          :unit="unit"
+          placeholder="Search the catalog"
+          sources="catalog"
+          pick-only
+          well
+          autofocus
+          @draft="typed"
+          @commit="pick"
+          @submit="submit"
+        />
+      </template>
+    </LazyVaultItemModal>
 
     <!-- Same lazy idiom: nobody who never imports downloads the parser. -->
     <LazyVaultImportModal
@@ -962,19 +867,8 @@ async function exportGear(kind: string) {
   flex: none;
   color: var(--ink-3);
 }
-/* The total, doubling as the unit control — the editor's .totals__amount recipe at
-   this page's smaller type: a relative box holding the figure and its chevron, with
-   the app's own picker behind it. */
-.vault__total {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-px);
-  color: var(--ink-2);
-}
-/* the mark and its turn are the shared .chev (atoms/controls.scss); focus on either
-   control lights it, and so does the pointer (below) */
-.vault__total:focus-within .chev,
+/* the mark and its turn are the shared .chev (atoms/controls.scss); focus lights it,
+   and so does the pointer (below) */
 .vault__view:focus-within .chev {
   color: var(--ink);
 }
@@ -983,15 +877,10 @@ async function exportGear(kind: string) {
    nothing is pointing at. Focus (the rules above) is what touch and keys get. */
 @media (hover: hover) and (pointer: fine) {
   .vault__view:hover,
-  .vault__view:hover .chev,
-  .vault__total:hover,
-  .vault__total:hover .chev {
+  .vault__view:hover .chev {
     color: var(--ink);
   }
 }
-/* Proportional figures, the text's own: tabular ones kept the total from shuffling
-   sideways as a search's "12 of 340" changed, but set every digit monospace-wide on a
-   line read far more often at rest than mid-search, and went in review. */
 /* a clear break before the first heading, on both tabs: the count closes the controls
    above it, and the gear starts below */
 .vault__count {
@@ -1013,15 +902,14 @@ async function exportGear(kind: string) {
   padding-block: var(--space-4);
 }
 
+/* the add dialog's catalog search (rendered here, placed by VaultItemModal's #search),
+   a step above the form it fills */
+.vault__catalog {
+  margin-bottom: var(--space-4);
+}
 /* "New kit" a section's gap below the last kit, as the kits stand from each other */
 .vault__addkit {
   margin-top: var(--space-6);
-}
-/* --- adding gear --- */
-/* the page's one add row, between the count and the gear: the list's own spacing,
-   no rule above it (nothing above it is a row of gear) */
-.vault__add {
-  margin-bottom: var(--space-4);
 }
 /* The list's mode bar, in the list's exact spot: the editor's body pads its top by
    --space-1 (.editor__body) where a page pads by --space-5 (.page), so this page takes

@@ -59,25 +59,28 @@ defineExpose({ focus: () => inputEl.value?.focus() });
    reads as a caption with a line under it rather than a box you can type in. */
 .sf__input {
   width: 100%;
-  /* room for the clear button, so a long query doesn't run under it */
-  padding-right: var(--space-5);
+  /* room for the clear button (its inset, its 16px glyph, a gap), so a long query
+     doesn't run under it */
+  padding-right: calc(var(--space-3) + 16px + var(--space-2));
 }
-/* Sits ON the field rather than beside it: the rule under the input is the field's
-   whole visible boundary, and a sibling button would either break that line or push
-   the input narrower whenever a query exists (a field that resizes as you type). */
+/* ON the field rather than beside it, so the input doesn't narrow whenever a query
+   exists (a field that resizes as you type). Inset by the well's own --space-3, the
+   text's inset on the other side: flush to the tint's edge, it sat 12px off where the
+   eye expects it. */
 .sf__clear {
   position: absolute;
-  right: 0;
+  right: var(--space-3);
   display: inline-flex;
   align-items: center;
 }
-/* touch: the clear meets the --tap minimum (controls.scss); it overlays the
-   field's end, so the bigger box only widens its hit area, not the layout */
+/* touch: the clear meets the --tap minimum (controls.scss), centred on the same glyph,
+   so the bigger box only widens its hit area, not where the mark sits */
 @media (pointer: coarse) {
   .sf__clear {
     justify-content: center;
     min-width: var(--tap);
     min-height: var(--tap);
+    right: calc(var(--space-3) + 8px - var(--tap) / 2);
   }
 }
 </style>

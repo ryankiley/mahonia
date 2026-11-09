@@ -26,15 +26,19 @@
     "A new kit isn't saved until its first item goes in, so changing your mind leaves nothing behind.",
     "My Gear's edit dialog keeps its paired fields side by side in a narrow window instead of stacking them.",
     "The undo bar's button is the word Undo alone, and on My Gear it waits while you point at it, as it does on a list.",
-    "My Gear's add row shows its name and weight as boxes you can type in.",
     "My Gear no longer keeps a note: a note on a list row stays on that list instead of turning up on the gear, and the edit dialog has no Note field.",
-    "My Gear's search box says Search my gear, here and in a list's gear panel, and the edit dialog calls how many you have Number owned."
+    "My Gear's search box says Search my gear, here and in a list's gear panel, and the edit dialog calls how many you have Number owned.",
+    "Add gear on My Gear opens the edit dialog, blank, with a catalog search on top that fills it in when you pick a product.",
+    "My Gear's count line no longer adds up the weight of everything you own; each piece still picks its own unit.",
+    "My Gear's icon buttons show the site's tooltips, as a list's do.",
+    "My Gear's order menu puts weight first: By kind, Heaviest, Lightest, Recently used, Most used, then A–Z.",
+    "The account dialog puts Sign out and Sign out everywhere together at the end, above Delete account."
   ],
   "fixed": [
     "Searching your gear to add an item to a kit offers only real matches, not your most-used gear.",
     "Gear that a stray word sent to the wrong kind lands where you'd look for it: head nets with clothing, bowls in the kitchen, sling bags with packs, tape in first aid, a charging cord with electronics, and more.",
-    "Adding gear on My Gear no longer leaves the last name's suggestions open over the cleared field.",
     "Switching between My Gear's Gear and Kits tabs no longer nudges the first rows down a few pixels.",
-    "A piece added from a list's My Gear panel keeps the unit it reads in on My Gear, as it does when picked from a row's name."
+    "A piece added from a list's My Gear panel keeps the unit it reads in on My Gear, as it does when picked from a row's name.",
+    "The search box's clear button sits inside the box, in line with the text."
   ]
 }

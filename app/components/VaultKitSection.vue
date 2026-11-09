@@ -147,16 +147,18 @@ watch(
     </template>
     <template #actions>
       <span class="t-num t-muted kitsec__total">{{ formatWeight(kit.weightMg, unit) }}</span>
-      <button
-        v-if="isKit"
-        type="button"
-        class="btn btn--icon btn--ghost ink-quiet"
-        :title="`Remove ${name}`"
-        :aria-label="`Remove ${name} from My Gear`"
-        @click="emit('remove')"
-      >
-        <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-      </button>
+      <!-- the site's tooltip on every icon-only button here, as on a list row: the verb
+           shown, the whole name on aria-label -->
+      <Tooltip v-if="isKit" text="Remove" preferred-placement="top">
+        <button
+          type="button"
+          class="btn btn--icon btn--ghost ink-quiet"
+          :aria-label="`Remove ${name} from My Gear`"
+          @click="emit('remove')"
+        >
+          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+        </button>
+      </Tooltip>
     </template>
 
     <template #default="{ overlay }">
@@ -174,69 +176,80 @@ watch(
             <!-- how many the kit holds: held out of sight, not dropped, on a row
                  that can't change, so the columns stay put down the kit -->
             <span v-if="counts" class="kitsec__step" :class="{ 'is-idle': part.qty <= 1 && partMax(part.id) <= 1 }">
-              <button
-                type="button"
-                class="btn btn--icon btn--ghost ink-quiet"
-                :disabled="busy || part.qty <= 1"
-                :aria-label="`One fewer ${part.name} in ${name}`"
-                @click="step(part.id, -1)"
-              >
-                <HugeiconsIcon :icon="MinusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-              </button>
+              <Tooltip text="One fewer" preferred-placement="top">
+                <button
+                  type="button"
+                  class="btn btn--icon btn--ghost ink-quiet"
+                  :disabled="busy || part.qty <= 1"
+                  :aria-label="`One fewer ${part.name} in ${name}`"
+                  @click="step(part.id, -1)"
+                >
+                  <HugeiconsIcon :icon="MinusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                </button>
+              </Tooltip>
               <span class="t-sm t-num kitsec__count" :aria-label="`${part.qty} in the kit`">{{ part.qty }}</span>
-              <button
-                type="button"
-                class="btn btn--icon btn--ghost ink-quiet"
-                :disabled="busy || part.qty >= partMax(part.id)"
-                :aria-label="`One more ${part.name} in ${name}`"
-                :title="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. Change Number owned in its Edit.` : undefined"
-                @click="step(part.id, 1)"
+              <!-- at the cap it says why: a kit holds no more than you own -->
+              <Tooltip
+                :text="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. Change Number owned in its Edit.` : 'One more'"
+                preferred-placement="top"
               >
-                <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
-              </button>
+                <button
+                  type="button"
+                  class="btn btn--icon btn--ghost ink-quiet"
+                  :disabled="busy || part.qty >= partMax(part.id)"
+                  :aria-label="`One more ${part.name} in ${name}`"
+                  @click="step(part.id, 1)"
+                >
+                  <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                </button>
+              </Tooltip>
             </span>
           </template>
           <template #remove>
-            <button
-              type="button"
-              class="btn btn--icon btn--ghost ink-quiet"
-              :disabled="busy || !canDrop(part)"
-              :aria-label="`Take ${part.name} out of ${name}`"
-              :title="canDrop(part) ? `Take ${part.name} out of the kit` : 'A kit holds at least one item'"
-              @click="drop(part.id)"
-            >
-              <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-            </button>
+            <Tooltip :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'" preferred-placement="top">
+              <button
+                type="button"
+                class="btn btn--icon btn--ghost ink-quiet"
+                :disabled="busy || !canDrop(part)"
+                :aria-label="`Take ${part.name} out of ${name}`"
+                @click="drop(part.id)"
+              >
+                <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              </button>
+            </Tooltip>
           </template>
         </VaultGearRow>
         <!-- put away from My Gear: listed by name, it stops counting and can only come out -->
         <li v-else class="kitsec__line kitsec__line--gone">
           <span class="kitsec__name t-clip">{{ itemDisplayName(part.brand, part.name, part.variant) }} <span class="kitsec__gone">· removed</span></span>
-          <button
-            type="button"
-            class="btn btn--icon btn--ghost ink-quiet"
-            :disabled="busy"
-            :aria-label="`Take ${part.name} out of ${name}`"
-            @click="drop(part.id)"
-          >
-            <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-          </button>
+          <Tooltip text="Take out of kit" preferred-placement="top">
+            <button
+              type="button"
+              class="btn btn--icon btn--ghost ink-quiet"
+              :disabled="busy"
+              :aria-label="`Take ${part.name} out of ${name}`"
+              @click="drop(part.id)"
+            >
+              <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+            </button>
+          </Tooltip>
         </li>
       </template>
       <!-- a weight of the kit's own (a group saved off a list whose heading had one) -->
       <li v-if="kit.ownWeightMg" class="kitsec__line">
         <span class="kitsec__name">Its own weight</span>
         <span class="t-num kitsec__weight">{{ formatWeight(kit.ownWeightMg, unit) }}</span>
-        <button
-          type="button"
-          class="btn btn--icon btn--ghost ink-quiet"
-          :disabled="busy"
-          :aria-label="`Remove ${name}'s own weight`"
-          title="Remove its own weight"
-          @click="send(kitPartRefs(parts), 0)"
-        >
-          <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-        </button>
+        <Tooltip text="Remove its own weight" preferred-placement="top">
+          <button
+            type="button"
+            class="btn btn--icon btn--ghost ink-quiet"
+            :disabled="busy"
+            :aria-label="`Remove ${name}'s own weight`"
+            @click="send(kitPartRefs(parts), 0)"
+          >
+            <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+          </button>
+        </Tooltip>
       </li>
     </template>
 

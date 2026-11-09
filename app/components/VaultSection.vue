@@ -75,6 +75,9 @@ const overlay = (open: boolean) => (overlays.value = Math.max(0, overlays.value 
 }
 .folder__actions {
   grid-column: 2;
+  /* the folder atom shifts a heading tooltip 8px right to meet a right-pushed glyph;
+     these glyphs sit centred over the rows' (VaultKitSection), so their tips do too */
+  --tip-shift: 0px;
 }
 /* a heading, not a field: the field's type and its LINE (the reset gives an h2 the
    tight heading leading, which is what stood it 5px shorter than a kit's name) */

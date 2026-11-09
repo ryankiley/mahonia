@@ -89,7 +89,10 @@ const meta = computed(() => {
       @update:model-value="(g) => emit('icon', g)"
       @overlay-toggle="(o) => emit('overlay-toggle', o)"
     >
-      <template #trigger="{ toggle, attrs }">
+      <template #trigger="{ open, toggle, attrs }">
+        <!-- the site's tooltip, as on the list row's icon buttons, not a native title:
+             it shows at once and in the app's type -->
+        <Tooltip :text="typeLabel ? `${typeLabel} · Change icon` : 'Pick an icon'" :disabled="open" preferred-placement="top">
         <button
           type="button"
           class="vault__typebtn"
@@ -97,13 +100,13 @@ const meta = computed(() => {
           tabindex="-1"
           v-bind="attrs"
           aria-hidden="true"
-          :title="typeLabel ? `${typeLabel} · change icon` : 'Pick an icon'"
           @click="toggle"
         >
           <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
           <!-- empty: Hugeicons' dashed square, the shape an icon would fill, quietly -->
           <HugeiconsIcon v-else :icon="DashedLine02Icon" :size="20" :stroke-width="2" />
         </button>
+        </Tooltip>
       </template>
     </GearIconPicker>
     <div class="gear__main">
@@ -181,29 +184,33 @@ const meta = computed(() => {
            the new one takes the open edge and the two you already know don't
            move — and it puts the destructive control furthest from the new
            arrival. -->
-      <button
-        type="button"
-        class="btn btn--icon btn--ghost vault__act ink-quiet"
-        :title="`Edit ${displayName}`"
-        :aria-label="`Edit ${displayName}`"
-        @click="emit('edit')"
-      >
-        <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-      </button>
+      <!-- the tooltip says the verb, the accessible name the whole thing: the row it
+           hangs off already names the piece (ItemRow's split, WCAG 2.5.3 either way) -->
+      <Tooltip text="Edit" preferred-placement="top">
+        <button
+          type="button"
+          class="btn btn--icon btn--ghost vault__act ink-quiet"
+          :aria-label="`Edit ${displayName}`"
+          @click="emit('edit')"
+        >
+          <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+        </button>
+      </Tooltip>
       <!-- glyph only, like every other row action on the site: the word was the
            widest thing in the row and said what the bin already says. The label
            lives on aria-label + title. -->
       <slot name="remove">
-      <button
-        type="button"
-        class="btn btn--icon btn--ghost vault__act ink-quiet"
-        :disabled="busy"
-        :title="`Remove ${displayName}`"
-        :aria-label="`Remove ${displayName} from My Gear`"
-        @click="emit('remove')"
-      >
-        <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
-      </button>
+        <Tooltip text="Remove" preferred-placement="top">
+          <button
+            type="button"
+            class="btn btn--icon btn--ghost vault__act ink-quiet"
+            :disabled="busy"
+            :aria-label="`Remove ${displayName} from My Gear`"
+            @click="emit('remove')"
+          >
+            <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
+          </button>
+        </Tooltip>
       </slot>
     </div>
   </li>

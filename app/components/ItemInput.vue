@@ -44,8 +44,8 @@ const props = withDefaults(
     // the list row's commit-on-blur would fire on tabbing across to the weight.
     pickOnly?: boolean;
     // Drawn as a tinted box (the shared .well atom, as the search field is) rather than
-    // the list row's bare text: for a field standing on its own, /gear's add row, where
-    // nothing around it says "type here".
+    // the list row's bare text: for a field standing on its own, the catalog search in
+    // My Gear's add dialog, where nothing around it says "type here".
     well?: boolean;
   }>(),
   {

@@ -70,7 +70,7 @@ registerEndpoint("/api/vault/remove", {
   },
 });
 
-// an add, optionally held so a case can type while it's out
+// an add, optionally held
 let itemsHeld: Promise<void> | null = null;
 let addedNames: string[] = [];
 let addedOps: Record<string, unknown>[] = [];
@@ -175,66 +175,63 @@ describe("the /gear page's vault calls", () => {
     });
   });
 
+  // "Add gear" opens the edit dialog blank, with a catalog search over the form: one
+  // form for adding and correcting (VaultItemModal's `adding`).
   describe("adding gear by hand", () => {
     const filed = entry(1, "Duplex");
-    // the list editor's own name field (ItemInput), catalog-only and pick-only
-    const nameField = (w: ReturnType<typeof mount>) => w.get<HTMLInputElement>(".vaddrow .ac__input");
-    const openForm = async (w: ReturnType<typeof mount>) => {
-      await w.get(".vault__tabadd").trigger("click");
+    const dialog = () => document.querySelector<HTMLElement>(".dlg");
+    const field = (label: string) =>
+      [...document.querySelectorAll<HTMLLabelElement>(".dlg label.dlg__field")].find((l) => l.textContent?.includes(label))!.querySelector("input")!;
+    const type = async (el: HTMLInputElement, value: string) => {
+      el.value = value;
+      el.dispatchEvent(new Event("input"));
       await nextTick();
     };
+    const search = () => document.querySelector<HTMLInputElement>(".vault__catalog .ac__input")!;
+    const addButton = () => document.querySelector<HTMLButtonElement>(".dlg__actions .btn--primary")!;
+    const openForm = async (w: ReturnType<typeof mount>) => {
+      await w.get(".vault__tabadd").trigger("click");
+      await vi.waitFor(() => expect(dialog()).not.toBeNull());
+    };
 
-    it("opens a fresh pair after an add, with the caret back in the name", async () => {
+    it("opens the edit dialog blank, as Add gear, with the cursor in the catalog search", async () => {
       listRows = [filed];
       const w = await openPage();
       await openForm(w);
-      await nameField(w).setValue("Stove");
-      await w.get("form.vaddrow").trigger("submit");
-      await vi.waitFor(() => expect(addedNames).toEqual(["Stove"]));
-      await vi.waitFor(() => expect(nameField(w).element.value).toBe(""));
-      await nextTick();
-      expect(document.activeElement).toBe(nameField(w).element);
+      expect(dialog()!.querySelector(".t-label")!.textContent).toBe("Add gear");
+      expect(field("Product").value).toBe("");
+      expect(addButton().disabled).toBe(true);
+      await vi.waitFor(() => expect(document.activeElement).toBe(search()));
     });
 
     // A piece sorts itself into its kind, so the page says where it went, with Undo.
-    it("says which kind an added piece went to, and offers Undo", async () => {
+    it("adds what was typed, closes, and says which kind it went to, with Undo", async () => {
       listRows = [filed];
       const w = await openPage();
       await openForm(w);
-      await nameField(w).setValue("Stove");
-      await w.get("form.vaddrow").trigger("submit");
+      await type(field("Product"), "Stove");
+      addButton().click();
+      await vi.waitFor(() => expect(addedNames).toEqual(["Stove"]));
       await vi.waitFor(() => expect(w.find(".undobar").exists()).toBe(true));
       expect(w.get(".undobar").text()).toContain("Added Stove to Kitchen");
-      expect(w.get(".undobar").text()).toContain("Undo");
+      expect(dialog()).toBeNull();
+      expect(rows(w).some((r) => r.text().includes("Stove"))).toBe(true);
     });
 
-    it("keeps what was typed while the add was out", async () => {
-      let land = () => {};
-      itemsHeld = new Promise((r) => (land = r));
-      listRows = [filed];
-      const w = await openPage();
-      await openForm(w);
-      await nameField(w).setValue("Stove");
-      await w.get("form.vaddrow").trigger("submit");
-      await vi.waitFor(() => expect(addedNames).toEqual(["Stove"]));
-
-      await nameField(w).setValue("Windscreen");
-      land();
-      await new Promise((r) => setTimeout(r, 40));
-      expect(nameField(w).element.value).toBe("Windscreen");
-    });
-
-    // Picking a catalog product adds it AS that product, in one press: the gear type is
-    // what gives a hand-added row its icon and its place in a search, and before this a
-    // name typed here never had one.
-    it("adds a picked catalog product with its type, link and weight", async () => {
+    // A catalog pick fills the form AS that product: the gear type gives a hand-added
+    // piece its icon and its kind, and the link goes with it.
+    it("fills the form from a catalog pick, and adds it as that product", async () => {
       catalogHits = [NANO_PUFF];
       listRows = [filed];
       const w = await openPage();
       await openForm(w);
-      await nameField(w).setValue("nano puff");
-      await vi.waitFor(() => expect(w.findAll('.vaddrow [role="option"]').length).toBe(1), { timeout: 2_000 });
-      await w.get('.vaddrow [role="option"]').trigger("mousedown");
+      await type(search(), "nano puff");
+      await vi.waitFor(() => expect(document.querySelectorAll('.vault__catalog [role="option"]').length).toBe(1), { timeout: 2_000 });
+      document.querySelector('.vault__catalog [role="option"]')!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      await vi.waitFor(() => expect(field("Product").value).toBe("Nano Puff Jacket"));
+      expect(field("Brand").value).toBe("Patagonia");
+      expect(field("Gear type").value).toBe("Insulated jacket");
+      addButton().click();
       await vi.waitFor(() =>
         expect(addedOps).toEqual([
           expect.objectContaining({
@@ -255,11 +252,28 @@ describe("the /gear page's vault calls", () => {
       listRows = [filed];
       const w = await openPage();
       await openForm(w);
-      await w.get(".vaddrow__weight").setValue("352");
-      await nameField(w).setValue("nano puff");
-      await vi.waitFor(() => expect(w.findAll('.vaddrow [role="option"]').length).toBe(1), { timeout: 2_000 });
-      await w.get('.vaddrow [role="option"]').trigger("mousedown");
+      await type(field("Weight"), "352");
+      await type(search(), "nano puff");
+      await vi.waitFor(() => expect(document.querySelectorAll('.vault__catalog [role="option"]').length).toBe(1), { timeout: 2_000 });
+      document.querySelector('.vault__catalog [role="option"]')!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      await vi.waitFor(() => expect(field("Product").value).toBe("Nano Puff Jacket"));
+      addButton().click();
       await vi.waitFor(() => expect(addedOps).toEqual([expect.objectContaining({ catalogItemId: 2106, weightMg: 352_000 })]));
+    });
+
+    it("drops the catalog link once the name no longer says that product", async () => {
+      catalogHits = [NANO_PUFF];
+      listRows = [filed];
+      const w = await openPage();
+      await openForm(w);
+      await type(search(), "nano puff");
+      await vi.waitFor(() => expect(document.querySelectorAll('.vault__catalog [role="option"]').length).toBe(1), { timeout: 2_000 });
+      document.querySelector('.vault__catalog [role="option"]')!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      await vi.waitFor(() => expect(field("Product").value).toBe("Nano Puff Jacket"));
+      await type(field("Product"), "My old puffy");
+      addButton().click();
+      await vi.waitFor(() => expect(addedOps).toHaveLength(1));
+      expect(addedOps[0]).not.toHaveProperty("catalogItemId");
     });
   });
 });

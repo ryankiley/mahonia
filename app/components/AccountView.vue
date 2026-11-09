@@ -670,18 +670,6 @@ async function onSignOut() {
           </section>
 
           <section class="acct__section">
-            <button type="button" class="btn btn--ghost acct__btn acct__signout" @click="onSignOut">Sign out</button>
-            <button
-              type="button"
-              class="btn btn--ghost acct__btn acct__signout"
-              :disabled="signingOutAll"
-              @click="onSignOutEverywhere"
-            >
-              {{ signingOutAll ? "Signing out…" : "Sign out everywhere" }}
-            </button>
-          </section>
-
-          <section class="acct__section">
             <h2 class="t-label acct__label">Take your data with you</h2>
             <p class="t-sm t-muted">
               One file with every list on this account, each in the same shape as a list's own
@@ -691,6 +679,21 @@ async function onSignOut() {
               {{ exporting ? "Building the file…" : "Download everything" }}
             </button>
             <p v-if="exportNote" class="t-sm acct__note">{{ exportNote }}</p>
+          </section>
+
+          <!-- Signing out, at the end with the account's other way out (delete, below):
+               it sat mid-dialog between two settings, as if it were one. One row, the
+               everyday action first. -->
+          <section class="acct__section acct__signouts">
+            <button type="button" class="btn btn--ghost acct__btn acct__signout" @click="onSignOut">Sign out</button>
+            <button
+              type="button"
+              class="btn btn--ghost acct__btn acct__signout"
+              :disabled="signingOutAll"
+              @click="onSignOutEverywhere"
+            >
+              {{ signingOutAll ? "Signing out…" : "Sign out everywhere" }}
+            </button>
           </section>
 
           <section class="acct__section">
@@ -1060,7 +1063,13 @@ async function onSignOut() {
 .acct__clients {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-3);
+  /* --space-2, a section's own row gap: at --space-3 the four pills read as loose */
+  gap: var(--space-2);
+}
+/* the two ways to sign out, side by side, wrapping on a narrow phone */
+.acct__signouts {
+  flex-direction: row;
+  flex-wrap: wrap;
 }
 /* a link wearing .btn: the atom's reset is written for <button>, so the one thing an
    anchor brings of its own is taken off here */
