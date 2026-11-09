@@ -20,7 +20,7 @@
 // cookie every few seconds while signed out — a cookie read, nothing more, until the
 // other tab has set it — so it moves on to the consent the moment that happens. The
 // window Claude is watching is this one.
-import { Alert02Icon, Backpack03Icon, SafeBoxIcon } from "@hugeicons/core-free-icons";
+import { Add01Icon, Alert02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import type { IconNode } from "~/utils/hugeicon";
 import { clientMark } from "~/utils/clientMark";
@@ -59,23 +59,23 @@ const wants = computed(() =>
     ? "see and change what’s in My Gear and your lists, and add new lists to your account"
     : "see what’s in My Gear and your lists",
 );
-// The same grant as `wants`, a row per thing it reaches, each with the mark that thing
-// wears in the app: the safe box is My Gear everywhere, the pack is a list. (Sharing the
-// pack with the editor splits it into a first-load chunk of its own, +0.16 KB; the
-// ceiling moved for it, see scripts/bundle-budget.mjs.)
+// The same grant as `wants`, one row per thing it can do, each marked by the ACTION
+// rather than the thing: the eye and the pencil are the account page's own marks for a
+// read-only and a read-and-change token, so a read-only grant reads as two eyes at a
+// glance, and the text already says whether it's My Gear or the lists.
+// Read-and-change can do everything read can.
 const scopes = computed<{ icon: IconNode; text: string }[]>(() =>
-  // one row per thing it can do; read-and-change can do everything read can
   writes.value
     ? [
-        { icon: SafeBoxIcon, text: "See what’s in My Gear" },
-        { icon: SafeBoxIcon, text: "Change what’s in My Gear" },
-        { icon: Backpack03Icon, text: "See your lists" },
-        { icon: Backpack03Icon, text: "Change your lists" },
-        { icon: Backpack03Icon, text: "Add new lists to your account" },
+        { icon: ViewIcon, text: "See what’s in My Gear" },
+        { icon: Edit02Icon, text: "Change what’s in My Gear" },
+        { icon: ViewIcon, text: "See your lists" },
+        { icon: Edit02Icon, text: "Change your lists" },
+        { icon: Add01Icon, text: "Add new lists to your account" },
       ]
     : [
-        { icon: SafeBoxIcon, text: "See what’s in My Gear" },
-        { icon: Backpack03Icon, text: "See your lists" },
+        { icon: ViewIcon, text: "See what’s in My Gear" },
+        { icon: ViewIcon, text: "See your lists" },
       ],
 );
 // Who is asking, as the page names and draws them: a logo and our own name for it only
