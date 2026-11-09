@@ -165,7 +165,12 @@ const FIRST_LOAD_BUDGET_KB = 162;
 // switcher's card became a chunk of its own, loaded on a click, to take it off the
 // editor's first load (160.0); the kinds' glyph rules and the kit capture are lazy too.
 // No first-load chunk grew.
-const TOTAL_BUDGET_KB = 335;
+//
+// Re-set 2026-11-09 at 335.4 measured (was 335; main at 96dfbbc is 334.6): My Gear offline.
+// The device copy and the offline state are in useVaultList (/gear's and the pane's
+// chunks); the 0.2 that reached first load (160.1) is the copy's forget in useSession,
+// which every way out of an account runs.
+const TOTAL_BUDGET_KB = 341;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

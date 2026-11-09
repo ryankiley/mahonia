@@ -95,10 +95,15 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
     // below handles the editor shell explicitly instead.
     navigateFallback: "",
     runtimeCaching: [
-      // editor shell — /e and /e/{shareCode}. Online it is always the network: the
-      // bare /e is prerendered and /e/{shareCode} is rendered per request for its
-      // <head>. Offline, every one of them gets the precached client-only /_shell
-      // (nuxt.config routeRules), never a copy of the page itself.
+      // the app's own pages — /e and /e/{shareCode}, /gear, /account, and the static
+      // /help, /about and /legal. Online it is always the network: the bare /e and the
+      // static pages are prerendered, the rest rendered per request. Offline, every one
+      // of them gets the precached client-only /_shell (nuxt.config routeRules), never
+      // a copy of the page itself. Only /e had this at first, so an installed app that
+      // reopened on /gear, or a reload there, was the browser's error page while every
+      // chunk the page needed sat in the precache (2026-11-09). The static pages'
+      // payloads are precached by the glob, so the shell renders them whole. /l and /s
+      // have their own rules below; /authorize and /auth/callback need the network.
       //
       // It used to be a runtime cache of each page (NetworkFirst, 16 entries, a
       // week), and that copy was broken offline after any deploy: its HTML names the
@@ -107,12 +112,16 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
       // The precached shell is replaced along with the chunks it names, so it always
       // matches them. It boots at the address it was opened for, and the editor takes
       // its list from the #token fragment (or the account) and the copy in IndexedDB,
-      // so nothing on /e/{shareCode} offline needs that route's own HTML.
+      // so nothing on /e/{shareCode} offline needs that route's own HTML; /gear draws
+      // the account's gear from this device's copy (app/utils/gearCopy.ts).
       {
         // Navigations only, matched on the path: /api/l/e or /e/_payload.json must
-        // never be answered with editor HTML.
+        // never be answered with app HTML. The pattern is written inline because
+        // Workbox copies this function's source into sw.js, where nothing outside it
+        // exists.
         urlPattern: ({ request, url }) =>
-          request.mode === "navigate" && /^\/e(?:\/[^/]+)?\/?$/.test(url.pathname),
+          request.mode === "navigate" &&
+          /^\/(?:e(?:\/[^/]+)?|gear|account|help|about|legal)\/?$/.test(url.pathname),
         handler: "NetworkOnly",
         // No networkTimeoutSeconds: Workbox accepts it only on NetworkFirst, which
         // would store the page — the copy this rule exists not to keep.

@@ -31,6 +31,8 @@ const props = defineProps<{
   unit: Unit;
   /** a change to this kit is saving: its controls wait */
   busy?: boolean;
+  /** offline, showing this device's copy: the kit reads, it doesn't change */
+  readonly?: boolean;
 }>();
 const emit = defineEmits<{
   /** the kit's items as they should now be, and its own weight */
@@ -136,6 +138,7 @@ watch(
       <input
         class="field folder__name"
         :value="kit.name"
+        :readonly="readonly"
         :maxlength="VAULT_NAME_MAX"
         :aria-label="`Name of ${name}`"
         autocomplete="off"
@@ -149,7 +152,7 @@ watch(
       <span class="t-num t-muted kitsec__total">{{ formatWeight(kit.weightMg, unit) }}</span>
       <!-- the site's tooltip on every icon-only button here, as on a list row: the verb
            shown, the whole name on aria-label -->
-      <Tooltip v-if="isKit" text="Remove" preferred-placement="top">
+      <Tooltip v-if="isKit && !readonly" text="Remove" preferred-placement="top">
         <button
           type="button"
           class="btn btn--icon btn--ghost ink-quiet"
@@ -167,6 +170,7 @@ watch(
           v-if="entry"
           :entry="entry"
           :unit="unit"
+          :readonly="readonly"
           @edit="emit('edit', entry)"
           @icon="(g: GearGlyph | null) => emit('icon', entry, g)"
           @unit="(u: Unit) => emit('unit', entry, u)"
@@ -222,7 +226,7 @@ watch(
         <!-- put away from My Gear: listed by name, it stops counting and can only come out -->
         <li v-else class="kitsec__line kitsec__line--gone">
           <span class="kitsec__name t-clip">{{ itemDisplayName(part.brand, part.name, part.variant) }} <span class="kitsec__gone">· removed</span></span>
-          <Tooltip text="Take out of kit" preferred-placement="top">
+          <Tooltip v-if="!readonly" text="Take out of kit" preferred-placement="top">
             <button
               type="button"
               class="btn btn--icon btn--ghost ink-quiet"
@@ -239,7 +243,7 @@ watch(
       <li v-if="kit.ownWeightMg" class="kitsec__line">
         <span class="kitsec__name">Its own weight</span>
         <span class="t-num kitsec__weight">{{ formatWeight(kit.ownWeightMg, unit) }}</span>
-        <Tooltip text="Remove its own weight" preferred-placement="top">
+        <Tooltip v-if="!readonly" text="Remove its own weight" preferred-placement="top">
           <button
             type="button"
             class="btn btn--icon btn--ghost ink-quiet"
@@ -253,7 +257,7 @@ watch(
       </li>
     </template>
 
-    <template #after>
+    <template v-if="!readonly" #after>
       <div class="kitsec__add">
         <input
           ref="addEl"
