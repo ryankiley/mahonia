@@ -113,9 +113,22 @@ export function useItemRowFields({
     gear.updateItem(item.value.id, { commonName: el.value, commonNameOverridden: true });
     el.value = item.value.commonName ?? "";
   }
+  // A catalog link is to ONE size, and the row carries that size's cited weight. So
+  // typing a different size on a linked row unlinks it: the text alone used to change,
+  // and the row said "Long" while linked to, and weighing, the Regular. The weight stays
+  // as the person's own to correct; picking the size from the name's suggestions is how
+  // to get its cited weight. Clearing the size, or retyping the same one, keeps the link.
   function onVariant(e: Event) {
     const el = e.target as HTMLInputElement;
-    gear.updateItem(item.value.id, { variant: el.value, nameOverridden: true });
+    const typed = el.value.trim();
+    const otherSize =
+      item.value.catalogItemId != null && !!typed && typed.toLowerCase() !== (item.value.variant ?? "").toLowerCase();
+    gear.updateItem(
+      item.value.id,
+      otherSize
+        ? { variant: typed, nameOverridden: true, catalogItemId: null, weightOverridden: true }
+        : { variant: el.value, nameOverridden: true },
+    );
     el.value = item.value.variant ?? "";
   }
   function onNote(e: Event) {
