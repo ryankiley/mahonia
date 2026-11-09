@@ -75,7 +75,15 @@ import { kb } from "./bundleReport.mjs";
 // component and stylesheet moving onto the first load now the account panel uses it
 // too. Product spending it, this time, and a sliver of it. Offered the levers,
 // Ryan's call: "you can increase the size." Another 5 KB, the same room as last time.
-const FIRST_LOAD_CEILING_KB = 160;
+//
+// MOVED 2026-11-08, 160 → 161, by decision. Main sat at 159.7 when the size menu on a
+// catalog-linked row (#512) put it at 160.5. Going Lazy (the first lever) took the menu
+// itself off the first load, which left 160.0 for its slot in the row, the Size field's
+// box and OptionMenu's weight column and shift fit; and a 0.1 KB edit reshuffles chunk
+// hashes by about as much, so it sat on the line, passing or failing by the build. Offered
+// cutting the menu instead, Ryan's call: "Keep it, raise ceiling." 1 KB, the room that
+// slot needs plus the wobble, not another 5.
+const FIRST_LOAD_CEILING_KB = 161;
 // THE TRIPWIRE, ~2 KB over the last measurement. Re-anchor to current + ~2 in the
 // PR that spends it; keep it under the ceiling.
 //
@@ -108,7 +116,11 @@ const FIRST_LOAD_CEILING_KB = 160;
 // with its own stylesheet). The rule's ~2 over would cross the ceiling, so it sits ON it:
 // the two lines coincide at 160 again, and the next growth of any size meets the
 // ceiling's message.
-const FIRST_LOAD_BUDGET_KB = 160;
+//
+// Re-anchored 2026-11-08 at 160.0 measured (#512, see the ceiling's note), when the
+// ceiling moved to 161. The two lines coincide there: the next growth of any size meets
+// the ceiling's message again.
+const FIRST_LOAD_BUDGET_KB = 161;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
 // a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
 // ordinary feature work. Set ~6 KB clear of the current total so it only speaks up
