@@ -87,7 +87,7 @@ catalog, as it is added or later. An account's lists and its gear belong to the 
 rather than a link, so
 these need the account behind the call, and there are two ways to give it. In Claude, add
 the URL as a connector and choose "Sign in when needed": the first call to an account tool
-shows a Connect card, you sign in to Mahonia with your passkey or a link, allow read or
+shows a Connect card, you sign in to Mahonia with your passkey or a link, allow
 read-and-change, and the call goes through. That is OAuth 2.1 with Mahonia as its own
 authorization server (discovery under `/.well-known`, `/authorize`, `/token`, `/revoke`,
 `/register`; PKCE S256; Client ID Metadata Documents, so Claude registers nothing;
@@ -102,8 +102,11 @@ makes under the account, as a signed-in browser files the lists it creates, and 
 
 The gate is at the door, as Claude requires: a `tools/call` naming an account tool with no
 valid bearer answers 401 with a `WWW-Authenticate` header that points at the discovery
-document and names the scope the tool needs, and a read-only bearer on a tool that changes
-gear or a list answers 403 with `insufficient_scope`. `edit_list` called with an edit link
+document and asks for `write` (read-and-change), whichever account tool it was: Claude asks
+for exactly the scope a 401 names and doesn't step up on a 403, so a sign-in that asked
+only for read couldn't change anything until it was connected again. A read-only bearer (a
+read token from `/account`) on a tool that changes gear or a list answers 403 with
+`insufficient_scope`. `edit_list` called with an edit link
 and `get_list` called with a share code are not account tools; the same tools without
 one are. `initialize`, `tools/list` and the four list tools never ask for a credential
 on their own, so a connector added with no sign-in works exactly as before.

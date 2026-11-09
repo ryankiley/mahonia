@@ -352,10 +352,11 @@ describe("reading", () => {
     expect(text).toBe(listToMarkdown(snap()));
     expect(structured).toEqual({ share_code: "ABC123DEF456", share_link: "http://mahonia.test/s/ABC123DEF456", markdown: text });
     expect(toolText(await call("get_list", { share_code: "ABC123DEF456", format: "csv" })).isError).toBe(true);
-    // no share code is the account's own lists, and asks for one at the door
+    // no share code is the account's own lists, and asks for a sign-in at the door: for
+    // read-and-change, as every account tool does
     const mine = await post(rpc("tools/call", { name: "get_list", arguments: {} }));
     expect(mine.status).toBe(401);
-    expect(String(mine.event.node.res.getHeader("www-authenticate"))).toContain('scope="read"');
+    expect(String(mine.event.node.res.getHeader("www-authenticate"))).toContain('scope="write"');
   });
 
   it("search_catalog clamps the limit, trims the query and maps the rows to grams", async () => {

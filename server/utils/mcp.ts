@@ -615,7 +615,7 @@ const EDIT = { readOnlyHint: false, destructiveHint: true, idempotentHint: false
 /** How edit_list names its list decides what it wants from the account. By edit
  *  link, the capability itself, it never looks. By share_code, a list filed under the
  *  signed-in account, it needs read-and-change access, and asking at the door is what
- *  gets a missing sign-in the Connect card and a read-only one the step-up, rather
+ *  gets a missing sign-in the Connect card and a read-only one the 403, rather
  *  than a sentence (mcp.post.ts). An edit link given beside a share code is the one
  *  used: it is the capability in hand. */
 const namesByAccount = (args: Record<string, unknown>) => args.edit_link == null && typeof args.share_code === "string";
