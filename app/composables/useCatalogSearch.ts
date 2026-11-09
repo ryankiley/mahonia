@@ -3,7 +3,8 @@
 // cascade (tier→verified→usage→similarity→id; see shared/catalogSearch.ts).
 
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
-import type { Classification, Unit } from "~~/shared/types";
+import type { Classification } from "~~/shared/types";
+import type { VaultPick } from "~~/shared/vault";
 import type { useCatalogCache } from "./useCatalogCache";
 
 // Exactly what /api/catalog/search returns — the shared type IS the contract, so a
@@ -13,30 +14,14 @@ export type CatalogResult = CatalogSearchResult;
 /** What ItemInput hands back when a name is committed — a catalog pick (carrying its
  *  structured fields + link), a water suggestion, or free text with an optional trailing
  *  weight. One declaration, so the emit and the row's handler can't drift: a field the
- *  input starts sending but the handler's type omits would otherwise be dropped silently. */
-export interface NameCommit {
-  name: string;
-  brand?: string;
-  variant?: string;
-  commonName?: string;
+ *  input starts sending but the handler's type omits would otherwise be dropped silently.
+ *  The product fields are VaultPick's, what a piece of My Gear puts on a row
+ *  (vaultRowFields): they were listed here a second time, and every field the vault
+ *  learned (price, link, calories, unit) had to be added to both. */
+export interface NameCommit extends VaultPick {
+  /** a weight typed after the name ("Tent 1.2 kg"), not yet parsed */
   weight?: string;
-  weightMg?: number;
-  catalogItemId?: number;
   classification?: Classification;
-  // what the item cost, when it came from the vault — the vault is where a price
-  // is recorded, so a pick carries it into the list rather than losing it
-  priceCents?: number;
-  currency?: string;
-  // where to buy it, same journey as the price: the vault has stored one since it
-  // shipped, and until now the trip was one-way — a list could teach the vault a
-  // product link and never be handed it back
-  productUrl?: string;
-  // food energy per unit, when the vault remembers it — same journey as the price:
-  // recorded once, carried back into every later list
-  kcal?: number;
-  // the unit the piece reads in on /gear, when one was picked there: a vault pick's row
-  // reads back in it, as it would had the weight been typed "3.8 oz"
-  entryUnit?: Unit;
   // Came from the holder's vault rather than the catalog. The fields look the same,
   // but their AUTHORITY differs: a vault row's weight and name are the holder's own,
   // so the handler marks them overridden instead of letting the catalog's

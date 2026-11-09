@@ -26,18 +26,12 @@ const card = useTemplateRef<HTMLElement>("card");
 // fits the dialog's own scroll box and scrolls when neither side has room
 const { atStart, above, maxHeight, place } = useMenuPlacement(card, { within: true });
 
-// the same lift contract OptionMenu keeps: on at open, off when the leave transition ENDS
-let lifted = false;
-function setLift(v: boolean) {
-  if (lifted === v) return;
-  lifted = v;
-  emit("overlayToggle", v);
-}
-onBeforeUnmount(() => setLift(false));
+// the clip lift, on at open and off when the leave ENDS (useOverlayLift)
+const { lift, release } = useOverlayLift((on) => emit("overlayToggle", on));
 
 watch(open, (o) => {
   if (!o) return;
-  setLift(true);
+  lift();
   nextTick(() => {
     place();
     // onto the one you have, so the keyboard starts where you are
@@ -48,7 +42,7 @@ useMenuDismiss(open, toRef(props, "root"));
 </script>
 
 <template>
-  <Transition name="menu" @after-leave="setLift(false)">
+  <Transition name="menu" @after-leave="release">
     <div
       v-if="open"
       :id="id"

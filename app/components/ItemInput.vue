@@ -320,33 +320,17 @@ const rows = computed(() =>
 );
 
 // the dropdown is position:absolute and can extend past the bottom of its folder,
-// whose body clips overflow for the collapse animation. Signal the ancestor while the
-// menu is showing so it can lift that clip (mirrors the drag-pass clip lift). Emit a
-// closing toggle on unmount too, so a row removed mid-suggestion doesn't strand it.
+// whose body clips overflow for the collapse animation: lifted while it shows, and
+// released when its leave ENDS (useOverlayLift, which says why)
 const menuVisible = computed(() => props.suggest && open.value && options.value.length > 0);
-// The folder lifts its collapse clip while we're lifted (a +1/−1 count), so only
-// emit on genuine state CHANGES — dedup makes the count impossible to unbalance.
-let acLifted = false;
-function setLift(v: boolean) {
-  if (acLifted === v) return;
-  acLifted = v;
-  emit("overlayToggle", v);
-}
-// Lift the clip the moment the menu shows, but release it only in the
-// Transition's after-leave — releasing at leave START let the folder's
-// overflow:hidden guillotine the exiting menu at t=0: everything below the
-// folder's bottom edge vanished instantly while the slice inside kept fading,
-// which read as "the top row hangs on". A leave cancelled by reopening never
-// fires after-leave, and setLift's dedup means the re-show is a no-op — the
-// clip just stays lifted through the whole blink.
+const { lift, release } = useOverlayLift((on) => emit("overlayToggle", on));
 watch(menuVisible, (v) => {
   if (!v) return;
-  setLift(true);
+  lift();
   // placed BEFORE the menu renders (a pre-flush watcher), so it mounts on the right side
   // at the right height and the pop-in grows from the edge it actually hangs off
   placeMenu();
 });
-onBeforeUnmount(() => setLift(false));
 
 // WHERE THE MENU OPENS, and how tall it may be — measured against the screen that is
 // actually visible, which on a phone with the keyboard up is a strip above it.
@@ -487,6 +471,9 @@ function selectVault(v: VaultEntry) {
 // the one weight cell every option row ends with — three sources, one rendering
 const optWeightMg = (opt: AcOption): number =>
   "water" in opt ? opt.water.weightMg : "vault" in opt ? opt.vault.weightMg : opt.result.weightMg;
+// ...in the unit the row it makes will read in: a piece of My Gear brings its own
+// (vaultRowFields), so the menu shouldn't say "108 g" over a row that lands as "3.8 oz"
+const optUnit = (opt: AcOption): Unit => ("vault" in opt && opt.vault.entryUnit) || props.unit;
 
 function selectOption(opt: AcOption) {
   if ("water" in opt) selectWater(opt.water);
@@ -718,7 +705,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
          inner list, safely inside the card's padding, never over the corners.
          <Transition name="menu"> = the kebab menu's pop-in (fade + spring rise),
          so the two floating menus arrive the same way. -->
-    <Transition name="menu" @after-leave="setLift(false)">
+    <Transition name="menu" @after-leave="release">
     <!-- sized to the room left on screen, and flipped above when there is none below:
          see placeMenu -->
     <div
@@ -832,7 +819,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
         </template>
         <!-- the weight cell, shared by all three row kinds (it was three copies) -->
         <span class="ac__metaright">
-          <span class="t-num ac__w">{{ formatWeight(optWeightMg(opt), unit, { withUnit: false }) }} <span class="t-muted">{{ unit }}</span></span>
+          <span class="t-num ac__w">{{ formatWeight(optWeightMg(opt), optUnit(opt), { withUnit: false }) }} <span class="t-muted">{{ optUnit(opt) }}</span></span>
         </span>
       </li>
       </template>

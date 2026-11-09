@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-08",
+  "fixed": [
+    "A kit's weight on My Gear changes as soon as one of its items is reweighed or removed.",
+    "A kit that fails to save on My Gear now says so, instead of the message vanishing.",
+    "Sorting the Gear tab on My Gear no longer reorders the Kits tab.",
+    "A piece of My Gear shows its own weight unit in the list's My Gear pane, the name field's suggestions and a kit's item search.",
+    "My Gear no longer prints a brand twice when the name already says it.",
+    "A row's menu at the bottom of a folder fades out whole instead of being cut off at the folder's edge.",
+    "Saving gear you removed from My Gear now says to add it again there."
+  ]
+}

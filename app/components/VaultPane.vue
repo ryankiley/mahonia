@@ -6,7 +6,7 @@ import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { searchVaultRows, vaultSections } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
-import { formatWeight, itemDisplayName } from "~~/shared/weights";
+import { formatWeight, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
 import { counted } from "~~/shared/tidyText";
 import { addVaultKit } from "~/composables/useVaultUnfold";
 import { kitItemCount } from "~~/shared/vaultKit";
@@ -107,14 +107,11 @@ function onResizeKey(ev: KeyboardEvent) {
 
 const c = useGearList();
 const dnd = useItemDnd();
-const { hasVault, vaultFetch } = useVaultAccess();
-
-const items = ref<VaultEntry[]>([]);
+// the gear, loaded as /gear loads it (useVaultList), and again on signing in or out
+const { hasVault, items, loading, loadError } = useVaultList();
 // Gear (your pieces), or just your kits: the sets you add in one go. (This was Categories, your
 // My Gear folders; My Gear has no folders now, and a kit is the set you reuse.)
 const tab = ref<"items" | "kits">("items");
-const loading = ref(true);
-const loadError = ref("");
 // one query ref per tab: switching back to a tab you were searching shouldn't hand
 // you its results filtered by a term you typed for the other one
 const queries = ref<{ items: string; kits: string }>({ items: "", kits: "" });
@@ -142,29 +139,12 @@ watchEffect(() => {
 
 const unit = computed(() => c.snapshot.value?.displayUnit ?? "g");
 
-async function load() {
-  if (!hasVault.value) {
-    loading.value = false;
-    return;
-  }
-  loading.value = true;
-  loadError.value = "";
-  try {
-    const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
-    items.value = res.items || [];
-  } catch {
-    loadError.value = "Couldn’t load your gear.";
-  }
-  loading.value = false;
-}
 onMounted(() => {
-  load();
   // focus the search: the pane is opened to find something, and the keyboard
   // should already be where you'd type. Non-modal, so this is the only focus move
   // it makes — tabbing out to the list is left alone.
   nextTick(() => searchEl.value?.focus());
 });
-watch(hasVault, () => load());
 
 // The search is /gear's own (searchVaultRows): the autocomplete's fuzzy ranker over the
 // already-loaded set, every match rather than the menu's six, and one letter answered
@@ -183,7 +163,7 @@ const filtered = computed(() => searchVaultRows(tab.value === "kits" ? kits.valu
 // list either way.
 const sections = computed(() => {
   const flat = tab.value === "kits" || !!query.value.trim();
-  return vaultSections(flat ? filtered.value : pieces.value, flat);
+  return vaultSections(filtered.value, flat);
 });
 // each row's mark, once per load rather than twice per row per render: a kit's tool
 // case, a piece's own icon (the one its row on /gear wears)
@@ -584,7 +564,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             <span class="gear__main">
               <!-- the full name on hover, for the rows the ellipsis cut short -->
               <span class="gear__name t-clip" :title="itemDisplayName(entry.brand, entry.name, entry.variant)">
-                <span v-if="entry.brand" class="gear__brand"
+                <span v-if="entry.brand && !nameRepeatsBrand(entry.brand, entry.name)" class="gear__brand"
                   ><span v-for="(p, pi) in hl(entry.brand)" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
                 >
                 <span
@@ -600,7 +580,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
               <span v-if="isInList(entry)" class="t-sm vp__inlist">Already added</span>
               <span v-else-if="isKit(entry)" class="t-sm vp__inlist">Kit · {{ counted(itemCount(entry), "item") }}</span>
             </span>
-            <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
+            <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, entry.entryUnit ?? unit, { withUnit: false }) }}<span class="t-muted"> {{ entry.entryUnit ?? unit }}</span></span>
           </button>
         </li>
         </template>
