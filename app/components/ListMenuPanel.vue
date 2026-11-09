@@ -123,7 +123,8 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
 .lm__field {
   width: 100%;
   height: var(--icon-btn);
-  padding: 0 var(--space-3);
+  /* the inline inset is the well's own; only the input's block padding goes */
+  padding-block: 0;
   border-radius: var(--popover-item-radius);
 }
 

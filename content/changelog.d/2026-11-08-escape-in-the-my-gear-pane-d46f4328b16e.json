@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-08",
+  "fixed": [
+    "Escape in the My Gear pane's Add to menu closes just the menu, not the pane.",
+    "Searching the My Gear pane by a single letter finds gear, as My Gear's own search does."
+  ]
+}
