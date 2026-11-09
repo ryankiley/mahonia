@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-08",
+  "fixed": [
+    "Creating an account with a passkey signs you in right away, without reloading the page.",
+    "Switching lists while Replace link is still working no longer gives the new link to the list you switched to.",
+    "A change made after a new list's first save failed is no longer undone when the save is tried again.",
+    "Cancelling My Gear's edit dialog mid-save no longer closes the dialog you open next or loses what you typed there.",
+    "The trip map fits the whole route when you expand it or the window resizes, until you move the map yourself.",
+    "Deleting or emptying the day you're placing a waypoint on turns placing off, instead of leaving the map dimmed.",
+    "A click on a piece in the My Gear panel adds it after a drag that let go where nothing could take it."
+  ]
+}

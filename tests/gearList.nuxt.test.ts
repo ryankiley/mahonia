@@ -170,7 +170,36 @@ registerEndpoint("/api/vault/capture", { method: "POST", handler: async (event) 
 // The link a rotate mints. A constant, because the one thing the rotate tests
 // need from the endpoint is that the token CHANGES.
 const ROTATED_TOKEN = "rotated-edit-token";
-registerEndpoint("/api/edit/rotate", { method: "POST", handler: () => ({ editToken: ROTATED_TOKEN }) });
+// A draft's first save. Echoes what it was sent, the way the server builds the list from
+// the body; `createGate`, when set, holds the answer until the case settles it.
+let createGate: Promise<void> | null = null;
+registerEndpoint("/api/lists/create", {
+  method: "POST",
+  handler: async (event) => {
+    const body = await readBody<{ title?: string; data: Pick<ListSnapshot, "folders" | "items"> }>(event);
+    if (createGate) await createGate;
+    return {
+      editToken: "created-edit-token",
+      snapshot: baseSnapshot({
+        shareCode: "CREATED00001",
+        slug: "created-list-ccc333",
+        title: body.title ?? "Untitled list",
+        folders: body.data.folders,
+        items: body.data.items,
+      }),
+    };
+  },
+});
+
+// Open by default; a case that needs the answer to land late sets a gate and opens it.
+let rotateGate: Promise<void> | null = null;
+registerEndpoint("/api/edit/rotate", {
+  method: "POST",
+  handler: async () => {
+    if (rotateGate) await rotateGate;
+    return { editToken: ROTATED_TOKEN };
+  },
+});
 
 // The mutate is left hanging until the test settles it by hand — that pending window
 // IS the bug's window, and controlling it is the whole point.
@@ -198,6 +227,8 @@ const awaitMutateInFlight = () =>
 // case cannot inherit another suite's state through a dial nobody thought to list.
 beforeEach(() => {
   records.clear();
+  rotateGate = null;
+  createGate = null;
   storage.clear(); // the decision store
   resetVaultCapture(); // the capture memo is module-scoped
   mutateCalls = 0;
@@ -971,5 +1002,74 @@ describe("useGearList — keeping 'Your lists' in step with a rename", () => {
     c.setMeta({ title: "Eagle Creek" });
 
     expect(rowFor(TOKEN)).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// a rotate that lands after the editor moved on
+// ---------------------------------------------------------------------------
+// "Replace link" is a round trip, and nothing stops the switcher being used while it's
+// out. The answer is about the list that asked; the list on screen by then must keep
+// its own link, and the rotated one must keep its new link (its old one is dead).
+describe("useGearList — a rotate that lands after the editor moved on", () => {
+  const OTHER = "other-edit-token";
+  const rowFor = (token: string) =>
+    useMyLists().entries.value.find((e) => e.editToken === token);
+
+  it("leaves the list now open alone, and keeps the rotated list's new link", async () => {
+    listResponse = snapshotFor("Rotated list");
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    await vi.waitFor(() => expect(records.get(localKey(TOKEN))?.snapshot.title).toBe("Rotated list"));
+
+    let land!: () => void;
+    rotateGate = new Promise((r) => (land = r));
+    const rotating = c.rotate();
+
+    // the switcher, mid-flight — to a different list, with its own share code
+    listResponse = baseSnapshot({ shareCode: "OTHERCODE001", slug: "other-list-bbb222", title: "Another list" });
+    await c.load({ token: OTHER });
+    land();
+
+    // nothing for the screen: its address and toast belong to a list that's gone
+    expect(await rotating).toBeNull();
+    // the open list still writes with its own link, and its row and copy survive
+    expect(c.editToken).toBe(OTHER);
+    expect(rowFor(OTHER)?.title).toBe("Another list");
+    // the rotated list kept the only link that still opens it...
+    expect(rowFor(ROTATED_TOKEN)?.title).toBe("Rotated list");
+    expect(rowFor(TOKEN)).toBeUndefined();
+    // ...and its on-device copy moved with it
+    await vi.waitFor(() => expect(records.get(localKey(ROTATED_TOKEN))?.snapshot.title).toBe("Rotated list"));
+    expect(records.has(localKey(TOKEN))).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// a draft whose first save fails
+// ---------------------------------------------------------------------------
+describe("useGearList — a draft whose first save fails", () => {
+  it("doesn't replay what was typed during the failed save over what was typed after", async () => {
+    const c = useGearList();
+    c.startDraft();
+    const id = c.addBlankItem(null);
+
+    // the first real content starts the create; hold it, and make it fail
+    let fail!: (e: unknown) => void;
+    createGate = new Promise((_, reject) => (fail = reject));
+    c.updateItem(id, { name: "Duplex" });
+    c.updateItem(id, { unitWeightMg: 100_000 }); // typed while the create is out
+    fail(createError({ statusCode: 503 }));
+    await vi.waitFor(() => expect(c.status.value).toBe("error"));
+
+    // the correction, after the failure: it starts the next create itself
+    createGate = null;
+    c.updateItem(id, { unitWeightMg: 200_000 });
+    await vi.waitFor(() => expect(c.editToken).toBe("created-edit-token"));
+
+    // the list is created holding the correction, and nothing puts the old value back
+    expect(c.snapshot.value?.items.find((i) => i.id === id)?.unitWeightMg).toBe(200_000);
+    await new Promise((r) => setTimeout(r, 60)); // past the flush debounce
+    expect(mutateCalls).toBe(0);
   });
 });

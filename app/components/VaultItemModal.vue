@@ -211,12 +211,20 @@ function formFrom(e: VaultEntry): ItemForm {
   };
 }
 
+// Which opening of the dialog this is. A save is a round trip, and Cancel (and Esc)
+// stay live while it's out, so its answer can land after the dialog closed or opened on
+// another piece: that answer still updates its own row on the page (`saved` / `added`),
+// but it must not close the dialog now showing, put its error there, or re-enable a
+// Save that belongs to a different send. Each send keeps the number it started under.
+let opening = 0;
+
 // `immediate`, because this component is Lazy-mounted on first use when `entry` is
 // ALREADY set — a plain watch would never fire for that first open. The same trap
 // CatalogCorrectionModal's prefill and BaseModal's own focus watcher both note.
 watch(
   () => props.entry,
   (e) => {
+    opening++;
     if (!e) return;
     Object.assign(form, formFrom(e));
     opened = { ...form };
@@ -320,13 +328,17 @@ async function onSubmit() {
 
   saving.value = true;
   error.value = "";
+  const mine = opening;
   const res = await vault.op({ t: "edit", id: props.entry.id, patch });
+  // the row takes what was saved whichever piece the dialog shows by now
+  if (res.ok && res.item) emit("saved", res.item);
+  if (mine !== opening) return;
   saving.value = false;
   if (!res.ok || !res.item) {
     error.value = "Couldn’t save that. Check your connection and try again.";
     return;
   }
-  emit("saved", res.item);
+  emit("close");
 }
 
 // Adding: the form read the same way an edit is (the patch against a blank form is
@@ -350,8 +362,13 @@ async function add(p: VaultItemPatch) {
   };
   saving.value = true;
   error.value = "";
+  const mine = opening;
+  // read now, with the form: by the time the add answers, the form may hold whatever
+  // piece the dialog has opened on since
+  const pickedIcon = form.icon;
   const res = await vault.op(op);
   if (!res.ok || !res.item) {
+    if (mine !== opening) return;
     saving.value = false;
     // the refusals are worth naming: "you already have that" says to search for it
     error.value =
@@ -363,12 +380,14 @@ async function add(p: VaultItemPatch) {
     return;
   }
   let item = res.item;
-  if (form.icon) {
-    const set = await vault.op({ t: "edit", id: item.id, patch: { icon: form.icon } });
+  if (pickedIcon) {
+    const set = await vault.op({ t: "edit", id: item.id, patch: { icon: pickedIcon } });
     if (set.ok && set.item) item = set.item;
   }
-  saving.value = false;
   emit("added", item);
+  if (mine !== opening) return;
+  saving.value = false;
+  emit("close");
 }
 </script>
 
