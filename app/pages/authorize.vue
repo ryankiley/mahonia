@@ -163,12 +163,15 @@ async function decide(decision: "allow" | "deny") {
               </svg>
             </span>
           </div>
-          <h1 class="t-title">Connect {{ label }} to Mahonia</h1>
-
+          <!-- One heading per state, inside ClientOnly with the state it names. Signed
+               out there is nothing to allow yet, so it says what the sign-in is for;
+               signed in it is the consent's own lead-in, the words the Allow button
+               finishes. -->
           <ClientOnly>
             <!-- SIGNED OUT: the account surface, exactly as the modal mounts it, so a
                  sign-in finishes here rather than leaving for /gear -->
             <template v-if="presence === 'signedOut'">
+              <h1 class="t-title">Connect {{ label }} to Mahonia</h1>
               <p class="t-muted">Sign in to your Mahonia account first. {{ label }} will then ask to {{ wants }}.</p>
               <div class="az__signin">
                 <AccountView in-modal hide-heading as-step />
@@ -178,9 +181,7 @@ async function decide(decision: "allow" | "deny") {
             <!-- SIGNED IN: the consent -->
             <template v-else-if="signedIn">
               <section class="az__ask">
-                <p class="t-muted">
-                  <strong class="az__who-asks">{{ label }}</strong> is asking to:
-                </p>
+                <h1 class="t-title">Allow {{ label }} to:</h1>
                 <ul class="az__scopes">
                   <li v-for="s in scopes" :key="s.text" class="az__scope">
                     <HugeiconsIcon :icon="s.icon" :size="20" :stroke-width="1.5" class="az__scopeicon" aria-hidden="true" />
@@ -215,8 +216,12 @@ async function decide(decision: "allow" | "deny") {
               <p v-else-if="!checked.returnTo.loopback" class="t-muted az__fine">You’ll go back to {{ checked.returnTo.host }}.</p>
             </template>
 
-            <p v-else class="t-muted">Loading…</p>
+            <template v-else>
+              <h1 class="t-title">Connect {{ label }} to Mahonia</h1>
+              <p class="t-muted">Loading…</p>
+            </template>
             <template #fallback>
+              <h1 class="t-title">Connect {{ label }} to Mahonia</h1>
               <p class="t-muted">Loading…</p>
             </template>
           </ClientOnly>
@@ -281,15 +286,12 @@ async function decide(decision: "allow" | "deny") {
 }
 
 /* ---- what it asks for ---- */
+/* the heading sits in here now, so no nudge above it: it lands where the signed-out
+   heading does, and the switch from sign-in to consent doesn't move it */
 .az__ask {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  margin-top: var(--space-1);
-}
-.az__who-asks {
-  color: var(--ink);
-  font-weight: 600;
+  gap: var(--space-4);
 }
 .az__scopes {
   display: flex;
