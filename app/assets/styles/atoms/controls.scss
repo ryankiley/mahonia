@@ -424,6 +424,12 @@ input[type="search"]::-webkit-search-decoration {
   background: var(--surface-float);
   box-shadow: var(--shadow-soft);
 }
+// A popover opened over another float — a dialog, or a popover such as the My Gear
+// pane — takes the next tone up (--surface-float-2), or in dark mode it would be the
+// exact colour of what it opened over.
+:is(.dlg, .popover) .popover {
+  background: var(--surface-float-2);
+}
 
 // Popover menu — a kebab/⋯ trigger with a floating list of actions, anchored under
 // and right-aligned to it. Shared by the editor toolbar and the read-only share
