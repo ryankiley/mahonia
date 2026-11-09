@@ -78,10 +78,15 @@ import { kb } from "./bundleReport.mjs";
 //
 // MOVED 2026-11-09, 160 → 165, by decision. Main sat at 160.0, on the line, after the
 // Food tab (#522), when the connector's consent page redesign (#520) put it at 160.1 on
-// CI: the page's lists row wears the editor's pack glyph, and sharing it split that
+// CI: the page's lists row wore the editor's pack glyph, and sharing it split that
 // glyph out of the editor's first-load chunk into one of its own (+0.16 of glue and
 // lost compression). Offered a different glyph that stays under, Ryan's call: "just
 // increase the size." Another 5 KB, the same room as the last two moves.
+// Later the same day the page's rows moved to action marks (eye, pencil, plus), the
+// pack left the page, and the split went with it: #520 measured back at main's figure.
+// Asked whether the line should go back to 160 with its reason gone, Ryan kept it:
+// "Keep 165." So the room stands for what main does next, with nothing spent from it
+// yet, main itself sitting at 160.0.
 const FIRST_LOAD_CEILING_KB = 165;
 // THE TRIPWIRE, ~2 KB over the last measurement. Re-anchor to current + ~2 in the
 // PR that spends it; keep it under the ceiling.
@@ -116,7 +121,8 @@ const FIRST_LOAD_CEILING_KB = 165;
 // the two lines coincide at 160 again, and the next growth of any size meets the
 // ceiling's message.
 //
-// Re-anchored 2026-11-09 at 160.1 measured (#520, the consent page redesign; see the
+// Re-anchored 2026-11-09 at 160.0 measured (main after #522; #520, the consent page
+// redesign, lands at the same figure once its rows dropped the pack glyph — see the
 // ceiling's note), when the ceiling moved to 165. 162 is the rule's ~2 over.
 const FIRST_LOAD_BUDGET_KB = 162;
 // TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
