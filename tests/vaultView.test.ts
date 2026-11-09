@@ -9,7 +9,9 @@ import { describe, expect, it } from "vitest";
 import { vaultRow as row } from "./helpers/vault";
 import type { VaultEntry } from "../shared/vault";
 import {
+  formatKcalDensity,
   groupVaultByKind,
+  kcalPerGram,
   searchVaultRows,
   sortVaultRows,
   vaultTabOf,
@@ -190,5 +192,23 @@ describe("vaultTabOf — Gear, Kits or Food", () => {
   it("follows a hand-picked icon, so a new icon moves a piece between tabs", () => {
     expect(vaultTabOf(row({ name: "Mystery tin", commonName: "Tin", icon: "food" }))).toBe("food");
     expect(vaultTabOf(row({ name: "Bar bag", commonName: "Energy bar", icon: "bag" }))).toBe("gear");
+  });
+});
+
+describe("calorie density — food's own figure", () => {
+  it("is calories per gram, and absent when either half is missing", () => {
+    expect(kcalPerGram(250, 50_000)).toBe(5);
+    // an unweighed or uncounted food has no density, rather than the worst one
+    expect(kcalPerGram(250, 0)).toBeNull();
+    expect(kcalPerGram(undefined, 50_000)).toBeNull();
+    expect(kcalPerGram(0, 50_000)).toBeNull();
+  });
+
+  it("reads per ounce in ounces and pounds, per 100 g in grams and kilograms", () => {
+    // 5 kcal/g: 500 per 100 g, 142 per ounce
+    expect(formatKcalDensity(5, "g")).toBe("500 kcal/100 g");
+    expect(formatKcalDensity(5, "kg")).toBe("500 kcal/100 g");
+    expect(formatKcalDensity(5, "oz")).toBe("142 kcal/oz");
+    expect(formatKcalDensity(5, "lb")).toBe("142 kcal/oz");
   });
 });
