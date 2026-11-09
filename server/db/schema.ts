@@ -363,9 +363,10 @@ export const vaultItems = pgTable(
     kcal: integer("kcal"),
     catalogItemId: integer("catalog_item_id"), // set when the row came from a catalog pick
     productUrl: text("product_url"),
-    // Your note about the gear ("size M", "seam-sealed 2024") — the list Item's
-    // `description`, which capture used to leave behind. Null = none.
-    description: text("description"),
+    // legacy columns still in the database, undeclared: description and
+    // description_pinned. My Gear kept a note until 2026-11-08, mostly list notes that
+    // capture had copied in (a trip's "Sam carries this" showing on the gear), so the
+    // two were cut apart: a note belongs to a list row, and My Gear keeps none.
     // What it cost, in whole cents of `currency`. The gear is where a price belongs:
     // a list row's price is the same purchase counted again in every list it's in.
     priceCents: integer("price_cents"),
@@ -383,7 +384,6 @@ export const vaultItems = pgTable(
     classificationPinned: boolean("classification_pinned").notNull().default(false),
     kcalPinned: boolean("kcal_pinned").notNull().default(false),
     productUrlPinned: boolean("product_url_pinned").notNull().default(false),
-    descriptionPinned: boolean("description_pinned").notNull().default(false),
     // price_cents + currency share one flag, like brand/name/variant share
     // name_pinned: an amount and the money it's in are one decision
     pricePinned: boolean("price_pinned").notNull().default(false),

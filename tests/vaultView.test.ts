@@ -1,15 +1,14 @@
-// /gear's view pipeline — filter → search → sort → group.
+// /gear's view pipeline — search → sort → group.
 //
 // Plain node, no Nuxt and no database: that is the whole reason shared/vaultView.ts
 // exists as its own module. The rules worth pinning here are the ones that are
-// invisible until they're wrong — a limit that silently truncates, a filter that
-// matches almost nothing, a heading that vanishes.
+// invisible until they're wrong — a limit that silently truncates, a heading that
+// vanishes.
 
 import { describe, expect, it } from "vitest";
 import { vaultRow as row } from "./helpers/vault";
 import type { VaultEntry } from "../shared/vault";
 import {
-  filterVaultRows,
   groupVaultByKind,
   searchVaultRows,
   sortVaultRows,
@@ -17,36 +16,6 @@ import {
 
 
 const names = (rows: VaultEntry[]) => rows.map((r) => r.name);
-
-describe("filterVaultRows — WHICH gear", () => {
-  it("returns everything under 'all', without copying", () => {
-    const rows = [row(), row()];
-    expect(filterVaultRows(rows, "all")).toBe(rows);
-  });
-
-  it("'base' matches an ABSENT classification as well as the literal", () => {
-    // The trap: capture drops the field when a list row inherited its folder's
-    // default, so most base gear carries no value at all. A `=== "base"` filter would
-    // hide nearly everything and look like a broken vault.
-    const rows = [
-      row({ name: "Inherited", classification: undefined }),
-      row({ name: "Explicit", classification: "base" }),
-      row({ name: "Jacket", classification: "worn" }),
-    ];
-    expect(names(filterVaultRows(rows, "base"))).toEqual(["Inherited", "Explicit"]);
-  });
-
-  it("'worn' and 'consumable' match only the literal", () => {
-    const rows = [
-      row({ name: "Jacket", classification: "worn" }),
-      row({ name: "Bar", classification: "consumable" }),
-      row({ name: "Tent", classification: undefined }),
-    ];
-    expect(names(filterVaultRows(rows, "worn"))).toEqual(["Jacket"]);
-    expect(names(filterVaultRows(rows, "consumable"))).toEqual(["Bar"]);
-  });
-
-});
 
 describe("searchVaultRows — the ranker, uncapped", () => {
   it("returns ALL matches, not the menu's six", () => {
@@ -165,42 +134,22 @@ describe("groupVaultByKind — the default view", () => {
   });
 });
 
-describe("searchVaultRows — notes and other scripts", () => {
-  it("matches Chinese names and notes without unrelated results", () => {
-    const rows = [row({ name: "SmallRig 电池", description: "蓝色 USB-C" }), row({ name: "炉头" })];
+describe("searchVaultRows — other scripts", () => {
+  it("matches Chinese names without unrelated results", () => {
+    const rows = [row({ name: "SmallRig 电池" }), row({ name: "炉头" })];
     expect(names(searchVaultRows(rows, "电池"))).toEqual(["SmallRig 电池"]);
-    expect(names(searchVaultRows(rows, "蓝色"))).toEqual(["SmallRig 电池"]);
     expect(names(searchVaultRows(rows, "smallrig 电池"))).toEqual(["SmallRig 电池"]);
     expect(names(searchVaultRows(rows, "电"))).toEqual(["SmallRig 电池"]);
     expect(searchVaultRows(rows, "熊罐")).toEqual([]);
   });
 
-  it("ranks the gear itself above a note that mentions it, and keeps the ranker's order", () => {
-    const rows = [
-      row({ name: "Repair kit", description: "patches for the Duplex floor" }),
-      row({ name: "Stake bag", description: "Duplex stakes" }),
-      row({ brand: "Zpacks", name: "Duplex", timesSeen: 1 }),
-      row({ brand: "Zpacks", name: "Duplex", variant: "Zip", timesSeen: 40 }),
-    ];
-    expect(names(searchVaultRows(rows, "duplex"))).toEqual(["Duplex", "Duplex", "Repair kit", "Stake bag"]);
-    // the ranker's tie-break (timesSeen) still decides between the two Duplexes
-    expect(searchVaultRows(rows, "duplex").slice(0, 2).map((r) => r.variant)).toEqual(["Zip", undefined]);
-    // a typo still finds the gear; a note is only ever a literal match
-    expect(names(searchVaultRows(rows, "dupelx"))).toEqual(["Duplex", "Duplex"]);
+  it("a single ideograph is a whole query, ranked like a word", () => {
+    const rows = [row({ name: "炉头" }), row({ name: "眼罩" })];
+    expect(names(searchVaultRows(rows, "炉"))).toEqual(["炉头"]);
   });
 
-  it("every word of the query has to land somewhere on the row", () => {
-    const rows = [row({ name: "Repair kit", description: "patches for the Duplex floor" }), row({ name: "Stake bag", description: "Duplex stakes" })];
-    expect(names(searchVaultRows(rows, "duplex patches"))).toEqual(["Repair kit"]);
-  });
-
-  it("a single ideograph is a whole query: ranked like a word, then its notes", () => {
-    const rows = [row({ name: "炉头" }), row({ name: "SmallRig 电池", description: "配炉头用" }), row({ name: "眼罩" })];
-    expect(names(searchVaultRows(rows, "炉"))).toEqual(["炉头", "SmallRig 电池"]);
-  });
-
-  it("a single character is a prefix question about the gear, not its notes", () => {
-    const rows = [row({ name: "Tent", description: "a note" }), row({ name: "Pump", description: "tiny" })];
+  it("a single character is a prefix question about the gear", () => {
+    const rows = [row({ name: "Tent" }), row({ name: "Pump" })];
     expect(names(searchVaultRows(rows, "t"))).toEqual(["Tent"]);
   });
 });

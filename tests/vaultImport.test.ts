@@ -18,7 +18,6 @@ describe("vaultImportFromJson — our own backup, back", () => {
         name: "Duplex",
         brand: "Zpacks",
         commonName: "Tent",
-        description: "Seam-sealed 2024",
         priceCents: 69_900,
         currency: "USD",
         productUrl: "https://example.com/tent",
@@ -35,7 +34,6 @@ describe("vaultImportFromJson — our own backup, back", () => {
     expect(tent.brand).toBe("Zpacks");
     expect(tent.commonName).toBe("Tent");
     expect(tent.weightMg).toBe(539_000);
-    expect(tent.description).toBe("Seam-sealed 2024");
     expect(tent.priceCents).toBe(69_900);
     expect(tent.currency).toBe("USD");
     expect(tent.productUrl).toBe("https://example.com/tent");

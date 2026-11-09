@@ -3,15 +3,15 @@
   "added": [
     "My Gear can hold kits, sets of items that weigh what their items weigh.",
     "Open a kit on My Gear to change it right there: how many of each item it holds, take one out, or add one from your gear.",
-    "Make any piece a kit from its edit dialog, or save a group on a list with its own Save to My Gear.",
+    "Save a group on a list to My Gear as a kit with its own Save to My Gear.",
     "A kit from My Gear goes onto a list as a group, each item a row under it, so you can leave one out for that trip.",
     "The My Gear panel in a list has a Kits tab, and adding a kit from it can be undone.",
-    "Changing a kit on My Gear, or making it a single piece, can be undone.",
+    "Changing a kit on My Gear can be undone.",
     "An assistant connected to Mahonia can make and change your kits.",
-    "My Gear has Gear and Kits tabs at the top, where a list has its Gear, Packing and Trip, and the Kits tab can start a new kit by name."
+    "My Gear has Gear and Kits tabs at the top, where a list has its Gear, Packing and Trip. New kit, at the foot of the Kits tab, starts one by name the way a list adds a folder."
   ],
   "changed": [
-    "My Gear groups your gear by kind, with kits first, instead of folders you file by hand; the My Gear panel in a list does too.",
+    "My Gear groups your gear by kind instead of folders you file by hand; the My Gear panel in a list does too.",
     "A kit holds no more of a piece than you own.",
     "My Gear no longer keeps a list of removed gear at the bottom of the page: undo right after removing, or add the piece again to bring it back as it was.",
     "Pick a piece's icon from a popover on its row in My Gear, or from the Icon box in its edit dialog.",
@@ -19,14 +19,19 @@
     "My Gear's top bar has your list switcher, so every list is one tap away.",
     "A kit's items show their icons when it's open.",
     "Adding gear to My Gear says which kind it went to, with Undo.",
-    "On a phone, My Gear's most-used shelf and its view controls take less room, so your gear starts higher on the screen.",
+    "My Gear drops its most-used shelf and its All gear, Base, Worn and Consumable filter, so your gear starts right under the search.",
     "The My Gear panel in a list has Gear and Kits tabs like the full page, with kits only under Kits and an icon on every piece.",
-    "Each kit on My Gear's Kits tab is a section like a kind: its name as the heading, its items as full rows of gear, and Add an item at the bottom. Rename it, change its items, or make it a single piece right there; kits no longer have an edit dialog or a note.",
+    "Each kit on My Gear's Kits tab is a section like a kind: its name as the heading, its items as full rows of gear, and Add an item at the bottom. Rename it or change its items right there; kits no longer have an edit dialog or a note.",
     "A new kit isn't saved until its first item goes in, so changing your mind leaves nothing behind.",
-    "My Gear's edit dialog keeps its paired fields side by side in a narrow window instead of stacking them."
+    "My Gear's edit dialog keeps its paired fields side by side in a narrow window instead of stacking them.",
+    "The undo bar's button is the word Undo alone, and on My Gear it waits while you point at it, as it does on a list.",
+    "My Gear's add row shows its name and weight as boxes you can type in.",
+    "My Gear no longer keeps a note: a note on a list row stays on that list instead of turning up on the gear, and the edit dialog has no Note field."
   ],
   "fixed": [
     "Searching your gear to add an item to a kit offers only real matches, not your most-used gear.",
-    "Gear that a stray word sent to the wrong kind lands where you'd look for it: head nets with clothing, bowls in the kitchen, sling bags with packs, tape in first aid, a charging cord with electronics, and more."
+    "Gear that a stray word sent to the wrong kind lands where you'd look for it: head nets with clothing, bowls in the kitchen, sling bags with packs, tape in first aid, a charging cord with electronics, and more.",
+    "Adding gear on My Gear no longer leaves the last name's suggestions open over the cleared field.",
+    "Switching between My Gear's Gear and Kits tabs no longer nudges the first rows down a few pixels."
   ]
 }

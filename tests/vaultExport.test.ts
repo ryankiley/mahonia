@@ -65,12 +65,11 @@ describe("vaultToCsv", () => {
     expect(data[header.indexOf("Currency")]).toBe("USD");
   });
 
-  it("carries the note, the link and the use count", () => {
+  it("carries the link and the use count, with the list CSV's Note column left empty", () => {
     const csv = vaultToCsv(
       {
         items: [
           row({
-            description: "Seam-sealed 2024",
             productUrl: "https://example.com/tent",
             timesSeen: 7,
           }),
@@ -80,7 +79,8 @@ describe("vaultToCsv", () => {
     );
     const header = cells(csv, 0);
     const data = cells(csv, 1);
-    expect(data[header.indexOf("Note")]).toBe("Seam-sealed 2024");
+    // My Gear keeps no note; the column holds its place so the file reads as a list's
+    expect(data[header.indexOf("Note")]).toBe("");
     expect(data[header.indexOf("URL")]).toBe("https://example.com/tent");
     expect(data[header.indexOf("Times Used")]).toBe("7");
     // the day, not the instant — the column answers "when did I last pack this"
@@ -97,8 +97,8 @@ describe("vaultToCsv", () => {
   });
 
   it("quotes a cell holding a comma", () => {
-    const csv = vaultToCsv({ items: [row({ description: "green, patched" })] }, "g");
-    expect(csv).toContain('"green, patched"');
+    const csv = vaultToCsv({ items: [row({ name: "Tarp, patched" })] }, "g");
+    expect(csv).toContain('"Tarp, patched"');
   });
 
   it("exports every row in the page's unit", () => {

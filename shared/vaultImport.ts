@@ -91,7 +91,6 @@ export function vaultImportFromJson(text: string): VaultImport | null {
       // the catalog table's Postgres integer range and will drop it as well.
       catalogItemId: isCatalogId(item.catalogItemId) ? item.catalogItemId : undefined,
       productUrl: typeof item.productUrl === "string" ? item.productUrl : undefined,
-      description: typeof item.description === "string" ? item.description : undefined,
       priceCents: typeof item.priceCents === "number" ? item.priceCents : undefined,
       currency: typeof item.currency === "string" ? item.currency : undefined,
       owned: typeof item.owned === "number" ? item.owned : undefined,

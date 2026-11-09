@@ -74,7 +74,9 @@ export function vaultToCsv({ items }: VaultExport, unit: Unit): string {
           // add these up, and "$399.00" is text. The currency has its own column.
           e.priceCents != null ? (e.priceCents / 100).toFixed(2) : "",
           csvCell(e.productUrl ?? ""),
-          csvCell(e.description ?? ""),
+          // Note: My Gear keeps none (a note is a list row's); the column stays so the
+          // file still lines up with a list's CSV and re-imports as one
+          "",
           // carried on every row that has one, unlike a list's: the vault stores
           // kcal for the food itself, and a row's class here is one field rather
           // than a folder default it might be inheriting

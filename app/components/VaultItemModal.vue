@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, DashedLine02Icon, ToolCaseIcon } from "@hugeicons/core-free-icons";
+import { ChevronDownIcon, DashedLine02Icon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
-import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
+import { VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
@@ -55,27 +55,13 @@ function mergeVocab(mine: string[] = [], theirs: string[] | null): string[] {
 }
 const brandOptions = computed(() => mergeVocab(props.known?.brands, catalogBrands.names.value));
 const typeOptions = computed(() => mergeVocab(props.known?.types, catalogTypes.names.value));
-/** `make-kit`: "Make it a kit" was pressed. The page closes the dialog and opens the
- *  row with its "Add an item" line, where a kit's items are edited. */
-const emit = defineEmits<{ close: []; saved: [item: VaultEntry]; "make-kit": [id: number] }>();
+const emit = defineEmits<{ close: []; saved: [item: VaultEntry] }>();
 
 const { vaultFetch } = useVaultAccess();
 
-// ---- becoming a kit -------------------------------------------------------------
-// This dialog is a PIECE's. A kit is edited on its row on /gear (VaultGearRow) — its
-// name, its items and their counts, and the way back to a single piece — so a kit row
-// has no Edit button and never opens this. Ryan: "maybe no notes for kits? i wanna
-// delete that pencil icon".
-// One level deep: a piece that is already some kit's item can't become a kit itself.
-const inKits = computed(() => props.entry?.inKits?.length ?? 0);
-// "Make it a kit": anything typed here is saved first, then the page opens the row's
-// "Add an item" line, where the first item makes the piece a kit.
-async function onMakeKit() {
-  if (!props.entry) return;
-  const id = props.entry.id;
-  await onSubmit();
-  if (!error.value) emit("make-kit", id);
-}
+// This dialog is a PIECE's. A kit is edited in its section on the Kits tab
+// (VaultKitSection), and made there with New kit; it had a "Make it a kit" button
+// too, and it went (2026-11-08) for being a second door to the same room.
 
 // Three-way, not the editor's two toggles. Those are toggles because each ALSO opens
 // the detail that only exists while it's on, so the row gains no third control; there
@@ -97,7 +83,6 @@ const weight = ref("");
 const kcal = ref("");
 // how many you own, as typed; blank or 1 is one
 const owned = ref("");
-const note = ref("");
 const price = ref("");
 const productUrl = ref("");
 const classification = ref<Classification>("base");
@@ -149,7 +134,6 @@ let opened = {
   weight: "",
   kcal: "",
   owned: "",
-  note: "",
   price: "",
   productUrl: "",
   classification: "base" as Classification,
@@ -178,7 +162,6 @@ watch(
     classification.value = e.classification ?? "base";
     kcal.value = e.kcal ? String(e.kcal) : "";
     owned.value = e.owned ? String(e.owned) : "";
-    note.value = e.description ?? "";
     // FORMATTED, not the bare cents: "$399.00" is what the row shows and what
     // parsePriceInput reads straight back, so the symbol you'd otherwise have to
     // retype is already there — and the same only-if-the-string-changed guard the
@@ -196,7 +179,6 @@ watch(
       weight: weight.value,
       kcal: kcal.value,
       owned: owned.value,
-      note: note.value,
       price: price.value,
       productUrl: productUrl.value,
       classification: classification.value,
@@ -247,9 +229,6 @@ async function onSubmit() {
   if (kcal.value !== opened.kcal && offersKcal({ ...named.value, kcal: props.entry?.kcal })) {
     const k = kcal.value.trim() ? Math.max(0, Math.round(Number(kcal.value))) : 0;
     patch.kcal = k > 0 ? k : null;
-  }
-  if (note.value !== opened.note) {
-    patch.description = note.value.trim().slice(0, VAULT_NOTE_MAX) || null;
   }
   if (price.value !== opened.price) {
     const raw = price.value.trim();
@@ -479,25 +458,7 @@ async function onSubmit() {
           <input v-model="productUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
         </label>
       </div>
-
-      <!-- the row's own sub-line, in the dialog's words: ItemRow's note placeholder
-           verbatim, because it is the same text moved — a list wrote it, and this is
-           where it stops being overwritten. Last, with the price and link: the fields
-           you set now and then, below the ones you set on every piece. -->
-      <label class="dlg__field">
-        <span class="t-sm t-muted">Note</span>
-        <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
-      </label>
       </div>
-      <!-- A piece can become a kit: one quiet press, which saves what's typed here and
-           opens the row's "Add an item" line, where a kit's items are edited. A piece
-           already in a kit can't (kits are one level deep). -->
-      <section v-if="!inKits" class="vitem__parts">
-        <button type="button" class="btn btn--quiet vitem__makekit" :disabled="saving" @click="onMakeKit">
-          <HugeiconsIcon :icon="ToolCaseIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-          Make it a kit
-        </button>
-      </section>
       </div>
       </div>
 
@@ -566,19 +527,6 @@ async function onSubmit() {
   gap: var(--space-1);
 }
 /* its chevron is the .chev atom (controls.scss), not a copy */
-/* "Make it a kit", under a hairline: it isn't a field of this piece, it turns the
-   piece into a set of others */
-.vitem__parts {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--line);
-}
-.vitem__makekit {
-  align-self: flex-start;
-  gap: var(--space-2);
-}
 /* the gear type and the icon box, on the same two columns as every pair so the second
    column starts in one place down the dialog. Its own class rather than a .vitem__pair,
    so it stays one line on a phone — the box is too small to deserve a row of its own. */

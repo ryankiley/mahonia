@@ -124,11 +124,6 @@ const meta = computed(() => {
           ><span v-if="i" class="sep"> · </span>{{ part }}</template
         >
       </p>
-      <!-- your note, one line and clipped: it can be a paragraph, and a row is not
-           where a paragraph goes. The dialog holds all of it. -->
-      <p v-if="entry.description" class="t-sm t-muted vault__note" :title="entry.description">
-        {{ entry.description }}
-      </p>
       <!-- an item that is in a kit says which — one line, clipped. A piece in a kit is
            still a row of its own kind, so every view shows it. -->
       <p v-if="inKits" class="t-sm t-muted vault__kitline t-clip" :title="`In ${inKits}`">In {{ inKits }}</p>
@@ -287,15 +282,6 @@ const meta = computed(() => {
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with the gear pane, which used to hand-mirror
    these rules. Only the page's own mobile stack below touches it. */
-/* Your note, on one line and clipped. It is free text of any length and this is a
-   row in a list that can run to hundreds — a two-line note here would set the
-   rhythm of the whole page from its longest row. The full text is the title
-   attribute and the dialog that edits it. */
-.vault__note {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* the count before the weight: quieter than the figure it multiplies, with a gap that
    keeps "×2" from reading as part of the number */
 .vault__owned {

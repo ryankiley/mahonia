@@ -14,7 +14,6 @@ import {
   VAULT_CAPTURE_MAX,
   VAULT_IMPORT_MAX,
   VAULT_NAME_MAX,
-  VAULT_NOTE_MAX,
   VAULT_SHORT_MAX,
   VAULT_URL_MAX,
   vaultNormKey,
@@ -60,7 +59,6 @@ const PIN_COLUMN = [
   ["classification", "classificationPinned"],
   ["kcal", "kcalPinned"],
   ["productUrl", "productUrlPinned"],
-  ["description", "descriptionPinned"],
   // one flag over price_cents AND currency — see the token's note in shared/vault
   ["price", "pricePinned"],
 ] as const satisfies readonly (readonly [VaultPinField, keyof Row])[];
@@ -106,8 +104,6 @@ function toEntry(row: Row): VaultEntry {
     kcal: row.kcal ?? undefined,
     catalogItemId: row.catalogItemId ?? undefined,
     productUrl: row.productUrl ?? undefined,
-    // tidied like the other prose above; the URLs are not (see url() below)
-    description: row.description ? tidyText(row.description) || undefined : undefined,
     priceCents: row.priceCents ?? undefined,
     // never on its own: a currency with no amount is a unit with nothing to measure
     currency: row.priceCents != null ? (row.currency ?? undefined) : undefined,
@@ -299,7 +295,6 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
       variant,
       commonName: str(c.commonName, VAULT_SHORT_MAX),
       productUrl: url(c.productUrl),
-      description: str(c.description, VAULT_NOTE_MAX),
       priceCents: centsOf(c.priceCents),
       // dropped without an amount, so the pair can never half-exist in the table
       currency: centsOf(c.priceCents) != null ? currencyOf(c.currency) : undefined,
@@ -454,17 +449,6 @@ export async function captureVaultItemsReporting(
           vaultItems.productUrl,
           sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
         ),
-        // FIRST note wins — the coalesce runs the other way round from the fields
-        // above, the way folderId's does, and for the same kind of reason. Those are
-        // objective facts about the gear, where a newer value is a better one; a note
-        // is subjective text, and as often about the trip as about the gear ("Sam
-        // carries this"). Last-write-wins would let any list you happen to open
-        // rewrite what you wrote about your own kit. Correcting it on /gear pins it.
-        description: keepIfPinned(
-          vaultItems.descriptionPinned,
-          vaultItems.description,
-          sql`coalesce(${vaultItems.description}, excluded.description)`,
-        ),
         // The pair moves under ONE pin, and the currency follows the amount rather
         // than coalescing on its own — a kept "399" under a newly-arrived "GBP"
         // would be a price nobody paid.
@@ -557,7 +541,6 @@ function rowValues(c: VaultCapture, vaultId: number, now: Date) {
     kcal: c.kcal ?? null,
     catalogItemId: c.catalogItemId ?? null,
     productUrl: c.productUrl ?? null,
-    description: c.description ?? null,
     priceCents: c.priceCents ?? null,
     currency: c.currency ?? null,
     timesSeen: 1,
@@ -852,7 +835,6 @@ export type VaultItemOp =
        *  carries, stated by hand. Bounded by sanitize() like a capture's. */
       catalogItemId?: number;
       productUrl?: string;
-      description?: string;
       priceCents?: number;
       currency?: string;
       /** The unit its weight was typed in ("3.8 oz"), so it reads back the same way. */
@@ -897,7 +879,6 @@ interface VaultItemPatch {
   classification?: Classification | null;
   kcal?: number | null;
   productUrl?: string | null;
-  description?: string | null;
   /** The amount, in cents. 0 or null clears it — and clears the currency with it,
    *  since the two are one decision (VAULT_PIN_FIELDS' `price`). */
   priceCents?: number | null;
@@ -1006,10 +987,6 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
     // a name outside the set is ignored, not stored: it would draw nothing
     if (p.icon === null) out.icon = null;
     else if (isGearGlyph(p.icon)) out.icon = p.icon;
-  }
-  if (typeof p.description === "string" || p.description === null) {
-    out.description = str(p.description, VAULT_NOTE_MAX) ?? null;
-    out.descriptionPinned = true;
   }
   // The amount carries the currency: they are one field with two columns, so the
   // currency is only ever read in the same breath as a price, and clearing the
@@ -1130,7 +1107,6 @@ export async function addVaultItems(
         classificationPinned: cap.classification != null,
         kcalPinned: cap.kcal != null,
         productUrlPinned: cap.productUrl != null,
-        descriptionPinned: cap.description != null,
         pricePinned: cap.priceCents != null,
       })),
     )
@@ -1155,7 +1131,6 @@ export async function addVaultItems(
         classification: sql`coalesce(excluded.classification, ${vaultItems.classification})`,
         kcal: sql`coalesce(excluded.kcal, ${vaultItems.kcal})`,
         productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
-        description: sql`coalesce(excluded.description, ${vaultItems.description})`,
         priceCents: sql`coalesce(excluded.price_cents, ${vaultItems.priceCents})`,
         currency: sql`case when excluded.price_cents is not null then excluded.currency else ${vaultItems.currency} end`,
         // pins UNION — an add must never RELEASE one an earlier edit earned
@@ -1165,7 +1140,6 @@ export async function addVaultItems(
         classificationPinned: sql`${vaultItems.classificationPinned} or excluded.classification_pinned`,
         kcalPinned: sql`${vaultItems.kcalPinned} or excluded.kcal_pinned`,
         productUrlPinned: sql`${vaultItems.productUrlPinned} or excluded.product_url_pinned`,
-        descriptionPinned: sql`${vaultItems.descriptionPinned} or excluded.description_pinned`,
         pricePinned: sql`${vaultItems.pricePinned} or excluded.price_pinned`,
         removedAt: null,
         // surfaces at the top of /gear, which orders by last_used_at desc
@@ -1541,11 +1515,6 @@ export async function captureKit(
           vaultItems.productUrlPinned,
           vaultItems.productUrl,
           sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
-        ),
-        description: keepIfPinned(
-          vaultItems.descriptionPinned,
-          vaultItems.description,
-          sql`coalesce(${vaultItems.description}, excluded.description)`,
         ),
         timesSeen: sql`${vaultItems.timesSeen} + 1`,
         lastUsedAt: now,

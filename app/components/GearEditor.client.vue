@@ -29,7 +29,7 @@ import type { Spring } from "~/utils/spring";
 import { motionIsInstant } from "~/plugins/inputModality.client";
 // The ⋯ menu's own glyphs are NOT here — they ride its lazy chunk (EditorMenu);
 // the toolbar keeps only the one that opens it.
-import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
+import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeHere } from "~/composables/useResumed";
@@ -365,23 +365,6 @@ function setVault(open: boolean) {
     }, () => {});
   });
 }
-// The undo toast holds its dismiss timer while hovered or containing focus, and
-// restarts the window on leave/blur. Two flags (pointer, focus) so releasing one
-// while the other still holds doesn't resume the clock. They reset when the toast
-// goes, since no mouseleave/focusout fires for an element that just unmounted —
-// otherwise a stale "hovered" would pin the NEXT toast open forever.
-const undoHovered = ref(false);
-const undoFocused = ref(false);
-watch(
-  () => undoHovered.value || undoFocused.value,
-  (held) => (held ? c.holdUndo() : c.releaseUndo()),
-);
-watch(pendingUndo, (u) => {
-  if (!u) {
-    undoHovered.value = false;
-    undoFocused.value = false;
-  }
-});
 const importOpen = ref(false);
 const menuOpen = ref(false);
 // The menu's body is a Lazy component (EditorMenu) behind the same everOpened guard
@@ -1308,19 +1291,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </main>
 
     <Transition name="toast">
-      <div
+      <UndoBar
         v-if="pendingUndo"
-        class="toast undobar"
-        @mouseenter="undoHovered = true"
-        @mouseleave="undoHovered = false"
-        @focusin="undoFocused = true"
-        @focusout="undoFocused = false"
-      >
-        <span class="t-sm">{{ pendingUndo.verb ?? "Removed" }} <strong>{{ pendingUndo.label }}</strong></span>
-        <button class="undobar__btn t-sm" @click="c.undoRemove()">
-          <HugeiconsIcon :icon="UndoIcon" :size="14" :stroke-width="2" /> Undo
-        </button>
-      </div>
+        :undo="pendingUndo"
+        @take="c.undoRemove()"
+        @hold="(held: boolean) => (held ? c.holdUndo() : c.releaseUndo())"
+      />
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
 

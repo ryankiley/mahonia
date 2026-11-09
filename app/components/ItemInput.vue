@@ -43,6 +43,10 @@ const props = withDefaults(
     // with a second field beside this one (/gear's add row: name, then weight), where
     // the list row's commit-on-blur would fire on tabbing across to the weight.
     pickOnly?: boolean;
+    // Drawn as a tinted box (the shared .well atom, as the search field is) rather than
+    // the list row's bare text: for a field standing on its own, /gear's add row, where
+    // nothing around it says "type here".
+    well?: boolean;
   }>(),
   {
     initial: "",
@@ -637,10 +641,15 @@ function onKeydown(e: KeyboardEvent) {
       selectOption(options.value[active.value]!);
     } else if (props.pickOnly) {
       // A product's own name typed in full still links, as tabbing away does in a
-      // list (exactMatch); anything else is the form's to submit, weight and all.
+      // list (exactMatch); anything else is the form's to submit, weight and all. The
+      // menu goes with it: the parent clears the field quietly once the add lands, and
+      // an open menu would sit over the cleared field showing the last name's matches.
       const hit = draft.value.trim() ? exactMatch(tidyText(draft.value.trim())) : null;
       if (hit) selectOption(hit);
-      else emit("submit");
+      else {
+        open.value = false;
+        emit("submit");
+      }
       return;
     } else if (props.suggest && waterSuggestion.value) {
       // `props.suggest` here as well as in `options` above: this branch reads the
@@ -684,7 +693,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
     <input
       ref="inputEl"
       v-model="draft"
-      class="field ac__input"
+      :class="['field ac__input', { well }]"
       :maxlength="MAX_ITEM_NAME_LEN"
       :placeholder="placeholder"
       :aria-label="placeholder"
@@ -844,6 +853,9 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   /* long product names truncate with an ellipsis at rest; the full text scrolls
      into view while editing (focused) */
   text-overflow: ellipsis;
+}
+.ac__input.well {
+  padding-inline: var(--space-3);
 }
 /* The menu's surface (background/radius/shadow/forced-colors border) comes from
    the shared .popover atom — this block only positions and sizes it.

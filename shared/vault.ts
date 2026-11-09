@@ -34,9 +34,6 @@ export const VAULT_CAPTURE_MAX = 200;
 export const VAULT_NAME_MAX = 200;
 export const VAULT_SHORT_MAX = 120;
 export const VAULT_URL_MAX = 2000;
-/** A note's cap, taking the list Item's own (cleanItemPatch's 2000) rather than a
- *  second number — it is the same text, moved. */
-export const VAULT_NOTE_MAX = 2000;
 
 /**
  * A piece of gear as the client offers it up for capture — the subset of a list
@@ -61,12 +58,6 @@ export interface VaultCapture {
   kcal?: number;
   catalogItemId?: number;
   productUrl?: string;
-  /** Your note about the gear — the list Item's `description`, which capture used
-   *  to drop on the floor. Ambiguous by nature (a row's note is sometimes about the
-   *  trip: "Sam carries this"), and the answer to that is the same one the other
-   *  coalesced fields get: the FIRST note wins, and correcting it on /gear pins it
-   *  so no later list can argue. */
-  description?: string;
   /** What it cost, in whole cents of `currency`. Recorded on the gear rather than on
    *  a list row, because a price is a fact about the thing you bought — and because
    *  the list side has been waiting for it: NameCommit already declares priceCents
@@ -120,7 +111,6 @@ export const VAULT_PIN_FIELDS = [
   "classification",
   "kcal",
   "productUrl",
-  "description",
   // one token for priceCents + currency, on the same rule that gives brand/name/
   // variant one: an amount and the money it's in are one decision, and a capture
   // that could revert the currency under a kept number would invent a price
@@ -329,7 +319,6 @@ export function gearFromItem(item: Item, folderName?: string): VaultCapture | nu
     kcal: typeof item.kcal === "number" && item.kcal > 0 ? Math.round(item.kcal) : undefined,
     catalogItemId: typeof item.catalogItemId === "number" ? item.catalogItemId : undefined,
     productUrl: trim(item.productUrl, VAULT_URL_MAX),
-    description: trim(item.description, VAULT_NOTE_MAX),
     // a price of zero is "free", which nobody records, so it reads as absent —
     // the same shape kcal takes above
     priceCents:
@@ -434,7 +423,6 @@ export function captureFingerprint(caps: VaultCapture[]): string {
         c.catalogItemId ?? "",
         c.commonName ?? "",
         c.productUrl ?? "",
-        c.description ?? "",
         c.priceCents ?? "",
         c.currency ?? "",
       ].join(

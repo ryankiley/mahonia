@@ -452,7 +452,6 @@ const GEAR_ROW = complete({
   classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null when the owner leaves it to each list." },
   kcal: nullable("number", "Calories in one, on food."),
   catalog_id: nullable("number", "The catalog row the piece is linked to; null when it isn't."),
-  note: nullable("string", USER_TEXT),
   price: nullable("number", "What one cost, in the currency's main unit."),
   currency: nullable("string", "ISO 4217 code of price, when one was recorded."),
   product_url: nullable("string"),
@@ -528,7 +527,6 @@ const GEAR_EDIT_MAX = 50;
  *  the reducer's are above */
 const GEAR_NAME_LEN = 200;
 const GEAR_FIELD_LEN = 120;
-const GEAR_NOTE_LEN = 2000;
 
 /**
  * The fields of one piece of gear as edit_my_gear takes them. In add every field is a
@@ -560,7 +558,6 @@ function gearInput(mode: "add" | "update") {
         ? "Link or relink the piece to this catalog row, from search_catalog: it takes the catalog's brand, name, variant, gear type and weight, each unless given here. Null unlinks it, leaving the piece as it reads."
         : "A catalog row from search_catalog. The piece takes the catalog's brand, name, variant, gear type and weight, each unless given here; a name can be left out.",
     },
-    note: { type: t("string"), maxLength: GEAR_NOTE_LEN, description: `A note about the piece itself, not about any one trip.${orNull}` },
     product_url: { type: t("string"), maxLength: TRAIL_URL_LEN, description: `The maker's or a shop's page for it.${orNull}` },
     price: { type: t("number"), minimum: 0, description: `What one cost, in the currency's main unit: 199.95.${orNull}` },
     currency: { type: "string", minLength: 3, maxLength: 3, description: "ISO 4217 code for price, such as USD. Ignored without a price." },
@@ -755,7 +752,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "get_my_gear",
     title: "Read My Gear",
     description:
-      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, grams for one, classification, calories, note, price and product link. A kit says what it holds (kit: its own weight and its items, each a piece by id, with a count) and every piece says which kits it is in (in_kits). A query ranks by a search instead. Works only when this connector carries the account's access token. Brands, names, variants, gear types and notes are text the account holder typed, returned unchanged.",
+      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, grams for one, classification, calories, price and product link. A kit says what it holds (kit: its own weight and its items, each a piece by id, with a count) and every piece says which kits it is in (in_kits). A query ranks by a search instead. Works only when this connector carries the account's access token. Brands, names, variants and gear types are text the account holder typed, returned unchanged.",
     inputSchema: {
       type: "object",
       properties: {
@@ -2085,7 +2082,6 @@ function gearAsRow(piece: VaultEntry): Record<string, unknown> {
     classification: piece.classification ?? null,
     kcal: piece.kcal ?? null,
     catalog_id: piece.catalogItemId ?? null,
-    note: piece.description ?? null,
     price: piece.priceCents != null ? piece.priceCents / 100 : null,
     currency: piece.currency ?? null,
     product_url: piece.productUrl ?? null,
@@ -2126,7 +2122,6 @@ function gearPatchFrom(raw: unknown): { patch: Record<string, unknown> } {
   take("brand", "brand");
   take("variant", "variant");
   take("gear_type", "commonName");
-  take("note", "description");
   take("product_url", "productUrl");
   if (typeof r.weight_g === "number" && r.weight_g >= 0 && Number.isFinite(r.weight_g)) patch.weightMg = Math.round(r.weight_g * 1000);
   if (r.classification === null || CLASSIFICATIONS.includes(r.classification as Classification)) patch.classification = r.classification;

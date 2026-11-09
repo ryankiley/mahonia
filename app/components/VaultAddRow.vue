@@ -47,6 +47,7 @@ defineExpose({ focus: () => formEl.value?.querySelector<HTMLInputElement>(".ac__
       placeholder="Name"
       sources="catalog"
       pick-only
+      well
       autofocus
       @draft="(v: string) => (name = v)"
       @commit="(c: NameCommit) => emit('pick', c)"
@@ -61,7 +62,7 @@ defineExpose({ focus: () => formEl.value?.querySelector<HTMLInputElement>(".ac__
          two inches under the total that names it. -->
     <input
       v-model="weight"
-      class="field vaddrow__weight"
+      class="field well vaddrow__weight"
       :placeholder="props.unit"
       :aria-label="`Weight in ${props.unit}`"
       inputmode="decimal"
@@ -96,6 +97,7 @@ defineExpose({ focus: () => formEl.value?.querySelector<HTMLInputElement>(".ac__
 .vaddrow__weight {
   flex: none;
   width: 7rem;
+  padding-inline: var(--space-3);
   text-align: right;
 }
 @media (max-width: $bp-stack) {

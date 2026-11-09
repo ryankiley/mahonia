@@ -1,13 +1,10 @@
-// How you're LOOKING at your gear on /gear — the filter, the search, the order and
-// the grouping, as four pure functions composed in that order.
+// How you're LOOKING at your gear on /gear — the search, the order and the grouping,
+// as three pure functions composed in that order.
 //
 // Its own module for the same reason shared/vaultSearch.ts is one: this is the part
 // of the page that is decidable without a browser, and lifting it out is what lets
-// the flatten rule and the "base means absent too" rule be pinned by a plain-node
-// test rather than by mounting a page and clicking two menus.
-//
-// Two questions, two controls. WHICH gear (`show`) and IN WHAT ORDER (`view`) are
-// independent axes, and only the second one decides whether the page shows kinds.
+// the flatten rule and the ranker's page rules be pinned by a plain-node
+// test rather than by mounting a page and clicking through a menu.
 
 import { enoughToSearch, foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
@@ -19,23 +16,6 @@ import { groupBy, itemDisplayName } from "./weights";
 /** The page's layout-and-order control. "kinds" is the default and the only one that
  *  groups; the rest are one flat list — see groupVaultByKind for why. */
 export type VaultView = "kinds" | "az" | "heaviest" | "lightest" | "recent" | "most";
-
-/** The page's filter: what a piece counts as. */
-export type VaultShow = "all" | "base" | "worn" | "consumable";
-
-/**
- * WHICH gear.
- *
- * "base" has to accept an ABSENT classification as well as the literal string.
- * Capture drops the field when a list row was inheriting its folder's default (see
- * VaultCapture.classification — "a fact about the list, not the gear"), so most base
- * gear carries no value at all, and `=== "base"` would match almost none of it.
- */
-export function filterVaultRows(rows: VaultEntry[], show: VaultShow): VaultEntry[] {
-  if (show === "all") return rows;
-  if (show === "base") return rows.filter((i) => (i.classification ?? "base") === "base");
-  return rows.filter((i) => i.classification === show);
-}
 
 /**
  * Narrow by a query, using the SAME fuzzy ranker the autocomplete and the vault pane
@@ -54,14 +34,6 @@ export function filterVaultRows(rows: VaultEntry[], show: VaultShow): VaultEntry
  *    noisy for trigrams. In a menu that reads "keep typing"; on a page it reads "you
  *    own nothing beginning with t". A single character is a prefix question, so it
  *    falls back to the substring pass, which answers one exactly.
- *
- * And one thing it reads too narrowly for a page: the ranker searches what a row IS
- * (brand, name, variant, common name), never what you WROTE about it. The page also
- * holds your notes, so a literal pass over them follows the ranked rows — after, not
- * among them, because a note that mentions the Duplex must not outrank the Duplex.
- * The literal pass folds both sides through the same fold as the ranker, so it
- * matches a name in any script and either apostrophe spelling, exactly as the
- * ranker does, and "x-mid" finds "X-Mid 2".
  */
 export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntry[] {
   const q = (rawQuery ?? "").trim();
@@ -77,10 +49,7 @@ export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntr
       return terms.every((t) => text.includes(t));
     });
   if (!enoughToSearch(q)) return literal((r) => [r.brand, r.name, r.variant, r.commonName]);
-  const ranked = rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
-  const seen = new Set(ranked.map((r) => r.id));
-  const noted = literal((r) => [r.brand, r.name, r.variant, r.commonName, r.description]);
-  return [...ranked, ...noted.filter((r) => !seen.has(r.id))];
+  return rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
 }
 
 /** IN WHAT ORDER, across the whole vault. Every comparator tie-breaks on id, so

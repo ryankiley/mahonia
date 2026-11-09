@@ -131,8 +131,8 @@ describe("captureFromList", () => {
     expect(captureFromList([gear()])[0]!.kcal).toBeUndefined();
   });
 
-  it("carries the note and the price the row arrived with", () => {
-    // the two the projection used to drop on the floor
+  it("carries the price the row arrived with, and leaves its note on the list", () => {
+    // a row's note is about that trip ("Sam carries this"); My Gear keeps none
     const caps = captureFromList([
       gear({
         description: "Seam-sealed 2024",
@@ -140,7 +140,7 @@ describe("captureFromList", () => {
         currency: "USD",
       }),
     ]);
-    expect(caps[0]!.description).toBe("Seam-sealed 2024");
+    expect(caps[0]).not.toHaveProperty("description");
     expect(caps[0]!.priceCents).toBe(69_900);
     expect(caps[0]!.currency).toBe("USD");
   });
@@ -767,22 +767,6 @@ describe("a gear edit wins — the pin", () => {
     expect(row.weightMg).toBe(545_000); // pinned
     expect(row.commonName).toBe("Tent"); // learned
     expect(row.classification).toBe("base"); // learned
-  });
-
-  it("an edited note survives a list that says something else", async () => {
-    await edit({ description: "Mine, size M" });
-    await captureVaultItems(db, VAULT, [
-      cap({ description: "Sam carries this" }),
-    ]);
-    expect((await only(db))!.description).toBe("Mine, size M");
-  });
-
-  it("an unedited note is written once and then left alone", async () => {
-    // coalesce, not last-write-wins: a list's note is as often about the trip as
-    // about the gear, so the FIRST one stands until you correct it here
-    await captureVaultItems(db, VAULT, [cap({ description: "first" })]);
-    await captureVaultItems(db, VAULT, [cap({ description: "second" })]);
-    expect((await only(db))!.description).toBe("first");
   });
 
   it("an edited price survives, and its currency goes with it", async () => {

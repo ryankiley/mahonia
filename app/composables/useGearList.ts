@@ -18,6 +18,7 @@ import { listNormKeys } from "~~/shared/vault";
 import { bySortOrder, carriesContent, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
+import { useUndo, type UndoOffer } from "~/composables/useUndo";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -386,30 +387,17 @@ function create() {
     });
   });
 
-  // single-level undo for destructive removes — drives the "Undo" toast
-  // 10s: the full notice → reach → tap loop has to fit, including on mobile
-  const UNDO_MS = 10_000;
-  // `verb` is what the toast says happened to `label`. Removes, its first tenant, say
-  // nothing and read "Removed"; a paste that made rows says "Added" (pasteItemsAfter).
-  type Undo = { label: string; restore: () => void; verb?: "Added" | "Removed" };
-  const pendingUndo = ref<Undo | null>(null);
-  let undoTimer: ReturnType<typeof setTimeout> | undefined;
-  function offerUndo(label: string, restore: () => void, verb?: Undo["verb"]) {
-    pendingUndo.value = { label, restore, verb };
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => (pendingUndo.value = null), UNDO_MS);
+  // single-level undo for destructive removes — drives the editor's UndoBar, on the
+  // timer My Gear's uses too (useUndo). `verb` is what the bar says happened to
+  // `label`: removes, its first tenant, say nothing and read "Removed"; a paste that
+  // made rows says "Added" (pasteItemsAfter).
+  const undo = useUndo<UndoOffer & { verb?: "Added" | "Removed" }>();
+  const pendingUndo = undo.pending;
+  function offerUndo(label: string, restore: () => void, verb?: "Added" | "Removed") {
+    undo.offer({ label, restore, verb });
   }
-  // The toast pauses its dismiss timer while pointed at or holding focus — someone
-  // reading it (or reaching for the button) shouldn't race the clock. Release
-  // restarts the FULL window, not the remainder: it's cheap and never surprises.
-  function holdUndo() {
-    clearTimeout(undoTimer);
-  }
-  function releaseUndo() {
-    if (!pendingUndo.value) return;
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => (pendingUndo.value = null), UNDO_MS);
-  }
+  const holdUndo = undo.hold;
+  const releaseUndo = undo.release;
   // Something just ADDED as a set (a kit from My Gear, unfolded into a group): offer to
   // take it back off. The group's row goes and its rows with it (the reducer's
   // cascade), with no "Removed" of its own — undoing an add means it was never there.
@@ -417,11 +405,7 @@ function create() {
     offerUndo(label, () => dispatch({ t: "removeItem", id: parentId }), "Added");
   }
   function undoRemove() {
-    const u = pendingUndo.value;
-    if (!u) return;
-    u.restore();
-    pendingUndo.value = null;
-    clearTimeout(undoTimer);
+    undo.take();
   }
 
   const totals = computed(() =>
@@ -1823,8 +1807,7 @@ function create() {
     useItemDnd().reset();
     useFolderDnd().reset();
     stopPoll();
-    clearTimeout(undoTimer);
-    pendingUndo.value = null;
+    undo.clear();
     teardownListeners?.();
     snapshot.value = null;
     access.value = { kind: "none" };

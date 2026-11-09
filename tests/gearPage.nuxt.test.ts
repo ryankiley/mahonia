@@ -139,13 +139,13 @@ describe("the /gear page's vault calls", () => {
     const w = mount(GearPage, { attachTo: document.body });
     // the Gear tab: the pieces, by kind
     await vi.waitFor(() => expect(rows(w)).toHaveLength(2));
-    expect(w.findAll(".vault__kind").map((h) => h.text())).toEqual(["Shelter", "Other"]);
+    expect(w.findAll(".vsec__kind").map((h) => h.text())).toEqual(["Shelter", "Other"]);
     // the Kits tab: the kit as a section of its own, named in its heading, and no kinds
     const kitsTab = w.findAll(".modebar__opt").find((b) => b.text().includes("Kits"))!;
     await kitsTab.trigger("click");
     await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
     expect(w.get<HTMLInputElement>(".kitsec .folder__name").element.value).toBe("Cook kit");
-    expect(w.findAll(".vault__kind")).toHaveLength(0);
+    expect(w.findAll(".vsec__kind")).toHaveLength(0);
   });
 
   it("removes a row through /api/vault/remove", async () => {
