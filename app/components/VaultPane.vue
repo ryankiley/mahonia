@@ -4,7 +4,7 @@ import { Cancel01Icon, ChevronDownIcon, ExpandIcon, FolderIcon, ToolCaseIcon } f
 import { gearIcon } from "~/utils/gearIcons";
 import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
-import { searchVaultRows, vaultSections, vaultTabOf, type VaultTab } from "~~/shared/vaultView";
+import { matchesElsewhere, searchVaultRows, VAULT_TAB_LABEL, VAULT_TABS, vaultSections, vaultTabOf, type VaultTab } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
 import { formatKcal, formatWeight, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
 import { counted } from "~~/shared/tidyText";
@@ -112,11 +112,7 @@ const { hasVault, items, loading, loadError } = useVaultList();
 // Gear (your pieces), your kits (the sets you add in one go), or your food: /gear's
 // three tabs, by its rule (vaultTabOf). (Kits was Categories, your My Gear folders; My
 // Gear has no folders now, and a kit is the set you reuse.)
-const TABS = [
-  { key: "gear", label: "Gear" },
-  { key: "kits", label: "Kits" },
-  { key: "food", label: "Food" },
-] as const;
+const TABS = VAULT_TABS.map((key) => ({ key, label: VAULT_TAB_LABEL[key] }));
 const tab = ref<VaultTab>("gear");
 // one query ref per tab: switching back to a tab you were searching shouldn't hand
 // you its results filtered by a term you typed for the other one
@@ -125,6 +121,14 @@ const query = computed({
   get: () => queries.value[tab.value],
   set: (v: string) => (queries.value[tab.value] = v),
 });
+// Where else the search matched (matchesElsewhere), and the way there. Following a
+// count is the one switch that DOES take the words along: you asked for them, and the
+// tab you land on should answer the same question.
+const elsewhere = computed(() => matchesElsewhere(items.value, query.value, tab.value));
+function followElsewhere(to: VaultTab) {
+  queries.value[to] = query.value;
+  tab.value = to;
+}
 const searchEl = useTemplateRef<{ focus: () => void }>("searchEl");
 
 // Where an added item lands. Defaults to the first folder and remembers your
@@ -606,7 +610,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         </template>
       </ul>
 
-      <p v-else-if="query" class="t-sm t-muted vp__note">Nothing here matches “{{ query }}”.</p>
+      <VaultElsewhere
+        v-else-if="query.trim()"
+        class="t-sm t-muted vp__note"
+        :query="query"
+        none
+        :matches="elsewhere"
+        @pick="followElsewhere"
+      />
       <!-- the tabs fail differently: an empty vault has no gear yet, an empty Kits tab
            has gear that hasn't been made into a set, an empty Food tab no food packed -->
       <div v-else-if="tab === 'kits'" class="vp__empty">
@@ -626,6 +637,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
           No gear saved yet. Add gear to this list and it’ll collect itself here.
         </p>
       </div>
+      <!-- under results, the other tabs the search also matched: below the scroller
+           rather than at the end of it, so it is in view however long the list runs -->
+      <VaultElsewhere
+        v-if="!loadError && !loading && filtered.length && elsewhere.length"
+        class="t-sm t-muted vp__note"
+        :query="query"
+        :none="false"
+        :matches="elsewhere"
+        @pick="followElsewhere"
+      />
     </template>
   </aside>
 </template>

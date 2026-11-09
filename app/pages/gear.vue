@@ -15,6 +15,9 @@ import {
   searchVaultRows,
   sortVaultRows,
   vaultFamilyOf,
+  matchesElsewhere,
+  VAULT_TAB_LABEL,
+  VAULT_TABS,
   vaultTabOf,
   type VaultTab,
   type VaultView,
@@ -83,13 +86,11 @@ function putRow(row: VaultEntry) {
 // tab a piece sits on is vaultTabOf's rule. Remembered on this device, like the list's
 // mode.
 const TAB_KEY = "gear.vault.tab.v1";
-const TABS = [
-  { key: "gear", label: "Gear", icon: Backpack03Icon },
-  { key: "kits", label: "Kits", icon: ToolCaseIcon },
-  // the Food kind's own icon, the one its rows wear
-  { key: "food", label: "Food", icon: ChocolateIcon },
-] as const;
-const isTab = (v: unknown): v is VaultTab => TABS.some((t) => t.key === v);
+// the names and order are shared/vaultView's, which the list's panel and the search's
+// "2 on Food" read too; the icons are this bar's (Food wears its kind's own, as its rows do)
+const TAB_ICON = { gear: Backpack03Icon, kits: ToolCaseIcon, food: ChocolateIcon };
+const TABS = VAULT_TABS.map((key) => ({ key, label: VAULT_TAB_LABEL[key], icon: TAB_ICON[key] }));
+const isTab = (v: unknown): v is VaultTab => VAULT_TABS.some((t) => t === v);
 const tab = ref<VaultTab>("gear");
 onMounted(() => {
   const saved = recall(TAB_KEY);
@@ -260,8 +261,10 @@ const priceTitle = computed(() => {
     : `What ${total.counted} of these ${filtered.value.length} pieces cost. The rest have no price.`;
 });
 
-// The line under a search that matched nothing, naming what was searched.
-const noneLine = computed(() => (query.value.trim() ? `Nothing here matches “${query.value.trim()}”.` : ""));
+// A search answers inside the open tab; this is where else it matched (matchesElsewhere),
+// said under the results, or in place of them when the tab found nothing. The query is
+// one for the whole page, so following a count keeps it typed.
+const elsewhere = computed(() => matchesElsewhere(gear.value, query.value, tab.value));
 
 // ---- adding gear by hand -------------------------------------------------
 // The half capture can't do. Gear arrives here on its own from every list you build,
@@ -711,8 +714,16 @@ async function exportGear(kind: string) {
               </VaultSection>
             </template>
 
-            <!-- a search that matched nothing, said with the words searched -->
-            <p v-if="!filtered.length && noneLine" class="t-muted vault__none">{{ noneLine }}</p>
+            <!-- a search that matched nothing here, said with the words searched, and the
+                 other tabs it did match, each a way there -->
+            <VaultElsewhere
+              v-if="query.trim() && (!filtered.length || elsewhere.length)"
+              class="t-muted vault__none"
+              :query="query"
+              :none="!filtered.length"
+              :matches="elsewhere"
+              @pick="pickTab"
+            />
             <p v-else-if="tab === 'kits' && !onTab.length && !draftKit" class="t-muted vault__none">
               No kits yet. Make one with New kit.
             </p>
