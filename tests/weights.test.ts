@@ -5,8 +5,10 @@ import { itemDisplayName, nameRepeatsBrand, rowDisplayKcal,
   computeTotals,
   effectiveClassification,
   entryUnitFromInput,
+  formatKcalDensity,
   formatWeight,
   formatWeightAuto,
+  kcalPerGram,
   fromMg,
   groupItemsByFolder,
   groupItemsByParent,
@@ -702,5 +704,23 @@ describe("listSummaryBits — the facts a list's unfurl states", () => {
       "1,284 items",
       "4.1 kg base weight",
     ]);
+  });
+});
+
+describe("calorie density — food's own figure", () => {
+  it("is calories per gram, and absent when either half is missing", () => {
+    expect(kcalPerGram(250, 50_000)).toBe(5);
+    // an unweighed or uncounted food has no density, rather than the worst one
+    expect(kcalPerGram(250, 0)).toBeNull();
+    expect(kcalPerGram(undefined, 50_000)).toBeNull();
+    expect(kcalPerGram(0, 50_000)).toBeNull();
+  });
+
+  it("reads per ounce in ounces and pounds, per 100 g in grams and kilograms", () => {
+    // 5 kcal/g: 500 per 100 g, 142 per ounce
+    expect(formatKcalDensity(5, "g")).toBe("500 kcal/100 g");
+    expect(formatKcalDensity(5, "kg")).toBe("500 kcal/100 g");
+    expect(formatKcalDensity(5, "oz")).toBe("142 kcal/oz");
+    expect(formatKcalDensity(5, "lb")).toBe("142 kcal/oz");
   });
 });
