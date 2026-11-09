@@ -51,12 +51,12 @@ const { confirm: askConfirm } = useDialogs();
 
 // ---- the gear ------------------------------------------------------------
 const items = ref<VaultEntry[]>([]);
-// What "Remove" put away. Capture never resurrects a tombstoned row — that's what
-// stops every list still holding the gear from undoing your removal — so without
-// somewhere to see them, removal would be permanent past the undo toast's few
-// seconds. This is the way back, and it's deliberate rather than guessed.
-const removed = ref<VaultEntry[]>([]);
-const showRemoved = ref(false);
+// What "Remove" puts away is a tombstone, so a list still holding the piece can't
+// undo the removal; the page doesn't list them. The ways back are the undo toast and
+// adding the piece again, which lifts the tombstone (addVaultItems) and brings the
+// same piece back, weight, note and kits included. A second list of gear at the foot
+// of the page, there only to reverse a removal, was more page than that is worth
+// (Ryan: "feels complicated").
 const loading = ref(false);
 const loadError = ref("");
 const query = ref("");
@@ -66,9 +66,8 @@ async function loadVault() {
   loading.value = true;
   loadError.value = "";
   try {
-    const res = await vaultFetch<{ items: VaultEntry[]; removed: VaultEntry[] }>("/api/vault/list");
+    const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
     items.value = res.items || [];
-    removed.value = res.removed || [];
   } catch {
     loadError.value = "Couldn’t load your gear. Check your connection and try again.";
   }
@@ -81,15 +80,12 @@ watch(
   (v) => {
     if (v) return void loadVault();
     items.value = [];
-    removed.value = [];
   },
   { immediate: true },
 );
 
-// Put a removed piece of gear back. Same endpoint the undo toast uses — restoring
-// is restoring, whether you do it two seconds later or two months.
+// Put a removed piece of gear back: the undo toast's way back from Remove.
 async function putBack(entry: VaultEntry) {
-  restoring.value = entry.id;
   loadError.value = "";
   try {
     await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id, restore: true } });
@@ -97,9 +93,7 @@ async function putBack(entry: VaultEntry) {
   } catch {
     loadError.value = "Couldn’t put that back. Check your connection and try again.";
   }
-  restoring.value = null;
 }
-const restoring = ref<number | null>(null);
 
 // ---- how you're looking at it --------------------------------------------
 // Two questions, two controls: WHICH gear (Show) and IN WHAT ORDER (View). Neither
@@ -610,7 +604,6 @@ async function remove(entry: VaultEntry) {
   try {
     await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id } });
     items.value = items.value.filter((i) => i.id !== entry.id);
-    // restoring is restoring — the same call the Removed section makes
     offerUndo({ verb: "Removed", label: itemDisplayName(entry.brand, entry.name, entry.variant), restore: () => putBack(entry) });
   } catch {
     loadError.value = "Couldn’t remove that. Check your connection and try again.";
@@ -659,8 +652,8 @@ const showOption = computed(() => SHOW_OPTIONS.find((o) => o.key === show.value)
 // ALL of it, not what the controls have narrowed to: View and Show are how you're
 // looking at your gear, and a file called my-gear that quietly held only the worn
 // half would be a worse answer than no file. `items` is the live gear — what
-// "Remove" put away lives in its own `removed` array (see loadVault) and stays out,
-// which is the answer you'd want from a file called my-gear.
+// "Remove" put away isn't loaded at all, which is the answer you'd want from a file
+// called my-gear.
 //
 // The exporter is imported on demand, like the list's four: someone who never
 // exports shouldn't download the code that formats a CSV. Warmed when the menu
@@ -908,8 +901,7 @@ async function exportGear(kind: string) {
             <!-- FLAT: a chosen order, or a search. One list, one order, no headings —
                  a folder already owns an order of its own, and two authorities over
                  the same rows is what makes "heaviest" mean nothing. -->
-            <!-- the row is VaultGearRow, the same one a folder's list and the removed
-                 list draw; the flat list has no drag, so it hands the row nothing else -->
+            <!-- the row is VaultGearRow, the same one a kind's list draws -->
             <ul v-if="flat" class="vault__list">
               <VaultGearRow
                 v-for="entry in filtered"
@@ -1022,41 +1014,6 @@ async function exportGear(kind: string) {
             <div v-else class="vault__emptyacts">
               <button type="button" class="btn btn--primary" @click="openAdd">Add gear</button>
               <NuxtLink to="/e" class="btn btn--ghost">Create a list</NuxtLink>
-            </div>
-          </div>
-
-          <!-- The way back from Remove. Behind a disclosure, and only when there IS
-               something removed: it's a repair affordance, not part of browsing your
-               gear, and an always-visible "Removed (0)" would be clutter on the
-               common case. Capture deliberately can't undo a removal for you, so
-               this is the one place a removal is reversible after the undo toast
-               has gone. -->
-          <div v-if="removed.length" class="vault__removed">
-            <button
-              type="button"
-              class="btn btn--quiet vault__disclose"
-              :aria-expanded="showRemoved"
-              @click="showRemoved = !showRemoved"
-            >
-              {{ showRemoved ? "Hide removed gear" : `Removed gear (${removed.length})` }}
-            </button>
-            <div v-if="showRemoved" class="vault__removedbody">
-              <p class="t-sm t-muted">
-                Removed gear stays out of My Gear and out of the suggestions, even if it's
-                still in a list. Put a piece back and it's yours again.
-              </p>
-              <!-- the same row, in its removed shape: name and weight, and the way back -->
-              <ul class="vault__list">
-                <VaultGearRow
-                  v-for="entry in removed"
-                  :key="entry.id"
-                  :entry="entry"
-                  :unit="unit"
-                  :busy="restoring === entry.id"
-                  removed
-                  @restore="putBack(entry)"
-                />
-              </ul>
             </div>
           </div>
 
@@ -1285,32 +1242,6 @@ async function exportGear(kind: string) {
   gap: var(--space-1);
 }
 
-/* the removed-gear disclosure sits as a quiet footer to
-   the page proper — same hairline seam, so they read as a pair of asides */
-.vault__removed {
-  margin-top: var(--space-7);
-  padding-top: var(--space-4);
-  border-top: 1px solid var(--line);
-}
-.vault__removedbody {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  margin-top: var(--space-3);
-}
-/* the rows are the same object as the live ones, just dimmed — they're out of the
-   gear, and the page shouldn't offer them with the same weight as gear you have */
-.vault__removedbody .vault__row {
-  opacity: 0.6;
-}
-/* pointer-gated — it paints (see the note on .btn:hover, controls.scss). On touch
-   the removed rows simply stay dimmed, which is the reading they're meant to have;
-   undimming one under a finger that has moved on is the artefact. */
-@media (hover: hover) and (pointer: fine) {
-  .vault__removedbody .vault__row:hover {
-    opacity: 1;
-  }
-}
 @media (max-width: $bp-stack) {
   /* the pickers keep the trailing edge here too, beside the search or on their own
      line beneath it; only their gap tightens */

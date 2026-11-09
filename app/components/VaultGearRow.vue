@@ -10,7 +10,6 @@ import {
   MinusSignIcon,
   PlusSignIcon,
   ShirtIcon,
-  UndoIcon,
 } from "@hugeicons/core-free-icons";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
@@ -25,13 +24,10 @@ import { VAULT_KIT_QTY_MAX } from "~~/shared/vaultKit";
 import { strongVaultRows } from "~~/shared/vaultSearch";
 
 // One row of /gear: the name cell, the weight, the class mark and the trailing
-// controls — or, for a REMOVED piece, the way back.
+// controls.
 //
-// Its own component because the page drew this row three times over (the flat list,
-// a folder's list, the removed list), the same twenty-odd lines each, and a row copied
-// three times is a row that drifts. The page keeps what differs between the three
-// places: the folder list's press-to-drag lands on the root as a native listener, its
-// dragging state as a class, and the removed list simply asks for the other shape.
+// Its own component because the page draws this row twice over (the flat list and a
+// kind's list), and a row copied twice is a row that drifts.
 //
 // A KIT is this same row with a disclosure: a kit mark before the name, and a
 // "Kit · 3 items" line that opens its items beneath it — indented and dimmed, the way
@@ -40,10 +36,8 @@ import { strongVaultRows } from "~~/shared/vaultSearch";
 const props = defineProps<{
   entry: VaultEntry;
   unit: Unit;
-  /** the row's own request is in flight (a remove, or a put-back) */
+  /** the row's own remove is in flight */
   busy?: boolean;
-  /** the removed list's shape: the name and weight, and "Put back" in place of the controls */
-  removed?: boolean;
   /** a kit's parts are showing — the page remembers it per kit, like a folder's collapse */
   open?: boolean;
   /** the kits a piece is in, by name — the page holds the names */
@@ -61,7 +55,6 @@ const emit = defineEmits<{
   /** an icon picked from the row's own icon (null: back to the gear type's) */
   icon: [glyph: GearGlyph | null];
   remove: [];
-  restore: [];
   /** a unit picked for this piece's weight (the list row's unit picker, on /gear) */
   unit: [unit: Unit];
   /** a menu on the row opened or closed — the kind's body lifts its clip while one is open */
@@ -86,7 +79,7 @@ const displayName = computed(() => itemDisplayName(props.entry.brand, props.entr
 // Its weight is DERIVED — its own plus its live items × count (kitWeightMg) — and shown
 // plainly: the kit mark already says it is a set. A put-away item stays listed under
 // it, marked, and stops counting.
-const isKit = computed(() => props.entry.kind === "kit" && !props.removed);
+const isKit = computed(() => props.entry.kind === "kit");
 const parts = computed(() => props.entry.parts ?? []);
 // what the kit HOLDS, counting each item as many times as the kit has it: two mug lids
 // and a stove is three items, not two lines (Ryan: "this doesn't seem to keep count")
@@ -101,7 +94,7 @@ const removedParts = computed(() => parts.value.filter((p) => p.removed).length)
 // piece at the weight it showed, which is not what taking the last item out means.
 const refs = () => parts.value.map((p) => ({ id: p.id, qty: p.qty }));
 const liveCount = computed(() => parts.value.filter((p) => !p.removed).length);
-const editingItems = computed(() => (isKit.value && props.open) || (!!props.startKit && !props.removed));
+const editingItems = computed(() => (isKit.value && props.open) || !!props.startKit);
 function sendParts(next: { id: number; qty: number }[], own = props.entry.ownWeightMg ?? 0) {
   if (props.kitBusy) return;
   emit("kit", next, own);
@@ -202,19 +195,16 @@ const typeLabel = computed(() => gearIconLabel(props.entry.commonName, props.ent
 // what "Match the gear type" would draw, in the icon popover
 const autoIcon = computed(() => gearIcon(props.entry.commonName, props.entry.name));
 // Calories, gated on the class exactly as computeTotals gates them — so what the row
-// shows is what a list would count, rather than a number the totals ignore. A removed
-// row shows its type only.
-const kcal = computed(() =>
-  !props.removed && props.entry.classification === "consumable" && props.entry.kcal ? props.entry.kcal : 0,
-);
+// shows is what a list would count, rather than a number the totals ignore.
+const kcal = computed(() => (props.entry.classification === "consumable" && props.entry.kcal ? props.entry.kcal : 0));
 // The sub-line: the short facts about a piece of gear that aren't its weight. The
 // note is not here — it is free text of any length, so it gets its own clamped line
-// below. A removed row shows its type only, like the calories above.
+// below.
 const meta = computed(() => {
   const e = props.entry;
   const parts: string[] = [];
   if (e.commonName) parts.push(e.commonName);
-  if (!props.removed && e.priceCents != null) parts.push(formatPrice(e.priceCents, e.currency));
+  if (e.priceCents != null) parts.push(formatPrice(e.priceCents, e.currency));
   if (kcal.value) parts.push(`${formatKcal(kcal.value)} kcal`);
   return parts;
 });
@@ -231,9 +221,6 @@ const meta = computed(() => {
          so it has no icon to pick. -->
     <span v-if="isKit" class="vault__type" aria-hidden="true" title="Kit">
       <HugeiconsIcon :icon="ToolCaseIcon" :size="20" :stroke-width="2" />
-    </span>
-    <span v-else-if="removed" class="vault__type" aria-hidden="true">
-      <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
     </span>
     <!-- On a live row the icon is also the way to change it: pressing it opens the
          icon popover right there, and an empty slot is where you'd press to give a row
@@ -297,7 +284,7 @@ const meta = computed(() => {
       </p>
       <!-- your note, one line and clipped: it can be a paragraph, and a row is not
            where a paragraph goes. The dialog holds all of it. -->
-      <p v-if="!removed && !isKit && entry.description" class="t-sm t-muted vault__note" :title="entry.description">
+      <p v-if="!isKit && entry.description" class="t-sm t-muted vault__note" :title="entry.description">
         {{ entry.description }}
       </p>
       <!-- a kit: how many items, as the control that shows them. Text-sized, so the
@@ -317,7 +304,7 @@ const meta = computed(() => {
       </p>
       <!-- an item that is in a kit says which — one line, clipped. A piece in a kit is
            still a row of its own kind, so every view shows it. -->
-      <p v-else-if="!removed && kitNames?.length" class="t-sm t-muted vault__kitline t-clip" :title="`In ${kitNames.join(', ')}`">
+      <p v-else-if="kitNames?.length" class="t-sm t-muted vault__kitline t-clip" :title="`In ${kitNames.join(', ')}`">
         In {{ kitNames.join(", ") }}
       </p>
     </div>
@@ -331,86 +318,71 @@ const meta = computed(() => {
       <span v-if="entry.owned" class="vault__owned" :title="`You own ${entry.owned}`">
         <span aria-hidden="true">×{{ entry.owned }}</span><span class="visually-hidden">{{ entry.owned }} owned, </span>
       </span>
-      <template v-if="removed">{{ formatWeight(entry.weightMg, rowUnit) }}</template>
-      <template v-else>
-        <span>{{ formatWeight(entry.weightMg, rowUnit, { withUnit: false }) }}</span>
-        <OptionMenu
-          class="vault__unitwrap"
-          :options="WEIGHT_UNIT_OPTIONS"
-          :current="rowUnit"
-          :label="`Weight unit for ${displayName}`"
-          :title="`Unit for ${displayName}`"
-          @overlay-toggle="(o) => emit('overlay-toggle', o)"
-          @pick="(u) => emit('unit', u as Unit)"
-        >
-          <template #trigger="{ open }">
-            <span class="t-sm t-muted">{{ rowUnit }}</span>
-            <HugeiconsIcon
-              :icon="ChevronDownIcon"
-              class="chev vault__unitchev"
-              :class="{ 'is-open': open }"
-              :size="12"
-              :stroke-width="2"
-              aria-hidden="true"
-            />
-          </template>
-        </OptionMenu>
-      </template>
+      <span>{{ formatWeight(entry.weightMg, rowUnit, { withUnit: false }) }}</span>
+      <OptionMenu
+        class="vault__unitwrap"
+        :options="WEIGHT_UNIT_OPTIONS"
+        :current="rowUnit"
+        :label="`Weight unit for ${displayName}`"
+        :title="`Unit for ${displayName}`"
+        @overlay-toggle="(o) => emit('overlay-toggle', o)"
+        @pick="(u) => emit('unit', u as Unit)"
+      >
+        <template #trigger="{ open }">
+          <span class="t-sm t-muted">{{ rowUnit }}</span>
+          <HugeiconsIcon
+            :icon="ChevronDownIcon"
+            class="chev vault__unitchev"
+            :class="{ 'is-open': open }"
+            :size="12"
+            :stroke-width="2"
+            aria-hidden="true"
+          />
+        </template>
+      </OptionMenu>
     </span>
-    <template v-if="!removed">
-      <!-- the editor's own marks, in a fixed column whether or not the row carries
-           one — an auto column would size to the count and steal a different amount
-           from the name on every row (the reason --item-col-actions is fixed too) -->
-      <span class="vault__cls">
-        <span v-if="entry.classification === 'worn'" class="item__mark item__mark--static" title="Worn">
-          <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="visually-hidden">Worn</span>
-        </span>
-        <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
-          <HugeiconsIcon :icon="consumableIcon(entry)" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="visually-hidden">Consumable</span>
-        </span>
+    <!-- the editor's own marks, in a fixed column whether or not the row carries
+         one — an auto column would size to the count and steal a different amount
+         from the name on every row (the reason --item-col-actions is fixed too) -->
+    <span class="vault__cls">
+      <span v-if="entry.classification === 'worn'" class="item__mark item__mark--static" title="Worn">
+        <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+        <span class="visually-hidden">Worn</span>
       </span>
-      <div class="vault__actions">
-        <!-- Edit, first in the cluster: the trailing icons are right-aligned, so
-             the new one takes the open edge and the two you already know don't
-             move — and it puts the destructive control furthest from the new
-             arrival. -->
-        <button
-          v-if="!isKit"
-          type="button"
-          class="btn btn--icon btn--ghost vault__act ink-quiet"
-          :title="`Edit ${displayName}`"
-          :aria-label="`Edit ${displayName}`"
-          @click="emit('edit')"
-        >
-          <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-        </button>
-        <!-- glyph only, like every other row action on the site: the word was the
-             widest thing in the row and said what the bin already says. The label
-             lives on aria-label + title. -->
-        <button
-          type="button"
-          class="btn btn--icon btn--ghost vault__act ink-quiet"
-          :disabled="busy"
-          :title="`Remove ${displayName}`"
-          :aria-label="`Remove ${displayName} from My Gear`"
-          @click="emit('remove')"
-        >
-          <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
-        </button>
-      </div>
-    </template>
-    <button
-      v-else
-      type="button"
-      class="btn btn--quiet vault__act ink-quiet"
-      :disabled="busy"
-      :aria-label="`Put ${displayName} back in My Gear`"
-      @click="emit('restore')"
-    >
-      <HugeiconsIcon :icon="UndoIcon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back
-    </button>
+      <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
+        <HugeiconsIcon :icon="consumableIcon(entry)" :size="16" :stroke-width="2" aria-hidden="true" />
+        <span class="visually-hidden">Consumable</span>
+      </span>
+    </span>
+    <div class="vault__actions">
+      <!-- Edit, first in the cluster: the trailing icons are right-aligned, so
+           the new one takes the open edge and the two you already know don't
+           move — and it puts the destructive control furthest from the new
+           arrival. -->
+      <button
+        v-if="!isKit"
+        type="button"
+        class="btn btn--icon btn--ghost vault__act ink-quiet"
+        :title="`Edit ${displayName}`"
+        :aria-label="`Edit ${displayName}`"
+        @click="emit('edit')"
+      >
+        <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+      </button>
+      <!-- glyph only, like every other row action on the site: the word was the
+           widest thing in the row and said what the bin already says. The label
+           lives on aria-label + title. -->
+      <button
+        type="button"
+        class="btn btn--icon btn--ghost vault__act ink-quiet"
+        :disabled="busy"
+        :title="`Remove ${displayName}`"
+        :aria-label="`Remove ${displayName} from My Gear`"
+        @click="emit('remove')"
+      >
+        <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
+      </button>
+    </div>
     </div>
     <!-- A kit's items, opened, and edited right here: each line is the piece itself
          (its name opens the piece's own dialog), its weight for the line, how many the

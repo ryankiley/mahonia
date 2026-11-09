@@ -13,6 +13,7 @@
   "changed": [
     "My Gear groups your gear by kind, with kits first, instead of folders you file by hand; the My Gear panel in a list does too.",
     "A kit holds no more of a piece than you own.",
+    "My Gear no longer keeps a list of removed gear at the bottom of the page: undo right after removing, or add the piece again to bring it back as it was.",
     "Pick a piece's icon from a popover on its row in My Gear, or from the Icon box in its edit dialog.",
     "The My Gear panel in a list shows where a click adds gear beside its tabs, and opens My Gear full size from an expand button.",
     "My Gear's top bar has your list switcher, so every list is one tap away.",
