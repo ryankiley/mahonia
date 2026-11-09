@@ -72,6 +72,29 @@ export function useTrailPlanRoute({ snapshot, stored, days, controller }: TrailP
   const arming = ref<number | "rest" | null>(null);
   const traceM = ref<number | null>(null);
 
+  // `arming` names its day by POSITION, and only the toggles ever wrote it, so it
+  // outlived the stretch it pointed at. Delete the armed day and it pointed at the next
+  // one; empty it, or drag the rest of the route away, and the map stayed armed — every
+  // leg dimmed, every tap clamped to one point — with each control that could turn it
+  // off hidden along with the stretch. So it disarms the moment its stretch goes, or
+  // the day at its position stops being the day that was armed. (Only a day with
+  // ground can be armed, and a day with ground is a stored day, so it has an id.)
+  let armedDayId: string | null = null;
+  watch(
+    arming,
+    (a) => {
+      armedDayId = typeof a === "number" ? (days.value[a]?.id ?? null) : null;
+    },
+    { flush: "sync" },
+  );
+  watch([days, dayDistancesM, hasRest], () => {
+    const a = arming.value;
+    if (a === null) return;
+    const gone =
+      a === "rest" ? !hasRest.value : !(dayDistancesM.value[a]! > 0) || (days.value[a]?.id ?? null) !== armedDayId;
+    if (gone) arming.value = null;
+  });
+
   // Routes written before end pins existed gain them once, when their geometry arrives.
   watch(
     () => snapshot.value.routeGeometry,

@@ -15,7 +15,7 @@
 // Lives in its own file (not listRepo.ts) so this Phase-3 work stays additive
 // and merge-clean alongside the concurrent rate-limiter + component sessions.
 
-import { and, desc, eq, gt, isNull } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, sql } from "drizzle-orm";
 import { lists, type ListRow } from "../db/schema";
 import {
   decidePublish,
@@ -102,25 +102,35 @@ export async function publishListByEditHash(
   const tripType = normalizeTripType(input.tripType) ?? null;
   const season = normalizeSeason(input.season) ?? null;
   const decision = decidePublish(
-    { hasPublishedAt: !!row.publishedAt, title: row.title, description: row.description },
+    {
+      hasPublishedAt: !!row.publishedAt,
+      title: row.title,
+      description: row.description,
+      trailLabel: row.trailLabel,
+    },
     { isPublic: !!input.isPublic },
   );
   const publishedAt = decision.stampPublishedAt ? new Date() : row.publishedAt;
-  // flagging is sticky: a republish can never self-clear a flag (only admin review can).
-  // `status` is left untouched — publishing never affects the owner's edit/share access.
-  const flagged = row.flagged || decision.flagged;
 
+  // Flagging is sticky: a republish can never self-clear a flag (only admin review can).
+  // So it's OR'd in the statement, against the row as it stands when the write lands,
+  // not against `row` read above: a report or a mutate's reflag arriving between the
+  // two would otherwise be written back to false by a publish that never saw it. (No
+  // RETURNING to read it back: the Db union only shares the full-row form, which would
+  // fetch `data`. The answer below can miss a flag that raced in; the row can't.)
+  // `status` is left untouched — publishing never affects the owner's edit/share access.
   await d
     .update(lists)
     .set({
       isPublic: decision.isPublic,
-      flagged,
+      flagged: sql`${lists.flagged} OR ${decision.flagged}`,
       tripType,
       season,
       publishedAt,
       updatedAt: new Date(),
     })
     .where(eq(lists.id, row.id));
+  const flagged = row.flagged || decision.flagged;
 
   return publicState({ ...row, isPublic: decision.isPublic, flagged, tripType, season });
 }

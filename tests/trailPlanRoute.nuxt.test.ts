@@ -65,6 +65,54 @@ describe("useTrailPlanRoute", () => {
     expect(plan.armedRange.value).toEqual({ fromM: 1_000, toM: 3_000 });
   });
 
+  // Armed means "the next tap places a pin in THIS stretch". When the stretch goes,
+  // so does the arming: left on, every leg stayed dimmed and every tap clamped to one
+  // point, with every control that could turn it off hidden along with the stretch.
+  describe("arming outlives nothing it points at", () => {
+    const three = (): TripDay[] => [
+      { id: "d1", sortOrder: 0, distanceM: 1_000 },
+      { id: "d2", sortOrder: 1, distanceM: 1_000 },
+      { id: "d3", sortOrder: 2, distanceM: 500 },
+    ];
+
+    it("disarms when the armed day's distance is cleared", async () => {
+      const { live, plan } = open(three());
+      plan.arming.value = 1;
+      await nextTick();
+      live.value = { ...live.value, days: live.value.days!.map((d) => (d.id === "d2" ? { ...d, distanceM: 0 } : d)) };
+      await nextTick();
+      expect(plan.arming.value).toBeNull();
+      expect(plan.armedRange.value).toBeNull();
+    });
+
+    it("disarms rather than re-aim at the next day when the armed one is deleted", async () => {
+      const { live, plan } = open(three());
+      plan.arming.value = 1;
+      await nextTick();
+      live.value = { ...live.value, days: live.value.days!.filter((d) => d.id !== "d2") };
+      await nextTick();
+      expect(plan.arming.value).toBeNull();
+    });
+
+    it("disarms the rest of the route once there's no rest left", async () => {
+      const { live, plan } = open(three());
+      plan.arming.value = "rest";
+      await nextTick();
+      live.value = { ...live.value, days: live.value.days!.map((d) => (d.id === "d3" ? { ...d, distanceM: 1_000 } : d)) };
+      await nextTick();
+      expect(plan.arming.value).toBeNull();
+    });
+
+    it("stays armed through an edit that leaves its stretch in place", async () => {
+      const { live, plan } = open(three());
+      plan.arming.value = 1;
+      await nextTick();
+      live.value = { ...live.value, days: live.value.days!.map((d) => (d.id === "d3" ? { ...d, distanceM: 400 } : d)) };
+      await nextTick();
+      expect(plan.arming.value).toBe(1);
+    });
+  });
+
   it("trades a moved boundary with the next owned day in exactly two updates", () => {
     const days: TripDay[] = [
       { id: "d1", sortOrder: 0, distanceM: 1_000 },

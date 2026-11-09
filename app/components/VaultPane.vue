@@ -227,7 +227,12 @@ const isInList = (entry: VaultEntry) => inList.value.has(entry.normKey);
 // It stays lifted while the drag it became is live, and comes down when that ends.
 
 // the entry whose press turned into a drag, so the click that follows pointerup is
-// swallowed instead of adding the thing a second time
+// swallowed instead of adding the thing a second time. It lives for that one gesture:
+// the drag captures the pointer to <html>, so the browser may send that click to the
+// page rather than the row, or not at all, and a flag cleared only by the row's own
+// click then ate the NEXT real click on it (after a cancelled drag, the row didn't add).
+// The next press clears it (a trailing click always comes before one), and a keyboard
+// press is never a drag's leftover.
 let draggedEntryId: number | null = null;
 const liftedId = ref<number | null>(null);
 
@@ -265,16 +270,17 @@ watch(
 );
 
 function onRowPointerDown(entry: VaultEntry, ev: PointerEvent) {
+  draggedEntryId = null; // a new gesture: whatever the last drag left is spent
   if (isInList(entry)) return;
   rowPress.start(entry, ev);
 }
 
-function onRowClick(entry: VaultEntry) {
+function onRowClick(entry: VaultEntry, ev: MouseEvent) {
   // the click that trails a drag's pointerup would otherwise add it all over again
-  if (draggedEntryId === entry.id) {
-    draggedEntryId = null;
-    return;
-  }
+  // (detail 0 is Enter or Space on the row, which no drag can leave behind)
+  const trailing = draggedEntryId === entry.id && ev.detail > 0;
+  draggedEntryId = null;
+  if (trailing) return;
   if (isInList(entry)) return;
   addEntry(entry, targetFolderId.value);
 }
@@ -556,7 +562,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
                   : `Add ${itemDisplayName(entry.brand, entry.name, entry.variant)} to the list`
             "
             @pointerdown="onRowPointerDown(entry, $event)"
-            @click="onRowClick(entry)"
+            @click="onRowClick(entry, $event)"
           >
             <span class="vp__kit" aria-hidden="true">
               <HugeiconsIcon v-if="iconById.get(entry.id)" :icon="iconById.get(entry.id)!" :size="16" :stroke-width="2" />

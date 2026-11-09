@@ -400,6 +400,7 @@ type PublishFields = Pick<
   | "publishedAt"
   | "title"
   | "description"
+  | "trailLabel"
 >;
 
 export async function findPublishFieldsByEditHash(
@@ -420,6 +421,8 @@ export async function findPublishFieldsByEditHash(
       publishedAt: lists.publishedAt,
       title: lists.title,
       description: lists.description,
+      // the spam check reads all three text fields, here as on mutate and restore
+      trailLabel: lists.trailLabel,
     })
     .from(lists)
     .where(liveOnly(lists.editTokenHash, editHash))

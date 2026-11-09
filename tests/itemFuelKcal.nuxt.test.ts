@@ -22,9 +22,11 @@
 //
 // Rendered through the real <ItemRow>, because what is under test is which branch of the
 // template draws.
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount } from "@vue/test-utils";
+import { mountSuspended } from "@nuxt/test-utils/runtime";
+import ItemRowMenu from "~/components/ItemRowMenu.vue";
 import { mountRowOver } from "./helpers/itemRow";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { blankList, item as baseItem } from "./helpers/list";
@@ -217,6 +219,42 @@ describe("an open popover keeps the controls it opened with", () => {
     expect(wornToggle(w).exists()).toBe(false);
     expect(ghostShirt(w).exists()).toBe(true);
     expect(w.emitted("overlayToggle")).toEqual([[true], [false]]);
+  });
+
+  // The folder counts open overlays +1/−1, so a row that goes away with its popover or
+  // menu still open has to send the −1 itself: Nest, Move out and Remove all unmount the
+  // row from inside its open menu, and the close that would have sent it never ran.
+  it("gives back the folder's overlay lift when the row goes with a popover open", async () => {
+    const w = mountRow(item({ id: "gas", name: "Gas canister", unitWeightMg: 210_000, classification: "worn" }));
+    // a listener, not emitted(): the wrapper's record of events doesn't outlive unmount
+    const lifts: boolean[] = [];
+    await w.setProps({ onOverlayToggle: (o: boolean) => lifts.push(o) } as never);
+    await w.get('button[aria-label^="Worn"]').trigger("click");
+    await nextTick();
+    expect(lifts).toEqual([true]);
+    w.unmount();
+    expect(lifts).toEqual([true, false]);
+  });
+
+  it("gives back the lift for a row menu open as the row goes, and counts one opened before mount", async () => {
+    const lifts: boolean[] = [];
+    const props = { rowId: "gas", kind: "nest", label: "Nesting", onOverlayToggle: (o: boolean) => lifts.push(o) };
+    // a real Transition, not the test stub: the menu releases on its after-leave
+    const real = { global: { stubs: { transition: false } } };
+    const menu = await mountSuspended(ItemRowMenu, { props, ...real });
+    useItemMenu().toggle("gas:nest", null);
+    await nextTick();
+    expect(lifts).toEqual([true]);
+    menu.unmount();
+    expect(lifts).toEqual([true, false]);
+
+    // remounted with the menu still open (the singleton outlives the row): it counts itself
+    lifts.length = 0;
+    await mountSuspended(ItemRowMenu, { props, ...real });
+    expect(lifts).toEqual([true]);
+    useItemMenu().close();
+    // released when the menu's leave transition ends (useOverlayLift), a frame or two on
+    await vi.waitFor(() => expect(lifts).toEqual([true, false]));
   });
 
   it("clearing a fuel row's calories keeps the field for the rest of the visit; the next open withholds it", async () => {

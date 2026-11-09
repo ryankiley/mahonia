@@ -699,7 +699,13 @@ const menu = useItemMenu();
 const wornRootRef = useTemplateRef<HTMLElement>("wornRootRef");
 const wornPopRef = useTemplateRef<HTMLElement>("wornPopRef");
 const isWornOpen = computed(() => menu.openId.value === `${props.item.id}:worn`);
-watch(isWornOpen, (open) => emit("overlayToggle", open));
+// Each of the row's two popovers holds the folder's clip lift through useOverlayLift,
+// for its dedupe and its release on unmount: they sent open/closed straight from a
+// watcher, so a row unmounted with one open never sent the close, and the folder stayed
+// lifted. They release as they close, as they always did. `immediate`, so a row
+// remounted with one still open counts itself in.
+const wornLift = useOverlayLift((on) => emit("overlayToggle", on));
+watch(isWornOpen, (open) => (open ? wornLift.lift() : wornLift.release()), { immediate: true });
 // Whether the worn toggle is drawn at all — offersWorn (shared/fuel): not on water, not
 // on stove fuel, kept where the row already says worn so the value stays clearable
 // (isWorn folds the split in). The slot stays either way — a ghost shirt holds it open,
@@ -723,7 +729,8 @@ const { above: wornAbove, shift: wornShift, place: placeWorn } = useMenuPlacemen
 const kcalRootRef = useTemplateRef<HTMLElement>("kcalRootRef");
 const kcalPopRef = useTemplateRef<HTMLElement>("kcalPopRef");
 const isKcalOpen = computed(() => menu.openId.value === `${props.item.id}:kcal`);
-watch(isKcalOpen, (open) => emit("overlayToggle", open));
+const kcalLift = useOverlayLift((on) => emit("overlayToggle", on));
+watch(isKcalOpen, (open) => (open ? kcalLift.lift() : kcalLift.release()), { immediate: true });
 // The field itself is offered only once the row IS consumable — the only state in which
 // the number is counted, so offering it sooner would collect a value the totals ignore
 // — and not on stove fuel holding no number, whose "calories" are the wrong kind and

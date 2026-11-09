@@ -55,11 +55,15 @@ const isOpen = computed(() => menu.openId.value === id.value);
 // folder's edge mid-fade, and never on unmount
 const { lift, release } = useOverlayLift((on) => emit("overlayToggle", on));
 // measured on the tick the list mounts — it has no size to measure before that
-watch(isOpen, (open) => {
-  if (!open) return;
-  lift();
-  nextTick(place);
-});
+watch(
+  isOpen,
+  (open) => {
+    if (!open) return;
+    lift();
+    nextTick(place);
+  },
+  { immediate: true }, // a row remounted with this menu still open counts itself in
+);
 function toggle() {
   menu.toggle(id.value, rootRef.value);
 }

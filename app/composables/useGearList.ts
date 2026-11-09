@@ -779,7 +779,10 @@ function create() {
     store.get(DRAFT_KEY).then((local) => {
       if (myEpoch !== epoch || editToken() || !local) return;
       snapshot.value = tidyListText(local.snapshot); // same backfill as the token path
-      pending = local.pending ?? [];
+      // not local.pending: a draft's queue is what was typed while a create was out,
+      // and the snapshot saved beside it already holds every one of those edits —
+      // carried over, the create's success would replay them (see its catch)
+      pending = [];
       setStatus("synced");
       // a restored draft that already has real content resumes its create attempt
       if (hasRealContent(local.snapshot)) createFromDraft();
@@ -798,7 +801,9 @@ function create() {
     if (!online.value) { setStatus("offline"); return; }
     const myEpoch = epoch;
     inFlight = true;
-    setStatus("saving");
+    // the flush's rule: once the line reads "Not saved", a retry doesn't flip it to
+    // "Syncing…" and back — that strobes once per attempt and says nothing new
+    if (status.value !== "error") setStatus("saving");
     try {
       const s = snapshot.value;
       const res = await $fetch<{ editToken: string; snapshot: ListSnapshot }>("/api/lists/create", {
@@ -813,6 +818,8 @@ function create() {
         },
       });
       if (myEpoch !== epoch) return;
+      flushFailures = 0;
+      clearTimeout(retryTimer);
       access.value = { kind: "token", token: res.editToken };
       const merged = res.snapshot;
       if (pending.length) applyOps(merged, pending); // edits made mid-create
@@ -833,11 +840,22 @@ function create() {
       startPoll();
     } catch {
       if (myEpoch !== epoch) return;
+      // `pending` on a draft holds only what was typed while this create was out, and
+      // all of it is already IN the snapshot the next create sends whole. Left queued,
+      // the next success replayed it over everything typed since: a weight changed
+      // after the failure went back to its mid-create value, a deleted row came back.
+      pending = [];
       setStatus("error");
-      // retry while there's still un-persisted content
-      setTimeout(() => {
-        if (!editToken() && snapshot.value && hasRealContent(snapshot.value)) createFromDraft();
-      }, 1500);
+      // retry while there's still un-persisted content, backing off the way a failing
+      // flush does (and on the same timer, so a list switch cancels it)
+      flushFailures++;
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(
+        () => {
+          if (!holdsList() && snapshot.value && hasRealContent(snapshot.value)) createFromDraft();
+        },
+        Math.min(flushBackoffMs * 2 ** (flushFailures - 1), 30_000),
+      );
     } finally {
       if (myEpoch === epoch) {
         inFlight = false;
@@ -1707,59 +1725,79 @@ function create() {
   });
 
   async function rotate(): Promise<string | null> {
+    // WHICH list is being rotated is read before the request, never after it. The
+    // answer can land once the editor has moved on (the switcher, the back button and
+    // /gear all stay usable while it's out), and reading editToken() then handed the
+    // list now on screen the rotated list's token: its registry row and on-device
+    // record were dropped and its edits flushed into the rotated list.
+    const myEpoch = epoch;
+    const old = editToken();
+    const oldCode = claimCode();
+    const oldKey = storeKey();
+    const my = useMyLists();
+    const fromSnapshot = snapshot.value
+      ? my.entryFromSnapshot({ editToken: old, snapshot: snapshot.value }, totals.value?.totalMg ?? 0)
+      : null;
+    let fresh: string;
     try {
       const res = await $fetch<{ editToken: string }>("/api/edit/rotate", {
         method: "POST",
         headers: authHeaders(),
       });
-      const old = editToken();
-      const oldCode = claimCode();
-      // A rotate hands THIS device the new link whichever way it was holding the
-      // list — so a claimed open graduates to the token path here, and the editor
-      // behaves from now on exactly as if the link had been opened directly.
-      access.value = { kind: "token", token: res.editToken };
-      // The vault answer rides along. It's keyed by the token, but it answers a
-      // question about the GEAR ("is this list's gear mine?"), and a rotate is the
-      // owner cycling a leaked link on a list they've already answered for. Losing
-      // the answer here meant the prompt re-asked and capture paused until it was
-      // re-answered — for no new reason. The exclusions are half of that answer
-      // ("only the tent is mine"), so they carry too. The old token's keys then
-      // go: the token is dead server-side, and nothing else ever cleared these
-      // (only deleteList does), so every rotate used to strand a pair for good.
-      // A claimed open rotates with old = "" — vaultDecisionFor("") answers "yes"
-      // (a claimed list is yours, the same rule capture follows), so the fresh
-      // token inherits that and the ""-keyed clears below are no-ops.
-      const decision = vaultDecisionFor(old);
-      if (decision !== "ask") setVaultDecisionFor(editToken(), decision);
-      const declined = vaultExclusionsFor(old);
-      if (declined.size) setVaultExclusionsFor(editToken(), [...declined]);
-      clearVaultDecisionFor(old);
-      refreshVaultCover(); // mirror the carried answer onto the rows
-      const my = useMyLists();
-      const prev = my.entries.value.find((e) => e.editToken === old);
-      // always persist the NEW token, even if the old registry entry was missing,
-      // so a rotate can never strand the only copy of the write capability — built
-      // from the snapshot by the same mapping registerCreated uses
-      const base =
-        prev ??
-        (snapshot.value
-          ? my.entryFromSnapshot({ editToken: res.editToken, snapshot: snapshot.value }, totals.value?.totalMg ?? 0)
-          : null);
-      if (old) my.forget(old); // also drops the old token's on-device record
-      // the claimed open's record re-keys onto the token; leaving the code-keyed
-      // copy behind would resurface pre-rotate state on the next claimed open, and
-      // its ledger entry would outlive the only route that reads it (the registry
-      // row minted below is what the bare address resumes through from now on)
-      if (oldCode) {
-        store.del(claimedLocalKey(oldCode));
-        forgetClaimedOpen(oldCode);
-      }
-      if (base) my.upsert({ ...base, editToken: res.editToken, lastOpened: Date.now() });
-      persistLocal(); // re-key this device's copy onto the new token
-      return res.editToken;
+      fresh = res.editToken;
     } catch {
       return null;
     }
+    // Still the session that asked? Only then does the screen change. Either way the
+    // new token is kept below: the old one is dead server-side, so dropping the answer
+    // would cost this device its only way back into the list.
+    const ours = myEpoch === epoch;
+    // A rotate hands THIS device the new link whichever way it was holding the
+    // list — so a claimed open graduates to the token path here, and the editor
+    // behaves from now on exactly as if the link had been opened directly.
+    if (ours) access.value = { kind: "token", token: fresh };
+    // The vault answer rides along. It's keyed by the token, but it answers a
+    // question about the GEAR ("is this list's gear mine?"), and a rotate is the
+    // owner cycling a leaked link on a list they've already answered for. Losing
+    // the answer here meant the prompt re-asked and capture paused until it was
+    // re-answered — for no new reason. The exclusions are half of that answer
+    // ("only the tent is mine"), so they carry too. The old token's keys then
+    // go: the token is dead server-side, and nothing else ever cleared these
+    // (only deleteList does), so every rotate used to strand a pair for good.
+    // A claimed open rotates with old = "" — vaultDecisionFor("") answers "yes"
+    // (a claimed list is yours, the same rule capture follows), so the fresh
+    // token inherits that and the ""-keyed clears below are no-ops.
+    const decision = vaultDecisionFor(old);
+    if (decision !== "ask") setVaultDecisionFor(fresh, decision);
+    const declined = vaultExclusionsFor(old);
+    if (declined.size) setVaultExclusionsFor(fresh, [...declined]);
+    clearVaultDecisionFor(old);
+    if (ours) refreshVaultCover(); // mirror the carried answer onto the rows
+    // always persist the NEW token, even if the old registry entry was missing,
+    // so a rotate can never strand the only copy of the write capability — built
+    // from the snapshot as it stood when the rotate was asked for, by the same
+    // mapping registerCreated uses
+    const prev = old ? my.entries.value.find((e) => e.editToken === old) : undefined;
+    const base = prev ?? fromSnapshot;
+    // The on-device record moves to the new key. When this session is still open,
+    // persistLocal writes it from the live snapshot; when it isn't, the stored copy
+    // is carried across before the forget below deletes it.
+    const carried = ours ? undefined : await store.get(oldKey);
+    if (old) my.forget(old); // also drops the old token's on-device record
+    // the claimed open's record re-keys onto the token; leaving the code-keyed
+    // copy behind would resurface pre-rotate state on the next claimed open, and
+    // its ledger entry would outlive the only route that reads it (the registry
+    // row minted below is what the bare address resumes through from now on)
+    if (oldCode) {
+      store.del(claimedLocalKey(oldCode));
+      forgetClaimedOpen(oldCode);
+    }
+    if (base) my.upsert({ ...base, editToken: fresh, lastOpened: Date.now() });
+    if (ours) persistLocal(); // re-key this device's copy onto the new token
+    else if (carried) store.set(localKey(fresh), carried);
+    // null when the editor has moved on: the caller's address-bar write and its
+    // "replaced" toast both belong to a screen that's gone
+    return ours ? fresh : null;
   }
 
   function dispose(ownEpoch?: number) {

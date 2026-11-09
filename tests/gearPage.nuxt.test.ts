@@ -70,8 +70,9 @@ registerEndpoint("/api/vault/remove", {
   },
 });
 
-// an add, optionally held
+// an add, optionally held — and an edit, the same way
 let itemsHeld: Promise<void> | null = null;
+let editHeld: Promise<void> | null = null;
 let addedNames: string[] = [];
 let addedOps: Record<string, unknown>[] = [];
 // an edit answers with the row as it now stands, the way the real route does
@@ -84,6 +85,7 @@ registerEndpoint("/api/vault/items", {
     if (body.op.t === "kit") return { ok: false };
     if (body.op.t === "edit") {
       editedOps.push(body.op);
+      if (editHeld) await editHeld;
       const row = listRows.find((r) => r.id === body.op.id);
       return { ok: true, item: { ...row, ...body.op.patch } };
     }
@@ -119,6 +121,7 @@ describe("the /gear page's vault calls", () => {
     addedOps = [];
     editedOps = [];
     itemsHeld = null;
+    editHeld = null;
   });
 
   it("loads the gear from /api/vault/list rather than erroring", async () => {
@@ -157,6 +160,44 @@ describe("the /gear page's vault calls", () => {
     await vi.waitFor(() => expect(rows(w)).toHaveLength(0));
     expect(removedIds).toEqual([7]);
     expect(w.find(".vault__error").exists()).toBe(false);
+  });
+
+  // Cancel stays live while a save is out. The answer that lands after it is the
+  // piece's it was sent for: its row takes it, and the dialog now open on another
+  // piece is left exactly as it was.
+  it("lands a late save on its own row, not on the dialog opened since", async () => {
+    listRows = [entry(1, "Duplex"), entry(2, "Kakwa 40")];
+    const w = await openPage();
+    const dialog = () => document.querySelector<HTMLElement>(".dlg");
+    const nameField = () =>
+      [...document.querySelectorAll<HTMLLabelElement>(".dlg label.dlg__field")].find((l) => l.textContent?.includes("Product"))!.querySelector("input")!;
+    const saveButton = () => document.querySelector<HTMLButtonElement>(".dlg__actions .btn--primary")!;
+
+    await w.get('button[aria-label="Edit Brand Duplex"]').trigger("click");
+    await vi.waitFor(() => expect(dialog()).not.toBeNull());
+    let land!: () => void;
+    editHeld = new Promise((r) => (land = r));
+    nameField().value = "Duplex Zip";
+    nameField().dispatchEvent(new Event("input"));
+    await nextTick();
+    saveButton().click();
+    await vi.waitFor(() => expect(editedOps).toHaveLength(1));
+
+    // Cancel mid-send, then open the other piece and start typing there
+    document.querySelector<HTMLButtonElement>(".dlg__actions .btn--ghost")!.click();
+    await nextTick();
+    await w.get('button[aria-label="Edit Brand Kakwa 40"]').trigger("click");
+    await vi.waitFor(() => expect(nameField().value).toBe("Kakwa 40"));
+    nameField().value = "Kakwa 55";
+    nameField().dispatchEvent(new Event("input"));
+    await nextTick();
+
+    land();
+    await vi.waitFor(() => expect(rows(w).some((r) => r.text().includes("Duplex Zip"))).toBe(true));
+    // the other piece's dialog is still open, still holding what was typed into it
+    expect(dialog()).not.toBeNull();
+    expect(nameField().value).toBe("Kakwa 55");
+    expect(saveButton().textContent?.trim()).toBe("Save");
   });
 
   // A piece's weight reads in the unit picked for it, the list row's unit picker on /gear:

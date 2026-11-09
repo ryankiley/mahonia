@@ -36,9 +36,11 @@ mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(true),
   vaultFetch: async () => ({ items: Array.from({ length: rowCount }, (_, i) => entry(i + 1)) }),
 }));
+// one instance across calls, so a case can see what the pane added
+const addVaultItem = vi.fn();
 mockNuxtImport("useGearList", () => () => ({
   snapshot: ref({ folders: [], items: [], displayUnit: "g" }),
-  addVaultItem: vi.fn(),
+  addVaultItem,
   moveItem: vi.fn(),
   // What My Gear holds of this list's gear, and which keys have an answer at all
   // — ItemRow renders its save button against these. Empty-but-answered here:
@@ -230,6 +232,55 @@ describe("a held row on the vault sheet", () => {
     window.dispatchEvent(new PointerEvent("pointerup", { pointerId: 1, bubbles: true }));
     await nextTick();
     expect(row.classList.contains("is-lifted")).toBe(false);
+  });
+});
+
+// A press that became a drag swallows the click its pointerup may trail, so the row
+// isn't added twice. The drag holds the pointer on <html>, though, so that click often
+// never reaches the row — and the swallow then ate the next REAL click on it.
+describe("a row's click after a drag that didn't add it", () => {
+  beforeEach(() => {
+    rowCount = 2;
+    dragId.value = null;
+    startInsert.mockClear();
+  });
+  afterEach(() => {
+    document.body.innerHTML = "";
+  });
+
+  it("adds the row on the next click, once the drag is over", async () => {
+    const { list } = await openPane();
+    const add = addVaultItem;
+    add.mockClear();
+    const row = list!.querySelector<HTMLElement>(".vp__add")!;
+    const pointer = (type: string, x: number) =>
+      new PointerEvent(type, { pointerId: 1, pointerType: "mouse", button: 0, clientX: x, clientY: 100, bubbles: true });
+
+    // a mouse drag off the row, let go over nothing: no drop, and no click on the row
+    row.dispatchEvent(pointer("pointerdown", 40));
+    window.dispatchEvent(pointer("pointermove", 80));
+    expect(startInsert).toHaveBeenCalledTimes(1);
+    window.dispatchEvent(pointer("pointerup", 80));
+
+    // then an ordinary click on the same row
+    row.dispatchEvent(pointer("pointerdown", 40));
+    window.dispatchEvent(pointer("pointerup", 40));
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    expect(add).toHaveBeenCalledTimes(1);
+  });
+
+  it("still swallows the click that trails the drag itself", async () => {
+    const { list } = await openPane();
+    const add = addVaultItem;
+    add.mockClear();
+    const row = list!.querySelector<HTMLElement>(".vp__add")!;
+    const pointer = (type: string, x: number) =>
+      new PointerEvent(type, { pointerId: 1, pointerType: "mouse", button: 0, clientX: x, clientY: 100, bubbles: true });
+    row.dispatchEvent(pointer("pointerdown", 40));
+    window.dispatchEvent(pointer("pointermove", 80));
+    window.dispatchEvent(pointer("pointerup", 80));
+    row.dispatchEvent(new MouseEvent("click", { bubbles: true, detail: 1 }));
+    expect(add).not.toHaveBeenCalled();
   });
 });
 

@@ -255,8 +255,9 @@ function closeDialog() {
   adding.value = false;
 }
 // in place, first in its kind (the page orders by last use), rather than a reload
+// (the dialog closes itself, with `close`, only when the add was made in the opening
+// still showing: a late one lands here with the dialog on something else)
 function onItemAdded(item: VaultEntry) {
-  closeDialog();
   items.value = [item, ...items.value];
   offerAdded(item);
 }
@@ -340,7 +341,9 @@ async function setEntryIcon(entry: VaultEntry, glyph: GearGlyph | null) {
 function onItemSaved(item: VaultEntry) {
   const was = items.value.find((i) => i.id === item.id);
   putRow(item);
-  editing.value = null;
+  // no close here: the dialog sends `close` itself, and only for a save made in the
+  // opening still on screen — a late save from a piece already left must not shut the
+  // dialog someone has since opened on another piece, and lose what they typed there
   // owning fewer than a kit held brings the kit down to it (the vault does that), so
   // the kits it is in read again
   if (item.inKits?.length && (item.owned ?? 1) < (was?.owned ?? 1)) void loadVault();
