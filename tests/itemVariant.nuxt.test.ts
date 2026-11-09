@@ -205,6 +205,35 @@ describe("the editor's row", () => {
     await field.trigger("change");
     expect(snapshot.value.items[0]!.variant).toBeUndefined();
     expect(snapshot.value.items[0]).toMatchObject({ name: "Revelation", brand: "Enlightened Equipment" });
+    // a blank size isn't a claim to be another one, so the link stays
+    expect(snapshot.value.items[0]!.catalogItemId).toBe(7);
+  });
+
+  // The link is to one size and carries its cited weight: a row typed to another size
+  // stops claiming it, rather than saying "Regular" while weighing the Long
+  it("unlinks a linked row typed to another size, and keeps its product and weight as the person's", async () => {
+    const w = mountRow(longQuilt());
+    const field = w.find<HTMLInputElement>(".item__variant-input");
+    field.element.value = " Regular ";
+    await field.trigger("change");
+    const row = snapshot.value.items[0]!;
+    expect(row.catalogItemId).toBeUndefined();
+    expect(row).toMatchObject({
+      variant: "Regular",
+      name: "Revelation",
+      brand: "Enlightened Equipment",
+      commonName: "Quilt",
+      unitWeightMg: 560_000,
+      weightOverridden: true,
+    });
+  });
+
+  it("keeps the link when the same size is typed again", async () => {
+    const w = mountRow(longQuilt());
+    const field = w.find<HTMLInputElement>(".item__variant-input");
+    field.element.value = "long";
+    await field.trigger("change");
+    expect(snapshot.value.items[0]!.catalogItemId).toBe(7);
   });
 
   it("shows a typed variant on a renamed row's sub-line", () => {
