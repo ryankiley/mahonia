@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-08",
+  "changed": [
+    "The account dialog puts Sign out and Sign out everywhere together at the end, above Delete account."
+  ],
+  "fixed": [
+    "Pressing Escape in a menu inside a dialog closes only the menu.",
+    "The search box's clear button sits inside the box, in line with the text."
+  ]
+}
