@@ -511,7 +511,7 @@ async function onSignOut() {
           </form>
           <p v-if="linkNote" class="t-sm acct__note">{{ linkNote }}</p>
 
-          <p class="t-sm t-muted">
+          <p class="t-sm t-muted acct__swap">
             New here?
             <button type="button" class="acct__switch" @click="mode = 'create'">
               Create an account
@@ -541,7 +541,7 @@ async function onSignOut() {
             </form>
             <p v-if="createNote" class="t-sm acct__note">{{ createNote }}</p>
 
-            <p class="t-sm t-muted">
+            <p class="t-sm t-muted acct__swap">
               Already have an account?
               <button type="button" class="acct__switch" @click="mode = 'signin'">
                 Sign in
@@ -804,11 +804,17 @@ async function onSignOut() {
 .acct__why {
   margin-block-end: var(--space-3);
 }
-/* one step of another page (asStep): the host page's left edge, not a centred column */
+/* one step of another page (asStep): the host page's left edge, not a centred column.
+   The line that switches between signing in and creating an account stays centred: it
+   hangs off the full-width buttons above it, like the "or" rule, not off the page's
+   text. */
 .acct--step .acct__empty {
   align-items: stretch;
   margin-inline: 0;
   text-align: start;
+}
+.acct--step .acct__swap {
+  text-align: center;
 }
 .acct__or {
   display: flex;
