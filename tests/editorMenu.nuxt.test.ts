@@ -51,6 +51,7 @@ describe("the editor's ⋯ menu", () => {
       "Import a list…",
       "Keyboard shortcuts",
       "Send feedback…",
+      "Help",
       "About",
       "Legal",
       "Forget this list",

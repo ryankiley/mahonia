@@ -14,6 +14,7 @@ export default defineEventHandler(async (event) => {
   const urls = [
     `  <url><loc>${esc(origin)}/</loc></url>`,
     `  <url><loc>${esc(origin)}/about</loc></url>`,
+    `  <url><loc>${esc(origin)}/help</loc></url>`,
     ...rows.map((r) => {
       const d = r.updatedAt ? new Date(r.updatedAt) : null;
       const lastmod = d && !isNaN(d.getTime()) ? `<lastmod>${d.toISOString().slice(0, 10)}</lastmod>` : "";

@@ -27,13 +27,15 @@ const here = (p: string) => route.path === p;
   <footer class="foot">
     <div class="wrap foot__inner">
       <nav class="foot__nav" aria-label="Footer">
-        <!-- Two links, and both are about the SITE. "Your lists" used to sit here and
+        <!-- Three links, and all are about the SITE. "Your lists" used to sit here and
              went when its page did; "My Gear" followed it for the same reason — a
              footer is legal-and-colophon chrome, which is the wrong shelf for one
              person's own possessions. It lives where you use it now: the toolbar
              glyph in the editor, and the account menu on every other page. "What's
-             new" went when the changelog became GitHub's Releases; About points there. -->
+             new" went when the changelog became GitHub's Releases; About points there.
+             Help sits between About and Legal: what it is, how it works, the terms. -->
         <NuxtLink v-if="!here('/about')" to="/about" class="foot__link t-sm">About</NuxtLink>
+        <NuxtLink v-if="!here('/help')" to="/help" class="foot__link t-sm">Help</NuxtLink>
         <NuxtLink v-if="!here('/legal')" to="/legal" class="foot__link t-sm">Legal</NuxtLink>
       </nav>
     </div>

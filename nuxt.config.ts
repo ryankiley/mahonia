@@ -439,6 +439,7 @@ export default defineNuxtConfig({
     },
     // pure-static pages → build-time prerender (CDN-served, zero invocations)
     "/about": { prerender: true },
+    "/help": { prerender: true },
     "/legal": { prerender: true },
     // Privacy + Terms were merged into /legal (two sections) — keep the old URLs
     // working with a permanent redirect (bookmarks, external links, llms.txt history).
