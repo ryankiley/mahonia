@@ -20,9 +20,15 @@ describe("clientMark", () => {
     expect(clientMark({ label: "Gemini", kind: "registered" }, https("docs.google.com"))).toMatchObject({ icon: null, checked: false });
   });
 
-  it("never draws a logo for a name an app gave itself", () => {
-    // back to this computer: the name is all there is
-    expect(clientMark({ label: "ChatGPT", kind: "registered" }, loopback)).toEqual({ name: "ChatGPT", icon: null, initial: "C", checked: false });
+  it("takes an app on this computer at its word for the logo, and still calls it unchecked", () => {
+    expect(clientMark({ label: "Gemini CLI", kind: "registered" }, loopback)).toEqual({ name: "Gemini CLI", icon: GoogleGeminiIcon, initial: "G", checked: false });
+    expect(clientMark({ label: "Codex", kind: "registered" }, loopback)).toMatchObject({ name: "Codex", icon: ChatGptIcon, checked: false });
+    expect(clientMark({ label: "Visual Studio Code", kind: "registered" }, loopback)).toMatchObject({ icon: VisualStudioCodeIcon, checked: false });
+    // a name that only contains a known one as part of a word doesn't count
+    expect(clientMark({ label: "Claudette's packer", kind: "registered" }, loopback)).toMatchObject({ icon: null, initial: "C" });
+  });
+
+  it("never lets a name outrank a host it was checked against", () => {
     // a known name pointed at somebody else's site
     expect(clientMark({ label: "Claude", kind: "registered" }, https("claude.ai.example.net"))).toMatchObject({ name: "Claude", icon: null, checked: false });
     // a metadata document on a lookalike host

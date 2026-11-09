@@ -165,7 +165,7 @@ async function decide(decision: "allow" | "deny") {
             <template v-if="presence === 'signedOut'">
               <p class="t-muted">Sign in to your Mahonia account first. {{ label }} will then ask to {{ wants }}.</p>
               <div class="az__signin">
-                <AccountView in-modal hide-heading />
+                <AccountView in-modal hide-heading as-step />
               </div>
             </template>
 
@@ -181,21 +181,20 @@ async function decide(decision: "allow" | "deny") {
                     <span>{{ s.text }}</span>
                   </li>
                 </ul>
+                <p class="t-muted az__fine">Until you disconnect it on your account page, under Assistant access.</p>
               </section>
 
               <!-- what Mahonia couldn't check, said before the buttons rather than under them -->
               <div v-if="checked.returnTo.loopback || !mark?.checked" class="az__caution">
                 <HugeiconsIcon :icon="Alert02Icon" :size="16" :stroke-width="2" class="az__cautionicon" aria-hidden="true" />
-                <div class="az__cautiontext">
-                  <p v-if="checked.returnTo.loopback">
-                    Afterwards you’ll be sent to <code>{{ checked.returnTo.host }}</code>, an app running on this computer.
-                    Any program here could listen at that address, so only allow this if you just started the connection
-                    yourself.
-                  </p>
-                  <p v-if="!mark?.checked">
-                    The app registered itself under that name; Mahonia hasn’t checked who runs it.
-                  </p>
-                </div>
+                <!-- one short paragraph, whichever of the two applies -->
+                <p>
+                  <template v-if="!mark?.checked">Mahonia can’t confirm who made this app. </template>
+                  <template v-if="checked.returnTo.loopback">
+                    Any program on this computer could be listening at <code>{{ checked.returnTo.host }}</code>, so only allow
+                    this if you just started it.
+                  </template>
+                </p>
               </div>
 
               <div class="az__decide">
@@ -211,10 +210,8 @@ async function decide(decision: "allow" | "deny") {
               </div>
 
               <p v-if="note" class="az__note" role="status">{{ note }}</p>
-              <p v-else class="t-muted az__fine">
-                <template v-if="!checked.returnTo.loopback">You’ll go back to {{ checked.returnTo.host }}. </template>It
-                stays connected until you disconnect it under Assistant access on your account page.
-              </p>
+              <!-- where Allow or Deny takes you; a loopback address is named in the caution -->
+              <p v-else-if="!checked.returnTo.loopback" class="t-muted az__fine">You’ll go back to {{ checked.returnTo.host }}.</p>
             </template>
 
             <p v-else class="t-muted">Loading…</p>
@@ -323,11 +320,6 @@ async function decide(decision: "allow" | "deny") {
 .az__cautionicon {
   flex: none;
   margin-top: calc((1lh - 16px) / 2);
-}
-.az__cautiontext {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
 }
 
 /* ---- who decides, and the decision ---- */
