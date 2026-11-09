@@ -113,26 +113,22 @@ export function useItemRowFields({
     gear.updateItem(item.value.id, { commonName: el.value, commonNameOverridden: true });
     el.value = item.value.commonName ?? "";
   }
-  // A typed size on a LINKED row is a claim about which size this is, so it can't just
-  // be text: the row would keep the first pick's link and cited weight under a size it
-  // no longer says (shared/catalogSizes). Those rules and the sizes load only for that
-  // case, off the editor's first load; anything else is the plain write it always was.
-  // The sizes are usually in hand already — the row's size menu asked when editing began.
-  async function onVariant(e: Event) {
+  // A catalog link is to ONE size, and the row carries that size's cited weight. So
+  // typing a different size on a linked row unlinks it: the text alone used to change,
+  // and the row said "Long" while linked to, and weighing, the Regular. The weight stays
+  // as the person's own to correct; picking the size from the name's suggestions is how
+  // to get its cited weight. Clearing the size, or retyping the same one, keeps the link.
+  function onVariant(e: Event) {
     const el = e.target as HTMLInputElement;
-    const typed = el.value;
-    const linked = item.value.catalogItemId;
-    if (linked == null || !typed.trim()) {
-      gear.updateItem(item.value.id, { variant: typed, nameOverridden: true });
-    } else {
-      const { sizesForTyped, typedSizePatch } = await import("./useCatalogSizes");
-      const sizes = await sizesForTyped(item.value, typed);
-      // the row moved on while the sizes came (a pick in the name box): that wins
-      if (item.value.catalogItemId === linked) {
-        const patch = typedSizePatch(item.value, typed, sizes);
-        if (patch) gear.updateItem(item.value.id, patch);
-      }
-    }
+    const typed = el.value.trim();
+    const otherSize =
+      item.value.catalogItemId != null && !!typed && typed.toLowerCase() !== (item.value.variant ?? "").toLowerCase();
+    gear.updateItem(
+      item.value.id,
+      otherSize
+        ? { variant: typed, nameOverridden: true, catalogItemId: null, weightOverridden: true }
+        : { variant: el.value, nameOverridden: true },
+    );
     el.value = item.value.variant ?? "";
   }
   function onNote(e: Event) {

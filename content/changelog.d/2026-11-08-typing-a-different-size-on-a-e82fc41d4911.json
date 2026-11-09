@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-08",
+  "fixed": [
+    "Typing a different size on a gear row picked from the catalog now makes its weight yours, not the catalog's figure for the old size."
+  ]
+}

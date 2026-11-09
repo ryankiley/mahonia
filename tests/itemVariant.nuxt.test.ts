@@ -11,10 +11,9 @@
 //     same product in another variant.
 // Mounted rather than reasoned about, because each is a binding in a template, and a
 // template binding that goes missing fails no type check.
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
-import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
-import { getQuery } from "h3";
+import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { ref, type Ref } from "vue";
 import ItemName from "~/components/ItemName.vue";
 import ReadonlyItemRow from "~/components/ReadonlyItemRow.vue";
@@ -26,19 +25,6 @@ import { gearListStub, quietVaultAccess } from "./helpers/gearList";
 
 registerEndpoint("/api/catalog/search", () => ({ results: [] }));
 registerEndpoint("/api/catalog/use", { method: "POST", handler: () => ({ ok: true }) });
-// the Revelation in three sizes (7 is the Long the rows below are linked to), and a
-// product sold in one size (20)
-const REVELATION = [
-  { id: 6, variant: "Regular", weightMg: 510_000, kcal: null },
-  { id: 7, variant: "Long", weightMg: 560_000, kcal: null },
-  { id: 8, variant: "Long, Wide", weightMg: 610_000, kcal: null },
-];
-registerEndpoint("/api/catalog/sizes", (event) => {
-  const id = Number(getQuery(event).id);
-  if (REVELATION.some((s) => s.id === id)) return { sizes: REVELATION };
-  if (id === 20) return { sizes: [{ id: 20, variant: "2P", weightMg: 1_200_000, kcal: null }] };
-  return { sizes: [] };
-});
 
 mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
 
@@ -219,6 +205,35 @@ describe("the editor's row", () => {
     await field.trigger("change");
     expect(snapshot.value.items[0]!.variant).toBeUndefined();
     expect(snapshot.value.items[0]).toMatchObject({ name: "Revelation", brand: "Enlightened Equipment" });
+    // a blank size isn't a claim to be another one, so the link stays
+    expect(snapshot.value.items[0]!.catalogItemId).toBe(7);
+  });
+
+  // The link is to one size and carries its cited weight: a row typed to another size
+  // stops claiming it, rather than saying "Regular" while weighing the Long
+  it("unlinks a linked row typed to another size, and keeps its product and weight as the person's", async () => {
+    const w = mountRow(longQuilt());
+    const field = w.find<HTMLInputElement>(".item__variant-input");
+    field.element.value = " Regular ";
+    await field.trigger("change");
+    const row = snapshot.value.items[0]!;
+    expect(row.catalogItemId).toBeUndefined();
+    expect(row).toMatchObject({
+      variant: "Regular",
+      name: "Revelation",
+      brand: "Enlightened Equipment",
+      commonName: "Quilt",
+      unitWeightMg: 560_000,
+      weightOverridden: true,
+    });
+  });
+
+  it("keeps the link when the same size is typed again", async () => {
+    const w = mountRow(longQuilt());
+    const field = w.find<HTMLInputElement>(".item__variant-input");
+    field.element.value = "long";
+    await field.trigger("change");
+    expect(snapshot.value.items[0]!.catalogItemId).toBe(7);
   });
 
   it("shows a typed variant on a renamed row's sub-line", () => {
@@ -264,71 +279,5 @@ describe("the editor's row", () => {
     shown.value = new Set();
     await w.vm.$nextTick();
     expect(w.find("label.item--check .item__cvariant").exists()).toBe(false);
-  });
-});
-
-// A linked row's other sizes: a chevron after the Size field while the row is edited,
-// and a typed size that relinks or unlinks (shared/catalogSizes pins the patches).
-describe("the editor's row, changing size", () => {
-  const mountRow = (row: Item) => mountRowOver(snapshot, [{ ...row }], rowProvides(new Map()));
-  const editRow = async (w: ReturnType<typeof mountRow>) => {
-    await w.find(".item__namebox .ac__input").trigger("focusin");
-    await flushPromises();
-  };
-
-  beforeEach(() => {
-    const em = useEditorMode();
-    em.mode.value = "edit";
-    em.everEdit.value = true;
-  });
-
-  it("offers the product's other sizes while the row is edited, and a pick relinks and reweighs it", async () => {
-    const w = mountRow(longQuilt());
-    expect(w.find(".sizemenu").exists()).toBe(false); // not on a row nobody is editing
-    await editRow(w);
-    // the sizes come over the (stubbed) network, a few ticks after editing begins
-    await vi.waitFor(() => expect(w.find(".sizemenu").exists()).toBe(true));
-    await w.find(".sizemenu button").trigger("click");
-    const rows = w.findAll(".sizemenu .menu__item");
-    expect(rows.map((r) => r.find("span").text())).toEqual(["Regular", "Long", "Long, Wide"]);
-    expect(rows[1]!.attributes("aria-current")).toBe("true");
-    expect(rows[0]!.find(".optmenu__detail").text()).not.toBe("");
-    await rows[0]!.trigger("click");
-    expect(snapshot.value.items[0]).toMatchObject({ catalogItemId: 6, variant: "Regular", unitWeightMg: 510_000 });
-    expect(snapshot.value.items[0]).toMatchObject({ brand: "Enlightened Equipment", name: "Revelation", commonName: "Quilt" });
-  });
-
-  it("relinks a typed size the product is sold in", async () => {
-    const w = mountRow(longQuilt());
-    await editRow(w);
-    const field = w.find<HTMLInputElement>(".item__variant-input");
-    field.element.value = "long, wide";
-    await field.trigger("change");
-    // the size rules load on demand (off the editor's first load), then the sizes
-    await vi.waitFor(() =>
-      expect(snapshot.value.items[0]).toMatchObject({ catalogItemId: 8, variant: "Long, Wide", unitWeightMg: 610_000 }),
-    );
-  });
-
-  it("unlinks a typed size the product isn't sold in, and keeps the product's name", async () => {
-    const w = mountRow(longQuilt());
-    await editRow(w);
-    const field = w.find<HTMLInputElement>(".item__variant-input");
-    field.element.value = "Short";
-    await field.trigger("change");
-    await vi.waitFor(() => expect(snapshot.value.items[0]!.catalogItemId).toBeUndefined());
-    const row = snapshot.value.items[0]!;
-    expect(row).toMatchObject({ variant: "Short", brand: "Enlightened Equipment", name: "Revelation", unitWeightMg: 560_000 });
-    expect(w.find(".sizemenu").exists()).toBe(false); // nothing left to pick between
-  });
-
-  it("offers no chevron for a product sold in one size", async () => {
-    const w = mountRow(longQuilt({ catalogItemId: 20, variant: "2P" }));
-    await editRow(w);
-    // the one size has arrived (a typed size waits on the same fetch), and still no chevron
-    const { loadCatalogSizes } = await import("~/composables/useCatalogSizes");
-    expect(await loadCatalogSizes(20)).toHaveLength(1);
-    await flushPromises();
-    expect(w.find(".sizemenu").exists()).toBe(false);
   });
 });

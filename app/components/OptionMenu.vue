@@ -14,8 +14,7 @@ import { CheckIcon } from "@hugeicons/core-free-icons";
 // caption-sized unit. So the trigger is a slot and everything else lives here: the
 // popover, the travelling plate, the check on the current row, outside-tap and Escape.
 // The button itself stays in this component so aria-haspopup/expanded can't drift.
-// `detail` is a quiet trailing figure the label is chosen BY, such as a size's weight
-type Option = { key: string; label: string; icon?: IconNode; detail?: string };
+type Option = { key: string; label: string; icon?: IconNode };
 
 const props = defineProps<{
   options: readonly Option[];
@@ -50,13 +49,6 @@ const props = defineProps<{
    * baseline. Anything that must actually restyle this button belongs here.
    */
   align?: "center" | "baseline";
-  /**
-   * What to do when the menu fits neither side of its trigger (useMenuPlacement): "flip"
-   * hangs it from the other edge, "shift" slides it back on screen. Shift is for a
-   * trigger in the MIDDLE of a narrow row, like a row's Size field on a phone, where a
-   * wide menu overruns whichever edge it hangs from.
-   */
-  fit?: "flip" | "shift";
 }>();
 const emit = defineEmits<{ pick: [key: string]; overlayToggle: [boolean] }>();
 
@@ -69,15 +61,10 @@ const menuList = useTemplateRef<{ el: HTMLElement | null }>("menuList");
 // `within`: an option list can be long (a folder picker holds every folder), and these
 // pickers sit inside clipping cards (the My Gear sheet, a dialog), so it fits the card
 // it lives in and scrolls when neither side has room.
-const { atStart, above, maxHeight, shift, place } = useMenuPlacement(
+const { atStart, above, maxHeight, place } = useMenuPlacement(
   computed(() => menuList.value?.el ?? null),
-  { within: true, fit: props.fit },
+  { within: true },
 );
-const listStyle = computed(() => ({
-  ...(maxHeight.value != null ? { maxHeight: `${maxHeight.value}px` } : {}),
-  // `translate`, not `transform`: the enter transition owns transform
-  ...(shift.value ? { translate: `${shift.value}px 0` } : {}),
-}));
 watch(open, (o) => o && nextTick(place));
 
 // The list is position:absolute, so a clipping ancestor crops it — the unit menu on
@@ -131,7 +118,7 @@ function pick(key: string) {
         ref="menuList"
         class="optmenu__list"
         :class="{ 'menu__list--start': atStart, 'menu__list--above': above, 'optmenu__list--capped': maxHeight != null }"
-        :style="listStyle"
+        :style="maxHeight != null ? { maxHeight: `${maxHeight}px` } : undefined"
         :aria-label="label"
       >
         <li v-for="o in options" :key="o.key" role="none">
@@ -147,7 +134,6 @@ function pick(key: string) {
                  a component, so :is would try to render an array and fail. -->
             <HugeiconsIcon v-if="o.icon" :icon="o.icon" :size="16" :stroke-width="2" aria-hidden="true" />
             <span>{{ o.label }}</span>
-            <span v-if="o.detail" class="optmenu__detail">{{ o.detail }}</span>
             <!-- rendered on EVERY row and hidden rather than dropped — see the style -->
             <HugeiconsIcon
               :icon="CheckIcon"
@@ -198,17 +184,6 @@ function pick(key: string) {
 }
 .optmenu__list {
   min-width: 7rem;
-}
-/* the detail takes the trailing push the check has on its own, so the figures line up
-   in one column with the check after them, not floating midway between the two */
-.optmenu__detail {
-  margin-left: auto;
-  padding-left: var(--space-4);
-  color: var(--ink-3);
-  font-variant-numeric: tabular-nums;
-}
-.optmenu__detail + .menu__check {
-  margin-left: 0;
 }
 /* Capped to the room its clipping card leaves (useMenuPlacement's `within`): the rows
    scroll inside the card. The travelling plate is a child of the list, so it scrolls

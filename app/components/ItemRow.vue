@@ -657,7 +657,6 @@ const {
   fitNote,
 });
 
-
 const { activeSplit, consumableAria, isConsumable, isWorn, setClass, setSplit, splitOptions, wornAria, wornTitle } =
   useItemRowClassification({
     item: toRef(props, "item"),
@@ -1357,29 +1356,18 @@ function dismissFix() {
                      Men's Medium or a Silpoly in mind (Ryan, 2026-09-12: "variant" is
                      "too industry terminology"). The field's name in code stays
                      `variant`. -->
-                <!-- the field and the product's other sizes (ItemSizeMenu, lazy: only a
-                     linked row being edited mounts it) in one box, so the chevron can't
-                     wrap onto a line of its own -->
                 <Transition name="reveal-field">
-                  <span v-if="variantShown" class="item__variant">
-                    <input
-                      class="item__note item__variant-input"
-                      :maxlength="MAX_VARIANT_LEN"
-                      :value="item.variant ?? ''"
-                      placeholder="Size or version"
-                      aria-label="Size or version"
-                      autocorrect="off"
-                      spellcheck="false"
-                      @change="onVariant"
-                    />
-                    <LazyItemSizeMenu
-                      v-if="nameEditing && item.catalogItemId != null && !isParent"
-                      :item="item"
-                      :unit="rowUnit"
-                      :name="editableName"
-                      @overlay-toggle="$emit('overlayToggle', $event)"
-                    />
-                  </span>
+                  <input
+                    v-if="variantShown"
+                    class="item__note item__variant-input"
+                    :maxlength="MAX_VARIANT_LEN"
+                    :value="item.variant ?? ''"
+                    placeholder="Size or version"
+                    aria-label="Size or version"
+                    autocorrect="off"
+                    spellcheck="false"
+                    @change="onVariant"
+                  />
                 </Transition>
               </div>
               <!-- A TEXTAREA, and the only field on the row that is one. Everything
@@ -2856,11 +2844,6 @@ function dismissFix() {
   flex-direction: column;
   gap: var(--space-1);
 }
-/* while the sizes menu is up (ItemSizeMenu): the slide's clip would cut it off. :has()
-   holds the lift through the menu's leave transition, which a flag set on close wouldn't */
-.reveal > .item__subfields:has(.menu__list) {
-  overflow: visible;
-}
 /* If one sub-line has a saved value, the shared reveal stays mounted when focus
    leaves. Let its empty sibling finish closing instead of disappearing mid-frame. */
 .reveal-field-leave-active {
@@ -2896,28 +2879,6 @@ function dismissFix() {
     field-sizing: content;
     min-width: 2ch;
     max-width: 100%;
-  }
-}
-/* The Size field and its chevron (ItemSizeMenu). Without content sizing the field fills
-   its line, as .item__note does, and the chevron takes its width out of the end of it;
-   with it, the pair hugs the size's text and sits after the gear type. */
-.item__variant {
-  display: flex;
-  align-items: center;
-  flex: 1 1 100%;
-  min-width: 0;
-  .item__variant-input {
-    flex: 1 1 auto;
-    min-width: 0;
-  }
-}
-@supports (field-sizing: content) {
-  .item__variant {
-    flex: 0 1 auto;
-    max-width: 100%;
-    .item__variant-input {
-      flex: 0 1 auto;
-    }
   }
 }
 /* the variant field keeps .item__note's italic aside voice (the voice the row's name
