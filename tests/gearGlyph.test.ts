@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { GEAR_GLYPHS, gearGlyphFor } from "../shared/gearGlyph";
+import { GEAR_GLYPHS, gearFamilyOf, gearGlyphFor } from "../shared/gearGlyph";
 import { parseCsv } from "../shared/exporters/csv";
 import { CATALOG_CSV } from "../scripts/paths";
 
@@ -15,7 +15,7 @@ describe("which icon a gear type wears", () => {
     ["Sleeping bag", "sleep"],
     ["Pillow", "sleep"],
     ["Earplugs", "sleep"],
-    ["Hammock", "sleep"],
+    ["Hammock", "tent"],
     ["Mouth guard", "sleep"],
     ["Sleeping pad", "pad"],
     ["Trekking poles", "poles"],
@@ -49,15 +49,67 @@ describe("which icon a gear type wears", () => {
     ["Repair kit", "repair"],
     ["Guyline", "cord"],
     ["Bear canister", "container"],
-    ["Microspikes", "boot"],
+    ["Microspikes", "iceAxe"],
     ["Hose", "hydration"],
     ["Tube clip", "hydration"],
-    ["Electrolyte mix", "hydration"],
-    ["Drink mix", "hydration"],
+    ["Electrolyte mix", "food"],
+    ["Drink mix", "food"],
     ["Squeeze bottle", "bottle"],
     ["Compression straps", "bag"],
     ["Insoles", "shoe"],
-    ["Head net", "bug"],
+    ["Head net", "neck"],
+    // the 2026-11-08 sorting audit: types a stray word sent to the wrong kind
+    ["Bowl", "pot"],
+    ["Sling bag", "backpack"],
+    ["Running belt", "backpack"],
+    ["Snack pouch", "bag"],
+    ["Hammock straps", "tent"],
+    ["Tape", "firstAid"],
+    ["Tenacious tape", "repair"],
+    ["Back pad", "backpack"],
+    ["Bear hang kit", "container"],
+    ["Rope bag", "bag"],
+    ["Table", "chair"],
+    ["Lip guards", "cup"],
+    ["Knee pad", "pants"],
+    ["Charging cord", "electronics"],
+    ["Tent light", "light"],
+    ["Pump sack", "pad"],
+    ["Blister pads", "firstAid"],
+    ["Tyvek sheet", "tent"],
+    ["Avalanche shovel", "iceAxe"],
+    ["Pee bottle", "toilet"],
+    ["Water bag", "hydration"],
+    ["Shelter pole", "tent"],
+    ["Lens cap", "camera"],
+    ["Sport cap", "bottle"],
+    // and common types that matched nothing
+    ["Batteries", "electronics"],
+    ["Knives", "knife"],
+    ["Medical kit", "firstAid"],
+    ["Bug spray", "toiletry"],
+    ["Multi-tool", "knife"],
+    ["Smartphone", "phone"],
+    ["Purification tablets", "filter"],
+    ["Windbreaker", "jacket"],
+    ["Underquilt", "sleep"],
+    ["Guy lines", "cord"],
+    ["Energy gel", "food"],
+    ["Toiletries", "toiletry"],
+    ["Shelter", "tent"],
+    // a kind's name is the last resort: anything more specific still wins
+    ["Water filter", "filter"],
+    ["Water shoes", "shoe"],
+    // the judgment calls, settled: a drink is food, a sit pad sits by the chair,
+    // traction goes with the ice axe, and the gear you make a drink with is kitchen
+    ["Coffee", "food"],
+    ["Instant coffee", "food"],
+    ["French press", "cup"],
+    ["Sit pad", "chair"],
+    ["Big sit pad", "chair"],
+    ["Crampons", "iceAxe"],
+    ["Snowshoes", "iceAxe"],
+    ["Mosquito Head Net with Insect Shield", "neck"],
     ["Headlamp", "light"],
     ["GPS watch", "watch"],
     ["Power bank", "electronics"],
@@ -100,7 +152,7 @@ describe("which icon a gear type wears", () => {
     ["Camera case", "camera"],
     ["Toothbrush case", "toiletry"],
     ["Pack liner", "bag"],
-    ["Toiletry bag", "bag"],
+    ["Toiletry bag", "toiletry"],
     ["Face wipe", "toiletry"],
     ["Face wipes", "toiletry"],
   ])("%s → %s, not the broader rule", (type, glyph) => {
@@ -155,5 +207,26 @@ describe("which icon a gear type wears", () => {
     const typed = rows.filter((r) => r[col]);
     const pictured = typed.filter((r) => gearGlyphFor(r[col]) !== null);
     expect(pictured.length / typed.length).toBeGreaterThanOrEqual(0.9);
+  });
+});
+
+describe("the families My Gear groups by", () => {
+  it("reads a piece's family off its icon, and none for no icon", () => {
+    expect(gearFamilyOf(gearGlyphFor("Tent"))).toBe("shelter");
+    expect(gearFamilyOf(gearGlyphFor("Stove"))).toBe("kitchen");
+    expect(gearFamilyOf(gearGlyphFor("Rain jacket"))).toBe("clothing");
+    // fine enough to find a thing by: shoes aren't clothing, a filter isn't the kitchen
+    expect(gearFamilyOf(gearGlyphFor("Trail runners"))).toBe("footwear");
+    expect(gearFamilyOf(gearGlyphFor("Water filter"))).toBe("water");
+    expect(gearFamilyOf(gearGlyphFor("Quilt"))).toBe("sleep");
+    // and a pack isn't a stuff sack
+    expect(gearFamilyOf(gearGlyphFor("Backpack"))).toBe("packs");
+    expect(gearFamilyOf(gearGlyphFor("Stuff sack"))).toBe("storage");
+    // first aid apart from hygiene, and poles a kind of their own, not shelter
+    expect(gearFamilyOf(gearGlyphFor("First aid kit"))).toBe("firstaid");
+    expect(gearFamilyOf(gearGlyphFor("Toothbrush"))).toBe("hygiene");
+    expect(gearFamilyOf(gearGlyphFor("Trekking poles"))).toBe("trekking");
+    expect(gearFamilyOf(gearGlyphFor("Tent poles"))).toBe("shelter");
+    expect(gearFamilyOf(null)).toBeNull();
   });
 });

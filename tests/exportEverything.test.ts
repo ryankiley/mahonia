@@ -10,7 +10,7 @@ import { jsonToListImport, listToJson } from "../shared/exporters/json";
 import { vaultToJson } from "../shared/exporters/vault";
 import { encodePolyline } from "../shared/polyline";
 import type { ListSnapshot } from "../shared/types";
-import type { VaultEntry, VaultFolder } from "../shared/vault";
+import type { VaultEntry } from "../shared/vault";
 import { createTestDb, makeList } from "./helpers/db";
 
 // The account takeout: every claimed list as the OWNER holds it, in the shape a list's
@@ -81,8 +81,7 @@ describe("the takeout's shape", () => {
     ...over,
   });
   const gear = {
-    folders: [{ id: 1, name: "Sleep", sortOrder: 0 } as unknown as VaultFolder],
-    items: [{ id: 5, normKey: "zpacks duplex", name: "Duplex", brand: "Zpacks", weightMg: 538_000, folderId: 1, timesSeen: 3 } as unknown as VaultEntry],
+    items: [{ id: 5, normKey: "zpacks duplex", name: "Duplex", brand: "Zpacks", weightMg: 538_000, timesSeen: 3 } as unknown as VaultEntry],
   };
 
   it("names its format, and holds each list in the backup's own shape plus its handle", () => {

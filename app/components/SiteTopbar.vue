@@ -16,7 +16,9 @@ defineProps<{
 <template>
   <header class="topbar">
     <div class="wrap topbar__inner" :class="{ 'topbar__inner--compact': compact }">
-      <NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink>
+      <!-- the leading edge: the wordmark home, unless the page has its own way out
+           (/gear puts the editor's "Your packs" switcher here) -->
+      <slot name="lead"><NuxtLink to="/" class="t-label brand">Mahonia</NuxtLink></slot>
       <span v-if="label" class="t-sm t-muted">{{ label }}</span>
       <!-- One trailing group rather than each child racing for margin-left:auto.
            With the account control always present, a per-child auto margin on the

@@ -26,6 +26,7 @@ import { localKey, type LocalListRecord } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
+import { addVaultKit } from "~/composables/useVaultUnfold";
 import { _setFlushBackoff, _setFlushDebounce } from "~/composables/useGearList";
 import {
   _pendingCapture,
@@ -855,27 +856,42 @@ describe("useGearList — getting a pending capture out as the page goes away", 
 });
 
 // ---------------------------------------------------------------------------
-// Category templates — cloning a whole vault folder back into a list.
-//
-// Driven through the live controller rather than a extracted helper because the
-// behaviour under test is a COMPOSITION: addVaultFolder mints a folder, then leans
-// on addVaultItem for every row, and the rules worth pinning (which rows are
-// skipped, where they land, what a no-op does) only exist once those two run
-// together against a real snapshot.
+// A kit from My Gear, onto a list — and taken back off with one Undo.
 // ---------------------------------------------------------------------------
-describe("useGearList — addVaultFolder", () => {
-  const entry = (over: Partial<VaultEntry> & { normKey: string; name: string }): VaultEntry => ({
-    id: 1,
+describe("useGearList — addVaultKit", () => {
+  const entry = (over: Partial<VaultEntry> & { id: number; normKey: string; name: string }): VaultEntry => ({
     weightMg: 100_000,
     timesSeen: 1,
     lastUsedAt: "",
     createdAt: "",
     ...over,
   });
+  const pot = entry({ id: 1, normKey: "pot", name: "Pot", weightMg: 120_000 });
+  const lighter = entry({ id: 2, normKey: "lighter", name: "Lighter", weightMg: 11_000 });
+  const kit = entry({
+    id: 3,
+    normKey: "cook kit",
+    name: "Cook kit",
+    kind: "kit",
+    ownWeightMg: 20_000,
+    weightMg: 142_000,
+    parts: [
+      { id: 1, qty: 1, name: "Pot", weightMg: 120_000 },
+      { id: 2, qty: 2, name: "Lighter", weightMg: 11_000 },
+    ],
+  });
 
   beforeEach(() => {
-    // a list that already HOLDS something, so the "already added" rule has a case
     listResponse = withGear([gear()]);
+  });
+
+  it("lands the kit as a group at its own weight, its items under it at their counts", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    const id = addVaultKit(c, kit, null, [pot, lighter, kit]);
+    const items = c.snapshot.value!.items;
+    expect(items.find((i) => i.id === id)).toMatchObject({ name: "Cook kit", unitWeightMg: 20_000 });
+    expect(items.filter((i) => i.parentId === id).map((i) => [i.name, i.qty])).toEqual([["Pot", 1], ["Lighter", 2]]);
   });
 
   // the pane's add and a name-field pick are one rule (vaultRowFields): the pane used
@@ -887,66 +903,15 @@ describe("useGearList — addVaultFolder", () => {
     expect(c.snapshot.value!.items.find((i) => i.id === id)).toMatchObject({ name: "Mug", unitWeightMg: 107_700, entryUnit: "oz", weightOverridden: true });
   });
 
-  it("creates one folder and files every entry into it", async () => {
+  it("offers an undo that takes the whole group back off", async () => {
     const c = useGearList();
     await c.load({ token: TOKEN });
-    const before = c.snapshot.value!.folders.length;
-
-    const id = c.addVaultFolder("Cook kit", [
-      entry({ normKey: "pot", name: "Pot", weightMg: 120_000 }),
-      entry({ normKey: "stove", name: "Stove", weightMg: 80_000 }),
-    ]);
-
-    expect(id).not.toBe("");
-    const snap = c.snapshot.value!;
-    expect(snap.folders).toHaveLength(before + 1);
-    const folder = snap.folders.find((f) => f.id === id)!;
-    expect(folder.name).toBe("Cook kit");
-    // base is the folder default — a template must not pin a classification the
-    // vault row didn't carry
-    expect(folder.defaultClassification).toBe("base");
-
-    const landed = snap.items.filter((i) => i.folderId === id);
-    expect(landed.map((i) => i.name).sort()).toEqual(["Pot", "Stove"]);
-    expect(landed.map((i) => i.unitWeightMg).sort((a, b) => a - b)).toEqual([80_000, 120_000]);
-  });
-
-  it("skips gear the list already holds, matching the per-row rule", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    // the fixture list carries a Duplex; adding a category containing it must not
-    // split one thing's weight across two rows
-    const held = c.snapshot.value!.items[0]!;
-    const id = c.addVaultFolder("Shelter", [
-      entry({ normKey: vaultNormKey(held.brand, held.name, held.variant), name: held.name }),
-      entry({ normKey: "stakes", name: "Stakes" }),
-    ]);
-
-    const landed = c.snapshot.value!.items.filter((i) => i.folderId === id);
-    expect(landed.map((i) => i.name)).toEqual(["Stakes"]);
-  });
-
-  it("adds nothing at all when every entry is already held", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    const held = c.snapshot.value!.items[0]!;
-    const folders = c.snapshot.value!.folders.length;
-
-    const id = c.addVaultFolder("Shelter", [
-      entry({ normKey: vaultNormKey(held.brand, held.name, held.variant), name: held.name }),
-    ]);
-
-    // an empty folder the user didn't ask for is worse than doing nothing
-    expect(id).toBe("");
-    expect(c.snapshot.value!.folders).toHaveLength(folders);
-  });
-
-  it("is a no-op for an empty category", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    const folders = c.snapshot.value!.folders.length;
-    expect(c.addVaultFolder("Empty", [])).toBe("");
-    expect(c.snapshot.value!.folders).toHaveLength(folders);
+    const before = c.snapshot.value!.items.length;
+    const id = addVaultKit(c, kit, null, [pot, lighter, kit]);
+    c.offerUndoAdd("Cook kit", id);
+    expect(c.pendingUndo.value).toMatchObject({ label: "Cook kit", verb: "Added" });
+    c.undoRemove();
+    expect(c.snapshot.value!.items).toHaveLength(before);
   });
 });
 

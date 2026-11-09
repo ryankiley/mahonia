@@ -1,56 +1,21 @@
-// /gear's view pipeline — filter → search → sort → group.
+// /gear's view pipeline — search → sort → group.
 //
 // Plain node, no Nuxt and no database: that is the whole reason shared/vaultView.ts
 // exists as its own module. The rules worth pinning here are the ones that are
-// invisible until they're wrong — a limit that silently truncates, a filter that
-// matches almost nothing, a heading that vanishes.
+// invisible until they're wrong — a limit that silently truncates, a heading that
+// vanishes.
 
 import { describe, expect, it } from "vitest";
-import { vaultFolder as folder, vaultRow as row } from "./helpers/vault";
+import { vaultRow as row } from "./helpers/vault";
 import type { VaultEntry } from "../shared/vault";
 import {
-  filterVaultRows,
-  groupVaultRows,
+  groupVaultByKind,
   searchVaultRows,
   sortVaultRows,
 } from "../shared/vaultView";
 
 
 const names = (rows: VaultEntry[]) => rows.map((r) => r.name);
-
-describe("filterVaultRows — WHICH gear", () => {
-  it("returns everything under 'all', without copying", () => {
-    const rows = [row(), row()];
-    expect(filterVaultRows(rows, "all")).toBe(rows);
-  });
-
-  it("'base' matches an ABSENT classification as well as the literal", () => {
-    // The trap: capture drops the field when a list row inherited its folder's
-    // default, so most base gear carries no value at all. A `=== "base"` filter would
-    // hide nearly everything and look like a broken vault.
-    const rows = [
-      row({ name: "Inherited", classification: undefined }),
-      row({ name: "Explicit", classification: "base" }),
-      row({ name: "Jacket", classification: "worn" }),
-    ];
-    expect(names(filterVaultRows(rows, "base"))).toEqual(["Inherited", "Explicit"]);
-  });
-
-  it("'worn' and 'consumable' match only the literal", () => {
-    const rows = [
-      row({ name: "Jacket", classification: "worn" }),
-      row({ name: "Bar", classification: "consumable" }),
-      row({ name: "Tent", classification: undefined }),
-    ];
-    expect(names(filterVaultRows(rows, "worn"))).toEqual(["Jacket"]);
-    expect(names(filterVaultRows(rows, "consumable"))).toEqual(["Bar"]);
-  });
-
-  it("'unfiled' matches a missing folderId", () => {
-    const rows = [row({ name: "Loose" }), row({ name: "Filed", folderId: 3 })];
-    expect(names(filterVaultRows(rows, "unfiled"))).toEqual(["Loose"]);
-  });
-});
 
 describe("searchVaultRows — the ranker, uncapped", () => {
   it("returns ALL matches, not the menu's six", () => {
@@ -138,88 +103,53 @@ describe("sortVaultRows — the order, across the whole vault", () => {
   });
 });
 
-describe("groupVaultRows — the folders view", () => {
-  const shelter = folder(1, "Shelter");
-  const cook = folder(2, "Cook");
-
-  it("puts unfiled last, whatever the folder order", () => {
+describe("groupVaultByKind — the default view", () => {
+  it("puts kits first, then each family in the icon set's order, then Other", () => {
     const rows = [
-      row({ name: "Loose" }),
-      row({ name: "Tent", folderId: 1 }),
-      row({ name: "Pot", folderId: 2 }),
+      row({ name: "Mug", commonName: "Cup" }),
+      row({ name: "Cook kit", kind: "kit", parts: [] }),
+      row({ name: "Duplex", commonName: "Tent" }),
+      row({ name: "Mystery widget", commonName: "Widget" }),
     ];
-    const out = groupVaultRows(rows, [shelter, cook], { keepEmpty: true });
-    expect(out.map((s) => s.folder?.name ?? "unfiled")).toEqual(["Shelter", "Cook", "unfiled"]);
+    const out = groupVaultByKind(rows);
+    expect(out.map((s) => s.label)).toEqual(["Kits", "Shelter", "Kitchen", "Other"]);
+    expect(out.map((s) => names(s.entries))).toEqual([["Cook kit"], ["Duplex"], ["Mug"], ["Mystery widget"]]);
   });
 
-  it("keeps an empty folder when nothing is narrowed — it's a heading you made", () => {
-    const out = groupVaultRows([row({ name: "Tent", folderId: 1 })], [shelter, cook], {
-      keepEmpty: true,
-    });
-    expect(out.map((s) => s.folder?.name)).toEqual(["Shelter", "Cook"]);
-    expect(out[1]!.entries).toEqual([]);
+  it("files a piece by the icon you picked over the one its type would give", () => {
+    const out = groupVaultByKind([row({ name: "Odd one", commonName: "Tent", icon: "stove" })]);
+    expect(out.map((s) => s.key)).toEqual(["kitchen"]);
   });
 
-  it("drops an empty folder under a filter, so the matches aren't buried", () => {
-    const out = groupVaultRows([row({ name: "Tent", folderId: 1 })], [shelter, cook], {
-      keepEmpty: false,
-    });
-    expect(out.map((s) => s.folder?.name)).toEqual(["Shelter"]);
-  });
-
-  it("omits the unfiled section entirely when nothing is unfiled", () => {
-    const out = groupVaultRows([row({ folderId: 1 })], [shelter], { keepEmpty: true });
+  it("leaves out a kind with nothing in it, and keeps the rows' own order inside one", () => {
+    const out = groupVaultByKind([row({ name: "B", commonName: "Tent" }), row({ name: "A", commonName: "Tent" })]);
     expect(out).toHaveLength(1);
+    expect(names(out[0]!.entries)).toEqual(["B", "A"]);
   });
 
-  it("states each folder's count and weight", () => {
-    const rows = [
-      row({ name: "Tent", folderId: 1, weightMg: 500 }),
-      row({ name: "Stakes", folderId: 1, weightMg: 100 }),
-      row({ name: "Loose", weightMg: 7 }),
-    ];
-    const out = groupVaultRows(rows, [shelter], { keepEmpty: true });
-    expect(out[0]).toMatchObject({ count: 2, weightMg: 600 });
-    expect(out[1]).toMatchObject({ count: 1, weightMg: 7 });
+  it("keeps a piece that is in a kit as a row of its own kind too", () => {
+    const pot = row({ name: "Pot", commonName: "Pot", inKits: [99] });
+    const out = groupVaultByKind([row({ id: 99, name: "Cook kit", kind: "kit", parts: [] }), pot]);
+    expect(out.map((s) => names(s.entries))).toEqual([["Cook kit"], ["Pot"]]);
   });
 });
 
-describe("searchVaultRows — notes and other scripts", () => {
-  it("matches Chinese names and notes without unrelated results", () => {
-    const rows = [row({ name: "SmallRig 电池", description: "蓝色 USB-C" }), row({ name: "炉头" })];
+describe("searchVaultRows — other scripts", () => {
+  it("matches Chinese names without unrelated results", () => {
+    const rows = [row({ name: "SmallRig 电池" }), row({ name: "炉头" })];
     expect(names(searchVaultRows(rows, "电池"))).toEqual(["SmallRig 电池"]);
-    expect(names(searchVaultRows(rows, "蓝色"))).toEqual(["SmallRig 电池"]);
     expect(names(searchVaultRows(rows, "smallrig 电池"))).toEqual(["SmallRig 电池"]);
     expect(names(searchVaultRows(rows, "电"))).toEqual(["SmallRig 电池"]);
     expect(searchVaultRows(rows, "熊罐")).toEqual([]);
   });
 
-  it("ranks the gear itself above a note that mentions it, and keeps the ranker's order", () => {
-    const rows = [
-      row({ name: "Repair kit", description: "patches for the Duplex floor" }),
-      row({ name: "Stake bag", description: "Duplex stakes" }),
-      row({ brand: "Zpacks", name: "Duplex", timesSeen: 1 }),
-      row({ brand: "Zpacks", name: "Duplex", variant: "Zip", timesSeen: 40 }),
-    ];
-    expect(names(searchVaultRows(rows, "duplex"))).toEqual(["Duplex", "Duplex", "Repair kit", "Stake bag"]);
-    // the ranker's tie-break (timesSeen) still decides between the two Duplexes
-    expect(searchVaultRows(rows, "duplex").slice(0, 2).map((r) => r.variant)).toEqual(["Zip", undefined]);
-    // a typo still finds the gear; a note is only ever a literal match
-    expect(names(searchVaultRows(rows, "dupelx"))).toEqual(["Duplex", "Duplex"]);
+  it("a single ideograph is a whole query, ranked like a word", () => {
+    const rows = [row({ name: "炉头" }), row({ name: "眼罩" })];
+    expect(names(searchVaultRows(rows, "炉"))).toEqual(["炉头"]);
   });
 
-  it("every word of the query has to land somewhere on the row", () => {
-    const rows = [row({ name: "Repair kit", description: "patches for the Duplex floor" }), row({ name: "Stake bag", description: "Duplex stakes" })];
-    expect(names(searchVaultRows(rows, "duplex patches"))).toEqual(["Repair kit"]);
-  });
-
-  it("a single ideograph is a whole query: ranked like a word, then its notes", () => {
-    const rows = [row({ name: "炉头" }), row({ name: "SmallRig 电池", description: "配炉头用" }), row({ name: "眼罩" })];
-    expect(names(searchVaultRows(rows, "炉"))).toEqual(["炉头", "SmallRig 电池"]);
-  });
-
-  it("a single character is a prefix question about the gear, not its notes", () => {
-    const rows = [row({ name: "Tent", description: "a note" }), row({ name: "Pump", description: "tiny" })];
+  it("a single character is a prefix question about the gear", () => {
+    const rows = [row({ name: "Tent" }), row({ name: "Pump" })];
     expect(names(searchVaultRows(rows, "t"))).toEqual(["Tent"]);
   });
 });

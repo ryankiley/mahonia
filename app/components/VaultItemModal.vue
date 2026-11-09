@@ -2,36 +2,38 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon, DashedLine02Icon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
-import { VAULT_NAME_MAX, VAULT_NOTE_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
+import { VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry, type VaultItemOp, type VaultItemPatch } from "~~/shared/vault";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 import type { GearGlyph } from "~~/shared/gearGlyph";
-import { GEAR_ICON_CHOICES, gearIcon, gearIconLabel } from "~/utils/gearIcons";
+import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
+import type { NameCommit } from "~/composables/useCatalogSearch";
+import type { Ref } from "vue";
 
-// Correcting a piece of gear in place — the half of My Gear that capture can't do.
+// Correcting a piece of gear in place — the half of My Gear that capture can't do —
+// and adding one by hand (`adding`): the same form, blank, with a catalog search on top
+// whose pick fills it in. One form for both, so a piece is added with everything it can
+// hold rather than a name and a weight, and the two can't drift apart.
 //
 // A DIALOG rather than an in-flow .reveal, and the motion vocabulary is why: that
 // family is for "a row's note" (atoms/controls.scss), and ten fields is a form, not
-// a note. Two mechanical reasons agree. The classification picker is an absolutely
+// a note. A mechanical reason agrees: the classification picker is an absolutely
 // positioned .menu__list, and /gear's rows live inside .folder__bodyinner's
-// `overflow: hidden` — going in-flow would mean growing the editor's whole
-// overlay-lift apparatus for one control. And the row is a drag handle whose
-// createPressArm excludes buttons but NOT inputs, so selecting text in an inline
-// weight field would arm a re-file at 5px of travel.
+// `overflow: hidden`, so going in-flow would mean lifting that clip for one control.
 //
 // The cost, plainly: a run of tidy-ups is open/edit/save per row rather than tabbing
 // down a column. Acceptable because /gear's row is DISPLAY — turning it into the
 // editor's live form is a bigger change than this page wants to be.
 const props = defineProps<{
+  /** the piece being edited; when `adding`, a blank one the form starts from */
   entry: VaultEntry | null;
+  adding?: boolean;
   unit: Unit;
   /** The money the rest of your gear is priced in, when it is priced in one. A bare
    *  number falls back to it, so stating a currency once is enough — see onSubmit. */
   defaultCurrency?: string;
-  /** "icon" opens the dialog with its icon grid showing (the row's icon was pressed). */
-  focus?: "icon" | null;
   /** The brands and gear types already in your gear, most used first: suggested ahead
    *  of the catalog's, since what you already call things is the likelier answer. */
   known?: { brands: string[]; types: string[] };
@@ -57,9 +59,13 @@ function mergeVocab(mine: string[] = [], theirs: string[] | null): string[] {
 }
 const brandOptions = computed(() => mergeVocab(props.known?.brands, catalogBrands.names.value));
 const typeOptions = computed(() => mergeVocab(props.known?.types, catalogTypes.names.value));
-const emit = defineEmits<{ close: []; saved: [VaultEntry] }>();
+const emit = defineEmits<{ close: []; saved: [item: VaultEntry]; added: [item: VaultEntry] }>();
 
 const { vaultFetch } = useVaultAccess();
+
+// This dialog is a PIECE's. A kit is edited in its section on the Kits tab
+// (VaultKitSection), and made there with New kit; it had a "Make it a kit" button
+// too, and it went (2026-11-08) for being a second door to the same room.
 
 // Three-way, not the editor's two toggles. Those are toggles because each ALSO opens
 // the detail that only exists while it's on, so the row gains no third control; there
@@ -81,30 +87,52 @@ const weight = ref("");
 const kcal = ref("");
 // how many you own, as typed; blank or 1 is one
 const owned = ref("");
-const note = ref("");
 const price = ref("");
 const productUrl = ref("");
 const classification = ref<Classification>("base");
 // The icon you picked by hand; null = the gear type decides, live, as you type it.
 const icon = ref<GearGlyph | null>(null);
-const iconsOpen = ref(false);
 const shownIcon = computed(() => gearIcon(commonName.value, name.value, icon.value));
 const shownLabel = computed(() => gearIconLabel(commonName.value, name.value, icon.value));
-// what "Automatic" would draw: the type's icon, read from the fields as they stand
+// what "Match the gear type" would draw: the type's icon, read from the fields as they stand
 const autoIcon = computed(() => gearIcon(commonName.value, name.value));
-const iconBtn = useTemplateRef<HTMLButtonElement>("iconBtn");
-function pickIcon(glyph: GearGlyph | null) {
-  icon.value = glyph;
-  iconsOpen.value = false;
-  // the grid goes with the press, and the button that was pressed with it: hand focus
-  // back to the box that opened it, rather than dropping a keyboard user on the page
-  nextTick(() => iconBtn.value?.focus());
-}
 // the unit this piece's weight reads in: its own, else the page's (the row's rowUnit)
 const rowUnit = computed<Unit>(() => props.entry?.entryUnit ?? props.unit);
 const saving = ref(false);
 const error = ref("");
-const nameEl = useTemplateRef<HTMLInputElement>("nameEl");
+
+// ---- adding: the catalog search -------------------------------------------------
+// A pick fills the form: what the product IS (brand, name, size, its catalog link)
+// always, and its gear type, weight and calories only where the field is empty or
+// still holds the last pick's, so a weight you typed first is kept (the one you
+// measured is the one My Gear keeps) and a second pick replaces the first's. The link
+// goes with the piece only while brand, name and size still say that product.
+const picked = ref<{ id: number; brand: string; name: string; variant: string } | null>(null);
+let pickFill = { commonName: "", weight: "", kcal: "" };
+function onPick(c: NameCommit) {
+  brand.value = c.brand ?? "";
+  name.value = c.name;
+  variant.value = c.variant ?? "";
+  const fill = (field: "commonName" | "weight" | "kcal", value: string, into: Ref<string>) => {
+    if (!value || (into.value && into.value !== pickFill[field])) return;
+    into.value = value;
+    pickFill[field] = value;
+  };
+  fill("commonName", c.commonName ?? "", commonName);
+  fill("weight", c.weightMg ? formatWeight(c.weightMg, rowUnit.value, { raw: true }) : "", weight);
+  fill("kcal", c.kcal ? String(c.kcal) : "", kcal);
+  if (c.classification && classification.value === "base") classification.value = c.classification;
+  picked.value = c.catalogItemId != null ? { id: c.catalogItemId, brand: brand.value, name: name.value, variant: variant.value } : null;
+}
+// Enter on text that isn't a product: it is the name you meant
+let searchText = "";
+function onSearchSubmit() {
+  if (searchText.trim()) name.value = searchText.trim();
+}
+const linkedId = (): number | undefined =>
+  picked.value && picked.value.brand === brand.value && picked.value.name === name.value && picked.value.variant === variant.value
+    ? picked.value.id
+    : undefined;
 // What the row says it is, read LIVE from the two fields as they are typed, the way the
 // class picker's own value is: the name and gear type decide the row's other controls
 // (shared/fuel), and the dialog answers as the editor row would for the same words.
@@ -142,7 +170,6 @@ let opened = {
   weight: "",
   kcal: "",
   owned: "",
-  note: "",
   price: "",
   productUrl: "",
   classification: "base" as Classification,
@@ -171,7 +198,6 @@ watch(
     classification.value = e.classification ?? "base";
     kcal.value = e.kcal ? String(e.kcal) : "";
     owned.value = e.owned ? String(e.owned) : "";
-    note.value = e.description ?? "";
     // FORMATTED, not the bare cents: "$399.00" is what the row shows and what
     // parsePriceInput reads straight back, so the symbol you'd otherwise have to
     // retype is already there — and the same only-if-the-string-changed guard the
@@ -179,9 +205,10 @@ watch(
     price.value = e.priceCents != null ? formatPrice(e.priceCents, e.currency) : "";
     productUrl.value = e.productUrl ?? "";
     icon.value = e.icon ?? null;
-    iconsOpen.value = props.focus === "icon";
     saving.value = false;
     error.value = "";
+    picked.value = null;
+    pickFill = { commonName: "", weight: "", kcal: "" };
     opened = {
       brand: brand.value,
       name: name.value,
@@ -190,7 +217,6 @@ watch(
       weight: weight.value,
       kcal: kcal.value,
       owned: owned.value,
-      note: note.value,
       price: price.value,
       productUrl: productUrl.value,
       classification: classification.value,
@@ -210,7 +236,7 @@ async function onSubmit() {
 
   // null, not undefined, for a field you emptied: the edit op has to be able to
   // CLEAR one, which capture's coalesce merge structurally can't (see vaultRepo).
-  const patch: Record<string, unknown> = {};
+  const patch: VaultItemPatch = {};
   if (brand.value !== opened.brand) patch.brand = brand.value.trim().slice(0, VAULT_SHORT_MAX) || null;
   if (name.value !== opened.name) patch.name = name.value.trim().slice(0, VAULT_NAME_MAX);
   if (variant.value !== opened.variant) patch.variant = variant.value.trim().slice(0, VAULT_SHORT_MAX) || null;
@@ -222,7 +248,7 @@ async function onSubmit() {
     // caps it the same way (ownedOf)
     const n = Math.round(Number(owned.value.trim() || "1"));
     if (!Number.isFinite(n) || n < 0) {
-      error.value = "How many should be a whole number, like 3.";
+      error.value = "How many you own should be a whole number, like 3.";
       return;
     }
     patch.owned = n > 1 ? n : null;
@@ -241,9 +267,6 @@ async function onSubmit() {
   if (kcal.value !== opened.kcal && offersKcal({ ...named.value, kcal: props.entry?.kcal })) {
     const k = kcal.value.trim() ? Math.max(0, Math.round(Number(kcal.value))) : 0;
     patch.kcal = k > 0 ? k : null;
-  }
-  if (note.value !== opened.note) {
-    patch.description = note.value.trim().slice(0, VAULT_NOTE_MAX) || null;
   }
   if (price.value !== opened.price) {
     const raw = price.value.trim();
@@ -288,31 +311,86 @@ async function onSubmit() {
     if (named) patch.entryUnit = named;
   }
 
+  if (props.adding) return add(patch);
   // Nothing changed: closing is the honest answer. Sending an empty patch would be a
   // round trip to write nothing, and the endpoint refuses one anyway.
   if (!Object.keys(patch).length) return emit("close");
 
   saving.value = true;
   error.value = "";
-  const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", {
-    method: "POST",
-    body: { op: { t: "edit", id: props.entry.id, patch } },
-  }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry });
+  const op: VaultItemOp = { t: "edit", id: props.entry.id, patch };
+  const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", { method: "POST", body: { op } }).catch(
+    () => ({ ok: false }) as { ok: boolean; item?: VaultEntry },
+  );
   saving.value = false;
-  if (res.ok && res.item) return emit("saved", res.item);
-  error.value = "Couldn’t save that. Check your connection and try again.";
+  if (!res.ok || !res.item) {
+    error.value = "Couldn’t save that. Check your connection and try again.";
+    return;
+  }
+  emit("saved", res.item);
+}
+
+type OpResult = { ok: boolean; reason?: string; item?: VaultEntry };
+const post = (op: VaultItemOp) =>
+  vaultFetch<OpResult>("/api/vault/items", { method: "POST", body: { op } }).catch(() => ({ ok: false }) as OpResult);
+
+// Adding: the form read the same way an edit is (the patch against a blank form is
+// everything typed), sent as one add. An icon picked by hand follows as an edit, the
+// one field an add doesn't take.
+async function add(p: VaultItemPatch) {
+  const op: VaultItemOp = {
+    t: "add",
+    name: name.value.trim().slice(0, VAULT_NAME_MAX),
+    ...(p.brand ? { brand: p.brand } : {}),
+    ...(p.variant ? { variant: p.variant } : {}),
+    ...(p.commonName ? { commonName: p.commonName } : {}),
+    ...(p.weightMg ? { weightMg: p.weightMg } : {}),
+    ...(p.entryUnit ? { entryUnit: p.entryUnit } : {}),
+    ...(p.classification ? { classification: p.classification } : {}),
+    ...(p.kcal ? { kcal: p.kcal } : {}),
+    ...(p.priceCents ? { priceCents: p.priceCents, ...(p.currency ? { currency: p.currency } : {}) } : {}),
+    ...(p.productUrl ? { productUrl: p.productUrl } : {}),
+    ...(p.owned ? { owned: p.owned } : {}),
+    ...(linkedId() != null ? { catalogItemId: linkedId() } : {}),
+  };
+  saving.value = true;
+  error.value = "";
+  const res = await post(op);
+  if (!res.ok || !res.item) {
+    saving.value = false;
+    // the refusals are worth naming: "you already have that" says to search for it
+    error.value =
+      res.reason === "duplicate"
+        ? "You already have that in My Gear."
+        : res.reason === "full"
+          ? "My Gear is full. Remove something to make room."
+          : "Couldn’t add that. Check your connection and try again.";
+    return;
+  }
+  let item = res.item;
+  if (icon.value) {
+    const set = await post({ t: "edit", id: item.id, patch: { icon: icon.value } });
+    if (set.ok && set.item) item = set.item;
+  }
+  saving.value = false;
+  emit("added", item);
 }
 </script>
 
 <template>
-  <BaseModal :open="!!entry" label="Edit gear" @close="emit('close')">
+  <BaseModal :open="!!entry" :label="adding ? 'Add gear' : 'Edit gear'" @close="emit('close')">
     <template v-if="entry">
-      <h2 class="t-label">Edit gear</h2>
-      <p class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
+      <h2 class="t-label">{{ adding ? "Add gear" : "Edit gear" }}</h2>
+      <p v-if="!adding" class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
+      <!-- Adding: a catalog search over the form, given by the page (#search; /gear
+           passes the list editor's own name field). A pick fills the fields below and the
+           box clears; Enter on a name the catalog doesn't have puts it in Product. -->
+      <slot v-if="adding" name="search" :pick="onPick" :typed="(v: string) => (searchText = v)" :submit="onSearchSubmit" />
       <!-- No explainer under the title. What you change here is pinned (vaultRepo), so no
            list writes over it, and that is what anyone expects of an edit; a line saying
            so took a row on every open, and went in review. -->
 
+      <div class="vitem">
       <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Brand</span>
@@ -343,7 +421,7 @@ async function onSubmit() {
         <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
              is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
         <span class="t-sm t-muted">Product</span>
-        <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+        <input v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
       <!-- The gear type, then the icon beside it, because the type decides the icon until
@@ -366,41 +444,23 @@ async function onSubmit() {
         </label>
         <div class="dlg__field">
           <span class="t-sm t-muted">Icon</span>
-          <button
-            ref="iconBtn"
-            type="button"
-            class="field vitem__iconbtn"
-            :aria-expanded="iconsOpen"
-            aria-controls="vitem-icons"
-            :aria-label="`Icon: ${shownLabel ?? 'none'}`"
-            @click="iconsOpen = !iconsOpen"
-          >
-            <HugeiconsIcon v-if="shownIcon" :icon="shownIcon" :size="20" :stroke-width="2" aria-hidden="true" />
-            <HugeiconsIcon v-else :icon="DashedLine02Icon" class="vitem__noicon" :size="20" :stroke-width="2" aria-hidden="true" />
-            <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': iconsOpen }" :size="14" :stroke-width="2" aria-hidden="true" />
-          </button>
+          <!-- a popover over the box, as on the row's own icon -->
+          <GearIconPicker v-model="icon" class="vitem__iconpick" :auto="autoIcon" label="Icons">
+            <template #trigger="{ open, toggle, attrs }">
+              <button
+                type="button"
+                class="field vitem__iconbtn"
+                v-bind="attrs"
+                :aria-label="`Icon: ${shownLabel ?? 'none'}`"
+                @click="toggle"
+              >
+                <HugeiconsIcon v-if="shownIcon" :icon="shownIcon" :size="20" :stroke-width="2" aria-hidden="true" />
+                <HugeiconsIcon v-else :icon="DashedLine02Icon" class="vitem__noicon" :size="20" :stroke-width="2" aria-hidden="true" />
+                <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+              </button>
+            </template>
+          </GearIconPicker>
         </div>
-      </div>
-      <!-- In the dialog's own flow, not a floating menu: forty-odd glyphs are a grid to
-           look over, and the dialog already scrolls. "Automatic" first, since going back
-           to the type's icon is the one choice that isn't a picture. -->
-      <div v-if="iconsOpen" id="vitem-icons" class="vitem__icons" role="group" aria-label="Icons">
-        <button type="button" class="vitem__auto" :aria-pressed="icon === null" @click="pickIcon(null)">
-          <HugeiconsIcon v-if="autoIcon" :icon="autoIcon" :size="20" :stroke-width="2" aria-hidden="true" />
-          <span>{{ autoIcon ? "Match the gear type" : "No icon" }}</span>
-        </button>
-        <button
-          v-for="c in GEAR_ICON_CHOICES"
-          :key="c.glyph"
-          type="button"
-          class="vitem__icon"
-          :aria-pressed="icon === c.glyph"
-          :aria-label="c.label"
-          :title="c.label"
-          @click="pickIcon(c.glyph)"
-        >
-          <HugeiconsIcon :icon="c.icon" :size="20" :stroke-width="2" aria-hidden="true" />
-        </button>
       </div>
 
       <div class="vitem__pair">
@@ -443,7 +503,10 @@ async function onSubmit() {
            kcalOffered). -->
       <div class="vitem__pair">
         <label class="dlg__field">
-          <span class="t-sm t-muted">How many</span>
+          <!-- "Number owned", not "How many" or "Quantity": either reads as how many a
+               trip takes, which is the list row's qty (and a kit's count), never this.
+               A noun, like the dialog's other labels. -->
+          <span class="t-sm t-muted">Number owned</span>
           <input v-model="owned" class="field" inputmode="numeric" placeholder="1" @keydown.enter="onSubmit" />
         </label>
         <label v-if="kcalOffered" class="dlg__field">
@@ -482,15 +545,7 @@ async function onSubmit() {
           <input v-model="productUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
         </label>
       </div>
-
-      <!-- the row's own sub-line, in the dialog's words: ItemRow's note placeholder
-           verbatim, because it is the same text moved — a list wrote it, and this is
-           where it stops being overwritten. Last, with the price and link: the fields
-           you set now and then, below the ones you set on every piece. -->
-      <label class="dlg__field">
-        <span class="t-sm t-muted">Note</span>
-        <input v-model="note" class="field" placeholder="Add a note" autocorrect="off" spellcheck="true" @keydown.enter="onSubmit" />
-      </label>
+      </div>
 
       <p v-if="error" class="t-sm vitem__err">{{ error }}</p>
 
@@ -506,7 +561,7 @@ async function onSubmit() {
       <div class="dlg__actions">
         <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
         <button class="btn btn--primary" :disabled="!canSave || saving" @click="onSubmit">
-          {{ saving ? "Saving…" : "Save" }}
+          {{ saving ? "Saving…" : adding ? "Add" : "Save" }}
         </button>
       </div>
     </template>
@@ -526,6 +581,21 @@ async function onSubmit() {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
 }
+/* The dialog's own width decides its columns, not the window's: a 30rem dialog has
+   room for two fields side by side in a narrow pane as much as on a wide screen, and
+   only a phone-narrow dialog stacks them. .vitem is the container the pairs ask, and
+   the column the fields stand in. */
+.vitem {
+  container-type: inline-size;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+@container (max-width: 22rem) {
+  .vitem__pair {
+    grid-template-columns: 1fr;
+  }
+}
 /* the picker wears the field's own box, so it sits level with the weight input
    beside it rather than reading as a different kind of control */
 .vitem__cls {
@@ -544,9 +614,14 @@ async function onSubmit() {
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
 }
+/* the popover's anchor is the whole Icon column, not the small box: the card then
+   hangs from the dialog's right edge and stays inside it, where hung from the box in
+   the second column it ran off the dialog's left */
+.vitem__iconpick {
+  width: 100%;
+}
 .vitem__iconbtn {
   /* .field sets a field's full width; this one is a glyph and a chevron */
-  align-self: flex-start;
   width: auto;
   display: flex;
   align-items: center;
@@ -558,66 +633,17 @@ async function onSubmit() {
 .vitem__noicon {
   color: var(--ink-3);
 }
-/* fixed cells spread edge to edge, so a cell's glyph inset is a known number that
-   "Match the gear type" can repeat, and its icon sits in the first column */
-.vitem__icons {
-  --vitem-cell: 2.5rem;
-  display: grid;
-  grid-template-columns: repeat(auto-fill, var(--vitem-cell));
-  justify-content: space-between;
-  gap: var(--space-1);
-}
-.vitem__icon,
-.vitem__auto {
-  min-height: 2.5rem;
-  padding: 0;
-  border: 0;
-  border-radius: var(--radius-2);
-  background: none;
-  color: var(--ink-2);
-  font: inherit;
-  cursor: pointer;
-}
-.vitem__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-.vitem__auto {
-  grid-column: 1 / -1;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding-inline: calc((var(--vitem-cell) - 20px) / 2);
-  text-align: start;
-}
-/* the one you have: a plate of ink at the menus' wash, under full-strength ink. Ink
-   mixed thin, not --paper-3, because --paper-3 IS the dialog's surface in dark and the
-   plate vanished into it. */
-.vitem__icon[aria-pressed="true"],
-.vitem__auto[aria-pressed="true"] {
-  background: color-mix(in oklab, var(--ink) var(--popover-wash, 8%), transparent);
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .vitem__icon:hover,
-  .vitem__auto:hover {
-    color: var(--ink);
-  }
-}
-.vitem__icon:active,
-.vitem__auto:active {
-  opacity: 0.7;
+/* Brand and Gear type suggest from a native datalist, and Chrome and Safari draw their
+   own triangle on such a field: a browser control in a dialog of borderless fields,
+   which read as a broken chevron. The suggestions still open as you type. */
+.dlg__field input::-webkit-calendar-picker-indicator,
+.dlg__field input::-webkit-list-button {
+  display: none !important;
 }
 /* Plain ink, not --danger: the monochrome rule reserves colour for irreversible acts
    and for the data viz (tokens.scss), and a save that didn't go through is neither.
    Matches /gear's own .vault__error. */
 .vitem__err {
   color: var(--ink);
-}
-@media (max-width: $bp-stack) {
-  .vitem__pair {
-    grid-template-columns: 1fr;
-  }
 }
 </style>

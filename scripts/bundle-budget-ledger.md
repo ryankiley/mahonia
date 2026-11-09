@@ -317,6 +317,17 @@ chunk and the server). 153 restores ~2 KB of working headroom, a little less tha
 re-anchors above kept, on purpose: the next feature that lands on the editor's path
 should be the one that has to argue.
 
+Kits in My Gear (2026-10-31), measured on main after #473 moved the ceiling to 160:
+155.9 against the 157 tripwire, main at 155.4, so the feature costs the first load
+~0.5 KB. What it puts on the editor's path is the group row's save button reading as a
+kit — a small gate of its own in shared/vault, `isKitWorthy` — the toast for a group
+already in a kit, and the controller learning which keys My Gear holds as kits.
+Everything else moved off that path to get there: the group's press into
+useVaultGroup, loaded on the press; the pane's unfold, with the category clone it
+composes, into useVaultUnfold beside the pane; and the kit arithmetic, limits and
+builder into shared/vaultKit, which only the lazy surfaces and the server import.
+MAX_CHUNK unmoved at 53.2 against 72.
+
 ## Total (every built file — the backstop)
 
 TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
@@ -417,3 +428,12 @@ modules and their sentences), which only a list opened in Trip view downloads. F
 LOAD is untouched, 151.1 → 151.0 against 153, because none of it is on the editor's
 path. MAX_CHUNK unmoved at 52.9 against 72. 287 restores the ~4 KB of slack the
 re-anchors above keep arguing for.
+
+306 → 311, kits in My Gear (2026-10-31). Measured 305.0 against 306 on main after
+#473 (300.2): the gear page's chunk grew (the kit row and its items, the dialog's
+Items section with its search and steppers), the pane's (a kit unfolding into a
+group, with the category clone beside it), and two new lazy modules (useVaultGroup,
+shared/vaultKit). All of it loads on a click, which is the shape this backstop is not
+meant to price. FIRST LOAD is in its own entry above, 155.9 against 157. MAX_CHUNK
+unmoved at 53.2 against 72. 311 restores the ~6 KB of slack the re-sets above keep
+arguing for.

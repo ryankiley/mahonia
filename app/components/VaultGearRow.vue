@@ -1,41 +1,45 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, DashedLine02Icon, Delete02Icon, Edit02Icon, FolderIcon, ShirtIcon, UndoIcon } from "@hugeicons/core-free-icons";
+import {
+  ChevronDownIcon,
+  DashedLine02Icon,
+  Delete02Icon,
+  Edit02Icon,
+  ShirtIcon,
+} from "@hugeicons/core-free-icons";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
+import type { GearGlyph } from "~~/shared/gearGlyph";
 import { formatPrice } from "~~/shared/money";
 import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
 import { consumableIcon } from "~/utils/itemMarks";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 
 // One row of /gear: the name cell, the weight, the class mark and the trailing
-// controls — or, for a REMOVED piece, the way back.
+// controls.
 //
-// Its own component because the page drew this row three times over (the flat list,
-// a folder's list, the removed list), the same twenty-odd lines each, and a row copied
-// three times is a row that drifts. The page keeps what differs between the three
-// places: the folder list's press-to-drag lands on the root as a native listener, its
-// dragging state as a class, and the removed list simply asks for the other shape.
+// Its own component because the page draws it in a kind's list, a flat list, and as a
+// kit's items (VaultKitSection), and a row copied three times is a row that drifts. A
+// kit's section swaps the trailing controls (the `actions` slot) for its own: how many
+// it holds, and taking the piece out of the kit.
 const props = defineProps<{
   entry: VaultEntry;
   unit: Unit;
-  /** every destination the move control offers — "" is Unfiled (see the page) */
-  folderOptions?: { key: string; label: string }[];
-  /** the row's own request is in flight (a remove, or a put-back) */
+  /** the row's own remove is in flight */
   busy?: boolean;
-  /** the removed list's shape: the name and weight, and "Put back" in place of the controls */
-  removed?: boolean;
+  /** the kits a piece is in, by name ("Cook kit, Fire kit"): a string, so it compares
+   *  by value and a page render doesn't re-render every row */
+  inKits?: string;
 }>();
 const emit = defineEmits<{
-  /** "icon" when the row's icon was pressed: the dialog opens on its icon grid */
-  edit: [focus?: "icon"];
+  edit: [];
+  /** an icon picked from the row's own icon (null: back to the gear type's) */
+  icon: [glyph: GearGlyph | null];
   remove: [];
-  move: [folderId: number | null];
-  restore: [];
   /** a unit picked for this piece's weight (the list row's unit picker, on /gear) */
   unit: [unit: Unit];
-  /** the move menu opened or closed — the folder body lifts its clip while one is open */
+  /** a menu on the row opened or closed — the kind's body lifts its clip while one is open */
   "overlay-toggle": [open: boolean];
 }>();
 
@@ -49,20 +53,19 @@ const rowUnit = computed<Unit>(() => props.entry.entryUnit ?? props.unit);
 // guessing — a wrong icon is worse than none.
 const typeIcon = computed(() => gearIcon(props.entry.commonName, props.entry.name, props.entry.icon));
 const typeLabel = computed(() => gearIconLabel(props.entry.commonName, props.entry.name, props.entry.icon));
+// what "Match the gear type" would draw, in the icon popover
+const autoIcon = computed(() => gearIcon(props.entry.commonName, props.entry.name));
 // Calories, gated on the class exactly as computeTotals gates them — so what the row
-// shows is what a list would count, rather than a number the totals ignore. A removed
-// row shows its type only.
-const kcal = computed(() =>
-  !props.removed && props.entry.classification === "consumable" && props.entry.kcal ? props.entry.kcal : 0,
-);
+// shows is what a list would count, rather than a number the totals ignore.
+const kcal = computed(() => (props.entry.classification === "consumable" && props.entry.kcal ? props.entry.kcal : 0));
 // The sub-line: the short facts about a piece of gear that aren't its weight. The
 // note is not here — it is free text of any length, so it gets its own clamped line
-// below. A removed row shows its type only, like the calories above.
+// below.
 const meta = computed(() => {
   const e = props.entry;
   const parts: string[] = [];
   if (e.commonName) parts.push(e.commonName);
-  if (!props.removed && e.priceCents != null) parts.push(formatPrice(e.priceCents, e.currency));
+  if (e.priceCents != null) parts.push(formatPrice(e.priceCents, e.currency));
   if (kcal.value) parts.push(`${formatKcal(kcal.value)} kcal`);
   return parts;
 });
@@ -71,30 +74,41 @@ const meta = computed(() => {
 <template>
   <li class="vault__row">
     <!-- the kind of gear, before its name: a fixed column whether or not this row has
-         one, so every name starts at the same x. Decorative — the gear type says the
-         same thing in words on the line below. -->
-    <span v-if="removed" class="vault__type" aria-hidden="true">
-      <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
-    </span>
-    <!-- On a live row the icon is also the way to change it: pressing it opens the
-         edit dialog on its icon grid, and an empty slot is where you'd press to give
-         a row one. Out of the tab order and hidden from assistive tech, because it is
-         a shortcut to a field the row's Edit button already reaches — a second stop
-         per row would double the keyboard walk down a page of a hundred. -->
-    <button
-      v-else
-      type="button"
-      class="vault__type vault__type--pick"
-      :class="{ 'is-blank': !typeIcon }"
-      tabindex="-1"
-      aria-hidden="true"
-      :title="typeLabel ? `${typeLabel} · change icon` : 'Pick an icon'"
-      @click="emit('edit', 'icon')"
+         one, so every name starts at the same x. The gear type says the same thing in
+         words on the line below.
+         The icon is also the way to change it: pressing it opens the
+         icon popover right there, and an empty slot is where you'd press to give a row
+         one. The button is out of the tab order and hidden from assistive tech, because
+         it is a shortcut to a field the row's Edit button already reaches — a second
+         stop per row would double the keyboard walk down a page of a hundred. -->
+    <GearIconPicker
+      class="vault__type"
+      :model-value="entry.icon ?? null"
+      :auto="autoIcon"
+      :label="`Icon for ${displayName}`"
+      @update:model-value="(g) => emit('icon', g)"
+      @overlay-toggle="(o) => emit('overlay-toggle', o)"
     >
-      <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
-      <!-- empty: Hugeicons' dashed square, the shape an icon would fill, quietly -->
-      <HugeiconsIcon v-else :icon="DashedLine02Icon" :size="20" :stroke-width="2" />
-    </button>
+      <template #trigger="{ open, toggle, attrs }">
+        <!-- the site's tooltip, as on the list row's icon buttons, not a native title:
+             it shows at once and in the app's type -->
+        <Tooltip :text="typeLabel ? `${typeLabel} · Change icon` : 'Pick an icon'" :disabled="open" preferred-placement="top">
+        <button
+          type="button"
+          class="vault__typebtn"
+          :class="{ 'is-blank': !typeIcon }"
+          tabindex="-1"
+          v-bind="attrs"
+          aria-hidden="true"
+          @click="toggle"
+        >
+          <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
+          <!-- empty: Hugeicons' dashed square, the shape an icon would fill, quietly -->
+          <HugeiconsIcon v-else :icon="DashedLine02Icon" :size="20" :stroke-width="2" />
+        </button>
+        </Tooltip>
+      </template>
+    </GearIconPicker>
     <div class="gear__main">
       <!-- the title is the whole name: clipped, two catalog names that differ only at
            the end ("… Regular" / "… Long Wide") read identically, and this is the way
@@ -112,13 +126,11 @@ const meta = computed(() => {
           ><span v-if="i" class="sep"> · </span>{{ part }}</template
         >
       </p>
-      <!-- your note, one line and clipped: it can be a paragraph, and a row is not
-           where a paragraph goes. The dialog holds all of it. -->
-      <p v-if="!removed && entry.description" class="t-sm t-muted vault__note" :title="entry.description">
-        {{ entry.description }}
-      </p>
+      <!-- an item that is in a kit says which — one line, clipped. A piece in a kit is
+           still a row of its own kind, so every view shows it. -->
+      <p v-if="inKits" class="t-sm t-muted t-clip" :title="`In ${inKits}`">In {{ inKits }}</p>
     </div>
-    <!-- The weight in this piece's own unit, and on a live row the unit is a picker:
+    <!-- The weight in this piece's own unit, and the unit is a picker:
          the list row's own (ItemRow), unit text and a quiet chevron, so one gesture
          means one thing across the two surfaces. -->
     <span class="t-num vault__weight">
@@ -128,127 +140,93 @@ const meta = computed(() => {
       <span v-if="entry.owned" class="vault__owned" :title="`You own ${entry.owned}`">
         <span aria-hidden="true">×{{ entry.owned }}</span><span class="visually-hidden">{{ entry.owned }} owned, </span>
       </span>
-      <template v-if="removed">{{ formatWeight(entry.weightMg, rowUnit) }}</template>
-      <template v-else>
-        <span>{{ formatWeight(entry.weightMg, rowUnit, { withUnit: false }) }}</span>
-        <OptionMenu
-          class="vault__unitwrap"
-          :options="WEIGHT_UNIT_OPTIONS"
-          :current="rowUnit"
-          :label="`Weight unit for ${displayName}`"
-          :title="`Unit for ${displayName}`"
-          @overlay-toggle="(o) => emit('overlay-toggle', o)"
-          @pick="(u) => emit('unit', u as Unit)"
-        >
-          <template #trigger="{ open }">
-            <span class="t-sm t-muted">{{ rowUnit }}</span>
-            <HugeiconsIcon
-              :icon="ChevronDownIcon"
-              class="chev vault__unitchev"
-              :class="{ 'is-open': open }"
-              :size="12"
-              :stroke-width="2"
-              aria-hidden="true"
-            />
-          </template>
-        </OptionMenu>
-      </template>
+      <span>{{ formatWeight(entry.weightMg, rowUnit, { withUnit: false }) }}</span>
+      <OptionMenu
+        class="vault__unitwrap"
+        :options="WEIGHT_UNIT_OPTIONS"
+        :current="rowUnit"
+        :label="`Weight unit for ${displayName}`"
+        :title="`Unit for ${displayName}`"
+        @overlay-toggle="(o) => emit('overlay-toggle', o)"
+        @pick="(u) => emit('unit', u as Unit)"
+      >
+        <template #trigger="{ open }">
+          <span class="t-sm t-muted">{{ rowUnit }}</span>
+          <HugeiconsIcon
+            :icon="ChevronDownIcon"
+            class="chev vault__unitchev"
+            :class="{ 'is-open': open }"
+            :size="12"
+            :stroke-width="2"
+            aria-hidden="true"
+          />
+        </template>
+      </OptionMenu>
     </span>
-    <template v-if="!removed">
-      <!-- the editor's own marks, in a fixed column whether or not the row carries
-           one — an auto column would size to the count and steal a different amount
-           from the name on every row (the reason --item-col-actions is fixed too) -->
-      <span class="vault__cls">
-        <span v-if="entry.classification === 'worn'" class="item__mark item__mark--static" title="Worn">
-          <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="visually-hidden">Worn</span>
-        </span>
-        <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
-          <HugeiconsIcon :icon="consumableIcon(entry)" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="visually-hidden">Consumable</span>
-        </span>
+    <!-- the editor's own marks, in a fixed column whether or not the row carries
+         one — an auto column would size to the count and steal a different amount
+         from the name on every row (the reason --item-col-actions is fixed too) -->
+    <span class="vault__cls">
+      <span v-if="entry.classification === 'worn'" class="item__mark item__mark--static" title="Worn">
+        <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+        <span class="visually-hidden">Worn</span>
       </span>
-      <div class="vault__actions">
-        <!-- Edit, first in the cluster: the trailing icons are right-aligned, so
-             the new one takes the open edge and the two you already know don't
-             move — and it puts the destructive control furthest from the new
-             arrival. -->
+      <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
+        <HugeiconsIcon :icon="consumableIcon(entry)" :size="16" :stroke-width="2" aria-hidden="true" />
+        <span class="visually-hidden">Consumable</span>
+      </span>
+    </span>
+    <div class="vault__actions">
+      <!-- a kit's item puts its count stepper first (#lead) and swaps the bin for
+           taking it out of the kit (#remove); Edit is the row's either way -->
+      <slot name="lead" />
+      <!-- Edit, first in the cluster: the trailing icons are right-aligned, so
+           the new one takes the open edge and the two you already know don't
+           move — and it puts the destructive control furthest from the new
+           arrival. -->
+      <!-- the tooltip says the verb, the accessible name the whole thing: the row it
+           hangs off already names the piece (ItemRow's split, WCAG 2.5.3 either way) -->
+      <Tooltip text="Edit" preferred-placement="top">
         <button
           type="button"
           class="btn btn--icon btn--ghost vault__act ink-quiet"
-          :title="`Edit ${displayName}`"
           :aria-label="`Edit ${displayName}`"
           @click="emit('edit')"
         >
           <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
         </button>
-        <!-- Move-to-folder: a quiet glyph opening the app's own picker — the same
-             recipe as the folder header's sort control. It used to render the
-             folder's NAME on every row, which under a "Cook kit" heading meant every
-             row repeating "Cook kit"; the heading already says where you are. The
-             picker still names every destination when you open it, and it's the
-             keyboard and touch path for moving gear. -->
-        <OptionMenu
-          class="vault__movewrap ink-quiet"
-          trigger-class="btn btn--icon btn--ghost"
-          :options="folderOptions ?? []"
-          :current="String(entry.folderId ?? '')"
-          :label="`Folder for ${displayName}`"
-          :title="`Move ${displayName} to a folder`"
-          @overlay-toggle="(o) => emit('overlay-toggle', o)"
-          @pick="(k) => emit('move', k ? Number(k) : null)"
-        >
-          <template #trigger>
-            <HugeiconsIcon :icon="FolderIcon" class="vault__moveicon" :size="16" :stroke-width="2" aria-hidden="true" />
-          </template>
-        </OptionMenu>
-        <!-- glyph only, like every other row action on the site: the word was the
-             widest thing in the row and said what the bin already says. The label
-             lives on aria-label + title. -->
-        <button
-          type="button"
-          class="btn btn--icon btn--ghost vault__act ink-quiet"
-          :disabled="busy"
-          :title="`Remove ${displayName}`"
-          :aria-label="`Remove ${displayName} from My Gear`"
-          @click="emit('remove')"
-        >
-          <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
-        </button>
-      </div>
-    </template>
-    <button
-      v-else
-      type="button"
-      class="btn btn--quiet vault__act ink-quiet"
-      :disabled="busy"
-      :aria-label="`Put ${displayName} back in My Gear`"
-      @click="emit('restore')"
-    >
-      <HugeiconsIcon :icon="UndoIcon" :size="14" aria-hidden="true" :stroke-width="2" /> Put back
-    </button>
+      </Tooltip>
+      <!-- glyph only, like every other row action on the site: the word was the
+           widest thing in the row and said what the bin already says. The label
+           lives on aria-label + title. -->
+      <slot name="remove">
+        <Tooltip text="Remove" preferred-placement="top">
+          <button
+            type="button"
+            class="btn btn--icon btn--ghost vault__act ink-quiet"
+            :disabled="busy"
+            :aria-label="`Remove ${displayName} from My Gear`"
+            @click="emit('remove')"
+          >
+            <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
+          </button>
+        </Tooltip>
+      </slot>
+    </div>
   </li>
 </template>
 
 <style scoped lang="scss">
 /* --- the row --- */
-/* de-outlined rows, separated by hairlines */
+/* de-outlined rows, separated by hairlines: a flex row of name, weight, mark and
+   controls. The rhythm and the hairline are the list folder's own (.folder__items > *,
+   atoms/folder.scss), on the list VaultSection draws: these ARE the editor's item row
+   on another surface, and matching its --space-2 to the pixel is what makes the gap
+   under a heading the same here as in a list. */
 .vault__row {
   display: flex;
   align-items: baseline;
   gap: var(--space-4);
-  /* The editor's own item rhythm, to the pixel: .folder__items > * at --space-2.
-     The anchor this used to cite ("Your lists", --space-4) is a page that no longer
-     exists, and the reference that survives is the editor's, because these ARE that
-     row on another surface — a name, a weight, a class mark, trailing icon buttons,
-     hairlines between. Matching it exactly is also what makes the gap under a folder
-     name the same here as it is in a list: the header's own --space-1 margin plus
-     the first row's top padding, and a looser row here made that seam visibly
-     different from the one two clicks away. */
-  padding-block: var(--space-2);
-}
-.vault__row + .vault__row {
-  border-top: 1px solid var(--line);
 }
 /* The picture column. Its box is the name's first line (1lh tall), so the glyph
    centres on that line however many lines the row grows, the same reasoning that
@@ -267,39 +245,36 @@ const meta = computed(() => {
   color: var(--ink-2);
 }
 /* the slot as a button: no box of its own, the glyph just deepens under a pointer */
-.vault__type--pick {
+.vault__typebtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
   padding: 0;
   border: 0;
   background: none;
+  color: inherit;
   font: inherit;
   cursor: pointer;
 }
 /* An empty slot wears Hugeicons' dashed square in the faintest ink, where an icon
    would sit. It used to be a 14px dashed border drawn in CSS, whose dashes rendered
    unevenly at that size and read on a real page as an image that failed to load. */
-.vault__type--pick.is-blank {
+.vault__typebtn.is-blank {
   color: var(--ink-ghost);
 }
 @media (hover: hover) and (pointer: fine) {
-  .vault__type--pick:hover {
+  .vault__typebtn:hover {
     color: var(--ink);
   }
 }
-.vault__type--pick:active {
+.vault__typebtn:active {
   opacity: 0.7;
 }
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with the gear pane, which used to hand-mirror
    these rules. Only the page's own mobile stack below touches it. */
-/* Your note, on one line and clipped. It is free text of any length and this is a
-   row in a list that can run to hundreds — a two-line note here would set the
-   rhythm of the whole page from its longest row. The full text is the title
-   attribute and the dialog that edits it. */
-.vault__note {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
 /* the count before the weight: quieter than the figure it multiplies, with a gap that
    keeps "×2" from reading as part of the number */
 .vault__owned {
@@ -371,35 +346,10 @@ const meta = computed(() => {
 .vault__act {
   flex: none;
 }
-/* the folder header's sort control at row scale: a glyph that shows the control
-   exists, opening the app's own picker (OptionMenu) */
-.vault__movewrap {
-  position: relative;
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: var(--icon-btn);
-  min-height: var(--icon-btn);
-}
-.vault__moveicon {
-  pointer-events: none;
-}
-/* touch: the hand-rolled icon controls meet the --tap minimum like every
-   .btn--icon does (controls.scss). The move control mirrors the folder header's
-   sortwrap recipe, glyph bump included (atoms/folder.scss). The row's three
-   controls take --tap-pull, whose layout box is exactly the 1.45rem text line — so
+/* touch: the row's controls take --tap-pull, whose layout box is exactly the 1.45rem text line — so
    enlarging the hit area for a thumb no longer stands a phone row 8px taller than
    the same row on a desktop. */
 @media (pointer: coarse) {
-  .vault__movewrap {
-    width: var(--tap);
-    min-height: var(--tap);
-  }
-  .vault__moveicon {
-    width: var(--icon-touch);
-    height: var(--icon-touch);
-  }
   .vault__actions > * {
     margin-block: var(--tap-pull);
     align-self: center;

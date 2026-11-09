@@ -3,7 +3,7 @@ import { requireAccount } from "../../utils/authSession";
 import { useVaultDb } from "../../utils/db";
 import { exportClaimedLists } from "../../utils/listRepo";
 import { touchVaultByUser } from "../../utils/vaultAuth";
-import { listVaultFolders, listVaultItems } from "../../utils/vaultRepo";
+import { listVaultItems } from "../../utils/vaultRepo";
 import { everythingExport } from "../../../shared/exporters/everything";
 
 // Take your data with you: every list this account has claimed, in full, plus My Gear,
@@ -19,14 +19,13 @@ export default defineEventHandler(async (event) => {
   // a fresh account has no vault row until its first capture: an empty gear half,
   // not an error, the same reading the /gear page makes
   const vaultId = await touchVaultByUser(db, user.id);
-  const [lists, items, folders] = await Promise.all([
+  const [lists, items] = await Promise.all([
     exportClaimedLists(db, user.id),
     vaultId == null ? Promise.resolve([]) : listVaultItems(db, vaultId),
-    vaultId == null ? Promise.resolve([]) : listVaultFolders(db, vaultId),
   ]);
   // a download, by name: the browser saves it rather than showing it, and the date
   // in the name is the one fact a person wants when they find the file later
   const today = new Date().toISOString().slice(0, 10);
   setHeader(event, "Content-Disposition", `attachment; filename="mahonia-export-${today}.json"`);
-  return everythingExport(lists, { items, folders }, new Date().toISOString());
+  return everythingExport(lists, { items }, new Date().toISOString());
 });

@@ -5,8 +5,8 @@
 
 import { sweepWindow, toIso } from "./time";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
-import type { PgColumn } from "drizzle-orm/pg-core";
-import { vaultFolders, vaultItems, vaults } from "../db/schema";
+import { alias, type PgColumn } from "drizzle-orm/pg-core";
+import { vaultFolders, vaultItems, vaultKitParts, vaults } from "../db/schema";
 import { isUniqueViolation, type Db } from "./db";
 import { liveCatalogRows } from "./catalog";
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
@@ -14,17 +14,22 @@ import {
   VAULT_CAPTURE_MAX,
   VAULT_IMPORT_MAX,
   VAULT_NAME_MAX,
-  VAULT_NOTE_MAX,
   VAULT_SHORT_MAX,
   VAULT_URL_MAX,
   vaultNormKey,
   type VaultCapture,
   type VaultEntry,
   type VaultGearKey,
-  type VaultFolder,
+  type VaultKitCapture,
+  type VaultKitPart,
+  type VaultKitPartRef,
+  type VaultItemOp,
+  type VaultItemPatch,
   type VaultPinField,
   ownedOf,
 } from "../../shared/vault";
+export type { VaultItemOp, VaultItemPatch };
+import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX, kitWeightMg } from "../../shared/vaultKit";
 import { CLASSIFICATIONS, UNITS, type Classification, type Unit } from "../../shared/types";
 import { clampUnitWeightMg, isSerialId, KCAL_MAX } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
@@ -45,11 +50,6 @@ const POOL_LIMIT = 1000;
  *  cap rather than erroring; updates to existing rows always land. */
 export const VAULT_ITEMS_MAX = 2000;
 
-/** Ceiling on folders per vault, same spirit. Capture stops creating folders at
- *  the cap (items land unfiled); a deliberate add on /vault refuses quietly. */
-export const VAULT_FOLDERS_MAX = 200;
-
-
 type Row = typeof vaultItems.$inferSelect;
 
 /** Pin token ↔ its column, in ONE table so the read (pinsOf), the write
@@ -61,7 +61,6 @@ const PIN_COLUMN = [
   ["classification", "classificationPinned"],
   ["kcal", "kcalPinned"],
   ["productUrl", "productUrlPinned"],
-  ["description", "descriptionPinned"],
   // one flag over price_cents AND currency — see the token's note in shared/vault
   ["price", "pricePinned"],
 ] as const satisfies readonly (readonly [VaultPinField, keyof Row])[];
@@ -107,17 +106,89 @@ function toEntry(row: Row): VaultEntry {
     kcal: row.kcal ?? undefined,
     catalogItemId: row.catalogItemId ?? undefined,
     productUrl: row.productUrl ?? undefined,
-    // tidied like the other prose above; the URLs are not (see url() below)
-    description: row.description ? tidyText(row.description) || undefined : undefined,
     priceCents: row.priceCents ?? undefined,
     // never on its own: a currency with no amount is a unit with nothing to measure
     currency: row.priceCents != null ? (row.currency ?? undefined) : undefined,
-    folderId: row.folderId ?? undefined,
     pinned: pinsOf(row),
     timesSeen: row.timesSeen,
     lastUsedAt: toIso(row.lastUsedAt),
     createdAt: toIso(row.createdAt),
+    // A kit's stored weight is its OWN; withKits replaces weightMg with the derived
+    // total once the parts are read. Until then the two agree, which is also the
+    // honest figure for a kit whose parts were never read.
+    ...(row.kind === "kit" ? { kind: "kit" as const, ownWeightMg: Number(row.weightMg), parts: [] } : {}),
   };
+}
+
+/**
+ * Fill in the kit fields on entries read from this vault: a kit's parts and its
+ * derived weight, a piece's kits.
+ *
+ * ONE query for the whole vault's links, whatever the entries asked about: a vault is
+ * at most VAULT_ITEMS_MAX rows and a kit a handful of links, so reading them all is
+ * cheaper than a second round trip shaped to the entries. Both ends of a link are
+ * held to this vault and to their kinds in the WHERE, so a link that somehow broke
+ * the rules setKitParts keeps is simply not read rather than trusted.
+ */
+async function withKits(db: Db, vaultId: number, entries: VaultEntry[]): Promise<VaultEntry[]> {
+  if (!entries.length) return entries;
+  const part = alias(vaultItems, "part");
+  const links = await db
+    .select({
+      kitId: vaultKitParts.kitId,
+      partId: vaultKitParts.partId,
+      qty: vaultKitParts.qty,
+      kitRemovedAt: vaultItems.removedAt,
+      brand: part.brand,
+      name: part.name,
+      variant: part.variant,
+      weightMg: part.weightMg,
+      partRemovedAt: part.removedAt,
+    })
+    .from(vaultKitParts)
+    .innerJoin(vaultItems, eq(vaultItems.id, vaultKitParts.kitId))
+    .innerJoin(part, eq(part.id, vaultKitParts.partId))
+    .where(
+      and(
+        eq(vaultItems.vaultId, vaultId),
+        eq(vaultItems.kind, "kit"),
+        eq(part.vaultId, vaultId),
+        eq(part.kind, "piece"),
+      ),
+    )
+    .orderBy(asc(vaultKitParts.sortOrder), asc(vaultKitParts.partId));
+  if (!links.length) return entries;
+
+  const partsOf = new Map<number, VaultKitPart[]>();
+  const kitsOf = new Map<number, number[]>();
+  for (const l of links) {
+    const p: VaultKitPart = {
+      id: l.partId,
+      qty: l.qty,
+      brand: l.brand ? tidyText(l.brand) || undefined : undefined,
+      name: tidyText(l.name),
+      variant: l.variant ? tidyText(l.variant) || undefined : undefined,
+      weightMg: Number(l.weightMg),
+      ...(l.partRemovedAt ? { removed: true } : {}),
+    };
+    const list = partsOf.get(l.kitId);
+    if (list) list.push(p);
+    else partsOf.set(l.kitId, [p]);
+    // a piece is "in" the kits you can see: one that's put away doesn't claim it
+    if (!l.kitRemovedAt) {
+      const kits = kitsOf.get(l.partId);
+      if (kits) kits.push(l.kitId);
+      else kitsOf.set(l.partId, [l.kitId]);
+    }
+  }
+  return entries.map((e) => {
+    if (e.kind === "kit") {
+      const parts = partsOf.get(e.id) ?? [];
+      return { ...e, parts, weightMg: kitWeightMg(e.ownWeightMg ?? 0, parts) };
+    }
+    const kits = kitsOf.get(e.id);
+    return kits ? { ...e, inKits: [...new Set(kits)].sort((a, b) => a - b) } : e;
+  });
 }
 
 /** A string field off the wire: typed, capped, tidied — or dropped. The shipped
@@ -208,9 +279,8 @@ async function respellCatalogPicks(db: Db, caps: VaultCapture[]): Promise<VaultC
  *  a forged key could otherwise collide two unrelated items into one row (or dodge
  *  a tombstone). Drops anything that doesn't survive normalization. Fields are
  *  rebuilt explicitly (no spread) so nothing rides in untyped or uncapped: the
- *  caps are the same ones captureFromList applies client-side, and the folder
- *  name takes the folder table's own cap — an oversized one used to blow the
- *  btree index limit and 500 the whole capture. */
+ *  caps are the same ones captureFromList applies client-side. A capture's folder
+ *  name is not kept: My Gear groups by kind, not by the list's folders. */
 function sanitize(caps: VaultCapture[]): VaultCapture[] {
   const out = new Map<string, VaultCapture>();
   for (const c of caps.slice(0, VAULT_CAPTURE_MAX)) {
@@ -227,11 +297,9 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
       variant,
       commonName: str(c.commonName, VAULT_SHORT_MAX),
       productUrl: url(c.productUrl),
-      description: str(c.description, VAULT_NOTE_MAX),
       priceCents: centsOf(c.priceCents),
       // dropped without an amount, so the pair can never half-exist in the table
       currency: centsOf(c.priceCents) != null ? currencyOf(c.currency) : undefined,
-      folder: str(c.folder, FOLDER_NAME_MAX),
       weightMg: Number.isFinite(c.weightMg) ? clampUnitWeightMg(c.weightMg) : 0,
       classification: CLASSIFICATIONS.includes(c.classification as Classification)
         ? c.classification
@@ -333,15 +401,11 @@ export async function captureVaultItemsReporting(
   // Safe as a single statement precisely because sanitize() deduped by normKey:
   // Postgres rejects an ON CONFLICT DO UPDATE that would touch the same row twice
   // within one command, so the dedup isn't just tidiness, it's load-bearing.
-  // Resolve the list-folder NAMES this capture carries to vault folder ids,
-  // creating any that don't exist yet. One statement for the whole set;
-  // onConflictDoNothing makes it idempotent, so a replayed capture (the offline
-  // queue, a flaky connection) neither duplicates a folder nor errors.
-  const folderId = await ensureVaultFolders(db, vaultId, clean.map((c) => c.folder));
-
+  // No folders: My Gear groups by kind now (shared/vaultView), so the list-folder
+  // name a capture still carries (the client groups its chooser by it) files nothing.
   const written = await db
     .insert(vaultItems)
-    .values(clean.map((c) => rowValues(c, vaultId, now, (c.folder && folderId.get(c.folder)) || null)))
+    .values(clean.map((c) => rowValues(c, vaultId, now)))
     .onConflictDoUpdate({
       target: [vaultItems.vaultId, vaultItems.normKey],
       set: {
@@ -360,13 +424,18 @@ export async function captureVaultItemsReporting(
         // records, so replaying their whole capture set after any edit must not roll
         // My Gear back to a historical figure. A direct Save to My Gear press is the
         // deliberate exception, and may replace an unpinned value.
-        weightMg: keepIfPinned(
+        //
+        // A KIT takes no weight from a list at all, either way. Its stored weight is
+        // its own (the stuff sack, usually 0) and its total is its parts', so an old
+        // list still holding the kit as one flat row at the full figure would
+        // otherwise fill that 0 and count every part twice. Usage still moves, below.
+        weightMg: sql`case when ${vaultItems.kind} = 'kit' then ${vaultItems.weightMg} else ${keepIfPinned(
           vaultItems.weightPinned,
           vaultItems.weightMg,
           overwriteWeight
             ? sql`case when excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`
             : sql`case when ${vaultItems.weightMg} = 0 and excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`,
-        ),
+        )} end`,
         classification: keepIfPinned(
           vaultItems.classificationPinned,
           vaultItems.classification,
@@ -381,17 +450,6 @@ export async function captureVaultItemsReporting(
           vaultItems.productUrlPinned,
           vaultItems.productUrl,
           sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
-        ),
-        // FIRST note wins — the coalesce runs the other way round from the fields
-        // above, the way folderId's does, and for the same kind of reason. Those are
-        // objective facts about the gear, where a newer value is a better one; a note
-        // is subjective text, and as often about the trip as about the gear ("Sam
-        // carries this"). Last-write-wins would let any list you happen to open
-        // rewrite what you wrote about your own kit. Correcting it on /gear pins it.
-        description: keepIfPinned(
-          vaultItems.descriptionPinned,
-          vaultItems.description,
-          sql`coalesce(${vaultItems.description}, excluded.description)`,
         ),
         // The pair moves under ONE pin, and the currency follows the amount rather
         // than coalescing on its own — a kept "399" under a newly-arrived "GBP"
@@ -415,7 +473,6 @@ export async function captureVaultItemsReporting(
         // "Shelter" in one list and "Big 3" in another, and a capture must not
         // reshuffle a vault you've already arranged. Moving it is a deliberate act
         // on /gear (the folders route's "move"), and it stays put afterwards.
-        folderId: sql`coalesce(${vaultItems.folderId}, excluded.folder_id)`,
         // Usage, not content. A pinned row is still gear a list just reached for,
         // and the autocomplete ranks on exactly these two — so they are never
         // guarded, however much of the row you've corrected by hand.
@@ -438,11 +495,19 @@ export async function captureVaultItemsReporting(
   // put away on /gear is written and stays put away — the row comes back here, and
   // the caller must not be told it landed.
   return {
-    keys: written
-      .filter((r) => !r.removedAt)
-      .map((r): VaultGearKey => [r.normKey, r.weightPinned ? null : r.weightMg]),
+    keys: written.filter((r) => !r.removedAt).map(gearKeyOf),
     full,
   };
+}
+
+/** A row as the editor asks about it: its identity, the weight a capture could
+ *  still write into it (null for a pinned one), and whether it is a kit. A kit's
+ *  weight is no list's to push, like a pinned one — and it is named as a kit so a
+ *  group row can tell "My Gear holds this set" from "My Gear holds a piece of this
+ *  name", which its own save would turn into the set. */
+function gearKeyOf(r: Pick<Row, "normKey" | "weightMg" | "weightPinned" | "kind">): VaultGearKey {
+  if (r.kind === "kit") return [r.normKey, null, "kit"];
+  return [r.normKey, r.weightPinned ? null : r.weightMg];
 }
 
 /**
@@ -465,7 +530,7 @@ export async function captureVaultItems(
  *  column off a sanitized capture, plus the usage stamps a brand-new row starts
  *  with. The pins are NOT here: capture asserts none and an add asserts them
  *  all, which is the whole difference between the two (see addVaultItem). */
-function rowValues(c: VaultCapture, vaultId: number, now: Date, folderId: number | null) {
+function rowValues(c: VaultCapture, vaultId: number, now: Date) {
   return {
     vaultId,
     normKey: c.normKey,
@@ -478,10 +543,8 @@ function rowValues(c: VaultCapture, vaultId: number, now: Date, folderId: number
     kcal: c.kcal ?? null,
     catalogItemId: c.catalogItemId ?? null,
     productUrl: c.productUrl ?? null,
-    description: c.description ?? null,
     priceCents: c.priceCents ?? null,
     currency: c.currency ?? null,
-    folderId,
     timesSeen: 1,
     lastUsedAt: now,
     updatedAt: now,
@@ -499,17 +562,6 @@ async function vaultItemCount(db: Db, vaultId: number): Promise<number> {
   return Number(n);
 }
 
-/** Is this folder id one of THIS vault's? A folderId from another vault would
- *  file gear under a heading its owner can never see, so both writes that take
- *  an id off the wire (add, move) verify it in scope before writing. */
-async function ownsFolder(db: Db, vaultId: number, folderId: number): Promise<boolean> {
-  const owner = await db
-    .select({ id: vaultFolders.id })
-    .from(vaultFolders)
-    .where(and(eq(vaultFolders.id, folderId), eq(vaultFolders.vaultId, vaultId)));
-  return owner.length > 0;
-}
-
 /** A vault's live rows, most-recently-used first, bounded to POOL_LIMIT — the
  *  one read behind both the /vault browse and the autocomplete's candidate pool
  *  (idx_vault_recent serves exactly this shape). */
@@ -521,7 +573,7 @@ function liveRows(db: Db, vaultId: number) {
     // id breaks the tie, so the order is TOTAL — captureVaultItems stamps one
     // `now` onto a whole batch, so a 200-row import leaves 200 rows sharing a
     // last_used_at, and an untotal order lets two queries truncate at POOL_LIMIT
-    // on different subsets of them. listVaultFolders already orders this way.
+    // on different subsets of them.
     .orderBy(desc(vaultItems.lastUsedAt), asc(vaultItems.id))
     .limit(POOL_LIMIT);
 }
@@ -539,55 +591,16 @@ function liveIn(vaultId: number) {
  * Wrap a merge rule so a PINNED field keeps whatever the gear already holds.
  *
  * One helper rather than six hand-written CASEs, so a field cannot be made pinnable
- * with its guard accidentally left off — the same reason the folder verbs share one
- * scoped switch instead of six endpoints.
+ * with its guard accidentally left off.
  */
 function keepIfPinned(flag: PgColumn, keep: PgColumn, rule: SQL): SQL {
   return sql`case when ${flag} then ${keep} else ${rule} end`;
 }
 
-/**
- * Map the folder names in a capture to gear folder ids, creating the missing ones.
- * New folders land after the existing ones, in the order the names first appear.
- * Exported because the MCP gear tools have the same job: nothing over the connector
- * can pick a folder off a list, so a folder arrives as a name there too.
- */
-export async function ensureVaultFolders(
-  db: Db,
-  vaultId: number,
-  names: (string | undefined)[],
-): Promise<Map<string, number>> {
-  const wanted = [...new Set(names.filter((n): n is string => !!n))];
-  if (!wanted.length) return new Map();
-  const have = await db
-    .select({ id: vaultFolders.id, name: vaultFolders.name, sortOrder: vaultFolders.sortOrder })
-    .from(vaultFolders)
-    .where(eq(vaultFolders.vaultId, vaultId));
-  const byName = new Map(have.map((r) => [r.name, r.id]));
-  // Only names that need creating count against the folder ceiling — captures
-  // naming existing folders are idempotent whatever the count. Past the cap the
-  // extra folders simply aren't made and their items land unfiled, which keeps an
-  // automatic path from erroring (a deliberate add on /vault refuses instead).
-  const missing = wanted.filter((n) => !byName.has(n)).slice(0, Math.max(0, VAULT_FOLDERS_MAX - have.length));
-  if (!missing.length) return byName;
-  const max = have.reduce((m, r) => Math.max(m, r.sortOrder), 0);
-  await db
-    .insert(vaultFolders)
-    .values(missing.map((name, i) => ({ vaultId, name, sortOrder: max + i + 1 })))
-    .onConflictDoNothing({ target: [vaultFolders.vaultId, vaultFolders.name] });
-  // re-read rather than trusting returning(): a racing capture may have created
-  // some of `missing` first, in which case our insert skipped them
-  const rows = await db
-    .select({ id: vaultFolders.id, name: vaultFolders.name })
-    .from(vaultFolders)
-    .where(eq(vaultFolders.vaultId, vaultId));
-  return new Map(rows.map((r) => [r.name, r.id]));
-}
-
 /** Every live row in a user's vault, most-recently-used first — the /vault page's
  *  read. Small by nature, so it's one unpaginated query. */
 export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntry[]> {
-  return (await liveRows(db, vaultId)).map(toEntry);
+  return withKits(db, vaultId, (await liveRows(db, vaultId)).map(toEntry));
 }
 
 /**
@@ -625,15 +638,16 @@ export async function vaultGearAmong(
       normKey: vaultItems.normKey,
       weightMg: vaultItems.weightMg,
       weightPinned: vaultItems.weightPinned,
+      kind: vaultItems.kind,
     })
     .from(vaultItems)
     .where(and(liveIn(vaultId), inArray(vaultItems.normKey, normKeys.slice(0, VAULT_CAPTURE_MAX))));
-  return rows.map((r) => [r.normKey, r.weightPinned ? null : r.weightMg]);
+  return rows.map(gearKeyOf);
 }
 
 /**
  * One row of the vault by id, live or put away, or null. The MCP gear tools read a
- * piece back after a folder move, which applyVaultFolderOp answers with a boolean
+ * piece back after an edit that answered with a boolean
  * and no row. vaultId sits in the WHERE as on every other read here, so an id from
  * some other vault is null, indistinguishable from an id that never existed.
  */
@@ -644,62 +658,48 @@ export async function vaultItemById(db: Db, vaultId: number, id: number): Promis
     .from(vaultItems)
     .where(and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId)))
     .limit(1);
-  return rows[0] ? toEntry(rows[0]) : null;
-}
-
-/** A vault's folders in drag order (id breaks a tie, so the order is total). */
-export async function listVaultFolders(db: Db, vaultId: number): Promise<VaultFolder[]> {
-  const rows = await db
-    .select()
-    .from(vaultFolders)
-    .where(eq(vaultFolders.vaultId, vaultId))
-    .orderBy(asc(vaultFolders.sortOrder), asc(vaultFolders.id));
-  // tidied on read like the items are (toEntry) — these names are copied from list
-  // folder names, so an old one reads "Men's layers" beside a list showing "Men’s
-  // layers". The stored name is the unique key here, so it is deliberately NOT
-  // rewritten: only what the page renders changes.
-  return rows.map((r) => ({
-    id: r.id,
-    name: tidyText(r.name),
-  }));
+  // a kit with its items and its derived weight, a piece with the kits it is in
+  return rows[0] ? ((await withKits(db, vaultId, [toEntry(rows[0])]))[0] ?? null) : null;
 }
 
 /**
- * The tombstoned rows — what "Remove" put away, most recently removed first.
- *
- * They need somewhere to be seen. Capture deliberately never clears a tombstone
- * (see captureVaultItems), which is what stops every list still holding the gear
- * from resurrecting it — but it also means removal is otherwise PERMANENT, with
- * nothing but the undo toast's few seconds to take it back. This is the way back:
- * one deliberate click, rather than the vault trying to guess from a capture
- * whether you meant to re-add something.
+ * The live row with this identity (brand + name + variant, folded as vaultNormKey
+ * folds them), or null. The MCP gear tools answer an add that came back as a
+ * duplicate with the piece it duplicated, so an assistant has the id it needs next
+ * (to put that piece in a kit, say) without a second search.
  */
-export async function listRemovedVaultItems(db: Db, vaultId: number): Promise<VaultEntry[]> {
-  const rows = await db
-    .select()
-    .from(vaultItems)
-    .where(and(eq(vaultItems.vaultId, vaultId), isNotNull(vaultItems.removedAt)))
-    .orderBy(desc(vaultItems.updatedAt))
-    .limit(POOL_LIMIT);
-  return rows.map(toEntry);
+export async function vaultItemByNormKey(db: Db, vaultId: number, normKey: string): Promise<VaultEntry | null> {
+  if (!normKey) return null;
+  const rows = await db.select().from(vaultItems).where(and(liveIn(vaultId), eq(vaultItems.normKey, normKey))).limit(1);
+  return rows[0] ? ((await withKits(db, vaultId, [toEntry(rows[0])]))[0] ?? null) : null;
 }
 
 /** Rank a user's vault against an autocomplete query. Recall is the whole (bounded)
  *  live set; the fine ranking is the shared JS cascade — the catalog's PGlite
- *  strategy, applied here on both engines because a vault is always small. */
+ *  strategy, applied here on both engines because a vault is always small.
+ *
+ *  PIECES ONLY for the row's autocomplete (the default): a pick fills that one row,
+ *  and a kit is not one row — it goes onto a list as a group with its items under it,
+ *  which the gear pane does (addVaultKit) and a row's name field can't. Offering a
+ *  kit there would land it flat, at its total, with its items lost. The connector's
+ *  search asks for kits too (`kits: true`), with their items, since a kit is gear it
+ *  holds and the tools name what a kit is. */
 export async function searchVaultItems(
   db: Db,
   vaultId: number,
   q: string,
   limit?: number,
+  { kits = false }: { kits?: boolean } = {},
 ): Promise<VaultEntry[]> {
   // The ranker asks this too; asking first saves the query for a "keep typing".
   if (!enoughToSearch((q ?? "").trim())) return [];
-  const rows = await liveRows(db, vaultId);
+  const all = await liveRows(db, vaultId);
+  const rows = kits ? all : all.filter((r) => r.kind !== "kit");
   // rank the ROWS, then convert the handful that survive — toEntry allocates two
   // Dates and two ISO strings per row, and the ranker reads neither. `limit` falls
   // back to the autocomplete's six; a search over the connector asks for a page.
-  return rankVaultRows(rows, q, limit).map(toEntry);
+  const ranked = rankVaultRows(rows, q, limit).map(toEntry);
+  return kits ? withKits(db, vaultId, ranked) : ranked;
 }
 
 /**
@@ -781,8 +781,9 @@ export async function reapAbandonedVaults(
   return { vaultsReaped: done.length };
 }
 
-/** Hard-delete vaults soft-deleted more than `graceDays` ago, with their gear and
- *  folders. This is the stage that actually reclaims the storage. */
+/** Hard-delete vaults soft-deleted more than `graceDays` ago, with their gear (and
+ *  any folders left from before My Gear dropped them). This is the stage that
+ *  actually reclaims the storage. */
 export async function purgeDeletedVaults(
   db: Db,
   opts?: { graceDays?: number; limit?: number },
@@ -798,7 +799,16 @@ export async function purgeDeletedVaults(
 
   // children first — there's no DB-level FK here (same as lists → snapshots), so
   // the cascade is manual, and doing it in this order means a run that dies partway
-  // leaves orphaned NOTHING: the vault row is the last thing to go.
+  // leaves orphaned NOTHING: the vault row is the last thing to go. A kit's links go
+  // before the rows they join, by the same rule.
+  await db
+    .delete(vaultKitParts)
+    .where(
+      inArray(
+        vaultKitParts.kitId,
+        db.select({ id: vaultItems.id }).from(vaultItems).where(inArray(vaultItems.vaultId, ids)),
+      ),
+    );
   await db.delete(vaultItems).where(inArray(vaultItems.vaultId, ids));
   await db.delete(vaultFolders).where(inArray(vaultFolders.vaultId, ids));
   await db.delete(vaults).where(inArray(vaults.id, ids));
@@ -808,85 +818,6 @@ export async function purgeDeletedVaults(
 // ---------------------------------------------------------------------------
 // the row verbs: add a piece of gear by hand, correct one in place
 // ---------------------------------------------------------------------------
-
-/** The two things you can do to a vault ROW from /gear — see
- *  server/api/vault/items.post.ts for why they share a route with each other but
- *  not with the folder verbs. */
-export type VaultItemOp =
-  | {
-      t: "add";
-      brand?: string;
-      name: string;
-      variant?: string;
-      commonName?: string;
-      /** Absent or 0 = not weighed yet, a normal state for gear you've just
-       *  remembered you own. A zero pins nothing — see cleanVaultPatch. */
-      weightMg?: number;
-      classification?: Classification;
-      kcal?: number;
-      /** The catalog row the piece is a pick of, when it is one: what a captured pick
-       *  carries, stated by hand. Bounded by sanitize() like a capture's. */
-      catalogItemId?: number;
-      productUrl?: string;
-      description?: string;
-      priceCents?: number;
-      currency?: string;
-      /** File it as you create it; null = unfiled. Verified in this gear's scope. */
-      folderId?: number | null;
-      /** The unit its weight was typed in ("3.8 oz"), so it reads back the same way. */
-      entryUnit?: Unit;
-      /** How many you own; absent is one. */
-      owned?: number;
-    }
-  | {
-      t: "edit";
-      id: number;
-      patch: VaultItemPatch;
-      /** Release a pin, so a list can teach the field again. The only way back from
-       *  a pin — without it one correction would freeze a field forever. Applied
-       *  AFTER the patch's own pins, so `{ patch: { weightMg: 545 }, unpin:
-       *  ["weight"] }` reads as "set it, but keep taking my lists' word for it". */
-      unpin?: VaultPinField[];
-    };
-
-/**
- * A field ABSENT here is untouched; present, it is set AND pinned; null (or a
- * string that tidies to "") CLEARS it and pins the emptiness — otherwise deleting a
- * bogus product URL would be undone by the next capture's coalesce. The same
- * semantics cleanItemPatch gives a list row in shared/ops.
- *
- * No folderId: re-filing a row is the folders route's "move" verb, and a second copy
- * of a scoped write is a second chance to scope it wrong.
- */
-interface VaultItemPatch {
-  brand?: string | null;
-  name?: string;
-  variant?: string | null;
-  commonName?: string | null;
-  weightMg?: number;
-  classification?: Classification | null;
-  kcal?: number | null;
-  productUrl?: string | null;
-  description?: string | null;
-  /** The amount, in cents. 0 or null clears it — and clears the currency with it,
-   *  since the two are one decision (VAULT_PIN_FIELDS' `price`). */
-  priceCents?: number | null;
-  /** Only read alongside a priceCents. On its own it would set the money a stored
-   *  amount is in without the amount being restated, which is how "£399" becomes
-   *  "$399" by editing a field the dialog didn't show you. */
-  currency?: string | null;
-  /** Link the piece to a catalog row, or null to unlink it. No pin: a link is a fact
-   *  about which product this is, not a value a list could argue with. */
-  catalogItemId?: number | null;
-  /** The icon picked by hand, or null to go back to the gear type's. No pin, like the
-   *  catalog link: nothing but this dialog ever writes it. */
-  icon?: GearGlyph | null;
-  /** The unit the weight reads in, or null for the page's. No pin: only /gear writes
-   *  it, so there is no capture to protect it from. */
-  entryUnit?: Unit | null;
-  /** How many you own; 1 or null goes back to one. No pin, for entryUnit's reason. */
-  owned?: number | null;
-}
 
 /** The pin flags a deliberate write asserts, returned in the SAME object as the
  *  values they protect — so a field structurally cannot be written without being
@@ -977,10 +908,6 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
     if (p.icon === null) out.icon = null;
     else if (isGearGlyph(p.icon)) out.icon = p.icon;
   }
-  if (typeof p.description === "string" || p.description === null) {
-    out.description = str(p.description, VAULT_NOTE_MAX) ?? null;
-    out.descriptionPinned = true;
-  }
   // The amount carries the currency: they are one field with two columns, so the
   // currency is only ever read in the same breath as a price, and clearing the
   // price clears it. A patch naming currency alone is ignored — see the field.
@@ -996,7 +923,7 @@ function cleanVaultPatch(patch: unknown): ItemWrite | null {
 /**
  * Apply one row op, always scoped to the caller's gear.
  *
- * Same discipline as applyVaultFolderOp: every WHERE carries vaultId alongside the
+ * Every WHERE carries vaultId alongside the
  * id, so an id from another gear matches nothing rather than being checked and
  * rejected. Returns the row as the client should now see it, or null — and null is
  * deliberately the one answer for "not yours", "doesn't exist" and "wouldn't
@@ -1007,22 +934,26 @@ export async function applyVaultItemOp(
   vaultId: number,
   op: VaultItemOp,
 ): Promise<{ item: VaultEntry } | { refused: "duplicate" | "full" } | null> {
-  switch (op?.t) {
-    case "add":
-      return (await addVaultItems(db, vaultId, [op]))[0] ?? null;
-    case "edit":
-      return editVaultItem(db, vaultId, op);
-    default:
-      return null;
+  if (op?.t === "kit") return kitVaultItem(db, vaultId, op);
+  const done =
+    op?.t === "add" ? ((await addVaultItems(db, vaultId, [op]))[0] ?? null)
+    : op?.t === "edit" ? await editVaultItem(db, vaultId, op)
+    : null;
+  // the row as every other read shows it: a kit with its parts and derived weight,
+  // a piece with the kits it is in
+  if (done && "item" in done && done.item) {
+    const [item = done.item] = await withKits(db, vaultId, [done.item]);
+    return { item };
   }
+  return done;
 }
 
 type AddOutcome = { item: VaultEntry } | { refused: "duplicate" | "full" } | null;
 
 /**
  * Add pieces of gear nobody's list has carried yet — one from the gear page, or up
- * to fifty from the connector — in one round of queries: the named folders checked
- * in scope together, the count taken once, and a single INSERT for the lot. The
+ * to fifty from the connector — in one round of queries: the count taken once, and a
+ * single INSERT for the lot. The
  * answer is one outcome per op, in order.
  *
  * Cannot route through captureVaultItems, and the difference is the point: capture
@@ -1040,39 +971,27 @@ export async function addVaultItems(
   // Straight through capture's own sanitizer, one op at a time so each keeps its
   // answer: a hand-typed row is capped, tidied and IDENTIFIED by exactly the rules a
   // captured one is. One identity rule, not two.
-  const cleaned = ops.map((op) => sanitize([{ ...op, normKey: "", weightMg: op.weightMg ?? 0, folder: undefined } as VaultCapture])[0] ?? null);
-
-  // folderId is an ID here, not a name — on /gear you pick a folder, you don't type
-  // one — so it takes the same in-scope check the "move" op does, for the whole set
-  // in one query. Filing gear under a heading its owner can never see would be worse
-  // than not filing it at all.
-  const named = [...new Set(ops.flatMap((op) => (op.folderId != null && isSerialId(op.folderId) ? [op.folderId] : [])))];
-  const owned = new Set(
-    named.length
-      ? (await db.select({ id: vaultFolders.id }).from(vaultFolders).where(and(eq(vaultFolders.vaultId, vaultId), inArray(vaultFolders.id, named)))).map((r) => r.id)
-      : [],
-  );
+  const cleaned = ops.map((op) => sanitize([{ ...op, normKey: "", weightMg: op.weightMg ?? 0 } as VaultCapture])[0] ?? null);
 
   // each key once: a second op on the same key in one call is a duplicate of the
   // first, and the INSERT may not touch a row twice
-  const rows: { index: number; cap: VaultCapture; folderId: number | null }[] = [];
+  const rows: { index: number; cap: VaultCapture }[] = [];
   const seen = new Set<string>();
   ops.forEach((op, index) => {
     const cap = cleaned[index];
     if (!cap) return;
-    if (op.folderId != null && !owned.has(op.folderId)) return;
     if (seen.has(cap.normKey)) {
       results[index] = { refused: "duplicate" };
       return;
     }
     seen.add(cap.normKey);
-    rows.push({ index, cap, folderId: op.folderId ?? null });
+    rows.push({ index, cap });
   });
   if (!rows.length) return results;
 
   // The ceiling, counted once and disambiguated only when this call could cross the
   // line, like capture — but a DELIBERATE add REFUSES where capture drops silently,
-  // the same way applyVaultFolderOp's "add" does. Landing on a key the gear already
+  // the way a deliberate press should. Landing on a key the gear already
   // holds adds no row, so it's allowed at any count.
   let room = VAULT_ITEMS_MAX - (await vaultItemCount(db, vaultId));
   let landing = rows;
@@ -1096,8 +1015,8 @@ export async function addVaultItems(
   const done = await db
     .insert(vaultItems)
     .values(
-      landing.map(({ index, cap, folderId }) => ({
-        ...rowValues(cap, vaultId, now, folderId),
+      landing.map(({ index, cap }) => ({
+        ...rowValues(cap, vaultId, now),
         entryUnit: unitOf(ops[index]!.entryUnit) ?? null,
         owned: ownedOf(ops[index]!.owned) ?? null,
         // Typing it in is choosing it: every field you supplied is yours, and no list
@@ -1108,7 +1027,6 @@ export async function addVaultItems(
         classificationPinned: cap.classification != null,
         kcalPinned: cap.kcal != null,
         productUrlPinned: cap.productUrl != null,
-        descriptionPinned: cap.description != null,
         pricePinned: cap.priceCents != null,
       })),
     )
@@ -1127,17 +1045,14 @@ export async function addVaultItems(
         name: sql`excluded.name`,
         variant: sql`excluded.variant`,
         commonName: sql`coalesce(excluded.common_name, ${vaultItems.commonName})`,
-        weightMg: sql`case when excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`,
+        // re-adding a put-away KIT by name brings it back, but never with the typed
+        // weight as its own — that figure is its parts' (see the capture guard)
+        weightMg: sql`case when ${vaultItems.kind} <> 'kit' and excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`,
         classification: sql`coalesce(excluded.classification, ${vaultItems.classification})`,
         kcal: sql`coalesce(excluded.kcal, ${vaultItems.kcal})`,
         productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
-        description: sql`coalesce(excluded.description, ${vaultItems.description})`,
         priceCents: sql`coalesce(excluded.price_cents, ${vaultItems.priceCents})`,
         currency: sql`case when excluded.price_cents is not null then excluded.currency else ${vaultItems.currency} end`,
-        // You named a folder → it wins; you didn't → it stays filed where it was.
-        // The REVERSE of capture's coalesce, deliberately: capture is automatic and
-        // must not reshuffle a gear, whereas an add is you doing the filing.
-        folderId: sql`coalesce(excluded.folder_id, ${vaultItems.folderId})`,
         // pins UNION — an add must never RELEASE one an earlier edit earned
         namePinned: sql`true`,
         weightPinned: sql`${vaultItems.weightPinned} or excluded.weight_pinned`,
@@ -1145,7 +1060,6 @@ export async function addVaultItems(
         classificationPinned: sql`${vaultItems.classificationPinned} or excluded.classification_pinned`,
         kcalPinned: sql`${vaultItems.kcalPinned} or excluded.kcal_pinned`,
         productUrlPinned: sql`${vaultItems.productUrlPinned} or excluded.product_url_pinned`,
-        descriptionPinned: sql`${vaultItems.descriptionPinned} or excluded.description_pinned`,
         pricePinned: sql`${vaultItems.pricePinned} or excluded.price_pinned`,
         removedAt: null,
         // surfaces at the top of /gear, which orders by last_used_at desc
@@ -1194,25 +1108,363 @@ async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, {
   const done = await db
     .update(vaultItems)
     .set({ ...set, updatedAt: new Date() })
-    // ownership is IN the where, not a check on the result — see removeVaultItem
-    .where(and(eq(vaultItems.id, op.id), eq(vaultItems.vaultId, vaultId)))
+    // ownership is IN the where, not a check on the result — see removeVaultItem.
+    // A weight is refused on a KIT the same way: its weight is its parts', and a
+    // total written into its own weight would count every part twice. A kit's own
+    // weight travels with its parts, in the "kit" op.
+    .where(
+      and(
+        eq(vaultItems.id, op.id),
+        eq(vaultItems.vaultId, vaultId),
+        set.weightMg !== undefined ? eq(vaultItems.kind, "piece") : undefined,
+      ),
+    )
     .returning();
-  return done[0] ? { item: toEntry(done[0]) } : null;
+  if (!done[0]) return null;
+  // owning fewer than a kit holds: every kit holding this piece comes down to it
+  if ("owned" in set) {
+    const owned = ownedOf(done[0].owned) ?? 1;
+    await db
+      .update(vaultKitParts)
+      .set({ qty: owned })
+      .where(and(eq(vaultKitParts.partId, done[0].id), sql`${vaultKitParts.qty} > ${owned}`));
+  }
+  return { item: toEntry(done[0]) };
+}
+
+// ---------------------------------------------------------------------------
+// kits: a row that names a set of pieces
+// ---------------------------------------------------------------------------
+
+/** A part off the wire: an id, and a count clamped to what the editor can step. */
+function partQty(raw: unknown): number | null {
+  const qty = typeof raw === "number" && Number.isFinite(raw) ? Math.round(raw) : 1;
+  return qty < 1 ? null : Math.min(VAULT_KIT_QTY_MAX, qty);
+}
+
+/**
+ * Write a kit's links, replacing whatever it held: ONE delete and one insert, in the
+ * order given, so the kit reads back in the order it was made. The caller has
+ * already checked the rules (captureKit); this is only the write. setKitParts does the
+ * same delete and insert inline, so its delete can run beside the row's update.
+ */
+async function writeKitLinks(db: Db, kitId: number, parts: { partId: number; qty: number }[]): Promise<void> {
+  await db.delete(vaultKitParts).where(eq(vaultKitParts.kitId, kitId));
+  if (parts.length) {
+    await db
+      .insert(vaultKitParts)
+      .values(parts.map((p, i) => ({ kitId, partId: p.partId, qty: p.qty, sortOrder: i })));
+  }
+}
+
+/** Is this row already some kit's part? One level deep means it can't then hold
+ *  parts of its own — a kit always unfolds onto a list as exactly one group. */
+async function isSomeonesPart(db: Db, id: number): Promise<boolean> {
+  const rows = await db
+    .select({ kitId: vaultKitParts.kitId })
+    .from(vaultKitParts)
+    .where(eq(vaultKitParts.partId, id))
+    .limit(1);
+  return rows.length > 0;
+}
+
+/**
+ * Make a row a kit of these pieces, or replace an existing kit's parts, and set its
+ * OWN weight. Answers null, writing nothing, when any rule fails.
+ *
+ * The rules a table constraint can't reach, all checked before the first write:
+ *  • the kit and every part are rows of THIS vault — an id from another vault fails
+ *    the whole call rather than being skipped, so nothing is half-made;
+ *  • every part is a piece, and the kit is not itself some kit's part — one level
+ *    deep, the rule list nesting keeps, so a kit always maps onto a list group;
+ *  • a kit is never its own part, and has at least one.
+ *
+ * A count is held to how many of the piece you own (`owned`, one when unsaid): a kit
+ * can't hold two lighters you have one of. Clamped rather than refused, so a save that
+ * changes something else still lands, and the row reads back what the kit now holds.
+ *
+ * `ownWeightMg` is required rather than defaulted to what the row holds: making a
+ * kit of a row that was typed in as the whole set ("Cook kit, 540 g") has to say what
+ * is left of that figure once the parts count for themselves — usually nothing — or
+ * the parts are counted twice. The weight pin comes off with it: a kit's weight is
+ * nobody's to pin, since no capture may write one (the guard in captureVaultItems).
+ *
+ * Answers the kit's row as written, so the kit op can decorate it without reading it
+ * back. Four round trips, not eight: the three checks are independent reads and go
+ * together, and so do the row's update and the old links' delete; only the new links
+ * wait for that.
+ */
+export async function setKitParts(
+  db: Db,
+  vaultId: number,
+  kitId: number,
+  parts: { id: number; qty?: number }[],
+  { ownWeightMg }: { ownWeightMg: number },
+): Promise<Row | null> {
+  if (!isSerialId(kitId) || !Array.isArray(parts) || !Number.isFinite(ownWeightMg)) return null;
+  const qtyOf = new Map<number, number>();
+  for (const p of parts) {
+    if (!isSerialId(p?.id) || p.id === kitId) return null;
+    const qty = partQty(p.qty);
+    if (qty === null) return null;
+    qtyOf.set(p.id, qty);
+  }
+  if (!qtyOf.size || qtyOf.size > VAULT_KIT_PARTS_MAX) return null;
+  const ids = [...qtyOf.keys()];
+
+  const [[kit], nested, found] = await Promise.all([
+    db
+      .select({ id: vaultItems.id })
+      .from(vaultItems)
+      .where(and(eq(vaultItems.id, kitId), eq(vaultItems.vaultId, vaultId))),
+    isSomeonesPart(db, kitId),
+    db
+      .select({ id: vaultItems.id, kind: vaultItems.kind, owned: vaultItems.owned })
+      .from(vaultItems)
+      .where(and(eq(vaultItems.vaultId, vaultId), inArray(vaultItems.id, ids))),
+  ]);
+  if (!kit || nested) return null;
+  if (found.length !== ids.length || found.some((r) => r.kind !== "piece")) return null;
+  for (const r of found) qtyOf.set(r.id, Math.min(qtyOf.get(r.id)!, ownedOf(r.owned) ?? 1));
+
+  const [[row]] = await Promise.all([
+    db
+      .update(vaultItems)
+      .set({ kind: "kit", weightMg: clampUnitWeightMg(ownWeightMg), weightPinned: false, updatedAt: new Date() })
+      .where(and(eq(vaultItems.id, kitId), eq(vaultItems.vaultId, vaultId)))
+      .returning(),
+    db.delete(vaultKitParts).where(eq(vaultKitParts.kitId, kitId)),
+  ]);
+  await db
+    .insert(vaultKitParts)
+    .values(ids.map((partId, i) => ({ kitId, partId, qty: qtyOf.get(partId)!, sortOrder: i })));
+  return row ?? null;
+}
+
+/**
+ * Turn a kit back into a piece. Its weight becomes the total it showed a moment ago
+ * (its own plus its live parts), so the row reads the same number before and after;
+ * the parts stay where they are, as the pieces they always were. False when the row
+ * isn't a kit of this vault.
+ */
+async function clearKit(db: Db, vaultId: number, kitId: number): Promise<Row | null> {
+  const kit = await vaultItemById(db, vaultId, kitId);
+  if (!kit || kit.kind !== "kit") return null;
+  // the row's update and the links' delete are independent: one round trip for both
+  const [[row]] = await Promise.all([
+    db
+      .update(vaultItems)
+      .set({ kind: "piece", weightMg: clampUnitWeightMg(kit.weightMg), updatedAt: new Date() })
+      .where(and(eq(vaultItems.id, kitId), eq(vaultItems.vaultId, vaultId)))
+      .returning(),
+    db.delete(vaultKitParts).where(eq(vaultKitParts.kitId, kitId)),
+  ]);
+  return row ?? null;
+}
+
+/** The "kit" op: set a row's parts, or clear them. The row comes back as every read
+ *  shows it, or null for anything setKitParts refuses — the one answer, as for edit. */
+async function kitVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { t: "kit" }>) {
+  if (!isSerialId(op.id) || !Array.isArray(op.parts)) return null;
+  const row = op.parts.length
+    ? await setKitParts(db, vaultId, op.id, op.parts, { ownWeightMg: op.ownWeightMg ?? 0 })
+    : await clearKit(db, vaultId, op.id);
+  if (!row) return null;
+  // the written row, decorated once (a kit with its parts and derived weight, a piece
+  // with the kits it is in): no read back
+  const [item] = await withKits(db, vaultId, [toEntry(row)]);
+  return item ? { item } : null;
+}
+
+/** The parts a kit capture names, cleaned: real keys, counts the editor could step,
+ *  one entry per identity (the first wins), bounded. */
+function cleanPartRefs(raw: unknown): VaultKitPartRef[] {
+  if (!Array.isArray(raw)) return [];
+  const out = new Map<string, VaultKitPartRef>();
+  for (const p of raw as Partial<VaultKitPartRef>[]) {
+    if (typeof p?.normKey !== "string" || !p.normKey || out.has(p.normKey)) continue;
+    const qty = partQty(p.qty);
+    if (qty === null) continue;
+    out.set(p.normKey, { normKey: p.normKey, qty });
+    if (out.size >= VAULT_KIT_PARTS_MAX) break;
+  }
+  return [...out.values()];
+}
+
+/**
+ * Resolve a kit's parts named by identity to this vault's rows, and link them.
+ *
+ * Only PIECES link: a child row that shares its name with a kit you already hold is
+ * skipped rather than nested (one level deep), and so is the kit's own identity.
+ * A put-away piece still links — it is listed under the kit and stops counting,
+ * which is what its row says on /gear — and a name the vault doesn't hold at all is
+ * skipped: the capture that ran just before this (captureKit) landed every part it
+ * could, so what's missing was refused for space or was never gear. Returns how many
+ * linked, so a caller can tell a kit with no parts from one that was written.
+ *
+ * A kit never holds more of a piece than you own, and here the list is the evidence:
+ * a group carrying two lighters says you have two, so a piece owned fewer times is
+ * raised to the group's count (never lowered) rather than the kit cut short of it.
+ */
+async function linkKitPartsByKey(
+  db: Db,
+  vaultId: number,
+  kitId: number,
+  parts: VaultKitPartRef[],
+): Promise<number> {
+  if (!parts.length) return 0;
+  const rows = await db
+    .select({ id: vaultItems.id, normKey: vaultItems.normKey, kind: vaultItems.kind, owned: vaultItems.owned })
+    .from(vaultItems)
+    .where(
+      and(
+        eq(vaultItems.vaultId, vaultId),
+        inArray(
+          vaultItems.normKey,
+          parts.map((p) => p.normKey),
+        ),
+      ),
+    );
+  const rowOf = new Map(rows.filter((r) => r.kind === "piece" && r.id !== kitId).map((r) => [r.normKey, r]));
+  const links: { partId: number; qty: number }[] = [];
+  for (const p of parts) {
+    const row = rowOf.get(p.normKey);
+    if (!row) continue;
+    links.push({ partId: row.id, qty: p.qty });
+    if (p.qty > (ownedOf(row.owned) ?? 1)) {
+      await db.update(vaultItems).set({ owned: p.qty }).where(and(eq(vaultItems.id, row.id), eq(vaultItems.vaultId, vaultId)));
+    }
+  }
+  if (!links.length) return 0;
+  await writeKitLinks(db, kitId, links);
+  return links.length;
+}
+
+/** Why a group's save did or didn't make a kit. Each is a different thing for the
+ *  row to SAY (see useVault.captureOne for the piece's own set of answers). */
+type CaptureKitOutcome = "saved" | "removed" | "nested" | "full" | "refused";
+
+/**
+ * A group row, offered to the vault as a kit — the group row's own Save to My Gear.
+ *
+ * Two writes, in this order. The PARTS go first, through the ordinary capture, as
+ * the pieces they are: pins, tombstones and the ceiling all apply, and a press on the
+ * group is a press on each of them (overwriteWeight is the caller's, as captureOne
+ * sends it). Then the KIT: its row is upserted like a capture's, except that its
+ * kind becomes `kit` and its weight is stated outright — the group's OWN weight, the
+ * stuff sack — because this is the deliberate act, and a hand-typed row of the same
+ * name ("Cook kit, 540 g") converting in place would otherwise keep that total as
+ * its own and count every part twice. The pin comes off the weight with it. Finally
+ * the links, by identity (linkKitPartsByKey).
+ *
+ * "nested" is refused BEFORE anything is written to the kit's row: a piece that is
+ * already some kit's part can't become a kit (one level deep), and converting it
+ * first and discovering that second would leave a kit with no parts behind.
+ *
+ * A tombstoned kit is written and stays put away, like any capture — the parts still
+ * link, so putting it back on /gear brings back the set — and reports "removed"
+ * rather than landing, which is the answer captureOne gives a piece in that state.
+ */
+export async function captureKit(
+  db: Db,
+  vaultId: number,
+  kit: VaultKitCapture,
+  partCaps: VaultCapture[],
+  { overwriteWeight = false }: { overwriteWeight?: boolean } = {},
+): Promise<{ keys: VaultGearKey[]; full: boolean; kit: CaptureKitOutcome }> {
+  // The catalog's current spelling first, as every capture takes it (respellCatalogPicks),
+  // so the key a part is linked by below is the key its row actually lands under.
+  const respelled = partCaps.length ? await respellCatalogPicks(db, partCaps) : [];
+  const landed = respelled.length
+    ? await captureVaultItemsReporting(db, vaultId, respelled, { overwriteWeight })
+    : { keys: [] as VaultGearKey[], full: false };
+  const [clean] = sanitize(await respellCatalogPicks(db, [kit]));
+  // The parts' keys as the CLIENT folded them, mapped to the keys the rows were stored
+  // under — respelled to the catalog's current name, and re-derived from the tidied
+  // text, where tidyText and foldForSearch can disagree (a zero-width space, say). A
+  // ref that missed its row would silently drop an item from the kit.
+  const serverKey = new Map<string, string>();
+  partCaps.forEach((c, i) => {
+    const [s] = sanitize([respelled[i]!]);
+    if (s && typeof c?.normKey === "string") serverKey.set(c.normKey, s.normKey);
+  });
+  const parts = cleanPartRefs(kit?.parts).map((p) => ({ ...p, normKey: serverKey.get(p.normKey) ?? p.normKey }));
+  if (!clean || !parts.length) return { ...landed, kit: "refused" };
+
+  const [prior] = await db
+    .select({ id: vaultItems.id, removedAt: vaultItems.removedAt })
+    .from(vaultItems)
+    .where(and(eq(vaultItems.vaultId, vaultId), eq(vaultItems.normKey, clean.normKey)));
+  if (prior && (await isSomeonesPart(db, prior.id))) return { ...landed, kit: "nested" };
+  // the ceiling, for a kit row that doesn't exist yet — refused out loud, like a
+  // hand add, since a press asked for it
+  if (!prior && (await vaultItemCount(db, vaultId)) >= VAULT_ITEMS_MAX) return { ...landed, full: true, kit: "full" };
+
+  const now = new Date();
+  const [row] = await db
+    .insert(vaultItems)
+    .values({ ...rowValues(clean, vaultId, now), kind: "kit" })
+    .onConflictDoUpdate({
+      target: [vaultItems.vaultId, vaultItems.normKey],
+      set: {
+        brand: keepIfPinned(vaultItems.namePinned, vaultItems.brand, sql`excluded.brand`),
+        name: keepIfPinned(vaultItems.namePinned, vaultItems.name, sql`excluded.name`),
+        variant: keepIfPinned(vaultItems.namePinned, vaultItems.variant, sql`excluded.variant`),
+        kind: sql`'kit'`,
+        weightMg: sql`excluded.weight_mg`,
+        weightPinned: false,
+        commonName: keepIfPinned(
+          vaultItems.commonNamePinned,
+          vaultItems.commonName,
+          sql`coalesce(excluded.common_name, ${vaultItems.commonName})`,
+        ),
+        classification: keepIfPinned(
+          vaultItems.classificationPinned,
+          vaultItems.classification,
+          sql`coalesce(excluded.classification, ${vaultItems.classification})`,
+        ),
+        productUrl: keepIfPinned(
+          vaultItems.productUrlPinned,
+          vaultItems.productUrl,
+          sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
+        ),
+        timesSeen: sql`${vaultItems.timesSeen} + 1`,
+        lastUsedAt: now,
+        updatedAt: now,
+      },
+    })
+    .returning();
+  if (!row) return { ...landed, kit: "refused" };
+  if (!(await linkKitPartsByKey(db, vaultId, row.id, parts))) {
+    // every named part was a kit itself, or missing: not a kit after all. Back to
+    // the piece it was, at the weight it was typed with — or the row this just
+    // made, gone
+    if (prior) {
+      await db.update(vaultItems).set({ kind: "piece", updatedAt: now }).where(eq(vaultItems.id, row.id));
+    } else {
+      await db.delete(vaultItems).where(eq(vaultItems.id, row.id));
+    }
+    return { ...landed, kit: "refused" };
+  }
+  if (row.removedAt) return { ...landed, kit: "removed" };
+  return { ...landed, keys: [...landed.keys, gearKeyOf(row)], kit: "saved" };
 }
 
 // ---------------------------------------------------------------------------
 // import: putting a file's worth of gear back
 // ---------------------------------------------------------------------------
 
-/** A row on its way in — the gear plus the pins it arrives holding, and what only /gear
+/** A row on its way in — the gear plus the pins it arrives holding, what only /gear
  *  writes (the count you own, a picked icon, the weight's unit), all off the wire and
- *  checked on the way in. Mirrors shared/vaultImport's VaultImportRow; only our own
- *  JSON ever states pins. */
+ *  checked on the way in, and, for a kit from our own JSON, its parts by identity.
+ *  Mirrors shared/vaultImport's VaultImportRow; only our own JSON ever states pins or
+ *  a kit. */
 export type VaultImportRow = VaultCapture & {
   pinned?: readonly string[];
   owned?: unknown;
   icon?: unknown;
   entryUnit?: unknown;
+  kit?: { ownWeightMg: number; parts: VaultKitPartRef[] };
 };
 
 /** The pin booleans a row arrives with. A weight of zero pins NOTHING, the same
@@ -1253,10 +1505,19 @@ export async function importVaultItems(
   // Sanitized ONE AT A TIME so each row's pins stay with it — sanitize dedupes by a
   // key it derives itself, and pairing that key back to a source row afterwards
   // would mean re-deriving it here with the same tidying, in a second place.
-  const byKey = new Map<string, { cap: VaultCapture; pins: Record<string, boolean>; row: VaultImportRow }>();
+  const byKey = new Map<string, { cap: VaultCapture; pins: Record<string, boolean>; kit?: VaultImportRow["kit"]; row: VaultImportRow }>();
   for (const row of rows.slice(0, VAULT_IMPORT_MAX)) {
     const [cap] = sanitize([row]);
-    if (cap) byKey.set(cap.normKey, { cap, pins: pinFlags(row), row }); // last wins, like sanitize's own dedupe
+    if (!cap) continue;
+    // A kit from our own JSON lands as a kit: its own weight (the file's weightMg is
+    // the derived total, which as a piece's weight would count its parts twice),
+    // and its parts linked below once every row is in. Nothing else states one.
+    const kit =
+      row.kit && Number.isFinite(row.kit.ownWeightMg) && cleanPartRefs(row.kit.parts).length
+        ? { ownWeightMg: clampUnitWeightMg(row.kit.ownWeightMg), parts: cleanPartRefs(row.kit.parts) }
+        : undefined;
+    if (kit) cap.weightMg = kit.ownWeightMg;
+    byKey.set(cap.normKey, { cap, pins: pinFlags(row), kit, row }); // last wins, like sanitize's own dedupe
   }
   if (!byKey.size) return { added: 0, skipped: 0 };
 
@@ -1268,7 +1529,6 @@ export async function importVaultItems(
   if (!clean.length) return { added: 0, skipped: all.length };
 
   const now = new Date();
-  const folderId = await ensureVaultFolders(db, vaultId, clean.map((c) => c.cap.folder));
   const done = await db
     .insert(vaultItems)
     .values(
@@ -1276,9 +1536,12 @@ export async function importVaultItems(
       // at 1: it counts the lists that reached for a piece of gear, and a file is not
       // a list — a restored vault's ranking rebuilds itself the next time you pack);
       // the pins ride on top, which is what sets an import apart from a capture
-      clean.map(({ cap, pins, row }) => ({
-        ...rowValues(cap, vaultId, now, (cap.folder && folderId.get(cap.folder)) || null),
+      clean.map(({ cap, pins, kit, row }) => ({
+        ...rowValues(cap, vaultId, now),
+        kind: kit ? "kit" : "piece",
         ...pins,
+        // a kit's weight is nobody's to pin (see setKitParts)
+        ...(kit ? { weightPinned: false } : {}),
         // what only /gear writes, so no capture carries it: a backup's count, picked
         // icon and unit, each checked the way an edit checks it
         owned: ownedOf(row.owned) ?? null,
@@ -1290,124 +1553,19 @@ export async function importVaultItems(
     // row can have, and every one of them means "you already have this"
     .onConflictDoNothing()
     .returning();
+  // The kits that landed get their parts, by identity, from whatever the vault now
+  // holds — the file's own pieces, just added, or pieces it already had. A kit the
+  // vault already held was skipped above and keeps the parts it has: a stale backup
+  // must not rewrite a set you have since changed, which is this function's rule.
+  for (const r of done) {
+    const kit = byKey.get(r.normKey)?.kit;
+    if (!kit || r.kind !== "kit") continue;
+    // a kit whose every part is missing from the file and the vault is a piece after
+    // all, at the one weight the file stated for it
+    if (!(await linkKitPartsByKey(db, vaultId, r.id, kit.parts))) {
+      await db.update(vaultItems).set({ kind: "piece" }).where(eq(vaultItems.id, r.id));
+    }
+  }
   return { added: done.length, skipped: all.length - done.length };
 }
 
-/** The folder verbs /gear offers, as one small tagged union — see
- *  server/api/vault/folders.post.ts for why they share a route. */
-export type VaultFolderOp =
-  | { t: "add"; name: string }
-  | { t: "rename"; id: number; name: string }
-  | { t: "remove"; id: number }
-  | { t: "reorder"; ids: number[] }
-  /** null folderId = unfile it */
-  | { t: "move"; itemId: number; folderId: number | null };
-
-const FOLDER_NAME_MAX = 120;
-
-/**
- * Apply one folder op, always scoped to the caller's vault.
- *
- * Every WHERE carries vaultId alongside the id, so an id from another vault
- * matches nothing rather than being checked and rejected — no existence oracle,
- * and no path where a missing scope leaks a row.
- */
-export async function applyVaultFolderOp(
-  db: Db,
-  vaultId: number,
-  op: unknown,
-): Promise<boolean> {
-  // This is the JSON boundary for /api/vault/folders. Keep the public tagged
-  // union above for callers, but validate the actual wire value here rather than
-  // trusting a TypeScript cast in the route.
-  if (!op || typeof op !== "object") return false;
-  const raw = op as Record<string, unknown>;
-  switch (raw.t) {
-    case "add": {
-      const name = str(raw.name, FOLDER_NAME_MAX);
-      if (!name) return false;
-      const [{ max, n } = { max: 0, n: 0 }] = await db
-        .select({
-          max: sql<number>`coalesce(max(${vaultFolders.sortOrder}), 0)`,
-          n: sql<number>`count(*)`,
-        })
-        .from(vaultFolders)
-        .where(eq(vaultFolders.vaultId, vaultId));
-      // at the ceiling, refuse like the empty-name case — quietly false, the same
-      // "nothing was made" the caller already handles
-      if (Number(n) >= VAULT_FOLDERS_MAX) return false;
-      // a name that already exists is a no-op, not an error — the folder you asked
-      // for is there either way
-      const done = await db
-        .insert(vaultFolders)
-        .values({ vaultId, name, sortOrder: Number(max) + 1 })
-        .onConflictDoNothing({ target: [vaultFolders.vaultId, vaultFolders.name] })
-        .returning();
-      return done.length > 0;
-    }
-    case "rename": {
-      const name = str(raw.name, FOLDER_NAME_MAX);
-      if (!name || !isSerialId(raw.id)) return false;
-      // An add treats an existing name as a harmless no-op. Match that for a rename
-      // into a sibling's name: the unique index on (vault, name) is the one check that
-      // also holds against a concurrent add, so it is the only check — a preflight
-      // SELECT would be a second round trip that still couldn't close that window.
-      try {
-        const done = await db
-          .update(vaultFolders)
-          .set({ name })
-          .where(and(eq(vaultFolders.id, raw.id), eq(vaultFolders.vaultId, vaultId)))
-          .returning();
-        return done.length > 0;
-      } catch (error) {
-        if (isUniqueViolation(error)) return false;
-        throw error;
-      }
-    }
-    case "remove": {
-      if (!isSerialId(raw.id)) return false;
-      // The GEAR survives — deleting a folder unfiles what was in it rather than
-      // taking it with it. A folder is a label here, not a container, and losing
-      // gear because you tidied a heading would be indefensible.
-      await db
-        .update(vaultItems)
-        .set({ folderId: null, updatedAt: new Date() })
-        .where(and(eq(vaultItems.folderId, raw.id), eq(vaultItems.vaultId, vaultId)));
-      const done = await db
-        .delete(vaultFolders)
-        .where(and(eq(vaultFolders.id, raw.id), eq(vaultFolders.vaultId, vaultId)))
-        .returning();
-      return done.length > 0;
-    }
-    case "reorder": {
-      if (!Array.isArray(raw.ids)) return false;
-      const ids = [...new Set(raw.ids.filter(isSerialId))].slice(0, VAULT_FOLDERS_MAX);
-      if (!ids.length) return false;
-      // sequential rather than one CASE statement: a vault has a handful of
-      // folders, and the readable version is worth more than the round trips here
-      for (const [i, id] of ids.entries()) {
-        await db
-          .update(vaultFolders)
-          .set({ sortOrder: i + 1 })
-          .where(and(eq(vaultFolders.id, id), eq(vaultFolders.vaultId, vaultId)));
-      }
-      return true;
-    }
-    case "move": {
-      // absent reads as null — unfile — the way the wire contract has always been
-      const folderId = raw.folderId ?? null;
-      if (!isSerialId(raw.itemId) || (folderId !== null && !isSerialId(folderId))) return false;
-      // a folderId from another vault would file gear under a heading you can't
-      // see, so it's verified in the same scope before being written
-      if (folderId !== null && !(await ownsFolder(db, vaultId, folderId))) return false;
-      const done = await db
-        .update(vaultItems)
-        .set({ folderId, updatedAt: new Date() })
-        .where(and(eq(vaultItems.id, raw.itemId), eq(vaultItems.vaultId, vaultId)))
-        .returning();
-      return done.length > 0;
-    }
-    default:
-      return false;
-  }
-}

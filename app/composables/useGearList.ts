@@ -18,6 +18,7 @@ import { listNormKeys, vaultRowFields } from "~~/shared/vault";
 import { bySortOrder, carriesContent, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
+import { useUndo, type UndoOffer } from "~/composables/useUndo";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -170,6 +171,19 @@ function create() {
   // first is the flash PR #239 took out of the signed-in first paint.
   const vaultGear = shallowRef<ReadonlyMap<string, number | null>>(new Map());
   const vaultGearAsked = shallowRef<ReadonlySet<string>>(new Set());
+  // ...and which of those keys My Gear holds as a KIT. A group row reads this rather
+  // than the weight map: it is covered when the vault holds the set, not when it
+  // holds a piece of the same name — a piece of that name is exactly what pressing
+  // the group's save turns into the set (see captureKit).
+  const vaultKits = shallowRef<ReadonlySet<string>>(new Set());
+  /** The two readings of one answer, kept together so they can't drift: the weight
+   *  a capture could still write per key, and the keys that are kits. */
+  function readGearKeys(found: VaultGearKey[]) {
+    return {
+      gear: new Map(found.map(([k, w]) => [k, w] as const)),
+      kits: new Set(found.filter((f) => f[2] === "kit").map((f) => f[0])),
+    };
+  }
   /** Whether an ask has SETTLED for this list — true even when it found nothing,
    *  and even when there was nothing to ask about. Only the reveal animation
    *  needs it; coverage reads `asked`, which is finer. */
@@ -178,6 +192,7 @@ function create() {
    *  the account under the vault changes. */
   function clearVaultGear() {
     vaultGear.value = new Map();
+    vaultKits.value = new Set();
     vaultGearAsked.value = new Set();
     vaultGearSettled.value = false;
   }
@@ -219,7 +234,9 @@ function create() {
     const gen = ++vaultGearGen;
     const settle = (found: VaultGearKey[]) => {
       if (gen !== vaultGearGen) return; // a newer ask (or a new list) owns the answer
-      vaultGear.value = new Map(found);
+      const read = readGearKeys(found);
+      vaultGear.value = read.gear;
+      vaultKits.value = read.kits;
       vaultGearAsked.value = new Set(keys);
       vaultGearSettled.value = true;
     };
@@ -263,12 +280,17 @@ function create() {
   function noteVaultGear(landed: VaultGearKey[]): void {
     if (!landed.length) return;
     const gear = new Map(vaultGear.value);
+    const kits = new Set(vaultKits.value);
     const asked = new Set(vaultGearAsked.value);
-    for (const [k, w] of landed) {
+    for (const [k, w, kind] of landed) {
       gear.set(k, w);
+      // a key that landed as a kit is one now; one that landed as a piece isn't
+      if (kind === "kit") kits.add(k);
+      else kits.delete(k);
       asked.add(k);
     }
     vaultGear.value = gear;
+    vaultKits.value = kits;
     vaultGearAsked.value = asked;
   }
   let teardownListeners: (() => void) | undefined;
@@ -365,36 +387,25 @@ function create() {
     });
   });
 
-  // single-level undo for destructive removes — drives the "Undo" toast
-  // 10s: the full notice → reach → tap loop has to fit, including on mobile
-  const UNDO_MS = 10_000;
-  // `verb` is what the toast says happened to `label`. Removes, its first tenant, say
-  // nothing and read "Removed"; a paste that made rows says "Added" (pasteItemsAfter).
-  type Undo = { label: string; restore: () => void; verb?: "Added" | "Removed" };
-  const pendingUndo = ref<Undo | null>(null);
-  let undoTimer: ReturnType<typeof setTimeout> | undefined;
-  function offerUndo(label: string, restore: () => void, verb?: Undo["verb"]) {
-    pendingUndo.value = { label, restore, verb };
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => (pendingUndo.value = null), UNDO_MS);
+  // single-level undo for destructive removes — drives the editor's UndoBar, on the
+  // timer My Gear's uses too (useUndo). `verb` is what the bar says happened to
+  // `label`: removes, its first tenant, say nothing and read "Removed"; a paste that
+  // made rows says "Added" (pasteItemsAfter).
+  const undo = useUndo<UndoOffer & { verb?: "Added" | "Removed" }>();
+  const pendingUndo = undo.pending;
+  function offerUndo(label: string, restore: () => void, verb?: "Added" | "Removed") {
+    undo.offer({ label, restore, verb });
   }
-  // The toast pauses its dismiss timer while pointed at or holding focus — someone
-  // reading it (or reaching for the button) shouldn't race the clock. Release
-  // restarts the FULL window, not the remainder: it's cheap and never surprises.
-  function holdUndo() {
-    clearTimeout(undoTimer);
-  }
-  function releaseUndo() {
-    if (!pendingUndo.value) return;
-    clearTimeout(undoTimer);
-    undoTimer = setTimeout(() => (pendingUndo.value = null), UNDO_MS);
+  const holdUndo = undo.hold;
+  const releaseUndo = undo.release;
+  // Something just ADDED as a set (a kit from My Gear, unfolded into a group): offer to
+  // take it back off. The group's row goes and its rows with it (the reducer's
+  // cascade), with no "Removed" of its own — undoing an add means it was never there.
+  function offerUndoAdd(label: string, parentId: string) {
+    offerUndo(label, () => dispatch({ t: "removeItem", id: parentId }), "Added");
   }
   function undoRemove() {
-    const u = pendingUndo.value;
-    if (!u) return;
-    u.restore();
-    pendingUndo.value = null;
-    clearTimeout(undoTimer);
+    undo.take();
   }
 
   const totals = computed(() =>
@@ -1112,34 +1123,6 @@ function create() {
     dispatch({ t: "setMeta", patch });
   const setUnit = (displayUnit: Unit) => setMeta({ displayUnit });
 
-  /**
-   * Clone a whole vault folder into the list — a category template.
-   *
-   * The vault already files gear by the NAME of the list folder it came from, so a
-   * "Cook kit" you built once is already a set; this is the missing direction, which
-   * is getting the set back out. Reuses addFolder + addVaultItem rather than building
-   * items here, so the naming/colour rules and the pinned-override rules each stay in
-   * one place.
-   *
-   * Gear the list already holds is skipped, matching the pane's per-row rule: wanting
-   * two of something is a quantity, and a second identical row would split one thing's
-   * weight across two lines.
-   *
-   * Returns the new folder's id, or "" if there was nothing to add — the caller
-   * shouldn't be left with an empty folder it didn't ask for.
-   */
-  function addVaultFolder(name: string, entries: VaultEntry[]): string {
-    if (!snapshot.value || !entries.length) return "";
-    const held = listNormKeys(snapshot.value.items);
-    const fresh = entries.filter((e) => !held.has(e.normKey));
-    if (!fresh.length) return "";
-
-    const id = addFolder(name);
-    for (const entry of fresh) addVaultItem(entry, id);
-    return id;
-  }
-
-  /** Answers the new folder's id — the vault's folder-at-once add files its rows under it. */
   function addFolder(name = "New folder"): string {
     const folders = snapshot.value?.folders ?? [];
     // a recognised name (e.g. "Clothing") gets its canonical hue; otherwise the
@@ -1304,16 +1287,23 @@ function create() {
   // ItemRow's onNameCommit uses too): the weight, its unit and the name are the
   // HOLDER'S, so they're marked overridden and the catalog's live-resolve leaves them
   // alone; the catalog link rides along when the gear first came from a pick.
-  function addVaultItem(entry: VaultEntry, folderId: string | null): string {
+  function addVaultItem(
+    entry: VaultEntry,
+    folderId: string | null,
+    // under a group's parent, at the count the kit holds it — see addVaultKit. A
+    // child shares its parent's folder, which is the folderId the caller passes.
+    nest: { parentId?: string; qty?: number } = {},
+  ): string {
     if (!snapshot.value) return "";
     const id = uid();
     const item: Item = {
       id,
       folderId,
+      ...(nest.parentId ? { parentId: nest.parentId } : {}),
       name: entry.name,
       unitWeightMg: 0,
       ...vaultRowFields(entry),
-      qty: 1,
+      qty: Math.max(1, Math.round(nest.qty ?? 1)),
       // null is stored only where the gear's class AGREES with the folder's default,
       // so the row keeps following a folder it matches — and an explicit "base" stove
       // dropped into a Consumable day folder stays base instead of becoming food.
@@ -1321,7 +1311,7 @@ function create() {
       // same pre-claim as addBlankItem: gear pulled from the vault while narrowed
       // to one person lands in that person's view, not invisibly outside it
       personId: usePersonFilter().assignTarget(snapshot.value.people),
-      sortOrder: nextSortOrder(snapshot.value.items, folderId),
+      sortOrder: nextSortOrder(snapshot.value.items, folderId, nest.parentId),
     };
     dispatch({ t: "addItem", item });
     return id;
@@ -1799,8 +1789,7 @@ function create() {
     useItemDnd().reset();
     useFolderDnd().reset();
     stopPoll();
-    clearTimeout(undoTimer);
-    pendingUndo.value = null;
+    undo.clear();
     teardownListeners?.();
     snapshot.value = null;
     access.value = { kind: "none" };
@@ -1827,11 +1816,12 @@ function create() {
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     vaultAuto, vaultDeclined,
     // what My Gear holds of this list's gear, and which keys have an answer at
-    // all — ItemRow renders its save button against the pair (see askVaultGear)
-    vaultGear, vaultGearAsked, vaultGearSettled,
-    addBlankItem, addBlankItemAfter, pasteItemsAfter, addVaultItem, addVaultFolder, saveItemToVault, discardEmpty, isEmptyRow, updateItem, removeItem, setItemWeight, moveItem,
+    // all — ItemRow renders its save button against the pair (see askVaultGear);
+    // and which of them it holds as kits, for a group row's button
+    vaultGear, vaultKits, vaultGearAsked, vaultGearSettled,
+    addBlankItem, addBlankItemAfter, pasteItemsAfter, addVaultItem, saveItemToVault, discardEmpty, isEmptyRow, updateItem, removeItem, setItemWeight, moveItem,
     addChild, nestItem, unnest, duplicateItem,
-    pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo,
+    pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo, offerUndoAdd,
   };
 }
 

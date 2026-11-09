@@ -199,7 +199,6 @@ function gearRows(text: string, resolve: Resolve): VaultImportRow[] {
           weightMg: Math.max(0, Math.round((g.weight_g ?? 0) * 1000)),
           classification: isClassification(g.classification) ? g.classification : undefined,
           kcal: g.kcal ?? undefined,
-          description: g.note ?? undefined,
           priceCents: g.price != null ? Math.round(g.price * 100) : undefined,
           currency: g.currency ?? undefined,
           productUrl: g.product_url ?? undefined,

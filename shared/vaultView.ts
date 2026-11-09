@@ -1,43 +1,21 @@
-// How you're LOOKING at your gear on /gear — the filter, the search, the order and
-// the grouping, as four pure functions composed in that order.
+// How you're LOOKING at your gear on /gear — the search, the order and the grouping,
+// as three pure functions composed in that order.
 //
 // Its own module for the same reason shared/vaultSearch.ts is one: this is the part
 // of the page that is decidable without a browser, and lifting it out is what lets
-// the flatten rule and the "base means absent too" rule be pinned by a plain-node
-// test rather than by mounting a page and clicking two menus.
-//
-// Two questions, two controls. WHICH gear (`show`) and IN WHAT ORDER (`view`) are
-// independent axes, and only the second one decides whether the page has folders.
+// the flatten rule and the ranker's page rules be pinned by a plain-node
+// test rather than by mounting a page and clicking through a menu.
 
 import { enoughToSearch, foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
-import type { VaultEntry, VaultFolder } from "./vault";
+import { GEAR_FAMILIES, gearFamilyLabel, gearFamilyOf, gearGlyphFor, type GearFamily } from "./gearGlyph";
+import type { VaultEntry } from "./vault";
 import { rankVaultRows } from "./vaultSearch";
 import { groupBy, itemDisplayName } from "./weights";
 
-/** The page's layout-and-order control. "folders" is the default and the only one
- *  that groups; the rest are one flat list — see groupVaultRows for why. */
-export type VaultView = "folders" | "az" | "heaviest" | "lightest" | "recent" | "most";
-
-/** The page's filter. Mixes two axes — filing and classification — which is a smell,
- *  but they are mutually exclusive questions in practice ("where is it" vs "what kind
- *  is it"), and a second picker on a page this quiet costs more than the mixing does. */
-export type VaultShow = "all" | "unfiled" | "base" | "worn" | "consumable";
-
-/**
- * WHICH gear.
- *
- * "base" has to accept an ABSENT classification as well as the literal string.
- * Capture drops the field when a list row was inheriting its folder's default (see
- * VaultCapture.classification — "a fact about the list, not the gear"), so most base
- * gear carries no value at all, and `=== "base"` would match almost none of it.
- */
-export function filterVaultRows(rows: VaultEntry[], show: VaultShow): VaultEntry[] {
-  if (show === "all") return rows;
-  if (show === "unfiled") return rows.filter((i) => i.folderId == null);
-  if (show === "base") return rows.filter((i) => (i.classification ?? "base") === "base");
-  return rows.filter((i) => i.classification === show);
-}
+/** The page's layout-and-order control. "kinds" is the default and the only one that
+ *  groups; the rest are one flat list — see groupVaultByKind for why. */
+export type VaultView = "kinds" | "az" | "heaviest" | "lightest" | "recent" | "most";
 
 /**
  * Narrow by a query, using the SAME fuzzy ranker the autocomplete and the vault pane
@@ -56,14 +34,6 @@ export function filterVaultRows(rows: VaultEntry[], show: VaultShow): VaultEntry
  *    noisy for trigrams. In a menu that reads "keep typing"; on a page it reads "you
  *    own nothing beginning with t". A single character is a prefix question, so it
  *    falls back to the substring pass, which answers one exactly.
- *
- * And one thing it reads too narrowly for a page: the ranker searches what a row IS
- * (brand, name, variant, common name), never what you WROTE about it. The page also
- * holds your notes, so a literal pass over them follows the ranked rows — after, not
- * among them, because a note that mentions the Duplex must not outrank the Duplex.
- * The literal pass folds both sides through the same fold as the ranker, so it
- * matches a name in any script and either apostrophe spelling, exactly as the
- * ranker does, and "x-mid" finds "X-Mid 2".
  */
 export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntry[] {
   const q = (rawQuery ?? "").trim();
@@ -79,15 +49,12 @@ export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntr
       return terms.every((t) => text.includes(t));
     });
   if (!enoughToSearch(q)) return literal((r) => [r.brand, r.name, r.variant, r.commonName]);
-  const ranked = rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
-  const seen = new Set(ranked.map((r) => r.id));
-  const noted = literal((r) => [r.brand, r.name, r.variant, r.commonName, r.description]);
-  return [...ranked, ...noted.filter((r) => !seen.has(r.id))];
+  return rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
 }
 
 /** IN WHAT ORDER, across the whole vault. Every comparator tie-breaks on id, so
  *  equal runs are stable and the same vault always renders in the same order. */
-export function sortVaultRows(rows: VaultEntry[], view: Exclude<VaultView, "folders">): VaultEntry[] {
+export function sortVaultRows(rows: VaultEntry[], view: Exclude<VaultView, "kinds">): VaultEntry[] {
   const out = [...rows];
   switch (view) {
     case "az":
@@ -119,47 +86,51 @@ function byName(a: VaultEntry, b: VaultEntry): number {
   );
 }
 
-/** One folder's worth of the page, with the two figures its header states. */
-export interface VaultSection {
-  folder: VaultFolder | null;
+/** One kind of gear on the page: the kits, a family, or the pieces with no family. */
+export interface VaultKindSection {
+  key: GearFamily | "kits" | "other";
+  label: string;
   entries: VaultEntry[];
-  count: number;
-  weightMg: number;
+}
+
+/** A piece's family: its hand-picked icon's, else its gear type's (or name's), as the
+ *  row's icon is drawn — so a piece sits under the family its icon says. */
+export function vaultFamilyOf(e: Pick<VaultEntry, "icon" | "commonName" | "name">): GearFamily | null {
+  return gearFamilyOf(e.icon ?? gearGlyphFor(e.commonName, e.name));
 }
 
 /**
- * One section per folder, in the holder's drag order, everything unfiled last.
+ * My Gear by KIND: the kits first, then one section per family in the icon set's order,
+ * then Other for pieces whose type matches no icon. Empty kinds are left out.
  *
- * ONLY the Folders view groups. A search has always flattened here, because
- * answering a query inside a dozen mostly-empty headings buries the rows that
- * matched — and a chosen ORDER flattens too: "Heaviest" inside twelve headings
- * tells you the heaviest thing in each folder, and leaves finding the heaviest
- * thing you OWN as an exercise. Inside a folder the rows keep the server's order,
- * most recently used first.
+ * This replaced folders (Ryan, 2026-11-08). A folder was the name of the list section a
+ * piece was first saved from, so the page filed the same kind of thing under "Food" and
+ * "Food & water", and a piece could sit in one folder only. A kind is read off the gear
+ * type, the way the row's icon is, so nothing is filed by hand and nothing drifts; what
+ * goes TOGETHER is a kit's job. A piece in a kit is still a row of its own kind — the
+ * kit is a set of things you own, not where they live.
  *
- * keepEmpty: an empty folder still shows, because it is a heading you made and
- * hiding it would make "delete" the only way to be rid of one you no longer want.
- * But not while a filter is on — "Worn" would otherwise answer with a dozen empty
- * headings and the two rows that matched buried among them, which is the same
- * failure that makes a search flatten in the first place.
+ * ONLY this view groups. A search flattens, because answering a query inside eight
+ * headings buries what matched, and so does a chosen ORDER: "Heaviest" inside eight
+ * headings tells you the heaviest thing of each kind, not the heaviest thing you own.
+ * Inside a section the rows keep the order they arrive in, most recently used first.
  */
-export function groupVaultRows(
-  rows: VaultEntry[],
-  folders: VaultFolder[],
-  { keepEmpty }: { keepEmpty: boolean },
-): VaultSection[] {
-  // null is the unfiled bucket, a real key
-  const byFolder = groupBy(rows, (entry) => entry.folderId ?? null);
-  const section = (folder: VaultFolder | null, entries: VaultEntry[]): VaultSection => ({
-    folder,
-    entries,
-    count: entries.length,
-    // summed here rather than in the template: a section is built once per change
-    // and read once per render, so the folder header's figure costs nothing extra
-    weightMg: entries.reduce((sum, e) => sum + e.weightMg, 0),
-  });
-  return folders
-    .map((f) => section(f, byFolder.get(f.id) ?? []))
-    .filter((s) => keepEmpty || s.entries.length)
-    .concat(byFolder.has(null) ? [section(null, byFolder.get(null)!)] : []);
+export function groupVaultByKind(rows: VaultEntry[]): VaultKindSection[] {
+  const kits = rows.filter((r) => r.kind === "kit");
+  const byFamily = groupBy(
+    rows.filter((r) => r.kind !== "kit"),
+    (r) => vaultFamilyOf(r) ?? ("other" as const),
+  );
+  return [
+    ...(kits.length ? [{ key: "kits" as const, label: "Kits", entries: kits }] : []),
+    ...GEAR_FAMILIES.filter((f) => byFamily.has(f.key)).map((f) => ({ key: f.key, label: f.label, entries: byFamily.get(f.key)! })),
+    ...(byFamily.has("other") ? [{ key: "other" as const, label: gearFamilyLabel(null), entries: byFamily.get("other")! }] : []),
+  ];
+}
+
+/** What a surface draws its rows under: the kinds, or, `flat` (a search, a chosen
+ *  order), one list with no heading (label ""), so a caller draws its rows in one place
+ *  either way. /gear and the list's gear pane both take it, so the rule is said once. */
+export function vaultSections(rows: VaultEntry[], flat: boolean): { key: string; label: string; entries: VaultEntry[] }[] {
+  return flat ? [{ key: "all", label: "", entries: rows }] : groupVaultByKind(rows);
 }

@@ -890,19 +890,15 @@ input[type="search"]::-webkit-search-decoration {
   transform: translate(-50%, 6px) scale(0.98);
 }
 
-// The undo bar — a toast carrying an action. Shared, because two surfaces now put
-// up the same object: the editor when you remove an item, and /vault when you
-// remove a piece of gear. It was scoped to the editor, which meant /vault had to
-// grow a lookalike; one copy keeps the two saying "Removed X · Undo" identically.
+// The undo bar — a toast carrying an action, drawn by UndoBar for the editor (an item
+// removed) and My Gear (a piece removed, an item taken out of a kit) alike. The button
+// is the word alone, no icon: the bar is one line of text.
 .undobar {
   display: flex;
   align-items: center;
   gap: var(--space-4);
 }
 .undobar__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
   padding: 0;
   background: none;
   border: 0;
