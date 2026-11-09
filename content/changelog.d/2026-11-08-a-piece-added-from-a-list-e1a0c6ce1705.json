@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-08",
+  "fixed": [
+    "A piece added from a list's My Gear panel keeps the unit it reads in on My Gear, as it does when picked from a row's name."
+  ]
+}
