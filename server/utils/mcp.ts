@@ -41,7 +41,7 @@ import { tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
 import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type ListState, type Unit, CLASSIFICATIONS } from "../../shared/types";
-import { captureFromList, OWNED_MAX, vaultNormKey, type VaultEntry } from "../../shared/vault";
+import { captureFromList, OWNED_MAX, VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "../../shared/vault";
 import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX } from "../../shared/vaultKit";
 import { vaultFamilyOf } from "../../shared/vaultView";
 import { gearFamilyLabel } from "../../shared/gearGlyph";
@@ -59,6 +59,7 @@ import {
   addVaultItems,
   applyVaultItemOp,
   captureVaultItems,
+  classificationOf,
   listVaultItems,
   removeVaultItem,
   restoreVaultItem,
@@ -526,10 +527,6 @@ const GEAR_PAGE_MAX = 1000;
 const GEAR_PAGE_DEFAULT = 300;
 /** how many pieces one part of an edit_my_gear call may name */
 const GEAR_EDIT_MAX = 50;
-/** the vault's own caps on free text (shared/vault), stated in the schemas the way
- *  the reducer's are above */
-const GEAR_NAME_LEN = 200;
-const GEAR_FIELD_LEN = 120;
 
 /**
  * The fields of one piece of gear as edit_my_gear takes them. In add every field is a
@@ -540,10 +537,10 @@ function gearInput(mode: "add" | "update") {
   const t = (type: string) => (nullable ? [type, "null"] : type);
   const orNull = nullable ? " Null clears it." : "";
   return {
-    name: { type: "string", minLength: 1, maxLength: GEAR_NAME_LEN, description: "The product or item name, without brand or variant." },
-    brand: { type: t("string"), maxLength: GEAR_FIELD_LEN, description: `The maker.${orNull}` },
-    variant: { type: t("string"), maxLength: GEAR_FIELD_LEN, description: `Size, length or rating: Long, 20F.${orNull}` },
-    gear_type: { type: t("string"), maxLength: GEAR_FIELD_LEN, description: `What kind of thing it is: Tent, Quilt.${orNull}` },
+    name: { type: "string", minLength: 1, maxLength: VAULT_NAME_MAX, description: "The product or item name, without brand or variant." },
+    brand: { type: t("string"), maxLength: VAULT_SHORT_MAX, description: `The maker.${orNull}` },
+    variant: { type: t("string"), maxLength: VAULT_SHORT_MAX, description: `Size, length or rating: Long, 20F.${orNull}` },
+    gear_type: { type: t("string"), maxLength: VAULT_SHORT_MAX, description: `What kind of thing it is: Tent, Quilt.${orNull}` },
     weight_g: { type: "number", minimum: 0, description: "Grams for one. 0 records it as not weighed yet." },
     owned: {
       type: t("integer"),
@@ -561,7 +558,7 @@ function gearInput(mode: "add" | "update") {
         ? "Link or relink the piece to this catalog row, from search_catalog: it takes the catalog's brand, name, variant, gear type and weight, each unless given here. Null unlinks it, leaving the piece as it reads."
         : "A catalog row from search_catalog. The piece takes the catalog's brand, name, variant, gear type and weight, each unless given here; a name can be left out.",
     },
-    product_url: { type: t("string"), maxLength: TRAIL_URL_LEN, description: `The maker's or a shop's page for it.${orNull}` },
+    product_url: { type: t("string"), maxLength: VAULT_URL_MAX, description: `The maker's or a shop's page for it.${orNull}` },
     price: { type: t("number"), minimum: 0, description: `What one cost, in the currency's main unit: 199.95.${orNull}` },
     currency: { type: "string", minLength: 3, maxLength: 3, description: "ISO 4217 code for price, such as USD. Ignored without a price." },
     kit: {
@@ -2129,7 +2126,7 @@ function gearPatchFrom(raw: unknown): { patch: Record<string, unknown> } {
   take("gear_type", "commonName");
   take("product_url", "productUrl");
   if (typeof r.weight_g === "number" && r.weight_g >= 0 && Number.isFinite(r.weight_g)) patch.weightMg = Math.round(r.weight_g * 1000);
-  if (r.classification === null || CLASSIFICATIONS.includes(r.classification as Classification)) patch.classification = r.classification;
+  if (r.classification === null || classificationOf(r.classification)) patch.classification = r.classification;
   if (r.kcal === null || (typeof r.kcal === "number" && Number.isFinite(r.kcal))) patch.kcal = r.kcal;
   if (r.owned === null || (typeof r.owned === "number" && Number.isFinite(r.owned))) patch.owned = r.owned;
   // typed here, checked in editGear: an id that isn't a catalog row refuses the call
@@ -2278,7 +2275,7 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
         vaultId,
         named.map(({ p }) => ({ t: "add", ...p.patch }) as Extract<VaultItemOp, { t: "add" }>),
       );
-      for (const [i, { p, index }] of named.entries()) {
+      for (const [i, { index }] of named.entries()) {
         const outcome = outcomes[i];
         if (!outcome) continue;
         const kit = addKits[index];
@@ -2287,8 +2284,9 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
             results[index] = { index, status: "full" };
             continue;
           }
-          // the piece it duplicated, so the id is in hand for whatever comes next
-          const have = await vaultItemByNormKey(db, vaultId, vaultNormKey(p.patch.brand as string | undefined, p.patch.name as string, p.patch.variant as string | undefined));
+          // the piece it duplicated, so the id is in hand for whatever comes next: found
+          // by the key the vault derived, which re-folding the raw text here can miss
+          const have = await vaultItemByNormKey(db, vaultId, outcome.normKey);
           results[index] = {
             index,
             status: "already_have",

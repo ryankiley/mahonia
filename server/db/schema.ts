@@ -294,14 +294,11 @@ export const vaults = pgTable(
 );
 
 /**
- * A vault's folders. Its own table rather than a text label on the item, because
- * these carry state of their own — an order you can drag, and a per-folder item
- * sort — which a label has nowhere to keep. Name is unique per vault so capture can
- * find-or-create by the list folder's name without ending up with three "Shelter"s.
- *
- * Deliberately NOT a mirror of the list Folder type: colorKey and
- * defaultClassification are facts about how a LIST presents and classifies its
- * rows, and a vault row carries its own classification already.
+ * LEGACY: the folders My Gear had before it grouped by kind (shared/vaultView).
+ * Nothing reads or writes them now, and vault_items no longer declares the folder_id
+ * that filed a row into one. The table stays declared because whatever deletes a
+ * vault's rows — the purge, closing an account, scripts/mirror-account.ts — deletes
+ * its old folders too.
  */
 export const vaultFolders = pgTable(
   "vault_folders",
@@ -366,14 +363,12 @@ export const vaultItems = pgTable(
     // legacy columns still in the database, undeclared: description and
     // description_pinned. My Gear kept a note until 2026-11-08, mostly list notes that
     // capture had copied in (a trip's "Sam carries this" showing on the gear), so the
-    // two were cut apart: a note belongs to a list row, and My Gear keeps none.
+    // two were cut apart: a note belongs to a list row, and My Gear keeps none. Also
+    // folder_id, the row's folder from when My Gear had folders (vaultFolders).
     // What it cost, in whole cents of `currency`. The gear is where a price belongs:
     // a list row's price is the same purchase counted again in every list it's in.
     priceCents: integer("price_cents"),
     currency: text("currency"),
-    // The holder's grouping. Null = unfiled, which is also every row's starting
-    // state and where a row lands again if its folder is deleted.
-    folderId: integer("folder_id"),
     // The pins — which fields you've corrected by hand on /gear, so capture leaves
     // them alone (see captureVaultItems and the DDL comment in utils/vaultSchema).
     // brand/name/variant share one flag: they are one SPELLING of one identity, and
