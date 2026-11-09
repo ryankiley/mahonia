@@ -83,7 +83,10 @@ beforeAll(async () => {
   db = await createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL, CATALOG_DDL);
   dbState.db = db;
   // one catalog row, for the pieces that name a catalog_id
-  await db.insert(schema.catalogItems).values([{ brand: "Zpacks", name: "Duplex", variant: null, weightMg: 538_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/duplex", verified: true, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter" }]);
+  await db.insert(schema.catalogItems).values([
+    { brand: "Zpacks", name: "Duplex", variant: null, weightMg: 538_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/duplex", verified: true, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter" },
+    { brand: "Clif", name: "Builders Bar", variant: null, weightMg: 68_000, weightSource: "manufacturer", sourceUrl: "https://clifbar.com/builders", verified: true, commonName: "Energy bar", categoryHint: "consumable", kcal: 290, searchTerms: "snack food" },
+  ]);
   [alice, bob] = (await db.insert(schema.users).values([{ email: "alice@example.com" }, { email: "bob@example.com" }]).returning()).map((u) => u.id);
   aliceRead = (await mintAccessToken(db, alice, { label: "Reader", scope: "read" }))!.token;
   aliceWrite = (await mintAccessToken(db, alice, { label: "Claude Code", scope: "write" }))!.token;
@@ -346,6 +349,44 @@ describe("the gear tools", () => {
     expect((notAKit.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("isn't a kit") });
     const pot = ((await tool("get_my_gear", { query: "titanium pot" }, aliceRead)).data.gear as { id: number; in_kits: number[]; weight_g: number }[]).find((g) => g.id === potId);
     expect(pot).toMatchObject({ in_kits: [], weight_g: 110 });
+  });
+
+  // The add that started this: a piece with no catalog row, priced, not weighed yet.
+  it("add a priced piece not weighed yet, keep its currency when only the price changes, and name a value it can't take", async () => {
+    const r = await tool("edit_my_gear", { add: [{ name: "Foray Pants", brand: "Outdoor Research", variant: "Men's Large", gear_type: "Pants", classification: "worn", price: 149.19, currency: "USD", weight_g: 0 }] }, aliceWrite);
+    expect(r.refused, r.text).toBe(false);
+    const [res] = r.data.results as { status: string; item: Record<string, unknown> }[];
+    expect(res).toMatchObject({ status: "added", item: { name: "Foray Pants", weight_g: 0, classification: "worn", price: 149.19, currency: "USD" } });
+    const id = res!.item.id as number;
+    const repriced = await tool("edit_my_gear", { update: [{ id, price: 120 }] }, aliceWrite);
+    expect((repriced.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ price: 120, currency: "USD" });
+    // null still clears the price and its currency together
+    const cleared = await tool("edit_my_gear", { update: [{ id, price: null }] }, aliceWrite);
+    expect((cleared.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ price: null, currency: null });
+
+    // a value outside its set is named, and nothing of that piece is written
+    const bad = await tool("edit_my_gear", { add: [{ name: "Wind shirt", classification: "Worn" }], update: [{ id, weight_g: "410" }] }, aliceWrite);
+    expect(bad.refused, bad.text).toBe(false);
+    expect((bad.data.results as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("isn't a classification") });
+    expect((bad.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("weight_g") });
+    expect((await tool("get_my_gear", { query: "wind shirt" }, aliceRead)).data.gear).toEqual([]);
+    expect((await tool("edit_my_gear", { add: [{ brand: "Nameless" }] }, aliceWrite)).data.results).toMatchObject([{ status: "invalid", reason: expect.stringContaining("needs a name") }]);
+  });
+
+  it("file catalog food as consumable, and link a kit to the catalog without taking the product's weight", async () => {
+    const food = await tool("edit_my_gear", { add: [{ catalog_id: 2 }] }, aliceWrite);
+    expect((food.data.results as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ name: "Builders Bar", classification: "consumable", weight_g: 68, kcal: 290 });
+
+    const parts = await tool("edit_my_gear", { add: [{ name: "Tent stakes", weight_g: 60 }, { name: "Tent kit" }] }, aliceWrite);
+    const [stakesId, kitId] = (parts.data.results as { item: { id: number } }[]).map((r) => r.item.id);
+    const linked = await tool("edit_my_gear", { update: [{ id: kitId, name: "Tent kit", kit: { items: [{ id: stakesId }] }, catalog_id: 1 }] }, aliceWrite);
+    const [up] = linked.data.updated as { status: string; item: Record<string, unknown>; reason?: string }[];
+    expect(up, up?.reason).toMatchObject({ status: "updated", item: { name: "Tent kit", catalog_id: 1, weight_g: 60, kit: { items: [{ id: stakesId }] } } });
+    // and a kit that already is one takes a link alone, still weighing its items
+    const relinked = await tool("edit_my_gear", { update: [{ id: kitId, catalog_id: null }] }, aliceWrite);
+    expect((relinked.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { catalog_id: null, weight_g: 60 } });
+    const again = await tool("edit_my_gear", { update: [{ id: kitId, catalog_id: 1 }] }, aliceWrite);
+    expect((again.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { catalog_id: 1, weight_g: 60 } });
   });
 
   it("answer an add the account already holds with that piece, so its id is in hand", async () => {
