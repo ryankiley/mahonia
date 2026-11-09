@@ -177,9 +177,23 @@ export function useMenuDismiss(
       scope = effectScope(true);
       scope.run(() => {
         onClickOutside(target, () => close());
-        useWindowEvent("keydown", (e) => {
-          if (e.key === "Escape") close();
-        });
+        // Escape closes the menu and nothing else: caught on the way DOWN (capture),
+        // ahead of a dialog's own window listener, and marked handled so a menu inside
+        // a dialog doesn't take the dialog with it (BaseModal skips a handled Escape).
+        // Focus that was in the menu goes back to its trigger, the first button in it,
+        // rather than falling to the page.
+        useWindowEvent(
+          "keydown",
+          (e) => {
+            if (e.key !== "Escape") return;
+            const root = target.value;
+            const inside = !!root?.contains(document.activeElement);
+            e.preventDefault();
+            close();
+            if (inside) root?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+          },
+          { capture: true },
+        );
       });
     } else if (!on && scope) {
       scope.stop();
