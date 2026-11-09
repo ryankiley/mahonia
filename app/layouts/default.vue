@@ -12,9 +12,15 @@
     <div class="shell__main">
       <slot />
     </div>
-    <SiteFooter />
+    <!-- a page with nowhere else to send you sets `footer: false` (the /authorize
+         consent: a single decision, usually in the popup an app opened) -->
+    <SiteFooter v-if="route.meta.footer !== false" />
   </div>
 </template>
+
+<script setup lang="ts">
+const route = useRoute();
+</script>
 
 <style scoped>
 .shell {
