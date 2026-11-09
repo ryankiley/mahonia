@@ -12,6 +12,7 @@ import {
   formatKcalDensity,
   groupVaultByKind,
   kcalPerGram,
+  matchesElsewhere,
   searchVaultRows,
   sortVaultRows,
   vaultTabOf,
@@ -210,5 +211,28 @@ describe("calorie density — food's own figure", () => {
     expect(formatKcalDensity(5, "kg")).toBe("500 kcal/100 g");
     expect(formatKcalDensity(5, "oz")).toBe("142 kcal/oz");
     expect(formatKcalDensity(5, "lb")).toBe("142 kcal/oz");
+  });
+});
+
+describe("matchesElsewhere — a search names the other tabs it matched", () => {
+  const gear = [
+    row({ name: "Duplex", commonName: "Tent" }),
+    row({ brand: "Clif", name: "Nut Butter Bar", commonName: "Energy bar" }),
+    row({ brand: "Clif", name: "Bloks", commonName: "Energy chews" }),
+    row({ name: "Clif kit", kind: "kit", parts: [] }),
+  ];
+
+  it("counts each other tab's matches, in the tabs' order, leaving out the open one", () => {
+    expect(matchesElsewhere(gear, "clif", "gear")).toEqual([
+      { tab: "kits", count: 1 },
+      { tab: "food", count: 2 },
+    ]);
+    expect(matchesElsewhere(gear, "clif", "food")).toEqual([{ tab: "kits", count: 1 }]);
+  });
+
+  it("leaves out a tab with no match, and says nothing for an empty search", () => {
+    expect(matchesElsewhere(gear, "duplex", "food")).toEqual([{ tab: "gear", count: 1 }]);
+    expect(matchesElsewhere(gear, "duplex", "gear")).toEqual([]);
+    expect(matchesElsewhere(gear, "  ", "gear")).toEqual([]);
   });
 });

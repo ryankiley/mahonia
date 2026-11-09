@@ -47,6 +47,9 @@ export type VaultView = "kinds" | "dense" | "kcal" | "az" | "heaviest" | "lighte
 
 /** The tabs My Gear reads in: your gear, your food, and the kits you've built. */
 export type VaultTab = "gear" | "food" | "kits";
+/** ...in the order /gear and the list's panel show them, and what each is called. */
+export const VAULT_TABS = ["gear", "kits", "food"] as const satisfies readonly VaultTab[];
+export const VAULT_TAB_LABEL: Record<VaultTab, string> = { gear: "Gear", kits: "Kits", food: "Food" };
 
 /**
  * The tab a piece sits on: a kit on Kits, food on Food, everything else on Gear.
@@ -101,6 +104,25 @@ export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntr
     });
   if (!enoughToSearch(q)) return literal((r) => [r.brand, r.name, r.variant, r.commonName]);
   return rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
+}
+
+/**
+ * Where ELSE a search finds something: each other tab with a match and how many, in the
+ * tabs' order. A search answers inside the open tab, so once food had a tab of its own,
+ * "clif" typed on Gear came back "nothing here" while your bars sat one tab over — and
+ * Gear is where the list's panel opens, the place you search to pick. The count is the
+ * one that tab shows for the same words, since it is the same search over its rows.
+ */
+export function matchesElsewhere(
+  rows: VaultEntry[],
+  rawQuery: string,
+  here: VaultTab,
+): { tab: VaultTab; count: number }[] {
+  if (!(rawQuery ?? "").trim()) return [];
+  const byTab = groupBy(rows, vaultTabOf);
+  return VAULT_TABS.filter((t) => t !== here)
+    .map((tab) => ({ tab, count: searchVaultRows(byTab.get(tab) ?? [], rawQuery).length }))
+    .filter((m) => m.count > 0);
 }
 
 /** IN WHAT ORDER, across the whole vault. Every comparator tie-breaks on id, so
