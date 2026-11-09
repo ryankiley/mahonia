@@ -56,19 +56,21 @@ const errorBack = computed(() => (checked.value && !checked.value.ok && checked.
 const writes = computed(() => checked.value?.ok && checked.value.level === "write");
 const wants = computed(() =>
   writes.value
-    ? "read your My Gear and change it, change the lists filed under your account, and file the lists it makes there"
-    : "read your My Gear and see which lists are filed under your account",
+    ? "see and change what’s in My Gear, change the lists filed under your account, and file the lists it makes there"
+    : "see what’s in My Gear and which lists are filed under your account",
 );
 // The same grant as `wants`, a row per thing it reaches, each with the mark that thing
-// wears in the app: the safe box is My Gear everywhere, the pack is a list.
+// wears in the app: the safe box is My Gear everywhere, the pack is a list. (Sharing the
+// pack with the editor splits it into a first-load chunk of its own, +0.16 KB; the
+// ceiling moved for it, see scripts/bundle-budget.mjs.)
 const scopes = computed<{ icon: IconNode; text: string }[]>(() =>
   writes.value
     ? [
-        { icon: SafeBoxIcon, text: "Read and change your My Gear" },
+        { icon: SafeBoxIcon, text: "See and change what’s in My Gear" },
         { icon: Backpack03Icon, text: "Change the lists filed under your account, and file the lists it makes there" },
       ]
     : [
-        { icon: SafeBoxIcon, text: "Read your My Gear" },
+        { icon: SafeBoxIcon, text: "See what’s in My Gear" },
         { icon: Backpack03Icon, text: "See which lists are filed under your account" },
       ],
 );
