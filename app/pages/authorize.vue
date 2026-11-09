@@ -26,17 +26,18 @@ import type { IconNode } from "~/utils/hugeicon";
 import { clientMark } from "~/utils/clientMark";
 import type { AccessScope } from "~~/shared/types";
 
-// no footer: About and Legal are two ways out of a page whose only exits should be
-// Allow and Deny
-definePageMeta({ footer: false });
-
 useHead({
   title: "Connect — Mahonia",
+  // no footer: About and Legal are two ways out of a page whose only exits should be
+  // Allow and Deny. The layout hides it for a body marked `bare` (layouts/default.vue).
+  // A body class and not definePageMeta: page meta goes into the route table in the
+  // entry chunk every visitor downloads, and that first load sits at its ceiling.
+  bodyAttrs: { class: "bare" },
   meta: [{ name: "robots", content: "noindex" }],
 });
 
 const route = useRoute();
-const { user, signedIn, presence, hasSessionHint, refresh, signOut } = useSession();
+const { signedIn, presence, hasSessionHint, refresh } = useSession();
 
 type Checked =
   | { ok: true; client: { label: string; kind: "document" | "registered" }; level: AccessScope; returnTo: { host: string; loopback: boolean } }
@@ -76,7 +77,6 @@ const scopes = computed<{ icon: IconNode; text: string }[]>(() =>
 // (utils/clientMark says which is which, and why).
 const mark = computed(() => (checked.value?.ok ? clientMark(checked.value.client, checked.value.returnTo) : null));
 const label = computed(() => mark.value?.name ?? "");
-const initial = useAccountInitial();
 
 onMounted(() => {
   refresh();
@@ -197,16 +197,11 @@ async function decide(decision: "allow" | "deny") {
                 </p>
               </div>
 
-              <div class="az__decide">
-                <div class="az__account">
-                  <span class="az__avatar" aria-hidden="true">{{ initial }}</span>
-                  <span class="az__email t-clip">{{ user?.email }}</span>
-                  <button type="button" class="az__switch" @click="signOut">Not you?</button>
-                </div>
-                <div class="az__actions">
-                  <button type="button" class="btn az__deny" :disabled="deciding" @click="decide('deny')">Deny</button>
-                  <button type="button" class="btn btn--primary" :disabled="deciding" @click="decide('allow')">Allow</button>
-                </div>
+              <!-- who is signed in is the topbar's account disc, and its menu signs out:
+                   the page doesn't say it a second time -->
+              <div class="az__actions">
+                <button type="button" class="btn az__deny" :disabled="deciding" @click="decide('deny')">Deny</button>
+                <button type="button" class="btn btn--primary" :disabled="deciding" @click="decide('allow')">Allow</button>
               </div>
 
               <p v-if="note" class="az__note" role="status">{{ note }}</p>
@@ -322,58 +317,13 @@ async function decide(decision: "allow" | "deny") {
   margin-top: calc((1lh - 16px) / 2);
 }
 
-/* ---- who decides, and the decision ---- */
-.az__decide {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-  margin-top: var(--space-2);
-}
-.az__account {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-width: 0;
-}
-/* the topbar's account disc (AccountMenu's .avatar), at the size of a line of text */
-.az__avatar {
-  display: inline-grid;
-  flex: none;
-  place-items: center;
-  width: 24px;
-  height: 24px;
-  border-radius: var(--radius-pill);
-  background: var(--lit);
-  font-size: calc(24px * 0.64);
-  font-weight: 500;
-  line-height: 1;
-  text-transform: uppercase;
-}
-.az__email {
-  flex: 1 1 auto;
-}
-/* the same link-shaped button the account surface uses to switch modes */
-.az__switch {
-  flex: none;
-  color: var(--ink);
-  font-weight: 600;
-  text-decoration: underline;
-  text-decoration-color: var(--underline);
-  text-underline-offset: var(--underline-offset);
-}
-@media (hover: hover) and (pointer: fine) {
-  .az__switch:hover {
-    text-decoration-color: var(--ink-2);
-  }
-}
-.az__switch:focus-visible {
-  text-decoration-color: var(--ink-2);
-}
+/* ---- the decision ---- */
 /* two equal halves, the quiet answer first and the filled one where the hand ends —
    the order every dialog in the app uses */
 .az__actions {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  margin-top: var(--space-2);
   gap: var(--space-3);
 }
 .az__deny {
