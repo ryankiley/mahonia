@@ -59,9 +59,9 @@ const copyrightYear = new Date().getFullYear();
           </li>
           <li>
             The Trip tab plans the walk itself. Add a trail as a link or a map file, break it into
-            days, and each day shows its distance and climb, a walking-time estimate, and what the
-            pack weighs when you shoulder it that morning, lighter as the food and water go. Name
-            who's coming and mark who carries what.
+            days, and each day shows its distance and climb, a walking time that allows for the
+            weight on your back, and its hours of daylight. Name who's coming and mark who carries
+            what.
           </li>
           <li>
             <NuxtLink to="/gear">My Gear</NuxtLink> is the one part that asks for an
@@ -70,6 +70,10 @@ const copyrightYear = new Date().getFullYear();
             themselves never need it.
           </li>
         </ul>
+        <p>
+          <NuxtLink to="/help">Help</NuxtLink> goes into more detail on the two links, where the
+          weights come from, moving from LighterPack, and how the Trip tab gets its numbers.
+        </p>
 
         <h2>Why “Mahonia”?</h2>
         <p>
@@ -96,40 +100,15 @@ const copyrightYear = new Date().getFullYear();
         </p>
 
         <h2>From an assistant</h2>
+        <!-- The setup lives on /help#assistants: one click for Claude, Cursor and VS Code
+             and the line for every other client. This stays as the one paragraph a
+             directory reviewer reading About needs, since the registry listing links here. -->
         <p>
           Mahonia is also a connector. Add <code>https://mahonia.app/mcp</code> to an AI
-          assistant that speaks MCP and it can read a list from its share link, search the
-          catalog, make a new list, and, given an edit link, change one in a single step: add,
-          edit, move, group and remove rows, relink them to the catalog, and rename or reorder
-          folders. No sign-in: a share link is the permission to read and an edit link the
-          permission to change, exactly as they are for a person. Signed in, it can also find
-          your lists and change them, and read or change your My Gear.
-        </p>
-        <p>
-          One click for
-          <a
-            href="https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Mahonia&connectorUrl=https%3A%2F%2Fmahonia.app%2Fmcp"
-            target="_blank"
-            rel="noopener noreferrer"
-            >Claude</a
-          >,
-          <a
-            href="https://cursor.com/install-mcp?name=mahonia&config=eyJ1cmwiOiJodHRwczovL21haG9uaWEuYXBwL21jcCJ9"
-            target="_blank"
-            rel="noopener noreferrer"
-            >Cursor</a
-          >
-          or
-          <a
-            href="https://insiders.vscode.dev/redirect/mcp/install?name=mahonia&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmahonia.app%2Fmcp%22%7D"
-            target="_blank"
-            rel="noopener noreferrer"
-            >VS Code</a
-          >; the
-          <a href="https://github.com/ryankiley/mahonia#mcp-connector" target="_blank" rel="noopener noreferrer"
-            >README</a
-          >
-          has the line for every other client.
+          assistant that speaks MCP and it can read, make and change your lists with the same links
+          a person uses. Signed in, it can also read and change your My Gear.
+          <NuxtLink to="/help#assistants">Help</NuxtLink> has one-click setup and the line for
+          every other client.
         </p>
 
         <h2>Contact</h2>

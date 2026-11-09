@@ -476,7 +476,7 @@ export interface AccessTokenSummary {
   lastUsedAt: string | null;
 }
 
-/** One catalog weight correction, as /changes lists them. */
+/** One catalog weight correction, as the admin patrol feed lists them. */
 export interface RecentChange {
   id: number;
   itemName: string;

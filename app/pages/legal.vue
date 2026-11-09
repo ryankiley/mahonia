@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 5 September 2026</p>
+        <p class="t-sm t-muted">Last updated 9 November 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -28,7 +28,8 @@ useHead({
         <h2 id="privacy" class="legal__break">Privacy</h2>
         <p>
           Mahonia is made by one person. No advertising, and I don’t sell your data. Lists need no
-          account; “My Gear” does, and the account holds your email and nothing else. If
+          account; “My Gear” does, and the account holds your email and, if you set one, a display
+          name. If
           anything here is unclear, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>.
         </p>
 
@@ -48,16 +49,16 @@ useHead({
           carefully. Planning a trip lets you enter it so the calorie estimates mean something; it
           is optional, and the rest of the planning view works without it. It is saved
           <strong>on this device only</strong>: it is never sent to the server, so it cannot
-          appear on a share link, a published list, the public feed, or a JSON backup, and it does
-          not follow you to another device. Clear the field and the estimates fall back to a stated
+          appear on a share link or in a JSON backup, and it does not follow you to another
+          device. Clear the field and the estimates fall back to a stated
           assumption.
         </p>
         <p>
           Your <strong>route</strong> gets the same care. Importing a map file stores the line the
           trail follows, and that is the only geography Mahonia keeps; a recorded track often
           starts where you parked, which is sometimes where you live. So it is
-          <strong>yours alone</strong>: it never appears on a share link, a published list or the
-          public feed, not even in the page’s hidden data. Anyone you share with sees the
+          <strong>yours alone</strong>: it never appears on a share link, not even in the page’s
+          hidden data. Anyone you share with sees the
           distance, the climb and the shape of the elevation, which carry no coordinates at all.
           Your own JSON backup does include it, because that file is yours and the route is the one
           thing you couldn’t type again from memory.
@@ -65,9 +66,9 @@ useHead({
         <p>
           <strong>My Gear</strong>, your saved gear, is the one part that needs an account. It holds names,
           brands and weights, and belongs to you rather than to a browser, so signing in on another
-          device brings it with you, and clearing this one doesn’t lose it. Gear reaches it when you
-          add something to a list yourself, or import or copy a list. Opening a list someone shared
-          with you doesn’t put their gear into yours.
+          device brings it with you, and clearing this one doesn’t lose it. While you’re signed in,
+          gear reaches it when you add something to a list yourself, or import or copy a list. A
+          list someone else made asks before any of its gear goes into yours.
         </p>
 
         <h3>What Mahonia collects in the background</h3>
@@ -87,7 +88,8 @@ useHead({
         <p>
           An account holds an email address, an optional display name, and the public half of any
           passkey you add. There is no password to store, because there are no passwords: you sign
-          in with a passkey or with a link sent to that address. Mahonia never asks for your real
+          in with a passkey or with a link sent to that address. Connecting an assistant stores
+          a fingerprint of its access, not the token itself. Mahonia never asks for your real
           name, payment details, or location, and a display name is shown only if you set one. The
           one thing it asks about you (optionally, for trip planning) is your body weight, and
           that never leaves your device; see above.
@@ -109,11 +111,12 @@ useHead({
 
         <h3>The services Mahonia relies on</h3>
         <p>
-          Four US-based providers run the plumbing, so your data may be processed there:
+          Five US-based providers run the plumbing, so your data may be processed there:
           <strong>Vercel</strong> (hosting, delivery, analytics), <strong>Neon</strong> (the
           database), <strong>Upstash</strong> (rate limiting, and the short-lived challenge a
           passkey needs), <strong>Resend</strong> (sending sign-in links, so it handles
-          your email address).
+          your email address), and <strong>GitHub</strong>, where feedback you send from the app
+          becomes a public issue carrying only what you typed in the box.
         </p>
         <p>
           One more, and only on one screen. When a list has a route, the planning view draws it on
@@ -121,28 +124,32 @@ useHead({
           volunteer project built on OpenStreetMap data. Loading an image tells that server your
           rough map position and that the request came from mahonia.app, never which list you’re
           looking at, because the browser is told to send the site’s address and nothing further.
-          It’s the only request Mahonia makes to anyone else, it only happens on a list that has a
-          route, and the map’s code isn’t even downloaded otherwise.
+          It’s the only thing your browser loads from anyone else, it only happens on a list that
+          has a route, and the map’s code isn’t even downloaded otherwise.
+        </p>
+        <p>
+          Mahonia’s server also fetches a linked trail site’s icon (once per site), a list you import
+          from LighterPack, and a connecting assistant’s public description of itself. None of these
+          requests carries anything about you.
         </p>
 
         <h3>Keeping and deleting your data</h3>
         <p>Removing things is mostly in your hands:</p>
         <ul>
           <li>
-            “Your lists” shows every list saved on this device. “Remove from device” takes one off
-            this browser (it stays online for anyone with the link); “Delete” removes it from the
-            server for everyone.
+            In a list’s ⋯ menu, “Forget this list” takes it off this browser (it stays online for
+            anyone with the link), and “Delete this list” removes it from the server for everyone.
           </li>
           <li>
             In “My Gear”, “Remove” takes a piece of gear out and keeps it out. Signing out
             leaves your gear where it is, ready for the next time you sign in. “Sign out
-            everywhere” ends every session on every device, if you ever need it.
+            everywhere” signs out all your devices and disconnects your assistants.
           </li>
           <li>
-            “Delete account” on your account page removes your email, display name, passkeys and
-            your saved gear, straight away and without asking me. It asks separately whether to
-            delete your lists; by default they stay, because they belong to their edit links rather
-            than to your account.
+            “Delete account” on your account page removes your email, display name, passkeys,
+            assistant connections and saved gear, straight away and without asking me. It asks
+            separately whether to delete your lists; by default they stay, because they belong to
+            their edit links rather than to your account.
           </li>
           <li>
             For anything else, including a copy or deletion of a shared list, email
@@ -152,11 +159,11 @@ useHead({
         <p>
           Some things are also cleaned up automatically, and the timings are exact rather than
           vague. A list that never got past a single item and hasn’t been edited for
-          <strong>30 days</strong> is marked for removal; saved gear untouched for
-          <strong>180 days</strong> is treated the same way. Either is then held for
-          <strong>90 days</strong> before it’s deleted for good, and using it again during that
-          window brings it straight back; for your gear, signing in is enough. If you’ve lost
-          something, email me and I’ll see what can be recovered.
+          <strong>30 days</strong> is removed; a list with two items or more never expires. Saved
+          gear untouched for <strong>180 days</strong> is set aside, and signing in within the next
+          <strong>90 days</strong> brings it back. A list you delete, or one that’s cleaned
+          up, is held for those same 90 days before it’s deleted for good, so if you’ve lost one,
+          email me and I’ll see what can be recovered.
         </p>
         <p>
           No system is perfectly secure. Please don’t put sensitive personal information into a
@@ -195,39 +202,41 @@ useHead({
 
         <h3>What Mahonia is</h3>
         <p>
-          A free tool for making and sharing packing lists. A list’s private edit link is the only
-          key to changing it; a separate read-only link lets others view it; publishing puts it in a
-          public feed.
+          A free tool for making and sharing packing lists. A list’s private edit link is the key
+          to changing it, along with any account it’s filed under; a separate read-only link lets
+          others view it.
         </p>
 
         <h3>The edit link is your responsibility</h3>
         <p>
           Anyone who has a list’s edit link can change that list. Keep it private and save it
-          somewhere safe. If you lose it, I can’t recover edit access for you.
+          somewhere safe. If you lose it and the list isn’t filed under your account, I can’t
+          recover edit access for you.
         </p>
 
         <h3>Your content is yours</h3>
         <p>
-          You keep ownership of the lists you create. Sharing or publishing one gives me permission
-          to store and display it so the feature works, and that permission ends when you remove the
-          content. You’re responsible for what you put in your lists and for having the right to
-          share it. Public means public, so don’t share anything you wouldn’t want out in the open.
+          You keep ownership of the lists you create. Making or sharing one gives me permission to
+          store it and show it to whoever has its links, so the feature works, and that permission
+          ends when you remove the content. You’re responsible for what you put in your lists and
+          for having the right to share it. A share link works for anyone who has it, and links get
+          passed on, so don’t put anything in a list you wouldn’t want seen.
         </p>
 
         <h3>Fair use of Mahonia</h3>
         <p>
           Please don’t use Mahonia to break the law, infringe others’ rights, post abusive or
-          deceptive content, impersonate people, or attack, overload, or scrape the service. Public
-          lists can be flagged with “Report list” in the ⋯ menu; to report a problem or request a
-          takedown, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> with enough
-          detail to find the content. I may remove content or limit access, including pulling lists
-          off the public feed.
+          deceptive content, impersonate people, or attack, overload, or scrape the service. A
+          shared list can be flagged with “Report list” in its ⋯ menu; to report a problem or
+          request a takedown, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>
+          with enough detail to find the content. I may remove content or limit access.
         </p>
 
         <h3>It’s free and provided “as is”</h3>
         <p>
           Mahonia may change, pause, or shut down at any time, and isn’t guaranteed to keep your data
-          forever. Keep your own backups of anything important; the editor can export your list.
+          forever. Keep your own backups of anything important: the editor can export your list,
+          and your account page can download everything filed under it.
           It’s provided <strong>as is</strong> and <strong>as available</strong>, with no warranties
           of any kind and no guarantee of availability, accuracy, or fitness for any particular
           purpose, to the fullest extent the law allows. Weights, the catalog, and totals may be

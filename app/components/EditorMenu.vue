@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Bug02Icon, CopyPlusIcon, Delete02Icon, FileImportIcon, InformationCircleIcon, KeyboardIcon, LegalDocument01Icon, RemoveCircleIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { Bug02Icon, CopyPlusIcon, Delete02Icon, FileImportIcon, HelpCircleIcon, InformationCircleIcon, KeyboardIcon, LegalDocument01Icon, RemoveCircleIcon, UserAddIcon } from "@hugeicons/core-free-icons";
 
 // The editor's ⋯ menu — the list of actions, NOT the button that opens it. The
 // trigger stays in the toolbar (GearEditor), where it is one glyph on the first
@@ -151,6 +151,10 @@ function act(event: MenuEvent | FootEvent) {
           <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ a.label }}
         </button>
+        <NuxtLink to="/help" data-row role="menuitem" class="menu__item" @click="emit('close')">
+          <HugeiconsIcon :icon="HelpCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+          Help
+        </NuxtLink>
         <NuxtLink to="/about" data-row role="menuitem" class="menu__item" @click="emit('close')">
           <HugeiconsIcon :icon="InformationCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           About
