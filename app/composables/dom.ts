@@ -27,9 +27,13 @@ export function useWindowEvent<K extends keyof WindowEventMap>(
   onScopeDispose(() => window.removeEventListener(type, handler, options));
 }
 
+// A key something nearer already handled (preventDefault) is not this shortcut: an
+// Escape that closed a menu (useMenuDismiss) mustn't also close the dialog or the gear
+// pane around it. Said here once rather than at each listener, which is how the pane
+// missed it.
 export function onKeyStroke(key: string, handler: (e: KeyboardEvent) => void): void {
   useWindowEvent("keydown", (e) => {
-    if (e.key === key) handler(e);
+    if (e.key === key && !e.defaultPrevented) handler(e);
   });
 }
 
@@ -179,7 +183,7 @@ export function useMenuDismiss(
         onClickOutside(target, () => close());
         // Escape closes the menu and nothing else: caught on the way DOWN (capture),
         // ahead of a dialog's own window listener, and marked handled so a menu inside
-        // a dialog doesn't take the dialog with it (BaseModal skips a handled Escape).
+        // a dialog doesn't take the dialog with it (onKeyStroke skips a handled key).
         // Focus that was in the menu goes back to its trigger, the first button in it,
         // rather than falling to the page.
         useWindowEvent(
