@@ -284,12 +284,12 @@ describe("the editor's row, changing size", () => {
 
   it("offers the product's other sizes while the row is edited, and a pick relinks and reweighs it", async () => {
     const w = mountRow(longQuilt());
-    expect(w.find(".item__sizemenu").exists()).toBe(false); // not on a row nobody is editing
+    expect(w.find(".sizemenu").exists()).toBe(false); // not on a row nobody is editing
     await editRow(w);
     // the sizes come over the (stubbed) network, a few ticks after editing begins
-    await vi.waitFor(() => expect(w.find(".item__sizemenu").exists()).toBe(true));
-    await w.find(".item__sizemenu button").trigger("click");
-    const rows = w.findAll(".item__sizemenu .menu__item");
+    await vi.waitFor(() => expect(w.find(".sizemenu").exists()).toBe(true));
+    await w.find(".sizemenu button").trigger("click");
+    const rows = w.findAll(".sizemenu .menu__item");
     expect(rows.map((r) => r.find("span").text())).toEqual(["Regular", "Long", "Long, Wide"]);
     expect(rows[1]!.attributes("aria-current")).toBe("true");
     expect(rows[0]!.find(".optmenu__detail").text()).not.toBe("");
@@ -304,8 +304,10 @@ describe("the editor's row, changing size", () => {
     const field = w.find<HTMLInputElement>(".item__variant-input");
     field.element.value = "long, wide";
     await field.trigger("change");
-    await flushPromises();
-    expect(snapshot.value.items[0]).toMatchObject({ catalogItemId: 8, variant: "Long, Wide", unitWeightMg: 610_000 });
+    // the size rules load on demand (off the editor's first load), then the sizes
+    await vi.waitFor(() =>
+      expect(snapshot.value.items[0]).toMatchObject({ catalogItemId: 8, variant: "Long, Wide", unitWeightMg: 610_000 }),
+    );
   });
 
   it("unlinks a typed size the product isn't sold in, and keeps the product's name", async () => {
@@ -314,11 +316,10 @@ describe("the editor's row, changing size", () => {
     const field = w.find<HTMLInputElement>(".item__variant-input");
     field.element.value = "Short";
     await field.trigger("change");
-    await flushPromises();
+    await vi.waitFor(() => expect(snapshot.value.items[0]!.catalogItemId).toBeUndefined());
     const row = snapshot.value.items[0]!;
-    expect(row.catalogItemId).toBeUndefined();
     expect(row).toMatchObject({ variant: "Short", brand: "Enlightened Equipment", name: "Revelation", unitWeightMg: 560_000 });
-    expect(w.find(".item__sizemenu").exists()).toBe(false); // nothing left to pick between
+    expect(w.find(".sizemenu").exists()).toBe(false); // nothing left to pick between
   });
 
   it("offers no chevron for a product sold in one size", async () => {
@@ -328,6 +329,6 @@ describe("the editor's row, changing size", () => {
     const { loadCatalogSizes } = await import("~/composables/useCatalogSizes");
     expect(await loadCatalogSizes(20)).toHaveLength(1);
     await flushPromises();
-    expect(w.find(".item__sizemenu").exists()).toBe(false);
+    expect(w.find(".sizemenu").exists()).toBe(false);
   });
 });

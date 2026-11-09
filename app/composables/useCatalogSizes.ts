@@ -1,5 +1,9 @@
 import type { Ref } from "vue";
-import type { CatalogSize } from "~~/shared/catalogSizes";
+import type { Item } from "~~/shared/types";
+import { typedSizeNeedsSizes, type CatalogSize } from "~~/shared/catalogSizes";
+// what a typed size on a linked row writes: the row's Size field loads this module for
+// it on demand (useItemRowFields.onVariant), one import for the rule and the sizes
+export { typedSizePatch } from "~~/shared/catalogSizes";
 
 // A linked row's other sizes (shared/catalogSizes), fetched when a person starts
 // editing the row and not before: a list of 150 linked rows mounts no requests. One
@@ -33,6 +37,13 @@ export function loadCatalogSizes(id: number): Promise<CatalogSize[] | null> {
     byId.set(id, p);
   }
   return p;
+}
+
+/** The sizes typedSizePatch needs to decide `typed` on this row, or null when it
+ *  decides without them (or they can't be had). */
+export function sizesForTyped(item: Item, typed: string): Promise<CatalogSize[] | null> {
+  const id = item.catalogItemId;
+  return id != null && typedSizeNeedsSizes(item, typed) ? loadCatalogSizes(id) : Promise.resolve(null);
 }
 
 /** The sizes to offer on a row: its product's, once `wanted` turns true while it is
