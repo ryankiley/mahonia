@@ -64,6 +64,9 @@ const vaultPicker = c.vaultPicker;
 // two requests for a dialog most lists never show. Mounted on the first answer that
 // opens it, and kept after, like the other lazy dialogs below.
 const vaultPickerEverOpened = useLatch(() => vaultPicker.value);
+// ...and the banner that leads to it, for the same reason: it asks only on an edit link
+// this device didn't make, once, signed in.
+const vaultPromptEverShown = useLatch(() => vaultPrompt.value);
 // whether the open list is a CLAIMED one (session + share code, no edit token on
 // this device) — the flag the chrome gates on
 const openedByCode = c.openedByCode;
@@ -1150,7 +1153,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
            INLINE, after the weight chart: it's a question about THIS list, and a
            panel floating over the page overstates a thing you can ignore. No lede
            — the reason we're asking is our problem, not something to make you read. -->
-      <Prompt
+      <LazyPrompt
+        v-if="vaultPromptEverShown"
         :show="!!vaultPrompt"
         variant="inline"
         dismiss-label="Don’t add this list’s gear to My Gear"
@@ -1161,7 +1165,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         <template #action>
           <button class="btn btn--quiet editor__vaultadd" @click="c.answerVaultPrompt(true)">Add</button>
         </template>
-      </Prompt>
+      </LazyPrompt>
 
       <!-- ...and "Add" opens the chooser, because a list you didn't start is
            usually part yours and part theirs. Lazy AND gated: it's reachable only

@@ -41,7 +41,9 @@ const emit = defineEmits<{ dismiss: [] }>();
 </script>
 
 <template>
-  <Transition :name="variant === 'corner' ? 'toast' : 'reveal'">
+  <Transition :name="variant === 'corner' ? 'toast' : 'reveal'" appear>
+    <!-- `appear`: the editor mounts this Lazy on its first show, so that mount IS the
+         arrival, and unfolds the way a later one does. -->
     <!-- Corner: fixed, so nothing reflows when it goes — a fade and a small rise
          is the whole exit. -->
     <div v-if="show && variant === 'corner'" class="toast toast--corner prompt" role="status">
