@@ -12,6 +12,7 @@ import {
   normalizeEmail,
   sweepExpiredAuth,
 } from "../server/utils/authSession";
+import { mintAccessToken, resolveBearer } from "../server/utils/accessTokens";
 import { existingCredentialIds, savePasskey } from "../server/utils/credentialRepo";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb, type TestDb } from "./helpers/db";
@@ -207,6 +208,32 @@ describe("an address is only a claim until a link comes back", () => {
     expect(await sessionHashes()).toEqual([]);
     // the address is proved now, so this happens exactly once
     expect(await isVerified(seeded.id)).toBe(true);
+  });
+
+  it("evicts the tokens the stranger minted too, and an app code not yet traded", async () => {
+    // A session is all minting takes, and the passkey signup hands one over: a write
+    // token in a config file, and an app allowed seconds ago whose code is still out.
+    const seeded = await createAccount(db, "ryan@example.com");
+    const minted = await mintAccessToken(db, seeded.id, { label: "mine now", scope: "write" });
+    await db.insert(schema.oauthCodes).values({
+      codeHash: sha256Hex("pending-code"),
+      userId: seeded.id,
+      clientId: "client",
+      clientName: "Some app",
+      redirectUri: "https://example.com/cb",
+      codeChallenge: "x",
+      scope: "write",
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    expect(await resolveBearer(db, minted!.token)).not.toBeNull();
+
+    await signInWithLink(await issueMagicToken(db, seeded.id));
+
+    // neither may outlive the proof: either would keep reading and writing the
+    // owner's gear and lists with nothing on the account page to say so
+    expect(await resolveBearer(db, minted!.token)).toBeNull();
+    expect(await db.select().from(schema.accessTokens)).toEqual([]);
+    expect(await db.select().from(schema.oauthCodes)).toEqual([]);
   });
 
   it("leaves an ordinary sign-in alone — a second device doesn't sign the first one out", async () => {

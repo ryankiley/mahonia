@@ -11,6 +11,7 @@ import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { createError, deleteCookie, getCookie, setCookie } from "h3";
 import { authTokens, credentials, oauthCodes, sessions, users } from "../db/schema";
+import { revokeAllAccessTokens } from "./accessTokens";
 import { useAccountDb, type Db } from "./db";
 import { setNoIndex, setPrivate } from "./http";
 import { rateLimit, type RateLimitAction } from "./rateLimit";
@@ -300,6 +301,11 @@ export async function claimUnverifiedAccount(db: Db, userId: number): Promise<vo
   // in AGAIN, but a session it already started keeps working for 90 days. Same
   // reasoning as endAllSessions.
   await db.delete(sessions).where(eq(sessions.userId, userId));
+  // And every token, for the same reason and more so: a session ends in 90 days, an
+  // assistant token or an app's refresh token never does, and minting one needs only
+  // the session the stranger's passkey signup started. Left here, it kept reading and
+  // writing the real owner's gear and lists long after this ran.
+  await revokeAllAccessTokens(db, userId);
   await db.update(users).set({ emailVerified: true }).where(eq(users.id, userId));
 }
 

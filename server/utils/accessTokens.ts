@@ -15,9 +15,11 @@
 // Kept the way a session or a magic link is kept: hashed. The table holds sha256 of
 // each value and nothing replayable; a value itself exists in one HTTP response, the
 // one that issued it. A credential here is also narrower than a session. It reaches
-// the account's gear, and lets a list the connector makes be filed under the
-// account, and that is all — no passkeys, no takeout, no delete, and none of the
-// lists the account has already claimed. A read-only one gives up the writes as well.
+// the account's gear and the lists filed under it (read, and with a write token
+// changed, by share code), and lets a list the connector makes be filed there too,
+// and that is all — no passkeys, no takeout, no delete. A read-only one gives up the
+// writes as well. Because that is most of what the account holds, every purge that
+// ends its sessions ends these too (revokeAllAccessTokens).
 //
 // A hand-minted token doesn't expire: the person put it in a config file expecting
 // the assistant to keep working, and a token that lapsed on its own would come back
@@ -30,7 +32,7 @@
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { H3Event } from "h3";
 import type { AccessScope, AccessTokenSummary } from "../../shared/types";
-import { accessTokens } from "../db/schema";
+import { accessTokens, oauthCodes } from "../db/schema";
 import type { Db } from "./db";
 import { bearerToken } from "./http";
 import { toIso } from "./time";
@@ -212,8 +214,12 @@ export async function revokeAccessToken(db: Db, userId: number, id: number): Pro
   return gone.length > 0;
 }
 
-/** Every credential the account holds: "Sign out everywhere", and closing the account. */
+/** Every credential the account holds: "Sign out everywhere", closing the account, and
+ *  the first proof of an unverified address (claimUnverifiedAccount). An authorization
+ *  code not yet traded is a token a minute from existing, so it goes too: left behind,
+ *  an app allowed seconds before the purge would be handed a fresh pair after it. */
 export async function revokeAllAccessTokens(db: Db, userId: number): Promise<number> {
+  await db.delete(oauthCodes).where(eq(oauthCodes.userId, userId));
   const gone = await db.delete(accessTokens).where(eq(accessTokens.userId, userId)).returning();
   return gone.length;
 }
