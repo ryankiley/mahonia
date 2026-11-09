@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-08",
+  "fixed": [
+    "The first time you sign in with an emailed link, assistant tokens and app connections made on the account before it end too."
+  ]
+}
