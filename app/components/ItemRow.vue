@@ -1058,11 +1058,12 @@ async function onSaveToVault() {
         ? "This is already in a kit in My Gear, so it can’t be a kit itself"
       // You removed this gear on /gear, and capture never resurrects a tombstone
       // — so "try again in a moment" would be a lie and a loop. Say where the way
-      // back is, in the words that page uses for it.
+      // back is: adding the piece again there lifts the tombstone (addVaultItems).
+      // (It named a removed-gear list /gear no longer has.)
       : result === "removed"
-        ? "This is in your removed gear. Put it back in My Gear first"
-        // ...and a vault with no room is NOT that: there is nothing in the removed
-        // list to find, so the message above would send you looking forever.
+        ? "You removed this from My Gear. Add it again there to bring it back"
+        // ...and a vault with no room is NOT that: there is nothing removed to bring
+        // back, so the message above would send you looking forever.
         : result === "full"
         ? "My Gear is full. Remove something there to make room"
         // the vault belongs to an account, so signed out there is nowhere to put it.

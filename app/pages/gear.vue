@@ -4,9 +4,10 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Backpack03Icon, ChevronDownIcon, PlusSignIcon, Clock01Icon, ToolCaseIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
-import type { VaultEntry, VaultItemOp } from "~~/shared/vault";
+import type { VaultEntry } from "~~/shared/vault";
+import type { VaultOpResult } from "~/composables/useVaultList";
 import { gearFamilyLabel, type GearGlyph } from "~~/shared/gearGlyph";
-import { kitPartRefs, kitWeightMg } from "~~/shared/vaultKit";
+import { kitPartRefs, liveKit } from "~~/shared/vaultKit";
 import { formatPrice, sumPrices } from "~~/shared/money";
 import { itemDisplayName } from "~~/shared/weights";
 import {
@@ -39,52 +40,35 @@ useHead({
   meta: [{ name: "robots", content: "noindex" }],
 });
 
-const { hasVault, vaultFetch } = useVaultAccess();
-
 // ---- the gear ------------------------------------------------------------
-const items = ref<VaultEntry[]>([]);
 // What "Remove" puts away is a tombstone, so a list still holding the piece can't
 // undo the removal; the page doesn't list them. The ways back are the undo toast and
 // adding the piece again, which lifts the tombstone (addVaultItems) and brings the
-// same piece back, weight, note and kits included. A second list of gear at the foot
-// of the page, there only to reverse a removal, was more page than that is worth
-// (Ryan: "feels complicated").
-const loading = ref(false);
-const loadError = ref("");
+// same piece back, weight and kits included. A second list of gear at the foot of the
+// page, there only to reverse a removal, was more page than that is worth (Ryan:
+// "feels complicated").
+const { hasVault, items, loading, loadError, load: loadVault } = useVaultList();
+const vault = useVaultOps();
 const query = ref("");
 
-async function loadVault() {
-  if (!hasVault.value) return;
-  loading.value = true;
-  loadError.value = "";
-  try {
-    const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
-    items.value = res.items || [];
-  } catch {
-    loadError.value = "Couldn’t load your gear. Check your connection and try again.";
-  }
-  loading.value = false;
-}
-// load once we know whether there’s a vault to load, and again when that flips —
-// signing in or out mid-session, which the session plugin's watcher drives
-watch(
-  hasVault,
-  (v) => {
-    if (v) return void loadVault();
-    items.value = [];
-  },
-  { immediate: true },
-);
+// What the last change failed at, under the bar beside a failed load. Its own line
+// rather than the load's: a failed kit save reloads to put the page right, and the
+// reload clearing the load's line took the message with it. Cleared as the next
+// change starts, so an old failure doesn't sit over a page that has since saved.
+const opError = ref("");
+const fail = (what: string) => (opError.value = `Couldn’t ${what}. Check your connection and try again.`);
 
-// Put a removed piece of gear back: the undo toast's way back from Remove.
-async function putBack(entry: VaultEntry) {
-  loadError.value = "";
-  try {
-    await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id, restore: true } });
-    await loadVault();
-  } catch {
-    loadError.value = "Couldn’t put that back. Check your connection and try again.";
-  }
+// The rows a change is saving, by id: their controls wait. One set, so two quick
+// removes don't clear each other's.
+const busy = reactive(new Set<number>());
+
+// A row as the vault now has it, in place: every change here answers with its row, so
+// a change never re-reads the whole gear (a reload would also re-sort the page under a
+// dialog that just closed). Replace-only, so an answer landing after the row was put
+// away doesn't bring it back; a new row goes in first, by its caller.
+function putRow(row: VaultEntry) {
+  const at = items.value.findIndex((i) => i.id === row.id);
+  if (at >= 0) items.value[at] = row;
 }
 
 // ---- how you're looking at it --------------------------------------------
@@ -117,15 +101,23 @@ function pickTab(next: string) {
   tab.value = next === "kits" ? "kits" : "gear";
   remember(TAB_KEY, tab.value);
 }
-const onTab = computed(() => items.value.filter((i) => (i.kind === "kit") === (tab.value === "kits")));
+// Every piece by id: a kit's items, their owned counts and their live weights read from it.
+const gearById = computed(() => new Map(items.value.map((i) => [i.id, i])));
+// The gear as the page shows it: each kit's items and total read off the pieces it
+// holds (liveKit), so reweighing a stove or putting it away moves its kits at once.
+// The vault works the same figures out on every read; the page used to keep copies
+// of them in step by hand, and missed an edit and a removal.
+const gear = computed(() => items.value.map((i) => liveKit(i, gearById.value)));
+const onTab = computed(() => gear.value.filter((i) => (i.kind === "kit") === (tab.value === "kits")));
 const found = computed(() => searchVaultRows(onTab.value, query.value));
 // A query and a View both claim the order, so one has to yield. RELEVANCE wins under
 // the default view — you typed a question and the best answers belong at the top,
 // which is what the ranker's cascade is for. An explicitly chosen View wins over
 // relevance: you asked for heaviest first, and quietly re-ordering by match quality
-// would be the page ignoring the control you just used.
+// would be the page ignoring the control you just used. Kits keep their own order:
+// the View picker isn't on that tab, and a choice made on Gear reordered them unseen.
 const filtered = computed(() =>
-  view.value === "kinds" ? found.value : sortVaultRows(found.value, view.value),
+  tab.value === "kits" || view.value === "kinds" ? found.value : sortVaultRows(found.value, view.value),
 );
 // A chosen order flattens the Gear tab, and so does a search — see groupVaultByKind.
 const flat = computed(() => view.value !== "kinds" || !!query.value.trim());
@@ -138,99 +130,69 @@ const narrowed = computed(() => filtered.value.length !== onTab.value.length);
 const countNoun = computed(() => (tab.value === "kits" ? "kit" : "item"));
 
 // ---- kits ----------------------------------------------------------------
-// Every piece by id: a kit section's item rows and its owned counts read from it.
-const gearById = computed(() => new Map(items.value.map((i) => [i.id, i])));
-// id → "Cook kit, Fire kit" for a piece's "In …" line: one string per row, so it
-// compares by value and a page render doesn't hand every row a fresh array
+// id → "Cook kit, Fire kit" for a piece's "In …" line, read off the kits as they now
+// stand: one string per row, so it compares by value and a page render doesn't hand
+// every row a fresh array
 const inKitsById = computed(() => {
-  const names = new Map(items.value.filter((i) => i.kind === "kit").map((i) => [i.id, itemDisplayName(i.brand, i.name, i.variant)]));
-  const out = new Map<number, string>();
-  for (const i of items.value) {
-    const label = (i.inKits ?? []).map((id) => names.get(id)).filter(Boolean).join(", ");
-    if (label) out.set(i.id, label);
+  const names = new Map<number, string[]>();
+  for (const k of [...gear.value].sort((a, b) => a.id - b.id)) {
+    if (k.kind !== "kit") continue;
+    const name = itemDisplayName(k.brand, k.name, k.variant);
+    for (const p of k.parts ?? []) if (!p.removed) names.set(p.id, [...(names.get(p.id) ?? []), name]);
   }
-  return out;
+  return new Map([...names].map(([id, kits]) => [id, kits.join(", ")]));
 });
 // A kit's items are edited in its section (VaultKitSection); each change sends the whole
-// set. Shown at once — the counts, the line weights and the kit's total from what the
-// page already holds — then saved, and the vault's answer put in place (putKit), with
-// each item's "In …" kept in step. No re-read of the whole gear for a stepper press;
-// only a save that fails reloads, to put the page right.
-const kitSaving = reactive(new Set<number>());
-// Every change to a row is one op to /api/vault/items. Never throws: a failed request
-// answers { ok: false }, as a refusal does, and each caller says what failed.
-type OpResult = { ok: boolean; reason?: string; item?: VaultEntry };
-const vaultOp = (op: VaultItemOp): Promise<OpResult> =>
-  vaultFetch<OpResult>("/api/vault/items", { method: "POST", body: { op } }).catch(() => ({ ok: false }));
-// The kit as the vault now has it, in place (first, when it's new), and every piece's
-// "In …" kits brought in line with what it holds: the one change a kit's save makes to
-// rows other than its own.
-function putKit(kit: VaultEntry) {
-  const holds = new Set(kit.kind === "kit" ? (kit.parts ?? []).filter((p) => !p.removed).map((p) => p.id) : []);
-  const next = items.value.map((i) => {
-    if (i.id === kit.id) return kit;
-    if (i.kind === "kit") return i;
-    const was = i.inKits ?? [];
-    const had = was.includes(kit.id);
-    const has = holds.has(i.id);
-    if (had === has) return i;
-    const inKits = has ? [...was, kit.id].sort((a, b) => a - b) : was.filter((k) => k !== kit.id);
-    return { ...i, inKits: inKits.length ? inKits : undefined };
-  });
-  items.value = next.some((i) => i.id === kit.id) ? next : [kit, ...next];
-}
+// set. Shown at once (liveKit works the counts, line weights and total out from the
+// pieces the page holds), then saved and the vault's answer put in place. No re-read
+// of the whole gear for a stepper press; only a save that fails reloads, to put the
+// page right.
 async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], ownWeightMg: number) {
-  if (kitSaving.has(entry.id)) return;
+  if (busy.has(entry.id)) return;
   if (entry.id === DRAFT_ID) return void saveDraftKit(entry.name, parts);
-  const at = items.value.findIndex((i) => i.id === entry.id);
-  if (at < 0) return;
-  const before = items.value[at]!;
+  const before = gear.value.find((i) => i.id === entry.id);
+  if (!before) return;
   const held = new Map((before.parts ?? []).map((p) => [p.id, p]));
-  const next = parts.flatMap((r) => {
-    const had = held.get(r.id);
-    if (had) return [{ ...had, qty: r.qty }];
-    const g = gearById.value.get(r.id);
-    return g ? [{ id: g.id, qty: r.qty, brand: g.brand, name: g.name, variant: g.variant, weightMg: g.weightMg }] : [];
-  });
-  items.value[at] = { ...before, kind: "kit", parts: next, ownWeightMg, weightMg: kitWeightMg(ownWeightMg, next) };
-  kitSaving.add(entry.id);
-  const res = await vaultOp({ t: "kit", id: entry.id, parts, ownWeightMg });
-  kitSaving.delete(entry.id);
+  putRow({ ...before, kind: "kit", ownWeightMg, parts: parts.map((r) => ({ name: "", weightMg: 0, ...held.get(r.id), id: r.id, qty: r.qty })) });
+  busy.add(entry.id);
+  opError.value = "";
+  const res = await vault.op({ t: "kit", id: entry.id, parts, ownWeightMg });
+  busy.delete(entry.id);
   if (!res.ok || !res.item) {
-    loadError.value = "Couldn’t save the kit. Check your connection and try again.";
+    fail("save the kit");
     return void loadVault();
   }
-  putKit(res.item);
+  putRow(res.item);
   // took something out: say what, and put it back on Undo
   const kept = new Set(parts.map((r) => r.id));
   const gone = (before.parts ?? []).filter((p) => !kept.has(p.id));
   const lostOwn = !!before.ownWeightMg && !ownWeightMg;
   if (gone.length || lostOwn) {
-    const back = kitPartRefs(before.parts ?? []);
     offerUndo({
       verb: "Took",
       label: gone.length === 1 ? itemDisplayName(gone[0]!.brand, gone[0]!.name, gone[0]!.variant) : gone.length ? counted(gone.length, "item") : "its own weight",
       tail: ` out of ${itemDisplayName(before.brand, before.name, before.variant)}`,
-      restore: () => setKit(items.value.find((i) => i.id === entry.id) ?? before, back, before.ownWeightMg ?? 0),
+      restore: () => setKit(before, kitPartRefs(before.parts ?? []), before.ownWeightMg ?? 0),
     });
   }
 }
 // A new kit's first item: make the piece, then make it a kit of that item, then show
 // the kit where the draft was.
 async function saveDraftKit(name: string, parts: { id: number; qty: number }[]) {
-  kitSaving.add(DRAFT_ID);
-  loadError.value = "";
-  const made = await vaultOp({ t: "add", name, weightMg: 0 });
-  const kit: OpResult = made.ok && made.item ? await vaultOp({ t: "kit", id: made.item.id, parts, ownWeightMg: 0 }) : { ok: false };
-  kitSaving.delete(DRAFT_ID);
+  busy.add(DRAFT_ID);
+  opError.value = "";
+  const made = await vault.op({ t: "add", name, weightMg: 0 });
+  const kit: VaultOpResult = made.ok && made.item ? await vault.op({ t: "kit", id: made.item.id, parts, ownWeightMg: 0 }) : { ok: false };
+  busy.delete(DRAFT_ID);
   if (!kit.ok || !kit.item) {
-    loadError.value = made.reason === "duplicate" ? "You already have something called that in My Gear." : "Couldn’t make that kit. Check your connection and try again.";
+    if (made.reason === "duplicate") opError.value = "You already have something called that in My Gear.";
+    else fail("make that kit");
     // a piece made without its kit is real gear now: show it
     if (made.ok) void loadVault();
     return;
   }
   draftKit.value = null;
-  putKit(kit.item);
+  items.value = [kit.item, ...items.value];
 }
 // "New kit", at the foot of the Kits tab the way "Add folder" ends a list (AddFolder):
 // the name opens a section there, on its "Add an item" line, and nothing is saved until
@@ -240,7 +202,7 @@ async function saveDraftKit(name: string, parts: { id: number; qty: number }[]) 
 const draftKit = ref<VaultEntry | null>(null);
 const DRAFT_ID = -1;
 function startDraftKit(name: string) {
-  draftKit.value = { id: DRAFT_ID, normKey: "", name, weightMg: 0, timesSeen: 0, lastUsedAt: "", createdAt: "" };
+  draftKit.value = { ...BLANK_PIECE, id: DRAFT_ID, name };
 }
 // the Kits tab's sections: the kits, then an unsaved new kit where "New kit" was
 const kitSections = computed(() => (draftKit.value ? [...filtered.value, draftKit.value] : filtered.value));
@@ -309,10 +271,7 @@ function offerAdded(item: VaultEntry) {
     verb: "Added",
     label: itemDisplayName(item.brand, item.name, item.variant),
     tail: ` to ${gearFamilyLabel(kind)}`,
-    restore: async () => {
-      await vaultFetch("/api/vault/remove", { method: "POST", body: { id: item.id } }).catch(() => {});
-      await loadVault();
-    },
+    restore: () => putAway(item),
   });
 }
 
@@ -342,18 +301,14 @@ async function patchEntry(
   patch: Pick<VaultEntry, "entryUnit"> | Pick<VaultEntry, "name"> | { icon: VaultEntry["icon"] | null },
   what: string,
 ) {
-  const at = items.value.findIndex((i) => i.id === entry.id);
-  if (at < 0) return;
-  const before = items.value[at]!;
-  items.value[at] = { ...before, ...patch, icon: "icon" in patch ? (patch.icon ?? undefined) : before.icon };
-  const put = (row: VaultEntry) => {
-    const i = items.value.findIndex((x) => x.id === row.id);
-    if (i >= 0) items.value[i] = row;
-  };
-  const res = await vaultOp({ t: "edit", id: entry.id, patch });
-  if (res.ok && res.item) return put(res.item);
-  put(before);
-  loadError.value = `Couldn’t save that ${what}. Check your connection and try again.`;
+  const before = items.value.find((i) => i.id === entry.id);
+  if (!before) return;
+  putRow({ ...before, ...patch, icon: "icon" in patch ? (patch.icon ?? undefined) : before.icon });
+  opError.value = "";
+  const res = await vault.op({ t: "edit", id: entry.id, patch });
+  if (res.ok && res.item) return putRow(res.item);
+  putRow(before);
+  fail(`save that ${what}`);
 }
 // a kit's name, typed on its open row (the only thing about a kit a dialog held)
 function renameKit(entry: VaultEntry, name: string) {
@@ -383,9 +338,8 @@ async function setEntryIcon(entry: VaultEntry, glyph: GearGlyph | null) {
 // the row as it now stands, and a full reload would re-sort the page under a dialog
 // that just closed (a rename can move a row under A–Z).
 function onItemSaved(item: VaultEntry) {
-  const at = items.value.findIndex((i) => i.id === item.id);
-  const was = at >= 0 ? items.value[at]! : null;
-  if (at >= 0) items.value[at] = item;
+  const was = items.value.find((i) => i.id === item.id);
+  putRow(item);
   editing.value = null;
   // owning fewer than a kit held brings the kit down to it (the vault does that), so
   // the kits it is in read again
@@ -433,7 +387,6 @@ function setUnit(next: Unit) {
 // several times in a row while tidying. An immediate removal with an undo beats a
 // modal per row. (Deleting a whole LIST keeps its dialog — that one isn't
 // reversible.)
-const removing = ref<number | null>(null);
 // The undo bar: the editor's own (UndoBar, on useUndo's timer), holding what happened
 // and how to take it back. Every change here that takes something away offers it: a
 // piece removed, an item taken out of a kit (Ryan: "we should audit for toasts that
@@ -441,17 +394,26 @@ const removing = ref<number | null>(null);
 const { pending: undoable, offer: offerUndo, hold: holdUndo, release: releaseUndo, clear: clearUndo, take: undo } = useUndo();
 onBeforeUnmount(clearUndo);
 
+// Put a piece away: Remove's, and the way back from an add. True when it went.
+async function putAway(entry: VaultEntry): Promise<boolean> {
+  busy.add(entry.id);
+  opError.value = "";
+  const ok = await vault.remove(entry.id);
+  busy.delete(entry.id);
+  if (!ok) fail("remove that");
+  else items.value = items.value.filter((i) => i.id !== entry.id);
+  return ok;
+}
 async function remove(entry: VaultEntry) {
-  removing.value = entry.id;
-  loadError.value = "";
-  try {
-    await vaultFetch("/api/vault/remove", { method: "POST", body: { id: entry.id } });
-    items.value = items.value.filter((i) => i.id !== entry.id);
-    offerUndo({ verb: "Removed", label: itemDisplayName(entry.brand, entry.name, entry.variant), restore: () => putBack(entry) });
-  } catch {
-    loadError.value = "Couldn’t remove that. Check your connection and try again.";
-  }
-  removing.value = null;
+  if (!(await putAway(entry))) return;
+  offerUndo({ verb: "Removed", label: itemDisplayName(entry.brand, entry.name, entry.variant), restore: () => putBack(entry) });
+}
+// Remove's way back. A reload rather than a put: the piece comes back into every kit
+// that held it.
+async function putBack(entry: VaultEntry) {
+  opError.value = "";
+  if (await vault.remove(entry.id, true)) await loadVault();
+  else fail("put that back");
 }
 
 // Sign in without losing the vault behind it — the account opens over this page.
@@ -506,19 +468,19 @@ function onMenuPick(action: string) {
 }
 
 async function exportGear(kind: string) {
-  loadError.value = "";
+  opError.value = "";
   try {
     const { vaultToCsv, vaultToJson } = await exporter();
-    const gear = { items: items.value };
+    const all = { items: gear.value };
     if (kind === "json") {
-      downloadFile("my-gear.json", vaultToJson(gear), "application/json");
+      downloadFile("my-gear.json", vaultToJson(all), "application/json");
     } else {
-      downloadFile("my-gear.csv", vaultToCsv(gear, unit.value), "text/csv");
+      downloadFile("my-gear.csv", vaultToCsv(all, unit.value), "text/csv");
     }
   } catch {
     // the chunk can fail to load (offline before the SW cached it) — the page's own
     // error line, rather than a silent no-op on a button you just pressed
-    loadError.value = "Couldn’t build that file. Check your connection and try again.";
+    fail("build that file");
   }
 }
 </script>
@@ -596,7 +558,7 @@ async function exportGear(kind: string) {
                Kits tab instead, as a list's folder is ("New kit", below). -->
           <div class="vault__tabbar">
             <ModeBar :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
-            <button v-if="tab === 'gear'" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="query = ''; openAdd()">
+            <button v-if="tab === 'gear'" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openAdd">
               <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" aria-hidden="true" />
               Add gear
             </button>
@@ -633,7 +595,7 @@ async function exportGear(kind: string) {
             </OptionMenu>
           </div>
 
-          <p v-if="loadError" class="t-sm vault__error">{{ loadError }}</p>
+          <p v-if="opError || loadError" class="t-sm vault__error">{{ opError || loadError }}</p>
 
           <!-- only while there is nothing to show yet. An add reloads the gear, and
                blanking a page you are working on for the length of a round trip
@@ -665,7 +627,7 @@ async function exportGear(kind: string) {
                 :kit="kit"
                 :gear-by-id="gearById"
                 :unit="unit"
-                :busy="kitSaving.has(kit.id)"
+                :busy="busy.has(kit.id)"
                 @kit="(parts: { id: number; qty: number }[], own: number) => setKit(kit, parts, own)"
                 @rename="(n: string) => renameKit(kit, n)"
                 @remove="remove(kit)"
@@ -694,7 +656,7 @@ async function exportGear(kind: string) {
                   :key="entry.id"
                   :entry="entry"
                   :unit="unit"
-                  :busy="removing === entry.id"
+                  :busy="busy.has(entry.id)"
                   :in-kits="inKitsById.get(entry.id)"
                   @edit="openEdit(entry)"
                   @remove="remove(entry)"

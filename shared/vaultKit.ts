@@ -33,6 +33,22 @@ export function kitItemCount(parts: readonly VaultKitPart[]): number {
   return parts.reduce((n, p) => (p.removed ? n : n + p.qty), 0);
 }
 
+/**
+ * A kit as the live gear says it is now: each part's name and weight read off its
+ * piece, a part whose piece isn't in `gear` put away, and the total worked out again.
+ * The vault does this on every read (withKits); a page holding the gear does it on
+ * every change, so a piece reweighed or put away moves the kits that hold it at once
+ * rather than on the next load.
+ */
+export function liveKit(kit: VaultEntry, gear: ReadonlyMap<number, VaultEntry>): VaultEntry {
+  if (kit.kind !== "kit") return kit;
+  const parts = (kit.parts ?? []).map((p): VaultKitPart => {
+    const g = gear.get(p.id);
+    return g ? { id: p.id, qty: p.qty, brand: g.brand, name: g.name, variant: g.variant, weightMg: g.weightMg } : { ...p, removed: true };
+  });
+  return { ...kit, parts, weightMg: kitWeightMg(kit.ownWeightMg ?? 0, parts) };
+}
+
 /** A kit's parts as the refs the vault's kit op takes: the whole set, by id and count. */
 export function kitPartRefs(parts: readonly VaultKitPart[]): { id: number; qty: number }[] {
   return parts.map((p) => ({ id: p.id, qty: p.qty }));

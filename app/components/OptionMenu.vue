@@ -72,20 +72,9 @@ watch(open, (o) => o && nextTick(place));
 // folder body) and lost every option past the folder's bottom edge. Ancestors that
 // own such a clip listen for this and lift it while the menu is up, the same
 // overlayToggle contract the name autocomplete keeps (ItemInput → FolderSection).
-// Deduped so the folder's +1/−1 count can't unbalance, and released only at the
-// leave transition's END: releasing at leave start let the returning clip guillotine
-// the exiting menu at t=0 — everything past the fold vanished instantly while the
-// slice inside kept fading (ItemInput documents the same artifact). A leave
-// cancelled by reopening never fires after-leave, and the dedup makes the re-show a
-// no-op — the clip just stays lifted through the blink.
-let lifted = false;
-function setLift(v: boolean) {
-  if (lifted === v) return;
-  lifted = v;
-  emit("overlayToggle", v);
-}
-watch(open, (o) => o && setLift(true));
-onBeforeUnmount(() => setLift(false));
+// the clip lift, on at open and off when the leave ENDS (useOverlayLift)
+const { lift, release } = useOverlayLift((on) => emit("overlayToggle", on));
+watch(open, (o) => o && lift());
 
 useMenuDismiss(open, rootRef);
 
@@ -112,7 +101,7 @@ function pick(key: string) {
            `open` lets it turn a chevron over -->
       <slot name="trigger" :active="active" :open="open" />
     </button>
-    <Transition name="menu" @after-leave="setLift(false)">
+    <Transition name="menu" @after-leave="release">
       <MenuList
         v-if="open"
         ref="menuList"

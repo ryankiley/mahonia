@@ -930,48 +930,6 @@ input[type="search"]::-webkit-search-decoration {
   }
 }
 
-// Corner variant — a snackbar that STAYS until dismissed, rather than a message
-// that passes through the centre. Bottom-RIGHT on desktop: the centre is where the
-// transient toasts land, and a persistent panel parked there would be in the way of
-// them; the right corner is also clear of the vault pane, which is a top-right
-// column. It re-declares the three transform states because the centre toast's
-// translate(-50%, …) would drag this one back to the middle as it animates — and it
-// keeps the same transform FUNCTION across all three for the Safari interpolation
-// reason above.
-// The radius steps up from the centre toast's --radius-3: this one is a floating
-// panel that sits there, so it takes the same --radius-4 the other persistent
-// floating surfaces wear (the autocomplete, the kebab menu, the vault pane) rather
-// than the radius a passing message uses.
-// The corner clears the home indicator the way the centre toast does, and the side
-// inset too — the same max() .wrap uses, for a phone turned on its side.
-.toast--corner {
-  left: auto;
-  right: max(var(--space-4), env(safe-area-inset-right));
-  bottom: max(var(--space-4), env(safe-area-inset-bottom));
-  transform: translate(0, 0) scale(1);
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4);
-  border-radius: var(--radius-4);
-}
-.toast--corner.toast-enter-from {
-  transform: translate(0, 10px) scale(0.96);
-}
-.toast--corner.toast-leave-to {
-  transform: translate(0, 6px) scale(0.98);
-}
-// A phone has no corner to spare — span the gutters like the centre toast does.
-@media (max-width: t.$bp-stack) {
-  .toast--corner {
-    left: max(var(--space-3), env(safe-area-inset-left));
-    right: max(var(--space-3), env(safe-area-inset-right));
-    bottom: max(var(--space-3), env(safe-area-inset-bottom));
-    width: auto;
-    max-width: none;
-  }
-}
-
 // An icon button parked at a panel's TRAILING edge — the close × on the vault pane,
 // the account dialog, and anything else that grows this shape.
 //
