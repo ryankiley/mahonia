@@ -68,8 +68,7 @@ useHead({
           brands and weights, and belongs to you rather than to a browser, so signing in on another
           device brings it with you, and clearing this one doesn’t lose it. While you’re signed in,
           gear reaches it when you add something to a list yourself, or import or copy a list. A
-          list someone else made asks first, and none of their gear goes into yours unless you say
-          yes.
+          list someone else made asks before any of its gear goes into yours.
         </p>
 
         <h3>What Mahonia collects in the background</h3>
@@ -90,7 +89,7 @@ useHead({
           An account holds an email address, an optional display name, and the public half of any
           passkey you add. There is no password to store, because there are no passwords: you sign
           in with a passkey or with a link sent to that address. Connecting an assistant stores
-          only a fingerprint of its access, never the token itself. Mahonia never asks for your real
+          a fingerprint of its access, not the token itself. Mahonia never asks for your real
           name, payment details, or location, and a display name is shown only if you set one. The
           one thing it asks about you (optionally, for trip planning) is your body weight, and
           that never leaves your device; see above.
@@ -129,10 +128,9 @@ useHead({
           has a route, and the map’s code isn’t even downloaded otherwise.
         </p>
         <p>
-          Mahonia’s server fetches a few things itself, and none of them carries anything about
-          you: a linked trail site’s icon, once per site, to show beside the link; the list you
-          paste from LighterPack, when you import one; and, when you connect an assistant, the
-          public description that assistant publishes about itself.
+          Mahonia’s server also fetches a linked trail site’s icon (once per site), a list you import
+          from LighterPack, and a connecting assistant’s public description of itself. None of these
+          requests carries anything about you.
         </p>
 
         <h3>Keeping and deleting your data</h3>
@@ -145,8 +143,7 @@ useHead({
           <li>
             In “My Gear”, “Remove” takes a piece of gear out and keeps it out. Signing out
             leaves your gear where it is, ready for the next time you sign in. “Sign out
-            everywhere” ends every session on every device and disconnects every assistant, if you
-            ever need it.
+            everywhere” signs out all your devices and disconnects your assistants.
           </li>
           <li>
             “Delete account” on your account page removes your email, display name, passkeys,
@@ -164,7 +161,7 @@ useHead({
           vague. A list that never got past a single item and hasn’t been edited for
           <strong>30 days</strong> is removed; a list with two items or more never expires. Saved
           gear untouched for <strong>180 days</strong> is set aside, and signing in within the next
-          <strong>90 days</strong> brings it straight back. A list you delete, or one that’s cleaned
+          <strong>90 days</strong> brings it back. A list you delete, or one that’s cleaned
           up, is held for those same 90 days before it’s deleted for good, so if you’ve lost one,
           email me and I’ll see what can be recovered.
         </p>

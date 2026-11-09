@@ -71,7 +71,7 @@ const copyrightYear = new Date().getFullYear();
           </li>
         </ul>
         <p>
-          <NuxtLink to="/help">Help</NuxtLink> has the details: what each link can do, where the
+          <NuxtLink to="/help">Help</NuxtLink> goes into more detail on the two links, where the
           weights come from, moving from LighterPack, and how the Trip tab gets its numbers.
         </p>
 
@@ -105,8 +105,8 @@ const copyrightYear = new Date().getFullYear();
              directory reviewer reading About needs, since the registry listing links here. -->
         <p>
           Mahonia is also a connector. Add <code>https://mahonia.app/mcp</code> to an AI
-          assistant that speaks MCP and it can read, make and change your lists, with the same
-          links a person uses, and, signed in, your My Gear.
+          assistant that speaks MCP and it can read, make and change your lists with the same links
+          a person uses. Signed in, it can also read and change your My Gear.
           <NuxtLink to="/help#assistants">Help</NuxtLink> has one-click setup and the line for
           every other client.
         </p>
