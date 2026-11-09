@@ -12,7 +12,7 @@ import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { formatPrice } from "~~/shared/money";
-import { formatKcal, formatWeight, itemDisplayName } from "~~/shared/weights";
+import { formatKcal, formatWeight, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
 import { consumableIcon } from "~/utils/itemMarks";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 
@@ -114,7 +114,8 @@ const meta = computed(() => {
            the end ("… Regular" / "… Long Wide") read identically, and this is the way
            to tell them apart without opening the dialog -->
       <p class="gear__name t-clip" :title="displayName">
-        <span v-if="entry.brand" class="gear__brand">{{ entry.brand }}</span>
+        <!-- no brand where the name already says it ("Apple Watch"), itemDisplayName's rule -->
+        <span v-if="entry.brand && !nameRepeatsBrand(entry.brand, entry.name)" class="gear__brand">{{ entry.brand }}</span>
         <span>{{ entry.name }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
       </p>

@@ -270,7 +270,7 @@ watch(
           <li v-for="g in choices" :key="g.id">
             <button type="button" class="kitsec__choice" @click="add(g)">
               <span class="t-clip">{{ itemDisplayName(g.brand, g.name, g.variant) }}</span>
-              <span class="t-sm t-num t-muted">{{ formatWeight(g.weightMg, unit) }}</span>
+              <span class="t-sm t-num t-muted">{{ formatWeight(g.weightMg, g.entryUnit ?? unit) }}</span>
             </button>
           </li>
         </ul>

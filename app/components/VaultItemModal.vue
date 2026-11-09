@@ -10,7 +10,6 @@ import { offersKcal, offersWorn } from "~~/shared/fuel";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import type { Ref } from "vue";
 
 // Correcting a piece of gear in place — the half of My Gear that capture can't do —
 // and adding one by hand (`adding`): the same form, blank, with a catalog search on top
@@ -61,7 +60,7 @@ const brandOptions = computed(() => mergeVocab(props.known?.brands, catalogBrand
 const typeOptions = computed(() => mergeVocab(props.known?.types, catalogTypes.names.value));
 const emit = defineEmits<{ close: []; saved: [item: VaultEntry]; added: [item: VaultEntry] }>();
 
-const { vaultFetch } = useVaultAccess();
+const vault = useVaultOps();
 
 // This dialog is a PIECE's. A kit is edited in its section on the Kits tab
 // (VaultKitSection), and made there with New kit; it had a "Make it a kit" button
@@ -79,23 +78,42 @@ const CLASS_OPTIONS = [
 // rather than a filter per recompute, so the picker's options keep one identity
 const CLASS_OPTIONS_UNWORN = CLASS_OPTIONS.filter((o) => o.key !== "worn");
 
-const brand = ref("");
-const name = ref("");
-const variant = ref("");
-const commonName = ref("");
-const weight = ref("");
-const kcal = ref("");
-// how many you own, as typed; blank or 1 is one
-const owned = ref("");
-const price = ref("");
-const productUrl = ref("");
-const classification = ref<Classification>("base");
-// The icon you picked by hand; null = the gear type decides, live, as you type it.
-const icon = ref<GearGlyph | null>(null);
-const shownIcon = computed(() => gearIcon(commonName.value, name.value, icon.value));
-const shownLabel = computed(() => gearIconLabel(commonName.value, name.value, icon.value));
+// The form, as typed: one object, so a field is listed once here, once in formFrom,
+// and the template binds it. (They were eleven refs, restated in `opened` and in the
+// watcher twice, so a new field had four places to be added in step.)
+interface ItemForm {
+  brand: string;
+  name: string;
+  variant: string;
+  commonName: string;
+  weight: string;
+  kcal: string;
+  /** how many you own, as typed; blank or 1 is one */
+  owned: string;
+  price: string;
+  productUrl: string;
+  classification: Classification;
+  /** the icon you picked by hand; null = the gear type decides, live, as you type it */
+  icon: GearGlyph | null;
+}
+const blankForm = (): ItemForm => ({
+  brand: "",
+  name: "",
+  variant: "",
+  commonName: "",
+  weight: "",
+  kcal: "",
+  owned: "",
+  price: "",
+  productUrl: "",
+  classification: "base",
+  icon: null,
+});
+const form = reactive(blankForm());
+const shownIcon = computed(() => gearIcon(form.commonName, form.name, form.icon));
+const shownLabel = computed(() => gearIconLabel(form.commonName, form.name, form.icon));
 // what "Match the gear type" would draw: the type's icon, read from the fields as they stand
-const autoIcon = computed(() => gearIcon(commonName.value, name.value));
+const autoIcon = computed(() => gearIcon(form.commonName, form.name));
 // the unit this piece's weight reads in: its own, else the page's (the row's rowUnit)
 const rowUnit = computed<Unit>(() => props.entry?.entryUnit ?? props.unit);
 const saving = ref(false);
@@ -110,33 +128,33 @@ const error = ref("");
 const picked = ref<{ id: number; brand: string; name: string; variant: string } | null>(null);
 let pickFill = { commonName: "", weight: "", kcal: "" };
 function onPick(c: NameCommit) {
-  brand.value = c.brand ?? "";
-  name.value = c.name;
-  variant.value = c.variant ?? "";
-  const fill = (field: "commonName" | "weight" | "kcal", value: string, into: Ref<string>) => {
-    if (!value || (into.value && into.value !== pickFill[field])) return;
-    into.value = value;
+  form.brand = c.brand ?? "";
+  form.name = c.name;
+  form.variant = c.variant ?? "";
+  const fill = (field: "commonName" | "weight" | "kcal", value: string) => {
+    if (!value || (form[field] && form[field] !== pickFill[field])) return;
+    form[field] = value;
     pickFill[field] = value;
   };
-  fill("commonName", c.commonName ?? "", commonName);
-  fill("weight", c.weightMg ? formatWeight(c.weightMg, rowUnit.value, { raw: true }) : "", weight);
-  fill("kcal", c.kcal ? String(c.kcal) : "", kcal);
-  if (c.classification && classification.value === "base") classification.value = c.classification;
-  picked.value = c.catalogItemId != null ? { id: c.catalogItemId, brand: brand.value, name: name.value, variant: variant.value } : null;
+  fill("commonName", c.commonName ?? "");
+  fill("weight", c.weightMg ? formatWeight(c.weightMg, rowUnit.value, { raw: true }) : "");
+  fill("kcal", c.kcal ? String(c.kcal) : "");
+  if (c.classification && form.classification === "base") form.classification = c.classification;
+  picked.value = c.catalogItemId != null ? { id: c.catalogItemId, brand: form.brand, name: form.name, variant: form.variant } : null;
 }
 // Enter on text that isn't a product: it is the name you meant
 let searchText = "";
 function onSearchSubmit() {
-  if (searchText.trim()) name.value = searchText.trim();
+  if (searchText.trim()) form.name = searchText.trim();
 }
 const linkedId = (): number | undefined =>
-  picked.value && picked.value.brand === brand.value && picked.value.name === name.value && picked.value.variant === variant.value
+  picked.value && picked.value.brand === form.brand && picked.value.name === form.name && picked.value.variant === form.variant
     ? picked.value.id
     : undefined;
 // What the row says it is, read LIVE from the two fields as they are typed, the way the
 // class picker's own value is: the name and gear type decide the row's other controls
 // (shared/fuel), and the dialog answers as the editor row would for the same words.
-const named = computed(() => ({ name: name.value, commonName: commonName.value }));
+const named = computed(() => ({ name: form.name, commonName: form.commonName }));
 // The kcal field's rule, ItemRow's verbatim: only once it IS consumable (the only state
 // in which the number is counted), and not on stove fuel holding no number — a
 // canister's "calories" are the wrong kind, and would feed the food plan (offersKcal).
@@ -146,14 +164,14 @@ const named = computed(() => ({ name: name.value, commonName: commonName.value }
 // open, when the name is edited into fuel with a number typed but unsaved; onSubmit
 // drops that number rather than saving what the form no longer shows.
 const kcalOffered = computed(
-  () => classification.value === "consumable" && offersKcal({ ...named.value, kcal: props.entry?.kcal }),
+  () => form.classification === "consumable" && offersKcal({ ...named.value, kcal: props.entry?.kcal }),
 );
 // ...and "Worn" leaves the picker on water and stove fuel, as the editor row drops its
 // worn toggle there (offersWorn, the one rule for both): nobody wears a gas canister.
 // Kept while the entry IS worn, so a value that got there can be walked back — the
 // picker can't offer a way out of a state it doesn't list.
 const classOptions = computed(() =>
-  offersWorn(named.value, classification.value === "worn") ? CLASS_OPTIONS : CLASS_OPTIONS_UNWORN,
+  offersWorn(named.value, form.classification === "worn") ? CLASS_OPTIONS : CLASS_OPTIONS_UNWORN,
 );
 
 // What the dialog opened with. The patch is the DIFF against this, because a field
@@ -162,19 +180,36 @@ const classOptions = computed(() =>
 // look at a row and pressing Save quietly opted it out of ever learning anything
 // from your lists again, which is not what "your lists stop overwriting a field once
 // you've corrected it" says. Only what you actually changed becomes yours.
-let opened = {
-  brand: "",
-  name: "",
-  variant: "",
-  commonName: "",
-  weight: "",
-  kcal: "",
-  owned: "",
-  price: "",
-  productUrl: "",
-  classification: "base" as Classification,
-  icon: null as GearGlyph | null,
-};
+let opened = blankForm();
+const changed = (field: keyof ItemForm) => form[field] !== opened[field];
+
+/** The form a stored piece opens as. */
+function formFrom(e: VaultEntry): ItemForm {
+  return {
+    brand: e.brand ?? "",
+    name: e.name,
+    variant: e.variant ?? "",
+    commonName: e.commonName ?? "",
+    // raw: true — an editable field must never be handed "<1 g", which is a summary,
+    // not a value: parsing it back would throw away the weight it stands for. The
+    // UNIT stays in the string (CatalogCorrectionModal prefills the same way), so a
+    // field showing "1.2" can't be misread when the page is in kg — and
+    // parseWeightInput reads the suffix straight back.
+    weight: e.weightMg ? formatWeight(e.weightMg, e.entryUnit ?? props.unit, { raw: true }) : "",
+    kcal: e.kcal ? String(e.kcal) : "",
+    owned: e.owned ? String(e.owned) : "",
+    // FORMATTED, not the bare cents: "$399.00" is what the row shows and what
+    // parsePriceInput reads straight back, so the symbol you'd otherwise have to
+    // retype is already there — and the same only-if-the-string-changed guard the
+    // weight field uses (below) keeps the round trip from re-pricing anything.
+    price: e.priceCents != null ? formatPrice(e.priceCents, e.currency) : "",
+    productUrl: e.productUrl ?? "",
+    // absent means "never stated", which for a vault row IS base: capture drops the
+    // field when the list row was inheriting its folder's default
+    classification: e.classification ?? "base",
+    icon: e.icon ?? null,
+  };
+}
 
 // `immediate`, because this component is Lazy-mounted on first use when `entry` is
 // ALREADY set — a plain watch would never fire for that first open. The same trap
@@ -183,53 +218,20 @@ watch(
   () => props.entry,
   (e) => {
     if (!e) return;
-    brand.value = e.brand ?? "";
-    name.value = e.name;
-    variant.value = e.variant ?? "";
-    commonName.value = e.commonName ?? "";
-    // raw: true — an editable field must never be handed "<1 g", which is a summary,
-    // not a value: parsing it back would throw away the weight it stands for. The
-    // UNIT stays in the string (CatalogCorrectionModal prefills the same way), so a
-    // field showing "1.2" can't be misread when the page is in kg — and
-    // parseWeightInput reads the suffix straight back.
-    weight.value = e.weightMg ? formatWeight(e.weightMg, e.entryUnit ?? props.unit, { raw: true }) : "";
-    // absent means "never stated", which for a vault row IS base: capture drops the
-    // field when the list row was inheriting its folder's default
-    classification.value = e.classification ?? "base";
-    kcal.value = e.kcal ? String(e.kcal) : "";
-    owned.value = e.owned ? String(e.owned) : "";
-    // FORMATTED, not the bare cents: "$399.00" is what the row shows and what
-    // parsePriceInput reads straight back, so the symbol you'd otherwise have to
-    // retype is already there — and the same only-if-the-string-changed guard the
-    // weight field uses (below) keeps the round trip from re-pricing anything.
-    price.value = e.priceCents != null ? formatPrice(e.priceCents, e.currency) : "";
-    productUrl.value = e.productUrl ?? "";
-    icon.value = e.icon ?? null;
+    Object.assign(form, formFrom(e));
+    opened = { ...form };
     saving.value = false;
     error.value = "";
     picked.value = null;
     pickFill = { commonName: "", weight: "", kcal: "" };
-    opened = {
-      brand: brand.value,
-      name: name.value,
-      variant: variant.value,
-      commonName: commonName.value,
-      weight: weight.value,
-      kcal: kcal.value,
-      owned: owned.value,
-      price: price.value,
-      productUrl: productUrl.value,
-      classification: classification.value,
-      icon: icon.value,
-    };
   },
   { immediate: true },
 );
 
 // A name is the one thing a vault row cannot be without: vaultNormKey returns "" for
 // a nameless row and every caller reads that as "not gear".
-const canSave = computed(() => !!name.value.trim());
-const urlOk = computed(() => /^https?:\/\/\S/i.test(productUrl.value.trim()));
+const canSave = computed(() => !!form.name.trim());
+const urlOk = computed(() => /^https?:\/\/\S/i.test(form.productUrl.trim()));
 
 async function onSubmit() {
   if (!canSave.value || saving.value || !props.entry) return;
@@ -237,26 +239,26 @@ async function onSubmit() {
   // null, not undefined, for a field you emptied: the edit op has to be able to
   // CLEAR one, which capture's coalesce merge structurally can't (see vaultRepo).
   const patch: VaultItemPatch = {};
-  if (brand.value !== opened.brand) patch.brand = brand.value.trim().slice(0, VAULT_SHORT_MAX) || null;
-  if (name.value !== opened.name) patch.name = name.value.trim().slice(0, VAULT_NAME_MAX);
-  if (variant.value !== opened.variant) patch.variant = variant.value.trim().slice(0, VAULT_SHORT_MAX) || null;
-  if (commonName.value !== opened.commonName) {
-    patch.commonName = commonName.value.trim().slice(0, VAULT_SHORT_MAX) || null;
+  if (changed("brand")) patch.brand = form.brand.trim().slice(0, VAULT_SHORT_MAX) || null;
+  if (changed("name")) patch.name = form.name.trim().slice(0, VAULT_NAME_MAX);
+  if (changed("variant")) patch.variant = form.variant.trim().slice(0, VAULT_SHORT_MAX) || null;
+  if (changed("commonName")) {
+    patch.commonName = form.commonName.trim().slice(0, VAULT_SHORT_MAX) || null;
   }
-  if (owned.value !== opened.owned) {
+  if (changed("owned")) {
     // a whole number above one, or back to one (blank, 0 and 1 all mean one), by the
     // server's own rule (ownedOf)
-    const n = Number(owned.value.trim() || "1");
+    const n = Number(form.owned.trim() || "1");
     if (!Number.isFinite(n) || n < 0) {
       error.value = "How many you own should be a whole number, like 3.";
       return;
     }
     patch.owned = ownedOf(n) ?? null;
   }
-  if (icon.value !== opened.icon) patch.icon = icon.value;
-  if (classification.value !== opened.classification) {
+  if (changed("icon")) patch.icon = form.icon;
+  if (changed("classification")) {
     // "base" is stored as absent, the convention the capture path keeps
-    patch.classification = classification.value === "base" ? null : classification.value;
+    patch.classification = form.classification === "base" ? null : form.classification;
   }
   // The kcal is sent only where the fuel rule would show the field for it — the same
   // test kcalOffered makes, minus the class: a kcal on a non-consumable row is carried
@@ -264,12 +266,12 @@ async function onSubmit() {
   // stops being true of the food). On a fuel row it WOULD be counted, so a number typed
   // before the name was edited into fuel — the field gone, the digits still in the ref —
   // is dropped rather than saved unseen, and the next list to pick this row gets none.
-  if (kcal.value !== opened.kcal && offersKcal({ ...named.value, kcal: props.entry?.kcal })) {
-    const k = kcal.value.trim() ? Math.max(0, Math.round(Number(kcal.value))) : 0;
+  if (changed("kcal") && offersKcal({ ...named.value, kcal: props.entry?.kcal })) {
+    const k = form.kcal.trim() ? Math.max(0, Math.round(Number(form.kcal))) : 0;
     patch.kcal = k > 0 ? k : null;
   }
-  if (price.value !== opened.price) {
-    const raw = price.value.trim();
+  if (changed("price")) {
+    const raw = form.price.trim();
     const parsed = raw ? parsePriceInput(raw) : null;
     if (raw && !parsed) {
       error.value = "That price doesn’t read as a number. Try “399” or “$62.50”.";
@@ -285,8 +287,8 @@ async function onSubmit() {
       patch.currency = parsed.currency ?? props.entry.currency ?? props.defaultCurrency ?? null;
     }
   }
-  if (productUrl.value !== opened.productUrl) {
-    const url = productUrl.value.trim().slice(0, VAULT_URL_MAX);
+  if (changed("productUrl")) {
+    const url = form.productUrl.trim().slice(0, VAULT_URL_MAX);
     if (url && !urlOk.value) {
       error.value = "A product link has to start with http:// or https://.";
       return;
@@ -296,8 +298,8 @@ async function onSubmit() {
   // Only when the string CHANGED. formatWeight → parseWeightInput is lossy (0.1 oz
   // resolution) and locale-shaped, so round-tripping a field nobody typed in would
   // silently re-weigh the row. CatalogCorrectionModal splits the same way.
-  if (weight.value !== opened.weight) {
-    const raw = weight.value.trim();
+  if (changed("weight")) {
+    const raw = form.weight.trim();
     // Blank clears to 0 — gear you own but haven't weighed is a legitimate state
     // here, unlike an automatic capture, which waits (see isVaultWorthy).
     const parsed = raw ? parseWeightInput(raw, rowUnit.value) : 0;
@@ -318,10 +320,7 @@ async function onSubmit() {
 
   saving.value = true;
   error.value = "";
-  const op: VaultItemOp = { t: "edit", id: props.entry.id, patch };
-  const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", { method: "POST", body: { op } }).catch(
-    () => ({ ok: false }) as { ok: boolean; item?: VaultEntry },
-  );
+  const res = await vault.op({ t: "edit", id: props.entry.id, patch });
   saving.value = false;
   if (!res.ok || !res.item) {
     error.value = "Couldn’t save that. Check your connection and try again.";
@@ -330,17 +329,13 @@ async function onSubmit() {
   emit("saved", res.item);
 }
 
-type OpResult = { ok: boolean; reason?: string; item?: VaultEntry };
-const post = (op: VaultItemOp) =>
-  vaultFetch<OpResult>("/api/vault/items", { method: "POST", body: { op } }).catch(() => ({ ok: false }) as OpResult);
-
 // Adding: the form read the same way an edit is (the patch against a blank form is
 // everything typed), sent as one add. An icon picked by hand follows as an edit, the
 // one field an add doesn't take.
 async function add(p: VaultItemPatch) {
   const op: VaultItemOp = {
     t: "add",
-    name: name.value.trim().slice(0, VAULT_NAME_MAX),
+    name: form.name.trim().slice(0, VAULT_NAME_MAX),
     ...(p.brand ? { brand: p.brand } : {}),
     ...(p.variant ? { variant: p.variant } : {}),
     ...(p.commonName ? { commonName: p.commonName } : {}),
@@ -355,7 +350,7 @@ async function add(p: VaultItemPatch) {
   };
   saving.value = true;
   error.value = "";
-  const res = await post(op);
+  const res = await vault.op(op);
   if (!res.ok || !res.item) {
     saving.value = false;
     // the refusals are worth naming: "you already have that" says to search for it
@@ -368,8 +363,8 @@ async function add(p: VaultItemPatch) {
     return;
   }
   let item = res.item;
-  if (icon.value) {
-    const set = await post({ t: "edit", id: item.id, patch: { icon: icon.value } });
+  if (form.icon) {
+    const set = await vault.op({ t: "edit", id: item.id, patch: { icon: form.icon } });
     if (set.ok && set.item) item = set.item;
   }
   saving.value = false;
@@ -398,7 +393,7 @@ async function add(p: VaultItemPatch) {
                empty one was blank space under its label. Not an example ("Patagonia"),
                which reads as data the way "399" did as a price. -->
           <input
-            v-model="brand"
+            v-model="form.brand"
             class="field"
             placeholder="Add a brand"
             :list="`${vocabId}-brands`"
@@ -413,7 +408,7 @@ async function add(p: VaultItemPatch) {
           <!-- the same words as the editor row's field for this value (ItemRow):
                "variant" is the catalog's word, not a person's -->
           <span class="t-sm t-muted">Size or version</span>
-          <input v-model="variant" class="field" placeholder="Add a size" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+          <input v-model="form.variant" class="field" placeholder="Add a size" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
         </label>
       </div>
 
@@ -421,7 +416,7 @@ async function add(p: VaultItemPatch) {
         <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
              is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
         <span class="t-sm t-muted">Product</span>
-        <input v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+        <input v-model="form.name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
       <!-- The gear type, then the icon beside it, because the type decides the icon until
@@ -434,7 +429,7 @@ async function add(p: VaultItemPatch) {
         <label class="dlg__field">
           <span class="t-sm t-muted">Gear type</span>
           <input
-            v-model="commonName"
+            v-model="form.commonName"
             class="field"
             placeholder="Type of gear"
             :list="`${vocabId}-types`"
@@ -445,7 +440,7 @@ async function add(p: VaultItemPatch) {
         <div class="dlg__field">
           <span class="t-sm t-muted">Icon</span>
           <!-- a popover over the box, as on the row's own icon -->
-          <GearIconPicker v-model="icon" class="vitem__iconpick" :auto="autoIcon" label="Icons">
+          <GearIconPicker v-model="form.icon" class="vitem__iconpick" :auto="autoIcon" label="Icons">
             <template #trigger="{ open, toggle, attrs }">
               <button
                 type="button"
@@ -467,7 +462,7 @@ async function add(p: VaultItemPatch) {
         <label class="dlg__field">
           <span class="t-sm t-muted">Weight</span>
           <input
-            v-model="weight"
+            v-model="form.weight"
             class="field"
             :placeholder="`0 ${rowUnit}`"
             inputmode="decimal"
@@ -485,9 +480,9 @@ async function add(p: VaultItemPatch) {
           <OptionMenu
             class="vitem__cls field"
             :options="classOptions"
-            :current="classification"
+            :current="form.classification"
             label="Gear classification"
-            @pick="(k) => (classification = k as Classification)"
+            @pick="(k) => (form.classification = k as Classification)"
           >
             <template #trigger="{ active, open }">
               <span>{{ active?.label }}</span>
@@ -507,11 +502,11 @@ async function add(p: VaultItemPatch) {
                trip takes, which is the list row's qty (and a kit's count), never this.
                A noun, like the dialog's other labels. -->
           <span class="t-sm t-muted">Number owned</span>
-          <input v-model="owned" class="field" inputmode="numeric" placeholder="1" @keydown.enter="onSubmit" />
+          <input v-model="form.owned" class="field" inputmode="numeric" placeholder="1" @keydown.enter="onSubmit" />
         </label>
         <label v-if="kcalOffered" class="dlg__field">
           <span class="t-sm t-muted">kcal each</span>
-          <input v-model="kcal" class="field" inputmode="numeric" placeholder="0" @keydown.enter="onSubmit" />
+          <input v-model="form.kcal" class="field" inputmode="numeric" placeholder="0" @keydown.enter="onSubmit" />
         </label>
       </div>
 
@@ -528,7 +523,7 @@ async function add(p: VaultItemPatch) {
                in: the piece's own, else the one the rest of your gear is priced in. The
                same order onSubmit applies, so "$0" is a promise, not a guess. -->
           <input
-            v-model="price"
+            v-model="form.price"
             class="field"
             :placeholder="zeroPrice(entry.currency ?? defaultCurrency)"
             autocomplete="off"
@@ -540,9 +535,9 @@ async function add(p: VaultItemPatch) {
         <label class="dlg__field">
           <span class="t-sm t-muted">
             Product link
-            <a v-if="urlOk" :href="productUrl.trim()" class="link" target="_blank" rel="noopener noreferrer">Open</a>
+            <a v-if="urlOk" :href="form.productUrl.trim()" class="link" target="_blank" rel="noopener noreferrer">Open</a>
           </span>
-          <input v-model="productUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
+          <input v-model="form.productUrl" class="field" placeholder="https://" inputmode="url" @keydown.enter="onSubmit" />
         </label>
       </div>
       </div>

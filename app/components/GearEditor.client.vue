@@ -1145,7 +1145,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <LazyPrompt
         v-if="vaultPromptEverShown"
         :show="!!vaultPrompt"
-        variant="inline"
         dismiss-label="Don’t add this list’s gear to My Gear"
         @dismiss="c.answerVaultPrompt(false)"
       >

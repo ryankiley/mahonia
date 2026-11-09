@@ -325,3 +325,29 @@ export function statusOf(e: unknown): number | undefined {
   const status = (e as { statusCode?: unknown } | null | undefined)?.statusCode;
   return typeof status === "number" ? status : undefined;
 }
+
+// The lift a popover asks of the body that clips it. A folder's (and a My Gear
+// section's) body clips overflow for its collapse animation, so a menu opened on its
+// last row was guillotined; the body counts the open popovers and lifts the clip while
+// any is (FolderSection, VaultSection). Three rules, which every popover inside one
+// has to keep, and which were written out in each until one (the row's ⋯ menus) kept
+// only the first:
+//  • deduped, so the body's +1/−1 count can't unbalance;
+//  • released when the leave transition ENDS (bind `release` to @after-leave):
+//    releasing as it starts let the returning clip cut the exiting menu off at t=0,
+//    everything past the fold gone at once while the slice inside kept fading. A
+//    leave cancelled by reopening never fires after-leave, and the dedupe makes the
+//    re-lift a no-op, so the clip stays lifted through the blink;
+//  • released on unmount, so a row removed with its menu open doesn't leave the
+//    count stuck above zero.
+export function useOverlayLift(toggle: (on: boolean) => void): { lift: () => void; release: () => void } {
+  let lifted = false;
+  const set = (on: boolean) => {
+    if (lifted === on) return;
+    lifted = on;
+    toggle(on);
+  };
+  // before unmount, while the emit still reaches the body counting it
+  onBeforeUnmount(() => set(false));
+  return { lift: () => set(true), release: () => set(false) };
+}

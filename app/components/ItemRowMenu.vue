@@ -50,10 +50,15 @@ const listRef = useTemplateRef<HTMLElement>("listRef");
 const { atStart, above, place } = useMenuPlacement(listRef);
 const id = computed(() => `${props.rowId}:${props.kind}`);
 const isOpen = computed(() => menu.openId.value === id.value);
+// the clip lift, by the rules every popover in a folder keeps (useOverlayLift): it
+// released as the menu STARTED to close, so a last row's menu was cut off at the
+// folder's edge mid-fade, and never on unmount
+const { lift, release } = useOverlayLift((on) => emit("overlayToggle", on));
 // measured on the tick the list mounts — it has no size to measure before that
 watch(isOpen, (open) => {
-  emit("overlayToggle", open);
-  if (open) nextTick(place);
+  if (!open) return;
+  lift();
+  nextTick(place);
 });
 function toggle() {
   menu.toggle(id.value, rootRef.value);
@@ -89,7 +94,7 @@ function toggle() {
         </slot>
       </button>
     </Tooltip>
-    <Transition name="menu">
+    <Transition name="menu" @after-leave="release">
       <ul
         v-if="isOpen"
         ref="listRef"

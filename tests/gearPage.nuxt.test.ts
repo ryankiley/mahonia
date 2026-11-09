@@ -80,6 +80,8 @@ registerEndpoint("/api/vault/items", {
   method: "POST",
   handler: async (event) => {
     const body = await readBody<{ op: { t: string; name: string; id: number; patch: Record<string, unknown> } }>(event);
+    // a kit's save, refused: the page has to say so and put itself right
+    if (body.op.t === "kit") return { ok: false };
     if (body.op.t === "edit") {
       editedOps.push(body.op);
       const row = listRows.find((r) => r.id === body.op.id);
@@ -275,6 +277,70 @@ describe("the /gear page's vault calls", () => {
       await vi.waitFor(() => expect(addedOps).toHaveLength(1));
       expect(addedOps[0]).not.toHaveProperty("catalogItemId");
     });
+  });
+});
+
+// A kit's figures are its pieces': the page works them out from the gear it holds, so a
+// change to a piece moves every kit that holds it without a reload.
+describe("a kit on /gear", () => {
+  afterEach(() => {
+    document.body.innerHTML = "";
+    storage.clear();
+    removedIds = [];
+  });
+  const stove = { ...entry(1, "Stove"), weightMg: 100_000 };
+  const pot = { ...entry(2, "Pot"), weightMg: 250_000 };
+  const kit: VaultEntry = {
+    ...entry(3, "Cook kit"),
+    kind: "kit",
+    ownWeightMg: 0,
+    weightMg: 350_000,
+    parts: [
+      { id: 1, qty: 1, brand: "Brand", name: "Stove", weightMg: 100_000 },
+      { id: 2, qty: 1, brand: "Brand", name: "Pot", weightMg: 250_000 },
+    ],
+  };
+  const kitsTab = (w: ReturnType<typeof mount>) => w.findAll(".modebar__opt").find((b) => b.text().includes("Kits"))!;
+  const total = (w: ReturnType<typeof mount>) => w.get(".kitsec__total").text();
+
+  it("stops counting a piece put away on the Gear tab", async () => {
+    listRows = [stove, pot, kit];
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(rows(w)).toHaveLength(2));
+    await w.get('button[aria-label="Remove Brand Stove from My Gear"]').trigger("click");
+    await vi.waitFor(() => expect(rows(w)).toHaveLength(1));
+    await kitsTab(w).trigger("click");
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+    expect(total(w)).toBe("250 g");
+    expect(w.get(".kitsec").text()).toContain("· removed");
+  });
+
+  it("says a kit's save failed, rather than the reload behind it wiping the message", async () => {
+    listRows = [stove, pot, kit];
+    storage.set("gear.vault.tab.v1", "kits");
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+    await w.get('button[aria-label="Take Pot out of Brand Cook kit"]').trigger("click");
+    await vi.waitFor(() => expect(w.find(".vault__error").exists()).toBe(true));
+    expect(w.get(".vault__error").text()).toContain("Couldn’t save the kit");
+    // and the reload put the kit back as the vault has it
+    await vi.waitFor(() => expect(total(w)).toBe("350 g"));
+  });
+
+  it("keeps the kits in their own order whatever the Gear tab is sorted by", async () => {
+    const light = { ...kit, id: 4, name: "Fire kit", normKey: "brand|fire kit|", weightMg: 100_000, parts: [kit.parts![0]!] };
+    listRows = [stove, pot, kit, light];
+    storage.set("gear.vault.tab.v1", "kits");
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(2));
+    const names = () => w.findAll<HTMLInputElement>(".kitsec .folder__name").map((i) => i.element.value);
+    const before = names();
+    await w.findAll(".modebar__opt").find((b) => b.text().includes("Gear"))!.trigger("click");
+    await w.get(".vault__view .optmenu__btn").trigger("click");
+    await w.findAll(".menu__item").find((b) => b.text().includes("Lightest"))!.trigger("click");
+    await kitsTab(w).trigger("click");
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(2));
+    expect(names()).toEqual(before);
   });
 });
 
