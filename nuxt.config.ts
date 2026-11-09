@@ -460,8 +460,5 @@ export default defineNuxtConfig({
     // internal word stays put on purpose (the API is /api/vault/*, the tables are
     // vault_*, the classes are .vault__*); this is only what people see and share.
     "/vault": { redirect: { to: "/gear", statusCode: 301 } },
-    // the catalog-changes page reads a slow-moving feed — a 10-minute ISR window
-    // makes repeat views free without letting it go meaningfully stale
-    "/changes": { isr: 600 },
   },
 });

@@ -491,7 +491,7 @@ export async function proposeCorrection(
 }
 
 
-/** Recent catalog weight changes (newest first) — the patrol / transparency feed. */
+/** Recent catalog weight changes (newest first): the admin patrol feed that revert reads. */
 export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]> {
   const rows = await db
     .select({

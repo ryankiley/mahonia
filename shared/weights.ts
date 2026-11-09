@@ -596,8 +596,7 @@ export function computeTotals(list: ListData): Totals {
 // "1.5 kg"), a mismatch Vue silently patches after paint. Those pages are also
 // edge-cached, so the HTML every visitor gets carries whichever locale the lambda
 // happened to have. Pinning makes the two sides agree by construction. This is the
-// same rule the date formatters already follow — see app/pages/about.vue and
-// app/pages/changes.vue, which pin for exactly this reason. tidyText's counted()
+// same rule the date formatters already follow, which pin for exactly this reason. tidyText's counted()
 // restates it rather than importing it (that module is imported here), so a change
 // to this pin is made in both places.
 const NUM_LOCALE = "en-US";

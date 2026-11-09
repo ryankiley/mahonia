@@ -1,17 +1,16 @@
-import { defineEventHandler, getQuery, setHeader } from "h3";
+import { defineEventHandler, getQuery } from "h3";
 import { recentChanges } from "../../utils/catalog";
+import { requireAdmin } from "../../utils/auth";
 import { useCatalogDb } from "../../utils/db";
-import { rateLimit } from "../../utils/rateLimit";
 import { setNoIndex } from "../../utils/http";
 
-// Recent catalog weight changes (the transparency / patrol feed). Public, read-only.
+// Recent catalog weight changes, newest first: the patrol feed that finds an edit's id
+// for /api/catalog/revert. Admin-only. It was public and backed a /changes page, which
+// was retired (2026-11-09) as a thin, mostly stale page nothing linked to; reverting a
+// bad fix still needs the ids, so the feed stayed behind the same door as revert.
 export default defineEventHandler(async (event) => {
-  // Per-IP throttle: this feed exposes item + before/after weights, so cap bulk
-  // pulls. Before the cache headers so a 429 isn't cached. Tunable.
-  await rateLimit(event, "catalog-changes");
-
   setNoIndex(event);
-  setHeader(event, "Cache-Control", "public, max-age=30");
+  await requireAdmin(event);
   const q = getQuery(event);
   const limit = Math.min(100, Math.max(1, Number(q.limit) || 50));
   const db = await useCatalogDb();

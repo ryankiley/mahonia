@@ -116,8 +116,7 @@ useHead({
           Type your own weight over it. Your list uses your number, and the row stays linked to the
           catalog. If the catalog is wrong, use “suggest a fix” on the row, ideally with a link to the
           maker’s or a shop’s page. A fix with a link from a known maker or shop updates the catalog
-          for everyone at once, and any other fix to a checked weight waits for a source. Every change
-          is logged on <NuxtLink to="/changes">Recent catalog changes</NuxtLink>.
+          for everyone at once, and any other fix to a checked weight waits for a source.
         </p>
 
         <h3>Units and totals</h3>
