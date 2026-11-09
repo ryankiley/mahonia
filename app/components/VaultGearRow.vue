@@ -389,7 +389,7 @@ const meta = computed(() => {
     <ul v-if="editingItems" class="vault__parts" :aria-label="`Items in ${displayName}`">
       <li v-for="p in parts" :key="p.id" class="vault__part" :class="{ 'vault__part--removed': p.removed }">
         <span class="vault__particon" aria-hidden="true">
-          <HugeiconsIcon v-if="partIcon(p)" :icon="partIcon(p)!" :size="16" :stroke-width="2" />
+          <HugeiconsIcon v-if="partIcon(p)" :icon="partIcon(p)!" :size="20" :stroke-width="2" />
         </span>
         <button
           v-if="!p.removed"
@@ -544,15 +544,15 @@ const meta = computed(() => {
    the row's own trailing cluster takes, so × sits under the row's bin */
 .vault__part {
   display: grid;
-  grid-template-columns: 16px minmax(0, 1fr) auto var(--row-tail);
+  grid-template-columns: var(--gear-type-w) minmax(0, 1fr) auto var(--row-tail);
   align-items: center;
   column-gap: var(--space-2);
 }
-/* the item's own icon, small and quiet before its name, so a kit reads as the pieces
-   it holds rather than a list of words */
+/* the item's own icon, the size, ink and column a row of gear gives it, so a kit's
+   items read as the pieces they are and their names line up like gear names */
 .vault__particon {
   display: inline-flex;
-  color: var(--ink-3);
+  color: var(--ink-2);
 }
 .vault__partctl {
   display: flex;
@@ -575,7 +575,7 @@ const meta = computed(() => {
 /* "Add an item": the name and weight columns' width, the field's own borderless box */
 .vault__partadd {
   /* to the weight column's edge: the tail plus the grid gap before it */
-  padding: var(--space-1) calc(var(--row-tail) + var(--space-2)) var(--space-1) calc(16px + var(--space-2));
+  padding: var(--space-1) calc(var(--row-tail) + var(--space-2)) var(--space-1) var(--gear-type-indent);
   border-top: 1px solid var(--line);
 }
 /* the kit's name as a field: the row's own name, at its size and weight, that takes a
@@ -588,7 +588,7 @@ const meta = computed(() => {
 /* quiet, on the items' left edge: a link-weight way out, not an action you reach for */
 .vault__partfoot {
   padding-top: var(--space-1);
-  padding-left: calc(16px + var(--space-2));
+  padding-left: var(--gear-type-indent);
 }
 .vault__partinput {
   width: 100%;
@@ -853,7 +853,7 @@ button.vault__partname:hover {
      its weight and controls beneath. On one line the stepper and × left a phone's name
      four letters ("Soto …"), and two Soto pieces read the same. */
   .vault__part {
-    grid-template-columns: 16px auto minmax(0, 1fr) auto;
+    grid-template-columns: var(--gear-type-w) auto minmax(0, 1fr) auto;
     grid-template-areas:
       "icon name name name"
       ". weight . ctl";
