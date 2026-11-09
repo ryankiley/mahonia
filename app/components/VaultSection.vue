@@ -14,17 +14,22 @@
 // #actions sits opposite the name (a kit's weight and bin); #after follows the list,
 // inside the collapsing body (a kit's "Add an item").
 //
+// Collapse is the list folder's own (usePersistedCollapse, as FolderSection uses it):
+// remembered per kind or kit on this device under `collapseKey`, never sent to the
+// server, since it's how you're looking at your gear rather than a fact about it.
+//
 // The default slot is the rows, handed `overlay`: a row's menus are absolutely
 // positioned and the body clips for the collapse animation, so a menu opened on the
 // last row was guillotined. The section counts the open ones and lifts the clip while
 // any is, as FolderSection does for the list's rows.
-defineProps<{
+const props = defineProps<{
   label?: string;
-  collapsed?: boolean;
+  /** the remembered collapse's key: a kind's, or `kit-<id>` */
+  collapseKey?: string;
   /** the list's accessible name, when the heading alone doesn't give it */
   listLabel?: string;
 }>();
-const emit = defineEmits<{ toggle: [] }>();
+const { collapsed, toggle } = usePersistedCollapse("gear.vkind.").useFor(() => props.collapseKey ?? "");
 
 const overlays = ref(0);
 const overlay = (open: boolean) => (overlays.value = Math.max(0, overlays.value + (open ? 1 : -1)));
@@ -37,14 +42,14 @@ const overlay = (open: boolean) => (overlays.value = Math.max(0, overlays.value 
         <!-- the heading borrows the name field's type so a kind's name sits exactly
              where a kit's (and a list folder's) editable one does -->
         <slot name="title"><h2 class="field folder__name vsec__kind">{{ label }}</h2></slot>
-        <NestChevron folder :collapsed="!!collapsed" :label="label" @toggle="emit('toggle')" />
+        <NestChevron folder :collapsed="collapsed" :label="label" @toggle="toggle" />
       </div>
       <div v-if="$slots.actions" class="folder__actions"><slot name="actions" /></div>
     </header>
 
     <div class="folder__body">
       <div class="folder__bodyinner" :class="{ 'is-overlay-open': overlays > 0 }">
-        <ul class="vsec__list" :aria-label="listLabel">
+        <ul class="vsec__list folder__items" :aria-label="listLabel">
           <slot :overlay="overlay" />
         </ul>
         <slot name="after" />
@@ -79,12 +84,12 @@ const overlay = (open: boolean) => (overlays.value = Math.max(0, overlays.value 
   line-height: var(--leading-normal);
   cursor: default;
 }
-/* the rows are VaultGearRow's own; the list only stacks them */
+/* the rows are VaultGearRow's own; the list stacks them, and their rhythm and the
+   hairlines between are the list folder's (.folder__items, atoms/folder.scss) for every
+   line, a kit's extra lines included */
 .vsec__list {
   display: flex;
   flex-direction: column;
-  margin: 0;
-  padding: 0;
   list-style: none;
 }
 </style>

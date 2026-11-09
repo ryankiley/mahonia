@@ -432,3 +432,86 @@ export function captureFingerprint(caps: VaultCapture[]): string {
     .sort()
     .join("");
 }
+
+/** What you can do to a vault ROW from /gear — see server/api/vault/items.post.ts.
+ *  Here rather than beside the repo that applies it, so the page's calls are typed
+ *  by the same union the endpoint reads. */
+export type VaultItemOp =
+  | {
+      t: "add";
+      brand?: string;
+      name: string;
+      variant?: string;
+      commonName?: string;
+      /** Absent or 0 = not weighed yet, a normal state for gear you've just
+       *  remembered you own. A zero pins nothing — see cleanVaultPatch. */
+      weightMg?: number;
+      classification?: Classification;
+      kcal?: number;
+      /** The catalog row the piece is a pick of, when it is one: what a captured pick
+       *  carries, stated by hand. Bounded by sanitize() like a capture's. */
+      catalogItemId?: number;
+      productUrl?: string;
+      priceCents?: number;
+      currency?: string;
+      /** The unit its weight was typed in ("3.8 oz"), so it reads back the same way. */
+      entryUnit?: Unit;
+      /** How many you own; absent is one. */
+      owned?: number;
+    }
+  | {
+      t: "edit";
+      id: number;
+      patch: VaultItemPatch;
+      /** Release a pin, so a list can teach the field again. The only way back from
+       *  a pin — without it one correction would freeze a field forever. Applied
+       *  AFTER the patch's own pins, so `{ patch: { weightMg: 545 }, unpin:
+       *  ["weight"] }` reads as "set it, but keep taking my lists' word for it". */
+      unpin?: VaultPinField[];
+    }
+  | {
+      t: "kit";
+      id: number;
+      /** The kit's pieces, in its order — they REPLACE whatever it held. Empty turns
+       *  a kit back into a piece (see clearKit). */
+      parts: { id: number; qty?: number }[];
+      /** The kit's own weight (the stuff sack); absent = 0. Unread when `parts` is
+       *  empty, since the piece it becomes keeps the total it showed. */
+      ownWeightMg?: number;
+    };
+
+/**
+ * A field ABSENT here is untouched; present, it is set AND pinned; null (or a
+ * string that tidies to "") CLEARS it and pins the emptiness — otherwise deleting a
+ * bogus product URL would be undone by the next capture's coalesce. The same
+ * semantics cleanItemPatch gives a list row in shared/ops.
+ *
+ */
+export interface VaultItemPatch {
+  brand?: string | null;
+  name?: string;
+  variant?: string | null;
+  commonName?: string | null;
+  weightMg?: number;
+  classification?: Classification | null;
+  kcal?: number | null;
+  productUrl?: string | null;
+  /** The amount, in cents. 0 or null clears it — and clears the currency with it,
+   *  since the two are one decision (VAULT_PIN_FIELDS' `price`). */
+  priceCents?: number | null;
+  /** Only read alongside a priceCents. On its own it would set the money a stored
+   *  amount is in without the amount being restated, which is how "£399" becomes
+   *  "$399" by editing a field the dialog didn't show you. */
+  currency?: string | null;
+  /** Link the piece to a catalog row, or null to unlink it. No pin: a link is a fact
+   *  about which product this is, not a value a list could argue with. */
+  catalogItemId?: number | null;
+  /** The icon picked by hand, or null to go back to the gear type's. No pin, like the
+   *  catalog link: nothing but this dialog ever writes it. */
+  icon?: GearGlyph | null;
+  /** The unit the weight reads in, or null for the page's. No pin: only /gear writes
+   *  it, so there is no capture to protect it from. */
+  entryUnit?: Unit | null;
+  /** How many you own; 1 or null goes back to one. No pin, for entryUnit's reason. */
+  owned?: number | null;
+}

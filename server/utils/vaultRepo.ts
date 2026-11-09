@@ -23,9 +23,12 @@ import {
   type VaultKitCapture,
   type VaultKitPart,
   type VaultKitPartRef,
+  type VaultItemOp,
+  type VaultItemPatch,
   type VaultPinField,
   ownedOf,
 } from "../../shared/vault";
+export type { VaultItemOp, VaultItemPatch };
 import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX, kitWeightMg } from "../../shared/vaultKit";
 import { CLASSIFICATIONS, UNITS, type Classification, type Unit } from "../../shared/types";
 import { clampUnitWeightMg, isSerialId, KCAL_MAX } from "../../shared/ops";
@@ -46,7 +49,6 @@ const POOL_LIMIT = 1000;
  *  own owner — the ceiling bounds junk, not use. Capture drops new keys over the
  *  cap rather than erroring; updates to existing rows always land. */
 export const VAULT_ITEMS_MAX = 2000;
-
 
 type Row = typeof vaultItems.$inferSelect;
 
@@ -601,7 +603,6 @@ export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntr
   return withKits(db, vaultId, (await liveRows(db, vaultId)).map(toEntry));
 }
 
-
 /**
  * What this vault holds OF THIS GEAR: the rows matching the keys asked about,
  * with the one number a capture could still write into them.
@@ -817,87 +818,6 @@ export async function purgeDeletedVaults(
 // ---------------------------------------------------------------------------
 // the row verbs: add a piece of gear by hand, correct one in place
 // ---------------------------------------------------------------------------
-
-/** What you can do to a vault ROW from /gear — see server/api/vault/items.post.ts. */
-export type VaultItemOp =
-  | {
-      t: "add";
-      brand?: string;
-      name: string;
-      variant?: string;
-      commonName?: string;
-      /** Absent or 0 = not weighed yet, a normal state for gear you've just
-       *  remembered you own. A zero pins nothing — see cleanVaultPatch. */
-      weightMg?: number;
-      classification?: Classification;
-      kcal?: number;
-      /** The catalog row the piece is a pick of, when it is one: what a captured pick
-       *  carries, stated by hand. Bounded by sanitize() like a capture's. */
-      catalogItemId?: number;
-      productUrl?: string;
-      priceCents?: number;
-      currency?: string;
-      /** The unit its weight was typed in ("3.8 oz"), so it reads back the same way. */
-      entryUnit?: Unit;
-      /** How many you own; absent is one. */
-      owned?: number;
-    }
-  | {
-      t: "edit";
-      id: number;
-      patch: VaultItemPatch;
-      /** Release a pin, so a list can teach the field again. The only way back from
-       *  a pin — without it one correction would freeze a field forever. Applied
-       *  AFTER the patch's own pins, so `{ patch: { weightMg: 545 }, unpin:
-       *  ["weight"] }` reads as "set it, but keep taking my lists' word for it". */
-      unpin?: VaultPinField[];
-    }
-  | {
-      t: "kit";
-      id: number;
-      /** The kit's pieces, in its order — they REPLACE whatever it held. Empty turns
-       *  a kit back into a piece (see clearKit). */
-      parts: { id: number; qty?: number }[];
-      /** The kit's own weight (the stuff sack); absent = 0. Unread when `parts` is
-       *  empty, since the piece it becomes keeps the total it showed. */
-      ownWeightMg?: number;
-    };
-
-/**
- * A field ABSENT here is untouched; present, it is set AND pinned; null (or a
- * string that tidies to "") CLEARS it and pins the emptiness — otherwise deleting a
- * bogus product URL would be undone by the next capture's coalesce. The same
- * semantics cleanItemPatch gives a list row in shared/ops.
- *
- */
-interface VaultItemPatch {
-  brand?: string | null;
-  name?: string;
-  variant?: string | null;
-  commonName?: string | null;
-  weightMg?: number;
-  classification?: Classification | null;
-  kcal?: number | null;
-  productUrl?: string | null;
-  /** The amount, in cents. 0 or null clears it — and clears the currency with it,
-   *  since the two are one decision (VAULT_PIN_FIELDS' `price`). */
-  priceCents?: number | null;
-  /** Only read alongside a priceCents. On its own it would set the money a stored
-   *  amount is in without the amount being restated, which is how "£399" becomes
-   *  "$399" by editing a field the dialog didn't show you. */
-  currency?: string | null;
-  /** Link the piece to a catalog row, or null to unlink it. No pin: a link is a fact
-   *  about which product this is, not a value a list could argue with. */
-  catalogItemId?: number | null;
-  /** The icon picked by hand, or null to go back to the gear type's. No pin, like the
-   *  catalog link: nothing but this dialog ever writes it. */
-  icon?: GearGlyph | null;
-  /** The unit the weight reads in, or null for the page's. No pin: only /gear writes
-   *  it, so there is no capture to protect it from. */
-  entryUnit?: Unit | null;
-  /** How many you own; 1 or null goes back to one. No pin, for entryUnit's reason. */
-  owned?: number | null;
-}
 
 /** The pin flags a deliberate write asserts, returned in the SAME object as the
  *  values they protect — so a field structurally cannot be written without being
@@ -1225,7 +1145,8 @@ function partQty(raw: unknown): number | null {
 /**
  * Write a kit's links, replacing whatever it held: ONE delete and one insert, in the
  * order given, so the kit reads back in the order it was made. The caller has
- * already checked the rules (setKitParts, captureKit); this is only the write.
+ * already checked the rules (captureKit); this is only the write. setKitParts does the
+ * same delete and insert inline, so its delete can run beside the row's update.
  */
 async function writeKitLinks(db: Db, kitId: number, parts: { partId: number; qty: number }[]): Promise<void> {
   await db.delete(vaultKitParts).where(eq(vaultKitParts.kitId, kitId));
@@ -1249,7 +1170,7 @@ async function isSomeonesPart(db: Db, id: number): Promise<boolean> {
 
 /**
  * Make a row a kit of these pieces, or replace an existing kit's parts, and set its
- * OWN weight. Returns false, writing nothing, when any rule fails.
+ * OWN weight. Answers null, writing nothing, when any rule fails.
  *
  * The rules a table constraint can't reach, all checked before the first write:
  *  • the kit and every part are rows of THIS vault — an id from another vault fails
@@ -1267,6 +1188,11 @@ async function isSomeonesPart(db: Db, id: number): Promise<boolean> {
  * is left of that figure once the parts count for themselves — usually nothing — or
  * the parts are counted twice. The weight pin comes off with it: a kit's weight is
  * nobody's to pin, since no capture may write one (the guard in captureVaultItems).
+ *
+ * Answers the kit's row as written, so the kit op can decorate it without reading it
+ * back. Four round trips, not eight: the three checks are independent reads and go
+ * together, and so do the row's update and the old links' delete; only the new links
+ * wait for that.
  */
 export async function setKitParts(
   db: Db,
@@ -1274,20 +1200,6 @@ export async function setKitParts(
   kitId: number,
   parts: { id: number; qty?: number }[],
   { ownWeightMg }: { ownWeightMg: number },
-): Promise<boolean> {
-  return (await writeKitParts(db, vaultId, kitId, parts, ownWeightMg)) !== null;
-}
-
-/** setKitParts' work, answering the kit's row as written (null where it refuses), so
- *  the kit op can decorate it without reading it back. Four round trips, not eight:
- *  the three checks are independent reads and go together, and so do the row's update
- *  and the old links' delete; only the new links wait for that. */
-async function writeKitParts(
-  db: Db,
-  vaultId: number,
-  kitId: number,
-  parts: { id: number; qty?: number }[],
-  ownWeightMg: number,
 ): Promise<Row | null> {
   if (!isSerialId(kitId) || !Array.isArray(parts) || !Number.isFinite(ownWeightMg)) return null;
   const qtyOf = new Map<number, number>();
@@ -1355,7 +1267,7 @@ async function clearKit(db: Db, vaultId: number, kitId: number): Promise<Row | n
 async function kitVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { t: "kit" }>) {
   if (!isSerialId(op.id) || !Array.isArray(op.parts)) return null;
   const row = op.parts.length
-    ? await writeKitParts(db, vaultId, op.id, op.parts, op.ownWeightMg ?? 0)
+    ? await setKitParts(db, vaultId, op.id, op.parts, { ownWeightMg: op.ownWeightMg ?? 0 })
     : await clearKit(db, vaultId, op.id);
   if (!row) return null;
   // the written row, decorated once (a kit with its parts and derived weight, a piece

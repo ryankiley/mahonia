@@ -4,14 +4,14 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Backpack03Icon, ChevronDownIcon, PlusSignIcon, Clock01Icon, ToolCaseIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
-import type { VaultEntry } from "~~/shared/vault";
+import type { VaultEntry, VaultItemOp } from "~~/shared/vault";
 import { gearFamilyLabel, type GearGlyph } from "~~/shared/gearGlyph";
 import { kitPartRefs, kitWeightMg } from "~~/shared/vaultKit";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { formatPrice, sumPrices } from "~~/shared/money";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import {
-  groupVaultByKind,
+  vaultSections,
   searchVaultRows,
   sortVaultRows,
   vaultFamilyOf,
@@ -133,9 +133,7 @@ const filtered = computed(() =>
 const flat = computed(() => view.value !== "kinds" || !!query.value.trim());
 // The Gear tab's sections: a kind each, or — for a chosen order or a search — one list
 // with no heading, so the page draws its rows in one place either way.
-const sections = computed<{ key: string; label: string; entries: VaultEntry[] }[]>(() =>
-  flat.value ? [{ key: "all", label: "", entries: filtered.value }] : groupVaultByKind(filtered.value),
-);
+const sections = computed(() => vaultSections(filtered.value, flat.value));
 const narrowed = computed(() => filtered.value.length !== onTab.value.length);
 
 // What the tab weighs: each row's weight, a kit's being its own plus its items at the
@@ -147,9 +145,6 @@ const countNoun = computed(() => (tab.value === "kits" ? "kit" : "item"));
 // ---- kits ----------------------------------------------------------------
 // Every piece by id: a kit section's item rows and its owned counts read from it.
 const gearById = computed(() => new Map(items.value.map((i) => [i.id, i])));
-// A kit section collapses like a kind, by the same remembered flag, under its own key.
-const kitKey = (id: number) => `kit-${id}`;
-const kitCollapsed = (id: number) => kindCollapsed.value[kitKey(id)] ?? kindCollapse.isCollapsed(kitKey(id));
 // id → "Cook kit, Fire kit" for a piece's "In …" line: one string per row, so it
 // compares by value and a page render doesn't hand every row a fresh array
 const inKitsById = computed(() => {
@@ -166,7 +161,12 @@ const inKitsById = computed(() => {
 // page already holds — then saved, and the vault's answer put in place (putKit), with
 // each item's "In …" kept in step. No re-read of the whole gear for a stepper press;
 // only a save that fails reloads, to put the page right.
-const kitSaving = ref<ReadonlySet<number>>(new Set());
+const kitSaving = reactive(new Set<number>());
+// Every change to a row is one op to /api/vault/items. Never throws: a failed request
+// answers { ok: false }, as a refusal does, and each caller says what failed.
+type OpResult = { ok: boolean; reason?: string; item?: VaultEntry };
+const vaultOp = (op: VaultItemOp): Promise<OpResult> =>
+  vaultFetch<OpResult>("/api/vault/items", { method: "POST", body: { op } }).catch(() => ({ ok: false }));
 // The kit as the vault now has it, in place (first, when it's new), and every piece's
 // "In …" kits brought in line with what it holds: the one change a kit's save makes to
 // rows other than its own.
@@ -185,26 +185,22 @@ function putKit(kit: VaultEntry) {
   items.value = next.some((i) => i.id === kit.id) ? next : [kit, ...next];
 }
 async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], ownWeightMg: number) {
-  if (kitSaving.value.has(entry.id)) return;
+  if (kitSaving.has(entry.id)) return;
   if (entry.id === DRAFT_ID) return void saveDraftKit(entry.name, parts);
   const at = items.value.findIndex((i) => i.id === entry.id);
   if (at < 0) return;
   const before = items.value[at]!;
   const held = new Map((before.parts ?? []).map((p) => [p.id, p]));
-  const byId = new Map(items.value.map((i) => [i.id, i]));
   const next = parts.flatMap((r) => {
     const had = held.get(r.id);
     if (had) return [{ ...had, qty: r.qty }];
-    const g = byId.get(r.id);
+    const g = gearById.value.get(r.id);
     return g ? [{ id: g.id, qty: r.qty, brand: g.brand, name: g.name, variant: g.variant, weightMg: g.weightMg }] : [];
   });
   items.value[at] = { ...before, kind: "kit", parts: next, ownWeightMg, weightMg: kitWeightMg(ownWeightMg, next) };
-  kitSaving.value = new Set([...kitSaving.value, entry.id]);
-  const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", {
-    method: "POST",
-    body: { op: { t: "kit", id: entry.id, parts, ownWeightMg } },
-  }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry });
-  kitSaving.value = new Set([...kitSaving.value].filter((id) => id !== entry.id));
+  kitSaving.add(entry.id);
+  const res = await vaultOp({ t: "kit", id: entry.id, parts, ownWeightMg });
+  kitSaving.delete(entry.id);
   if (!res.ok || !res.item) {
     loadError.value = "Couldn’t save the kit. Check your connection and try again.";
     return void loadVault();
@@ -227,16 +223,11 @@ async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], o
 // A new kit's first item: make the piece, then make it a kit of that item, then show
 // the kit where the draft was.
 async function saveDraftKit(name: string, parts: { id: number; qty: number }[]) {
-  kitSaving.value = new Set([...kitSaving.value, DRAFT_ID]);
+  kitSaving.add(DRAFT_ID);
   loadError.value = "";
-  const made = await vaultFetch<{ ok: boolean; reason?: string; item?: VaultEntry }>("/api/vault/items", {
-    method: "POST",
-    body: { op: { t: "add", name, weightMg: 0 } },
-  }).catch(() => ({ ok: false }) as { ok: boolean; reason?: string; item?: VaultEntry });
-  const kit = made.ok && made.item
-    ? await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", { method: "POST", body: { op: { t: "kit", id: made.item.id, parts, ownWeightMg: 0 } } }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry })
-    : { ok: false };
-  kitSaving.value = new Set([...kitSaving.value].filter((id) => id !== DRAFT_ID));
+  const made = await vaultOp({ t: "add", name, weightMg: 0 });
+  const kit: OpResult = made.ok && made.item ? await vaultOp({ t: "kit", id: made.item.id, parts, ownWeightMg: 0 }) : { ok: false };
+  kitSaving.delete(DRAFT_ID);
   if (!kit.ok || !kit.item) {
     loadError.value = made.reason === "duplicate" ? "You already have something called that in My Gear." : "Couldn’t make that kit. Check your connection and try again.";
     // a piece made without its kit is real gear now: show it
@@ -259,8 +250,8 @@ function startDraftKit(name: string) {
 // the Kits tab's sections: the kits, then an unsaved new kit where "New kit" was
 const kitSections = computed(() => (draftKit.value ? [...filtered.value, draftKit.value] : filtered.value));
 // What the gear on screen cost. Follows `filtered` like the weight beside it — both
-// figures describe what you are looking at, so narrowing to Worn answers "what did
-// the clothes cost" without a second control.
+// figures describe what you are looking at, so a search for "jacket" answers what the
+// jackets cost without a second control.
 //
 // Absent for a vault holding two currencies, which is sumPrices' rule and not a
 // display decision: no figure at all beats a figure that adds pounds to dollars.
@@ -286,18 +277,6 @@ const priceTitle = computed(() => {
 // The line under a search that matched nothing, naming what was searched.
 const noneLine = computed(() => (query.value.trim() ? `Nothing here matches “${query.value.trim()}”.` : ""));
 
-// ---- kinds ---------------------------------------------------------------
-// Collapse, the editor's folder mechanism: persisted per kind on this device and never
-// sent to the server — it's how YOU are looking at your gear, not a fact about it.
-const kindCollapse = usePersistedCollapse("gear.vkind.");
-const kindCollapsed = ref<Record<string, boolean>>({});
-watch(sections, (sections) => {
-  for (const s of sections) if (!(s.key in kindCollapsed.value)) kindCollapsed.value[s.key] = kindCollapse.isCollapsed(s.key);
-});
-function toggleKind(key: string) {
-  kindCollapsed.value[key] = kindCollapse.toggle(key);
-}
-
 // ---- adding gear by hand -------------------------------------------------
 // The half capture can't do. Gear arrives here on its own from every list you build,
 // which covers the common case beautifully and answers nothing at all for the pack
@@ -309,9 +288,8 @@ const adding = ref(false);
 const addName = ref("");
 const addWeight = ref("");
 const addBusy = ref(false);
-type AddRow = { focus: () => void };
 // one mounted at a time: the page's, or the empty state's
-const addRow = useTemplateRef<AddRow | AddRow[]>("addRow");
+const addRow = useTemplateRef<{ focus: () => void }>("addRow");
 
 function openAdd() {
   adding.value = true;
@@ -367,14 +345,11 @@ async function commitPick(c: NameCommit) {
     () => !addName.value.trim() && addWeight.value.trim() === raw,
   );
 }
-async function sendAdd(op: Record<string, unknown>, unchanged: () => boolean) {
+async function sendAdd(op: VaultItemOp, unchanged: () => boolean) {
   addBusy.value = true;
   loadError.value = "";
   try {
-    const res = await vaultFetch<{ ok: boolean; reason?: string; item?: VaultEntry }>("/api/vault/items", {
-      method: "POST",
-      body: { op },
-    });
+    const res = await vaultOp(op);
     if (!res.ok) {
       // The refusals are worth naming: "you already have that" tells you to search
       // for it, and a generic failure tells you to try again. Both are facts about
@@ -396,7 +371,7 @@ async function sendAdd(op: Record<string, unknown>, unchanged: () => boolean) {
       addName.value = "";
       addWeight.value = "";
       // the whole gear re-rendered under it, so the field is a new element
-      nextTick(() => [addRow.value ?? []].flat()[0]?.focus());
+      nextTick(() => addRow.value?.focus());
     }
   } catch {
     loadError.value = "Couldn’t add that. Check your connection and try again.";
@@ -408,7 +383,7 @@ async function sendAdd(op: Record<string, unknown>, unchanged: () => boolean) {
 // section, so the add row reset under a piece that had silently gone somewhere else
 // (the 2026-11-08 UX audit's first finding). Say where, with the way back. No scroll:
 // the add row stays where you are typing the next one. Undo is a put-away, the only
-// removal there is (a tombstone; see remove.post.ts), so it waits under Removed gear.
+// removal there is (a tombstone; see remove.post.ts).
 function offerAdded(item: VaultEntry) {
   const kind = vaultFamilyOf(item);
   offerUndo({
@@ -456,10 +431,7 @@ async function patchEntry(
     const i = items.value.findIndex((x) => x.id === row.id);
     if (i >= 0) items.value[i] = row;
   };
-  const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", {
-    method: "POST",
-    body: { op: { t: "edit", id: entry.id, patch } },
-  }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry });
+  const res = await vaultOp({ t: "edit", id: entry.id, patch });
   if (res.ok && res.item) return put(res.item);
   put(before);
   loadError.value = `Couldn’t save that ${what}. Check your connection and try again.`;
@@ -490,8 +462,7 @@ async function setEntryIcon(entry: VaultEntry, glyph: GearGlyph | null) {
 }
 // Patch the one row in place rather than re-reading the vault: the endpoint returns
 // the row as it now stands, and a full reload would re-sort the page under a dialog
-// that just closed (a rename can move a row under A–Z). Changing a kit's parts is the
-// exception: it changes OTHER rows too (each item's "In …"), so the page re-reads.
+// that just closed (a rename can move a row under A–Z).
 function onItemSaved(item: VaultEntry) {
   const at = items.value.findIndex((i) => i.id === item.id);
   const was = at >= 0 ? items.value[at]! : null;
@@ -587,9 +558,9 @@ const viewOption = computed(() => VIEW_OPTIONS.find((o) => o.key === view.value)
 // one thing you can't already take with you by copying a URL — and until this, the
 // only account-level data operation was delete.
 //
-// ALL of it, not what the controls have narrowed to: View and Show are how you're
-// looking at your gear, and a file called my-gear that quietly held only the worn
-// half would be a worse answer than no file. `items` is the live gear — what
+// ALL of it, not what a search has narrowed to: that is how you're looking at your
+// gear, and a file called my-gear that quietly held only the jackets would be a worse
+// answer than no file. `items` is the live gear — what
 // "Remove" put away isn't loaded at all, which is the answer you'd want from a file
 // called my-gear.
 //
@@ -654,7 +625,7 @@ async function exportGear(kind: string) {
            control (see SiteTopbar's #end). It leads with "Create a list", which used to
            be a word in the bar and crowded it, then holds the import and export, which
            are actions on the whole page rather than ways of looking at it, so they don't
-           belong beside View and Show.
+           belong beside the search and the order.
            Present for everyone: signed out it is only the way to a new list. Import
            needs an account, and works on an empty vault (restoring a backup onto a new
            machine is the case with nothing to export); the DOWNLOAD rows are the ones
@@ -708,45 +679,43 @@ async function exportGear(kind: string) {
               Add gear
             </button>
           </div>
-          <!-- Nothing to search, order or narrow until there IS gear — three
-               controls over "Nothing here yet" is furniture for a room with no
-               floor. -->
+          <!-- Nothing to search or order until there IS gear — controls over
+               "Nothing here yet" are furniture for a room with no floor. -->
           <div v-if="items.length" class="vault__bar">
             <!-- the field and its own clear — SearchField, the same control the gear
                  pane draws; only the sizing is this page's -->
             <SearchField
               v-model="query"
               class="vault__searchwrap"
-              :placeholder="tab === 'kits' ? 'Search kits…' : 'Search gear…'"
-              :label="tab === 'kits' ? 'Search kits' : 'Search gear'"
+              :placeholder="tab === 'kits' ? 'Search my kits…' : 'Search my gear…'"
+              :label="tab === 'kits' ? 'Search my kits' : 'Search my gear'"
             />
 
             <!-- The question a gear of two hundred rows raises, what order, as the
                  app's own picker. It rides the trailing edge, over the rows' own
                  trailing controls. -->
             <!-- Gear only: kits are a handful of sections, not a list to order or sort -->
-            <div v-if="tab === 'gear'" class="vault__views">
-              <OptionMenu
-                class="vault__view"
-                :options="VIEW_OPTIONS"
-                :current="view"
-                label="How to order My Gear"
-                @pick="(k) => (view = k as VaultView)"
-              >
-                <template #trigger="{ open }">
-                  <HugeiconsIcon :icon="viewOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
-                  <span class="vault__viewword">{{ viewOption.label }}</span>
-                  <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
-                </template>
-              </OptionMenu>
-            </div>
+            <OptionMenu
+              v-if="tab === 'gear'"
+              class="vault__view"
+              :options="VIEW_OPTIONS"
+              :current="view"
+              label="How to order My Gear"
+              @pick="(k) => (view = k as VaultView)"
+            >
+              <template #trigger="{ open }">
+                <HugeiconsIcon :icon="viewOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
+                {{ viewOption.label }}
+                <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
+              </template>
+            </OptionMenu>
           </div>
 
           <p v-if="loadError" class="t-sm vault__error">{{ loadError }}</p>
 
-          <!-- only while there is nothing to show yet. A kit change and every add
-               reloads the gear, and blanking a page you are working on for the
-               length of a round trip reads as the page losing your gear. -->
+          <!-- only while there is nothing to show yet. An add reloads the gear, and
+               blanking a page you are working on for the length of a round trip
+               reads as the page losing your gear. -->
           <p v-if="loading && !items.length" class="t-muted vault__empty">Loading your gear…</p>
 
           <template v-else-if="items.length">
@@ -781,7 +750,7 @@ async function exportGear(kind: string) {
             </p>
 
             <!-- the page's one add row; a piece lands under its kind by itself -->
-            <div v-if="!query && tab === 'gear' && adding" class="vault__add vault__add--top">
+            <div v-if="!query && tab === 'gear' && adding" class="vault__add">
               <VaultAddRow
                 ref="addRow"
                 v-model:name="addName"
@@ -804,9 +773,6 @@ async function exportGear(kind: string) {
                 :gear-by-id="gearById"
                 :unit="unit"
                 :busy="kitSaving.has(kit.id)"
-                :collapsed="kitCollapsed(kit.id)"
-                :starting="kit.id === DRAFT_ID"
-                @toggle="toggleKind(kitKey(kit.id))"
                 @kit="(parts: { id: number; qty: number }[], own: number) => setKit(kit, parts, own)"
                 @rename="(n: string) => renameKit(kit, n)"
                 @remove="remove(kit)"
@@ -828,8 +794,7 @@ async function exportGear(kind: string) {
                 :key="section.key"
                 v-slot="{ overlay }"
                 :label="section.label"
-                :collapsed="!!kindCollapsed[section.key]"
-                @toggle="toggleKind(section.key)"
+                :collapse-key="section.key"
               >
                 <VaultGearRow
                   v-for="entry in section.entries"
@@ -966,9 +931,8 @@ async function exportGear(kind: string) {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  /* wraps at EVERY width, not only below $bp-stack: three controls on one line is
-     already close, and a narrowed desktop window should drop the pickers to their
-     own line rather than crush the field they sit beside */
+  /* wraps at EVERY width, not only below $bp-stack: a narrowed desktop window drops
+     the picker to its own line rather than crush the field beside it */
   flex-wrap: wrap;
   margin-bottom: var(--space-4);
 }
@@ -979,16 +943,10 @@ async function exportGear(kind: string) {
   min-width: 0;
   max-width: 32ch;
 }
-/* the two pickers ride the trailing edge, over the rows' own trailing controls */
-.vault__views {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  margin-left: auto;
-}
-/* mark + value + chevron: the current option's own mark stands where a "View" /
-   "Show" word used to, since the values already say which question they answer */
+/* mark + value + chevron, on the trailing edge over the rows' own trailing controls;
+   the value says which question it answers, so no "View" word */
 .vault__view {
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
@@ -1062,7 +1020,7 @@ async function exportGear(kind: string) {
 /* --- adding gear --- */
 /* the page's one add row, between the count and the gear: the list's own spacing,
    no rule above it (nothing above it is a row of gear) */
-.vault__add--top {
+.vault__add {
   margin-bottom: var(--space-4);
 }
 /* The list's mode bar, in the list's exact spot: the editor's body pads its top by

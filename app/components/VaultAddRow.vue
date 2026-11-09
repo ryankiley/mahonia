@@ -2,14 +2,9 @@
 import type { Unit } from "~~/shared/types";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 
-// The inline "add a piece of gear" pair on /gear — a name and a weight.
-//
-// ITS OWN COMPONENT for two reasons. The page renders one of these per folder
-// section, inside a v-for, and a template ref declared inside a v-for collects into
-// an ARRAY — so focusing the field on open would have silently done nothing. An
-// instance per position owns its own ref and focuses itself on mount. It also stops
-// the same twenty lines existing three times over (a folder's row, a flat view's,
-// and the empty state's).
+// The inline "add a piece of gear" pair on /gear — a name and a weight. Its own
+// component because the page draws it in two places (under the count, and in the
+// empty state), and an instance focuses itself on mount.
 //
 // The VALUES live on the page rather than here: a failed add has to leave your text
 // where you typed it, and the page is what knows whether the request landed.
@@ -25,8 +20,6 @@ const emit = defineEmits<{
   /** a catalog product picked from the name's suggestions */
   pick: [NameCommit];
   done: [];
-  /** the suggestions opened or closed: the folder lifts its clip while they show */
-  "overlay-toggle": [open: boolean];
 }>();
 
 const name = defineModel<string>("name", { required: true });
@@ -52,7 +45,6 @@ defineExpose({ focus: () => formEl.value?.querySelector<HTMLInputElement>(".ac__
       @draft="(v: string) => (name = v)"
       @commit="(c: NameCommit) => emit('pick', c)"
       @submit="emit('submit')"
-      @overlay-toggle="(o: boolean) => emit('overlay-toggle', o)"
       @keydown.esc="emit('done')"
     />
     <!-- A blank weight is allowed, and lands as 0. Gear you own but haven't weighed
@@ -97,7 +89,6 @@ defineExpose({ focus: () => formEl.value?.querySelector<HTMLInputElement>(".ac__
 .vaddrow__weight {
   flex: none;
   width: 7rem;
-  padding-inline: var(--space-3);
   text-align: right;
 }
 @media (max-width: $bp-stack) {

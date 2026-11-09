@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Delete02Icon, Edit02Icon, MinusSignIcon, PlusSignIcon, RemoveCircleIcon } from "@hugeicons/core-free-icons";
+import { Delete02Icon, MinusSignIcon, PlusSignIcon, RemoveCircleIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, type VaultEntry, type VaultKitPart } from "~~/shared/vault";
 import type { GearGlyph } from "~~/shared/gearGlyph";
@@ -21,9 +21,9 @@ import { strongVaultRows } from "~~/shared/vaultSearch";
 // takes. A kit keeps at least one item: emptying one would turn it back into a piece
 // at the weight it showed, which is not what taking the last item out means.
 //
-// `starting` is a new kit not saved yet (New kit): the same section with no items, its
-// "Add an item" focused, and the first item saves it. Escape on that empty line gives
-// up on it.
+// A new kit not saved yet (New kit) is the one `kit` that isn't a kit: the same section
+// with no items, its "Add an item" focused, and the first item saves it. Escape on that
+// empty line gives up on it.
 const props = defineProps<{
   kit: VaultEntry;
   /** every piece of your gear by id: an item's own row, and its owned count */
@@ -31,11 +31,8 @@ const props = defineProps<{
   unit: Unit;
   /** a change to this kit is saving: its controls wait */
   busy?: boolean;
-  collapsed?: boolean;
-  starting?: boolean;
 }>();
 const emit = defineEmits<{
-  toggle: [];
   /** the kit's items as they should now be, and its own weight */
   kit: [parts: { id: number; qty: number }[], ownWeightMg: number];
   rename: [name: string];
@@ -125,16 +122,16 @@ function onAddKey(e: KeyboardEvent) {
   }
 }
 watch(
-  () => props.starting,
-  (on) => {
-    if (on) nextTick(() => addEl.value?.focus());
+  isKit,
+  (kit) => {
+    if (!kit) nextTick(() => addEl.value?.focus());
   },
   { immediate: true },
 );
 </script>
 
 <template>
-  <VaultSection class="kitsec" :label="name" :collapsed="collapsed" :list-label="`Items in ${name}`" @toggle="emit('toggle')">
+  <VaultSection class="kitsec" :label="name" :collapse-key="`kit-${kit.id}`" :list-label="`Items in ${name}`">
     <template #title>
       <input
         class="field folder__name"
@@ -173,7 +170,7 @@ watch(
           @unit="(u: Unit) => emit('unit', entry, u)"
           @overlay-toggle="overlay"
         >
-          <template #actions>
+          <template #lead>
             <!-- how many the kit holds: held out of sight, not dropped, on a row
                  that can't change, so the columns stay put down the kit -->
             <span v-if="counts" class="kitsec__step" :class="{ 'is-idle': part.qty <= 1 && partMax(part.id) <= 1 }">
@@ -192,21 +189,14 @@ watch(
                 class="btn btn--icon btn--ghost ink-quiet"
                 :disabled="busy || part.qty >= partMax(part.id)"
                 :aria-label="`One more ${part.name} in ${name}`"
-                :title="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. Change how many in its Edit.` : undefined"
+                :title="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. Change Number owned in its Edit.` : undefined"
                 @click="step(part.id, 1)"
               >
                 <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
             </span>
-            <button
-              type="button"
-              class="btn btn--icon btn--ghost ink-quiet"
-              :title="`Edit ${part.name}`"
-              :aria-label="`Edit ${part.name}`"
-              @click="emit('edit', entry)"
-            >
-              <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-            </button>
+          </template>
+          <template #remove>
             <button
               type="button"
               class="btn btn--icon btn--ghost ink-quiet"
@@ -289,15 +279,13 @@ watch(
   justify-content: center;
 }
 /* a line that isn't a piece of your gear (one put away, the kit's own weight): the
-   row's rhythm and hairline, its name under the rows' names, its weight in their
-   weight column's place */
+   rows' rhythm and hairline come from the list (.folder__items), and its name starts
+   under the rows' names */
 .kitsec__line {
   display: flex;
   align-items: center;
   gap: var(--space-4);
-  padding-block: var(--space-2);
   padding-inline-start: var(--gear-type-indent);
-  border-top: 1px solid var(--line);
   color: var(--ink-2);
 }
 .kitsec__name {

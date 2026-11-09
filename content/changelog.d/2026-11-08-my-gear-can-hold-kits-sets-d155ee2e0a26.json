@@ -26,7 +26,8 @@
     "My Gear's edit dialog keeps its paired fields side by side in a narrow window instead of stacking them.",
     "The undo bar's button is the word Undo alone, and on My Gear it waits while you point at it, as it does on a list.",
     "My Gear's add row shows its name and weight as boxes you can type in.",
-    "My Gear no longer keeps a note: a note on a list row stays on that list instead of turning up on the gear, and the edit dialog has no Note field."
+    "My Gear no longer keeps a note: a note on a list row stays on that list instead of turning up on the gear, and the edit dialog has no Note field.",
+    "My Gear's search box says Search my gear, here and in a list's gear panel, and the edit dialog calls how many you have Number owned."
   ],
   "fixed": [
     "Searching your gear to add an item to a kit offers only real matches, not your most-used gear.",

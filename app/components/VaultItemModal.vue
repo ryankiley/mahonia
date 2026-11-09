@@ -2,7 +2,7 @@
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { ChevronDownIcon, DashedLine02Icon } from "@hugeicons/core-free-icons";
 import type { Classification, Unit } from "~~/shared/types";
-import { VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "~~/shared/vault";
+import { VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry, type VaultItemOp, type VaultItemPatch } from "~~/shared/vault";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
@@ -14,12 +14,9 @@ import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 //
 // A DIALOG rather than an in-flow .reveal, and the motion vocabulary is why: that
 // family is for "a row's note" (atoms/controls.scss), and ten fields is a form, not
-// a note. Two mechanical reasons agree. The classification picker is an absolutely
+// a note. A mechanical reason agrees: the classification picker is an absolutely
 // positioned .menu__list, and /gear's rows live inside .folder__bodyinner's
-// `overflow: hidden` — going in-flow would mean growing the editor's whole
-// overlay-lift apparatus for one control. And the row is a drag handle whose
-// createPressArm excludes buttons but NOT inputs, so selecting text in an inline
-// weight field would arm a re-file at 5px of travel.
+// `overflow: hidden`, so going in-flow would mean lifting that clip for one control.
 //
 // The cost, plainly: a run of tidy-ups is open/edit/save per row rather than tabbing
 // down a column. Acceptable because /gear's row is DISPLAY — turning it into the
@@ -96,7 +93,6 @@ const autoIcon = computed(() => gearIcon(commonName.value, name.value));
 const rowUnit = computed<Unit>(() => props.entry?.entryUnit ?? props.unit);
 const saving = ref(false);
 const error = ref("");
-const nameEl = useTemplateRef<HTMLInputElement>("nameEl");
 // What the row says it is, read LIVE from the two fields as they are typed, the way the
 // class picker's own value is: the name and gear type decide the row's other controls
 // (shared/fuel), and the dialog answers as the editor row would for the same words.
@@ -198,7 +194,7 @@ async function onSubmit() {
 
   // null, not undefined, for a field you emptied: the edit op has to be able to
   // CLEAR one, which capture's coalesce merge structurally can't (see vaultRepo).
-  const patch: Record<string, unknown> = {};
+  const patch: VaultItemPatch = {};
   if (brand.value !== opened.brand) patch.brand = brand.value.trim().slice(0, VAULT_SHORT_MAX) || null;
   if (name.value !== opened.name) patch.name = name.value.trim().slice(0, VAULT_NAME_MAX);
   if (variant.value !== opened.variant) patch.variant = variant.value.trim().slice(0, VAULT_SHORT_MAX) || null;
@@ -210,7 +206,7 @@ async function onSubmit() {
     // caps it the same way (ownedOf)
     const n = Math.round(Number(owned.value.trim() || "1"));
     if (!Number.isFinite(n) || n < 0) {
-      error.value = "How many should be a whole number, like 3.";
+      error.value = "How many you own should be a whole number, like 3.";
       return;
     }
     patch.owned = n > 1 ? n : null;
@@ -279,11 +275,10 @@ async function onSubmit() {
 
   saving.value = true;
   error.value = "";
-  const post = (op: Record<string, unknown>) =>
-    vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", { method: "POST", body: { op } }).catch(
-      () => ({ ok: false }) as { ok: boolean; item?: VaultEntry },
-    );
-  const res = await post({ t: "edit", id: props.entry.id, patch });
+  const op: VaultItemOp = { t: "edit", id: props.entry.id, patch };
+  const res = await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", { method: "POST", body: { op } }).catch(
+    () => ({ ok: false }) as { ok: boolean; item?: VaultEntry },
+  );
   saving.value = false;
   if (!res.ok || !res.item) {
     error.value = "Couldn’t save that. Check your connection and try again.";
@@ -303,8 +298,6 @@ async function onSubmit() {
            so took a row on every open, and went in review. -->
 
       <div class="vitem">
-      <div class="vitem__cols">
-      <div class="vitem__main">
       <div class="vitem__pair">
         <label class="dlg__field">
           <span class="t-sm t-muted">Brand</span>
@@ -331,14 +324,12 @@ async function onSubmit() {
         </label>
       </div>
 
-      <div class="vitem__namerow">
-        <label class="dlg__field">
-          <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
-               is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
-          <span class="t-sm t-muted">Product</span>
-          <input ref="nameEl" v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
-        </label>
-      </div>
+      <label class="dlg__field">
+        <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
+             is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
+        <span class="t-sm t-muted">Product</span>
+        <input v-model="name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+      </label>
 
       <!-- The gear type, then the icon beside it, because the type decides the icon until
            you pick one: type "puffy" and the box beside it turns into a jacket. On the
@@ -419,7 +410,10 @@ async function onSubmit() {
            kcalOffered). -->
       <div class="vitem__pair">
         <label class="dlg__field">
-          <span class="t-sm t-muted">How many</span>
+          <!-- "Number owned", not "How many" or "Quantity": either reads as how many a
+               trip takes, which is the list row's qty (and a kit's count), never this.
+               A noun, like the dialog's other labels. -->
+          <span class="t-sm t-muted">Number owned</span>
           <input v-model="owned" class="field" inputmode="numeric" placeholder="1" @keydown.enter="onSubmit" />
         </label>
         <label v-if="kcalOffered" class="dlg__field">
@@ -459,8 +453,6 @@ async function onSubmit() {
         </label>
       </div>
       </div>
-      </div>
-      </div>
 
       <p v-if="error" class="t-sm vitem__err">{{ error }}</p>
 
@@ -498,13 +490,10 @@ async function onSubmit() {
 }
 /* The dialog's own width decides its columns, not the window's: a 30rem dialog has
    room for two fields side by side in a narrow pane as much as on a wide screen, and
-   only a phone-narrow dialog stacks them. .vitem is the container .vitem__cols and the
-   pairs ask. */
+   only a phone-narrow dialog stacks them. .vitem is the container the pairs ask, and
+   the column the fields stand in. */
 .vitem {
   container-type: inline-size;
-}
-.vitem__cols,
-.vitem__main {
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
@@ -513,10 +502,6 @@ async function onSubmit() {
   .vitem__pair {
     grid-template-columns: 1fr;
   }
-}
-.vitem__namerow {
-  display: flex;
-  flex-direction: column;
 }
 /* the picker wears the field's own box, so it sits level with the weight input
    beside it rather than reading as a different kind of control */

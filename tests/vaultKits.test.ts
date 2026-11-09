@@ -58,7 +58,7 @@ async function cookKit() {
   const ok = await setKitParts(db, vault, kit, [{ id: stove }, { id: pot }, { id: lighter, qty: 2 }], {
     ownWeightMg: 20_000,
   });
-  expect(ok).toBe(true);
+  expect(ok).not.toBeNull();
   return { stove, pot, lighter, kit };
 }
 
@@ -182,8 +182,8 @@ describe("a kit's weight is its parts'", () => {
     const tinder = await piece("Tinder", 5);
     const cook = await piece("Cook kit", 0);
     const fire = await piece("Fire kit", 0);
-    expect(await setKitParts(db, vault, cook, [{ id: stove }, { id: lighter }], { ownWeightMg: 0 })).toBe(true);
-    expect(await setKitParts(db, vault, fire, [{ id: lighter }, { id: tinder }], { ownWeightMg: 0 })).toBe(true);
+    expect(await setKitParts(db, vault, cook, [{ id: stove }, { id: lighter }], { ownWeightMg: 0 })).not.toBeNull();
+    expect(await setKitParts(db, vault, fire, [{ id: lighter }, { id: tinder }], { ownWeightMg: 0 })).not.toBeNull();
     let rows = await listVaultItems(db, vault);
     expect(byId(rows, lighter).inKits).toEqual([cook, fire].sort((a, b) => a - b));
     await removeVaultItem(db, vault, fire);
@@ -211,23 +211,23 @@ describe("the rules a kit keeps", () => {
     const mine = await piece("My pot", 100);
     const kit = await piece("Cook kit", 0);
     const second = await piece("Second kit", 0);
-    expect(await setKitParts(db, vault, kit, [{ id: mine }, { id: theirs }], { ownWeightMg: 0 })).toBe(false);
-    expect(await setKitParts(db, vault, kit, [{ id: kit }], { ownWeightMg: 0 })).toBe(false);
-    expect(await setKitParts(db, vault, kit, [], { ownWeightMg: 0 })).toBe(false);
+    expect(await setKitParts(db, vault, kit, [{ id: mine }, { id: theirs }], { ownWeightMg: 0 })).toBeNull();
+    expect(await setKitParts(db, vault, kit, [{ id: kit }], { ownWeightMg: 0 })).toBeNull();
+    expect(await setKitParts(db, vault, kit, [], { ownWeightMg: 0 })).toBeNull();
     expect((await vaultItemById(db, vault, kit))!.kind).toBeUndefined();
 
-    expect(await setKitParts(db, vault, kit, [{ id: mine }], { ownWeightMg: 0 })).toBe(true);
+    expect(await setKitParts(db, vault, kit, [{ id: mine }], { ownWeightMg: 0 })).not.toBeNull();
     // one level deep: a kit can't be a part, and a part can't become a kit
-    expect(await setKitParts(db, vault, second, [{ id: kit }], { ownWeightMg: 0 })).toBe(false);
-    expect(await setKitParts(db, vault, mine, [{ id: second }], { ownWeightMg: 0 })).toBe(false);
+    expect(await setKitParts(db, vault, second, [{ id: kit }], { ownWeightMg: 0 })).toBeNull();
+    expect(await setKitParts(db, vault, mine, [{ id: second }], { ownWeightMg: 0 })).toBeNull();
     // another vault can't reach it
-    expect(await setKitParts(db, other, kit, [{ id: theirs }], { ownWeightMg: 0 })).toBe(false);
+    expect(await setKitParts(db, other, kit, [{ id: theirs }], { ownWeightMg: 0 })).toBeNull();
   });
 
   it("holds no more of a piece than you own: a count past it is held to it, and owning fewer brings kits down", async () => {
     const bottle = await piece("Smartwater", 35);
     const kit = await piece("Water kit", 0);
-    expect(await setKitParts(db, vault, kit, [{ id: bottle, qty: 3 }], { ownWeightMg: 0 })).toBe(true);
+    expect(await setKitParts(db, vault, kit, [{ id: bottle, qty: 3 }], { ownWeightMg: 0 })).not.toBeNull();
     expect((await vaultItemById(db, vault, kit))!.parts!.map((p) => p.qty)).toEqual([1]);
     // own three, and the kit can hold three
     await applyVaultItemOp(db, vault, { t: "edit", id: bottle, patch: { owned: 3 } });

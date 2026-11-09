@@ -73,7 +73,6 @@ const meta = computed(() => {
 
 <template>
   <li class="vault__row">
-    <div class="vault__line">
     <!-- the kind of gear, before its name: a fixed column whether or not this row has
          one, so every name starts at the same x. The gear type says the same thing in
          words on the line below.
@@ -126,9 +125,9 @@ const meta = computed(() => {
       </p>
       <!-- an item that is in a kit says which — one line, clipped. A piece in a kit is
            still a row of its own kind, so every view shows it. -->
-      <p v-if="inKits" class="t-sm t-muted vault__kitline t-clip" :title="`In ${inKits}`">In {{ inKits }}</p>
+      <p v-if="inKits" class="t-sm t-muted t-clip" :title="`In ${inKits}`">In {{ inKits }}</p>
     </div>
-    <!-- The weight in this piece's own unit, and on a live row the unit is a picker:
+    <!-- The weight in this piece's own unit, and the unit is a picker:
          the list row's own (ItemRow), unit text and a quiet chevron, so one gesture
          means one thing across the two surfaces. -->
     <span class="t-num vault__weight">
@@ -175,7 +174,9 @@ const meta = computed(() => {
       </span>
     </span>
     <div class="vault__actions">
-      <slot name="actions">
+      <!-- a kit's item puts its count stepper first (#lead) and swaps the bin for
+           taking it out of the kit (#remove); Edit is the row's either way -->
+      <slot name="lead" />
       <!-- Edit, first in the cluster: the trailing icons are right-aligned, so
            the new one takes the open edge and the two you already know don't
            move — and it puts the destructive control furthest from the new
@@ -192,6 +193,7 @@ const meta = computed(() => {
       <!-- glyph only, like every other row action on the site: the word was the
            widest thing in the row and said what the bin already says. The label
            lives on aria-label + title. -->
+      <slot name="remove">
       <button
         type="button"
         class="btn btn--icon btn--ghost vault__act ink-quiet"
@@ -204,36 +206,20 @@ const meta = computed(() => {
       </button>
       </slot>
     </div>
-    </div>
   </li>
 </template>
 
 <style scoped lang="scss">
 /* --- the row --- */
-/* de-outlined rows, separated by hairlines. The LINE is the flex row (name, weight,
-   mark, controls). */
-.vault__line {
+/* de-outlined rows, separated by hairlines: a flex row of name, weight, mark and
+   controls. The rhythm and the hairline are the list folder's own (.folder__items > *,
+   atoms/folder.scss), on the list VaultSection draws: these ARE the editor's item row
+   on another surface, and matching its --space-2 to the pixel is what makes the gap
+   under a heading the same here as in a list. */
+.vault__row {
   display: flex;
   align-items: baseline;
   gap: var(--space-4);
-}
-/* the "In Cook kit" line under a piece in a kit */
-.vault__kitline {
-  margin: 0;
-}
-.vault__row {
-  /* The editor's own item rhythm, to the pixel: .folder__items > * at --space-2.
-     The anchor this used to cite ("Your lists", --space-4) is a page that no longer
-     exists, and the reference that survives is the editor's, because these ARE that
-     row on another surface — a name, a weight, a class mark, trailing icon buttons,
-     hairlines between. Matching it exactly is also what makes the gap under a folder
-     name the same here as it is in a list: the header's own --space-1 margin plus
-     the first row's top padding, and a looser row here made that seam visibly
-     different from the one two clicks away. */
-  padding-block: var(--space-2);
-}
-.vault__row + .vault__row {
-  border-top: 1px solid var(--line);
 }
 /* The picture column. Its box is the name's first line (1lh tall), so the glyph
    centres on that line however many lines the row grows, the same reasoning that
@@ -370,7 +356,7 @@ const meta = computed(() => {
 }
 @media (max-width: $bp-stack) {
   /* name on its own line, weight + marks + controls beneath — nothing cramped */
-  .vault__line {
+  .vault__row {
     flex-wrap: wrap;
     gap: var(--space-2);
   }

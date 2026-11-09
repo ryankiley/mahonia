@@ -59,7 +59,6 @@ defineExpose({ focus: () => inputEl.value?.focus() });
    reads as a caption with a line under it rather than a box you can type in. */
 .sf__input {
   width: 100%;
-  padding-inline: var(--space-3);
   /* room for the clear button, so a long query doesn't run under it */
   padding-right: var(--space-5);
 }

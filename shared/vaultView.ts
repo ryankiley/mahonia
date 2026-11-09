@@ -127,3 +127,10 @@ export function groupVaultByKind(rows: VaultEntry[]): VaultKindSection[] {
     ...(byFamily.has("other") ? [{ key: "other" as const, label: gearFamilyLabel(null), entries: byFamily.get("other")! }] : []),
   ];
 }
+
+/** What a surface draws its rows under: the kinds, or, `flat` (a search, a chosen
+ *  order), one list with no heading (label ""), so a caller draws its rows in one place
+ *  either way. /gear and the list's gear pane both take it, so the rule is said once. */
+export function vaultSections(rows: VaultEntry[], flat: boolean): { key: string; label: string; entries: VaultEntry[] }[] {
+  return flat ? [{ key: "all", label: "", entries: rows }] : groupVaultByKind(rows);
+}

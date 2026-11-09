@@ -5,7 +5,7 @@ import { gearIcon } from "~/utils/gearIcons";
 import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
-import { groupVaultByKind } from "~~/shared/vaultView";
+import { vaultSections } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { counted } from "~~/shared/tidyText";
@@ -195,11 +195,10 @@ const filtered = computed(() => {
 // /gear groups it, so the pane and the page read alike. A search ranks across all of
 // it instead: the best match first matters more than where it lives. Kits are one
 // list either way.
-const sections = computed<{ key: string; label: string | null; entries: VaultEntry[] }[]>(() =>
-  tab.value === "kits" || query.value.trim()
-    ? [{ key: "results", label: null, entries: filtered.value }]
-    : groupVaultByKind(pieces.value),
-);
+const sections = computed(() => {
+  const flat = tab.value === "kits" || !!query.value.trim();
+  return vaultSections(flat ? filtered.value : pieces.value, flat);
+});
 // each row's mark, once per load rather than twice per row per render: a kit's tool
 // case, a piece's own icon (the one its row on /gear wears)
 const iconById = computed(() => new Map(items.value.map((e) => [e.id, isKit(e) ? ToolCaseIcon : gearIcon(e.commonName, e.name, e.icon)])));
@@ -562,8 +561,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         <SearchField
           ref="searchEl"
           v-model="query"
-          :placeholder="tab === 'items' ? 'Search gear…' : 'Search kits…'"
-          :label="tab === 'items' ? 'Search gear' : 'Search kits'"
+          :placeholder="tab === 'items' ? 'Search my gear…' : 'Search my kits…'"
+          :label="tab === 'items' ? 'Search my gear' : 'Search my kits'"
         />
       </div>
 
@@ -626,8 +625,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            Kits tab has gear that hasn't been made into a set -->
       <div v-else-if="tab === 'kits'" class="vp__empty">
         <p class="t-sm t-muted">
-          No kits yet. On My Gear, open a piece and make it a kit, or save a group on a
-          list to My Gear as one.
+          No kits yet. Make one with New kit on My Gear, or save a group on a list to My
+          Gear as one.
         </p>
       </div>
       <div v-else class="vp__empty">

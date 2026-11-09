@@ -854,9 +854,6 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
      into view while editing (focused) */
   text-overflow: ellipsis;
 }
-.ac__input.well {
-  padding-inline: var(--space-3);
-}
 /* The menu's surface (background/radius/shadow/forced-colors border) comes from
    the shared .popover atom — this block only positions and sizes it.
    In an item row the anchor is the name BOX (.item__namebox overrides .ac to
