@@ -2,8 +2,9 @@ import { defineEventHandler } from "h3";
 import { arrayOf, isObjectLike, readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 import { resolveOrMintVault } from "../../utils/vaultAuth";
-import { importVaultItems, type VaultImportRow } from "../../utils/vaultRepo";
+import { importVaultItems } from "../../utils/vaultRepo";
 import { VAULT_IMPORT_MAX } from "../../../shared/vault";
+import type { VaultImportRow } from "../../../shared/vaultImport";
 
 // Put a file's worth of gear back — the other end of /gear's two downloads.
 //

@@ -191,6 +191,10 @@ describe("the gear tools", () => {
     // identity is brand + name + variant, case-folded
     const again = await tool("edit_my_gear", { add: [{ name: "x-mid 2", brand: "DURSTON" }] }, aliceWrite);
     expect((again.data.results as { status: string }[]).map((x) => x.status)).toEqual(["already_have"]);
+    // and answered with the piece, found by the key the vault derived: the stored name
+    // is tidied (a zero-width space deleted), which re-folding the typed one misses
+    const hidden = await tool("edit_my_gear", { add: [{ name: "X-Mi​d 2", brand: "Durston" }] }, aliceWrite);
+    expect(hidden.data.results).toMatchObject([{ status: "already_have", item: { id: tentId } }]);
   });
 
   it("pin every field an add gives, so a later list save leaves them alone", async () => {

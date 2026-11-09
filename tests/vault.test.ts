@@ -946,8 +946,17 @@ describe("adding gear by hand", () => {
 
   it("refuses a duplicate of a LIVE row, and writes nothing", async () => {
     await add();
-    expect(await add({ weightMg: 999_000 })).toEqual({ refused: "duplicate" });
+    expect(await add({ weightMg: 999_000 })).toMatchObject({ refused: "duplicate" });
     expect((await only(db))!.weightMg).toBe(539_000);
+  });
+
+  it("names the key it derived for a duplicate, which the typed text may not fold to", async () => {
+    await add();
+    // the tidy deletes a zero-width space and the key folds one to a gap, so only
+    // the server's key finds the piece this duplicates
+    const typed = "Dup​lex";
+    expect(vaultNormKey("Zpacks", typed, undefined)).not.toBe(DUPLEX.normKey);
+    expect(await add({ name: typed })).toEqual({ refused: "duplicate", normKey: DUPLEX.normKey });
   });
 
   it("does not bump timesSeen when it lifts a tombstone", async () => {
@@ -978,7 +987,7 @@ describe("adding gear by hand", () => {
     // it comes back as the duplicate it is rather than as a full gear.
     expect(
       await applyVaultItemOp(db, VAULT, { t: "add", name: "Seed 0", weightMg: 2 } as any),
-    ).toEqual({ refused: "duplicate" });
+    ).toMatchObject({ refused: "duplicate" });
   });
 
   it("caps and tidies a hand-typed row exactly as a captured one", async () => {
@@ -1358,6 +1367,14 @@ describe("vault import — putting a file's worth of gear back", () => {
       added: 0,
       skipped: 2,
     });
+  });
+
+  it("near the ceiling, lands new rows that come after ones the vault already holds", async () => {
+    // room for one: the two held rows add nothing, so they can't use it up
+    await seedVaultItems(db, VAULT, VAULT_ITEMS_MAX - 1);
+    const held = [imported({ brand: undefined, name: "Seed 0" }), imported({ brand: undefined, name: "Seed 1" })];
+    expect(await importVaultItems(db, VAULT, [...held, imported({ name: "NeoAir" })])).toEqual({ added: 1, skipped: 2 });
+    expect((await listVaultItems(db, VAULT)).some((r) => r.name === "NeoAir")).toBe(true);
   });
 
   it("round-trips a whole vault: export, import, same gear", async () => {

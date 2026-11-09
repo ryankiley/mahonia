@@ -382,6 +382,32 @@ describe("captureKit — the group row's own save", () => {
     expect((await listVaultItems(db, vault)).some((r) => r.name === "Everything")).toBe(false);
     expect((await vaultItemById(db, vault, k.kit))!.kind).toBe("kit");
   });
+
+  it("refused over a piece of the same name, leaves that piece as it was: its weight, its pin, its uses", async () => {
+    await cookKit();
+    const everything = await piece("Everything", 900); // typed in, so its weight is pinned
+    const before = (await vaultItemById(db, vault, everything))!;
+    const group = [row("Everything", 0, { id: "g" }), row("Cook kit", 218, { parentId: "g" })];
+    const m = kitFromGroup(group[0]!, group)!;
+    expect((await captureKit(db, vault, m.kit, m.parts, { overwriteWeight: true })).kit).toBe("refused");
+    const after = (await vaultItemById(db, vault, everything))!;
+    expect(after).toMatchObject({ weightMg: 900_000, timesSeen: before.timesSeen });
+    expect(after.kind).toBeUndefined();
+    expect(after.pinned).toContain("weight");
+  });
+
+  it("saved over a piece of the same name, fills in what a capture would: calories, price, catalog link", async () => {
+    await captureVaultItems(db, vault, captureFromList([row("Breakfast kit", 300)]));
+    const group = [
+      row("Breakfast kit", 20, { id: "g", kcal: 900, priceCents: 2_500, currency: "USD", catalogItemId: 7 }),
+      row("Oatmeal", 100, { parentId: "g" }),
+      row("Coffee", 30, { parentId: "g" }),
+    ];
+    const m = kitFromGroup(group[0]!, group)!;
+    expect((await captureKit(db, vault, m.kit, m.parts)).kit).toBe("saved");
+    const kit = (await listVaultItems(db, vault)).find((r) => r.name === "Breakfast kit")!;
+    expect(kit).toMatchObject({ kind: "kit", ownWeightMg: 20_000, kcal: 900, priceCents: 2_500, currency: "USD", catalogItemId: 7 });
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -409,5 +435,15 @@ describe("a kit in a file", () => {
     expect(kit.parts!.map((p) => [p.name, p.qty])).toEqual([["PocketRocket 2", 1], ["Toaks 750", 1], ["Mini Bic", 2]]);
     const [{ n }] = (await db.execute(sql`select count(*)::int as n from vault_kit_parts`)).rows as { n: number }[];
     expect(n).toBe(6);
+  });
+
+  it("comes back as a piece at the file's total when none of its parts can be found", async () => {
+    await cookKit();
+    const kitOnly = (await listVaultItems(db, vault)).filter((r) => r.kind === "kit");
+    const other = await newVault();
+    expect((await importVaultItems(db, other, parseVaultImport(vaultToJson({ items: kitOnly })).rows)).added).toBe(1);
+    const [back] = await listVaultItems(db, other);
+    expect(back).toMatchObject({ name: "Cook kit", weightMg: 218_000 });
+    expect(back!.kind).toBeUndefined();
   });
 });

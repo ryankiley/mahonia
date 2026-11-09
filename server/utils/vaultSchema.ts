@@ -38,9 +38,8 @@ export const VAULT_DDL: string[] = [
   // serve, being scoped to exactly the rows the purge ignores.
   `CREATE INDEX IF NOT EXISTS idx_vaults_purge ON vaults (deleted_at) WHERE deleted_at IS NOT NULL`,
 
-  // A vault's folders — see server/db/schema.ts for why they're a table and not a
-  // label on the item. Name is unique per vault so capture can find-or-create by a
-  // list folder's name without accumulating duplicates.
+  // The folders My Gear had before it grouped by kind: unread and unwritten now, but
+  // still deleted with a vault (see vaultFolders in server/db/schema.ts).
   `CREATE TABLE IF NOT EXISTS vault_folders (
     id serial PRIMARY KEY,
     vault_id integer NOT NULL,
