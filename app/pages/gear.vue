@@ -16,8 +16,6 @@ import {
   searchVaultRows,
   sortVaultRows,
   vaultFamilyOf,
-  vaultShownMg,
-  type VaultKindSection,
   type VaultShow,
   type VaultView,
 } from "~~/shared/vaultView";
@@ -141,50 +139,46 @@ const found = computed(() => searchVaultRows(shown.value, query.value));
 const filtered = computed(() =>
   view.value === "kinds" ? found.value : sortVaultRows(found.value, view.value),
 );
-// A chosen order flattens, and so does a search — see groupVaultByKind for why. Kits
-// are one kind of thing, so their tab is always one list.
-const flat = computed(() => tab.value === "kits" || view.value !== "kinds" || !!query.value.trim());
-const grouped = computed<VaultKindSection[]>(() => (flat.value ? [] : groupVaultByKind(filtered.value)));
+// A chosen order flattens the Gear tab, and so does a search — see groupVaultByKind.
+const flat = computed(() => view.value !== "kinds" || !!query.value.trim());
+// The Gear tab's sections: a kind each, or — for a chosen order or a search — one list
+// with no heading, so the page draws its rows in one place either way.
+const sections = computed<{ key: string; label: string; entries: VaultEntry[] }[]>(() =>
+  flat.value ? [{ key: "all", label: "", entries: filtered.value }] : groupVaultByKind(filtered.value),
+);
 const narrowed = computed(() => filtered.value.length !== onTab.value.length);
 
-// The page's weight, the way the page shows it (vaultShownMg): a kit counted whole,
-// its items at the counts it holds them, and a piece in a kit not counted again —
-// the same in every view, so switching to A–Z doesn't change the number.
-const totalMg = computed(() => vaultShownMg(filtered.value));
+// What the tab weighs: each row's weight, a kit's being its own plus its items at the
+// counts it holds them. The tabs keep kits and pieces apart, so nothing counts twice.
+const totalMg = computed(() => filtered.value.reduce((sum, e) => sum + e.weightMg, 0));
 // The count line counts what the tab holds: pieces on Gear, kits on Kits.
 const countNoun = computed(() => (tab.value === "kits" ? "kit" : "item"));
 
 // ---- kits ----------------------------------------------------------------
-// A kit opens to show its parts. Closed by default and remembered per kit on this
-// device — the folder collapse's mechanism with the sense flipped: the stored flag
-// means OPEN, so a kit nobody has touched stays one row. Keyed under its own prefix
-// because a kit id and a folder id are both integers.
-const kitOpenStore = usePersistedCollapse("gear.vkitopen.");
-const kitOpen = ref<Record<number, boolean>>({});
-watch(items, (list) => {
-  for (const i of list) if (i.kind === "kit") kitOpen.value[i.id] = kitOpenStore.isCollapsed(i.id);
+// Every piece by id: a kit section's item rows and its owned counts read from it.
+const gearById = computed(() => new Map(items.value.map((i) => [i.id, i])));
+// A kit section collapses like a kind, by the same remembered flag, under its own key.
+const kitKey = (id: number) => `kit-${id}`;
+const kitCollapsed = (id: number) => kindCollapsed.value[kitKey(id)] ?? kindCollapse.isCollapsed(kitKey(id));
+// id → "Cook kit, Fire kit" for a piece's "In …" line: one string per row, so it
+// compares by value and a page render doesn't hand every row a fresh array
+const inKitsById = computed(() => {
+  const names = new Map(items.value.filter((i) => i.kind === "kit").map((i) => [i.id, itemDisplayName(i.brand, i.name, i.variant)]));
+  const out = new Map<number, string>();
+  for (const i of items.value) {
+    const label = (i.inKits ?? []).map((id) => names.get(id)).filter(Boolean).join(", ");
+    if (label) out.set(i.id, label);
+  }
+  return out;
 });
-function toggleKit(id: number) {
-  kitOpen.value[id] = kitOpenStore.toggle(id);
-}
-// id → shown name for every live kit, for an item's "In …" line
-const kitNameById = computed(
-  () => new Map(items.value.filter((i) => i.kind === "kit").map((i) => [i.id, itemDisplayName(i.brand, i.name, i.variant)])),
-);
-const kitNames = (entry: VaultEntry) =>
-  (entry.inKits ?? []).map((id) => kitNameById.value.get(id)).filter((n): n is string => !!n);
-// A part is edited where it lives — its own row, in its own folder.
-function editPart(id: number) {
-  const part = items.value.find((i) => i.id === id);
-  if (part) openEdit(part);
-}
-// A kit's items are edited on its open row (VaultGearRow); each change sends the whole
+// A kit's items are edited in its section (VaultKitSection); each change sends the whole
 // set. Shown at once — the counts, the line weights and the kit's total from what the
 // page already holds — then saved, then the page re-reads, because the change touches
 // OTHER rows too (each item's "In …"). A save that fails is put right by the re-read.
 const kitSaving = ref<ReadonlySet<number>>(new Set());
 async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], ownWeightMg: number) {
   if (kitSaving.value.has(entry.id)) return;
+  if (entry.id === DRAFT_ID) return void saveDraftKit(entry.name, parts);
   const at = items.value.findIndex((i) => i.id === entry.id);
   if (at < 0) return;
   const before = items.value[at]!;
@@ -218,18 +212,34 @@ async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], o
         restore: () => setKit(items.value.find((i) => i.id === entry.id) ?? before, back, before.ownWeightMg ?? 0),
       });
     }
-    // a piece that just took its first item is a kit now, and stays open where you were
-    if (kitStarting.value === entry.id) {
-      kitStarting.value = null;
-      if (!kitOpen.value[entry.id]) toggleKit(entry.id);
-    }
+    // a piece that just took its first item is a kit now
+    if (kitStarting.value === entry.id) kitStarting.value = null;
   }
+  await loadVault();
+}
+// A new kit's first item: make the piece, then make it a kit of that item, then show
+// the kit where the draft was.
+async function saveDraftKit(name: string, parts: { id: number; qty: number }[]) {
+  kitSaving.value = new Set([...kitSaving.value, DRAFT_ID]);
+  loadError.value = "";
+  const made = await vaultFetch<{ ok: boolean; reason?: string; item?: VaultEntry }>("/api/vault/items", {
+    method: "POST",
+    body: { op: { t: "add", name, weightMg: 0 } },
+  }).catch(() => ({ ok: false }) as { ok: boolean; reason?: string; item?: VaultEntry });
+  const kit = made.ok && made.item
+    ? await vaultFetch<{ ok: boolean }>("/api/vault/items", { method: "POST", body: { op: { t: "kit", id: made.item.id, parts, ownWeightMg: 0 } } }).catch(() => ({ ok: false }))
+    : { ok: false };
+  kitSaving.value = new Set([...kitSaving.value].filter((id) => id !== DRAFT_ID));
+  if (!kit.ok) {
+    loadError.value = made.reason === "duplicate" ? "You already have something called that in My Gear." : "Couldn’t make that kit. Check your connection and try again.";
+    return;
+  }
+  draftKit.value = null;
   await loadVault();
 }
 // "Make it a single piece", pressed on an open kit's row: it becomes one piece weighing
 // what it did, and its items stay the pieces they are.
 async function unkit(id: number) {
-  editing.value = null;
   const was = items.value.find((i) => i.id === id);
   const res = await vaultFetch<{ ok: boolean }>("/api/vault/items", {
     method: "POST",
@@ -256,9 +266,12 @@ function startKitFor(id: number) {
   // to the tab it will live on, so its first item doesn't carry it off the page
   pickTab("kits");
 }
-// "New kit", on the Kits tab: a name makes a piece, and the piece opens on its
-// "Add an item" line, where the first item makes it a kit — the dialog's "Make it a
-// kit" without the detour through a piece.
+// "New kit", on the Kits tab: a name opens a section on its "Add an item" line, and
+// nothing is saved until the first item goes in — then the piece and the kit are made
+// together (setKit). Writing the piece at once left a 0 g "Cook kit" in your gear
+// whenever you changed your mind (Escape, a reload).
+const draftKit = ref<VaultEntry | null>(null);
+const DRAFT_ID = -1;
 const newKitName = ref("");
 const newKitOpen = ref(false);
 const newKitEl = useTemplateRef<HTMLInputElement>("newKitEl");
@@ -271,24 +284,14 @@ function closeNewKit() {
   newKitOpen.value = false;
   newKitName.value = "";
 }
-async function commitNewKit() {
+function commitNewKit() {
   const name = newKitName.value.trim();
-  if (!name || addBusy.value) return;
-  addBusy.value = true;
-  loadError.value = "";
-  const res = await vaultFetch<{ ok: boolean; reason?: string; item?: VaultEntry }>("/api/vault/items", {
-    method: "POST",
-    body: { op: { t: "add", name, weightMg: 0 } },
-  }).catch(() => ({ ok: false }) as { ok: boolean; reason?: string; item?: VaultEntry });
-  addBusy.value = false;
-  if (!res.ok || !res.item) {
-    loadError.value = res.reason === "duplicate" ? "You already have that in My Gear." : "Couldn’t make that kit. Check your connection and try again.";
-    return;
-  }
+  if (!name) return;
   closeNewKit();
-  kitStarting.value = res.item.id;
-  await loadVault();
+  draftKit.value = { id: DRAFT_ID, normKey: "", name, weightMg: 0, timesSeen: 0, lastUsedAt: "", createdAt: "" };
 }
+// the Kits tab's sections: an unsaved new kit first, then the kits
+const kitSections = computed(() => (draftKit.value ? [draftKit.value, ...filtered.value] : filtered.value));
 // What the gear on screen cost. Follows `filtered` like the weight beside it — both
 // figures describe what you are looking at, so narrowing to Worn answers "what did
 // the clothes cost" without a second control.
@@ -328,7 +331,7 @@ const noneLine = computed(() => {
 // sent to the server — it's how YOU are looking at your gear, not a fact about it.
 const kindCollapse = usePersistedCollapse("gear.vkind.");
 const kindCollapsed = ref<Record<string, boolean>>({});
-watch(grouped, (sections) => {
+watch(sections, (sections) => {
   for (const s of sections) if (!(s.key in kindCollapsed.value)) kindCollapsed.value[s.key] = kindCollapse.isCollapsed(s.key);
 });
 function toggleKind(key: string) {
@@ -513,6 +516,7 @@ async function patchEntry(
 }
 // a kit's name, typed on its open row (the only thing about a kit a dialog held)
 function renameKit(entry: VaultEntry, name: string) {
+  if (entry.id === DRAFT_ID && draftKit.value) return void (draftKit.value = { ...draftKit.value, name });
   void patchEntry(entry, { name }, "name");
 }
 function setEntryUnit(entry: VaultEntry, u: Unit) {
@@ -799,7 +803,8 @@ async function exportGear(kind: string) {
             <!-- The two questions a gear of two hundred rows raises, as the app's
                  own picker rather than two new controls: what order, and which gear.
                  They ride the trailing edge, over the rows' own trailing controls. -->
-            <div class="vault__views">
+            <!-- Gear only: kits are a handful of sections, not a list to order or sort -->
+            <div v-if="tab === 'gear'" class="vault__views">
               <OptionMenu
                 class="vault__view"
                 :options="VIEW_OPTIONS"
@@ -814,7 +819,6 @@ async function exportGear(kind: string) {
                 </template>
               </OptionMenu>
               <OptionMenu
-                v-if="tab === 'gear'"
                 class="vault__view"
                 :options="SHOW_OPTIONS"
                 :current="show"
@@ -898,47 +902,44 @@ async function exportGear(kind: string) {
               />
             </div>
 
-            <!-- FLAT: a chosen order, or a search. One list, one order, no headings —
-                 a folder already owns an order of its own, and two authorities over
-                 the same rows is what makes "heaviest" mean nothing. -->
-            <!-- the row is VaultGearRow, the same one a kind's list draws -->
-            <ul v-if="flat" class="vault__list">
-              <VaultGearRow
-                v-for="entry in filtered"
-                :key="entry.id"
-                :entry="entry"
+            <!-- KITS: each kit a section, the way a kind is on the Gear tab — its name for
+                 the heading, its items as rows of gear (VaultKitSection) -->
+            <template v-if="tab === 'kits'">
+              <VaultKitSection
+                v-for="kit in kitSections"
+                :key="kit.id"
+                :kit="kit"
+                :gear-by-id="gearById"
                 :unit="unit"
-                :busy="removing === entry.id"
-                :open="!!kitOpen[entry.id]"
-                :kit-names="kitNames(entry)"
-                :gear="items"
-                :kit-busy="kitSaving.has(entry.id)"
-                :start-kit="kitStarting === entry.id"
-                @toggle="toggleKit(entry.id)"
-                @edit-part="editPart"
-                @kit="(parts: { id: number; qty: number }[], own: number) => setKit(entry, parts, own)"
-                @cancel-kit="kitStarting = null"
-                @rename="(n: string) => renameKit(entry, n)"
-                @unkit="unkit(entry.id)"
-                @edit="openEdit(entry)"
-                @remove="remove(entry)"
-                @unit="(u: Unit) => setEntryUnit(entry, u)"
-                @icon="(g: GearGlyph | null) => setEntryIcon(entry, g)"
+                :busy="kitSaving.has(kit.id)"
+                :collapsed="kitCollapsed(kit.id)"
+                :starting="kitStarting === kit.id || kit.id === DRAFT_ID"
+                @toggle="toggleKind(kitKey(kit.id))"
+                @kit="(parts: { id: number; qty: number }[], own: number) => setKit(kit, parts, own)"
+                @rename="(n: string) => renameKit(kit, n)"
+                @unkit="unkit(kit.id)"
+                @remove="remove(kit)"
+                @cancel="kit.id === DRAFT_ID ? (draftKit = null) : (kitStarting = null)"
+                @edit="openEdit"
+                @icon="setEntryIcon"
+                @unit="setEntryUnit"
               />
-            </ul>
+            </template>
 
-            <!-- BY KIND. The editor's folder, class for class — the header grid, the
+            <!-- GEAR: by kind, the editor's folder class for class — the header grid, the
                  collapse chevron and the 1fr↔0fr body all come from atoms/folder.scss —
                  with a kind's name for a heading: nothing to rename, delete or drag,
-                 because nobody filed anything. -->
+                 because nobody filed anything. A chosen order or a search is the same
+                 loop with one section and no heading: one list, one order, since a kind
+                 owning an order of its own is what would make "heaviest" mean nothing. -->
             <template v-else>
               <section
-                v-for="section in grouped"
+                v-for="section in sections"
                 :key="section.key"
                 class="folder"
-                :data-collapsed="kindCollapsed[section.key] ? true : null"
+                :data-collapsed="section.label && kindCollapsed[section.key] ? true : null"
               >
-                <header class="folder__head">
+                <header v-if="section.label" class="folder__head">
                   <div class="folder__title">
                     <h2 class="field folder__name vault__kind">{{ section.label }}</h2>
                     <NestChevron
@@ -959,17 +960,7 @@ async function exportGear(kind: string) {
                         :entry="entry"
                         :unit="unit"
                         :busy="removing === entry.id"
-                        :open="!!kitOpen[entry.id]"
-                        :kit-names="kitNames(entry)"
-                        :gear="items"
-                        :kit-busy="kitSaving.has(entry.id)"
-                        :start-kit="kitStarting === entry.id"
-                        @toggle="toggleKit(entry.id)"
-                        @edit-part="editPart"
-                        @kit="(parts: { id: number; qty: number }[], own: number) => setKit(entry, parts, own)"
-                        @cancel-kit="kitStarting = null"
-                        @rename="(n: string) => renameKit(entry, n)"
-                        @unkit="unkit(entry.id)"
+                        :in-kits="inKitsById.get(entry.id)"
                         @edit="openEdit(entry)"
                         @remove="remove(entry)"
                         @unit="(u: Unit) => setEntryUnit(entry, u)"
@@ -985,7 +976,7 @@ async function exportGear(kind: string) {
             <!-- a filter or a search that matched nothing. The line names the control
                  that emptied the page, so you know which one to undo. -->
             <p v-if="!filtered.length && noneLine" class="t-muted vault__none">{{ noneLine }}</p>
-            <p v-else-if="tab === 'kits' && !onTab.length" class="t-muted vault__none">
+            <p v-else-if="tab === 'kits' && !onTab.length && !draftKit" class="t-muted vault__none">
               No kits yet. Name one above, or open a piece and choose Make it a kit.
             </p>
 

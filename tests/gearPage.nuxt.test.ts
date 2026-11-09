@@ -140,10 +140,11 @@ describe("the /gear page's vault calls", () => {
     // the Gear tab: the pieces, by kind
     await vi.waitFor(() => expect(rows(w)).toHaveLength(2));
     expect(w.findAll(".vault__kind").map((h) => h.text())).toEqual(["Shelter", "Other"]);
-    // the Kits tab: the kit, and no kind headings
+    // the Kits tab: the kit as a section of its own, named in its heading, and no kinds
     const kitsTab = w.findAll(".modebar__opt").find((b) => b.text().includes("Kits"))!;
     await kitsTab.trigger("click");
-    await vi.waitFor(() => expect(rows(w).map((r) => r.text())).toEqual([expect.stringContaining("Cook kit")]));
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+    expect(w.get<HTMLInputElement>(".kitsec .folder__name").element.value).toBe("Cook kit");
     expect(w.findAll(".vault__kind")).toHaveLength(0);
   });
 

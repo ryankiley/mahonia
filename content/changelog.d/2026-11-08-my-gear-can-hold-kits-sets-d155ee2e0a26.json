@@ -21,7 +21,8 @@
     "Adding gear to My Gear says which kind it went to, with Undo.",
     "On a phone, My Gear's most-used shelf and its view controls take less room, so your gear starts higher on the screen.",
     "The My Gear panel in a list has Gear and Kits tabs like the full page, with kits only under Kits and an icon on every piece.",
-    "A kit is edited on its row in My Gear: rename it, change its items, or make it a single piece. Kits no longer have an edit dialog or a note.",
+    "Each kit on My Gear's Kits tab is a section like a kind: its name as the heading, its items as full rows of gear, and Add an item at the bottom. Rename it, change its items, or make it a single piece right there; kits no longer have an edit dialog or a note.",
+    "A new kit isn't saved until its first item goes in, so changing your mind leaves nothing behind.",
     "My Gear's edit dialog keeps its paired fields side by side in a narrow window instead of stacking them."
   ],
   "fixed": [

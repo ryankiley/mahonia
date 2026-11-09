@@ -26,7 +26,7 @@ import {
 } from "../server/utils/vaultRepo";
 import { captureFromList, isKitWorthy, isVaultWorthy, vaultNormKey, type VaultEntry } from "../shared/vault";
 import { countedWeightMg, kitFromGroup, kitWeightMg } from "../shared/vaultKit";
-import { groupVaultByKind, nestedRows, vaultShownMg, vaultTotalMg } from "../shared/vaultView";
+import { groupVaultByKind } from "../shared/vaultView";
 import { vaultToCsv, vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport } from "../shared/vaultImport";
 import type { Item } from "../shared/types";
@@ -94,28 +94,8 @@ describe("kitWeightMg and countedWeightMg", () => {
     expect(countedWeightMg({ kind: "kit", ownWeightMg: 20_000, weightMg: 115_000 })).toBe(20_000);
     expect(countedWeightMg({ weightMg: 115_000 })).toBe(115_000);
   });
-  it("totals a set of rows counting each piece once", () => {
-    const base = { normKey: "", name: "", timesSeen: 1, lastUsedAt: "", createdAt: "" };
-    const rows: VaultEntry[] = [
-      { ...base, id: 1, weightMg: 73_000, inKits: [2] },
-      { ...base, id: 2, kind: "kit", ownWeightMg: 20_000, weightMg: 93_000, parts: [{ id: 1, qty: 1, name: "", weightMg: 73_000 }] },
-      { ...base, id: 3, weightMg: 900_000 },
-    ];
-    expect(vaultTotalMg(rows)).toBe(20_000 + 73_000 + 900_000);
-  });
-
-  it("weighs the page the way it shows it: a kit whole, at the counts it holds", () => {
-    const base = { normKey: "", name: "", timesSeen: 1, lastUsedAt: "", createdAt: "" };
-    const bic: VaultEntry = { ...base, id: 1, weightMg: 11_000, inKits: [2] };
-    const kit: VaultEntry = {
-      ...base, id: 2, kind: "kit", ownWeightMg: 20_000, weightMg: 20_000 + 3 * 11_000,
-      parts: [{ id: 1, qty: 3, name: "Mini Bic", weightMg: 11_000 }],
-    };
-    const tent: VaultEntry = { ...base, id: 3, weightMg: 900_000 };
-    // three lighters in the kit weigh three lighters
-    expect(vaultShownMg([bic, kit, tent])).toBe(53_000 + 900_000);
-    // the flat reckoning, for a file, counts the one lighter row once
-    expect(vaultTotalMg([bic, kit, tent])).toBe(20_000 + 11_000 + 900_000);
+  it("weighs a kit at the counts it holds: three lighters weigh three lighters", () => {
+    expect(kitWeightMg(20_000, [{ id: 1, qty: 3, name: "Mini Bic", weightMg: 11_000 }])).toBe(20_000 + 33_000);
   });
 
   it("lists a kit first, and each of its pieces in its own kind too", () => {
@@ -132,8 +112,6 @@ describe("kitWeightMg and countedWeightMg", () => {
       ["shelter", [3]],
       ["kitchen", [1]],
     ]);
-    // the flat view, for searching or sorting, still lists the stove under its kit only
-    expect(nestedRows([stove, kit, tent]).map((e) => e.id)).toEqual([2, 3]);
   });
 });
 
@@ -208,7 +186,6 @@ describe("a kit's weight is its parts'", () => {
     expect(await setKitParts(db, vault, fire, [{ id: lighter }, { id: tinder }], { ownWeightMg: 0 })).toBe(true);
     let rows = await listVaultItems(db, vault);
     expect(byId(rows, lighter).inKits).toEqual([cook, fire].sort((a, b) => a - b));
-    expect(vaultTotalMg(rows)).toBe(11_000 + 73_000 + 5_000); // each piece once
     await removeVaultItem(db, vault, fire);
     rows = await listVaultItems(db, vault);
     expect(byId(rows, lighter).inKits).toEqual([cook]);

@@ -13,7 +13,6 @@ import { enoughToSearch, foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
 import { GEAR_FAMILIES, gearFamilyOf, gearGlyphFor, type GearFamily } from "./gearGlyph";
 import type { VaultEntry } from "./vault";
-import { countedWeightMg } from "./vaultKit";
 import { rankVaultRows } from "./vaultSearch";
 import { groupBy, itemDisplayName } from "./weights";
 
@@ -116,36 +115,6 @@ function byName(a: VaultEntry, b: VaultEntry): number {
     undefined,
     { sensitivity: "base", numeric: true },
   );
-}
-
-/**
- * What a set of rows weighs, counting each piece once and a kit only by its own
- * weight — the FLAT reckoning, for a file: every piece is a line of its own there,
- * so a kit's items are already counted as the lines they are.
- */
-export function vaultTotalMg(rows: readonly VaultEntry[]): number {
-  return rows.reduce((sum, e) => sum + countedWeightMg(e), 0);
-}
-
-/**
- * The rows as the page shows them nested: an item that is in a kit among these rows
- * lives under that kit and is not a row of its own. Only a kit that IS among the rows
- * hides its items — under a filter that leaves the kit out (a worn item in a kit that
- * isn't worn), the item is a row again.
- */
-export function nestedRows(rows: readonly VaultEntry[]): VaultEntry[] {
-  const kitsHere = new Set(rows.filter((r) => r.kind === "kit").map((r) => r.id));
-  return kitsHere.size ? rows.filter((r) => !(r.inKits ?? []).some((id) => kitsHere.has(id))) : [...rows];
-}
-
-/**
- * What the gear on the page weighs, the way the page shows it: each row's own weight,
- * a kit counted whole with its items at the counts it holds them — so a kit holding
- * three lighters weighs three lighters here, where the flat reckoning (vaultTotalMg)
- * would count the one lighter row once.
- */
-export function vaultShownMg(rows: readonly VaultEntry[]): number {
-  return nestedRows(rows).reduce((sum, e) => sum + e.weightMg, 0);
 }
 
 /** One kind of gear on the page: the kits, a family, or the pieces with no family. */

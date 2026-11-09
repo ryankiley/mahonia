@@ -27,6 +27,17 @@ export function kitWeightMg(ownWeightMg: number, parts: readonly VaultKitPart[])
   return parts.reduce((sum, p) => (p.removed ? sum : sum + p.weightMg * p.qty), ownWeightMg);
 }
 
+/** How many items a kit holds, each counted as many times as it has it, put-away ones
+ *  left out: two mug lids and a stove are three items, by the rule kitWeightMg weighs by. */
+export function kitItemCount(parts: readonly VaultKitPart[]): number {
+  return parts.reduce((n, p) => (p.removed ? n : n + p.qty), 0);
+}
+
+/** A kit's parts as the refs the vault's kit op takes: the whole set, by id and count. */
+export function kitPartRefs(parts: readonly VaultKitPart[]): { id: number; qty: number }[] {
+  return parts.map((p) => ({ id: p.id, qty: p.qty }));
+}
+
 /**
  * What a row adds to a FLAT total — a file's, where every piece is a line of its own.
  * Each piece counts once, where it is filed; a kit adds only its own weight, because
