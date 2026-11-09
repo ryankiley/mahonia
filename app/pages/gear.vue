@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Backpack03Icon, ChevronDownIcon, PlusSignIcon, Clock01Icon, ToolCaseIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon } from "@hugeicons/core-free-icons";
+import { Backpack03Icon, ChevronDownIcon, ChocolateIcon, PlusSignIcon, Clock01Icon, FireIcon, FlashIcon, ToolCaseIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -15,6 +15,8 @@ import {
   searchVaultRows,
   sortVaultRows,
   vaultFamilyOf,
+  vaultTabOf,
+  type VaultTab,
   type VaultView,
 } from "~~/shared/vaultView";
 
@@ -71,35 +73,52 @@ function putRow(row: VaultEntry) {
   if (at >= 0) items.value[at] = row;
 }
 
+// ---- Gear | Kits | Food --------------------------------------------------------
+// Tabs at the top, the list's own Gear / Packing / Trip bar (ModeBar) in its spot
+// (Ryan: "tabs at the top for kits vs all gear. similar to how pack lists have them").
+// Gear is your pieces by kind; Kits is the sets; Food is your food on its own
+// (2026-11-09), because almost everything this page was built around is wrong for it:
+// food is judged by its calories rather than its weight, it is used up rather than
+// owned, and capture saves every snack you ever packed, which buried the gear. Which
+// tab a piece sits on is vaultTabOf's rule. Remembered on this device, like the list's
+// mode.
+const TAB_KEY = "gear.vault.tab.v1";
+const TABS = [
+  { key: "gear", label: "Gear", icon: Backpack03Icon },
+  { key: "kits", label: "Kits", icon: ToolCaseIcon },
+  // the Food kind's own icon, the one its rows wear
+  { key: "food", label: "Food", icon: ChocolateIcon },
+] as const;
+const isTab = (v: unknown): v is VaultTab => TABS.some((t) => t.key === v);
+const tab = ref<VaultTab>("gear");
+onMounted(() => {
+  const saved = recall(TAB_KEY);
+  if (isTab(saved)) tab.value = saved;
+});
+function pickTab(next: string) {
+  tab.value = isTab(next) ? next : "gear";
+  remember(TAB_KEY, tab.value);
+}
+
 // ---- how you're looking at it --------------------------------------------
 // One control, the order (View); not persisted. There was a second, WHICH gear (all,
 // base, worn, consumable), and it went (2026-11-08): worn and consumable are facts about
 // a list, most gear in My Gear carries no class at all, and the kinds already put the
 // clothing and the food apart.
 //
+// One order per tab. Gear opens by kind; Food opens most calorie-dense first, the
+// question food is sorted by, and is one kind, so it never groups. Choosing an order
+// on one tab doesn't reorder the other. Kits keep their own order and offer none.
+//
 // The pipeline itself is shared/vaultView.ts: pure, and unit-tested without a
 // browser, which is where the rules that are invisible until they're wrong live (the
 // ranker's limit, when a heading disappears).
-const view = ref<VaultView>("kinds");
-
-// ---- Gear | Kits ---------------------------------------------------------------
-// Two tabs at the top, the list's own Gear / Packing / Trip bar (ModeBar) in its spot
-// (Ryan: "tabs at the top for kits vs all gear. similar to how pack lists have them").
-// Gear is your pieces by kind; Kits is the sets. Remembered on this device, like the
-// list's mode.
-type GearTab = "gear" | "kits";
-const TAB_KEY = "gear.vault.tab.v1";
-const TABS = [
-  { key: "gear", label: "Gear", icon: Backpack03Icon },
-  { key: "kits", label: "Kits", icon: ToolCaseIcon },
-] as const;
-const tab = ref<GearTab>("gear");
-onMounted(() => {
-  if (recall(TAB_KEY) === "kits") tab.value = "kits";
-});
-function pickTab(next: string) {
-  tab.value = next === "kits" ? "kits" : "gear";
-  remember(TAB_KEY, tab.value);
+const DEFAULT_VIEW = { gear: "kinds", food: "dense" } as const satisfies Record<"gear" | "food", VaultView>;
+const views = reactive<Record<"gear" | "food", VaultView>>({ ...DEFAULT_VIEW });
+const view = computed(() => (tab.value === "food" ? views.food : views.gear));
+function pickView(next: string) {
+  if (tab.value === "kits") return;
+  views[tab.value] = next as VaultView;
 }
 // Every piece by id: a kit's items, their owned counts and their live weights read from it.
 const gearById = computed(() => new Map(items.value.map((i) => [i.id, i])));
@@ -108,19 +127,24 @@ const gearById = computed(() => new Map(items.value.map((i) => [i.id, i])));
 // The vault works the same figures out on every read; the page used to keep copies
 // of them in step by hand, and missed an edit and a removal.
 const gear = computed(() => items.value.map((i) => liveKit(i, gearById.value)));
-const onTab = computed(() => gear.value.filter((i) => (i.kind === "kit") === (tab.value === "kits")));
+const onTab = computed(() => gear.value.filter((i) => vaultTabOf(i) === tab.value));
 const found = computed(() => searchVaultRows(onTab.value, query.value));
 // A query and a View both claim the order, so one has to yield. RELEVANCE wins under
-// the default view — you typed a question and the best answers belong at the top,
-// which is what the ranker's cascade is for. An explicitly chosen View wins over
+// the tab's default view — you typed a question and the best answers belong at the
+// top, which is what the ranker's cascade is for. An explicitly chosen View wins over
 // relevance: you asked for heaviest first, and quietly re-ordering by match quality
 // would be the page ignoring the control you just used. Kits keep their own order:
 // the View picker isn't on that tab, and a choice made on Gear reordered them unseen.
-const filtered = computed(() =>
-  tab.value === "kits" || view.value === "kinds" ? found.value : sortVaultRows(found.value, view.value),
-);
+const filtered = computed(() => {
+  const t = tab.value;
+  if (t === "kits") return found.value;
+  const v = view.value;
+  if (v === "kinds" || (query.value.trim() && v === DEFAULT_VIEW[t])) return found.value;
+  return sortVaultRows(found.value, v);
+});
 // A chosen order flattens the Gear tab, and so does a search — see groupVaultByKind.
-const flat = computed(() => view.value !== "kinds" || !!query.value.trim());
+// Food is one kind, so a heading over it would only repeat the tab.
+const flat = computed(() => tab.value === "food" || view.value !== "kinds" || !!query.value.trim());
 // The Gear tab's sections: a kind each, or — for a chosen order or a search — one list
 // with no heading, so the page draws its rows in one place either way.
 const sections = computed(() => vaultSections(filtered.value, flat.value));
@@ -212,7 +236,12 @@ const kitSections = computed(() => (draftKit.value ? [...filtered.value, draftKi
 //
 // Absent for a vault holding two currencies, which is sumPrices' rule and not a
 // display decision: no figure at all beats a figure that adds pounds to dollars.
-const totalPrice = computed(() => sumPrices(filtered.value));
+//
+// Absent on Food too. Food is bought to be eaten, so a total of what your food cost
+// adds up meals long gone: the reason the weight total went (it added up everything
+// you own, which nobody carries at once). Splitting food off is also what keeps the
+// Gear tab's total to what your kit is worth.
+const totalPrice = computed(() => (tab.value === "food" ? undefined : sumPrices(filtered.value)));
 // The money this vault keeps its prices in, when it keeps them in one — over ALL
 // the gear, not the filtered view, because which currency you buy in is not a
 // property of what you're currently looking at. Handed to the edit dialog so a
@@ -435,10 +464,19 @@ const VIEW_OPTIONS = [
   { key: "most", label: "Most used", icon: StarIcon },
   { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
 ];
+// Food's: calories for the weight first (what a bar and a dinner are compared by),
+// then calories outright, then the Gear tab's orders without By kind, since food is
+// one kind.
+const FOOD_VIEW_OPTIONS = [
+  { key: "dense", label: "Calorie dense", icon: FlashIcon },
+  { key: "kcal", label: "Most calories", icon: FireIcon },
+  ...VIEW_OPTIONS.filter((o) => o.key !== "kinds"),
+];
+const viewOptions = computed(() => (tab.value === "food" ? FOOD_VIEW_OPTIONS : VIEW_OPTIONS));
 // The trigger wears its current option's mark and name in place of a "View" word: the
 // value already says which question it answers, and the mark is the one the open menu
 // puts beside the same row.
-const viewOption = computed(() => VIEW_OPTIONS.find((o) => o.key === view.value) ?? VIEW_OPTIONS[0]!);
+const viewOption = computed(() => viewOptions.value.find((o) => o.key === view.value) ?? viewOptions.value[0]!);
 
 // ---- taking it with you --------------------------------------------------
 // My Gear is the one thing an account holds rather than a link, which makes it the
@@ -556,14 +594,15 @@ async function exportGear(kind: string) {
 
         <!-- the gear -->
         <div v-else>
-          <!-- the tabs, and opposite them on Gear the way to add a piece: the field it
-               opens sits at the head of the list. A kit is made at the foot of the
-               Kits tab instead, as a list's folder is ("New kit", below). -->
+          <!-- the tabs, and opposite them on Gear and Food the way to add a piece: the
+               dialog it opens files the piece under its own kind, so food added from
+               Gear still lands on Food, and the toast says so. A kit is made at the foot
+               of the Kits tab instead, as a list's folder is ("New kit", below). -->
           <div class="vault__tabbar">
             <ModeBar :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
-            <button v-if="tab === 'gear'" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openAdd">
+            <button v-if="tab !== 'kits'" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openAdd">
               <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-              Add gear
+              {{ tab === "food" ? "Add food" : "Add gear" }}
             </button>
           </div>
           <!-- Nothing to search or order until there IS gear — controls over
@@ -571,24 +610,25 @@ async function exportGear(kind: string) {
           <div v-if="items.length" class="vault__bar">
             <!-- the field and its own clear — SearchField, the same control the gear
                  pane draws; only the sizing is this page's -->
+            <!-- the tab's own name for what it holds: gear, food, kits -->
             <SearchField
               v-model="query"
               class="vault__searchwrap"
-              :placeholder="tab === 'kits' ? 'Search my kits…' : 'Search my gear…'"
-              :label="tab === 'kits' ? 'Search my kits' : 'Search my gear'"
+              :placeholder="`Search my ${tab}…`"
+              :label="`Search my ${tab}`"
             />
 
             <!-- The question a gear of two hundred rows raises, what order, as the
                  app's own picker. It rides the trailing edge, over the rows' own
                  trailing controls. -->
-            <!-- Gear only: kits are a handful of sections, not a list to order or sort -->
+            <!-- Not on Kits: kits are a handful of sections, not a list to order or sort -->
             <OptionMenu
-              v-if="tab === 'gear'"
+              v-if="tab !== 'kits'"
               class="vault__view"
-              :options="VIEW_OPTIONS"
+              :options="viewOptions"
               :current="view"
-              label="How to order My Gear"
-              @pick="(k) => (view = k as VaultView)"
+              :label="`How to order my ${tab}`"
+              @pick="pickView"
             >
               <template #trigger="{ open }">
                 <HugeiconsIcon :icon="viewOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
@@ -661,6 +701,7 @@ async function exportGear(kind: string) {
                   :unit="unit"
                   :busy="busy.has(entry.id)"
                   :in-kits="inKitsById.get(entry.id)"
+                  :marks="tab !== 'food'"
                   @edit="openEdit(entry)"
                   @remove="remove(entry)"
                   @unit="(u: Unit) => setEntryUnit(entry, u)"
@@ -674,6 +715,14 @@ async function exportGear(kind: string) {
             <p v-if="!filtered.length && noneLine" class="t-muted vault__none">{{ noneLine }}</p>
             <p v-else-if="tab === 'kits' && !onTab.length && !draftKit" class="t-muted vault__none">
               No kits yet. Make one with New kit.
+            </p>
+            <p v-else-if="tab === 'food' && !onTab.length" class="t-muted vault__none">
+              No food yet. Pack some on a list and it collects here with its calories, or
+              add it with Add food.
+            </p>
+            <!-- all of it food or kits, so far -->
+            <p v-else-if="tab === 'gear' && !onTab.length" class="t-muted vault__none">
+              No gear yet. Add a piece with Add gear, or build a list and it collects here.
             </p>
             <!-- a kit is this page's folder, made the way a list makes one: the quiet
                  label at the foot becomes the name field, and the kit opens where it was -->

@@ -648,6 +648,27 @@ export function formatKcal(kcal: number): string {
 }
 
 /**
+ * Calories per gram: what a hiker compares a bar and a dinner by, because a food's
+ * weight alone says nothing about how far it gets you. Null when either half is
+ * missing. A food with no kcal or no weight has no density, and reading it as 0 would
+ * sort it as the worst food you own rather than one nobody has weighed.
+ */
+export function kcalPerGram(kcal: number | null | undefined, weightMg: number): number | null {
+  return kcal && kcal > 0 && weightMg > 0 ? kcal / (weightMg / MG_PER_UNIT.g) : null;
+}
+
+/**
+ * Calorie density the way each system says it: kcal per ounce in ounces and pounds,
+ * kcal per 100 g in grams and kilograms (the figure a nutrition panel prints). By
+ * SYSTEM rather than a row's own unit, so a column of them compares by eye.
+ */
+export function formatKcalDensity(perGram: number, unit: Unit): string {
+  return unitSystem(unit) === "imperial"
+    ? `${formatKcal((perGram * MG_PER_UNIT.oz) / MG_PER_UNIT.g)} kcal/oz`
+    : `${formatKcal(perGram * 100)} kcal/100 g`;
+}
+
+/**
  * Pick a display unit by magnitude, then format — for comparison and marketing
  * surfaces (SEO/OG meta, feed cards) where "5 kg" reads better than "5,000 g".
  * Metric promotes g→kg at ≥1 kg; imperial promotes oz→lb at ≥1 lb. This is the

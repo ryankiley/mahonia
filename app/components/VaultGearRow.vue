@@ -12,7 +12,8 @@ import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { formatPrice } from "~~/shared/money";
-import { formatKcal, formatWeight, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
+import { formatKcal, formatKcalDensity, formatWeight, itemDisplayName, kcalPerGram, nameRepeatsBrand } from "~~/shared/weights";
+import { vaultTabOf } from "~~/shared/vaultView";
 import { consumableIcon } from "~/utils/itemMarks";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 
@@ -31,6 +32,9 @@ const props = defineProps<{
   /** the kits a piece is in, by name ("Cook kit, Fire kit"): a string, so it compares
    *  by value and a page render doesn't re-render every row */
   inKits?: string;
+  /** false drops the worn/consumable column: on the Food tab every row would wear the
+   *  same consumable mark, a column that says nothing */
+  marks?: boolean;
 }>();
 const emit = defineEmits<{
   edit: [];
@@ -55,18 +59,31 @@ const typeIcon = computed(() => gearIcon(props.entry.commonName, props.entry.nam
 const typeLabel = computed(() => gearIconLabel(props.entry.commonName, props.entry.name, props.entry.icon));
 // what "Match the gear type" would draw, in the icon popover
 const autoIcon = computed(() => gearIcon(props.entry.commonName, props.entry.name));
-// Calories, gated on the class exactly as computeTotals gates them — so what the row
-// shows is what a list would count, rather than a number the totals ignore.
-const kcal = computed(() => (props.entry.classification === "consumable" && props.entry.kcal ? props.entry.kcal : 0));
-// The sub-line: the short facts about a piece of gear that aren't its weight. The
-// note is not here — it is free text of any length, so it gets its own clamped line
-// below.
+// Food, by the rule that puts it on the Food tab: its calories are the point of it.
+const isFood = computed(() => vaultTabOf(props.entry) === "food");
+// Calories on food always, since they are a fact about the food whatever class a list
+// last gave it (most food here carries none: it took its folder's). On anything else,
+// gated on the class as computeTotals gates them, so the row shows what a list would
+// count rather than a number the totals ignore.
+const kcal = computed(() =>
+  (isFood.value || props.entry.classification === "consumable") && props.entry.kcal ? props.entry.kcal : 0,
+);
+// ...and what those calories are for the weight, food's own figure, in the page's unit
+// system rather than this row's unit, so the column compares by eye
+const density = computed(() => {
+  const perGram = isFood.value ? kcalPerGram(kcal.value, props.entry.weightMg) : null;
+  return perGram == null ? "" : formatKcalDensity(perGram, props.unit);
+});
+// The sub-line: the short facts about a piece of gear that aren't its weight, the
+// calories before the price (on food they are what you came to read). The note is not
+// here — it is free text of any length, so it gets its own clamped line below.
 const meta = computed(() => {
   const e = props.entry;
   const parts: string[] = [];
   if (e.commonName) parts.push(e.commonName);
-  if (e.priceCents != null) parts.push(formatPrice(e.priceCents, e.currency));
   if (kcal.value) parts.push(`${formatKcal(kcal.value)} kcal`);
+  if (density.value) parts.push(density.value);
+  if (e.priceCents != null) parts.push(formatPrice(e.priceCents, e.currency));
   return parts;
 });
 </script>
@@ -119,9 +136,8 @@ const meta = computed(() => {
         <span>{{ entry.name }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
       </p>
-      <!-- the sub-line: the gear type, then what it cost, with the calories trailing
-           for food. kcal is stored on every row that ever had one, but only counted
-           on a consumable — so only a consumable shows it. -->
+      <!-- the sub-line: the gear type, the calories and calories for the weight on
+           food, then what it cost (see `meta`) -->
       <p v-if="meta.length" class="t-sm t-muted vault__meta">
         <template v-for="(part, i) in meta" :key="i"
           ><span v-if="i" class="sep"> · </span>{{ part }}</template
@@ -167,7 +183,7 @@ const meta = computed(() => {
     <!-- the editor's own marks, in a fixed column whether or not the row carries
          one — an auto column would size to the count and steal a different amount
          from the name on every row (the reason --item-col-actions is fixed too) -->
-    <span class="vault__cls">
+    <span v-if="marks !== false" class="vault__cls">
       <span v-if="entry.classification === 'worn'" class="item__mark item__mark--static" title="Worn">
         <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
         <span class="visually-hidden">Worn</span>
