@@ -137,8 +137,10 @@ describe("the gear tools", () => {
     expect(none.error).toBe("invalid_token");
     expect(none.challenge).toContain('Bearer error="invalid_token"');
     expect(none.challenge).toContain('resource_metadata="http://mahonia.test/.well-known/oauth-protected-resource/mcp"');
-    expect(none.challenge).toContain('scope="read"');
-    // a write tool asks for the write scope up front, so the consent is right first time
+    // a read tool asks for read-and-change too: Claude asks for exactly what the 401
+    // names and doesn't step up on the 403, so a read sign-in would be stuck at the
+    // first change
+    expect(none.challenge).toContain('scope="write"');
     expect((await door("edit_my_gear", { add: [{ name: "x" }] })).challenge).toContain('scope="write"');
     const dead = await door("get_my_gear", {}, NEVER_MINTED);
     expect(dead.status).toBe(401);
@@ -164,6 +166,8 @@ describe("the gear tools", () => {
     expect(r.error).toBe("insufficient_scope");
     expect(r.challenge).toContain('Bearer error="insufficient_scope"');
     expect(r.challenge).toContain('scope="write"');
+    // Claude doesn't step up on it, so the words say what the person can do instead
+    expect(r.description).toContain("connect Mahonia again");
     expect(await db.select().from(schema.vaults)).toHaveLength(0);
   });
 
@@ -440,7 +444,7 @@ describe("create_list filing under the token's account", () => {
   it("names the filed lists to a read token, by share code, and nothing to an account that has none", async () => {
     const none = await door("get_list", {});
     expect(none.status).toBe(401);
-    expect(none.challenge).toContain('scope="read"');
+    expect(none.challenge).toContain('scope="write"');
 
     const r = await tool("get_list", {}, carolRead);
     expect(r.refused, r.text).toBe(false);
