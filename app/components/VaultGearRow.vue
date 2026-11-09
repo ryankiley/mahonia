@@ -1,14 +1,13 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import {
-  Cancel01Icon,
   ChevronDownIcon,
   DashedLine02Icon,
   Delete02Icon,
   Edit02Icon,
-  ToolCaseIcon,
   MinusSignIcon,
   PlusSignIcon,
+  RemoveCircleIcon,
   ShirtIcon,
 } from "@hugeicons/core-free-icons";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
@@ -215,20 +214,16 @@ const meta = computed(() => {
     <div class="vault__line">
     <!-- the kind of gear, before its name: a fixed column whether or not this row has
          one, so every name starts at the same x. Decorative — the gear type says the
-         same thing in words on the line below. A KIT wears the tool-case glyph
-         here instead, so a set reads as one before you read a word of it — the same
-         glyph the editor's gear pane puts on a kit; it is a set, not a kind of gear,
-         so it has no icon to pick. -->
-    <span v-if="isKit" class="vault__type" aria-hidden="true" title="Kit">
-      <HugeiconsIcon :icon="ToolCaseIcon" :size="20" :stroke-width="2" />
-    </span>
+         same thing in words on the line below. A KIT has none and starts at the edge:
+         it lives on the Kits tab, where every row is one, so a mark would say nothing
+         (Ryan: "don't think we need the icon by cook kit and can un-indent it"). -->
     <!-- On a live row the icon is also the way to change it: pressing it opens the
          icon popover right there, and an empty slot is where you'd press to give a row
          one. The button is out of the tab order and hidden from assistive tech, because
          it is a shortcut to a field the row's Edit button already reaches — a second
          stop per row would double the keyboard walk down a page of a hundred. -->
     <GearIconPicker
-      v-else
+      v-if="!isKit"
       class="vault__type"
       :model-value="entry.icon ?? null"
       :auto="autoIcon"
@@ -438,7 +433,7 @@ const meta = computed(() => {
             :title="canDrop(p) ? `Take ${partName(p)} out of the kit` : 'A kit holds at least one item'"
             @click="dropPart(p.id)"
           >
-            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           </button>
         </span>
       </li>
@@ -455,7 +450,7 @@ const meta = computed(() => {
             title="Remove its own weight"
             @click="sendParts(refs(), 0)"
           >
-            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
           </button>
         </span>
       </li>
@@ -542,6 +537,8 @@ const meta = computed(() => {
    button's width short of the kit's own "g" */
 .vault__row--kit .vault__parts {
   --row-tail: calc(2 * var(--icon-btn) + 2 * var(--space-4) + 12px);
+  /* no icon column on a kit row, so its items start at its edge too */
+  padding-left: 0;
 }
 /* name, the line's weight in the kit's weight column, then the controls in the band
    the row's own trailing cluster takes, so × sits under the row's bin */
@@ -883,6 +880,13 @@ button.vault__partname:hover {
   .vault__parts {
     padding-right: 0;
     padding-left: var(--gear-type-indent);
+  }
+  /* a kit row has no icon column: its items and its weight line start at the edge */
+  .vault__row--kit .vault__parts {
+    padding-left: 0;
+  }
+  .vault__row--kit .vault__weight {
+    margin-inline-start: 0;
   }
   .vault__weight {
     min-width: 0;
