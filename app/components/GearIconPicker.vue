@@ -1,7 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
+import type { IconNode } from "~/utils/hugeicon";
 import type { GearGlyph } from "~~/shared/gearGlyph";
-import { GEAR_ICON_CHOICES } from "~/utils/gearIcons";
 
 // Pick a piece's icon from a popover over the thing you pressed — the row's icon on
 // /gear, the Icon box in the edit dialog. It used to be a grid unfolded inside the
@@ -12,9 +11,9 @@ import { GEAR_ICON_CHOICES } from "~/utils/gearIcons";
 // the long version of why). The slot gets what the button needs: `open`, `toggle`,
 // and the aria attributes, so they can't drift from the card they describe.
 //
-// Forty-odd glyphs are a grid to look over, not a list to read, so this is a card of
-// cells rather than a MenuList. "Match the gear type" leads, since going back to the
-// type's icon is the one choice that isn't a picture.
+// The card is GearIconCard, mounted the first time it opens: until then a row holds a
+// trigger and a flag. Forty-odd glyphs are a grid to look over, not a list to read,
+// so it is a card of cells rather than a MenuList, "Match the gear type" first.
 const props = defineProps<{
   /** the icon picked by hand; null when the gear type decides */
   modelValue: GearGlyph | null;
@@ -30,35 +29,16 @@ const emit = defineEmits<{
 }>();
 
 const open = ref(false);
+// the card mounts closed and THEN opens, so its watchers (placement, dismissal) see
+// the open happen rather than starting already open
+const mounted = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
-const card = useTemplateRef<HTMLElement>("card");
 const id = useId();
-// measured per open: a row near the floor opens upward, and inside a dialog the card
-// fits the dialog's own scroll box and scrolls when neither side has room
-const { atStart, above, maxHeight, place } = useMenuPlacement(card, { within: true });
-
-// the same lift contract OptionMenu keeps: on at open, off when the leave transition ENDS
-let lifted = false;
-function setLift(v: boolean) {
-  if (lifted === v) return;
-  lifted = v;
-  emit("overlayToggle", v);
-}
-onBeforeUnmount(() => setLift(false));
-
-watch(open, (o) => {
-  if (!o) return;
-  setLift(true);
-  nextTick(() => {
-    place();
-    // onto the one you have, so the keyboard starts where you are
-    card.value?.querySelector<HTMLElement>('[aria-pressed="true"]')?.focus({ preventScroll: true });
-  });
-});
-useMenuDismiss(open, rootRef);
 
 function toggle() {
-  open.value = !open.value;
+  if (mounted.value) return void (open.value = !open.value);
+  mounted.value = true;
+  nextTick(() => (open.value = true));
 }
 // back to the button that opened it, so a keyboard user isn't dropped on the page
 // (Escape does the same, in useMenuDismiss, and leaves a surrounding dialog open)
@@ -78,102 +58,16 @@ const triggerAttrs = computed(() => ({
 <template>
   <div ref="rootRef" class="menu iconpick">
     <slot name="trigger" :open="open" :toggle="toggle" :attrs="triggerAttrs" />
-    <Transition name="menu" @after-leave="setLift(false)">
-      <div
-        v-if="open"
-        :id="id"
-        ref="card"
-        class="popover menu__list iconpick__card"
-        :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
-        :style="maxHeight != null ? { maxHeight: `${maxHeight}px` } : undefined"
-        role="dialog"
-        :aria-label="label"
-      >
-        <button type="button" class="iconpick__auto" :aria-pressed="modelValue === null" @click="pick(null)">
-          <HugeiconsIcon v-if="auto" :icon="auto" :size="20" :stroke-width="2" aria-hidden="true" />
-          <span>{{ auto ? "Match the gear type" : "No icon" }}</span>
-        </button>
-        <div class="iconpick__grid" role="group" aria-label="Icons">
-          <button
-            v-for="c in GEAR_ICON_CHOICES"
-            :key="c.glyph"
-            type="button"
-            class="iconpick__cell"
-            :aria-pressed="modelValue === c.glyph"
-            :aria-label="c.label"
-            :title="c.label"
-            @click="pick(c.glyph)"
-          >
-            <HugeiconsIcon :icon="c.icon" :size="20" :stroke-width="2" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-    </Transition>
+    <GearIconCard
+      v-if="mounted"
+      v-model:open="open"
+      :model-value="modelValue"
+      :auto="auto"
+      :label="label"
+      :id="id"
+      :root="rootRef"
+      @pick="pick"
+      @overlay-toggle="(o: boolean) => emit('overlayToggle', o)"
+    />
   </div>
 </template>
-
-<style scoped>
-/* eight cells a line (six on a phone), so forty-odd icons are six short rows */
-.iconpick__card {
-  --iconpick-cell: 2.5rem;
-  width: calc(8 * var(--iconpick-cell) + 7 * var(--space-1) + 2 * var(--space-2));
-  max-width: calc(100vw - 2 * var(--space-4));
-  padding: var(--space-2);
-  overflow-y: auto;
-  overscroll-behavior: contain;
-}
-@media (max-width: 30rem) {
-  .iconpick__card {
-    width: calc(6 * var(--iconpick-cell) + 5 * var(--space-1) + 2 * var(--space-2));
-  }
-}
-.iconpick__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, var(--iconpick-cell));
-  justify-content: space-between;
-  gap: var(--space-1);
-}
-.iconpick__cell,
-.iconpick__auto {
-  min-height: var(--iconpick-cell);
-  padding: 0;
-  border: 0;
-  border-radius: var(--popover-item-radius);
-  background: none;
-  color: var(--ink-2);
-  font: inherit;
-  cursor: pointer;
-}
-.iconpick__cell {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-/* its glyph in the first cell's column, so it reads as one more choice of the grid */
-.iconpick__auto {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-1);
-  padding-inline: calc((var(--iconpick-cell) - 20px) / 2);
-  text-align: start;
-}
-/* the one you have: the menus' wash under full-strength ink */
-.iconpick__cell[aria-pressed="true"],
-.iconpick__auto[aria-pressed="true"] {
-  background: var(--popover-hover);
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .iconpick__cell:hover,
-  .iconpick__auto:hover {
-    background: var(--popover-hover);
-    color: var(--ink);
-  }
-}
-.iconpick__cell:active,
-.iconpick__auto:active {
-  opacity: 0.7;
-}
-</style>

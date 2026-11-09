@@ -1301,36 +1301,58 @@ export async function setKitParts(
   parts: { id: number; qty?: number }[],
   { ownWeightMg }: { ownWeightMg: number },
 ): Promise<boolean> {
-  if (!isSerialId(kitId) || !Array.isArray(parts) || !Number.isFinite(ownWeightMg)) return false;
+  return (await writeKitParts(db, vaultId, kitId, parts, ownWeightMg)) !== null;
+}
+
+/** setKitParts' work, answering the kit's row as written (null where it refuses), so
+ *  the kit op can decorate it without reading it back. Four round trips, not eight:
+ *  the three checks are independent reads and go together, and so do the row's update
+ *  and the old links' delete; only the new links wait for that. */
+async function writeKitParts(
+  db: Db,
+  vaultId: number,
+  kitId: number,
+  parts: { id: number; qty?: number }[],
+  ownWeightMg: number,
+): Promise<Row | null> {
+  if (!isSerialId(kitId) || !Array.isArray(parts) || !Number.isFinite(ownWeightMg)) return null;
   const qtyOf = new Map<number, number>();
   for (const p of parts) {
-    if (!isSerialId(p?.id) || p.id === kitId) return false;
+    if (!isSerialId(p?.id) || p.id === kitId) return null;
     const qty = partQty(p.qty);
-    if (qty === null) return false;
+    if (qty === null) return null;
     qtyOf.set(p.id, qty);
   }
-  if (!qtyOf.size || qtyOf.size > VAULT_KIT_PARTS_MAX) return false;
+  if (!qtyOf.size || qtyOf.size > VAULT_KIT_PARTS_MAX) return null;
   const ids = [...qtyOf.keys()];
 
-  const [kit] = await db
-    .select({ id: vaultItems.id })
-    .from(vaultItems)
-    .where(and(eq(vaultItems.id, kitId), eq(vaultItems.vaultId, vaultId)));
-  if (!kit) return false;
-  if (await isSomeonesPart(db, kitId)) return false;
-  const found = await db
-    .select({ id: vaultItems.id, kind: vaultItems.kind, owned: vaultItems.owned })
-    .from(vaultItems)
-    .where(and(eq(vaultItems.vaultId, vaultId), inArray(vaultItems.id, ids)));
-  if (found.length !== ids.length || found.some((r) => r.kind !== "piece")) return false;
+  const [[kit], nested, found] = await Promise.all([
+    db
+      .select({ id: vaultItems.id })
+      .from(vaultItems)
+      .where(and(eq(vaultItems.id, kitId), eq(vaultItems.vaultId, vaultId))),
+    isSomeonesPart(db, kitId),
+    db
+      .select({ id: vaultItems.id, kind: vaultItems.kind, owned: vaultItems.owned })
+      .from(vaultItems)
+      .where(and(eq(vaultItems.vaultId, vaultId), inArray(vaultItems.id, ids))),
+  ]);
+  if (!kit || nested) return null;
+  if (found.length !== ids.length || found.some((r) => r.kind !== "piece")) return null;
   for (const r of found) qtyOf.set(r.id, Math.min(qtyOf.get(r.id)!, ownedOf(r.owned) ?? 1));
 
+  const [[row]] = await Promise.all([
+    db
+      .update(vaultItems)
+      .set({ kind: "kit", weightMg: clampUnitWeightMg(ownWeightMg), weightPinned: false, updatedAt: new Date() })
+      .where(and(eq(vaultItems.id, kitId), eq(vaultItems.vaultId, vaultId)))
+      .returning(),
+    db.delete(vaultKitParts).where(eq(vaultKitParts.kitId, kitId)),
+  ]);
   await db
-    .update(vaultItems)
-    .set({ kind: "kit", weightMg: clampUnitWeightMg(ownWeightMg), weightPinned: false, updatedAt: new Date() })
-    .where(and(eq(vaultItems.id, kitId), eq(vaultItems.vaultId, vaultId)));
-  await writeKitLinks(db, kitId, ids.map((partId) => ({ partId, qty: qtyOf.get(partId)! })));
-  return true;
+    .insert(vaultKitParts)
+    .values(ids.map((partId, i) => ({ kitId, partId, qty: qtyOf.get(partId)!, sortOrder: i })));
+  return row ?? null;
 }
 
 /**
@@ -1339,28 +1361,32 @@ export async function setKitParts(
  * the parts stay where they are, as the pieces they always were. False when the row
  * isn't a kit of this vault.
  */
-async function clearKit(db: Db, vaultId: number, kitId: number): Promise<boolean> {
+async function clearKit(db: Db, vaultId: number, kitId: number): Promise<Row | null> {
   const kit = await vaultItemById(db, vaultId, kitId);
-  if (!kit || kit.kind !== "kit") return false;
-  await db
-    .update(vaultItems)
-    .set({ kind: "piece", weightMg: clampUnitWeightMg(kit.weightMg), updatedAt: new Date() })
-    .where(and(eq(vaultItems.id, kitId), eq(vaultItems.vaultId, vaultId)));
-  await writeKitLinks(db, kitId, []);
-  return true;
+  if (!kit || kit.kind !== "kit") return null;
+  // the row's update and the links' delete are independent: one round trip for both
+  const [[row]] = await Promise.all([
+    db
+      .update(vaultItems)
+      .set({ kind: "piece", weightMg: clampUnitWeightMg(kit.weightMg), updatedAt: new Date() })
+      .where(and(eq(vaultItems.id, kitId), eq(vaultItems.vaultId, vaultId)))
+      .returning(),
+    db.delete(vaultKitParts).where(eq(vaultKitParts.kitId, kitId)),
+  ]);
+  return row ?? null;
 }
 
 /** The "kit" op: set a row's parts, or clear them. The row comes back as every read
  *  shows it, or null for anything setKitParts refuses — the one answer, as for edit. */
 async function kitVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { t: "kit" }>) {
   if (!isSerialId(op.id) || !Array.isArray(op.parts)) return null;
-  const ok = op.parts.length
-    ? await setKitParts(db, vaultId, op.id, op.parts, { ownWeightMg: op.ownWeightMg ?? 0 })
+  const row = op.parts.length
+    ? await writeKitParts(db, vaultId, op.id, op.parts, op.ownWeightMg ?? 0)
     : await clearKit(db, vaultId, op.id);
-  if (!ok) return null;
-  // read back decorated (a kit with its parts and derived weight): applyVaultItemOp
-  // doesn't decorate a kit op's row a second time
-  const item = await vaultItemById(db, vaultId, op.id);
+  if (!row) return null;
+  // the written row, decorated once (a kit with its parts and derived weight, a piece
+  // with the kits it is in): no read back
+  const [item] = await withKits(db, vaultId, [toEntry(row)]);
   return item ? { item } : null;
 }
 

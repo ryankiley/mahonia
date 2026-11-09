@@ -14,9 +14,10 @@ import { strongVaultRows } from "~~/shared/vaultSearch";
 // kits use this kind of structure and visual formatting?"). Then "Add an item", the
 // way a list's folder ends.
 //
-// Everything about a kit is edited here: the heading is its name, each item's count
-// and removal sit where a row's edit and remove would, and "Make it a single piece" is
-// the way back. Each change sends the WHOLE set, which is what the vault's kit op
+// Everything about a kit is edited here: the heading is its name, and each item's count
+// and removal sit where a row's edit and remove would. Done with a kit, its bin puts it
+// away and its items stay the pieces they are (there is no "back to a single piece":
+// rare, and the bin covers it). Each change sends the WHOLE set, which is what the vault's kit op
 // takes. A kit keeps at least one item: emptying one would turn it back into a piece
 // at the weight it showed, which is not what taking the last item out means.
 //
@@ -38,7 +39,6 @@ const emit = defineEmits<{
   /** the kit's items as they should now be, and its own weight */
   kit: [parts: { id: number; qty: number }[], ownWeightMg: number];
   rename: [name: string];
-  unkit: [];
   remove: [];
   /** "Make it a kit" given up on before an item went in */
   cancel: [];
@@ -282,11 +282,6 @@ const onOverlay = (open: boolean) => (overlays.value = Math.max(0, overlays.valu
           </ul>
           <p v-else-if="addQuery.trim()" class="t-sm t-muted kitsec__none">None of your gear matches. Add it to My Gear first.</p>
         </div>
-        <!-- the way back: one piece weighing what the kit does, its items left as the
-             pieces they are, with Undo on the page's toast -->
-        <button v-if="isKit" type="button" class="btn btn--quiet t-sm ink-quiet kitsec__unkit" :disabled="busy" @click="emit('unkit')">
-          Make it a single piece
-        </button>
       </div>
     </div>
   </section>
@@ -381,9 +376,6 @@ const onOverlay = (open: boolean) => (overlays.value = Math.max(0, overlays.valu
 .kitsec__choice:hover,
 .kitsec__choice:focus-visible {
   background: var(--popover-hover);
-}
-.kitsec__unkit {
-  margin: var(--space-2) 0 0 var(--gear-type-indent);
 }
 /* a kit after a kit: the kinds' own spacing between sections */
 .kitsec + .kitsec {

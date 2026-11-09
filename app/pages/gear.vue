@@ -6,7 +6,7 @@ import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { gearFamilyLabel, type GearGlyph } from "~~/shared/gearGlyph";
-import { kitWeightMg } from "~~/shared/vaultKit";
+import { kitPartRefs, kitWeightMg } from "~~/shared/vaultKit";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { formatPrice, sumPrices } from "~~/shared/money";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
@@ -172,9 +172,27 @@ const inKitsById = computed(() => {
 });
 // A kit's items are edited in its section (VaultKitSection); each change sends the whole
 // set. Shown at once — the counts, the line weights and the kit's total from what the
-// page already holds — then saved, then the page re-reads, because the change touches
-// OTHER rows too (each item's "In …"). A save that fails is put right by the re-read.
+// page already holds — then saved, and the vault's answer put in place (putKit), with
+// each item's "In …" kept in step. No re-read of the whole gear for a stepper press;
+// only a save that fails reloads, to put the page right.
 const kitSaving = ref<ReadonlySet<number>>(new Set());
+// The kit as the vault now has it, in place (first, when it's new), and every piece's
+// "In …" kits brought in line with what it holds: the one change a kit's save makes to
+// rows other than its own.
+function putKit(kit: VaultEntry) {
+  const holds = new Set(kit.kind === "kit" ? (kit.parts ?? []).filter((p) => !p.removed).map((p) => p.id) : []);
+  const next = items.value.map((i) => {
+    if (i.id === kit.id) return kit;
+    if (i.kind === "kit") return i;
+    const was = i.inKits ?? [];
+    const had = was.includes(kit.id);
+    const has = holds.has(i.id);
+    if (had === has) return i;
+    const inKits = has ? [...was, kit.id].sort((a, b) => a - b) : was.filter((k) => k !== kit.id);
+    return { ...i, inKits: inKits.length ? inKits : undefined };
+  });
+  items.value = next.some((i) => i.id === kit.id) ? next : [kit, ...next];
+}
 async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], ownWeightMg: number) {
   if (kitSaving.value.has(entry.id)) return;
   if (entry.id === DRAFT_ID) return void saveDraftKit(entry.name, parts);
@@ -196,25 +214,26 @@ async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], o
     body: { op: { t: "kit", id: entry.id, parts, ownWeightMg } },
   }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry });
   kitSaving.value = new Set([...kitSaving.value].filter((id) => id !== entry.id));
-  if (!res.ok) loadError.value = "Couldn’t save the kit. Check your connection and try again.";
-  else {
-    // took something out: say what, and put it back on Undo
-    const kept = new Set(parts.map((r) => r.id));
-    const gone = (before.parts ?? []).filter((p) => !kept.has(p.id));
-    const lostOwn = !!before.ownWeightMg && !ownWeightMg;
-    if (gone.length || lostOwn) {
-      const back = (before.parts ?? []).map((p) => ({ id: p.id, qty: p.qty }));
-      offerUndo({
-        verb: "Took",
-        label: gone.length === 1 ? itemDisplayName(gone[0]!.brand, gone[0]!.name, gone[0]!.variant) : gone.length ? counted(gone.length, "item") : "its own weight",
-        tail: ` out of ${itemDisplayName(before.brand, before.name, before.variant)}`,
-        restore: () => setKit(items.value.find((i) => i.id === entry.id) ?? before, back, before.ownWeightMg ?? 0),
-      });
-    }
-    // a piece that just took its first item is a kit now
-    if (kitStarting.value === entry.id) kitStarting.value = null;
+  if (!res.ok || !res.item) {
+    loadError.value = "Couldn’t save the kit. Check your connection and try again.";
+    return void loadVault();
   }
-  await loadVault();
+  putKit(res.item);
+  // a piece that just took its first item is a kit now
+  if (kitStarting.value === entry.id) kitStarting.value = null;
+  // took something out: say what, and put it back on Undo
+  const kept = new Set(parts.map((r) => r.id));
+  const gone = (before.parts ?? []).filter((p) => !kept.has(p.id));
+  const lostOwn = !!before.ownWeightMg && !ownWeightMg;
+  if (gone.length || lostOwn) {
+    const back = kitPartRefs(before.parts ?? []);
+    offerUndo({
+      verb: "Took",
+      label: gone.length === 1 ? itemDisplayName(gone[0]!.brand, gone[0]!.name, gone[0]!.variant) : gone.length ? counted(gone.length, "item") : "its own weight",
+      tail: ` out of ${itemDisplayName(before.brand, before.name, before.variant)}`,
+      restore: () => setKit(items.value.find((i) => i.id === entry.id) ?? before, back, before.ownWeightMg ?? 0),
+    });
+  }
 }
 // A new kit's first item: make the piece, then make it a kit of that item, then show
 // the kit where the draft was.
@@ -226,35 +245,17 @@ async function saveDraftKit(name: string, parts: { id: number; qty: number }[]) 
     body: { op: { t: "add", name, weightMg: 0 } },
   }).catch(() => ({ ok: false }) as { ok: boolean; reason?: string; item?: VaultEntry });
   const kit = made.ok && made.item
-    ? await vaultFetch<{ ok: boolean }>("/api/vault/items", { method: "POST", body: { op: { t: "kit", id: made.item.id, parts, ownWeightMg: 0 } } }).catch(() => ({ ok: false }))
+    ? await vaultFetch<{ ok: boolean; item?: VaultEntry }>("/api/vault/items", { method: "POST", body: { op: { t: "kit", id: made.item.id, parts, ownWeightMg: 0 } } }).catch(() => ({ ok: false }) as { ok: boolean; item?: VaultEntry })
     : { ok: false };
   kitSaving.value = new Set([...kitSaving.value].filter((id) => id !== DRAFT_ID));
-  if (!kit.ok) {
+  if (!kit.ok || !kit.item) {
     loadError.value = made.reason === "duplicate" ? "You already have something called that in My Gear." : "Couldn’t make that kit. Check your connection and try again.";
+    // a piece made without its kit is real gear now: show it
+    if (made.ok) void loadVault();
     return;
   }
   draftKit.value = null;
-  await loadVault();
-}
-// "Make it a single piece", pressed on an open kit's row: it becomes one piece weighing
-// what it did, and its items stay the pieces they are.
-async function unkit(id: number) {
-  const was = items.value.find((i) => i.id === id);
-  const res = await vaultFetch<{ ok: boolean }>("/api/vault/items", {
-    method: "POST",
-    body: { op: { t: "kit", id, parts: [] } },
-  }).catch(() => ({ ok: false }));
-  if (!res.ok) loadError.value = "Couldn’t change that. Check your connection and try again.";
-  else if (was?.parts?.length) {
-    const back = was.parts.map((p) => ({ id: p.id, qty: p.qty }));
-    offerUndo({
-      verb: "Made",
-      label: itemDisplayName(was.brand, was.name, was.variant),
-      tail: " a single piece",
-      restore: () => setKit(items.value.find((i) => i.id === id) ?? was, back, was.ownWeightMg ?? 0),
-    });
-  }
-  await loadVault();
+  putKit(kit.item);
 }
 // "Make it a kit", pressed in a piece's dialog: the dialog closes and the piece's row
 // shows its "Add an item" line, where the first item makes it a kit.
@@ -595,8 +596,7 @@ const removing = ref<number | null>(null);
 // The undo bar: a toast that holds what happened and how to take it back, rather than
 // a line of text — ten seconds, the timer cleared on unmount, the editor's own shape.
 // Every change here that takes something away offers it: a piece removed, an item
-// taken out of a kit, a kit made a single piece (Ryan: "we should audit for toasts
-// that don't allow undo").
+// taken out of a kit (Ryan: "we should audit for toasts that don't allow undo").
 type Undo = { verb: string; label: string; tail?: string; restore: () => Promise<void> | void };
 const { toast: undoable, flash: offerUndo, clear: clearUndo } = useToast<Undo>(10_000);
 
@@ -914,7 +914,6 @@ async function exportGear(kind: string) {
                 @toggle="toggleKind(kitKey(kit.id))"
                 @kit="(parts: { id: number; qty: number }[], own: number) => setKit(kit, parts, own)"
                 @rename="(n: string) => renameKit(kit, n)"
-                @unkit="unkit(kit.id)"
                 @remove="remove(kit)"
                 @cancel="kit.id === DRAFT_ID ? (draftKit = null) : (kitStarting = null)"
                 @edit="openEdit"
