@@ -10,7 +10,8 @@
 const props = defineProps<{ open: boolean; label: string }>();
 const emit = defineEmits<{ close: [] }>();
 
-onKeyStroke("Escape", () => props.open && emit("close"));
+// an Escape a menu inside the dialog already handled closes that menu only (useMenuDismiss)
+onKeyStroke("Escape", (e) => props.open && !e.defaultPrevented && emit("close"));
 
 const dlg = useTemplateRef<HTMLDivElement>("dlg");
 const FOCUSABLE =

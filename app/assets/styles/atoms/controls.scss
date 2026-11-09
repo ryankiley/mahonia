@@ -1047,6 +1047,9 @@ input[type="search"]::-webkit-search-decoration {
 // the same job; it is just what this amount does on these grounds.
 .well {
   border: 0;
+  /* the text's inset from the tint, which every well had restated as --space-3; a
+     box that wants another (the feedback box) sets its own */
+  padding-inline: var(--space-3);
   background: color-mix(in oklab, var(--ink) 7%, transparent);
   border-radius: calc(var(--radius-4) - var(--space-2));
   color: var(--ink);
