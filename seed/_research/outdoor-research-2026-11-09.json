@@ -1,0 +1,805 @@
+{
+ "_comment": "Outdoor Research sweep 2026-11-09: the Foray 3L Rain Pants asked for, plus the trail-relevant current OR line missing from the catalog (rain shells, down and synthetic insulation, wind shells, fleece, base layers, sun hats and gloves, the Alpine XT bivy). Every weight is the maker's own spec line ('Weight: X oz/ Y g') on its product page, which names no size, so apparel rows say Men's or Women's with size unpublished. Each was cross-checked against the per-variant weights in OR's store data. Dropped: Men's Ferrosi Convertible Pant and Men's Versaliner Sensor Glove, whose spec line reads '19.36 oz/ 549 g', a figure OR's store data carries as a placeholder on unrelated products; Men's Ferrosi Short 7in (336 g against the women's 150 g, and no other source for the 7in); Women's Stratoburst Stretch Rain Jacket, printed at the men's exact 8.47 oz/ 240 g, which reads as a copied spec. Left out on purpose: tactical, ski, bike, casual and kids' lines, packs and duffels.",
+ "rows": [
+  {
+   "brand": "Outdoor Research",
+   "name": "Foray 3L Rain Pants",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain pants",
+   "weight_value": 385,
+   "weight_unit": "g",
+   "weight_secondary": "13.58 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-foray-3l-pants-322089",
+   "quote": "Weight: 13.58 oz/ 385 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Foray 3L Rain Jacket",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain jacket",
+   "weight_value": 435,
+   "weight_unit": "g",
+   "weight_secondary": "15.34 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-foray-3l-jacket-322088",
+   "quote": "Weight: 15.34 oz/ 435 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Aspire 3L Rain Jacket",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain jacket",
+   "weight_value": 352,
+   "weight_unit": "g",
+   "weight_secondary": "12.42 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-aspire-3l-jacket-322107",
+   "quote": "Weight: 12.42 oz/ 352 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Aspire 3L Rain Pants",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain pants",
+   "weight_value": 375,
+   "weight_unit": "g",
+   "weight_secondary": "13.23 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-aspire-3l-pants-322109",
+   "quote": "Weight: 13.23 oz/ 375 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Helium UL Jacket",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain jacket",
+   "weight_value": 162,
+   "weight_unit": "g",
+   "weight_secondary": "5.7 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-helium-ul-jacket-322681",
+   "quote": "Weight: 5.7 oz/ 162 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Helium UL Jacket",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain jacket",
+   "weight_value": 159,
+   "weight_unit": "g",
+   "weight_secondary": "5.6 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-helium-ul-jacket-322837",
+   "quote": "Weight: 5.6 oz/ 159 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Helium UL Pants",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain pants",
+   "weight_value": 163,
+   "weight_unit": "g",
+   "weight_secondary": "5.75 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-helium-ul-pant-322685",
+   "quote": "Weight: 5.75 oz/ 163 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Helium UL Pants",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain pants",
+   "weight_value": 164,
+   "weight_unit": "g",
+   "weight_secondary": "5.8 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-helium-ul-pant-322687",
+   "quote": "Weight: 5.8 oz/ 164 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Stratoburst Stretch Rain Jacket",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain jacket",
+   "weight_value": 240,
+   "weight_unit": "g",
+   "weight_secondary": "8.47 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-stratoburst-stretch-rain-jacket-300893",
+   "quote": "Weight: 8.47 oz/ 240 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Stratoburst Stretch Rain Pants",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain pants",
+   "weight_value": 269,
+   "weight_unit": "g",
+   "weight_secondary": "9.5 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-stratoburst-stretch-rain-pants-300895",
+   "quote": "Weight: 9.5 oz/ 269 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Stratoburst Stretch Rain Pants",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "rain pants",
+   "weight_value": 264,
+   "weight_unit": "g",
+   "weight_secondary": "9.3 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-stratoburst-stretch-rain-pants-300896",
+   "quote": "Weight: 9.3 oz/ 264 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Helium Down Hoodie",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "down jacket",
+   "weight_value": 437,
+   "weight_unit": "g",
+   "weight_secondary": "15.4 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-helium-down-hoodie-322751",
+   "quote": "Weight: 15.4 oz/ 437 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Helium Down Hoodie",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "down jacket",
+   "weight_value": 403,
+   "weight_unit": "g",
+   "weight_secondary": "14.2 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-helium-down-hoodie-322760",
+   "quote": "Weight: 14.2 oz/ 403 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Helium XT Down Hoodie",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "down jacket",
+   "weight_value": 499,
+   "weight_unit": "g",
+   "weight_secondary": "17.6 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-helium-xt-down-hoodie-322755",
+   "quote": "Weight: 17.6 oz/ 499 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Helium XT Down Hoodie",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "down jacket",
+   "weight_value": 456,
+   "weight_unit": "g",
+   "weight_secondary": "16.1 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-helium-xt-down-hoodie-322762",
+   "quote": "Weight: 16.1 oz/ 456 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Transcendent Down Hoodie",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "down jacket",
+   "weight_value": 377,
+   "weight_unit": "g",
+   "weight_secondary": "13.3 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-transcendent-down-hoodie-322081",
+   "quote": "Weight: 13.3 oz/ 377 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Transcendent Down Hoodie",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "down jacket",
+   "weight_value": 329,
+   "weight_unit": "g",
+   "weight_secondary": "11.6 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-transcendent-down-hoodie-322102",
+   "quote": "Weight: 11.6 oz/ 329 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Transcendent Down Jacket",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "down jacket",
+   "weight_value": 335,
+   "weight_unit": "g",
+   "weight_secondary": "11.8 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-transcendent-down-jacket-322082",
+   "quote": "Weight: 11.8 oz/ 335 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "SuperStrand LT Hoodie",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "synthetic jacket",
+   "weight_value": 300,
+   "weight_unit": "g",
+   "weight_secondary": "10.58 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-superstrand-lt-hoodie-289620",
+   "quote": "Weight: 10.58 oz/ 300 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "SuperStrand LT Hoodie",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "synthetic jacket",
+   "weight_value": 269,
+   "weight_unit": "g",
+   "weight_secondary": "9.5 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-superstrand-lt-hoodie-289622",
+   "quote": "Weight: 9.5 oz/ 269 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "SuperStrand LT Jacket",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "synthetic jacket",
+   "weight_value": 290,
+   "weight_unit": "g",
+   "weight_secondary": "10.23 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-superstrand-lt-jacket-289619",
+   "quote": "Weight: 10.23 oz/ 290 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Shadow Insulated Jacket",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "insulated jacket",
+   "weight_value": 425,
+   "weight_unit": "g",
+   "weight_secondary": "15.0 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-shadow-insulated-jacket-322173",
+   "quote": "Weight: 15.0 oz/ 425 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Shadow Wind Hoodie",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "wind jacket",
+   "weight_value": 142,
+   "weight_unit": "g",
+   "weight_secondary": "5.0 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-shadow-wind-hoodie-300899",
+   "quote": "Weight: 5.0 oz/ 142 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Shadow Wind Hoodie",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "wind jacket",
+   "weight_value": 128,
+   "weight_unit": "g",
+   "weight_secondary": "4.5 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-shadow-wind-hoodie-300900",
+   "quote": "Weight: 4.5 oz/ 128 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Deviator Hoodie",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "insulated jacket",
+   "weight_value": 325,
+   "weight_unit": "g",
+   "weight_secondary": "11.46 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-deviator-hoodie-300465",
+   "quote": "Weight: 11.46 oz/ 325 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Deviator Hoodie",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "insulated jacket",
+   "weight_value": 335,
+   "weight_unit": "g",
+   "weight_secondary": "11.82 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-deviator-hoodie-300474",
+   "quote": "Weight: 11.82 oz/ 335 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Deviator Wind Jacket",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "wind jacket",
+   "weight_value": 151,
+   "weight_unit": "g",
+   "weight_secondary": "5.31 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-deviator-wind-jacket-322407",
+   "quote": "Weight: 5.31 oz/ 151 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Deviator Wind Jacket",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "wind jacket",
+   "weight_value": 128,
+   "weight_unit": "g",
+   "weight_secondary": "4.5 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-deviator-wind-jacket-322411",
+   "quote": "Weight: 4.5 oz/ 128 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Cirque Lite Pants",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "hiking pants",
+   "weight_value": 400,
+   "weight_unit": "g",
+   "weight_secondary": "14.11 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-cirque-lite-pants-300425",
+   "quote": "Weight: 14.11 oz/ 400 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Cirque Lite Pants",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "hiking pants",
+   "weight_value": 335,
+   "weight_unit": "g",
+   "weight_secondary": "11.8 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-cirque-lite-pants-300334",
+   "quote": "Weight: 11.8 oz/ 335 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Astroman Air Sun Hoodie",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "sun hoodie",
+   "weight_value": 160,
+   "weight_unit": "g",
+   "weight_secondary": "5.64 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-astroman-air-sun-hoodie-300837",
+   "quote": "Weight: 5.64 oz/ 160 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Astroman Air Sun Hoodie",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "sun hoodie",
+   "weight_value": 155,
+   "weight_unit": "g",
+   "weight_secondary": "5.47 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-astroman-air-sun-hoodie-300856",
+   "quote": "Weight: 5.47 oz/ 155 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Vigor LT Hoodie",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "fleece",
+   "weight_value": 278,
+   "weight_unit": "g",
+   "weight_secondary": "9.8 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-vigor-lt-hoodie-322848",
+   "quote": "Weight: 9.8 oz/ 278 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Vigor LT Hoodie",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "fleece",
+   "weight_value": 230,
+   "weight_unit": "g",
+   "weight_secondary": "8.11 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-vigor-lt-hoodie-322851",
+   "quote": "Weight: 8.11 oz/ 230 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Vigor Grid Fleece Half Zip",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "fleece",
+   "weight_value": 285,
+   "weight_unit": "g",
+   "weight_secondary": "10.05 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-vigor-grid-fleece-half-zip-300501",
+   "quote": "Weight: 10.05 oz/ 285 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Deviator Fleece Half Zip",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "fleece",
+   "weight_value": 400,
+   "weight_unit": "g",
+   "weight_secondary": "14.11 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-deviator-fleece-half-zip-322027",
+   "quote": "Weight: 14.11 oz/ 400 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Deviator Fleece Half Zip",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "fleece",
+   "weight_value": 300,
+   "weight_unit": "g",
+   "weight_secondary": "10.58 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-deviator-fleece-half-zip-322125",
+   "quote": "Weight: 10.58 oz/ 300 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Alpine Onset Merino 150 Quarter Zip",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "base layer top",
+   "weight_value": 215,
+   "weight_unit": "g",
+   "weight_secondary": "7.58 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-alpine-onset-merino-150-quarter-zip-322241",
+   "quote": "Weight: 7.58 oz/ 215 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Alpine Onset Merino 150 Bottoms",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "base layer bottoms",
+   "weight_value": 180,
+   "weight_unit": "g",
+   "weight_secondary": "6.35 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-alpine-onset-merino-150-bottoms-322240",
+   "quote": "Weight: 6.35 oz/ 180 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Alpine Onset Merino 150 Bottoms",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "base layer bottoms",
+   "weight_value": 165,
+   "weight_unit": "g",
+   "weight_secondary": "5.82 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-alpine-onset-merino-150-bottoms-322247",
+   "quote": "Weight: 5.82 oz/ 165 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Ferrosi Convertible Pants",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "hiking pants",
+   "weight_value": 301,
+   "weight_unit": "g",
+   "weight_secondary": "10.6 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-ferrosi-convertible-pants-regular-287666",
+   "quote": "Weight: 10.6 oz/ 301 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Ferrosi Shorts",
+   "variant": "Women's 7in",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "shorts",
+   "weight_value": 150,
+   "weight_unit": "g",
+   "weight_secondary": "5.28 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-ferrosi-shorts-7-287673",
+   "quote": "Weight: 5.28 oz/ 150 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Helios Sun Hat",
+   "category_hint": "clothing",
+   "common_name": "sun hat",
+   "weight_value": 68,
+   "weight_unit": "g",
+   "weight_secondary": "2.41 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/helios-sun-hat-322652",
+   "quote": "Weight: 2.41 oz/ 68 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Sunbriolet Sun Hat",
+   "category_hint": "clothing",
+   "common_name": "sun hat",
+   "weight_value": 86,
+   "weight_unit": "g",
+   "weight_secondary": "3.02 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/sunbriolet-sun-hat-322649",
+   "quote": "Weight: 3.02 oz/ 86 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Swift Cap",
+   "category_hint": "clothing",
+   "common_name": "cap",
+   "weight_value": 71,
+   "weight_unit": "g",
+   "weight_secondary": "2.5 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/swift-cap-243430",
+   "quote": "Weight: 2.5 oz/ 71 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Seattle Rain Hat",
+   "category_hint": "clothing",
+   "common_name": "hat",
+   "weight_value": 87,
+   "weight_unit": "g",
+   "weight_secondary": "3.07 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/seattle-rain-hat-322290",
+   "quote": "Weight: 3.07 oz/ 87 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Deluxe Spring Ring Headnet",
+   "category_hint": "clothing",
+   "common_name": "head net",
+   "weight_value": 54,
+   "weight_unit": "g",
+   "weight_secondary": "1.9 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/deluxe-spring-ring-headnet-243377",
+   "quote": "Weight: 1.9 oz/ 54 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Vigor Lightweight Sensor Gloves",
+   "variant": "Men's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "gloves",
+   "weight_value": 42,
+   "weight_unit": "g",
+   "weight_secondary": "1.48 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/mens-vigor-lightweight-sensor-gloves-300560",
+   "quote": "Weight: 1.48 oz/ 42 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Vigor Lightweight Sensor Gloves",
+   "variant": "Women's",
+   "attributes_unpublished": [
+    "size"
+   ],
+   "category_hint": "clothing",
+   "common_name": "gloves",
+   "weight_value": 40,
+   "weight_unit": "g",
+   "weight_secondary": "1.41 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/womens-vigor-lightweight-sensor-gloves-300561",
+   "quote": "Weight: 1.41 oz/ 40 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Alpine Merino 150 Gloves",
+   "category_hint": "clothing",
+   "common_name": "glove liners",
+   "weight_value": 34,
+   "weight_unit": "g",
+   "weight_secondary": "1.2 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/alpine-merino-150-glove-322814",
+   "quote": "Weight: 1.2 oz/ 34 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "ActiveIce Sun Gloves",
+   "category_hint": "clothing",
+   "common_name": "sun gloves",
+   "weight_value": 28,
+   "weight_unit": "g",
+   "weight_secondary": "1.0 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/activeice-sun-gloves-280128",
+   "quote": "Weight: 1.0 oz/ 28 g"
+  },
+  {
+   "brand": "Outdoor Research",
+   "name": "Alpine XT Bivy",
+   "category_hint": "shelter",
+   "common_name": "bivy",
+   "weight_value": 594,
+   "weight_unit": "g",
+   "weight_secondary": "20.95 oz",
+   "weight_source": "manufacturer",
+   "source_url": "https://www.outdoorresearch.com/products/alpine-xt-bivy-322698",
+   "quote": "Weight: 20.95 oz/ 594 g"
+  }
+ ]
+}
