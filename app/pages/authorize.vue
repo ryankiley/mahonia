@@ -56,8 +56,8 @@ const errorBack = computed(() => (checked.value && !checked.value.ok && checked.
 const writes = computed(() => checked.value?.ok && checked.value.level === "write");
 const wants = computed(() =>
   writes.value
-    ? "see and change what’s in My Gear, change the lists filed under your account, and file the lists it makes there"
-    : "see what’s in My Gear and which lists are filed under your account",
+    ? "see and change what’s in My Gear and your lists, and add new lists to your account"
+    : "see what’s in My Gear and your lists",
 );
 // The same grant as `wants`, a row per thing it reaches, each with the mark that thing
 // wears in the app: the safe box is My Gear everywhere, the pack is a list. (Sharing the
@@ -69,13 +69,13 @@ const scopes = computed<{ icon: IconNode; text: string }[]>(() =>
     ? [
         { icon: SafeBoxIcon, text: "See what’s in My Gear" },
         { icon: SafeBoxIcon, text: "Change what’s in My Gear" },
-        { icon: Backpack03Icon, text: "See which lists are filed under your account" },
-        { icon: Backpack03Icon, text: "Change the lists filed under your account" },
-        { icon: Backpack03Icon, text: "File the lists it makes under your account" },
+        { icon: Backpack03Icon, text: "See your lists" },
+        { icon: Backpack03Icon, text: "Change your lists" },
+        { icon: Backpack03Icon, text: "Add new lists to your account" },
       ]
     : [
         { icon: SafeBoxIcon, text: "See what’s in My Gear" },
-        { icon: Backpack03Icon, text: "See which lists are filed under your account" },
+        { icon: Backpack03Icon, text: "See your lists" },
       ],
 );
 // Who is asking, as the page names and draws them: a logo and our own name for it only
