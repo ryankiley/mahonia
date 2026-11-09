@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "Connecting Claude to Mahonia now allows changes from the start, so it can add and edit your gear and lists without reconnecting."
+  ]
+}

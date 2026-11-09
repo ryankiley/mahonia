@@ -36,9 +36,15 @@ import { rateLimit } from "../utils/rateLimit";
 // Connect card, runs the OAuth sign-in (server/utils/oauth.ts) and retries the call. So
 // a tools/call naming an account tool with no valid bearer — none, unknown, revoked, or
 // an access token past its hour — gets a 401 whose WWW-Authenticate header names our
-// protected-resource document
-// and the scope the tool needs; a valid read-only bearer on a tool that changes gear or
-// a list gets a 403 with insufficient_scope, which Claude turns into a step-up for write. The
+// protected-resource document and asks for read-and-change, whichever account tool it
+// was. Claude asks for exactly the scope a 401 names, and its apps don't run the
+// step-up the spec describes for a 403: a read-only bearer on a tool that changes gear
+// or a list gets a 403 with insufficient_scope, and Claude shows that as "reconnect it
+// from connector settings" and stops (seen 2026-11-09). A sign-in that began at a read
+// tool and asked only for read was a dead end the first time the person wanted a
+// change, so every sign-in asks for both; Claude still asks the person before it calls
+// a tool that changes something. The 403 stays for what is read-only on purpose: a
+// token minted read-only on the account page, or a sign-in made before this. The
 // gate runs here, on the parsed body, before any tool: a refusal wrapped in a 200 tool
 // result is a sentence the model reads aloud, not a sign-in.
 
@@ -123,12 +129,12 @@ export default defineEventHandler(async (event) => {
       return bearerChallenge(event, {
         status: 401,
         error: "invalid_token",
-        scope: use,
+        scope: "write",
         description: carried ? "That token no longer opens an account; sign in to Mahonia again." : "Sign in to Mahonia to reach your lists and My Gear.",
       });
     }
     if (use === "write" && identity?.scope !== "write") {
-      return bearerChallenge(event, { status: 403, error: "insufficient_scope", scope: "write", description: "Changing your gear or your lists needs read-and-change access; allow it to continue." });
+      return bearerChallenge(event, { status: 403, error: "insufficient_scope", scope: "write", description: "This connection can only read. To change your gear or your lists, connect Mahonia again and allow read-and-change access." });
     }
   }
 
