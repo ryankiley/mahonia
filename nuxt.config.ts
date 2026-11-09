@@ -439,6 +439,7 @@ export default defineNuxtConfig({
     },
     // pure-static pages → build-time prerender (CDN-served, zero invocations)
     "/about": { prerender: true },
+    "/help": { prerender: true },
     "/legal": { prerender: true },
     // Privacy + Terms were merged into /legal (two sections) — keep the old URLs
     // working with a permanent redirect (bookmarks, external links, llms.txt history).
@@ -459,8 +460,5 @@ export default defineNuxtConfig({
     // internal word stays put on purpose (the API is /api/vault/*, the tables are
     // vault_*, the classes are .vault__*); this is only what people see and share.
     "/vault": { redirect: { to: "/gear", statusCode: 301 } },
-    // the catalog-changes page reads a slow-moving feed — a 10-minute ISR window
-    // makes repeat views free without letting it go meaningfully stale
-    "/changes": { isr: 600 },
   },
 });

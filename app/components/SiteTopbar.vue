@@ -7,7 +7,7 @@
 defineProps<{
   // read views pack the brand + label tighter (gap-2 vs the default gap-3)
   compact?: boolean;
-  // A section name — the bar's other shape. /about, /legal and /changes each wrote
+  // A section name — the bar's other shape. /about, /legal and /help each wear
   // the same muted span; this is that one pattern, named once.
   label?: string;
 }>();

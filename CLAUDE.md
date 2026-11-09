@@ -38,7 +38,7 @@ things a visitor can notice here); a perf change nobody could notice takes the l
 Nothing auto-fills this. A `changelog-reminder` comment nudges any user-facing PR that's
 missing an entry, but if one merges without it, that day's release simply omits the change
 until it's backfilled by hand. Writing the entry as part of the PR is the whole job.
-Catalog weight corrections are separate; they belong to `/changes`, not the changelog.
+Catalog weight corrections are separate and don't go in the changelog.
 
 ## Checking a change: CI is the gate; locally, run what you touched
 
