@@ -31,13 +31,12 @@ async function makeUser(db: TestDb, email: string): Promise<number> {
 async function makeVault(db: TestDb, userId: number): Promise<number> {
   const v = await db.insert(schema.vaults).values({ userId }).returning();
   const vaultId = v[0]!.id;
-  const f = await db.insert(schema.vaultFolders).values({ vaultId, name: "Shelter" }).returning();
+  await db.insert(schema.vaultFolders).values({ vaultId, name: "Shelter" });
   await db.insert(schema.vaultItems).values({
     vaultId,
     normKey: "tent-x",
     name: "Tent X",
     weightMg: 900_000,
-    folderId: f[0]!.id,
   });
   return vaultId;
 }

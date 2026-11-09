@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-08",
+  "fixed": [
+    "Saving a group as a kit over a piece of the same name in My Gear takes the group's calories, price and catalog link, as a new kit does.",
+    "A group that can't be saved as a kit leaves the piece of the same name in My Gear as it was, weight and all.",
+    "Importing a backup into a nearly full My Gear adds the new gear even when the file lists gear you already have first.",
+    "A kit in a My Gear backup whose items aren't in the file or in My Gear comes back as one piece at its full weight."
+  ]
+}
