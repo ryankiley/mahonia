@@ -2,6 +2,8 @@ import type { Ref } from "vue";
 import type { Item, ListSnapshot, Unit } from "~~/shared/types";
 import { effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, rowDisplayKcal } from "~~/shared/weights";
 import { isWaterName, waterLiters, waterMgFromMl } from "~~/shared/water";
+import { sizePickPatch, typedSizeNeedsSizes, typedSizePatch, type CatalogSize } from "~~/shared/catalogSizes";
+import { loadCatalogSizes } from "./useCatalogSizes";
 import { motionIsInstant } from "~/plugins/inputModality.client";
 
 const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
@@ -113,10 +115,25 @@ export function useItemRowFields({
     gear.updateItem(item.value.id, { commonName: el.value, commonNameOverridden: true });
     el.value = item.value.commonName ?? "";
   }
-  function onVariant(e: Event) {
+  // A typed size on a LINKED row is a claim about which size this is, so it can't just
+  // be text: the row would keep the first pick's link and cited weight under a size it
+  // no longer says (shared/catalogSizes). The sizes are usually in hand already — the
+  // row asked for them when editing began (useCatalogSizes) — so the await is a tick.
+  async function onVariant(e: Event) {
     const el = e.target as HTMLInputElement;
-    gear.updateItem(item.value.id, { variant: el.value, nameOverridden: true });
+    const typed = el.value;
+    const linked = item.value.catalogItemId;
+    const sizes = linked != null && typedSizeNeedsSizes(item.value, typed) ? await loadCatalogSizes(linked) : null;
+    // the row moved on while the sizes came (a pick in the name box): that wins
+    if (item.value.catalogItemId === linked) {
+      const patch = typedSizePatch(item.value, typed, sizes);
+      if (patch) gear.updateItem(item.value.id, patch);
+    }
     el.value = item.value.variant ?? "";
+  }
+  // another size from the picker beside the field: relink, and take its weight
+  function onSizePick(size: CatalogSize) {
+    if (size.id !== item.value.catalogItemId) gear.updateItem(item.value.id, sizePickPatch(size));
   }
   function onNote(e: Event) {
     const el = e.target as HTMLTextAreaElement;
@@ -144,6 +161,7 @@ export function useItemRowFields({
     onNote,
     onQty,
     onRowUnit,
+    onSizePick,
     onVariant,
     onWaterLiters,
     onWeight,

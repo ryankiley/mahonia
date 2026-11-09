@@ -636,6 +636,7 @@ const {
   onNote,
   onQty,
   onRowUnit,
+  onSizePick,
   onVariant,
   onWaterLiters,
   onWeight,
@@ -656,6 +657,35 @@ const {
   onAdvance,
   fitNote,
 });
+
+// THE OTHER SIZES of the product a linked row is: a chevron after the Size field while
+// the row is being edited, listing each size with its cited weight in the row's unit
+// (shared/catalogSizes, useCatalogSizes). Asked for once editing begins, so a list
+// mounts no requests, and absent for a product sold in one size. Only while editing,
+// like the empty fields beside it: a chevron on every linked row would be a column of
+// controls on a list that is mostly read.
+const sizes = useCatalogSizes(
+  computed(() => props.item.catalogItemId),
+  computed(() => nameEditing.value && !isParent.value),
+);
+const sizeOptions = computed(() =>
+  sizes.value.map((s) => ({
+    key: String(s.id),
+    label: s.variant || "No size given",
+    detail: formatWeight(s.weightMg, rowUnit.value),
+  })),
+);
+function onSizeKey(key: string) {
+  const size = sizes.value.find((s) => String(s.id) === key);
+  if (size) onSizePick(size);
+}
+// The menu opens inside the sub-line, whose slide clips its one child (.reveal > *), so
+// the clip comes off while the menu is up, as the folder's does on the same event.
+const sizeMenuUp = ref(false);
+function onSizeOverlay(open: boolean) {
+  sizeMenuUp.value = open;
+  emit("overlayToggle", open);
+}
 
 const { activeSplit, consumableAria, isConsumable, isWorn, setClass, setSplit, splitOptions, wornAria, wornTitle } =
   useItemRowClassification({
@@ -1310,7 +1340,7 @@ function dismissFix() {
              the two inputs share one inner child so that single-child slide stays clean. -->
         <Transition name="reveal">
           <div v-if="subShown" class="reveal reveal--note">
-            <div class="item__subfields">
+            <div class="item__subfields" :class="{ 'is-lifted': sizeMenuUp }">
               <!-- the gear type and, beside it, the variant: one line, two fields, in the
                    two quiet voices the read row's sub-line uses (an upright label, an
                    italic aside). A wrapping flex line, so the variant sits right after the
@@ -1356,18 +1386,48 @@ function dismissFix() {
                      Men's Medium or a Silpoly in mind (Ryan, 2026-09-12: "variant" is
                      "too industry terminology"). The field's name in code stays
                      `variant`. -->
+                <!-- the field and its sizes chevron in one box, so the chevron can't wrap
+                     onto a line of its own. mousedown.prevent keeps focus in the field:
+                     Safari doesn't focus a clicked button, so the field's blur would end
+                     the edit (onRowBlur) and take the chevron away under the click. -->
                 <Transition name="reveal-field">
-                  <input
-                    v-if="variantShown"
-                    class="item__note item__variant-input"
-                    :maxlength="MAX_VARIANT_LEN"
-                    :value="item.variant ?? ''"
-                    placeholder="Size or version"
-                    aria-label="Size or version"
-                    autocorrect="off"
-                    spellcheck="false"
-                    @change="onVariant"
-                  />
+                  <span v-if="variantShown" class="item__variant">
+                    <input
+                      class="item__note item__variant-input"
+                      :maxlength="MAX_VARIANT_LEN"
+                      :value="item.variant ?? ''"
+                      placeholder="Size or version"
+                      aria-label="Size or version"
+                      autocorrect="off"
+                      spellcheck="false"
+                      @change="onVariant"
+                    />
+                    <OptionMenu
+                      v-if="sizeOptions.length"
+                      class="item__sizemenu"
+                      :options="sizeOptions"
+                      :current="String(item.catalogItemId)"
+                      label="Other sizes"
+                      fit="shift"
+                      :title="`Other sizes of ${editableName}`"
+                      @pick="onSizeKey"
+                      @overlay-toggle="onSizeOverlay"
+                      @mousedown.prevent
+                    >
+                      <template #trigger="{ open }">
+                        <span class="item__sizehit">
+                          <HugeiconsIcon
+                            :icon="ChevronDownIcon"
+                            class="chev item__unitchev"
+                            :class="{ 'is-open': open }"
+                            :size="12"
+                            :stroke-width="2"
+                            aria-hidden="true"
+                          />
+                        </span>
+                      </template>
+                    </OptionMenu>
+                  </span>
                 </Transition>
               </div>
               <!-- A TEXTAREA, and the only field on the row that is one. Everything
@@ -2844,6 +2904,10 @@ function dismissFix() {
   flex-direction: column;
   gap: var(--space-1);
 }
+/* while the sizes menu is up (onSizeOverlay): the slide's clip would cut it off */
+.reveal > .item__subfields.is-lifted {
+  overflow: visible;
+}
 /* If one sub-line has a saved value, the shared reveal stays mounted when focus
    leaves. Let its empty sibling finish closing instead of disappearing mid-frame. */
 .reveal-field-leave-active {
@@ -2880,6 +2944,48 @@ function dismissFix() {
     min-width: 2ch;
     max-width: 100%;
   }
+}
+/* The Size field and its chevron. Without content sizing the field fills its line, as
+   .item__note does, and the chevron takes its width out of the end of it; with it, the
+   pair hugs the size's text and sits after the gear type. */
+.item__variant {
+  display: flex;
+  align-items: center;
+  flex: 1 1 100%;
+  min-width: 0;
+  .item__variant-input {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+}
+@supports (field-sizing: content) {
+  .item__variant {
+    flex: 0 1 auto;
+    max-width: 100%;
+    .item__variant-input {
+      flex: 0 1 auto;
+    }
+  }
+}
+/* the chevron is 12px, and that is no target: the padding is the hit area, pulled back
+   out of the line with the same margin so the field's line doesn't grow */
+.item__sizehit {
+  display: inline-flex;
+  padding: var(--space-1) var(--space-2);
+  margin-block: calc(-1 * var(--space-1));
+}
+@media (pointer: coarse) {
+  .item__sizehit {
+    padding: var(--space-2) var(--space-3);
+    margin-block: calc(-1 * var(--space-2));
+  }
+}
+.item__sizemenu:focus-within .item__unitchev {
+  color: var(--ink-2);
+}
+/* a hair off the field: flush, the trigger's focus ring sat on the italic size's last letter */
+.item__sizemenu {
+  margin-left: var(--space-1);
 }
 /* the variant field keeps .item__note's italic aside voice (the voice the row's name
    used for it before it moved down here), and the dot between the two fields takes the
