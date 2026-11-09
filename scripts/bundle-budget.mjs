@@ -143,7 +143,13 @@ const FIRST_LOAD_BUDGET_KB = 160;
 // in the menu, the placeholder and ice axe, the Most used shelf) took it to ~320. The
 // row reuses the editor's name field, which moved that field into a chunk shared with
 // /gear; the rest is /gear's own route chunk.
-const TOTAL_BUDGET_KB = 327;
+//
+// Re-set 2026-11-08 at 329.2 measured (was 327): #478, kits in My Gear and the kinds that
+// replace its folders. The kit section and the icon picker are /gear's; the list
+// switcher's card became a chunk of its own, loaded on a click, to take it off the
+// editor's first load (160.0); the kinds' glyph rules and the kit capture are lazy too.
+// No first-load chunk grew.
+const TOTAL_BUDGET_KB = 335;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the

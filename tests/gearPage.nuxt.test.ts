@@ -12,9 +12,8 @@ import { stubLocalStorage } from "./helpers/storage";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { readBody } from "h3";
-import type { VaultEntry, VaultFolder } from "~~/shared/vault";
+import type { VaultEntry } from "~~/shared/vault";
 import GearPage from "~/pages/gear.vue";
-import { useDialogs } from "~/composables/useDialogs";
 
 // hasVault true so the page loads; vaultFetch REAL so the page's URL choice has to
 // resolve against the routes below — the same passthrough gearList.nuxt.test.ts uses.
@@ -58,12 +57,7 @@ const NANO_PUFF = {
 };
 
 let listRows: VaultEntry[] = [];
-let listFolders: VaultFolder[] = [];
-registerEndpoint("/api/vault/list", () => ({
-  items: listRows,
-  removed: [],
-  folders: listFolders,
-}));
+registerEndpoint("/api/vault/list", () => ({ items: listRows, removed: [] }));
 
 // what "Remove" sent — the id is the assertion, the ok is what lets the row leave
 let removedIds: number[] = [];
@@ -76,18 +70,7 @@ registerEndpoint("/api/vault/remove", {
   },
 });
 
-// what a drag filed — the op is the assertion, the reload after it is the page's own
-let folderOps: Record<string, unknown>[] = [];
-registerEndpoint("/api/vault/folders", {
-  method: "POST",
-  handler: async (event) => {
-    const body = await readBody<{ op: Record<string, unknown> }>(event);
-    folderOps.push(body.op);
-    return { ok: true };
-  },
-});
-
-// an add, optionally held so a case can type while it's out
+// an add, optionally held
 let itemsHeld: Promise<void> | null = null;
 let addedNames: string[] = [];
 let addedOps: Record<string, unknown>[] = [];
@@ -105,7 +88,8 @@ registerEndpoint("/api/vault/items", {
     addedNames.push(body.op.name);
     addedOps.push(body.op);
     if (itemsHeld) await itemsHeld;
-    return { ok: true };
+    // the row as it landed, the way the real route answers an add
+    return { ok: true, item: { ...entry(900 + addedNames.length, body.op.name), brand: undefined } };
   },
 });
 
@@ -123,28 +107,12 @@ async function openPage() {
   return w;
 }
 
-/** Drag a row onto a section with the real pointer events: the press arms, the first
- *  move past the threshold lifts it, the next one reads what's under the pointer.
- *  Sideways, because happy-dom's page has no height and any vertical travel would read
- *  as leaving it, which cancels. */
-async function dragRowOnto(row: Element, section: Element) {
-  const at = (x: number) => ({ pointerId: 1, button: 0, clientX: x, clientY: 0, bubbles: true });
-  vi.spyOn(document, "elementFromPoint").mockReturnValue(section);
-  row.dispatchEvent(new PointerEvent("pointerdown", at(0)));
-  window.dispatchEvent(new PointerEvent("pointermove", at(40)));
-  window.dispatchEvent(new PointerEvent("pointermove", at(80)));
-  await nextTick();
-  window.dispatchEvent(new PointerEvent("pointerup", at(80)));
-  await nextTick();
-}
-
 describe("the /gear page's vault calls", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     document.body.innerHTML = "";
     storage.clear();
     removedIds = [];
-    folderOps = [];
     addedNames = [];
     addedOps = [];
     editedOps = [];
@@ -153,7 +121,6 @@ describe("the /gear page's vault calls", () => {
 
   it("loads the gear from /api/vault/list rather than erroring", async () => {
     listRows = [entry(1, "Duplex"), entry(2, "Kakwa 40")];
-    listFolders = [];
     const w = await openPage();
     // the error line rendering instead of rows is exactly the shipped bug
     expect(w.find(".vault__error").exists()).toBe(false);
@@ -162,9 +129,27 @@ describe("the /gear page's vault calls", () => {
     expect(w.text()).toContain("Kakwa 40");
   });
 
+  // My Gear has no folders to keep: it groups itself by what each piece is.
+  it("groups the gear by kind, Other last, and keeps kits on their own tab", async () => {
+    listRows = [
+      entry(1, "Widget"),
+      { ...entry(2, "Duplex"), commonName: "Tent" },
+      { ...entry(3, "Cook kit"), kind: "kit", parts: [] },
+    ];
+    const w = mount(GearPage, { attachTo: document.body });
+    // the Gear tab: the pieces, by kind
+    await vi.waitFor(() => expect(rows(w)).toHaveLength(2));
+    expect(w.findAll(".vsec__kind").map((h) => h.text())).toEqual(["Shelter", "Other"]);
+    // the Kits tab: the kit as a section of its own, named in its heading, and no kinds
+    const kitsTab = w.findAll(".modebar__opt").find((b) => b.text().includes("Kits"))!;
+    await kitsTab.trigger("click");
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+    expect(w.get<HTMLInputElement>(".kitsec .folder__name").element.value).toBe("Cook kit");
+    expect(w.findAll(".vsec__kind")).toHaveLength(0);
+  });
+
   it("removes a row through /api/vault/remove", async () => {
     listRows = [entry(7, "Duplex")];
-    listFolders = [];
     const w = await openPage();
     await w.get('button[aria-label="Remove Brand Duplex from My Gear"]').trigger("click");
     await vi.waitFor(() => expect(rows(w)).toHaveLength(0));
@@ -172,91 +157,12 @@ describe("the /gear page's vault calls", () => {
     expect(w.find(".vault__error").exists()).toBe(false);
   });
 
-  describe("dragging a row between sections", () => {
-    const filed = { ...entry(1, "Duplex"), folderId: 3 };
-    const loose = entry(2, "Kakwa 40");
-    const cook: VaultFolder = { id: 3, name: "Cook kit", sortOrder: 0 } as VaultFolder;
-    const rowNamed = (w: ReturnType<typeof mount>, name: string) =>
-      rows(w).find((r) => r.text().includes(name))!.element;
-
-    it("files a row into a folder", async () => {
-      listRows = [filed, loose];
-      listFolders = [cook];
-      const w = await openPage();
-      await dragRowOnto(rowNamed(w, "Kakwa 40"), w.get('[data-gear-folder="3"]').element);
-      await vi.waitFor(() => expect(folderOps).toEqual([{ t: "move", itemId: 2, folderId: 3 }]));
-      // the gesture ends with the drop: nothing stays lifted or lit
-      expect(w.find(".vault__row--dragging").exists()).toBe(false);
-      expect(w.find(".folder--drop-into").exists()).toBe(false);
-    });
-
-    // per pointermove, so an unchanged target has to cost nothing: every row on the page
-    // re-renders with the page, and a vault runs to a couple of hundred of them
-    it("re-renders nothing while the pointer stays over one section", async () => {
-      listRows = [filed, loose];
-      listFolders = [cook];
-      const w = await openPage();
-      vi.spyOn(document, "elementFromPoint").mockReturnValue(w.get('[data-gear-folder=""]').element);
-      const at = (x: number) => ({ pointerId: 1, button: 0, clientX: x, clientY: 0, bubbles: true });
-      rowNamed(w, "Duplex").dispatchEvent(new PointerEvent("pointerdown", at(0)));
-      window.dispatchEvent(new PointerEvent("pointermove", at(40)));
-      window.dispatchEvent(new PointerEvent("pointermove", at(80)));
-      await nextTick();
-
-      const updated = vi.fn();
-      for (const row of w.findAllComponents({ name: "VaultGearRow" })) {
-        // `u` is the instance's own updated-hook list; there's no public way in from outside
-        const instance = row.getCurrentComponent() as unknown as { u: (() => void)[] | null };
-        (instance.u ??= []).push(updated);
-      }
-      for (let x = 90; x < 100; x++) {
-        window.dispatchEvent(new PointerEvent("pointermove", at(x)));
-        await nextTick();
-      }
-      expect(updated).not.toHaveBeenCalled();
-      window.dispatchEvent(new PointerEvent("pointercancel", at(100)));
-    });
-
-    it("lights the section under the pointer, Unfiled included, and only that one", async () => {
-      listRows = [filed, loose];
-      listFolders = [cook];
-      const w = await openPage();
-      const row = rowNamed(w, "Duplex");
-      const unfiled = w.get('[data-gear-folder=""]').element;
-      vi.spyOn(document, "elementFromPoint").mockReturnValue(unfiled);
-      const at = (x: number) => ({ pointerId: 1, button: 0, clientX: x, clientY: 0, bubbles: true });
-      row.dispatchEvent(new PointerEvent("pointerdown", at(0)));
-      window.dispatchEvent(new PointerEvent("pointermove", at(40)));
-      await nextTick();
-      expect(w.find(".vault__row--dragging").exists()).toBe(true);
-      expect(w.find(".folder--drop-into").exists()).toBe(false); // lifted, over nothing yet
-      window.dispatchEvent(new PointerEvent("pointermove", at(80)));
-      await nextTick();
-      expect(w.findAll(".folder--drop-into").map((s) => s.element)).toEqual([unfiled]);
-      window.dispatchEvent(new PointerEvent("pointercancel", at(80)));
-      await nextTick();
-      expect(w.find(".folder--drop-into").exists()).toBe(false);
-      expect(folderOps).toEqual([]);
-    });
-
-    // "unfiled" is a real destination whose folder id is null, so it must not read as
-    // "no drop target": the section lit up under the pointer and the drop did nothing.
-    it("takes a row out of its folder when it lands on Unfiled", async () => {
-      listRows = [filed, loose];
-      listFolders = [cook];
-      const w = await openPage();
-      await dragRowOnto(rowNamed(w, "Duplex"), w.get('[data-gear-folder=""]').element);
-      await vi.waitFor(() => expect(folderOps).toEqual([{ t: "move", itemId: 1, folderId: null }]));
-    });
-  });
-
   // A piece's weight reads in the unit picked for it, the list row's unit picker on /gear:
   // shown at once, saved as an edit, and the stored figure never touched.
   describe("a piece's own weight unit", () => {
     it("reads in the unit picked on its row, and saves the pick", async () => {
       listRows = [entry(1, "Duplex")];
-      listFolders = [];
-      const w = await openPage();
+        const w = await openPage();
       const weight = () => rows(w).find((r) => r.text().includes("Duplex"))!.get(".vault__weight").text();
       expect(weight()).toContain("250");
       await w.get('button[aria-label="Weight unit for Brand Duplex"]').trigger("click");
@@ -269,58 +175,63 @@ describe("the /gear page's vault calls", () => {
     });
   });
 
+  // "Add gear" opens the edit dialog blank, with a catalog search over the form: one
+  // form for adding and correcting (VaultItemModal's `adding`).
   describe("adding gear by hand", () => {
-    const filed = { ...entry(1, "Duplex"), folderId: 3 };
-    const cook: VaultFolder = { id: 3, name: "Cook kit", sortOrder: 0 } as VaultFolder;
-    // the list editor's own name field (ItemInput), catalog-only and pick-only
-    const nameField = (w: ReturnType<typeof mount>) => w.get<HTMLInputElement>(".vaddrow .ac__input");
-    const openForm = async (w: ReturnType<typeof mount>) => {
-      await w.get(".folder__addbtn").trigger("click");
+    const filed = entry(1, "Duplex");
+    const dialog = () => document.querySelector<HTMLElement>(".dlg");
+    const field = (label: string) =>
+      [...document.querySelectorAll<HTMLLabelElement>(".dlg label.dlg__field")].find((l) => l.textContent?.includes(label))!.querySelector("input")!;
+    const type = async (el: HTMLInputElement, value: string) => {
+      el.value = value;
+      el.dispatchEvent(new Event("input"));
       await nextTick();
     };
+    const search = () => document.querySelector<HTMLInputElement>(".vault__catalog .ac__input")!;
+    const addButton = () => document.querySelector<HTMLButtonElement>(".dlg__actions .btn--primary")!;
+    const openForm = async (w: ReturnType<typeof mount>) => {
+      await w.get(".vault__tabadd").trigger("click");
+      await vi.waitFor(() => expect(dialog()).not.toBeNull());
+    };
 
-    it("opens a fresh pair after an add, with the caret back in the name", async () => {
+    it("opens the edit dialog blank, as Add gear, with the cursor in the catalog search", async () => {
       listRows = [filed];
-      listFolders = [cook];
       const w = await openPage();
       await openForm(w);
-      await nameField(w).setValue("Stove");
-      await w.get("form.vaddrow").trigger("submit");
-      await vi.waitFor(() => expect(addedNames).toEqual(["Stove"]));
-      await vi.waitFor(() => expect(nameField(w).element.value).toBe(""));
-      await nextTick();
-      expect(document.activeElement).toBe(nameField(w).element);
+      expect(dialog()!.querySelector(".t-label")!.textContent).toBe("Add gear");
+      expect(field("Product").value).toBe("");
+      expect(addButton().disabled).toBe(true);
+      await vi.waitFor(() => expect(document.activeElement).toBe(search()));
     });
 
-    it("keeps what was typed while the add was out", async () => {
-      let land = () => {};
-      itemsHeld = new Promise((r) => (land = r));
+    // A piece sorts itself into its kind, so the page says where it went, with Undo.
+    it("adds what was typed, closes, and says which kind it went to, with Undo", async () => {
       listRows = [filed];
-      listFolders = [cook];
       const w = await openPage();
       await openForm(w);
-      await nameField(w).setValue("Stove");
-      await w.get("form.vaddrow").trigger("submit");
+      await type(field("Product"), "Stove");
+      addButton().click();
       await vi.waitFor(() => expect(addedNames).toEqual(["Stove"]));
-
-      await nameField(w).setValue("Windscreen");
-      land();
-      await new Promise((r) => setTimeout(r, 40));
-      expect(nameField(w).element.value).toBe("Windscreen");
+      await vi.waitFor(() => expect(w.find(".undobar").exists()).toBe(true));
+      expect(w.get(".undobar").text()).toContain("Added Stove to Kitchen");
+      expect(dialog()).toBeNull();
+      expect(rows(w).some((r) => r.text().includes("Stove"))).toBe(true);
     });
 
-    // Picking a catalog product adds it AS that product, in one press: the gear type is
-    // what gives a hand-added row its icon and its place in a search, and before this a
-    // name typed here never had one.
-    it("adds a picked catalog product with its type, link and weight", async () => {
+    // A catalog pick fills the form AS that product: the gear type gives a hand-added
+    // piece its icon and its kind, and the link goes with it.
+    it("fills the form from a catalog pick, and adds it as that product", async () => {
       catalogHits = [NANO_PUFF];
       listRows = [filed];
-      listFolders = [cook];
       const w = await openPage();
       await openForm(w);
-      await nameField(w).setValue("nano puff");
-      await vi.waitFor(() => expect(w.findAll('.vaddrow [role="option"]').length).toBe(1), { timeout: 2_000 });
-      await w.get('.vaddrow [role="option"]').trigger("mousedown");
+      await type(search(), "nano puff");
+      await vi.waitFor(() => expect(document.querySelectorAll('.vault__catalog [role="option"]').length).toBe(1), { timeout: 2_000 });
+      document.querySelector('.vault__catalog [role="option"]')!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      await vi.waitFor(() => expect(field("Product").value).toBe("Nano Puff Jacket"));
+      expect(field("Brand").value).toBe("Patagonia");
+      expect(field("Gear type").value).toBe("Insulated jacket");
+      addButton().click();
       await vi.waitFor(() =>
         expect(addedOps).toEqual([
           expect.objectContaining({
@@ -331,7 +242,6 @@ describe("the /gear page's vault calls", () => {
             commonName: "Insulated jacket",
             catalogItemId: 2106,
             weightMg: 369_000,
-            folderId: 3,
           }),
         ]),
       );
@@ -340,51 +250,41 @@ describe("the /gear page's vault calls", () => {
     it("keeps a weight you typed over the catalog's", async () => {
       catalogHits = [NANO_PUFF];
       listRows = [filed];
-      listFolders = [cook];
       const w = await openPage();
       await openForm(w);
-      await w.get(".vaddrow__weight").setValue("352");
-      await nameField(w).setValue("nano puff");
-      await vi.waitFor(() => expect(w.findAll('.vaddrow [role="option"]').length).toBe(1), { timeout: 2_000 });
-      await w.get('.vaddrow [role="option"]').trigger("mousedown");
+      await type(field("Weight"), "352");
+      await type(search(), "nano puff");
+      await vi.waitFor(() => expect(document.querySelectorAll('.vault__catalog [role="option"]').length).toBe(1), { timeout: 2_000 });
+      document.querySelector('.vault__catalog [role="option"]')!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      await vi.waitFor(() => expect(field("Product").value).toBe("Nano Puff Jacket"));
+      addButton().click();
       await vi.waitFor(() => expect(addedOps).toEqual([expect.objectContaining({ catalogItemId: 2106, weightMg: 352_000 })]));
+    });
+
+    it("drops the catalog link once the name no longer says that product", async () => {
+      catalogHits = [NANO_PUFF];
+      listRows = [filed];
+      const w = await openPage();
+      await openForm(w);
+      await type(search(), "nano puff");
+      await vi.waitFor(() => expect(document.querySelectorAll('.vault__catalog [role="option"]').length).toBe(1), { timeout: 2_000 });
+      document.querySelector('.vault__catalog [role="option"]')!.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+      await vi.waitFor(() => expect(field("Product").value).toBe("Nano Puff Jacket"));
+      await type(field("Product"), "My old puffy");
+      addButton().click();
+      await vi.waitFor(() => expect(addedOps).toHaveLength(1));
+      expect(addedOps[0]).not.toHaveProperty("catalogItemId");
     });
   });
 });
 
 describe("the /gear page's words and names", () => {
   afterEach(() => {
-    // answer any question a case left open, so no promise outlives its test
-    useDialogs().settleConfirm(false);
     document.body.innerHTML = "";
     storage.clear();
   });
 
-  /** Ask to delete the "Cook kit" folder and return the question's sentence. */
-  async function deleteQuestion(held: number) {
-    listFolders = [{ id: 1, name: "Cook kit" }];
-    listRows = Array.from({ length: held }, (_, i) => ({ ...entry(i + 1, `Pot ${i + 1}`), folderId: 1 }));
-    const w = await openPage();
-    await w.get('button[aria-label="Remove Cook kit"]').trigger("click");
-    const { confirmState } = useDialogs();
-    await vi.waitFor(() => expect(confirmState.open).toBe(true));
-    return confirmState.message;
-  }
-
-  it("asks about one piece of gear in the singular", async () => {
-    expect(await deleteQuestion(1)).toBe(
-      "The gear in it stays in My Gear, just not in a folder.",
-    );
-  });
-
-  it("asks about several in the plural", async () => {
-    expect(await deleteQuestion(2)).toBe(
-      "The 2 pieces of gear in it stay in My Gear, just not in a folder.",
-    );
-  });
-
   it("puts a row's whole name in its title, for when the row clips it", async () => {
-    listFolders = [];
     listRows = [{ ...entry(1, "Ether Light XT Insulated Air Sleeping Mat"), variant: "Regular Wide" }];
     const w = await openPage();
     expect(w.get(".gear__name").attributes("title")).toBe("Brand Ether Light XT Insulated Air Sleeping Mat Regular Wide");

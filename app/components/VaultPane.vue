@@ -1,13 +1,16 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Cancel01Icon, ChevronDownIcon, FolderIcon } from "@hugeicons/core-free-icons";
-import type { VaultEntry, VaultFolder } from "~~/shared/vault";
+import { Cancel01Icon, ChevronDownIcon, ExpandIcon, FolderIcon, ToolCaseIcon } from "@hugeicons/core-free-icons";
+import { gearIcon } from "~/utils/gearIcons";
+import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { rankVaultRows } from "~~/shared/vaultSearch";
-import { groupVaultRows } from "~~/shared/vaultView";
+import { vaultSections } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
-import { counted, foldApostrophes } from "~~/shared/tidyText";
+import { counted } from "~~/shared/tidyText";
+import { addVaultKit } from "~/composables/useVaultUnfold";
+import { kitItemCount } from "~~/shared/vaultKit";
 
 // The vault, alongside the list you're building — a floating palette you keep open
 // and pick from, rather than typing each item's name into the autocomplete one at a
@@ -22,7 +25,7 @@ import { counted, foldApostrophes } from "~~/shared/tidyText";
 // Rendered via <LazyVaultPane v-if>, so this component AND the shared vault module
 // it imports are a separate chunk — someone who never opens the pane never
 // downloads it, which is what keeps it off the editor's bundle budget.
-const emit = defineEmits<{ close: []; added: [string] }>();
+const emit = defineEmits<{ close: [] }>();
 
 // Split-pane width, owned by the editor (which also needs it, to inset the list out
 // from under the pane) and adjusted from the divider below. Desktop only — on a
@@ -108,17 +111,14 @@ const dnd = useItemDnd();
 const { hasVault, vaultFetch } = useVaultAccess();
 
 const items = ref<VaultEntry[]>([]);
-// The vault's own folders — gear is filed into them by the NAME of the list folder
-// it was captured from, so they are already the categories you build with. The pane
-// used to drop them on the floor and show one flat list; the Categories tab below is
-// what gets a whole "Cook kit" back out in one go.
-const vaultFolders = ref<VaultFolder[]>([]);
-const tab = ref<"items" | "categories">("items");
+// Gear (your pieces), or just your kits: the sets you add in one go. (This was Categories, your
+// My Gear folders; My Gear has no folders now, and a kit is the set you reuse.)
+const tab = ref<"items" | "kits">("items");
 const loading = ref(true);
 const loadError = ref("");
 // one query ref per tab: switching back to a tab you were searching shouldn't hand
 // you its results filtered by a term you typed for the other one
-const queries = ref<{ items: string; categories: string }>({ items: "", categories: "" });
+const queries = ref<{ items: string; kits: string }>({ items: "", kits: "" });
 const query = computed({
   get: () => queries.value[tab.value],
   set: (v: string) => (queries.value[tab.value] = v),
@@ -151,9 +151,8 @@ async function load() {
   loading.value = true;
   loadError.value = "";
   try {
-    const res = await vaultFetch<{ items: VaultEntry[]; folders?: VaultFolder[] }>("/api/vault/list");
+    const res = await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list");
     items.value = res.items || [];
-    vaultFolders.value = res.folders || [];
   } catch {
     loadError.value = "Couldn’t load your gear.";
   }
@@ -181,48 +180,49 @@ watch(hasVault, () => load());
 // No limit: the ranker caps at VAULT_SEARCH_LIMIT for a menu that must not push the
 // catalog off-screen, but this panel IS the list — showing six of a hundred matches
 // would hide gear you own.
+// The Gear tab is your pieces; kits have a tab of their own, the way /gear splits them
+// (Ryan: "keep kits out of items tab here since it has its own").
+const isKit = (entry: VaultEntry) => entry.kind === "kit";
+const pieces = computed(() => items.value.filter((i) => !isKit(i)));
+const kits = computed(() => items.value.filter(isKit));
+// the open tab's rows, ranked when a search is typed
 const filtered = computed(() => {
+  const pool = tab.value === "kits" ? kits.value : pieces.value;
   const q = query.value.trim();
-  if (!q) return items.value;
-  return rankVaultRows(items.value, q, Number.POSITIVE_INFINITY);
+  return q ? rankVaultRows(pool, q, Number.POSITIVE_INFINITY) : pool;
 });
+// With nothing typed, the gear reads by kind — shelter, clothing and so on — the way
+// /gear groups it, so the pane and the page read alike. A search ranks across all of
+// it instead: the best match first matters more than where it lives. Kits are one
+// list either way.
+const sections = computed(() => {
+  const flat = tab.value === "kits" || !!query.value.trim();
+  return vaultSections(flat ? filtered.value : pieces.value, flat);
+});
+// each row's mark, once per load rather than twice per row per render: a kit's tool
+// case, a piece's own icon (the one its row on /gear wears)
+const iconById = computed(() => new Map(items.value.map((e) => [e.id, isKit(e) ? ToolCaseIcon : gearIcon(e.commonName, e.name, e.icon)])));
 // bold the characters that overlap what's been typed — the same helper, and so the
 // same emphasis, as the autocomplete's rows
 const hl = (text: string) => highlightParts(text, query.value);
 
-// ---- categories ----
-// A vault folder plus the gear filed under it. Built from the SAME loaded rows the
-// Items tab shows, so nothing is fetched twice and the two tabs can never disagree
-// about what the vault holds. The grouping is /gear's own (shared/vaultView), so a
-// category here holds exactly what the folder shows there, in the folder's own order.
-const categories = computed(() =>
-  // keepEmpty: false — an empty vault folder is a filing artefact, not a template
-  // worth offering; and no unfiled section, since unfiled gear lives on the Items tab
-  groupVaultRows(items.value, vaultFolders.value, { keepEmpty: false })
-    .filter((s) => s.folder)
-    .map((s) => ({
-      id: s.folder!.id,
-      name: s.folder!.name,
-      entries: s.entries,
-      weightMg: s.weightMg,
-      // every piece of it is already on the list — the same rule the item rows
-      // use, resolved for the whole set so the button can say so
-      allInList: s.entries.length > 0 && s.entries.every((e) => inList.value.has(e.normKey)),
-    })),
-);
-
-// name-only match: a category has no brand/variant to fuzzy-rank, and the set is
-// small enough to scan
-const filteredCategories = computed(() => {
-  // folded both sides — category names come from folder names, which are stored tidied
-  const q = foldApostrophes(query.value.trim().toLowerCase());
-  if (!q) return categories.value;
-  return categories.value.filter((c) => foldApostrophes(c.name.toLowerCase()).includes(q));
-});
-
-function addCategory(cat: { name: string; entries: VaultEntry[] }) {
-  const id = c.addVaultFolder(cat.name, cat.entries);
-  if (id) emit("added", cat.name);
+// ---- kits ----
+// A kit is offered among the gear, marked as one, and it does not go onto the list
+// as one row: it unfolds into a group — the kit's row as the parent, each live part
+// a row under it (useVaultUnfold.addVaultKit). "Already added" reads off the parent's
+// identity, the same way a piece's does; the parts the list already holds are
+// skipped as it unfolds, which is the pane's one-row-per-piece rule for each of them.
+// what it holds, counting each item as many times as the kit has it (as /gear counts)
+const itemCount = (entry: VaultEntry) => kitItemCount(entry.parts ?? []);
+// A kit lands as a group further down the list than the pane you clicked in, so it
+// says so in the editor's undo bar — "Added Cook kit · Undo" — and Undo takes the
+// group back off, its rows with it. A single piece answers for itself in place
+// ("Already added"). Ryan: "clicking a category item doesn't allow undo on the toast".
+function addEntry(entry: VaultEntry, folderId: string | null): string {
+  if (!isKit(entry)) return c.addVaultItem(entry, folderId);
+  const parentId = addVaultKit(c, entry, folderId, items.value);
+  if (parentId) c.offerUndoAdd(itemDisplayName(entry.brand, entry.name, entry.variant), parentId);
+  return parentId;
 }
 
 // The gear the open list already holds, keyed by the SAME identity rule the vault
@@ -281,7 +281,9 @@ const rowPress = createPressArm<VaultEntry>({
     // one-per-list rule; the gesture only resolves where the pointer let go
     dnd.startInsert((folderId, beforeId) => {
       if (isInList(entry)) return;
-      const id = c.addVaultItem(entry, folderId);
+      // a kit's parent row is what moves into the slot; its children render under it
+      // wherever it lands, since they order among themselves
+      const id = addEntry(entry, folderId);
       if (id && beforeId) c.moveItem(id, folderId, beforeId, null);
     }, ev);
   },
@@ -308,7 +310,7 @@ function onRowClick(entry: VaultEntry) {
     return;
   }
   if (isInList(entry)) return;
-  c.addVaultItem(entry, targetFolderId.value);
+  addEntry(entry, targetFolderId.value);
 }
 
 // ---- the sheet answers the scroll that lands on it ------------------------
@@ -469,9 +471,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            frequent action to reach the rare one. You have already asked for your gear
            by the time you can see this, so "all of it, with room to tidy" is one quiet
            link away at the moment you'd want it. -->
-      <NuxtLink v-if="hasVault" to="/gear" class="btn btn--quiet vp__open ink-quiet" title="Open My Gear as a full page">
-        Open
-        <HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+      <NuxtLink
+        v-if="hasVault"
+        to="/gear"
+        class="btn btn--icon btn--ghost ink-quiet vp__open"
+        aria-label="Open My Gear as a full page"
+        title="Open My Gear as a full page"
+      >
+        <HugeiconsIcon :icon="ExpandIcon" :size="16" :stroke-width="2" aria-hidden="true" />
       </NuxtLink>
       <button
         type="button"
@@ -505,38 +512,31 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     </div>
 
     <template v-else>
-      <!-- Items / Categories. Both tabs read the SAME loaded rows — one is the gear,
+      <!-- Gear / Kits. Both tabs read the SAME loaded rows — one is the gear,
            the other is the sets you've built out of it — so switching costs nothing
            and the two can't disagree. The search below belongs to whichever is open,
            which is what keeps the panel self-sufficient: finding gear never reaches
            out into the editor's chrome. -->
-      <div class="vp__tabs" role="tablist" aria-label="My Gear view">
-        <button
-          v-for="t in (['items', 'categories'] as const)"
-          :key="t"
-          type="button"
-          role="tab"
-          class="vp__tab"
-          :class="{ 'is-active': tab === t }"
-          :aria-selected="tab === t"
-          @click="tab = t"
-        >
-          {{ t === "items" ? "Items" : "Categories" }}
-          <span class="vp__tabcount t-num">{{ t === "items" ? items.length : categories.length }}</span>
-        </button>
-      </div>
-
-      <div class="vp__controls">
-        <!-- the field and its own clear — SearchField, the same control /gear draws -->
-        <SearchField
-          ref="searchEl"
-          v-model="query"
-          :placeholder="tab === 'items' ? 'Search gear…' : 'Search categories…'"
-          :label="tab === 'items' ? 'Search gear' : 'Search categories'"
-        />
-        <!-- the destination picker is meaningless on Categories — a cloned category
-             brings its own folder with it -->
-        <div v-if="folders.length && tab === 'items'" class="vp__target">
+      <!-- the tabs, and opposite them where a click puts what you pick: up here, the
+           folder you're adding into stays in view beside what you're picking from,
+           where under the search it read as one more row of the list -->
+      <div class="vp__bar">
+        <div class="vp__tabs" role="tablist" aria-label="My Gear view">
+          <button
+            v-for="t in (['items', 'kits'] as const)"
+            :key="t"
+            type="button"
+            role="tab"
+            class="vp__tab"
+            :class="{ 'is-active': tab === t }"
+            :aria-selected="tab === t"
+            @click="tab = t"
+          >
+            {{ t === "items" ? "Gear" : "Kits" }}
+            <span class="vp__tabcount t-num">{{ t === "items" ? pieces.length : kits.length }}</span>
+          </button>
+        </div>
+        <div v-if="folders.length" class="vp__target">
           <span class="t-sm t-muted">Add to</span>
           <!-- the last native dropdown in the app, converted with the rest: it wasn't
                the transparent-overlay pattern, just an ordinary <select>, which left it
@@ -556,41 +556,24 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         </div>
       </div>
 
+      <div class="vp__controls">
+        <!-- the field and its own clear — SearchField, the same control /gear draws -->
+        <SearchField
+          ref="searchEl"
+          v-model="query"
+          :placeholder="tab === 'items' ? 'Search my gear…' : 'Search my kits…'"
+          :label="tab === 'items' ? 'Search my gear' : 'Search my kits'"
+        />
+      </div>
+
       <p v-if="loadError" class="t-sm vp__error">{{ loadError }}</p>
       <p v-else-if="loading" class="t-sm t-muted vp__note">Loading your gear…</p>
 
-      <!-- CATEGORIES: a whole set, added in one go. No drag here — a category brings
-           its own folder, so there is no destination to aim at, and the click is the
-           entire interaction. -->
-      <ul v-else-if="tab === 'categories' && filteredCategories.length" class="vp__list">
-        <li v-for="cat in filteredCategories" :key="cat.id">
-          <button
-            type="button"
-            class="vp__add"
-            :disabled="cat.allInList"
-            :aria-label="
-              cat.allInList
-                ? `Every item in ${cat.name} is already in this list`
-                : `Add the ${cat.name} category to the list`
-            "
-            @click="addCategory(cat)"
-          >
-            <span class="gear__main">
-              <span class="gear__name t-clip" :title="cat.name">{{ cat.name }}</span>
-              <span class="t-sm vp__inlist">
-                {{ cat.allInList ? "Already added" : counted(cat.entries.length, "item") }}
-              </span>
-            </span>
-            <!-- No mark at the end of the row. A "+" here was the same glyph on every row
-                 of a panel whose one job is adding, and the tick that replaced it only
-                 repeated the "Already added" line under the name. -->
-            <span class="t-num t-sm vp__w">{{ formatWeight(cat.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
-          </button>
-        </li>
-      </ul>
-
-      <ul v-else-if="tab === 'items' && filtered.length" ref="listEl" class="vp__list">
-        <li v-for="entry in filtered" :key="entry.id">
+      <!-- both tabs: a piece adds as a row; a KIT adds as a group, its items under it -->
+      <ul v-else-if="filtered.length" ref="listEl" class="vp__list">
+        <template v-for="section in sections" :key="section.key">
+        <li v-if="section.label" class="vp__kind"><h3 class="t-sm t-muted vp__kindname">{{ section.label }}</h3></li>
+        <li v-for="entry in section.entries" :key="entry.id">
           <!-- Click adds to the "Add to" folder; press and drag puts it in whichever
                folder you let go over. See onRowPointerDown for how the two are told
                apart. Keyboard users are not stranded — the select + click IS that path. -->
@@ -602,11 +585,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             :aria-label="
               isInList(entry)
                 ? `${itemDisplayName(entry.brand, entry.name, entry.variant)} is already in this list`
-                : `Add ${itemDisplayName(entry.brand, entry.name, entry.variant)} to the list`
+                : isKit(entry)
+                  ? `Add the ${itemDisplayName(entry.brand, entry.name, entry.variant)} kit to the list, with its ${counted(itemCount(entry), 'item')} under it`
+                  : `Add ${itemDisplayName(entry.brand, entry.name, entry.variant)} to the list`
             "
             @pointerdown="onRowPointerDown(entry, $event)"
             @click="onRowClick(entry)"
           >
+            <span class="vp__kit" aria-hidden="true">
+              <HugeiconsIcon v-if="iconById.get(entry.id)" :icon="iconById.get(entry.id)!" :size="16" :stroke-width="2" />
+            </span>
             <span class="gear__main">
               <!-- the full name on hover, for the rows the ellipsis cut short -->
               <span class="gear__name t-clip" :title="itemDisplayName(entry.brand, entry.name, entry.variant)">
@@ -621,21 +609,24 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
               <!-- the row can't be added again, so it says so plainly. A COUNT was
                    the right label when a second copy was allowed; now that one row
                    per piece of gear is the rule, the number was answering a question
-                   nobody can act on. -->
+                   nobody can act on. A KIT's count is a different fact — how many
+                   rows it unfolds into — and worth a line. -->
               <span v-if="isInList(entry)" class="t-sm vp__inlist">Already added</span>
+              <span v-else-if="isKit(entry)" class="t-sm vp__inlist">Kit · {{ counted(itemCount(entry), "item") }}</span>
             </span>
             <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
           </button>
         </li>
+        </template>
       </ul>
 
       <p v-else-if="query" class="t-sm t-muted vp__note">Nothing here matches “{{ query }}”.</p>
       <!-- the two tabs fail differently: an empty vault has no gear yet, an empty
-           Categories tab has gear that was never filed into one -->
-      <div v-else-if="tab === 'categories'" class="vp__empty">
+           Kits tab has gear that hasn't been made into a set -->
+      <div v-else-if="tab === 'kits'" class="vp__empty">
         <p class="t-sm t-muted">
-          No categories yet. Gear files itself under the folder you add it to, so build a
-          list with folders and they’ll show up here to reuse.
+          No kits yet. Make one with New kit on My Gear, or save a group on a list to My
+          Gear as one.
         </p>
       </div>
       <div v-else class="vp__empty">
@@ -738,24 +729,30 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 /* the rows carry their own --space-2 inline padding, so the header and controls
    need the same inset to line up with them rather than hugging the card edge */
 .vp__head,
-.vp__tabs,
+.vp__bar,
 .vp__controls,
 .vp__note,
 .vp__error,
 .vp__empty {
   padding-inline: var(--space-2);
 }
-/* Items / Categories — a segmented pair, not a link row: they switch what this panel
+/* Gear / Kits — a segmented pair, not a link row: they switch what this panel
    IS looking at, so the active one takes a filled ground rather than an underline.
    Same quiet-grey chip the row toggles use, so "selected" reads the same everywhere. */
+.vp__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-2);
+}
 .vp__tabs {
+  flex: none;
   display: flex;
   gap: var(--space-1);
-  margin-bottom: var(--space-2);
   /* The tab's LABEL lands on the panel's gutter, not its chip. Everything else down
      this edge — the title, "Add to", every row name — starts at the content edge; a
      tab carries its own --space-2 of chip padding on top of the shared inset, so
-     "Items" alone sat 8px further in and the column read as bent. Pull the row back
+     "Gear" alone sat 8px further in and the column read as bent. Pull the row back
      by exactly that padding: the text aligns and the active chip's ground overhangs
      into the panel's own padding, which is the --tap-pull idiom (grow the box, not
      the picture). */
@@ -820,12 +817,9 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
      middle of it, reading as a third heading */
   margin-inline-end: auto;
 }
-/* quiet, and a link rather than a button: it navigates, and the glyph says so */
+/* a glyph beside Close, and a link rather than a button: it navigates to the full page */
 .vp__open {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
 }
 .vp__controls {
   display: flex;
@@ -850,6 +844,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  /* the far end of the tab row, and the side that gives way: a long folder name
+     ellipsizes before the tabs do */
+  margin-inline-start: auto;
+  min-width: 0;
 }
 /* "Add to" is two words and was wrapping onto two lines next to the select,
    throwing the row's baseline out */
@@ -902,6 +900,22 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   overscroll-behavior: contain; /* reaching the end must not scroll the list behind */
   scrollbar-width: thin;
   scrollbar-color: var(--line-2) transparent;
+}
+/* a kind's name over its rows, held at the top of the list while its rows scroll
+   under it, so a long kind still says what it is */
+.vp__kind {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  padding: var(--space-3) var(--space-2) var(--space-1);
+  background: var(--surface-float);
+}
+.vp__kind:first-child {
+  padding-top: var(--space-1);
+}
+.vp__kindname {
+  margin: 0;
+  font-weight: 500;
 }
 /* the whole row is the button — a small "+" target would be a poor tap area on the
    one surface built for adding many things quickly, and the row is also the drag
@@ -965,6 +979,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 .vp__inlist {
   color: var(--ink-3);
+}
+/* the kit's mark sits on the first line beside the name, like the row's check does
+   on the trailing edge: a one-line-tall box centres the glyph on that line */
+.vp__kit {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  height: 1lh;
+  color: var(--ink-2);
 }
 .vp__w {
   flex: none;

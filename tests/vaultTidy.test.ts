@@ -1,11 +1,7 @@
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
-import {
-  listVaultFolders,
-  listVaultItems,
-  searchVaultItems,
-} from "../server/utils/vaultRepo";
+import { listVaultItems, searchVaultItems } from "../server/utils/vaultRepo";
 import { vaultNormKey } from "../shared/vault";
 import { createTestDb } from "./helpers/db";
 
@@ -21,11 +17,6 @@ async function legacyVault() {
     .returning({ id: schema.vaults.id });
   const vaultId = vault!.id;
 
-  const [folder] = await db
-    .insert(schema.vaultFolders)
-    .values({ vaultId, name: "Men's  layers", sortOrder: 0 })
-    .returning({ id: schema.vaultFolders.id });
-
   await db.insert(schema.vaultItems).values([
     {
       vaultId,
@@ -36,7 +27,6 @@ async function legacyVault() {
       variant: "Men's  Regular",
       commonName: " down jacket ",
       weightMg: 283000,
-      folderId: folder!.id,
     },
     {
       vaultId,
@@ -65,12 +55,6 @@ describe("a vault captured before the tidy existed", () => {
     const hits = await searchVaultItems(db, vaultId, "tent");
     expect(hits.length).toBeGreaterThan(0);
     expect(hits[0]!.brand).toBe(`Arc${CURLY}teryx`);
-  });
-
-  it("tidies vault folder names as well", async () => {
-    const { db, vaultId } = await legacyVault();
-    const folders = await listVaultFolders(db, vaultId);
-    expect(folders[0]!.name).toBe(`Men${CURLY}s layers`);
   });
 
   it("leaves a foot mark alone here too", async () => {

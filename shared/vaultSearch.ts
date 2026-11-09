@@ -46,6 +46,36 @@ export function rankVaultRows<T extends RankableVaultRow>(
   rawQuery: string,
   limit = VAULT_SEARCH_LIMIT,
 ): T[] {
+  return scoreVaultRows(rows, rawQuery)
+    .slice(0, limit)
+    .map(({ row }) => row);
+}
+
+/**
+ * Only the rows a query actually NAMES: its words running in brand and name (tier 0
+ * above), or nearly every trigram of it found in name, variant and gear type
+ * (PICK_THRESHOLD, stricter than the tier-1 line, which "lighter" still cleared against
+ * "Ultralight Mug Lid" because "lid" supplies the missing letters).
+ *
+ * For a picker, where a near miss is noise rather than help. rankVaultRows keeps weak
+ * matches and orders them by how often you pack them, which in an autocomplete beside
+ * the catalog is a fair guess, but in the kit dialog's item search it filled the slots
+ * under "lighter" with a quilt and socks ("Ultralight" holds "light") and under "stove"
+ * with your most-used gloves. A typo that misses here finds nothing, and the dialog
+ * says so.
+ */
+export function strongVaultRows<T extends RankableVaultRow>(rows: T[], rawQuery: string, limit = VAULT_SEARCH_LIMIT): T[] {
+  return scoreVaultRows(rows, rawQuery)
+    .filter((r) => r.tier === 0 || r.score >= PICK_THRESHOLD)
+    .slice(0, limit)
+    .map(({ row }) => row);
+}
+
+/** The share of a query's trigrams a row must hold to be offered by a picker. */
+const PICK_THRESHOLD = 0.8;
+
+/** Every row the query reaches, scored and tiered, in rank order. */
+function scoreVaultRows<T extends RankableVaultRow>(rows: T[], rawQuery: string): { row: T; score: number; tier: number }[] {
   const q = (rawQuery ?? "").trim();
   if (!enoughToSearch(q)) return []; // one character is too noisy for trigrams, unless it is a word
   return rows
@@ -67,7 +97,5 @@ export function rankVaultRows<T extends RankableVaultRow>(
         b.row.timesSeen - a.row.timesSeen ||
         b.score - a.score ||
         a.row.id - b.row.id,
-    )
-    .slice(0, limit)
-    .map(({ row }) => row);
+    );
 }

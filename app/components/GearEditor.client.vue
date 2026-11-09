@@ -29,7 +29,7 @@ import type { Spring } from "~/utils/spring";
 import { motionIsInstant } from "~/plugins/inputModality.client";
 // The ⋯ menu's own glyphs are NOT here — they ride its lazy chunk (EditorMenu);
 // the toolbar keeps only the one that opens it.
-import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon, UndoIcon } from "@hugeicons/core-free-icons";
+import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeHere } from "~/composables/useResumed";
@@ -57,6 +57,10 @@ const snapshot = c.snapshot;
 const totals = c.totals;
 const status = c.status;
 const pendingUndo = c.pendingUndo;
+// The undo bar only ever answers a remove, a paste or a kit added, so it is Lazy, off
+// the first load. Nothing can be removed before a pointer or focus has been in the
+// editor, so that moment fetches its chunk, and the first remove finds it in hand.
+const warmUndo = () => void import("./UndoBar.vue");
 const vaultPrompt = c.vaultPrompt;
 const vaultPicker = c.vaultPicker;
 // The chooser is a Lazy component, but rendering it unconditionally (it opens itself
@@ -368,23 +372,6 @@ function setVault(open: boolean) {
     }, () => {});
   });
 }
-// The undo toast holds its dismiss timer while hovered or containing focus, and
-// restarts the window on leave/blur. Two flags (pointer, focus) so releasing one
-// while the other still holds doesn't resume the clock. They reset when the toast
-// goes, since no mouseleave/focusout fires for an element that just unmounted —
-// otherwise a stale "hovered" would pin the NEXT toast open forever.
-const undoHovered = ref(false);
-const undoFocused = ref(false);
-watch(
-  () => undoHovered.value || undoFocused.value,
-  (held) => (held ? c.holdUndo() : c.releaseUndo()),
-);
-watch(pendingUndo, (u) => {
-  if (!u) {
-    undoHovered.value = false;
-    undoFocused.value = false;
-  }
-});
 const importOpen = ref(false);
 const menuOpen = ref(false);
 // The menu's body is a Lazy component (EditorMenu) behind the same everOpened guard
@@ -939,6 +926,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
     ref="editorRef"
     class="editor"
     :class="{ 'editor--split': vaultOpen }"
+    @pointerover.once="warmUndo"
+    @focusin.once="warmUndo"
   >
     <!-- the editor's page heading — visually the title input carries it, but a
          real (hidden) h1 gives AT users a page title on this client-only view -->
@@ -1312,34 +1301,21 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </main>
 
     <Transition name="toast">
-      <div
+      <LazyUndoBar
         v-if="pendingUndo"
-        class="toast undobar"
-        @mouseenter="undoHovered = true"
-        @mouseleave="undoHovered = false"
-        @focusin="undoFocused = true"
-        @focusout="undoFocused = false"
-      >
-        <span class="t-sm">{{ pendingUndo.verb ?? "Removed" }} <strong>{{ pendingUndo.label }}</strong></span>
-        <button class="undobar__btn t-sm" @click="c.undoRemove()">
-          <HugeiconsIcon :icon="UndoIcon" :size="14" :stroke-width="2" /> Undo
-        </button>
-      </div>
+        :undo="pendingUndo"
+        @take="c.undoRemove()"
+        @hold="(held: boolean) => (held ? c.holdUndo() : c.releaseUndo())"
+      />
       <div v-else-if="toast" class="toast t-sm">{{ toast }}</div>
     </Transition>
 
     <!-- the pane arrives from the edge it lives on; motion is in VaultPane's own
          styles, next to the geometry that decides which edge that is -->
     <Transition name="vaultpane">
-      <!-- adding a whole category lands a folder plus N rows further down the page
-           than the pane you clicked in, so it gets a toast — a single item's row
-           answers for itself in place ("Already added"), a set doesn't -->
-      <LazyVaultPane
-        v-if="vaultOpen"
-        v-model:width="vaultWidth"
-        @close="setVault(false)"
-        @added="(name: string) => flash(`Added ${name}`)"
-      />
+      <!-- a kit added from the pane says so in the undo bar (the pane calls the
+           controller's offerUndoAdd); a single item's row answers for itself in place -->
+      <LazyVaultPane v-if="vaultOpen" v-model:width="vaultWidth" @close="setVault(false)" />
     </Transition>
 
     <LazyCatalogCorrectionModal v-if="correctionEverOpened" @done="onCorrected" />

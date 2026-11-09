@@ -15,7 +15,7 @@
 // columns the database still has (nullable or defaulted, so harmless — nothing
 // drops them), and a column added here must ALSO be added to the DDL.
 
-import { bigint, boolean, integer, jsonb, pgTable, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { bigint, boolean, integer, jsonb, pgTable, primaryKey, serial, text, timestamp } from "drizzle-orm/pg-core";
 import type { ListData } from "../../shared/types";
 import type { FullSnap, ListDiff } from "../../shared/snapshotDiff";
 
@@ -363,9 +363,10 @@ export const vaultItems = pgTable(
     kcal: integer("kcal"),
     catalogItemId: integer("catalog_item_id"), // set when the row came from a catalog pick
     productUrl: text("product_url"),
-    // Your note about the gear ("size M", "seam-sealed 2024") — the list Item's
-    // `description`, which capture used to leave behind. Null = none.
-    description: text("description"),
+    // legacy columns still in the database, undeclared: description and
+    // description_pinned. My Gear kept a note until 2026-11-08, mostly list notes that
+    // capture had copied in (a trip's "Sam carries this" showing on the gear), so the
+    // two were cut apart: a note belongs to a list row, and My Gear keeps none.
     // What it cost, in whole cents of `currency`. The gear is where a price belongs:
     // a list row's price is the same purchase counted again in every list it's in.
     priceCents: integer("price_cents"),
@@ -383,7 +384,6 @@ export const vaultItems = pgTable(
     classificationPinned: boolean("classification_pinned").notNull().default(false),
     kcalPinned: boolean("kcal_pinned").notNull().default(false),
     productUrlPinned: boolean("product_url_pinned").notNull().default(false),
-    descriptionPinned: boolean("description_pinned").notNull().default(false),
     // price_cents + currency share one flag, like brand/name/variant share
     // name_pinned: an amount and the money it's in are one decision
     pricePinned: boolean("price_pinned").notNull().default(false),
@@ -394,7 +394,36 @@ export const vaultItems = pgTable(
     removedAt: timestamp("removed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    // piece | kit. A KIT is a set you itemize — a cook kit that is a stove, a pot
+    // and a lighter — and its weight_mg is only what it weighs by ITSELF (the stuff
+    // sack, usually nothing). What it weighs in all is read out of vault_kit_parts
+    // on every read, so re-weighing the pot re-weighs every kit it is in. A thing
+    // you weigh whole and never itemize stays a piece.
+    kind: text("kind").notNull().default("piece"),
   }
+);
+
+/**
+ * Which pieces a kit is made of, how many of each, in what order.
+ *
+ * One level deep, by rule rather than by constraint (see setKitParts): a part is
+ * always a piece, never a kit, which is also as deep as a list nests — so a kit put
+ * on a list unfolds into exactly one group. A piece may belong to several kits (the
+ * same lighter in the cook kit and the fire kit); the vault's totals count it once,
+ * where it is filed, and a kit adds only its own weight to them.
+ *
+ * No FK, like the rest of the vault: the links are deleted with the vault (the
+ * purge), and a put-away part keeps its link so it can come back counted.
+ */
+export const vaultKitParts = pgTable(
+  "vault_kit_parts",
+  {
+    kitId: integer("kit_id").notNull(),
+    partId: integer("part_id").notNull(),
+    qty: integer("qty").notNull().default(1),
+    sortOrder: integer("sort_order").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.kitId, t.partId] })],
 );
 
 // ---------------------------------------------------------------------------

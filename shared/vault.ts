@@ -34,9 +34,6 @@ export const VAULT_CAPTURE_MAX = 200;
 export const VAULT_NAME_MAX = 200;
 export const VAULT_SHORT_MAX = 120;
 export const VAULT_URL_MAX = 2000;
-/** A note's cap, taking the list Item's own (cleanItemPatch's 2000) rather than a
- *  second number — it is the same text, moved. */
-export const VAULT_NOTE_MAX = 2000;
 
 /**
  * A piece of gear as the client offers it up for capture — the subset of a list
@@ -61,12 +58,6 @@ export interface VaultCapture {
   kcal?: number;
   catalogItemId?: number;
   productUrl?: string;
-  /** Your note about the gear — the list Item's `description`, which capture used
-   *  to drop on the floor. Ambiguous by nature (a row's note is sometimes about the
-   *  trip: "Sam carries this"), and the answer to that is the same one the other
-   *  coalesced fields get: the FIRST note wins, and correcting it on /gear pins it
-   *  so no later list can argue. */
-  description?: string;
   /** What it cost, in whole cents of `currency`. Recorded on the gear rather than on
    *  a list row, because a price is a fact about the thing you bought — and because
    *  the list side has been waiting for it: NameCommit already declares priceCents
@@ -75,11 +66,9 @@ export interface VaultCapture {
   /** ISO 4217 for priceCents, when it's known. Moves with the price and is pinned
    *  with it — "$399" is one decision, not two. */
   currency?: string;
-  /** The NAME of the list folder this gear sat in, so a vault fills itself
-   *  organised instead of arriving as one flat pile. A name, not an id: list
-   *  folder ids are per-list, and the same "Shelter" in two lists should mean one
-   *  vault folder. The server files a row on FIRST capture only, so a later list
-   *  that groups differently can't reshuffle what you've already filed. */
+  /** The NAME of the list folder (or file category) this gear sat in, for the
+   *  chooser to group its rows under. My Gear itself has no folders — it groups by
+   *  kind — so the server stores nothing from it. */
   folder?: string;
   /** True when brand/name/variant are the catalog's own text, untouched since the
    *  pick (linked, not renamed). The server then captures the row under the catalog's
@@ -100,15 +89,7 @@ export interface VaultCapture {
  * automatic path wrote single characters into the Map. A cast at the fetch is not
  * a check; a shared name at least makes the contract greppable from both sides.
  */
-export type VaultGearKey = [normKey: string, weightMg: number | null];
-
-/** A vault folder as the API returns it. Deliberately smaller than a list Folder:
- *  no colorKey, no defaultClassification — those describe how a LIST presents and
- *  classifies rows, and a vault row already carries its own classification. */
-export interface VaultFolder {
-  id: number;
-  name: string;
-}
+export type VaultGearKey = [normKey: string, weightMg: number | null, kind?: "kit"];
 
 /**
  * The fields a /gear edit can PIN.
@@ -130,7 +111,6 @@ export const VAULT_PIN_FIELDS = [
   "classification",
   "kcal",
   "productUrl",
-  "description",
   // one token for priceCents + currency, on the same rule that gives brand/name/
   // variant one: an amount and the money it's in are one decision, and a capture
   // that could revert the currency under a kept number would invent a price
@@ -153,9 +133,7 @@ export function ownedOf(v: unknown): number | undefined {
 }
 
 /** A stored gear row as the API returns it. */
-export interface VaultEntry extends VaultCapture {
-  /** which vault folder it's filed under; absent = unfiled */
-  folderId?: number;
+export interface VaultEntry extends VaultCapture, VaultKitFields {
   /** Which fields you've corrected by hand, so capture leaves them alone. Absent =
    *  nothing pinned, which is every row only a list has ever written. */
   pinned?: VaultPinField[];
@@ -173,6 +151,72 @@ export interface VaultEntry extends VaultCapture {
   timesSeen: number;
   lastUsedAt: string;
   createdAt: string;
+}
+
+// ---------------------------------------------------------------------------
+// kits
+// ---------------------------------------------------------------------------
+// A KIT is a set you itemize: a cook kit that is a stove, a pot and a lighter. It is
+// a vault row like any other — a name and its parts — whose weight is its parts'.
+// A thing you weigh whole and never itemize (the first-aid pouch you never open) is
+// not a kit; it is a piece with a weight, which the vault has always held.
+//
+// What a kit is FOR is the list. A list already nests one level — a row with rows
+// under it is a group, and the group's line shows the total — and My Gear used to
+// refuse exactly that shape (see isVaultWorthy): the set you built on a trip was
+// remembered as its pieces and forgotten as a set. A kit is that group, kept. It is
+// made from a group (kitFromGroup, behind the group row's own Save to My Gear) or by
+// hand on /gear, and it goes back onto a list as a group — a parent row carrying the
+// kit's own weight, each part a real child row you can drop, assign or annotate for
+// that trip.
+//
+// One level deep, like the list: a part is always a piece. A piece may sit in several
+// kits (the lighter in the cook kit and the fire kit), and totals count it once,
+// where it is filed. The arithmetic and the builder live in vaultKit.ts, off the
+// editor's first load; the types and the row's own gate (isKitWorthy) live here.
+
+type VaultKind = "piece" | "kit";
+
+/** One part of a kit as a read hands it back: which piece, how many, and enough of
+ *  the piece to draw it under the kit — a put-away part is not in the live list the
+ *  page holds, and it is still listed here, flagged. */
+export interface VaultKitPart {
+  id: number;
+  qty: number;
+  brand?: string;
+  name: string;
+  variant?: string;
+  /** ONE unit of the part, as the part row stores it */
+  weightMg: number;
+  /** put away on /gear: still listed under the kit, no longer counted */
+  removed?: boolean;
+}
+
+/** The kit fields a read adds to an entry. On a kit the entry's own `weightMg` is the
+ *  DERIVED total (own + live parts × qty), so anything that shows or sorts one row
+ *  sees the true figure; a TOTAL over rows reckons it apart (vaultKit.ts). */
+export interface VaultKitFields {
+  /** absent on a piece */
+  kind?: "kit";
+  /** a kit's own weight (the stuff sack), as stored — usually 0 */
+  ownWeightMg?: number;
+  /** a kit's parts, in the kit's order, put-away ones included and flagged */
+  parts?: VaultKitPart[];
+  /** a piece's live kits, by id; absent when it is in none */
+  inKits?: number[];
+}
+
+/** A part named the way a capture can name it: by the gear's identity, with the
+ *  count the group carried. Ids belong to the vault, and a list has none. */
+export interface VaultKitPartRef {
+  normKey: string;
+  qty: number;
+}
+
+/** A group row offered to the vault as a kit: the parent as gear (its weightMg is
+ *  the group's OWN weight, the stuff sack), plus which of the children are its parts. */
+export interface VaultKitCapture extends VaultCapture {
+  parts: VaultKitPartRef[];
 }
 
 function trim(v: string | undefined | null, max: number): string | undefined {
@@ -201,8 +245,8 @@ export function vaultNormKey(
 }
 
 /** The vault identities a list's rows already hold — the set three surfaces ask
- *  before offering a row (the pane's "already added", the folder-at-once add, the
- *  capture's own ledger). Nameless rows have no identity and are skipped. */
+ *  before offering a row (the pane's "already added", a kit unfolding onto a list,
+ *  the capture's own ledger). Nameless rows have no identity and are skipped. */
 export function listNormKeys(
   items: readonly { brand?: string | null; name?: string | null; variant?: string | null }[],
 ): Set<string> {
@@ -238,7 +282,7 @@ export function isVaultWorthy(item: Item, hasChildren: boolean): boolean {
 
 /** Water is the one list row the editor synthesises from a volume (see
  *  shared/water.ts) — never gear. */
-function isWaterRow(item: Item): boolean {
+export function isWaterRow(item: Item): boolean {
   return item.classification === "consumable" && foldForSearch(item.name) === "water";
 }
 
@@ -275,7 +319,6 @@ export function gearFromItem(item: Item, folderName?: string): VaultCapture | nu
     kcal: typeof item.kcal === "number" && item.kcal > 0 ? Math.round(item.kcal) : undefined,
     catalogItemId: typeof item.catalogItemId === "number" ? item.catalogItemId : undefined,
     productUrl: trim(item.productUrl, VAULT_URL_MAX),
-    description: trim(item.description, VAULT_NOTE_MAX),
     // a price of zero is "free", which nobody records, so it reads as absent —
     // the same shape kcal takes above
     priceCents:
@@ -334,6 +377,28 @@ export function captureFromList(
 }
 
 /**
+ * Could this group row be saved as a KIT — the render gate for its save button, the
+ * way isVaultWorthy is for a piece's. A named group that isn't water, holding at
+ * least one child that is gear in its own right (and isn't the group's own name).
+ *
+ * Its own small test rather than "would kitFromGroup build one": this runs on every
+ * group row, so it lives here, in the module every row loads; the builder only runs
+ * on the press, and lives with the rest of the kit code (vaultKit.ts), off that path.
+ */
+export function isKitWorthy(parent: Item, children: readonly Item[]): boolean {
+  if (isWaterRow(parent)) return false;
+  const own = vaultNormKey(parent.brand, parent.name, parent.variant);
+  return (
+    !!own &&
+    children.some((c) => {
+      if (c.parentId !== parent.id || !isVaultWorthy(c, false)) return false;
+      const key = vaultNormKey(c.brand, c.name, c.variant);
+      return !!key && key !== own;
+    })
+  );
+}
+
+/**
  * A stable fingerprint of a capture set, so the client only re-sends when
  * something a vault row would actually store has changed. Without it, the editor's
  * every-keystroke snapshot would POST the whole list on each pause; with it, a
@@ -358,10 +423,8 @@ export function captureFingerprint(caps: VaultCapture[]): string {
         c.catalogItemId ?? "",
         c.commonName ?? "",
         c.productUrl ?? "",
-        c.description ?? "",
         c.priceCents ?? "",
         c.currency ?? "",
-        c.folder ?? "",
       ].join(
         "",
       ),
@@ -397,8 +460,7 @@ export interface VaultPick {
  * along for provenance. A field the gear doesn't have is left out, never cleared: on a
  * row being renamed that keeps what the row already says, and a new row has nothing to
  * keep. A weight of 0 is "not weighed yet", so it brings no weight (and no unit). No
- * note: the gear's is about the gear, a row's is about the trip, and neither should
- * overwrite the other.
+ * note: a row's note is about the trip, and My Gear keeps none.
  */
 export function vaultRowFields(v: VaultPick): Partial<Item> {
   return {
@@ -415,4 +477,87 @@ export function vaultRowFields(v: VaultPick): Partial<Item> {
     ...(v.productUrl ? { productUrl: v.productUrl } : {}),
     ...(v.kcal != null ? { kcal: v.kcal } : {}),
   };
+}
+
+/** What you can do to a vault ROW from /gear — see server/api/vault/items.post.ts.
+ *  Here rather than beside the repo that applies it, so the page's calls are typed
+ *  by the same union the endpoint reads. */
+export type VaultItemOp =
+  | {
+      t: "add";
+      brand?: string;
+      name: string;
+      variant?: string;
+      commonName?: string;
+      /** Absent or 0 = not weighed yet, a normal state for gear you've just
+       *  remembered you own. A zero pins nothing — see cleanVaultPatch. */
+      weightMg?: number;
+      classification?: Classification;
+      kcal?: number;
+      /** The catalog row the piece is a pick of, when it is one: what a captured pick
+       *  carries, stated by hand. Bounded by sanitize() like a capture's. */
+      catalogItemId?: number;
+      productUrl?: string;
+      priceCents?: number;
+      currency?: string;
+      /** The unit its weight was typed in ("3.8 oz"), so it reads back the same way. */
+      entryUnit?: Unit;
+      /** How many you own; absent is one. */
+      owned?: number;
+    }
+  | {
+      t: "edit";
+      id: number;
+      patch: VaultItemPatch;
+      /** Release a pin, so a list can teach the field again. The only way back from
+       *  a pin — without it one correction would freeze a field forever. Applied
+       *  AFTER the patch's own pins, so `{ patch: { weightMg: 545 }, unpin:
+       *  ["weight"] }` reads as "set it, but keep taking my lists' word for it". */
+      unpin?: VaultPinField[];
+    }
+  | {
+      t: "kit";
+      id: number;
+      /** The kit's pieces, in its order — they REPLACE whatever it held. Empty turns
+       *  a kit back into a piece (see clearKit). */
+      parts: { id: number; qty?: number }[];
+      /** The kit's own weight (the stuff sack); absent = 0. Unread when `parts` is
+       *  empty, since the piece it becomes keeps the total it showed. */
+      ownWeightMg?: number;
+    };
+
+/**
+ * A field ABSENT here is untouched; present, it is set AND pinned; null (or a
+ * string that tidies to "") CLEARS it and pins the emptiness — otherwise deleting a
+ * bogus product URL would be undone by the next capture's coalesce. The same
+ * semantics cleanItemPatch gives a list row in shared/ops.
+ *
+ */
+export interface VaultItemPatch {
+  brand?: string | null;
+  name?: string;
+  variant?: string | null;
+  commonName?: string | null;
+  weightMg?: number;
+  classification?: Classification | null;
+  kcal?: number | null;
+  productUrl?: string | null;
+  /** The amount, in cents. 0 or null clears it — and clears the currency with it,
+   *  since the two are one decision (VAULT_PIN_FIELDS' `price`). */
+  priceCents?: number | null;
+  /** Only read alongside a priceCents. On its own it would set the money a stored
+   *  amount is in without the amount being restated, which is how "£399" becomes
+   *  "$399" by editing a field the dialog didn't show you. */
+  currency?: string | null;
+  /** Link the piece to a catalog row, or null to unlink it. No pin: a link is a fact
+   *  about which product this is, not a value a list could argue with. */
+  catalogItemId?: number | null;
+  /** The icon picked by hand, or null to go back to the gear type's. No pin, like the
+   *  catalog link: nothing but this dialog ever writes it. */
+  icon?: GearGlyph | null;
+  /** The unit the weight reads in, or null for the page's. No pin: only /gear writes
+   *  it, so there is no capture to protect it from. */
+  entryUnit?: Unit | null;
+  /** How many you own; 1 or null goes back to one. No pin, for entryUnit's reason. */
+  owned?: number | null;
 }

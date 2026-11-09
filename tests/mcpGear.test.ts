@@ -18,6 +18,7 @@ import { listClaimedLists } from "../server/utils/claimRepo";
 import { LISTS_DDL } from "../server/utils/db";
 import { rateLimitSubject } from "../server/utils/rateLimit";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
+import { applyVaultItemOp } from "../server/utils/vaultRepo";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
 import { makeEvent } from "./helpers/http";
@@ -154,7 +155,7 @@ describe("the gear tools", () => {
   it("read an account that has no gear yet as empty", async () => {
     const r = await tool("get_my_gear", {}, aliceRead);
     expect(r.refused, r.text).toBe(false);
-    expect(r.data).toEqual({ gear: [], folders: [], total: 0, offset: 0 });
+    expect(r.data).toEqual({ gear: [], total: 0, offset: 0 });
   });
 
   it("let a read-only token change nothing, not even mint the vault: a 403 that asks for write", async () => {
@@ -167,13 +168,13 @@ describe("the gear tools", () => {
   });
 
   let tentId = 0;
-  it("add pieces, file them by folder name, and report a piece the account already holds", async () => {
+  it("add pieces, and report a piece the account already holds", async () => {
     const r = await tool(
       "edit_my_gear",
       {
         add: [
-          { name: "X-Mid 2", brand: "Durston", gear_type: "Tent", weight_g: 1000, folder: "Shelter", price: 329, currency: "usd" },
-          { name: "Flash 55", brand: "REI", variant: "M", weight_g: 1190, folder: "Pack", classification: "base" },
+          { name: "X-Mid 2", brand: "Durston", gear_type: "Tent", weight_g: 1000, price: 329, currency: "usd" },
+          { name: "Flash 55", brand: "REI", variant: "M", weight_g: 1190, classification: "base" },
           { name: "" },
         ],
       },
@@ -183,13 +184,13 @@ describe("the gear tools", () => {
     expect(r.data.added).toBe(2);
     const results = r.data.results as { index: number; status: string; item?: Record<string, unknown> }[];
     expect(results.map((x) => x.status)).toEqual(["added", "added", "invalid"]);
-    expect(results[0]!.item).toMatchObject({ display_name: "Durston X-Mid 2", gear_type: "Tent", weight_g: 1000, folder: "Shelter", price: 329, currency: "USD" });
+    // kind is the gear page's section, read from the gear type; a name it can't place is Other
+    expect(results[0]!.item).toMatchObject({ display_name: "Durston X-Mid 2", gear_type: "Tent", kind: "Shelter", weight_g: 1000, price: 329, currency: "USD" });
     tentId = results[0]!.item!.id as number;
 
-    // identity is brand + name + variant, case-folded; "shelter" is the folder "Shelter"
-    const again = await tool("edit_my_gear", { add: [{ name: "x-mid 2", brand: "DURSTON", folder: "shelter" }] }, aliceWrite);
+    // identity is brand + name + variant, case-folded
+    const again = await tool("edit_my_gear", { add: [{ name: "x-mid 2", brand: "DURSTON" }] }, aliceWrite);
     expect((again.data.results as { status: string }[]).map((x) => x.status)).toEqual(["already_have"]);
-    expect((await db.select().from(schema.vaultFolders)).map((f) => f.name).sort()).toEqual(["Pack", "Shelter"]);
   });
 
   it("pin every field an add gives, so a later list save leaves them alone", async () => {
@@ -197,15 +198,10 @@ describe("the gear tools", () => {
     expect(tent).toMatchObject({ namePinned: true, weightPinned: true, commonNamePinned: true, pricePinned: true });
   });
 
-  it("list everything, rank by a query, keep to a folder, and page", async () => {
+  it("list everything, rank by a query, and page", async () => {
     const all = await tool("get_my_gear", {}, aliceRead);
     expect(all.data.total).toBe(2);
-    expect(all.data.folders).toEqual(["Shelter", "Pack"]);
     expect(names(await tool("get_my_gear", { query: "flash" }, aliceRead))).toEqual(["Flash 55"]);
-    expect(names(await tool("get_my_gear", { folder: "PACK" }, aliceRead))).toEqual(["Flash 55"]);
-    const nowhere = await tool("get_my_gear", { folder: "Kitchen" }, aliceRead);
-    expect(nowhere.refused).toBe(true);
-    expect(nowhere.text).toContain("Shelter, Pack");
     const page = await tool("get_my_gear", { limit: 1, offset: 1 }, aliceRead);
     expect(page.data).toMatchObject({ total: 2, offset: 1 });
     expect(page.data.gear).toHaveLength(1);
@@ -225,13 +221,11 @@ describe("the gear tools", () => {
     expect(back[0]!.item).toMatchObject({ owned: 1 });
   });
 
-  it("change one field, clear another, move the piece between folders, and mark an empty change invalid", async () => {
-    const r = await tool("edit_my_gear", { update: [{ id: tentId, weight_g: 1010, price: null, folder: "Big three" }] }, aliceWrite);
+  it("change one field, clear another, and mark an empty change invalid", async () => {
+    const r = await tool("edit_my_gear", { update: [{ id: tentId, weight_g: 1010, price: null }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);
     const [done] = r.data.updated as { id: number; status: string; item: Record<string, unknown> }[];
-    expect(done).toMatchObject({ id: tentId, status: "updated", item: { id: tentId, weight_g: 1010, price: null, currency: null, folder: "Big three" } });
-    const unfiled = (await tool("edit_my_gear", { update: [{ id: tentId, folder: "" }] }, aliceWrite)).data.updated as { item: Record<string, unknown> }[];
-    expect(unfiled[0]!.item).toMatchObject({ folder: null });
+    expect(done).toMatchObject({ id: tentId, status: "updated", item: { id: tentId, weight_g: 1010, price: null, currency: null } });
     // a piece keeps a name, and an entry with nothing to change is said so, piece by piece
     const bad = (await tool("edit_my_gear", { update: [{ id: tentId, name: null }, { id: tentId }] }, aliceWrite)).data.updated as { status: string }[];
     expect(bad.map((u) => u.status)).toEqual(["invalid", "invalid"]);
@@ -247,9 +241,6 @@ describe("the gear tools", () => {
     expect((touched.data.updated as { status: string }[])[0]!.status).toBe("not_found");
     expect((touched.data.removed as { status: string }[])[0]!.status).toBe("not_found");
     expect(names(await tool("get_my_gear", {}, aliceWrite))).not.toContain("Windburner");
-    // and the folder named beside a bad id is not made
-    await tool("edit_my_gear", { update: [{ id: bobsId, folder: "Stoves" }] }, aliceWrite);
-    expect((await db.select().from(schema.vaultFolders)).map((f) => f.name)).not.toContain("Stoves");
   });
 
   it("put a piece away and bring it back", async () => {
@@ -261,12 +252,12 @@ describe("the gear tools", () => {
   });
 
   it("link a piece to the catalog as it is added or later, taking the catalog's fields where none were given, and unlink", async () => {
-    const r = await tool("edit_my_gear", { add: [{ catalog_id: 1, folder: "Shelter" }, { name: "Spare Duplex", catalog_id: 1, weight_g: 90 }] }, aliceWrite);
+    const r = await tool("edit_my_gear", { add: [{ catalog_id: 1 }, { name: "Spare Duplex", catalog_id: 1, weight_g: 90 }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);
     const results = r.data.results as { status: string; item?: Record<string, unknown> }[];
     expect(results.map((x) => x.status)).toEqual(["added", "added"]);
     // named by the catalog alone: the catalog's brand, name, gear type and weight
-    expect(results[0]!.item).toMatchObject({ display_name: "Zpacks Duplex", gear_type: "Tent", weight_g: 538, catalog_id: 1, folder: "Shelter" });
+    expect(results[0]!.item).toMatchObject({ display_name: "Zpacks Duplex", gear_type: "Tent", weight_g: 538, catalog_id: 1 });
     // the fields given stand over the catalog's; the link is the same
     expect(results[1]!.item).toMatchObject({ name: "Spare Duplex", brand: "Zpacks", weight_g: 90, catalog_id: 1 });
     const duplexId = results[0]!.item!.id as number;
@@ -285,6 +276,74 @@ describe("the gear tools", () => {
     expect(refused.text).toContain("isn't in the catalog");
     expect((await tool("edit_my_gear", { update: [{ id: duplexId, catalog_id: 1.5 }] }, aliceWrite)).refused).toBe(true);
     expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(before);
+  });
+
+  it("say what a kit holds, list its items as pieces of their own, and refuse a weight on one", async () => {
+    const added = await tool("edit_my_gear", { add: [{ name: "Pocket stove", weight_g: 73, owned: 2 }, { name: "Cook kit" }] }, aliceWrite);
+    const [stoveId, kitId] = (added.data.results as { item: { id: number } }[]).map((r) => r.item.id);
+    const [row] = await db.select({ vaultId: schema.vaultItems.vaultId }).from(schema.vaultItems).where(eq(schema.vaultItems.id, stoveId!));
+    // made on the gear page; the connector reads it
+    expect(await applyVaultItemOp(db, row!.vaultId, { t: "kit", id: kitId!, parts: [{ id: stoveId!, qty: 2 }], ownWeightMg: 20_000 })).not.toBeNull();
+    const found = await tool("get_my_gear", { query: "cook kit" }, aliceRead);
+    const kit = (found.data.gear as { id: number }[]).find((g) => g.id === kitId);
+    expect(kit).toMatchObject({ weight_g: 166, kit: { own_weight_g: 20, items: [{ id: stoveId, count: 2, weight_g: 73, put_away: false }] }, in_kits: [] });
+    const stove = ((await tool("get_my_gear", {}, aliceRead)).data.gear as { id: number }[]).find((g) => g.id === stoveId);
+    expect(stove).toMatchObject({ kit: null, in_kits: [kitId] });
+    const refused = await tool("edit_my_gear", { update: [{ id: kitId, weight_g: 500 }] }, aliceWrite);
+    expect(refused.refused, refused.text).toBe(false);
+    const [answer] = refused.data.updated as { status: string; reason?: string }[];
+    expect(answer).toMatchObject({ status: "invalid" });
+    expect(answer!.reason).toContain("kit weighs what its items weigh");
+  });
+
+  it("make a kit, change what it holds, and turn it back into a piece, as the gear page does", async () => {
+    const pieces = await tool("edit_my_gear", { add: [{ name: "Titanium pot", weight_g: 110 }, { name: "Spork", brand: "Toaks", weight_g: 15 }, { name: "Mini lighter", weight_g: 11, owned: 2 }] }, aliceWrite);
+    const [potId, sporkId, lighterId] = (pieces.data.results as { item: { id: number } }[]).map((r) => r.item.id);
+
+    // made as it is added: its items by id, with counts, and a weight of its own
+    const made = await tool("edit_my_gear", { add: [{ name: "Kitchen kit", kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 2 }], own_weight_g: 12 } }] }, aliceWrite);
+    expect(made.refused, made.text).toBe(false);
+    const [res] = made.data.results as { status: string; item: Record<string, unknown> }[];
+    expect(res!.status).toBe("added");
+    const kitId = res!.item.id as number;
+    expect(res!.item).toMatchObject({ weight_g: 159, kit: { own_weight_g: 12, items: [{ id: potId, count: 1 }, { id: sporkId, count: 1 }, { id: lighterId, count: 2 }] } });
+
+    // never more of a piece than its owned: a higher count is held to it
+    const over = await tool("edit_my_gear", { update: [{ id: kitId, kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 9 }], own_weight_g: 12 } }] }, aliceWrite);
+    expect((over.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ weight_g: 159, kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 2 }] } });
+
+    // items REPLACE what it held
+    const changed = await tool("edit_my_gear", { update: [{ id: kitId, kit: { items: [{ id: potId }, { id: lighterId, count: 1 }] } }] }, aliceWrite);
+    const [up] = changed.data.updated as { status: string; item: Record<string, unknown> }[];
+    expect(up).toMatchObject({ status: "updated", item: { weight_g: 121, kit: { own_weight_g: 0, items: [{ id: potId }, { id: lighterId, count: 1 }] } } });
+    const spork = ((await tool("get_my_gear", { query: "spork" }, aliceRead)).data.gear as { id: number; in_kits: number[] }[]).find((g) => g.id === sporkId);
+    expect(spork!.in_kits).toEqual([]);
+
+    // one level deep: a piece already in a kit can't hold items, and a kit can't be an item
+    const nested = await tool("edit_my_gear", { update: [{ id: potId, kit: { items: [{ id: sporkId }] } }] }, aliceWrite);
+    expect((nested.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("already in a kit") });
+    const kitAsItem = await tool("edit_my_gear", { add: [{ name: "Everything kit", kit: { items: [{ id: kitId }] } }] }, aliceWrite);
+    expect((kitAsItem.data.results as { status: string; reason: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "added", reason: expect.stringContaining("Added as a single piece"), item: { kit: null } });
+
+    // a malformed kit refuses the whole call before anything is written
+    const both = await tool("edit_my_gear", { update: [{ id: kitId, weight_g: 300, kit: { items: [{ id: potId }] } }] }, aliceWrite);
+    expect(both.refused).toBe(true);
+    expect(both.text).toContain("own_weight_g");
+    expect((await tool("edit_my_gear", { add: [{ name: "Empty kit", kit: { items: [] } }] }, aliceWrite)).refused).toBe(true);
+
+    // null turns it back into a piece weighing what the kit did; its items stay pieces
+    const undone = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
+    expect((undone.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { weight_g: 121, kit: null } });
+    const notAKit = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
+    expect((notAKit.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("isn't a kit") });
+    const pot = ((await tool("get_my_gear", { query: "titanium pot" }, aliceRead)).data.gear as { id: number; in_kits: number[]; weight_g: number }[]).find((g) => g.id === potId);
+    expect(pot).toMatchObject({ in_kits: [], weight_g: 110 });
+  });
+
+  it("answer an add the account already holds with that piece, so its id is in hand", async () => {
+    const again = await tool("edit_my_gear", { add: [{ name: "Titanium pot" }] }, aliceWrite);
+    const [res] = again.data.results as { status: string; item: Record<string, unknown> }[];
+    expect(res).toMatchObject({ status: "already_have", item: { name: "Titanium pot", weight_g: 110 } });
   });
 
   it("charge the account's budget rather than the caller's address", async () => {
