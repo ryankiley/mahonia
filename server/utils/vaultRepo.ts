@@ -690,27 +690,6 @@ export async function vaultItemByNormKey(db: Db, vaultId: number, normKey: strin
   return rows[0] ? ((await withKits(db, vaultId, [toEntry(rows[0])]))[0] ?? null) : null;
 }
 
-/**
- * The tombstoned rows — what "Remove" put away, most recently removed first.
- *
- * They need somewhere to be seen. Capture deliberately never clears a tombstone
- * (see captureVaultItems), which is what stops every list still holding the gear
- * from resurrecting it — but it also means removal is otherwise PERMANENT, with
- * nothing but the undo toast's few seconds to take it back. This is the way back:
- * one deliberate click, rather than the vault trying to guess from a capture
- * whether you meant to re-add something.
- */
-export async function listRemovedVaultItems(db: Db, vaultId: number): Promise<VaultEntry[]> {
-  const rows = await db
-    .select()
-    .from(vaultItems)
-    .where(and(eq(vaultItems.vaultId, vaultId), isNotNull(vaultItems.removedAt)))
-    .orderBy(desc(vaultItems.updatedAt))
-    .limit(POOL_LIMIT);
-  // a put-away kit still reads whole, so "Put back" brings back the figure you knew
-  return withKits(db, vaultId, rows.map(toEntry));
-}
-
 /** Rank a user's vault against an autocomplete query. Recall is the whole (bounded)
  *  live set; the fine ranking is the shared JS cascade — the catalog's PGlite
  *  strategy, applied here on both engines because a vault is always small.

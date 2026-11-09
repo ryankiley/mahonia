@@ -14,8 +14,8 @@ import {
   captureVaultItems,
   captureVaultItemsReporting,
   importVaultItems,
-  listRemovedVaultItems,
   listVaultItems,
+  vaultItemById,
   vaultGearAmong,
   purgeDeletedVaults,
   reapAbandonedVaults,
@@ -1069,7 +1069,7 @@ describe("editing a vault row", () => {
     await removeVaultItem(db, VAULT, id);
     await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { weightMg: 1 } } as any);
     expect(await listVaultItems(db, VAULT)).toHaveLength(0);
-    expect((await listRemovedVaultItems(db, VAULT))[0]!.weightMg).toBe(1);
+    expect((await vaultItemById(db, VAULT, id))!.weightMg).toBe(1);
   });
 
   it("leaves lastUsedAt and timesSeen alone — an edit is not a use", async () => {
@@ -1330,12 +1330,13 @@ describe("vault import — putting a file's worth of gear back", () => {
     // the same answer capture gives: putting a piece back is a deliberate act with
     // its own control on /gear
     await captureVaultItems(db, VAULT, [cap()]);
-    await removeVaultItem(db, VAULT, (await only(db))!.id);
+    const id = (await only(db))!.id;
+    await removeVaultItem(db, VAULT, id);
 
     const res = await importVaultItems(db, VAULT, [imported()]);
     expect(res).toEqual({ added: 0, skipped: 1 });
     expect(await listVaultItems(db, VAULT)).toHaveLength(0);
-    expect(await listRemovedVaultItems(db, VAULT)).toHaveLength(1);
+    expect(await vaultItemById(db, VAULT, id)).toBeTruthy();
   });
 
   it("applies the pins the file states", async () => {

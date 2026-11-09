@@ -2328,15 +2328,16 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
       updated.push({ id, status: "not_found" });
       continue;
     }
-    let after: VaultEntry | null = null;
+    // read once: an id that isn't this vault's is not_found before anything is tried
+    const before = await vaultItemById(db, vaultId, id);
+    if (!before) {
+      updated.push({ id, status: "not_found" });
+      continue;
+    }
+    let after: VaultEntry = before;
     // the kit first, so a change that clears one can then give the piece a weight,
     // and a kit the vault refuses leaves the whole entry undone
     if (kit !== undefined) {
-      const before = await vaultItemById(db, vaultId, id);
-      if (!before) {
-        updated.push({ id, status: "not_found" });
-        continue;
-      }
       if (kit === null && before.kind !== "kit") {
         updated.push({ id, status: "invalid", reason: "That piece isn't a kit, so there is nothing to turn back. Nothing was changed on it." });
         continue;
@@ -2351,21 +2352,12 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
     if (Object.keys(patch).length) {
       const outcome = await applyVaultItemOp(db, vaultId, { t: "edit", id, patch } as VaultItemOp);
       if (!outcome || "refused" in outcome) {
-        // the vault answers nothing both for an id that isn't this vault's and for a
-        // change it won't make (a weight on a kit, whose weight is its items'): the
-        // row, read back, says which
-        const row = await vaultItemById(db, vaultId, id);
-        if (!row) updated.push({ id, status: "not_found" });
-        else updated.push({ id, status: "invalid", reason: row.kind === "kit" && "weightMg" in patch ? KIT_WEIGHT : "That change would not leave a valid piece. Nothing was changed on it." });
+        // the row exists (read above), so a refusal is a change the vault won't make:
+        // a weight on a kit, whose weight is its items', says so
+        updated.push({ id, status: "invalid", reason: after.kind === "kit" && "weightMg" in patch ? KIT_WEIGHT : "That change would not leave a valid piece. Nothing was changed on it." });
         continue;
       }
       after = outcome.item;
-    } else if (!after) {
-      after = await vaultItemById(db, vaultId, id);
-      if (!after) {
-        updated.push({ id, status: "not_found" });
-        continue;
-      }
     }
     updated.push({ id, status: "updated", item: gearAsRow(after) });
   }

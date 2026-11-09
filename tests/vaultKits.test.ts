@@ -16,7 +16,6 @@ import {
   captureVaultItemsReporting,
   vaultItemById,
   importVaultItems,
-  listRemovedVaultItems,
   listVaultItems,
   purgeDeletedVaults,
   removeVaultItem,
@@ -213,7 +212,7 @@ describe("a kit's weight is its parts'", () => {
     await removeVaultItem(db, vault, fire);
     rows = await listVaultItems(db, vault);
     expect(byId(rows, lighter).inKits).toEqual([cook]);
-    expect(byId(await listRemovedVaultItems(db, vault), fire).weightMg).toBe(16_000);
+    expect((await vaultItemById(db, vault, fire))!.weightMg).toBe(16_000);
   });
 
   it("keeps kits out of the autocomplete, and carries kit fields through an edit's answer", async () => {
@@ -395,7 +394,7 @@ describe("captureKit — the group row's own save", () => {
     const res = await captureKit(db, vault, made().kit, made().parts);
     expect(res.kit).toBe("removed");
     expect(res.keys.some((key) => key[2] === "kit")).toBe(false);
-    expect(byId(await listRemovedVaultItems(db, vault), k.kit).parts).toHaveLength(3);
+    expect((await vaultItemById(db, vault, k.kit))!.parts).toHaveLength(3);
   });
 
   it("is refused when no named part can be a part — a kit of kits is not a kit", async () => {
