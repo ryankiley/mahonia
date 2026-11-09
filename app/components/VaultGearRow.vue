@@ -12,8 +12,8 @@ import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { formatPrice } from "~~/shared/money";
-import { formatKcal, formatKcalDensity, formatWeight, itemDisplayName, kcalPerGram, nameRepeatsBrand } from "~~/shared/weights";
-import { vaultTabOf } from "~~/shared/vaultView";
+import { formatKcal, formatWeight, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
+import { formatKcalDensity, kcalPerGram, vaultTabOf } from "~~/shared/vaultView";
 import { consumableIcon } from "~/utils/itemMarks";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 

@@ -11,7 +11,33 @@ import { foldApostrophes } from "./tidyText";
 import { GEAR_FAMILIES, gearFamilyLabel, gearFamilyOf, gearGlyphFor, type GearFamily } from "./gearGlyph";
 import type { VaultEntry } from "./vault";
 import { rankVaultRows } from "./vaultSearch";
-import { groupBy, itemDisplayName, kcalPerGram } from "./weights";
+import type { Unit } from "./types";
+import { formatKcal, groupBy, itemDisplayName, MG_PER_UNIT, unitSystem } from "./weights";
+
+/**
+ * Calories per gram: what a hiker compares a bar and a dinner by, because a food's
+ * weight alone says nothing about how far it gets you. Null when either half is
+ * missing. A food with no kcal or no weight has no density, and reading it as 0 would
+ * sort it as the worst food you own rather than one nobody has weighed.
+ *
+ * Here rather than in weights.ts, beside the formatter below, because only My Gear's
+ * Food tab reads them: weights.ts ships on the editor's first load, and these two put
+ * it at its ceiling for code no editor visitor runs.
+ */
+export function kcalPerGram(kcal: number | null | undefined, weightMg: number): number | null {
+  return kcal && kcal > 0 && weightMg > 0 ? kcal / (weightMg / MG_PER_UNIT.g) : null;
+}
+
+/**
+ * Calorie density the way each system says it: kcal per ounce in ounces and pounds,
+ * kcal per 100 g in grams and kilograms (the figure a nutrition panel prints). By
+ * SYSTEM rather than a row's own unit, so a column of them compares by eye.
+ */
+export function formatKcalDensity(perGram: number, unit: Unit): string {
+  return unitSystem(unit) === "imperial"
+    ? `${formatKcal((perGram * MG_PER_UNIT.oz) / MG_PER_UNIT.g)} kcal/oz`
+    : `${formatKcal(perGram * 100)} kcal/100 g`;
+}
 
 /** The page's layout-and-order control. "kinds" is the Gear tab's default and the only
  *  one that groups; the rest are one flat list — see groupVaultByKind for why. "dense"
