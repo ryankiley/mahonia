@@ -61,21 +61,11 @@ function toggle() {
   open.value = !open.value;
 }
 // back to the button that opened it, so a keyboard user isn't dropped on the page
-function refocus() {
-  rootRef.value?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
-}
+// (Escape does the same, in useMenuDismiss, and leaves a surrounding dialog open)
 function pick(glyph: GearGlyph | null) {
   open.value = false;
-  refocus();
+  rootRef.value?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
   if (glyph !== props.modelValue) emit("update:modelValue", glyph);
-}
-// Escape inside the card closes the card and nothing else: stopped here, before the
-// edit dialog around it (BaseModal listens on the window) reads it as "close me too"
-function onEscape(e: KeyboardEvent) {
-  if (!open.value) return;
-  e.stopPropagation();
-  open.value = false;
-  refocus();
 }
 
 const triggerAttrs = computed(() => ({
@@ -86,7 +76,7 @@ const triggerAttrs = computed(() => ({
 </script>
 
 <template>
-  <div ref="rootRef" class="menu iconpick" @keydown.esc="onEscape">
+  <div ref="rootRef" class="menu iconpick">
     <slot name="trigger" :open="open" :toggle="toggle" :attrs="triggerAttrs" />
     <Transition name="menu" @after-leave="setLift(false)">
       <div

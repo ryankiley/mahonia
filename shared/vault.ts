@@ -167,7 +167,7 @@ export interface VaultEntry extends VaultCapture, VaultKitFields {
 // kits
 // ---------------------------------------------------------------------------
 // A KIT is a set you itemize: a cook kit that is a stove, a pot and a lighter. It is
-// a vault row like any other — a name, a folder, a note — whose weight is its parts'.
+// a vault row like any other — a name and its parts — whose weight is its parts'.
 // A thing you weigh whole and never itemize (the first-aid pouch you never open) is
 // not a kit; it is a piece with a weight, which the vault has always held.
 //
@@ -185,7 +185,7 @@ export interface VaultEntry extends VaultCapture, VaultKitFields {
 // where it is filed. The arithmetic and the builder live in vaultKit.ts, off the
 // editor's first load; the types and the row's own gate (isKitWorthy) live here.
 
-export type VaultKind = "piece" | "kit";
+type VaultKind = "piece" | "kit";
 
 /** One part of a kit as a read hands it back: which piece, how many, and enough of
  *  the piece to draw it under the kit — a put-away part is not in the live list the
@@ -255,8 +255,8 @@ export function vaultNormKey(
 }
 
 /** The vault identities a list's rows already hold — the set three surfaces ask
- *  before offering a row (the pane's "already added", the folder-at-once add, the
- *  capture's own ledger). Nameless rows have no identity and are skipped. */
+ *  before offering a row (the pane's "already added", a kit unfolding onto a list,
+ *  the capture's own ledger). Nameless rows have no identity and are skipped. */
 export function listNormKeys(
   items: readonly { brand?: string | null; name?: string | null; variant?: string | null }[],
 ): Set<string> {

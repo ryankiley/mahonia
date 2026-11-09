@@ -39,10 +39,9 @@ const HEADER =
 /**
  * The gear as a spreadsheet, in the order the page shows it.
  *
- * Ordering is groupVaultByKind — the SAME traversal /gear renders from, so the file
- * lands in the order the page shows and the two can't drift. The Folder column holds
- * the KIND (Kits, Shelter & sleep, Clothing…): My Gear has no folders, and a file
- * that re-imports as a list then lands grouped the way the page groups it.
+ * Ordering is groupVaultByKind: kits first, then each kind in /gear's order. The
+ * Folder column holds the KIND (Kits, Shelter, Clothing…): My Gear has no folders, and
+ * a file that re-imports as a list then lands grouped the way the page groups it.
  *
  * Every row exports in ONE unit, unlike a list's CSV: a piece's own unit (entryUnit)
  * is how it READS on /gear, and a spreadsheet adds a column up, so the file keeps the

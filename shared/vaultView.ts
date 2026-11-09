@@ -7,11 +7,11 @@
 // test rather than by mounting a page and clicking two menus.
 //
 // Two questions, two controls. WHICH gear (`show`) and IN WHAT ORDER (`view`) are
-// independent axes, and only the second one decides whether the page has folders.
+// independent axes, and only the second one decides whether the page shows kinds.
 
 import { enoughToSearch, foldForSearch } from "./searchText";
 import { foldApostrophes } from "./tidyText";
-import { GEAR_FAMILIES, gearFamilyOf, gearGlyphFor, type GearFamily } from "./gearGlyph";
+import { GEAR_FAMILIES, gearFamilyLabel, gearFamilyOf, gearGlyphFor, type GearFamily } from "./gearGlyph";
 import type { VaultEntry } from "./vault";
 import { rankVaultRows } from "./vaultSearch";
 import { groupBy, itemDisplayName } from "./weights";
@@ -155,6 +155,6 @@ export function groupVaultByKind(rows: VaultEntry[]): VaultKindSection[] {
   return [
     ...(kits.length ? [{ key: "kits" as const, label: "Kits", entries: kits }] : []),
     ...GEAR_FAMILIES.filter((f) => byFamily.has(f.key)).map((f) => ({ key: f.key, label: f.label, entries: byFamily.get(f.key)! })),
-    ...(byFamily.has("other") ? [{ key: "other" as const, label: "Other", entries: byFamily.get("other")! }] : []),
+    ...(byFamily.has("other") ? [{ key: "other" as const, label: gearFamilyLabel(null), entries: byFamily.get("other")! }] : []),
   ];
 }

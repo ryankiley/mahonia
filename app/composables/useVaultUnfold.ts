@@ -1,26 +1,15 @@
 // My Gear onto the list, by the set: a kit — the gesture the gear pane offers that puts
-// more than one row down at once. (A whole My Gear folder used to be the other; My Gear
-// has no folders now.)
+// more than one row down at once.
 //
 // Beside the pane rather than in the controller, for the editor's first-load budget:
-// the pane is the only surface that makes either gesture, and the pane is a lazy
-// chunk, so what only it calls belongs in its chunk. The controller keeps the one
-// primitive both lean on — addVaultItem, which the pane's row drag and the
-// autocomplete's pick also reach — and these compose it.
+// the pane is the only surface that makes it, and the pane is a lazy chunk, so what
+// only it calls belongs in its chunk. The controller keeps the primitive it leans on —
+// addVaultItem, which the pane's row drag and the autocomplete's pick also reach.
 
-import type { VaultEntry } from "~~/shared/vault";
-import { vaultNormKey } from "~~/shared/vault";
+import { listNormKeys, type VaultEntry } from "~~/shared/vault";
 
-/** The slice of useGearList these two compose. */
+/** The slice of useGearList this composes. */
 type Controller = Pick<ReturnType<typeof useGearList>, "snapshot" | "addVaultItem">;
-
-/** What the open list already holds, by the vault's identity rule — the one-row-per-
- *  piece rule both gestures keep. */
-function heldKeys(c: Controller): Set<string> {
-  return new Set(
-    (c.snapshot.value?.items ?? []).map((i) => vaultNormKey(i.brand, i.name, i.variant)).filter(Boolean),
-  );
-}
 
 /**
  * A kit onto the list — as a GROUP, never as one row.
@@ -46,7 +35,7 @@ export function addVaultKit(c: Controller, entry: VaultEntry, folderId: string |
   if (!c.snapshot.value || entry.kind !== "kit") return "";
   const parentId = c.addVaultItem({ ...entry, weightMg: entry.ownWeightMg ?? 0 }, folderId);
   if (!parentId) return "";
-  const held = heldKeys(c);
+  const held = listNormKeys(c.snapshot.value.items);
   const byId = new Map(gear.map((g) => [g.id, g]));
   for (const part of entry.parts ?? []) {
     if (part.removed) continue;

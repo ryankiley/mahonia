@@ -40,9 +40,7 @@ export async function captureGroup(
   // the parts that landed are banked whatever became of the kit — their rows'
   // buttons may stand down even when the group's can't
   const landed = res?.keys ?? [];
-  if (res?.kit === "saved") return { result: "saved", landed };
-  if (res?.kit === "removed") return { result: "removed", landed };
-  if (res?.kit === "nested") return { result: "nested", landed };
-  if (res?.kit === "full") return { result: "full", landed };
-  return { result: "unworthy", landed };
+  const kit = res?.kit;
+  const answered = kit === "saved" || kit === "removed" || kit === "nested" || kit === "full";
+  return { result: answered ? kit : "unworthy", landed };
 }

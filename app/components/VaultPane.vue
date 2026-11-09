@@ -10,6 +10,7 @@ import { highlightParts } from "~~/shared/searchText";
 import { formatWeight, itemDisplayName } from "~~/shared/weights";
 import { counted } from "~~/shared/tidyText";
 import { addVaultKit } from "~/composables/useVaultUnfold";
+import { kitItemCount } from "~~/shared/vaultKit";
 
 // The vault, alongside the list you're building — a floating palette you keep open
 // and pick from, rather than typing each item's name into the autocomplete one at a
@@ -181,18 +182,27 @@ watch(hasVault, () => load());
 // would hide gear you own.
 // The Gear tab is your pieces; kits have a tab of their own, the way /gear splits them
 // (Ryan: "keep kits out of items tab here since it has its own").
-const pieces = computed(() => items.value.filter((i) => i.kind !== "kit"));
+const isKit = (entry: VaultEntry) => entry.kind === "kit";
+const pieces = computed(() => items.value.filter((i) => !isKit(i)));
+const kits = computed(() => items.value.filter(isKit));
+// the open tab's rows, ranked when a search is typed
 const filtered = computed(() => {
+  const pool = tab.value === "kits" ? kits.value : pieces.value;
   const q = query.value.trim();
-  if (!q) return pieces.value;
-  return rankVaultRows(pieces.value, q, Number.POSITIVE_INFINITY);
+  return q ? rankVaultRows(pool, q, Number.POSITIVE_INFINITY) : pool;
 });
 // With nothing typed, the gear reads by kind — shelter, clothing and so on — the way
 // /gear groups it, so the pane and the page read alike. A search ranks across all of
-// it instead: the best match first matters more than where it lives.
+// it instead: the best match first matters more than where it lives. Kits are one
+// list either way.
 const sections = computed<{ key: string; label: string | null; entries: VaultEntry[] }[]>(() =>
-  query.value.trim() ? [{ key: "results", label: null, entries: filtered.value }] : groupVaultByKind(pieces.value),
+  tab.value === "kits" || query.value.trim()
+    ? [{ key: "results", label: null, entries: filtered.value }]
+    : groupVaultByKind(pieces.value),
 );
+// each row's mark, once per load rather than twice per row per render: a kit's tool
+// case, a piece's own icon (the one its row on /gear wears)
+const iconById = computed(() => new Map(items.value.map((e) => [e.id, isKit(e) ? ToolCaseIcon : gearIcon(e.commonName, e.name, e.icon)])));
 // bold the characters that overlap what's been typed — the same helper, and so the
 // same emphasis, as the autocomplete's rows
 const hl = (text: string) => highlightParts(text, query.value);
@@ -203,9 +213,8 @@ const hl = (text: string) => highlightParts(text, query.value);
 // a row under it (useVaultUnfold.addVaultKit). "Already added" reads off the parent's
 // identity, the same way a piece's does; the parts the list already holds are
 // skipped as it unfolds, which is the pane's one-row-per-piece rule for each of them.
-const isKit = (entry: VaultEntry) => entry.kind === "kit";
 // what it holds, counting each item as many times as the kit has it (as /gear counts)
-const itemCount = (entry: VaultEntry) => (entry.parts ?? []).reduce((n, p) => (p.removed ? n : n + p.qty), 0);
+const itemCount = (entry: VaultEntry) => kitItemCount(entry.parts ?? []);
 // A kit lands as a group further down the list than the pane you clicked in, so it
 // says so in the editor's undo bar — "Added Cook kit · Undo" — and Undo takes the
 // group back off, its rows with it. A single piece answers for itself in place
@@ -216,14 +225,6 @@ function addEntry(entry: VaultEntry, folderId: string | null): string {
   if (parentId) c.offerUndoAdd(itemDisplayName(entry.brand, entry.name, entry.variant), parentId);
   return parentId;
 }
-const kits = computed(() => items.value.filter(isKit));
-
-// the kits tab searches the way the items tab does, over the kits alone
-const filteredKits = computed(() => {
-  const q = query.value.trim();
-  if (!q) return kits.value;
-  return rankVaultRows(kits.value, q, Number.POSITIVE_INFINITY);
-});
 
 // The gear the open list already holds, keyed by the SAME identity rule the vault
 // uses — so "Zpacks Duplex" in the list matches the vault row whatever the spacing
@@ -569,34 +570,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       <p v-if="loadError" class="t-sm vp__error">{{ loadError }}</p>
       <p v-else-if="loading" class="t-sm t-muted vp__note">Loading your gear…</p>
 
-      <!-- KITS: a whole set, added in one go into the "Add to" folder, as a group
-           with its items under it. -->
-      <ul v-else-if="tab === 'kits' && filteredKits.length" class="vp__list">
-        <li v-for="kit in filteredKits" :key="kit.id">
-          <button
-            type="button"
-            class="vp__add"
-            :disabled="isInList(kit)"
-            :aria-label="
-              isInList(kit)
-                ? `${itemDisplayName(kit.brand, kit.name, kit.variant)} is already in this list`
-                : `Add the ${itemDisplayName(kit.brand, kit.name, kit.variant)} kit to the list, with its ${counted(itemCount(kit), 'item')} under it`
-            "
-            @click="addEntry(kit, targetFolderId)"
-          >
-            <span class="vp__kit" aria-hidden="true">
-              <HugeiconsIcon :icon="ToolCaseIcon" :size="16" :stroke-width="2" />
-            </span>
-            <span class="gear__main">
-              <span class="gear__name t-clip" :title="itemDisplayName(kit.brand, kit.name, kit.variant)">{{ itemDisplayName(kit.brand, kit.name, kit.variant) }}</span>
-              <span class="t-sm vp__inlist">{{ isInList(kit) ? "Already added" : `Kit · ${counted(itemCount(kit), "item")}` }}</span>
-            </span>
-            <span class="t-num t-sm vp__w">{{ formatWeight(kit.weightMg, unit, { withUnit: false }) }}<span class="t-muted"> {{ unit }}</span></span>
-          </button>
-        </li>
-      </ul>
-
-      <ul v-else-if="tab === 'items' && filtered.length" ref="listEl" class="vp__list">
+      <!-- both tabs: a piece adds as a row; a KIT adds as a group, its items under it -->
+      <ul v-else-if="filtered.length" ref="listEl" class="vp__list">
         <template v-for="section in sections" :key="section.key">
         <li v-if="section.label" class="vp__kind"><h3 class="t-sm t-muted vp__kindname">{{ section.label }}</h3></li>
         <li v-for="entry in section.entries" :key="entry.id">
@@ -618,9 +593,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             @pointerdown="onRowPointerDown(entry, $event)"
             @click="onRowClick(entry)"
           >
-            <!-- the piece's own icon, the one its row on /gear wears -->
             <span class="vp__kit" aria-hidden="true">
-              <HugeiconsIcon v-if="gearIcon(entry.commonName, entry.name, entry.icon)" :icon="gearIcon(entry.commonName, entry.name, entry.icon)!" :size="16" :stroke-width="2" />
+              <HugeiconsIcon v-if="iconById.get(entry.id)" :icon="iconById.get(entry.id)!" :size="16" :stroke-width="2" />
             </span>
             <span class="gear__main">
               <!-- the full name on hover, for the rows the ellipsis cut short -->

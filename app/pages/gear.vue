@@ -5,7 +5,7 @@ import { Backpack03Icon, ChevronDownIcon, PlusSignIcon, Clock01Icon, GridViewIco
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
-import { GEAR_FAMILIES, type GearGlyph } from "~~/shared/gearGlyph";
+import { gearFamilyLabel, type GearGlyph } from "~~/shared/gearGlyph";
 import { kitWeightMg } from "~~/shared/vaultKit";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { formatPrice, sumPrices } from "~~/shared/money";
@@ -45,7 +45,6 @@ useHead({
 });
 
 const { hasVault, vaultFetch } = useVaultAccess();
-const { confirm: askConfirm } = useDialogs();
 
 // ---- the gear ------------------------------------------------------------
 const items = ref<VaultEntry[]>([]);
@@ -352,9 +351,8 @@ function onOverlayToggle(key: string, open: boolean) {
 // which covers the common case beautifully and answers nothing at all for the pack
 // you bought yesterday and haven't packed yet.
 //
-// One add row for the page, under the count: with no folders there is nowhere to
-// choose, and the piece lands under its kind by itself. Press-to-open: a quiet label,
-// not an empty form the page is waiting on.
+// One add row for the page, at the head of the list: a piece lands under its kind by
+// itself, so there is nowhere to choose. Opened from "Add gear" opposite the tabs.
 const adding = ref(false);
 const addName = ref("");
 const addWeight = ref("");
@@ -464,7 +462,7 @@ function offerAdded(item: VaultEntry) {
   offerUndo({
     verb: "Added",
     label: itemDisplayName(item.brand, item.name, item.variant),
-    tail: ` to ${GEAR_FAMILIES.find((f) => f.key === kind)?.label ?? "Other"}`,
+    tail: ` to ${gearFamilyLabel(kind)}`,
     restore: async () => {
       await vaultFetch("/api/vault/remove", { method: "POST", body: { id: item.id } }).catch(() => {});
       await loadVault();
@@ -534,7 +532,7 @@ async function setEntryIcon(entry: VaultEntry, glyph: GearGlyph | null) {
   offerUndo({
     verb: "Moved",
     label: itemDisplayName(entry.brand, entry.name, entry.variant),
-    tail: ` to ${GEAR_FAMILIES.find((f) => f.key === to)?.label ?? "Other"}`,
+    tail: ` to ${gearFamilyLabel(to)}`,
     restore: () => patchEntry({ ...entry, icon: glyph ?? undefined }, { icon: was }, "icon"),
   });
 }
@@ -836,7 +834,7 @@ async function exportGear(kind: string) {
 
           <p v-if="loadError" class="t-sm vault__error">{{ loadError }}</p>
 
-          <!-- only while there is nothing to show yet. Every folder op and every add
+          <!-- only while there is nothing to show yet. A kit change and every add
                reloads the gear, and blanking a page you are working on for the
                length of a round trip reads as the page losing your gear. -->
           <p v-if="loading && !items.length" class="t-muted vault__empty">Loading your gear…</p>
@@ -872,9 +870,8 @@ async function exportGear(kind: string) {
               </template>
             </p>
 
-            <!-- the page's one add row, at the head of the gear: with no folders there
-                 is nowhere to choose, and a piece lands under its kind by itself -->
-            <!-- Kits: name a new one, and it opens on its "Add an item" line -->
+            <!-- Kits: name a new one, and it opens on its "Add an item" line. Gear: the
+                 page's one add row; a piece lands under its kind by itself. -->
             <form v-if="!query && tab === 'kits' && newKitOpen" class="vault__add vault__add--top vault__newkit" @submit.prevent="commitNewKit">
               <input
                 ref="newKitEl"
@@ -1217,15 +1214,18 @@ async function exportGear(kind: string) {
   margin-bottom: var(--space-4);
 }
 /* The list's mode bar, in the list's exact spot: the editor's body pads its top by
-   --space-1 (.editor__body), a page by --space-5 (.page), so the row is pulled up by
-   the difference and its first tab lands where the list's does, 8px under the bar.
-   A flex row, as the list's column is, so the margin isn't eaten by a line box. */
+   --space-1 (.editor__body) where a page pads by --space-5 (.page), so this page takes
+   the editor's padding whenever the tabs are up (signed in) and its first tab lands
+   where the list's does, 8px under the bar. Keyed on the tabs being there, not on a
+   class, because they render client-side only. */
+.vault__page:has(.vault__tabbar) {
+  padding-top: var(--space-1);
+}
 .vault__tabbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  margin-top: calc(var(--space-1) - var(--space-5));
   margin-bottom: var(--space-3);
 }
 .vault__tabadd {

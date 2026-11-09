@@ -1037,10 +1037,10 @@ export async function applyVaultItemOp(
   vaultId: number,
   op: VaultItemOp,
 ): Promise<{ item: VaultEntry } | { refused: "duplicate" | "full" } | null> {
+  if (op?.t === "kit") return kitVaultItem(db, vaultId, op);
   const done =
     op?.t === "add" ? ((await addVaultItems(db, vaultId, [op]))[0] ?? null)
     : op?.t === "edit" ? await editVaultItem(db, vaultId, op)
-    : op?.t === "kit" ? await kitVaultItem(db, vaultId, op)
     : null;
   // the row as every other read shows it: a kit with its parts and derived weight,
   // a piece with the kits it is in
@@ -1074,7 +1074,7 @@ export async function addVaultItems(
   // Straight through capture's own sanitizer, one op at a time so each keeps its
   // answer: a hand-typed row is capped, tidied and IDENTIFIED by exactly the rules a
   // captured one is. One identity rule, not two.
-  const cleaned = ops.map((op) => sanitize([{ ...op, normKey: "", weightMg: op.weightMg ?? 0, folder: undefined } as VaultCapture])[0] ?? null);
+  const cleaned = ops.map((op) => sanitize([{ ...op, normKey: "", weightMg: op.weightMg ?? 0 } as VaultCapture])[0] ?? null);
 
   // each key once: a second op on the same key in one call is a duplicate of the
   // first, and the INSERT may not touch a row twice
@@ -1339,7 +1339,7 @@ export async function setKitParts(
  * the parts stay where they are, as the pieces they always were. False when the row
  * isn't a kit of this vault.
  */
-export async function clearKit(db: Db, vaultId: number, kitId: number): Promise<boolean> {
+async function clearKit(db: Db, vaultId: number, kitId: number): Promise<boolean> {
   const kit = await vaultItemById(db, vaultId, kitId);
   if (!kit || kit.kind !== "kit") return false;
   await db
@@ -1358,6 +1358,8 @@ async function kitVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
     ? await setKitParts(db, vaultId, op.id, op.parts, { ownWeightMg: op.ownWeightMg ?? 0 })
     : await clearKit(db, vaultId, op.id);
   if (!ok) return null;
+  // read back decorated (a kit with its parts and derived weight): applyVaultItemOp
+  // doesn't decorate a kit op's row a second time
   const item = await vaultItemById(db, vaultId, op.id);
   return item ? { item } : null;
 }
@@ -1428,7 +1430,7 @@ async function linkKitPartsByKey(
 
 /** Why a group's save did or didn't make a kit. Each is a different thing for the
  *  row to SAY (see useVault.captureOne for the piece's own set of answers). */
-export type CaptureKitOutcome = "saved" | "removed" | "nested" | "full" | "refused";
+type CaptureKitOutcome = "saved" | "removed" | "nested" | "full" | "refused";
 
 /**
  * A group row, offered to the vault as a kit — the group row's own Save to My Gear.

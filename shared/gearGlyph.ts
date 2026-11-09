@@ -12,7 +12,7 @@
 // socks, shoes, boots, hats, neckwear, gloves and glasses; a kitchen holds the stove,
 // the pot, the cup, the utensils, the bottle and the filter) and where the family's
 // icon would be the wrong picture for a member (a bucket hat on a neck gaiter, a pot
-// on a spork). Everything else goes without: a compass, an umbrella, an ice axe. No
+// on a spork). Everything else goes without: a compass, an umbrella, a whistle. No
 // icon is better than a one-off one.
 //
 // The answer is a NAME, not a drawing: the drawings are Hugeicons glyphs and a few of
@@ -25,37 +25,6 @@
 // case" before "case". Words match whole (\b), and the type is lowercased and its
 // spaces collapsed first, so the catalog's "Stuff sack" and a typed "stuff SACK" are
 // one answer.
-
-export const GEAR_GLYPHS = [
-  // shelter and sleep
-  "tent", "bug", "cord", "sleep", "pad",
-  // carrying
-  "backpack", "bag", "container", "wallet",
-  // clothing, split the way a Clothing folder needs it
-  "jacket", "shirt", "pants", "underwear", "socks", "hat", "neck", "glove", "glasses",
-  // footwear
-  "shoe", "boot",
-  // water, kitchen, food
-  "bottle", "hydration", "filter", "stove", "pot", "cup", "utensils", "meal", "food",
-  // electronics: the devices people recognise at a glance, and one catch-all for the
-  // rest (power banks, cables, chargers, pumps)
-  "light", "phone", "watch", "earbuds", "camera", "electronics",
-  // first aid, then hygiene
-  "firstAid", "toiletry", "towel", "toilet",
-  // trekking
-  "poles", "iceAxe",
-  // camp and tools
-  "chair", "games", "carabiner", "knife", "repair",
-] as const;
-export type GearGlyph = (typeof GEAR_GLYPHS)[number];
-
-const GLYPH_SET: ReadonlySet<string> = new Set(GEAR_GLYPHS);
-/** A name off the wire or out of a column that still names an icon in the set. A
- *  stored pick whose icon has since been dropped from the set fails this and the row
- *  falls back to its type's icon, rather than drawing nothing. */
-export function isGearGlyph(v: unknown): v is GearGlyph {
-  return typeof v === "string" && GLYPH_SET.has(v);
-}
 
 /**
  * The FAMILIES the icons fall into, in the set's own order: how My Gear groups
@@ -73,30 +42,49 @@ export function isGearGlyph(v: unknown): v is GearGlyph {
  * hygiene that was 26 of its 30, poles out of Shelter, and Tools (empty) with Camp.
  *
  * Nothing stores a family: it's read off the icon on every render, so changing this
- * list regroups everyone's gear at once and needs no migration. The order of the
- * glyphs above has to follow it (a test holds the two together), and that order is
- * also the icon picker's.
+ * list regroups everyone's gear at once and needs no migration. It is also the list
+ * of icons itself (GEAR_GLYPHS below is read off it), in the icon picker's order.
  */
 export const GEAR_FAMILIES = [
   { key: "shelter", label: "Shelter", glyphs: ["tent", "bug", "cord"] },
   { key: "sleep", label: "Sleep", glyphs: ["sleep", "pad"] },
   { key: "packs", label: "Packs", glyphs: ["backpack"] },
   { key: "storage", label: "Storage", glyphs: ["bag", "container", "wallet"] },
+  // clothing, split the way a Clothing folder needs it
   { key: "clothing", label: "Clothing", glyphs: ["jacket", "shirt", "pants", "underwear", "socks", "hat", "neck", "glove", "glasses"] },
   { key: "footwear", label: "Footwear", glyphs: ["shoe", "boot"] },
   { key: "water", label: "Water", glyphs: ["bottle", "hydration", "filter"] },
   { key: "kitchen", label: "Kitchen", glyphs: ["stove", "pot", "cup", "utensils"] },
   { key: "food", label: "Food", glyphs: ["meal", "food"] },
+  // the devices people recognise at a glance, and one catch-all for the rest (power
+  // banks, cables, chargers, pumps)
   { key: "electronics", label: "Electronics", glyphs: ["light", "phone", "watch", "earbuds", "camera", "electronics"] },
   { key: "firstaid", label: "First aid", glyphs: ["firstAid"] },
   { key: "hygiene", label: "Hygiene", glyphs: ["toiletry", "towel", "toilet"] },
   { key: "trekking", label: "Trekking", glyphs: ["poles", "iceAxe"] },
   { key: "camp", label: "Camp & tools", glyphs: ["chair", "games", "carabiner", "knife", "repair"] },
-] as const satisfies readonly { key: string; label: string; glyphs: readonly GearGlyph[] }[];
+] as const;
 export type GearFamily = (typeof GEAR_FAMILIES)[number]["key"];
+export type GearGlyph = (typeof GEAR_FAMILIES)[number]["glyphs"][number];
+/** Every icon in the set, family by family: the families' own list, flattened. */
+export const GEAR_GLYPHS: readonly GearGlyph[] = GEAR_FAMILIES.flatMap((f) => f.glyphs);
+
+const GLYPH_SET: ReadonlySet<string> = new Set(GEAR_GLYPHS);
+/** A name off the wire or out of a column that still names an icon in the set. A
+ *  stored pick whose icon has since been dropped from the set fails this and the row
+ *  falls back to its type's icon, rather than drawing nothing. */
+export function isGearGlyph(v: unknown): v is GearGlyph {
+  return typeof v === "string" && GLYPH_SET.has(v);
+}
+
 const FAMILY_OF: ReadonlyMap<GearGlyph, GearFamily> = new Map(
-  GEAR_FAMILIES.flatMap((f) => f.glyphs.map((g) => [g as GearGlyph, f.key as GearFamily] as const)),
+  GEAR_FAMILIES.flatMap((f) => f.glyphs.map((g) => [g, f.key] as const)),
 );
+/** What a family is called on the page; null (no icon fits) is Other. */
+export function gearFamilyLabel(family: GearFamily | null): string {
+  return GEAR_FAMILIES.find((f) => f.key === family)?.label ?? "Other";
+}
+
 /** The family an icon belongs to, or null for no icon. */
 export function gearFamilyOf(glyph: GearGlyph | null | undefined): GearFamily | null {
   return glyph ? (FAMILY_OF.get(glyph) ?? null) : null;
@@ -171,7 +159,8 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(trekking poles?|hiking staff|poles?|pole holder)\b/, "poles"],
   // what you sleep in and what helps you sleep: one Zzz, bag and pillow alike
   [/\b(sleeping bag|sleeping bag liner|quilt|blanket|sheet|pillow|pillowcase|pillow strap|earplugs|eye mask|mouth guard|night guard|underquilt)\b/, "sleep"],
-  [/\b(sleeping pad|foam pad|sit pad|vestibule mat|pad)\b/, "pad"],
+  // (a sit pad is a chair, and a vestibule mat a tent, by the rules above)
+  [/\b(sleeping pad|foam pad|pad)\b/, "pad"],
 
   // clothing
   [/\b(jacket|anorak|shell|rain suit|raincoat|windbreaker|wind shirt|softshell|parka|coat|puffy|puffer|fleece|hoodie|hoody|hood|sweater|pullover|midlayer|vest|insulated top|poncho)\b/, "jacket"],

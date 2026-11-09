@@ -1139,9 +1139,6 @@ function create() {
     dispatch({ t: "setMeta", patch });
   const setUnit = (displayUnit: Unit) => setMeta({ displayUnit });
 
-  // A whole vault folder, or a kit, onto the list — useVaultUnfold, beside the pane
-  // that is the only surface making either gesture; both compose addVaultItem and
-  // addFolder below, which is why addFolder answers the id it minted.
   function addFolder(name = "New folder"): string {
     const folders = snapshot.value?.folders ?? [];
     // a recognised name (e.g. "Clothing") gets its canonical hue; otherwise the
