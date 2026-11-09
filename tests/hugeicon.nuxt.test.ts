@@ -33,7 +33,7 @@ import {
   Coffee02Icon, SpoonIcon, RiceBowl01Icon, TowelsIcon, Underpants03Icon, Wallet01Icon,
   Wrench01Icon, ZzzIcon, LassoTool01Icon,
   // the /authorize consent page
-  Alert02Icon, Backpack03Icon, ChatGptIcon, ClaudeIcon, CubeIcon, GoogleGeminiIcon, MistralIcon, PerplexityAiIcon, VisualStudioCodeIcon,
+  AddCircleIcon, Alert02Icon, Backpack03Icon, ChatGptIcon, ClaudeIcon, CubeIcon, GoogleGeminiIcon, MistralIcon, PerplexityAiIcon, VisualStudioCodeIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon as Local } from "~/utils/hugeicon";
 
@@ -63,7 +63,7 @@ const ALL_ICONS = Object.entries({
   Coffee02Icon, SpoonIcon, RiceBowl01Icon, TowelsIcon, Underpants03Icon, Wallet01Icon,
   Wrench01Icon, ZzzIcon, LassoTool01Icon,
   // the /authorize consent page
-  Alert02Icon, Backpack03Icon, ChatGptIcon, ClaudeIcon, CubeIcon, GoogleGeminiIcon, MistralIcon, PerplexityAiIcon, VisualStudioCodeIcon,
+  AddCircleIcon, Alert02Icon, Backpack03Icon, ChatGptIcon, ClaudeIcon, CubeIcon, GoogleGeminiIcon, MistralIcon, PerplexityAiIcon, VisualStudioCodeIcon,
 }) as [string, never][];
 
 // The prop combinations the app actually draws with (see the call sites), plus the

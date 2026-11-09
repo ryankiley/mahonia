@@ -20,7 +20,7 @@
 // cookie every few seconds while signed out — a cookie read, nothing more, until the
 // other tab has set it — so it moves on to the consent the moment that happens. The
 // window Claude is watching is this one.
-import { Add01Icon, Alert02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
+import { AddCircleIcon, Alert02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import type { IconNode } from "~/utils/hugeicon";
 import { clientMark } from "~/utils/clientMark";
@@ -71,7 +71,7 @@ const scopes = computed<{ icon: IconNode; text: string }[]>(() =>
         { icon: Edit02Icon, text: "Change what’s in My Gear" },
         { icon: ViewIcon, text: "See your lists" },
         { icon: Edit02Icon, text: "Change your lists" },
-        { icon: Add01Icon, text: "Add new lists to your account" },
+        { icon: AddCircleIcon, text: "Add new lists to your account" },
       ]
     : [
         { icon: ViewIcon, text: "See what’s in My Gear" },
