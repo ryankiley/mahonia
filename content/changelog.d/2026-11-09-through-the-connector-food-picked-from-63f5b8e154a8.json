@@ -1,0 +1,8 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "Through the connector, food picked from the catalog counts as consumable, as it does when you pick it yourself.",
+    "Through the connector, a new price keeps a piece's currency, and a kit linked to the catalog keeps its own weight.",
+    "An assistant's edit no longer fails over a row it asked to leave where it already was."
+  ]
+}

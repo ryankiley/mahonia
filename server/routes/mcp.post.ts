@@ -174,7 +174,16 @@ async function runTool(event: H3Event, name: string, args: unknown) {
     // a rate limit, a 404 from the repo layer: the status line says what happened
     // and nothing else does
     const status = (e as { statusCode?: number; statusMessage?: string })?.statusCode;
-    const text = status === 429 ? "Too many requests; wait a minute and try again." : status === 404 ? "Not found." : "That didn't work; the request was well formed but the server could not complete it.";
+    // a 409 is the list being saved from an open editor at the same moment, five times
+    // running (listRepo): nothing was applied, and the same call again is the answer
+    const text =
+      status === 429
+        ? "Too many requests; wait a minute and try again."
+        : status === 404
+          ? "Not found."
+          : status === 409
+            ? "The list was being saved from an open editor at the same moment, so nothing was changed; send the same call again."
+            : "That didn't work; the request was well formed but the server could not complete it.";
     return { content: [{ type: "text" as const, text }], isError: true };
   }
 }
