@@ -59,7 +59,7 @@ import { ASSUMED_FUEL_PER_BOIL_G, isFuelRow, offersKcal, offersWorn } from "~~/s
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
 // like useGearList's own vaultNormKey — this module is in the editor graph already)
-import { isVaultWorthy, vaultNormKey } from "~~/shared/vault";
+import { isVaultWorthy, vaultNormKey, vaultRowFields } from "~~/shared/vault";
 import { motionIsInstant } from "~/plugins/inputModality.client";
 
 // The editor's row — editable by default, a checklist row in packing mode. A nested item
@@ -475,36 +475,22 @@ function onNameCommit(p: NameCommit) {
     // overridden. Without that, live-resolve would quietly rewrite your measured
     // weight and your chosen name back to the catalog's on the next snapshot,
     // which would make the vault pointless for exactly the gear it matters most
-    // for: the item whose spec weight is wrong.
-    patch.catalogItemId = p.catalogItemId ?? null;
-    patch.brand = p.brand ?? "";
-    patch.variant = p.variant ?? "";
-    patch.nameOverridden = true;
-    if (p.weightMg != null && p.weightMg > 0) {
-      patch.unitWeightMg = p.weightMg;
-      patch.weightOverridden = true;
-      // and in the unit you chose for it on /gear, when you chose one
-      if (p.entryUnit) patch.entryUnit = p.entryUnit;
+    // for: the item whose spec weight is wrong. Which fields, and how, is the one rule
+    // the gear pane's add uses too (vaultRowFields).
+    const fields = vaultRowFields(p);
+    // a pick REPLACES the piece the row was: a maker, size or catalog link the new one
+    // doesn't have is cleared, where the shared rule leaves an absent field alone
+    Object.assign(patch, fields, { brand: fields.brand ?? "", variant: fields.variant ?? "", catalogItemId: fields.catalogItemId ?? null });
+    // a gear type typed on this row is the row's own, and outlives the pick
+    if (props.item.commonNameOverridden) {
+      delete patch.commonName;
+      delete patch.commonNameOverridden;
     }
     // catalogWeightMgAtLink is deliberately NOT set: it's the baseline for the
     // "the catalog's weight changed" nudge, and your own weight is not that
     // baseline — stamping it here would compare the catalog against you. The row
     // ends up with no baseline at all, not the PREVIOUS product's: the reducer
     // drops a baseline whose link has moved (shared/ops, updateItem).
-    if (!props.item.commonNameOverridden && p.commonName) {
-      patch.commonName = p.commonName;
-      patch.commonNameOverridden = true;
-    }
-    if (p.priceCents != null) {
-      patch.priceCents = p.priceCents;
-      patch.currency = p.currency;
-    }
-    // only when the gear HAS one: absent leaves whatever the row already carries,
-    // the same rule the kcal line below keeps
-    if (p.productUrl) patch.productUrl = p.productUrl;
-    // the vault's remembered calories land like its weight does — this is YOUR
-    // number for the food; absent leaves whatever the row already says
-    if (p.kcal != null) patch.kcal = p.kcal;
   } else if (p.catalogItemId != null) {
     // a catalog pick: store brand/model/variant structured, link, and let
     // live-resolve keep the name fresh ("" clears any prior brand/variant)
