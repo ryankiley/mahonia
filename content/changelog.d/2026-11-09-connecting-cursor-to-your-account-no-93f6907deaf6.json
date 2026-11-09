@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "Connecting Cursor to your account no longer fails before the sign-in page opens."
+  ]
+}

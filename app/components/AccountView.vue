@@ -23,7 +23,10 @@ import type { AccessScope, AccessTokenSummary, PasskeySummary } from "~~/shared/
 // `hideHeading`: the modal draws the title itself, in a header row that also carries
 // the close button — so the panel must not draw a second one. On the page there is no
 // such row and this stays false.
-const { inModal = false, hideHeading = false } = defineProps<{ inModal?: boolean; hideHeading?: boolean }>();
+// `asStep`: mounted as one step of another page (the /authorize consent), which has
+// already said what the sign-in is for and sets its own left edge. So the why-line is
+// dropped and the signed-out column stops centring itself under a left-aligned heading.
+const { inModal = false, hideHeading = false, asStep = false } = defineProps<{ inModal?: boolean; hideHeading?: boolean; asStep?: boolean }>();
 const emit = defineEmits<{ done: [] }>();
 // Say what this surface is FOR right now. Signed out it is a sign-in dialog, and
 // titling it "Your account" describes something you don't have yet — the one thing
@@ -454,7 +457,7 @@ async function onSignOut() {
 </script>
 
 <template>
-  <div class="acct" :class="{ 'acct--modal': inModal }">
+  <div class="acct" :class="{ 'acct--modal': inModal, 'acct--step': asStep }">
     <h1 v-if="!hideHeading" class="t-title acct__head">{{ heading }}</h1>
 
     <ClientOnly>
@@ -467,7 +470,7 @@ async function onSignOut() {
           <!-- the one line that says what an account is FOR, before it asks for one: the
                vault is the whole reason, and a stranger who tapped the person icon has
                not been told. Lists never needing it is the half that keeps the promise. -->
-          <p class="t-sm t-muted acct__why">
+          <p v-if="!asStep" class="t-sm t-muted acct__why">
             An account keeps My Gear: your own gear and its weights, ready to add to any list
             on any device. Lists work without one.
           </p>
@@ -508,7 +511,7 @@ async function onSignOut() {
           </form>
           <p v-if="linkNote" class="t-sm acct__note">{{ linkNote }}</p>
 
-          <p class="t-sm t-muted">
+          <p class="t-sm t-muted acct__swap">
             New here?
             <button type="button" class="acct__switch" @click="mode = 'create'">
               Create an account
@@ -538,7 +541,7 @@ async function onSignOut() {
             </form>
             <p v-if="createNote" class="t-sm acct__note">{{ createNote }}</p>
 
-            <p class="t-sm t-muted">
+            <p class="t-sm t-muted acct__swap">
               Already have an account?
               <button type="button" class="acct__switch" @click="mode = 'signin'">
                 Sign in
@@ -800,6 +803,18 @@ async function onSignOut() {
    word's width and needs no background-matching trick to punch the gap. */
 .acct__why {
   margin-block-end: var(--space-3);
+}
+/* one step of another page (asStep): the host page's left edge, not a centred column.
+   The line that switches between signing in and creating an account stays centred: it
+   hangs off the full-width buttons above it, like the "or" rule, not off the page's
+   text. */
+.acct--step .acct__empty {
+  align-items: stretch;
+  margin-inline: 0;
+  text-align: start;
+}
+.acct--step .acct__swap {
+  text-align: center;
 }
 .acct__or {
   display: flex;

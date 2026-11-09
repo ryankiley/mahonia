@@ -32,6 +32,8 @@ import {
   Music3Icon, Camera01Icon, Chair02Icon, ChessKnightIcon, SmartPhone01Icon, SmartWatch01Icon,
   Coffee02Icon, SpoonIcon, RiceBowl01Icon, TowelsIcon, Underpants03Icon, Wallet01Icon,
   Wrench01Icon, ZzzIcon, LassoTool01Icon,
+  // the /authorize consent page
+  AddCircleIcon, Alert02Icon, Backpack03Icon, ChatGptIcon, ClaudeIcon, CubeIcon, GoogleGeminiIcon, MistralIcon, PerplexityAiIcon, VisualStudioCodeIcon,
 } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon as Local } from "~/utils/hugeicon";
 
@@ -60,6 +62,8 @@ const ALL_ICONS = Object.entries({
   Music3Icon, Camera01Icon, Chair02Icon, ChessKnightIcon, SmartPhone01Icon, SmartWatch01Icon,
   Coffee02Icon, SpoonIcon, RiceBowl01Icon, TowelsIcon, Underpants03Icon, Wallet01Icon,
   Wrench01Icon, ZzzIcon, LassoTool01Icon,
+  // the /authorize consent page
+  AddCircleIcon, Alert02Icon, Backpack03Icon, ChatGptIcon, ClaudeIcon, CubeIcon, GoogleGeminiIcon, MistralIcon, PerplexityAiIcon, VisualStudioCodeIcon,
 }) as [string, never][];
 
 // The prop combinations the app actually draws with (see the call sites), plus the
@@ -74,6 +78,8 @@ const COMBOS: Record<string, unknown>[] = [
   { size: 16, strokeWidth: 1.5 },
   { size: 16, strokeWidth: 2.25 },
   { size: 20, strokeWidth: 2 },
+  { size: 20, strokeWidth: 1.5 },
+  { size: 24, strokeWidth: 1.5 },
   { size: 20, strokeWidth: 1.33, absoluteStrokeWidth: true },
   { size: "16", strokeWidth: 2 },
 ];

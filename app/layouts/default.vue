@@ -25,6 +25,16 @@
 .shell__main {
   flex: 1 0 auto;
 }
+/* A page with nowhere else to send you marks the body `bare` through useHead (the
+   /authorize consent: one decision, usually in the popup an app opened) and goes
+   without the footer. CSS here rather than a page-meta flag the layout reads, which
+   would put the flag in the route table on every visitor's first load. Set on the
+   server, so the footer is never drawn and then removed.
+   The WHOLE selector sits inside :global(): Vue drops whatever follows a :global(),
+   so `:global(body.bare) .foot` compiles to `body.bare` and hides the page. */
+:global(body.bare .foot) {
+  display: none;
+}
 /* Off-screen until focused, then it lands as a normal button-ish chip in the top
    left. Not .visually-hidden: that utility can't un-hide on focus, and this must
    become VISIBLE when tabbed to (a skip link nobody can see is the classic
