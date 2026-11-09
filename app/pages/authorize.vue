@@ -64,10 +64,14 @@ const wants = computed(() =>
 // pack with the editor splits it into a first-load chunk of its own, +0.16 KB; the
 // ceiling moved for it, see scripts/bundle-budget.mjs.)
 const scopes = computed<{ icon: IconNode; text: string }[]>(() =>
+  // one row per thing it can do; read-and-change can do everything read can
   writes.value
     ? [
-        { icon: SafeBoxIcon, text: "See and change what’s in My Gear" },
-        { icon: Backpack03Icon, text: "Change the lists filed under your account, and file the lists it makes there" },
+        { icon: SafeBoxIcon, text: "See what’s in My Gear" },
+        { icon: SafeBoxIcon, text: "Change what’s in My Gear" },
+        { icon: Backpack03Icon, text: "See which lists are filed under your account" },
+        { icon: Backpack03Icon, text: "Change the lists filed under your account" },
+        { icon: Backpack03Icon, text: "File the lists it makes under your account" },
       ]
     : [
         { icon: SafeBoxIcon, text: "See what’s in My Gear" },
