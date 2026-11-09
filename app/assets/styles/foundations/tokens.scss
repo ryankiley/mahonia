@@ -440,6 +440,12 @@ $bp-full: 1024px !default;
   /* floating-menu surface: bright white in light (NOT the grey paper-2 — popovers
      should read crisp, lifted off the page), a clearly-elevated grey in dark */
   --surface-float: light-dark(#ffffff, #1f1f1f);
+  /* a float over a float — a menu opened inside a dialog, or inside a popover like the
+     My Gear pane — one step higher still. Both would otherwise paint --surface-float,
+     and in dark it is the TONE that lifts a float (the shadow can't, see above), so the
+     menu was the dialog's own colour with nothing between them. Light keeps white: the
+     shadow draws that edge there. */
+  --surface-float-2: light-dark(#ffffff, #2c2c2c);
   /* dialog scrim — pure-black alphas so it stays on the neutral ramp (no warm
      tint, same rule as the surfaces above) */
   /* 10% light / 30% dark. 18% read as heavy over the white page (Ryan, 2026-10-17:

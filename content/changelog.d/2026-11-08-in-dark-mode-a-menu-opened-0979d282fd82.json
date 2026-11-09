@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-08",
+  "fixed": [
+    "In dark mode, a menu opened inside a dialog or the My Gear panel stands out from it instead of matching its colour."
+  ]
+}
