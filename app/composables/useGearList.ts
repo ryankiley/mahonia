@@ -14,7 +14,7 @@ import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind }
 import { pickListMeta } from "~~/shared/types";
 import type { CaptureOneResult } from "./useVault";
 import type { VaultCapture, VaultEntry, VaultGearKey } from "~~/shared/vault";
-import { listNormKeys } from "~~/shared/vault";
+import { listNormKeys, vaultRowFields } from "~~/shared/vault";
 import { bySortOrder, carriesContent, computeTotals, entryUnitFromInput, nextSortOrder, parseWeightInput, siblingItems, storedClassification } from "~~/shared/weights";
 import { createNesting } from "~/composables/useGearListNesting";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
@@ -1283,11 +1283,10 @@ function create() {
   // half-built row that briefly exists would trip the pending-blank focus machinery
   // and the discard-on-blur cleanup.
   //
-  // The value semantics mirror an autocomplete pick from the vault (see ItemRow's
-  // onNameCommit): the weight and the name are the HOLDER'S, so they're marked
-  // overridden and the catalog's live-resolve leaves them alone. The catalog link
-  // rides along when the gear originally came from a pick, so nothing else that
-  // keys off it breaks.
+  // The fields are an autocomplete pick's, by the same rule (vaultRowFields, which
+  // ItemRow's onNameCommit uses too): the weight, its unit and the name are the
+  // HOLDER'S, so they're marked overridden and the catalog's live-resolve leaves them
+  // alone; the catalog link rides along when the gear first came from a pick.
   function addVaultItem(
     entry: VaultEntry,
     folderId: string | null,
@@ -1302,30 +1301,13 @@ function create() {
       folderId,
       ...(nest.parentId ? { parentId: nest.parentId } : {}),
       name: entry.name,
-      brand: entry.brand,
-      variant: entry.variant,
-      commonName: entry.commonName,
-      // the vault's label is the holder's own, so pin it against live-resolve
-      commonNameOverridden: entry.commonName ? true : undefined,
-      nameOverridden: true,
-      unitWeightMg: entry.weightMg,
-      weightOverridden: true,
+      unitWeightMg: 0,
+      ...vaultRowFields(entry),
       qty: Math.max(1, Math.round(nest.qty ?? 1)),
       // null is stored only where the gear's class AGREES with the folder's default,
       // so the row keeps following a folder it matches — and an explicit "base" stove
       // dropped into a Consumable day folder stays base instead of becoming food.
       classification: storedClassification(entry.classification ?? "base", folderId, snapshot.value.folders),
-      // the calories the vault remembers for this food, like the weight above
-      kcal: entry.kcal,
-      // and the rest of what the gear knows about itself: what it cost and where
-      // it came from. The NOTE is deliberately not among them — a vault note is
-      // about the gear ("size M"), a row's note is as often about the trip ("Sam
-      // carries this"), and overwriting the second with the first would lose the
-      // one the list actually needed.
-      priceCents: entry.priceCents,
-      currency: entry.currency,
-      productUrl: entry.productUrl,
-      catalogItemId: entry.catalogItemId,
       // same pre-claim as addBlankItem: gear pulled from the vault while narrowed
       // to one person lands in that person's view, not invisibly outside it
       personId: usePersonFilter().assignTarget(snapshot.value.people),

@@ -894,6 +894,15 @@ describe("useGearList — addVaultKit", () => {
     expect(items.filter((i) => i.parentId === id).map((i) => [i.name, i.qty])).toEqual([["Pot", 1], ["Lighter", 2]]);
   });
 
+  // the pane's add and a name-field pick are one rule (vaultRowFields): the pane used
+  // to drop the unit the piece reads in on /gear, which the pick carried
+  it("adds a piece from My Gear in its own unit, as a name-field pick does", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    const id = c.addVaultItem(entry({ id: 9, normKey: "mug", name: "Mug", weightMg: 107_700, entryUnit: "oz" }), null);
+    expect(c.snapshot.value!.items.find((i) => i.id === id)).toMatchObject({ name: "Mug", unitWeightMg: 107_700, entryUnit: "oz", weightOverridden: true });
+  });
+
   it("offers an undo that takes the whole group back off", async () => {
     const c = useGearList();
     await c.load({ token: TOKEN });

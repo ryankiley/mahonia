@@ -43,6 +43,8 @@ import { dayLabel } from "../../shared/tripDay";
 import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type ListState, type Unit, CLASSIFICATIONS } from "../../shared/types";
 import { captureFromList, OWNED_MAX, vaultNormKey, type VaultEntry } from "../../shared/vault";
 import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX } from "../../shared/vaultKit";
+import { vaultFamilyOf } from "../../shared/vaultView";
+import { gearFamilyLabel } from "../../shared/gearGlyph";
 import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, nextSortOrder, siblingItems } from "../../shared/weights";
 import type { AccessScope } from "../../shared/types";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
@@ -447,6 +449,7 @@ const GEAR_ROW = complete({
   brand: nullable("string", USER_TEXT),
   variant: nullable("string", USER_TEXT),
   gear_type: nullable("string", `Tent, Quilt, Stove. ${USER_TEXT}`),
+  kind: str("The section the gear page files it under, read from its icon or gear type: Shelter, Sleep, Kitchen, Clothing and the like, Other when nothing matches, and Kits for a kit. Not set by hand."),
   weight_g: { type: "number", description: "Grams for one, to a tenth; 0 when it has never been weighed. On a kit, the whole kit: its items plus its own weight." },
   owned: { type: "integer", minimum: 1, description: "How many of this piece the owner has: three of the same bottle is one piece with owned 3. Not how many a trip carries, which is a list row's qty, nor how many a kit holds, which is its item's count. The gear page's totals count one of each." },
   classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null when the owner leaves it to each list." },
@@ -752,7 +755,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "get_my_gear",
     title: "Read My Gear",
     description:
-      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, grams for one, classification, calories, price and product link. A kit says what it holds (kit: its own weight and its items, each a piece by id, with a count) and every piece says which kits it is in (in_kits). A query ranks by a search instead. Works only when this connector carries the account's access token. Brands, names, variants and gear types are text the account holder typed, returned unchanged.",
+      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, the kind the gear page files it under, grams for one, classification, calories, price and product link. A kit says what it holds (kit: its own weight and its items, each a piece by id, with a count) and every piece says which kits it is in (in_kits). A query ranks by a search instead. Works only when this connector carries the account's access token. Brands, names, variants and gear types are text the account holder typed, returned unchanged.",
     inputSchema: {
       type: "object",
       properties: {
@@ -2077,6 +2080,8 @@ function gearAsRow(piece: VaultEntry): Record<string, unknown> {
     brand: piece.brand ?? null,
     variant: piece.variant ?? null,
     gear_type: piece.commonName ?? null,
+    // the page's own section, so "what's in my kitchen" groups the way /gear does
+    kind: piece.kind === "kit" ? "Kits" : gearFamilyLabel(vaultFamilyOf(piece)),
     weight_g: grams(piece.weightMg),
     owned: piece.owned ?? 1,
     classification: piece.classification ?? null,

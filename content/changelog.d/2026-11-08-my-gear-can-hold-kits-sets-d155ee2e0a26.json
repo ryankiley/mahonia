@@ -8,7 +8,8 @@
     "The My Gear panel in a list has a Kits tab, and adding a kit from it can be undone.",
     "Changing a kit on My Gear can be undone.",
     "An assistant connected to Mahonia can make and change your kits.",
-    "My Gear has Gear and Kits tabs at the top, where a list has its Gear, Packing and Trip. New kit, at the foot of the Kits tab, starts one by name the way a list adds a folder."
+    "My Gear has Gear and Kits tabs at the top, where a list has its Gear, Packing and Trip. New kit, at the foot of the Kits tab, starts one by name the way a list adds a folder.",
+    "An assistant connected to Mahonia sees which kind My Gear files each piece under."
   ],
   "changed": [
     "My Gear groups your gear by kind instead of folders you file by hand; the My Gear panel in a list does too.",
@@ -33,6 +34,7 @@
     "Searching your gear to add an item to a kit offers only real matches, not your most-used gear.",
     "Gear that a stray word sent to the wrong kind lands where you'd look for it: head nets with clothing, bowls in the kitchen, sling bags with packs, tape in first aid, a charging cord with electronics, and more.",
     "Adding gear on My Gear no longer leaves the last name's suggestions open over the cleared field.",
-    "Switching between My Gear's Gear and Kits tabs no longer nudges the first rows down a few pixels."
+    "Switching between My Gear's Gear and Kits tabs no longer nudges the first rows down a few pixels.",
+    "A piece added from a list's My Gear panel keeps the unit it reads in on My Gear, as it does when picked from a row's name."
   ]
 }

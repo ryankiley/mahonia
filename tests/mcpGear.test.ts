@@ -184,7 +184,8 @@ describe("the gear tools", () => {
     expect(r.data.added).toBe(2);
     const results = r.data.results as { index: number; status: string; item?: Record<string, unknown> }[];
     expect(results.map((x) => x.status)).toEqual(["added", "added", "invalid"]);
-    expect(results[0]!.item).toMatchObject({ display_name: "Durston X-Mid 2", gear_type: "Tent", weight_g: 1000, price: 329, currency: "USD" });
+    // kind is the gear page's section, read from the gear type; a name it can't place is Other
+    expect(results[0]!.item).toMatchObject({ display_name: "Durston X-Mid 2", gear_type: "Tent", kind: "Shelter", weight_g: 1000, price: 329, currency: "USD" });
     tentId = results[0]!.item!.id as number;
 
     // identity is brand + name + variant, case-folded

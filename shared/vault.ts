@@ -433,6 +433,52 @@ export function captureFingerprint(caps: VaultCapture[]): string {
     .join("");
 }
 
+/** What a piece of My Gear brings to a list row: the fields a name-field pick
+ *  (ItemRow's onNameCommit) and the gear pane's add (useGearList's addVaultItem, a kit's
+ *  items included) both put on the row. */
+export interface VaultPick {
+  name: string;
+  brand?: string;
+  variant?: string;
+  commonName?: string;
+  weightMg?: number;
+  catalogItemId?: number;
+  kcal?: number;
+  priceCents?: number;
+  currency?: string;
+  productUrl?: string;
+  entryUnit?: Unit;
+}
+
+/**
+ * A piece of My Gear as list-row fields, the ONE rule both ways onto a list take. They
+ * were two hand-kept copies, and the pane's lost the unit the piece reads in on /gear
+ * while the pick carried it.
+ *
+ * Every value is the holder's own, so the name, a weight and a gear type are marked
+ * overridden and the catalog's live-resolve leaves them alone; the catalog link rides
+ * along for provenance. A field the gear doesn't have is left out, never cleared: on a
+ * row being renamed that keeps what the row already says, and a new row has nothing to
+ * keep. A weight of 0 is "not weighed yet", so it brings no weight (and no unit). No
+ * note: a row's note is about the trip, and My Gear keeps none.
+ */
+export function vaultRowFields(v: VaultPick): Partial<Item> {
+  return {
+    name: v.name,
+    nameOverridden: true,
+    ...(v.brand ? { brand: v.brand } : {}),
+    ...(v.variant ? { variant: v.variant } : {}),
+    ...(v.catalogItemId != null ? { catalogItemId: v.catalogItemId } : {}),
+    ...(v.weightMg != null && v.weightMg > 0
+      ? { unitWeightMg: v.weightMg, weightOverridden: true, ...(v.entryUnit ? { entryUnit: v.entryUnit } : {}) }
+      : {}),
+    ...(v.commonName ? { commonName: v.commonName, commonNameOverridden: true } : {}),
+    ...(v.priceCents != null ? { priceCents: v.priceCents, currency: v.currency } : {}),
+    ...(v.productUrl ? { productUrl: v.productUrl } : {}),
+    ...(v.kcal != null ? { kcal: v.kcal } : {}),
+  };
+}
+
 /** What you can do to a vault ROW from /gear — see server/api/vault/items.post.ts.
  *  Here rather than beside the repo that applies it, so the page's calls are typed
  *  by the same union the endpoint reads. */
