@@ -59,8 +59,15 @@ function documentUrl(clientId: string): URL | null {
   return url;
 }
 
-/** The registered redirect URIs out of a document or a registration body: strings,
- *  parseable, https or loopback http, at most REDIRECT_URIS_MAX of them. */
+/** The redirect URIs out of a document or a registration body that this server will
+ *  send a person back to: https, or http on a loopback address. A list that isn't one
+ *  (not an array, empty, over REDIRECT_URIS_MAX, an entry that isn't a URL, a URL with
+ *  a fragment or credentials) is refused whole. A URL in a scheme this server won't
+ *  send to is left out instead of sinking the rest: Cursor registers its loopback and
+ *  https callbacks beside a `cursor://` deeplink in the one call, and has no way to
+ *  send fewer (its staff, July 2026), so refusing the list refused Cursor outright.
+ *  RFC 7591 §3.2.1 lets the server answer with the metadata it accepted, and
+ *  /register's reply lists what was kept. Null when nothing usable is left. */
 export function cleanRedirectUris(raw: unknown): string[] | null {
   if (!Array.isArray(raw) || !raw.length || raw.length > REDIRECT_URIS_MAX) return null;
   const out: string[] = [];
@@ -73,10 +80,10 @@ export function cleanRedirectUris(raw: unknown): string[] | null {
       return null;
     }
     if (url.hash || url.username || url.password) return null;
-    if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopbackHost(url.hostname))) return null;
+    if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopbackHost(url.hostname))) continue;
     out.push(v);
   }
-  return out;
+  return out.length ? out : null;
 }
 
 export function cleanClientName(raw: unknown): string | null {

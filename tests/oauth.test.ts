@@ -457,9 +457,39 @@ describe("a client that registers itself", () => {
     expect((await apps(other)).map((a) => a.label)).toEqual(["Cursor"]);
   });
 
+  it("registers Cursor as Cursor registers, keeping the callbacks it can send back to", async () => {
+    // Cursor's own registration, all three callbacks in one call (forum.cursor.com, 3.14)
+    const cursor = {
+      client_name: "Cursor",
+      redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback", "https://www.cursor.com/agents/mcp/oauth/callback", "http://localhost:8787/callback"],
+      grant_types: ["authorization_code", "refresh_token"],
+      response_types: ["code"],
+      token_endpoint_auth_method: "none",
+    };
+    const r = await hit(register, "/register", { json: cursor });
+    expect(r.status).toBe(201);
+    expect(r.body.redirect_uris).toEqual(["https://www.cursor.com/agents/mcp/oauth/callback", "http://localhost:8787/callback"]);
+    const clientId = r.body.client_id as string;
+
+    // the desktop app's loopback signs in all the way
+    const who = (await signInCookie(db, other)).cookie;
+    const { query, verifier } = request({ client_id: clientId, redirect_uri: "http://localhost:8787/callback" });
+    expect((await hit(authorizeGet, `/api/oauth/authorize?${qs(query)}`)).body).toMatchObject({ ok: true, returnTo: { host: "localhost:8787", loopback: true } });
+    const { code } = await allow(who, query);
+    expect((await exchange(code, verifier, { client_id: clientId, redirect_uri: "http://localhost:8787/callback" })).status).toBe(200);
+
+    // and the deeplink it was refused is never a place this server sends anyone
+    const deeplink = request({ client_id: clientId, redirect_uri: "cursor://anysphere.cursor-mcp/oauth/callback" }).query;
+    expect((await hit(authorizeGet, `/api/oauth/authorize?${qs(deeplink)}`)).body).toMatchObject({ ok: false, error: "invalid_request", redirect: null });
+  });
+
   it("refuses a registration it can't honour", async () => {
     expect((await hit(register, "/register", { json: { redirect_uris: [] } })).body.error).toBe("invalid_redirect_uri");
     expect((await hit(register, "/register", { json: { redirect_uris: ["http://cursor.test/cb"] } })).body.error).toBe("invalid_redirect_uri");
+    // nothing left once the unusable ones are out, and a list that isn't a list of URLs
+    expect((await hit(register, "/register", { json: { redirect_uris: ["cursor://anysphere.cursor-mcp/oauth/callback"] } })).body.error).toBe("invalid_redirect_uri");
+    expect((await hit(register, "/register", { json: { redirect_uris: ["https://cursor.test/cb", "not a url"] } })).body.error).toBe("invalid_redirect_uri");
+    expect((await hit(register, "/register", { json: { redirect_uris: ["https://cursor.test/cb", "https://cursor.test/cb#frag"] } })).body.error).toBe("invalid_redirect_uri");
     expect((await hit(register, "/register", { json: { redirect_uris: ["https://cursor.test/cb"], token_endpoint_auth_method: "client_secret_basic" } })).body.error).toBe("invalid_client_metadata");
     expect((await hit(authorizeGet, `/api/oauth/authorize?${qs(request({ client_id: `${REGISTERED_CLIENT_PREFIX}unknown` }).query)}`)).body).toMatchObject({ ok: false, error: "invalid_client" });
   });
