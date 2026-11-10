@@ -76,6 +76,17 @@ function numFromGroup(s: string): number {
   return parseFloat(norm);
 }
 
+/**
+ * A number cell from a file, read by the rule the weight field reads a typed one:
+ * "1,5" is one and a half, "1,360" is thirteen hundred and sixty. The leading figure
+ * only, so a cell that trails a unit ("538 g") still gives its number; NaN when the
+ * cell doesn't start with one.
+ */
+export function parseDecimal(raw: string): number {
+  const figure = /^\s*(-?[\d.,]*\d)/.exec(raw);
+  return figure ? numFromGroup(figure[1]!) : Number.NaN;
+}
+
 // The input scanner both parsers below share: a number (digits with any mix of
 // ',' / '.' separators), optionally followed by a unit word. One definition so
 // parseWeightInput and entryUnitFromInput can never disagree about what counts

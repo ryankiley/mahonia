@@ -329,6 +329,15 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   // renders it as an href, but the CSP carries 'unsafe-inline', so the day something
   // does it is a live sink on a page strangers open. "" clears it, like brand/variant.
   if (typeof patch.productUrl === "string") out.productUrl = httpUrl(patch.productUrl);
+  // What it cost, on normalizeItem's rule. The two travel as one field: a currency is
+  // read only beside an amount (alone it would re-denominate the figure already
+  // stored), and an amount that names none takes none rather than keeping the last
+  // one's. A piece picked from My Gear in a row's name field arrives here, and with no
+  // branch for the pair the pick lost the price the pane's add (addItem) kept.
+  if (typeof patch.priceCents === "number" && isFinite(patch.priceCents)) {
+    out.priceCents = Math.max(0, Math.round(patch.priceCents));
+    out.currency = patch.currency ? String(patch.currency).slice(0, 8) : undefined;
+  }
   if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
     out.unitWeightMg = clampUnitWeightMg(patch.unitWeightMg);
   // entryUnit is DISPLAY ONLY (see types.ts) — validated against the unit list so a
@@ -456,7 +465,7 @@ export type DayPatch = Omit<Partial<TripDay>, "distanceM" | "ascentM" | "descent
 
 function cleanDayPatch(patch: DayPatch): Partial<TripDay> {
   const out: Partial<TripDay> = {};
-  if (typeof patch.label === "string") out.label = patch.label.slice(0, MAX_LABEL_LEN) || undefined;
+  if (typeof patch.label === "string") out.label = cleanLabel(patch.label);
   // a string survives JSON whole, so "" is its own clear and needs no sentinel
   if (typeof patch.note === "string") out.note = cleanNote(patch.note);
   // `in` rather than a truthiness test: these are all clearable, and an explicit
@@ -509,9 +518,17 @@ export function seedRouteEnds(geo: string): Waypoint[] {
   return out;
 }
 
-/** A note as stored: trimmed, capped, and absent rather than empty. */
+/** A day's or a pin's label as stored: capped, tidied like every other one-line field
+ *  (cleanText), and absent rather than empty. */
+function cleanLabel(raw: unknown): string | undefined {
+  return raw ? cleanText(String(raw), MAX_LABEL_LEN) || undefined : undefined;
+}
+
+/** A note as stored: trimmed, capped, tidied, and absent rather than empty. tidyProse,
+ *  not tidyText: the note's field is a textarea, so a pasted note can hold line breaks,
+ *  and they are the author's. */
 function cleanNote(raw: unknown): string | undefined {
-  return raw ? String(raw).trim().slice(0, MAX_NOTE_LEN) || undefined : undefined;
+  return raw ? tidyProse(String(raw).trim().slice(0, MAX_NOTE_LEN)) || undefined : undefined;
 }
 
 /** A raw day → its stored form. Same contract as normalizeFolder/normalizeItem. */
@@ -519,7 +536,7 @@ export function normalizeDay(raw: TripDay): TripDay {
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     sortOrder: Number(raw.sortOrder) || 0,
-    label: raw.label ? String(raw.label).slice(0, MAX_LABEL_LEN) : undefined,
+    label: cleanLabel(raw.label),
     note: cleanNote(raw.note),
     distanceM: boundedRound(raw.distanceM, 1, MAX_DAY_DISTANCE_M),
     ascentM: boundedRound(raw.ascentM, 1, MAX_DAY_ASCENT_M),
@@ -551,7 +568,7 @@ export function normalizeWaypoint(raw: Waypoint): Waypoint | null {
     id: raw.id.slice(0, MAX_ID_LEN),
     kind: WAYPOINT_KINDS.includes(raw.kind) ? raw.kind : "landmark",
     alongM,
-    label: raw.label ? String(raw.label).slice(0, MAX_LABEL_LEN) : undefined,
+    label: cleanLabel(raw.label),
     note: cleanNote(raw.note),
   };
 }
@@ -564,7 +581,7 @@ function cleanWaypointPatch(patch: Partial<Waypoint>): Partial<Waypoint> {
     const m = cleanAlongM(patch.alongM);
     if (m != null) out.alongM = m; // a patch can move a pin, never un-place it
   }
-  if ("label" in patch) out.label = patch.label ? String(patch.label).slice(0, MAX_LABEL_LEN) : undefined;
+  if ("label" in patch) out.label = cleanLabel(patch.label);
   if ("note" in patch) out.note = cleanNote(patch.note);
   return out;
 }

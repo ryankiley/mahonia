@@ -13,6 +13,7 @@
 import type { GearGlyph } from "./gearGlyph";
 import { foldForSearch } from "./searchText";
 import type { Classification, Item, Unit } from "./types";
+import { isWaterName } from "./water";
 
 /** Max vault suggestions returned to the autocomplete. Deliberately smaller than
  *  the catalog's SEARCH_LIMIT: the vault renders ABOVE the catalog results in the
@@ -279,9 +280,11 @@ export function isVaultWorthy(item: Item, hasChildren: boolean): boolean {
 }
 
 /** Water is the one list row the editor synthesises from a volume (see
- *  shared/water.ts) — never gear. */
+ *  shared/water.ts) — never gear. By the NAME alone, which is how the editor decides a
+ *  row is the water row: the class can't be asked, because water under a folder that
+ *  is already consumable stores none of its own. */
 export function isWaterRow(item: Item): boolean {
-  return item.classification === "consumable" && foldForSearch(item.name) === "water";
+  return isWaterName(item.name);
 }
 
 /**

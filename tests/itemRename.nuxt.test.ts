@@ -157,6 +157,13 @@ describe("renaming a row to a different piece of gear", () => {
     expect(row().kcal).toBe(640);
   });
 
+  it("a vault pick brings the price My Gear holds for the piece", async () => {
+    const w = mountRow(catalogPicked);
+    await rename(w, fromVault({ priceCents: 66_900, currency: "USD" }));
+    expect(row().priceCents).toBe(66_900);
+    expect(row().currency).toBe("USD");
+  });
+
   it("a vault pick with no calories leaves the row's own alone", async () => {
     const w = mountRow({ ...catalogPicked, classification: "consumable", kcal: 250 });
     await rename(w, fromVault({ name: "Trail Mix", classification: "consumable" }));

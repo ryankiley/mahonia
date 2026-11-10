@@ -61,6 +61,22 @@ describe("buildCatalogNameIndex / lookupImported", () => {
     expect(lookupImported(index, { name: "Durston X-Mid Pro 2+ DCF" })?.id).toBe(2);
   });
 
+  // The fold was a private ASCII one ("anything but a-z, 0-9 and + is a space"), not
+  // the search fold its header promised. So a name the search finds under either
+  // spelling exact-matched under only one, and a name with no Latin letters at all
+  // folded to nothing and could never match itself.
+  it("matches by the search fold: a plain spelling, a full-width one, another script", () => {
+    const norrona = row({ id: 3, brand: "Norrøna", name: "Falketind Jacket" });
+    const pot = row({ id: 4, brand: null, name: "钛锅 750" });
+    const index = buildCatalogNameIndex([row(), norrona, pot]);
+    expect(lookupImported(index, { name: "Norrona Falketind Jacket" })?.id).toBe(3);
+    expect(lookupImported(index, { name: "ＭＳＲ PocketRocket ２ Stove" })?.id).toBe(1);
+    expect(importedNameKey({ name: "钛锅 750" })).not.toBe("");
+    expect(lookupImported(index, { name: "钛锅 750" })?.id).toBe(4);
+    // and a different word in that script is still a different product
+    expect(lookupImported(index, { name: "钛杯 750" })).toBeNull();
+  });
+
   it("refuses a key two rows claim rather than guess", () => {
     // "Tensor" + variant "Regular" and a row named "Tensor Regular" spell the same thing
     const index = buildCatalogNameIndex([

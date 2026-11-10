@@ -8,22 +8,17 @@
 // names through the one search fold, so they can't disagree about what "the same" is.
 
 import type { CatalogSearchResult } from "./catalogSearch";
+import { foldKeepingPlus } from "./searchText";
 import type { Item } from "./types";
 import { itemDisplayName } from "./weights";
 
-/** The fold exact matching uses: the search fold (diacritics off, lowercase,
- *  punctuation to spaces) except that "+" survives — the one mark the catalog relies
- *  on to tell products apart ("X-Mid Pro 2" and "X-Mid Pro 2+", "Lone Peak 9" and
- *  "9+"). The search fold drops it, which is right for recall and wrong here: it made
- *  those pairs one ambiguous key, and an import naming either linked to neither. */
-export function foldName(input: string): string {
-  return input
-    .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9+]+/g, " ")
-    .trim();
-}
+/** The fold exact matching uses: the search fold (width and diacritics folded,
+ *  lowercase, letters of any script kept, punctuation to spaces) except that "+"
+ *  survives — the one mark the catalog relies on to tell products apart ("X-Mid Pro 2"
+ *  and "X-Mid Pro 2+", "Lone Peak 9" and "9+"). The search fold drops it, which is right
+ *  for recall and wrong here: it made those pairs one ambiguous key, and an import
+ *  naming either linked to neither. */
+export const foldName = foldKeepingPlus;
 
 /** The folded names a catalog row answers to: brand + model, and the same with its
  *  variant on the end ("Nemo Tensor All-Season Insulated Sleeping Pad Regular"). An
