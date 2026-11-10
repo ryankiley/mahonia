@@ -6,7 +6,7 @@ import { findCredential, touchCredential } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { users } from "../../../db/schema";
 import { readJsonBodyCapped } from "../../../utils/http";
-import { refuseCrossSite, trustedOrigin } from "../../../utils/origin";
+import { trustedOrigin } from "../../../utils/origin";
 import { rpIdFor, takeChallenge } from "../../../utils/passkeys";
 
 // Step 2 of signing in with a passkey: verify the signature and start a session.
@@ -20,8 +20,6 @@ import { rpIdFor, takeChallenge } from "../../../utils/passkeys";
 // signature and an expired challenge are indistinguishable, so this can't be used
 // to test whether a given credential id exists.
 export default defineEventHandler(async (event) => {
-  // a finished ceremony is a sign-in for whoever posts it: only our own page may
-  refuseCrossSite(event);
   await openPrivate(event, "passkey");
 
   const body = await readJsonBodyCapped<{ flowId?: unknown; response?: unknown }>(event, 32_000);

@@ -9,7 +9,6 @@ import {
 import { useAccountDb } from "../../utils/db";
 import { canSendEmail } from "../../utils/email";
 import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
-import { refuseCrossSite } from "../../utils/origin";
 import { rateLimit, rateLimitSubject } from "../../utils/rateLimit";
 
 // Ask for a sign-in link.
@@ -27,10 +26,6 @@ import { rateLimit, rateLimitSubject } from "../../utils/rateLimit";
 // alone is sufficient.
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
-  // Another site's page must not be able to ask on a visitor's behalf: the asking
-  // browser is the one the link signs in without a question (markAskingBrowser),
-  // so a forged ask would make a stranger's link open silently here.
-  refuseCrossSite(event);
   await rateLimit(event, "auth-request");
 
   // A deploy with no mail credentials can't sign anyone in, and the cheerful

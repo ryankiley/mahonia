@@ -8,7 +8,6 @@ import {
 } from "../../utils/authSession";
 import { useAccountDb } from "../../utils/db";
 import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
-import { refuseCrossSite } from "../../utils/origin";
 import { rateLimit } from "../../utils/rateLimit";
 
 // Redeem a sign-in link and start a session.
@@ -24,7 +23,8 @@ import { rateLimit } from "../../utils/rateLimit";
 // link. Anywhere else the answer is `confirm` with the account's address, the
 // link stays unspent, and the page sends it again once the person has said yes
 // (see redeemMagicLink for the link a stranger sends you). And only our own page
-// may post here at all: a form on another site could otherwise skip the question.
+// may post here at all (server/middleware/sameOrigin.ts): a form on another site
+// could otherwise skip the question.
 // A yes signs the person in and nothing more; whether this browser's lists go to
 // the account too is asked separately (`sweep` in the answer, and startSession).
 //
@@ -34,7 +34,6 @@ import { rateLimit } from "../../utils/rateLimit";
 // wasn't given.
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
-  refuseCrossSite(event);
   await rateLimit(event, "auth-verify");
 
   const body = await readJsonBodyCapped<{ token?: unknown; confirmed?: unknown }>(event, 2_000);

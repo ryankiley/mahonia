@@ -427,8 +427,9 @@ function isSecureRequest(event: H3Event): boolean {
  * inline script, so keeping it off `document.cookie` matters.
  * SameSite=Lax — the sign-in link is a cross-site top-level GET from an email
  * client, which Lax permits, while still blocking the cross-site POSTs that CSRF
- * needs. Every mutating vault endpoint is a POST, so Lax alone carries the CSRF
- * defence here.
+ * needs. Every mutating endpoint is a POST, so Lax carries the CSRF defence for
+ * anything done AS a session; server/middleware/sameOrigin.ts is the second line,
+ * and the only one for the requests that start a session and so have no cookie.
  */
 /**
  * The readable owner marker for a session: a hash of the token's hash, cut to 16 hex
