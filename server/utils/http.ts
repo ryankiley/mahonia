@@ -186,3 +186,27 @@ export async function readJsonBodyCapped<T>(event: H3Event, maxBytes: number): P
     return {} as T;
   }
 }
+
+/**
+ * One line of someone's text, safe to show or mail: control characters and the
+ * invisible formatting ranges (zero-width, bidi overrides, the ideographic space)
+ * collapse to ordinary spaces, runs of whitespace fold to one, and the result is
+ * trimmed and capped. Line breaks are controls, so what comes back cannot start a
+ * paragraph of its own wherever it lands.
+ */
+export function cleanLine(raw: string, max: number): string {
+  return (
+    raw
+      // C0/C1 controls, zero-width + word joiner, bidi embedding/overrides and
+      // isolates, the ideographic space and BOM. Written as escapes on purpose:
+      // the literal characters are invisible in source, and several are outright
+      // invalid inside a regex literal.
+      .replace(
+        /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028\u2029\u202A-\u202E\u2060\u2066-\u2069\u3000\uFEFF]/g,
+        " ",
+      )
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, max)
+  );
+}

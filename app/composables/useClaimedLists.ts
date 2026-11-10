@@ -273,6 +273,15 @@ export function useClaimedLists() {
     const owner = cacheOwner();
     const markKey = ownedKey(CLAIMED_MARK_KEY, owner);
     if (!markKey) return;
+    // Only for a session whose sign-in this browser made itself, or whose person
+    // has since said yes to the lists (`sweep`, kept on the session row: see
+    // startSession in server/utils/authSession.ts). The lists carry edit rights,
+    // and a session that got here any other way must not walk off with them. It
+    // still reads the account's own lists; it just sends the account nothing.
+    if (!useSession().user.value?.sweep) {
+      if (!loaded.value) await refresh();
+      return;
+    }
     // The registry, split by what this browser knows about each row. Lists it made
     // are claimed outright. Lists that arrived through someone else's edit link go
     // in the second bucket and are NOT claimed for being there — quietly attaching

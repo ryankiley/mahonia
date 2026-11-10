@@ -4,6 +4,7 @@ import { canSendEmail } from "../../../utils/email";
 import { savePasskey } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { readJsonBodyCapped } from "../../../utils/http";
+import { refuseCrossSite } from "../../../utils/origin";
 import { requirePasskeysConfigured, takeChallenge, verifyPasskeyRegistration } from "../../../utils/passkeys";
 
 // Step 2 of creating an account with nothing but a passkey: check what the
@@ -32,6 +33,8 @@ import { requirePasskeysConfigured, takeChallenge, verifyPasskeyRegistration } f
 // ask them to click; for someone whose address a stranger typed in, it's the whole
 // remedy. See the welcome copy in email.ts.
 export default defineEventHandler(async (event) => {
+  // as signin-verify: this starts a session, so only our own page may post it
+  refuseCrossSite(event);
   await openPrivate(event, "passkey-signup");
 
   requirePasskeysConfigured();
@@ -83,7 +86,7 @@ export default defineEventHandler(async (event) => {
     return { ok: false as const, reason: "invalid" as const };
   }
 
-  await startSession(event, db, user.id);
+  await startSession(event, db, user.id, { sweep: true });
 
   // Best-effort, and never allowed to fail the signup it rode in on.
   if (canSendEmail()) {
@@ -92,7 +95,7 @@ export default defineEventHandler(async (event) => {
       // hold, so it is the one thing in that message that must land on Mahonia —
       // mailMagicLink pins the origin for exactly that. "welcome", not a sign-in
       // link: they're already signed in, and this is the address confirmation.
-      await mailMagicLink(event, db, user.id, stored.email, "welcome");
+      await mailMagicLink(event, db, user.id, stored.email, { purpose: "welcome" });
     } catch (e) {
       console.error("[passkey signup] confirmation email failed", e);
     }

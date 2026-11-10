@@ -45,7 +45,7 @@
 
 import { safeUrl } from "../../shared/trailLink";
 import type { H3Event } from "h3";
-import { getRequestURL } from "h3";
+import { createError, getHeader, getRequestURL } from "h3";
 import { CANONICAL_ORIGIN } from "../../shared/site";
 
 /** Whether this process is serving real users. Vercel's own VERCEL_ENV is
@@ -80,4 +80,29 @@ export function trustedOrigin(event: H3Event): string {
   if (configured) return configured;
   if (!isProduction()) return getRequestURL(event).origin;
   return CANONICAL_ORIGIN;
+}
+
+/**
+ * Refuse a request that another site's page made.
+ *
+ * For the endpoints that START a session, where SameSite on the session cookie is
+ * no help: there is no cookie to withhold yet, and a form on someone else's page
+ * could post a sign-in for THEIR account into your browser. A browser states the
+ * page's origin on every POST and scripts cannot change either header, so a
+ * request that names another origin is another site's. A request that names none
+ * is not a browser's page at all (curl, a native client) and has no visitor's
+ * browser to sign in.
+ *
+ * "Ours" is the trusted origin or the host this request itself arrived at. The
+ * second is not a way round the first: the visitor's browser is the one sending
+ * Host here, and it sends the truth, so a page on evil.example matches neither.
+ * It is what keeps sign-in working on a host that serves the app without being
+ * the canonical one (a www or deployment alias, a local production build).
+ */
+export function refuseCrossSite(event: H3Event): void {
+  const origin = getHeader(event, "origin");
+  const site = getHeader(event, "sec-fetch-site");
+  const ours = origin === undefined || origin === trustedOrigin(event) || origin === getRequestURL(event).origin;
+  if (!ours || (site !== undefined && site !== "same-origin"))
+    throw createError({ statusCode: 403, statusMessage: "Origin not allowed" });
 }

@@ -10,6 +10,7 @@ import {
   findOrCreateUser,
   issueMagicToken,
   normalizeEmail,
+  redeemMagicLink,
   sweepExpiredAuth,
 } from "../server/utils/authSession";
 import { mintAccessToken, resolveBearer } from "../server/utils/accessTokens";
@@ -26,6 +27,13 @@ describe("normalizeEmail — the identity rule", () => {
   it("rejects what obviously isn't an address", () => {
     for (const bad of ["", "   ", "nope", "a@b", "two @spaces.com", "@example.com", "a@.com", 42, null, undefined])
       expect(normalizeEmail(bad as unknown)).toBeNull();
+  });
+
+  it("rejects an address with anything invisible in it", () => {
+    // shown back as "Sign in as ...?": a direction override or a zero-width
+    // character there dresses one address as another
+    for (const bad of ["a\u202Emoc.elpmaxe@b.com", "ry\u200Ban@example.com", "ryan@exam\u2060ple.com"])
+      expect(normalizeEmail(bad)).toBeNull();
   });
 
   it("rejects an absurdly long address rather than storing it", () => {
@@ -114,6 +122,80 @@ describe("magic links", () => {
 // proof anyone holds that inbox, so the first time that proof arrives, everything
 // on the account that predates it goes. These tests are that rule from both ends
 // — it has to fire on the attack, and it must never fire on an ordinary sign-in.
+// The link a stranger sends you. It is a real link to THEIR account, and it used to
+// sign in whichever browser opened it, without a word: your browser became theirs,
+// and the lists it had made followed into their account. So a link now knows which
+// browser asked for it, and every other browser is asked first.
+describe("a sign-in link signs in only the browser that asked, unasked", () => {
+  let db: TestDb;
+  let userId: number;
+  const asker = sha256Hex("the asking browser's nonce");
+  beforeEach(async () => {
+    db = await createTestDb(ACCOUNT_DDL);
+    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
+  });
+  const unspent = async () => (await db.select().from(schema.authTokens)).filter((r) => !r.consumedAt).length;
+
+  it("redeems at once in the browser that asked", async () => {
+    const token = await issueMagicToken(db, userId, asker);
+    const out = await redeemMagicLink(db, token, { browserHash: asker, confirmed: false });
+    // `sameBrowser` is what lets this browser's lists follow the sign-in unasked
+    expect(out).toMatchObject({ kind: "ok", user: { id: userId }, sameBrowser: true });
+  });
+
+  it("asks first anywhere else, names the account, and spends nothing", async () => {
+    const token = await issueMagicToken(db, userId, asker);
+    for (const browserHash of [null, sha256Hex("some other browser")]) {
+      const out = await redeemMagicLink(db, token, { browserHash, confirmed: false });
+      expect(out).toEqual({ kind: "confirm", email: "ryan@example.com", asked: true, evicts: false });
+    }
+    // still good for the yes that follows
+    expect(await unspent()).toBe(1);
+  });
+
+  it("redeems once the person has said yes", async () => {
+    const token = await issueMagicToken(db, userId, asker);
+    const out = await redeemMagicLink(db, token, { browserHash: null, confirmed: true });
+    // signed in, and no more: a yes is one press, and the lists wait for their own
+    expect(out).toMatchObject({ kind: "ok", user: { id: userId }, sameBrowser: false });
+    expect(await unspent()).toBe(0);
+  });
+
+  it("is not made the asking browser by saying yes", async () => {
+    const token = await issueMagicToken(db, userId, asker);
+    const out = await redeemMagicLink(db, token, { browserHash: sha256Hex("another"), confirmed: true });
+    expect(out).toMatchObject({ kind: "ok", sameBrowser: false });
+  });
+
+  it("asks everyone about a link no browser asked for", async () => {
+    // the welcome mail after a passkey signup: whoever opens it wasn't the asker
+    const token = await issueMagicToken(db, userId);
+    // a browser with no nonce must not match a row with no hash
+    const out = await redeemMagicLink(db, token, { browserHash: null, confirmed: false });
+    // `asked: false`, so the page doesn't tell them it was asked for elsewhere
+    expect(out).toMatchObject({ kind: "confirm", asked: false });
+  });
+
+  it("says when signing in will clear the account of whoever was there first", async () => {
+    // a passkey signup nobody has proved the address for: the page has to say what
+    // redeeming does, because for one of its two readers that is the whole point
+    const squatted = await createAccount(db, "taken@example.com");
+    const token = await issueMagicToken(db, squatted!.id);
+    const out = await redeemMagicLink(db, token, { browserHash: null, confirmed: false });
+    expect(out).toMatchObject({ kind: "confirm", email: "taken@example.com", evicts: true });
+  });
+
+  it("gives a dead link one answer, asked or confirmed", async () => {
+    const token = await issueMagicToken(db, userId, asker);
+    await consumeMagicToken(db, token);
+    for (const confirmed of [false, true]) {
+      expect(await redeemMagicLink(db, token, { browserHash: asker, confirmed })).toEqual({ kind: "invalid" });
+      expect(await redeemMagicLink(db, "never-issued", { browserHash: asker, confirmed })).toEqual({ kind: "invalid" });
+    }
+    expect(await redeemMagicLink(db, "", { browserHash: asker, confirmed: true })).toEqual({ kind: "invalid" });
+  });
+});
+
 describe("an address is only a claim until a link comes back", () => {
   let db: TestDb;
   beforeEach(async () => {
@@ -134,7 +216,7 @@ describe("an address is only a claim until a link comes back", () => {
   const isVerified = async (id: number) =>
     (await db.select().from(schema.users).where(eq(schema.users.id, id)))[0]!.emailVerified;
 
-  /** Exactly what verify.post.ts does with a redeemed link, in its order. */
+  /** What verify.post.ts does once a link is redeemed, in its order. */
   async function signInWithLink(token: string) {
     const user = await consumeMagicToken(db, token);
     if (!user) return null;

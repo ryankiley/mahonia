@@ -472,6 +472,9 @@ export const authTokens = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // sha256 of the nonce cookie left in the browser that asked for this link, or
+    // null where no browser did (the welcome mail). See redeemMagicLink.
+    browserHash: text("browser_hash"),
   }
 );
 
@@ -487,6 +490,10 @@ export const sessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
+    // Whether the lists this browser made may be attached to the account without
+    // asking (the claim sweep). True for a sign-in the browser made itself, false
+    // for one a person only confirmed there. See startSession.
+    sweepOk: boolean("sweep_ok").notNull().default(false),
   }
 );
 

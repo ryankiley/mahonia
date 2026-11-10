@@ -19,6 +19,10 @@ export interface LocalListRecord {
   snapshot: ListSnapshot;
   pending: Op[]; // ops applied locally but not yet acknowledged by the server
   updatedAt: number;
+  /** For a claimed open only: the account this copy was written for, as its
+   *  account marker. The copy is that account's view of the list, so no other
+   *  account's session reads it. */
+  account?: string;
 }
 
 /**
@@ -48,4 +52,13 @@ export const localKey = (editToken: string): string => editToken || DRAFT_KEY;
  *  same list's edit link gets a separate record under the token, which is fine:
  *  the claimed record simply goes quiet, and re-opening by claim drains any queue
  *  it was still holding. */
-export const claimedLocalKey = (shareCode: string): string => `code:${shareCode}`;
+export const CLAIMED_KEY_PREFIX = "code:";
+export const claimedLocalKey = (shareCode: string): string => `${CLAIMED_KEY_PREFIX}${shareCode}`;
+
+/** Whether a session of the account `account` (its marker, or null with nobody
+ *  signed in) may read the copy stored under `key`. Every copy but a claimed
+ *  open's belongs to the device; a claimed open's belongs to the account that
+ *  wrote it. One from before the stamp existed has nothing to compare and is
+ *  still read (useLocalListStore says why). */
+export const copyReadableBy = (key: string, record: Pick<LocalListRecord, "account">, account: string | null): boolean =>
+  !key.startsWith(CLAIMED_KEY_PREFIX) || record.account === undefined || record.account === account;

@@ -123,8 +123,10 @@ watch(tab, (t) => t === "export" && warmExporters());
 // What's left is the rare case that IS actionable: a list this device holds a
 // link for that the account doesn't have. Sign-in sweeps up the lists this
 // browser made, and the server adds anything old enough to predate origin
-// tracking (see claimRepo), so what reaches this row is essentially a list
-// someone shared with you that you want to keep. Unlike the other rows it keeps
+// tracking (see claimRepo), so what reaches this row is mostly a list someone
+// shared with you that you want to keep. (And, one at a time, your own, where
+// the sign-in was one you only confirmed here and you said "Not now" to the
+// lists: see startSession in server/utils/authSession.ts.) Unlike the other rows it keeps
 // the panel open: the claim is a request, and a failure has to be said here.
 const { signedIn } = useSession();
 const claimed = useClaimedLists();

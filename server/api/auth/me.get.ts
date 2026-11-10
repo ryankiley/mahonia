@@ -15,5 +15,6 @@ export default defineEventHandler(async (event) => {
   // than each fetching their own
   // The owner marker rides along too — the client keys this account's local caches
   // by it; the id itself never leaves the server.
-  return { user: { owner: user.owner, email: user.email, displayName: user.displayName } };
+  const { owner, email, displayName, sweep, account } = user;
+  return { user: { owner, email, displayName, sweep, account } };
 });

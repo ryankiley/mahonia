@@ -6,6 +6,7 @@ import { toIso } from "./time";
 import { and, desc, eq } from "drizzle-orm";
 import { credentials } from "../db/schema";
 import type { Db } from "./db";
+import { cleanLine } from "./http";
 import type { PasskeySummary } from "../../shared/types";
 import { isSerialId } from "../../shared/ops";
 
@@ -43,6 +44,9 @@ export async function existingCredentialIds(db: Db, userId: number): Promise<str
   return rows.map((r) => r.credentialId);
 }
 
+/** A passkey's label as it is kept and as it is mailed: one short line. */
+export const cleanPasskeyLabel = (raw: string): string => cleanLine(raw, 60);
+
 export async function savePasskey(
   db: Db,
   input: {
@@ -62,7 +66,7 @@ export async function savePasskey(
     counter: input.counter,
     transports: input.transports?.length ? JSON.stringify(input.transports) : null,
     discoverable: input.discoverable,
-    label: input.label?.slice(0, 60) || null,
+    label: (input.label && cleanPasskeyLabel(input.label)) || null,
   });
 }
 

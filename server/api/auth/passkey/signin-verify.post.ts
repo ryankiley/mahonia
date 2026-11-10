@@ -6,7 +6,7 @@ import { findCredential, touchCredential } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { users } from "../../../db/schema";
 import { readJsonBodyCapped } from "../../../utils/http";
-import { trustedOrigin } from "../../../utils/origin";
+import { refuseCrossSite, trustedOrigin } from "../../../utils/origin";
 import { rpIdFor, takeChallenge } from "../../../utils/passkeys";
 
 // Step 2 of signing in with a passkey: verify the signature and start a session.
@@ -20,6 +20,8 @@ import { rpIdFor, takeChallenge } from "../../../utils/passkeys";
 // signature and an expired challenge are indistinguishable, so this can't be used
 // to test whether a given credential id exists.
 export default defineEventHandler(async (event) => {
+  // a finished ceremony is a sign-in for whoever posts it: only our own page may
+  refuseCrossSite(event);
   await openPrivate(event, "passkey");
 
   const body = await readJsonBodyCapped<{ flowId?: unknown; response?: unknown }>(event, 32_000);
@@ -65,7 +67,8 @@ export default defineEventHandler(async (event) => {
     touchCredential(db, cred.id, verification.authenticationInfo.newCounter),
     db.select({ email: users.email }).from(users).where(eq(users.id, cred.userId)).limit(1),
   ]);
-  await startSession(event, db, cred.userId);
+  // the ceremony happened in this browser: its lists follow (see startSession)
+  await startSession(event, db, cred.userId, { sweep: true });
   // null, not "" — an account made with a passkey genuinely has no address, and
   // the client distinguishes "none yet" from "" nowhere else
   return { ok: true as const, user: { email: row[0]?.email ?? null } };

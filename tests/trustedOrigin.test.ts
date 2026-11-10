@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CANONICAL_ORIGIN } from "../shared/site";
-import { trustedOrigin } from "../server/utils/origin";
+import { refuseCrossSite, trustedOrigin } from "../server/utils/origin";
 
 // The regression these pin down is a `Host` header deciding where an emailed
 // credential points. A test that only checked "returns a string" would have
@@ -98,5 +98,50 @@ describe("trustedOrigin — dev and previews keep deriving from the request", ()
     expect(trustedOrigin(eventWithHost("mahonia-git-branch.vercel.app"))).toBe(
       "https://mahonia-git-branch.vercel.app",
     );
+  });
+});
+
+// The endpoints that START a session have no cookie for SameSite to withhold, so a
+// form on another site could post a sign-in for its own account into a visitor's
+// browser. Each case states the headers the browser would have sent.
+describe("refuseCrossSite — only our own page may start a session", () => {
+  beforeEach(() => {
+    process.env.NODE_ENV = "production";
+  });
+  const post = (headers: Record<string, string>) =>
+    ({
+      path: "/api/auth/verify",
+      node: { req: { headers: { host: "mahonia.app", "x-forwarded-proto": "https", ...headers }, url: "/api/auth/verify" } },
+    }) as never;
+
+  it("lets our own page through", () => {
+    expect(() => refuseCrossSite(post({ origin: CANONICAL_ORIGIN, "sec-fetch-site": "same-origin" }))).not.toThrow();
+  });
+
+  it("refuses a form on another site, which names its own origin", () => {
+    expect(() => refuseCrossSite(post({ origin: "https://evil.example" }))).toThrow();
+    // a sandboxed frame or a no-referrer form post says "null", which is not us either
+    expect(() => refuseCrossSite(post({ origin: "null" }))).toThrow();
+    expect(() => refuseCrossSite(post({ "sec-fetch-site": "cross-site" }))).toThrow();
+  });
+
+  it("refuses a sibling site, which the browser calls same-site", () => {
+    const sibling = post({ origin: "https://other.mahonia.app", "sec-fetch-site": "same-site" });
+    expect(() => refuseCrossSite(sibling)).toThrow();
+    // and anything a browser labels as other than our own page, whatever it claims
+    expect(() => refuseCrossSite(post({ origin: CANONICAL_ORIGIN, "sec-fetch-site": "same-site" }))).toThrow();
+  });
+
+  it("lets through a page on another host that is serving this app", () => {
+    // a www or deployment alias: the visitor's browser sends the Host it is on, and
+    // its page's origin agrees with it. A page on evil.example agrees with neither.
+    const alias = post({ host: "www.mahonia.app", origin: "https://www.mahonia.app", "sec-fetch-site": "same-origin" });
+    expect(() => refuseCrossSite(alias)).not.toThrow();
+    expect(() => refuseCrossSite(post({ host: "www.mahonia.app", origin: "https://evil.example" }))).toThrow();
+  });
+
+  it("lets through a request no browser page made", () => {
+    // curl, a native client: no visitor's browser to sign in
+    expect(() => refuseCrossSite(post({}))).not.toThrow();
   });
 });

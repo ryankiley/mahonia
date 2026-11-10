@@ -53,8 +53,15 @@ export default defineNuxtPlugin(() => {
   // On the OWNER, not on signedIn: an account replaced by another in this browser
   // (B's sign-in link redeemed while A was in) never flips signedIn, and the
   // switcher kept A's lists until a reload.
-  watch([() => session.user.value?.owner, registryFingerprint], ([owner, fingerprint]) => {
-    if (!owner) return;
-    void useClaimedLists().claimDeviceLists(fingerprint);
-  });
+  //
+  // And on `sweep`: a sign-in someone only confirmed here doesn't bring the
+  // browser's lists until they say so (claimDeviceLists holds the gate), and the
+  // yes arrives as that flag turning true on a session already signed in.
+  watch(
+    [() => session.user.value?.owner, registryFingerprint, () => session.user.value?.sweep],
+    ([owner, fingerprint]) => {
+      if (!owner) return;
+      void useClaimedLists().claimDeviceLists(fingerprint);
+    },
+  );
 });
