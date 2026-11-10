@@ -65,8 +65,16 @@ const editedAt = computed(() => parseIsoTime(props.list?.updatedAt));
 
 // The route this list was packed for.
 const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.trailLabel));
-// empty string when the list has no dates, which the v-if reads as absent
-const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.list?.endDate));
+// empty string when the list has no dates, which the v-if reads as absent.
+// A trip in the coming week reads "Tomorrow" / "Friday" — but only once this is running
+// in the reader's browser: /s is server-rendered, and the server's clock is in the wrong
+// timezone for "Tomorrow" (and an indexed /l page would keep saying it). So the server
+// and the hydrating render print the dates, and the browser re-words them on mount.
+const hydrated = ref(false);
+onMounted(() => (hydrated.value = true));
+const dateLabel = computed(() =>
+  formatDateRange(props.list?.startDate, props.list?.endDate, now.value, { relative: hydrated.value }),
+);
 
 // ---- the trip, as the owner planned it ----
 //

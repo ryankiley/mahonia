@@ -308,7 +308,13 @@ async function copyLink() {
 // waypoints and the estimates (see TrailPlanPanel). This row stays the two ends of the
 // range, which is the one fact about a trip that belongs beside its title.
 const datesEl = useTemplateRef<HTMLElement>("datesEl");
-const dateLabel = computed(() => formatDateRange(props.snapshot.startDate, props.snapshot.endDate));
+// A trip in the coming week reads "Tomorrow" / "Friday" (formatDateRange says why), and
+// the editor only ever renders in the browser, so it is on the reader's clock from the
+// first frame. The tick is what carries "Tomorrow" over midnight in a tab left open.
+const now = useNow();
+const dateLabel = computed(() =>
+  formatDateRange(props.snapshot.startDate, props.snapshot.endDate, now.value, { relative: true }),
+);
 
 // Opening a surface replaces whatever was up, so no opener has anything to remember.
 // Dismissing is the opposite: each one is about its own side. closeDates hears every

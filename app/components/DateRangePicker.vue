@@ -216,6 +216,7 @@ onMounted(() => {
           :class="{
             'is-start': c.iso === start,
             'is-end': c.iso === end,
+            'is-alone': c.iso === start && (!end || end === start),
             'is-between': inRange(c.iso) && c.iso !== start && c.iso !== end,
             'is-today': c.iso === today,
           }"
@@ -374,8 +375,11 @@ onMounted(() => {
   border-start-start-radius: 0;
   border-end-start-radius: 0;
 }
-/* a single-day trip is both ends at once — it must stay fully rounded */
-.cal__day.is-start.is-end {
+/* A start with no band to join stays fully rounded: a one-day trip (both ends at once),
+   and a start whose end isn't picked — mid-pick, or a trip left open-ended. Squaring
+   its far side toward a bar that isn't there read as a clipped corner. After the two
+   rules above, same specificity, so source order decides. */
+.cal__day.is-alone {
   border-radius: var(--radius-2);
 }
 </style>

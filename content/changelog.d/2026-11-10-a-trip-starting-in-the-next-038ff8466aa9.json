@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-10",
+  "changed": [
+    "A trip starting in the next six days now shows as Today, Tomorrow or the weekday, like Friday – Sunday, instead of its dates."
+  ],
+  "fixed": [
+    "Picking a trip's first date in the calendar no longer leaves that day looking clipped on one side."
+  ]
+}
