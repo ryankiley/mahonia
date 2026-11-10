@@ -12,7 +12,7 @@ import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTr
 import { normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "./trailLink";
 import type { Classification, Folder, Item, ListMeta, ListMetaKey, ListSnapshot, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { CLASSIFICATIONS, UNITS, WAYPOINT_KINDS } from "./types";
-import { personNameTaken, UNASSIGNED } from "./people";
+import { MAX_PERSON_NAME_LEN, personNameTaken, UNASSIGNED } from "./people";
 import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
 
 // updateItem's patch: Partial<Item> plus `catalogItemId: null` as an explicit
@@ -232,7 +232,7 @@ export const MAX_NOTE_LEN = 500;
 export const MAX_QTY = 9999;
 export const MAX_VARIANT_LEN = 120; // the size/config qualifier, typed or picked
 export const MAX_FOLDER_NAME_LEN = 120;
-export const MAX_PERSON_NAME_LEN = 60;
+export { MAX_PERSON_NAME_LEN };
 // Past this an itinerary stops being something a person hand-enters, and the per-day
 // model stops being the right tool for the trip. A bound on row size, like the two above,
 // not an opinion about how long a walk should be.

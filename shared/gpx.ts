@@ -74,14 +74,12 @@ export function haversineM(a: TrackPoint, b: TrackPoint): number {
  * someone dropping a file in has no reason to care which they exported.
  */
 export function gpxPoints(doc: Document): TrackPoint[] {
-  // GPX first, then the other XML dialects that carry the same thing under other names.
+  // The other XML dialects that carry the same thing under other names, then GPX itself.
   // A route is a route; which app exported it is not the walker's problem.
   const kml = kmlPoints(doc);
   if (kml.length) return kml;
   const tcx = tcxPoints(doc);
   if (tcx.length) return tcx;
-  const georss = georssPoints(doc);
-  if (georss.length) return georss;
   const nodes = [...byLocalName(doc, "trkpt"), ...byLocalName(doc, "rtept")];
   const out: TrackPoint[] = [];
   for (const n of nodes) {
@@ -91,7 +89,11 @@ export function gpxPoints(doc: Document): TrackPoint[] {
     const ele = finiteTextNumber(localText(n, "ele"));
     out.push(Number.isFinite(ele) ? { lat, lon, ele } : { lat, lon });
   }
-  return out;
+  // GeoRSS LAST, and only when the file had no track of its own. It reads any element
+  // named `line`, and a GPX file's style extension is one: <line><color>000000</color>
+  // <opacity>0.7</opacity>…</line> holds a valid latitude and longitude as far as a
+  // number pair goes, and read first it replaced the whole track with that one point.
+  return out.length ? out : georssPoints(doc);
 }
 
 /** A pin the file already carried, before it is projected onto the route. */

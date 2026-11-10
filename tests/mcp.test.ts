@@ -628,6 +628,31 @@ describe("writing", () => {
     expect(structured!.trail).toBeNull();
   });
 
+  it("refuses a trail label that would be left with no link to name", async () => {
+    // beside the link being cleared: the clear used to run, then the label was set again
+    repo.getByEditHash.mockResolvedValue(snap());
+    const cleared = toolText(await call("edit_list", { edit_link: TOKEN, list: { trail_url: "", trail_label: "Loop" } }));
+    expect(cleared.isError).toBe(true);
+    expect(cleared.text).toContain("trail_label");
+    // alone, on a list that has no link
+    repo.getByEditHash.mockResolvedValue(snap({ trailUrl: undefined }));
+    const alone = toolText(await call("edit_list", { edit_link: TOKEN, list: { trail_label: "Loop" } }));
+    expect(alone.isError).toBe(true);
+    expect(repo.applyOpsByEditHash).not.toHaveBeenCalled();
+    // on a new list with no link
+    expect(toolText(await call("create_list", { title: "Trip", trail_label: "Loop" })).isError).toBe(true);
+    expect(repo.createList).not.toHaveBeenCalled();
+  });
+
+  it("still titles a link that is there, and still clears a label anywhere", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockResolvedValue(snap({ trailLabel: "Loop" }));
+    expect(toolText(await call("edit_list", { edit_link: TOKEN, list: { trail_label: "Loop" } })).isError).toBe(false);
+    repo.getByEditHash.mockResolvedValue(snap({ trailUrl: undefined }));
+    repo.applyOpsByEditHash.mockResolvedValue(snap({ trailUrl: undefined }));
+    expect(toolText(await call("edit_list", { edit_link: TOKEN, list: { trail_label: "" } })).isError).toBe(false);
+  });
+
   it("edit_list nests a new row under a group, moves rows into and out of one, and relinks a row where it sits", async () => {
     repo.getByEditHash.mockResolvedValue(snap());
     repo.applyOpsByEditHash.mockResolvedValue(snap());

@@ -96,7 +96,7 @@ export const ACCOUNT_DDL: string[] = [
   )`,
   // the app columns, for a table made by an earlier build of this feature (a preview
   // branch's database): the same idempotent shape every other column change here takes
-  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'token'`,
+  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'token' CHECK (kind IN ('token', 'app'))`,
   `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS client_id text`,
   `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS expires_at timestamptz`,
   `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS refresh_hash text`,

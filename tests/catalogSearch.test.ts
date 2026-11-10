@@ -459,3 +459,18 @@ describe("highlightParts — accents", () => {
     }
   });
 });
+
+describe("highlightParts — a letter whose lower case is longer", () => {
+  // "İ".toLowerCase() is two code units, so lower-casing the whole text first slid
+  // every later highlight one character to the right.
+  const on = (text: string, q: string) => highlightParts(text, q).filter((p) => p.on).map((p) => p.t);
+
+  it("bolds the word that was typed, not the one beside it", () => {
+    expect(on("İstanbul Tent", "tent")).toEqual(["Tent"]);
+    expect(highlightParts("İstanbul Tent", "tent").map((p) => p.t).join("")).toBe("İstanbul Tent");
+  });
+
+  it("still matches the dotted capital itself", () => {
+    expect(on("İstanbul Tent", "istanbul")).toEqual(["İstanbul"]);
+  });
+});

@@ -9,7 +9,7 @@ import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { catalogNameKeys } from "~~/shared/catalogMatch";
 import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
-import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
+import { formatVolume, isWaterName, waterMenuMl, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
 import { menuRoom, visibleBand } from "~/utils/viewportRoom";
@@ -197,19 +197,9 @@ onScopeDispose(() => openScope?.stop());
 type WaterSug = { ml: number; label: string; weightMg: number };
 const waterSuggestion = computed<WaterSug | null>(() => {
   if (props.sources === "catalog") return null;
-  const low = draft.value.trim().toLowerCase();
-  if (!low) return null;
-  let volStr: string | null = null;
-  if (/^water\b/.test(low)) {
-    const rest = low.replace(/^water\b/, "").trim();
-    volStr = rest === "" ? "1l" : rest;
-  } else if (/\bwater$/.test(low)) {
-    volStr = low.replace(/\bwater$/, "").trim();
-  } else if (parseVolumeMl(low) != null) {
-    volStr = low;
-  }
-  if (volStr == null) return null;
-  const ml = parseVolumeMl(volStr);
+  // read by shared/water, the way the Enter and paste paths read the same text, so
+  // the menu can't offer less than Enter would make ("Water - 2 L" once did)
+  const ml = waterMenuMl(draft.value);
   if (ml == null || ml <= 0) return null;
   return { ml, label: `Water · ${formatVolume(ml)}`, weightMg: waterMgFromMl(ml) };
 });

@@ -567,6 +567,24 @@ describe("KMZ — a KML in a zip", () => {
 });
 
 describe("GeoRSS", () => {
+  it("does not mistake a GPX file's line STYLE for a route", () => {
+    // The GPX Style extension writes <line><color>…</color><opacity>…</opacity>…</line>;
+    // read as GeoRSS in a pretty-printed file, "000000 0.7" is one valid lat-lon pair and
+    // the track was dropped for it.
+    const styled = `<gpx xmlns="http://www.topografix.com/GPX/1/1"><trk>
+      <extensions>
+        <line xmlns="http://www.topografix.com/GPX/gpx_style/0/2">
+          <color>000000</color>
+          <opacity>0.7</opacity>
+          <width>3</width>
+        </line>
+      </extensions>
+      <trkseg><trkpt lat="45.33" lon="-121.71"><ele>1800</ele></trkpt><trkpt lat="45.34" lon="-121.70"><ele>1850</ele></trkpt></trkseg></trk></gpx>`;
+    const pts = gpxPoints(xml(styled));
+    expect(pts).toHaveLength(2);
+    expect(pts[0]).toEqual({ lat: 45.33, lon: -121.71, ele: 1800 });
+  });
+
   it("reads a lat-lon run, LAT first — the opposite of KML", () => {
     const feed = `<feed xmlns="http://www.w3.org/2005/Atom" xmlns:georss="http://www.georss.org/georss">
       <entry><georss:line>45.33 -121.71 45.34 -121.70 45.35 -121.69</georss:line></entry></feed>`;

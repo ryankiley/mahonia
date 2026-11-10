@@ -1444,7 +1444,7 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
   }
   if (plan.items.length > MAX_ITEMS) return fail(`A list holds at most ${MAX_ITEMS} rows; this would make ${plan.items.length}.`);
 
-  const meta = tripMeta(args, true);
+  const meta = tripMeta(args, { creating: true });
   if (typeof meta === "string") return fail(meta);
   const unlinked = await linkCatalog(plan.items);
   if (unlinked) return fail(unlinked);
@@ -1511,7 +1511,7 @@ async function fileUnderAccount(event: H3Event, editToken: string, snapshot: Lis
 /** The meta fields the two trip tools share, validated, or the sentence that failed.
  *  `creating` is create_list: a new list has no distance unit yet, so a distance given
  *  in kilometres picks km; on an existing list the owner's pick stands. */
-function tripMeta(args: Record<string, unknown>, creating = false): Record<string, unknown> | string {
+function tripMeta(args: Record<string, unknown>, { creating = false, linked = false } = {}): Record<string, unknown> | string {
   const meta: Record<string, unknown> = {};
   if (args.title != null) {
     if (typeof args.title !== "string") return "title must be text.";
@@ -1548,6 +1548,11 @@ function tripMeta(args: Record<string, unknown>, creating = false): Record<strin
   }
   if (args.trail_label != null) {
     if (typeof args.trail_label !== "string") return "trail_label must be text.";
+    // A label names the link. With none (never set, or cleared by this same call) it
+    // would be stored where nothing shows it, to title whatever link came next.
+    // Clearing one is always fine.
+    const hasLink = meta.trailUrl === undefined ? linked : meta.trailUrl !== "";
+    if (args.trail_label.trim() && !hasLink) return "trail_label names the trail link, and there is no link: send trail_url with it.";
     meta.trailLabel = args.trail_label;
   }
   if (args.trail_distance_km != null) {
@@ -1759,9 +1764,9 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
 }
 
 /** the `list` part: the list's own fields, as one setMeta */
-function planMeta(raw: unknown, { plan }: Work): string | null {
+function planMeta(raw: unknown, { work, plan }: Work): string | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "list must be an object of the list's own fields.";
-  const meta = tripMeta(raw as Record<string, unknown>);
+  const meta = tripMeta(raw as Record<string, unknown>, { linked: !!work.trailUrl });
   if (typeof meta === "string") return meta;
   if (!Object.keys(meta).length) return "list has nothing to set: give a title, unit, start_date, end_date, trail_url, trail_label or trail_distance_km.";
   plan({ t: "setMeta", patch: meta as Extract<Op, { t: "setMeta" }>["patch"] });
