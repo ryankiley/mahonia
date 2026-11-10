@@ -123,6 +123,9 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   // a compression cap is a stuff-sack lid for a quilt, not a pack part
   [/\b(compression straps?|compression cap)\b/, "bag"],
   [/\b(hip belt|hip belt pocket|shoulder straps?|shoulder pads|back pad|lumbar pad|sternum strap|mesh sleeve|ventilation frame)\b/, "backpack"],
+  // a bungee lashes things to the outside of a pack, not a tarp to a tree, so it goes
+  // with the pack before "cord" can call it a guyline
+  [/\bbungees?\b/, "backpack"],
   [/\b(fleece pants|knee pads?)\b/, "pants"],
   [/\bpee funnel\b/, "toilet"],
   // the gear you make a drink WITH is the kitchen; the drink itself (below) is food
@@ -160,7 +163,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   // shelter and sleep
   [/\b(tent|inner tent|vestibule|tarp|bivy|groundsheet|ground sheet|footprint|tent floor|tent poles?)\b/, "tent"],
   [/\b(stakes?|pegs?|snow anchors?|stake tool)\b/, "tent"],
-  [/\b(guy ?lines?|cord|paracord|cord reel|bungee cord|line tensioner|ridgeline|rigging kit|rope)\b/, "cord"],
+  [/\b(guy ?lines?|cord|paracord|cord reel|line tensioner|ridgeline|rigging kit|rope)\b/, "cord"],
   [/\b(trekking poles?|hiking staff|poles?|pole holder)\b/, "poles"],
   // what you sleep in and what helps you sleep: one Zzz, bag and pillow alike
   [/\b(sleeping bag|sleeping bag liner|quilt|blanket|sheet|pillow|pillowcase|pillow strap|earplugs|eye mask|mouth guard|night guard|underquilt)\b/, "sleep"],
