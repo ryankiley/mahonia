@@ -22,8 +22,12 @@ const rootRef = useTemplateRef<HTMLElement>("rootRef");
 useMenuDismiss(open, rootRef);
 
 function toggle() {
-  open.value = !open.value;
-  if (open.value) emit("open");
+  // the next value, computed once: with a parent-bound model, reading open.value back
+  // after the write still gives the old prop, and `open` fired on close (MenuSection
+  // has the long form of this)
+  const next = !open.value;
+  open.value = next;
+  if (next) emit("open");
 }
 const close = () => {
   open.value = false;

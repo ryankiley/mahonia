@@ -91,9 +91,13 @@ const emit = defineEmits<{ dismiss: [] }>();
   padding: var(--space-1);
   opacity: 0.72;
 }
-.prompt__close:hover,
 .prompt__close:focus-visible {
   opacity: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .prompt__close:hover {
+    opacity: 1;
+  }
 }
 /* touch: the dismiss meets the --tap minimum (the house rule, controls.scss)
    without growing the prompt — the extra hit area overhangs the box via negative

@@ -1022,7 +1022,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
         >
           <template #trigger="{ open }">
             <span class="t-muted">{{ bodyUnit }}</span>
-            <HugeiconsIcon :icon="ChevronDownIcon" :size="12" :stroke-width="2" />
+            <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="12" :stroke-width="2" aria-hidden="true" />
           </template>
         </OptionMenu>
       </span>

@@ -69,4 +69,12 @@ const label = computed(() => (presence.value !== "signedOut" ? "Your account" : 
 .acctmodal__head .btn--icon {
   margin-block: var(--icon-pull);
 }
+/* touch: the button grows to --tap (atoms/controls.scss), so the pull that keeps the
+   row as tall as its type is the --tap one. With the 32px pull on a 44px box the header
+   stood 12px taller on a phone than the same header does under a mouse. */
+@media (pointer: coarse) {
+  .acctmodal__head .btn--icon {
+    margin-block: var(--tap-pull);
+  }
+}
 </style>
