@@ -4,7 +4,6 @@ import { canSendEmail } from "../../../utils/email";
 import { savePasskey } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
 import { readJsonBodyCapped } from "../../../utils/http";
-import { refuseCrossSite } from "../../../utils/origin";
 import { requirePasskeysConfigured, takeChallenge, verifyPasskeyRegistration } from "../../../utils/passkeys";
 
 // Step 2 of creating an account with nothing but a passkey: check what the
@@ -33,8 +32,6 @@ import { requirePasskeysConfigured, takeChallenge, verifyPasskeyRegistration } f
 // ask them to click; for someone whose address a stranger typed in, it's the whole
 // remedy. See the welcome copy in email.ts.
 export default defineEventHandler(async (event) => {
-  // as signin-verify: this starts a session, so only our own page may post it
-  refuseCrossSite(event);
   await openPrivate(event, "passkey-signup");
 
   requirePasskeysConfigured();
