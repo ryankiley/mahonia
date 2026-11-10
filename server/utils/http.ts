@@ -4,9 +4,8 @@ import { READ_EDGE_CACHE_CONTROL } from "../../shared/site";
 /**
  * Keep a response out of search results.
  *
- * Nearly every endpoint here wants this — an API response is somebody's list,
- * gear or account, and none of it is a page. One deliberately doesn't call it:
- * /api/l/[slug], which backs the indexable public read.
+ * Every endpoint here wants this: an API response is somebody's list, gear or
+ * account, and none of it is a page.
  *
  * A helper rather than a wrapper that sets it for you. The obvious next step —
  * defineApiHandler(action, handler), headers and rate limit together — is a trap

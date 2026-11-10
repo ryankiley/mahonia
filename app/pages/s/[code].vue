@@ -19,10 +19,10 @@ useResponseHeader("Cache-Control").value = READ_EDGE_CACHE_CONTROL;
 const { unit, fullTotals, personFilter, viewProps } = useReadonlyList(snapshot);
 
 // Social unfurl (iMessage/Slack/etc.): the title + a short summary so a pasted share
-// link shows the list name, not a bare URL. Shared with /l via useReadonlyListSeo;
+// link shows the list name, not a bare URL (useReadonlyListSeo);
 // this page's noindex (below) keeps it out of search — og tags still drive previews.
 // fullTotals, not totals: the unfurl describes the list, not the viewer's filter.
-useReadonlyListSeo(snapshot, fullTotals, "shared");
+useReadonlyListSeo(snapshot, fullTotals);
 useHead({
   title: () => (snapshot.value ? `${snapshot.value.title} — Mahonia` : "Mahonia"),
   meta: [{ name: "robots", content: "noindex" }],

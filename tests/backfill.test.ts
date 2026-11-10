@@ -100,7 +100,8 @@ describe("a list stored before the tidy existed", () => {
     const snap = rowToSnapshot(legacyRow());
     expect(snap.shareCode).toBe("abc123");
     expect(snap.version).toBe(7);
-    expect(snap.isPublic).toBe(true);
+    // publishing is retired: its column stays on the row, and never reaches a snapshot
+    expect(snap).not.toHaveProperty("isPublic");
     expect(snap.displayUnit).toBe("g");
     expect(snap.items[0]!.unitWeightMg).toBe(538000);
     expect(snap.updatedAt).toBe("2025-01-02T03:04:05.000Z");

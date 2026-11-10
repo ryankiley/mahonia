@@ -336,7 +336,6 @@ export function pickListMeta<T extends Partial<ListMeta>>(src: T): Pick<T, ListM
 export interface ListSnapshot extends ListState {
   shareCode: string;
   slug: string;
-  isPublic: boolean;
   // ISO timestamp of the server's last write to this list — drives the editor's
   // "edited Nm ago" line. Authoritative (reflects a collaborator's edit the poll
   // pulls in), unlike a device-local clock. Absent on a never-server-saved draft.
@@ -346,10 +345,6 @@ export interface ListSnapshot extends ListState {
   // someone else's list. Absent means anonymous, which is the default and stays
   // the default: an account with no display name is never identified.
   authorName?: string;
-  // public-feed metadata (only populated on the public read view / publish flow)
-  tripType?: string;
-  season?: string;
-  publishedAt?: string;
   // The trail site's favicon as a data: URL, joined in from the per-host cache. Derived
   // data, not user content: it's absent from snapshots, diffs and the JSON export, and
   // queries that don't join simply leave it undefined (the link renders without a mark).

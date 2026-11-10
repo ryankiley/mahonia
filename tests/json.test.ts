@@ -11,7 +11,6 @@ const snap = (): ListSnapshot => ({
   shareCode: "X",
   slug: "x",
   version: 7,
-  isPublic: true,
   title: "Sierra loop",
   description: "Late-season kit — bring the warm puffy.",
   displayUnit: "oz",

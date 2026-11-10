@@ -8,7 +8,6 @@ import {
   rotateEditHash,
   softDeleteByEditHash,
 } from "../server/utils/listRepo";
-import { getPublishStateByEditHash, publishListByEditHash } from "../server/utils/discoveryRepo";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb, makeList as makeListRow, type TestDb } from "./helpers/db";
 import { folder, item } from "./helpers/list";
@@ -20,7 +19,7 @@ import { folder, item } from "./helpers/list";
 // the half of the account feature the endpoints never wired up before.
 //
 // The ByEditToken wrappers stay covered by the existing suites (snapshots,
-// listDelete, discovery); what's new here is the hash arriving FROM A CLAIM.
+// listDelete); what's new here is the hash arriving FROM A CLAIM.
 
 // A list with real content, so ops have rows to land on.
 const makeList = (db: TestDb, title = "Sierra trip") =>
@@ -85,16 +84,6 @@ describe("editing a claimed list through the session-resolved hash", () => {
     expect(await findByEditHash(hash!, db)).toBeNull(); // token path dead too
     expect(await claimedEditHash(db, USER, list.shareCode)).toBeNull();
     expect(await listClaimedLists(db, USER)).toHaveLength(0);
-  });
-
-  it("publishes via the claim — state reads and writes both take the resolved hash", async () => {
-    const list = await makeList(db);
-    await claimLists(db, USER, [list.editToken]);
-    const hash = await claimedEditHash(db, USER, list.shareCode);
-
-    expect((await getPublishStateByEditHash(hash!, db))?.isPublic).toBe(false);
-    const state = await publishListByEditHash(hash!, { isPublic: true }, db);
-    expect(state?.isPublic).toBe(true);
   });
 
   it("an unclaimed code resolves to nothing an edit can use", async () => {

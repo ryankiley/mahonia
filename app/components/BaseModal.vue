@@ -1,6 +1,6 @@
 <script setup lang="ts">
 // Shared modal shell — the centered dialog over a fading scrim used by every
-// dialog (publish, catalog-correction). Owns the overlay, the scrim/rise
+// dialog (catalog correction, the account, the feedback box). Owns the overlay, the scrim/rise
 // transition, click-outside, Escape-to-close, and focus (move in on open, Tab
 // trap while open, restore on close — aria-modal declares the page inert, and
 // the scrim blocks the pointer but not the keyboard, so the shell must keep

@@ -28,7 +28,6 @@ export default defineEventHandler((event) => {
     `- [About](${origin}/about): what Mahonia is and why it exists`,
     `- [Help](${origin}/help): how links, weights, imports, trip planning and the connector work`,
     "- [What's new](https://github.com/ryankiley/mahonia/releases): a release per day that ships something",
-    `- [Public lists](${origin}/sitemap.xml): every shared public list, at /l/{slug}`,
     `- [Legal](${origin}/legal): privacy policy and terms of use`,
     "",
     "## Shared lists",

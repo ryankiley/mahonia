@@ -64,7 +64,6 @@ const row = (over: Partial<ListRow> = {}) =>
     consumableWeightMg: 0,
     totalWeightMg: 0,
     itemCount: 0,
-    isPublic: false,
     version: 1,
     updatedAt: new Date("2026-08-06T00:00:00Z"),
     ...over,

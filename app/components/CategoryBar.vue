@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { ListSnapshot } from "~~/shared/types";
 import { categoryColor } from "~~/shared/categories";
-import { categorySegments } from "~~/shared/discovery";
+import { categorySegments } from "~~/shared/categorySegments";
 import { formatWeight } from "~~/shared/weights";
 
 const props = defineProps<{ list: ListSnapshot }>();

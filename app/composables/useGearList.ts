@@ -771,7 +771,6 @@ function create() {
       shareCode: "",
       slug: "",
       version: 0,
-      isPublic: false,
     };
     status.value = "synced";
     // Restore an in-progress, never-saved draft if one survived a reload/crash.

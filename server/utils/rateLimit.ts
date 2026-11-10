@@ -36,7 +36,7 @@ export function getClientIp(event: H3Event): string | undefined {
  * Keying on the whole IP is right for IPv4, where an address is scarce and shared. It
  * is close to meaningless for IPv6: a residential connection is routed a /64, so a
  * script can bind a different source address per request and mint a fresh bucket every
- * time. Every limit here — sign-in links, reports, and the anonymous feedback endpoint
+ * time. Every limit here — sign-in links and the anonymous feedback endpoint
  * that opens PUBLIC issues — was bypassable that way by anyone with an ordinary
  * dual-stack connection.
  *
@@ -151,44 +151,6 @@ export async function consumeRateLimit(
   return bucket.count > limit;
 }
 
-// A per-slug set of distinct reporter fingerprints (hashed IPs), held in the
-// same shared KV store as the rate limiter.
-interface ReportTally {
-  ips: string[];
-}
-
-/**
- * Record a distinct reporter for `slug` and report whether the distinct-reporter
- * threshold has been reached. IP-deduped: the same reporter re-reporting never
- * moves the count, so one actor can't flag a list alone. Pure/injectable like
- * consumeRateLimit so it's unit-testable. TTL bounds the tally to `windowMs` from
- * the last report, so a stale, rarely-reported list decays instead of latching.
- */
-export async function tallyDistinctReport(
-  storage: KvStorage,
-  slug: string,
-  reporterHash: string,
-  threshold: number,
-  windowMs: number,
-): Promise<{ distinct: number; reached: boolean }> {
-  const key = `report:${slug}`;
-  const existing = await storage.getItem<ReportTally>(key);
-  const prior = existing?.ips ?? [];
-  const ips = prior.includes(reporterHash) ? prior : [...prior, reporterHash];
-  // bound the stored set — once we're past the threshold the exact members no
-  // longer matter, so a rotating attacker can't grow the value unbounded.
-  const cap = Math.max(threshold * 4, 16);
-  const capped = ips.length > cap ? ips.slice(0, cap) : ips;
-  const ttl = Math.max(1, Math.ceil(windowMs / 1000));
-  await storage.setItem(key, { ips: capped }, { ttl });
-  return { distinct: capped.length, reached: capped.length >= threshold };
-}
-
-/** Clear a slug's report tally (admin restore — so a restored list can't instantly re-flag). */
-export async function clearReportTally(storage: KvStorage, slug: string): Promise<void> {
-  await storage.setItem(`report:${slug}`, { ips: [] }, { ttl: 1 });
-}
-
 // Per-IP request budgets, all on a fixed 1-minute window — the whole throttle
 // policy in one reviewable table (endpoints used to hardcode their own numbers).
 const WINDOW_MS = 60_000;
@@ -199,7 +161,6 @@ const RATE_LIMITS = {
   "import": 20,
   // editor read/poll paths
   "snapshots": 120,
-  "publishget": 120,
   // the live-sync editor poll + full-snapshot fetch — hit ~20/min per open editor,
   // so a roomy budget; gates the unauthenticated DB lookup any bearer string triggers
   "poll": 180,
@@ -225,9 +186,7 @@ const RATE_LIMITS = {
   "mcp-read": 120,
   "mcp-write": 30,
   // heavier / abuse-prone writes
-  "publish": 20,
   "restore": 30,
-  "report": 10,
   // catalog: autocomplete search is per-keystroke; corrections are rare writes
   "catalog-search": 240,
   "catalog-match": 30, // one request per import, every row's name in it

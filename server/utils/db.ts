@@ -152,8 +152,8 @@ export const LISTS_DDL: string[] = [
   // The public FEED was dropped (2026-08-22): a directory of user-made lists is
   // thin, near-duplicate content and a permanent moderation job, and sharing already
   // works without one. These three partial indexes served feed sorts that no query
-  // ever ran — lightest-packs, recency, browse-by-trip-type. Publishing itself stays
-  // (isPublic, /l/{slug}); only the browse-them-all surface is gone.
+  // ever ran — lightest-packs, recency, browse-by-trip-type. Publishing itself
+  // (isPublic, /l/{slug}) followed on 2026-11-09; its columns stay, unread.
   //
   // There is no migration step in this app — the DDL below is CREATE ... IF NOT
   // EXISTS, ensured idempotently on first use (see the header). So dropping the

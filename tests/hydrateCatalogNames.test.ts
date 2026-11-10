@@ -7,7 +7,7 @@ import { createTestDb } from "./helpers/db";
 
 function snap(items: Partial<Item>[]): ListSnapshot {
   return {
-    shareCode: "X", slug: "x", title: "t", displayUnit: "g", version: 1, isPublic: false,
+    shareCode: "X", slug: "x", title: "t", displayUnit: "g", version: 1,
     folders: [],
     items: items.map((p, i) => ({ id: String(i), folderId: null, name: "", unitWeightMg: 0, qty: 1, classification: null, sortOrder: i, ...p })),
   };
