@@ -18,7 +18,8 @@ import { refuseCrossSite } from "../utils/origin";
 // NOT here, on purpose: /mcp, /token, /register, /revoke and the discovery
 // documents. Those exist to be called from other origins, authenticate by bearer
 // and never read a cookie; cors.ts opens them, and mcp.post.ts has its own rule.
-// Reads are left alone too: no GET changes anything.
+// Reads are left alone too: no GET changes anything on a cookie's say-so. (The
+// cron routes do change things on a GET, by a header only their caller holds.)
 const WRITES = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 export default defineEventHandler((event) => {

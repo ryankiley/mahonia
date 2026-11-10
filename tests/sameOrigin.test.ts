@@ -27,6 +27,26 @@ describe("sameOrigin — who may write to the API", () => {
     expect(() => hit("POST", "/api/vault/items", { origin: OURS, "sec-fetch-site": "same-origin" })).not.toThrow();
   });
 
+  it("lets our own page write when its origin goes unnamed", () => {
+    // The page-hide beacon that saves gear to My Gear, in Firefox, and any plain
+    // form post: not a CORS fetch, so under this site's no-referrer policy the
+    // browser names the origin as "null" even though the page is ours. The
+    // browser's own label says whose it is, and that label is what decides.
+    expect(() =>
+      hit("POST", "/api/vault/capture", { origin: "null", "sec-fetch-site": "same-origin" }),
+    ).not.toThrow();
+    // from another site the same unnamed origin comes labelled as what it is
+    expect(() => hit("POST", "/api/vault/capture", { origin: "null", "sec-fetch-site": "cross-site" })).toThrow();
+    expect(() => hit("POST", "/api/vault/capture", { origin: "null", "sec-fetch-site": "same-site" })).toThrow();
+    // and with no label to go by, an origin that names nobody is not ours
+    expect(() => hit("POST", "/api/vault/capture", { origin: "null" })).toThrow();
+  });
+
+  it("goes by the origin for a browser too old to label its requests", () => {
+    expect(() => hit("POST", "/api/vault/items", { origin: OURS })).not.toThrow();
+    expect(() => hit("POST", "/api/vault/items", { origin: "https://evil.example" })).toThrow();
+  });
+
   it("lets through what no browser page sent", () => {
     // the native app, curl, another server: no visitor's cookies to ride on
     expect(() => hit("POST", "/api/edit/mutate")).not.toThrow();
