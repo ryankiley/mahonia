@@ -97,12 +97,15 @@ export const vaultWithHits = (results: unknown[]) => ({
  * own state. Without one it is a sink — for suites about the optimistic snapshot the
  * reducer builds, where what reaches the device is nobody's business.
  */
-export const memoryListStore = (records?: Map<string, LocalListRecord>) => ({
+export const memoryListStore = (records?: Map<string, LocalListRecord>, deleted?: string[]) => ({
   get: async (key: string) => records?.get(key),
   set: async (key: string, record: LocalListRecord) => {
     records?.set(key, JSON.parse(JSON.stringify(record)));
   },
   del: async (key: string) => {
+    // `deleted` records WHICH copies were dropped, for the suites about the
+    // registry: there a delete is the thing under test and the copy is not
+    deleted?.push(key);
     records?.delete(key);
   },
   delClaimed: async () => {

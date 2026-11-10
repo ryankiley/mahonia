@@ -6,6 +6,7 @@
 // contents across a sequence of writes. Extracting a pure helper would be testing a
 // shape that isn't the one shipping.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { memoryListStore } from "./helpers/gearList";
 import { listEntry } from "./helpers/myLists";
 import { snapshotFor as baseSnapshot } from "./helpers/list";
 import { stubLocalStorage } from "./helpers/storage";
@@ -16,11 +17,7 @@ import type { ListSnapshot, MyListEntry } from "~~/shared/types";
 // swallowed: "the row goes, the on-device copy stays" is the whole distinction
 // between forget() and forgetSuperseded(), and it's only visible here.
 const deleted: string[] = [];
-mockNuxtImport("useLocalListStore", () => () => ({
-  get: async () => undefined,
-  set: async () => {},
-  del: async (key: string) => void deleted.push(key),
-}));
+mockNuxtImport("useLocalListStore", () => () => memoryListStore(undefined, deleted));
 
 const storage = stubLocalStorage();
 
