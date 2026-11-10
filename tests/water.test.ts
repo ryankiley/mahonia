@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { formatVolume, itemQtyLabel, parseVolumeMl, waterMenuMl, waterMgFromMl, waterPhraseMl } from "../shared/water";
+import { formatVolume, itemQtyLabel, parseVolumeMl, waterMenuMl, waterMgFromMl, waterPhraseMl, waterVolumeLabel } from "../shared/water";
+import { listToMarkdown } from "../shared/exporters/markdown";
+import { listToText } from "../shared/exporters/text";
+import { blankList, folder, item } from "./helpers/list";
 
 describe("parseVolumeMl — human volume → millilitres", () => {
   it("reads litres (the default for a bare number) and millilitres", () => {
@@ -141,5 +144,23 @@ describe("waterMenuMl — what the name field's menu offers as water", () => {
     expect(waterMenuMl("water filter")).toBeNull();
     expect(waterMenuMl("Tent")).toBeNull();
     expect(waterMenuMl("")).toBeNull();
+  });
+});
+
+describe("waterVolumeLabel — water's amount wherever a count would stand", () => {
+  it("is the row's whole volume, never a count", () => {
+    expect(waterVolumeLabel({ qty: 1, unitWeightMg: 3_000_000 })).toBe("3 L");
+    // a row stored before the reducer folded its count still says what it weighs
+    expect(waterVolumeLabel({ qty: 3, unitWeightMg: 3_000_000 })).toBe("9 L");
+    expect(waterVolumeLabel({ qty: 1, unitWeightMg: 0 })).toBe("0 L");
+  });
+
+  it("is what the Markdown and text exports print for water", () => {
+    const list = blankList({
+      folders: [folder({ name: "Food & water", defaultClassification: "consumable" })],
+      items: [item({ id: "w", name: "Water", unitWeightMg: 3_000_000 })],
+    });
+    expect(listToMarkdown(list)).toContain("| Water | 3 L |");
+    expect(listToText(list)).toContain("Water 3 L");
   });
 });

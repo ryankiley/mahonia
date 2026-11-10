@@ -45,7 +45,8 @@ import { captureFromList, OWNED_MAX, VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_
 import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX } from "../../shared/vaultKit";
 import { vaultFamilyOf } from "../../shared/vaultView";
 import { gearFamilyLabel } from "../../shared/gearGlyph";
-import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, nextSortOrder, siblingItems } from "../../shared/weights";
+import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, lineMg, nextSortOrder, siblingItems } from "../../shared/weights";
+import { isWaterName, waterMgFromMl } from "../../shared/water";
 import type { ConnectorIdentity } from "./accessTokens";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
 import { claimLists, claimedEditHash, listClaimedLists } from "./claimRepo";
@@ -90,7 +91,7 @@ const PROVENANCE =
  *  tool's own description already says stays there and isn't repeated here. */
 export const MCP_INSTRUCTIONS_MAX = 2048;
 export const MCP_INSTRUCTIONS = [
-  "Mahonia is a gear-list and pack-weight tracker for hikers. Weights are in grams everywhere. A row's classification is base (in the pack), worn (on the body) or consumable (food, fuel, water).",
+  "Mahonia is a gear-list and pack-weight tracker for hikers. Weights are in grams everywhere. A row's classification is base (in the pack), worn (on the body) or consumable (food, fuel, water). A row named Water is a volume, volume_l in litres, never a count.",
   PROVENANCE,
   "Lists need no account. A share link (mahonia.app/s/CODE) is permission to read a list: pass its code or the whole link to get_list, as data or as Markdown. An edit link (mahonia.app/e/CODE#token) is permission to change it: pass it whole to edit_list, keep it private, and never show it to anyone who should only read. create_list returns both; keep the edit link, the only way back into a list that isn't filed under an account.",
   "Read a list with get_list first for the ids edit_list takes. Rows group one level deep: stakes under a tent, snacks under a day. A catalog_id from search_catalog gives a row, or a piece of My Gear, the catalog's cited brand, variant, gear type and weight.",
@@ -112,6 +113,7 @@ const ROW_FIELDS = {
   gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is: Tent, Quilt, Trail runners." },
   weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Omit when unknown; the list keeps working without it, and a row with a catalog_id takes the catalog's cited weight." },
   qty: { type: "integer", minimum: 1, maximum: MAX_QTY, description: "How many. Default 1." },
+  volume_l: { type: "number", minimum: 0, description: "A row named Water only, in place of qty and weight_g: its whole volume in litres, 1 kg each." },
   classification: { type: "string", enum: CLASSIFICATIONS, description: "base, worn or consumable. Omit to follow the folder's default." },
   worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried (three pairs of socks, one on your feet). For a row that is entirely worn, set classification to worn instead." },
   note: { type: "string", maxLength: MAX_ITEM_NOTE_LEN, description: "A short free-text note on the row." },
@@ -203,8 +205,9 @@ const ROW_PROPS = {
   id: str("The row's id, which edit_list's update, remove and group take."),
   name: str(`The product name, without brand or variant. ${USER_TEXT}`),
   display_name: str("Brand, name and variant joined, the way the list shows the row."),
-  qty: { type: "number", description: "How many; weight_g is for one." },
-  weight_g: { type: "number", description: "One unit, in grams to a tenth. 0 when the row has no weight." },
+  qty: { type: "number", description: "How many; weight_g is for one. Not on water, which has volume_l." },
+  weight_g: { type: "number", description: "One unit, in grams to a tenth. 0 when the row has no weight. On water, the whole volume's." },
+  volume_l: { type: "number", description: "On a row named Water, in place of qty: its whole volume in litres. Water is a volume, never a count." },
   classification: { type: "string", enum: CLASSIFICATIONS, description: "The row's own, or its folder's when it has none." },
   brand: str(USER_TEXT),
   variant: str(`Size, length or configuration. ${USER_TEXT}`),
@@ -216,7 +219,7 @@ const ROW_PROPS = {
   catalog_id: { type: "number", description: "The catalog row the item was picked from." },
   carried_by: str(`Who carries it. A nested row without one is carried by its parent's carrier. ${USER_TEXT}`),
 };
-const ROW_REQUIRED = ["id", "name", "display_name", "qty", "weight_g", "classification"];
+const ROW_REQUIRED = ["id", "name", "display_name", "weight_g", "classification"];
 const NESTED_ROW = { type: "object", properties: ROW_PROPS, required: ROW_REQUIRED };
 const ROW = {
   type: "object",
@@ -386,6 +389,7 @@ const UPDATE_ITEM_SCHEMA = {
     gear_type: { type: ["string", "null"], maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is. Null clears it." },
     weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Kept as your own figure on a row picked from the catalog." },
     qty: { type: "integer", minimum: 1, maximum: MAX_QTY },
+    volume_l: { type: "number", minimum: 0, description: "A row named Water only, in place of qty and weight_g: its whole volume in litres." },
     classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null to follow the folder's default." },
     worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried; 0 removes the split." },
     note: { type: ["string", "null"], maxLength: MAX_ITEM_NOTE_LEN, description: "The row's note. Null clears it." },
@@ -911,8 +915,11 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
       id: it.id,
       name: it.name,
       display_name: itemDisplayName(it.brand, it.name, it.variant),
-      qty: it.qty,
-      weight_g: grams(it.unitWeightMg),
+      // water is a volume, not a count (foldWaterQty, shared/ops): no qty to multiply,
+      // and the line's figures, so a row stored before the fold still reads true
+      ...(isWaterName(it.name)
+        ? { volume_l: Math.round(lineMg(it) / 10_000) / 100, weight_g: grams(lineMg(it)) }
+        : { qty: it.qty, weight_g: grams(it.unitWeightMg) }),
       classification: effectiveClassification(it, snap.folders),
     };
     if (it.brand) out.brand = it.brand;
@@ -1217,6 +1224,22 @@ function clampInt(raw: unknown, min: number, max: number, fallback: number): num
   return Math.max(min, Math.min(max, Math.round(raw)));
 }
 
+/**
+ * Water's amount, which is a volume and never a count (foldWaterQty, shared/ops): the
+ * weight volume_l sets, null when it gives none, or why the row can't be read. A qty on
+ * water is refused rather than folded, so a model that meant three bottles hears that
+ * the row wants their litres, and volume_l on anything else is refused because only
+ * water's weight follows from its volume.
+ */
+function waterAmount(r: Record<string, unknown>, water: boolean, label: string): { unitWeightMg: number } | string | null {
+  if (water && typeof r.qty === "number" && r.qty > 1) return `Water is a volume, not a count: give ${label} its whole volume as volume_l, in litres, without qty.`;
+  if (r.volume_l === undefined) return null;
+  if (!water) return `volume_l is for a row named Water; give ${label} weight_g and qty instead.`;
+  if (typeof r.volume_l !== "number" || !(r.volume_l >= 0)) return `volume_l on ${label} must be a number of litres, 0 or more.`;
+  if (r.weight_g != null) return `Give ${label} volume_l or weight_g, not both; a litre of water is 1,000 g.`;
+  return { unitWeightMg: waterMgFromMl(r.volume_l * 1000) };
+}
+
 /** One row as the reducer stores it, or the sentence explaining why it can't be. */
 function toItem(raw: object, folderId: string | null, sortOrder: number): Item | string {
   const r = raw as Record<string, unknown>;
@@ -1224,12 +1247,14 @@ function toItem(raw: object, folderId: string | null, sortOrder: number): Item |
   if (!name) return "Every row needs a name.";
   if (r.classification != null && !CLASSIFICATIONS.includes(r.classification as Classification)) return notClassification(r.classification);
   if (r.weight_g != null && (typeof r.weight_g !== "number" || !(r.weight_g >= 0))) return `weight_g on "${name}" must be a number of grams, 0 or more.`;
+  const water = waterAmount(r, isWaterName(name), `"${name}"`);
+  if (typeof water === "string") return water;
   const qty = clampInt(r.qty, 1, MAX_QTY, 1);
   const item: Item = {
     id: uid(),
     folderId,
     name,
-    unitWeightMg: typeof r.weight_g === "number" ? Math.round(r.weight_g * 1000) : 0,
+    unitWeightMg: water?.unitWeightMg ?? (typeof r.weight_g === "number" ? Math.round(r.weight_g * 1000) : 0),
     qty,
     classification: (r.classification as Classification | undefined) ?? null,
     sortOrder,
@@ -1697,6 +1722,14 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
     if (typeof r.qty !== "number" || !Number.isFinite(r.qty)) return `qty on ${label} must be a whole number.`;
     patch.qty = clampInt(r.qty, 1, MAX_QTY, 1);
   }
+  // judged by the name the row will have, so a rename to Water takes its litres in the
+  // same change; a weight given for water is the whole volume's, at qty 1, so a count
+  // stored before the fold can't multiply it
+  const isWater = isWaterName(patch.name ?? it.name);
+  const water = waterAmount(r, isWater, label);
+  if (typeof water === "string") return water;
+  if (water) patch.unitWeightMg = water.unitWeightMg;
+  if (isWater && patch.unitWeightMg !== undefined) patch.qty = 1;
   if (r.classification !== undefined) {
     if (r.classification !== null && !CLASSIFICATIONS.includes(r.classification as Classification)) {
       return `"${String(r.classification)}" isn't a classification; use base, worn or consumable, or null to follow the folder.`;

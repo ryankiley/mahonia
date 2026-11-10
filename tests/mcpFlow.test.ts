@@ -368,6 +368,40 @@ describe("what a model plausibly sends", () => {
     expect((await call("edit_list", { edit_link: editLink, update: [{ id: first.id }] })).text).toContain("Nothing to change");
   });
 
+  it("reads and writes water as a volume, never a count", async () => {
+    type WaterRow = Row & { qty?: number; weight_g: number; volume_l?: number };
+    const made = await call("create_list", { title: "Haleakalā", folders: [{ name: "Food & water", items: [{ name: "Water", volume_l: 3 }, { name: "Bottle", weight_g: 65 }] }] });
+    expect(made.isError, made.text).toBe(false);
+    const link = made.data.edit_link as string;
+    const read = async () => (await call("get_list", { share_code: link })).data as { folders: { items: WaterRow[] }[]; totals: Record<string, number> };
+    let list = await read();
+    const [water, bottle] = list.folders[0]!.items;
+    expect(water).toMatchObject({ name: "Water", volume_l: 3, weight_g: 3000 });
+    expect(water).not.toHaveProperty("qty");
+    expect(bottle).toMatchObject({ qty: 1, weight_g: 65 });
+    expect(bottle).not.toHaveProperty("volume_l");
+    expect(list.totals.total_g).toBe(3065);
+    expect((await call("get_list", { share_code: link, format: "markdown" })).text).toContain("| Water | 3 L |");
+
+    // a count on water is refused, telling the model what the row wants; volume_l on
+    // anything but water is too, and so is volume_l beside weight_g
+    for (const [args, says] of [
+      [{ update: [{ id: water!.id, qty: 3 }] }, "volume_l"],
+      [{ add: [{ name: "Water", qty: 2, weight_g: 1000 }] }, "volume_l"],
+      [{ update: [{ id: bottle!.id, volume_l: 1 }] }, "row named Water"],
+      [{ add: [{ name: "Water", volume_l: 1, weight_g: 1000 }] }, "not both"],
+    ] as const) {
+      const r = await call("edit_list", { edit_link: link, ...args });
+      expect(r.isError, JSON.stringify(args)).toBe(true);
+      expect(r.text).toContain(says);
+    }
+
+    // litres change it, and a rename to Water takes its litres in the same change
+    expect((await call("edit_list", { edit_link: link, update: [{ id: water!.id, volume_l: 2.5 }, { id: bottle!.id, name: "Water", volume_l: 0.5 }] })).isError).toBe(false);
+    list = await read();
+    expect(list.folders[0]!.items.map((r) => [r.name, r.volume_l, r.weight_g])).toEqual([["Water", 2.5, 2500], ["Water", 0.5, 500]]);
+  });
+
   it("reads a blank edit link as one left out, and refuses a product id that isn't one", async () => {
     const blank = await call("edit_list", { edit_link: "", list: { title: "x" } });
     expect(blank.isError).toBe(true);

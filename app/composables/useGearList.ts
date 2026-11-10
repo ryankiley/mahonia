@@ -10,7 +10,8 @@ import { pickListMeta } from "~~/shared/types";
 import type { CaptureOneResult } from "./useVault";
 import type { VaultCapture, VaultGearKey } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
-import { computeTotals } from "~~/shared/weights";
+import { computeTotals, lineMg } from "~~/shared/weights";
+import { isWaterName } from "~~/shared/water";
 import { createEdits } from "~/composables/useGearListEdits";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
 import { useUndo } from "~/composables/useUndo";
@@ -613,10 +614,13 @@ function create() {
       // CREATED instead (useVaultCapture().captureNewList), where the device knows
       // it made the thing; everything else still captures as you edit.
       hydrating = true;
-      // one-time cleanup: early water rows were named "Water · 1 L"; the volume now
-      // lives in the qty (litres) field, so the name should just be "Water"
+      // one-time cleanups: early water rows were named "Water · 1 L"; the volume now
+      // lives in the litres field, so the name should just be "Water". And water is a
+      // volume, not a count (foldWaterQty, shared/ops): a row stored with qty 3 before
+      // the reducer folded it becomes its whole volume at qty 1, weighing what it did.
       for (const it of merged.items) {
         if (/^water\s*·/i.test(it.name)) updateItem(it.id, { name: "Water" });
+        else if (isWaterName(it.name) && it.qty > 1) updateItem(it.id, { qty: 1, unitWeightMg: lineMg(it) });
       }
       // one-time backfill: lists imported before folders got colours assigned have
       // every folder on the neutral grey ("other"), so the category chart reads as

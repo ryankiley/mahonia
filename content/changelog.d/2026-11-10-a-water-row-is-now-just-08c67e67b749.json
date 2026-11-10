@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-10",
+  "fixed": [
+    "A water row is now just its volume, so a leftover count can no longer multiply it in your total."
+  ]
+}

@@ -86,10 +86,18 @@ export function waterMenuMl(text: string): number | null {
   return waterPhraseMl(text) ?? parseVolumeMl(text.trim().toLowerCase());
 }
 
-/** A water row's volume in litres as the bare number its fields show ("1.75"), or "" at zero. */
-export function waterLiters(unitWeightMg: number): string {
-  const l = unitWeightMg / 1_000_000;
+/** A water weight as the bare number of litres its fields show ("1.75"), or "" at zero. */
+export function waterLiters(mg: number): string {
+  const l = mg / 1_000_000;
   return l > 0 ? String(Number(l.toFixed(2))) : "";
+}
+
+/** A water row's amount wherever a count would stand: its whole volume, "3 L". Water is
+ *  a volume, not a count (foldWaterQty, shared/ops), so no view, export or tool prints
+ *  "×1" or "1" beside it. Reads the LINE, so a row stored before the fold still says
+ *  what it weighs. */
+export function waterVolumeLabel(item: { qty: number; unitWeightMg: number }): string {
+  return `${waterLiters(lineMg(item)) || "0"} L`;
 }
 
 /**
@@ -130,7 +138,7 @@ export function itemQtyLabel(
   // Water's amount is the LINE's volume — unit volume × qty, the same arithmetic the
   // weight beside it does. Reading the unit volume alone put "1 L" against "2,000 g"
   // on a two-bottle row: two figures for one line, disagreeing by a factor of the qty.
-  if (isWaterName(item.name)) return `${waterLiters(lineMg(item)) || "0"} L`;
+  if (isWaterName(item.name)) return waterVolumeLabel(item);
   const wq = cls ? splitWornQty(item, cls) : 0;
   if (wq > 0) return `×${item.qty} · ${wq} worn`;
   return opts?.hideSingle && item.qty === 1 ? "" : `×${item.qty}`;
