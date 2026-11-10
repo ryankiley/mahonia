@@ -27,17 +27,23 @@ async function makeUser(db: TestDb, email: string): Promise<number> {
   return rows[0]!.id;
 }
 
-/** A vault with one folder and one piece of gear in it. */
+/** A vault with one folder, one piece of gear and a kit holding it. */
 async function makeVault(db: TestDb, userId: number): Promise<number> {
   const v = await db.insert(schema.vaults).values({ userId }).returning();
   const vaultId = v[0]!.id;
   await db.insert(schema.vaultFolders).values({ vaultId, name: "Shelter" });
-  await db.insert(schema.vaultItems).values({
-    vaultId,
-    normKey: "tent-x",
-    name: "Tent X",
-    weightMg: 900_000,
-  });
+  const [tent] = await db
+    .insert(schema.vaultItems)
+    .values({
+      vaultId,
+      normKey: "tent-x",
+      name: "Tent X",
+      weightMg: 900_000,
+    })
+    .returning();
+  // and a kit holding it, whose link lives in a table of its own
+  const [kit] = await db.insert(schema.vaultItems).values({ vaultId, normKey: "shelter-kit", name: "Shelter kit", kind: "kit", weightMg: 20_000 }).returning();
+  await db.insert(schema.vaultKitParts).values({ kitId: kit!.id, partId: tent!.id, qty: 1, sortOrder: 0 });
   return vaultId;
 }
 
@@ -84,6 +90,7 @@ describe("closing an account", () => {
     expect(await count(db, "vaults", `id = ${vaultId}`)).toBe(0);
     expect(await count(db, "vault_items", `vault_id = ${vaultId}`)).toBe(0);
     expect(await count(db, "vault_folders", `vault_id = ${vaultId}`)).toBe(0);
+    expect(await count(db, "vault_kit_parts", "true")).toBe(0);
   });
 
   it("LEAVES THE LISTS ALONE by default, and only drops the claim", async () => {
@@ -139,7 +146,9 @@ describe("closing an account", () => {
 
     expect(await count(db, "users", `id = ${other}`)).toBe(1);
     expect(await count(db, "vaults", `id = ${otherVault}`)).toBe(1);
-    expect(await count(db, "vault_items", `vault_id = ${otherVault}`)).toBe(1);
+    expect(await count(db, "vault_items", `vault_id = ${otherVault}`)).toBe(2);
+    // their kit keeps its link; only the closed account's went
+    expect(await count(db, "vault_kit_parts", "true")).toBe(1);
     expect(await count(db, "list_claims", `user_id = ${other}`)).toBe(1);
     expect(await count(db, "lists", `id = ${theirList.id} and deleted_at is null`)).toBe(1);
   });

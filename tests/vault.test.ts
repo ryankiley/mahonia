@@ -944,6 +944,17 @@ describe("adding gear by hand", () => {
     expect(back[0]!.weightMg).toBe(545_000);
   });
 
+  it("brings a put-away piece back with the count and unit typed for it", async () => {
+    await add({ owned: 3, entryUnit: "g" });
+    await removeVaultItem(db, VAULT, (await only(db))!.id);
+    await add({ owned: 2, entryUnit: "oz" });
+    expect(await only(db)).toMatchObject({ owned: 2, entryUnit: "oz" });
+    // and keeps what it had where the add said nothing
+    await removeVaultItem(db, VAULT, (await only(db))!.id);
+    await add();
+    expect(await only(db)).toMatchObject({ owned: 2, entryUnit: "oz" });
+  });
+
   it("refuses a duplicate of a LIVE row, and writes nothing", async () => {
     await add();
     expect(await add({ weightMg: 999_000 })).toMatchObject({ refused: "duplicate" });
