@@ -55,6 +55,29 @@ let forcedAt = 0;
  *  which the re-ask already retries. */
 const ASK_TIMEOUT_MS = 10_000;
 
+/**
+ * Wait for any session check already out. For the three moments that change WHO
+ * is signed in: redeeming a sign-in link, finishing a passkey ceremony, signing out.
+ *
+ * WHY THEY TAKE TURNS. Once a day the server answers a session check by renewing
+ * the session, and re-sends its cookies to do it (resolveSession, on the server).
+ * A response sets cookies whenever it lands. So with a check still out, a sign-in
+ * sent beside it raced it: when the check's answer came back second, it put the
+ * PREVIOUS session's cookies back over the new one's, and a person who had just
+ * signed in to another account was in the old one again with nothing to say so.
+ * (Signed out, the old cookies came back too, pointing at a session that was gone.)
+ * The page's own check starts as the page loads, which is exactly when a sign-in
+ * link's page sends the link, so the two were out together by construction.
+ *
+ * Never rejects, and never waits long: the ask is bounded (ASK_TIMEOUT_MS), and a
+ * failed one is no reason to refuse to sign someone in.
+ */
+export function sessionSettled(): Promise<void> {
+  const out = again ?? asking;
+  const done = () => {};
+  return out ? out.then(done, done) : Promise.resolve();
+}
+
 /** The session as three answers, not two — see `presence` below. */
 export type Presence = "signedIn" | "signedOut" | "presumed";
 
@@ -253,6 +276,7 @@ export function useSession() {
   }
 
   async function signOut(): Promise<void> {
+    await sessionSettled(); // or a check's late answer hands the cookies back
     const owner = user.value?.owner ?? sessionCacheOwner();
     try {
       await $fetch("/api/auth/signout", { method: "POST" });

@@ -142,6 +142,8 @@ async function ceremony(flow: {
   if (!cred) return { at: "authenticator" };
 
   try {
+    // the verify is what starts a session: after any session check, never beside it
+    await sessionSettled();
     const res = await $fetch<{ ok: boolean; reason?: string }>(flow.verify, {
       method: "POST",
       body: { flowId, response: fromCredential(cred), ...flow.extra },
