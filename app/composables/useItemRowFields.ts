@@ -2,7 +2,7 @@ import type { Ref } from "vue";
 import { MAX_QTY } from "~~/shared/ops";
 import type { Item, ListSnapshot, Unit } from "~~/shared/types";
 import { effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, lineMg, rowDisplayKcal } from "~~/shared/weights";
-import { isWaterName, waterLiters, waterMgFromMl } from "~~/shared/water";
+import { isWaterName, parseVolumeMl, waterLiters, waterMgFromMl } from "~~/shared/water";
 import { sameText } from "~~/shared/tidyText";
 import { motionIsInstant } from "~/plugins/inputModality.client";
 
@@ -52,11 +52,19 @@ export function useItemRowFields({
   const litersDisplay = computed(() => waterLiters(waterMg.value));
   function onWaterLiters(e: Event) {
     const el = e.target as HTMLInputElement;
-    const liters = Math.max(0, Number(el.value) || 0);
-    // the litres typed are the row's whole volume: qty 1 in the same patch, or a
-    // leftover count would multiply them again
+    // read the way the name box reads a volume: a bare number is litres, and "32 oz",
+    // "500 ml" or "1,5" convert; the field still shows litres on every list. Empty or
+    // zero clears it, and anything that isn't a volume puts the old figure back.
+    const raw = el.value.trim();
+    const ml = raw === "" || Number(raw) === 0 ? 0 : parseVolumeMl(raw);
+    if (ml == null) {
+      el.value = litersDisplay.value;
+      return;
+    }
+    // the volume typed is the row's whole volume: qty 1 in the same patch, or a
+    // leftover count would multiply it again
     gear.updateItem(item.value.id, {
-      unitWeightMg: waterMgFromMl(liters * 1000),
+      unitWeightMg: waterMgFromMl(ml),
       qty: 1,
       weightOverridden: true,
     });

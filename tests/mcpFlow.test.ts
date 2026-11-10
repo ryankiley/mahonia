@@ -388,7 +388,7 @@ describe("what a model plausibly sends", () => {
     for (const [args, says] of [
       [{ update: [{ id: water!.id, qty: 3 }] }, "volume_l"],
       [{ add: [{ name: "Water", qty: 2, weight_g: 1000 }] }, "volume_l"],
-      [{ update: [{ id: bottle!.id, volume_l: 1 }] }, "row named Water"],
+      [{ update: [{ id: bottle!.id, volume_l: 1 }] }, "volume_l is for water"],
       [{ add: [{ name: "Water", volume_l: 1, weight_g: 1000 }] }, "not both"],
     ] as const) {
       const r = await call("edit_list", { edit_link: link, ...args });

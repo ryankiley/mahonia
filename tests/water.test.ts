@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatVolume, itemQtyLabel, parseVolumeMl, waterMenuMl, waterMgFromMl, waterPhraseMl, waterVolumeLabel } from "../shared/water";
+import { formatVolume, isWaterName, itemQtyLabel, parseVolumeMl, waterMenuMl, waterMgFromMl, waterPhrase, waterPhraseMl, waterVolumeLabel } from "../shared/water";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { listToText } from "../shared/exporters/text";
 import { blankList, folder, item } from "./helpers/list";
@@ -162,5 +162,34 @@ describe("waterVolumeLabel — water's amount wherever a count would stand", () 
     });
     expect(listToMarkdown(list)).toContain("| Water | 3 L |");
     expect(listToText(list)).toContain("Water 3 L");
+  });
+});
+
+describe("isWaterName — water as the last word, never gear", () => {
+  it("reads water with a word before it, and a volume or a bracket after it", () => {
+    for (const n of ["Water", "water", "  WATER ", "Drinking water", "Spare water", "Day 2 water", "Fresh-water", "2 L water", "Water 2 L", "Water - 750 ml", "Water: 1.5l", "Water (2 L)", "Water (filtered)", "Water 32 oz"]) {
+      expect(isWaterName(n), n).toBe(true);
+    }
+  });
+
+  it("keeps gear with its noun after the word, and words that only contain it", () => {
+    for (const n of ["Water filter", "Water bottle", "Water Treatment Drops", "Water Bottle Sleeve", "Water bottle 1L", "Smartwater", "Smartwater 1L", "Waterproof bag", "Watermelon", "Bag for dirty water", "Water x3", "Tent", ""]) {
+      expect(isWaterName(n), n).toBe(false);
+    }
+  });
+});
+
+describe("waterPhrase — the name a water line keeps, and its volume", () => {
+  it("keeps a word before water and puts the volume aside", () => {
+    expect(waterPhrase("Drinking water 2 L")).toEqual({ name: "Drinking water", ml: 2000 });
+    expect(waterPhrase("Spare water (500 ml)")).toEqual({ name: "Spare water", ml: 500 });
+    expect(waterPhrase("water 2 L")).toEqual({ name: "Water", ml: 2000 });
+    expect(waterPhrase("2 L water")).toEqual({ name: "Water", ml: 2000 });
+  });
+
+  it("is null for water without a volume, a bare volume, and gear with a size", () => {
+    for (const t of ["Drinking water", "water", "500 ml", "Water bottle 1L", "Smartwater 1L", "Bag for dirty water 2L"]) {
+      expect(waterPhrase(t), t).toBeNull();
+    }
   });
 });

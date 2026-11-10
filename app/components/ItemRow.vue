@@ -1442,13 +1442,16 @@ function dismissFix() {
              line starts at its own left edge, like every other row's. -->
         <div v-if="isWater || !bareGroup" class="item__qty" :class="{ 'item__qty--step': !isWater }">
           <template v-if="isWater">
+            <!-- text, not type="number", the way the weight field beside it is: it takes
+                 "32 oz" and "500 ml" as well as bare litres (onWaterLiters) -->
             <input
               class="field field--num"
-              type="number"
-              min="0"
-              step="any"
               :value="litersDisplay"
               aria-label="Litres of water"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
               @change="onWaterLiters"
             />
             <span class="t-sm t-muted item__unit">L</span>

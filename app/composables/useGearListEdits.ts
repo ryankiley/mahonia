@@ -4,7 +4,7 @@ import { uid } from "~~/shared/id";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
 import { splitWeightTail } from "~~/shared/pasteList";
 import { counted, tidyText } from "~~/shared/tidyText";
-import { isWaterName, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
+import { isWaterName, waterMgFromMl, waterPhrase } from "~~/shared/water";
 import { colorKeyForName, nextFolderColor, usedColorKeys } from "~~/shared/categories";
 import { sortedPeople } from "~~/shared/people";
 import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind } from "~~/shared/types";
@@ -307,10 +307,10 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
         classification: null,
         sortOrder: 0, // placed below
       };
-      const ml = waterPhraseMl(line);
-      if (ml != null) {
-        item.name = "Water";
-        item.unitWeightMg = waterMgFromMl(ml);
+      const water = waterPhrase(line);
+      if (water) {
+        item.name = water.name;
+        item.unitWeightMg = waterMgFromMl(water.ml);
         item.weightOverridden = true;
         item.classification = storedClassification("consumable", folderId, snap.folders);
       } else {

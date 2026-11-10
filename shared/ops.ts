@@ -284,7 +284,7 @@ export const clampUnitWeightMg = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
 
 /**
- * Water is a volume, never a count. A row named Water carries its whole volume as one
+ * Water is a volume, never a count. A water row (isWaterName) carries its whole volume as one
  * unit, so a qty above one folds into the weight: 3 × 3 L is 9 L, qty 1. Without this a
  * count could sit behind the editor's litres field, which has no stepper, and multiply
  * the total where nobody could see it (Nov 2026, a 3 L row counted as 9 kg). Kept in the

@@ -57,24 +57,60 @@ export function formatVolume(ml: number): string {
   return `${Math.round(ml)} mL`;
 }
 
-/** Exact "water" only — so "Water filter" stays a normal item, not a litres row. */
+/**
+ * Does this name read as water: the word "water" as its LAST word? "Water", "Drinking
+ * water", "Spare water", "2 L water", and with nothing after it but a volume or a bracket,
+ * set off the way a weight is: "Water 2 L", "Water - 750 ml", "Water (2 L)". Exact
+ * "water" only used to be the rule, so a renamed row ("Drinking water") lost its litres
+ * field and took a count again (Nov 2026).
+ *
+ * Never gear. Gear puts its noun AFTER the word, which is where this stops: "Water
+ * filter", "Water bottle", "Water treatment drops" (no catalog name ends in "water", of
+ * 3,974 when this was written). "Smartwater" and "Waterproof bag" aren't the word, and a
+ * "for" before it names a thing for water, not water: "Bag for dirty water".
+ *
+ * By the name alone, because the name is what the person sees and edits: a hidden flag
+ * would be one more figure a renamed row could carry where nobody can see it.
+ */
 export function isWaterName(name: string): boolean {
-  return /^water$/i.test(name.trim());
+  const low = name.trim().toLowerCase();
+  const at = low.lastIndexOf("water");
+  if (at < 0) return false; // nearly every row, every render
+  const before = low.slice(0, at);
+  if (/[\p{L}\p{N}]$/u.test(before) || /\bfor\b/.test(before)) return false;
+  const after = low.slice(at + 5).trim();
+  if (!after || /^\([^()]*\)$/.test(after)) return true;
+  return parseVolumeMl(after.replace(/^[-–—:,|]\s*/, "")) != null;
 }
 
-/** "water 2 L", "Water 500ml", "2 L water": the volume a water line names, in ml, or
- *  null when the text is not water with a volume (a bare "water" is the water row
- *  without one; "500 ml" alone names no water). The name field's menu and the pasted
- *  line read this the same way, so both make the row the Enter path makes. */
-export function waterPhraseMl(text: string): number | null {
-  const low = text.trim().toLowerCase();
-  let vol: string | null = null;
-  if (/^water\b/.test(low)) vol = low.replace(/^water\b/, "").trim();
-  else if (/\bwater$/.test(low)) vol = low.replace(/\bwater$/, "").trim();
+/** "water 2 L", "Drinking water - 750 ml", "Water (2 L)", "2 L water": a water line and
+ *  its volume, as the name the row keeps and the volume in ml, or null when the text is
+ *  not water with a volume (a bare "water" is the water row without one; "500 ml" alone
+ *  names no water). The name is what's left once the volume is put aside, so a word
+ *  before "water" survives: "Drinking water 2 L" is "Drinking water" at 2 L; with nothing
+ *  else it's "Water". The name field's commit, its menu and the pasted line all read this,
+ *  so all three make the same row. */
+export function waterPhrase(text: string): { name: string; ml: number } | null {
+  const t = text.trim();
+  const low = t.toLowerCase();
+  const at = low.lastIndexOf("water");
+  if (at < 0) return null;
+  const before = low.slice(0, at).trim();
   // set off the way a weight is ("Water - 2 L", "Water: 750 ml", "Water (2 L)")
-  vol = vol?.replace(/^[-–—:,|(]\s*/, "").replace(/\)$/, "").trim() ?? null;
-  if (!vol) return null;
-  return parseVolumeMl(vol);
+  const after = low.slice(at + 5).trim().replace(/^[-–—:,|(]\s*/, "").replace(/\)$/, "").trim();
+  // a volume after the word, or one standing before it ("2 L water"), never both
+  const ml = after ? parseVolumeMl(after) : before ? parseVolumeMl(before) : null;
+  if (ml == null) return null;
+  const name = after ? t.slice(0, at + 5).trim() : "Water";
+  // the rest must still read as water: "Water bottle 1L", "Smartwater 1L" and "Bag for
+  // dirty water 2L" are gear with a size, not a volume of water
+  if (!isWaterName(name)) return null;
+  return { name: /^water$/i.test(name) ? "Water" : name, ml };
+}
+
+/** Just the volume waterPhrase reads, in ml. */
+export function waterPhraseMl(text: string): number | null {
+  return waterPhrase(text)?.ml ?? null;
 }
 
 /** What the name field's MENU offers as water, in ml: everything waterPhraseMl reads,
@@ -82,7 +118,9 @@ export function waterPhraseMl(text: string): number | null {
  *  with a volume: a bare "water" (a litre, to be corrected in the row) and a bare volume
  *  ("500 ml"). Null when the text is neither. */
 export function waterMenuMl(text: string): number | null {
-  if (isWaterName(text)) return 1000;
+  // exact "water" here, not isWaterName: the menu's row renames the line to "Water", so
+  // offering it on "Drinking water" would trade the name typed for a litre on Enter
+  if (/^water$/i.test(text.trim())) return 1000;
   return waterPhraseMl(text) ?? parseVolumeMl(text.trim().toLowerCase());
 }
 

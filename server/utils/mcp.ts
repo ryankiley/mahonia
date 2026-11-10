@@ -91,7 +91,7 @@ const PROVENANCE =
  *  tool's own description already says stays there and isn't repeated here. */
 export const MCP_INSTRUCTIONS_MAX = 2048;
 export const MCP_INSTRUCTIONS = [
-  "Mahonia is a gear-list and pack-weight tracker for hikers. Weights are in grams everywhere. A row's classification is base (in the pack), worn (on the body) or consumable (food, fuel, water). A row named Water is a volume, volume_l in litres, never a count.",
+  "Mahonia is a gear-list and pack-weight tracker for hikers. Weights are in grams everywhere. A row's classification is base (in the pack), worn (on the body) or consumable (food, fuel, water). Water (a name ending in water) is a volume, volume_l, never a count.",
   PROVENANCE,
   "Lists need no account. A share link (mahonia.app/s/CODE) is permission to read a list: pass its code or the whole link to get_list, as data or as Markdown. An edit link (mahonia.app/e/CODE#token) is permission to change it: pass it whole to edit_list, keep it private, and never show it to anyone who should only read. create_list returns both; keep the edit link, the only way back into a list that isn't filed under an account.",
   "Read a list with get_list first for the ids edit_list takes. Rows group one level deep: stakes under a tent, snacks under a day. A catalog_id from search_catalog gives a row, or a piece of My Gear, the catalog's cited brand, variant, gear type and weight.",
@@ -113,7 +113,7 @@ const ROW_FIELDS = {
   gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is: Tent, Quilt, Trail runners." },
   weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Omit when unknown; the list keeps working without it, and a row with a catalog_id takes the catalog's cited weight." },
   qty: { type: "integer", minimum: 1, maximum: MAX_QTY, description: "How many. Default 1." },
-  volume_l: { type: "number", minimum: 0, description: "A row named Water only, in place of qty and weight_g: its whole volume in litres, 1 kg each." },
+  volume_l: { type: "number", minimum: 0, description: "Water only (a name ending in water), in place of qty and weight_g: its whole volume in litres, 1 kg each." },
   classification: { type: "string", enum: CLASSIFICATIONS, description: "base, worn or consumable. Omit to follow the folder's default." },
   worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried (three pairs of socks, one on your feet). For a row that is entirely worn, set classification to worn instead." },
   note: { type: "string", maxLength: MAX_ITEM_NOTE_LEN, description: "A short free-text note on the row." },
@@ -207,7 +207,7 @@ const ROW_PROPS = {
   display_name: str("Brand, name and variant joined, the way the list shows the row."),
   qty: { type: "number", description: "How many; weight_g is for one. Not on water, which has volume_l." },
   weight_g: { type: "number", description: "One unit, in grams to a tenth. 0 when the row has no weight. On water, the whole volume's." },
-  volume_l: { type: "number", description: "On a row named Water, in place of qty: its whole volume in litres. Water is a volume, never a count." },
+  volume_l: { type: "number", description: "On water (a name ending in water), in place of qty: its whole volume in litres. Water is a volume, never a count." },
   classification: { type: "string", enum: CLASSIFICATIONS, description: "The row's own, or its folder's when it has none." },
   brand: str(USER_TEXT),
   variant: str(`Size, length or configuration. ${USER_TEXT}`),
@@ -389,7 +389,7 @@ const UPDATE_ITEM_SCHEMA = {
     gear_type: { type: ["string", "null"], maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is. Null clears it." },
     weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Kept as your own figure on a row picked from the catalog." },
     qty: { type: "integer", minimum: 1, maximum: MAX_QTY },
-    volume_l: { type: "number", minimum: 0, description: "A row named Water only, in place of qty and weight_g: its whole volume in litres." },
+    volume_l: { type: "number", minimum: 0, description: "Water only (a name ending in water), in place of qty and weight_g: its whole volume in litres." },
     classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null to follow the folder's default." },
     worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried; 0 removes the split." },
     note: { type: ["string", "null"], maxLength: MAX_ITEM_NOTE_LEN, description: "The row's note. Null clears it." },
@@ -1234,7 +1234,7 @@ function clampInt(raw: unknown, min: number, max: number, fallback: number): num
 function waterAmount(r: Record<string, unknown>, water: boolean, label: string): { unitWeightMg: number } | string | null {
   if (water && typeof r.qty === "number" && r.qty > 1) return `Water is a volume, not a count: give ${label} its whole volume as volume_l, in litres, without qty.`;
   if (r.volume_l === undefined) return null;
-  if (!water) return `volume_l is for a row named Water; give ${label} weight_g and qty instead.`;
+  if (!water) return `volume_l is for water, a row whose name ends in water; give ${label} weight_g and qty instead.`;
   if (typeof r.volume_l !== "number" || !(r.volume_l >= 0)) return `volume_l on ${label} must be a number of litres, 0 or more.`;
   if (r.weight_g != null) return `Give ${label} volume_l or weight_g, not both; a litre of water is 1,000 g.`;
   return { unitWeightMg: waterMgFromMl(r.volume_l * 1000) };
