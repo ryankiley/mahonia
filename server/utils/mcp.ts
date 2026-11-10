@@ -2133,15 +2133,17 @@ function gearPatchFrom(raw: unknown): { patch: Record<string, unknown>; problem?
   const patch: Record<string, unknown> = {};
   // a value sent that the patch below would quietly skip: named instead, so the piece
   // isn't reported done without it (edit_list refuses the same values in words)
-  const amount = (v: unknown) => v === undefined || v === null || (typeof v === "number" && Number.isFinite(v) && v >= 0);
+  const amount = (v: unknown, least: number) => v === undefined || v === null || (typeof v === "number" && Number.isFinite(v) && v >= least);
   if (r.classification !== undefined && r.classification !== null && !classificationOf(r.classification)) {
     return { patch, problem: `"${String(r.classification)}" isn't a classification; use base, worn or consumable.` };
   }
   if (r.weight_g !== undefined && !(typeof r.weight_g === "number" && Number.isFinite(r.weight_g) && r.weight_g >= 0)) {
     return { patch, problem: "weight_g is grams for one, a number, 0 when it has never been weighed." };
   }
+  // owned 0 would be stored as no count, which reads as one: refused, not quietly made 1
   for (const field of ["price", "kcal", "owned"] as const) {
-    if (!amount(r[field])) return { patch, problem: `${field} must be a number, 0 or more${field === "owned" ? " (1 or more)" : ""}, or null to clear it.` };
+    const least = field === "owned" ? 1 : 0;
+    if (!amount(r[field], least)) return { patch, problem: `${field} must be a number, ${least} or more, or null to clear it.` };
   }
   const take = (field: string, column: string) => {
     if (typeof r[field] === "string" || r[field] === null) patch[column] = r[field];

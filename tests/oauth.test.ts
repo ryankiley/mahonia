@@ -234,7 +234,7 @@ describe("the authorization request", () => {
     expect(r.body).toMatchObject({ ok: true, client: { label: "code.claude.test" }, returnTo: { host: "localhost:3118", loopback: true } });
   });
 
-  it("sends the rest of the mistakes back to the client as errors, with its state, and only bounces on its own to the client's own host", async () => {
+  it("sends the rest of the mistakes back to the client as errors, with its state, for the person to follow", async () => {
     const cases: [Record<string, string>, string][] = [
       [{ response_type: "token" }, "unsupported_response_type"],
       [{ code_challenge: "" }, "invalid_request"],
@@ -247,16 +247,17 @@ describe("the authorization request", () => {
       const r = await hit(authorizeGet, `/api/oauth/authorize?${qs(query)}`);
       expect(r.body.ok, error).toBe(false);
       expect(r.body.error).toBe(error);
-      // Claude's document and its callback share a host, so the page may follow
-      expect(r.body.auto).toBe(true);
+      // a link, never a bounce: a document and its callback sharing a host proves nothing,
+      // anyone can serve both from their own site
+      expect(r.body).not.toHaveProperty("auto");
       const back = new URL(r.body.redirect as string);
       expect(back.origin + back.pathname).toBe(CALLBACK);
       expect(back.searchParams.get("error")).toBe(error);
       expect(back.searchParams.get("state")).toBe(query.state);
     }
-    // a loopback redirect is not the document's host: the person gets a link, not a bounce
+    // a loopback redirect is answered the same way
     const code = await hit(authorizeGet, `/api/oauth/authorize?${qs(request({ client_id: CODE_CLIENT, redirect_uri: "http://localhost:3118/callback", response_type: "token" }).query)}`);
-    expect(code.body).toMatchObject({ ok: false, auto: false });
+    expect(code.body).toMatchObject({ ok: false });
     expect(code.body.redirect).toContain("http://localhost:3118/callback?error=");
   });
 });
@@ -410,8 +411,15 @@ describe("a signed-in app at the gear tools", () => {
   it("ends the grant when a refresh token that was rotated away comes back", async () => {
     const rotated = await refreshWith(refresh);
     expect(rotated.status).toBe(200);
-    // the token the rotation retired: two parties hold it, and the second to present
-    // it is not the client
+    // seconds after the rotation, the retired token is the client's own refreshes
+    // racing: refused, and the pair the first one got still works
+    expect((await refreshWith(refresh)).body.error).toBe("invalid_grant");
+    expect((await gear(rotated.body.access_token as string)).status).toBe(200);
+    // later, two parties hold it, and the second to present it is not the client
+    await db
+      .update(schema.accessTokens)
+      .set({ expiresAt: new Date(Date.now() + APP_ACCESS_TTL_S * 1000 - 60_000) })
+      .where(eq(schema.accessTokens.tokenHash, sha256Hex(rotated.body.access_token as string)));
     expect((await refreshWith(refresh)).body.error).toBe("invalid_grant");
     expect((await gear(rotated.body.access_token as string)).status).toBe(401);
     expect((await refreshWith(rotated.body.refresh_token as string)).body.error).toBe("invalid_grant");

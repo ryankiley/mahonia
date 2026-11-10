@@ -58,6 +58,9 @@ export const ACCESS_TOKENS_MAX = 10;
 /** An app's access token's life. Short, because its client refreshes for free and a
  *  leaked one should not be worth much for long. */
 export const APP_ACCESS_TTL_S = 60 * 60;
+/** how long after a rotation the refresh token it retired is taken for the client's own
+ *  second refresh, racing the first, rather than for a stolen copy (refreshAppTokens) */
+const REFRESH_RACE_MS = 30_000;
 
 /** The longest raw value the route will even hash: a prefix plus a base64url secret
  *  is about fifty characters, so anything much longer is not one of ours. */
@@ -146,19 +149,26 @@ export async function issueAppTokens(
  * whichever presented it second is not the client. The grant ends on the spot, and
  * the client that still has a working pair finds it dead and signs the person in
  * again — the cost of a lost response on a flaky network, paid once.
+ *
+ * Except in the seconds after a rotation: that is the client's own refreshes racing
+ * (parallel tool calls that all met the same expired token), and ending the grant
+ * would kill the pair the first of them was just handed. The late one is refused and
+ * the grant kept.
  */
 export async function refreshAppTokens(db: Db, rawRefresh: unknown, clientId: unknown): Promise<IssuedTokens | null> {
   if (typeof rawRefresh !== "string" || !rawRefresh.startsWith(APP_REFRESH_PREFIX) || rawRefresh.length > RAW_TOKEN_MAX) return null;
   if (typeof clientId !== "string" || !clientId) return null;
   const hash = sha256Hex(rawRefresh);
   const [row] = await db
-    .select({ id: accessTokens.id, scope: accessTokens.scope, refreshHash: accessTokens.refreshHash })
+    .select({ id: accessTokens.id, scope: accessTokens.scope, refreshHash: accessTokens.refreshHash, expiresAt: accessTokens.expiresAt })
     .from(accessTokens)
     .where(and(or(eq(accessTokens.refreshHash, hash), eq(accessTokens.refreshPrevHash, hash)), eq(accessTokens.clientId, clientId)))
     .limit(1);
   if (!row || !isAccessScope(row.scope)) return null;
   if (row.refreshHash !== hash) {
-    await db.delete(accessTokens).where(eq(accessTokens.id, row.id));
+    // a rotation stamps the access token's expiry an hour out, so it dates the rotation
+    const rotatedAt = row.expiresAt ? new Date(row.expiresAt).getTime() - APP_ACCESS_TTL_S * 1000 : 0;
+    if (Date.now() - rotatedAt >= REFRESH_RACE_MS) await db.delete(accessTokens).where(eq(accessTokens.id, row.id));
     return null;
   }
   const pair = freshPair(row.scope);

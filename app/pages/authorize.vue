@@ -41,16 +41,13 @@ const { signedIn, presence, hasSessionHint, refresh } = useSession();
 
 type Checked =
   | { ok: true; client: { label: string; kind: "document" | "registered" }; level: AccessScope; returnTo: { host: string; loopback: boolean } }
-  | { ok: false; error: string; description: string; redirect: string | null; auto: boolean };
+  | { ok: false; error: string; description: string; redirect: string | null };
 const { data: checked } = await useFetch<Checked>("/api/oauth/authorize", { query: route.query, key: `authorize:${route.fullPath}` });
 
-// A request the client should hear about goes back to it as an error. Without a
-// click only when the server says the redirect is the client's own host (the GET's
-// `auto`): any redirect a stranger could register gets a link instead, so this page
-// is never a bounce from mahonia.app to wherever a crafted URL says.
-if (import.meta.client && checked.value && !checked.value.ok && checked.value.redirect && checked.value.auto) {
-  window.location.replace(checked.value.redirect);
-}
+// A request the client should hear about goes back to it as an error, by a link the
+// person clicks and never a bounce: no request proves its redirect is one this page may
+// follow unasked (the GET says why), so mahonia.app is never a hop to wherever a crafted
+// URL says.
 const errorBack = computed(() => (checked.value && !checked.value.ok && checked.value.redirect ? { href: checked.value.redirect, host: new URL(checked.value.redirect).host } : null));
 
 const writes = computed(() => checked.value?.ok && checked.value.level === "write");
