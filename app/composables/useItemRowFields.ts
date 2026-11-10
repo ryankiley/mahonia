@@ -1,8 +1,8 @@
 import type { Ref } from "vue";
 import { MAX_QTY } from "~~/shared/ops";
 import type { Item, ListSnapshot, Unit } from "~~/shared/types";
-import { effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, rowDisplayKcal } from "~~/shared/weights";
-import { isWaterName, waterLiters, waterMgFromMl } from "~~/shared/water";
+import { effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, lineMg, rowDisplayKcal } from "~~/shared/weights";
+import { isWaterName, parseVolumeMl, waterLiters, waterMgFromMl } from "~~/shared/water";
 import { sameText } from "~~/shared/tidyText";
 import { motionIsInstant } from "~/plugins/inputModality.client";
 
@@ -33,11 +33,15 @@ export function useItemRowFields({
 }) {
   const gear = useGearList();
   const rowUnit = computed(() => item.value.entryUnit ?? list.value.displayUnit);
-  const weightDisplay = computed(() =>
-    item.value.unitWeightMg > 0
-      ? formatWeight(item.value.unitWeightMg, rowUnit.value, { withUnit: false })
-      : "",
-  );
+  const isWater = computed(() => isWaterName(item.value.name));
+  // Water is a volume, not a count (foldWaterQty, shared/ops): its two fields read the
+  // row's WHOLE line, so a count the reducer hasn't folded yet still can't hide behind
+  // a per-unit figure. Every other row's weight field is one unit's, beside its stepper.
+  const waterMg = computed(() => lineMg(item.value));
+  const weightDisplay = computed(() => {
+    const mg = isWater.value ? waterMg.value : item.value.unitWeightMg;
+    return mg > 0 ? formatWeight(mg, rowUnit.value, { withUnit: false }) : "";
+  });
   const groupWeight = computed(() =>
     formatWeight(groupLineMg(item.value, children.value), rowUnit.value, { withUnit: false }),
   );
@@ -45,13 +49,23 @@ export function useItemRowFields({
   const effClass = computed(() => effectiveClassification(item.value, list.value.folders));
   const editableName = computed(() => itemDisplayName(item.value.brand, item.value.name));
 
-  const isWater = computed(() => isWaterName(item.value.name));
-  const litersDisplay = computed(() => waterLiters(item.value.unitWeightMg));
+  const litersDisplay = computed(() => waterLiters(waterMg.value));
   function onWaterLiters(e: Event) {
     const el = e.target as HTMLInputElement;
-    const liters = Math.max(0, Number(el.value) || 0);
+    // read the way the name box reads a volume: a bare number is litres, and "32 oz",
+    // "500 ml" or "1,5" convert; the field still shows litres on every list. Empty or
+    // zero clears it, and anything that isn't a volume puts the old figure back.
+    const raw = el.value.trim();
+    const ml = raw === "" || Number(raw) === 0 ? 0 : parseVolumeMl(raw);
+    if (ml == null) {
+      el.value = litersDisplay.value;
+      return;
+    }
+    // the volume typed is the row's whole volume: qty 1 in the same patch, or a
+    // leftover count would multiply it again
     gear.updateItem(item.value.id, {
-      unitWeightMg: waterMgFromMl(liters * 1000),
+      unitWeightMg: waterMgFromMl(ml),
+      qty: 1,
       weightOverridden: true,
     });
     el.value = litersDisplay.value;

@@ -13,6 +13,7 @@ import { normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "./trailLink";
 import type { Classification, Folder, Item, ListMeta, ListMetaKey, ListSnapshot, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { CLASSIFICATIONS, UNITS, WAYPOINT_KINDS } from "./types";
 import { MAX_PERSON_NAME_LEN, personNameTaken, UNASSIGNED } from "./people";
+import { isWaterName } from "./water";
 import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
 
 // updateItem's patch: Partial<Item> plus `catalogItemId: null` as an explicit
@@ -281,6 +282,18 @@ const SAFE_COLOR_KEY = /^[a-z0-9-]{1,40}$/;
 /** One physical item cannot weigh less than zero or more than the shared item cap. */
 export const clampUnitWeightMg = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
+
+/**
+ * Water is a volume, never a count. A water row (isWaterName) carries its whole volume as one
+ * unit, so a qty above one folds into the weight: 3 × 3 L is 9 L, qty 1. Without this a
+ * count could sit behind the editor's litres field, which has no stepper, and multiply
+ * the total where nobody could see it (Nov 2026, a 3 L row counted as 9 kg). Kept in the
+ * reducer, not in the row, so every writer owes it: the editor, the connector, an
+ * import, an older client. Lossless: the line weighs what it did. A zero stays zero.
+ */
+export function foldWaterQty(name: string, qty: number, unitWeightMg: number): { qty: number; unitWeightMg: number } {
+  return qty > 1 && isWaterName(name) ? { qty: 1, unitWeightMg: clampUnitWeightMg(unitWeightMg * qty) } : { qty, unitWeightMg };
+}
 
 /**
  * A worn count only describes a genuine partial of a base line. Keep this beside
@@ -653,6 +666,7 @@ function applyOp(state: ListState, op: Op): void {
         const linkedTo = it.catalogItemId;
         const patch = cleanItemPatch(op.patch || {});
         Object.assign(it, patch);
+        Object.assign(it, foldWaterQty(it.name, it.qty, it.unitWeightMg));
         // catalogWeightMgAtLink describes the product named by catalogItemId — it is
         // the baseline the "the catalog's weight changed" nudge measures against. So
         // it can only outlive a RE-LINK if the same patch stamps a fresh one.
@@ -855,7 +869,12 @@ export function normalizeItem(raw: Item): Item {
   // runs per item on every batch and every whole-list rebuild.
   const rawQty: unknown = raw.qty; // typed number, but this parses foreign JSON too
   const n = rawQty == null || rawQty === "" ? NaN : Number(rawQty);
-  const qty = Math.max(0, Math.min(MAX_QTY, Math.round(Number.isFinite(n) ? n : 1)));
+  const name = cleanText(String(raw.name ?? ""), MAX_ITEM_NAME_LEN);
+  const { qty, unitWeightMg } = foldWaterQty(
+    name,
+    Math.max(0, Math.min(MAX_QTY, Math.round(Number.isFinite(n) ? n : 1))),
+    clampUnitWeightMg(Number(raw.unitWeightMg) || 0),
+  );
   let classification = CLASSES.includes(raw.classification as Classification)
     ? (raw.classification as Classification)
     : null;
@@ -871,13 +890,13 @@ export function normalizeItem(raw: Item): Item {
     // the item this is nested under (validated against real, top-level items by the
     // addItem/moveItem reducer cases, which can see the whole list; here we only clamp)
     parentId: typeof raw.parentId === "string" && raw.parentId ? raw.parentId.slice(0, MAX_ID_LEN) : null,
-    name: cleanText(String(raw.name ?? ""), MAX_ITEM_NAME_LEN),
+    name,
     brand: raw.brand ? cleanText(String(raw.brand), MAX_BRAND_LEN) || undefined : undefined,
     variant: raw.variant ? cleanText(String(raw.variant), MAX_VARIANT_LEN) || undefined : undefined,
     commonName: raw.commonName ? cleanText(String(raw.commonName), MAX_GEAR_TYPE_LEN) || undefined : undefined,
     commonNameOverridden: raw.commonNameOverridden ? true : undefined,
     nameOverridden: raw.nameOverridden ? true : undefined,
-    unitWeightMg: clampUnitWeightMg(Number(raw.unitWeightMg) || 0),
+    unitWeightMg,
     weightOverridden: !!raw.weightOverridden,
     // display-only, but it must survive normalize or a JSON round-trip (and every
     // addItem, which also runs through here) would quietly reset each row to the

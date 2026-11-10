@@ -7,6 +7,7 @@ import type { Item, ListSnapshot } from "../types";
 import { carrierName, effectivePersonId } from "../people";
 import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, isBareGroup, itemDisplayName, lineMg, groupLineMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
+import { isWaterName, waterVolumeLabel } from "../water";
 
 // a product name with its common name trailing after an em dash, when the item has one
 const withCommon = (name: string, commonName?: string) =>
@@ -29,8 +30,10 @@ const withCarrier = (name: string, carrier?: string) =>
 // Markdown, which a reader can see. Only the Item cell needs it: the rest are numbers.
 const cell = (text: string) => text.replace(/[\\|]|<(?=[A-Za-z!/?])/g, "\\$&");
 
-/** The count cell is shared by top-level and nested rows, including a base-row worn split. */
+/** The count cell is shared by top-level and nested rows, including a base-row worn split.
+ *  Water's is its volume: it has no count (waterVolumeLabel). */
 function quantityLabel(item: Item, folders: ListSnapshot["folders"]): string {
+  if (isWaterName(item.name)) return waterVolumeLabel(item);
   const wornQty = splitWornQty(item, effectiveClassification(item, folders));
   return `${item.qty}${wornQty > 0 ? ` (${wornQty} worn)` : ""}`;
 }

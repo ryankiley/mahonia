@@ -9,7 +9,7 @@ import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { catalogNameKeys } from "~~/shared/catalogMatch";
 import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
-import { formatVolume, isWaterName, waterMenuMl, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
+import { formatVolume, isWaterName, waterMenuMl, waterMgFromMl, waterPhrase } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
 import { menuRoom, visibleBand } from "~/utils/viewportRoom";
@@ -194,14 +194,16 @@ onScopeDispose(() => openScope?.stop());
 // Water folds into THIS input (no separate "add water"): typing a bare volume
 // ("1 L", "500 ml", "32 fl oz") or "water [volume]" surfaces a water option that
 // adds a consumable with the derived weight. "water" alone defaults to 1 L.
-type WaterSug = { ml: number; label: string; weightMg: number };
+type WaterSug = { ml: number; name: string; label: string; weightMg: number };
 const waterSuggestion = computed<WaterSug | null>(() => {
   if (props.sources === "catalog") return null;
   // read by shared/water, the way the Enter and paste paths read the same text, so
   // the menu can't offer less than Enter would make ("Water - 2 L" once did)
   const ml = waterMenuMl(draft.value);
   if (ml == null || ml <= 0) return null;
-  return { ml, label: `Water · ${formatVolume(ml)}`, weightMg: waterMgFromMl(ml) };
+  // the name the line keeps ("Drinking water"), or Water for a bare volume or "water"
+  const name = waterPhrase(draft.value)?.name ?? "Water";
+  return { ml, name, label: `${name} · ${formatVolume(ml)}`, weightMg: waterMgFromMl(ml) };
 });
 
 // The menu, in one flat nav model: an optional water row, then YOUR gear, then the
@@ -425,8 +427,8 @@ function selectResult(r: CatalogResult) {
 function selectWater(w: WaterSug) {
   // named just "Water" — the volume shows in the qty (litres) field, so "Water · 1 L"
   // in the name plus "1 L" in qty was redundant/confusing
-  emit("commit", { name: "Water", weightMg: w.weightMg, classification: "consumable" });
-  setDraftQuiet(props.clearOnCommit ? "" : "Water");
+  emit("commit", { name: w.name, weightMg: w.weightMg, classification: "consumable" });
+  setDraftQuiet(props.clearOnCommit ? "" : w.name);
   close();
 }
 // Pulling a piece of your own gear into the list. It carries YOUR weight, not the
@@ -516,12 +518,12 @@ watch(options, (opts, prev) => {
 // Free text, read as a commit: the trailing weight ("Tent 540 g") rides along
 // (shared/pasteList, the one rule for where a name ends, shared with the multi-line
 // paste); "water 2 L" is the water row at that volume, as the menu's water option
-// makes it (shared/water.waterPhraseMl), and a row named exactly "water" IS the water
+// makes it (shared/water.waterPhrase), and a name that reads as water IS the water
 // row wherever it came from: the litres field takes over on the name alone (see
 // ItemRow), so the classification follows. Null when the text names nothing.
 function freeCommit(raw: string): NameCommit | null {
-  const ml = waterPhraseMl(raw);
-  if (ml != null) return { name: "Water", weightMg: waterMgFromMl(ml), classification: "consumable" };
+  const water = waterPhrase(raw);
+  if (water) return { name: water.name, weightMg: waterMgFromMl(water.ml), classification: "consumable" };
   const split = splitWeightTail(raw);
   const name = tidyText(split.name);
   if (!name) return null;

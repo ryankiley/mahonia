@@ -248,6 +248,19 @@ const fixtures: Fixture[] = [
     { t: "removeWaypoint", id: "ghost" },
   ]),
 
+  // water is a volume, never a count (foldWaterQty): a count folds into the volume on
+  // add, on a qty set and on a rename; a name ending in the word is water, gear isn't
+  fixture("water-is-a-volume", [
+    { t: "addItem", item: { id: "w1", folderId: null, name: "Water", unitWeightMg: 1000000, qty: 3, classification: "consumable", sortOrder: 0 } },
+    { t: "addItem", item: { id: "w2", folderId: null, name: "Drinking water", unitWeightMg: 750000, qty: 1, classification: "consumable", sortOrder: 1 } },
+    { t: "updateItem", id: "w2", patch: { qty: 2 } },
+    { t: "addItem", item: { id: "b1", folderId: null, name: "Bottle", unitWeightMg: 500000, qty: 2, classification: null, sortOrder: 2 } },
+    { t: "updateItem", id: "b1", patch: { name: "Water (1 L)" } },
+    { t: "addItem", item: { id: "g1", folderId: null, name: "Water filter", unitWeightMg: 85000, qty: 2, classification: null, sortOrder: 3 } },
+    { t: "addItem", item: { id: "g2", folderId: null, name: "Smartwater", unitWeightMg: 40000, qty: 2, classification: null, sortOrder: 4 } },
+    { t: "addItem", item: { id: "z1", folderId: null, name: "Spare water", unitWeightMg: 500000, qty: 0, classification: "consumable", sortOrder: 5 } },
+  ]),
+
   fixture("unicode-names", [
     { t: "addFolder", folder: { id: "f1", name: "山田　太郎", colorKey: "kitchen", defaultClassification: "base", sortOrder: 0 } },
     { t: "addItem", item: { id: "i1", folderId: "f1", name: "Arc'teryx Beta 🏔️", unitWeightMg: 350000, qty: 1, classification: null, sortOrder: 0 } },

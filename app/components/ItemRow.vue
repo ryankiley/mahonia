@@ -55,7 +55,7 @@ import { effectivePersonId, personColor } from "~~/shared/people";
 import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseWeightInput, groupLineMg, siblingItems, storedClassification } from "~~/shared/weights";
-import { itemQtyLabel } from "~~/shared/water";
+import { isWaterName, itemQtyLabel } from "~~/shared/water";
 import { useItemRowFields } from "~/composables/useItemRowFields";
 import { useItemRowClassification } from "~/composables/useItemRowClassification";
 import { consumableIcon } from "~/utils/itemMarks";
@@ -525,6 +525,9 @@ function onNameCommit(p: NameCommit) {
       // a resolved weight with no catalog link (e.g. a water volume → fixed grams)
       patch.unitWeightMg = p.weightMg;
       patch.weightOverridden = true;
+      // a water volume is the row's whole amount (foldWaterQty, shared/ops): picking
+      // "Water · 1 L" on a row stepped to 3 is 1 L, not a count multiplying it to 3
+      if (isWaterName(p.name)) patch.qty = 1;
     } else if (p.weight != null) {
       // parse against the unit the row already reads in (rowUnit), same rule as
       // setItemWeight — a trailing "4.2" on an oz row is 4.2 ounces
@@ -1439,13 +1442,16 @@ function dismissFix() {
              line starts at its own left edge, like every other row's. -->
         <div v-if="isWater || !bareGroup" class="item__qty" :class="{ 'item__qty--step': !isWater }">
           <template v-if="isWater">
+            <!-- text, not type="number", the way the weight field beside it is: it takes
+                 "32 oz" and "500 ml" as well as bare litres (onWaterLiters) -->
             <input
               class="field field--num"
-              type="number"
-              min="0"
-              step="any"
               :value="litersDisplay"
               aria-label="Litres of water"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
               @change="onWaterLiters"
             />
             <span class="t-sm t-muted item__unit">L</span>
