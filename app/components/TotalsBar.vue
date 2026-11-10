@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { counted } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight, totalsChips } from "~~/shared/weights";
 import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
@@ -29,6 +27,11 @@ const props = withDefaults(
 const emit = defineEmits<{
   "set-unit": [Unit];
 }>();
+
+// The big figure, formatted once for the headline and for its trigger's accessible
+// name: the name carries the weight, because a label on a button replaces its contents
+// and "Weight unit" alone would leave the page's largest number unspoken.
+const totalDisplay = computed(() => formatWeight(props.totals.totalMg, props.list.displayUnit, { withUnit: false }));
 
 // the classification breakdown chips — which show (and when a lone "Base" is
 // noise) is a judgment about the data, shared with the social-card image via
@@ -81,35 +84,24 @@ const planTip = computed(() => {
 
 <template>
   <div class="totals">
+    <!-- no "Total" label: the big figure makes it implicit. the figure starts
+         zeroed (not a placeholder line) so nothing reflows when the first
+         weighted item lands — the number just counts up. -->
+    <!-- The figure, its unit and the picker behind them are Headline: the one the
+         editor draws above all three of its views, so the two can't drift. Nothing
+         else goes inside .totals__main: its :empty rule (below) needs the wrapper
+         bare when no headline is drawn. -->
     <div class="totals__main">
-      <div v-if="props.headline" class="totals__headline">
-        <!-- no "Total" label: the big figure makes it implicit. the figure starts
-             zeroed (not a placeholder line) so nothing reflows when the first
-             weighted item lands — the number just counts up. -->
-        <!-- The whole total is the trigger — tapping the number to change units is the
-             affordance, and it survives the swap. What changes is what opens: OUR
-             picker instead of a transparent native <select> laid over the figure. -->
-        <OptionMenu
-          class="totals__amount"
-          align="baseline"
-          :options="WEIGHT_UNIT_OPTIONS"
-          :current="list.displayUnit"
-          label="Weight unit"
-          title="Change unit"
-          @pick="(u) => emit('set-unit', u as Unit)"
-        >
-          <template #trigger="{ open }">
-            <AnimatedCount class="t-num t-display totals__big" :value="formatWeight(totals.totalMg, list.displayUnit, { withUnit: false })" />
-            <span class="totals__uc" aria-hidden="true">
-              <span class="totals__unit">{{ list.displayUnit }}</span>
-              <!-- stroke 2.25, not the app-wide 2: at size 16 it renders an exact
-                   1.5px stroke (crisp 3 device px at 2x), so the chevron holds its
-                   weight beside the display-size figure -->
-              <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="16" :stroke-width="2.25" />
-            </span>
-          </template>
-        </OptionMenu>
-      </div>
+      <Headline
+        v-if="props.headline"
+        :value="totalDisplay"
+        :unit="list.displayUnit"
+        :options="WEIGHT_UNIT_OPTIONS"
+        label="Weight unit"
+        :trigger-label="`${totalDisplay} ${list.displayUnit}, change unit`"
+        title="Change unit"
+        @pick="(u) => emit('set-unit', u as Unit)"
+      />
     </div>
 
     <!-- always rendered: the bar holds a blank rail at zero so it never reflows in.
@@ -205,44 +197,7 @@ const planTip = computed(() => {
   gap: var(--space-4);
   flex-wrap: wrap;
 }
-.totals__headline {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-/* OptionMenu supplies the trigger button (bare — this is a display figure that happens
-   to be pressable, not a control that looks like one) and .menu supplies the
-   positioning. The unit and chevron sit on the big figure's BASELINE, asked for with
-   the `align` prop: a class here could not reach that button, since scoped styles stop
-   at the component boundary. */
-.totals__big {
-  /* the size and its phone-width clamp are .t-display's (foundations/typography.scss);
-     the accent is this figure's alone — /gear's headline sits in plain ink */
-  color: var(--accent);
-}
-/* unit + its dropdown chevron travel together, centered to each other, and the
-   group baseline-aligns with the big figure */
-.totals__uc {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-px);
-}
-.totals__unit {
-  font-size: var(--text-title);
-  font-weight: 400;
-  color: var(--ink-2);
-  /* half-step between the type system's two trackings: the full --track-tight
-     visibly pinches a bare two-letter unit ("oz"), while normal tracking reads
-     loose beside the tightly-tracked display figure */
-  letter-spacing: var(--track-unit);
-}
-/* the mark and its turn are the shared .chev (atoms/controls.scss); pointing at the
-   figure lights it. The copy that lived here transitioned `color` only while still
-   setting the 180deg — so this one chevron snapped round where every other one eased. */
-.totals__amount:hover .chev,
-.totals__amount:focus-within .chev {
-  color: var(--ink);
-}
+/* the figure, its unit and its chevron are Headline's own (Headline.vue) */
 .totals__breakdown {
   /* one step up from --space-4 — the display-size figure above has a lot of optical
      mass, so the breakdown needs more clearance than a body-copy gap to stop reading
@@ -298,7 +253,6 @@ const planTip = computed(() => {
    end of a line is invisible, so both halves of the trench simply vanish at the wrap
    and the chip starts flush. */
 .totals__chips > *:has(+ .chip--apart),
-.totals__chips > *:has(+ * > .chip--apart),
 .totals__chips > *:has(+ .totals__food) {
   margin-inline-end: var(--space-5);
 }

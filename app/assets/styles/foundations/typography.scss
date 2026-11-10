@@ -64,11 +64,11 @@ body {
   color: var(--ink-2);
 }
 
-// One-line clip — the overflow/ellipsis/nowrap triplet, once; min-width:0 so a flex
-// or grid child can shrink to where the ellipsis engages. A mobile rule that wants
-// the text to wrap again out-specifies this from its scoped block.
+// One-line clip — the overflow/ellipsis/nowrap triplet, once. A flex or grid child can
+// shrink to where the ellipsis engages because the reset floors every element's
+// min-width at 0 (reset.scss). A mobile rule that wants the text to wrap again
+// out-specifies this from its scoped block.
 .t-clip {
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

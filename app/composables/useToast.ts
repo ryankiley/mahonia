@@ -17,14 +17,14 @@ import { onBeforeUnmount, ref, type Ref } from "vue";
  * 2s: long enough to read four words, short enough that it is gone before it
  * becomes something to dismiss.
  */
-export function useToast(ms = 2000): { toast: Ref<string | null>; flash: (msg: string) => void } {
+export function useToast(): { toast: Ref<string | null>; flash: (msg: string) => void } {
   const toast = ref<string | null>(null);
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function flash(msg: string) {
     toast.value = msg;
     clearTimeout(timer);
-    timer = setTimeout(() => (toast.value = null), ms);
+    timer = setTimeout(() => (toast.value = null), 2000);
   }
 
   onBeforeUnmount(() => clearTimeout(timer));

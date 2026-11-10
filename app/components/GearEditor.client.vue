@@ -629,12 +629,11 @@ onBeforeUnmount(() => clearTimeout(focusScrollTimer));
 // button), so the async Clipboard API has the user gesture iOS Safari demands. The
 // async-first write + synchronous execCommand fallback lives in the shared copyText()
 // util (app/utils/clipboard.ts); flash() just reports the outcome.
-async function copy(text: string, msg: string, linkFallbackTitle?: string) {
+async function copy(text: string, msg: string, linkFallbackTitle: string) {
   if (await copyText(text)) return flash(msg);
-  // a blocked clipboard write shouldn't dead-end: for a link, show it selectable
-  // so it can be copied by hand; other copies (markdown) fall back to a brief toast
-  if (linkFallbackTitle) return showLinkFallback(text, linkFallbackTitle);
-  flash("Copy failed");
+  // a blocked clipboard write shouldn't dead-end: show the link selectable so it can
+  // be copied by hand
+  showLinkFallback(text, linkFallbackTitle);
 }
 const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
@@ -981,7 +980,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
              before you open it. Outside the v-if, because it's a way OUT of a list
              that failed to load. Hides itself below two lists (see ListMenu). -->
         <ListMenu
-          class="editor__lists"
           :current-share-code="snapshot?.shareCode ?? null"
           :hint="showIntro"
           :resumed="resumedHere"
@@ -1153,7 +1151,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
            jumped and re-counted every time. Here it stays put and only the value under it
            changes, which is also what lets the count tween between modes. -->
       <Headline
-        class="editor__headline"
         :value="headline.value"
         :unit="headline.unit"
         :options="headline.options"
@@ -1175,7 +1172,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
         :headline="false"
         :list="view.list ?? snapshot"
         :totals="view.totals ?? totals"
-        @set-unit="(u) => c.setUnit(u)"
       />
       <!-- Whose gear is this? An edit link you hold is either your own list on a
            second device or one a friend shared, and nothing in the link says which
@@ -1446,7 +1442,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
      back against the switcher. The bar's own layout can't be a child's to opt out of. */
   margin-right: auto;
   flex: 0 1 auto;
-  min-width: 0;
 }
 /* Directly under the toolbar and above the list's title. Not sticky: it belongs to the
    page, not the chrome.
@@ -1458,14 +1453,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* The big figure sits between the switcher and whatever that switcher chose. Its own
    space, because it belongs to neither — it is the page's headline in all three views. */
-/* NO margin of its own. The body is a flex column with a --space-4 gap, so a margin here
-   is a SECOND gap stacked on the first — which is how the number ended up 32px clear of
+/* NO margin of its own. The body is a flex column with a --space-4 gap, so a margin on
+   the figure is a SECOND gap stacked on the first — which is how the number ended up 32px clear of
    the totals and 48 clear of the elevation chart, two different distances from two
    different stacks. One gap, the body's, and both views sit the same distance below the
    figure they belong to. (.totals and .plan drop their own top padding to match.) */
-.editor__headline {
-  margin-bottom: 0;
-}
 
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */
@@ -1492,9 +1484,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink);
 }
 
-/* on = the pane is open: the icon takes full ink and a soft ground, so the button
-   reads as a held state rather than a hover */
-.editor__vault.is-on {
+/* on = the pane (or the sharing panel) is open: the icon takes full ink and a soft
+   ground, so the button reads as a held state rather than a hover. One rule for both,
+   so the two topbar popovers signal their state identically. */
+.editor__vault.is-on,
+.editor__share.is-on {
   color: var(--ink);
   background: var(--paper-2);
 }
@@ -1510,12 +1504,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
   .editor__sharemenu {
     position: static;
   }
-}
-/* the sharing panel is open — same held-state treatment the vault toggle uses, so
-   the two topbar popovers signal their state identically */
-.editor__share.is-on {
-  color: var(--ink);
-  background: var(--paper-2);
 }
 /* the ⋯ menu's ruled-off feet, its short-phone scroller
    (.editor__actions) and the one coloured row in the chrome (.editor__delete) are

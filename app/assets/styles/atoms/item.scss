@@ -182,7 +182,7 @@
      template holding :root's five-icon track and the sixth icon overlapping the
      classification cell. Declared here, both resolve on this element, and the
      folder header follows through its var(--head-cols, var(--item-cols)). */
-  --item-cols: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-class) var(--item-col-actions);
+  --item-cols: #{t.$item-cols-edit};
   @media (pointer: coarse) {
     --item-col-actions: calc(6 * var(--tap) + 5 * var(--space-1) - var(--grip-pull));
   }
@@ -297,11 +297,23 @@
    heaviest line, "100,000 g", put its unit on a second line and stood the row 24px
    taller than every other row in the folder. Overflowing the track by the couple of
    pixels it is short is the lesser fault — the track's own gap absorbs them, and the
-   figure stays one figure. Same reasoning as the amount cell's nowrap beside it,
-   which keeps "1.75 L" whole. */
+   figure stays one figure. The amount cell takes the same nowrap for the same reason:
+   it lives in the narrow 44px column, and a water row's volume ("1.75 L") must never
+   break between the number and its "L" unit. */
+.item__roweight,
+.item__cweight,
+.item__roqty,
+.item__cqty {
+  white-space: nowrap;
+}
+/* The weight is a figure in a column: right-aligned on the desktop grid, so the numbers
+   end on the column's right edge down the whole list (.item__wunit's fixed slot above
+   is what keeps them ending in ONE place). The two-line mobile rows turn it back to
+   left from their own scoped blocks, where the weight follows the amount on a
+   flush-left line. */
 .item__roweight,
 .item__cweight {
-  white-space: nowrap;
+  text-align: right;
 }
 
 /* A worn SPLIT spells its count out in the amount cell — "×12 · 11 worn" where the
@@ -409,10 +421,11 @@
    field, and a flex item's automatic minimum size is its min-content width, so
    "Bartholomew Fitzgerald-Montgomery III" took 300px of a 343px row and left the
    item reading "Hy…". The row's subject crushed by an annotation on it.
+   The clip is this rule's; the permission to shrink below min-content is the reset's
+   min-width: 0 on every element (reset.scss).
    Harmless on the two faces that never hit it (the read row already clips the whole
    name line, the checklist row has room): an element that fits is untouched. */
 .item__carrier-name {
-  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
@@ -435,11 +448,8 @@
      min-height floored the add row's packing fold at 36px (measured 2026-10-17). */
   min-height: 0;
   padding: calc((var(--field-h) - 1.5em) / 2) 0;
-  background: none;
-  border: 0;
   font-size: var(--text-base);
   color: var(--ink-3);
-  cursor: pointer;
   /* padding-block on the step spring: the packing fold (atoms/modeswitch.scss) closes
      it with the track, or the row would stop 12px short */
   transition:
@@ -467,12 +477,11 @@
     display: inline-flex;
     align-items: center;
   }
-  /* both add affordances take those compact metrics too (a separate rule: the cells
-     above keep their default min-height, these must drop the 36px field floor), so their
-     text sits at the same rhythm as the compact rows above it */
+  /* both add affordances take those compact metrics too, so their text sits at the same
+     rhythm as the compact rows above it (a separate rule: they are flex boxes already,
+     and their base rule has no min-height floor to drop) */
   .folder__addbtn,
   .item-nest__add {
-    min-height: 0;
     padding-block: var(--space-px);
     line-height: 1.3;
   }

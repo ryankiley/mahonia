@@ -106,11 +106,16 @@ const MENU_ACTIONS: MenuAction[] = [
 ];
 // Help and site destinations live together, away from list operations and the
 // destructive pair. The editor has no footer; the sticky toolbar keeps them in reach.
-// About and Legal sit beside them in the template — links, not events, since they
-// go somewhere rather than do something to the list.
 const SITE_ACTIONS: MenuAction[] = [
   { label: "Keyboard shortcuts", icon: KeyboardIcon, event: "shortcuts" },
   { label: "Send feedback…", icon: Bug02Icon, event: "feedback" },
+];
+// Help, About and Legal sit beside them: links, not events, since they go somewhere
+// rather than do something to the list.
+const SITE_LINKS = [
+  { to: "/help", label: "Help", icon: HelpCircleIcon },
+  { to: "/about", label: "About", icon: InformationCircleIcon },
+  { to: "/legal", label: "Legal", icon: LegalDocument01Icon },
 ];
 // what the menu renders: the rows a state hides (Duplicate on the first-run screen)
 const menuActions = computed(() => MENU_ACTIONS.filter((a) => !a.hidden?.()));
@@ -151,17 +156,9 @@ function act(event: MenuEvent | FootEvent) {
           <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
           {{ a.label }}
         </button>
-        <NuxtLink to="/help" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="HelpCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-          Help
-        </NuxtLink>
-        <NuxtLink to="/about" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="InformationCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-          About
-        </NuxtLink>
-        <NuxtLink to="/legal" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="LegalDocument01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-          Legal
+        <NuxtLink v-for="l in SITE_LINKS" :key="l.to" :to="l.to" data-row role="menuitem" class="menu__item" @click="emit('close')">
+          <HugeiconsIcon :icon="l.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          {{ l.label }}
         </NuxtLink>
       </li>
       <!-- Deleting this list, last and under a hairline. Not one of the rows
@@ -185,7 +182,7 @@ function act(event: MenuEvent | FootEvent) {
           type="button"
           data-row
           role="menuitem"
-          class="menu__item editor__footact"
+          class="menu__item"
           @click="act('forget')"
         >
           <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
@@ -196,7 +193,7 @@ function act(event: MenuEvent | FootEvent) {
           data-row
           data-row-hue
           role="menuitem"
-          class="menu__item editor__footact editor__delete"
+          class="menu__item editor__delete"
           @click="act('delete')"
         >
           <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" aria-hidden="true" />

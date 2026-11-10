@@ -68,10 +68,9 @@ const segments = computed(() => categorySegments(props.list));
   /* A flex item's automatic minimum is its MIN-CONTENT width, so a folder name with no
      space or hyphen in it sized this entry to the whole word and ran it off the side of
      the page — the legend clips, so the name was cut with no ellipsis and no way to
-     scroll to the rest. `min-width: 0` lets the entry shrink, which is what lets the
-     inherited overflow-wrap actually break the word; `max-width` keeps it inside the
-     legend once it has. */
-  min-width: 0;
+     scroll to the rest. The reset's `min-width: 0` on every element (reset.scss) lets
+     the entry shrink, which is what lets the inherited overflow-wrap actually break the
+     word; `max-width` keeps it inside the legend once it has. */
   max-width: 100%;
 }
 /* folder names read as labels — same treatment as the Base/Worn chips (t-label):

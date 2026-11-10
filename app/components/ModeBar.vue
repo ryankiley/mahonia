@@ -78,7 +78,7 @@ const { onKey } = useRovingRadio(
       @click="$emit('pick', m.key)"
     >
       <HugeiconsIcon :icon="m.icon" :size="16" :stroke-width="2" aria-hidden="true" />
-      <span class="modebar__label">{{ m.label }}</span>
+      <span>{{ m.label }}</span>
     </button>
   </div>
 </template>

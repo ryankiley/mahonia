@@ -15,6 +15,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import ItemInput from "~/components/ItemInput.vue";
+import { typeInto } from "./helpers/dom";
 import { vaultWithHits } from "./helpers/gearList";
 
 let catalogHits: Record<string, unknown>[] = [];
@@ -40,9 +41,7 @@ async function menuFor(hits: Record<string, unknown>[]) {
   catalogHits = hits;
   const w = mount(ItemInput, { props: { unit: "g", clearOnCommit: true }, attachTo: document.body });
   const input = w.find<HTMLInputElement>("input").element;
-  input.focus();
-  input.value = "alphalite";
-  input.dispatchEvent(new Event("input", { bubbles: true }));
+  typeInto(input, "alphalite");
   await vi.waitFor(() => expect(w.findAll('[role="option"]').length).toBe(hits.length), { timeout: 2_000 });
   return { w, input };
 }

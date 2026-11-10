@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import VaultItemModal from "~/components/VaultItemModal.vue";
-import type { VaultEntry } from "~~/shared/vault";
+import { vaultRow } from "./helpers/vault";
 
 enableAutoUnmount(afterEach);
 
@@ -19,15 +19,7 @@ const fetchTypes = vi.fn(() => ["Quilt", "Tent"]);
 registerEndpoint("/api/catalog/brands", () => fetchBrands());
 registerEndpoint("/api/catalog/types", () => fetchTypes());
 
-const entry: VaultEntry = {
-  id: 1,
-  normKey: "duplex",
-  name: "Duplex",
-  weightMg: 539_000,
-  timesSeen: 1,
-  lastUsedAt: "2026-09-12T00:00:00Z",
-  createdAt: "2026-09-12T00:00:00Z",
-};
+const entry = vaultRow({ id: 1, normKey: "duplex", name: "Duplex", weightMg: 539_000 });
 
 function open() {
   return mount(VaultItemModal, {

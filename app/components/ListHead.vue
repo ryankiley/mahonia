@@ -234,7 +234,7 @@ async function loadGpx(): Promise<GpxImpl> {
   try {
     const { useGpxImport } = await import("~/composables/useGpxImport");
     // a second change event during the fetch lands here too; the first build wins
-    return (gpxImpl.value ??= gpxScope.run(() => useGpxImport(computed(() => props.snapshot), c))!);
+    return (gpxImpl.value ??= gpxScope.run(() => useGpxImport(c))!);
   } finally {
     gpxLoading.value = false;
   }
@@ -482,7 +482,7 @@ onClickOutside(trailEl, closeTrail);
             height="16"
           />
           <HugeiconsIcon :icon="InternetIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="head__name t-clip">{{ link.name }}</span>
+          <span class="t-clip">{{ link.name }}</span>
           <!-- The one fact about the route that isn't in its name. Muted and after the
                name, so it reads as a detail OF the trail rather than a second link;
                absent entirely until it's set, like every other optional field here. -->
@@ -785,7 +785,6 @@ onClickOutside(trailEl, closeTrail);
      em can't be used directly (it would resolve against this SVG's inherited 16px,
      not the title's 32px), so the title's own token is multiplied explicitly. */
   margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - 8px);
-  align-self: flex-start;
   color: var(--ink-3);
   opacity: 0;
   visibility: hidden;
@@ -800,15 +799,13 @@ onClickOutside(trailEl, closeTrail);
 .head__titlewrap:focus-within .head__pencil {
   opacity: 1;
   visibility: visible;
+  color: var(--ink-2);
 }
 @media (hover: hover) and (pointer: fine) {
   .head__titlewrap:hover .head__pencil {
     opacity: 1;
     visibility: visible;
   }
-}
-.head__titlewrap:focus-within .head__pencil {
-  color: var(--ink-2);
 }
 /* a coarse pointer has no hover to reveal it with, and a permanently-visible hint
    next to every title is clutter — so on touch the field simply stays as it was */
@@ -817,11 +814,11 @@ onClickOutside(trailEl, closeTrail);
     display: none;
   }
 }
-/* width:100% is the FALLBACK. Where field-sizing works the box shrinks to its text
-   (see the rule at the end of this block), which is what puts the hover pencil beside
-   the title instead of stranded at the far edge of the column. */
+/* The full width (.field's own width: 100%, atoms/controls.scss) is the FALLBACK. Where
+   field-sizing works the box shrinks to its text (see the rule at the end of this
+   block), which is what puts the hover pencil beside the title instead of stranded at
+   the far edge of the column. */
 .head__title {
-  width: 100%;
   /* the page-title step — a document title, not a section heading. Well above the 16px
      threshold that triggers iOS Safari's focus-zoom, so .field's literal-1rem
      workaround (controls.scss) doesn't apply here. */
@@ -875,14 +872,12 @@ onClickOutside(trailEl, closeTrail);
      from it than the other. A wrap is a line break in one stack of meta, not a gap
      between two things standing side by side. */
   gap: var(--space-1) var(--space-4);
-  min-width: 0;
   min-height: 1.5em;
 }
 .head__link {
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-2);
-  min-width: 0;
   /* it's a <button> (see the template note) — the reset already strips the UA's chrome
      so it reads as the line of text it looks like; only the tracking needs saying */
   letter-spacing: inherit;
@@ -918,7 +913,6 @@ onClickOutside(trailEl, closeTrail);
      item, so inset-inline-start: 0 lands in the same place. */
   display: inline-flex;
   align-items: baseline;
-  min-width: 0;
   /* content-sized: the card floats out of flow at every pointer, so the anchor is only
      ever as wide as the name it holds and never claims the whole row */
   flex: 0 1 auto;
@@ -944,14 +938,11 @@ onClickOutside(trailEl, closeTrail);
   /* wider than the icon-to-its-own-text step: the glyph belongs to the URL it acts on,
      "Edit" is a separate control */
   gap: var(--space-2);
-  min-width: 0;
   /* out of flow, so it sizes to its CONTENT, bounded by `max-width: 100%` — which is
      the page column, since .head__trail is the containing block. Content-sized but
      never past the screen edge. The URL inside carries the shrinking (see below). */
-  flex: 0 0 auto;
   width: max-content;
   max-width: 100%;
-  margin-inline-start: 0;
   /* --radius-3 is the small-card step; inner surfaces derive from it with calc() so a
      nested curve can never end up rounder than the box holding it. */
   padding: var(--space-2) var(--space-3);
@@ -1017,15 +1008,14 @@ onClickOutside(trailEl, closeTrail);
     color: var(--ink);
   }
 }
-/* the actions are the emphasis in this card: full ink, regular weight. The explicit
-   font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
+/* the actions are the emphasis in this card: full ink, at .btn--quiet's regular
+   weight. The explicit font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
    leave "Edit" at 16px beside a 12px URL and push the card to 40px tall against the
    reference's 32px. */
 .head__cardbtn {
   flex: none;
   color: var(--ink);
   font-size: var(--text-chrome);
-  font-weight: 400;
 }
 /* opens the row's 8px gap out to 12 before the word (see the template note) */
 .head__cardedit {
@@ -1093,15 +1083,12 @@ onClickOutside(trailEl, closeTrail);
      thinning its floor — in "add" mode there is no Remove row, and a thinned floor left
      the lone URL field crammed against the bottom edge with a full step above it. */
   padding: var(--space-3);
-  /* The atom's corner and shadow, unmodified. This used to take --radius-3 and a local
-     ring-plus-drop, on the reasoning that --shadow-soft was "built for big anchored
-     menus" with a 48px spread. That stopped being true when the token was rewritten to
-     one value for every size — it is a 28px layer now — so the override was carrying a
-     divergence for a reason that no longer existed, and this panel sat visibly apart
-     from the date picker beside it, which is the same kind of surface at the same size.
-     Dropping the corner override also retires the --popover-item-radius repin that
-     existed only to keep rows from curving more than the box holding them. */
-  border-radius: var(--radius-4);
+  /* The corner and the shadow are the .popover atom's, unmodified and so not declared
+     here: --shadow-soft is one value for every size of surface, and with a corner or a
+     shadow of its own this panel sat visibly apart from the date picker beside it,
+     which is the same kind of surface at the same size. Rows inside take the atom's
+     --popover-item-radius for the same reason, so they never curve more than the box
+     holding them. */
   text-align: start;
 }
 /* 12px + medium weight — the smaller of the two chrome steps, so the labels stay
@@ -1152,14 +1139,9 @@ onClickOutside(trailEl, closeTrail);
 .head__panelinput + .head__panellabel {
   margin-block-start: var(--space-4);
 }
-/* The distance field wraps its input, so the sibling rule above can't reach the label
-   that follows it. Same spacing, stated for the wrapper. */
-.head__distrow + .head__panellabel {
-  margin-block-start: var(--space-4);
-}
 /* And the same again for the file row, which sits BETWEEN the URL field and the title's
    label and so breaks the adjacency the rule above depends on — the label was arriving
-   with no space above it at all. Third statement of one spacing; if a fourth thing ever
+   with no space above it at all. Second statement of one spacing; if a third thing ever
    lands between a field and a label, this wants to become a rule about the panel's
    children rather than another pair. */
 .head__gpx + .head__panellabel {
@@ -1178,7 +1160,6 @@ onClickOutside(trailEl, closeTrail);
 }
 .head__distinput {
   flex: 1;
-  min-width: 0;
 }
 .head__distunit {
   flex: none;
@@ -1269,12 +1250,12 @@ onClickOutside(trailEl, closeTrail);
    panel's 12px content edge, in line with the rule and the fields above it. */
 .head__panelremove {
   /* .menu__item (atoms/controls.scss) supplies the row: background, ink, hover tint,
-     concentric radius, transition, cursor, and the centred flex row itself. Only this
-     panel's own geometry lives here. The radius comes out right because .head__panel
-     repins --popover-item-radius to its own corner — see there. */
-  /* 12px — a 16px glyph on the panel's 12px content edge leaves the label starting at
-     x40, which is where every other label in the panel starts */
-  gap: var(--space-3);
+     concentric radius, transition, cursor, and the centred flex row itself with its
+     12px gap. Only this panel's own geometry lives here. The radius comes out right
+     because .head__panel keeps the .popover atom's corner — see there. */
+  /* That 12px gap is the one this row wants: a 16px glyph on the panel's 12px content
+     edge leaves the label starting at x40, which is where every other label in the
+     panel starts. */
   /* The highlight bleeds a full step past the content on each side, leaving it inset
      just 4px from the panel's edge rather than 8 — a menu row should read as spanning
      the panel, not as a chip floating inside it. Padding matches the bleed, so the icon
@@ -1296,12 +1277,8 @@ onClickOutside(trailEl, closeTrail);
   position: relative;
   display: inline-flex;
 }
-/* the affordance itself borrows .head__add wholesale (hover reveal, colour, ease);
-   only the resolved state differs — a set date is content, not an invitation, so it
-   holds full-time at the same weight the trail link's name does */
-.head__datesbtn {
-  gap: var(--space-1);
-}
+/* the dates affordance borrows .head__add wholesale (gap, colour, ease); its own
+   .head__datesbtn class carries no rule and is only a hook for the tests */
 .head__datespanel {
   position: absolute;
   top: calc(100% + var(--space-1));

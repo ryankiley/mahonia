@@ -107,12 +107,10 @@ const captionParts = computed(() =>
   gap: var(--space-px);
 }
 
-/* The unit takes the SAME type as the total's own (TotalsBar's .totals__unit):
-   --text-title, not --text-chrome. At 14px beside a 64px figure the "g" read as a
-   footnote stuck to the number rather than as the other half of it — and it was the
-   same unit, in the same construction, at two different sizes depending on which
-   component happened to draw the figure. Weight 400 keeps it from competing with the
-   figure now that it is big enough to be seen. */
+/* The unit takes --text-title, not --text-chrome. At 14px beside a 64px figure the
+   "g" read as a footnote stuck to the number rather than as the other half of it.
+   Weight 400 keeps it from competing with the figure now that it is big enough to
+   be seen. */
 .headline__unit {
   font-size: var(--text-title);
   font-weight: 400;
@@ -128,8 +126,7 @@ const captionParts = computed(() =>
    already one object in the layout (.headline__uc) and one target in the markup, so
    lighting only the mark made the word beside it look like it belonged to something
    else. They start a step apart — the chevron is the quieter of the two — and meet at
-   --ink, which is the lift the total's own chevron takes (TotalsBar) and the vault's
-   (gear.vue). Hung off the trigger, not the whole .headline, so the caption beside it
+   --ink, which is the lift the vault's takes (gear.vue). Hung off the trigger, not the whole .headline, so the caption beside it
    isn't a hover target for a menu it has nothing to do with.
    The pointer half is gated: on touch a tap latches :hover on the figure and the
    unit would stay lit after the picker closed. Focus is the lift touch and keys get. */

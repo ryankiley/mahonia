@@ -20,13 +20,12 @@ import type { AccessScope, AccessTokenSummary, PasskeySummary } from "~~/shared/
 // nothing else. On the PAGE there is no context behind it, so finishing has to take
 // you somewhere — back where you came from, or the vault. Same component, one prop,
 // rather than two copies that answer this differently.
-// `hideHeading`: the modal draws the title itself, in a header row that also carries
-// the close button — so the panel must not draw a second one. On the page there is no
-// such row and this stays false.
+// The heading is the page's alone: a modal mount draws the title itself, in a header
+// row that also carries the close button, so the panel must not draw a second one.
 // `asStep`: mounted as one step of another page (the /authorize consent), which has
 // already said what the sign-in is for and sets its own left edge. So the why-line is
 // dropped and the signed-out column stops centring itself under a left-aligned heading.
-const { inModal = false, hideHeading = false, asStep = false } = defineProps<{ inModal?: boolean; hideHeading?: boolean; asStep?: boolean }>();
+const { inModal = false, asStep = false } = defineProps<{ inModal?: boolean; asStep?: boolean }>();
 const emit = defineEmits<{ done: [] }>();
 // Say what this surface is FOR right now. Signed out it is a sign-in dialog, and
 // titling it "Your account" describes something you don't have yet — the one thing
@@ -462,7 +461,7 @@ async function onSignOut() {
 
 <template>
   <div class="acct" :class="{ 'acct--modal': inModal, 'acct--step': asStep }">
-    <h1 v-if="!hideHeading" class="t-title acct__head">{{ heading }}</h1>
+    <h1 v-if="!inModal" class="t-title acct__head">{{ heading }}</h1>
 
     <ClientOnly>
       <!-- Centred and narrow: signed out there is exactly one thing to do here,
@@ -752,18 +751,6 @@ async function onSignOut() {
   text-align: center;
   margin-bottom: var(--space-5);
 }
-/* CONTAINED on the signed-out screen only. The underline treatment above suits a
-   field sitting in a row of other content; here the field is stacked between two
-   full-width pill buttons, and a bare underline reads as a gap in that stack
-   rather than a control in it. Same height, radius and padding as the buttons, so
-   the three stack as one object — and the text starts on the left like any other
-   input, rather than centred with the prose. */
-.acct__empty .acct__input {
-  width: 100%;
-}
-.acct__input::placeholder {
-  color: var(--ink-3);
-}
 .acct__input:focus {
   border-color: var(--ink-2);
 }
@@ -779,10 +766,6 @@ async function onSignOut() {
 }
 .acct--modal .acct__empty {
   padding-bottom: 0;
-}
-/* the page wants air under a page title; a dialog heading sits closer to its body */
-.acct--modal .acct__head {
-  margin-bottom: var(--space-4);
 }
 
 /* Signed out there is exactly one thing to do, so the column centres and narrows
@@ -918,8 +901,6 @@ async function onSignOut() {
   gap: var(--space-3);
 }
 .acct__add {
-  display: inline-flex;
-  align-items: center;
   gap: var(--space-1);
 }
 .acct__row {
@@ -932,19 +913,20 @@ async function onSignOut() {
    where the field is. Here there is no such structure, and in the modal there is even
    less: a floating panel has nothing around a control to imply its edges, so the
    container IS the affordance. (The signed-out email field already looked like this;
-   the display name was a bottom rule, so the same surface had two kinds of input.) */
+   the display name was a bottom rule, so the same surface had two kinds of input.)
+   On the signed-out screen the field is stacked between two full-width pill buttons,
+   where a bare underline reads as a gap in that stack rather than a control in it:
+   the same height, radius and padding as the buttons, so the three stack as one
+   object, and the text starts on the left like any other input, rather than centred
+   with the prose. Its full width and placeholder ink are .field's (controls.scss). */
 .acct__input {
   flex: 1 1 auto;
-  min-width: 0;
   min-height: var(--control-h);
   padding: 0 var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--paper);
   text-align: left;
-}
-.acct__input:focus {
-  border-bottom-color: var(--ink-2);
 }
 .acct__row .btn {
   flex: none;
@@ -980,11 +962,10 @@ async function onSignOut() {
    than the surface is the only fill that reads here, and the hairline carries light
    mode, where --surface-float and --paper are both #fff.
    flex-start because the section is a flex column: a stretched button centres its
-   label away from the line every other row starts on. */
+   label away from the line every other row starts on. The pill corner is .btn's own. */
 .acct__btn {
   align-self: flex-start;
   border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
   background: var(--paper);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
@@ -1090,10 +1071,5 @@ async function onSignOut() {
 .acct__signouts {
   flex-direction: row;
   flex-wrap: wrap;
-}
-/* a link wearing .btn: the atom's reset is written for <button>, so the one thing an
-   anchor brings of its own is taken off here */
-.acct__clients a {
-  text-decoration: none;
 }
 </style>

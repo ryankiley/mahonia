@@ -104,7 +104,7 @@ function onName(e: Event) {
            ~240ms of the switch was rebuilding folder chrome. -->
       <div class="folder__actions">
         <button
-          class="btn btn--icon btn--ghost folder__del ink-quiet"
+          class="btn btn--icon btn--ghost ink-quiet"
           title="Remove folder"
           aria-label="Remove folder"
           @click="c.removeFolder(folder.id)"
@@ -114,7 +114,7 @@ function onName(e: Event) {
         <!-- drag via pointerdown; arrow keys give the focused grip the reordering
              its label promises (a drag needs a pointer) -->
         <button
-          class="btn btn--icon btn--ghost grip folder__grip ink-quiet"
+          class="btn btn--icon btn--ghost grip ink-quiet"
           title="Drag to reorder folder"
           :aria-label="`Reorder ${folder.name || 'folder'}`"
           @pointerdown="fdnd.start(folder.id, $event)"

@@ -230,7 +230,6 @@ function remove(p: Person) {
 }
 .ppl__name {
   flex: 1;
-  min-width: 0;
 }
 .ppl__remove {
   flex: none;
@@ -308,7 +307,6 @@ function remove(p: Person) {
 }
 .ppl__addfield {
   flex: 1;
-  min-width: 0;
 }
 /* the refusal — the row's one moment of colour, like .ppl__remove.is-arming, and
    for the same reason: it reports something that did NOT happen, so it has to be

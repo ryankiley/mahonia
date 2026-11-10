@@ -54,12 +54,12 @@
   border-bottom: 1px solid var(--line);
 }
 
-/* The page-title step — a LIST's own name as the read views' <h1>: 700 where every
+/* The page-title step — a LIST's own name as the read view's <h1>: 700 where every
    other heading is 600, a document title carrying more mass than a section heading
-   (see --text-page-title). Global rather than scoped because /l renders the element
-   into ReadonlyListView's #head slot and /s renders the fallback itself — a scoped
-   rule in either can't reach the other's heading. Worn WITH .t-title, which it
-   out-orders here. */
+   (see --text-page-title). One element wears it, the <h1> ReadonlyListView renders
+   itself, so nothing forces the rule to be global: a scoped rule in that component
+   would reach the heading just as well. It is kept here beside the other page-level
+   helpers. Worn WITH .t-title, which it out-orders here. */
 .view__title {
   font-size: var(--text-page-title);
   font-weight: 700;
@@ -99,8 +99,8 @@
 
 /* THE DRAWN BULLET LIST — a prose <ul>. (A `.bullets` twin once served About's release
    entries, which now live on GitHub; nothing wore the class.) */
+/* No list-style here: the reset strips the native marker from every list (reset.scss). */
 .prose ul {
-  list-style: none;
   display: flex;
   flex-direction: column;
   gap: var(--space-2);

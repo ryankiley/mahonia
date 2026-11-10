@@ -11,6 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import ItemInput from "~/components/ItemInput.vue";
+import { typeInto } from "./helpers/dom";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { vaultWithHits } from "./helpers/gearList";
 
@@ -35,9 +36,7 @@ function mountInput() {
 
 /** Type as a person does, then wait for the menu to have answered. */
 async function typeAndSettle(w: ReturnType<typeof mount>, input: HTMLInputElement, text: string) {
-  input.focus();
-  input.value = text;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
+  typeInto(input, text);
   await vi.waitFor(() => expect(w.findAll('[role="option"]').length).toBeGreaterThan(0), { timeout: 2_000 });
 }
 const blur = (w: ReturnType<typeof mount>) => w.find(".ac").trigger("focusout", { relatedTarget: document.body });
@@ -114,9 +113,7 @@ describe("a product name typed in full", () => {
     catalogHits = [];
     vaultHits = [];
     const { w, input, commits } = mountInput();
-    input.focus();
-    input.value = "water 2 L";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    typeInto(input, "water 2 L");
     await blur(w);
     expect(commits()).toEqual([{ name: "Water", weightMg: 2_000_000, classification: "consumable" }]);
   });
@@ -127,9 +124,7 @@ describe("a product name typed in full", () => {
     catalogHits = [LONG, REGULAR, PLEX];
     vaultHits = [];
     const { w, input, commits } = mountInput();
-    input.focus();
-    input.value = "Zpacks Duplex Long";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    typeInto(input, "Zpacks Duplex Long");
     await blur(w);
     expect(commits()).toEqual([{ name: "Zpacks Duplex Long", weight: undefined, classification: undefined }]);
   });

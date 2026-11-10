@@ -1,4 +1,5 @@
 import type { Ref } from "vue";
+import { MAX_QTY } from "~~/shared/ops";
 import type { Item, ListSnapshot, Unit } from "~~/shared/types";
 import { effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, rowDisplayKcal } from "~~/shared/weights";
 import { isWaterName, waterLiters, waterMgFromMl } from "~~/shared/water";
@@ -6,8 +7,7 @@ import { sameText } from "~~/shared/tidyText";
 import { motionIsInstant } from "~/plugins/inputModality.client";
 
 const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
-export const QTY_MAX = 9999;
-const clampQty = (n: number) => Math.max(1, Math.min(QTY_MAX, Math.round(n)));
+const clampQty = (n: number) => Math.max(1, Math.min(MAX_QTY, Math.round(n)));
 
 /**
  * The row's editable measurements and their canonical writes.

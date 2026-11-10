@@ -87,9 +87,9 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
     const withItems = new Set(visibleItems.value.map((i) => i.folderId));
     return roList.value.folders.filter((f) => withItems.has(f.id)).sort(bySortOrder);
   });
-  // Everything ReadonlyListView takes, as ONE object the pages `v-bind` — so /s and /l
-  // don't each spell out nine props that can drift (they did, identically, twice). The
-  // two emits stay on the pages: they write to `unit` and `personFilter` here.
+  // Everything ReadonlyListView takes, as ONE object the page `v-bind`s, so /s doesn't
+  // spell out nine props that can drift from the view's own. The two emits stay on the
+  // page: they write to `unit` and `personFilter` here.
   const viewProps = computed(() => ({
     list: roList.value,
     totals: totals.value,
@@ -101,7 +101,7 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
     chipWeights: chipWeights.value,
     contextOnlyIds: contextOnlyIds.value,
   }));
-  return { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights, contextOnlyIds, viewProps };
+  return { unit, fullTotals, personFilter, viewProps };
 }
 
 // The share view's SEO summary and social card: the item/weight facts in the owner's

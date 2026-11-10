@@ -9,19 +9,12 @@ import VaultPane from "~/components/VaultPane.vue";
 import { forgetGearCopy, gearCopyKey } from "~/utils/gearCopy";
 import { readGearCopy, useVaultList, useVaultOps, writeGearCopy } from "~/composables/useVaultList";
 import type { VaultEntry } from "~~/shared/vault";
+import { vaultRow } from "./helpers/vault";
 
 const OWNER = "a1b2c3d4e5f60718";
 const OTHER = "ffffffffffffffff";
-const piece = (id: number, name: string, commonName = "Tent"): VaultEntry => ({
-  id,
-  name,
-  commonName,
-  weightMg: 500_000,
-  normKey: `|${name.toLowerCase()}|`,
-  timesSeen: 1,
-  lastUsedAt: "2026-11-01T00:00:00Z",
-  createdAt: "2026-11-01T00:00:00Z",
-});
+const piece = (id: number, name: string, commonName = "Tent"): VaultEntry =>
+  vaultRow({ id, name, commonName, weightMg: 500_000, normKey: `|${name.toLowerCase()}|` });
 const GEAR = [piece(1, "Duplex"), piece(2, "Pocket Rocket", "Stove")];
 
 // what the server would say, per test

@@ -15,7 +15,7 @@ const snapshot = c.snapshot;
 
 // tick the relative time as it ages (30s is finer than the smallest "N minutes"
 // step, so "just now" → "1 minute ago" flips promptly without a per-second churn)
-const now = useNow({ interval: 30_000 });
+const now = useNow();
 
 // authoritative last write, from the server snapshot — so a collaborator's edit the
 // poll pulls in moves it too. Absent on a never-server-saved draft.
@@ -79,7 +79,6 @@ const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "");
     <!-- polite live region: the state word swaps in place and re-announces on
          change, while the time suffix updates silently outside it (so the 30s tick
          never re-announces) --><span
-      class="syncstatus__state"
       aria-live="polite"
     >{{ stateWord }}</span><span v-if="timeSuffix" class="syncstatus__time">{{ timeSuffix }}</span>
   </p>

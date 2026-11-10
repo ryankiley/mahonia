@@ -19,8 +19,10 @@
 // design system opts into and this app has never used anywhere.
 //
 // FLAT BY DEFAULT, because this is chrome — a menubar lives at the top edge as part of
-// the frame, not as a card floating over the document. WRAPS, because "as many items as
-// needed" is the requirement and nowrap would push the last of them out of reach.
+// the frame, not as a card floating over the document. Flat is what a bare element
+// already is, so the rule declares no ground and no shadow at all. WRAPS, because "as
+// many items as needed" is the requirement and nowrap would push the last of them out
+// of reach.
 .modebar {
   display: inline-flex;
   flex-wrap: wrap;
@@ -28,8 +30,6 @@
   gap: var(--space-px);
   padding: var(--space-1);
   border-radius: var(--radius-3);
-  background: transparent;
-  box-shadow: none;
   color: var(--ink);
   // the row's own padding would otherwise indent it past the title beneath it
   margin-left: calc((var(--space-1) + var(--space-2)) * -1);

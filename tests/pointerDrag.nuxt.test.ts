@@ -6,9 +6,9 @@
 //
 // Two of the cases below are regressions that actually shipped and had to be
 // found by hand:
-//   • `within` was a hardcoded `.editor__body`. On /vault that element doesn't
-//     exist, so `outside` computed true on every move and EVERY drag silently
-//     cancelled at the drop — no error, no indicator, nothing.
+//   • on a page without the surface (`.editor__body`), `outside` computed true on
+//     every move and EVERY drag silently cancelled at the drop — no error, no
+//     indicator, nothing.
 //   • reset() runs BEFORE commit() on release, so a hook that clears the caller's
 //     pending target in onReset destroyed the payload commit was about to use.
 //     target() is therefore read first, deliberately.
@@ -50,7 +50,7 @@ const key = (type: "keydown" | "keyup", k: string, altKey: boolean) =>
   new KeyboardEvent(type, { key: k, altKey });
 
 /** A drag wired to a fixed target, with the calls it made recorded. */
-function harness(opts: { within?: string; target?: () => unknown } = {}) {
+function harness(opts: { target?: () => unknown } = {}) {
   // `copies` is kept beside `commit` rather than as a third element in it, so the
   // cases that predate the copy modifier still assert the pair they were written for
   const calls = {
@@ -69,7 +69,6 @@ function harness(opts: { within?: string; target?: () => unknown } = {}) {
     },
     onStart: () => void calls.start++,
     onReset: () => void calls.reset++,
-    within: opts.within,
   });
   return { drag, calls };
 }
@@ -77,7 +76,7 @@ function harness(opts: { within?: string; target?: () => unknown } = {}) {
 describe("createPointerDrag", () => {
   it("commits to the last target on a release inside the surface", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(move(200));
@@ -87,10 +86,10 @@ describe("createPointerDrag", () => {
     expect(drag.dragId.value).toBeNull();
   });
 
-  // The /vault regression. A surface selector that matches nothing must mean "no
-  // band to escape from", NOT "always outside" — the latter cancels every drop.
-  it("commits when the named surface isn't on the page at all", () => {
-    const { drag, calls } = harness({ within: ".not-on-this-page" });
+  // A page without the surface must mean "no band to escape from", NOT "always
+  // outside" — the latter cancels every drop.
+  it("commits when the surface isn't on the page at all", () => {
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(move(200));
@@ -101,7 +100,7 @@ describe("createPointerDrag", () => {
 
   it("cancels a release that escaped above or below the surface", () => {
     surface("editor__body", 100, 300);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(move(40)); // up over the sticky topbar
@@ -118,7 +117,7 @@ describe("createPointerDrag", () => {
   // horizontal margin must stay a valid drop — only a VERTICAL escape cancels.
   it("treats the side margins as inside", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 4000, clientY: 200 }));
@@ -146,7 +145,6 @@ describe("createPointerDrag", () => {
         order.push("reset");
         pendingTarget = null;
       },
-      within: ".editor__body",
     });
 
     drag.start("row-1", down());
@@ -158,7 +156,7 @@ describe("createPointerDrag", () => {
 
   it("commits nothing when there is no target", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body", target: () => null });
+    const { drag, calls } = harness({ target: () => null });
 
     drag.start("row-1", down());
     window.dispatchEvent(move(200));
@@ -170,7 +168,7 @@ describe("createPointerDrag", () => {
 
   it("aborts on Escape without committing", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(move(200));
@@ -185,7 +183,7 @@ describe("createPointerDrag", () => {
 
   it("aborts on pointercancel — the touch gesture the OS steals", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(new PointerEvent("pointercancel", { pointerId: 1 }));
@@ -199,7 +197,7 @@ describe("createPointerDrag", () => {
   // sit, or cancel it, while finger one is still holding the row.
   it("ignores a second finger's up, move and cancel", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down(1));
     window.dispatchEvent(move(200, 1));
@@ -218,7 +216,7 @@ describe("createPointerDrag", () => {
 
   it("does not stack listeners when a second drag starts mid-gesture", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     drag.start("row-2", down()); // re-entrant pickup
@@ -231,7 +229,7 @@ describe("createPointerDrag", () => {
 
   it("locks text selection while dragging and releases it after", () => {
     surface("editor__body", 0, 400);
-    const { drag } = harness({ within: ".editor__body" });
+    const { drag } = harness();
 
     drag.start("row-1", down());
     expect(document.body.style.userSelect).toBe("none");
@@ -274,7 +272,7 @@ describe("createPressArm", () => {
     Object.defineProperty(ev, "timeStamp", { value: t });
     return ev;
   };
-  function armHarness(opts: { touchHoldMs?: number; exclude?: string } = {}) {
+  function armHarness(opts: { touchHoldMs?: number } = {}) {
     const drags: [unknown, PointerEvent][] = [];
     const arms: unknown[] = [];
     const disarms: unknown[] = [];
@@ -315,28 +313,6 @@ describe("createPressArm", () => {
     window.dispatchEvent(pmove({ pointerId: 2, clientX: 200 }));
     expect(drags).toEqual([]);
     window.dispatchEvent(pmove({ pointerId: 1, clientX: 40 }));
-    expect(drags).toHaveLength(1);
-  });
-
-  it("a press on an excluded control is left alone", () => {
-    const { arm, drags } = armHarness({ exclude: "select, button" });
-    const btn = document.createElement("button");
-    document.body.appendChild(btn);
-    const ev = pdown();
-    btn.dispatchEvent(ev); // sets ev.target the way a real handler would see it
-    arm.start("row-1", ev);
-    window.dispatchEvent(pmove({ clientX: 200 }));
-    expect(drags).toEqual([]);
-  });
-
-  it("with an exclusion set, a press on the row itself still arms", () => {
-    const { arm, drags } = armHarness({ exclude: "select, button" });
-    const row = document.createElement("li");
-    document.body.appendChild(row);
-    const ev = pdown();
-    row.dispatchEvent(ev);
-    arm.start("row-1", ev);
-    window.dispatchEvent(pmove({ clientX: 200 }));
     expect(drags).toHaveLength(1);
   });
 
@@ -502,7 +478,7 @@ describe("createPressArm", () => {
 describe("the copy modifier", () => {
   it("copies when Alt is armed mid-drag, even picked up bare", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 10, clientY: 200, altKey: true }));
@@ -516,7 +492,7 @@ describe("the copy modifier", () => {
   // the row just relocated and the gesture read as not existing.
   it("still copies when Alt lifts a moment before the button", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 10, clientY: 200, altKey: true }));
@@ -530,7 +506,7 @@ describe("the copy modifier", () => {
   // signal that separates "letting go to drop" from "changed my mind".
   it("drops the copy when Alt is released and the drag carries on", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(new PointerEvent("pointermove", { pointerId: 1, clientX: 10, clientY: 200, altKey: true }));
@@ -542,7 +518,7 @@ describe("the copy modifier", () => {
 
   it("does not copy a drag that never touched the modifier", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(move(200));
@@ -552,7 +528,7 @@ describe("the copy modifier", () => {
 
   it("arms from a keypress alone, with the pointer sitting still", () => {
     surface("editor__body", 0, 400);
-    const { drag } = harness({ within: ".editor__body" });
+    const { drag } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(move(200));
@@ -576,7 +552,7 @@ describe("the copy modifier", () => {
   // drag nobody meant to copy. Reproduced in the browser before this fix: 12 rows -> 13.
   it("is not armed by an Alt chord that isn't the Alt key", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(move(200));
@@ -589,7 +565,7 @@ describe("the copy modifier", () => {
   // …and losing focus makes the key's state unknowable, since no keyup is coming.
   it("disarms when the window loses focus", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(key("keydown", "Alt", true));
@@ -612,7 +588,6 @@ describe("the copy modifier", () => {
       target: () => "t",
       commit: (_id, _t, copy) => void calls.copies.push(copy),
       copyable: (id) => id !== "no-copy",
-      within: ".editor__body",
     });
 
     drag.start("no-copy", down());
@@ -627,7 +602,7 @@ describe("the copy modifier", () => {
   // `cursor: grabbing` had been dead since it was written.
   it("paints the drag cursor on <html> and clears it on reset", () => {
     surface("editor__body", 0, 400);
-    const { drag } = harness({ within: ".editor__body" });
+    const { drag } = harness();
     const cursor = () => document.documentElement.style.cursor;
 
     expect(cursor()).toBe("");
@@ -643,7 +618,7 @@ describe("the copy modifier", () => {
 
   it("drops the modifier with the gesture", () => {
     surface("editor__body", 0, 400);
-    const { drag } = harness({ within: ".editor__body" });
+    const { drag } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(key("keydown", "Alt", true));
@@ -657,7 +632,7 @@ describe("the copy modifier", () => {
   // Escape still aborts, and must not be mistaken for a modifier reading on the way
   it("still cancels on Escape once the modifier shares the listener", () => {
     surface("editor__body", 0, 400);
-    const { drag, calls } = harness({ within: ".editor__body" });
+    const { drag, calls } = harness();
 
     drag.start("row-1", down());
     window.dispatchEvent(move(200));

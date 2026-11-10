@@ -13,6 +13,14 @@ import { parseDevAllowedHosts } from "./config/devHosts";
 // social card and that decision can't drift onto different domains.
 import { CANONICAL_ORIGIN } from "./shared/site";
 
+// The page title and description, each also the social card's. KEEP IN STEP WITH
+// public/manifest.webmanifest, which repeats the title as `name` and the description
+// as `description`. That file is strict JSON and hand-written (pwa.manifest is false),
+// so it can carry no comment of its own and nothing checks the two agree; an installed
+// app whose name disagrees with its page title is the failure mode. See config/pwa.ts.
+const SITE_TITLE = "Mahonia — pack lists, weighed";
+const SITE_DESCRIPTION = "Make a packing list, see what it weighs, share it. No login needed.";
+
 export default defineNuxtConfig({
   // Pin date-gated Nuxt/Nitro defaults so builds are reproducible across CI/Vercel
   // (an unset compatibilityDate falls back to "today" and can shift under us).
@@ -187,15 +195,16 @@ export default defineNuxtConfig({
     // not the minify pass that drops it. The notice requirement is met by
     // public/licenses.txt instead, which is deterministic and covers every
     // bundled library rather than only the ones that happen to carry a banner.
-    // Shared SCSS breakpoint vars, prepended to every SFC `lang="scss"` style
+    // The shared SCSS breakpoint vars, prepended to every SFC `lang="scss"` style
     // block so plain `@media (max-width: $bp-stack)` queries share the tokens'
-    // anchors. Sass module scoping keeps this injection out of @use'd files, so
-    // foundations/tokens.scss carries the same declarations (`!default`) for its
-    // own math — a retune must change both places.
+    // anchors. A `@use` of the one file that declares them, not a second copy of
+    // the values: Sass module scoping keeps this injection out of @use'd files, so
+    // foundations/tokens.scss forwards the same module for the atoms and for its
+    // own math. A retune changes foundations/_breakpoints.scss and nothing else.
     css: {
       preprocessorOptions: {
         scss: {
-          additionalData: "$bp-stack: 720px; $bp-full: 1024px;",
+          additionalData: '@use "~/assets/styles/foundations/_breakpoints.scss" as *;',
         },
       },
     },
@@ -308,12 +317,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: "en" },
-      // KEEP IN STEP WITH public/manifest.webmanifest, which repeats this title as
-      // `name` and the description below as `description`. That file is strict JSON
-      // and hand-written (pwa.manifest is false), so it can carry no comment of its
-      // own and nothing checks the two agree — an installed app whose name disagrees
-      // with its page title is the failure mode. See config/pwa.ts.
-      title: "Mahonia — pack lists, weighed",
+      title: SITE_TITLE,
       // no charset entry: Nuxt prepends { charset: "utf-8" } itself when none is set
       meta: [
         {
@@ -335,11 +339,7 @@ export default defineNuxtConfig({
         // the page's --paper in each mode.
         { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#ffffff" },
         { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#000000" },
-        {
-          name: "description",
-          content:
-            "Make a packing list, see what it weighs, share it. No login needed.",
-        },
+        { name: "description", content: SITE_DESCRIPTION },
         // Social card. The editor (the landing page) is prerendered, and this static
         // set is what unfurls the bare domain for a crawler that reads no further.
         // og:image MUST be absolute and the prerendered shell has no request
@@ -349,11 +349,8 @@ export default defineNuxtConfig({
         // routes (/s, /l) override og:title/description per-list via their own useSeoMeta.
         { property: "og:type", content: "website" },
         { property: "og:site_name", content: "Mahonia" },
-        { property: "og:title", content: "Mahonia — pack lists, weighed" },
-        {
-          property: "og:description",
-          content: "Make a packing list, see what it weighs, share it. No login needed.",
-        },
+        { property: "og:title", content: SITE_TITLE },
+        { property: "og:description", content: SITE_DESCRIPTION },
         { property: "og:image", content: `${CANONICAL_ORIGIN}/og.png` },
         { property: "og:image:width", content: "1200" },
         { property: "og:image:height", content: "630" },

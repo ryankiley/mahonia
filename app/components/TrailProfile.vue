@@ -412,7 +412,7 @@ const hover = computed(() => {
   const grade = grades.value[Math.min(i, grades.value.length - 1)] ?? 0;
   return {
     extreme,
-    x: (i / (props.profile.length - 1)) * VB_W,
+    x: x(i),
     distanceM: Math.round((i / (props.profile.length - 1)) * props.totalDistanceM),
     ele,
     grade,

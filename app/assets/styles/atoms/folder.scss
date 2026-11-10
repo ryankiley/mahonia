@@ -21,7 +21,9 @@
    to it. One row wider than the column (a long weight on a narrow phone) would then
    drag every OTHER row out with it, ~19px past the screen edge, for as long as a menu
    stayed open. The rows are what should be fixed, but the folder must not be a
-   multiplier for it: this pins the track to the column either way. */
+   multiplier for it: a zero floor pins the track to the column either way.
+   It is not declared on the inner below because the reset declares it for every
+   element (reset.scss); this is one of the places that floor is load-bearing. */
 .folder__body {
   display: grid;
   grid-template-rows: minmax(0, 1fr);
@@ -32,9 +34,7 @@
 }
 .folder__bodyinner {
   min-height: 0;
-  min-width: 0;
   overflow: hidden;
-  opacity: 1;
   transition: opacity var(--spring-fade-dur) var(--spring-fade);
 }
 /* Lift the collapse clip while a row's floating overlay is open — the folder picker,
@@ -89,9 +89,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
   color: var(--ink-3);
-  cursor: pointer;
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 /* the row's glyph is 16px; -1px so it hugs the name at the same distance the folder
@@ -169,7 +167,6 @@
    in the last column so it lines up with the item actions below. */
 .folder {
   position: relative;
-  padding: 0;
 }
 /* The header's columns are fed in as --head-cols, the same contract .item-row signs
    with --row-cols (atoms/item.scss): each mode supplies only what legitimately
@@ -190,7 +187,6 @@
   display: flex;
   align-items: baseline;
   gap: var(--space-1);
-  min-width: 0;
 }
 /* size to the typed text so the chevron hugs the name (not the full column) — the
    cap/truncation + name type come from the shared folder atom. min-width is a small

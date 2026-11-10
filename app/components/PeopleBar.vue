@@ -79,7 +79,7 @@ const { onKey } = useRovingRadio(
       >
         <span
           v-if="c.color || c.hollow"
-          class="swatch pplbar__dot"
+          class="swatch"
           :class="{ 'swatch--hollow': c.hollow }"
           :style="c.color ? { background: c.color } : undefined"
           aria-hidden="true"
@@ -87,7 +87,7 @@ const { onKey } = useRovingRadio(
         <!-- the name in its own box so it can clip: a person's name runs to 60
              characters, and the chip used to run out past the screen's edge with it.
              The chip's title carries the whole name for a pointer. -->
-        <span class="pplbar__name">{{ c.label }}</span><!--
+        <span class="pplbar__name t-clip">{{ c.label }}</span><!--
         the chip's carry, riding a step off the name in the chip's OWN ink — the
         bordered chip shape is what keeps it reading as a control, not a readout chip
         --><span v-if="c.weight" class="t-num pplbar__wt">{{ c.weight }}</span>
@@ -110,7 +110,6 @@ const { onKey } = useRovingRadio(
   flex-wrap: wrap; /* six named people on a phone still all reachable */
   align-items: center;
   gap: var(--space-1);
-  min-width: 0;
 }
 /* The armchip's shape (TrailPlanPanel's day chips) in the page's own tokens —
    that one takes its fixed-light values from map tokens because it floats over a map;
@@ -143,12 +142,9 @@ const { onKey } = useRovingRadio(
     background-color var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
 }
-/* The one part of the chip that gives way. The dot and the carry are flex: none (the
-   dot by .swatch, the carry below) so a long name can never squeeze them out. */
-.pplbar__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+/* The name is the one part of the chip that gives way: it wears .t-clip in the markup.
+   The dot and the carry are flex: none (the dot by .swatch, the carry below) so a long
+   name can never squeeze them out. */
 /* THE TARGET, drawn apart from the chip — the .switch recipe (controls.scss). The chip
    is --control-compact (30px) tall because it is read with the mode bar's options; a
    thumb needs --tap. A transparent ::before overhangs the chip by the shortfall top

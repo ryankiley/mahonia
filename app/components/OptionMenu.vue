@@ -162,7 +162,6 @@ function pick(key: string) {
   padding: 0; /* over .btn's, for the callers that pass it through triggerClass */
   color: inherit;
   text-align: start;
-  cursor: pointer;
 }
 .optmenu__btn--baseline {
   align-items: baseline;

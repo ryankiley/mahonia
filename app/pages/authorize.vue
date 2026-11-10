@@ -171,7 +171,7 @@ async function decide(decision: "allow" | "deny") {
               <h1 class="t-title">Connect {{ label }} to Mahonia</h1>
               <p class="t-muted">Sign in to your Mahonia account first. {{ label }} will then ask to {{ wants }}.</p>
               <div class="az__signin">
-                <AccountView in-modal hide-heading as-step />
+                <AccountView in-modal as-step />
               </div>
             </template>
 

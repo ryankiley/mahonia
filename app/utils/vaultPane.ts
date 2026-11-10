@@ -17,8 +17,10 @@ export const VAULT_ASK = "Your gear is one pick away on every list, but it needs
 
 /** Starting width, in px. 368 = 23rem. */
 const VAULT_W_DEFAULT = 368;
-const VAULT_W_MIN = 288;
-const VAULT_W_MAX = 720;
+/** The range the divider can drag to, in px. The pane states the same two as its
+ *  separator's aria-valuemin and aria-valuemax. */
+export const VAULT_W_MIN = 288;
+export const VAULT_W_MAX = 720;
 
 /**
  * Hold a width inside the pane's usable range. Applied on the way IN as well as on

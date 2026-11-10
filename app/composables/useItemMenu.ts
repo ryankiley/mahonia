@@ -47,7 +47,7 @@ function create() {
       // capture: still close when the outside click's own handler stops propagation
       { passive: true, capture: true },
     );
-    // The mobile dismissal — see onScrollOutside (dom.ts) for why it watches the touch
+    // The mobile dismissal — see useMenuDismiss (dom.ts) for why it watches the touch
     // gesture rather than `scroll`. Registered flat alongside the others instead of
     // through that helper: this is a page-lifetime singleton with no component scope to
     // hang a teardown on, which is the same reason the listeners above are raw. Nothing

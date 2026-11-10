@@ -35,7 +35,7 @@ watch(
         </span>
       </label>
       <div class="dlg__actions">
-        <button class="btn btn--ghost" @click="settleConfirm(false)">{{ confirmState.cancelLabel }}</button>
+        <button class="btn btn--ghost" @click="settleConfirm(false)">Cancel</button>
         <button class="btn btn--primary" @click="settleConfirm(true)">{{ confirmState.confirmLabel }}</button>
       </div>
     </BaseModal>
@@ -54,12 +54,12 @@ watch(
 <style scoped>
 /* the action row (.dlg__actions) is shared shell — it lives in atoms/dialog.scss */
 .dlg__linkfield {
-  width: 100%;
   /* the import textarea's language — quiet tinted well, rounded a concentric
-     step inside the card (radius-4 − space-2), not a hairline box. No focus
-     deepen: the field is readonly and arrives preselected. */
+     step inside the card (radius-4 − space-2, the same token the .well atom and
+     the menu rows read), not a hairline box. No focus deepen: the field is
+     readonly and arrives preselected. */
   background: var(--paper-2);
-  border-radius: calc(var(--radius-4) - var(--space-2));
+  border-radius: var(--popover-item-radius);
   padding: var(--space-2) var(--space-3);
   font-size: var(--text-base);
 }

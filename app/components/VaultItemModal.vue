@@ -603,7 +603,12 @@ async function add(p: VaultItemPatch) {
 /* Two short fields on one line. Brand/variant and weight/type are each a pair you
    read together, and a single stacked column of eight fields makes the dialog scroll
    on a phone before you reach Save. */
-.vitem__pair {
+/* The gear type and the icon box (.vitem__typed) stand on the same two columns as every
+   pair, so the second column starts in one place down the dialog. Its own class rather
+   than a .vitem__pair, so it stays one line on a phone (the container query below names
+   the pairs alone): the box is too small to deserve a row of its own. */
+.vitem__pair,
+.vitem__typed {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
@@ -632,29 +637,19 @@ async function add(p: VaultItemPatch) {
   gap: var(--space-1);
 }
 /* its chevron is the .chev atom (controls.scss), not a copy */
-/* the gear type and the icon box, on the same two columns as every pair so the second
-   column starts in one place down the dialog. Its own class rather than a .vitem__pair,
-   so it stays one line on a phone — the box is too small to deserve a row of its own. */
-/* the icon button only as wide as its glyph and chevron, at the start of its column */
-.vitem__typed {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-}
 /* the popover's anchor is the whole Icon column, not the small box: the card then
    hangs from the dialog's right edge and stays inside it, where hung from the box in
    the second column it ran off the dialog's left */
 .vitem__iconpick {
   width: 100%;
 }
+/* the icon button only as wide as its glyph and chevron, at the start of its column */
 .vitem__iconbtn {
   /* .field sets a field's full width; this one is a glyph and a chevron */
   width: auto;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--ink);
-  cursor: pointer;
 }
 /* nothing to draw yet: the dashed square an empty row slot wears */
 .vitem__noicon {

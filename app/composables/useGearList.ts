@@ -13,7 +13,7 @@ import { listNormKeys } from "~~/shared/vault";
 import { computeTotals } from "~~/shared/weights";
 import { createEdits } from "~/composables/useGearListEdits";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
-import { useUndo, type UndoOffer } from "~/composables/useUndo";
+import { useUndo } from "~/composables/useUndo";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -394,21 +394,15 @@ function create() {
   // timer My Gear's uses too (useUndo). `verb` is what the bar says happened to
   // `label`: removes, its first tenant, say nothing and read "Removed"; a paste that
   // made rows says "Added" (pasteItemsAfter).
-  const undo = useUndo<UndoOffer & { verb?: "Added" | "Removed" }>();
-  const pendingUndo = undo.pending;
+  const undo = useUndo();
   function offerUndo(label: string, restore: () => void, verb?: "Added" | "Removed") {
     undo.offer({ label, restore, verb });
   }
-  const holdUndo = undo.hold;
-  const releaseUndo = undo.release;
   // Something just ADDED as a set (a kit from My Gear, unfolded into a group): offer to
   // take it back off. The group's row goes and its rows with it (the reducer's
   // cascade), with no "Removed" of its own — undoing an add means it was never there.
   function offerUndoAdd(label: string, parentId: string) {
     offerUndo(label, () => dispatch({ t: "removeItem", id: parentId }), "Added");
-  }
-  function undoRemove() {
-    undo.take();
   }
 
   const totals = computed(() =>
@@ -825,7 +819,7 @@ function create() {
         // be found, and the draft that made it is let go, or the next New list would
         // restore it and make the list twice. Not while a draft is open by now: that
         // record is its own.
-        const token = useMyLists().registerCreated(res);
+        const token = myLists.registerCreated(res);
         setVaultDecisionFor(token, "yes");
         if (!snapshot.value || holdsList()) store.del(DRAFT_KEY);
         return;
@@ -860,14 +854,9 @@ function create() {
       setStatus("error");
       // retry while there's still un-persisted content, backing off the way a failing
       // flush does (and on the same timer, so a list switch cancels it)
-      flushFailures++;
-      clearTimeout(retryTimer);
-      retryTimer = setTimeout(
-        () => {
-          if (!holdsList() && snapshot.value && hasRealContent(snapshot.value)) createFromDraft();
-        },
-        Math.min(flushBackoffMs * 2 ** (flushFailures - 1), 30_000),
-      );
+      retryAfterBackoff(() => {
+        if (!holdsList() && snapshot.value && hasRealContent(snapshot.value)) createFromDraft();
+      });
     } finally {
       if (myEpoch === epoch) {
         inFlight = false;
@@ -914,6 +903,14 @@ function create() {
   function scheduleFlush() {
     clearTimeout(flushTimer);
     flushTimer = setTimeout(flush, flushDebounceMs);
+  }
+
+  /** Run `run` after the failure backoff: the first wait doubled per failure in a row,
+   *  to a 30 s ceiling. One timer for a failed flush and a failed create alike. */
+  function retryAfterBackoff(run: () => void) {
+    flushFailures++;
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(run, Math.min(flushBackoffMs * 2 ** (flushFailures - 1), 30_000));
   }
 
   async function flush() {
@@ -1005,10 +1002,7 @@ function create() {
       // want it again in a second, and every open tab doing that turns a blip into
       // load at exactly the wrong moment. Doubles from 1.5s to a 30s ceiling; the
       // count resets the moment anything lands, so a one-off blip costs one wait.
-      flushFailures++;
-      const backoff = Math.min(flushBackoffMs * 2 ** (flushFailures - 1), 30_000);
-      clearTimeout(retryTimer);
-      retryTimer = setTimeout(scheduleFlush, backoff);
+      retryAfterBackoff(scheduleFlush);
     } finally {
       if (myEpoch === epoch) {
         inFlight = false;
@@ -1381,7 +1375,8 @@ function create() {
     // every mutator: folders, rows, days, pins, people, paste, nesting (useGearListEdits)
     ...edits,
     saveItemToVault,
-    pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo, offerUndoAdd,
+    pendingBlankId, offerUndoAdd,
+    pendingUndo: undo.pending, undoRemove: undo.take, holdUndo: undo.hold, releaseUndo: undo.release,
   };
 }
 
