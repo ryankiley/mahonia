@@ -19,6 +19,12 @@ interface SessionState {
   /** Optional and opt-in — the only part of an account anyone else ever sees.
    *  Null means this person's public lists carry no byline, which is the default. */
   displayName: string | null;
+  /** Whether the lists this browser made may be attached to the account without
+   *  asking: true for a sign-in made here, false for one only confirmed here until
+   *  the person says yes (allowListSweep). The server's answer, kept on the session. */
+  sweep: boolean;
+  /** Which account this is, the same across its sessions (see sessionAccount). */
+  account: string;
 }
 
 /** What this tab knows of the session. "unresolved" means not asked yet, or the last
@@ -106,6 +112,7 @@ export function useSession() {
         forgetAccountMemos(previousOwner);
       }
       session.value = nextUser ? { state: "signedIn", user: nextUser } : { state: "signedOut" };
+      if (nextUser) rememberSessionAccount(nextUser.owner, nextUser.account);
       // A hint with no session behind it (expired, or signed out in another tab)
       // would otherwise keep costing a request on every page load — drop it. And
       // drop what this device kept FOR that account with it: a session ending here
@@ -150,8 +157,9 @@ export function useSession() {
     }
   }
 
-  /** Drop the three per-account memos this device keeps — the vault's "already
-   *  sent", the registry's "already claimed" and the account disc's letter — so the
+  /** Drop the per-account memos this device keeps — the vault's "already
+   *  sent", the registry's "already claimed", the account disc's letter, My Gear's
+   *  copy and the copies of lists opened through the account — so the
    *  next person to sign in here starts clean rather than inheriting them. Every way
    *  out of an account runs it: signOut below does so itself; the delete-account and
    *  sign-out-everywhere paths (which end the session server-side, then re-read it)
@@ -161,6 +169,14 @@ export function useSession() {
     useClaimedLists().resetClaimMark(owner);
     forgetAccountInitial();
     forgetGearCopy(owner);
+    // The claimed opens' on-device copies, which are the account's too, and the
+    // note of which account that was. Only where there was an account: a visitor
+    // who never had one runs this on every load, and has no business opening
+    // IndexedDB to find nothing.
+    if (owner) {
+      forgetSessionAccount(owner);
+      void useLocalListStore().delClaimed();
+    }
   }
 
   async function signOut(): Promise<void> {
@@ -174,6 +190,20 @@ export function useSession() {
       clearSessionHint();
       session.value = { state: "signedOut" };
     }
+  }
+
+  /** The person's yes to "add this browser's lists to my account", for a sign-in
+   *  that didn't bring them (see `sweep`). The session plugin watches the flag, so
+   *  the sweep itself follows from the answer landing here. */
+  async function allowListSweep(): Promise<boolean> {
+    try {
+      await $fetch("/api/auth/sweep", { method: "POST" });
+    } catch {
+      return false;
+    }
+    if (session.value.state === "signedIn")
+      session.value = { state: "signedIn", user: { ...session.value.user, sweep: true } };
+    return true;
   }
 
   /** Patch the account's one setting (the display name); the shared state adopts
@@ -207,6 +237,7 @@ export function useSession() {
     refresh,
     requestLink,
     signOut,
+    allowListSweep,
     forgetAccountMemos,
     hasSessionHint,
     saveProfile,

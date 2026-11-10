@@ -1,6 +1,6 @@
 import { defineEventHandler } from "h3";
 import { requireAccount } from "../../../utils/authSession";
-import { savePasskey } from "../../../utils/credentialRepo";
+import { cleanPasskeyLabel, savePasskey } from "../../../utils/credentialRepo";
 import { canSendEmail, sendPasskeyAddedNotice } from "../../../utils/email";
 import { readJsonBodyCapped } from "../../../utils/http";
 import { takeChallenge, verifyPasskeyRegistration } from "../../../utils/passkeys";
@@ -31,7 +31,10 @@ export default defineEventHandler(async (event) => {
   );
   if (!verified) return { ok: false as const, reason: "invalid" as const };
 
-  const label = typeof body?.label === "string" ? body.label : null;
+  // Cleaned HERE, once, for both readers. The stored copy was always cut to 60,
+  // but the notice below mailed the label as it arrived: up to the whole 32 KB
+  // body, line breaks and all, to an address nobody need have proved they hold.
+  const label = typeof body?.label === "string" ? cleanPasskeyLabel(body.label) || null : null;
   try {
     const { syncable, ...credential } = verified;
     await savePasskey(db, { userId: user.id, ...credential, discoverable: syncable, label });

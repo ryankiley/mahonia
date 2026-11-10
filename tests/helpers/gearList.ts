@@ -12,7 +12,7 @@
 // that renders a live button — itemVaultButton wants that one and populates
 // `vaultGearAsked` itself, which is exactly why it has to.
 import { ref, type Ref } from "vue";
-import type { LocalListRecord } from "../../shared/localList";
+import { CLAIMED_KEY_PREFIX, type LocalListRecord } from "../../shared/localList";
 import { applyOps, type ItemPatch } from "../../shared/ops";
 import type { ListSnapshot } from "../../shared/types";
 
@@ -104,5 +104,9 @@ export const memoryListStore = (records?: Map<string, LocalListRecord>) => ({
   },
   del: async (key: string) => {
     records?.delete(key);
+  },
+  delClaimed: async () => {
+    for (const [key, record] of [...(records ?? [])])
+      if (key.startsWith(CLAIMED_KEY_PREFIX) && !record.pending.length) records?.delete(key);
   },
 });

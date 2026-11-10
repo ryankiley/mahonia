@@ -61,6 +61,9 @@ export const ACCOUNT_DDL: string[] = [
     consumed_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
+  // Which browser asked for the link (redeemMagicLink): only that browser is
+  // signed in without being asked first.
+  `ALTER TABLE auth_tokens ADD COLUMN IF NOT EXISTS browser_hash text`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_tokens_hash ON auth_tokens (token_hash)`,
   `CREATE INDEX IF NOT EXISTS idx_auth_tokens_expiry ON auth_tokens (expires_at)`,
 
@@ -72,6 +75,12 @@ export const ACCOUNT_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now(),
     last_used_at timestamptz NOT NULL DEFAULT now()
   )`,
+  // Whether this session's browser may sweep its lists into the account unasked
+  // (startSession). Added true, then defaulted false, the way email_verified was:
+  // a session from before the column had already swept, and stopping it would
+  // strand the lists its browser makes next. Every session since says which it is.
+  `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS sweep_ok boolean NOT NULL DEFAULT true`,
+  `ALTER TABLE sessions ALTER COLUMN sweep_ok SET DEFAULT false`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_hash ON sessions (token_hash)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions (expires_at)`,

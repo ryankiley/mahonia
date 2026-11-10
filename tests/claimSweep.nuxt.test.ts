@@ -35,8 +35,12 @@ const hasHint = ref(true);
 // what a forced re-read of the session does here; a case sets it to model another
 // tab having signed in since this one resolved
 let onRefresh: () => void = () => {};
+// whether the session's sign-in brought this browser's lists with it — the server's
+// answer on /api/auth/me (startSession), and the only thing the sweep goes by
+const sweep = ref(true);
 mockNuxtImport("useSession", () => () => ({
   signedIn,
+  user: computed(() => (signedIn.value ? { owner: "1", sweep: sweep.value } : null)),
   loaded: sessionLoaded,
   hasSessionHint: () => hasHint.value,
   // the real composable's three-way rule, mirrored so the gates under test read the
@@ -91,6 +95,9 @@ beforeEach(() => {
   // `lists` and `loaded` — a case that left rows standing (or a landed fetch) would
   // decide the next one's answer. The composable's own "back to nothing".
   useClaimedLists().resetClaimMark();
+  // this browser signed the session in itself — the ordinary case, and the only
+  // one the sweep runs for (see the cases on that below)
+  sweep.value = true;
 });
 
 describe("claimDeviceLists — what goes to the server", () => {
@@ -145,6 +152,47 @@ describe("claimDeviceLists — what goes to the server", () => {
     await useClaimedLists().claimDeviceLists();
 
     expect(posted).toEqual([]);
+  });
+
+  // A sign-in somebody only pressed "Sign in" for, on a link another browser asked
+  // for, signs them in and takes nothing with it: the press is what a stranger's
+  // link is after, and these lists carry edit rights.
+  it("sends nothing for a sign-in that didn't bring the lists", async () => {
+    sweep.value = false;
+    entries.value = [entry({ editToken: "mine", origin: "created" })];
+    served = [{ shareCode: "C0DE00000009" }];
+
+    await useClaimedLists().claimDeviceLists();
+
+    expect(posted).toEqual([]);
+    // it still reads the account's own lists; it just hands the account nothing
+    expect(useClaimedLists().lists.value.map((l) => l.shareCode)).toEqual(["C0DE00000009"]);
+  });
+
+  it("sweeps once the person has said yes", async () => {
+    sweep.value = false;
+    entries.value = [entry({ editToken: "mine", origin: "created" })];
+    await useClaimedLists().claimDeviceLists();
+    expect(posted).toEqual([]);
+
+    sweep.value = true;
+    await useClaimedLists().claimDeviceLists();
+
+    expect(posted).toEqual([{ editTokens: ["mine"], openedTokens: [] }]);
+  });
+
+  it("goes by the session and not by anything this browser remembers", async () => {
+    // storage wiped under a live session (Safari does it on its own): the say-so
+    // is the session's, so the next list still reaches the account
+    entries.value = [entry({ editToken: "mine", origin: "created" })];
+    await useClaimedLists().claimDeviceLists();
+    storage.clear();
+    posted.length = 0;
+
+    entries.value = [...entries.value, entry({ editToken: "newer", origin: "created" })];
+    await useClaimedLists().claimDeviceLists();
+
+    expect(posted).toHaveLength(1);
   });
 
   it("does nothing at all signed out", async () => {

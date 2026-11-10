@@ -1,13 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
-import {
-  deletePasskey,
-  existingCredentialIds,
-  findCredential,
-  listPasskeys,
-  savePasskey,
-  touchCredential,
-} from "../server/utils/credentialRepo";
+import { cleanPasskeyLabel, deletePasskey, existingCredentialIds, findCredential, listPasskeys, savePasskey, touchCredential } from "../server/utils/credentialRepo";
 import { findOrCreateUser } from "../server/utils/authSession";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { PASSKEY } from "./helpers/session";
@@ -34,6 +27,19 @@ describe("passkey storage", () => {
     expect(listed).toHaveLength(1);
     expect(listed[0]!.label).toBe("iPhone");
     expect(listed[0]!.lastUsedAt).toBeNull();
+  });
+
+  // The label is mailed to the account's address as well as stored, and that
+  // address may be one nobody has proved they hold: it must stay one short line.
+  it("keeps a label to one short line, as stored and as mailed", async () => {
+    const hostile = `iPhone\n\nSecurity alert: cancel at https://evil.example/x\u202E ${"a".repeat(200)}`;
+    const cleaned = cleanPasskeyLabel(hostile);
+    expect(cleaned).not.toMatch(/[\n\r\u202E]/);
+    expect(cleaned.length).toBeLessThanOrEqual(60);
+    expect(cleaned.startsWith("iPhone Security alert")).toBe(true);
+
+    await savePasskey(db, key({ label: hostile }));
+    expect((await listPasskeys(db, 1))[0]!.label).toBe(cleaned);
   });
 
   it("never exposes the public key in the listing — there's nothing to show", async () => {

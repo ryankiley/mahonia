@@ -10,7 +10,7 @@ import { makeEvent, setCookieValue } from "./http";
  *  value (`session=<token>`) that replays it. */
 export async function signInCookie(db: TestDb, userId: number): Promise<{ token: string; cookie: string }> {
   const event = makeEvent("/");
-  await startSession(event, db, userId);
+  await startSession(event, db, userId, { sweep: true });
   const token = setCookieValue(event, SESSION_COOKIE);
   if (!token) throw new Error("startSession set no session cookie");
   return { token, cookie: `${SESSION_COOKIE}=${token}` };

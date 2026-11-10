@@ -1,7 +1,14 @@
 import { defineEventHandler } from "h3";
-import { claimUnverifiedAccount, consumeMagicToken, startSession } from "../../utils/authSession";
+import {
+  askingBrowserHash,
+  claimUnverifiedAccount,
+  forgetAskingBrowser,
+  redeemMagicLink,
+  startSession,
+} from "../../utils/authSession";
 import { useAccountDb } from "../../utils/db";
 import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
+import { refuseCrossSite } from "../../utils/origin";
 import { rateLimit } from "../../utils/rateLimit";
 
 // Redeem a sign-in link and start a session.
@@ -13,25 +20,41 @@ import { rateLimit } from "../../utils/rateLimit";
 // link they never clicked. So the emailed URL lands on a PAGE (/auth/callback)
 // that carries the token and posts it here — a step scanners don't take.
 //
+// WHO GETS SIGNED IN WITHOUT BEING ASKED: only the browser that asked for the
+// link. Anywhere else the answer is `confirm` with the account's address, the
+// link stays unspent, and the page sends it again once the person has said yes
+// (see redeemMagicLink for the link a stranger sends you). And only our own page
+// may post here at all: a form on another site could otherwise skip the question.
+// A yes signs the person in and nothing more; whether this browser's lists go to
+// the account too is asked separately (`sweep` in the answer, and startSession).
+//
 // Every failure is one indistinguishable answer, a 200 carrying
 // `{ ok: false, reason: "invalid" }`: expired, already-redeemed, and never-existed
 // read the same, so the endpoint can't be used to learn anything about tokens it
 // wasn't given.
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
+  refuseCrossSite(event);
   await rateLimit(event, "auth-verify");
 
-  const body = await readJsonBodyCapped<{ token?: unknown }>(event, 2_000);
+  const body = await readJsonBodyCapped<{ token?: unknown; confirmed?: unknown }>(event, 2_000);
   const token = typeof body?.token === "string" ? body.token.trim().slice(0, 200) : "";
 
   const db = await useAccountDb();
-  // an empty token is consumeMagicToken's own null, before any query
-  const user = await consumeMagicToken(db, token);
-  if (!user) {
+  const redeemed = await redeemMagicLink(db, token, {
+    browserHash: askingBrowserHash(event),
+    confirmed: body?.confirmed === true,
+  });
+  if (redeemed.kind === "confirm") {
+    const { email, asked, evicts } = redeemed;
+    return { ok: false as const, reason: "confirm" as const, email, asked, evicts };
+  }
+  if (redeemed.kind === "invalid") {
     // An ordinary answer, not a 401: the request is malformed or stale, and a 401
     // here would be indistinguishable to the client from "your session expired".
     return { ok: false as const, reason: "invalid" as const };
   }
+  const { user, sameBrowser } = redeemed;
 
   // THIS is where an address stops being a claim. If nobody had proved they hold
   // it before now, every passkey and session on the account was put there by
@@ -45,6 +68,10 @@ export default defineEventHandler(async (event) => {
   // so the next link tries again.
   if (!user.emailVerified) await claimUnverifiedAccount(db, user.id);
 
-  await startSession(event, db, user.id);
-  return { ok: true as const, user: { email: user.email } };
+  // A sign-in this browser asked for brings its lists with it. One a person
+  // confirmed here signs them in and leaves the lists for the page to ask about:
+  // see startSession.
+  await startSession(event, db, user.id, { sweep: sameBrowser });
+  forgetAskingBrowser(event);
+  return { ok: true as const, user: { email: user.email }, sweep: sameBrowser };
 });
