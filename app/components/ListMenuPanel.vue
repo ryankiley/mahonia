@@ -21,9 +21,11 @@ const emit = defineEmits<{ close: []; "new-list": [] }>();
 
 const query = ref("");
 const fieldRef = useTemplateRef<HTMLInputElement>("fieldRef");
-// opened to find something, so the keyboard should already be where you'd type
+// With a mouse or a keyboard the field takes focus as the card opens, so typing filters at
+// once. Not on touch: there, focus raises the on-screen keyboard over half the screen for a
+// menu you mostly open to tap a row (Ryan, 2026-11-10). The field is one tap away.
 onMounted(() => {
-  if (filterable) nextTick(() => fieldRef.value?.focus());
+  if (filterable && !matchMedia("(pointer: coarse)").matches) nextTick(() => fieldRef.value?.focus());
 });
 
 // Filtered in the v-for rather than by hiding rendered rows. The kit toggles an
@@ -136,10 +138,27 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
   position: relative;
   display: flex;
   flex-direction: column;
-  /* a switcher shouldn't grow past the window; forty lists scroll */
-  max-height: 15rem;
+  /* A switcher shouldn't grow past the window; forty lists scroll. Measured in ROWS, so
+     a long list always shows HALF of the next one: that half is what says it scrolls.
+     The cap was a flat 15rem, which is exactly six 40px rows with a mouse, so the
+     seventh hid perfectly behind the edge and the list read as complete; on a phone's
+     44px rows it left a sliver of letter-tops instead (Ryan, 2026-11-10). A row is a
+     link row's line (1.5 leading) plus its padding, or the touch floor (controls.scss). */
+  --lm-row: calc(var(--text-base) * var(--leading-normal) + 2 * var(--space-2));
+  @media (pointer: coarse) {
+    --lm-row: max(var(--tap), calc(var(--text-base) * var(--leading-normal) + 2 * var(--space-2)));
+  }
+  max-height: calc(5.5 * var(--lm-row));
   overflow-y: auto;
   overscroll-behavior: contain;
+  /* The air above the hairline lives INSIDE the scroller, where the footer's margin
+     used to hold it: at rest and at the end of the scroll it looks the same, but a
+     clipped row now runs right up to the rule instead of stopping short of it, which
+     cropped it "too early above the hairline". */
+  padding-bottom: var(--space-1);
+}
+.lm__panel .menu__foot {
+  margin-top: 0;
 }
 /* one line of type and a mark — the weight lives on the list itself, and beside a
    name it competed with the one thing you scan a switcher for. The row layout is

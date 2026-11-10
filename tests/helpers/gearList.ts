@@ -96,6 +96,9 @@ export const vaultWithHits = (results: unknown[]) => ({
  * so a test can never accidentally assert against a live reference to the controller's
  * own state. Without one it is a sink — for suites about the optimistic snapshot the
  * reducer builds, where what reaches the device is nobody's business.
+ * It never reads ahead: take() has nothing, so every load reads through get(), as
+ * one does when the page didn't ask first (tests/listReadAhead.nuxt.test.ts runs the
+ * real slot).
  */
 export const memoryListStore = (records?: Map<string, LocalListRecord>, deleted?: string[]) => ({
   get: async (key: string) => records?.get(key),
@@ -112,4 +115,6 @@ export const memoryListStore = (records?: Map<string, LocalListRecord>, deleted?
     for (const [key, record] of [...(records ?? [])])
       if (key.startsWith(CLAIMED_KEY_PREFIX) && !record.pending.length) records?.delete(key);
   },
+  prefetch: async () => {},
+  take: () => undefined,
 });

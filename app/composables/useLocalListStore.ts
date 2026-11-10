@@ -32,6 +32,20 @@ const tx = <T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequ
 // so nothing typed offline is lost to the upgrade.
 const isClaimedKey = (key: string) => key.startsWith(CLAIMED_KEY_PREFIX);
 
+// ONE READ HELD FOR THE LOAD THAT ASKED FOR IT. The editor page reads the list it is
+// opening before the editor mounts (readAhead, useGearList), and the load that follows
+// takes the answer from here instead of reading again — with no await once it has
+// landed, so the editor's first render already has the list, and the same read still
+// in flight when it hasn't, so a slow device doesn't pay for a second one. One slot,
+// not a cache: take() empties it whatever it held, and a write to its key drops it, so
+// a read can't outlive the moment it was made and be served to some later open.
+type Held = {
+  key: string;
+  read: Promise<LocalListRecord | undefined>;
+  landed?: { record: LocalListRecord | undefined };
+};
+let held: Held | undefined;
+
 export function useLocalListStore() {
   const enabled = import.meta.client && typeof indexedDB !== "undefined";
 
@@ -47,6 +61,7 @@ export function useLocalListStore() {
   }
 
   async function set(key: string, record: LocalListRecord): Promise<void> {
+    if (held?.key === key) held = undefined;
     if (!enabled) return;
     try {
       let stamped = record;
@@ -69,6 +84,7 @@ export function useLocalListStore() {
   }
 
   async function del(key: string): Promise<void> {
+    if (held?.key === key) held = undefined;
     if (!enabled) return;
     try {
       await tx("readwrite", (s) => s.delete(key));
@@ -80,6 +96,7 @@ export function useLocalListStore() {
   /** The account these were kept for has left: drop the claimed opens' copies,
    *  except any still holding edits that never reached the server. */
   async function delClaimed(): Promise<void> {
+    if (held && isClaimedKey(held.key)) held = undefined;
     if (!enabled) return;
     try {
       const range = IDBKeyRange.bound(CLAIMED_KEY_PREFIX, `${CLAIMED_KEY_PREFIX}\uffff`);
@@ -96,5 +113,21 @@ export function useLocalListStore() {
     }
   }
 
-  return { get, set, del, delClaimed };
+  /** Read `key` now and hold the read for the next take(). Resolves once it lands. */
+  function prefetch(key: string): Promise<void> {
+    const h: Held = { key, read: get(key) };
+    held = h;
+    // first on the promise, so `landed` is set before anyone awaiting this resumes
+    return h.read.then((record) => void (h.landed = { record }));
+  }
+
+  /** The read prefetch(key) started, and only once: `landed` if it has. Undefined for
+   *  any other key, and the caller reads for itself. */
+  function take(key: string): Held | undefined {
+    const h = held;
+    held = undefined;
+    return h?.key === key ? h : undefined;
+  }
+
+  return { get, set, del, delClaimed, prefetch, take };
 }

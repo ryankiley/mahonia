@@ -53,6 +53,9 @@ useSeoMeta({
   ogTitle: () => seo.value.name || GENERIC_TITLE,
   ogDescription: () => seo.value.desc,
 });
+
+// Keep the list you're leaving on screen until this one can paint — see readAhead.
+if (import.meta.client) await readAhead(route);
 </script>
 
 <template>
