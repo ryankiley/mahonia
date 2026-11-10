@@ -25,7 +25,8 @@ describe("applyOpsByEditHash persists a meta clear", () => {
     const hash = sha256Hex(editToken);
     expect((await findByEditHash(hash, db))?.trailLabel).toBe("Timberline Trail");
 
-    // the "remove the trail" patch the client and the connector send
+    // every trail field cleared at once: the "remove the trail" patch plus the distance,
+    // which a removed link now leaves and its own emptied field clears
     const echoed = await applyOpsByEditHash(
       hash,
       [

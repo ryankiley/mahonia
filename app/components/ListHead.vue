@@ -285,7 +285,8 @@ function commitDistance(e: Event) {
 }
 
 function remove() {
-  // the distance describes the ROUTE, so it goes with the link rather than outliving it
+  // what describes the ROUTE goes with the link; the trip's distance stays (see
+  // CLEARS_WITH_LINK), and the row falls back to showing it
   c.setMeta({ trailUrl: "", ...CLEARS_WITH_LINK });
   surface.value = null;
 }
@@ -457,7 +458,10 @@ onClickOutside(trailEl, closeTrail);
              The two globes below are different — they're the fallback mark for a site
              with no favicon, standing in for "a website", which a pin would misstate. -->
         <HugeiconsIcon :icon="Location01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-        Add a trail
+        <!-- A distance with no link reads in the slot, as a set date does beside it: a
+             fact rather than an invitation, and still the way into the panel (where the
+             link can be added and the distance changed or cleared). -->
+        {{ distanceLabel ?? "Add a trail" }}
       </button>
 
       <!-- the resolved link: the site's mark + the trail's name. No hostname — the mark
@@ -681,56 +685,60 @@ onClickOutside(trailEl, closeTrail);
               @keydown.enter="commitAndClose"
             />
 
-            <!-- Typed, because it cannot be fetched: the linked page answers a
-                 server-side GET with 403 and there's no API to ask instead. Anyone
-                 pasting a trail link is looking at the number on that page.
-                 A bare number is read in the unit the picker beside it shows; typing
-                 "7.5 mi" into a list set to km still works, because the parser reads a
-                 unit off the value and prefers it to the picker's. -->
-            <!-- "optional" rides in the LABEL, not the placeholder: a placeholder is gone
-                 the moment you type, which is exactly when you'd want to know you could
-                 have left it empty. The other two fields are optional too, but this is
-                 the one that reads as a thing the app needs — it's the only number in
-                 here, and a number in a form looks required. -->
-            <label class="head__panellabel" :for="`${fieldsId}-dist`">Distance (optional)</label>
-            <!-- The unit sits INSIDE the field's row rather than in the label, because
-                 it's a control and the label isn't. Same chevron-beside-an-abbreviation
-                 the totals bar and each item row use — one vocabulary for one gesture. -->
-            <span class="head__distrow">
-              <input
-                :id="`${fieldsId}-dist`"
-                class="head__panelinput head__distinput"
-                inputmode="decimal"
-                autocorrect="off"
-                spellcheck="false"
-                :placeholder="distanceUnit === 'mi' ? '7.5' : '12'"
-                :value="distanceValue"
-                @change="commitDistance"
-                @keydown.enter="commitAndClose"
-              />
-              <OptionMenu
-                class="head__distunit"
-                :options="DISTANCE_UNIT_OPTIONS"
-                :current="distanceUnit"
-                label="Distance unit"
-                title="Change distance unit"
-                @pick="pickDistanceUnit"
-              >
-                <template #trigger="{ open }">
-                  <span class="t-sm t-muted">{{ distanceUnit }}</span>
-                  <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
-                       total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
-                  <HugeiconsIcon
-                    :icon="ChevronDownIcon"
-                    class="chev"
-                    :class="{ 'is-open': open }"
-                    :size="12"
-                    :stroke-width="2"
-                    aria-hidden="true"
-                  />
-                </template>
-              </OptionMenu>
-            </span>
+          </template>
+          <!-- The distance is in BOTH modes: it's the trip's length, and a trip has one
+               whether or not it has a link (Ryan, 2026-11-10: "we shouldn't hide distance
+               entry behind needing a link"). Typed, because it cannot be fetched: the
+               linked page answers a server-side GET with 403 and there's no API to ask
+               instead. Anyone pasting a trail link is looking at the number on that page.
+               A bare number is read in the unit the picker beside it shows; typing
+               "7.5 mi" into a list set to km still works, because the parser reads a
+               unit off the value and prefers it to the picker's. -->
+          <!-- "optional" rides in the LABEL, not the placeholder: a placeholder is gone
+               the moment you type, which is exactly when you'd want to know you could
+               have left it empty. The other two fields are optional too, but this is
+               the one that reads as a thing the app needs — it's the only number in
+               here, and a number in a form looks required. -->
+          <label class="head__panellabel" :for="`${fieldsId}-dist`">Distance (optional)</label>
+          <!-- The unit sits INSIDE the field's row rather than in the label, because
+               it's a control and the label isn't. Same chevron-beside-an-abbreviation
+               the totals bar and each item row use — one vocabulary for one gesture. -->
+          <span class="head__distrow">
+            <input
+              :id="`${fieldsId}-dist`"
+              class="head__panelinput head__distinput"
+              inputmode="decimal"
+              autocorrect="off"
+              spellcheck="false"
+              :placeholder="distanceUnit === 'mi' ? '7.5' : '12'"
+              :value="distanceValue"
+              @change="commitDistance"
+              @keydown.enter="commitAndClose"
+            />
+            <OptionMenu
+              class="head__distunit"
+              :options="DISTANCE_UNIT_OPTIONS"
+              :current="distanceUnit"
+              label="Distance unit"
+              title="Change distance unit"
+              @pick="pickDistanceUnit"
+            >
+              <template #trigger="{ open }">
+                <span class="t-sm t-muted">{{ distanceUnit }}</span>
+                <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
+                     total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
+                <HugeiconsIcon
+                  :icon="ChevronDownIcon"
+                  class="chev"
+                  :class="{ 'is-open': open }"
+                  :size="12"
+                  :stroke-width="2"
+                  aria-hidden="true"
+                />
+              </template>
+            </OptionMenu>
+          </span>
+          <template v-if="mode === 'edit'">
             <hr class="head__paneldiv" />
             <button type="button" class="menu__item head__panelremove" @click="remove">
               <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" aria-hidden="true" />

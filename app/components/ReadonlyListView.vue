@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Backpack03Icon, Calendar03Icon, GlobeIcon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
+import { ArrowUpRight01Icon, Backpack03Icon, Calendar03Icon, GlobeIcon, Location01Icon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
@@ -174,7 +174,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
            line wherever there's room — each is icon-led, so they read as two facts side
            by side without a separator between them. A narrow phone wraps them onto two
            lines rather than squeezing the trail name down to an ellipsis. -->
-      <p v-if="trail || dateLabel" class="view__where">
+      <p v-if="trail || distanceLabel || dateLabel" class="view__where">
         <!-- nofollow ugc: /l is indexable and this is a viewer-submitted outbound link,
              so without it the public feed reads as a link farm. The favicon is a data:
              URL (fetched server-side, cached per host), so no third-party request leaves
@@ -208,6 +208,13 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
                of squeezing out four characters that are useless truncated. -->
           <span v-if="distanceLabel" class="view__dist">{{ distanceLabel }}</span>
         </a>
+        <!-- A distance with no link: the trip's length is a fact of its own (the editor
+             takes it without one), so it stands where the trail would, with the pin the
+             editor's row wears, and reads like the dates beside it. -->
+        <span v-else-if="distanceLabel" class="view__dates">
+          <HugeiconsIcon :icon="Location01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <span>{{ distanceLabel }}</span>
+        </span>
 
         <!-- the trip's dates, when it has them. Read-only by nature — there is nothing
              to add here, so unlike the editor there is no affordance, only the fact.
