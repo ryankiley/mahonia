@@ -40,6 +40,9 @@ export function useSession() {
   const loaded = computed(() => session.value.state !== "unresolved");
   // the request in flight, which de-dupes callers; a re-read happens under any answer
   const pending = useState<boolean>("session-pending", () => false);
+  // the last ask failed (offline, a server blip): what useSessionReask waits on, so it
+  // asks again only after a real failure, never merely because nothing has asked yet
+  const askFailed = useState<boolean>("session-ask-failed", () => false);
 
   // Presence of the user, NOT of an email. An account created with a passkey has
   // no address until someone attaches one, so keying this off `email` would read
@@ -130,9 +133,11 @@ export function useSession() {
       // RESOLVED signed-out — the reading that tells the switcher to throw the account's
       // cached lists away.
       session.value = { state: "unresolved" };
+      askFailed.value = true;
       pending.value = false;
       return;
     }
+    askFailed.value = false;
     pending.value = false;
   }
 
@@ -215,4 +220,48 @@ export function useSession() {
     hasSessionHint,
     saveProfile,
   };
+}
+
+/** How often a session that couldn't be asked is asked again. */
+const REASK_MS = 30_000;
+
+/**
+ * Ask for the session again while it couldn't be answered: offline with an account,
+ * /api/auth/me failed, the session stays "presumed", and nothing asked again until a
+ * reload. Every surface that waits on the answer (My Gear, the account page and dialog,
+ * the switcher's account rows, the account menu) reacts to `presence`, so this asks
+ * once for all of them, from the session plugin.
+ *
+ * Three triggers, because the browser's "online" event is the least reliable: navigator
+ * .onLine stays true through a dead connection, a captive portal or a server blip, so it
+ * may never fire. Coming back to the tab or app asks too, and so does a slow clock while
+ * the answer is missing; never from a hidden tab, which coming back covers.
+ */
+export function useSessionReask(): void {
+  if (!import.meta.client) return;
+  const { presence, pending, refresh } = useSession();
+  const askFailed = useState<boolean>("session-ask-failed", () => false);
+  const missing = computed(() => presence.value === "presumed" && !pending.value && askFailed.value);
+  const reask = () => {
+    if (missing.value && document.visibilityState === "visible") void refresh();
+  };
+  window.addEventListener("online", reask);
+  document.addEventListener("visibilitychange", reask);
+  let tick: ReturnType<typeof setInterval> | undefined;
+  watch(
+    missing,
+    (now) => {
+      clearInterval(tick);
+      tick = now ? setInterval(reask, REASK_MS) : undefined;
+    },
+    { immediate: true },
+  );
+  // the plugin's lives as long as the app; a test's goes with its component
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      window.removeEventListener("online", reask);
+      document.removeEventListener("visibilitychange", reask);
+      clearInterval(tick);
+    });
+  }
 }

@@ -190,6 +190,10 @@ async function setKit(entry: VaultEntry, parts: { id: number; qty: number }[], o
   busy.delete(entry.id);
   if (!res.ok || !res.item) {
     fail("save the kit");
+    // Back as it was first, then the reload. The reload alone was the way back, and
+    // when it failed too (the connection gone) the page, and this device's copy with
+    // it, kept a kit change that never saved.
+    putRow(before);
     return void loadVault();
   }
   putRow(res.item);
@@ -767,7 +771,7 @@ async function exportGear(kind: string) {
             </p>
             <!-- a kit is this page's folder, made the way a list makes one: the quiet
                  label at the foot becomes the name field, and the kit opens where it was -->
-            <AddFolder v-if="tab === 'kits' && !query && !draftKit && !offline" class="vault__addkit" label="New kit" placeholder="Kit name" @add="startDraftKit" />
+            <AddFolder v-if="tab === 'kits' && !query && !draftKit && !readonly" class="vault__addkit" label="New kit" placeholder="Kit name" @add="startDraftKit" />
 
           </template>
 

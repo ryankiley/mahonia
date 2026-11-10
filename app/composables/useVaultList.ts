@@ -157,7 +157,8 @@ export function useVaultList(
   /** Nothing on screen may be changed: offline, or still the copy while the server's
    *  answer is on its way. The copy can be behind an edit made on another device, so a
    *  row of it opened for editing could save over that edit, or edit a piece since put
-   *  away. A NEW piece is safe to add from it; that's the page's call (`offline`). */
+   *  away. A NEW piece is safe to add meanwhile, so the page keys Add gear on `offline`;
+   *  a new kit isn't, its items are picked from these rows. */
   const readonly = computed(() => offline.value || source.value === "copy");
   /** Waiting on either answer. */
   const loading = computed(() => fetching.value || asking.value);
@@ -177,6 +178,8 @@ export function useVaultList(
     source.value = "none";
     items.value = [];
     readAt.value = null;
+    // the next account's first ask is a question, not the last one's offline answer
+    wasOffline.value = false;
   }
 
   async function load() {
@@ -202,6 +205,7 @@ export function useVaultList(
     // presumed: nothing to ask with yet, and offline nothing ever will be; the copy stands in
     if (!hasVault.value) return;
     fetching.value = true;
+    let stale = false;
     try {
       const got = (await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list")).items || [];
       // The usual answer is the copy already on screen, and replacing the array with
@@ -210,8 +214,12 @@ export function useVaultList(
       // didn't change.
       const same = source.value !== "none" && JSON.stringify(got) === JSON.stringify(items.value);
       if (!same) await opts.before?.();
-      // answered for an account this browser no longer holds: the next load is theirs
-      if (sessionCacheOwner() === who) {
+      // Answered for an account this browser no longer holds (a sign-in in another tab
+      // changes the cookie under this one, and this tab's session never hears of it):
+      // dropped, and asked again for whoever holds it now. Dropping it and stopping
+      // left the page on the old copy, read-only, with nothing saying why.
+      stale = sessionCacheOwner() !== who;
+      if (!stale) {
         source.value = "server";
         if (same) writeGearCopy(items.value, who);
         else items.value = got;
@@ -224,6 +232,7 @@ export function useVaultList(
       loadError.value = "Couldn’t load your gear. Check your connection and try again.";
     }
     fetching.value = false;
+    if (stale) await load();
   }
   watch([hasGear, hasVault, () => session.user.value?.owner], () => void load(), { immediate: true });
 
@@ -240,16 +249,19 @@ export function useVaultList(
     { deep: true },
   );
 
-  // Asking again. Presumed, the session goes first and its answer flips hasVault, which
-  // loads; signed in, the read that failed is simply retried. Three triggers, because
-  // the browser's own "online" event is the least reliable of them: navigator.onLine
-  // stays true through a dead trailhead connection, a captive portal or a server blip,
-  // so it may never fire. Coming back to the tab or app asks too, and so does a slow
-  // clock while offline, which also moves "last updated".
+  // Reading the gear again after a failed read. Three triggers, because the browser's
+  // own "online" event is the least reliable of them: navigator.onLine stays true
+  // through a dead trailhead connection, a captive portal or a server blip, so it may
+  // never fire. Coming back to the tab or app asks too, and so does a slow clock while
+  // offline (which also moves "last updated"), never from a hidden tab: a phone with
+  // Mahonia in the background on no signal would wake its radio every 30 s for nothing,
+  // and coming back is a trigger of its own.
+  //
+  // Only the gear's own read. The SESSION'S re-ask, the presumed case, is the session
+  // plugin's, once for every surface that waits on it (useSessionReask); its answer
+  // flips hasVault, and the watcher above loads.
   function retry() {
-    if (!offline.value) return;
-    if (hasVault.value) void load();
-    else void session.refresh();
+    if (offline.value && hasVault.value && document.visibilityState === "visible") void load();
   }
   const online = useOnline();
   watch(online, (up) => {
