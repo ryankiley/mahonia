@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import mcp from "../server/routes/mcp.post";
+import { accountUse } from "../server/utils/mcp";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL } from "../server/utils/db";
 import { createTestDb, type TestDb } from "./helpers/db";
@@ -371,6 +372,13 @@ describe("what a model plausibly sends", () => {
     const blank = await call("edit_list", { edit_link: "", list: { title: "x" } });
     expect(blank.isError).toBe(true);
     expect(blank.text).toContain("edit link");
+    // the blank link beside a share code, and a blank share code, are both left out: the
+    // list is the account's, so the door asks for the sign-in (the old rule read the
+    // blank as given and asked for nothing)
+    expect(accountUse("edit_list", { edit_link: "", share_code: shareCode })).toBe("write");
+    expect(accountUse("edit_list", { edit_link: editLink, share_code: shareCode })).toBeUndefined();
+    expect(accountUse("get_list", { share_code: "" })).toBe("read");
+    expect(accountUse("get_list", { share_code: shareCode })).toBeUndefined();
     const zero = await call("search_catalog", { product_id: 0 });
     expect(zero.isError).toBe(true);
     expect(zero.text).toContain("product_id");

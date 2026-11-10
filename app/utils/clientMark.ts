@@ -5,12 +5,16 @@ import type { IconNode } from "./hugeicon";
 //
 // Where Mahonia has a host it has CHECKED, the host decides, and the app's own name
 // can't overrule it:
-//   - a client metadata document was fetched over https from its host, so the host is
-//     the client (Claude's apps, web and Code alike, come in this way from claude.ai);
-//   - a registered app named itself, but when the answer goes back over https, the
-//     code lands on that host and nowhere else, so the host is who gets the access
-//     (ChatGPT's callback is chatgpt.com; Cursor's agents and VS Code for the web
-//     come back to their own sites too).
+//   - when the answer goes back over https, the code lands on that host and nowhere
+//     else, so the host is who gets the access, whichever kind of client asked
+//     (ChatGPT's callback is chatgpt.com; Claude's is claude.ai; Cursor's agents and
+//     VS Code for the web come back to their own sites too). A metadata document's
+//     host doesn't outrank it: a document may list any https callback, and one served
+//     from some page on a known domain would otherwise wear that maker's name while
+//     the code went elsewhere;
+//   - when it comes back to this computer, a client metadata document's host is the
+//     one checked thing left: it was fetched over https from there (Claude Code comes
+//     in this way, from claude.ai).
 // A known host gets our name for the app and its logo. Any other host gets the app's
 // own name and its initial, even when that name is "Claude": a name pointed at
 // somebody else's site is contradicted by the one thing that was checked.
@@ -57,17 +61,14 @@ export interface ClientMark {
   checked: boolean;
 }
 
-/** the host Mahonia has checked for this request, if there is one */
-function checkedHost(client: AskingClient, returnTo: ReturnTo): string | null {
-  if (client.kind === "document") return client.label;
-  if (!returnTo.loopback) return returnTo.host.replace(/:\d+$/, "");
-  return null;
-}
-
+const bare = (host: string) => host.replace(/:\d+$/, "").toLowerCase();
 const under = (host: string, domain: string) => host === domain || host.endsWith(`.${domain}`);
 
 export function clientMark(client: AskingClient, returnTo: ReturnTo): ClientMark {
-  const host = checkedHost(client, returnTo)?.toLowerCase() ?? null;
+  // a metadata document's label is the host it was fetched from
+  const docHost = client.kind === "document" ? bare(client.label) : null;
+  // the host Mahonia has checked for this request, if there is one
+  const host = returnTo.loopback ? docHost : bare(returnTo.host);
   const byHost = host ? KNOWN.find((k) => k.domains.some((d) => under(host, d))) : undefined;
   // only where there is no host to go by — a checked host that isn't the app's own
   // outranks whatever it calls itself
@@ -77,6 +78,8 @@ export function clientMark(client: AskingClient, returnTo: ReturnTo): ClientMark
     name,
     icon: (byHost ?? byName)?.icon ?? null,
     initial: name.replace(/^[^\p{L}\p{N}]+/u, "").charAt(0).toUpperCase() || "?",
-    checked: !!byHost || client.kind === "document",
+    // a document names itself by its host; that name stands only where the code goes
+    // back to that same host or to this computer
+    checked: !!byHost || (docHost !== null && host === docHost),
   };
 }

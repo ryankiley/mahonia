@@ -5,6 +5,7 @@ import mcp from "../server/routes/mcp.post";
 import {
   ACCESS_TOKENS_MAX,
   ACCESS_TOKEN_PREFIX,
+  issueAppTokens,
   listAccessTokens,
   mintAccessToken,
   resolveBearer,
@@ -17,6 +18,7 @@ import { CATALOG_DDL } from "../server/utils/catalog";
 import { listClaimedLists } from "../server/utils/claimRepo";
 import { LISTS_DDL } from "../server/utils/db";
 import { rateLimitSubject } from "../server/utils/rateLimit";
+import { sha256Hex } from "../server/utils/tokens";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { applyVaultItemOp } from "../server/utils/vaultRepo";
 import { createTestDb, type TestDb } from "./helpers/db";
@@ -228,6 +230,11 @@ describe("the gear tools", () => {
     expect(set[0]!.item).toMatchObject({ id: tentId, owned: 3 });
     const read = (await tool("get_my_gear", {}, aliceRead)).data.gear as Record<string, unknown>[];
     expect(read.find((g) => g.id === tentId)).toMatchObject({ owned: 3 });
+    // none owned isn't a count it can store (no count reads as one): refused, not made 1
+    const none = (await tool("edit_my_gear", { update: [{ id: tentId, owned: 0 }] }, aliceWrite)).data.updated as { status: string; reason: string }[];
+    expect(none[0]).toMatchObject({ status: "invalid" });
+    expect(none[0]!.reason).toContain("1 or more");
+    expect((await tool("get_my_gear", {}, aliceRead)).data.gear).toContainEqual(expect.objectContaining({ id: tentId, owned: 3 }));
     const back = (await tool("edit_my_gear", { update: [{ id: tentId, owned: null }] }, aliceWrite)).data.updated as { item: Record<string, unknown> }[];
     expect(back[0]!.item).toMatchObject({ owned: 1 });
   });
@@ -458,6 +465,15 @@ describe("create_list filing under the token's account", () => {
     expect(r.data.saved_to_account).toBe(false);
     expect(r.data.account_note).toContain("no longer opens");
     expect(await filed()).not.toContain(r.data.share_code);
+  });
+
+  it("asks an app whose access token has aged out to refresh, rather than making the list unfiled", async () => {
+    const app = await issueAppTokens(db, { userId: carol, clientId: "https://claude.ai/oauth/claude-code-client-metadata", label: "Claude", scope: "write" });
+    await db.update(schema.accessTokens).set({ expiresAt: new Date(Date.now() - 1) }).where(eq(schema.accessTokens.refreshHash, sha256Hex(app.refresh_token)));
+    const r = await door("create_list", LIST, app.access_token);
+    expect(r.status).toBe(401);
+    expect(r.challenge).toContain('error="invalid_token"');
+    await db.delete(schema.accessTokens).where(eq(schema.accessTokens.refreshHash, sha256Hex(app.refresh_token)));
   });
 
   it("leaves the list unfiled under a read-only token, and says so", async () => {

@@ -35,6 +35,13 @@ describe("clientMark", () => {
     expect(clientMark({ label: "notclaude.ai", kind: "document" }, https("notclaude.ai"))).toMatchObject({ name: "notclaude.ai", icon: null, initial: "N", checked: true });
   });
 
+  it("judges a metadata document by where its code goes, not where the document sits", () => {
+    // a document served from some page on a known domain, sending the code elsewhere
+    expect(clientMark({ label: "forum.cursor.com", kind: "document" }, https("evil.example"))).toMatchObject({ name: "forum.cursor.com", icon: null, checked: false });
+    // a document on its own site, calling back to a known host, is named by that host
+    expect(clientMark({ label: "evil.example", kind: "document" }, https("claude.ai"))).toMatchObject({ name: "Claude", icon: ClaudeIcon, checked: true });
+  });
+
   it("letters the tile from the first letter or digit of the name", () => {
     expect(clientMark({ label: "a registered app", kind: "registered" }, loopback).initial).toBe("A");
     expect(clientMark({ label: "  [beta] tool", kind: "registered" }, loopback).initial).toBe("B");
