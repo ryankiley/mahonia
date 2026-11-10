@@ -94,8 +94,8 @@ useHead({
         <h2 id="weights" class="help__section">Weights and the catalog</h2>
         <p>
           As you type an item’s name, the catalog suggests matching gear, and picking one fills in
-          its brand, type and weight. Nearly every catalog weight comes from the maker’s own page. A
-          few were weighed by hand, and a few marked “community” were typed by other people and
+          its brand, type and weight. Nearly every catalog weight is the maker’s published figure, from
+          its own page or a shop’s. A few were weighed by hand, and a few marked “community” were typed by other people and
           haven’t been checked yet.
         </p>
         <p>How some gear is weighed:</p>
@@ -108,7 +108,10 @@ useHead({
             Food with its pouch. A row found only at net weight says “net”, and a canister’s “net
             fuel” is the gas alone.
           </li>
-          <li>Trekking poles as a pair, and everything else as a single item.</li>
+          <li>
+            Trekking poles, shoes, socks and gloves as a pair. A multi-pack says so (“3-pack”), and
+            everything else is one item.
+          </li>
         </ul>
 
         <h3>When a weight is wrong</h3>
@@ -122,7 +125,7 @@ useHead({
         <h3>Units and totals</h3>
         <ul>
           <li>
-            Type a weight with its unit, like <code>820 g</code> or <code>2 lb 3 oz</code>. The row
+            Type a weight with its unit, like <code>820 g</code> or <code>3.8 oz</code>. The row
             keeps that unit while totals stay in the list’s unit, which you change by tapping the big
             total.
           </li>

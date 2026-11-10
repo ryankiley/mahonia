@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "Help now says shoes, socks and gloves are weighed as a pair, and that catalog weights come from a maker's page or a shop's.",
+    "Legal no longer says analytics measure performance, and says a trail site's icon is fetched about once a month.",
+    "Sign in works on the page-not-found screen, which now keeps the site's footer wherever it appears.",
+    "The old catalog changes address now goes to Help."
+  ]
+}
