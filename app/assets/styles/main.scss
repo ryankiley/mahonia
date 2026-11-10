@@ -42,6 +42,16 @@
   initial-value: 1px;
 }
 
+// The list column's inset beside the My Gear pane, as the bar's row reads it to keep its
+// leading half on the list (GearEditor). Registered so the open/close Web Animation can
+// move it on the column's own keyframes; not inherited, so only that row restyles as it
+// moves, not the whole editor under it.
+@property --split-p {
+  syntax: "<length>";
+  inherits: false;
+  initial-value: 0px;
+}
+
 @property --tip-shift {
   syntax: "<length>";
   inherits: true;
