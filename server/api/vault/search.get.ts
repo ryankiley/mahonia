@@ -1,8 +1,8 @@
 import { defineEventHandler } from "h3";
-import { rateLimit } from "../../utils/rateLimit";
+import { openPrivate } from "../../utils/authSession";
 import { resolveVaultForRead } from "../../utils/vaultAuth";
 import { searchVaultItems } from "../../utils/vaultRepo";
-import { queryString, setNoIndex, setPrivate } from "../../utils/http";
+import { queryString } from "../../utils/http";
 
 // Autocomplete against your own gear — the "pull from the vault" half of the
 // feature, consumed alongside /api/catalog/search by the item input.
@@ -15,9 +15,7 @@ import { queryString, setNoIndex, setPrivate } from "../../utils/http";
 // No shared cache, unlike the catalog search: results belong to one vault, so
 // `s-maxage` would let one person's gear be served to the next.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "vault-search");
+  await openPrivate(event, "vault-search");
 
   const resolved = await resolveVaultForRead(event);
   if (!resolved) return { results: [] };

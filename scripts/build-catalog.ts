@@ -17,14 +17,12 @@ import {
   isWeightSource,
   serializeCsv,
   specToMg,
-  type SpecUnit,
 } from "./catalogCsv";
 import { extractAttributes, serializeAttributes, validateAttributes } from "./catalogAttributes";
 import { CATALOG_CSV, COMMON_NAMES_JSON, RESEARCH_DIR } from "./paths";
-import { loadCommonNames, readResearchFiles } from "./research";
+import { loadCommonNames, readResearchFiles, researchGearType } from "./research";
 import { normalizeVariant } from "../shared/catalogQuality";
-import { deriveNoun } from "./searchTerms";
-import { normalizeGearType } from "./gearTypes";
+import type { Unit } from "../shared/types";
 
 // Canonical category order for a tidy, browsable CSV.
 const CATEGORY_ORDER = [
@@ -109,7 +107,7 @@ function main() {
         skipped.push(`${file}: ${label} — missing/invalid source_url`);
         continue;
       }
-      const unit = (row.weight_unit ?? "").trim() as SpecUnit;
+      const unit = (row.weight_unit ?? "").trim() as Unit;
       let weightMg: number;
       try {
         weightMg = specToMg(Number(row.weight_value), unit, row.weight_secondary);
@@ -174,10 +172,8 @@ function main() {
       // hand-authored seed/common-names.json map, else a name-token derivation. normalizeGearType
       // collapses drift (singular/plural, spelling, synonyms) to the canonical label. A row that
       // resolves to nothing fails the build below — a new catalog entry must ship a gear type.
-      const rowCommon = typeof row.common_name === "string" ? row.common_name.trim() : "";
-      const mapped = commonNames.get(key);
-      if (mapped) usedCommonKeys.add(key);
-      out.common_name = normalizeGearType(rowCommon || mapped || deriveNoun(name) || "");
+      if (commonNames.has(key)) usedCommonKeys.add(key);
+      out.common_name = researchGearType(row, commonNames);
       // The row's axes: what its variant states, read mechanically now that the gear type
       // is known ("Regular" is a length on a quilt and a torso on a pack), plus what
       // research wrote by hand. A hand-written value that contradicts the variant ships

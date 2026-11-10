@@ -32,7 +32,8 @@ export function foldForSearch(input: string): string {
  * The search fold with "+" left standing: what EXACT matching keys a product name by
  * (shared/catalogMatch). The catalog relies on that one mark to tell products apart
  * ("X-Mid Pro 2" and "X-Mid Pro 2+", "Lone Peak 9" and "9+"); dropping it is right for
- * recall and wrong for identity. Everything else is foldForSearch's, by construction:
+ * recall and wrong for identity: each such pair becomes one ambiguous key, and an import
+ * naming either links to neither. Everything else is foldForSearch's, by construction:
  * the two share every step but the last.
  */
 export function foldKeepingPlus(input: string): string {

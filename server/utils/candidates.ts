@@ -55,6 +55,12 @@ export const CANDIDATES_DDL: string[] = [
 
 const ensureCandidatesSchema = ensureOf(CANDIDATES_DDL);
 
+/** An observation still waiting on a verdict: neither promoted nor rejected. The
+ *  predicate idx_candidate_open is built on, said once for every query that means it. */
+const isOpen = () => and(isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt));
+/** The open observations of one norm_key: the rows a verdict on that key settles. */
+const openFor = (key: string) => and(eq(catalogCandidates.normKey, key), isOpen());
+
 export interface CandidateObservation {
   brand?: string | null;
   name: string;
@@ -142,10 +148,10 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   const promotable = await db
     .select({ normKey: catalogCandidates.normKey })
     .from(catalogCandidates)
-    .where(and(isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)))
+    .where(isOpen())
     .groupBy(catalogCandidates.normKey)
     .having(sql`count(distinct ${catalogCandidates.listId}) >= ${K_DISTINCT_LISTS}`);
-  const keys = promotable.map((p: { normKey: string }) => p.normKey);
+  const keys = promotable.map((p) => p.normKey);
   res.scanned = keys.length;
   // Retention is independent of whether anything is promotable today. In
   // particular, one-off observations never reach K, which used to make their
@@ -162,12 +168,10 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   }
 
   // all open observations for those keys, grouped in JS
-  const rows = (await db
+  const rows = await db
     .select()
     .from(catalogCandidates)
-    .where(and(inArray(catalogCandidates.normKey, keys), isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)))) as Array<{
-    normKey: string; rawBrand: string | null; rawName: string; rawVariant: string | null; rawCommonName: string | null; listId: number; weightMg: number | null; classification: string | null;
-  }>;
+    .where(and(inArray(catalogCandidates.normKey, keys), isOpen()));
   const groups = new Map<string, typeof rows>();
   for (const r of rows) (groups.get(r.normKey) ?? groups.set(r.normKey, []).get(r.normKey)!).push(r);
 
@@ -175,7 +179,7 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   // below wants the catalog's own spelling for each ("Sea to Summit", not "sea to summit")
   const brandRows = await db.selectDistinct({ brand: catalogItems.brand }).from(catalogItems).where(eq(catalogItems.status, "active"));
   const brandSpellings = new Map<string, string>();
-  for (const b of brandRows as { brand: string | null }[]) {
+  for (const b of brandRows) {
     const key = normKey(b.brand);
     if (key && !brandSpellings.has(key)) brandSpellings.set(key, b.brand!.trim());
   }
@@ -190,7 +194,7 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
       rawName: sql<string>`min(${catalogCandidates.rawName})`,
     })
     .from(catalogCandidates)
-    .where(and(isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)))
+    .where(isOpen())
     .groupBy(catalogCandidates.normKey)
     .having(sql`count(distinct ${catalogCandidates.listId}) >= 2`);
   const emergingBrands = emergingBrandTokens(
@@ -200,12 +204,10 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   );
 
   const reject = async (key: string) => {
-    await db.update(catalogCandidates).set({ rejectedAt: new Date() })
-      .where(and(eq(catalogCandidates.normKey, key), isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)));
+    await db.update(catalogCandidates).set({ rejectedAt: new Date() }).where(openFor(key));
   };
   const markPromoted = async (key: string, id: number) => {
-    await db.update(catalogCandidates).set({ promotedIntoId: id })
-      .where(and(eq(catalogCandidates.normKey, key), isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)));
+    await db.update(catalogCandidates).set({ promotedIntoId: id }).where(openFor(key));
   };
 
   for (const [key, grp] of groups) {

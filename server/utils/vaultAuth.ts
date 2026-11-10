@@ -134,6 +134,5 @@ export async function mintVault(db: Db, userId: number): Promise<number> {
  */
 export async function resolveOrMintVault(event: H3Event): Promise<{ db: Db; vaultId: number }> {
   const { db, vaultId, userId } = await vaultFor(event);
-  if (vaultId != null) return { db, vaultId };
-  return { db, vaultId: await mintVault(db, userId) };
+  return { db, vaultId: vaultId ?? (await mintVault(db, userId)) };
 }

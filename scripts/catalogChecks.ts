@@ -405,19 +405,15 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // a product with one row is filler; "per bar" on the only row of "Energy Bar"
   // restates the name (a unit label earns its place only beside a multi-pack
   // sibling, or on trekking poles).
-  const rowsPerProduct = new Map<string, number>();
-  for (const r of rows) {
-    const k = `${normKey(r.brand)}|${normKey(r.name)}`;
-    rowsPerProduct.set(k, (rowsPerProduct.get(k) ?? 0) + 1);
-  }
+  const siblings = (r: CatalogCsvRow) => byProduct.get(`${normKey(r.brand)}|${normKey(r.name)}`)!;
   // a unit label is earned when a sibling row is counted differently: "sleeve of 10"
   // beside "per tablet", or "per pair" beside "per pole"
   const hasPackSibling = (r: CatalogCsvRow) =>
-    rows.some((o) => o !== r && normKey(o.brand) === normKey(r.brand) && normKey(o.name) === normKey(r.name) && /\b(\d+-pack|of \d+|per \w+)\b/i.test(o.variant ?? ""));
+    siblings(r).some((o) => o !== r && /\b(\d+-pack|of \d+|per \w+)\b/i.test(o.variant ?? ""));
   for (const r of rows) {
     const v = r.variant ?? "";
     if (!v) continue;
-    const single = rowsPerProduct.get(`${normKey(r.brand)}|${normKey(r.name)}`) === 1;
+    const single = siblings(r).length === 1;
     const dims = v.split(/,\s*/);
     if (dims.some((d) => /^(one size|unisex|1 serving)$/i.test(d))) {
       err("variant-filler", `${gearLabel(r)}: "${v}" — "One size" / "Unisex" / "1 serving" distinguish nothing (single-serving is the unmarked default); drop`);

@@ -102,7 +102,7 @@ export function jsonToListImport(text: string): JsonImport | null {
     .filter(isRecord)
     .slice(0, MAX_ITEMS)
     .map((it) => normalizeItem(it as unknown as Item))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .sort(bySortOrder);
   // Every item gets its OWN fresh id (duplicate source ids must NOT collide). A separate
   // source->new map (first occurrence wins, like folderIdMap) lets a child re-point its
   // parentId even when the parent appears later in the file.

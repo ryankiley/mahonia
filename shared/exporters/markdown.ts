@@ -35,6 +35,11 @@ function quantityLabel(item: Item, folders: ListSnapshot["folders"]): string {
   return `${item.qty}${wornQty > 0 ? ` (${wornQty} worn)` : ""}`;
 }
 
+/** The two lines that open every folder's table. Exported for the MCP tool, which
+ *  reads the text back line by line to cut it to size (server/utils/mcp fitMarkdown). */
+export const MD_HEADER = "| Item | Qty | Weight |";
+export const MD_RULE = "| --- | ---: | ---: |";
+
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;
   const totals = computeTotals(list);
@@ -50,8 +55,8 @@ export function listToMarkdown(list: ListSnapshot): string {
     if (!section.rows.length) continue;
     out.push(`## ${section.name}`);
     out.push("");
-    out.push("| Item | Qty | Weight |");
-    out.push("| --- | ---: | ---: |");
+    out.push(MD_HEADER);
+    out.push(MD_RULE);
     for (const { item: it, children: kids } of section.rows) {
       // a group's weight is its total (own + children); a plain row shows its own
       // line — kids is already this row's children, so no whole-list rescan

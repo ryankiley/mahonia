@@ -25,6 +25,7 @@ import { enoughToSearch, foldForSearch, foldWidth } from "../../shared/searchTex
 import { UNIT_WEIGHT_MAX_MG, isCatalogId } from "../../shared/ops";
 import { memoized } from "./memoize";
 import { runDdl } from "./ddl";
+import { toIso } from "./time";
 import type { Db } from "./db";
 import {
   SEARCH_LIMIT,
@@ -34,6 +35,20 @@ import {
 toCatalogResult } from "../../shared/catalogSearch";
 import { WEIGHT_SOURCES, type RecentChange } from "../../shared/types";
 
+/** One label column of the VERIFIED active rows, distinct and sorted, blanks dropped:
+ *  the read behind both vocabularies below. Labels only, never a product row. */
+async function verifiedLabels(
+  db: Db,
+  col: typeof catalogItems.commonName | typeof catalogItems.brand,
+): Promise<string[]> {
+  await ensureCatalogSchema(db);
+  const rows = await db.selectDistinct({ label: col })
+    .from(catalogItems)
+    .where(and(eq(catalogItems.status, "active"), eq(catalogItems.verified, true)))
+    .orderBy(col);
+  return rows.flatMap(({ label }) => label?.trim() ? [label] : []);
+}
+
 /**
  * The gear-type vocabulary the editor's datalist suggests (#382), without downloading a
  * product row: the distinct gear types of the VERIFIED active rows — the seeded ones,
@@ -42,26 +57,12 @@ import { WEIGHT_SOURCES, type RecentChange } from "../../shared/types";
  * so reading those here would offer "tent", "Tents" and "shelter" back as suggestions:
  * the drift the suggestions exist to stop.
  */
-export async function catalogGearTypes(db: Db): Promise<string[]> {
-  await ensureCatalogSchema(db);
-  const rows = await db.selectDistinct({ name: catalogItems.commonName })
-    .from(catalogItems)
-    .where(and(eq(catalogItems.status, "active"), eq(catalogItems.verified, true)))
-    .orderBy(catalogItems.commonName);
-  return rows.flatMap(({ name }) => name?.trim() ? [name] : []);
-}
+export const catalogGearTypes = (db: Db): Promise<string[]> => verifiedLabels(db, catalogItems.commonName);
 
 /** Every maker the verified catalog names, distinct and sorted: the vocabulary My Gear's
  *  edit dialog offers under its Brand field, the way catalogGearTypes feeds Gear type.
  *  Labels only, the same verified-and-active rows. */
-export async function catalogBrands(db: Db): Promise<string[]> {
-  await ensureCatalogSchema(db);
-  const rows = await db.selectDistinct({ brand: catalogItems.brand })
-    .from(catalogItems)
-    .where(and(eq(catalogItems.status, "active"), eq(catalogItems.verified, true)))
-    .orderBy(catalogItems.brand);
-  return rows.flatMap(({ brand }) => brand?.trim() ? [brand] : []);
-}
+export const catalogBrands = (db: Db): Promise<string[]> => verifiedLabels(db, catalogItems.brand);
 
 const isNeon = () => Boolean(process.env.DATABASE_URL);
 
@@ -216,7 +217,7 @@ export async function activeCatalogRows(db: Db): Promise<CatalogSearchResult[]> 
 }
 
 /** One variant of a product, with its citation: what the MCP product tool hands back. */
-export interface ProductVariant {
+interface ProductVariant {
   id: number;
   variant: string | null;
   weightMg: number;
@@ -225,7 +226,7 @@ export interface ProductVariant {
   verified: boolean;
   kcal: number | null;
 }
-export interface CatalogProduct {
+interface CatalogProduct {
   brand: string | null;
   name: string;
   commonName: string | null;
@@ -517,8 +518,7 @@ export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]>
     newWeightMg: Number(r.newWeightMg),
     status: r.status,
     sourceUrl: r.sourceUrl ?? null,
-    createdAt:
-      r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt ?? ""),
+    createdAt: toIso(r.createdAt),
   }));
 }
 

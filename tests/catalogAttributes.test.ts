@@ -10,8 +10,8 @@ import {
   parseAttributes,
   serializeAttributes,
   validateAttributes,
-  type RowAttributes,
 } from "../scripts/catalogAttributes";
+import type { RowAttributes } from "../shared/catalogAxes";
 
 describe("extractAttributes reads what a variant states outright", () => {
   const cases: Array<[string, string, string, RowAttributes]> = [

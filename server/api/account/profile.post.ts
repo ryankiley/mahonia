@@ -46,18 +46,16 @@ export default defineEventHandler(async (event) => {
     2_000,
   );
 
-  const patch: { displayName?: string | null } = {};
-  if (typeof body?.displayName === "string") {
-    patch.displayName = cleanDisplayName(body.displayName) || null;
-  }
-  // the write hands the row back (RETURNING), so the answer costs no second read
-  const row = Object.keys(patch).length
-    ? await db.update(users).set(patch).where(eq(users.id, user.id)).returning()
-    : await db
-        .select({ displayName: users.displayName })
-        .from(users)
-        .where(eq(users.id, user.id))
-        .limit(1);
+  // The write hands the row back (RETURNING), and with nothing to write the name
+  // is the one requireAccount's session lookup already read: no second read either way.
+  const row =
+    typeof body?.displayName === "string"
+      ? await db
+          .update(users)
+          .set({ displayName: cleanDisplayName(body.displayName) || null })
+          .where(eq(users.id, user.id))
+          .returning({ displayName: users.displayName })
+      : [user];
   return {
     ok: true,
     displayName: row[0]?.displayName ?? null,

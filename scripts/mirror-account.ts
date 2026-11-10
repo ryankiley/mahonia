@@ -47,14 +47,15 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { eq, inArray, isNull } from "drizzle-orm";
-import { catalogItems, listClaims, lists, vaultFolders, vaultItems } from "../server/db/schema";
+import { catalogItems, listClaims, lists } from "../server/db/schema";
 import { findOrCreateUser, issueMagicToken, normalizeEmail } from "../server/utils/authSession";
 import { claimLists, listClaimedLists } from "../server/utils/claimRepo";
 import { useVaultDb, type Db } from "../server/utils/db";
 import { createList } from "../server/utils/listRepo";
 import { mintVault } from "../server/utils/vaultAuth";
-import { importVaultItems } from "../server/utils/vaultRepo";
-import type { Classification, Item, ListData, ListMeta, ListSnapshot } from "../shared/types";
+import { deleteVaultContents, importVaultItems } from "../server/utils/vaultRepo";
+import { CANONICAL_ORIGIN } from "../shared/site";
+import { CLASSIFICATIONS, pickListMeta, type Classification, type Item, type ListData, type ListMeta, type ListSnapshot } from "../shared/types";
 import { isRecord } from "../shared/record";
 import { vaultNormKey } from "../shared/vault";
 import { vaultImportFromJson, type VaultImportRow } from "../shared/vaultImport";
@@ -64,7 +65,7 @@ const MIRROR_DIR = join(ROOT, "seed", "_mirror");
 const CONFIG = join(MIRROR_DIR, "mirror.json");
 /** Where the share codes are read from. Overridable so a preview deployment can be
  *  mirrored too. */
-const ORIGIN = process.env.MAHONIA_ORIGIN || "https://mahonia.app";
+const ORIGIN = process.env.MAHONIA_ORIGIN || CANONICAL_ORIGIN;
 
 interface MirrorConfig {
   email: string;
@@ -132,18 +133,7 @@ function listInit(snap: ListSnapshot, resolve: Resolve): Partial<ListMeta> & { d
     return { ...it, catalogItemId: local };
   });
   return {
-    title: snap.title,
-    description: snap.description,
-    displayUnit: snap.displayUnit,
-    trailUrl: snap.trailUrl,
-    trailLabel: snap.trailLabel,
-    trailDistanceM: snap.trailDistanceM,
-    trailDistanceUnit: snap.trailDistanceUnit,
-    trailProfile: snap.trailProfile,
-    trailAscentM: snap.trailAscentM,
-    trailDescentM: snap.trailDescentM,
-    startDate: snap.startDate,
-    endDate: snap.endDate,
+    ...pickListMeta(snap),
     data: {
       folders: snap.folders ?? [],
       items,
@@ -170,9 +160,7 @@ interface ConnectorGear {
   folder?: string | null;
 }
 
-function isClassification(v: unknown): v is Classification {
-  return v === "base" || v === "worn" || v === "consumable";
-}
+const isClassification = (v: unknown): v is Classification => CLASSIFICATIONS.includes(v as Classification);
 
 /** Gear rows from either file shape, with catalog links resolved locally. */
 function gearRows(text: string, resolve: Resolve): VaultImportRow[] {
@@ -229,8 +217,7 @@ async function wipe(db: Db, userId: number, vaultId: number): Promise<void> {
     await db.update(lists).set({ deletedAt: new Date() }).where(inArray(lists.id, ids));
     await db.delete(listClaims).where(eq(listClaims.userId, userId));
   }
-  await db.delete(vaultItems).where(eq(vaultItems.vaultId, vaultId));
-  await db.delete(vaultFolders).where(eq(vaultFolders.vaultId, vaultId));
+  await deleteVaultContents(db, [vaultId]);
   console.log(`  Fresh start: ${ids.length} lists put away, gear emptied.`);
 }
 

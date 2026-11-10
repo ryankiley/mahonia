@@ -16,7 +16,6 @@ import * as schema from "../server/db/schema";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import {
   SESSION_COOKIE,
-  SESSION_HINT_COOKIE,
   endAllSessions,
   endSession,
   findOrCreateUser,
@@ -24,7 +23,7 @@ import {
   sessionOwnerMarker,
   startSession,
 } from "../server/utils/authSession";
-import { SESSION_OWNER_COOKIE, SESSION_OWNER_PATTERN } from "../shared/session";
+import { SESSION_HINT_COOKIE, SESSION_OWNER_COOKIE, SESSION_OWNER_PATTERN } from "../shared/session";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
@@ -46,15 +45,15 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Sign a user in and hand back the raw cookie value a browser would replay. */
 const signIn = async (db: TestDb, userId: number) => (await signInCookie(db, userId)).token;
 
-describe("startSession → resolveSession", () => {
-  let db: TestDb;
-  let userId: number;
-  beforeEach(async () => {
-    db = await createTestDb(ACCOUNT_DDL);
-    dbState.db = db;
-    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
-  });
+let db: TestDb;
+let userId: number;
+beforeEach(async () => {
+  db = await createTestDb(ACCOUNT_DDL);
+  dbState.db = db;
+  userId = (await findOrCreateUser(db, "ryan@example.com")).id;
+});
 
+describe("startSession → resolveSession", () => {
   it("round-trips: the cookie a sign-in sets is the credential resolve accepts", async () => {
     const start = visit();
     await startSession(start, db, userId);
@@ -141,14 +140,6 @@ describe("startSession → resolveSession", () => {
 });
 
 describe("endSession — sign out THIS device", () => {
-  let db: TestDb;
-  let userId: number;
-  beforeEach(async () => {
-    db = await createTestDb(ACCOUNT_DDL);
-    dbState.db = db;
-    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
-  });
-
   it("deletes only the caller's row — other devices and other people stay signed in", async () => {
     const mine = await signIn(db, userId);
     const myOtherDevice = await signIn(db, userId);
@@ -177,14 +168,6 @@ describe("endSession — sign out THIS device", () => {
 });
 
 describe("endAllSessions — sign out EVERYWHERE", () => {
-  let db: TestDb;
-  let userId: number;
-  beforeEach(async () => {
-    db = await createTestDb(ACCOUNT_DDL);
-    dbState.db = db;
-    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
-  });
-
   it("takes every session for the account — the caller's own included — and counts them", async () => {
     const mine = await signIn(db, userId);
     await signIn(db, userId);

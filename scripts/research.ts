@@ -5,7 +5,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { AttributeKey, RowAttributes } from "./catalogAttributes";
+import type { AttributeKey, RowAttributes } from "../shared/catalogAxes";
 import { identityKey } from "./catalogCsv";
 import { normalizeGearType } from "./gearTypes";
 import { deriveNoun } from "./searchTerms";

@@ -13,9 +13,10 @@ import { rateLimit } from "../../utils/rateLimit";
 // link they never clicked. So the emailed URL lands on a PAGE (/auth/callback)
 // that carries the token and posts it here — a step scanners don't take.
 //
-// Every failure is one indistinguishable 400: expired, already-redeemed, and
-// never-existed are the same answer, so the endpoint can't be used to learn
-// anything about tokens it wasn't given.
+// Every failure is one indistinguishable answer, a 200 carrying
+// `{ ok: false, reason: "invalid" }`: expired, already-redeemed, and never-existed
+// read the same, so the endpoint can't be used to learn anything about tokens it
+// wasn't given.
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
   await rateLimit(event, "auth-verify");
@@ -24,10 +25,11 @@ export default defineEventHandler(async (event) => {
   const token = typeof body?.token === "string" ? body.token.trim().slice(0, 200) : "";
 
   const db = await useAccountDb();
-  const user = token ? await consumeMagicToken(db, token) : null;
+  // an empty token is consumeMagicToken's own null, before any query
+  const user = await consumeMagicToken(db, token);
   if (!user) {
-    // 400, not 401: the request is malformed/stale, and a 401 here would be
-    // indistinguishable to the client from "your session expired".
+    // An ordinary answer, not a 401: the request is malformed or stale, and a 401
+    // here would be indistinguishable to the client from "your session expired".
     return { ok: false as const, reason: "invalid" as const };
   }
 

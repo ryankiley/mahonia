@@ -123,7 +123,7 @@ export function tickRows<T extends TickItem>(
 ): readonly T[] {
   const inView = childrenInView(item, children, selection);
   if (!standsForOwnLine(item, children.length > 0)) return inView;
-  return inView.length ? [item, ...inView] : [item];
+  return [item, ...inView];
 }
 
 /**

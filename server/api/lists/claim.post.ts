@@ -1,13 +1,9 @@
 import { defineEventHandler } from "h3";
 import { requireAccount } from "../../utils/authSession";
-import {
-  CLAIM_BATCH_MAX,
-  backfillVaultFromClaims,
-  claimLists,
-  listClaimedLists,
-} from "../../utils/claimRepo";
+import { backfillVaultFromClaims, claimLists, listClaimedLists } from "../../utils/claimRepo";
 import { useVaultDb } from "../../utils/db";
 import { arrayOf, readJsonBodyCapped } from "../../utils/http";
+import { CLAIMED_LIST_CAP } from "../../../shared/types";
 
 // Attach the lists this browser holds to the signed-in account, so they're there
 // on the next device too.
@@ -27,7 +23,7 @@ export default defineEventHandler(async (event) => {
     event,
     64_000,
   );
-  const tokenList = (v: unknown) => arrayOf(v, (t): t is string => typeof t === "string", CLAIM_BATCH_MAX);
+  const tokenList = (v: unknown) => arrayOf(v, (t): t is string => typeof t === "string", CLAIMED_LIST_CAP);
   const editTokens = tokenList(body?.editTokens);
   // The lists this browser says arrived via someone else's link. Sent so the SERVER
   // can judge them — it knows when each list was made, and the browser doesn't —

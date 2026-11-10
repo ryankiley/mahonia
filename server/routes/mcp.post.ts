@@ -1,8 +1,9 @@
 import { defineEventHandler, getHeader, readRawBody, send, setResponseStatus, type H3Event } from "h3";
 import { MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, accountUse, callTool, isKnownTool } from "../utils/mcp";
 import { setNoIndex, setNoStore } from "../utils/http";
-import { APP_ACCESS_PREFIX, connectorToken } from "../utils/accessTokens";
-import { bearerChallenge, connectorIdentity } from "../utils/oauth";
+import { APP_ACCESS_PREFIX, connectorToken, resolveBearer } from "../utils/accessTokens";
+import { useAccountDb } from "../utils/db";
+import { bearerChallenge } from "../utils/oauth";
 import { trustedOrigin } from "../utils/origin";
 import { rateLimit } from "../utils/rateLimit";
 
@@ -124,24 +125,22 @@ export default defineEventHandler(async (event) => {
   // an account tool names; create_list only uses an account when there is one.
   const use = msg.method === "tools/call" && typeof params.name === "string" ? accountUse(params.name, params.arguments) : undefined;
   if (use) {
-    const { identity, carried } = await connectorIdentity(event);
-    if (carried) event.context.connector = identity;
+    // Whether a bearer of ours was carried at all is the difference between "sign in"
+    // and "sign in again"; the database is touched only when there is one to look up.
+    const bearer = connectorToken(event);
+    const identity = bearer ? await resolveBearer(await useAccountDb(), bearer) : null;
+    if (bearer) event.context.connector = identity;
     // An app's access token that opens nothing has almost always aged out, and its
     // client holds the refresh token: create_list answers it as the account tools do,
     // or the first list of a conversation an hour on is made but never filed. A
     // hand-minted token can't be refreshed, so a dead one still gets its list, with a
     // note beside the link saying why it wasn't filed.
-    const refreshable = carried && !identity && !!connectorToken(event)?.startsWith(APP_ACCESS_PREFIX);
+    const refreshable = !identity && !!bearer?.startsWith(APP_ACCESS_PREFIX);
     if (!identity && (use !== "optional" || refreshable)) {
-      return bearerChallenge(event, {
-        status: 401,
-        error: "invalid_token",
-        scope: "write",
-        description: carried ? "That token no longer opens an account; sign in to Mahonia again." : "Sign in to Mahonia to reach your lists and My Gear.",
-      });
+      return bearerChallenge(event, 401, bearer ? "That token no longer opens an account; sign in to Mahonia again." : "Sign in to Mahonia to reach your lists and My Gear.");
     }
     if (use === "write" && identity?.scope !== "write") {
-      return bearerChallenge(event, { status: 403, error: "insufficient_scope", scope: "write", description: "This connection can only read. To change your gear or your lists, connect Mahonia again and allow read-and-change access." });
+      return bearerChallenge(event, 403, "This connection can only read. To change your gear or your lists, connect Mahonia again and allow read-and-change access.");
     }
   }
 

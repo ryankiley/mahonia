@@ -28,25 +28,25 @@
 // this file is the tools, so they can be tested as functions and read as a list.
 
 import type { H3Event } from "h3";
-import { listToMarkdown } from "../../shared/exporters/markdown";
+import { listToMarkdown, MD_HEADER, MD_RULE } from "../../shared/exporters/markdown";
 import { exportSections } from "../../shared/exporters/rows";
 import { colorKeyForName, usedColorKeys } from "../../shared/categories";
 import { uid } from "../../shared/id";
 import { editLinkPath, normalizeShareCode } from "../../shared/links";
-import { applyOps, isCatalogId, isSerialId, type ItemPatch, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_TITLE_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
+import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
 import { carrierName } from "../../shared/people";
 import { dayClimbs, parseProfile } from "../../shared/profile";
 import { enoughToSearch } from "../../shared/searchText";
-import { tidyText } from "../../shared/tidyText";
-import { CLEARS_WITH_LINK, normalizeTrailUrl } from "../../shared/trailLink";
+import { sameText, tidyText } from "../../shared/tidyText";
+import { CLEARS_WITH_LINK, MAX_TRAIL_LABEL_LEN, MAX_TRAIL_URL_LEN, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
-import { UNITS, WEIGHT_SOURCES, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type ListState, type Unit, CLASSIFICATIONS } from "../../shared/types";
-import { captureFromList, OWNED_MAX, VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry } from "../../shared/vault";
+import { UNITS, WEIGHT_SOURCES, type AccessScope, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type ListState, type Unit, CLASSIFICATIONS } from "../../shared/types";
+import { captureFromList, OWNED_MAX, VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry, type VaultItemOp } from "../../shared/vault";
 import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX } from "../../shared/vaultKit";
 import { vaultFamilyOf } from "../../shared/vaultView";
 import { gearFamilyLabel } from "../../shared/gearGlyph";
 import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, nextSortOrder, siblingItems } from "../../shared/weights";
-import type { AccessScope } from "../../shared/types";
+import type { ConnectorIdentity } from "./accessTokens";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
 import { claimLists, claimedEditHash, listClaimedLists } from "./claimRepo";
 import { useAccountDb, useCatalogDb, useVaultDb, type Db } from "./db";
@@ -66,7 +66,6 @@ import {
   searchVaultItems,
   vaultItemById,
   vaultItemByNormKey,
-  type VaultItemOp,
 } from "./vaultRepo";
 
 /**
@@ -99,24 +98,20 @@ export const MCP_INSTRUCTIONS = [
   "A KIT is a piece of My Gear that holds other pieces, a set kept together such as a cook kit, weighing its own weight plus its items'; edit_my_gear's kit makes or changes one. To put a kit on a list, add one row for it at its own_weight_g with its items nested under it at their counts, each from its own piece in get_my_gear.",
 ].join(" ");
 
-/** the reducer's own caps on free text (shared/ops), stated in the schemas so a model
- *  knows them before a value is quietly cut to fit */
-const BRAND_LEN = 120;
-const TRAIL_URL_LEN = 2000;
-const TRAIL_LABEL_LEN = 120;
+// The reducer's own caps on free text and counts (shared/ops, shared/trailLink) are
+// stated in the schemas below, so a model knows them before a value is quietly cut to fit.
 
 const SEARCH_LIMIT_MAX = 25;
 const SEARCH_LIMIT_DEFAULT = 12;
-const QTY_MAX = 9999;
 
 /** the fields of one row, as create_list and edit_list's add take them */
 const ROW_FIELDS = {
   name: { type: "string", minLength: 1, maxLength: MAX_ITEM_NAME_LEN, description: "The product or item name. Required." },
-  brand: { type: "string", maxLength: BRAND_LEN, description: "The maker, when known." },
-  variant: { type: "string", maxLength: BRAND_LEN, description: "Size, length or configuration that changes the weight, such as Long or 20F." },
+  brand: { type: "string", maxLength: MAX_BRAND_LEN, description: "The maker, when known." },
+  variant: { type: "string", maxLength: MAX_VARIANT_LEN, description: "Size, length or configuration that changes the weight, such as Long or 20F." },
   gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is: Tent, Quilt, Trail runners." },
   weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Omit when unknown; the list keeps working without it, and a row with a catalog_id takes the catalog's cited weight." },
-  qty: { type: "integer", minimum: 1, maximum: QTY_MAX, description: "How many. Default 1." },
+  qty: { type: "integer", minimum: 1, maximum: MAX_QTY, description: "How many. Default 1." },
   classification: { type: "string", enum: CLASSIFICATIONS, description: "base, worn or consumable. Omit to follow the folder's default." },
   worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried (three pairs of socks, one on your feet). For a row that is entirely worn, set classification to worn instead." },
   note: { type: "string", maxLength: MAX_ITEM_NOTE_LEN, description: "A short free-text note on the row." },
@@ -300,10 +295,6 @@ const LIST_MARKDOWN = complete(
   },
   "The list as Markdown: format markdown.",
 );
-/** get_list's answer takes one of three shapes: the list as data or as Markdown, by the
- *  format asked for, or the account's lists when no share_code was given (MY_LISTS,
- *  declared with the account schemas below) */
-let LIST_OUTPUT: Record<string, unknown> = {};
 
 /** one catalog row, in the two catalog tools' common fields */
 const CATALOG_ROW = {
@@ -390,11 +381,11 @@ const UPDATE_ITEM_SCHEMA = {
   properties: {
     id: { type: "string", description: "The row's id, from get_list." },
     name: { type: "string", minLength: 1, maxLength: MAX_ITEM_NAME_LEN, description: "A new name. A row keeps a name; it can't be cleared." },
-    brand: { type: ["string", "null"], maxLength: BRAND_LEN, description: "The maker. Null clears it." },
-    variant: { type: ["string", "null"], maxLength: BRAND_LEN, description: "Size, length or configuration. Null clears it." },
+    brand: { type: ["string", "null"], maxLength: MAX_BRAND_LEN, description: "The maker. Null clears it." },
+    variant: { type: ["string", "null"], maxLength: MAX_VARIANT_LEN, description: "Size, length or configuration. Null clears it." },
     gear_type: { type: ["string", "null"], maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is. Null clears it." },
     weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Kept as your own figure on a row picked from the catalog." },
-    qty: { type: "integer", minimum: 1, maximum: QTY_MAX },
+    qty: { type: "integer", minimum: 1, maximum: MAX_QTY },
     classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null to follow the folder's default." },
     worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried; 0 removes the split." },
     note: { type: ["string", "null"], maxLength: MAX_ITEM_NOTE_LEN, description: "The row's note. Null clears it." },
@@ -438,7 +429,9 @@ const MY_LISTS = complete(
   },
   "The lists filed under the account: no share_code.",
 );
-LIST_OUTPUT = { type: "object", anyOf: [LIST_DATA, LIST_MARKDOWN, MY_LISTS] };
+/** get_list's answer takes one of three shapes: the list as data or as Markdown, by the
+ *  format asked for, or the account's lists when no share_code was given */
+const LIST_OUTPUT = { type: "object", anyOf: [LIST_DATA, LIST_MARKDOWN, MY_LISTS] };
 
 // ---- My Gear ---------------------------------------------------------------------
 // One account's gear. Its capability is the access token in the Authorization header
@@ -586,7 +579,7 @@ function gearInput(mode: "add" | "update") {
   };
 }
 
-export interface McpTool {
+interface McpTool {
   name: string;
   title: string;
   description: string;
@@ -675,8 +668,8 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
         unit: UNIT_SCHEMA,
         start_date: { type: "string", description: "YYYY-MM-DD" },
         end_date: { type: "string", description: "YYYY-MM-DD" },
-        trail_url: { type: "string", maxLength: TRAIL_URL_LEN, description: "An http(s) link to the route or trail page." },
-        trail_label: { type: "string", maxLength: TRAIL_LABEL_LEN, description: "What to call the trail, when the link's own name won't do." },
+        trail_url: { type: "string", maxLength: MAX_TRAIL_URL_LEN, description: "An http(s) link to the route or trail page." },
+        trail_label: { type: "string", maxLength: MAX_TRAIL_LABEL_LEN, description: "What to call the trail, when the link's own name won't do." },
         trail_distance_km: { type: "number", minimum: 0 },
         folders: {
           type: "array",
@@ -717,8 +710,8 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
             unit: UNIT_SCHEMA,
             start_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
             end_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
-            trail_url: { type: "string", maxLength: TRAIL_URL_LEN, description: "An http(s) link, or an empty string to clear the trail and everything that came with it (label, distance, climb, route)." },
-            trail_label: { type: "string", maxLength: TRAIL_LABEL_LEN },
+            trail_url: { type: "string", maxLength: MAX_TRAIL_URL_LEN, description: "An http(s) link, or an empty string to clear the trail and everything that came with it (label, distance, climb, route)." },
+            trail_label: { type: "string", maxLength: MAX_TRAIL_LABEL_LEN },
             trail_distance_km: { type: "number", minimum: 0, description: "Stored in metres and shown in the list's own distance unit." },
           },
         },
@@ -802,8 +795,6 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
 export const MCP_TOOLS: McpTool[] = MCP_TOOL_REGISTRY.map(({ run: _run, account: _account, ...tool }) => tool);
 const mcpToolByName = new Map(MCP_TOOL_REGISTRY.map((tool) => [tool.name, tool]));
 const argsOf = (raw: unknown) => (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-/** A name as two spellings of it compare: tidied, case folded. */
-const foldName = (name: string) => tidyText(name).toLowerCase();
 
 /** What the account behind the bearer means to one call, for the route's gate: the
  *  scope the tool can't run without, "optional" for a tool that uses an account when
@@ -816,13 +807,15 @@ export function accountUse(name: string, rawArgs: unknown): AccessScope | "optio
   return typeof tool.account === "function" ? tool.account(argsOf(rawArgs)) : tool.account;
 }
 
-export interface ToolResult {
+interface ToolResult {
   content: { type: "text"; text: string }[];
   structuredContent?: Record<string, unknown>;
   isError?: boolean;
 }
 
 const fail = (text: string): ToolResult => ({ content: [{ type: "text", text }], isError: true });
+/** the sentence for a classification argument that isn't one of the three */
+const notClassification = (v: unknown) => `"${String(v)}" isn't a classification; use base, worn or consumable.`;
 /** the payload twice, as the spec asks: structured for clients that read it, and the
  *  same JSON as text for the ones (claude.ai among them) that read only text */
 const ok = (structured: Record<string, unknown>, text = JSON.stringify(structured)): ToolResult => ({
@@ -958,7 +951,7 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
       descent_m: snap.trailDescentM ?? null,
     };
   }
-  const days = [...(snap.days ?? [])].sort((a, b) => a.sortOrder - b.sortOrder);
+  const days = [...(snap.days ?? [])].sort(bySortOrder);
   if (days.length) {
     // a day's climb is typed, or read off the route's profile the way the Trip tab and
     // the share page read it (shared/profile dayClimbs); null only when neither can say
@@ -1069,10 +1062,6 @@ export function fitList(described: Record<string, unknown>, max = GET_LIST_MAX_B
   }
   return build(0, shed);
 }
-
-/** the exporter's table scaffolding (shared/exporters/markdown), read back line by line */
-const MD_HEADER = "| Item | Qty | Weight |";
-const MD_RULE = "| --- | ---: | ---: |";
 
 /**
  * The Markdown answer cut to the same ceiling, when it is over it: rows off the end of
@@ -1229,16 +1218,13 @@ function clampInt(raw: unknown, min: number, max: number, fallback: number): num
 }
 
 /** One row as the reducer stores it, or the sentence explaining why it can't be. */
-function toItem(raw: unknown, folderId: string | null, sortOrder: number): Item | string {
-  if (!raw || typeof raw !== "object") return "Each row must be an object with at least a name.";
+function toItem(raw: object, folderId: string | null, sortOrder: number): Item | string {
   const r = raw as Record<string, unknown>;
   const name = typeof r.name === "string" ? r.name.trim() : "";
   if (!name) return "Every row needs a name.";
-  if (r.classification != null && !CLASSIFICATIONS.includes(r.classification as Classification)) {
-    return `"${String(r.classification)}" isn't a classification; use base, worn or consumable.`;
-  }
+  if (r.classification != null && !CLASSIFICATIONS.includes(r.classification as Classification)) return notClassification(r.classification);
   if (r.weight_g != null && (typeof r.weight_g !== "number" || !(r.weight_g >= 0))) return `weight_g on "${name}" must be a number of grams, 0 or more.`;
-  const qty = clampInt(r.qty, 1, QTY_MAX, 1);
+  const qty = clampInt(r.qty, 1, MAX_QTY, 1);
   const item: Item = {
     id: uid(),
     folderId,
@@ -1262,7 +1248,7 @@ function toItem(raw: unknown, folderId: string | null, sortOrder: number): Item 
     if (worn > 0 && worn >= qty) item.classification = item.classification ?? "worn";
     else if (worn > 0) item.wornQty = worn;
   }
-  if (typeof r.kcal === "number") item.kcal = clampInt(r.kcal, 0, 1_000_000, 0);
+  if (typeof r.kcal === "number") item.kcal = clampInt(r.kcal, 0, KCAL_MAX, 0);
   if (typeof r.needs_cooking === "boolean") item.needsCooking = r.needs_cooking;
   if (r.catalog_id != null) {
     if (!isCatalogId(r.catalog_id)) return `catalog_id on "${name}" isn't a catalog id; take one from search_catalog.`;
@@ -1302,7 +1288,7 @@ async function linkCatalog(items: Item[]): Promise<string | null> {
     if (item.classification == null && row.categoryHint === "consumable") item.classification = "consumable";
     // the catalog's name for the product, the way a pick stores it, so the editor's
     // live-resolve keeps it current; a name the caller typed differently is theirs
-    if (foldName(item.name) === foldName(row.name)) item.name = row.name;
+    if (sameText(item.name, row.name)) item.name = row.name;
     else item.nameOverridden = true;
   }
   return null;
@@ -1327,8 +1313,7 @@ class FolderBook {
     this.folders = [...existing];
   }
   find(name: string): Folder | undefined {
-    const want = foldName(name);
-    return this.folders.find((f) => foldName(f.name) === want);
+    return this.folders.find((f) => sameText(f.name, name));
   }
   resolve(name: string, classification: Classification = "base"): Folder | string {
     const found = this.find(name);
@@ -1442,9 +1427,7 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
       if (!f || typeof f !== "object") return fail("Each folder needs a name.");
       const fr = f as Record<string, unknown>;
       if (typeof fr.name !== "string" || !fr.name.trim()) return fail("Each folder needs a name.");
-      if (fr.classification != null && !CLASSIFICATIONS.includes(fr.classification as Classification)) {
-        return fail(`"${String(fr.classification)}" isn't a classification; use base, worn or consumable.`);
-      }
+      if (fr.classification != null && !CLASSIFICATIONS.includes(fr.classification as Classification)) return fail(notClassification(fr.classification));
       const folder = plan.folders.resolve(fr.name as string, (fr.classification as Classification | undefined) ?? "base");
       if (typeof folder === "string") return fail(folder);
       if (fr.items != null) {
@@ -1593,9 +1576,9 @@ function tripMeta(args: Record<string, unknown>, creating = false): Record<strin
 // be handed one edit link, so a retried create makes a second list instead, which is
 // a spare list rather than a leaked capability.
 const REPLAY_WINDOW_S = 10 * 60;
-function replayKey(hash: string, tool: string, args: Record<string, unknown>): string {
+function replayKey(hash: string, args: Record<string, unknown>): string {
   const { edit_link: _link, share_code: _code, again: _again, ...rest } = args;
-  return `mcp:replay:${sha256Hex(`${hash}|${tool}|${stableJson(rest)}`)}`;
+  return `mcp:replay:${sha256Hex(`${hash}|edit_list|${stableJson(rest)}`)}`;
 }
 function stableJson(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
@@ -1664,10 +1647,6 @@ function placeRow(work: ListState, plan: (op: Op) => void, id: string, folderId:
   });
 }
 
-/** How a person on the list is named in an argument: the name, compared tidied and
- *  case-folded as folder names are. */
-
-
 /** the catalog rows an update's relinks name, fetched once for the call */
 type CatalogRows = Awaited<ReturnType<typeof catalogRowsById>>;
 
@@ -1689,7 +1668,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
   if (r.name !== undefined) {
     if (typeof r.name !== "string" || !r.name.trim()) return `A row keeps a name; give ${label} a new one or leave name out.`;
     patch.name = r.name.trim();
-    if (it.catalogItemId != null && foldName(patch.name) !== foldName(it.name)) patch.nameOverridden = true;
+    if (it.catalogItemId != null && !sameText(patch.name, it.name)) patch.nameOverridden = true;
   }
   const text = (key: string, field: "brand" | "variant" | "commonName" | "description"): string | null => {
     const v = r[key];
@@ -1711,7 +1690,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
   }
   if (r.qty !== undefined) {
     if (typeof r.qty !== "number" || !Number.isFinite(r.qty)) return `qty on ${label} must be a whole number.`;
-    patch.qty = clampInt(r.qty, 1, QTY_MAX, 1);
+    patch.qty = clampInt(r.qty, 1, MAX_QTY, 1);
   }
   if (r.classification !== undefined) {
     if (r.classification !== null && !CLASSIFICATIONS.includes(r.classification as Classification)) {
@@ -1722,7 +1701,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
   if (r.worn_qty !== undefined) {
     if (typeof r.worn_qty !== "number" || !Number.isFinite(r.worn_qty)) return `worn_qty on ${label} must be a whole number.`;
     const qty = patch.qty ?? it.qty;
-    const worn = clampInt(r.worn_qty, 0, QTY_MAX, 0);
+    const worn = clampInt(r.worn_qty, 0, MAX_QTY, 0);
     // a row that is entirely worn is a worn row, not a split the size of itself,
     // which the reducer reads as no split at all (the rule create_list follows)
     if (worn > 0 && worn >= qty) {
@@ -1742,7 +1721,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
     if (r.carried_by === null || r.carried_by === "") patch.personId = null;
     else if (typeof r.carried_by !== "string") return `carried_by on ${label} must be a name on the list, or null.`;
     else {
-      const person = (people ?? []).find((p) => foldName(p.name) === foldName(r.carried_by as string));
+      const person = (people ?? []).find((p) => sameText(p.name, r.carried_by as string));
       if (!person) {
         const names = (people ?? []).map((p) => p.name);
         return `No one on this list is called "${r.carried_by}".${names.length ? ` The people are: ${names.join(", ")}.` : " The list names no people yet."}`;
@@ -1767,7 +1746,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
       if (patch.name === undefined) {
         patch.name = row.name;
         patch.nameOverridden = false;
-      } else patch.nameOverridden = foldName(patch.name) !== foldName(row.name);
+      } else patch.nameOverridden = !sameText(patch.name, row.name);
       if (r.gear_type === undefined && !it.commonNameOverridden) {
         patch.commonName = row.commonName ?? "";
         patch.commonNameOverridden = false;
@@ -1793,7 +1772,7 @@ function planMeta(raw: unknown, { plan }: Work): string | null {
 function planFolders(entries: unknown[], { work, ops, plan }: Work): { changed: number } | string {
   if (entries.length > EDIT_MAX) return `At most ${EDIT_MAX} folders in one call.`;
   const find = (ref: unknown) =>
-    typeof ref !== "string" ? undefined : (work.folders.find((f) => f.id === ref) ?? work.folders.find((f) => foldName(f.name) === foldName(ref)));
+    typeof ref !== "string" ? undefined : (work.folders.find((f) => f.id === ref) ?? work.folders.find((f) => sameText(f.name, ref)));
   const changes = entries.map(argsOf);
   const missing = changes.filter((c) => !find(c.folder)).map((c) => String(c.folder ?? ""));
   if (missing.length) {
@@ -1814,12 +1793,12 @@ function planFolders(entries: unknown[], { work, ops, plan }: Work): { changed: 
     const patch: Partial<Folder> = {};
     if (c.name !== undefined) {
       if (typeof c.name !== "string" || !c.name.trim()) return `A folder keeps a name; give "${folder.name}" a new one or leave name out.`;
-      const clash = work.folders.find((f) => f.id !== folder.id && foldName(f.name) === foldName(c.name as string));
+      const clash = work.folders.find((f) => f.id !== folder.id && sameText(f.name, c.name as string));
       if (clash) return `The list already has a folder called "${clash.name}".`;
       patch.name = tidyText(c.name);
     }
     if (c.classification !== undefined) {
-      if (!CLASSIFICATIONS.includes(c.classification as Classification)) return `"${String(c.classification)}" isn't a classification; use base, worn or consumable.`;
+      if (!CLASSIFICATIONS.includes(c.classification as Classification)) return notClassification(c.classification);
       patch.defaultClassification = c.classification as Classification;
     }
     if (Object.keys(patch).length) plan({ t: "updateFolder", id: folder.id, patch });
@@ -1925,17 +1904,23 @@ function planRemoves(raw: unknown[], { work, plan }: Work): string | null {
   return null;
 }
 
-/** an array part of edit_list, or the sentence when it isn't one */
-function arrayPart(args: Record<string, unknown>, key: string): unknown[] | string {
-  const v = args[key];
-  if (v == null) return [];
-  return Array.isArray(v) ? v : `${key} must be an array.`;
+/** The array parts of an edit call, each empty when left out, or the sentence for the
+ *  first that isn't an array or that names more than `max` entries. */
+function arrayParts<K extends string>(args: Record<string, unknown>, keys: readonly K[], max?: number): Record<K, unknown[]> | string {
+  const out = {} as Record<K, unknown[]>;
+  for (const key of keys) {
+    const v = args[key] ?? [];
+    if (!Array.isArray(v)) return `${key} must be an array.`;
+    if (max != null && v.length > max) return `At most ${max} pieces in ${key} in one call; send the rest in another.`;
+    out[key] = v;
+  }
+  return out;
 }
 
 async function editList(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  const parts = { folders: arrayPart(args, "folders"), add: arrayPart(args, "add"), update: arrayPart(args, "update"), remove: arrayPart(args, "remove") };
-  for (const part of Object.values(parts)) if (typeof part === "string") return fail(part);
-  const { folders, add, update, remove } = parts as Record<keyof typeof parts, unknown[]>;
+  const parts = arrayParts(args, ["folders", "add", "update", "remove"]);
+  if (typeof parts === "string") return fail(parts);
+  const { folders, add, update, remove } = parts;
   if (args.list == null && !folders.length && !add.length && !update.length && !remove.length) {
     return fail("Nothing to change: give list, folders, add, update or remove.");
   }
@@ -1944,7 +1929,7 @@ async function editList(event: H3Event, args: Record<string, unknown>): Promise<
   if (typeof opened === "string") return fail(opened);
   const { hash } = opened;
   // the replay window, for a call that adds rows (the comment above says why only then)
-  const key = add.length ? replayKey(hash, "edit_list", args) : null;
+  const key = add.length ? replayKey(hash, args) : null;
   if (key && args.again !== true) {
     const prior = await useKv().getItem<Record<string, unknown>>(key).catch(() => null);
     if (prior) {
@@ -2029,7 +2014,7 @@ async function editList(event: H3Event, args: Record<string, unknown>): Promise<
 /** Who is calling, as the route left it on the event: an account with a scope, nobody
  *  ("anonymous": no bearer of ours was carried), or a bearer that opens nothing
  *  ("unknown": never issued, revoked, or an app's access token past its hour). */
-function whoCalls(event: H3Event): { userId: number; scope: AccessScope } | "anonymous" | "unknown" {
+function whoCalls(event: H3Event): ConnectorIdentity | "anonymous" | "unknown" {
   const caller = event.context.connector;
   if (caller === undefined) return "anonymous";
   return caller ?? "unknown";
@@ -2079,8 +2064,6 @@ async function openGear(event: H3Event, need: AccessScope): Promise<GearHandle |
   const db = await useVaultDb();
   return { db, userId: caller.userId, vaultId: await touchVaultByUser(db, caller.userId) };
 }
-
-const NO_SUCH_GEAR = "Nothing in My Gear has that id; get_my_gear gives the ids.";
 
 /** One piece as the tools return it. Named field by field, as describeList is, so a
  *  column added to the vault later has to be chosen here before it leaves. */
@@ -2136,7 +2119,7 @@ function gearPatchFrom(raw: unknown): { patch: Record<string, unknown>; problem?
   // isn't reported done without it (edit_list refuses the same values in words)
   const amount = (v: unknown, least: number) => v === undefined || v === null || (typeof v === "number" && Number.isFinite(v) && v >= least);
   if (r.classification !== undefined && r.classification !== null && !classificationOf(r.classification)) {
-    return { patch, problem: `"${String(r.classification)}" isn't a classification; use base, worn or consumable.` };
+    return { patch, problem: notClassification(r.classification) };
   }
   if (r.weight_g !== undefined && !(typeof r.weight_g === "number" && Number.isFinite(r.weight_g) && r.weight_g >= 0)) {
     return { patch, problem: "weight_g is grams for one, a number, 0 when it has never been weighed." };
@@ -2154,14 +2137,14 @@ function gearPatchFrom(raw: unknown): { patch: Record<string, unknown>; problem?
   take("variant", "variant");
   take("gear_type", "commonName");
   take("product_url", "productUrl");
-  if (typeof r.weight_g === "number" && r.weight_g >= 0 && Number.isFinite(r.weight_g)) patch.weightMg = Math.round(r.weight_g * 1000);
-  if (r.classification === null || classificationOf(r.classification)) patch.classification = r.classification;
-  if (r.kcal === null || (typeof r.kcal === "number" && Number.isFinite(r.kcal))) patch.kcal = r.kcal;
-  if (r.owned === null || (typeof r.owned === "number" && Number.isFinite(r.owned))) patch.owned = r.owned;
+  if (typeof r.weight_g === "number") patch.weightMg = Math.round(r.weight_g * 1000);
+  if (r.classification !== undefined) patch.classification = r.classification;
+  if (r.kcal !== undefined) patch.kcal = r.kcal;
+  if (r.owned !== undefined) patch.owned = r.owned;
   // typed here, checked in editGear: an id that isn't a catalog row refuses the call
   if (r.catalog_id === null || isCatalogId(r.catalog_id)) patch.catalogItemId = r.catalog_id;
   if (r.price === null) patch.priceCents = null;
-  else if (typeof r.price === "number" && r.price >= 0 && Number.isFinite(r.price)) {
+  else if (typeof r.price === "number") {
     patch.priceCents = Math.round(r.price * 100);
     if (typeof r.currency === "string") patch.currency = r.currency.trim().toUpperCase();
   }
@@ -2239,15 +2222,6 @@ const KIT_REFUSED =
   "That kit could not be made: its items have to be pieces of My Gear by their ids, none of them a kit or the kit itself, and a piece that is already in a kit can't hold items.";
 const KIT_WEIGHT = "That is a kit, and a kit weighs what its items weigh: give kit.own_weight_g for what it weighs by itself, or change an item's weight. Nothing was changed on it.";
 
-/** an array of pieces or ids in edit_my_gear, bounded, or the sentence when it isn't one */
-function gearPart(args: Record<string, unknown>, key: string): unknown[] | string {
-  const v = args[key];
-  if (v == null) return [];
-  if (!Array.isArray(v)) return `${key} must be an array.`;
-  if (v.length > GEAR_EDIT_MAX) return `At most ${GEAR_EDIT_MAX} pieces in ${key} in one call; send the rest in another.`;
-  return v;
-}
-
 /**
  * Every change to My Gear, in one call: add, update, remove, restore, in that order.
  * The vault's writes are separate statements, not one batch like a list's ops, so the
@@ -2259,9 +2233,9 @@ function gearPart(args: Record<string, unknown>, key: string): unknown[] | strin
 async function editGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   const gear = await openGear(event, "write");
   if (typeof gear === "string") return fail(gear);
-  const parts = { add: gearPart(args, "add"), update: gearPart(args, "update"), remove: gearPart(args, "remove"), restore: gearPart(args, "restore") };
-  for (const part of Object.values(parts)) if (typeof part === "string") return fail(part);
-  const { add, update, remove, restore } = parts as Record<keyof typeof parts, unknown[]>;
+  const parts = arrayParts(args, ["add", "update", "remove", "restore"], GEAR_EDIT_MAX);
+  if (typeof parts === "string") return fail(parts);
+  const { add, update, remove, restore } = parts;
   if (!add.length && !update.length && !remove.length && !restore.length) return fail("Nothing to change: give add, update, remove or restore.");
   const updates = update.map(argsOf);
   if (!updates.every((e) => isSerialId(e.id))) return fail("Every entry in update needs the piece's id, from get_my_gear.");
@@ -2334,7 +2308,7 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
         let item = outcome.item;
         let reason: string | undefined;
         if (kit) {
-          const made = await applyVaultItemOp(db, vaultId, { t: "kit", id: item.id, parts: kit.parts, ownWeightMg: kit.ownWeightMg });
+          const made = await applyVaultItemOp(db, vaultId, { t: "kit", id: item.id, ...kit });
           if (made && !("refused" in made)) item = made.item;
           else reason = `Added as a single piece. ${KIT_REFUSED}`;
         }
@@ -2382,7 +2356,7 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
         updated.push({ id, status: "invalid", reason: "That piece isn't a kit, so there is nothing to turn back. Nothing was changed on it." });
         continue;
       }
-      const made = await applyVaultItemOp(db, vaultId, kit ? { t: "kit", id, parts: kit.parts, ownWeightMg: kit.ownWeightMg } : { t: "kit", id, parts: [] });
+      const made = await applyVaultItemOp(db, vaultId, kit ? { t: "kit", id, ...kit } : { t: "kit", id, parts: [] });
       if (!made || "refused" in made) {
         updated.push({ id, status: "invalid", reason: `${KIT_REFUSED} Nothing was changed on it.` });
         continue;

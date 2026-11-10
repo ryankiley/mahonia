@@ -1,12 +1,12 @@
 // CSV export + import — hand-rolled (no deps). Round-trips with our own export
 // and ingests LighterPack's "Export to CSV" output (flexible header detection).
 
-import type { Item, ListData, ListSnapshot, Unit } from "../types";
+import type { ListData, ListSnapshot, Unit } from "../types";
 import { colorKeyForName, nextFolderColor, usedColorKeys } from "../categories";
 import { MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
 import { effectiveClassificationInFolder, fromMg, itemDisplayName, parseDecimal, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
-import { exportOrderedItems } from "./rows";
+import { exportSections } from "./rows";
 import { csvCell, stripFormulaGuard } from "./csvCell";
 import { uid } from "../id";
 
@@ -14,9 +14,9 @@ import { uid } from "../id";
 // import recognizes the exact same unit words as free-text weight entry. This hand-
 // rolled list had drifted — it missed the singular "kilogram" — so importing a row in
 // "kilogram" silently fell through to the fallback unit.
-function normalizeUnit(raw: string | undefined, fallback: Unit): Unit {
+function normalizeUnit(raw: string | undefined): Unit {
   const u = (raw || "").trim().toLowerCase();
-  return UNIT_ALIASES[u] ?? fallback;
+  return UNIT_ALIASES[u] ?? "g";
 }
 
 const truthy = (v: string | undefined) =>
@@ -46,11 +46,6 @@ export function listToCsv(list: ListSnapshot): string {
   const out = [
     "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty,Kcal,Person,Needs Cooking",
   ];
-  // The EFFECTIVE carrier (a child falls back to its parent's), materialized per
-  // row because the flat CSV loses nesting: a child re-imports as top-level, so
-  // an assignment it only inherited has to be written out or it's gone.
-  const itemById = new Map(list.items.map((i) => [i.id, i]));
-  const carrierOf = (it: Item) => carrierName(list, it, it.parentId ? itemById.get(it.parentId) : null);
   // rows follow what the app shows (exportSections): folders in their order, each
   // folder's items in drag order, then any ungrouped items — so a re-import keeps
   // the visible order. Each top-level row is immediately followed by its
@@ -58,8 +53,7 @@ export function listToCsv(list: ListSnapshot): string {
   // container parent's is usually blank), so the flat CSV re-imports with correct
   // totals and no parent/child double-count. (CSV has no nesting column — children
   // re-import as flat top-level rows.)
-  const ordered: Item[] = exportOrderedItems(list);
-  for (const it of ordered) {
+  for (const { item, children } of exportSections(list).flatMap((s) => s.rows)) for (const it of [item, ...children]) {
     const cls = effectiveClassificationInFolder(
       it,
       it.folderId ? folderById.get(it.folderId) : undefined,
@@ -93,7 +87,10 @@ export function listToCsv(list: ListSnapshot): string {
         // counted (see computeTotals) — so a stale value on a demoted row isn't
         // exported as though it still applied
         cls === "consumable" && it.kcal ? it.kcal : "",
-        esc(carrierOf(it)),
+        // The EFFECTIVE carrier (a child falls back to its parent's), materialized per
+        // row because the flat CSV loses nesting: a child re-imports as top-level, so
+        // an assignment it only inherited has to be written out or it's gone.
+        esc(carrierName(list, it, it === item ? null : item)),
         it.needsCooking === true ? "1" : "",
       ].join(","),
     );
@@ -236,7 +233,7 @@ export function csvToListData(
       return v ? stripFormulaGuard(v) : undefined;
     };
     const name = stripFormulaGuard((row[nameCol] || "").trim());
-    const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined, "g");
+    const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined);
     // parseDecimal, not a strip of every comma: that read a decimal comma as a
     // thousands separator, so a "1,5" kg can came in as 15 kg
     const weightNum = iWeight >= 0 ? parseDecimal(row[iWeight] || "") : 0;

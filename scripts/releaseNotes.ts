@@ -15,7 +15,7 @@
 // the body is never stale, only the tag stands still. The Releases page IS the
 // changelog: the site no longer renders one, and /changelog redirects here.
 
-import type { ChangelogRelease } from "../shared/changelog";
+import { CHANGELOG_GROUPS, type ChangelogRelease } from "../shared/changelog";
 
 /** The timezone the changelog's dates are written in — `npm run changelog` stamps today on this clock too. */
 export const CHANGELOG_TZ = "America/Los_Angeles";
@@ -52,16 +52,11 @@ export function releaseTitle(rel: ChangelogRelease): string {
   return rel.title ? `${pretty}: ${rel.title}` : pretty;
 }
 
-const GROUPS = [
-  ["added", "Added"],
-  ["changed", "Changed"],
-  ["fixed", "Fixed"],
-] as const;
-
-/** The release body: the day's entries grouped Added / Changed / Fixed, Keep-a-Changelog style. */
+/** The release body: the day's entries grouped Added / Changed / Fixed, Keep-a-Changelog style.
+ *  A group's heading is its key with a capital. */
 export function releaseBody(rel: ChangelogRelease): string {
-  const sections = GROUPS.filter(([key]) => rel[key]?.length).map(
-    ([key, label]) => `### ${label}\n\n${rel[key]!.map((item) => `- ${item}`).join("\n")}`,
+  const sections = CHANGELOG_GROUPS.filter((key) => rel[key]?.length).map(
+    (key) => `### ${key[0]!.toUpperCase()}${key.slice(1)}\n\n${rel[key]!.map((item) => `- ${item}`).join("\n")}`,
   );
   return `${sections.join("\n\n")}\n`;
 }

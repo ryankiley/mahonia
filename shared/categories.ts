@@ -4,22 +4,6 @@
 
 import type { Classification } from "./types";
 
-const CATEGORY_KEYS = [
-  "shelter",
-  "sleep",
-  "pack",
-  "kitchen",
-  "water",
-  "clothing",
-  "electronics",
-  "firstaid",
-  "worn",
-  "consumable",
-  "other",
-] as const;
-
-type CategoryKey = (typeof CATEGORY_KEYS)[number];
-
 interface FolderPreset {
   name: string;
   colorKey: CategoryKey;
@@ -56,7 +40,7 @@ export const FOLDER_PALETTE = [
 // The hue angle (OKLCH) behind each named token — used both to space out the
 // procedural overflow colours and to render them. Keep in sync with the
 // `--cat-*` tokens in tokens.scss.
-const CATEGORY_HUE: Record<CategoryKey, number> = {
+const CATEGORY_HUE = {
   shelter: 132,
   sleep: 350,
   water: 232,
@@ -69,6 +53,9 @@ const CATEGORY_HUE: Record<CategoryKey, number> = {
   kitchen: 328,
   other: 250,
 };
+
+/** A named colour key: exactly the keys CATEGORY_HUE gives a hue. */
+type CategoryKey = keyof typeof CATEGORY_HUE;
 
 // Common folder names → their canonical category colour. So a folder literally
 // named "Clothing" gets the violet clothing token instead of whatever the next

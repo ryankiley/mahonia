@@ -20,17 +20,15 @@ export default defineEventHandler(async (event) => {
   // The account handle the authenticator stores. The email is what the OS prompt
   // shows, so the user can tell their accounts apart; the handle is opaque and
   // stable, deliberately NOT the email (it shouldn't have to change if an address
-  // ever does). An account made with a passkey may have no address yet, so fall
-  // back to the same shape signup-options uses — the site name plus a short tail
-  // off the stable id. Ugly next to a real address, which is the point: it's
-  // another quiet argument for attaching one.
+  // ever does). Every account has an address (users.email is NOT NULL on both
+  // signup paths), so there is nothing to fall back to.
   // The keys to exclude: don't offer to create a second key on an authenticator
   // that already holds one for this account. Everything else (the RP, the
   // algorithms, the required resident key) is registrationOptions' and shared
   // with signup.
   const options = await registrationOptions(
     event,
-    { name: user.email ?? `Mahonia (#${user.id})`, displayName: user.email ?? "Mahonia", handle: String(user.id) },
+    { name: user.email, displayName: user.email, handle: String(user.id) },
     existing,
   );
 

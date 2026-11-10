@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
 import { fitRoute, isFit, MAX_FIT_PINS } from "../shared/fit";
 import { gpxPoints, gpxStats, pinKind, zipMember } from "../shared/gpx";
+import { zipEntries } from "./helpers/zip";
 
 // A FIT file is built here byte by byte, the way the KMZ tests build a real zip, so the
 // decoder is exercised against the format and not against a mock of itself. The three
@@ -451,32 +452,8 @@ describe("fitRoute — a course's placed points", () => {
 });
 
 describe("a FIT inside a zip, which is how Garmin Connect exports the original", () => {
-  /** a stored zip with one member, the KMZ test's builder over bytes rather than text */
-  function zip(name: string, body: Uint8Array): ArrayBuffer {
-    const nameB = new TextEncoder().encode(name);
-    const local = 30 + nameB.length;
-    const central = 46 + nameB.length;
-    const buf = new Uint8Array(local + body.length + central + 22);
-    const dv = new DataView(buf.buffer);
-    dv.setUint32(0, 0x04034b50, true);
-    dv.setUint32(18, body.length, true);
-    dv.setUint32(22, body.length, true);
-    dv.setUint16(26, nameB.length, true);
-    buf.set(nameB, 30);
-    buf.set(body, local);
-    const cdAt = local + body.length;
-    dv.setUint32(cdAt, 0x02014b50, true);
-    dv.setUint32(cdAt + 20, body.length, true);
-    dv.setUint16(cdAt + 28, nameB.length, true);
-    dv.setUint32(cdAt + 42, 0, true);
-    buf.set(nameB, cdAt + 46);
-    const eocd = cdAt + central;
-    dv.setUint32(eocd, 0x06054b50, true);
-    dv.setUint16(eocd + 8, 1, true);
-    dv.setUint16(eocd + 10, 1, true);
-    dv.setUint32(eocd + 16, cdAt, true);
-    return buf.buffer;
-  }
+  /** a stored zip with one member */
+  const zip = (name: string, body: Uint8Array) => zipEntries([{ name, body }]);
 
   it("is found by name, sniffed by signature, and read from its own bytes", async () => {
     const member = await zipMember(zip("12345678_ACTIVITY.fit", new Uint8Array(hoodFile())), (n) => /\.(kml|fit)$/i.test(n));
