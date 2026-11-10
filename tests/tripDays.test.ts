@@ -13,6 +13,45 @@ const state = (over: Partial<ListState> = {}): ListState => blankState({ days: [
 
 const day = (over: Partial<TripDay> = {}): TripDay => ({ id: "d1", sortOrder: 0, ...over });
 
+// Every other typed string is tidied on its way into the list (a curly apostrophe, no
+// invisible characters, runs of space collapsed). A day's and a pin's label and note
+// were only clamped, so "Ryan's camp" on a day sat under a title reading "Ryan’s trip".
+describe("a day's and a pin's words are tidied like the rest of the list's", () => {
+  const CURLY = String.fromCharCode(0x2019);
+  const ZWSP = String.fromCharCode(0x200b);
+
+  it("on the way in, and on an edit", () => {
+    const s = state({ waypoints: [] });
+    applyOps(s, [
+      { t: "addDay", day: day({ id: "a", label: `  Ryan's   pass${ZWSP} `, note: "It's  steep\nbring poles" }) },
+      { t: "addWaypoint", waypoint: { id: "w", kind: "camp", alongM: 500, label: "Ann's  camp", note: `don't${ZWSP} miss it` } },
+    ]);
+    expect(s.days![0]).toMatchObject({ label: `Ryan${CURLY}s pass`, note: `It${CURLY}s steep\nbring poles` });
+    expect(s.waypoints![0]).toMatchObject({ label: `Ann${CURLY}s camp`, note: `don${CURLY}t miss it` });
+
+    applyOps(s, [
+      { t: "updateDay", id: "a", patch: { label: "Hiker's  bridge", note: "can't  ford" } },
+      { t: "updateWaypoint", id: "w", patch: { label: "Bo's  spring", note: "isn't  reliable" } },
+    ]);
+    expect(s.days![0]).toMatchObject({ label: `Hiker${CURLY}s bridge`, note: `can${CURLY}t ford` });
+    expect(s.waypoints![0]).toMatchObject({ label: `Bo${CURLY}s spring`, note: `isn${CURLY}t reliable` });
+  });
+
+  it("a label or note that draws nothing is absent, not stored blank", () => {
+    const s = state({ waypoints: [] });
+    applyOps(s, [
+      { t: "addDay", day: day({ id: "a", label: ZWSP, note: `  ${ZWSP}  ` }) },
+      { t: "addWaypoint", waypoint: { id: "w", kind: "camp", alongM: 500, label: `${ZWSP} `, note: ZWSP } },
+    ]);
+    expect(s.days![0]!.label).toBeUndefined();
+    expect(s.days![0]!.note).toBeUndefined();
+    expect(s.waypoints![0]!.label).toBeUndefined();
+    expect(s.waypoints![0]!.note).toBeUndefined();
+    applyOps(s, [{ t: "updateDay", id: "a", patch: { label: "Pass" } }, { t: "updateDay", id: "a", patch: { label: ZWSP } }]);
+    expect(s.days![0]!.label).toBeUndefined();
+  });
+});
+
 describe("day ops", () => {
   it("adds, updates and removes", () => {
     const s = state();

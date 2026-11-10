@@ -88,11 +88,6 @@ export function sameSpelling(a: LinkText, b: LinkText): boolean {
   return sameWords(fullWords(a), fullWords(b));
 }
 
-/** The same product, whatever the variant: brand and name agree after the fold. */
-export function sameProduct(a: LinkText, b: LinkText): boolean {
-  return sameWords(productWords(a), productWords(b));
-}
-
 /**
  * How a successor was recognised, for the seed's log and the tests.
  *  - "spelling": the old row's text, spelled before a tidy.

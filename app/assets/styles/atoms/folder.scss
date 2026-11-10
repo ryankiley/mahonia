@@ -16,7 +16,7 @@
 /* min-width:0 is the same rule on the other axis, and it is not optional here. A grid
    item's automatic minimum size is its MIN-CONTENT size, which the overflow:hidden
    below happens to suppress — so the moment anything lifts that clip (a row's open
-   overlay, a drag passing through: .is-overlay-open / .is-dragpass in FolderSection)
+   overlay, a drag passing through: :has(.popover) below / .is-dragpass in FolderSection)
    the implicit column re-measures against the widest row and the whole folder grows
    to it. One row wider than the column (a long weight on a narrow phone) would then
    drag every OTHER row out with it, ~19px past the screen edge, for as long as a menu
@@ -45,9 +45,15 @@
    renders .folder__bodyinner inherits the problem, so it has to inherit the release
    too. It lived in FolderSection's scoped block, which compiled to a [data-v-*]
    selector — so the editor was fixed and /gear, rendering the same markup with its
-   own scope id, silently was not. Each surface still owns the COUNTING (how many
-   overlays are open); this is only what the answer does. */
-.folder__bodyinner.is-overlay-open {
+   own scope id, silently was not.
+   Keyed on the ELEMENT, as .item-wrap's containment lift is (atoms/item.scss): every
+   overlay a row opens wears .popover and is in the DOM exactly as long as it shows,
+   its leave transition included. Each popover used to announce itself up through
+   every component between it and here so the body could count the open ones, and
+   the count is what went wrong: a row removed with its menu open left it stuck, a
+   release sent as the leave began cut the menu off mid-fade. An element can't be
+   miscounted. */
+.folder__bodyinner:has(.popover) {
   overflow: visible;
 }
 .folder[data-collapsed] .folder__bodyinner {

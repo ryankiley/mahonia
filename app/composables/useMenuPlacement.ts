@@ -43,8 +43,8 @@ import type { Ref } from "vue";
 // with the window), and when neither side fits there it takes the roomier side and
 // caps the card to that room (`maxHeight`), so the list scrolls inside the card rather
 // than past its edge. Opt-in, because a capped menu needs the caller to apply the
-// height; a folder body's own clip is already lifted by the time `place` runs (the
-// overlayToggle contract fires on open, and `place` waits a tick).
+// height; a folder body's own clip is already lifted by the time `place` runs (it
+// lifts for as long as the menu's element is inside it: atoms/folder.scss).
 
 /** Keep a menu this far from the window edge before calling it a collision. */
 const EDGE_PADDING = 8;

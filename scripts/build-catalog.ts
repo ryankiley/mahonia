@@ -6,10 +6,10 @@
 // weight to integer milligrams (specToMg, the same parser the editor uses),
 // validates provenance, dedupes by brand+name+variant, sorts, and emits the CSV.
 //
-// Run: node node_modules/jiti/lib/jiti-cli.mjs scripts/build-catalog.ts
+// Run: npm run catalog:build
 // (jiti ships with Nuxt and resolves the project's extensionless TS imports.)
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import {
   CATALOG_CSV_HEADERS,
   identityKey,

@@ -16,22 +16,15 @@ const props = defineProps<{
   /** the picker's root, trigger included: a press there isn't an outside one */
   root: HTMLElement | null;
 }>();
-const emit = defineEmits<{
-  pick: [glyph: GearGlyph | null];
-  overlayToggle: [open: boolean];
-}>();
+const emit = defineEmits<{ pick: [glyph: GearGlyph | null] }>();
 
 const card = useTemplateRef<HTMLElement>("card");
 // measured per open: a row near the floor opens upward, and inside a dialog the card
 // fits the dialog's own scroll box and scrolls when neither side has room
 const { atStart, above, maxHeight, place } = useMenuPlacement(card, { within: true });
 
-// the clip lift, on at open and off when the leave ENDS (useOverlayLift)
-const { lift, release } = useOverlayLift((on) => emit("overlayToggle", on));
-
 watch(open, (o) => {
   if (!o) return;
-  lift();
   nextTick(() => {
     place();
     // onto the one you have, so the keyboard starts where you are
@@ -42,7 +35,7 @@ useMenuDismiss(open, toRef(props, "root"));
 </script>
 
 <template>
-  <Transition name="menu" @after-leave="release">
+  <Transition name="menu">
     <div
       v-if="open"
       :id="id"

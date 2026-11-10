@@ -18,10 +18,9 @@
 // remembered per kind or kit on this device under `collapseKey`, never sent to the
 // server, since it's how you're looking at your gear rather than a fact about it.
 //
-// The default slot is the rows, handed `overlay`: a row's menus are absolutely
-// positioned and the body clips for the collapse animation, so a menu opened on the
-// last row was guillotined. The section counts the open ones and lifts the clip while
-// any is, as FolderSection does for the list's rows.
+// The default slot is the rows. Their menus are absolutely positioned and the body
+// clips for the collapse animation; the body lifts that clip while a menu is inside it
+// (atoms/folder.scss), so a menu opened on the last row isn't guillotined.
 const props = defineProps<{
   label?: string;
   /** the remembered collapse's key: a kind's, or `kit-<id>` */
@@ -30,9 +29,6 @@ const props = defineProps<{
   listLabel?: string;
 }>();
 const { collapsed, toggle } = usePersistedCollapse("gear.vkind.").useFor(() => props.collapseKey ?? "");
-
-const overlays = ref(0);
-const overlay = (open: boolean) => (overlays.value = Math.max(0, overlays.value + (open ? 1 : -1)));
 </script>
 
 <template>
@@ -48,9 +44,9 @@ const overlay = (open: boolean) => (overlays.value = Math.max(0, overlays.value 
     </header>
 
     <div class="folder__body">
-      <div class="folder__bodyinner" :class="{ 'is-overlay-open': overlays > 0 }">
+      <div class="folder__bodyinner">
         <ul class="vsec__list folder__items" :aria-label="listLabel">
-          <slot :overlay="overlay" />
+          <slot />
         </ul>
         <slot name="after" />
       </div>

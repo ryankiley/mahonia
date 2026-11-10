@@ -6,7 +6,6 @@ import { gear } from "./helpers/list";
 import { DUPLEX, cap } from "./helpers/vault";
 import { vaultFolders, vaultItems, vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
-import { isUniqueViolation } from "../server/utils/db";
 import { UNIT_WEIGHT_MAX_MG } from "../shared/ops";
 import {
   VAULT_ITEMS_MAX,
@@ -96,6 +95,18 @@ describe("isVaultWorthy — which list rows are gear", () => {
 
   it("skips water, which is derived from a volume rather than owned", () => {
     expect(isVaultWorthy(gear({ name: "Water", classification: "consumable" }), false)).toBe(false);
+  });
+
+  // Water added under a folder whose default is already consumable stores NO class of
+  // its own (null follows the folder: storedClassification), and the editor still
+  // draws it as the water row, because that reads the name. Asking for the class here
+  // too let that row through, and the list's water was banked as a piece of gear.
+  it("skips water whatever class the row stores, as the editor reads it by name", () => {
+    expect(isVaultWorthy(gear({ name: "Water", classification: null, unitWeightMg: 1_000_000 }), false)).toBe(false);
+    expect(isVaultWorthy(gear({ name: " water ", classification: "base", unitWeightMg: 1_000_000 }), false)).toBe(false);
+    expect(captureFromList([gear({ name: "Water", classification: null, unitWeightMg: 1_000_000 })])).toEqual([]);
+    // only the exact name: a filter is gear
+    expect(isVaultWorthy(gear({ name: "Water filter", classification: null }), false)).toBe(true);
   });
 });
 

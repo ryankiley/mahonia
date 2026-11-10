@@ -21,7 +21,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
-import ItemRow from "~/components/ItemRow.vue";
+import ItemRow, { ROW_FLASH } from "~/components/ItemRow.vue";
 import { rowProvides } from "./helpers/itemRow";
 import type { Item } from "~~/shared/types";
 import { vaultNormKey } from "~~/shared/vault";
@@ -67,10 +67,13 @@ const list = blankList();
 
 enableAutoUnmount(afterEach);
 
+// what the row SAID — the editor's toast, which a row reaches by inject (ROW_FLASH)
+const said = vi.fn<(message: string) => void>();
 function mountRow(item: Item) {
+  said.mockClear();
   return mount(ItemRow, {
     props: { list, item },
-    global: { provide: rowProvides() },
+    global: { provide: { ...rowProvides(), [ROW_FLASH as symbol]: said } },
     attachTo: document.body,
   });
 }
@@ -249,8 +252,8 @@ describe("the save button, against what My Gear actually holds", () => {
     saveItemToVault.mockResolvedValueOnce("removed");
     const w = mountRow(gear());
     await vaultBtn(w).trigger("click");
-    await vi.waitFor(() => expect(w.emitted("toast")).toBeTruthy());
-    expect(w.emitted("toast")![0]![0]).toBe(
+    await vi.waitFor(() => expect(said).toHaveBeenCalled());
+    expect(said.mock.calls[0]![0]).toBe(
       "You removed this from My Gear. Add it again there to bring it back",
     );
     // and it does NOT claim the tick
@@ -261,7 +264,7 @@ describe("the save button, against what My Gear actually holds", () => {
     saveItemToVault.mockResolvedValueOnce("full");
     const w = mountRow(gear());
     await vaultBtn(w).trigger("click");
-    await vi.waitFor(() => expect(w.emitted("toast")).toBeTruthy());
+    await vi.waitFor(() => expect(said).toHaveBeenCalled());
     expect(vaultBtn(w).attributes("disabled")).toBeUndefined();
     await vaultBtn(w).trigger("click");
     await vi.waitFor(() => expect(vaultBtn(w).attributes("aria-label")).toBe("Saved to My Gear"));
@@ -288,8 +291,8 @@ describe("the save button, against what My Gear actually holds", () => {
     saveItemToVault.mockResolvedValueOnce("full");
     const w = mountRow(gear());
     await vaultBtn(w).trigger("click");
-    await vi.waitFor(() => expect(w.emitted("toast")).toBeTruthy());
-    expect(w.emitted("toast")![0]![0]).toBe("My Gear is full. Remove something there to make room");
+    await vi.waitFor(() => expect(said).toHaveBeenCalled());
+    expect(said.mock.calls[0]![0]).toBe("My Gear is full. Remove something there to make room");
   });
 
   it("keeps its tick after a press, though banking the row is what covers it", async () => {

@@ -5,9 +5,7 @@ import { eq, isNotNull } from "drizzle-orm";
 import { catalogItems, vaultItems } from "../server/db/schema";
 import { sizeLettersToWords } from "../shared/catalogQuality";
 import { vaultNormKey } from "../shared/vault";
-import type { useDb } from "../server/utils/db";
-
-type Db = Awaited<ReturnType<typeof useDb>>;
+import type { Db } from "../server/utils/db";
 
 /**
  * Sizes as words (2026-09-12). A row that exists under the letter form ("M", "Men's M")

@@ -7,16 +7,13 @@ import type { Ref } from "vue";
 /**
  * Nesting — the wrap, the unwrap, and the move that reindexes around them.
  *
- * Lifted out of useGearList because it is the one cluster in that file that answers
- * to nothing but the snapshot and the op queue. What is left behind is the sync
- * engine: the queue, the debounced flush, the retry backoff, epoch invalidation and
- * the offline replay — the part carrying real correctness risk, now readable without
- * wading through group-wrap semantics on the way.
+ * Apart from useGearList because it answers to nothing but the snapshot and the op
+ * queue, and apart from the other edits (useGearListEdits, which builds this) because
+ * the group-wrap semantics are a subject of their own.
  *
- * These four dependencies are the whole surface. `discardEmpty` stays in the
- * controller because it is the general "nothing was typed, nothing is lost" rule
- * that several paths share; unwrapEmptied falls through to it rather than
- * reimplementing it.
+ * These four dependencies are the whole surface. `discardEmpty` is the edits' general
+ * "nothing was typed, nothing is lost" rule that several paths share; unwrapEmptied
+ * falls through to it rather than reimplementing it.
  *
  * Covered by tests/itemNesting.nuxt.test.ts, which was written BEFORE this move for
  * exactly that reason: nestItem existed in the suite only as a `() => {}` stub and
@@ -350,5 +347,5 @@ function duplicateItem(
   return newId;
 }
 
-  return { containerFor, unwrapEmptied, addChild, nestItem, unnest, moveItem, duplicateItem };
+  return { addChild, nestItem, unnest, moveItem, duplicateItem };
 }

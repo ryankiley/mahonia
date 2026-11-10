@@ -13,7 +13,7 @@
 
 import type { Folder, Item, ListData, ListMeta, Person, TripDay, Unit, Waypoint } from "../types";
 import { pickListMeta, UNITS } from "../types";
-import { MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, ROUTE_END_IDS, MAX_TITLE_LEN, normalizeMetaFields } from "../ops";
+import { MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, ROUTE_END_IDS, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN, normalizeMetaFields } from "../ops";
 import { normalizeTrailUrl } from "../trailLink";
 import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";
@@ -169,7 +169,7 @@ export function jsonToListImport(text: string): JsonImport | null {
       typeof raw.title === "string" && raw.title.trim() ? raw.title.slice(0, MAX_TITLE_LEN) : undefined,
     description:
       typeof raw.description === "string" && raw.description.trim()
-        ? raw.description.slice(0, 4000)
+        ? raw.description.slice(0, MAX_DESCRIPTION_LEN)
         : undefined,
     displayUnit:
       typeof raw.displayUnit === "string" && UNITS.includes(raw.displayUnit as Unit)

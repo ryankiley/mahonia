@@ -2,6 +2,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { sql } from "drizzle-orm";
 import * as schema from "../../server/db/schema";
+import { runDdl } from "../../server/utils/ddl";
 import { randomEditToken, randomShareCode, sha256Hex } from "../../server/utils/tokens";
 
 // the one instance this worker process boots — see createTestDb
@@ -48,9 +49,8 @@ export async function createTestDb(...ddlGroups: string[][]): Promise<TestDb> {
   const pg = await pglite;
   await pg.exec("drop schema public cascade; create schema public;");
   const db = drizzle(pg, { schema });
-  for (const group of ddlGroups) {
-    for (const stmt of group) await db.execute(sql.raw(stmt));
-  }
+  // through the server's own runner, so every DB suite exercises the batched form
+  for (const group of ddlGroups) await runDdl(db, group);
   return db;
 }
 

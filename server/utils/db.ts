@@ -2,26 +2,21 @@
 // production uses Neon when DATABASE_URL is set. Same Drizzle API either way.
 // Schema is ensured idempotently on first use (dev); prod would run migrations.
 
-import { sql } from "drizzle-orm";
+import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "../db/schema";
 import { CATALOG_DDL, ensureCatalogSchema } from "./catalog";
 import { CANDIDATES_DDL } from "./candidates";
 import { VAULT_DDL } from "./vaultSchema";
 import { ACCOUNT_DDL } from "./accountSchema";
-import { memoized } from "./memoize";
+import { ensureOf, runDdl } from "./ddl";
 
 /**
  * The connection handle every repo takes: Neon's HTTP driver in production,
- * PGlite in dev and tests — a UNION, not a common interface, which is why it is
- * declared once here and imported everywhere (`import type` is cycle-safe even
- * from the modules db.ts itself imports).
- *
- * One consequence to know about: `.returning()` must be called with NO
- * arguments. The two drivers' typed `.returning({ col })` overloads don't
- * unify, so the no-arg form is the union's only shared overload — read the
- * fields off the full row instead.
+ * PGlite in dev and tests. Typed as the base class both drivers extend, so the
+ * whole query builder (a narrowed `.returning({ col })` included) is one set of
+ * signatures rather than the intersection of two.
  */
-export type Db = Awaited<ReturnType<typeof build>>;
+export type Db = PgDatabase<PgQueryResultHKT, typeof schema>;
 
 /**
  * A unique-index violation, as it reaches a caller. drizzle wraps every driver
@@ -56,7 +51,7 @@ function databaseUrl(): string | undefined {
   return process.env.DATABASE_URL;
 }
 
-async function build() {
+async function build(): Promise<Db> {
   const url = databaseUrl();
   if (url) {
     const { drizzle } = await import("drizzle-orm/neon-http");
@@ -149,21 +144,6 @@ export const LISTS_DDL: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,
-  // The public FEED was dropped (2026-08-22): a directory of user-made lists is
-  // thin, near-duplicate content and a permanent moderation job, and sharing already
-  // works without one. These three partial indexes served feed sorts that no query
-  // ever ran — lightest-packs, recency, browse-by-trip-type. Publishing itself stays
-  // (isPublic, /l/{slug}); only the browse-them-all surface is gone.
-  //
-  // There is no migration step in this app — the DDL below is CREATE ... IF NOT
-  // EXISTS, ensured idempotently on first use (see the header). So dropping the
-  // CREATE lines alone would leave the indexes standing on any database that already
-  // ran them, production included. These DROPs are how they actually go. They are
-  // idempotent and cost nothing once the index is gone; remove them on a later pass,
-  // once every deployed database has run them at least once.
-  `DROP INDEX IF EXISTS idx_lists_feed`,
-  `DROP INDEX IF EXISTS idx_lists_feed_recent`,
-  `DROP INDEX IF EXISTS idx_lists_feed_trip`,
   // the nightly reap's scan (reapAbandonedLists): abandoned near-empty drafts. Serves
   // the `updated_at < cutoff` RANGE — the query takes no order, it just takes the
   // first `limit` rows the scan yields. Without this the sweep is a full table scan
@@ -213,14 +193,6 @@ export const TRAIL_FAVICONS_DDL: string[] = [
   // the monthly refresh sweep reads oldest-first; without this it seq-scans
   `CREATE INDEX IF NOT EXISTS idx_trail_favicons_stale ON trail_favicons(fetched_at)`,
 ];
-
-/** Run a DDL list, statement by statement. */
-async function runDdl(db: Db, ddl: readonly string[]): Promise<void> {
-  for (const stmt of ddl) await db.execute(sql.raw(stmt));
-}
-/** A memoized ensure for one DDL list — the shape every self-ensuring table here
- *  takes (five of them had each written the loop). */
-const ensureOf = (ddl: readonly string[]) => memoized((db: Db) => runDdl(db, ddl));
 
 /** Idempotently create the `lists` table + indexes (memoized) — for Neon, where
  *  there's no build-time DDL. Mirrors ensureSnapshotSchema; gated to the prod path

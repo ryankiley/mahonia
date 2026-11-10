@@ -4,13 +4,9 @@
 import { eq } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
 import { matchSuccessor } from "../shared/catalogLinks";
-import type { useDb } from "../server/utils/db";
+import type { Db } from "../server/utils/db";
 import type { CatalogCsvRow } from "./catalogCsv";
-
-type Db = Awaited<ReturnType<typeof useDb>>;
-
-const SEP = "\u0000";
-const identity = (brand: string | null, name: string, variant: string | null) => `${brand ?? ""}${SEP}${name}${SEP}${variant ?? ""}`;
+import { identity } from "./seedUpsert";
 
 /**
  * Retire every seed-managed row the CSV no longer names, pointing it at its successor.

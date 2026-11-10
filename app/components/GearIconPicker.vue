@@ -22,11 +22,7 @@ const props = defineProps<{
   /** the card's accessible name, e.g. "Icon for Zpacks Duplex" */
   label: string;
 }>();
-const emit = defineEmits<{
-  "update:modelValue": [glyph: GearGlyph | null];
-  /** opened or closed — a section's body lifts its clip while the card is up */
-  overlayToggle: [open: boolean];
-}>();
+const emit = defineEmits<{ "update:modelValue": [glyph: GearGlyph | null] }>();
 
 const open = ref(false);
 // the card mounts closed and THEN opens, so its watchers (placement, dismissal) see
@@ -67,7 +63,6 @@ const triggerAttrs = computed(() => ({
       :id="id"
       :root="rootRef"
       @pick="pick"
-      @overlay-toggle="(o: boolean) => emit('overlayToggle', o)"
     />
   </div>
 </template>

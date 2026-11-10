@@ -214,6 +214,8 @@ export const MAX_FOLDERS = 50;
 // so none of them can drift: they had, and a field accepted 1,200 characters the
 // server then cut to 200 without a word.
 export const MAX_TITLE_LEN = 200;
+/** The list's description: the one field that can hold paragraphs. */
+export const MAX_DESCRIPTION_LEN = 4000;
 export const MAX_ITEM_NAME_LEN = 200;
 export const MAX_ITEM_NOTE_LEN = 2000;
 export const MAX_GEAR_TYPE_LEN = 120; // commonName
@@ -327,6 +329,15 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   // renders it as an href, but the CSP carries 'unsafe-inline', so the day something
   // does it is a live sink on a page strangers open. "" clears it, like brand/variant.
   if (typeof patch.productUrl === "string") out.productUrl = httpUrl(patch.productUrl);
+  // What it cost, on normalizeItem's rule. The two travel as one field: a currency is
+  // read only beside an amount (alone it would re-denominate the figure already
+  // stored), and an amount that names none takes none rather than keeping the last
+  // one's. A piece picked from My Gear in a row's name field arrives here, and with no
+  // branch for the pair the pick lost the price the pane's add (addItem) kept.
+  if (typeof patch.priceCents === "number" && isFinite(patch.priceCents)) {
+    out.priceCents = Math.max(0, Math.round(patch.priceCents));
+    out.currency = patch.currency ? String(patch.currency).slice(0, 8) : undefined;
+  }
   if (typeof patch.unitWeightMg === "number" && isFinite(patch.unitWeightMg))
     out.unitWeightMg = clampUnitWeightMg(patch.unitWeightMg);
   // entryUnit is DISPLAY ONLY (see types.ts) — validated against the unit list so a
@@ -454,7 +465,7 @@ export type DayPatch = Omit<Partial<TripDay>, "distanceM" | "ascentM" | "descent
 
 function cleanDayPatch(patch: DayPatch): Partial<TripDay> {
   const out: Partial<TripDay> = {};
-  if (typeof patch.label === "string") out.label = patch.label.slice(0, MAX_LABEL_LEN) || undefined;
+  if (typeof patch.label === "string") out.label = cleanLabel(patch.label);
   // a string survives JSON whole, so "" is its own clear and needs no sentinel
   if (typeof patch.note === "string") out.note = cleanNote(patch.note);
   // `in` rather than a truthiness test: these are all clearable, and an explicit
@@ -507,9 +518,17 @@ export function seedRouteEnds(geo: string): Waypoint[] {
   return out;
 }
 
-/** A note as stored: trimmed, capped, and absent rather than empty. */
+/** A day's or a pin's label as stored: capped, tidied like every other one-line field
+ *  (cleanText), and absent rather than empty. */
+function cleanLabel(raw: unknown): string | undefined {
+  return raw ? cleanText(String(raw), MAX_LABEL_LEN) || undefined : undefined;
+}
+
+/** A note as stored: trimmed, capped, tidied, and absent rather than empty. tidyProse,
+ *  not tidyText: the note's field is a textarea, so a pasted note can hold line breaks,
+ *  and they are the author's. */
 function cleanNote(raw: unknown): string | undefined {
-  return raw ? String(raw).trim().slice(0, MAX_NOTE_LEN) || undefined : undefined;
+  return raw ? tidyProse(String(raw).trim().slice(0, MAX_NOTE_LEN)) || undefined : undefined;
 }
 
 /** A raw day → its stored form. Same contract as normalizeFolder/normalizeItem. */
@@ -517,7 +536,7 @@ export function normalizeDay(raw: TripDay): TripDay {
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     sortOrder: Number(raw.sortOrder) || 0,
-    label: raw.label ? String(raw.label).slice(0, MAX_LABEL_LEN) : undefined,
+    label: cleanLabel(raw.label),
     note: cleanNote(raw.note),
     distanceM: boundedRound(raw.distanceM, 1, MAX_DAY_DISTANCE_M),
     ascentM: boundedRound(raw.ascentM, 1, MAX_DAY_ASCENT_M),
@@ -549,7 +568,7 @@ export function normalizeWaypoint(raw: Waypoint): Waypoint | null {
     id: raw.id.slice(0, MAX_ID_LEN),
     kind: WAYPOINT_KINDS.includes(raw.kind) ? raw.kind : "landmark",
     alongM,
-    label: raw.label ? String(raw.label).slice(0, MAX_LABEL_LEN) : undefined,
+    label: cleanLabel(raw.label),
     note: cleanNote(raw.note),
   };
 }
@@ -562,7 +581,7 @@ function cleanWaypointPatch(patch: Partial<Waypoint>): Partial<Waypoint> {
     const m = cleanAlongM(patch.alongM);
     if (m != null) out.alongM = m; // a patch can move a pin, never un-place it
   }
-  if ("label" in patch) out.label = patch.label ? String(patch.label).slice(0, MAX_LABEL_LEN) : undefined;
+  if ("label" in patch) out.label = cleanLabel(patch.label);
   if ("note" in patch) out.note = cleanNote(patch.note);
   return out;
 }
@@ -764,7 +783,7 @@ function applyOp(state: ListState, op: Op): void {
       // break, and a backup still round-trips. An ITEM's description is a real one-line
       // input and goes through cleanText like the rest — see cleanItemPatch.
       if (typeof p.description === "string")
-        state.description = tidyProse(p.description.slice(0, 4000));
+        state.description = tidyProse(p.description.slice(0, MAX_DESCRIPTION_LEN));
       if (typeof p.displayUnit === "string" && UNITS.includes(p.displayUnit)) state.displayUnit = p.displayUnit;
       // The trail URL is VALIDATED, not just clamped: it ends up in a :href on a page
       // strangers open, and Vue won't sanitize it. An empty string clears the link;
@@ -917,7 +936,7 @@ export function tidyListText<T extends {
   if (typeof list.title === "string") list.title = cleanText(list.title, MAX_TITLE_LEN);
   // prose, so an imported description keeps its paragraphs — see the setMeta case
   if (typeof list.description === "string")
-    list.description = tidyProse(list.description.slice(0, 4000));
+    list.description = tidyProse(list.description.slice(0, MAX_DESCRIPTION_LEN));
   // through its own normalizer, which is where the label's cap and blank rule live
   if (typeof list.trailLabel === "string") {
     const label = normalizeTrailLabel(list.trailLabel);

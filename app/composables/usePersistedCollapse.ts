@@ -57,13 +57,6 @@ export function usePersistedCollapse(prefix: string) {
     else forget(key);
   }
 
-  /** Flip it, and answer the new state. */
-  function toggle(id: string | number): boolean {
-    const next = !isCollapsed(id);
-    set(id, next);
-    return next;
-  }
-
   /**
    * One row's collapse as a ref, for a component that owns a single id (a folder
    * header, a group row): seeded on MOUNT rather than at setup, so the first paint is
@@ -84,5 +77,5 @@ export function usePersistedCollapse(prefix: string) {
     };
   }
 
-  return { isCollapsed, set, toggle, useFor };
+  return { isCollapsed, set, useFor };
 }

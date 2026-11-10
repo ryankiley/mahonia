@@ -34,6 +34,34 @@ describe("op reducer", () => {
     expect(s.items[0].name).toBe("Tent");
   });
 
+  // A piece picked from My Gear in a row's name field arrives as an updateItem carrying
+  // vaultRowFields, the same fields the pane's add hands addItem. The add kept the
+  // price; the patch cleaner had no branch for it, so the pick dropped it.
+  it("an update carries a price and its currency, as an add does", () => {
+    const s = withItem();
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { priceCents: 66_900.4, currency: "USD" } }]);
+    expect(s.items[0]).toMatchObject({ priceCents: 66_900, currency: "USD" });
+    const added = base();
+    applyOps(added, [add({ priceCents: 66_900.4, currency: "USD" })]);
+    expect([s.items[0]!.priceCents, s.items[0]!.currency]).toEqual([added.items[0]!.priceCents, added.items[0]!.currency]);
+  });
+
+  it("reads a currency only beside an amount, and clamps both", () => {
+    const s = withItem({ priceCents: 1_000, currency: "EUR" });
+    // a currency on its own would re-denominate the stored figure
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { currency: "JPY" } }]);
+    expect(s.items[0]).toMatchObject({ priceCents: 1_000, currency: "EUR" });
+    // an amount with none takes none, rather than keeping the last one's
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { priceCents: 2_000 } }]);
+    expect(s.items[0]!.priceCents).toBe(2_000);
+    expect(s.items[0]!.currency).toBeUndefined();
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { priceCents: -5, currency: "POUNDS STERLING" } }]);
+    expect(s.items[0]).toMatchObject({ priceCents: 0, currency: "POUNDS S" });
+    // not a number: ignored, like every other malformed field
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { priceCents: "12" as unknown as number } }]);
+    expect(s.items[0]!.priceCents).toBe(0);
+  });
+
   it("updates an item with a clamped patch", () => {
     const s = base();
     applyOps(s, [

@@ -229,8 +229,10 @@ export async function revokeAccessToken(db: Db, userId: number, id: number): Pro
  *  code not yet traded is a token a minute from existing, so it goes too: left behind,
  *  an app allowed seconds before the purge would be handed a fresh pair after it. */
 export async function revokeAllAccessTokens(db: Db, userId: number): Promise<number> {
-  await db.delete(oauthCodes).where(eq(oauthCodes.userId, userId));
-  const gone = await db.delete(accessTokens).where(eq(accessTokens.userId, userId)).returning();
+  const [, gone] = await Promise.all([
+    db.delete(oauthCodes).where(eq(oauthCodes.userId, userId)),
+    db.delete(accessTokens).where(eq(accessTokens.userId, userId)).returning({ id: accessTokens.id }),
+  ]);
   return gone.length;
 }
 

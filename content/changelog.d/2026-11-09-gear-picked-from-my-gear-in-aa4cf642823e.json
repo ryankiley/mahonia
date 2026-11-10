@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "Gear picked from My Gear in a row's name field keeps its price.",
+    "Water in a food or consumables folder is no longer saved to My Gear as a piece of gear.",
+    "A CSV that writes decimals with a comma imports 1,5 kg as one and a half kilograms, not fifteen.",
+    "A name typed exactly as a product is spelled links to it when that name has accented, full-width or non-Latin letters.",
+    "A day's and a route pin's label and note are tidied like other text, with apostrophes curled and invisible characters dropped."
+  ]
+}

@@ -5,7 +5,7 @@ import type { Item, ListData, ListSnapshot, Unit } from "../types";
 import { colorKeyForName, nextFolderColor, usedColorKeys } from "../categories";
 import { MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
-import { effectiveClassificationInFolder, fromMg, itemDisplayName, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
+import { effectiveClassificationInFolder, fromMg, itemDisplayName, parseDecimal, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportOrderedItems } from "./rows";
 import { csvCell, stripFormulaGuard } from "./csvCell";
 import { uid } from "../id";
@@ -237,7 +237,9 @@ export function csvToListData(
     };
     const name = stripFormulaGuard((row[nameCol] || "").trim());
     const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined, "g");
-    const weightNum = iWeight >= 0 ? parseFloat((row[iWeight] || "").replace(/,/g, "")) : 0;
+    // parseDecimal, not a strip of every comma: that read a decimal comma as a
+    // thousands separator, so a "1,5" kg can came in as 15 kg
+    const weightNum = iWeight >= 0 ? parseDecimal(row[iWeight] || "") : 0;
     const unitWeightMg = isFinite(weightNum) && weightNum > 0 ? toMg(weightNum, unit) : 0;
     // A row needs a name OR a weight to be gear. Skipping on the name alone deleted a
     // real row, and its weight, on a round-trip through our own export -- an unnamed
@@ -272,6 +274,7 @@ export function csvToListData(
     const namedUnit = iUnit >= 0 && (row[iUnit] ?? "").trim() ? unit : undefined;
     // kcal only rides along on rows this import classes as consumable, matching
     // where the app lets it be edited and counted
+    // (a whole number, so a comma here can only be a thousands separator)
     const kcalNum = iKcal >= 0 ? Math.round(parseFloat((row[iKcal] || "").replace(/,/g, "")) || 0) : 0;
 
     items.push({

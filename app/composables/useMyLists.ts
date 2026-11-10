@@ -40,7 +40,8 @@ export async function deleteListOnServer(headers: Record<string, string>): Promi
 let _entries: Ref<MyListEntry[]> | undefined;
 
 function storageEntries(): Ref<MyListEntry[]> {
-  const entries = ref<MyListEntry[]>([]);
+  // shallow: every writer below reassigns the array, and the rows are plain records
+  const entries = shallowRef<MyListEntry[]>([]);
   if (import.meta.client) {
     entries.value = readEntries();
     // A DETACHED scope, for the same reason useGearList's controller has one: the

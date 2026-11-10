@@ -17,8 +17,7 @@ import { reactive } from "vue";
 // so the server never touches it — but open this from a `watch`, a `computed`, or
 // plain setup-time logic (auto-opening on a `?signin` query param is the obvious way
 // in) and one visitor's modal state lands in another visitor's SSR'd HTML. If that
-// ever needs to happen, this moves to useState first, the way useReadView already has
-// — that one backs the indexable read pages, so it could not be left on a convention.
+// ever needs to happen, this moves to useState first.
 //
 // /account still exists and is not a redirect: a bookmark, a typed URL and the dead
 // magic link's "Get a new link" all arrive with nothing underneath to sit on top of.
