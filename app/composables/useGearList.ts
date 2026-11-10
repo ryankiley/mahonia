@@ -574,7 +574,11 @@ function create() {
 
     // Hydrate from this browser's local copy first — instant paint, and the only
     // thing we can show if the network is down. Restore its un-acked queue too.
-    const local = await store.get(storeKey());
+    // When the editor page read ahead (readAhead, below) the copy is usually already
+    // here and nothing is awaited: the list lands in this tick, before the editor
+    // renders. A read that outran the page's wait is awaited rather than repeated.
+    const ahead = store.take(storeKey());
+    const local = ahead?.landed ? ahead.landed.record : await (ahead?.read ?? store.get(storeKey()));
     if (myEpoch !== epoch) return; // a newer load() superseded this one
     if (local) {
       // Backfilled on the way in, matching what the server does on the way out
@@ -1387,4 +1391,42 @@ function create() {
 export function useGearList() {
   if (!singleton) singleton = create();
   return singleton;
+}
+
+/** The longest the editor page holds the list you're leaving for the on-device copy of
+ *  the one you're opening. Once IndexedDB is open the read takes a few ms; this only
+ *  bounds a slow open, past which the list opens the old way, through "Loading…". */
+const READ_AHEAD_MS = 250;
+
+/**
+ * Read the on-device copy of the list `route` opens BEFORE the editor mounts, for
+ * load() to take without waiting (useLocalListStore's held read).
+ *
+ * Switching lists remounts the page, and the new editor's load used to await this
+ * read with nothing to draw: for those frames the topbar lost every control but the
+ * switcher and the page said "Loading…", then the list flashed back in. On a phone
+ * that was several frames. The editor pages await this in setup instead, so the
+ * page's Suspense keeps the outgoing list on screen through the read (the controller
+ * is untouched until the new editor starts its session), and the new editor's first
+ * frame is the list it opened.
+ *
+ * Mirrors the editor's route watcher: the fragment's token wins, and a bare code is a
+ * claimed open only on the session hint. A list not on this device reads as nothing
+ * and opens from the network as it always has.
+ */
+export function readAhead(route: { hash: string; params: Record<string, unknown> }): Promise<void> {
+  let token: string;
+  try {
+    token = decodeURIComponent(route.hash.replace(/^#/, ""));
+  } catch {
+    return Promise.resolve(); // a malformed fragment: the watcher throws on it too
+  }
+  const param = route.params.code;
+  const code = normalizeShareCode(typeof param === "string" ? param : "");
+  const key = token ? localKey(token) : code && useSession().hasSessionHint() ? claimedLocalKey(code) : "";
+  if (!key) return Promise.resolve();
+  return Promise.race([
+    useLocalListStore().prefetch(key),
+    new Promise<void>((resolve) => setTimeout(resolve, READ_AHEAD_MS)),
+  ]);
 }

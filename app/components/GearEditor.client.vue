@@ -354,6 +354,9 @@ function warmVault() {
 // what the last press asked for, which the wait above can trail by a moment
 let vaultWanted = false;
 async function setVault(open: boolean) {
+  // nothing to add gear to until the list is here (the button stays up through a load
+  // so the bar doesn't change under you — see the topbar's v-if)
+  if (open && !snapshot.value) return;
   vaultWanted = open;
   if (open && !vaultOpen.value) {
     await Promise.race([warmVault(), new Promise((r) => setTimeout(r, PANE_WAIT_MS))]);
@@ -670,9 +673,16 @@ const shareOpen = ref(false);
 useMenuDismiss(shareOpen, shareRef);
 watch(shareOpen, (open) => open && (menuOpen.value = false));
 watch(menuOpen, (open) => open && (shareOpen.value = false));
+// Both open only onto a list; closing is never refused (see the topbar's v-if for why
+// the buttons are there before one is).
 function toggleMenu() {
+  if (!menuOpen.value && !snapshot.value) return;
   menuEverOpened.value = true;
   menuOpen.value = !menuOpen.value;
+}
+function toggleShare() {
+  if (!shareOpen.value && !snapshot.value) return;
+  shareOpen.value = !shareOpen.value;
 }
 
 function copyShare() {
@@ -861,6 +871,24 @@ const missingMessage = computed(() =>
 const unloaded = computed(
   () => !snapshot.value && (status.value === "offline" || status.value === "error"),
 );
+// "Loading…" keeps quiet for its first LOADING_QUIET_MS, so a list that answers in that
+// time — most of them — opens under a bar that never changed and a page that never said
+// anything. A TIMER, not a CSS animation-delay: the keyboard and reduced-motion
+// kill-switches zero every animation-delay, and there it should still wait, losing only
+// the fade (the styles).
+const LOADING_QUIET_MS = 300;
+const loadingSaid = ref(false);
+let loadingTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => !snapshot.value && status.value !== "missing" && !unloaded.value,
+  (waiting) => {
+    clearTimeout(loadingTimer);
+    loadingSaid.value = false;
+    if (waiting) loadingTimer = setTimeout(() => (loadingSaid.value = true), LOADING_QUIET_MS);
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => clearTimeout(loadingTimer));
 async function forgetMissingList() {
   // capture before dispose() blanks c.editToken (which empties missingEntry too)
   const entry = missingEntry.value;
@@ -992,7 +1020,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
           @new-list="newList()"
           @dismiss-hint="dismissIntro"
         />
-        <template v-if="snapshot">
+        <!-- Up while a list LOADS, too, not only once it's here: the bar used to drop to
+             the switcher alone for the length of the load and pop back when the list
+             landed — on a phone, a flash on every list opened from the network. So the
+             controls stand through it, unchanged to look at, and the three that act on
+             a list wait for one (their handlers, plus aria-disabled for a screen
+             reader; `disabled` would dim them, and the dimming is the same flash).
+             A load that ENDS with no list — missing, error, offline with nothing on
+             the device — is a real state, and the bar still stands down for it. -->
+        <template v-if="snapshot || status === 'loading'">
           <!-- sync state + last-edit time, on the bar's leading edge — the space the
                title vacated when it became a page title. It takes the free width, which
                is what pins the icon cluster to the trailing edge. -->
@@ -1022,6 +1058,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
               :class="{ 'is-on': vaultOpen }"
               aria-label="My Gear"
               :aria-expanded="vaultOpen"
+              :aria-disabled="!snapshot || undefined"
               @pointerenter="warmVault"
               @focus="warmVault"
               @click="toggleVault"
@@ -1045,7 +1082,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 aria-label="Sharing"
                 aria-haspopup="dialog"
                 :aria-expanded="shareOpen"
-                @click="shareOpen = !shareOpen"
+                :aria-disabled="!snapshot || undefined"
+                @click="toggleShare"
               >
                 <HugeiconsIcon :icon="Share08Icon" :size="16" :stroke-width="2" />
               </button>
@@ -1081,6 +1119,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 aria-label="More actions"
                 aria-haspopup="true"
                 :aria-expanded="menuOpen"
+                :aria-disabled="!snapshot || undefined"
                 @pointerenter="warmMenu"
                 @focus="warmMenu"
                 @click="toggleMenu"
@@ -1339,7 +1378,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </main>
 
     <main v-else id="main-content" tabindex="-1" class="wrap editor__missing">
-      <p class="t-muted">Loading…</p>
+      <p class="t-muted editor__loading" :class="{ 'is-said': loadingSaid }">Loading…</p>
     </main>
 
     <Transition name="toast">
@@ -1437,6 +1476,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: center;
   gap: var(--space-2);
   padding-block: var(--space-3);
+  /* NEVER SHORTER THAN ITS ICON BUTTONS. They are what gave the bar its height, so
+     whenever the cluster stood down — a list still loading, a list that won't open —
+     the bar shrank to the switcher's height and everything under it rode up, then
+     dropped back when the buttons returned (Ryan, on iOS and desktop Safari: "the
+     header seems to move position"). The height is the bar's own now, whatever is in
+     it: the button's size per pointer (controls.scss) plus this row's padding. */
+  min-height: calc(var(--icon-btn) + 2 * var(--space-3));
+  @media (pointer: coarse) {
+    min-height: calc(var(--tap) + 2 * var(--space-3));
+  }
   /* On a phone the cluster is six controls at the 44px touch floor plus the switcher,
      and it did not fit 375px even with two mode segments — it was ~17px over before a
      third was added, which clipped the ⋯ menu off the trailing edge entirely.
@@ -1680,6 +1729,20 @@ function onCorrected(res: { status: string; itemName?: string }) {
   justify-content: center;
   text-align: center;
   gap: var(--space-4);
+}
+/* "Loading…" holds its line from the start, hidden (to a screen reader too), and fades
+   up on the fade token once the script says the wait has gone on long enough
+   (loadingSaid). Hidden rather than absent, so saying it moves nothing. */
+.editor__loading:not(.is-said) {
+  visibility: hidden;
+}
+.editor__loading.is-said {
+  animation: loading-in var(--spring-fade-dur) var(--spring-fade) backwards;
+}
+@keyframes loading-in {
+  from {
+    opacity: 0;
+  }
 }
 /* the toast base + its enter/leave motion now live in the shared .toast atom
    (controls.scss), used by the read views' menu too; the undo bar just adds its

@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-10",
+  "changed": [
+    "On a phone, opening the list switcher no longer brings up the keyboard."
+  ],
+  "fixed": [
+    "Opening, reloading or switching lists keeps the top bar steady, and “Loading…” appears only when a list is slow to arrive.",
+    "The list switcher shows half of the next list when there are more to scroll to."
+  ]
+}

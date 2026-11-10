@@ -30,7 +30,10 @@ const hasContent = computed(() => !!snapshot.value && hasRealContent(snapshot.va
 const stateWord = computed(() => {
   switch (status.value) {
     case "loading":
-      return "Loading…";
+      // NOTHING. The bar stands through a load now (GearEditor's topbar), and a
+      // "Loading…" here would be the bar changing after all; the page body says it,
+      // and only once the wait is long enough to need saying.
+      return "";
     case "saving":
       return "Syncing…";
     case "offline":

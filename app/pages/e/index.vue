@@ -7,6 +7,9 @@
 // The whole editor surface, including its own topbar, lives in
 // <GearEditor>, a .client component, so the body only ever runs in the browser.
 definePageMeta({ layout: false });
+
+// /e#{token}, a list from before share codes: held like /e/{code} — see readAhead
+if (import.meta.client) await readAhead(useRoute());
 </script>
 
 <template>
