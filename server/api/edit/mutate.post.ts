@@ -1,15 +1,12 @@
 import { createError, defineEventHandler } from "h3";
 import { applyOpsByEditHash } from "../../utils/listRepo";
-import { requireEditHash } from "../../utils/editAuth";
+import { requireEdit } from "../../utils/editAuth";
 import { resolveSession } from "../../utils/authSession";
-import { notFound, readJsonBodyCapped, setNoIndex } from "../../utils/http";
-import { rateLimit } from "../../utils/rateLimit";
+import { notFound, readJsonBodyCapped } from "../../utils/http";
 import type { Op } from "../../../shared/ops";
 
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  await rateLimit(event, "mutate");
-  const hash = await requireEditHash(event);
+  const hash = await requireEdit(event, "mutate");
   const body = await readJsonBodyCapped<{ ops?: Op[] }>(event, 512_000);
   const ops = Array.isArray(body?.ops) ? body.ops : [];
   if (!ops.length) throw createError({ statusCode: 400, statusMessage: "No ops" });

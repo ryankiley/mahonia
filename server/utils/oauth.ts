@@ -30,8 +30,8 @@ import type { H3Event } from "h3";
 import { getHeader, readRawBody, setHeader, setResponseStatus } from "h3";
 import type { AccessScope } from "../../shared/types";
 import { oauthCodes } from "../db/schema";
-import { connectorToken, isAccessScope, resolveBearer, type ConnectorIdentity } from "./accessTokens";
-import { useAccountDb, type Db } from "./db";
+import { isAccessScope, type ConnectorIdentity } from "./accessTokens";
+import type { Db } from "./db";
 import { readJsonBodyCapped, setNoStore } from "./http";
 import { redirectUriAllowed, resolveOAuthClient, type OAuthClient } from "./oauthClients";
 import { trustedOrigin } from "./origin";
@@ -55,7 +55,7 @@ const SCOPES_SUPPORTED = ["read", "write", "offline_access"] as const;
 
 /** A scope string as a client sends it, as the level it grants, or null when it names
  *  a scope this server doesn't have. Empty means read. */
-export function scopeFromRequest(raw: unknown): AccessScope | null {
+function scopeFromRequest(raw: unknown): AccessScope | null {
   if (raw === undefined || raw === null || raw === "") return "read";
   if (typeof raw !== "string" || raw.length > 200) return null;
   const words = raw.split(/\s+/).filter(Boolean);
@@ -212,53 +212,45 @@ export async function redeemAuthCode(db: Db, raw: unknown): Promise<(typeof oaut
   return row && isAccessScope(row.scope) ? { ...row, scope: row.scope } : null;
 }
 
-// ---- who is calling /mcp ----------------------------------------------------------------
-
-/** The request's connector identity, or null; `carried` says whether a bearer of ours
- *  was there at all, which is the difference between "sign in" and "sign in again".
- *  Touches the database only when there is a bearer to look up. */
-export async function connectorIdentity(event: H3Event): Promise<{ identity: ConnectorIdentity | null; carried: boolean }> {
-  const raw = connectorToken(event);
-  if (!raw) return { identity: null, carried: false };
-  return { identity: await resolveBearer(await useAccountDb(), raw), carried: true };
-}
-
 // ---- answering the HTTP side ---------------------------------------------------------------
 
-/** The refusal that starts a sign-in (401) or a step-up (403): the header is the
- *  signal, the JSON body only says it in words. RFC 6750 §3. */
-export function bearerChallenge(
-  event: H3Event,
-  challenge: { status: 401 | 403; error: "invalid_token" | "insufficient_scope"; scope: AccessScope; description: string },
-): { error: string; error_description: string } {
+/** The refusal that starts a sign-in (401, invalid_token) or a step-up (403,
+ *  insufficient_scope): the header is the signal, the JSON body only says it in
+ *  words. RFC 6750 §3. The scope asked for is always read-and-change, whichever tool
+ *  was refused (mcp.post.ts says why). */
+export function bearerChallenge(event: H3Event, status: 401 | 403, description: string): { error: string; error_description: string } {
   const quoted = (s: string) => `"${s.replace(/["\\]/g, "")}"`;
-  setResponseStatus(event, challenge.status);
+  const error = status === 401 ? "invalid_token" : "insufficient_scope";
+  setResponseStatus(event, status);
   setHeader(
     event,
     "WWW-Authenticate",
-    `Bearer error=${quoted(challenge.error)}, error_description=${quoted(challenge.description)}, resource_metadata=${quoted(`${trustedOrigin(event)}/.well-known/oauth-protected-resource/mcp`)}, scope=${quoted(challenge.scope)}`,
+    `Bearer error=${quoted(error)}, error_description=${quoted(description)}, resource_metadata=${quoted(`${trustedOrigin(event)}/.well-known/oauth-protected-resource/mcp`)}, scope=${quoted("write")}`,
   );
-  return { error: challenge.error, error_description: challenge.description };
+  return { error, error_description: description };
 }
 
-/** An RFC 6749 §5.2 error: the status, the no-store, and the two-field body. */
-export function oauthError(event: H3Event, status: number, error: string, description: string) {
-  setResponseStatus(event, status);
+/** An RFC 6749 §5.2 error: the 400, the no-store, and the two-field body. */
+export function oauthError(event: H3Event, error: string, description: string) {
+  setResponseStatus(event, 400);
   setNoStore(event);
   return { error, error_description: description };
 }
 
+/** the most a token or revocation request's body may be, in bytes */
+const FORM_BODY_MAX_BYTES = 8_192;
+
 /** A form-encoded body (what the token and revocation endpoints take), or JSON when
  *  a client sends that instead, as a flat string map. Capped on the bytes received. */
-export async function readFormBody(event: H3Event, maxBytes = 8_192): Promise<Record<string, string>> {
+export async function readFormBody(event: H3Event): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   if ((getHeader(event, "content-type") ?? "").toLowerCase().includes("application/json")) {
-    const parsed = await readJsonBodyCapped<Record<string, unknown>>(event, maxBytes);
+    const parsed = await readJsonBodyCapped<Record<string, unknown>>(event, FORM_BODY_MAX_BYTES);
     for (const [k, v] of Object.entries(parsed ?? {})) if (typeof v === "string") out[k] = v;
     return out;
   }
   const raw = await readRawBody(event, false).catch(() => undefined);
-  if (!raw || raw.length === 0 || raw.length > maxBytes) return out;
+  if (!raw || raw.length === 0 || raw.length > FORM_BODY_MAX_BYTES) return out;
   for (const [k, v] of new URLSearchParams(raw.toString("utf8"))) out[k] = v;
   return out;
 }

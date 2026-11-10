@@ -36,13 +36,9 @@ export function isVariantRedundant(name: string, variant: string | null | undefi
   // Fold possessives before tokenizing: normKey would split "Women's" into "women s",
   // and a letter size "S" would then read as already-in-the-name.
   const fold = (s: string | null | undefined) => normKey((s ?? "").replace(/'/g, ""));
-  const v = fold(variant).split(" ").filter(Boolean);
-  if (!v.length) return false;
-  const n = fold(name).split(" ").filter(Boolean);
-  for (let i = 0; i + v.length <= n.length; i++) {
-    if (n.slice(i, i + v.length).join(" ") === v.join(" ")) return true;
-  }
-  return false;
+  const v = fold(variant);
+  // the fold leaves words single-spaced, so a run of whole words is a padded substring
+  return v !== "" && ` ${fold(name)} `.includes(` ${v} `);
 }
 
 /** Median of a numeric list (avg of the two middles for even length). */

@@ -52,7 +52,7 @@ import {
   type OgCardModel,
   type OgCardSource,
 } from "../../shared/ogCard";
-import { setReadEdgeCache } from "./http";
+import { setNoStore, setReadEdgeCache } from "./http";
 import { ogFonts } from "./ogFonts";
 
 // tokens.scss, light values: --paper / --ink / --ink-2
@@ -168,7 +168,7 @@ function cardVnode(m: OgCardModel): Vnode {
       ]),
       el({ flexGrow: 1 }),
       // the big figure — number dominant, unit smaller and muted ON ITS BASELINE,
-      // exactly TotalsBar's totals__big + totals__unit pairing. Bottom-aligned
+      // exactly the page's own headline pairing (Headline.vue). Bottom-aligned
       // with the unit lifted by the computed correction — see UNIT_BASELINE_LIFT
       // for why `baseline` itself can't be trusted here.
       el({ flexDirection: "row", alignItems: "flex-end" }, [
@@ -305,7 +305,7 @@ export async function sendOgCard(event: H3Event, list: OgCardSource): Promise<Bu
     // (e.g. a deploy missing the font assets would 302 every card with zero
     // signal). no-store: never cache the outage.
     console.error("og card render failed, serving static fallback:", e);
-    setHeader(event, "Cache-Control", "no-store");
+    setNoStore(event);
     return sendRedirect(event, "/og.png", 302);
   }
 }

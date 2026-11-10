@@ -211,12 +211,12 @@ export function pluralNoun(n: number, one: string, many = `${one}s`): string {
   return n === 1 ? one : many;
 }
 
-/** Pinned, as weights.ts pins the locale its formatWeight groups with: a count renders
- *  on the server-rendered share views too, and an ambient locale would group it one way
- *  in the HTML and another on hydration. Restated rather than imported, because
- *  weights.ts imports this module (listSummaryBits counts with counted()), and
- *  importing back would make the two a cycle. */
-const NUM_LOCALE = "en-US";
+/** The one locale numbers are grouped in, pinned: a count renders on the server-rendered
+ *  share views too, and an ambient locale would group it one way in the HTML and another
+ *  on hydration. Declared here and read by weights.ts for formatWeight, since weights.ts
+ *  imports this module (listSummaryBits counts with counted()) and the other direction
+ *  would make the two a cycle. */
+export const NUM_LOCALE = "en-US";
 
 /** A count grouped the way formatWeight groups a weight — "1,284" — so a count read
  *  beside "312,450 g" doesn't arrive as a bare "1284". */

@@ -17,9 +17,11 @@ import { READ_EDGE_CACHE_CONTROL } from "../../shared/site";
  * rate-limits twice, on two different subjects, at two points in its body. Three
  * separate one-line calls can express all of that. One wrapper can't.
  *
- * The one bundle that IS safe is requireAccount (authSession.ts): the
- * session-gated account endpoints all set both headers and rate-limit before
- * resolving the session, and none of them go near requireAdmin.
+ * The bundles that ARE safe are narrow ones, each over endpoints that share one
+ * fixed order and never go near requireAdmin: openPrivate and requireAccount
+ * (authSession.ts) for the endpoints answering with one person's own data, which
+ * all set both headers and then rate-limit, and requireEdit (editAuth.ts) for the
+ * edit endpoints, which all rate-limit before resolving the capability.
  */
 export function setNoIndex(event: H3Event): void {
   setHeader(event, "X-Robots-Tag", "noindex");
@@ -152,7 +154,7 @@ export async function readResponseCapped(
     total += value.byteLength;
     chunks.push(value);
   }
-  return { ok: true, body: total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null };
+  return { ok: true, body: total ? Buffer.concat(chunks) : null };
 }
 
 /** A body field that should be an array: the elements `guard` admits, capped.

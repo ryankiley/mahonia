@@ -22,7 +22,7 @@ import { foldForSearch } from "./searchText";
 import type { Folder, Item, Person } from "./types";
 import { itemDisplayName } from "./weights";
 import { counted as plural, tidyText } from "./tidyText";
-import { isOpObject, type Op } from "./ops";
+import { isOpObject, MAX_PERSON_NAME_LEN, type Op } from "./ops";
 
 /** Longer than this and it stops being a label. */
 export const MAX_SUMMARY_LEN = 80;
@@ -180,7 +180,7 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
           const was = peopleById.get(op.id)?.name;
           // sliced to the reducer's own cap, so the line quotes the name the
           // list actually stored, not the untrimmed one the patch carried
-          const now = tidyText(op.patch.name.slice(0, 60));
+          const now = tidyText(op.patch.name.slice(0, MAX_PERSON_NAME_LEN));
           if (was && now && was !== now) rename = `${was} → ${now}`;
         }
         peopleEdited.add(rename);

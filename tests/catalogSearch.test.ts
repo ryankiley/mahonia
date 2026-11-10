@@ -1,18 +1,31 @@
 import { describe, expect, it } from "vitest";
 import {
-  hasTokenHit,
-  isExactOrPrefixMatch,
-  isSearchTermRun,
-  matchTier,
   mergeCatalogRows,
   rankCandidates,
+  runsIn,
+  searchTokens,
+  tierOf,
+  tokenHit,
   trigramScore,
   trigrams,
-  typeMatch,
+  typeOf,
   STRONG_THRESHOLD,
   type LocalCatalogRow,
 } from "../shared/catalogSearch";
 import { highlightParts } from "../shared/searchText";
+
+// The ranker's rules take words already folded. The cases below are written as the text
+// a person types and the text a row carries, so these fold both the way rankCandidates
+// does before asking the rule.
+const isExactOrPrefixMatch = (query: string, target: string) => runsIn(searchTokens(query), searchTokens(target));
+const typeMatch = (query: string, commonName: string | null) => typeOf(searchTokens(query), searchTokens(commonName));
+const hasTokenHit = (query: string, target: string) => tokenHit(searchTokens(query), searchTokens(target));
+const isSearchTermRun = (query: string, searchTerms: string | null) => runsIn(searchTokens(query), searchTokens(searchTerms));
+const matchTier = (query: string, brandName: string, score: number, commonName?: string | null, searchTerms?: string | null) => {
+  const qt = searchTokens(query);
+  const name = searchTokens(brandName);
+  return tierOf(qt, typeOf(qt, searchTokens(commonName)), name, [...name, ...searchTokens(searchTerms)], score);
+};
 
 // The one home for trigram behaviour: the server re-exports trigramScore from
 // this same module (server/utils/catalog.ts), so covering it here covers both.

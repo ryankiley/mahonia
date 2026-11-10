@@ -279,7 +279,6 @@ export function estimateDay(opts: {
   descentM?: number;
   bodyKg: number;
   loadKg?: number;
-  terrain?: Terrain;
 }): DayEstimate | null {
   const legs = dayLegs(opts.distanceM, opts.ascentM, opts.descentM);
   if (!legs.length || !(opts.bodyKg > 0)) return null;
@@ -296,7 +295,6 @@ export function estimateDay(opts: {
       gradePct: leg.slope * 100,
       bodyKg: opts.bodyKg,
       loadKg,
-      terrain: opts.terrain,
       hours: legHours,
     });
   }
@@ -436,19 +434,19 @@ export function lastOwnedDayIndex(dayDistancesM: readonly number[]): number {
 }
 
 function endAt(
-  range: DayRange | undefined,
+  range: DayRange,
   index: number,
   finishIndex: number,
   endPinsAtM: readonly number[] | undefined,
 ): DayEnd | null {
-  if (!range || range.toM <= range.fromM) return null;
+  if (range.toM <= range.fromM) return null;
   if (index !== finishIndex) return { kind: "camp", alongM: range.toM };
   if (endPinsAtM?.some((m) => Math.abs(m - range.toM) <= 1)) return null;
   return { kind: "finish", alongM: range.toM };
 }
 
 /**
- * How a day ends, if it ends anywhere worth drawing a row for.
+ * How each day ends, if it ends anywhere worth drawing a row for.
  *
  * Camp and finish are the same question ("where does this day leave you") with two
  * answers, which is why one function settles it: the LAST day with any distance
@@ -460,24 +458,12 @@ function endAt(
  * camp, because the route carries on past it and finishing there would be a lie.
  *
  * `endPinsAtM` stands the finish row down. A point-to-point route already STORES an
- * end pin and it files into this day; saying the same thing twice in two rows is
+ * end pin and it files into that last day; saying the same thing twice in two rows is
  * worse than not saying it, so the derived row yields to the real one. Within a
  * metre, because the two arrive by different arithmetic — one from the polyline's
  * length, one from the days summed. Takes the whole list and asks whether ANY of
  * them lands here, rather than trusting there to be exactly one.
- */
-export function dayEnd(opts: {
-  index: number;
-  ranges: readonly DayRange[];
-  dayDistancesM: readonly number[];
-  hasRest: boolean;
-  endPinsAtM?: readonly number[];
-}): DayEnd | null {
-  const { index, ranges, dayDistancesM, hasRest, endPinsAtM } = opts;
-  return endAt(ranges[index], index, hasRest ? -1 : lastOwnedDayIndex(dayDistancesM), endPinsAtM);
-}
-
-/**
+ *
  * Every itinerary end at once. The finish is found once, rather than making every row
  * scan all following days to discover whether it is last.
  */

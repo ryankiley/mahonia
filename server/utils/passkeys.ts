@@ -33,7 +33,7 @@
 import type { H3Event } from "h3";
 import { createError } from "h3";
 import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server";
-import { trustedHost, trustedOrigin } from "./origin";
+import { trustedOrigin } from "./origin";
 import { randomSecret, sha256Hex } from "./tokens";
 import { sharedKvConfigured, useKv } from "./rateLimit";
 
@@ -42,10 +42,10 @@ import { sharedKvConfigured, useKv } from "./rateLimit";
 const PASSKEY_CHALLENGE_TTL_MS = 3 * 60_000;
 
 /** The Relying Party ID — the registrable domain a passkey is bound to. The
- *  trusted host with the port stripped (WebAuthn's rpId is a domain, and
+ *  trusted origin's hostname, so without its port (WebAuthn's rpId is a domain, and
  *  `localhost:3000` is not one; bare `localhost` is explicitly allowed). */
 export function rpIdFor(event: H3Event): string {
-  return trustedHost(event).split(":")[0]!;
+  return new URL(trustedOrigin(event)).hostname;
 }
 
 /**
@@ -116,8 +116,11 @@ const RP_NAME = "Mahonia";
 const PASSKEY_ALGORITHM_IDS = [-8, -7, -257];
 
 /**
- * The refusal every passkey endpoint opens with: fail up front, loudly, rather
- * than at verify with nothing to explain it. One message to maintain.
+ * The refusal the three options endpoints and signup-verify open with: fail up
+ * front, loudly, rather than at verify with nothing to explain it. One message to
+ * maintain. register-verify and signin-verify do not call it: a ceremony reaches
+ * them only through an options endpoint that made this check, and a request that
+ * skips one finds no challenge and gets their ordinary refusal.
  *
  * Can this deployment run a passkey ceremony at all? A ceremony is TWO requests —
  * options (which writes the challenge) then verify (which reads it) — so the

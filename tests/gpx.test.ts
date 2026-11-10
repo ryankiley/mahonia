@@ -1,8 +1,8 @@
-import { deflateRawSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 import { Window } from "happy-dom";
-import { filePins, geoJsonPoints, gpxPoints, gpxStats, haversineM, kmzToKml, MAX_GPX_BYTES, zipMember, type TrackPoint } from "../shared/gpx";
+import { filePins, filledElevations, geoJsonPoints, gpxPoints, gpxStats, haversineM, MAX_GPX_BYTES, zipMember, type TrackPoint } from "../shared/gpx";
 import { CLIMB_SAMPLE_M, GRADE_HARD_PCT, GRADE_MODERATE_PCT, PROFILE_SAMPLES, dayClimbs, gradeRuns, gradeSpread, parseProfile, profileToString, segmentClimbs, smooth } from "../shared/profile";
+import { zipEntries } from "./helpers/zip";
 
 // A track that walks due east along a parallel, so the distances are easy to reason
 // about: at the equator 0.001° of longitude is ~111 m.
@@ -38,7 +38,6 @@ describe("gpxStats — distance", () => {
     // 10 legs of ~111 m
     expect(s.distanceM).toBeGreaterThan(1090);
     expect(s.distanceM).toBeLessThan(1120);
-    expect(s.pointCount).toBe(11);
   });
 
   it("declines a track that isn't one", () => {
@@ -58,9 +57,10 @@ describe("gpxStats — distance", () => {
     const track = eastward(6, (i) => 1000 + i * 10);
     delete track[0]!.ele; // a leading gap takes the first reading after it
     track[3]!.ele = Number.NaN; // a NaN is a gap too, not a reading
+    expect(filledElevations(track)).toEqual([1010, 1010, 1020, 1020, 1040, 1050]);
     const s = gpxStats(track)!;
-    expect(s.minEleM).toBe(1010);
-    expect(s.maxEleM).toBe(1050);
+    expect(Math.min(...s.profile)).toBe(1010);
+    expect(Math.max(...s.profile)).toBe(1050);
     expect(s.ascentM).toBeGreaterThan(0);
     expect(s.profile).toHaveLength(PROFILE_SAMPLES);
     // none anywhere is still none
@@ -145,10 +145,10 @@ describe("gpxStats — ascent, and the noise that would ruin it", () => {
     expect(s.descentM).toBeLessThan(s.ascentM);
   });
 
-  it("reports the range it actually spanned", () => {
+  it("draws the range it actually spanned", () => {
     const s = gpxStats(eastward(50, (i) => 800 + i * 20))!;
-    expect(s.minEleM).toBe(800);
-    expect(s.maxEleM).toBe(1780);
+    expect(Math.min(...s.profile)).toBe(800);
+    expect(Math.max(...s.profile)).toBe(1780);
   });
 
   it("says nothing about climb when the track carries no elevation", () => {
@@ -453,9 +453,11 @@ describe("reading a route out of somebody else's file", () => {
     expect(point).toEqual({ lat: 45.33, lon: -121.71 });
     // the same file with its first altitude missing keeps its profile: the gap takes
     // the 1850 beside it instead of counting as sea level or voiding the climb
-    const gap = gpxStats(gpxPoints(xml(TCX.replace("<AltitudeMeters>1800</AltitudeMeters>", ""))))!;
-    expect(gap.minEleM).toBe(1850);
-    expect(gap.maxEleM).toBe(1900);
+    const gapPoints = gpxPoints(xml(TCX.replace("<AltitudeMeters>1800</AltitudeMeters>", "")));
+    expect(filledElevations(gapPoints)).toEqual([1850, 1850, 1900]);
+    const gap = gpxStats(gapPoints)!;
+    expect(Math.min(...gap.profile)).toBe(1850);
+    expect(Math.max(...gap.profile)).toBe(1900);
     expect(gap.profile).toHaveLength(PROFILE_SAMPLES);
   });
 
@@ -469,62 +471,14 @@ describe("reading a route out of somebody else's file", () => {
 });
 
 describe("KMZ — a KML in a zip", () => {
-  /** A real zip, built here rather than mocked, so the central-directory walk is
-   *  genuinely exercised. `method` 0 is stored; 8 would be deflate. */
-  type ZipInput = { name: string; body: string | Uint8Array; deflate?: boolean };
-
-  function zipEntries(entries: readonly ZipInput[]): ArrayBuffer {
-    const enc = new TextEncoder();
-    const prepared = entries.map(({ name, body, deflate = false }) => {
-      const raw = typeof body === "string" ? enc.encode(body) : body;
-      return {
-        nameB: enc.encode(name),
-        raw,
-        data: deflate ? new Uint8Array(deflateRawSync(raw)) : raw,
-        method: deflate ? 8 : 0,
-        localAt: 0,
-      };
-    });
-    const localSize = prepared.reduce((size, entry) => size + 30 + entry.nameB.length + entry.data.length, 0);
-    const centralSize = prepared.reduce((size, entry) => size + 46 + entry.nameB.length, 0);
-    const buf = new Uint8Array(localSize + centralSize + 22);
-    const dv = new DataView(buf.buffer);
-    let o = 0;
-
-    for (const entry of prepared) {
-      entry.localAt = o;
-      dv.setUint32(o, 0x04034b50, true);            // local header
-      dv.setUint16(o + 8, entry.method, true);
-      dv.setUint32(o + 18, entry.data.length, true); // compressed size
-      dv.setUint32(o + 22, entry.raw.length, true);  // uncompressed size
-      dv.setUint16(o + 26, entry.nameB.length, true);
-      buf.set(entry.nameB, o + 30);
-      buf.set(entry.data, o + 30 + entry.nameB.length);
-      o += 30 + entry.nameB.length + entry.data.length;
-    }
-
-    const cdAt = o;
-    for (const entry of prepared) {
-      dv.setUint32(o, 0x02014b50, true);            // central directory
-      dv.setUint16(o + 10, entry.method, true);
-      dv.setUint32(o + 20, entry.data.length, true);
-      dv.setUint32(o + 24, entry.raw.length, true);
-      dv.setUint16(o + 28, entry.nameB.length, true);
-      dv.setUint32(o + 42, entry.localAt, true);    // local header offset
-      buf.set(entry.nameB, o + 46);
-      o += 46 + entry.nameB.length;
-    }
-
-    dv.setUint32(o, 0x06054b50, true);            // end of central directory
-    dv.setUint16(o + 8, prepared.length, true);    // entries on this disk
-    dv.setUint16(o + 10, prepared.length, true);   // entries total
-    dv.setUint32(o + 12, centralSize, true);
-    dv.setUint32(o + 16, cdAt, true);              // where the directory starts
-    return buf.buffer;
-  }
-
   const zip = (name: string, body: string, { deflate = false }: { deflate?: boolean } = {}) =>
     zipEntries([{ name, body, deflate }]);
+
+  // KMZ: the KML inside, as text, unzipped the way the importer unzips it
+  const kmzToKml = async (buffer: ArrayBuffer): Promise<string | null> => {
+    const member = await zipMember(buffer, (name) => /\.kml$/i.test(name));
+    return member ? new TextDecoder().decode(member.bytes) : null;
+  };
 
   it("pulls the KML out and reads the route in it", async () => {
     const kml = await kmzToKml(zip("doc.kml", KML));
@@ -706,10 +660,12 @@ describe("gpxStats — a track sampled every second, as a watch writes one", () 
   });
 
   it("copes with a track longer than a spread call can take", () => {
-    // 200,000 points is two and a bit days at one a second; Math.min(...ele) threw here
+    // 200,000 points is two and a bit days at one a second: more than a call takes as
+    // arguments, so nothing in the read may spread the track into one
     const pts = Array.from({ length: 200_000 }, (_, i) => ({ lat: 0, lon: i / 111_195, ele: 1000 + (i % 100) }));
     const s = gpxStats(pts)!;
-    expect(s.minEleM).toBe(1000);
-    expect(s.maxEleM).toBe(1099);
+    expect(s.profile).toHaveLength(PROFILE_SAMPLES);
+    expect(Math.min(...s.profile)).toBeGreaterThanOrEqual(1000);
+    expect(Math.max(...s.profile)).toBeLessThanOrEqual(1099);
   });
 });

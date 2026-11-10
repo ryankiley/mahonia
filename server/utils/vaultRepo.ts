@@ -24,15 +24,13 @@ import {
   type VaultKitPart,
   type VaultKitPartRef,
   type VaultItemOp,
-  type VaultItemPatch,
   type VaultPinField,
   ownedOf,
 } from "../../shared/vault";
-export type { VaultItemOp, VaultItemPatch };
 import type { VaultImportRow } from "../../shared/vaultImport";
 import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX, kitWeightMg } from "../../shared/vaultKit";
 import { CLASSIFICATIONS, UNITS, type Classification, type Unit } from "../../shared/types";
-import { clampUnitWeightMg, isSerialId, KCAL_MAX } from "../../shared/ops";
+import { clampUnitWeightMg, isSerialId, kcalOf } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { tidyText } from "../../shared/tidyText";
 import { isGearGlyph } from "../../shared/gearGlyph";
@@ -86,7 +84,7 @@ function pinsOf(row: Row): VaultPinField[] | undefined {
 // upsert target. The stored column keeps whatever it had until the next capture
 // rewrites it from an already-tidied list item.
 /** A unit off the wire or out of the column, or undefined for anything else. */
-const unitOf = (v: unknown): Unit | undefined => (UNITS.includes(v as Unit) ? (v as Unit) : undefined);
+export const unitOf = (v: unknown): Unit | undefined => (UNITS.includes(v as Unit) ? (v as Unit) : undefined);
 /** A classification off the wire or out of the column, or undefined for anything else:
  *  the CHECK would reject it, and a 500 is the wrong answer to one bad field. */
 export const classificationOf = (v: unknown): Classification | undefined =>
@@ -217,15 +215,6 @@ function url(v: unknown): string | undefined {
  *  at zero was not enough: a direct POST
  *  of 1e19 reached the bigint column and errored the whole multi-row capture, so
  *  one hostile row took a whole list's gear down with it. */
-/** kcal off the wire: a positive whole number under the reducer's own ceiling, or
- *  absent — the same bounds shared/ops applies to a list row, so a direct POST
- *  can't store a value the editor could never have produced. */
-function kcalOf(v: unknown): number | undefined {
-  if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
-  const k = Math.round(v);
-  return k > 0 ? Math.min(KCAL_MAX, k) : undefined;
-}
-
 /** A price off the wire: whole cents, floored at zero and capped so an integer
  *  column can hold it. Zero reads as absent, like kcal — nobody records paying
  *  nothing, and a stored 0 would print as "0.00" on every row that never had one. */
@@ -794,13 +783,9 @@ async function markVaultItems(db: Db, vaultId: number, ids: readonly number[], r
 /** Untouched for this long and a vault is presumed abandoned. Much longer than a
  *  list's 30: a list is reaped for being EMPTY as well as stale, whereas a full
  *  vault is exactly what someone might return to after a season off. */
-const VAULT_REAP_STALE_DAYS = Math.max(1, Number(process.env.VAULT_REAP_STALE_DAYS) || 180);
+const VAULT_REAP_STALE_DAYS = Number(process.env.VAULT_REAP_STALE_DAYS) || 180;
 /** How long a soft-deleted vault stays revivable — the same 90 days a list gets. */
-const VAULT_PURGE_GRACE_DAYS = Math.max(
-  1,
-  Number(process.env.VAULT_PURGE_GRACE_DAYS) || 90,
-);
-const VAULT_REAP_BATCH_MAX = 10_000;
+const VAULT_PURGE_GRACE_DAYS = Number(process.env.VAULT_PURGE_GRACE_DAYS) || 90;
 
 /** Soft-delete vaults not seen in `staleDays`. Batched, so one run can never issue
  *  an unbounded write — a backlog just drains over successive nights. */
@@ -808,7 +793,7 @@ export async function reapAbandonedVaults(
   db: Db,
   opts?: { staleDays?: number; limit?: number },
 ): Promise<{ vaultsReaped: number }> {
-  const { cutoff, limit } = sweepWindow(opts?.staleDays, VAULT_REAP_STALE_DAYS, opts?.limit, VAULT_REAP_BATCH_MAX);
+  const { cutoff, limit } = sweepWindow(opts?.staleDays, VAULT_REAP_STALE_DAYS, opts?.limit);
   const stale = db
     .select({ id: vaults.id })
     .from(vaults)
@@ -829,7 +814,7 @@ export async function purgeDeletedVaults(
   db: Db,
   opts?: { graceDays?: number; limit?: number },
 ): Promise<{ vaultsPurged: number }> {
-  const { cutoff, limit } = sweepWindow(opts?.graceDays, VAULT_PURGE_GRACE_DAYS, opts?.limit, VAULT_REAP_BATCH_MAX);
+  const { cutoff, limit } = sweepWindow(opts?.graceDays, VAULT_PURGE_GRACE_DAYS, opts?.limit);
   const doomed = await db
     .select({ id: vaults.id })
     .from(vaults)
@@ -838,22 +823,28 @@ export async function purgeDeletedVaults(
   if (!doomed.length) return { vaultsPurged: 0 };
   const ids = doomed.map((r) => r.id);
 
-  // children first — there's no DB-level FK here (same as lists → snapshots), so
-  // the cascade is manual, and doing it in this order means a run that dies partway
-  // leaves orphaned NOTHING: the vault row is the last thing to go. A kit's links go
-  // before the rows they join, by the same rule.
+  await deleteVaultContents(db, ids);
+  await db.delete(vaults).where(inArray(vaults.id, ids));
+  return { vaultsPurged: ids.length };
+}
+
+/**
+ * Everything inside these vaults, leaving the vault rows themselves. There is no
+ * DB-level FK here (same as lists → snapshots), so the cascade is manual: children
+ * first, and a kit's links before the rows they join. A caller deletes the vault row
+ * LAST, so a run that dies partway leaves nothing orphaned.
+ */
+export async function deleteVaultContents(db: Db, vaultIds: number[]): Promise<void> {
   await db
     .delete(vaultKitParts)
     .where(
       inArray(
         vaultKitParts.kitId,
-        db.select({ id: vaultItems.id }).from(vaultItems).where(inArray(vaultItems.vaultId, ids)),
+        db.select({ id: vaultItems.id }).from(vaultItems).where(inArray(vaultItems.vaultId, vaultIds)),
       ),
     );
-  await db.delete(vaultItems).where(inArray(vaultItems.vaultId, ids));
-  await db.delete(vaultFolders).where(inArray(vaultFolders.vaultId, ids));
-  await db.delete(vaults).where(inArray(vaults.id, ids));
-  return { vaultsPurged: ids.length };
+  await db.delete(vaultItems).where(inArray(vaultItems.vaultId, vaultIds));
+  await db.delete(vaultFolders).where(inArray(vaultFolders.vaultId, vaultIds));
 }
 
 // ---------------------------------------------------------------------------

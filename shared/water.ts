@@ -74,8 +74,7 @@ export function waterPhraseMl(text: string): number | null {
   // set off the way a weight is ("Water - 2 L", "Water: 750 ml", "Water (2 L)")
   vol = vol?.replace(/^[-–—:,|(]\s*/, "").replace(/\)$/, "").trim() ?? null;
   if (!vol) return null;
-  const ml = parseVolumeMl(vol);
-  return ml != null && ml > 0 ? ml : null;
+  return parseVolumeMl(vol);
 }
 
 /** A water row's volume in litres as the bare number its fields show ("1.75"), or "" at zero. */

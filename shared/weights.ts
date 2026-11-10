@@ -10,7 +10,7 @@ import type {
   Totals,
   Unit,
 } from "./types";
-import { counted } from "./tidyText";
+import { counted, NUM_LOCALE } from "./tidyText";
 
 /** Milligrams per one display unit. */
 export const MG_PER_UNIT: Record<Unit, number> = {
@@ -598,10 +598,9 @@ export function computeTotals(list: ListData): Totals {
 // "1.5 kg"), a mismatch Vue silently patches after paint. Those pages are also
 // edge-cached, so the HTML every visitor gets carries whichever locale the lambda
 // happened to have. Pinning makes the two sides agree by construction. This is the
-// same rule the date formatters already follow, which pin for exactly this reason. tidyText's counted()
-// restates it rather than importing it (that module is imported here), so a change
-// to this pin is made in both places.
-const NUM_LOCALE = "en-US";
+// same rule the date formatters already follow, which pin for exactly this reason. The pin
+// itself is tidyText's NUM_LOCALE, the one counted() groups a count with, so a weight and
+// the count beside it cannot be pinned apart.
 
 // One formatter per precision, made on first use and kept. toLocaleString with options
 // builds a fresh Intl.NumberFormat on every call, and a weight is formatted once or
@@ -658,12 +657,8 @@ export function formatKcal(kcal: number): string {
  * Metric promotes g→kg at ≥1 kg; imperial promotes oz→lb at ≥1 lb. This is the
  * magnitude auto-promotion that `formatWeight` deliberately dropped.
  */
-export function formatWeightAuto(
-  mg: number,
-  opts: { system?: WeightSystem; withUnit?: boolean } = {},
-): string {
-  const { system = "metric", withUnit = true } = opts;
-  return formatWeight(mg, autoUnit(mg, system), { withUnit });
+export function formatWeightAuto(mg: number, opts: { system?: WeightSystem } = {}): string {
+  return formatWeight(mg, autoUnit(mg, opts.system ?? "metric"));
 }
 
 type WeightSystem = "metric" | "imperial";

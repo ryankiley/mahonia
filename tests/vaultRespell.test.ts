@@ -18,6 +18,7 @@ import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { captureVaultItems, listVaultItems } from "../server/utils/vaultRepo";
 import { captureFromList } from "../shared/vault";
 import type { Item } from "../shared/types";
+import { seedCatalogRow } from "./helpers/catalog";
 import { createTestDb, makeList, type TestDb } from "./helpers/db";
 import { item } from "./helpers/list";
 
@@ -26,11 +27,8 @@ const CURLY = "’";
 async function setup() {
   const db = await createTestDb(LISTS_DDL, CATALOG_DDL, ACCOUNT_DDL, VAULT_DDL);
   const [vault] = await db.insert(schema.vaults).values({ userId: null }).returning({ id: schema.vaults.id });
-  const [hoodie] = await db
-    .insert(schema.catalogItems)
-    .values({ brand: "Senchi Designs", name: "Alpha 60 Hoodie", variant: "Men's Medium", weightMg: 107_728, weightSource: "manufacturer", verified: true })
-    .returning();
-  return { db, vaultId: vault!.id, hoodie: hoodie! };
+  const hoodie = await seedCatalogRow(db, { brand: "Senchi Designs", name: "Alpha 60 Hoodie", variant: "Men's Medium", weightMg: 107_728, weightSource: "manufacturer", verified: true });
+  return { db, vaultId: vault!.id, hoodie };
 }
 
 const picked = (over: Partial<Item>): Item =>
@@ -56,17 +54,11 @@ describe("capturing a catalog pick", () => {
 
   it("hands a retired row's link and spelling on to its successor", async () => {
     const { db, vaultId } = await setup();
-    const [bar] = await db
-      .insert(schema.catalogItems)
-      .values({ brand: "Clif", name: "Builders Protein Bar (Chocolate Peanut Butter)", weightMg: 68_000, weightSource: "manufacturer", verified: true })
-      .returning();
-    const [single] = await db
-      .insert(schema.catalogItems)
-      .values({ brand: "Clif", name: "Builders Protein Bar (Chocolate Peanut Butter)", variant: "single bar", weightMg: 68_000, weightSource: "manufacturer", verified: true, status: "merged", mergedIntoId: bar!.id })
-      .returning();
-    const old = item({ id: "b", brand: "Clif", name: "Builders Protein Bar (Chocolate Peanut Butter)", variant: "single bar", unitWeightMg: 68_000, catalogItemId: single!.id, classification: "consumable" });
+    const bar = await seedCatalogRow(db, { brand: "Clif", name: "Builders Protein Bar (Chocolate Peanut Butter)", weightMg: 68_000, weightSource: "manufacturer", verified: true });
+    const single = await seedCatalogRow(db, { brand: "Clif", name: "Builders Protein Bar (Chocolate Peanut Butter)", variant: "single bar", weightMg: 68_000, weightSource: "manufacturer", verified: true, status: "merged", mergedIntoId: bar.id });
+    const old = item({ id: "b", brand: "Clif", name: "Builders Protein Bar (Chocolate Peanut Butter)", variant: "single bar", unitWeightMg: 68_000, catalogItemId: single.id, classification: "consumable" });
     await captureVaultItems(db, vaultId, captureFromList([old]));
-    expect(await rowsOf(db, vaultId)).toEqual([{ variant: null, catalogItemId: bar!.id, timesSeen: 1 }]);
+    expect(await rowsOf(db, vaultId)).toEqual([{ variant: null, catalogItemId: bar.id, timesSeen: 1 }]);
   });
 
   it("leaves an import's text alone: a file says nothing about what was renamed", async () => {

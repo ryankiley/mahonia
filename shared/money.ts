@@ -126,43 +126,39 @@ export function sumPrices(
 }
 
 /**
- * A stored price as it reads on screen and in an export.
+ * `value` as Intl writes it in `currency`, or null when there is no currency or none
+ * Intl knows.
  *
  * Intl does the currency's own placement and separators ("$399.00", "399,00 €"),
  * which is what makes a price look local rather than American-with-a-symbol. A code
- * Intl won't take throws rather than falling back, so the bare number is the catch —
- * the same shape a price with no currency at all takes.
+ * Intl won't take throws rather than falling back, so null is the catch, and each
+ * caller says what a bare figure looks like. `digits` pins the decimals; absent, the
+ * currency's own count stands.
  */
+function intlMoney(value: number, currency: string | undefined, digits?: number): string | null {
+  if (!currency || !/^[A-Za-z]{3}$/.test(currency)) return null;
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency: currency.toUpperCase(),
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    }).format(value);
+  } catch {
+    return null;
+  }
+}
+
 /** Nothing, in a currency: "$0", "£0", or a bare "0" when there is no currency (or none
  *  Intl knows). The price field's placeholder, so a bare number typed into it says
  *  ahead of time which money it will be saved in. */
 export function zeroPrice(currency?: string): string {
-  if (currency && /^[A-Za-z]{3}$/.test(currency)) {
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: currency.toUpperCase(),
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      }).format(0);
-    } catch {
-      /* not a currency Intl knows */
-    }
-  }
-  return "0";
+  return intlMoney(0, currency, 0) ?? "0";
 }
 
+/** A stored price as it reads on screen and in an export: the currency's own form, or
+ *  the bare number when there is no currency (or none Intl knows). */
 export function formatPrice(cents: number, currency?: string): string {
   const value = Math.max(0, Math.round(cents)) / 100;
-  if (currency && /^[A-Za-z]{3}$/.test(currency)) {
-    try {
-      return new Intl.NumberFormat(undefined, {
-        style: "currency",
-        currency: currency.toUpperCase(),
-      }).format(value);
-    } catch {
-      /* not a currency Intl knows — fall through to the plain number */
-    }
-  }
-  return value.toFixed(2);
+  return intlMoney(value, currency) ?? value.toFixed(2);
 }

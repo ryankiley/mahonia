@@ -1,7 +1,5 @@
 import { defineEventHandler } from "h3";
-import { resolveSession } from "../../utils/authSession";
-import { rateLimit } from "../../utils/rateLimit";
-import { setNoIndex, setPrivate } from "../../utils/http";
+import { openPrivate, resolveSession } from "../../utils/authSession";
 
 // Who am I? `{ user: null }` when signed out — an ordinary answer, not a 401, so
 // the client can render the signed-out state without treating it as an error.
@@ -9,9 +7,7 @@ import { setNoIndex, setPrivate } from "../../utils/http";
 // Never cached: it varies per cookie, and an edge or browser cache holding one
 // user's answer is the classic way to serve someone else's identity.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "auth-me");
+  await openPrivate(event, "auth-me");
   const user = await resolveSession(event);
   if (!user) return { user: null };
   // the display name rides along (resolveSession already joins users for it) so

@@ -120,7 +120,7 @@ export function validateExternalUrl(input: string): URL | null {
   return url;
 }
 
-export async function isResolvedHostSafe(host: string): Promise<boolean> {
+async function isResolvedHostSafe(host: string): Promise<boolean> {
   if (isIP(host)) return true; // literal IP — already vetted by validateExternalUrl
   try {
     const records = await lookup(host, { all: true });
@@ -131,7 +131,7 @@ export async function isResolvedHostSafe(host: string): Promise<boolean> {
   }
 }
 
-export interface SafeGetOptions {
+interface SafeGetOptions {
   /** redirects to follow, every hop re-vetted; 0 refuses the first one, for a document
    *  whose address is its identity */
   maxRedirects?: number;

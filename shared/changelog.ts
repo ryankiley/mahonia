@@ -35,6 +35,11 @@ export interface ChangelogRelease {
   fixed?: string[];
 }
 
+/** The entry groups, in the order a release lists them. The writer, the validator,
+ *  the merge and the release body all walk this one list. */
+export const CHANGELOG_GROUPS = ["added", "changed", "fixed"] as const;
+export type ChangelogGroup = (typeof CHANGELOG_GROUPS)[number];
+
 // Newest first. localeCompare on ISO dates sorts chronologically; Array.sort is
 // stable, so same-day batches keep their authored order. Sorts a copy — never
 // mutates the input.
@@ -76,7 +81,7 @@ export function mergeReleases(releases: ChangelogRelease[]): ChangelogRelease[] 
     }
     // First title on a date wins — see above.
     if (rel.title && !entry.title) entry.title = rel.title;
-    for (const key of ["added", "changed", "fixed"] as const) {
+    for (const key of CHANGELOG_GROUPS) {
       for (const item of rel[key] ?? []) {
         if (!entry.groups[key]!.includes(item)) entry.groups[key]!.push(item);
       }

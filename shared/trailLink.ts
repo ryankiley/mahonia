@@ -94,8 +94,8 @@ export function displayUrl(url: URL): string {
 // The stored bounds. They live here, applied INSIDE the normalizers, because the DB
 // columns are bare `text` — these are the only limit there is, and a caller that
 // remembered to normalize but forgot to clamp would be an unbounded write.
-const MAX_TRAIL_URL_LEN = 2000; // matches an item's productUrl
-const MAX_TRAIL_LABEL_LEN = 120;
+export const MAX_TRAIL_URL_LEN = 2000; // matches an item's productUrl
+export const MAX_TRAIL_LABEL_LEN = 120;
 
 /**
  * A raw trail URL → its canonical stored form, or null if it isn't a safe http(s) URL.

@@ -13,8 +13,8 @@ export default defineEventHandler(async (event) => {
   const { user, db } = await requireAccount(event, "list-claim");
 
   const body = await readJsonBodyCapped<{ shareCode?: unknown }>(event, 2_000);
-  const shareCode = typeof body?.shareCode === "string" ? body.shareCode.slice(0, 32) : "";
-  if (!shareCode) return { ok: false };
-
+  // unclaimList normalizes the code itself: anything that is not one, the empty
+  // string included, claims nothing and answers false
+  const shareCode = typeof body?.shareCode === "string" ? body.shareCode : "";
   return { ok: await unclaimList(db, user.id, shareCode) };
 });

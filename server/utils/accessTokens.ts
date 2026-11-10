@@ -83,7 +83,7 @@ export interface ConnectorIdentity {
 }
 
 /** The token endpoint's answer (RFC 6749 §5.1): the pair, and what it may do. */
-export interface IssuedTokens {
+interface IssuedTokens {
   access_token: string;
   token_type: "Bearer";
   expires_in: number;
@@ -185,12 +185,10 @@ export async function refreshAppTokens(db: Db, rawRefresh: unknown, clientId: un
 /** RFC 7009: a token presented for revocation ends the whole grant, whichever of the
  *  pair it was. A hand-minted token revokes itself the same way. Idempotent: a value
  *  that matches nothing was revoked already, as far as the caller can tell. */
-export async function revokeByToken(db: Db, raw: unknown): Promise<boolean> {
-  if (typeof raw !== "string" || !raw.startsWith(ACCESS_TOKEN_PREFIX) || raw.length > RAW_TOKEN_MAX) return false;
-  const hash = sha256Hex(raw);
+export async function revokeByToken(db: Db, raw: unknown): Promise<void> {
+  if (typeof raw !== "string" || !raw.startsWith(ACCESS_TOKEN_PREFIX) || raw.length > RAW_TOKEN_MAX) return;
   const column = raw.startsWith(APP_REFRESH_PREFIX) ? accessTokens.refreshHash : accessTokens.tokenHash;
-  const gone = await db.delete(accessTokens).where(eq(column, hash)).returning();
-  return gone.length > 0;
+  await db.delete(accessTokens).where(eq(column, sha256Hex(raw)));
 }
 
 /** The account's credentials as the account page shows them: newest first, metadata

@@ -22,7 +22,7 @@ import type { WaypointKind } from "./types";
 
 // The one binary format, in its own file for legibility and re-exported here so the
 // composable's single `await import()` still fetches every reader as one chunk.
-export { fitRoute, isFit, MAX_FIT_PINS, type FitRoute } from "./fit";
+export { fitRoute, isFit } from "./fit";
 
 /** One point off the track. `ele` is often absent — plenty of tracks carry no elevation. */
 export interface TrackPoint {
@@ -35,11 +35,8 @@ export interface GpxStats {
   distanceM: number;
   ascentM: number;
   descentM: number;
-  minEleM: number;
-  maxEleM: number;
   /** elevations sampled evenly BY DISTANCE — see resampleByDistance */
   profile: number[];
-  pointCount: number;
 }
 
 /** Refuse rather than block the main thread for seconds on a huge track. */
@@ -370,12 +367,6 @@ export async function zipMember(buffer: ArrayBuffer, want: (name: string) => boo
   return null;
 }
 
-/** KMZ — the KML inside, as text. */
-export async function kmzToKml(buffer: ArrayBuffer): Promise<string | null> {
-  const member = await zipMember(buffer, (name) => /\.kml$/i.test(name));
-  return member ? new TextDecoder().decode(member.bytes) : null;
-}
-
 /**
  * GeoRSS, which wraps a track in a feed. Coordinates are a flat, space-separated
  * `lat lon lat lon …` run inside `<georss:line>` or `<georss:polygon>` — LAT first here,
@@ -565,20 +556,9 @@ export function gpxStats(points: readonly TrackPoint[]): GpxStats | null {
 
   let ascentM = 0;
   let descentM = 0;
-  let minEleM = 0;
-  let maxEleM = 0;
   let profile: number[] = [];
 
   if (withEle.length) {
-    // a loop, not Math.min(...withEle): spreading a long track's elevations into a call
-    // overflows the argument list somewhere past a hundred thousand points, which a
-    // watch reaches in a day and a half of recording
-    minEleM = withEle[0]!;
-    maxEleM = withEle[0]!;
-    for (const e of withEle) {
-      if (e < minEleM) minEleM = e;
-      if (e > maxEleM) maxEleM = e;
-    }
     // Smoothed and thresholded rather than summed — profile.ts owns that pairing and the
     // calibration behind it. Measured across the FULL track here, which is the whole
     // reason the figure is stored separately from the resampled profile below: the
@@ -597,9 +577,6 @@ export function gpxStats(points: readonly TrackPoint[]): GpxStats | null {
     distanceM: Math.round(distanceM),
     ascentM: Math.round(ascentM),
     descentM: Math.round(descentM),
-    minEleM: Math.round(minEleM),
-    maxEleM: Math.round(maxEleM),
     profile,
-    pointCount: points.length,
   };
 }

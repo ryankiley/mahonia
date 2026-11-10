@@ -12,23 +12,15 @@ import { foldKeepingPlus } from "./searchText";
 import type { Item } from "./types";
 import { itemDisplayName } from "./weights";
 
-/** The fold exact matching uses: the search fold (width and diacritics folded,
- *  lowercase, letters of any script kept, punctuation to spaces) except that "+"
- *  survives — the one mark the catalog relies on to tell products apart ("X-Mid Pro 2"
- *  and "X-Mid Pro 2+", "Lone Peak 9" and "9+"). The search fold drops it, which is right
- *  for recall and wrong here: it made those pairs one ambiguous key, and an import
- *  naming either linked to neither. */
-export const foldName = foldKeepingPlus;
-
 /** The folded names a catalog row answers to: brand + model, and the same with its
  *  variant on the end ("Nemo Tensor All-Season Insulated Sleeping Pad Regular"). An
  *  unbranded row answers to its bare model. */
 export function catalogNameKeys(row: Pick<CatalogSearchResult, "brand" | "name" | "variant">): string[] {
-  const shown = foldName(itemDisplayName(row.brand, row.name));
+  const shown = foldKeepingPlus(itemDisplayName(row.brand, row.name));
   if (!shown) return [];
   const keys = [shown];
   if (row.variant) {
-    const withVariant = foldName(itemDisplayName(row.brand, row.name, row.variant));
+    const withVariant = foldKeepingPlus(itemDisplayName(row.brand, row.name, row.variant));
     if (withVariant !== shown) keys.push(withVariant);
   }
   return keys;
@@ -51,7 +43,7 @@ export function buildCatalogNameIndex(rows: CatalogSearchResult[]): CatalogNameI
 export type ImportedName = Pick<Item, "name" | "brand" | "variant">;
 
 export function importedNameKey(row: ImportedName): string {
-  return foldName(itemDisplayName(row.brand ?? null, row.name, row.variant ?? null));
+  return foldKeepingPlus(itemDisplayName(row.brand ?? null, row.name, row.variant ?? null));
 }
 
 export function lookupImported(index: CatalogNameIndex, row: ImportedName): CatalogSearchResult | null {

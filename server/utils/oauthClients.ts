@@ -73,14 +73,9 @@ export function cleanRedirectUris(raw: unknown): string[] | null {
   const out: string[] = [];
   for (const v of raw) {
     if (typeof v !== "string" || v.length > 2_000) return null;
-    let url: URL;
-    try {
-      url = new URL(v);
-    } catch {
-      return null;
-    }
-    if (url.hash || url.username || url.password) return null;
-    if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopbackHost(url.hostname))) continue;
+    const url = redirectUrl(v);
+    if (!url) return null;
+    if (url.protocol !== "https:" && !isLoopbackHttp(url)) continue;
     out.push(v);
   }
   return out.length ? out : null;
@@ -155,10 +150,26 @@ export async function registerOAuthClient(
   return { clientId, createdAt: row!.createdAt };
 }
 
-export function isLoopbackHost(hostname: string): boolean {
-  const h = hostname.toLowerCase();
-  return h === "localhost" || h === "127.0.0.1" || h === "[::1]" || h === "::1";
+/** A redirect URI as a URL, or null when it isn't one or carries a fragment or
+ *  credentials, neither of which this server will send a person back to. */
+function redirectUrl(v: string): URL | null {
+  let url: URL;
+  try {
+    url = new URL(v);
+  } catch {
+    return null;
+  }
+  return url.hash || url.username || url.password ? null : url;
 }
+
+/** a URL's hostname is a loopback one; IPv6 arrives bracketed, as URL writes it */
+function isLoopbackHost(hostname: string): boolean {
+  const h = hostname.toLowerCase();
+  return h === "localhost" || h === "127.0.0.1" || h === "[::1]";
+}
+
+/** Plain http on a loopback address: the one http destination a redirect may name. */
+export const isLoopbackHttp = (url: URL): boolean => url.protocol === "http:" && isLoopbackHost(url.hostname);
 
 /**
  * Whether a requested redirect URI is one the client registered. Exact, character
@@ -168,14 +179,9 @@ export function isLoopbackHost(hostname: string): boolean {
  * out of the comparison there and nowhere else.
  */
 export function redirectUriAllowed(requested: string, registered: readonly string[]): boolean {
-  let want: URL;
-  try {
-    want = new URL(requested);
-  } catch {
-    return false;
-  }
-  if (want.hash || want.username || want.password) return false;
-  const loopback = want.protocol === "http:" && isLoopbackHost(want.hostname);
+  const want = redirectUrl(requested);
+  if (!want) return false;
+  const loopback = isLoopbackHttp(want);
   if (want.protocol !== "https:" && !loopback) return false;
   if (!loopback) return registered.includes(requested);
   return registered.some((r) => {
@@ -186,8 +192,7 @@ export function redirectUriAllowed(requested: string, registered: readonly strin
       return false;
     }
     return (
-      have.protocol === "http:" &&
-      isLoopbackHost(have.hostname) &&
+      isLoopbackHttp(have) &&
       have.hostname.toLowerCase() === want.hostname.toLowerCase() &&
       have.pathname === want.pathname &&
       have.search === want.search

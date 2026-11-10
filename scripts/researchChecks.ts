@@ -9,16 +9,18 @@
 // ERRORS gate the build. WARNINGS (weight-range plausibility) are for a human.
 // Pure and fs-free: the caller reads the files (scripts/research.ts) and passes them in.
 
-import { ATTRIBUTE_KEYS, validateAttributes } from "./catalogAttributes";
+import { isAttributeKey, validateAttributes } from "./catalogAttributes";
 import type { Finding } from "./catalogChecks";
 import { gearLabel } from "./catalogChecks";
-import { identityKey, isCitationUrl, isWeightSource, specToMg, type SpecUnit } from "./catalogCsv";
+import { identityKey, isCitationUrl, isWeightSource, specToMg } from "./catalogCsv";
 import { researchGearType, type ResearchFile } from "./research";
+import { ATTRIBUTE_KEYS } from "../shared/catalogAxes";
 import { RANGE_G } from "../shared/catalogQuality";
+import type { Unit } from "../shared/types";
 
 /** All gram-equivalent figures mentioned in a quote (kg converted to g).
  *  Handles thousands separators ("1,790 g" is 1790, not 790). */
-export function gramsInQuote(q: string): number[] {
+function gramsInQuote(q: string): number[] {
   const out: number[] = [];
   const num = (s: string) => parseFloat(s.replace(/,/g, ""));
   for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*kg/gi)) out.push(num(m[1]) * 1000);
@@ -125,7 +127,7 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
         if (!Array.isArray(r.attributes_unpublished) || !r.attributes_unpublished.length) err("attr-unpublished", `${where}: attributes_unpublished must be a non-empty list of axes`);
         else {
           for (const k of r.attributes_unpublished) {
-            if (!(ATTRIBUTE_KEYS as readonly string[]).includes(k)) err("attr-unpublished", `${where}: "${k}" is not an axis (one of ${ATTRIBUTE_KEYS.join(", ")})`);
+            if (!isAttributeKey(k)) err("attr-unpublished", `${where}: "${k}" is not an axis (one of ${ATTRIBUTE_KEYS.join(", ")})`);
             else if (r.attributes && (r.attributes as Record<string, unknown>)[k] != null) err("attr-unpublished", `${where}: ${k} is both stated in attributes and listed as unpublished`);
           }
         }
@@ -134,7 +136,7 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
       // the cited weight must convert
       let mg: number;
       try {
-        mg = specToMg(Number(r.weight_value), r.weight_unit as SpecUnit, r.weight_secondary);
+        mg = specToMg(Number(r.weight_value), r.weight_unit as Unit, r.weight_secondary);
       } catch (e) {
         err("convert", `${where}: ${(e as Error).message}`);
         continue;

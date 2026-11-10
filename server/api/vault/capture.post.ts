@@ -1,6 +1,6 @@
 import { defineEventHandler } from "h3";
-import { arrayOf, isObjectLike, readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
-import { rateLimit } from "../../utils/rateLimit";
+import { openPrivate } from "../../utils/authSession";
+import { arrayOf, isObjectLike, readJsonBodyCapped } from "../../utils/http";
 import { resolveOrMintVault } from "../../utils/vaultAuth";
 import { captureKit, captureVaultItemsReporting } from "../../utils/vaultRepo";
 import { VAULT_CAPTURE_MAX, type VaultCapture, type VaultKitCapture } from "../../../shared/vault";
@@ -37,9 +37,7 @@ import { VAULT_CAPTURE_MAX, type VaultCapture, type VaultKitCapture } from "../.
 // The group is never gear to the automatic capture — see isVaultWorthy — so a kit is
 // only ever made on purpose.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "vault-capture");
+  await openPrivate(event, "vault-capture");
 
   // 200 rows of gear with their optional URLs — generous for the cap above, still
   // far below the platform body limit
