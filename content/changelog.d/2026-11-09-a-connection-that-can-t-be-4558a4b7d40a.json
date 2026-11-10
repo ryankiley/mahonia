@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "A connection that can't be made now offers a link back to the app, rather than sending you somewhere on its own.",
+    "The connect page names an app by where it sends you back to, not by where its description is kept.",
+    "An assistant whose sign-in had lapsed renews it before making a list, so the list is filed under your account.",
+    "Two requests from an assistant renewing its sign-in at once no longer end the connection.",
+    "Through the connector, owning 0 of a piece is refused rather than quietly saved as 1."
+  ]
+}

@@ -1,6 +1,7 @@
 import { defineEventHandler, getHeader, readRawBody, send, setResponseStatus, type H3Event } from "h3";
 import { MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, accountUse, callTool, isKnownTool } from "../utils/mcp";
 import { setNoIndex, setNoStore } from "../utils/http";
+import { APP_ACCESS_PREFIX, connectorToken } from "../utils/accessTokens";
 import { bearerChallenge, connectorIdentity } from "../utils/oauth";
 import { trustedOrigin } from "../utils/origin";
 import { rateLimit } from "../utils/rateLimit";
@@ -125,7 +126,13 @@ export default defineEventHandler(async (event) => {
   if (use) {
     const { identity, carried } = await connectorIdentity(event);
     if (carried) event.context.connector = identity;
-    if (use !== "optional" && !identity) {
+    // An app's access token that opens nothing has almost always aged out, and its
+    // client holds the refresh token: create_list answers it as the account tools do,
+    // or the first list of a conversation an hour on is made but never filed. A
+    // hand-minted token can't be refreshed, so a dead one still gets its list, with a
+    // note beside the link saying why it wasn't filed.
+    const refreshable = carried && !identity && !!connectorToken(event)?.startsWith(APP_ACCESS_PREFIX);
+    if (!identity && (use !== "optional" || refreshable)) {
       return bearerChallenge(event, {
         status: 401,
         error: "invalid_token",

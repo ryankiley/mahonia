@@ -1,0 +1,8 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "Adding back a piece you'd put away keeps the count, unit and catalog match you gave it.",
+    "Saving a group as a kit no longer fails when two of its items turn out to be the same piece.",
+    "A kit you've put away no longer stops one of its items from becoming a kit of its own."
+  ]
+}

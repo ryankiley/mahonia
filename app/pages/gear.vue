@@ -52,7 +52,9 @@ useHead({
 // same piece back, weight and kits included. A second list of gear at the foot of the
 // page, there only to reverse a removal, was more page than that is worth (Ryan:
 // "feels complicated").
-const { hasVault, items, loading, loadError, load: loadVault } = useVaultList();
+// Offline it is this device's copy, and the page reads but doesn't change: a change to
+// My Gear needs the server, so the controls that make one stand down (useVaultList).
+const { hasVault, hasGear, items, loading, loadError, offline, offlineNote, load: loadVault } = useVaultList();
 const vault = useVaultOps();
 const query = ref("");
 
@@ -289,6 +291,7 @@ function followElsewhere(to: VaultTab) {
 const adding = ref(false);
 const BLANK_PIECE: VaultEntry = { id: 0, normKey: "", name: "", weightMg: 0, timesSeen: 0, lastUsedAt: "", createdAt: "" };
 function openAdd() {
+  if (offline.value) return;
   query.value = "";
   adding.value = true;
   editing.value = { ...BLANK_PIECE };
@@ -335,6 +338,7 @@ const knownVocab = computed(() => {
   return { brands: rank(items.value.map((i) => i.brand)), types: rank(items.value.map((i) => i.commonName)) };
 });
 function openEdit(entry: VaultEntry) {
+  if (offline.value) return;
   editing.value = entry;
 }
 // One field picked on a row — a piece's own unit, or its icon — the way a list row
@@ -580,8 +584,8 @@ async function exportGear(kind: string) {
       <template #end>
         <ClientOnly>
           <VaultMenu
-            :signed-in="hasVault"
-            :can-export="hasVault && items.length > 0"
+            :signed-in="hasVault && !offline"
+            :can-export="hasGear && items.length > 0"
             @open="warmExport"
             @pick="onMenuPick"
           />
@@ -606,7 +610,7 @@ async function exportGear(kind: string) {
              question asked in two places, and answering it twice in two voices is
              how a product starts sounding like two products. Change one, change
              both. -->
-        <div v-if="!hasVault" class="vault__auth">
+        <div v-if="!hasGear" class="vault__auth">
           <p class="vault__sentline">{{ VAULT_ASK }}</p>
           <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
         </div>
@@ -619,7 +623,7 @@ async function exportGear(kind: string) {
                of the Kits tab instead, as a list's folder is ("New kit", below). -->
           <div class="vault__tabbar">
             <ModeBar :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
-            <button v-if="tab !== 'kits'" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openAdd">
+            <button v-if="tab !== 'kits' && !offline" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openAdd">
               <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" aria-hidden="true" />
               {{ tab === "food" ? "Add food" : "Add gear" }}
             </button>
@@ -658,7 +662,10 @@ async function exportGear(kind: string) {
             </OptionMenu>
           </div>
 
-          <p v-if="opError || loadError" class="t-sm vault__error">{{ opError || loadError }}</p>
+          <!-- offline, how old the gear on screen is (or that there is none to show),
+               quieter than an error: nothing went wrong that the reader can fix -->
+          <p v-if="offline" class="t-sm t-muted">{{ offlineNote }}</p>
+          <p v-else-if="opError || loadError" class="t-sm vault__error">{{ opError || loadError }}</p>
 
           <!-- only while there is nothing to show yet. An add reloads the gear, and
                blanking a page you are working on for the length of a round trip
@@ -691,6 +698,7 @@ async function exportGear(kind: string) {
                 :gear-by-id="gearById"
                 :unit="unit"
                 :busy="busy.has(kit.id)"
+                :readonly="offline"
                 @kit="(parts: { id: number; qty: number }[], own: number) => setKit(kit, parts, own)"
                 @rename="(n: string) => renameKit(kit, n)"
                 @remove="remove(kit)"
@@ -722,6 +730,7 @@ async function exportGear(kind: string) {
                   :busy="busy.has(entry.id)"
                   :in-kits="inKitsById.get(entry.id)"
                   :marks="tab !== 'food'"
+                  :readonly="offline"
                   @edit="openEdit(entry)"
                   @remove="remove(entry)"
                   @unit="(u: Unit) => setEntryUnit(entry, u)"
@@ -754,15 +763,18 @@ async function exportGear(kind: string) {
             </p>
             <!-- a kit is this page's folder, made the way a list makes one: the quiet
                  label at the foot becomes the name field, and the kit opens where it was -->
-            <AddFolder v-if="tab === 'kits' && !query && !draftKit" class="vault__addkit" label="New kit" placeholder="Kit name" @add="startDraftKit" />
+            <AddFolder v-if="tab === 'kits' && !query && !draftKit && !offline" class="vault__addkit" label="New kit" placeholder="Kit name" @add="startDraftKit" />
 
           </template>
 
           <!-- Nothing at all: no gear yet. Adding is offered FIRST — the
                capture sentence is still true and still the faster path, but it
                answers "how does gear get here eventually", not "how do I put the
-               pack I bought yesterday in". -->
-          <div v-else class="vault__empty">
+               pack I bought yesterday in".
+               Not when the gear couldn't be read: "nothing here yet" under "couldn't
+               load your gear" told a signed-in visitor who'd lost signal that their
+               gear was gone. The line above says what is true then. -->
+          <div v-else-if="!offline" class="vault__empty">
             <p class="t-muted">
               Nothing here yet. Add a piece of gear, or build a list and it’ll collect
               itself here.
@@ -775,10 +787,11 @@ async function exportGear(kind: string) {
 
         </div>
 
-        <!-- The signed-out branch above doubles as the "still resolving" state:
-             the session is fetched after hydration, so hasVault is briefly false
-             for someone who IS signed in. That resolves to the gear in a moment
-             and the sign-in copy is honest in the meantime. #fallback covers SSR. -->
+        <!-- While the session is still being asked, a browser with the signed-in hint
+             is already in the gear branch: this device's copy of the gear if it has
+             one, "Loading your gear…" if not, and the same copy offline, where the ask
+             never answers. Only a browser with no hint draws the sign-in prompt, and
+             that answer is settled before the first render. #fallback covers SSR. -->
         <template #fallback>
           <p class="t-muted vault__empty">Loading…</p>
         </template>

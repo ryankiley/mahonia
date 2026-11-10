@@ -108,7 +108,8 @@ function onResizeKey(ev: KeyboardEvent) {
 const c = useGearList();
 const dnd = useItemDnd();
 // the gear, loaded as /gear loads it (useVaultList), and again on signing in or out
-const { hasVault, items, loading, loadError } = useVaultList();
+// offline, this device's copy, which still adds to the list: a list edit queues
+const { hasGear, items, loading, offline, offlineNote } = useVaultList();
 // Gear (your pieces), your kits (the sets you add in one go), or your food: /gear's
 // three tabs, by its rule (vaultTabOf). (Kits was Categories, your My Gear folders; My
 // Gear has no folders now, and a kit is the set you reuse.)
@@ -429,7 +430,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
        window/document/body, so a bare listener here can still cancel. -->
   <aside
     class="popover vp"
-    :class="{ 'vp--sized': hasVault }"
+    :class="{ 'vp--sized': hasGear }"
     data-vault-pane
     role="dialog"
     aria-label="My Gear"
@@ -461,7 +462,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            by the time you can see this, so "all of it, with room to tidy" is one quiet
            link away at the moment you'd want it. -->
       <NuxtLink
-        v-if="hasVault"
+        v-if="hasGear"
         to="/gear"
         class="btn btn--icon btn--ghost ink-quiet vp__open"
         aria-label="Open My Gear as a full page"
@@ -488,7 +489,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
          It also pointed at /vault, which signed out renders this same prompt again —
          two hops to reach one button. Same sentence and same action as that page now,
          because it is the same question being asked twice. -->
-    <div v-if="!hasVault" class="vp__empty">
+    <div v-if="!hasGear" class="vp__empty">
       <!-- One sentence: what it is, and the one thing it asks for that the rest of
            the app never does. The "but" is doing the work — it names the trade-off
            without a second sentence explaining it, and the button underneath says
@@ -557,8 +558,15 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         />
       </div>
 
-      <p v-if="loadError" class="t-sm vp__error">{{ loadError }}</p>
-      <p v-else-if="loading" class="t-sm t-muted vp__note">Loading your gear…</p>
+      <!-- offline: how old the copy is, or that there is none (with a failed read's own
+           words). The copy itself still lists below and still adds to the list. -->
+      <p v-if="offline" class="t-sm t-muted vp__offline">{{ offlineNote }}</p>
+      <!-- nothing to list offline is said by the note alone: the empty states below
+           would tell someone who lost signal that they have no gear -->
+      <template v-if="!offline || items.length">
+      <!-- only while there is nothing to show: a copy on the device paints at once and
+           the server's answer replaces it -->
+      <p v-if="loading && !items.length" class="t-sm t-muted vp__note">Loading your gear…</p>
 
       <!-- both tabs: a piece adds as a row; a KIT adds as a group, its items under it -->
       <ul v-else-if="filtered.length" ref="listEl" class="vp__list">
@@ -640,10 +648,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
           No gear saved yet. Add gear to this list and it’ll collect itself here.
         </p>
       </div>
+      </template>
       <!-- under results, the other tabs the search also matched: below the scroller
            rather than at the end of it, so it is in view however long the list runs -->
       <VaultElsewhere
-        v-if="!loadError && !loading && filtered.length && elsewhere.length"
+        v-if="filtered.length && elsewhere.length"
         class="t-sm t-muted vp__note"
         :query="query"
         :none="false"
@@ -748,7 +757,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__bar,
 .vp__controls,
 .vp__note,
-.vp__error,
+.vp__offline,
 .vp__empty {
   padding-inline: var(--space-2);
 }
@@ -879,8 +888,9 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 /* the target's mark is the shared .chev (atoms/controls.scss). Its copy here set the
    resting ink and nothing else — no .is-open rule at all — while the markup has always
    handed it `is-open`, so the one chevron that told you the picker was open never turned. */
+/* the offline line sits over the rows, not centred in their space as a note is */
 .vp__note,
-.vp__error {
+.vp__offline {
   padding-block: var(--space-2);
 }
 /* The sheet holds its height while you filter (see .vp--sized), so a one-line
@@ -893,9 +903,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   align-items: center;
   justify-content: center;
   text-align: center;
-}
-.vp__error {
-  color: var(--ink);
 }
 .vp__list {
   /* the card's bottom breathing room, inside the scroller so it scrolls with the

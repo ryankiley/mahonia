@@ -1071,6 +1071,11 @@ export async function addVaultItems(
         productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
         priceCents: sql`coalesce(excluded.price_cents, ${vaultItems.priceCents})`,
         currency: sql`case when excluded.price_cents is not null then excluded.currency else ${vaultItems.currency} end`,
+        // the rest the add form takes: the catalog row picked, how many you own and the
+        // unit you typed in, each kept from before only where the add left it out
+        catalogItemId: sql`coalesce(excluded.catalog_item_id, ${vaultItems.catalogItemId})`,
+        owned: sql`coalesce(excluded.owned, ${vaultItems.owned})`,
+        entryUnit: sql`coalesce(excluded.entry_unit, ${vaultItems.entryUnit})`,
         // pins UNION — an add must never RELEASE one an earlier edit earned
         namePinned: sql`true`,
         weightPinned: sql`${vaultItems.weightPinned} or excluded.weight_pinned`,
@@ -1176,15 +1181,23 @@ async function writeKitLinks(db: Db, kitId: number, parts: { partId: number; qty
 }
 
 /** Is this row already some kit's part? One level deep means it can't then hold
- *  parts of its own — a kit always unfolds onto a list as exactly one group. */
+ *  parts of its own — a kit always unfolds onto a list as exactly one group. Only a
+ *  kit that isn't put away claims it, as only those do on /gear (withKits): one that
+ *  is would refuse the piece for a kit nobody can see it in. */
 async function isSomeonesPart(db: Db, id: number): Promise<boolean> {
   const rows = await db
     .select({ kitId: vaultKitParts.kitId })
     .from(vaultKitParts)
-    .where(eq(vaultKitParts.partId, id))
+    .innerJoin(vaultItems, eq(vaultItems.id, vaultKitParts.kitId))
+    .where(and(eq(vaultKitParts.partId, id), isNull(vaultItems.removedAt)))
     .limit(1);
   return rows.length > 0;
 }
+
+/** A piece becoming a kit leaves the put-away kits that held it (isSomeonesPart has
+ *  refused it for any other), so a kit brought back later can't come back holding a
+ *  kit. */
+const leavePutAwayKits = (db: Db, id: number) => db.delete(vaultKitParts).where(eq(vaultKitParts.partId, id));
 
 /**
  * Make a row a kit of these pieces, or replace an existing kit's parts, and set its
@@ -1252,6 +1265,7 @@ export async function setKitParts(
       .where(and(eq(vaultItems.id, kitId), eq(vaultItems.vaultId, vaultId)))
       .returning(),
     db.delete(vaultKitParts).where(eq(vaultKitParts.kitId, kitId)),
+    leavePutAwayKits(db, kitId),
   ]);
   await db
     .insert(vaultKitParts)
@@ -1338,10 +1352,18 @@ function kitLinks<R extends { kind: string }>(
   rowOf: (normKey: string) => R | undefined,
   kitKey?: string,
 ): { row: R; qty: number }[] {
-  return refs.flatMap((p) => {
+  // Two refs can land on one row: the client folded each child its own way, and the
+  // server's respell and tidy can bring them to one key. A kit links a piece once
+  // (the table's key is the pair), holding both counts.
+  const out = new Map<R, { row: R; qty: number }>();
+  for (const p of refs) {
     const row = p.normKey === kitKey ? undefined : rowOf(p.normKey);
-    return row?.kind === "piece" ? [{ row, qty: p.qty }] : [];
-  });
+    if (row?.kind !== "piece") continue;
+    const had = out.get(row);
+    if (had) had.qty = Math.min(VAULT_KIT_QTY_MAX, had.qty + p.qty);
+    else out.set(row, { row, qty: p.qty });
+  }
+  return [...out.values()];
 }
 
 /**
@@ -1437,6 +1459,7 @@ export async function captureKit(
     })
     .returning();
   if (!row) return { ...landed, kit: "refused" };
+  if (prior) await leavePutAwayKits(db, row.id);
   await linkKitParts(db, vaultId, row.id, links);
   if (row.removedAt) return { ...landed, kit: "removed" };
   return { ...landed, keys: [...landed.keys, gearKeyOf(row)], kit: "saved" };

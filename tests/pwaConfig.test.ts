@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PWA_OPTIONS, pwaPrecacheRevision } from "../config/pwa";
 
@@ -17,19 +19,18 @@ describe("pwaPrecacheRevision", () => {
   });
 });
 
-describe("the editor shell offline", () => {
-  const rules = PWA_OPTIONS.workbox?.runtimeCaching ?? [];
-  type Match = (o: { request: { mode: string }; url: URL }) => boolean;
-  const nav = (path: string, mode = "navigate") => ({
-    request: { mode },
-    url: new URL(path, "https://mahonia.app"),
-  });
-  const shell = rules.find(
-    (r) => typeof r.urlPattern === "function" && (r.urlPattern as unknown as Match)(nav("/e/abc123")),
-  );
-  const matches = (path: string, mode?: string) =>
-    (shell?.urlPattern as unknown as Match)(nav(path, mode));
+const rules = PWA_OPTIONS.workbox?.runtimeCaching ?? [];
+type Match = (o: { request: { mode: string }; url: URL }) => boolean;
+const nav = (path: string, mode = "navigate") => ({
+  request: { mode },
+  url: new URL(path, "https://mahonia.app"),
+});
+const shell = rules.find(
+  (r) => typeof r.urlPattern === "function" && (r.urlPattern as unknown as Match)(nav("/e/abc123")),
+);
+const matches = (path: string, mode?: string) => (shell?.urlPattern as unknown as Match)(nav(path, mode));
 
+describe("the app shell offline", () => {
   it("precaches the client-only shell, stamped per build like /", () => {
     const urls = (PWA_OPTIONS.workbox?.additionalManifestEntries ?? []).map((e) =>
       typeof e === "string" ? e : e.url,
@@ -47,11 +48,55 @@ describe("the editor shell offline", () => {
     for (const path of ["/e", "/e/", "/e/abc123"]) expect(matches(path)).toBe(true);
   });
 
-  it("answers only page navigations under /e, never data or other routes", () => {
+  // An installed app reopens wherever it was left, and My Gear is the page you'd want
+  // offline after a list; the static pages ride along because their payloads are
+  // already precached.
+  it("gives the app's other pages the same fallback", () => {
+    for (const path of ["/gear", "/gear/", "/account", "/help", "/about", "/legal"]) {
+      expect(matches(path)).toBe(true);
+    }
+  });
+
+  it("answers only page navigations, never data or pages with rules of their own", () => {
     expect(matches("/e/abc123", "cors")).toBe(false);
-    for (const path of ["/e/_payload.json/x", "/api/l/e", "/api/s/e", "/l/e", "/e/a/b"]) {
+    expect(matches("/gear", "cors")).toBe(false);
+    for (const path of [
+      "/e/_payload.json/x",
+      "/api/l/e",
+      "/api/s/e",
+      "/api/vault/list",
+      "/l/e",
+      "/s/abc123",
+      "/e/a/b",
+      "/gear/x",
+      "/help/_payload.json",
+      "/authorize",
+      "/auth/callback",
+      "/gearbox",
+    ]) {
       expect(matches(path)).toBe(false);
     }
+  });
+});
+
+// The installed app's identity and its long-press menu. The manifest is hand-written
+// JSON (pwa.manifest is false), so nothing else would notice a shortcut pointing at a
+// page the worker can't open offline.
+describe("the web app manifest", () => {
+  const manifest = JSON.parse(readFileSync(resolve(__dirname, "../public/manifest.webmanifest"), "utf8")) as {
+    id?: string;
+    start_url?: string;
+    shortcuts?: { name: string; url: string }[];
+  };
+
+  it("pins its identity to the start address, so an install already made keeps it", () => {
+    expect(manifest.id).toBe("/");
+    expect(manifest.start_url).toBe("/");
+  });
+
+  it("offers New list and My Gear, both pages that open offline", () => {
+    expect(manifest.shortcuts?.map((s) => s.url)).toEqual(["/e", "/gear"]);
+    for (const s of manifest.shortcuts ?? []) expect(matches(s.url)).toBe(true);
   });
 });
 
