@@ -7,6 +7,7 @@ import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
+import { sameText } from "~~/shared/tidyText";
 import { vaultTabOf } from "~~/shared/vaultView";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
@@ -257,7 +258,12 @@ async function onSubmit() {
   const patch: VaultItemPatch = {};
   if (changed("brand")) patch.brand = form.brand.trim().slice(0, VAULT_SHORT_MAX) || null;
   if (changed("name")) patch.name = form.name.trim().slice(0, VAULT_NAME_MAX);
-  if (changed("variant")) patch.variant = form.variant.trim().slice(0, VAULT_SHORT_MAX) || null;
+  if (changed("variant")) {
+    patch.variant = form.variant.trim().slice(0, VAULT_SHORT_MAX) || null;
+    // A catalog link is to one size, by the list row's rule (useItemRowFields): typed to
+    // another, the piece stops claiming it; cleared, or retyped the same, it keeps it.
+    if (props.entry.catalogItemId != null && patch.variant && !sameText(patch.variant, props.entry.variant ?? "")) patch.catalogItemId = null;
+  }
   if (changed("commonName")) {
     patch.commonName = form.commonName.trim().slice(0, VAULT_SHORT_MAX) || null;
   }

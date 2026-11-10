@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "A snack bag, coffee mug, bar soap or shower gel stays on My Gear's Gear tab rather than landing on Food.",
+    "Following a search's “2 on Food” puts you back in the search box.",
+    "A kit's last item can't be taken out, even one you've put away.",
+    "If making a new kit fails partway, trying again works rather than saying you already have it.",
+    "In My Gear, typing a linked piece to another size unlinks it, and retyping its size with a straight apostrophe keeps the link.",
+    "Picking two units quickly on a My Gear row keeps the last one.",
+    "A list whose edit link is replaced mid-save keeps saving, rather than saying it's no longer online.",
+    "A new list whose first save lands after you've moved on still appears in Your lists.",
+    "Importing a new route moves the trip map to it."
+  ]
+}
