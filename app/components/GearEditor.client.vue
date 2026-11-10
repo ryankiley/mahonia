@@ -330,8 +330,8 @@ watchPostEffect(() => {
 // sets off again from rest, and handing it a curve that starts at speed meant
 // out-guessing the browser's reversal shortening. An animation we start ourselves has
 // no such rule: read where the column is and how fast from the spring we gave it,
-// cancel it, start the next from that state. The topbar's break-out margin rides the
-// same keyframes, so the two stay on one clock. The CSS states (.editor--split, below)
+// cancel it, start the next from that state. The topbar's break-out margin and its
+// leading half's inset (--split-p) ride the same keyframes, so all three stay on one clock. The CSS states (.editor--split, below)
 // are the rest positions; with no fill they take over when the animation ends, and
 // a phone, where the inset never changes, animates nothing. Nor does the keyboard: the
 // toolbar button pressed with Enter, or Escape in the pane, moves it in one frame.
@@ -388,10 +388,13 @@ async function setVault(open: boolean) {
     const sp = spring("move");
     const { duration, easing, v0 } = springTiming(sp, velocity / (to - from), Math.abs(to - from));
     const bar = el.querySelector<HTMLElement>(":scope > .topbar");
+    const inner = bar?.querySelector<HTMLElement>(":scope > .topbar__inner");
     const opts: KeyframeAnimationOptions = { duration, easing };
     const lead = el.animate([{ paddingRight: `${from}px` }, { paddingRight: `${to}px` }], opts);
     const anims = [lead];
     if (bar) anims.push(bar.animate([{ marginRight: `${-from}px` }, { marginRight: `${-to}px` }], opts));
+    // the bar's leading half rides the same inset, so "Your packs" moves with the list
+    if (inner) anims.push(inner.animate([{ "--split-p": `${from}px` }, { "--split-p": `${to}px` }], opts));
     const mine = (column = { anims, sp, v0, from, to });
     // An opening from rest waits out the pane's first paint. The frame that first draws
     // the pane lays out and paints every row of your gear, and with the move's clock
@@ -1400,6 +1403,27 @@ function onCorrected(res: { status: string; itemName?: string }) {
      the shell, and the bar opts out of it. */
   .editor--split > .topbar {
     margin-right: calc(-1 * var(--split-pad));
+  }
+  /* ...but the row inside it is the list's at its LEADING edge. The bar's own .wrap
+     stayed centred on the whole window while the column re-centred beside the pane, so
+     "Your packs" and the edited line sat right of the list's left edge (200px at 1920,
+     300 at 3008; Ryan: "does this fixed span feel odd now"). Its left edge now tracks
+     the column's and its right edge stays where it always was, so the icon cluster
+     doesn't move: the My Gear toggle is pressed again and again, and must not slide out
+     from under the pointer that just pressed it.
+     All in terms of --split-p, the column's inset (registered, main.scss): at 0 these
+     reduce to the plain centred .wrap, so outside the split nothing moves. 100% is the
+     bar's width, the window's, since it breaks back out above.
+       left  = where the column's .wrap starts: centred in what the pane leaves
+       width = from there to where the centred bar's .wrap always ended */
+  .topbar__inner {
+    max-width: none;
+    margin-left: calc((100% - var(--split-p) - min(100% - var(--split-p), var(--measure))) / 2);
+    margin-right: 0;
+    width: calc((var(--split-p) + min(100% - var(--split-p), var(--measure)) + min(100%, var(--measure))) / 2);
+  }
+  .editor--split > .topbar > .topbar__inner {
+    --split-p: var(--split-pad);
   }
   /* the inset's MOTION between the two is setVault's Web Animation (script above);
      these are its two rest states */
