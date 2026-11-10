@@ -98,9 +98,21 @@ export function trustedOrigin(event: H3Event): string {
  * canonical one (a www or deployment alias, a local production build).
  */
 export function refuseCrossSite(event: H3Event): void {
-  const origin = getHeader(event, "origin");
-  const site = getHeader(event, "sec-fetch-site");
-  const ours = origin === undefined || origin === trustedOrigin(event) || origin === getRequestURL(event).origin;
-  if (!ours || (site !== undefined && site !== "same-origin"))
+  const refuse = () => {
     throw createError({ statusCode: 403, statusMessage: "Origin not allowed" });
+  };
+  // THE BROWSER'S OWN LABEL DECIDES, WHERE THERE IS ONE. Sec-Fetch-Site is set by
+  // the browser and no page can change it, and it accounts for redirects on the
+  // way. Origin alone is not enough to go by for our own requests: under this
+  // site's `Referrer-Policy: no-referrer` a same-origin POST that isn't a CORS
+  // fetch names its origin as "null" (a form post, and in Firefox the page-hide
+  // beacon that saves gear to My Gear), which matches nothing and was refused.
+  const site = getHeader(event, "sec-fetch-site");
+  if (site !== undefined) {
+    if (site !== "same-origin") refuse();
+    return;
+  }
+  // No label: an older browser, or not a browser. Then Origin, if it names one.
+  const origin = getHeader(event, "origin");
+  if (origin !== undefined && origin !== trustedOrigin(event) && origin !== getRequestURL(event).origin) refuse();
 }
