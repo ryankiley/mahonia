@@ -164,6 +164,7 @@ export function useSession() {
     resetVaultCapture();
     useClaimedLists().resetClaimMark(owner);
     forgetAccountInitial();
+    forgetGearCopy(owner);
   }
 
   async function signOut(): Promise<void> {
@@ -204,6 +205,9 @@ export function useSession() {
     signedIn,
     presence,
     loaded,
+    /** /api/auth/me is in flight: "presumed" is still a question, not the offline
+     *  answer it settles into when the ask fails. */
+    pending: readonly(pending),
     refresh,
     requestLink,
     signOut,

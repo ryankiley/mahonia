@@ -1,4 +1,5 @@
 {
+  "id": "/",
   "name": "Mahonia — pack lists, weighed",
   "short_name": "Mahonia",
   "description": "Make a packing list, see what it weighs, share it. No login needed.",
@@ -11,6 +12,10 @@
       "sizes": "512x512",
       "purpose": "maskable"
     }
+  ],
+  "shortcuts": [
+    { "name": "New list", "url": "/e" },
+    { "name": "My Gear", "url": "/gear" }
   ],
   "theme_color": "#ffffff",
   "background_color": "#ffffff",
