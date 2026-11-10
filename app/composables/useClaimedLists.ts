@@ -14,14 +14,14 @@ import { isRecord } from "~~/shared/record";
 import type { ClaimedOpen } from "~~/shared/switcher";
 import { CLAIMED_LIST_CAP, type ClaimedList } from "~~/shared/types";
 import { forget, recall, recallJson, remember } from "../utils/remember";
-import { ownedKey, sessionCacheOwner } from "../utils/sessionOwner";
+import { OWNED, ownedKey, sessionCacheOwner } from "../utils/sessionOwner";
 import { deleteListOnServer } from "./useMyLists";
 
 
 // Which set of device tokens we've already claimed, so a signed-in visitor doesn't
 // re-POST the same registry on every page load. Persisted per-device rather than
 // held in memory: the claim call would otherwise repeat on every cold navigation.
-const CLAIMED_MARK_KEY = "gear.claimed.v2";
+const CLAIMED_MARK_KEY = OWNED.claimedMark;
 
 // The account's rows as this browser last saw them. A cache, not a source: the
 // server owns the truth and every successful read below replaces this wholesale.
@@ -32,13 +32,13 @@ const CLAIMED_MARK_KEY = "gear.claimed.v2";
 // browser holds edit links for. The lists made on another device would vanish from
 // it exactly when there's no network to ask for them back, which is the moment the
 // app is least able to explain itself.
-const CLAIMED_ROWS_KEY = "gear.claimed.rows.v2";
+const CLAIMED_ROWS_KEY = OWNED.claimedRows;
 
 // When this browser last had each claimed list OPEN. The device registry keeps this
 // per row (MyListEntry.lastOpened); a claimed open has no registry row — the point
 // of it is that this device holds no edit token — so it's kept here instead, and
 // the bare address ranks the two together (shared/switcher resumeTarget).
-const CLAIMED_OPENS_KEY = "gear.claimed.opens.v2";
+const CLAIMED_OPENS_KEY = OWNED.claimedOpens;
 
 const LEGACY_KEYS = ["gear.claimed.v1", "gear.claimed.rows.v1", "gear.claimed.opens.v1"];
 

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import VaultPane from "~/components/VaultPane.vue";
-import { forgetGearCopy, gearCopyKey } from "~/utils/gearCopy";
+import { gearCopyKey } from "~/utils/gearCopy";
 import { readGearCopy, useVaultList, useVaultOps, writeGearCopy } from "~/composables/useVaultList";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultRow } from "./helpers/vault";
@@ -74,7 +74,7 @@ describe("the device's copy of My Gear", () => {
   it("goes with the account: forgotten, it's gone", () => {
     writeGearCopy(GEAR, OWNER);
     writeGearCopy(GEAR, OTHER);
-    forgetGearCopy(OWNER);
+    forgetOwned(OWNER);
     expect(readGearCopy(OWNER)).toBeNull();
     expect(readGearCopy(OTHER)).not.toBeNull();
   });

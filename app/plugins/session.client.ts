@@ -15,6 +15,12 @@ import { deviceFingerprint } from "~/composables/useClaimedLists";
 
 export default defineNuxtPlugin(() => {
   const session = useSession();
+  // What an earlier session left in this browser's storage and nobody was here to
+  // forget (see sweepOwned). Only when it is certain whose turn it is: a session
+  // with its marker, or no session at all. A hint with no marker is a session from
+  // before markers that is about to be given one, and has nothing kept under it.
+  const owner = sessionCacheOwner();
+  if (owner || !session.hasSessionHint()) sweepOwned(owner);
   // What this browser last knew of the account's lists, before anything asks the
   // server — and the cross-tab follow that keeps it honest. See restoreFromDevice.
   useClaimedLists().restoreFromDevice();
