@@ -6,7 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import VaultPane from "~/components/VaultPane.vue";
-import { forgetGearCopy, readGearCopy, writeGearCopy } from "~/utils/gearCopy";
+import { forgetGearCopy, gearCopyKey } from "~/utils/gearCopy";
+import { readGearCopy, useVaultList, useVaultOps, writeGearCopy } from "~/composables/useVaultList";
 import type { VaultEntry } from "~~/shared/vault";
 
 const OWNER = "a1b2c3d4e5f60718";
@@ -24,11 +25,11 @@ const piece = (id: number, name: string, commonName = "Tent"): VaultEntry => ({
 const GEAR = [piece(1, "Duplex"), piece(2, "Pocket Rocket", "Stove")];
 
 // what the server would say, per test
-const access = { hasVault: ref(false), read: vi.fn<() => Promise<{ items: VaultEntry[] }>>() };
+const access = { hasVault: ref(false), read: vi.fn<(url?: string) => Promise<{ items: VaultEntry[] }>>() };
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: computed(() => access.hasVault.value),
   vaultKnown: computed(() => true),
-  vaultFetch: () => access.read(),
+  vaultFetch: (url: string) => access.read(url),
 }));
 mockNuxtImport("useGearList", () => () => ({
   snapshot: ref({ folders: [], items: [], displayUnit: "g" }),
@@ -148,5 +149,108 @@ describe("the My Gear pane offline", () => {
     const pane = await openPane();
     expect(pane.text()).toContain("Sign in");
     expect(rowNames(pane)).toEqual([]);
+  });
+});
+
+// The composable itself, for what no surface shows directly: whose copy a write lands in,
+// when the gear is read-only, and asking again.
+const Harness = defineComponent({ setup: () => useVaultList(), render: () => null });
+const signIn = () => {
+  setCookie("mh_signed_in", "1");
+  useState("session").value = { state: "signedIn", user: { owner: OWNER, email: "a@b.c", displayName: null } };
+  access.hasVault.value = true;
+};
+const deferred = <T,>() => {
+  let resolve!: (v: T) => void;
+  const promise = new Promise<T>((r) => (resolve = r));
+  return { promise, resolve };
+};
+
+describe("the copy and the account it belongs to", () => {
+  // Signed in as A on one tab; signing in as B on another changes the cookie under this
+  // one, whose page still holds A's gear. A's gear must not become B's offline copy.
+  it("is written only for the account the gear was loaded for", async () => {
+    signIn();
+    access.read.mockResolvedValue({ items: GEAR });
+    const h = mount(Harness);
+    await flushPromises();
+    expect(readGearCopy(OWNER)?.items).toHaveLength(2);
+
+    setCookie("mh_session_owner", OTHER);
+    // a row added the way the page adds one (onItemAdded replaces the array)
+    h.vm.items = [piece(3, "Spork", "Utensil"), ...h.vm.items];
+    await flushPromises();
+    expect(readGearCopy(OTHER)).toBeNull();
+    expect(readGearCopy(OWNER)?.items).toHaveLength(2);
+  });
+
+  it("drops entries that would break the page rather than painting them", () => {
+    localStorage.setItem(
+      gearCopyKey(OWNER)!,
+      JSON.stringify({ items: [GEAR[0], null, { id: "x", name: "Bad" }, { ...GEAR[1], parts: [{ id: 1 }] }], savedAt: 5 }),
+    );
+    expect(readGearCopy(OWNER)).toEqual({ items: [GEAR[0]], savedAt: 5 });
+  });
+});
+
+describe("read-only My Gear", () => {
+  it("refuses a change while the page says so, without sending it", async () => {
+    const ops = useVaultOps(() => true);
+    await expect(ops.op({ t: "edit", id: 1, patch: { name: "X" } })).resolves.toEqual({ ok: false, reason: "offline" });
+    await expect(ops.remove(1, true)).resolves.toBe(false);
+    expect(access.read).not.toHaveBeenCalled();
+  });
+
+  // The copy can be behind an edit made on another device; a row of it must not be
+  // editable until the server's answer replaces it.
+  it("holds while the copy is showing online, until the server answers", async () => {
+    signIn();
+    writeGearCopy(GEAR, OWNER, Date.now() - 60_000);
+    const answer = deferred<{ items: VaultEntry[] }>();
+    access.read.mockReturnValue(answer.promise);
+    const h = mount(Harness);
+    await flushPromises();
+    expect(h.vm.items).toHaveLength(2);
+    expect(h.vm.offline).toBe(false);
+    expect(h.vm.readonly).toBe(true);
+
+    answer.resolve({ items: GEAR });
+    await flushPromises();
+    expect(h.vm.readonly).toBe(false);
+  });
+});
+
+describe("asking again", () => {
+  it("re-asks when the page comes back into view, with no online event", async () => {
+    signIn();
+    access.read.mockRejectedValueOnce(new Error("offline"));
+    const h = mount(Harness);
+    await flushPromises();
+    expect(h.vm.offline).toBe(true);
+
+    access.read.mockResolvedValue({ items: GEAR });
+    document.dispatchEvent(new Event("visibilitychange"));
+    await flushPromises();
+    expect(h.vm.offline).toBe(false);
+    expect(h.vm.items).toHaveLength(2);
+  });
+
+  it("stays offline while a retry is in flight, so the note and controls don't blink", async () => {
+    signIn();
+    writeGearCopy(GEAR, OWNER);
+    access.read.mockRejectedValueOnce(new Error("offline"));
+    const h = mount(Harness);
+    await flushPromises();
+    expect(h.vm.offline).toBe(true);
+
+    const answer = deferred<{ items: VaultEntry[] }>();
+    access.read.mockReturnValue(answer.promise);
+    document.dispatchEvent(new Event("visibilitychange"));
+    await nextTick();
+    expect(h.vm.offline).toBe(true);
+    expect(h.vm.readonly).toBe(true);
+    answer.resolve({ items: GEAR });
+    await flushPromises();
+    expect(h.vm.offline).toBe(false);
   });
 });

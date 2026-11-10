@@ -14,7 +14,7 @@ import { isRecord } from "~~/shared/record";
 import type { ClaimedOpen } from "~~/shared/switcher";
 import { CLAIMED_LIST_CAP, type ClaimedList } from "~~/shared/types";
 import { forget, recall, recallJson, remember } from "../utils/remember";
-import { sessionCacheOwner } from "../utils/sessionOwner";
+import { ownedKey, sessionCacheOwner } from "../utils/sessionOwner";
 import { deleteListOnServer } from "./useMyLists";
 
 
@@ -41,9 +41,6 @@ const CLAIMED_ROWS_KEY = "gear.claimed.rows.v2";
 const CLAIMED_OPENS_KEY = "gear.claimed.opens.v2";
 
 const LEGACY_KEYS = ["gear.claimed.v1", "gear.claimed.rows.v1", "gear.claimed.opens.v1"];
-
-const ownedKey = (base: string, owner: string | null) =>
-  owner === null ? null : `${base}.${owner}`;
 
 /** The cookie is current even while an old /api/auth/me response is still on screen. */
 function cacheOwner(): string | null {
