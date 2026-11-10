@@ -77,6 +77,15 @@ export function waterPhraseMl(text: string): number | null {
   return parseVolumeMl(vol);
 }
 
+/** What the name field's MENU offers as water, in ml: everything waterPhraseMl reads,
+ *  plus the two things only a menu can offer, since neither is a line that says water
+ *  with a volume: a bare "water" (a litre, to be corrected in the row) and a bare volume
+ *  ("500 ml"). Null when the text is neither. */
+export function waterMenuMl(text: string): number | null {
+  if (isWaterName(text)) return 1000;
+  return waterPhraseMl(text) ?? parseVolumeMl(text.trim().toLowerCase());
+}
+
 /** A water row's volume in litres as the bare number its fields show ("1.75"), or "" at zero. */
 export function waterLiters(unitWeightMg: number): string {
   const l = unitWeightMg / 1_000_000;

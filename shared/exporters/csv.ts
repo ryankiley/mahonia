@@ -7,7 +7,7 @@ import { MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
 import { effectiveClassificationInFolder, fromMg, itemDisplayName, parseDecimal, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportSections } from "./rows";
-import { csvCell, stripFormulaGuard } from "./csvCell";
+import { CSV_DECIMALS, csvCell, stripFormulaGuard } from "./csvCell";
 import { uid } from "../id";
 
 // Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
@@ -21,15 +21,6 @@ function normalizeUnit(raw: string | undefined): Unit {
 
 const truthy = (v: string | undefined) =>
   !!v && /^(1|true|yes|y|x|worn|consumable)$/i.test(v.trim());
-
-// Decimals each unit is written with. Enough that toMg() rounds the value back to the
-// milligrams it came from, so an export/import round-trip is lossless in every unit.
-// Grams used to be written at ZERO decimals, which claimed a 499 mg row weighed nothing
-// -- while formatWeight goes out of its way to render "<1 g" on the same data, on the
-// stated reasoning that a real weight rounding to zero "must NOT read as 0". The file
-// now agrees with the screen. Trailing zeros never survive the unary `+` below, so a
-// whole-gram list still exports "1247", not "1247.000".
-const CSV_DECIMALS: Record<Unit, number> = { g: 3, kg: 6, oz: 6, lb: 6 };
 
 // ---- export ----
 export function listToCsv(list: ListSnapshot): string {

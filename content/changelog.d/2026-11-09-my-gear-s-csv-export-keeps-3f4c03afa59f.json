@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "My Gear's CSV export keeps weights under a gram, and exact weights in kg, oz and lb.",
+    "A GPX file that carries a line style now imports its route.",
+    "Typing \"Water - 2 L\" or \"Water: 750 ml\" as a name now offers the water row.",
+    "Search highlights land on the right letters after a dotted capital İ.",
+    "Two people with the same very long name stay two people when a list is restored or imported.",
+    "The connector no longer keeps a trail label on a list that has no trail link."
+  ]
+}

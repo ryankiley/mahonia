@@ -49,6 +49,11 @@ export function personNameTaken(
  * gear, and removing one would unassign their rows. Lists written before the rule
  * existed come through here too, which is the point.
  */
+/** How long a person's name may be. Declared here, not beside the reducer's other caps
+ *  (shared/ops re-exports it), because the numbering below has to fit inside it and ops
+ *  imports this module. */
+export const MAX_PERSON_NAME_LEN = 60;
+
 export function uniquifyPersonNames(people: Person[]): Person[] {
   const seen = new Set<string>();
   for (const p of people) {
@@ -56,9 +61,12 @@ export function uniquifyPersonNames(people: Person[]): Person[] {
       seen.add(personNameKey(p.name));
       continue;
     }
-    // " 2", " 3", … until free. Bounded by MAX_PEOPLE, so this can't spin.
+    // " 2", " 3", … until free. Bounded by MAX_PEOPLE, so this can't spin. The number
+    // goes INSIDE the cap: appended past it, the next read clamped the name back to
+    // its first 60 characters and the pair was the same name again.
     for (let n = 2; ; n++) {
-      const candidate = `${p.name} ${n}`;
+      const suffix = ` ${n}`;
+      const candidate = `${p.name.slice(0, MAX_PERSON_NAME_LEN - suffix.length).trimEnd()}${suffix}`;
       if (seen.has(personNameKey(candidate))) continue;
       p.name = candidate;
       seen.add(personNameKey(candidate));

@@ -21,7 +21,7 @@ import type { VaultEntry } from "../vault";
 import { countedWeightMg } from "../vaultKit";
 import { groupVaultByKind } from "../vaultView";
 import { fromMg, itemDisplayName } from "../weights";
-import { csvCell } from "./csvCell";
+import { CSV_DECIMALS, csvCell } from "./csvCell";
 
 /** What both exporters are handed: the page's live rows. */
 export interface VaultExport {
@@ -57,7 +57,7 @@ export function vaultToCsv({ items }: VaultExport, unit: Unit): string {
   for (const section of groupVaultByKind(items)) {
     for (const e of section.entries) {
       const mg = countedWeightMg(e);
-      const w = mg > 0 ? +fromMg(mg, unit).toFixed(unit === "g" ? 0 : 3) : "";
+      const w = mg > 0 ? +fromMg(mg, unit).toFixed(CSV_DECIMALS[unit]) : "";
       out.push(
         [
           csvCell(section.label),

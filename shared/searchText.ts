@@ -135,6 +135,20 @@ const foldForHighlight = (raw: string): string =>
     return folded.length === 1 ? folded : ch;
   });
 
+/** Lower case, ONE CHARACTER FOR ONE, for the same reason the fold above is: "İ"
+ *  lower-cases to two code units, and a plain toLowerCase() on the row's text slid every
+ *  highlight after it one place to the right. A character whose lower case is another
+ *  length keeps its own. */
+const lowerOneForOne = (raw: string): string =>
+  raw.replace(/[A-Z]|[^\u0000-\u007F]/gu, (ch) => {
+    const lower = ch.toLowerCase();
+    return lower.length === ch.length ? lower : ch;
+  });
+
+/** Both sides of the highlighter's comparison, folded then lower-cased: in that order
+ *  "İ" folds to "I" first and then lower-cases to the "i" that was typed. */
+const highlightKey = (raw: string): string => lowerOneForOne(foldForHighlight(raw));
+
 export function highlightParts(text: string, rawQuery: string): { t: string; on: boolean }[] {
   // Apostrophes folded on BOTH sides, and the offsets still index `text` — the fold is
   // 1:1 on characters, so position i in `lower` is position i in `text`. Rows are
@@ -142,10 +156,10 @@ export function highlightParts(text: string, rawQuery: string): { t: string; on:
   // literal indexOf: without the fold the row still RANKS (the trigram fold ignores
   // punctuation) and still appears, but arrives with nothing bolded, which reads as
   // "this isn't the match you asked for".
-  const q = foldForHighlight((rawQuery ?? "").trim().toLowerCase());
+  const q = highlightKey((rawQuery ?? "").trim());
   const tokens = q.split(/\s+/).filter((t) => t.length > 1);
   if (!tokens.length) return [{ t: text, on: false }];
-  const lower = foldForHighlight(text.toLowerCase());
+  const lower = highlightKey(text);
   const hit = new Array(text.length).fill(false);
   for (const tok of tokens) {
     let from = 0;

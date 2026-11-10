@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatVolume, itemQtyLabel, parseVolumeMl, waterMgFromMl, waterPhraseMl } from "../shared/water";
+import { formatVolume, itemQtyLabel, parseVolumeMl, waterMenuMl, waterMgFromMl, waterPhraseMl } from "../shared/water";
 
 describe("parseVolumeMl — human volume → millilitres", () => {
   it("reads litres (the default for a bare number) and millilitres", () => {
@@ -119,5 +119,27 @@ describe("waterPhraseMl", () => {
     expect(waterPhraseMl("500 ml")).toBeNull();
     expect(waterPhraseMl("Watermelon 2 kg")).toBeNull();
     expect(waterPhraseMl("Water bottle")).toBeNull();
+  });
+});
+
+describe("waterMenuMl — what the name field's menu offers as water", () => {
+  it("offers a litre for a bare \"water\" and the volume for a bare volume", () => {
+    expect(waterMenuMl("water")).toBe(1000);
+    expect(waterMenuMl(" Water ")).toBe(1000);
+    expect(waterMenuMl("500 ml")).toBe(500);
+    expect(waterMenuMl("1.5L")).toBe(1500);
+  });
+
+  it("reads every water phrase the Enter path reads, set-off volumes included", () => {
+    for (const text of ["water 2 L", "2 L water", "Water - 2 L", "Water: 750 ml", "Water (2 L)"]) {
+      expect(waterMenuMl(text)).toBe(waterPhraseMl(text));
+      expect(waterMenuMl(text)).not.toBeNull();
+    }
+  });
+
+  it("offers nothing for gear that only starts with the word", () => {
+    expect(waterMenuMl("water filter")).toBeNull();
+    expect(waterMenuMl("Tent")).toBeNull();
+    expect(waterMenuMl("")).toBeNull();
   });
 });
