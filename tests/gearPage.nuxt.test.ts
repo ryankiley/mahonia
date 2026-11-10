@@ -11,7 +11,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
-import { readBody } from "h3";
+import { createError, readBody } from "h3";
 import type { VaultEntry } from "~~/shared/vault";
 import GearPage from "~/pages/gear.vue";
 
@@ -57,7 +57,12 @@ const NANO_PUFF = {
 };
 
 let listRows: VaultEntry[] = [];
-registerEndpoint("/api/vault/list", () => ({ items: listRows, removed: [] }));
+// the connection gone for the reads after the first
+let listFails = false;
+registerEndpoint("/api/vault/list", () => {
+  if (listFails) throw createError({ statusCode: 503 });
+  return { items: listRows, removed: [] };
+});
 
 // what "Remove" sent — the id is the assertion, the ok is what lets the row leave
 let removedIds: number[] = [];
@@ -389,6 +394,29 @@ describe("a kit on /gear", () => {
     expect(w.get(".vault__error").text()).toContain("Couldn’t save the kit");
     // and the reload put the kit back as the vault has it
     await vi.waitFor(() => expect(total(w)).toBe("350 g"));
+  });
+
+  // A change's failure and the offline line are two facts, and offline used to show only
+  // the second: the failure went unsaid.
+  it("still says a change failed when the reload behind it finds the connection gone", async () => {
+    listRows = [stove, pot, kit];
+    storage.set("gear.vault.tab.v1", "kits");
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+    listFails = true;
+    try {
+      await w.get('button[aria-label="Take Pot out of Brand Cook kit"]').trigger("click");
+      await vi.waitFor(() => expect(w.text()).toContain("Offline · last updated"));
+      expect(w.get(".vault__error").text()).toContain("Couldn’t save the kit");
+      // and offline the kit is still there, but can't be changed any further: its
+      // controls stand down (kept in place, so nothing shifts)
+      expect(w.findAll(".kitsec")).toHaveLength(1);
+      expect(w.get(".kitsec").text()).toContain("Pot");
+      expect(w.findAll(".kitsec .vault__row").every((r) => r.classes("is-readonly"))).toBe(true);
+      expect(w.find('input[placeholder="Add an item"]').exists()).toBe(false);
+    } finally {
+      listFails = false;
+    }
   });
 
   it("keeps the kits in their own order whatever the Gear tab is sorted by", async () => {
