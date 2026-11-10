@@ -11,19 +11,16 @@ import { rateLimit } from "../../utils/rateLimit";
 // there is none — and nothing here mints anything; Allow is the POST.
 //
 // A failed check that the client should hear about comes back with its error
-// redirect, and `auto` says whether the page may follow it without a click: only
-// for a client whose metadata document and redirect share a host, because anyone
-// may register a client with any redirect, and a page that bounced to it on sight
-// would be an open redirector on this origin. The rest get a link to click.
+// redirect, for the page to offer as a link and never to follow on its own. Anyone
+// may register a client with any redirect, or host a metadata document beside one on
+// their own site, so no request proves its redirect is safe to bounce to unasked: a
+// page that did would be an open redirector on this origin (RFC 9700 §4.11.2).
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
   setPrivate(event);
   await rateLimit(event, "oauth-authorize");
   const check = await checkAuthorizeRequest(await useAccountDb(), trustedOrigin(event), getQuery(event));
-  if (!check.ok) {
-    const auto = !!check.redirect && check.client?.kind === "document" && new URL(check.redirect).host === new URL(check.client.clientId).host;
-    return { ok: false as const, error: check.error, description: check.description, redirect: check.redirect, auto };
-  }
+  if (!check.ok) return { ok: false as const, error: check.error, description: check.description, redirect: check.redirect };
   const back = new URL(check.redirectUri);
   return {
     ok: true as const,

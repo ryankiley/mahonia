@@ -132,8 +132,6 @@ type AuthorizeCheck =
        *  redirect URI have checked out; null before that, when the only safe answer
        *  is a page that says so */
       redirect: string | null;
-      /** the client, once it has checked out, for the page to judge the redirect by */
-      client?: OAuthClient;
     };
 
 /**
@@ -143,7 +141,7 @@ type AuthorizeCheck =
  */
 export async function checkAuthorizeRequest(db: Db, origin: string, q: Record<string, unknown>): Promise<AuthorizeCheck> {
   const str = (k: string) => (typeof q[k] === "string" ? (q[k] as string) : undefined);
-  const refuse = (error: string, description: string, redirect: string | null = null, client?: OAuthClient): AuthorizeCheck => ({ ok: false, error, description, redirect, client });
+  const refuse = (error: string, description: string, redirect: string | null = null): AuthorizeCheck => ({ ok: false, error, description, redirect });
 
   const client = await resolveOAuthClient(db, str("client_id"));
   if (!client) return refuse("invalid_client", "That client_id names no client this server knows.");
@@ -153,7 +151,7 @@ export async function checkAuthorizeRequest(db: Db, origin: string, q: Record<st
   }
   const state = str("state") ?? null;
   if (state !== null && state.length > STATE_MAX) return refuse("invalid_request", "state is too long.");
-  const back = (error: string, description: string) => refuse(error, description, errorRedirect(redirectUri, error, description, state), client);
+  const back = (error: string, description: string) => refuse(error, description, errorRedirect(redirectUri, error, description, state));
 
   if (str("response_type") !== "code") return back("unsupported_response_type", "Only response_type=code is supported.");
   const codeChallenge = str("code_challenge");
