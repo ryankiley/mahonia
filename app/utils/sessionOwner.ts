@@ -88,6 +88,22 @@ export function sweepOwned(keep: string | null): void {
   }
 }
 
+/**
+ * The startup sweep: drop what earlier sessions left, keep the current one's.
+ *
+ * ONLY WHEN IT IS CERTAIN WHOSE TURN IT IS: a session with its marker (keep that
+ * one's), or no session at all (keep nothing). A hint with no marker is neither.
+ * It is a session whose marker cookie this browser doesn't have right now, and the
+ * server hands the SAME marker back on its next answer, at which point everything
+ * kept under it is readable again: the lists the switcher shows offline, the copy
+ * of My Gear. Sweeping then would throw away a signed-in person's offline data to
+ * tidy up a cookie.
+ */
+export function sweepStaleOwned(hasSessionHint: boolean): void {
+  const owner = sessionCacheOwner();
+  if (owner || !hasSessionHint) sweepOwned(owner);
+}
+
 /** Which account the current session belongs to, as the marker /api/auth/me gave
  *  for it (accountMarker on the server), or null before that answer or signed out.
  *  Kept beside the session's owner marker so it can be read with no network: the
