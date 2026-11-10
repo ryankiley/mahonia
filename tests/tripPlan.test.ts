@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  dayEnd,
   dayEnds,
   dayRanges,
   heightIsDerived,
@@ -342,16 +341,21 @@ describe("shownHeightM / heightIsDerived", () => {
   });
 });
 
-describe("dayEnd", () => {
+describe("dayEnds", () => {
   const ranges = (ds: number[]) => dayRanges(ds);
+  // one row's end, read out of the whole itinerary's
+  const dayEnd = ({ index, ...opts }: Parameters<typeof dayEnds>[0] & { index: number }) => dayEnds(opts)[index];
 
-  it("batches route-end decisions without changing any row", () => {
+  it("settles every row of the itinerary at once", () => {
     const dayDistancesM = [10_000, 0, 12_000, 0];
     const opts = { ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false, endPinsAtM: [4_000] };
     expect(lastOwnedDayIndex(dayDistancesM)).toBe(2);
-    expect(dayEnds(opts)).toEqual(
-      dayDistancesM.map((_, index) => dayEnd({ ...opts, index })),
-    );
+    expect(dayEnds(opts)).toEqual([
+      { kind: "camp", alongM: 10_000 },
+      null,
+      { kind: "finish", alongM: 22_000 },
+      null,
+    ]);
   });
 
   it("camps every day but the last", () => {
@@ -412,9 +416,8 @@ describe("dayEnd", () => {
       .toEqual({ kind: "finish", alongM: 22_000 });
   });
 
-  it("ends nowhere for a day with no distance, or an index off the end", () => {
+  it("ends nowhere for a day with no distance", () => {
     const dayDistancesM = [0];
     expect(dayEnd({ index: 0, ranges: ranges(dayDistancesM), dayDistancesM, hasRest: false })).toBeNull();
-    expect(dayEnd({ index: 9, ranges: ranges([10_000]), dayDistancesM: [10_000], hasRest: false })).toBeNull();
   });
 });

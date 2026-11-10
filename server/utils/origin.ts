@@ -81,9 +81,3 @@ export function trustedOrigin(event: H3Event): string {
   if (!isProduction()) return getRequestURL(event).origin;
   return CANONICAL_ORIGIN;
 }
-
-/** The trusted origin's host, port and all — what a browser reports as the
- *  authority half of its origin. */
-export function trustedHost(event: H3Event): string {
-  return new URL(trustedOrigin(event)).host;
-}

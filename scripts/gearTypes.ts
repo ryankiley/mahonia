@@ -9,7 +9,8 @@
 // its common name, so the two need only be consistent, not identical.
 //
 // BUILD-TIME ONLY, which is why this lives in scripts/ beside catalogChecks + catalogCsv
-// rather than in shared/: the one production caller is build-catalog.ts (the tests import
+// rather than in shared/: the one production caller is research.ts's researchGearType, which
+// the build and the research checks both resolve a row's type through (the tests import
 // it too). A gear type the USER types is deliberately left alone — canonicalizing someone's
 // own label for their own list would be us overruling them, and the vocabulary exists to
 // keep the CATALOG's generated defaults consistent, not to police what people write.

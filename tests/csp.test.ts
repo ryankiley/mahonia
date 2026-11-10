@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { CSP, SECURITY_HEADERS, TILE_ORIGIN } from "../config/security";
+import { ROOT } from "./helpers/sources";
 
 // The site talks to exactly one host that isn't itself, and this file is the thing that
 // keeps it that way.
@@ -15,7 +16,6 @@ import { CSP, SECURITY_HEADERS, TILE_ORIGIN } from "../config/security";
 // as permission. So these assertions are deliberately about the SHAPE of the policy
 // rather than its exact text: one host, in img-src, and nowhere else.
 
-const ROOT = new URL("..", import.meta.url).pathname;
 const config = readFileSync(`${ROOT}config/security.ts`, "utf8");
 const nuxtConfig = readFileSync(`${ROOT}nuxt.config.ts`, "utf8");
 const routeMap = readFileSync(`${ROOT}app/components/RouteMap.client.vue`, "utf8");

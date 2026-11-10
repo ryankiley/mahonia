@@ -45,6 +45,9 @@ on:
       - scripts/seedRenames.ts
       - scripts/seedSizes.ts
       - scripts/seedRetire.ts
+      # and what those two passes decide by: the size-letter words and the successor match
+      - shared/catalogQuality.ts
+      - shared/catalogLinks.ts
   # manual re-run (e.g. after setting the secret, or to force a resync)
   workflow_dispatch: {}
 
@@ -77,7 +80,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci

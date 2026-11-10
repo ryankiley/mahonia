@@ -22,7 +22,7 @@ import { rowProvides } from "./helpers/itemRow";
 import { MAX_ITEMS } from "~~/shared/ops";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
-import { foldName } from "~~/shared/catalogMatch";
+import { foldKeepingPlus } from "~~/shared/searchText";
 
 mockNuxtImport("useVaultAccess", () => () => quietVaultAccess());
 mockNuxtImport("useLocalListStore", () => () => memoryListStore());
@@ -46,8 +46,8 @@ registerEndpoint("/api/catalog/match", {
     const body = await readBody<{ names: { name: string }[] }>(event);
     const names = body.names.map((n) => n.name);
     matchAsked.push(names);
-    const byKey = new Map([...catalog].map(([k, v]) => [foldName(k), v]));
-    return { matches: names.map((n) => byKey.get(foldName(n)) ?? null) };
+    const byKey = new Map([...catalog].map(([k, v]) => [foldKeepingPlus(k), v]));
+    return { matches: names.map((n) => byKey.get(foldKeepingPlus(n)) ?? null) };
   },
 });
 

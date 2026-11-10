@@ -172,21 +172,25 @@ const META_RULES: {
   startDate: { normalize: normalizeCalendarDate },
   endDate: { normalize: normalizeCalendarDate },
 };
+/** Every META_RULES field, each one present: its stored value, or undefined. */
+type MetaFields = { [K in keyof typeof META_RULES]: ListMeta[K] | undefined };
+
 /**
  * The clearable meta fields of a foreign object, each as the reducer's setMeta would
- * store it (undefined = clear, or nothing usable there). The JSON importer re-validates
- * a hand-edited backup by this — the same eight rules, not a second list of them.
+ * store it (undefined = clear, or nothing usable there). EVERY key comes back, the
+ * unusable ones as undefined: a whole-list write spreads this, and an update that
+ * leaves a column out keeps the live value standing. The JSON importer re-validates a
+ * hand-edited backup by this, and the server's create and restore validate by it too:
+ * the same eight rules, not a second list of them.
  */
-export function normalizeMetaFields(raw: Record<string, unknown>): Partial<ListMeta> {
-  const out: Partial<ListMeta> = {};
+export function normalizeMetaFields(raw: Record<string, unknown>): MetaFields {
+  const out: Record<string, unknown> = {};
   for (const key of Object.keys(META_RULES) as (keyof typeof META_RULES)[]) {
     const v = raw[key];
     const rule = META_RULES[key];
-    if (typeof v === "string" || (rule.numeric && typeof v === "number")) {
-      (out as Record<string, unknown>)[key] = rule.normalize(v);
-    }
+    out[key] = typeof v === "string" || (rule.numeric && typeof v === "number") ? rule.normalize(v) : undefined;
   }
-  return out;
+  return out as MetaFields;
 }
 
 // Hard caps (enforced in the reducer → client + server agree). Generous for
@@ -219,13 +223,13 @@ export const MAX_DESCRIPTION_LEN = 4000;
 export const MAX_ITEM_NAME_LEN = 200;
 export const MAX_ITEM_NOTE_LEN = 2000;
 export const MAX_GEAR_TYPE_LEN = 120; // commonName
-const MAX_BRAND_LEN = 120;
+export const MAX_BRAND_LEN = 120;
 /** a day's or a waypoint's label */
-const MAX_LABEL_LEN = 120;
+export const MAX_LABEL_LEN = 120;
 /** a day's or a waypoint's note: "Resupply at Reds, shuttle at 8" */
 export const MAX_NOTE_LEN = 500;
 /** a row's count, and its worn split */
-const MAX_QTY = 9999;
+export const MAX_QTY = 9999;
 export const MAX_VARIANT_LEN = 120; // the size/config qualifier, typed or picked
 export const MAX_FOLDER_NAME_LEN = 120;
 export const MAX_PERSON_NAME_LEN = 60;
@@ -250,6 +254,18 @@ export const UNIT_WEIGHT_MAX_MG = 100_000_000; // 100 kg per single unit
 // hard hiking runs 4–5k kcal; 1,000,000 leaves room for a whole resupply entered
 // as one row without ever approaching the bound.
 export const KCAL_MAX = 1_000_000;
+
+/**
+ * kcal as it is stored: whole, positive and under KCAL_MAX, or absent. Never zero: a
+ * zero would read as "this food has no calories", which is a claim, where absent reads
+ * as "not filled in", which is the truth. One rule for a row's patch, a whole row and a
+ * piece of My Gear, so a direct POST can't store a value the editor could never have
+ * produced.
+ */
+export const kcalOf = (v: unknown): number | undefined => {
+  const k = typeof v === "number" && isFinite(v) ? Math.round(v) : 0;
+  return k > 0 ? Math.min(KCAL_MAX, k) : undefined;
+};
 
 // Identity strings are clamped too. Every HUMAN field below is length-capped, but
 // item/folder ids + folderId references are free-form client strings — left
@@ -346,14 +362,10 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   if (patch.entryUnit === null) out.entryUnit = undefined;
   else if (typeof patch.entryUnit === "string" && UNITS.includes(patch.entryUnit))
     out.entryUnit = patch.entryUnit;
-  // kcal: whole, non-negative. Anything that isn't a usable number CLEARS the field
-  // rather than storing 0 — a zero would read as "this food has no calories", which
-  // is a claim, where absent reads as "not filled in", which is the truth.
+  // kcal: null clears, and so does a number kcalOf won't store (zero or below), rather
+  // than storing 0. Anything that isn't a finite number is left alone.
   if (patch.kcal === null) out.kcal = undefined;
-  else if (typeof patch.kcal === "number" && isFinite(patch.kcal)) {
-    const k = Math.round(patch.kcal);
-    out.kcal = k > 0 ? Math.min(KCAL_MAX, k) : undefined;
-  }
+  else if (typeof patch.kcal === "number" && isFinite(patch.kcal)) out.kcal = kcalOf(patch.kcal);
   if (typeof patch.qty === "number" && isFinite(patch.qty))
     out.qty = Math.max(0, Math.min(MAX_QTY, Math.round(patch.qty)));
   if (typeof patch.wornQty === "number" && isFinite(patch.wornQty)) {
@@ -849,9 +861,6 @@ export function normalizeItem(raw: Item): Item {
     : null;
   const worn = normalizeWornSplit(qty, classification, raw.wornQty);
   classification = worn.classification;
-  // same clamp as cleanItemPatch: whole, positive, bounded — anything else is
-  // absent rather than zero (see Item.kcal)
-  const kcal = typeof raw.kcal === "number" && isFinite(raw.kcal) ? Math.round(raw.kcal) : 0;
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     // empty string collapses to null — a real id or nothing. "" is a truthy-looking
@@ -878,7 +887,9 @@ export function normalizeItem(raw: Item): Item {
     qty,
     wornQty: worn.wornQty,
     classification,
-    kcal: kcal > 0 ? Math.min(KCAL_MAX, kcal) : undefined,
+    // same rule as cleanItemPatch: anything kcalOf won't store is absent rather than
+    // zero (see Item.kcal)
+    kcal: kcalOf(raw.kcal),
     description: raw.description ? cleanText(String(raw.description), MAX_ITEM_NOTE_LEN) || undefined : undefined,
     productUrl: raw.productUrl ? httpUrl(String(raw.productUrl)) : undefined,
     priceCents:

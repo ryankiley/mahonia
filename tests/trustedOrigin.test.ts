@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { CANONICAL_ORIGIN } from "../shared/site";
-import { trustedHost, trustedOrigin } from "../server/utils/origin";
+import { trustedOrigin } from "../server/utils/origin";
 
 // The regression these pin down is a `Host` header deciding where an emailed
 // credential points. A test that only checked "returns a string" would have
@@ -98,17 +98,5 @@ describe("trustedOrigin — dev and previews keep deriving from the request", ()
     expect(trustedOrigin(eventWithHost("mahonia-git-branch.vercel.app"))).toBe(
       "https://mahonia-git-branch.vercel.app",
     );
-  });
-});
-
-describe("trustedHost", () => {
-  it("is the authority half of the trusted origin", () => {
-    process.env.NODE_ENV = "production";
-    expect(trustedHost(eventWithHost("evil.example"))).toBe("mahonia.app");
-  });
-
-  it("keeps the port, which is what a browser reports as its origin's authority", () => {
-    process.env.NODE_ENV = "development";
-    expect(trustedHost(eventWithHost("localhost:3000", "http"))).toBe("localhost:3000");
   });
 });

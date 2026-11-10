@@ -50,17 +50,23 @@ export interface FullSnap {
   data: ListData;
 }
 
-// The five entity lists and the diff keys each one writes. One table on the way out
-// (diffListState) and the same one on the way back (applyListDiff), so a sixth list
-// arrives in one place rather than as two more hand-copied blocks.
-type EntityKey = keyof Pick<ListData, "folders" | "items" | "days" | "waypoints" | "people">;
-const ENTITY_LISTS: { key: EntityKey; upsert: keyof ListDiff; del: keyof ListDiff }[] = [
-  { key: "folders", upsert: "foldersUpsert", del: "foldersDel" },
-  { key: "items", upsert: "itemsUpsert", del: "itemsDel" },
-  { key: "days", upsert: "daysUpsert", del: "daysDel" },
-  { key: "waypoints", upsert: "waypointsUpsert", del: "waypointsDel" },
-  { key: "people", upsert: "peopleUpsert", del: "peopleDel" },
-];
+// The five entity lists. Each writes two diff keys named after it, `<list>Upsert` and
+// `<list>Del`. One list on the way out (diffListState) and the same one on the way back
+// (applyListDiff), so a sixth list arrives in one place rather than as two more
+// hand-copied blocks.
+const ENTITY_KEYS = ["folders", "items", "days", "waypoints", "people"] as const satisfies readonly (keyof ListData)[];
+
+/** A state's content as the `data` a row and a full snapshot both store: EVERY entity
+ *  list the reducer holds, in one place, because a list left out here is a list erased
+ *  by the next write. days/waypoints/people are coerced: a list written before they
+ *  existed has no key at all. */
+export const stateData = (s: ListState): ListData => ({
+  folders: s.folders,
+  items: s.items,
+  days: s.days ?? [],
+  waypoints: s.waypoints ?? [],
+  people: s.people ?? [],
+});
 
 // Every meta field rides the full-snapshot form as a nullable: absent → null on the
 // way out, null → undefined on the way back — undefined, not "", because these are
@@ -69,8 +75,7 @@ const ENTITY_LISTS: { key: EntityKey; upsert: keyof ListDiff; del: keyof ListDif
 export const stateToFullSnap = (s: ListState): FullSnap => {
   const out = {} as Record<string, unknown>;
   for (const key of LIST_META_KEYS) out[key] = s[key] ?? null;
-  // days/waypoints/people, coerced: a list written before they existed has no key at all
-  out.data = { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [], people: s.people ?? [] };
+  out.data = stateData(s);
   return out as unknown as FullSnap;
 };
 export const fullSnapToState = (s: FullSnap): ListState => {
@@ -78,11 +83,7 @@ export const fullSnapToState = (s: FullSnap): ListState => {
   for (const key of LIST_META_KEYS) out[key] = s[key] ?? undefined;
   out.description = s.description ?? ""; // the reducer stores a blank description as ""
   out.trailDistanceUnit = normalizeDistanceUnit(s.trailDistanceUnit); // re-validated, never trusted
-  out.folders = s.data?.folders ?? [];
-  out.items = s.data?.items ?? [];
-  out.days = s.data?.days ?? [];
-  out.waypoints = s.data?.waypoints ?? [];
-  out.people = s.data?.people ?? [];
+  for (const key of ENTITY_KEYS) out[key] = s.data?.[key] ?? [];
   out.version = 0; // not carried by snapshots — the row's own version column is authoritative
   return out as unknown as ListState;
 };
@@ -116,7 +117,10 @@ const clone = <T>(v: T): T => structuredClone(v);
 // noise) only over-includes — safe — so this never drops a real change.
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
 
-// How each meta field is diffed and re-applied. The rule is uniform inside a group:
+// How each meta field is diffed and re-applied. The rule is uniform inside a group,
+// and the two groups are LIST_META_KEYS split in two: a number is named in NUMBER_META,
+// and every other key is a string. So a meta field added to LIST_META_KEYS is diffed
+// without being listed here again, and one left out of the delta cannot happen.
 //
 // STRING_META diffs on `?? ""`, and "" is the CLEAR sentinel (a link removed between
 // base and target has to be recorded as a change, or restoring would resurrect it).
@@ -135,18 +139,9 @@ const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
 //
 // trailDistanceUnit is a string that goes back in through its normalizer, so a
 // value the chain carried is re-validated rather than trusted.
-const ASSIGNED_META = ["title", "description", "displayUnit"] as const;
-const STRING_META = [
-  ...ASSIGNED_META,
-  "trailUrl",
-  "trailLabel",
-  "trailProfile",
-  "routeGeometry",
-  "startDate",
-  "endDate",
-  "trailDistanceUnit",
-] as const satisfies readonly ListMetaKey[];
+const ASSIGNED_META = ["title", "description", "displayUnit"] as const satisfies readonly ListMetaKey[];
 const NUMBER_META = ["trailDistanceM", "trailAscentM", "trailDescentM"] as const satisfies readonly ListMetaKey[];
+const STRING_META = LIST_META_KEYS.filter((key) => !(NUMBER_META as readonly ListMetaKey[]).includes(key));
 
 /** Ops that turn `base` into `target`, as an entity-level delta. */
 export function diffListState(base: ListState, target: ListState): ListDiff {
@@ -164,10 +159,10 @@ export function diffListState(base: ListState, target: ListState): ListDiff {
   // Every list coerced on BOTH sides: a snapshot taken before days, waypoints or
   // people existed has no array at all, and a restore must not throw on it.
   const out = diff as Record<string, unknown>;
-  for (const { key, upsert, del } of ENTITY_LISTS) {
+  for (const key of ENTITY_KEYS) {
     const d = diffEntities<{ id: string }>(base[key] ?? [], target[key] ?? []);
-    if (d.upsert.length) out[upsert] = clone(d.upsert);
-    if (d.del.length) out[del] = d.del;
+    if (d.upsert.length) out[`${key}Upsert`] = clone(d.upsert);
+    if (d.del.length) out[`${key}Del`] = d.del;
   }
 
   return diff;
@@ -194,11 +189,11 @@ export function applyListDiff(base: ListState, diff: ListDiff): ListState {
     for (const key of NUMBER_META) if (meta[key] !== undefined) put(key, meta[key]);
   }
   // `?? []` because `base` may predate a list entirely — mergeEntities would iterate undefined
-  for (const { key, upsert, del } of ENTITY_LISTS) {
+  for (const key of ENTITY_KEYS) {
     out[key] = mergeEntities(
       (out[key] as { id: string }[] | undefined) ?? [],
-      diff[upsert] as { id: string }[] | undefined,
-      diff[del] as string[] | undefined,
+      diff[`${key}Upsert` as const] as { id: string }[] | undefined,
+      diff[`${key}Del` as const],
     );
   }
   return out as unknown as ListState;

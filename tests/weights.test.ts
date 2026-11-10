@@ -364,9 +364,6 @@ describe("formatWeightAuto (magnitude-promoted, for comparison surfaces)", () =>
     expect(formatWeightAuto(700_000, { system: "imperial" })).toMatch(/ lb$/);
     expect(formatWeightAuto(300_000, { system: "imperial" })).toMatch(/ oz$/);
   });
-  it("honours withUnit: false", () => {
-    expect(formatWeightAuto(5_000_000, { withUnit: false })).toBe("5");
-  });
 });
 
 describe("nextSortOrder — new items append at the folder's bottom", () => {

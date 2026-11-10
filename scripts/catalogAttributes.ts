@@ -27,14 +27,11 @@
 
 import { ATTRIBUTE_KEYS, INSEAM_TYPE, traitsOf, type AttributeKey, type RowAttributes } from "../shared/catalogAxes";
 import { ML_PER_UNIT } from "../shared/water";
-
-export { ATTRIBUTE_KEYS } from "../shared/catalogAxes";
-export type { AttributeKey, RowAttributes } from "../shared/catalogAxes";
 import { sizeWordsToLetters } from "../shared/catalogQuality";
 
 // --- canonical forms ---------------------------------------------------------
 
-export const LETTER = "XXS|XS|S|M|L|XL|XXL|XXXL|2XL|3XL";
+const LETTER = "XXS|XS|S|M|L|XL|XXL|XXXL|2XL|3XL";
 const LETTER_SIZE = new RegExp(`^(?:${LETTER})\\+?$`);
 const LETTER_RANGE = new RegExp(`^(?:${LETTER})/(?:${LETTER})$`);
 /** The regions a footwear size is written in; the footwear-size check reads the same list. */
@@ -79,7 +76,7 @@ type StringKey = keyof typeof STRING_FORM;
 const _everyKey: Record<AttributeKey, unknown> = { ...NUMERIC_RULES, ...STRING_FORM };
 void _everyKey;
 
-const isAttributeKey = (k: string): k is AttributeKey => (ATTRIBUTE_KEYS as readonly string[]).includes(k);
+export const isAttributeKey = (k: string): k is AttributeKey => (ATTRIBUTE_KEYS as readonly string[]).includes(k);
 const isNumericKey = (k: string): k is NumericKey => Object.hasOwn(NUMERIC_RULES, k);
 /** On the grid of `step` (to floating-point tolerance): 0.525 on 0.001, 1.5 on 0.5. */
 const onStep = (v: number, step: number) => {

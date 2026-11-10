@@ -105,34 +105,29 @@ export function encodePolyline(points: readonly LatLon[]): string {
 export function decodePolyline(raw: string): LatLon[] {
   const out: LatLon[] = [];
   let i = 0;
-  let lat = 0;
-  let lon = 0;
-  while (i < raw.length) {
+  /** The next signed delta, or null when the string can't supply one. */
+  const delta = (): number | null => {
     let shift = 0;
     let result = 0;
     let byte: number;
     do {
-      if (i >= raw.length) return []; // truncated mid-value
+      if (i >= raw.length) return null; // truncated mid-value
       byte = raw.charCodeAt(i++) - 63;
-      if (byte < 0 || byte > 63) return [];
+      if (byte < 0 || byte > 63) return null;
       result |= (byte & 0x1f) << shift;
       shift += 5;
-      if (shift > 35) return []; // a value no coordinate delta can need
+      if (shift > 35) return null; // a value no coordinate delta can need
     } while (byte >= 0x20);
-    lat += result & 1 ? ~(result >> 1) : result >> 1;
-
-    shift = 0;
-    result = 0;
-    do {
-      if (i >= raw.length) return [];
-      byte = raw.charCodeAt(i++) - 63;
-      if (byte < 0 || byte > 63) return [];
-      result |= (byte & 0x1f) << shift;
-      shift += 5;
-      if (shift > 35) return [];
-    } while (byte >= 0x20);
-    lon += result & 1 ? ~(result >> 1) : result >> 1;
-
+    return result & 1 ? ~(result >> 1) : result >> 1;
+  };
+  let lat = 0;
+  let lon = 0;
+  while (i < raw.length) {
+    const dLat = delta();
+    const dLon = dLat == null ? null : delta();
+    if (dLat == null || dLon == null) return [];
+    lat += dLat;
+    lon += dLon;
     out.push({ lat: lat / PRECISION, lon: lon / PRECISION });
   }
   return out;

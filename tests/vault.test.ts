@@ -34,6 +34,11 @@ import { vaultToJson } from "../shared/exporters/vault";
 import { parseVaultImport } from "../shared/vaultImport";
 import { createTestDb, seedVaultItems, type TestDb } from "./helpers/db";
 
+/** A /gear edit of one row in vault 1, the vault every suite here writes to. `unpin`
+ *  left out is inert: the repo reads it only when it is an array. */
+const edit = (db: TestDb, id: number, patch: Record<string, unknown>, unpin?: string[]) =>
+  applyVaultItemOp(db, 1, { t: "edit", id, patch, unpin } as any);
+
 // ---------------------------------------------------------------------------
 // identity
 // ---------------------------------------------------------------------------
@@ -463,7 +468,7 @@ describe("vaultGearAmong — the membership read the editor runs on", () => {
     // refuses to overwrite it — so the row has nothing left to push and the
     // client must not offer to
     const id = (await listVaultItems(db, VAULT)).find((r) => r.name === "Duplex")!.id;
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { weightMg: 545_000 } } as any);
+    await edit(db, id, { weightMg: 545_000 });
     expect((await among(both)).get(duplex.normKey)).toBeNull();
     expect((await among(both)).get(kakwa.normKey)).toBe(900_000); // unpinned, untouched
   });
@@ -550,7 +555,7 @@ describe("captureVaultItemsReporting — what a capture actually landed", () => 
   it("nulls a pinned weight, exactly as the membership read does", async () => {
     await captureVaultItemsReporting(db, VAULT, [duplex]);
     const id = (await listVaultItems(db, VAULT))[0]!.id;
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { weightMg: 545_000 } } as any);
+    await edit(db, id, { weightMg: 545_000 });
     expect((await captureVaultItemsReporting(db, VAULT, [duplex])).keys).toEqual([
       [duplex.normKey, null],
     ]);
@@ -752,11 +757,8 @@ describe("a gear edit wins — the pin", () => {
     id = (await only(db))!.id;
   });
 
-  const edit = (patch: Record<string, unknown>, unpin?: string[]) =>
-    applyVaultItemOp(db, VAULT, { t: "edit", id, patch, unpin } as any);
-
   it("an edited weight survives a capture that disagrees", async () => {
-    await edit({ weightMg: 545_000 });
+    await edit(db, id, { weightMg: 545_000 });
     await captureVaultItems(db, VAULT, [cap({ weightMg: 539_000 })]);
     expect((await only(db))!.weightMg).toBe(545_000);
   });
@@ -770,7 +772,7 @@ describe("a gear edit wins — the pin", () => {
     // The capture keeps the same spelling on purpose: brand + name + variant ARE the
     // key, so varying the name here would be a different piece of gear rather than a
     // second opinion about this one (see "an edited spelling survives" below).
-    await edit({ weightMg: 545_000 });
+    await edit(db, id, { weightMg: 545_000 });
     await captureVaultItems(db, VAULT, [
       cap({ weightMg: 100, commonName: "Tent", classification: "base" }),
     ]);
@@ -781,7 +783,7 @@ describe("a gear edit wins — the pin", () => {
   });
 
   it("an edited price survives, and its currency goes with it", async () => {
-    await edit({ priceCents: 69_900, currency: "GBP" });
+    await edit(db, id, { priceCents: 69_900, currency: "GBP" });
     await captureVaultItems(db, VAULT, [
       cap({ priceCents: 39_900, currency: "USD" }),
     ]);
@@ -793,8 +795,8 @@ describe("a gear edit wins — the pin", () => {
   it("clearing the price clears the currency with it", async () => {
     // one field with two columns — a currency left behind would be the money a
     // price nobody entered was in
-    await edit({ priceCents: 69_900, currency: "GBP" });
-    await edit({ priceCents: null });
+    await edit(db, id, { priceCents: 69_900, currency: "GBP" });
+    await edit(db, id, { priceCents: null });
     const row = (await only(db))!;
     // toEntry turns SQL nulls into absent fields — the shape the client sees
     expect(row.priceCents).toBeUndefined();
@@ -814,7 +816,7 @@ describe("a gear edit wins — the pin", () => {
   });
 
   it("an edited spelling survives, and the list still lands on the same row", async () => {
-    await edit({ name: "Duplex Flex", brand: "ZPacks" });
+    await edit(db, id, { name: "Duplex Flex", brand: "ZPacks" });
     await captureVaultItems(db, VAULT, [cap()]);
     const rows = await listVaultItems(db, VAULT);
     expect(rows).toHaveLength(1); // one row, not two
@@ -826,12 +828,12 @@ describe("a gear edit wins — the pin", () => {
     // The key is the gear's identity; the spelling is a separate axis. Re-deriving
     // would orphan the row from the list feeding it, and capture would recreate the
     // old one within seconds — unprompted.
-    await edit({ name: "Duplex Flex" });
+    await edit(db, id, { name: "Duplex Flex" });
     expect((await only(db))!.normKey).toBe(DUPLEX.normKey);
   });
 
   it("a cleared product URL stays cleared through a capture that carries one", async () => {
-    await edit({ productUrl: null });
+    await edit(db, id, { productUrl: null });
     await captureVaultItems(db, VAULT, [
       cap({ productUrl: "https://zpacks.com/duplex" }),
     ]);
@@ -840,13 +842,13 @@ describe("a gear edit wins — the pin", () => {
 
   it("a cleared kcal stays cleared", async () => {
     await captureVaultItems(db, VAULT, [cap({ kcal: 250 })]);
-    await edit({ kcal: null });
+    await edit(db, id, { kcal: null });
     await captureVaultItems(db, VAULT, [cap({ kcal: 250 })]);
     expect((await only(db))!.kcal).toBeUndefined();
   });
 
   it("an edited classification isn't re-flipped by a list", async () => {
-    await edit({ classification: "worn" });
+    await edit(db, id, { classification: "worn" });
     await captureVaultItems(db, VAULT, [cap({ classification: "base" })]);
     expect((await only(db))!.classification).toBe("worn");
   });
@@ -854,7 +856,7 @@ describe("a gear edit wins — the pin", () => {
   it("capture still bumps timesSeen and lastUsedAt on a fully pinned row", async () => {
     // usage is not content: the autocomplete ranks on these, and a corrected row is
     // still gear a list just reached for
-    await edit({ name: "Duplex Flex", weightMg: 545_000, commonName: "Tent", kcal: 1 });
+    await edit(db, id, { name: "Duplex Flex", weightMg: 545_000, commonName: "Tent", kcal: 1 });
     const before = (await only(db))!;
     await captureVaultItems(db, VAULT, [cap()]);
     const after = (await only(db))!;
@@ -863,15 +865,15 @@ describe("a gear edit wins — the pin", () => {
   });
 
   it("a weight edited to zero UN-pins it, so a list can teach it again", async () => {
-    await edit({ weightMg: 545_000 });
-    await edit({ weightMg: 0 });
+    await edit(db, id, { weightMg: 545_000 });
+    await edit(db, id, { weightMg: 0 });
     await captureVaultItems(db, VAULT, [cap({ weightMg: 531_000 })]);
     expect((await only(db))!.weightMg).toBe(531_000);
   });
 
   it("an explicit save can replace an unpinned field", async () => {
-    await edit({ weightMg: 545_000 });
-    await edit({}, ["weight"]);
+    await edit(db, id, { weightMg: 545_000 });
+    await edit(db, id, {}, ["weight"]);
     await captureVaultItemsReporting(db, VAULT, [cap({ weightMg: 539_000 })], {
       overwriteWeight: true,
     });
@@ -880,7 +882,7 @@ describe("a gear edit wins — the pin", () => {
 
   it("reports which fields are pinned", async () => {
     expect((await only(db))!.pinned).toBeUndefined();
-    await edit({ weightMg: 545_000, commonName: "Tent" });
+    await edit(db, id, { weightMg: 545_000, commonName: "Tent" });
     expect((await only(db))!.pinned).toEqual(["weight", "commonName"]);
   });
 
@@ -1041,11 +1043,7 @@ describe("editing a vault row", () => {
     ]);
     const rows = await listVaultItems(db, VAULT);
     const xmid = rows.find((r) => r.name === "X-Mid")!;
-    const res = await applyVaultItemOp(db, VAULT, {
-      t: "edit",
-      id: xmid.id,
-      patch: { brand: "Zpacks", name: "Duplex" },
-    } as any);
+    const res = await edit(db, xmid.id, { brand: "Zpacks", name: "Duplex" });
     expect(res).toMatchObject({ item: {} });
     const after = await listVaultItems(db, VAULT);
     expect(after).toHaveLength(2);
@@ -1059,11 +1057,7 @@ describe("editing a vault row", () => {
       cap({ commonName: "Tent", productUrl: "https://x.test/a" }),
     ]);
     const id = (await only(db))!.id;
-    await applyVaultItemOp(db, VAULT, {
-      t: "edit",
-      id,
-      patch: { productUrl: null },
-    } as any);
+    await edit(db, id, { productUrl: null });
     const row = (await only(db))!;
     expect(row.commonName).toBe("Tent"); // absent from the patch
     expect(row.productUrl).toBeUndefined(); // explicitly cleared
@@ -1073,7 +1067,7 @@ describe("editing a vault row", () => {
     await captureVaultItems(db, VAULT, [cap()]);
     const id = (await only(db))!.id;
     expect(
-      await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { name: "  " } } as any),
+      await edit(db, id, { name: "  " }),
     ).toBeNull();
     expect((await only(db))!.name).toBe("Duplex");
   });
@@ -1082,7 +1076,7 @@ describe("editing a vault row", () => {
     await captureVaultItems(db, VAULT, [cap()]);
     const id = (await only(db))!.id;
     await removeVaultItem(db, VAULT, id);
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { weightMg: 1 } } as any);
+    await edit(db, id, { weightMg: 1 });
     expect(await listVaultItems(db, VAULT)).toHaveLength(0);
     expect((await vaultItemById(db, VAULT, id))!.weightMg).toBe(1);
   });
@@ -1090,11 +1084,7 @@ describe("editing a vault row", () => {
   it("leaves lastUsedAt and timesSeen alone — an edit is not a use", async () => {
     await captureVaultItems(db, VAULT, [cap()]);
     const before = (await only(db))!;
-    await applyVaultItemOp(db, VAULT, {
-      t: "edit",
-      id: before.id,
-      patch: { weightMg: 545_000 },
-    } as any);
+    await edit(db, before.id, { weightMg: 545_000 });
     const after = (await only(db))!;
     expect(after.timesSeen).toBe(before.timesSeen);
     expect(after.lastUsedAt).toBe(before.lastUsedAt);
@@ -1103,15 +1093,15 @@ describe("editing a vault row", () => {
   it("keeps a picked icon, refuses one outside the set, and clears back to the type's", async () => {
     await captureVaultItems(db, VAULT, [cap({ commonName: "Sun hoodie" })]);
     const id = (await only(db))!.id;
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { icon: "shirt" } } as any);
+    await edit(db, id, { icon: "shirt" });
     expect((await only(db))!.icon).toBe("shirt");
     // a name the set doesn't have would draw nothing, so it is not stored over the pick
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { icon: "rocket" } } as any);
+    await edit(db, id, { icon: "rocket" });
     expect((await only(db))!.icon).toBe("shirt");
     // a list landing on the same gear never carries an icon, so it can't undo the pick
     await captureVaultItems(db, VAULT, [cap({ commonName: "Sun hoodie" })]);
     expect((await only(db))!.icon).toBe("shirt");
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { icon: null } } as any);
+    await edit(db, id, { icon: null });
     expect((await only(db))!.icon).toBeUndefined();
   });
 
@@ -1119,30 +1109,30 @@ describe("editing a vault row", () => {
     await captureVaultItems(db, VAULT, [cap()]);
     const id = (await only(db))!.id;
     expect((await only(db))!.owned).toBeUndefined();
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { owned: 3 } } as any);
+    await edit(db, id, { owned: 3 });
     expect((await only(db))!.owned).toBe(3);
     // a list landing on the same gear says how many it CARRIES, which is not this
     await captureVaultItems(db, VAULT, [cap()]);
     expect((await only(db))!.owned).toBe(3);
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { owned: 5000 } } as any);
+    await edit(db, id, { owned: 5000 });
     expect((await only(db))!.owned).toBe(999);
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { owned: 1 } } as any);
+    await edit(db, id, { owned: 1 });
     expect((await only(db))!.owned).toBeUndefined();
   });
 
   it("keeps a unit picked for the piece, refuses anything else, and clears back to the page's", async () => {
     await captureVaultItems(db, VAULT, [cap()]);
     const id = (await only(db))!.id;
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { entryUnit: "oz" } } as any);
+    await edit(db, id, { entryUnit: "oz" });
     expect((await only(db))!.entryUnit).toBe("oz");
     // the stored figure is untouched: the unit only says how it reads
     expect((await only(db))!.weightMg).toBe(cap().weightMg);
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { entryUnit: "stone" } } as any);
+    await edit(db, id, { entryUnit: "stone" });
     expect((await only(db))!.entryUnit).toBe("oz");
     // a list landing on the same gear has no say in how /gear reads it
     await captureVaultItems(db, VAULT, [cap()]);
     expect((await only(db))!.entryUnit).toBe("oz");
-    await applyVaultItemOp(db, VAULT, { t: "edit", id, patch: { entryUnit: null } } as any);
+    await edit(db, id, { entryUnit: null });
     expect((await only(db))!.entryUnit).toBeUndefined();
   });
 
@@ -1330,11 +1320,7 @@ describe("vault import — putting a file's worth of gear back", () => {
     // since corrected. Overwriting would undo months of work with no way back.
     await captureVaultItems(db, VAULT, [cap()]);
     const id = (await only(db))!.id;
-    await applyVaultItemOp(db, VAULT, {
-      t: "edit",
-      id,
-      patch: { weightMg: 545_000 },
-    } as any);
+    await edit(db, id, { weightMg: 545_000 });
 
     const res = await importVaultItems(db, VAULT, [imported({ weightMg: 400_000 })]);
     expect(res).toEqual({ added: 0, skipped: 1 });

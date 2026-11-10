@@ -7,7 +7,7 @@
 // token (server/utils/tokens.ts). A dump of `auth_tokens` or `sessions` therefore
 // contains no usable credential.
 
-import { and, eq, gt, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, gt, isNull, lt, or } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { createError, deleteCookie, getCookie, setCookie } from "h3";
 import { authTokens, credentials, oauthCodes, sessions, users } from "../db/schema";
@@ -23,8 +23,9 @@ import { trustedOrigin } from "./origin";
 /** The session cookie's name. `mh_` prefixed so it's obviously ours in devtools. */
 export const SESSION_COOKIE = "mh_session";
 
-/**
- * A readable companion flag set alongside the session — NOT a credential.
+/*
+ * SESSION_HINT_COOKIE (shared/session): a readable companion flag set alongside the
+ * session — NOT a credential.
  *
  * The session cookie is HttpOnly, so script can't tell whether one exists, and
  * the only way to find out would be to ask /api/auth/me on every page load. That
@@ -37,7 +38,6 @@ export const SESSION_COOKIE = "mh_session";
  * only "there is probably a session, worth asking". Forging it buys an attacker
  * one 401. Signed-out visitors read a cookie that isn't there and make no request.
  */
-export { SESSION_HINT_COOKIE };
 
 /** How long a magic link stays redeemable. Short — it's a live credential sitting
  *  in an inbox, and the whole flow (request → click) takes seconds. */
@@ -172,12 +172,10 @@ export async function deleteAccountRow(db: Db, userId: number): Promise<void> {
   await db.delete(users).where(eq(users.id, userId));
 }
 
-/** Is this address already on some OTHER account? Attaching must not silently
- *  merge two accounts, and must not let one person's address be claimed onto
- *  someone else's account. */
-export async function emailTaken(db: Db, email: string, exceptUserId: number): Promise<boolean> {
-  const user = await userByEmail(db, email);
-  return !!user && user.id !== exceptUserId;
+/** Is this address already on an account? A passkey signup is always a new account,
+ *  so an address that has one is a conflict, never a sign-in (see createAccount). */
+export async function emailTaken(db: Db, email: string): Promise<boolean> {
+  return !!(await userByEmail(db, email));
 }
 
 /**
@@ -203,7 +201,7 @@ export async function mailMagicLink(
     to,
     url: url.toString(),
     expiresIn: `${Math.round(MAGIC_LINK_TTL_MS / 60_000)} minutes`,
-    ...(purpose ? { purpose } : {}),
+    purpose,
   });
 }
 
@@ -431,12 +429,20 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
   return { id: row.id, email: row.email, displayName: row.displayName ?? null, owner };
 }
 
-/** Resolve the signed-in user or reject with 401 — requireAccount's gate. (The vault
- *  endpoints, which this once served, resolve through vaultAuth's own preamble.) */
-async function requireUser(event: H3Event): Promise<ResolvedUser> {
-  const user = await resolveSession(event);
-  if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in required" });
-  return user;
+/**
+ * The three lines every endpoint answering with one person's own data opens with,
+ * in this order: keep it out of search results, never cache it, throttle on
+ * `action`. Headers first, so a 429 carries them too.
+ *
+ * Narrow in the way requireAccount is (see the argument there and in http.ts): no
+ * caller goes near requireAdmin, none needs its limit before its cache headers,
+ * and none limits twice. What comes AFTER differs per endpoint (a session, a
+ * vault, an edit capability, nothing at all), so that stays at the call site.
+ */
+export async function openPrivate(event: H3Event, action: RateLimitAction): Promise<void> {
+  setNoIndex(event);
+  setPrivate(event);
+  await rateLimit(event, action);
 }
 
 /**
@@ -457,10 +463,9 @@ export async function requireAccount(
   event: H3Event,
   action: RateLimitAction,
 ): Promise<{ user: ResolvedUser; db: Db }> {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, action);
-  const user = await requireUser(event);
+  await openPrivate(event, action);
+  const user = await resolveSession(event);
+  if (!user) throw createError({ statusCode: 401, statusMessage: "Sign in required" });
   const db = await useAccountDb();
   return { user, db };
 }
@@ -525,11 +530,9 @@ export async function sweepExpiredAuth(db: Db): Promise<void> {
           lt(authTokens.expiresAt, now),
           // a consumed link is spent the moment it's redeemed, but keep it briefly so
           // a user double-clicking their link gets "already used" rather than a bare
-          // "unknown link" while the first click's session is still being set up
-          and(
-            sql`${authTokens.consumedAt} is not null`,
-            lt(authTokens.consumedAt, new Date(now.getTime() - MAGIC_LINK_TTL_MS)),
-          ),
+          // "unknown link" while the first click's session is still being set up.
+          // An unconsumed link's NULL compares as NULL, never true, so it is left alone.
+          lt(authTokens.consumedAt, new Date(now.getTime() - MAGIC_LINK_TTL_MS)),
         ),
       ),
   ]);

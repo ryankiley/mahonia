@@ -44,7 +44,7 @@ export default defineEventHandler(async (event) => {
   // Tell the owner. Best-effort and never allowed to fail the registration it rode
   // in on: a passkey that saved but whose notice didn't send is a strictly better
   // outcome than the reverse.
-  if (user.email && canSendEmail()) {
+  if (canSendEmail()) {
     await sendPasskeyAddedNotice(user.email, label).catch((e) => console.error("[passkey notice]", e));
   }
 

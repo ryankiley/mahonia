@@ -4,10 +4,10 @@ import { DropletIcon, SafeBoxIcon } from "@hugeicons/core-free-icons";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
 import { nameRepeatsBrand, formatWeight, itemDisplayName } from "~~/shared/weights";
-import { highlightParts } from "~~/shared/searchText";
+import { foldKeepingPlus, highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
-import { catalogNameKeys, foldName } from "~~/shared/catalogMatch";
+import { catalogNameKeys } from "~~/shared/catalogMatch";
 import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
 import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
@@ -128,7 +128,7 @@ onMounted(() => {
 watch(
   () => props.initial,
   (v, old) => {
-    if (!focused.value || foldName(draft.value) === foldName(old)) setDraftQuiet(v);
+    if (!focused.value || foldKeepingPlus(draft.value) === foldKeepingPlus(old)) setDraftQuiet(v);
   },
 );
 
@@ -291,7 +291,7 @@ const sizeRuns = computed(() => {
   const members = new Set<number>();
   const opts = options.value;
   const productKey = (o: AcOption | undefined) =>
-    o && "result" in o && o.result.variant ? `${foldName(o.result.brand ?? "")}|${foldName(o.result.name)}` : null;
+    o && "result" in o && o.result.variant ? `${foldKeepingPlus(o.result.brand ?? "")}|${foldKeepingPlus(o.result.name)}` : null;
   for (let i = 0; i < opts.length; ) {
     const key = productKey(opts[i]);
     let end = i + 1;
@@ -488,7 +488,7 @@ function selectOption(opt: AcOption) {
 // Your own gear first, as the menu ranks it: a vault row carries your weight.
 function exactMatch(typed: string): AcOption | null {
   if (!props.suggest) return null;
-  const key = foldName(typed);
+  const key = foldKeepingPlus(typed);
   if (!key) return null;
   const keysOf = (r: { brand?: string | null; name: string; variant?: string | null }) =>
     catalogNameKeys({ brand: r.brand ?? null, name: r.name, variant: r.variant ?? null });

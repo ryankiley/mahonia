@@ -184,18 +184,16 @@ const TOTAL_BUDGET_KB = 341;
 const MAX_CHUNK_BUDGET_KB = 72;
 
 // First build output that exists: node-server / static generate, or the Vercel
-// preset. (No dist/: that's a Nuxt 2 layout this repo can't produce — and
-// firstLoadAssets below has no dist/ entry, so a dist/ hit would have silently
-// skipped the first-load ratchet.)
-const CANDIDATE_DIRS = [
-  ".output/public/_nuxt",
-  ".vercel/output/static/_nuxt",
-];
-const dir = CANDIDATE_DIRS.find((d) => existsSync(d));
-if (!dir) {
+// preset. One root for both the chunks and the page firstLoadAssets reads, so the
+// first-load ratchet can never be skipped, or paired with another build's chunks,
+// because two lists of roots disagreed. (No dist/: that's a Nuxt 2 layout this repo
+// can't produce.)
+const root = [".output/public", ".vercel/output/static"].find((r) => existsSync(join(r, "_nuxt")));
+if (!root) {
   console.error("✗ No build output found — run `npm run build` first.");
   process.exit(1);
 }
+const dir = join(root, "_nuxt");
 
 const brotli = (buf) =>
   brotliCompressSync(buf, { params: { [constants.BROTLI_PARAM_QUALITY]: 11 } }).length;
@@ -221,10 +219,9 @@ const brotli = (buf) =>
  * first-load gate is skipped rather than guessed at.
  */
 function firstLoadAssets() {
-  const html = [".output/public/e/index.html", ".vercel/output/static/e/index.html"]
-    .filter(existsSync)
-    .map((f) => readFileSync(f, "utf8"))[0];
-  if (!html) return null;
+  const page = join(root, "e/index.html");
+  if (!existsSync(page)) return null;
+  const html = readFileSync(page, "utf8");
   const assets = new Set();
   const add = (href) => href && assets.add(href);
   const asset = (tag) => (tag.match(/\/_nuxt\/([A-Za-z0-9_.-]+\.(?:js|css))/) || [])[1];

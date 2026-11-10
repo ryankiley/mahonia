@@ -13,17 +13,16 @@ import { listClaims, lists } from "../db/schema";
 import type { Db } from "./db";
 import { findLiveByEditHashes, isLive } from "./listRepo";
 import { sha256Hex } from "./tokens";
-import { captureVaultItems } from "./vaultRepo";
+import { captureVaultItems, unitOf } from "./vaultRepo";
 import { mintVault, touchVaultByUser } from "./vaultAuth";
 import { VAULT_CAPTURE_MAX, captureFromList, type VaultCapture } from "../../shared/vault";
 import { normalizeShareCode } from "../../shared/links";
-import { CLAIMED_LIST_CAP, UNITS, type ClaimedList, type Unit } from "../../shared/types";
+import { CLAIMED_LIST_CAP, type ClaimedList } from "../../shared/types";
 
-/** Cap on how many tokens one claim request may carry. "Your lists" is a device
- *  registry a person built by hand; anything past this is not a real browser. The
- *  same number caps the rows a read returns, and the client reads it from shared/
- *  to know when the rows it holds are the whole account. */
-export const CLAIM_BATCH_MAX = CLAIMED_LIST_CAP;
+// CLAIMED_LIST_CAP (shared/types) is the one cap here: how many tokens one claim
+// request may carry, since "Your lists" is a device registry a person built by hand
+// and anything past it is not a real browser, and how many rows a read returns. The
+// client reads the same number to know when the rows it holds are the whole account.
 
 /**
  * When the device registry started recording HOW a list got onto a browser.
@@ -88,8 +87,8 @@ export async function claimLists(
   // Owned first, then the conditional ones fill what's left of the budget: the cap
   // bounds one request, and a registry big enough to hit it should spend it on the
   // lists whose ownership isn't in question.
-  const owned = editTokens.filter(isToken).slice(0, CLAIM_BATCH_MAX);
-  const opened = openedTokens.filter(isToken).slice(0, CLAIM_BATCH_MAX - owned.length);
+  const owned = editTokens.filter(isToken).slice(0, CLAIMED_LIST_CAP);
+  const opened = openedTokens.filter(isToken).slice(0, CLAIMED_LIST_CAP - owned.length);
   if (!owned.length && !opened.length) return 0;
 
   // Two statements for the whole batch, not two per token. Hashing is local and
@@ -174,7 +173,7 @@ export async function listClaimedLists(db: Db, userId: number): Promise<ClaimedL
       ),
     )
     .orderBy(desc(lists.updatedAt))
-    .limit(CLAIM_BATCH_MAX);
+    .limit(CLAIMED_LIST_CAP);
 
   return rows.map((r) => ({
     shareCode: r.shareCode,
@@ -182,7 +181,7 @@ export async function listClaimedLists(db: Db, userId: number): Promise<ClaimedL
     title: r.title,
     totalMg: Number(r.totalWeightMg),
     version: r.version,
-    displayUnit: UNITS.includes(r.displayUnit as Unit) ? (r.displayUnit as Unit) : "g",
+    displayUnit: unitOf(r.displayUnit) ?? "g",
     updatedAt: toIso(r.updatedAt),
   }));
 }
@@ -214,7 +213,7 @@ export async function backfillVaultFromClaims(db: Db, userId: number): Promise<n
       and(eq(listClaims.userId, userId), isLive()),
     )
     .orderBy(desc(lists.updatedAt), desc(lists.id))
-    .limit(CLAIM_BATCH_MAX);
+    .limit(CLAIMED_LIST_CAP);
 
   const byKey = new Map<string, VaultCapture>();
   for (const row of rows) {
