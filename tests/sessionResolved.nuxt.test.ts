@@ -18,10 +18,18 @@ import { createError } from "h3";
 const storage = stubLocalStorage();
 
 let answer: "one" | "two" | "no-user" | "down" = "no-user";
-registerEndpoint("/api/auth/me", () => {
-  if (answer === "down") throw createError({ statusCode: 503, statusMessage: "Unreachable" });
-  if (answer === "one") return { user: { owner: "1", email: "ryan@example.com", displayName: null } };
-  if (answer === "two") return { user: { owner: "2", email: "sam@example.com", displayName: null } };
+// A request held at the server until a case lets it go, for the cases about what
+// changes WHILE one is out. The answer is fixed on arrival, as a server's is: it
+// speaks for the cookie the request came in with, whatever the browser holds since.
+let hold: Promise<void> | null = null;
+let asked = 0;
+registerEndpoint("/api/auth/me", async () => {
+  asked++;
+  const mine = answer;
+  if (hold) await hold;
+  if (mine === "down") throw createError({ statusCode: 503, statusMessage: "Unreachable" });
+  if (mine === "one") return { user: { owner: "1", email: "ryan@example.com", displayName: null } };
+  if (mine === "two") return { user: { owner: "2", email: "sam@example.com", displayName: null } };
   return { user: null };
 });
 registerEndpoint("/api/account/profile", () => ({ ok: true, displayName: "Ryan" }));
@@ -37,6 +45,90 @@ beforeEach(() => {
   useState<unknown>("session").value = { state: "unresolved" };
   useState<boolean>("session-pending").value = false;
   useClaimedLists().resetClaimMark();
+  hold = null;
+  asked = 0;
+});
+
+// A sign-in finishing while an earlier ask is still out. The earlier answer speaks
+// for the session that was there before; applied as though it were about the new
+// one, it dropped the new session's memos as "the previous owner's" and, when it
+// said "no user", cleared the new session's hint cookie, leaving a signed-in
+// browser reading as signed out.
+describe("an answer that arrives after the session has changed", () => {
+  const ROWS_TWO = "gear.claimed.rows.v2.2";
+  /** A request put to the server and held there; `release` lets it answer. */
+  function held() {
+    let release!: () => void;
+    hold = new Promise<void>((r) => (release = r));
+    return () => {
+      hold = null;
+      release();
+    };
+  }
+  /** What a sign-in elsewhere leaves behind: the new session's cookies and memos. */
+  function signInAsTwo() {
+    document.cookie = "mh_signed_in=1; path=/";
+    document.cookie = "mh_session_owner=2; path=/";
+    storage.set(ROWS_TWO, JSON.stringify([{ shareCode: "C0DE00000002", title: "Wonderland" }]));
+    answer = "two";
+  }
+
+  it("is not taken for the new session's: it asks again, and the new memos stand", async () => {
+    answer = "no-user"; // the session this browser held has ended
+    const release = held();
+    const first = useSession().refresh();
+    signInAsTwo();
+    release();
+    await first;
+
+    expect(asked).toBe(2);
+    expect(useSession().user.value?.owner).toBe("2");
+    expect(storage.has(ROWS_TWO)).toBe(true);
+    expect(document.cookie).toContain("mh_signed_in=1");
+  });
+
+  it("settles signed out when the session went away while it was asked about", async () => {
+    answer = "one";
+    const release = held();
+    const first = useSession().refresh();
+    // signed out in another tab: the cookies are gone before the answer lands
+    document.cookie = "mh_signed_in=; Max-Age=0; path=/";
+    document.cookie = "mh_session_owner=; Max-Age=0; path=/";
+    release();
+    await first;
+
+    expect(asked).toBe(1);
+    expect(useSession().signedIn.value).toBe(false);
+    expect(useSession().loaded.value).toBe(true);
+  });
+
+  it("makes a forced re-read wait its turn and then really ask", async () => {
+    answer = "one";
+    const release = held();
+    const first = useSession().refresh();
+    // forced twice over while the first is out: one more request, not two, and
+    // neither caller is handed back the question it didn't ask
+    const forced = useSession().refresh(true);
+    const forcedAgain = useSession().refresh(true);
+    expect(asked).toBe(1);
+    release();
+    await Promise.all([first, forced, forcedAgain]);
+
+    expect(asked).toBe(2);
+    expect(useSession().user.value?.owner).toBe("1");
+  });
+
+  it("still lets an unforced caller go without waiting or asking", async () => {
+    answer = "one";
+    const release = held();
+    const first = useSession().refresh();
+    await useSession().refresh(); // returns at once: one request, already out
+    expect(asked).toBe(1);
+    expect(useSession().loaded.value).toBe(false);
+    release();
+    await first;
+    expect(useSession().user.value?.owner).toBe("1");
+  });
 });
 
 describe("a session that ends without a sign-out here", () => {

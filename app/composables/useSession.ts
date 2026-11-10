@@ -37,6 +37,11 @@ type SessionAnswer =
   | { state: "signedOut" }
   | { state: "signedIn"; user: SessionState };
 
+// The ask in flight, and the one forced re-read waiting behind it. Module-level,
+// like the state they guard is app-wide: every caller shares the one request.
+let asking: Promise<void> | null = null;
+let again: Promise<void> | null = null;
+
 /** The session as three answers, not two — see `presence` below. */
 export type Presence = "signedIn" | "signedOut" | "presumed";
 
@@ -89,21 +94,57 @@ export function useSession() {
    *  With no hint cookie there is nothing to ask about, so this resolves to
    *  "signed out" WITHOUT a request — which is the whole point of the hint, and
    *  what keeps the prerendered editor free of a round-trip for the visitors (most
-   *  of them) who have no account. */
-  async function refresh(force = false): Promise<void> {
-    if (!import.meta.client) return;
-    if (pending.value) return;
-    if (loaded.value && !force) return;
-    if (!hasSessionHint()) {
-      forgetAccountMemos();
-      clearSessionHint();
-      session.value = { state: "signedOut" };
-      return;
+   *  of them) who have no account.
+   *
+   *  A FORCED re-read that finds one already out waits for it and then asks again,
+   *  once however many callers force it. It used to return at once, having asked
+   *  nothing: the caller that had just signed in carried on with the answer to a
+   *  question put before the sign-in. */
+  function refresh(force = false): Promise<void> {
+    if (!import.meta.client) return Promise.resolve();
+    if (asking) {
+      if (!force) return Promise.resolve();
+      return (again ??= asking.then(() => {
+        again = null;
+        return refresh(true);
+      }));
     }
+    if (!force && (loaded.value || pending.value)) return Promise.resolve();
+    if (!hasSessionHint()) {
+      settleSignedOut();
+      return Promise.resolve();
+    }
+    asking = ask().finally(() => (asking = null));
+    return asking;
+  }
+
+  /** No session behind this browser: let go of what was kept for the account. */
+  function settleSignedOut(owner?: string | null): void {
+    forgetAccountMemos(owner);
+    clearSessionHint();
+    session.value = { state: "signedOut" };
+  }
+
+  async function ask(): Promise<void> {
     pending.value = true;
+    // WHICH SESSION THE QUESTION IS ABOUT, read before the wait and not after. The
+    // cookie can change while the request is out (a sign-in finishing in this tab,
+    // a sign-out in another), and the answer is then about a session this browser
+    // no longer holds. Read afterwards, the new session's owner stood in for "who
+    // was here before", the stale answer disagreed with it, and the memos just
+    // written for the NEW session were dropped as the old one's — its hint cookie
+    // with them, when the stale answer was "no user".
+    const askedAs = sessionCacheOwner();
+    const previousOwner = user.value?.owner ?? askedAs;
     try {
       const res = await $fetch<{ user: SessionState | null }>("/api/auth/me");
-      const previousOwner = user.value?.owner ?? sessionCacheOwner();
+      const holds = sessionCacheOwner();
+      if (holds !== askedAs && res.user?.owner !== holds) {
+        // an answer about a session that is no longer this browser's: ask about
+        // the one that is, or settle signed out if there is none to ask about
+        if (hasSessionHint()) return await ask();
+        return settleSignedOut(previousOwner);
+      }
       const nextUser = res.user;
       // A different owner than the one this tab's caches were kept for — another
       // account signed in here, or this one signed in afresh — drops those caches
