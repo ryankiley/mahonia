@@ -714,7 +714,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
             unit: UNIT_SCHEMA,
             start_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
             end_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
-            trail_url: { type: "string", maxLength: MAX_TRAIL_URL_LEN, description: "An http(s) link, or an empty string to clear the trail and everything that came with it (label, distance, climb, route)." },
+            trail_url: { type: "string", maxLength: MAX_TRAIL_URL_LEN, description: "An http(s) link, or an empty string to clear the trail and what came with it (label, climb, route). A distance stays; clear it with trail_distance_km: 0." },
             trail_label: { type: "string", maxLength: MAX_TRAIL_LABEL_LEN },
             trail_distance_km: { type: "number", minimum: 0, description: "Stored in metres and shown in the list's own distance unit." },
           },

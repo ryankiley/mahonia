@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-10",
+  "changed": [
+    "A trip's distance can be added without a trail link, shows in the link's place until there is one, and stays when a link is removed."
+  ]
+}

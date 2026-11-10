@@ -619,13 +619,14 @@ describe("writing", () => {
     expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);
   });
 
-  it("clearing the trail clears everything that described its route, as the editor does", async () => {
+  it("clearing the trail clears what described its route and keeps the trip's distance, as the editor does", async () => {
     repo.getByEditHash.mockResolvedValue(snap());
-    repo.applyOpsByEditHash.mockResolvedValue(snap({ trailUrl: undefined, trailDistanceM: undefined, trailAscentM: undefined }));
+    repo.applyOpsByEditHash.mockResolvedValue(snap({ trailUrl: undefined, trailAscentM: undefined }));
     const { structured } = toolText(await call("edit_list", { edit_link: TOKEN, list: { trail_url: "" } }));
     const [, ops] = repo.applyOpsByEditHash.mock.calls[0]! as [string, { t: string; patch: Record<string, unknown> }[]];
-    expect(ops[0]!.patch).toEqual({ trailUrl: "", trailLabel: "", trailDistanceM: "", trailProfile: "", trailAscentM: "", trailDescentM: "", routeGeometry: "" });
-    expect(structured!.trail).toBeNull();
+    expect(ops[0]!.patch).toEqual({ trailUrl: "", trailLabel: "", trailProfile: "", trailAscentM: "", trailDescentM: "", routeGeometry: "" });
+    // a distance with no link is still the trip's, and still reported
+    expect(structured!.trail).toMatchObject({ url: null, distance_m: 64_000 });
   });
 
   it("refuses a trail label that would be left with no link to name", async () => {
