@@ -63,7 +63,8 @@ const feedback = useFeedback();
 // address already in the message, and reaches the maintainer the way feedback does.
 // It used to flag the row server-side, gated on isPublic — which no list ever was, so
 // nobody ever saw it; and a flag any link-holder could raise on a private list would
-// have been a way to take down someone's list. /api/lists/report stays for that design.
+// have been a way to take down someone's list. Publishing is retired, and with it the
+// server-side report.
 function reportThis() {
   feedback.open({
     title: "Report this list",

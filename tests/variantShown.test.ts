@@ -66,7 +66,6 @@ describe("the exports keep the variant regardless", () => {
     shareCode: "X",
     slug: "x",
     version: 1,
-    isPublic: false,
     title: "Trip",
     displayUnit: "g",
     folders: [{ id: "f1", name: "Sleep", defaultClassification: "base", sortOrder: 0 }],

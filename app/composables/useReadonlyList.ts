@@ -1,5 +1,4 @@
 import type { Ref } from "vue";
-import { seasonLabel, tripTypeLabel } from "~~/shared/discovery";
 import {
   chipWeightLabels,
   hasUnassignedTopLevel,
@@ -11,12 +10,9 @@ import {
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { bySortOrder, computeTotals, listSummaryBits, ungroupedTopLevel } from "~~/shared/weights";
 
-// Shared reactive view-model for the two read-only pages (/s/[code] + /l/[slug]):
-// a viewer-chosen display unit, a viewer-chosen person filter, the rolled-up
-// totals, the reskinned list the readonly components render, and the non-empty
-// folders/ungrouped split. The two pages differ only in chrome (SEO/report on
-// /l, live-poll on /s) — the data shaping is identical and lives here so it
-// can't drift.
+// The read-only page's (/s/[code]) reactive view-model: a viewer-chosen display unit,
+// a viewer-chosen person filter, the rolled-up totals, the reskinned list the readonly
+// components render, and the non-empty folders/ungrouped split.
 export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   // Shared read-only views always START in grams — they deliberately DON'T inherit
   // the owner's saved displayUnit, so a shared link reads the same for everyone
@@ -108,57 +104,23 @@ export function useReadonlyList(snapshot: Ref<ListSnapshot | null>) {
   return { unit, totals, fullTotals, roList, ungrouped, shownFolders, people, personFilter, showUnassigned, chipWeights, contextOnlyIds, viewProps };
 }
 
-// The read-only pages' SEO summary was copy-pasted across /s and /l and already
-// drifting. The facet + item/weight assembly and the useSeoMeta shape are identical;
-// only three copy fragments differ (the empty-state fallback, the noun, and the CTA),
-// selected by `kind`. Returns `facets` so /l can render it in its <head> template.
-// Each page keeps its own useHead (noindex on /s, canonical on /l) — that's the one
-// genuinely divergent bit.
-type ReadonlyKind = "shared" | "public";
-const SEO_COPY: Record<
-  ReadonlyKind,
-  { empty: string; noun: string; cta: string; cardPath: (s: ListSnapshot) => string }
-> = {
-  shared: {
-    empty: "A shared packing list on Mahonia.",
-    noun: "a shared packing list",
-    cta: "Make a list on Mahonia.",
-    cardPath: (s) => `/og/s/${s.shareCode}`,
-  },
-  public: {
-    empty: "A public packing list on Mahonia.",
-    noun: "a public packing list",
-    cta: "Browse gear lists on Mahonia.",
-    cardPath: (s) => `/og/l/${s.slug}`,
-  },
-};
-
-export function useReadonlyListSeo(
-  snapshot: Ref<ListSnapshot | null>,
-  totals: Ref<Totals | null>,
-  kind: ReadonlyKind,
-) {
-  const copy = SEO_COPY[kind];
-  const facets = computed(
-    () =>
-      [tripTypeLabel(snapshot.value?.tripType), seasonLabel(snapshot.value?.season)].filter(
-        Boolean,
-      ) as string[],
-  );
+// The share view's SEO summary and social card: the item/weight facts in the owner's
+// units, and the card image addressed by the same capability as the page. The page
+// keeps its own useHead (noindex).
+export function useReadonlyListSeo(snapshot: Ref<ListSnapshot | null>, totals: Ref<Totals | null>) {
   const desc = computed(() => {
-    if (!snapshot.value || !totals.value) return copy.empty;
+    if (!snapshot.value || !totals.value) return "A shared packing list on Mahonia.";
     // owner's system, matching the card image beside this text — the UNFURL reads as
     // the owner presents it; only the page starts in grams (the rule at the top of
     // this file). The facts are listSummaryBits', shared with the editor's description.
     const bits = listSummaryBits(totals.value, snapshot.value.displayUnit);
-    if (facets.value.length) bits.unshift(facets.value.join(", "));
-    return `${snapshot.value.title}, ${copy.noun} (${bits.join(" · ")}). ${copy.cta}`;
+    return `${snapshot.value.title}, a shared packing list (${bits.join(" · ")}). Make a list on Mahonia.`;
   });
-  // the card IMAGE — rendered per list by /og/s|/og/l, addressed by the same
-  // capability as the page itself; tag assembly lives in useListOgCard
+  // the card IMAGE — rendered per list by /og/s, addressed by the same capability as
+  // the page itself; tag assembly lives in useListOgCard
   useListOgCard(() =>
     snapshot.value && totals.value
-      ? { path: copy.cardPath(snapshot.value), list: snapshot.value, totals: totals.value }
+      ? { path: `/og/s/${snapshot.value.shareCode}`, list: snapshot.value, totals: totals.value }
       : null,
   );
   useSeoMeta({
@@ -167,5 +129,4 @@ export function useReadonlyListSeo(
     ogDescription: () => desc.value,
     ogType: "article",
   });
-  return { facets };
 }

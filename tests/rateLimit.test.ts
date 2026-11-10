@@ -4,7 +4,6 @@ import {
   consumeRateLimit,
   rateLimitScope,
   getClientIp,
-  tallyDistinctReport,
   type KvStorage,
 } from "../server/utils/rateLimit";
 
@@ -94,34 +93,9 @@ describe("consumeRateLimit — shared-store fixed-window counter", () => {
   });
 });
 
-describe("tallyDistinctReport — distinct-reporter threshold (IP-deduped)", () => {
-  const W = 60_000;
-  it("only reaches the threshold with DISTINCT reporters", async () => {
-    const kv = fakeKv();
-    const r = (ip: string) => tallyDistinctReport(kv, "slug", ip, 3, W);
-    expect(await r("ipA")).toEqual({ distinct: 1, reached: false });
-    expect(await r("ipB")).toEqual({ distinct: 2, reached: false });
-    expect(await r("ipC")).toEqual({ distinct: 3, reached: true });
-  });
-
-  it("ignores the same reporter re-reporting (one actor can't self-flag)", async () => {
-    const kv = fakeKv();
-    const r = (ip: string) => tallyDistinctReport(kv, "slug", ip, 3, W);
-    for (let i = 0; i < 10; i++) expect((await r("ipA")).reached).toBe(false);
-    expect((await r("ipA")).distinct).toBe(1); // still just one distinct reporter
-  });
-
-  it("keeps separate tallies per slug", async () => {
-    const kv = fakeKv();
-    await tallyDistinctReport(kv, "one", "ipA", 2, W);
-    const other = await tallyDistinctReport(kv, "two", "ipA", 2, W);
-    expect(other.distinct).toBe(1); // "two" didn't inherit "one"'s reporter
-  });
-});
-
 // A limit is only as good as the thing it counts. Keying on a whole IPv6 address
 // counted ADDRESSES, and a residential connection is routed a /64 — so any limit here
-// (sign-in links, reports, and the anonymous endpoint that opens public GitHub issues)
+// (sign-in links and the anonymous endpoint that opens public GitHub issues)
 // could be walked around by binding a new source address per request.
 describe("rateLimitScope", () => {
   it("keeps an IPv4 address whole", () => {

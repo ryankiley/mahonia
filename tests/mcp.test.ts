@@ -72,7 +72,6 @@ const snap = (over: Partial<ListSnapshot> = {}): ListSnapshot => ({
   shareCode: "ABC123DEF456",
   slug: "trip-a1b2c3",
   version: 3,
-  isPublic: false,
   title: "Timberline",
   displayUnit: "g",
   startDate: "2026-06-20",

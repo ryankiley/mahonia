@@ -509,7 +509,6 @@ describe("read paths", () => {
       startDate: null,
       endDate: null,
       data: { folders: [], items: [], days: [], waypoints: [], ...data },
-      isPublic: false,
       version: 1,
       updatedAt: new Date("2026-08-06T00:00:00Z"),
     }) as unknown as ListRow;

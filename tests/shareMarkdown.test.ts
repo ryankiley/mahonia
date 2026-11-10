@@ -29,7 +29,6 @@ const snap = (): ListSnapshot => ({
   shareCode: "ABC123",
   slug: "trip-a1b2c3",
   version: 1,
-  isPublic: false,
   title: "Trip",
   displayUnit: "g",
   folders: [{ id: "f1", name: "Shelter", defaultClassification: "base", sortOrder: 0 }],

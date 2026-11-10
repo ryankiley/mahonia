@@ -16,7 +16,6 @@ const server = (): ListSnapshot => ({
   shareCode: "abc",
   slug: "trip",
   version: 3,
-  isPublic: false,
 });
 
 describe("localKey", () => {

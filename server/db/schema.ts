@@ -68,15 +68,15 @@ export const lists = pgTable(
     consumableWeightMg: bigint("consumable_weight_mg", { mode: "number" }).notNull().default(0),
     totalWeightMg: bigint("total_weight_mg", { mode: "number" }).notNull().default(0),
     itemCount: integer("item_count").notNull().default(0),
+    // Publishing's columns, unread since it was retired (2026-11-09): a list was made
+    // public at /l/{slug} with a trip type and season, and withheld (`flagged`) on a
+    // spam heuristic or reports. No list was ever made public, and nothing reads or
+    // writes these now; they stay only because this app has no migration step to drop
+    // a column with (see db.ts).
     isPublic: boolean("is_public").notNull().default(false),
     publishedAt: timestamp("published_at", { withTimezone: true }),
-    // facets on a published list (closed enums, normalized in shared/discovery.ts).
-    // They render on /l and in its unfurl; there is no feed to browse them by.
     tripType: text("trip_type"),
     season: text("season"),
-    // withheld from public discovery pending review (spam heuristic or a user
-    // report). Distinct from `status`: a flagged list stays active, so the OWNER
-    // keeps edit + share access — only the public /l address is withheld.
     flagged: boolean("flagged").notNull().default(false),
     // The byline on the read views — who MADE the list.
     //

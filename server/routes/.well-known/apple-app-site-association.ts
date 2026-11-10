@@ -33,9 +33,9 @@ export default defineEventHandler((event) => {
       details: [
         {
           appID: APP_ID,
-          // The three list surfaces only. Everything else (about, legal,
-          // vault, auth callbacks) stays in the browser, where it belongs.
-          paths: ["/e", "/e/*", "/s/*", "/l/*"],
+          // The list surfaces only, the editor and the share view. Everything else
+          // (about, legal, vault, auth callbacks) stays in the browser, where it belongs.
+          paths: ["/e", "/e/*", "/s/*"],
         },
       ],
     },

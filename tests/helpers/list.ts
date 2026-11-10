@@ -17,7 +17,6 @@ export function snapshotFor(over: Partial<ListSnapshot> = {}): ListSnapshot {
     folders: [],
     items: [],
     version: 1,
-    isPublic: false,
     ...over,
   };
 }
