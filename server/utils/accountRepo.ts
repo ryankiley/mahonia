@@ -15,6 +15,7 @@ import {
   users,
   vaultFolders,
   vaultItems,
+  vaultKitParts,
   vaults,
 } from "../db/schema";
 import type { Db } from "./db";
@@ -76,6 +77,10 @@ export async function deleteAccount(
   const owned = await db.select({ id: vaults.id }).from(vaults).where(eq(vaults.userId, userId));
   const vaultId = owned[0]?.id;
   if (vaultId != null) {
+    // a kit's links before the rows they join, as the nightly purge does
+    await db
+      .delete(vaultKitParts)
+      .where(inArray(vaultKitParts.kitId, db.select({ id: vaultItems.id }).from(vaultItems).where(eq(vaultItems.vaultId, vaultId))));
     await db.delete(vaultItems).where(eq(vaultItems.vaultId, vaultId));
     await db.delete(vaultFolders).where(eq(vaultFolders.vaultId, vaultId));
     await db.delete(vaults).where(eq(vaults.id, vaultId));

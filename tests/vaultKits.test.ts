@@ -336,6 +336,17 @@ describe("captureKit — the group row's own save", () => {
     expect(res.keys).toHaveLength(4);
   });
 
+  it("links a piece once when two of the group's children land on the same row, holding both counts", async () => {
+    // the zero-width space folds to a gap on the client and is tidied away here, so the
+    // two refs differ as sent and meet once the server has keyed them
+    const group = [row("Shelter", 0, { id: "g" }), row("Duplex", 539, { parentId: "g" }), row("Dup\u200blex", 539, { parentId: "g" })];
+    const m = kitFromGroup(group[0]!, group)!;
+    expect(new Set(m.kit.parts.map((p) => p.normKey)).size).toBe(2);
+    expect((await captureKit(db, vault, m.kit, m.parts)).kit).toBe("saved");
+    const kit = (await listVaultItems(db, vault)).find((r) => r.kind === "kit")!;
+    expect(kit.parts!.map((p) => [p.name, p.qty])).toEqual([["Duplex", 2]]);
+  });
+
   it("converts a piece of the same name in place — its typed total gives way to the parts", async () => {
     const old = await piece("Cook kit", 218);
     const res = await captureKit(db, vault, made().kit, made().parts, { overwriteWeight: true });
@@ -363,6 +374,17 @@ describe("captureKit — the group row's own save", () => {
     expect((await vaultItemById(db, vault, k.lighter))!.kind).toBeUndefined();
     // the part still landed as a piece
     expect((await listVaultItems(db, vault)).some((r) => r.name === "Flint")).toBe(true);
+  });
+
+  it("a put-away kit doesn't keep its piece from becoming a kit, and lets go of it", async () => {
+    const k = await cookKit(); // holds "Mini Bic" as a part
+    await removeVaultItem(db, vault, k.kit);
+    const group = [row("Mini Bic", 0, { id: "g" }), row("Flint", 5, { parentId: "g" })];
+    const m = kitFromGroup(group[0]!, group)!;
+    expect((await captureKit(db, vault, m.kit, m.parts)).kit).toBe("saved");
+    expect((await vaultItemById(db, vault, k.lighter))!.kind).toBe("kit");
+    // brought back, the cook kit can't hold a kit: one level deep
+    expect((await vaultItemById(db, vault, k.kit))!.parts!.map((p) => p.name)).not.toContain("Mini Bic");
   });
 
   it("a put-away kit is written and stays put away, reporting so", async () => {
