@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "Offline, the account page says it's offline instead of loading forever, and a My Gear change that can't be made says so.",
+    "My Gear picks up again on its own when the connection returns, even on a weak signal."
+  ]
+}

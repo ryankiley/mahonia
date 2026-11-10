@@ -53,9 +53,12 @@ useHead({
 // page, there only to reverse a removal, was more page than that is worth (Ryan:
 // "feels complicated").
 // Offline it is this device's copy, and the page reads but doesn't change: a change to
-// My Gear needs the server, so the controls that make one stand down (useVaultList).
-const { hasVault, hasGear, items, loading, loadError, offline, offlineNote, load: loadVault } = useVaultList();
-const vault = useVaultOps();
+// My Gear needs the server, so the controls that make one stand down, and a change that
+// arrives some other way (the undo bar) is refused and said, not sent to fail. The rows
+// also stand down while the copy is showing online, until the server's answer replaces
+// it (`readonly`; useVaultList says why).
+const { hasVault, hasGear, items, loading, loadError, offline, readonly, offlineNote, load: loadVault } = useVaultList();
+const vault = useVaultOps(() => offline.value);
 const query = ref("");
 
 // What the last change failed at, under the bar beside a failed load. Its own line
@@ -338,7 +341,7 @@ const knownVocab = computed(() => {
   return { brands: rank(items.value.map((i) => i.brand)), types: rank(items.value.map((i) => i.commonName)) };
 });
 function openEdit(entry: VaultEntry) {
-  if (offline.value) return;
+  if (readonly.value) return;
   editing.value = entry;
 }
 // One field picked on a row — a piece's own unit, or its icon — the way a list row
@@ -665,12 +668,15 @@ async function exportGear(kind: string) {
           <!-- offline, how old the gear on screen is (or that there is none to show),
                quieter than an error: nothing went wrong that the reader can fix -->
           <p v-if="offline" class="t-sm t-muted">{{ offlineNote }}</p>
-          <p v-else-if="opError || loadError" class="t-sm vault__error">{{ opError || loadError }}</p>
+          <!-- a change's failure shows offline too: Undo, pressed after the signal went,
+               failed in silence while this line was the note's alternative. The load's
+               own failure is in the note then. -->
+          <p v-if="opError || (loadError && !offline)" class="t-sm vault__error">{{ opError || loadError }}</p>
 
           <!-- only while there is nothing to show yet. An add reloads the gear, and
                blanking a page you are working on for the length of a round trip
                reads as the page losing your gear. -->
-          <p v-if="loading && !items.length" class="t-muted vault__empty">Loading your gear…</p>
+          <p v-if="loading && !items.length && !offline" class="t-muted vault__empty">Loading your gear…</p>
 
           <template v-else-if="items.length">
             <p class="t-sm t-muted vault__count">
@@ -698,7 +704,7 @@ async function exportGear(kind: string) {
                 :gear-by-id="gearById"
                 :unit="unit"
                 :busy="busy.has(kit.id)"
-                :readonly="offline"
+                :readonly="readonly"
                 @kit="(parts: { id: number; qty: number }[], own: number) => setKit(kit, parts, own)"
                 @rename="(n: string) => renameKit(kit, n)"
                 @remove="remove(kit)"
@@ -729,7 +735,7 @@ async function exportGear(kind: string) {
                   :busy="busy.has(entry.id)"
                   :in-kits="inKitsById.get(entry.id)"
                   :marks="tab !== 'food'"
-                  :readonly="offline"
+                  :readonly="readonly"
                   @edit="openEdit(entry)"
                   @remove="remove(entry)"
                   @unit="(u: Unit) => setEntryUnit(entry, u)"
