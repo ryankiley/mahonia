@@ -216,6 +216,29 @@ describe("the /gear page's vault calls", () => {
       expect(weight()).toContain("8.8");
       expect(weight()).toContain("oz");
     });
+
+    it("keeps the latest pick when an earlier one answers after it", async () => {
+      listRows = [entry(1, "Duplex")];
+      const w = await openPage();
+      const weight = () => rows(w).find((r) => r.text().includes("Duplex"))!.get(".vault__weight").text();
+      const pick = async (u: string) => {
+        await w.get('button[aria-label="Weight unit for Brand Duplex"]').trigger("click");
+        await nextTick();
+        await w.findAll('[role="menuitem"]').find((b) => b.text().trim() === u)!.trigger("click");
+      };
+      // the first pick's save is held; the second's answers at once
+      let release!: () => void;
+      editHeld = new Promise((r) => (release = () => r()));
+      await pick("oz");
+      await vi.waitFor(() => expect(editedOps).toHaveLength(1));
+      editHeld = null;
+      await pick("kg");
+      await vi.waitFor(() => expect(editedOps).toHaveLength(2));
+      await vi.waitFor(() => expect(weight()).toContain("kg"));
+      release();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(weight()).toContain("kg");
+    });
   });
 
   // "Add gear" opens the edit dialog blank, with a catalog search over the form: one

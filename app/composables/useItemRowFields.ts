@@ -2,6 +2,7 @@ import type { Ref } from "vue";
 import type { Item, ListSnapshot, Unit } from "~~/shared/types";
 import { effectiveClassification, formatWeight, fromMg, groupLineMg, itemDisplayName, rowDisplayKcal } from "~~/shared/weights";
 import { isWaterName, waterLiters, waterMgFromMl } from "~~/shared/water";
+import { sameText } from "~~/shared/tidyText";
 import { motionIsInstant } from "~/plugins/inputModality.client";
 
 const STEP_BY_UNIT: Record<Unit, number> = { g: 1, kg: 0.01, oz: 0.1, lb: 0.1 };
@@ -121,8 +122,7 @@ export function useItemRowFields({
   function onVariant(e: Event) {
     const el = e.target as HTMLInputElement;
     const typed = el.value.trim();
-    const otherSize =
-      item.value.catalogItemId != null && !!typed && typed.toLowerCase() !== (item.value.variant ?? "").toLowerCase();
+    const otherSize = item.value.catalogItemId != null && !!typed && !sameText(typed, item.value.variant ?? "");
     gear.updateItem(
       item.value.id,
       otherSize

@@ -90,3 +90,27 @@ describe("the edit dialog on a fuel entry", () => {
     expect(patchSent()).toEqual({ kcal: null });
   });
 });
+
+// A catalog link is to one size, by the list row's rule: the dialog unlinks a piece typed
+// to another size, and keeps the link for the same size however it's typed, or a cleared one.
+describe("the edit dialog on a catalog-linked piece", () => {
+  beforeEach(() => {
+    sent.length = 0;
+  });
+  const quilt = () => entry("Revelation", { brand: "Enlightened Equipment", variant: "Women’s Long", catalogItemId: 7, classification: undefined });
+  const save = async (w: W, size: string) => {
+    await fieldBy(w, "Size or version")!.setValue(size);
+    await w.get("button.btn--primary").trigger("click");
+    await flushPromises();
+    return patchSent();
+  };
+
+  it("unlinks it when its size is typed to another", async () => {
+    expect(await save(open(quilt()), "Regular")).toEqual({ variant: "Regular", catalogItemId: null });
+  });
+
+  it("keeps the link for the same size typed another way, or a size cleared", async () => {
+    expect(await save(open(quilt()), "women's  long")).not.toHaveProperty("catalogItemId");
+    expect(await save(open(quilt()), "")).toEqual({ variant: null });
+  });
+});
