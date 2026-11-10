@@ -153,11 +153,9 @@ const groups = computed(() => {
   color: var(--ink);
 }
 .vpick__name {
-  min-width: 0;
   overflow-wrap: anywhere;
 }
 .vpick__weight {
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 </style>

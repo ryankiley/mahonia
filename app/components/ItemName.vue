@@ -41,11 +41,10 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
    flex item's automatic minimum is its MIN-CONTENT width — so a name with no space or
    hyphen in it grew this span to the whole word and ran it off the side of the phone,
    past a parent that was itself correctly bounded. `min-width: 0` lets it shrink to the
-   cell, which is what lets the inherited overflow-wrap break the word. Inert in the
-   read row, where this span is inline and min-width doesn't apply. */
-.iname {
-  min-width: 0;
-}
+   cell, which is what lets the inherited overflow-wrap break the word. The span
+   (.iname) has no rule for it: the reset sets that floor on every element (reset.scss),
+   and this is one of the places it is load-bearing. Inert in the read row, where the
+   span is inline and min-width doesn't apply. */
 /* the stand-in label for a group the user never named: a quiet aside in the name's
    place, so it reads as "not the name itself" ("Group" must not look like a product
    actually called that) */

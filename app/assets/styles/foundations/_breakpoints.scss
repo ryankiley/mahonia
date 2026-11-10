@@ -1,0 +1,10 @@
+// Stack breakpoints: the mobile stack point and the full-width point, declared here
+// and nowhere else. Two routes read them. foundations/tokens.scss forwards this
+// module, so a file that @use's the tokens reads `t.$bp-stack` through that
+// namespace; and nuxt.config.ts prepends a `@use` of this file to every SFC
+// `lang="scss"` style block (vite css additionalData), so a plain
+// `@media (max-width: $bp-stack)` there shares the same anchors.
+// Variables only, and it has to stay that way: a module that emitted CSS would be
+// emitted again into every component's stylesheet.
+$bp-stack: 720px;
+$bp-full: 1024px;

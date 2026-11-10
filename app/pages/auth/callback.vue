@@ -11,7 +11,6 @@
 //
 // noindex + no SSR data: the token lives in the query string and must not reach a
 // crawler, a cache, or a server-rendered payload.
-definePageMeta({ layout: "default" });
 useHead({
   title: "Signing you in — Mahonia",
   meta: [{ name: "robots", content: "noindex" }],

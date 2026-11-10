@@ -6,6 +6,7 @@
 // useGearList ask it whether there is a vault at all); this module is imported by the
 // pane, the page and the dialog, which are all chunks of their own.
 
+import { isRecord } from "~~/shared/record";
 import type { VaultEntry, VaultItemOp } from "~~/shared/vault";
 import { gearCopyKey } from "../utils/gearCopy";
 import { recallJson, remember, forget } from "../utils/remember";
@@ -61,24 +62,16 @@ export interface GearCopy {
 // search). A copy is read when there is no server to fall back to, so an entry missing
 // one (an older shape, a hand-edited value) is dropped rather than left to throw in the
 // render and take the whole page down offline.
-const isPart = (p: unknown): boolean =>
-  typeof p === "object" && p !== null && typeof (p as { id: unknown }).id === "number" && typeof (p as { qty: unknown }).qty === "number";
-const isEntry = (v: unknown): v is VaultEntry => {
-  if (typeof v !== "object" || v === null) return false;
-  const e = v as Record<string, unknown>;
-  return (
-    typeof e.id === "number" &&
-    typeof e.name === "string" &&
-    typeof e.normKey === "string" &&
-    typeof e.weightMg === "number" &&
-    (e.parts === undefined || (Array.isArray(e.parts) && e.parts.every(isPart)))
-  );
-};
+const isPart = (p: unknown): boolean => isRecord(p) && typeof p.id === "number" && typeof p.qty === "number";
+const isEntry = (v: unknown): v is VaultEntry =>
+  isRecord(v) &&
+  typeof v.id === "number" &&
+  typeof v.name === "string" &&
+  typeof v.normKey === "string" &&
+  typeof v.weightMg === "number" &&
+  (v.parts === undefined || (Array.isArray(v.parts) && v.parts.every(isPart)));
 const isCopy = (v: unknown): v is { items: unknown[]; savedAt: number } =>
-  typeof v === "object" &&
-  v !== null &&
-  Array.isArray((v as { items: unknown }).items) &&
-  typeof (v as { savedAt: unknown }).savedAt === "number";
+  isRecord(v) && Array.isArray(v.items) && typeof v.savedAt === "number";
 
 /** This account's copy, or null: none kept, no owner to key it by, or unreadable. */
 export function readGearCopy(owner: string | null): GearCopy | null {
@@ -263,10 +256,7 @@ export function useVaultList(
   function retry() {
     if (offline.value && hasVault.value && document.visibilityState === "visible") void load();
   }
-  const online = useOnline();
-  watch(online, (up) => {
-    if (up) retry();
-  });
+  useWindowEvent("online", retry);
   if (import.meta.client) {
     const onVisible = () => {
       if (document.visibilityState === "visible") retry();

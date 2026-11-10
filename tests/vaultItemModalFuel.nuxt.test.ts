@@ -9,11 +9,15 @@ import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import VaultItemModal from "~/components/VaultItemModal.vue";
 import type { VaultEntry } from "~~/shared/vault";
+import { vaultRow } from "./helpers/vault";
 
 enableAutoUnmount(afterEach);
 
 // every save the dialog sends — the request body is what is under test
 const sent: unknown[] = [];
+beforeEach(() => {
+  sent.length = 0;
+});
 mockNuxtImport("useVaultAccess", () => () => ({
   hasVault: ref(true),
   vaultKnown: ref(true),
@@ -23,17 +27,8 @@ mockNuxtImport("useVaultAccess", () => () => ({
   },
 }));
 
-const entry = (name: string, over: Partial<VaultEntry> = {}): VaultEntry => ({
-  id: 1,
-  normKey: name.toLowerCase(),
-  name,
-  weightMg: 110_000,
-  classification: "consumable",
-  timesSeen: 1,
-  lastUsedAt: "2026-09-12T00:00:00Z",
-  createdAt: "2026-09-12T00:00:00Z",
-  ...over,
-});
+const entry = (name: string, over: Partial<VaultEntry> = {}): VaultEntry =>
+  vaultRow({ id: 1, normKey: name.toLowerCase(), name, weightMg: 110_000, classification: "consumable", ...over });
 
 function open(e: VaultEntry) {
   return mount(VaultItemModal, { props: { entry: e, unit: "g" }, attachTo: document.body });
@@ -50,10 +45,6 @@ const typeOptions = async (w: W) => {
 const patchSent = () => (sent.at(-1) as { op: { patch: Record<string, unknown> } }).op.patch;
 
 describe("the edit dialog on a fuel entry", () => {
-  beforeEach(() => {
-    sent.length = 0;
-  });
-
   it("offers no kcal field on fuel holding no number, and no Worn in its type picker", async () => {
     const w = open(entry("IsoPro Fuel Canister", { commonName: "Fuel canister" }));
     expect(kcalField(w)).toBeUndefined();
@@ -94,9 +85,6 @@ describe("the edit dialog on a fuel entry", () => {
 // A catalog link is to one size, by the list row's rule: the dialog unlinks a piece typed
 // to another size, and keeps the link for the same size however it's typed, or a cleared one.
 describe("the edit dialog on a catalog-linked piece", () => {
-  beforeEach(() => {
-    sent.length = 0;
-  });
   const quilt = () => entry("Revelation", { brand: "Enlightened Equipment", variant: "Women’s Long", catalogItemId: 7, classification: undefined });
   const save = async (w: W, size: string) => {
     await fieldBy(w, "Size or version")!.setValue(size);

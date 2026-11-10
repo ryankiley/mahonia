@@ -7,6 +7,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import ItemInput from "~/components/ItemInput.vue";
+import { typeInto } from "./helpers/dom";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { vaultWithHits } from "./helpers/gearList";
 
@@ -33,9 +34,7 @@ function mountAddField() {
   };
 }
 async function typeAndSettle(w: ReturnType<typeof mount>, input: HTMLInputElement, text: string) {
-  input.focus();
-  input.value = text;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
+  typeInto(input, text);
   await vi.waitFor(() => expect(w.findAll('[role="option"]').length).toBeGreaterThan(0), { timeout: 2_000 });
 }
 
@@ -57,9 +56,7 @@ describe("the add row's name field: the catalog only, and only picks commit", ()
     catalogHits = [];
     vaultHits = [];
     const { w, input } = mountAddField();
-    input.focus();
-    input.value = "water 1 L";
-    input.dispatchEvent(new Event("input", { bubbles: true }));
+    typeInto(input, "water 1 L");
     await new Promise((r) => setTimeout(r, 300));
     expect(w.findAll('[role="option"]')).toHaveLength(0);
   });

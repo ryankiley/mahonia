@@ -20,6 +20,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { stubLocalStorage } from "./helpers/storage";
 import { gear, snapshotFor as baseSnapshot } from "./helpers/list";
 import { memoryListStore } from "./helpers/gearList";
+import { vaultRow } from "./helpers/vault";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
 import { DRAFT_KEY, localKey, type LocalListRecord } from "~~/shared/localList";
@@ -221,6 +222,32 @@ registerEndpoint("/api/edit/mutate", {
 const awaitMutateInFlight = () =>
   vi.waitFor(() => expect(mutateCalls).toBe(1), { timeout: 5_000, interval: 25 });
 
+// How the cases start. Each is one step further along than the last: the controller
+// with a list loaded; that list with the vault's question raised by an edit; and a
+// two-piece list taken past "Add" to the chooser.
+const opened = async (token = TOKEN) => {
+  const c = useGearList();
+  await c.load({ token });
+  return c;
+};
+const prompted = async () => {
+  const c = await opened();
+  c.updateItem("i1", { qty: 2 });
+  await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+  return c;
+};
+const choosing = async () => {
+  listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
+  const c = await prompted();
+  await c.answerVaultPrompt(true);
+  await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+  return c;
+};
+
+/** The "Your lists" row filed under an edit link. */
+const rowFor = (token: string) =>
+  useMyLists().entries.value.find((e) => e.editToken === token);
+
 // Every dial above, back to its rest position before each case — the superset of what
 // the five suites below each used to reset for themselves. Each suite then sets only
 // the list it serves. Clearing a dial a suite never touches costs nothing and means a
@@ -260,8 +287,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
   // Before the fix step 4 returned, and the ops existed nowhere: not on the server,
   // not in `pending`, not on disk.
   it("recovers the in-flight ops into that list's on-device record", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     c.setMeta({ title: "Renamed while leaving" });
 
     await awaitMutateInFlight();
@@ -289,8 +315,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
   // landed its ops server-side, so writing them back would resurrect them on the next
   // open and re-apply edits the server already has.
   it("writes nothing back when the in-flight batch actually succeeded", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     c.setMeta({ title: "Renamed while leaving" });
 
     await awaitMutateInFlight();
@@ -307,8 +332,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
   // did: re-queued in memory for the retry, and persisted, not diverted to the
   // recovery write.
   it("re-queues normally when the failure happens on the list still open", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     c.setMeta({ title: "Renamed in place" });
 
     await awaitMutateInFlight();
@@ -331,8 +355,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
   // link it went under is dead, not the list. It goes again under the new one, where
   // it used to mark the list gone and stop queueing every edit after it.
   it("sends a batch refused under a link replaced mid-flight again, rather than calling the list gone", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     c.setMeta({ title: "Renamed during a rotate" });
     await awaitMutateInFlight();
     expect(await c.rotate()).toBe(ROTATED_TOKEN);
@@ -342,8 +365,7 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
   });
 
   it("still calls the list gone on a 404 under the link it holds", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     c.setMeta({ title: "Renamed after it went" });
     await awaitMutateInFlight();
     settleMutate.reject(createError({ statusCode: 404 }));
@@ -385,11 +407,7 @@ describe("useGearList — whose gear is this?", () => {
   });
 
   it("asks before a single row of someone else's gear reaches the vault", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    const c = await prompted();
     expect(vaultDecisionFor(TOKEN)).toBe("ask");
     // and it is still only a question — nothing has been sent (this window is well
     // inside the capture debounce either way, but the guard returns before anything
@@ -409,8 +427,7 @@ describe("useGearList — whose gear is this?", () => {
       [gear(), gear({ id: "i2", name: "Water · 1 L", brand: undefined, classification: "consumable" })],
       [folder({ colorKey: "other" })], // triggers the colour backfill
     );
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
 
     // the backfills really did run (else this passes for the wrong reason)
     await vi.waitFor(() => {
@@ -425,8 +442,7 @@ describe("useGearList — whose gear is this?", () => {
   // than no question: it burns the one chance to ask about this list.
   it("never asks about a list with no gear in it", async () => {
     listResponse = withGear([gear({ unitWeightMg: 0, brand: undefined, name: "Notes to self" })]);
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     c.updateItem("i1", { qty: 2 });
 
     await new Promise((r) => setTimeout(r, 50)); // let the dynamic import settle
@@ -435,10 +451,7 @@ describe("useGearList — whose gear is this?", () => {
   });
 
   it("takes yes for an answer, captures, and stops asking", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    const c = await prompted();
 
     // one row, so no chooser — but answering is async now (it has to build the
     // capture set before it knows whether there's anything to choose between)
@@ -461,10 +474,7 @@ describe("useGearList — whose gear is this?", () => {
   // to outlive the tab, or every reload re-asks about a friend's list until one
   // stray tap lands on Add.
   it("takes dismissal for a no, and holds it across a reload", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    const c = await prompted();
 
     c.answerVaultPrompt(false);
     expect(c.vaultPrompt.value).toBeNull();
@@ -477,8 +487,7 @@ describe("useGearList — whose gear is this?", () => {
 
     // reload: a fresh controller on the same list, reading the same store
     c.dispose();
-    const reopened = useGearList();
-    await reopened.load({ token: TOKEN });
+    const reopened = await opened();
     reopened.updateItem("i1", { qty: 4 });
     await new Promise((r) => setTimeout(r, 50));
     expect(reopened.vaultPrompt.value).toBeNull();
@@ -496,8 +505,7 @@ describe("useGearList — whose gear is this?", () => {
     const item = listResponse.items[0]!;
     const key = vaultNormKey(item.brand, item.name, item.variant);
     heldGear = [[key, item.unitWeightMg], ["something else entirely", 1_000]];
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     await vi.waitFor(() => expect(c.vaultGearAsked.value.has(key)).toBe(true));
     // the ask is scoped, so the answer is too — the vault's other gear is not here
     expect([...c.vaultGear.value.keys()]).toEqual([key]);
@@ -513,8 +521,7 @@ describe("useGearList — whose gear is this?", () => {
     const item = listResponse.items[0]!;
     const key = vaultNormKey(item.brand, item.name, item.variant);
     heldGear = [[key, item.unitWeightMg]];
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     await vi.waitFor(() => expect(c.vaultGear.value.size).toBe(1));
 
     heldGear = [];
@@ -528,8 +535,7 @@ describe("useGearList — whose gear is this?", () => {
   it("asks nothing at all when there is no vault to ask", async () => {
     hasVault.value = false;
     try {
-      const c = useGearList();
-      await c.load({ token: TOKEN });
+      const c = await opened();
       await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
       // settled as an ANSWER — nothing is banked, so every worthy row keeps its
       // button — and without a request, which is what keeps a visitor with no
@@ -547,15 +553,10 @@ describe("useGearList — whose gear is this?", () => {
     // unanswered, so an ask that never settles is a save button hidden on every
     // row of every list with no way back.
     amongFails = true;
-    try {
-      const c = useGearList();
-      await c.load({ token: TOKEN });
-      await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
-      expect(c.vaultGearAsked.value.size).toBeGreaterThan(0);
-      expect(c.vaultGear.value.size).toBe(0);
-    } finally {
-      amongFails = false;
-    }
+    const c = await opened();
+    await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
+    expect(c.vaultGearAsked.value.size).toBeGreaterThan(0);
+    expect(c.vaultGear.value.size).toBe(0);
   });
 
   it("re-asks when someone signs in without leaving the list", async () => {
@@ -567,8 +568,7 @@ describe("useGearList — whose gear is this?", () => {
     hasVault.value = false;
     const item = listResponse.items[0]!;
     const key = vaultNormKey(item.brand, item.name, item.variant);
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
     expect(c.vaultGear.value.size).toBe(0);
 
@@ -580,8 +580,7 @@ describe("useGearList — whose gear is this?", () => {
   it("asks again about gear the list gains after it opened", async () => {
     // A row typed in later has no answer, so it would offer to save gear the
     // vault already holds — the original bug, in miniature, on rows added since.
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     await vi.waitFor(() => expect(c.vaultGearSettled.value).toBe(true));
 
     const late = vaultNormKey("Durston", "Kakwa 55", null);
@@ -598,8 +597,7 @@ describe("useGearList — whose gear is this?", () => {
     const item = listResponse.items[0]!;
     // what the vault says when asked about this list: its one row, already banked
     heldGear = [[vaultNormKey(item.brand, item.name, item.variant), item.unitWeightMg]];
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     await vi.waitFor(() => expect(c.vaultGearAsked.value.size).toBeGreaterThan(0));
     c.updateItem("i1", { qty: 2 });
     await new Promise((r) => setTimeout(r, 50));
@@ -613,8 +611,7 @@ describe("useGearList — whose gear is this?", () => {
 
   it("still asks as soon as one row is gear the vault doesn't hold", async () => {
     heldGear = [["something else entirely", 1_000]]; // nothing this list carries
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     await vi.waitFor(() => expect(c.vaultGearAsked.value.size).toBeGreaterThan(0));
     c.updateItem("i1", { qty: 2 });
     await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
@@ -624,16 +621,12 @@ describe("useGearList — whose gear is this?", () => {
   // navigation it asks about the wrong gear — and, answered, spends the NEW list's
   // one chance to ask on a question that was never posed about it.
   it("does not carry an unanswered question onto the next list opened", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    const c = await prompted();
 
     // ...and off they go to their own list without answering
     c.dispose();
     listResponse = withGear([gear({ unitWeightMg: 0, brand: undefined, name: "Notes" })]);
-    const mine = useGearList();
-    await mine.load({ token: "another-edit-token" });
+    const mine = await opened("another-edit-token");
     expect(mine.vaultPrompt.value).toBeNull();
 
     // a brand-new draft is likewise never greeted with someone else's question
@@ -647,14 +640,7 @@ describe("useGearList — whose gear is this?", () => {
   // on a trip planned together the tent is yours and the stove isn't, and
   // all-or-nothing forces a wrong answer whichever way you go.
   it("offers a chooser instead of taking the whole list", async () => {
-    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
-
-    await c.answerVaultPrompt(true);
-    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+    const c = await choosing();
     expect(c.vaultPicker.value!.map((r) => r.name).sort()).toEqual(["Duplex", "Kakwa 55"]);
     // still nothing decided and nothing sent — opening the chooser is not answering
     expect(vaultDecisionFor(TOKEN)).toBe("ask");
@@ -664,13 +650,7 @@ describe("useGearList — whose gear is this?", () => {
   // The chooser is the same question, further along: the decision stays "ask" until it
   // is confirmed, so an edit behind it would otherwise raise the toast it came from.
   it("keeps the chooser up, with no prompt over it, when an edit lands behind it", async () => {
-    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
-    await c.answerVaultPrompt(true);
-    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+    const c = await choosing();
 
     c.updateItem("i1", { qty: 3 });
     await new Promise((r) => setTimeout(r, 20)); // sync's chunk load, then its decision
@@ -679,13 +659,7 @@ describe("useGearList — whose gear is this?", () => {
   });
 
   it("captures only what was ticked, and never re-offers the rest", async () => {
-    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
-    await c.answerVaultPrompt(true);
-    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+    const c = await choosing();
 
     const mine = c.vaultPicker.value!.find((r) => r.name === "Duplex")!;
     c.confirmVaultPicker([mine.normKey]);
@@ -713,13 +687,7 @@ describe("useGearList — whose gear is this?", () => {
   // Gear you add to a shared list AFTER choosing is the gear most likely to be
   // yours — an allow-list would have silently excluded it forever.
   it("still captures gear added after the choice", async () => {
-    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
-    await c.answerVaultPrompt(true);
-    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+    const c = await choosing();
     c.confirmVaultPicker([c.vaultPicker.value!.find((r) => r.name === "Duplex")!.normKey]);
     await vi.waitFor(() => expect(captureCalls).toBe(1), { timeout: 8_000, interval: 50 });
 
@@ -735,13 +703,7 @@ describe("useGearList — whose gear is this?", () => {
   // Backing out is not an answer. The question has to come back, or a stray click
   // on Add silently ends the conversation for that list.
   it("records nothing when the chooser is cancelled", async () => {
-    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
-    await c.answerVaultPrompt(true);
-    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+    const c = await choosing();
 
     c.cancelVaultPicker();
     expect(c.vaultPicker.value).toBeNull();
@@ -756,10 +718,7 @@ describe("useGearList — whose gear is this?", () => {
   // is a click that can only be answered one way.
   it("skips the chooser when there is only one piece of gear", async () => {
     listResponse = withGear([gear()]);
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    const c = await prompted();
 
     await c.answerVaultPrompt(true);
     expect(c.vaultPicker.value).toBeNull();
@@ -775,8 +734,7 @@ describe("useGearList — whose gear is this?", () => {
     useVaultCapture().captureNewList(withGear([gear()]), TOKEN);
     expect(vaultDecisionFor(TOKEN)).toBe("yes");
 
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     c.updateItem("i1", { qty: 2 });
     await new Promise((r) => setTimeout(r, 50));
     expect(c.vaultPrompt.value).toBeNull();
@@ -787,13 +745,7 @@ describe("useGearList — whose gear is this?", () => {
   // used to stay keyed to the dead token: the prompt re-asked, capture paused
   // until it was re-answered, and the orphaned keys sat in localStorage for good.
   it("carries the vault answer — exclusions included — across a rotate", async () => {
-    listResponse = withGear([gear(), gear({ id: "i2", name: "Kakwa 55", brand: "Durston" })]);
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
-    await c.answerVaultPrompt(true);
-    await vi.waitFor(() => expect(c.vaultPicker.value).not.toBeNull());
+    const c = await choosing();
     const mine = c.vaultPicker.value!.find((r) => r.name === "Duplex")!;
     c.confirmVaultPicker([mine.normKey]);
 
@@ -817,10 +769,7 @@ describe("useGearList — whose gear is this?", () => {
   // A rotate on a never-answered list carries nothing and invents nothing: the
   // question stays open, and the prompt still comes.
   it("keeps an unanswered question open across a rotate", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    const c = await prompted();
 
     // navigating away and rotating from a fresh session ("ask" never recorded)
     expect(await c.rotate()).toBe(ROTATED_TOKEN);
@@ -849,8 +798,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   });
 
   it("beacons the queued rows on pagehide, well inside the debounce", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     setVaultDecisionFor(TOKEN, "yes"); // a list already known to be mine
     c.updateItem("i1", { qty: 2 });
     await rowsQueued();
@@ -870,8 +818,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   it("queues nothing for a visitor who is signed out, and captures when they sign in", async () => {
     hasVault.value = false;
     try {
-      const c = useGearList();
-      await c.load({ token: TOKEN });
+      const c = await opened();
       setVaultDecisionFor(TOKEN, "yes");
       c.updateItem("i1", { qty: 2 });
       await new Promise((r) => setTimeout(r, 50)); // past sync()'s import, were it running
@@ -889,8 +836,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   // A drag, a paste or an undo is one op per row, and each one notes a change: the
   // capture set is built once for the tick, from the list as the last op left it.
   it("builds one capture for a burst of edits, holding the last state", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     setVaultDecisionFor(TOKEN, "yes");
     c.updateItem("i1", { qty: 2 });
     c.updateItem("i1", { name: "Triplex" });
@@ -904,8 +850,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   // them a second time if the page turns out to still be alive (a backgrounded
   // tab that comes back).
   it("does not also POST what it already beaconed", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     setVaultDecisionFor(TOKEN, "yes");
     c.updateItem("i1", { qty: 2 });
     await rowsQueued();
@@ -919,8 +864,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   // leave the rows queued, or the edits are lost with no retry anywhere.
   it("keeps the rows queued when the browser refuses the beacon", async () => {
     beaconWorks = false;
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     setVaultDecisionFor(TOKEN, "yes");
     c.updateItem("i1", { qty: 2 });
     await rowsQueued();
@@ -935,10 +879,7 @@ describe("useGearList — getting a pending capture out as the page goes away", 
   // The unanswered case: nothing has been queued, so there is nothing to send —
   // and a beacon here would be exactly the silent leak the prompt exists to stop.
   it("beacons nothing for a list whose question is still open", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
-    c.updateItem("i1", { qty: 2 });
-    await vi.waitFor(() => expect(c.vaultPrompt.value).not.toBeNull());
+    const c = await prompted();
 
     window.dispatchEvent(new Event("pagehide"));
     expect(beacons).toEqual([]);
@@ -949,13 +890,8 @@ describe("useGearList — getting a pending capture out as the page goes away", 
 // A kit from My Gear, onto a list — and taken back off with one Undo.
 // ---------------------------------------------------------------------------
 describe("useGearList — addVaultKit", () => {
-  const entry = (over: Partial<VaultEntry> & { id: number; normKey: string; name: string }): VaultEntry => ({
-    weightMg: 100_000,
-    timesSeen: 1,
-    lastUsedAt: "",
-    createdAt: "",
-    ...over,
-  });
+  const entry = (over: Partial<VaultEntry> & { id: number; normKey: string; name: string }): VaultEntry =>
+    vaultRow({ weightMg: 100_000, ...over });
   const pot = entry({ id: 1, normKey: "pot", name: "Pot", weightMg: 120_000 });
   const lighter = entry({ id: 2, normKey: "lighter", name: "Lighter", weightMg: 11_000 });
   const kit = entry({
@@ -976,8 +912,7 @@ describe("useGearList — addVaultKit", () => {
   });
 
   it("lands the kit as a group at its own weight, its items under it at their counts", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     const id = addVaultKit(c, kit, null, [pot, lighter, kit]);
     const items = c.snapshot.value!.items;
     expect(items.find((i) => i.id === id)).toMatchObject({ name: "Cook kit", unitWeightMg: 20_000 });
@@ -987,15 +922,13 @@ describe("useGearList — addVaultKit", () => {
   // the pane's add and a name-field pick are one rule (vaultRowFields): the pane used
   // to drop the unit the piece reads in on /gear, which the pick carried
   it("adds a piece from My Gear in its own unit, as a name-field pick does", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     const id = c.addVaultItem(entry({ id: 9, normKey: "mug", name: "Mug", weightMg: 107_700, entryUnit: "oz" }), null);
     expect(c.snapshot.value!.items.find((i) => i.id === id)).toMatchObject({ name: "Mug", unitWeightMg: 107_700, entryUnit: "oz", weightOverridden: true });
   });
 
   it("offers an undo that takes the whole group back off", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     const before = c.snapshot.value!.items.length;
     const id = addVaultKit(c, kit, null, [pot, lighter, kit]);
     c.offerUndoAdd("Cook kit", id);
@@ -1019,16 +952,12 @@ describe("useGearList — addVaultKit", () => {
 // The path that surfaces it is the ordinary one: duplicate a list, rename the copy
 // to the trail you're actually packing for, open the switcher.
 describe("useGearList — keeping 'Your lists' in step with a rename", () => {
-  const rowFor = (token: string) =>
-    useMyLists().entries.value.find((e) => e.editToken === token);
-
   beforeEach(() => {
     listResponse = snapshotFor("Timberline Trail (copy)"); // as a duplicate arrives
   });
 
   it("renames the row without waiting for the server", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     expect(rowFor(TOKEN)?.title).toBe("Timberline Trail (copy)");
 
     c.setMeta({ title: "Eagle Creek" });
@@ -1040,8 +969,7 @@ describe("useGearList — keeping 'Your lists' in step with a rename", () => {
   });
 
   it("keeps the new name when the editor is left before the flush lands", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     c.setMeta({ title: "Eagle Creek" });
     await awaitMutateInFlight();
 
@@ -1054,8 +982,7 @@ describe("useGearList — keeping 'Your lists' in step with a rename", () => {
   // touch() is update-only for a reason — "Remove from device" has to stick — and
   // the optimistic call must not become the thing that quietly re-adds a row.
   it("does not resurrect a list removed from this device", async () => {
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     useMyLists().forget(TOKEN);
 
     c.setMeta({ title: "Eagle Creek" });
@@ -1072,13 +999,10 @@ describe("useGearList — keeping 'Your lists' in step with a rename", () => {
 // its own link, and the rotated one must keep its new link (its old one is dead).
 describe("useGearList — a rotate that lands after the editor moved on", () => {
   const OTHER = "other-edit-token";
-  const rowFor = (token: string) =>
-    useMyLists().entries.value.find((e) => e.editToken === token);
 
   it("leaves the list now open alone, and keeps the rotated list's new link", async () => {
     listResponse = snapshotFor("Rotated list");
-    const c = useGearList();
-    await c.load({ token: TOKEN });
+    const c = await opened();
     await vi.waitFor(() => expect(records.get(localKey(TOKEN))?.snapshot.title).toBe("Rotated list"));
 
     let land!: () => void;

@@ -89,24 +89,16 @@ export function useSession() {
     if (pending.value) return;
     if (loaded.value && !force) return;
     if (!hasSessionHint()) {
-      forgetAccountMemos(user.value?.owner ?? sessionCacheOwner());
+      forgetAccountMemos();
       clearSessionHint();
       session.value = { state: "signedOut" };
       return;
     }
     pending.value = true;
     try {
-      const res = await $fetch<{
-        user: { owner: string; email: string | null; displayName: string | null } | null;
-      }>("/api/auth/me");
+      const res = await $fetch<{ user: SessionState | null }>("/api/auth/me");
       const previousOwner = user.value?.owner ?? sessionCacheOwner();
-      const nextUser = res.user
-        ? {
-            owner: res.user.owner,
-            email: res.user.email,
-            displayName: res.user.displayName ?? null,
-          }
-        : null;
+      const nextUser = res.user;
       // A different owner than the one this tab's caches were kept for — another
       // account signed in here, or this one signed in afresh — drops those caches
       // before the new answer is on screen. Only ever the former owner's keys.
@@ -125,6 +117,7 @@ export function useSession() {
       if (!res.user) {
         clearSessionHint();
       }
+      askFailed.value = false;
     } catch {
       // offline or a server blip — no user for rendering purposes, but unresolved,
       // so the next call retries rather than caching a wrong answer for the rest of the
@@ -134,11 +127,9 @@ export function useSession() {
       // cached lists away.
       session.value = { state: "unresolved" };
       askFailed.value = true;
+    } finally {
       pending.value = false;
-      return;
     }
-    askFailed.value = false;
-    pending.value = false;
   }
 
   /**

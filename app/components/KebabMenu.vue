@@ -11,10 +11,8 @@ import { EllipsisIcon } from "@hugeicons/core-free-icons";
 // Not the editor's kebab, whose trigger lives in its toolbar and whose body (EditorMenu)
 // mounts lazily on a hover; nor the account menu, whose trigger is a Tooltip'd avatar.
 // Both have a reason to draw their own shell. OptionMenu is the pick-one cousin.
-const { label = "More actions" } = defineProps<{
-  /** the trigger's accessible name, its tooltip, and the list's name */
-  label?: string;
-}>();
+/** the trigger's accessible name, its tooltip, and the list's name */
+const label = "More actions";
 /** the moment the menu opens — a parent warms a chunk its rows will need */
 const emit = defineEmits<{ open: [] }>();
 /** open state, bindable (v-model:open) for a parent that reacts to it; otherwise local */

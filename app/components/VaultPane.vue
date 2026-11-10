@@ -458,8 +458,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       tabindex="0"
       aria-label="Resize the My Gear panel"
       :aria-valuenow="width"
-      :aria-valuemin="288"
-      :aria-valuemax="720"
+      :aria-valuemin="VAULT_W_MIN"
+      :aria-valuemax="VAULT_W_MAX"
       title="Drag to resize"
       @pointerdown="startResize"
       @keydown="onResizeKey"
@@ -680,9 +680,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    own scroll position while you work through the vault. */
 /* The SURFACE (lifted background, radius, soft shadow, forced-colors edge) comes
    from the shared .popover atom — the same one the autocomplete and kebab menus
-   wear, so this panel can't drift from them. It also hands down
-   --popover-item-radius and --popover-hover, which the rows below consume, so the
-   concentric corner and the hover tint stay pinned to this surface's geometry.
+   wear, so this panel can't drift from them. It also hands down --popover-hover,
+   which the rows below consume beside --popover-item-radius (the token derived from
+   this surface's corner, tokens.scss), so the concentric corner and the hover tint
+   stay pinned to this surface's geometry.
    Everything here is position + size only.
 
    Desktop: a floating column pinned to the right, clear of the sticky topbar and
@@ -803,7 +804,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   border-radius: var(--popover-item-radius);
   font-size: var(--text-base);
   color: var(--ink-3);
-  cursor: pointer;
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
@@ -878,7 +878,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   /* the far end of the tab row, and the side that gives way: a long folder name
      ellipsizes before the tabs do */
   margin-inline-start: auto;
-  min-width: 0;
 }
 /* "Add to" is two words and was wrapping onto two lines next to the select,
    throwing the row's baseline out */
@@ -894,7 +893,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    that wraps a name and must be allowed to ellipsize it. */
 .vp__select.optmenu {
   flex: 0 1 auto;
-  min-width: 0;
 }
 /* the target's mark is the shared .chev (atoms/controls.scss). Its copy here set the
    resting ink and nothing else — no .is-open rule at all — while the markup has always
@@ -943,7 +941,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   padding-top: var(--space-1);
 }
 .vp__kindname {
-  margin: 0;
   font-weight: 500;
 }
 /* the whole row is the button — a small "+" target would be a poor tap area on the
@@ -957,10 +954,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   /* matches .ac__opt — a row on a floating surface, not a page row (which sits on
      the roomier --space-4 rhythm; see .vault__row / .mine__row) */
   padding: var(--space-2);
-  /* both pinned on .popover, so they track the surface rather than being guessed */
+  /* this and the hover tint below both track the .popover surface rather than being
+     guessed: the radius is the token derived from its corner (tokens.scss), the tint
+     is declared on .popover itself */
   border-radius: var(--popover-item-radius);
   text-align: left;
-  cursor: pointer;
   /* The row is a control and a drag handle, so holding it must not do what holding
      text does on a phone: select the label, or raise iOS's callout. Both spellings —
      WebKit reads only the prefixed one. */

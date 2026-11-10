@@ -135,8 +135,6 @@ const summary = computed(() => {
 /* no font-size: .field's literal 16px is what stops iOS zooming on focus, and the
    fluid --text-base that used to override it here zoomed (ImportModal says more) */
 .vimport__text {
-  width: 100%;
-  font-family: var(--font);
   padding: var(--space-3);
   /* no resize — ImportModal's reasoning: the grip notches the rounded corner and
      the box scrolls anyway */

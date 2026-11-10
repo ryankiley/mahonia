@@ -88,14 +88,6 @@ const isAppendTarget = computed(
     dnd.drop.value?.parentId == null &&
     dnd.drop.value?.beforeId == null,
 );
-
-// "Add an item" drops a real, empty row into the folder (with every control a
-// normal row has) and focuses it — you just start typing. Catalog autocomplete +
-// water volumes still work in the row's own name field; an abandoned empty row
-// removes itself.
-function addBlank() {
-  c.addBlankItem(props.folder.id);
-}
 </script>
 
 <template>
@@ -123,7 +115,11 @@ function addBlank() {
   <!-- is-arriving while a row is fresh: the link you pressed has just BECOME that row's
        name field, so the next link fades in as the row's box pushes it down (CSS below) -->
   <div class="folder__add" :class="{ 'folder__add--first': !items.length, 'is-arriving': fresh.size > 0 }">
-    <button type="button" class="folder__addbtn" @click="addBlank">Add an item</button>
+    <!-- "Add an item" drops a real, empty row into the folder (with every control a
+         normal row has) and focuses it — you just start typing. Catalog autocomplete +
+         water volumes still work in the row's own name field; an abandoned empty row
+         removes itself. -->
+    <button type="button" class="folder__addbtn" @click="c.addBlankItem(folder.id)">Add an item</button>
   </div>
 </template>
 
@@ -220,7 +216,6 @@ function addBlank() {
 .folder__add {
   border-top: 1px solid var(--line);
   padding-top: var(--space-2);
-  margin-top: 0;
 }
 /* when the folder is EMPTY the add row is the FIRST row, so it drops the rule line —
    a first row never carries a divider under the folder name (same as .folder__items >

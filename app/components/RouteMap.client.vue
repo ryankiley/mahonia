@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { MAX_LABEL_LEN } from "~~/shared/ops";
 import { formatLatLon, nearestAlongM, pointAlong, sliceAlong } from "~~/shared/polyline";
 import { HugeiconsIcon, kebab, type IconNode } from "~/utils/hugeicon";
 import { ArrowExpand02Icon, ArrowShrink02Icon, HelpCircleIcon } from "@hugeicons/core-free-icons";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { waypointKindMeta } from "~/utils/waypointKinds";
 import { useRouteMapGeometry } from "~/composables/useRouteMapGeometry";
+import { motionIsInstant } from "~/plugins/inputModality.client";
 
 // Where the route actually goes — the other half of the elevation profile's answer.
 //
@@ -265,6 +267,30 @@ function iconSvg(icon: IconNode): string {
 }
 
 /**
+ * The drop every pin on the map wears: a waypoint, a day boundary and the finish alike,
+ * so the three can't be cut to different sizes or anchored at different points.
+ *
+ * The GLYPH inside the disc, not a bare dot. Colours alone asked the reader to hold a
+ * legend in their head that the map has nowhere to print; a droplet says "water" without
+ * one, and it still says it to somebody who can't separate the blue from the violet. The
+ * kind's hue rides in as --pin, which the inverted pins (the CSS's --dark) ignore.
+ *
+ * Anchored at THE TIP, not the centre and not the box's bottom edge. The drop's point is
+ * the claim: it lands on the metre of route the pin stores, and the body of the mark sits
+ * above it out of the way of the line it is pointing at. See PIN_TIP_PX for why the tip
+ * is not simply the bottom of the icon box.
+ */
+function pinIcon(kind: string, variant = "") {
+  const meta = waypointKindMeta(kind);
+  return L!.divIcon({
+    className: `routemap__pin${variant}`,
+    html: `<i style="--pin:${meta.color}">${iconSvg(meta.icon)}</i>`,
+    iconSize: [PIN_PX, PIN_PX],
+    iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
+  });
+}
+
+/**
  * MOVING A PIN: press and hold, then slide.
  *
  * Not a plain drag, and not Leaflet's own `draggable` marker option, because this map is
@@ -433,24 +459,17 @@ function renderBounds() {
   for (const m of bounds) m.remove();
   bounds = [];
   const line = points.value;
-  const camp = waypointKindMeta("camp");
   for (const b of boundaries.value) {
     const at = pointAlong(line, b.alongM, cum.value);
     if (!at) continue;
     const marker = L.marker([at.lat, at.lon], {
       keyboard: false,
-      icon: L.divIcon({
-        // THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is
-        // a camp, and a reader shouldn't have to know which of these the itinerary drew
-        // and which somebody placed. It takes the inverted pin's recipe wholesale (see
-        // the CSS) — the itinerary talking, in ink rather than a category's hue — and
-        // keeps its own name only as a hook.
-        className: "routemap__pin routemap__pin--dark routemap__bound",
-        html: `<i>${iconSvg(camp.icon)}</i>`,
-        iconSize: [PIN_PX, PIN_PX],
-        // the tip, as a waypoint's is — the point is the metre of route it marks
-        iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
-      }),
+      // THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is
+      // a camp, and a reader shouldn't have to know which of these the itinerary drew
+      // and which somebody placed. It takes the inverted pin's recipe wholesale (see
+      // the CSS) — the itinerary talking, in ink rather than a category's hue — and
+      // keeps its own name only as a hook.
+      icon: pinIcon("camp", " routemap__pin--dark routemap__bound"),
     }).addTo(map);
     // No tooltip, for the same reason the waypoints lost theirs: it named what the tent
     // already says and covered the ground around the thing being pointed at. Which day it
@@ -529,16 +548,10 @@ function renderFinish() {
   // thresholds eventually disagree.
   const wps = props.waypoints ?? [];
   if (wps.some((w) => w.kind === "trailhead") && !wps.some((w) => w.kind === "end")) return;
-  const meta = waypointKindMeta("end");
   finish = L.marker([at.lat, at.lon], {
     keyboard: false,
     interactive: false,
-    icon: L.divIcon({
-      className: "routemap__pin routemap__pin--dark",
-      html: `<i style="--pin:${meta.color}">${iconSvg(meta.icon)}</i>`,
-      iconSize: [PIN_PX, PIN_PX],
-      iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
-    }),
+    icon: pinIcon("end", " routemap__pin--dark"),
   }).addTo(map);
 }
 
@@ -549,26 +562,12 @@ function renderPins() {
   pins = (props.waypoints ?? []).flatMap((w) => {
     const at = pointAlong(line, w.alongM, cum.value);
     if (!at) return [];
-    const meta = waypointKindMeta(w.kind);
     const marker = L!.marker([at.lat, at.lon], {
       keyboard: false,
-      icon: L!.divIcon({
-        // The route's own two ends invert — see the CSS. They are not a category of thing
-        // found along the walk, they are where it starts and stops, and a solid mark says
-        // that without needing a fifth hue.
-        className: `routemap__pin${w.kind === "trailhead" || w.kind === "end" ? " routemap__pin--dark" : ""}`,
-        // The GLYPH inside the disc, not a bare dot. Five colours alone asked the reader
-        // to hold a legend in their head that the map has nowhere to print — a droplet
-        // says "water" without one, and it still says it to somebody who can't separate
-        // the blue from the violet.
-        html: `<i style="--pin:${meta.color}">${iconSvg(meta.icon)}</i>`,
-        iconSize: [PIN_PX, PIN_PX],
-        // THE TIP, not the centre and not the box's bottom edge. The drop's point is the
-        // claim — it lands on the metre of route the pin stores, and the body of the mark
-        // sits above it out of the way of the line it is pointing at. See PIN_TIP_PX for
-        // why the tip is not simply the bottom of the icon box.
-        iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
-      }),
+      // The route's own two ends invert — see the CSS. They are not a category of thing
+      // found along the walk, they are where it starts and stops, and a solid mark says
+      // that without needing a fifth hue.
+      icon: pinIcon(w.kind, w.kind === "trailhead" || w.kind === "end" ? " routemap__pin--dark" : ""),
     }).addTo(map!);
     // NO TOOLTIP. It said what the pin's own glyph already says and what its row says
     // again, and it did so by covering the terrain around the thing you were pointing at —
@@ -648,16 +647,12 @@ function renderLegs() {
       opacity: groundOpacity,
       color: casingFor(GROUND),
       interactive: false,
-      lineCap: "round",
-      lineJoin: "round",
       className: "routemap__casing",
     }).addTo(map);
     const ground = L.polyline(track, {
       weight: 4,
       opacity: groundOpacity,
       interactive: false,
-      lineCap: "round",
-      lineJoin: "round",
       className: "routemap__ground",
     }).addTo(map);
     // inline style, as the legs' own fill is set below — the one place a colour function
@@ -693,8 +688,6 @@ function renderLegs() {
           opacity: isDimmed(leg.fromM, leg.toM) ? DIM : 1,
           color: casingFor(leg.color),
           interactive: false,
-          lineCap: "round",
-          lineJoin: "round",
           className: "routemap__casing",
         },
       ).addTo(map!),
@@ -706,8 +699,6 @@ function renderLegs() {
       {
         weight: 4,
         opacity: isDimmed(leg.fromM, leg.toM) ? DIM : 1,
-        lineCap: "round",
-        lineJoin: "round",
         className: "routemap__leg",
       },
     ).addTo(map!);
@@ -900,9 +891,7 @@ async function setExpanded(on: boolean) {
  *  page for 630ms after you asked it to go. A transitionend would have missed the first
  *  case, where the transition never runs and so never ends. */
 function closeMs(): number {
-  if (document.documentElement.dataset.input === "keyboard") return 0;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
-  return springCss("move").duration;
+  return motionIsInstant() ? 0 : springCss("move").duration;
 }
 const parkedEl = ref<HTMLElement | null>(null);
 
@@ -944,7 +933,7 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
   const input = document.createElement("input");
   input.className = "routemap__wpname";
   input.type = "text";
-  input.maxLength = 120;
+  input.maxLength = MAX_LABEL_LEN;
   input.value = w.label ?? "";
   input.placeholder = meta.label;
   input.setAttribute("aria-label", `Name for the ${meta.label.toLowerCase()}`);
@@ -1293,7 +1282,6 @@ onBeforeUnmount(() => {
 }
 .routemap__canvas {
   flex: 1;
-  min-width: 0;
 }
 /* the caption is a footnote at strip size and a distraction at window size — the gesture
    it names still works, and by now you have used it */

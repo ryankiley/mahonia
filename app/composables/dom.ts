@@ -75,49 +75,6 @@ export function onClickOutside(
   );
 }
 
-// Dismiss an anchored surface when a touch drag scrolls the page under it — the
-// mobile companion to onClickOutside above. Menus hang off triggers that are often
-// STICKY (the topbar's ⋯ and account controls, the editor toolbar's), so scrolling
-// neither carries them away nor takes them down: the card just sits over the content
-// you were trying to read, and the only way out is to find dead space and tap it. On
-// a phone a menu is a good fraction of the screen, so scrolling past it is the
-// natural gesture and it should mean what it plainly looks like it means.
-//
-// TOUCHMOVE, not scroll. Two reasons, and the second is the one that decided it:
-//   - it IS the mobile predicate, so there's no media query to keep in step with the
-//     rest of the app. A hybrid laptop dismisses when scrolled by finger and not when
-//     scrolled by wheel, which is the behaviour you'd want on it anyway.
-//   - a `scroll` listener fires on scrolls nobody performed. iOS scrolls the page to
-//     clear the on-screen keyboard whenever a field takes focus, and the lists
-//     switcher focuses its filter input the moment it opens — so it would have closed
-//     itself, every time, on the exact device this exists for.
-//
-// Bound only WHILE open, like Tooltip's own scroll dismissal and for the same reason:
-// this fires many times per gesture, and a menu nobody opened shouldn't pay for it.
-// A drag INSIDE the surface is ignored — the switcher's list of lists is its own
-// scroller, and scrolling it is the opposite of leaving.
-export function onScrollOutside(
-  open: Ref<boolean>,
-  // same structural ref shape as onClickOutside, so template refs fit
-  target: { readonly value: HTMLElement | null | undefined },
-  handler: () => void,
-): void {
-  if (!import.meta.client) return;
-  // capture, so a drag over any nested scroller is heard too
-  const opts = { passive: true, capture: true } as const;
-  const onTouchMove = (e: TouchEvent) => {
-    const el = target.value;
-    if (el && e.composedPath().includes(el)) return;
-    handler();
-  };
-  const bind = (on: boolean) => {
-    if (on) window.addEventListener("touchmove", onTouchMove, opts);
-    else window.removeEventListener("touchmove", onTouchMove, opts);
-  };
-  watch(open, bind);
-  onScopeDispose(() => bind(false));
-}
-
 // navigator.onLine as a ref, tracked via the online/offline events. Lives in
 // the editor's sync controller (client-only); a server render reads as online.
 export function useOnline(): Ref<boolean> {
@@ -127,13 +84,14 @@ export function useOnline(): Ref<boolean> {
   return online;
 }
 
-// A Date that re-renders consumers every `interval` ms (drives the ticking
-// "x minutes ago" labels). On the server it's a frozen SSR-time Date, same as
-// vueuse's — the client re-labels from its own clock after hydration.
-export function useNow(opts: { interval: number }): Ref<Date> {
+// A Date that re-renders consumers every 30 s (drives the ticking "x minutes ago"
+// labels; finer than their smallest step, a minute, without a per-second churn). On
+// the server it's a frozen SSR-time Date, same as vueuse's — the client re-labels
+// from its own clock after hydration.
+export function useNow(): Ref<Date> {
   const now = ref(new Date());
   if (import.meta.client) {
-    const id = setInterval(() => (now.value = new Date()), opts.interval);
+    const id = setInterval(() => (now.value = new Date()), 30_000);
     onScopeDispose(() => clearInterval(id));
   }
   return now;
@@ -147,18 +105,35 @@ export function useNow(opts: { interval: number }): Ref<Date> {
 // COMBINATION that had no home, so "how does a menu close" was six copies of an
 // answer instead of one.
 //
-// The scroll listener is mobile's, and is the one most easily forgotten: these
-// menus hang off sticky chrome, so on a touchscreen nothing about scrolling
-// would otherwise take them down — the menu just rides along, parked over the
-// list. It binds only while open (see onScrollOutside).
+// THE SCROLL LISTENER is mobile's, and is the one most easily forgotten: a touch drag
+// that scrolls the page under the menu dismisses it. Menus hang off triggers that are
+// often STICKY (the topbar's ⋯ and account controls, the editor toolbar's), so
+// scrolling neither carries them away nor takes them down: the card just sits over the
+// content you were trying to read, and the only way out is to find dead space and tap
+// it. On a phone a menu is a good fraction of the screen, so scrolling past it is the
+// natural gesture and it should mean what it plainly looks like it means.
 //
-// The click-outside pair and Escape bind only while open too, in an effect scope
-// started on open and stopped on close (ItemInput's own outside-click wiring is
-// the model). They used to be bound for the instance's whole life, with the guard
-// on `open` inside the handler — fine for the five toolbar menus this was written
-// for, and wrong once every editable row mounted an OptionMenu for its unit: a
-// 150-row list carried ~450 always-on window listeners, each walking
-// composedPath() on every tap and keystroke to close a menu that wasn't open.
+// TOUCHMOVE, not scroll. Two reasons, and the second is the one that decided it:
+//   - it IS the mobile predicate, so there's no media query to keep in step with the
+//     rest of the app. A hybrid laptop dismisses when scrolled by finger and not when
+//     scrolled by wheel, which is the behaviour you'd want on it anyway.
+//   - a `scroll` listener fires on scrolls nobody performed. iOS scrolls the page to
+//     clear the on-screen keyboard whenever a field takes focus, and the lists
+//     switcher focuses its filter input the moment it opens — so it would have closed
+//     itself, every time, on the exact device this exists for.
+//
+// A drag INSIDE the surface is ignored — the switcher's list of lists is its own
+// scroller, and scrolling it is the opposite of leaving. Bound only WHILE open, like
+// Tooltip's own scroll dismissal and for the same reason: this fires many times per
+// gesture, and a menu nobody opened shouldn't pay for it.
+//
+// All three bind only while open, in one effect scope started on open and stopped
+// on close (ItemInput's own outside-click wiring is the model). Bound for the
+// instance's whole life, with the guard on `open` inside the handler, the
+// click-outside pair and Escape are fine for five toolbar menus and wrong where
+// every editable row mounts an OptionMenu for its unit: a 150-row list carries ~450
+// always-on window listeners, each walking composedPath() on every tap and
+// keystroke to close a menu that isn't open.
 // The scope attaches after the opening click has fully dispatched (the watch runs
 // on the microtask), so the press that opened the menu can never be the press
 // that closes it.
@@ -174,13 +149,22 @@ export function useMenuDismiss(
   onDismiss?: () => void,
 ): void {
   const close = onDismiss ?? (() => (open.value = false));
-  onScrollOutside(open, target, close);
   let scope: EffectScope | null = null;
   const bind = (on: boolean) => {
     if (on && !scope) {
       scope = effectScope(true);
       scope.run(() => {
         onClickOutside(target, () => close());
+        useWindowEvent(
+          "touchmove",
+          (e) => {
+            const el = target.value;
+            if (el && e.composedPath().includes(el)) return;
+            close();
+          },
+          // capture, so a drag over any nested scroller is heard too
+          { passive: true, capture: true },
+        );
         // Escape closes the menu and nothing else: caught on the way DOWN (capture),
         // ahead of a dialog's own window listener, and marked handled so a menu inside
         // a dialog doesn't take the dialog with it (onKeyStroke skips a handled key).

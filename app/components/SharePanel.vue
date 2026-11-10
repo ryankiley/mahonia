@@ -146,7 +146,7 @@ async function addToAccount() {
   // success flips canAddToAccount and the button simply leaves. Nothing takes its
   // place: the list is on the account, which is what you asked for and what the
   // absence now means.
-  const ok = await useClaimedLists().claimOne(props.editToken);
+  const ok = await claimed.claimOne(props.editToken);
   claim.value = ok ? "idle" : "failed";
 }
 
@@ -472,11 +472,6 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 }
 
 /* ---- rows ---- */
-.share__rows {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 /* A menu row with a second line, glyph · label over hint. Its inset,
    gap and glyph are .menu__item's; it only wraps (a menu row doesn't, but the hint is
    prose in a panel of fixed width) and hangs its glyph on the LABEL's line rather than
@@ -491,10 +486,8 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 .share__text {
   display: grid;
   flex: 1 1 auto;
-  min-width: 0;
 }
 .share__name {
-  margin: 0;
   color: var(--ink);
   font-size: var(--text-base);
 }
@@ -528,7 +521,6 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   gap: var(--space-1);
 }
 .share__nudgetext {
-  margin: 0;
   color: var(--ink-2);
   font-size: var(--text-chrome);
 }
@@ -541,7 +533,6 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 
 /* Prose where a row would be, inset like a row. */
 .share__note {
-  margin: 0;
   padding: var(--space-2) var(--space-3);
 }
 /* The entries start where the rows' labels do: past a row's inset, its 16px glyph and
@@ -549,15 +540,9 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 .share__activity {
   padding: var(--space-1) var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-4) + var(--space-3));
 }
-.share__activity p {
-  margin: 0;
-}
 .share__log {
   display: grid;
   gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
   /* a long-lived list can hold many recovery points; the panel stays a panel */
   max-height: 11rem;
   overflow-y: auto;

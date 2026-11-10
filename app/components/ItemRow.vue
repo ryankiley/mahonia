@@ -50,13 +50,13 @@ import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
 import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, Delete02Icon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, MinusSignSquareIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
-import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN } from "~~/shared/ops";
+import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_QTY, MAX_VARIANT_LEN } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
 import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseWeightInput, groupLineMg, siblingItems, storedClassification } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
-import { QTY_MAX, useItemRowFields } from "~/composables/useItemRowFields";
+import { useItemRowFields } from "~/composables/useItemRowFields";
 import { useItemRowClassification } from "~/composables/useItemRowClassification";
 import { consumableIcon } from "~/utils/itemMarks";
 import { ASSUMED_FUEL_PER_BOIL_G, isFuelRow, offersKcal, offersWorn } from "~~/shared/fuel";
@@ -565,7 +565,6 @@ function onNameCommit(p: NameCommit) {
 // empty fields appear while the product name is being edited, so a row typed by hand
 // has a visible place to put either — there is no separate "add a note" control. Each
 // is cleared by emptying its own input.
-const cnameRef = useTemplateRef<HTMLInputElement>("cnameRef");
 const noteRef = useTemplateRef<HTMLTextAreaElement>("noteRef");
 // Set by focus landing anywhere in the name cell; held until focus leaves the ROW (so
 // tabbing on to the fields themselves, or to qty/weight, doesn't yank them away
@@ -997,7 +996,7 @@ const vaultLabel = computed(() =>
  *  banks lands in vaultKeys immediately). Without this the button answered a
  *  click by vanishing, which reads as the click having gone nowhere. */
 const vaultOffered = computed(
-  () => !isWater.value && vaultWorthy.value && (vaultSaved.value || !vaultCovered.value),
+  () => vaultWorthy.value && (vaultSaved.value || !vaultCovered.value),
 );
 /**
  * Whether the reveal below is allowed to PLAY.
@@ -1322,7 +1321,6 @@ function dismissFix() {
                 <Transition name="reveal-field">
                   <input
                     v-if="cnameShown"
-                    ref="cnameRef"
                     class="item__note item__gtype-input"
                     :maxlength="MAX_GEAR_TYPE_LEN"
                     :value="item.commonName ?? ''"
@@ -1480,7 +1478,7 @@ function dismissFix() {
               :class="{ 'is-popping': qtyPopping }"
               type="number"
               min="1"
-              :max="QTY_MAX"
+              :max="MAX_QTY"
               step="1"
               :value="item.qty"
               aria-label="Quantity"
@@ -1494,7 +1492,7 @@ function dismissFix() {
             <button
               class="btn btn--icon btn--ghost item__qtybtn ink-quiet"
               type="button"
-              :disabled="item.qty >= QTY_MAX"
+              :disabled="item.qty >= MAX_QTY"
               :aria-label="`One more ${item.name || 'item'}`"
               @mousedown.prevent
               @click="stepQty(1)"
@@ -1936,7 +1934,7 @@ function dismissFix() {
                    A real role=group with a visible name, so the radio run reads
                    as one setting to assistive tech instead of loose siblings. -->
               <li v-if="peopleSorted.length" role="none">
-                <ul role="group" aria-label="Who carries this" class="item__moregroup">
+                <ul role="group" aria-label="Who carries this">
                   <!-- aria-hidden: the group's aria-label already names it — role=none
                        strips the li's semantics but not its TEXT, so without this a
                        screen reader heard the label twice -->
@@ -2041,7 +2039,6 @@ function dismissFix() {
 }
 .item__name {
   grid-area: name;
-  min-width: 0;
 }
 /* position:relative makes the name BOX the autocomplete dropdown's anchor, so the
    menu opens flush with the row's left edge, directly under the name field (not under
@@ -2049,7 +2046,6 @@ function dismissFix() {
    .ac__menu) — the .ac root inside defers via position:static. */
 .item__namebox {
   position: relative;
-  min-width: 0;
 }
 .item__namebox :deep(.ac) {
   position: static;
@@ -2060,11 +2056,9 @@ function dismissFix() {
   display: flex;
   align-items: baseline;
   gap: var(--space-1);
-  min-width: 0;
 }
 .item__namebox--group :deep(.ac) {
   flex: 0 1 auto;
-  min-width: 0;
 }
 .item__namebox--group :deep(.ac__input) {
   width: auto;
@@ -2108,7 +2102,6 @@ function dismissFix() {
   height: var(--field-h);
   align-items: center;
   gap: var(--space-1);
-  min-width: 0;
 }
 /* same box for the trailing cluster — it carried the same 2px lift, and the same
    sink once the name cell could grow; fixing only the middle one would leave two
@@ -2131,11 +2124,8 @@ function dismissFix() {
   display: contents;
 }
 
-/* the qty/amount label lives in the narrow 44px column; keep it on one line so a
-   water row's volume ("1.75 L") never breaks between the number and its "L" unit. */
-.item__cqty {
-  white-space: nowrap;
-}
+/* the checklist's amount and weight cells (.item__cqty / .item__cweight) take their
+   nowrap and their right-aligned figure from atoms/item.scss, shared with the read rows */
 
 /* packing / checklist — a big tap target */
 .item--check {
@@ -2184,18 +2174,12 @@ function dismissFix() {
     color: var(--ink);
   }
 }
-.item__cname {
-  min-width: 0;
-}
 /* a group (parent) in packing mode: name + trailing collapse chevron, like the
    editor row + folder header */
 .item__cname--group {
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-1);
-}
-.item__cweight {
-  text-align: right;
 }
 /* the common name in packing mode — a quiet upright sub-line under the product name,
    spanning from the name column (2) to the row end so it aligns under the name, not the
@@ -2227,12 +2211,9 @@ function dismissFix() {
   align-items: baseline;
   gap: var(--space-1);
 }
-/* let the number input shrink so its unit suffix (L / lb) stays on the same line
-   in the narrow columns instead of wrapping below */
-.item__qty .field,
-.item__weight .field {
-  min-width: 0;
-}
+/* the number input can shrink, so its unit suffix (L / lb) stays on the same line in
+   the narrow columns instead of wrapping below: no rule here, because the reset floors
+   every element's min-width at 0 (reset.scss) */
 /* A DERIVED weight — a group's total, water's litres-to-grams — is read, not typed
    (the input is readonly, and onWeight refuses it). It kept every affordance of a
    field all the same, so the parent of a nested group read as editable (Ryan,
@@ -2341,14 +2322,12 @@ function dismissFix() {
    --item-col-qty is derived from --qty-btn: at 44px the track would want 132px, and
    it would take that from the name column on the widest rows in the app.
    The HEIGHT still grows, so the target is 24×44 — past the 24×24 floor (WCAG 2.5.8)
-   in both directions, and full height under the finger. The glyph holds at 16px too:
-   .btn--icon grows it to --icon-touch on touch, which in a 24px box leaves the plus
-   with no air around it. */
+   in both directions, and full height under the finger. Neither needs saying here:
+   the width rule above is scoped, so it already outranks .btn--icon's coarse --tap
+   width, and that same coarse rule's min-height is what grows the height. The glyph
+   holds at 16px too: .btn--icon grows it to --icon-touch on touch, which in a 24px
+   box leaves the plus with no air around it. */
 @media (pointer: coarse) {
-  .item__qtybtn {
-    width: var(--qty-btn);
-    min-height: var(--tap);
-  }
   .item__qtybtn svg {
     width: 16px;
     height: 16px;
@@ -2550,7 +2529,6 @@ function dismissFix() {
   min-width: var(--icon-btn);
   min-height: var(--icon-btn);
   padding-inline: var(--space-2);
-  justify-content: center;
   border-radius: var(--pop-inner-radius);
   background: var(--paper-2);
   color: var(--ink-2);
@@ -2578,7 +2556,6 @@ function dismissFix() {
    page, so a well sunk into it reads as "type here" at a glance, where a hairline
    rectangle has to be looked at to be seen. */
 .item__popinput {
-  width: 100%;
   min-height: var(--icon-btn);
   padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;
@@ -2742,7 +2719,6 @@ function dismissFix() {
    pointer-events:none so the drop detection (elementFromPoint) sees the rows
    underneath, not the floating row. */
 .item-wrap.is-dragging {
-  position: relative;
   z-index: var(--z-lifted);
   pointer-events: none;
   transform: translateY(var(--drag-dy, 0)) scale(1.01);
@@ -2905,7 +2881,6 @@ textarea.item__note {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  margin-top: var(--space-1);
   color: var(--ink-3);
   text-align: left;
   cursor: pointer;
@@ -2922,9 +2897,6 @@ textarea.item__note {
   align-items: center;
   gap: var(--space-1);
   margin-top: var(--space-1);
-}
-.item__fixrow .item__under-link {
-  margin-top: 0;
 }
 /* composes .btn--icon for the real tap target (--icon-btn box, --tap on touch) —
    without it the bare 14px glyph was the whole hit area. This rule keeps the quiet
@@ -3245,19 +3217,18 @@ textarea.item__note {
   }
   .item__namebox:has(.item__ecarrier) :deep(.ac) {
     flex: 1 1 auto;
-    min-width: 0;
   }
   .item__namebox:has(.item__ecarrier) .item__ecarrier {
     margin-left: 0; /* the flex gap is the spacing here — the atom's margin doubled it */
     /* …and the TAG is what gives way, not the name. Both are flex items on a 343px
-       line, and a flex item won't shrink below its min-content width unless told to,
-       so a long carrier simply took the row: the field above holds `min-width: 0` and
-       collapsed to 37px around it, leaving the item's own name as "Hy…". The floor
-       here lets the tag shrink, and the cap keeps it from taking most of the line
-       before it starts to — the item's name is the row, the carrier is a note on it.
+       line, and a flex item won't shrink below its min-content width unless its
+       min-width lets it: a long carrier that cannot shrink takes the row, and the
+       field collapses to 37px around it, leaving the item's own name as "Hy…". The
+       reset's `min-width: 0` on every element (reset.scss) is what lets the tag
+       shrink, and the cap keeps it from taking most of the line before it starts
+       to — the item's name is the row, the carrier is a note on it.
        The tail is dropped with an ellipsis by .item__carrier-name (atoms/item.scss);
-       neither rule binds on a tag that already fits. */
-    min-width: 0;
+       neither binds on a tag that already fits. */
     max-width: 45%;
   }
   /* the classification cell used to hold a text label that had to ellipsize to keep
@@ -3491,7 +3462,6 @@ textarea.item__note {
      aligned to the name column. The row-gap gives the spacing so drop the desktop
      upward tuck. */
   .item__csub {
-    grid-column: 2 / -1;
     grid-row: 2;
     margin-top: 0;
   }

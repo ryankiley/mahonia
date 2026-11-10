@@ -19,9 +19,6 @@ interface PressArmOptions<T> {
    *  swipe that starts before it elapses is left to the browser as a scroll.
    *  Omit where distance alone is the right reading for every pointer. */
   touchHoldMs?: number;
-  /** CSS selector — a press starting inside a match is left alone, because that
-   *  element owns its own press (a select, a button). */
-  exclude?: string;
   /** The press travelled far enough: start the actual drag. Called with the
    *  arming move event, after the press record and listeners are already torn
    *  down — so a re-entrant press inside the handler starts clean. */
@@ -75,11 +72,9 @@ export function createPressArm<T>(opts: PressArmOptions<T>) {
     opts.onDrag(payload, ev);
   }
 
-  /** The caller's pointerdown handler. A non-primary button, or a press on an
-   *  excluded control, never arms. */
+  /** The caller's pointerdown handler. A non-primary button never arms. */
   function start(payload: T, ev: PointerEvent) {
     if (ev.button !== 0) return;
-    if (opts.exclude && (ev.target as HTMLElement).closest(opts.exclude)) return;
     end();
     const hold = opts.touchHoldMs && ev.pointerType === "touch" ? opts.touchHoldMs : 0;
     press = {

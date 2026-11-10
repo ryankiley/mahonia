@@ -304,7 +304,9 @@ const sizeRuns = computed(() => {
   }
   return { heads, members };
 });
-// What the template walks: each option with its index and whatever heads it.
+// What the template walks: each option with its index and whatever heads it. `named`
+// is the piece of gear behind a My Gear or catalog row (null for the water row): the
+// two draw their brand, model and variant the same way, from this one handle.
 const rows = computed(() =>
   options.value.map((opt, i) => ({
     opt,
@@ -312,6 +314,7 @@ const rows = computed(() =>
     section: sectionAt.value.get(i),
     product: sizeRuns.value.heads.get(i),
     sized: sizeRuns.value.members.has(i),
+    named: "water" in opt ? null : "vault" in opt ? opt.vault : opt.result,
   })),
 );
 
@@ -517,9 +520,7 @@ watch(options, (opts, prev) => {
   }
   const hit = exactMatch(splitWeightTail(draft.value).name);
   if (!hit) return;
-  const at = opts.findIndex((o) =>
-    "vault" in hit ? "vault" in o && o.vault === hit.vault : "result" in hit && "result" in o && o.result === hit.result,
-  );
+  const at = opts.findIndex((o) => sameOption(o, hit));
   if (at >= 0) active.value = at;
 });
 // Free text, read as a commit: the trailing weight ("Tent 540 g") rides along
@@ -711,7 +712,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
     >
     <ul :id="`${acId}-listbox`" class="ac__list" role="listbox">
       <template
-        v-for="{ opt, i, section, product, sized } in rows"
+        v-for="{ opt, i, section, product, sized, named } in rows"
         :key="'water' in opt ? 'water' : 'vault' in opt ? `v${opt.vault.id}` : `c${opt.result.id}`"
       >
       <!-- a source heading, not an option: role="presentation" keeps it out of the
@@ -750,37 +751,11 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
             <HugeiconsIcon :icon="DropletIcon" class="ac__watericon" :size="14" :stroke-width="2" aria-hidden="true" />{{ opt.water.label }}
           </span>
         </template>
-        <!-- your own gear: the same row shape as a catalog hit, marked "yours" the
-             way an unverified catalog row is marked "community" — a quiet italic
-             qualifier, not a section header, so the menu stays one flat list -->
-        <template v-else-if="'vault' in opt">
-          <span class="ac__name">
-            <!-- the same glyph as the editor toolbar's vault button, so one mark
-                 means one thing across both surfaces and reads before the text does -->
-            <HugeiconsIcon :icon="SafeBoxIcon" class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
-            <span class="visually-hidden">From My Gear: </span>
-            <span v-if="opt.vault.brand && !nameRepeatsBrand(opt.vault.brand, opt.vault.name)" class="ac__brand t-clip">
-              <span
-                v-for="(p, pi) in hl(opt.vault.brand)"
-                :key="pi"
-                :class="{ 'ac__hl': p.on }"
-              >{{ p.t }}</span>
-            </span>
-            <span class="ac__model t-clip">
-              <span
-                v-for="(p, pi) in hl(opt.vault.name)"
-                :key="pi"
-                :class="{ 'ac__hl': p.on }"
-              >{{ p.t }}</span>
-            </span>
-            <span v-if="opt.vault.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ opt.vault.variant }}</span>
-          </span>
-        </template>
         <!-- one size of the product named in the heading above it: the size leads, with
              the row's width to itself. The product's name is still in the row, hidden,
              so the option reads "El Coyote AlphaLite 900 Quilt · 20F, Long" and not
-             just "20F, Long" -->
-        <template v-else-if="sized">
+             just "20F, Long". Only a catalog row is ever sized (see sizeRuns). -->
+        <template v-else-if="sized && 'result' in opt">
           <span class="ac__name">
             <span class="visually-hidden">{{ tidyText(itemDisplayName(opt.result.brand, opt.result.name)) }} · </span>
             <span class="ac__size t-clip">
@@ -789,32 +764,41 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
             <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
         </template>
-        <template v-else>
+        <!-- a piece of gear, yours or the catalog's: one row shape for both. Your own
+             is marked "yours" the way an unverified catalog row is marked "community"
+             — a quiet qualifier, not a section header, so the menu stays one flat list -->
+        <template v-else-if="named">
           <!-- brand shrinks first (its matched prefix + an ellipsis survive), so the
                distinguishing model name + variant stay readable on a narrow phone menu -->
           <span class="ac__name">
-            <span v-if="opt.result.brand && !nameRepeatsBrand(opt.result.brand, opt.result.name)" class="ac__brand t-clip">
+            <template v-if="'vault' in opt">
+              <!-- the same glyph as the editor toolbar's vault button, so one mark
+                   means one thing across both surfaces and reads before the text does -->
+              <HugeiconsIcon :icon="SafeBoxIcon" class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
+              <span class="visually-hidden">From My Gear: </span>
+            </template>
+            <span v-if="named.brand && !nameRepeatsBrand(named.brand, named.name)" class="ac__brand t-clip">
               <span
-                v-for="(p, pi) in hl(opt.result.brand)"
+                v-for="(p, pi) in hl(named.brand)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
             <span class="ac__model t-clip">
               <span
-                v-for="(p, pi) in hl(opt.result.name)"
+                v-for="(p, pi) in hl(named.name)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span v-if="opt.result.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ tidyText(opt.result.variant) }}</span>
-            <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
+            <!-- a catalog variant is tidied here, as the row it creates will spell it
+                 (see hl); a My Gear variant is shown as stored -->
+            <span v-if="named.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ "vault" in opt ? named.variant : tidyText(named.variant) }}</span>
+            <span v-if="'result' in opt && !opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
         </template>
         <!-- the weight cell, shared by all three row kinds (it was three copies) -->
-        <span class="ac__metaright">
-          <span class="t-num ac__w">{{ formatWeight(optWeightMg(opt), optUnit(opt), { withUnit: false }) }} <span class="t-muted">{{ optUnit(opt) }}</span></span>
-        </span>
+        <span class="t-num ac__w">{{ formatWeight(optWeightMg(opt), optUnit(opt), { withUnit: false }) }} <span class="t-muted">{{ optUnit(opt) }}</span></span>
       </li>
       </template>
     </ul>
@@ -824,9 +808,10 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
 </template>
 
 <style scoped lang="scss">
+/* the name cell can shrink, so long names ellipsize: the reset floors every
+   element's min-width at 0 (reset.scss) */
 .ac {
   position: relative;
-  min-width: 0; /* allow the name cell to shrink so long names ellipsize */
 }
 .ac__input {
   width: 100%;
@@ -948,14 +933,15 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   padding: var(--space-2) var(--space-2);
   cursor: pointer;
   font-size: var(--text-base);
-  /* concentric radius + hover tint are pinned on the shared .popover surface */
+  /* both track the shared .popover surface rather than being guessed: the concentric
+     radius is the token derived from its corner (tokens.scss), the hover tint below is
+     declared on .popover itself (atoms/controls.scss) */
   border-radius: var(--popover-item-radius);
 }
 .ac__opt.is-active {
   background: var(--popover-hover);
 }
 .ac__name {
-  min-width: 0;
   display: flex;
   align-items: baseline;
   gap: 0.4ch;
@@ -1037,14 +1023,9 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   margin-right: var(--space-1);
   color: var(--ink-2);
 }
-.ac__metaright {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  flex: none;
-}
+/* the weight never gives way to a long name (the name's own parts clip instead) */
 .ac__w {
-  font-size: var(--text-base);
+  flex: none;
   color: var(--ink-2);
 }
 </style>

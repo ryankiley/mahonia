@@ -1,8 +1,9 @@
 // Controls — de-outlined + monochrome. Whitespace + type carry the UI; borders
 // are rare. No colour in chrome (see tokens.scss): the primary action is inverted
 // ink, state reads as ink/weight, and colour lives only on the data viz.
-@use "../foundations/tokens" as t;
 
+// No border and no ground of its own at rest, and none declared: the reset strips both
+// from every button (reset.scss), and a link wearing .btn never had either.
 .btn {
   display: inline-flex;
   align-items: center;
@@ -10,9 +11,7 @@
   gap: var(--space-2);
   min-height: var(--control-h);
   padding: 0 var(--space-4);
-  border: 0;
   border-radius: var(--radius-pill);
-  background: transparent;
   color: var(--ink);
   font-size: var(--text-base);
   font-weight: 600;
@@ -40,8 +39,9 @@
    can change in one place — so it is a deliberate call, not an oversight. A mixin
    would have to arrive by two routes (nuxt.config's additionalData reaches SFC style
    blocks; @use'd files like this one don't see it and would need their own @use),
-   which is exactly the double-maintenance $bp-stack already pays. Breakpoints earn
-   that: they're everywhere and they get retuned. A hover predicate is retuned close
+   which is exactly the plumbing $bp-stack already carries: one partial, handed to
+   the components by the build and to the atoms through the tokens module. Breakpoints
+   earn that: they're everywhere and they get retuned. A hover predicate is retuned close
    to never, and when it is, the query is an exact string — grep
    "(hover: hover) and (pointer: fine)" finds every site in one pass and one
    find-and-replace changes them together. Reading the real query at each rule beats
@@ -71,13 +71,13 @@
   }
 }
 
-// ghost === default now (kept for intent at call sites)
+// ghost === default (kept for intent at call sites): the hover fill is .btn's own,
+// and only the ink is this variant's
 .btn--ghost {
   color: var(--ink-2);
 }
 @media (hover: hover) and (pointer: fine) {
   .btn--ghost:hover {
-    background: var(--paper-3);
     color: var(--ink);
   }
 }
@@ -112,7 +112,6 @@
 .btn--link {
   min-height: 0;
   padding: 0;
-  background: transparent;
   color: var(--ink-2);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -152,7 +151,6 @@
 .btn--quiet {
   min-height: 0;
   padding: 0;
-  background: transparent;
   font-weight: 400;
   letter-spacing: normal;
   white-space: nowrap;
@@ -162,7 +160,6 @@
    affordance is a shade of ink owes focus the same shade. Focus at every pointer, the
    hover only where it's real (see .btn:hover). */
 .btn--quiet:focus-visible {
-  background: transparent;
   color: var(--ink);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -205,16 +202,15 @@ button svg {
 // system where hairlines are faint and rare. Putting that same 3:1 into the fill (see
 // --well) retires the ring: a shape with enough contrast of its own needs no edge
 // drawn around it, and the control is down to one animated colour from two.
+// (No padding, border or cursor declared: it is always a <button>, and the reset
+// already zeroes the first two and sets the pointer.)
 .switch {
   flex: none;
   position: relative;
   inline-size: 28px;
   block-size: 16px;
-  padding: 0;
-  border: 0;
   border-radius: var(--radius-pill);
   background: var(--well);
-  cursor: pointer;
   transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 // THE TARGET, which is a different object from the track. 28×16 is what a switch of
@@ -278,13 +274,13 @@ button svg {
 }
 
 // Fields — read as plain text; the active field gets a quiet background tint on
-// focus (NOT an underline — that read as one of the row divider lines).
+// focus (NOT an underline — that read as one of the row divider lines). The bare
+// look is the reset's: it strips the border and the ground from every form control
+// (reset.scss), so neither is restated here.
 .field {
   width: 100%;
   min-height: var(--field-h);
   padding: var(--space-1) 0;
-  border: 0;
-  background: transparent;
   color: var(--ink);
   /* STATIC 16px, not var(--text-base) — iOS Safari zooms the page on focus when an
      input's font-size is < 16px, AND its zoom check mis-reads CSS math functions
@@ -324,7 +320,6 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 .field--num {
-  font-family: var(--font);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -368,7 +363,6 @@ input[type="search"]::-webkit-search-decoration {
    filter's chip and the row picker's clear entry). Hollow, so it reads as the
    absence the filled dots fill. */
 .swatch--hollow {
-  background: transparent;
   border: 1.5px solid var(--ink-3);
 }
 /* A legend of swatch-led entries that WRAP AS TEXT — the category bar's folders and
@@ -408,10 +402,10 @@ input[type="search"]::-webkit-search-decoration {
 // short of the visual edge, a hairline surface ledge around every sliced row —
 // and nudged the 8px concentric-tint inset to 9. Outlines follow the radius,
 // draw outside, and take no space.
-// Items inside consume the two custom props so the concentric radius + hover
-// tint stay pinned to this surface's geometry.
+// Items inside consume the hover tint declared here and the concentric
+// --popover-item-radius (tokens.scss, derived from this surface's --radius-4), so
+// both stay pinned to this surface's geometry.
 .popover {
-  --popover-item-radius: calc(var(--radius-4) - var(--space-2));
   // HOW MUCH INK a surface takes to show it's the one you're on, as an AMOUNT
   // rather than a colour — so something that isn't drawn in plain ink can mix the
   // same number with its own (the ⋯ menu's destructive row washes red from this).
@@ -419,6 +413,15 @@ input[type="search"]::-webkit-search-decoration {
   // the same reason.
   --popover-wash: 8%;
   --popover-hover: color-mix(in oklab, var(--ink) var(--popover-wash), transparent);
+}
+// The floating surface itself, and the dialog card (.dlg, atoms/dialog.scss) wears the
+// same one: one recipe for everything that floats over the page, written once so the
+// menus and the dialogs cannot drift. .dlg takes it by selector and not by wearing
+// .popover, because rows and folder bodies lift their clips for any .popover inside
+// them (atoms/item.scss, atoms/folder.scss) and a popover inside a dialog steps its
+// tone up (below).
+.popover,
+.dlg {
   outline: 1px solid transparent;
   border-radius: var(--radius-4);
   background: var(--surface-float);
@@ -440,9 +443,8 @@ input[type="search"]::-webkit-search-decoration {
   position: relative;
   display: inline-flex;
 }
-.menu__btn {
-  color: var(--ink-2);
-}
+// (.menu__btn, the trigger's class, has no rule: every trigger also wears .btn--ghost,
+// whose --ink-2 is the resting ink it wants. The class stays in the markup as a hook.)
 .menu__list {
   position: absolute;
   top: calc(100% + var(--space-1));
@@ -468,7 +470,6 @@ input[type="search"]::-webkit-search-decoration {
   // Same fix, and the same reason, as the toast's `width: max-content` below.
   width: max-content;
   min-width: 12rem;
-  margin: 0;
   // same edge inset as the autocomplete menu (.ac__menu) so the two floating
   // menus' hover tints sit at an identical margin from the card edge
   padding: var(--space-2);
@@ -538,9 +539,9 @@ input[type="search"]::-webkit-search-decoration {
   gap: var(--space-3);
   width: 100%;
   padding: var(--space-2) var(--space-3);
-  // concentric with the .popover container (pinned there, shared with .ac__opt)
+  // concentric with the .popover container (the token is derived from its corner in
+  // tokens.scss, shared with .ac__opt)
   border-radius: var(--popover-item-radius);
-  background: none;
   color: var(--ink);
   font-size: var(--text-base);
   text-align: left;
@@ -607,23 +608,19 @@ input[type="search"]::-webkit-search-decoration {
 .menu__sect {
   display: contents;
 }
-// --space-2, the same gap every other row takes, which is what keeps the header's
-// glyph in the one glyph column. It read --space-3 while GearEditor's scoped
-// `.menu__list .menu__item` outranked it and forced --space-2 anyway; now that the
-// row lives on .menu__item, this rule (declared later, same specificity) would win —
-// so the value it was already resolving to is written here.
-// space-between still does the work of pushing the chevron to the trailing edge; this
-// gap is only the minimum between a header's label and its mark.
+// NO gap of its own: the header takes .menu__item's, the same gap every other row
+// takes, which is what keeps its glyph in the one glyph column. A second copy here
+// (declared later, same specificity) would win, and would disagree the moment the
+// row's gap is retuned.
+// space-between asks for the chevron on the trailing edge. The label takes the slack
+// (.menu__sectlabel below), so there is no free space left for it to place; the label's
+// flex is what holds the chevron there.
 .menu__secthead {
   justify-content: space-between;
-  gap: var(--space-3);
 }
-// the section header's chevron is the app's .chev (below) — nothing extra needed
-.menu__sectlist {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
+// the section header's chevron is the app's .chev (below) — nothing extra needed.
+// Nor does the section's own <ul> (.menu__sectlist): the reset already strips a list's
+// bullets, margin and padding.
 // the header's label takes the slack, so its chevron holds the trailing edge now that
 // a glyph holds the leading one
 .menu__sectlabel {
@@ -750,7 +747,9 @@ input[type="search"]::-webkit-search-decoration {
 /* Split from :hover, not merged with it: a menu row's wash is the loudest latch in
    the app (the menu can stay open after the tap, so the row you touched keeps
    reading as selected), but focus is NOT a pointer state — a keyboard driving a
-   touch device still needs the highlight. So the two travel separately. */
+   touch device still needs the highlight. So the two travel separately.
+   Only the focus rule clears the outline: a ring is only ever drawn on :focus-visible
+   (reset.scss), and this clears it there at every pointer, hovered or not. */
 .menu__item:focus-visible {
   background: var(--popover-hover);
   outline: none;
@@ -758,7 +757,6 @@ input[type="search"]::-webkit-search-decoration {
 @media (hover: hover) and (pointer: fine) {
   .menu__item:hover {
     background: var(--popover-hover);
-    outline: none;
   }
   // ...and in a menu with a plate the rows give up their own hover tint, or two washes
   // argue about which row is "on". :has() scopes this to menus that actually opted
@@ -898,16 +896,14 @@ input[type="search"]::-webkit-search-decoration {
 
 // The undo bar — a toast carrying an action, drawn by UndoBar for the editor (an item
 // removed) and My Gear (a piece removed, an item taken out of a kit) alike. The button
-// is the word alone, no icon: the bar is one line of text.
+// is the word alone, no icon: the bar is one line of text. Bare by the reset, which
+// gives every <button> no padding, ground or border and the pointer cursor.
 .undobar {
   display: flex;
   align-items: center;
   gap: var(--space-4);
 }
 .undobar__btn {
-  padding: 0;
-  background: none;
-  border: 0;
   color: var(--paper);
   font-weight: 600;
   /* soft underline, matching the site's --underline house style — but the toast is
@@ -916,7 +912,6 @@ input[type="search"]::-webkit-search-decoration {
   text-decoration: underline;
   text-decoration-color: color-mix(in srgb, var(--paper) 55%, transparent);
   text-underline-offset: var(--underline-offset);
-  cursor: pointer;
 }
 // THE TARGET, drawn apart from the word — the .switch::before pattern (above). "Undo"
 // is one line of 16px type, ~19px tall, and it is the one control in the app you have a
@@ -959,13 +954,11 @@ input[type="search"]::-webkit-search-decoration {
   .btn--flush-end {
     margin-inline-end: calc((var(--icon-touch) - var(--tap)) / 2);
   }
-}
 
-// Touch devices: icon buttons hit the --tap minimum tap target (Apple HIG) and
-// their glyphs grow to --icon-touch so they don't read as tiny on a phone.
-// Desktop keeps the dense --icon-btn chrome — a mouse is precise and doesn't
-// need the bigger targets.
-@media (pointer: coarse) {
+  // Touch devices: icon buttons hit the --tap minimum tap target (Apple HIG) and
+  // their glyphs grow to --icon-touch so they don't read as tiny on a phone.
+  // Desktop keeps the dense --icon-btn chrome — a mouse is precise and doesn't
+  // need the bigger targets.
   .btn--icon {
     min-height: var(--tap);
     width: var(--tap);
@@ -980,7 +973,8 @@ input[type="search"]::-webkit-search-decoration {
 // where the borderless .field has no row structure to sit in: the import dialog's
 // paste box, both vault searches, the feedback box. A FILL, not a hairline box
 // (de-outlined chrome; the menus' language, rounded radius-4 − space-2, the same
-// concentric step the popovers keep). Focus deepens the ground a step — house
+// concentric step the popovers keep, read from the same --popover-item-radius token;
+// the reset has already taken the control's border off). Focus deepens the ground a step — house
 // style carries focus on the caret, not a ring. Compose with .field; keep width,
 // padding and font local to the surface.
 // AN AMOUNT OF INK, not a named surface — and that is the load-bearing part, for the
@@ -1006,12 +1000,11 @@ input[type="search"]::-webkit-search-decoration {
 // equal. Do not read that as a rule — sRGB is not symmetric and --lit needed 6.5/8.5 for
 // the same job; it is just what this amount does on these grounds.
 .well {
-  border: 0;
   /* the text's inset from the tint, which every well had restated as --space-3; a
      box that wants another (the feedback box) sets its own */
   padding-inline: var(--space-3);
   background: color-mix(in oklab, var(--ink) 7%, transparent);
-  border-radius: calc(var(--radius-4) - var(--space-2));
+  border-radius: var(--popover-item-radius);
   color: var(--ink);
   transition: background var(--spring-fade-dur) var(--spring-fade);
 }
@@ -1052,12 +1045,7 @@ input[type="search"]::-webkit-search-decoration {
 // bounces). The 2026-09-05 pair of curves (decelerate open, accelerate close) stood
 // in for what a spring's shape does on its own; if the close reads as lingering
 // again, that asymmetry is the first thing to bring back.
-.reveal-enter-active {
-  transition:
-    grid-template-rows var(--spring-step-dur) var(--spring-step),
-    margin-top var(--spring-step-dur) var(--spring-step),
-    opacity var(--spring-step-dur) var(--spring-step);
-}
+.reveal-enter-active,
 .reveal-leave-active {
   transition:
     grid-template-rows var(--spring-step-dur) var(--spring-step),
@@ -1106,7 +1094,6 @@ input[type="search"]::-webkit-search-decoration {
   position: absolute;
   inset: 0;
   appearance: none;
-  margin: 0;
   border-radius: 4px;
   cursor: pointer;
 }
@@ -1194,7 +1181,6 @@ input[type="search"]::-webkit-search-decoration {
 }
 .addfolder__btn {
   color: var(--ink-3);
-  cursor: pointer;
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -1256,7 +1242,7 @@ input[type="search"]::-webkit-search-decoration {
 // "Open" link, the plan's (?) marks. Ten scoped blocks said this; one class does.
 // Composes with .btn--icon.btn--ghost and .menu__btn, and stands alone on a span or
 // a link. LAST IN THE FILE on purpose: equal specificity with every resting ink above
-// it (.btn's --ink, .btn--ghost's and .menu__btn's --ink-2), so order is what lets it
+// it (.btn's --ink, .btn--ghost's --ink-2), so order is what lets it
 // win, which is its whole job. The hover is pointer-gated even though it's ink-only,
 // like every hover now (see .btn:hover); focus lifts it at every pointer.
 // The transition names colour alone, as every site's own copy did.

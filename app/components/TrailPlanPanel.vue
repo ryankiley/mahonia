@@ -7,7 +7,7 @@ import { estimateDay, heightIsDerived, shownHeightM } from "~~/shared/tripPlan";
 import { coolerByC, dayFactsForRanges, type DayFacts } from "~~/shared/dayFacts";
 import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/shared/dryCarry";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
-import { MAX_DAYS, MAX_NOTE_LEN } from "~~/shared/ops";
+import { MAX_DAYS, MAX_LABEL_LEN, MAX_NOTE_LEN } from "~~/shared/ops";
 import { shiftIsoDate } from "~~/shared/calendar";
 import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
@@ -344,7 +344,7 @@ const dayDaylight = computed<(number | null)[]>(() => {
   if (!start || !routePoints.value.length) return days.value.map(() => null);
   return ranges.value.map((r, i) => {
     if (!(r.toM > r.fromM)) return null;
-    const at = pointAlong(routePoints.value, (r.fromM + r.toM) / 2, routeCum.value);
+    const at = pointAt((r.fromM + r.toM) / 2);
     return at ? daylightHours(at, shiftIsoDate(start, i)) : null;
   });
 });
@@ -477,7 +477,7 @@ async function commitDayMetres(maybeId: string | null, field: "distanceM" | "asc
   const id = await realDayId(maybeId);
   if (!id) return;
   const raw = (e.target as HTMLInputElement).value.trim();
-  const unit = field === "distanceM" ? distanceUnit.value : distanceUnit.value === "mi" ? "ft" : "m";
+  const unit = field === "distanceM" ? distanceUnit.value : ascentUnit.value;
   // "" and NOT undefined, spelled out per field. The patch is JSON on its way to
   // the server and JSON.stringify drops undefined keys, so clearing a day's figure
   // changed it locally and was overwritten by the very next echo — it looked like
@@ -927,7 +927,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                 class="field wprow__name"
                 :value="d?.label ?? ''"
                 :placeholder="dayEnds[i]!.kind === 'camp' ? 'Where you sleep' : 'Where you end up'"
-                maxlength="120"
+                :maxlength="MAX_LABEL_LEN"
                 :aria-label="`Name for the ${dayEnds[i]!.kind === 'camp' ? 'camp' : 'finish'} at the end of day ${i + 1}`"
                 @change="(e) => d && c.updateDay(d.id, { label: (e.target as HTMLInputElement).value.trim() })"
               />
@@ -1121,17 +1121,20 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
    the column's far edge — the same reason the folder title does it. */
 .plan__name {
   flex: 0 1 auto;
-  min-width: 0;
-  /* A folder's name is an <input>, which builds a 41px box out of a 33px line and 4px
-     of padding. This is a heading and would otherwise sit at 26px, putting every day
-     header 15px shorter than every folder header in the same column. Matching the box
-     is what makes the two modes feel like one page. */
+  color: var(--ink);
+}
+/* A day's heading, and the heading over the ground no day claims, at one size.
+   A folder's name is an <input>, which builds a 41px box out of a 33px line and 4px
+   of padding. These are headings and would otherwise sit at 26px, putting every day
+   header 15px shorter than every folder header in the same column. Matching the box
+   is what makes the two modes feel like one page. */
+.plan__name,
+.plan__restname {
   padding-block: var(--space-1);
   line-height: 1.5;
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--track-tight);
-  color: var(--ink);
 }
 /* the chevron rides with the NAME, as a folder's does — it belongs to the thing it
    folds, not to the row's trailing actions */
@@ -1384,7 +1387,6 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   font-size: var(--text-chrome);
   color: var(--map-ink-3);
   white-space: nowrap;
-  cursor: pointer;
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss). The armed
    state below is the only thing on screen naming the day the next tap lands in, so a
@@ -1573,11 +1575,6 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   margin-top: var(--folder-gap, var(--space-6));
 }
 .plan__restname {
-  padding-block: var(--space-1);
-  line-height: 1.5;
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
   /* a step back from a day's heading: this names the ground left over, not a plan */
   color: var(--ink-3);
 }

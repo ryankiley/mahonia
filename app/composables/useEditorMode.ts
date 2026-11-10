@@ -38,7 +38,6 @@ function create() {
     return m && MODE_ORDER.includes(m) ? m : "edit";
   };
   const mode = ref<EditorMode>(import.meta.client ? stored() : "edit");
-  watch(mode, (m) => remember(MODE_KEY, m));
 
   // Mount latches. Each row face mounts the first time its mode is entered and then
   // STAYS mounted, hidden by CSS in the other modes — so a switch stops tearing down
@@ -62,6 +61,7 @@ function create() {
   let switchTimer: ReturnType<typeof setTimeout> | undefined;
 
   watch(mode, (m) => {
+    remember(MODE_KEY, m);
     if (m === "edit") everEdit.value = true;
     else if (m === "pack") {
       everPacked.value = true;

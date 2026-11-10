@@ -50,10 +50,6 @@ export function timeAgo(ts: number, now: number = Date.now(), opts: { short?: bo
   );
 }
 
-// The `YYYY-MM-DD` → local Date step is shared/calendar.ts's — a trip starting "Aug 4"
-// must read as Aug 4 in Portland, and that file explains why `new Date(iso)` doesn't.
-const parseCalendarDate = parseIsoDate;
-
 /**
  * A trip's dates, as one phrase: "September 6–9", "August 4 – September 2",
  * "December 30, 2026 – January 2, 2027".
@@ -76,8 +72,10 @@ const parseCalendarDate = parseIsoDate;
  * leave before you know when you're back.
  */
 export function formatDateRange(start?: string, end?: string, now: Date = new Date()): string {
-  const a = parseCalendarDate(start);
-  const b = parseCalendarDate(end);
+  // The `YYYY-MM-DD` → local Date step is shared/calendar.ts's — a trip starting "Aug 4"
+  // must read as Aug 4 in Portland, and that file explains why `new Date(iso)` doesn't.
+  const a = parseIsoDate(start);
+  const b = parseIsoDate(end);
   if (!a && !b) return "";
   const thisYear = now.getFullYear();
   const one = (d: Date) => (d.getFullYear() === thisYear ? fmtMonthDay(d) : fmtFull(d));

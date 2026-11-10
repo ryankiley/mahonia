@@ -29,27 +29,30 @@ type VaultAccessRefs = { hasVault: ComputedRef<boolean>; vaultKnown: ComputedRef
 let shared: VaultAccessRefs | undefined;
 function accessRefs(): VaultAccessRefs {
   if (import.meta.client && shared) return shared;
-  const { signedIn, loaded } = useSession();
-  const build = (): VaultAccessRefs => ({
-    /** Is there a vault to talk to at all? Signed out, the answer is simply no. */
-    hasVault: computed(() => signedIn.value),
-    /**
-     * Whether `hasVault` is an ANSWER yet, or still the `false` it holds by default
-     * while /api/auth/me is in flight.
-     *
-     * The two are worlds apart for anything that reasons about what the vault
-     * ALREADY contains. "Signed out" means nothing was ever captured; "not yet
-     * known" means the page is a few hundred milliseconds early, and treating it as
-     * signed out makes a signed-in visitor's first paint wrong on every load — see
-     * the save button in ItemRow, which offered to save gear that was already saved.
-     *
-     * Costs nothing to wait for: with no session hint cookie, refresh() resolves to
-     * "signed out" synchronously and without a request, so a visitor without an
-     * account is settled before the first row renders. Only someone who plausibly
-     * HAS a vault waits, and only for the round trip that decides it.
-     */
-    vaultKnown: computed(() => loaded.value),
-  });
+  // useSession's own two computeds, under the names the vault's callers ask by
+  const build = (): VaultAccessRefs => {
+    const { signedIn, loaded } = useSession();
+    return {
+      /** Is there a vault to talk to at all? Signed out, the answer is simply no. */
+      hasVault: signedIn,
+      /**
+       * Whether `hasVault` is an ANSWER yet, or still the `false` it holds by default
+       * while /api/auth/me is in flight.
+       *
+       * The two are worlds apart for anything that reasons about what the vault
+       * ALREADY contains. "Signed out" means nothing was ever captured; "not yet
+       * known" means the page is a few hundred milliseconds early, and treating it as
+       * signed out makes a signed-in visitor's first paint wrong on every load — see
+       * the save button in ItemRow, which offered to save gear that was already saved.
+       *
+       * Costs nothing to wait for: with no session hint cookie, refresh() resolves to
+       * "signed out" synchronously and without a request, so a visitor without an
+       * account is settled before the first row renders. Only someone who plausibly
+       * HAS a vault waits, and only for the round trip that decides it.
+       */
+      vaultKnown: loaded,
+    };
+  };
   if (!import.meta.client) return build();
   return (shared = effectScope(true).run(build)!);
 }

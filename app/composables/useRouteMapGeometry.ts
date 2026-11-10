@@ -60,5 +60,5 @@ export function useRouteMapGeometry({ geometry, dayDistancesM }: RouteMapGeometr
     return out;
   });
 
-  return { boundaries, colors, cum, dayLegs, points, ranges, routeLengthM };
+  return { boundaries, cum, dayLegs, points, routeLengthM };
 }

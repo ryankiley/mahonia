@@ -11,60 +11,38 @@
 import { describe, expect, it } from "vitest";
 import { mount } from "@vue/test-utils";
 import { HugeiconsIcon as Upstream } from "@hugeicons/vue";
-import {
-  Add01Icon, ArrowExpand02Icon, ArrowLeft01Icon, ArrowRight01Icon, ArrowShrink02Icon,
-  FolderRemoveIcon, GridViewIcon, ViewIcon, TaskAdd01Icon, DashedLine02Icon,
-  ArrowUpRight01Icon, Backpack02Icon, Bug02Icon, CalculateIcon, Calendar03Icon,
-  Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon,
-  CircleXIcon, CookieIcon, Copy01Icon, CopyPlusIcon, Csv01Icon, Delete02Icon, DropletIcon, Edit02Icon,
-  EllipsisIcon, FileExportIcon, FileImportIcon, Fire02Icon, FolderIcon, Fuel01Icon, GlobeIcon,
-  GripVerticalIcon, HashIcon, HelpCircleIcon, RemoveCircleIcon,
-  Key01Icon, KeyboardIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, Location01Icon,
-  NodeAddIcon, NoteAddIcon, RacingFlagIcon, Refresh01Icon, Route02Icon, RouteIcon,
-  SafeBoxIcon, Share08Icon, ShirtIcon, ListOrderedAzIcon, SortingNineOneIcon,
-  SortingOneNineIcon, SquareIcon, Stairs01Icon, StarIcon, TentIcon, ThirdBracketIcon, Txt01Icon,
-  Undo02Icon, UserLock01Icon,
-  // My Gear's gear-type icons (app/utils/gearIcons.ts)
-  ChocolateIcon, CookingPotIcon,
-  FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, MoneyBag01Icon, PocketKnifeIcon,
-  Shirt01Icon, ShovelIcon, SneakerIcon, SocksIcon,
-  YogaMatIcon, WaterEnergyIcon,
-  Music3Icon, Camera01Icon, Chair02Icon, ChessKnightIcon, SmartPhone01Icon, SmartWatch01Icon,
-  Coffee02Icon, SpoonIcon, RiceBowl01Icon, TowelsIcon, Underpants03Icon, Wallet01Icon,
-  Wrench01Icon, ZzzIcon, LassoTool01Icon,
-  // the /authorize consent page
-  AddCircleIcon, Alert02Icon, Backpack03Icon, ChatGptIcon, ClaudeIcon, CubeIcon, GoogleGeminiIcon, MistralIcon, PerplexityAiIcon, VisualStudioCodeIcon,
-} from "@hugeicons/core-free-icons";
+import * as icons from "@hugeicons/core-free-icons";
 import { HugeiconsIcon as Local } from "~/utils/hugeicon";
 
 // Every icon the app imports. Named rather than globbed off the package: the free set
 // runs to thousands of glyphs, and mounting all of them twice per combination exhausts
 // the worker's heap. Keep this in step with the app's imports — `grep -rho
 // 'from "@hugeicons/core-free-icons"' -B..` or just the import lists in app/.
-const ALL_ICONS = Object.entries({
-  Add01Icon, ArrowExpand02Icon, ArrowLeft01Icon, ArrowRight01Icon, ArrowShrink02Icon,
-  FolderRemoveIcon, GridViewIcon, ViewIcon, TaskAdd01Icon, DashedLine02Icon,
-  ArrowUpRight01Icon, Backpack02Icon, Bug02Icon, CalculateIcon, Calendar03Icon,
-  Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon,
-  CircleXIcon, CookieIcon, Copy01Icon, CopyPlusIcon, Csv01Icon, Delete02Icon, DropletIcon, Edit02Icon,
-  EllipsisIcon, FileExportIcon, FileImportIcon, Fire02Icon, FolderIcon, Fuel01Icon, GlobeIcon,
-  GripVerticalIcon, HashIcon, HelpCircleIcon, RemoveCircleIcon,
-  Key01Icon, KeyboardIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, Location01Icon,
-  NodeAddIcon, NoteAddIcon, RacingFlagIcon, Refresh01Icon, Route02Icon, RouteIcon,
-  SafeBoxIcon, Share08Icon, ShirtIcon, ListOrderedAzIcon, SortingNineOneIcon,
-  SortingOneNineIcon, SquareIcon, Stairs01Icon, StarIcon, TentIcon, ThirdBracketIcon, Txt01Icon,
-  Undo02Icon, UserLock01Icon,
+const ICON_NAMES = [
+  "Add01Icon", "ArrowExpand02Icon", "ArrowLeft01Icon", "ArrowRight01Icon", "ArrowShrink02Icon",
+  "FolderRemoveIcon", "GridViewIcon", "ViewIcon", "TaskAdd01Icon", "DashedLine02Icon",
+  "ArrowUpRight01Icon", "Backpack02Icon", "Bug02Icon", "CalculateIcon", "Calendar03Icon",
+  "Cancel01Icon", "CheckIcon", "CheckmarkSquare02Icon", "ChevronDownIcon", "CircleEllipsisIcon",
+  "CircleXIcon", "CookieIcon", "Copy01Icon", "CopyPlusIcon", "Csv01Icon", "Delete02Icon", "DropletIcon", "Edit02Icon",
+  "EllipsisIcon", "FileExportIcon", "FileImportIcon", "Fire02Icon", "FolderIcon", "Fuel01Icon", "GlobeIcon",
+  "GripVerticalIcon", "HashIcon", "HelpCircleIcon", "RemoveCircleIcon",
+  "Key01Icon", "KeyboardIcon", "LayerAddIcon", "ListIndentDecreaseIcon", "ListIndentIncreaseIcon", "ListPlusIcon", "Location01Icon",
+  "NodeAddIcon", "NoteAddIcon", "RacingFlagIcon", "Refresh01Icon", "Route02Icon", "RouteIcon",
+  "SafeBoxIcon", "Share08Icon", "ShirtIcon", "ListOrderedAzIcon", "SortingNineOneIcon",
+  "SortingOneNineIcon", "SquareIcon", "Stairs01Icon", "StarIcon", "TentIcon", "ThirdBracketIcon", "Txt01Icon",
+  "Undo02Icon", "UserLock01Icon",
   // My Gear's gear-type icons (app/utils/gearIcons.ts)
-  ChocolateIcon, CookingPotIcon,
-  FirstAidKitIcon, GlassesIcon, GloveIcon, HatIcon, JoggerPantsIcon, MoneyBag01Icon, PocketKnifeIcon,
-  Shirt01Icon, ShovelIcon, SneakerIcon, SocksIcon,
-  YogaMatIcon, WaterEnergyIcon,
-  Music3Icon, Camera01Icon, Chair02Icon, ChessKnightIcon, SmartPhone01Icon, SmartWatch01Icon,
-  Coffee02Icon, SpoonIcon, RiceBowl01Icon, TowelsIcon, Underpants03Icon, Wallet01Icon,
-  Wrench01Icon, ZzzIcon, LassoTool01Icon,
+  "ChocolateIcon", "CookingPotIcon",
+  "FirstAidKitIcon", "GlassesIcon", "GloveIcon", "HatIcon", "JoggerPantsIcon", "MoneyBag01Icon", "PocketKnifeIcon",
+  "Shirt01Icon", "ShovelIcon", "SneakerIcon", "SocksIcon",
+  "YogaMatIcon", "WaterEnergyIcon",
+  "Music3Icon", "Camera01Icon", "Chair02Icon", "ChessKnightIcon", "SmartPhone01Icon", "SmartWatch01Icon",
+  "Coffee02Icon", "SpoonIcon", "RiceBowl01Icon", "TowelsIcon", "Underpants03Icon", "Wallet01Icon",
+  "Wrench01Icon", "ZzzIcon", "LassoTool01Icon",
   // the /authorize consent page
-  AddCircleIcon, Alert02Icon, Backpack03Icon, ChatGptIcon, ClaudeIcon, CubeIcon, GoogleGeminiIcon, MistralIcon, PerplexityAiIcon, VisualStudioCodeIcon,
-}) as [string, never][];
+  "AddCircleIcon", "Alert02Icon", "Backpack03Icon", "ChatGptIcon", "ClaudeIcon", "CubeIcon", "GoogleGeminiIcon", "MistralIcon", "PerplexityAiIcon", "VisualStudioCodeIcon",
+] as const;
+const ALL_ICONS = ICON_NAMES.map((name): [string, never] => [name, icons[name] as never]);
 
 // The prop combinations the app actually draws with (see the call sites), plus the
 // bare-defaults case and the absolute-stroke-width variant the checkbox glyphs use.
@@ -105,7 +83,7 @@ describe("local HugeiconsIcon renders identically to @hugeicons/vue", () => {
   // Fall-through attrs land on the <svg> rather than being dropped or wrapped — the
   // app leans on this for `class`, `aria-hidden` and the scoped-style marker.
   it("passes class and aria-hidden through to the svg the same way", () => {
-    const props = { icon: SquareIcon as never, size: 16, strokeWidth: 2 };
+    const props = { icon: icons.SquareIcon as never, size: 16, strokeWidth: 2 };
     const attrs = { class: "item__boxicon is-on", "aria-hidden": "true", "data-x": "1" };
     expect(mount(Local, { props, attrs }).html()).toBe(
       mount(Upstream, { props, attrs }).html(),
@@ -115,7 +93,7 @@ describe("local HugeiconsIcon renders identically to @hugeicons/vue", () => {
   // altIcon/showAlt are unused today but part of the surface being replaced; a future
   // call site reaching for them must not silently get the wrong glyph.
   it("honours altIcon/showAlt like upstream", () => {
-    const base = { icon: SquareIcon as never, altIcon: TentIcon as never, size: 16, strokeWidth: 2 };
+    const base = { icon: icons.SquareIcon as never, altIcon: icons.TentIcon as never, size: 16, strokeWidth: 2 };
     for (const showAlt of [false, true]) {
       const props = { ...base, showAlt };
       expect(mount(Local, { props }).html()).toBe(mount(Upstream, { props }).html());
@@ -125,7 +103,7 @@ describe("local HugeiconsIcon renders identically to @hugeicons/vue", () => {
   // The cache is keyed on (icon, resolved stroke width); two sizes of one icon must not
   // collide, and a repeat render must not be served a mutated object.
   it("keeps distinct stroke widths and repeat renders independent", () => {
-    const icon = Delete02Icon as never;
+    const icon = icons.Delete02Icon as never;
     const first = mount(Local, { props: { icon, size: 16, strokeWidth: 2 } }).html();
     const other = mount(Local, { props: { icon, size: 16, strokeWidth: 1.5 } }).html();
     const again = mount(Local, { props: { icon, size: 16, strokeWidth: 2 } }).html();

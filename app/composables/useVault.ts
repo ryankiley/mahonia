@@ -429,17 +429,12 @@ export function useVaultCapture() {
       }
     }
     let caps: VaultCapture[];
-    try {
-      const { captureFromList } = await loadVault();
-      caps = captureFromList([item], folders);
-    } catch {
-      // chunk fetch failed (offline before the SW cached it)
-      return { result: "failed", landed: nothing };
-    }
-    if (!caps.length) return { result: "unworthy", landed: nothing };
     let landed: VaultGearKey[];
     let full = false;
     try {
+      const { captureFromList } = await loadVault();
+      caps = captureFromList([item], folders);
+      if (!caps.length) return { result: "unworthy", landed: nothing };
       const res = await vaultFetch<{ keys?: VaultGearKey[]; full?: boolean }>(
         "/api/vault/capture",
         // This is the deliberate update path. Background capture fills a missing
@@ -450,6 +445,7 @@ export function useVaultCapture() {
       landed = res?.keys ?? [];
       full = !!res?.full;
     } catch {
+      // the chunk fetch failed (offline before the SW cached it), or the request did
       return { result: "failed", landed: nothing };
     }
     // The press said "this gear is mine" and the vault either took it or didn't.
