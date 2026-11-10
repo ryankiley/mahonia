@@ -81,8 +81,7 @@ useHead({
           <li>
             <strong>Analytics.</strong> Cookieless, aggregate counts of page views, a handful of in-app
             actions (making a list, importing one, copying a share link, opening Packing or Trip,
-            signing in), and performance.
-            No advertising cookies, no cross-site tracking, no profile.
+            signing in). No advertising cookies, no cross-site tracking, no profile.
           </li>
         </ul>
         <p>
@@ -128,7 +127,7 @@ useHead({
           has a route, and the map’s code isn’t even downloaded otherwise.
         </p>
         <p>
-          Mahonia’s server also fetches a linked trail site’s icon (once per site), a list you import
+          Mahonia’s server also fetches a linked trail site’s icon (about once a month per site), a list you import
           from LighterPack, and a connecting assistant’s public description of itself. None of these
           requests carries anything about you.
         </p>

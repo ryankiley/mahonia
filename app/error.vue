@@ -15,13 +15,20 @@ useHead({
 
 // surface the raw error in dev builds only (the branch compiles out of prod)
 const dev = import.meta.dev;
+
+// Nuxt renders this page INSTEAD of app.vue, so app.vue's app-wide mounts aren't here:
+// without its own, the top bar's Sign in opened nothing, then popped up unasked once a
+// link left the error.
+const { state: accountModal } = useAccountModal();
+const { mount: dialogs } = useDialogs();
 </script>
 
 <template>
   <!-- In the default layout like every other page: Nuxt renders error.vue OUTSIDE
        app.vue's <NuxtLayout>, so without this the 404 had no footer and no skip link,
-       though the layout was written with it in mind ("legal/404"). -->
-  <NuxtLayout>
+       though the layout was written with it in mind ("legal/404"). Named, because an
+       unnamed one takes the failed route's: the editor and the home page have none. -->
+  <NuxtLayout name="default">
     <!-- The status as the bar's section label, beside the wordmark where every page
          names itself. It sat in the trailing slot, where it read as "404 Sign in". -->
     <SiteTopbar :label="String(error?.statusCode ?? 'Error')" />
@@ -49,6 +56,9 @@ const dev = import.meta.dev;
       </div>
     </main>
   </NuxtLayout>
+  <!-- app.vue's two, in its order: the dialogs last, over the account they can be raised from -->
+  <LazyAccountModal v-if="accountModal.everOpened" />
+  <LazyAppDialogs v-if="dialogs.everOpened" />
 </template>
 
 <style scoped>
