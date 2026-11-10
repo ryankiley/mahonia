@@ -269,12 +269,6 @@ const meta = computed(() => {
   justify-content: center;
   width: 100%;
   height: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
 }
 /* An empty slot wears Hugeicons' dashed square in the faintest ink, where an icon
    would sit. It used to be a 14px dashed border drawn in CSS, whose dashes rendered
@@ -286,9 +280,6 @@ const meta = computed(() => {
   .vault__typebtn:hover {
     color: var(--ink);
   }
-}
-.vault__typebtn:active {
-  opacity: 0.7;
 }
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with the gear pane, which used to hand-mirror

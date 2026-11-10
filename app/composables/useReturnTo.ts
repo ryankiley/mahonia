@@ -18,6 +18,7 @@
 // "my lists" registry is where they're kept).
 
 import { isSafeReturnPath } from "~~/shared/links";
+import { isRecord } from "~~/shared/record";
 import { forget, recallJson, remember as store } from "../utils/remember";
 
 const KEY = "gear.returnto.v1";
@@ -44,11 +45,7 @@ export function useReturnTo() {
    */
   function take(): string | null {
     if (!import.meta.client) return null;
-    const stored = recallJson(
-      KEY,
-      (v): v is { path?: unknown; at?: unknown } => !!v && typeof v === "object",
-      null,
-    );
+    const stored = recallJson(KEY, isRecord, null);
     forget(KEY);
     if (!stored || typeof stored.at !== "number" || Date.now() - stored.at > TTL_MS) return null;
     return isSafeReturnPath(stored.path) ? stored.path : null;
@@ -59,5 +56,5 @@ export function useReturnTo() {
     await navigateTo(take() ?? fallback, { replace: true });
   }
 
-  return { remember, take, resume };
+  return { remember, resume };
 }

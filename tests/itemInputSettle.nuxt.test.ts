@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import ItemInput from "~/components/ItemInput.vue";
+import { typeInto } from "./helpers/dom";
 import type { NameCommit } from "~/composables/useCatalogSearch";
 
 const access = vi.hoisted(() => ({ vaultFetch: (() => Promise.resolve({})) as () => Promise<unknown> }));
@@ -36,9 +37,7 @@ async function typed(text: string, vaultRows: unknown[]) {
   catalogHits = [PLEX];
   const w = mount(ItemInput, { props: { unit: "g", clearOnCommit: true }, attachTo: document.body });
   const input = w.find<HTMLInputElement>("input").element;
-  input.focus();
-  input.value = text;
-  input.dispatchEvent(new Event("input", { bubbles: true }));
+  typeInto(input, text);
   await vi.waitFor(() => expect(lit(w)).toHaveLength(1), { timeout: 2_000 });
   return { w, input, answer };
 }

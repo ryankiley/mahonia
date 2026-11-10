@@ -13,6 +13,7 @@ import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
 import type { VaultEntry } from "~~/shared/vault";
+import { vaultRow } from "./helpers/vault";
 import GearPage from "~/pages/gear.vue";
 
 // hasVault true so the page loads; vaultFetch REAL so the page's URL choice has to
@@ -30,16 +31,8 @@ mockNuxtImport("useVaultAccess", () => () => ({
 
 const storage = stubLocalStorage();
 
-const entry = (id: number, name: string): VaultEntry => ({
-  id,
-  name,
-  brand: "Brand",
-  weightMg: 250_000,
-  normKey: `brand|${name.toLowerCase()}|`,
-  timesSeen: 1,
-  lastUsedAt: "2026-08-01T00:00:00.000Z",
-  createdAt: "2026-08-01T00:00:00.000Z",
-});
+const entry = (id: number, name: string): VaultEntry =>
+  vaultRow({ id, name, brand: "Brand", weightMg: 250_000, normKey: `brand|${name.toLowerCase()}|` });
 
 // the add row's suggestions
 let catalogHits: Record<string, unknown>[] = [];

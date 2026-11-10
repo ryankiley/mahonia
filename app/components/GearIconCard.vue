@@ -69,12 +69,13 @@ useMenuDismiss(open, toRef(props, "root"));
 </template>
 
 <style scoped>
-/* eight cells a line (six on a phone), so forty-odd icons are six short rows */
+/* eight cells a line (six on a phone), so forty-odd icons are six short rows. The
+   2 x --space-2 in the width is the card's padding, which is .menu__list's own
+   (atoms/controls.scss). */
 .iconpick__card {
   --iconpick-cell: 2.5rem;
   width: calc(8 * var(--iconpick-cell) + 7 * var(--space-1) + 2 * var(--space-2));
   max-width: calc(100vw - 2 * var(--space-4));
-  padding: var(--space-2);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -92,13 +93,8 @@ useMenuDismiss(open, toRef(props, "root"));
 .iconpick__cell,
 .iconpick__auto {
   min-height: var(--iconpick-cell);
-  padding: 0;
-  border: 0;
   border-radius: var(--popover-item-radius);
-  background: none;
   color: var(--ink-2);
-  font: inherit;
-  cursor: pointer;
 }
 .iconpick__cell {
   display: inline-flex;
@@ -127,9 +123,5 @@ useMenuDismiss(open, toRef(props, "root"));
     background: var(--popover-hover);
     color: var(--ink);
   }
-}
-.iconpick__cell:active,
-.iconpick__auto:active {
-  opacity: 0.7;
 }
 </style>

@@ -526,9 +526,6 @@ const viewOption = computed(() => viewOptions.value.find((o) => o.key === view.v
 // (useListExports warms for the same reason, with a sharper one behind it: its
 // clipboard writes must stay inside iOS Safari's user-gesture window.)
 const exporter = () => import("~~/shared/exporters/vault");
-function warmExport() {
-  void exporter();
-}
 // The ⋯'s three rows. Import is a dialog rather than a download, so the menu's one
 // emit forks here instead of the menu knowing which of its rows is which kind.
 const importOpen = ref(false);
@@ -593,7 +590,7 @@ async function exportGear(kind: string) {
           <VaultMenu
             :signed-in="hasVault && !offline"
             :can-export="hasGear && items.length > 0"
-            @open="warmExport"
+            @open="exporter"
             @pick="onMenuPick"
           />
         </ClientOnly>
@@ -908,7 +905,6 @@ async function exportGear(kind: string) {
    sizes it — it takes the slack up to a cap, so it never becomes a bar */
 .vault__searchwrap {
   flex: 1 1 20ch;
-  min-width: 0;
   max-width: 32ch;
 }
 /* mark + value + chevron, on the trailing edge over the rows' own trailing controls;

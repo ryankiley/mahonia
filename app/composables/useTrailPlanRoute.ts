@@ -56,7 +56,7 @@ export function useTrailPlanRoute({ snapshot, stored, days, controller }: TrailP
       if (i >= 0) return i;
       // The final endpoint has no following day, so it belongs to the final owned one.
       if (restFromM.value > 0 && alongM === restFromM.value)
-        return ranges.value.findLastIndex((range) => range.toM > range.fromM);
+        return lastOwnedDayIndex(dayDistancesM.value);
       return -1;
     };
     for (const waypoint of waypoints.value) {
@@ -163,7 +163,6 @@ export function useTrailPlanRoute({ snapshot, stored, days, controller }: TrailP
     onBoundary,
     ranges,
     restFromM,
-    restRange,
     routeFinishM,
     traceM,
     waypoints,

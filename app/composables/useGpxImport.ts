@@ -54,7 +54,7 @@ interface GpxTarget {
   setMeta: (patch: Extract<Op, { t: "setMeta" }>["patch"]) => void;
 }
 
-export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
+export function useGpxImport(c: GpxTarget) {
   const gpxError = ref("");
   const gpxBusy = ref(false);
   // Which read owns the outcome: a second file chosen while the first is still
@@ -91,7 +91,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     // Every pin PROJECTS onto the line, because a waypoint is a distance along the route
     // and not a coordinate. A water source 200 m off-trail is recorded where you'd leave
     // the trail for it, which is the useful place to be told about it.
-    const taken = (snapshot.value?.waypoints ?? []).map((w) => w.alongM);
+    const taken = (c.snapshot.value?.waypoints ?? []).map((w) => w.alongM);
     // The room left is re-read HERE, not only when the offer was made: it can sit open
     // for minutes while a collaborator fills the list, and the reducer drops any pin
     // past its cap without a word — so stop where it would, rather than queue ops it

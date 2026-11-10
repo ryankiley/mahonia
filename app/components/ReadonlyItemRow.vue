@@ -171,7 +171,7 @@ const rowPerson = computed(() =>
 </script>
 
 <template>
-  <div class="ro-wrap">
+  <div>
     <div class="item-row item item--ro">
       <span class="item__roname t-clip" :class="{ 'item__roname--group': isParent }">
         <span class="item__ronametext" :class="{ 't-clip': isParent }"><ItemName :item="item" :group="isParent" search /><span v-if="lineKcal" class="t-sm item__class" :class="{ 'item__class--derived': isParent }"> · {{ formatKcal(lineKcal) }} kcal</span><!--
@@ -307,9 +307,6 @@ const rowPerson = computed(() =>
 .item__class--derived {
   font-style: italic;
 }
-.item__roweight {
-  text-align: right;
-}
 /* The classification cell — one mark wide, because a row is worn OR consumable OR a
    departed base and never two at once (one field), so there is never a second mark to
    reserve for. The track is still --icon-btn, so the mark lands at one x down the
@@ -347,12 +344,8 @@ const rowPerson = computed(() =>
   color: var(--ink-3);
   font-variant-numeric: tabular-nums;
 }
-/* the qty/amount label lives in the narrow 44px column; keep it on one line so a water
-   row's volume ("1.75 L") never breaks between the number and its "L" unit. */
-.item__roqty {
-  white-space: nowrap;
-}
-/* the unit suffix gap (.item__wunit) is shared with the editor's rows — atoms/item.scss */
+/* the amount and weight cells' nowrap, the weight's right-aligned figure and the unit
+   suffix gap (.item__wunit) are shared with the editor's rows — atoms/item.scss */
 /* classification reads from its text label, not colour (chrome stays monochrome) */
 .item__class {
   color: var(--ink-2);

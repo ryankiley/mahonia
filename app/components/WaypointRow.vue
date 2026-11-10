@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { Delete02Icon } from "@hugeicons/core-free-icons";
+import { MAX_LABEL_LEN } from "~~/shared/ops";
 import type { Waypoint, WaypointKind } from "~~/shared/types";
 import { formatDistance, formatDistancePadded, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { WAYPOINT_KIND_META, WAYPOINT_KIND_OPTIONS, waypointKindMeta } from "~/utils/waypointKinds";
@@ -56,7 +57,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
       class="field wprow__name"
       :value="waypoint.label ?? ''"
       :placeholder="meta.label"
-      maxlength="120"
+      :maxlength="MAX_LABEL_LEN"
       :aria-label="`Name for the ${spoken} at ${spokenAt}`"
       @change="(e) => c.updateWaypoint(waypoint.id, { label: (e.target as HTMLInputElement).value.trim() })"
     />
@@ -170,7 +171,6 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 /* The list decides where these land — one line on a wide screen, two on a narrow one —
    so the pins and the night beneath them always wrap the same way. */
 .wprow__name {
-  min-width: 0;
   grid-area: name;
 }
 /* ONE SIZE AND ONE INK across the row's readings. They were set apart twice over — the

@@ -100,9 +100,6 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   flex-direction: column;
   gap: var(--space-2);
 }
-.keys__head {
-  margin: 0;
-}
 /* Two columns, keys then meaning, on ONE grid per group so every row's description
    starts at the same x — a <dl> whose dt/dd are grid items directly, which is what
    keeps the pairing in the markup where a screen reader can still hear it.
@@ -112,7 +109,6 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   grid-template-columns: auto 1fr;
   align-items: baseline;
   gap: var(--space-2) var(--space-3);
-  margin: 0;
 }
 .keys__keys {
   display: flex;
@@ -124,7 +120,6 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   color: var(--ink-3);
 }
 .keys__what {
-  margin: 0;
   color: var(--ink-2);
 }
 /* the key cap: the row's own quiet chrome — a hairline box on the raised surface,
@@ -151,9 +146,6 @@ const GROUPS: { title: string; rows: Row[] }[] = [
   background: var(--paper-2);
   border: 1px solid var(--line-2);
   border-radius: var(--radius-2);
-}
-.keys__note {
-  margin: 0;
 }
 .keys__note em {
   font-style: normal;

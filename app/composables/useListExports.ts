@@ -34,7 +34,7 @@ export interface ExportItem {
 export function useListExports(
   getSnapshot: () => ListSnapshot | null,
   flash: (msg: string) => void,
-  getShareUrl: () => string = () => "",
+  getShareUrl: () => string,
 ) {
   const textExporter = () => import("~~/shared/exporters/text");
   const mdExporter = () => import("~~/shared/exporters/markdown");

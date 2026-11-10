@@ -308,7 +308,6 @@ watch(
 }
 .kitsec__name {
   flex: 1;
-  min-width: 0;
 }
 .kitsec__line--gone {
   color: var(--ink-3);
@@ -338,8 +337,6 @@ watch(
 }
 .kitsec__choices {
   margin: var(--space-1) 0 0;
-  padding: 0;
-  list-style: none;
   border: 1px solid var(--line);
   border-radius: var(--radius-2);
   overflow: hidden;
@@ -354,12 +351,8 @@ watch(
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  border: 0;
-  background: none;
   color: var(--ink);
-  font: inherit;
   text-align: left;
-  cursor: pointer;
 }
 .kitsec__choice:hover,
 .kitsec__choice:focus-visible {

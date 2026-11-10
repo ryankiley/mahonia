@@ -130,7 +130,7 @@ export function forgetClaimedOpen(shareCode: string): void {
  *  this device asks about it until the bare address resumes into it), so without
  *  this the launch after such a change went straight to a list the account no
  *  longer held — offline, into its stale copy as "offline", with no way to notice. */
-function pruneClaimedOpens(keep: Iterable<string>, owner = cacheOwner()): void {
+function pruneClaimedOpens(keep: Iterable<string>, owner: string | null): void {
   if (!import.meta.client) return;
   const live = new Set([...keep].map(normalizeShareCode));
   const opens = readOpens(owner);
@@ -139,14 +139,13 @@ function pruneClaimedOpens(keep: Iterable<string>, owner = cacheOwner()): void {
   writeOpens(owner, kept);
 }
 
-const isClaimedRow = (r: unknown): r is ClaimedList =>
-  !!r && typeof r === "object" && typeof (r as ClaimedList).shareCode === "string";
+const isClaimedRow = (r: unknown): r is ClaimedList => isRecord(r) && typeof r.shareCode === "string";
 
-function readCachedRows(owner = cacheOwner()): ClaimedList[] {
+function readCachedRows(): ClaimedList[] {
   // Element by element, not just "is it an array": a null or a number in here would
   // reach mergeSwitcherRows and registryStale as `l.shareCode` and throw — in the
   // switcher's render, and on every keystroke of a claimed open.
-  const key = ownedKey(CLAIMED_ROWS_KEY, owner);
+  const key = ownedKey(CLAIMED_ROWS_KEY, cacheOwner());
   return key ? recallJson(key, Array.isArray, []).filter(isClaimedRow) : [];
 }
 
@@ -170,7 +169,7 @@ export function useClaimedLists() {
    *  have no network — starts from what this browser last knew. The ONE owner of the
    *  cache: no rows means no key, never a stored "[]", so the many visitors with no
    *  account leave nothing behind and "empty" reads the same either way. */
-  function adopt(rows: ClaimedList[], owner = cacheOwner()): void {
+  function adopt(rows: ClaimedList[], owner: string | null): void {
     lists.value = rows;
     const key = ownedKey(CLAIMED_ROWS_KEY, owner);
     if (!key) return;
@@ -179,29 +178,20 @@ export function useClaimedLists() {
     else forget(key);
   }
 
-  /** The server's answer, adopted whole — and held against the opens ledger (see
-   *  pruneClaimedOpens), unless it hit the server's cap, when the rows in hand are
-   *  not the whole account and nothing outside them can be called gone. */
   /** The server's answer, adopted — unless the account changed while the request was
    *  out, in which case the rows belong to nobody on this device now. Three fetches
-   *  each wrote the check, the adopt and the flag; one place. */
+   *  each wrote the check, the adopt and the flag; one place.
+   *
+   *  Adopted whole, and held against the opens ledger (see pruneClaimedOpens), unless
+   *  it hit the server's cap, when the rows in hand are not the whole account and
+   *  nothing outside them can be called gone. */
   function adoptAnswer(res: { lists?: ClaimedList[] }, owner: string | null): boolean {
     if (owner !== cacheOwner()) return false;
-    adoptFromServer(res.lists || [], owner);
-    loaded.value = true;
-    return true;
-  }
-
-  /** Take one list out of the rows and out of the opens ledger — deleted, or the claim
-   *  released; the bare address must stop offering to resume it. */
-  function dropRow(shareCode: string, owner: string | null): void {
-    adopt(lists.value.filter((l) => l.shareCode !== shareCode), owner);
-    forgetClaimedOpen(shareCode);
-  }
-
-  function adoptFromServer(rows: ClaimedList[], owner = cacheOwner()): void {
+    const rows = res.lists || [];
     adopt(rows, owner);
     if (rows.length < CLAIMED_LIST_CAP) pruneClaimedOpens(rows.map((r) => r.shareCode), owner);
+    loaded.value = true;
+    return true;
   }
 
   /**
@@ -362,7 +352,10 @@ export function useClaimedLists() {
     if (!owner) return false;
     if (!(await deleteListOnServer({ [LIST_CODE_HEADER]: shareCode }))) return false;
     if (owner !== cacheOwner()) return false;
-    dropRow(shareCode, owner);
+    // out of the rows and out of the opens ledger: the bare address must stop
+    // offering to resume it
+    adopt(lists.value.filter((l) => l.shareCode !== shareCode), owner);
+    forgetClaimedOpen(shareCode);
     // drop the claimed open's on-device copy too — the list is gone for good
     useLocalListStore().del(claimedLocalKey(shareCode));
     return true;

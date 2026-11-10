@@ -69,7 +69,7 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
         :title="savedListTitle(e.title)"
         @click="emit('close')"
       >
-        <span class="lm__name t-clip">{{ savedListTitle(e.title) }}</span>
+        <span class="t-clip">{{ savedListTitle(e.title) }}</span>
         <!-- on EVERY row, hidden rather than dropped — see the style -->
         <HugeiconsIcon
           :icon="CheckIcon"

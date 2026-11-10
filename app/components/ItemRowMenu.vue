@@ -70,7 +70,7 @@ function toggle() {
            click can act. Preventing the default keeps focus where it was; click
            still fires. -->
       <button
-        class="btn btn--icon btn--ghost rowmenu__btn ink-quiet"
+        class="btn btn--icon btn--ghost ink-quiet"
         :class="triggerClass"
         type="button"
         aria-haspopup="menu"

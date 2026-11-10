@@ -35,13 +35,8 @@ const emit = defineEmits<{ pick: [tab: VaultTab] }>();
    text-link ink and underline (.link), no box */
 .elsewhere__go {
   position: relative; /* the touch target below hangs off it */
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
   text-decoration-line: underline;
   text-underline-offset: 0.2em;
-  cursor: pointer;
 }
 /* a finger-sized target for a link drawn at text size: the box that answers the tap
    grows, the picture doesn't (the .switch::before trick, controls.scss) */
