@@ -209,15 +209,12 @@ export function useSession() {
     resetVaultCapture();
     useClaimedLists().resetClaimMark(owner);
     forgetAccountInitial();
-    forgetGearCopy(owner);
-    // The claimed opens' on-device copies, which are the account's too, and the
-    // note of which account that was. Only where there was an account: a visitor
-    // who never had one runs this on every load, and has no business opening
-    // IndexedDB to find nothing.
-    if (owner) {
-      forgetSessionAccount(owner);
-      void useLocalListStore().delClaimed();
-    }
+    // everything keyed to the account in localStorage, by the one list of it
+    forgetOwned(owner);
+    // The claimed opens' on-device copies, which are the account's too. Only where
+    // there was an account: a visitor who never had one runs this on every load,
+    // and has no business opening IndexedDB to find nothing.
+    if (owner) void useLocalListStore().delClaimed();
   }
 
   async function signOut(): Promise<void> {

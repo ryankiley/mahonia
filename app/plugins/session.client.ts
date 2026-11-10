@@ -15,6 +15,9 @@ import { deviceFingerprint } from "~/composables/useClaimedLists";
 
 export default defineNuxtPlugin(() => {
   const session = useSession();
+  // What an earlier session left in this browser's storage and nobody was here to
+  // forget. Before anything below reads what the current one kept.
+  sweepStaleOwned(session.hasSessionHint());
   // What this browser last knew of the account's lists, before anything asks the
   // server — and the cross-tab follow that keeps it honest. See restoreFromDevice.
   useClaimedLists().restoreFromDevice();
