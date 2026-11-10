@@ -109,7 +109,17 @@ const c = useGearList();
 const dnd = useItemDnd();
 // the gear, loaded as /gear loads it (useVaultList), and again on signing in or out
 // offline, this device's copy, which still adds to the list: a list edit queues
-const { hasGear, items, loading, offline, offlineNote } = useVaultList();
+//
+// A server answer that changes what is listed waits for the column. Opening the pane
+// moves the editor's column aside on a layout animation (GearEditor's setVault), and
+// the answer used to land in the middle of it: every row re-rendered, or all of them
+// mounted over "Loading your gear…", in a frame the move then stood still for. So it
+// is held until whatever is moving the editor's inset has finished, which on a phone,
+// from the keyboard or with reduced motion is nothing, and no wait at all.
+const paneEl = useTemplateRef<HTMLElement>("paneEl");
+const columnLanded = () =>
+  Promise.allSettled((paneEl.value?.closest(".editor")?.getAnimations?.() ?? []).map((a) => a.finished));
+const { hasGear, items, loading, offline, offlineNote } = useVaultList({ before: columnLanded });
 // Gear (your pieces), your kits (the sets you add in one go), or your food: /gear's
 // three tabs, by its rule (vaultTabOf). (Kits was Categories, your My Gear folders; My
 // Gear has no folders now, and a kit is the set you reuse.)
@@ -429,6 +439,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
        (see onSheetTouchMove), and the passive-by-default intervention covers only
        window/document/body, so a bare listener here can still cancel. -->
   <aside
+    ref="paneEl"
     class="popover vp"
     :class="{ 'vp--sized': hasGear }"
     data-vault-pane
