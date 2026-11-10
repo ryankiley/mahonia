@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "Opening My Gear beside a list no longer hitches as your gear loads in: the pane and the list now move aside together."
+  ]
+}
