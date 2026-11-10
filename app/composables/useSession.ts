@@ -41,6 +41,19 @@ type SessionAnswer =
 // like the state they guard is app-wide: every caller shares the one request.
 let asking: Promise<void> | null = null;
 let again: Promise<void> | null = null;
+// How many asks have started, and how many had when a re-read was last forced:
+// a forced re-read is owed an ask that started AFTER it was called for, and no
+// more than that (see refresh).
+let asks = 0;
+let forcedAt = 0;
+
+/** How long /api/auth/me may take. $fetch has no timeout of its own, and a forced
+ *  re-read now waits for the ask in front of it: a socket that never answers (a
+ *  captive portal, a dead radio) would hold "Signing you in…" on screen until the
+ *  browser gave up, minutes later. Generous, because a cold function and a cold
+ *  database can both be in front of the answer; past it the ask reads as failed,
+ *  which the re-ask already retries. */
+const ASK_TIMEOUT_MS = 10_000;
 
 /** The session as three answers, not two — see `presence` below. */
 export type Presence = "signedIn" | "signedOut" | "presumed";
@@ -104,10 +117,17 @@ export function useSession() {
     if (!import.meta.client) return Promise.resolve();
     if (asking) {
       if (!force) return Promise.resolve();
-      return (again ??= asking.then(() => {
+      forcedAt = asks;
+      // If the ask in front turned out stale it has already asked again by itself;
+      // where that second ask started after this call, it IS the re-read, and a
+      // third request would only keep "Signing you in…" up for another round trip.
+      const run = () => {
         again = null;
-        return refresh(true);
-      }));
+        return asks > forcedAt ? undefined : refresh(true);
+      };
+      // on either outcome: an ask cannot reject as written, and if one ever did,
+      // a re-read left hanging off it would fail every forced caller from then on
+      return (again ??= asking.then(run, run));
     }
     if (!force && (loaded.value || pending.value)) return Promise.resolve();
     if (!hasSessionHint()) {
@@ -125,7 +145,10 @@ export function useSession() {
     session.value = { state: "signedOut" };
   }
 
-  async function ask(): Promise<void> {
+  /** `kept`: whose caches this tab holds, when the caller already knows. A stale
+   *  answer's re-ask passes it on (see below). */
+  async function ask(kept?: string | null): Promise<void> {
+    asks++;
     pending.value = true;
     // WHICH SESSION THE QUESTION IS ABOUT, read before the wait and not after. The
     // cookie can change while the request is out (a sign-in finishing in this tab,
@@ -135,14 +158,26 @@ export function useSession() {
     // written for the NEW session were dropped as the old one's — its hint cookie
     // with them, when the stale answer was "no user".
     const askedAs = sessionCacheOwner();
-    const previousOwner = user.value?.owner ?? askedAs;
+    const previousOwner = kept !== undefined ? kept : (user.value?.owner ?? askedAs);
     try {
-      const res = await $fetch<{ user: SessionState | null }>("/api/auth/me");
+      const res = await $fetch<{ user: SessionState | null }>("/api/auth/me", {
+        signal: AbortSignal.timeout(ASK_TIMEOUT_MS),
+      });
       const holds = sessionCacheOwner();
-      if (holds !== askedAs && res.user?.owner !== holds) {
-        // an answer about a session that is no longer this browser's: ask about
-        // the one that is, or settle signed out if there is none to ask about
-        if (hasSessionHint()) return await ask();
+      // An answer about a session that is no longer this browser's: the marker
+      // changed while it was out and the answer isn't about the new one, or it
+      // names a user and the hint that there is one has gone (signed out in another
+      // tab; the only sign of it for a session too old to have a marker).
+      const stale =
+        (holds !== askedAs && (res.user?.owner ?? null) !== holds) || (res.user !== null && !hasSessionHint());
+      if (stale) {
+        // Ask about the session that IS here, or settle signed out if there is
+        // none. WITH the owner this ask started from: the re-ask begins with the new
+        // session's marker already in the cookie, and working "who was here before"
+        // out again from that would find nobody. The previous account's memos, and
+        // its lists still in the switcher's memory, would then outlive it under the
+        // next person's session.
+        if (hasSessionHint()) return await ask(previousOwner);
         return settleSignedOut(previousOwner);
       }
       const nextUser = res.user;
