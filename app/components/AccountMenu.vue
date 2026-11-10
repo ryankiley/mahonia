@@ -181,12 +181,12 @@ const { open: openAccount } = useAccountModal();
    semibold: the icons are 2px strokes on a 24 grid drawn at 16px, ~1.33px of ink,
    which is a 14px medium stem; semibold read as a bold black mark in a row of thin
    grey lines.
-   Sized in px like the glyphs beside it, NOT from the type scale: the bar's icons hold
-   16px while --text-* grows past the 1920px anchor, and a letter on the scale would
-   outgrow a disc that isn't. The letter is 0.64 of the disc — 14px at rest, the tab
-   word's own --text-chrome size — so the two move together on touch. */
+   Sized like the glyphs beside it, in --tpx: they grow with the type past the 1920px
+   anchor now, and a disc left at 22px shrank beside them to a dot (Ryan: "this got too
+   small"). The letter is 0.64 of the disc — 14px at rest, the tab word's own
+   --text-chrome size — so the two move together, on touch and past the anchor. */
 .avatar {
-  --avatar: 22px;
+  --avatar: calc(22 * var(--tpx));
   display: inline-grid;
   place-items: center;
   width: var(--avatar);
@@ -208,7 +208,7 @@ const { open: openAccount } = useAccountModal();
    the same ratio */
 @media (pointer: coarse) {
   .avatar {
-    --avatar: 24px;
+    --avatar: calc(24 * var(--tpx));
   }
 }
 </style>

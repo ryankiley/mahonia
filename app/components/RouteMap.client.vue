@@ -1237,7 +1237,7 @@ onBeforeUnmount(() => {
 }
 
 .routemap__canvas {
-  height: 320px;
+  height: calc(320 * var(--tpx));
   width: 100%;
   // --radius-2, the same softening the app's other large surfaces take. Leaflet's own
   // container needs it too (below): the tile pane is transformed, and a transformed
@@ -1567,7 +1567,7 @@ onBeforeUnmount(() => {
 }
 
 .routemap .leaflet-control-attribution {
-  font-size: 10px;
+  font-size: calc(10 * var(--tpx));
   background: var(--map-paper-translucent);
 
   a {

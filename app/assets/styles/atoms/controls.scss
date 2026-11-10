@@ -207,8 +207,9 @@ button svg {
 .switch {
   flex: none;
   position: relative;
-  inline-size: 28px;
-  block-size: 16px;
+  /* drawn at glyph size, so counted in --tpx like the glyphs (tokens.scss) */
+  inline-size: calc(28 * var(--tpx));
+  block-size: calc(16 * var(--tpx));
   border-radius: var(--radius-pill);
   background: var(--well);
   transition: background var(--spring-fade-dur) var(--spring-fade);
@@ -254,16 +255,16 @@ button svg {
 .switch::after {
   content: "";
   position: absolute;
-  inset-block-start: 2px;
-  inset-inline-start: 2px;
-  inline-size: 12px;
-  block-size: 12px;
+  inset-block-start: calc(2 * var(--tpx));
+  inset-inline-start: calc(2 * var(--tpx));
+  inline-size: calc(12 * var(--tpx));
+  block-size: calc(12 * var(--tpx));
   border-radius: 50%;
   background: var(--paper);
   transition: translate var(--spring-track-dur) var(--spring-track); /* chases the pointer: the track spring */
 }
 .switch[aria-checked="true"]::after {
-  translate: calc(28px - 12px - 2px * 2) 0;
+  translate: calc((28 - 12 - 2 * 2) * var(--tpx)) 0;
 }
 // the label + switch pair, so every popover that uses one lines them up identically
 .switch-row {
@@ -306,17 +307,6 @@ input[type="search"]::-webkit-search-decoration {
 }
 .field::placeholder {
   color: var(--ink-3);
-}
-/* Above the 1920px type anchor (tokens.scss) --text-base scales past 16px, but
-   the literal 1rem above doesn't — so on large monitors an input's text falls
-   behind the type around it (e.g. a water row's number vs its scaling "L" unit).
-   That literal exists ONLY to dodge iOS Safari's focus-zoom, a phone/tablet bug;
-   no iOS device is 1920px wide, so past the anchor it's safe to rejoin the
-   scaling and consume --text-base like every other consumer. */
-@media (min-width: 1920px) {
-  .field {
-    font-size: var(--text-base);
-  }
 }
 
 .field--num {
@@ -948,7 +938,7 @@ input[type="search"]::-webkit-search-decoration {
 // right on a coarse pointer, where the rule below grows the box to --tap and the mark
 // to --icon-touch and a hardcoded -8px would be 6px short.
 .btn--flush-end {
-  margin-inline-end: calc((16px - var(--icon-btn)) / 2);
+  margin-inline-end: calc(-1 * var(--icon-inset));
 }
 @media (pointer: coarse) {
   .btn--flush-end {
@@ -1084,8 +1074,9 @@ input[type="search"]::-webkit-search-decoration {
 .check {
   position: relative;
   align-self: center;
-  width: 20px;
-  height: 20px;
+  /* the box of a 20px glyph, so it grows with the glyph (--tpx) */
+  width: calc(20 * var(--tpx));
+  height: calc(20 * var(--tpx));
   flex: none;
   display: grid;
   place-content: center;

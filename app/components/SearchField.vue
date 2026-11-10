@@ -60,7 +60,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
 .sf__input {
   /* room for the clear button (its inset, its 16px glyph, a gap), so a long query
      doesn't run under it */
-  padding-right: calc(var(--space-3) + 16px + var(--space-2));
+  padding-right: calc(var(--space-3) + var(--icon) + var(--space-2));
 }
 /* ON the field rather than beside it, so the input doesn't narrow whenever a query
    exists (a field that resizes as you type). Inset by the well's own --space-3, the
@@ -79,7 +79,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
     justify-content: center;
     min-width: var(--tap);
     min-height: var(--tap);
-    right: calc(var(--space-3) + 8px - var(--tap) / 2);
+    right: calc(var(--space-3) + var(--icon) / 2 - var(--tap) / 2);
   }
 }
 </style>

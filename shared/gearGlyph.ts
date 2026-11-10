@@ -99,7 +99,7 @@ export const GEAR_GLYPH_LABELS: Record<GearGlyph, string> = {
   shoe: "Shoes", boot: "Boots", hat: "Hat", neck: "Neckwear", glove: "Gloves",
   glasses: "Glasses", bottle: "Bottle", hydration: "Water", filter: "Filter",
   stove: "Stove", pot: "Pot", cup: "Cup", utensils: "Utensils", meal: "Meal",
-  food: "Snack", knife: "Knife", repair: "Repair", iceAxe: "Ice axe", light: "Light", phone: "Phone",
+  food: "Snack", knife: "Knife", repair: "Repair", iceAxe: "Ice axe", light: "Headlamp", phone: "Phone",
   watch: "Watch", earbuds: "Audio", camera: "Camera", electronics: "Electronics",
   firstAid: "First aid", toiletry: "Toiletry", towel: "Towel", toilet: "Toilet",
   chair: "Chair", carabiner: "Carabiner", games: "Games",
@@ -131,11 +131,13 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   // the gear you make a drink WITH is the kitchen; the drink itself (below) is food
   [/\b(coffee filter|coffee straw|coffee maker|french press|coffee press|pour over|tea kettle)\b/, "cup"],
   // Ryan's leans on the audit's judgment calls (2026-11-08): what you drink is food, as
-  // his own lists file it; a sit pad goes beside the chair; traction goes with the ice
-  // axe; a hammock is a shelter; a toiletry bag goes with what it holds
+  // his own lists file it; a sit pad goes beside the chair; a hammock is a shelter; a
+  // toiletry bag goes with what it holds. Traction went with the ice axe then, and goes
+  // on the boot now (2026-11-10: "ice axe isn't right. boot is"): every one of these
+  // straps onto your feet, so it files under Footwear with the boots it's worn on
   [/\b(electrolytes?|electrolyte mix|drink mix|hydration mix|sports drink|instant coffee|coffee|tea|cocoa|hot chocolate)\b/, "food"],
   [/\b(sit pads?|seat pads?|z seat)\b/, "chair"],
-  [/\b(microspikes|crampons|snowshoes?|snow shoes?|traction devices?|ice cleats|yaktrax)\b/, "iceAxe"],
+  [/\b(microspikes|crampons|snowshoes?|snow shoes?|traction devices?|ice cleats|yaktrax)\b/, "boot"],
   [/\b(hammocks?|hammock straps|hammock suspension)\b/, "tent"],
   [/\b(toiletry bags?|toiletry case|toiletry kit|wash bag|dopp kit)\b/, "toiletry"],
   [/\bbreakfast bar\b/, "food"],
@@ -149,7 +151,7 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   // that goes under a tent, a shovel for snow, a bottle you pee in, a bag that holds
   // water, a pole that holds up a shelter, a cap on a lens or a bottle
   [/\b(charging cords?|usb cords?|power cords?|charger cords?)\b/, "electronics"],
-  [/\b(tent lights?|tent lanterns?|camp lights?|string lights?)\b/, "light"],
+  [/\b(tent lights?|tent lanterns?|camp lights?|string lights?)\b/, "electronics"],
   [/\b(pump sack|pad pump)\b/, "pad"],
   [/\b(blister pads?|gauze|alcohol pads?|alcohol wipes?|moleskin pads?|med(ical)? kit|meds|medicine|ibuprofen)\b/, "firstAid"],
   [/\b(tyvek|polycryo|rain ?fly|tent fly|shelter poles?|pole extenders?|pole jack)\b/, "tent"],
@@ -201,8 +203,12 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(ice axe|ice tool|piolet)\b/, "iceAxe"],
   [/\b(repair kit|repair patches|patches|repair buckle|buckle|duct tape|repair tape|tenacious tape|gear tape|sewing kit|sewing awl|screwdriver|zipper pulls)\b/, "repair"],
 
-  // electronics and light
-  [/\b(headlamp|flashlight|torch|lantern|lights?)\b/, "light"],
+  // electronics and light. "light" is the HEADLAMP (its drawing always was; the name
+  // stays, since a hand pick and the connector store it), and only a headlamp gets it: a
+  // lantern drawn as a headlamp was the wrong picture on every Hozuki. Every other light
+  // takes the catch-all bolt rather than an icon of its own (Ryan, 2026-11-10).
+  [/\bheadlamps?\b/, "light"],
+  [/\b(flashlights?|torch(es)?|lanterns?|lights?)\b/, "electronics"],
   [/\b(smartwatch|gps watch|watch)\b/, "watch"],
   [/\b(phone|smartphone|iphone|gps handheld|gps|satellite messenger|satellite communicator|personal locator beacon|plb|inreach|e-reader|kindle)\b/, "phone"],
   [/\b(earbuds|airpods|earphones|headphones)\b/, "earbuds"],

@@ -55,8 +55,10 @@
 // the $bp-full full-width point, linear between (clamped outside). The emitted
 // calc uses a unitless delta + divisor because CSS calc can't multiply or
 // divide two lengths.
+// The ceiling is counted in --tpx, so past 1920px a track keeps growing with the type it
+// holds rather than freezing at its px maximum (identical below: --tpx is 1px there).
 @function fluid-track($min, $max) {
-  @return clamp(#{$min}, calc(#{$min} + (100vw - #{$bp-stack}) * #{math.div($max - $min, 1px)} / #{math.div($bp-full - $bp-stack, 1px)}), #{$max});
+  @return clamp(#{$min}, calc(#{$min} + (100vw - #{$bp-stack}) * #{math.div($max - $min, 1px)} / #{math.div($bp-full - $bp-stack, 1px)}), calc(#{math.div($max, 1px)} * var(--tpx)));
 }
 
 // The read/share + packing column TEMPLATES, as a mixin rather than two plain tokens:
@@ -260,39 +262,39 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --font: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
     Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
 
-  /* ---- type scale — 4 sizes. Each token is fluid IN ITSELF (portfolio model):
-     fixed at its px floor up to the 1920px anchor, then scaling with the viewport
-     above it — max(floor, floor/1920*100vw). So any consumer of a token scales,
-     not just heading classes; below the anchor (i.e. almost every screen,
-     including the 1728px 16" MacBook Pro) the floor holds, so type stays stable
-     on phones/laptops and only grows on huge displays. The anchor's media-query
-     companion (the ≥1920px rule that lets .field rejoin --text-base past the iOS
-     escape hatch below) lives in atoms/controls.scss — keep the two in sync. ---- */
-  --text-base: max(1rem, 0.833vw); /* 16px — body, inputs, item names, labels, meta, controls */
+  /* ---- type scale — 4 sizes, in rem, and the scaling happens at the ROOT: past the
+     1920px anchor the root font-size grows with the viewport (the html rule after this
+     block, max(100%, 0.833vw)), so these, --measure, and every rem anywhere in the app
+     grow with it, and below the anchor nothing exists to move. Every screen up to and
+     including the 1728px 16" MacBook Pro sees the px values in the comments; only huge
+     displays grow. Each token was its own max(Nrem, N×0.833vw) until the whole interface
+     needed to follow the type, at which point one rule beat restating it per token and
+     every stray rem became a straggler. ---- */
+  --text-base: 1rem; /* 16px — body, inputs, item names, labels, meta, controls */
   /* INPUTS stay at a static 16px — the iOS input-zoom escape hatch. Safari zooms the page
      on focus when an input's font-size is under 16px, and its check mis-reads CSS math
      functions (max()/clamp()), zooming even though --text-base computes to 16px; a plain
      1rem is read correctly. Established on a phone with the literal; this token holds
-     exactly that value, so a change here is a change to re-test on a phone. */
+     exactly that value, so a change here is a change to re-test on a phone. Past the
+     1920px anchor the rem itself grows (the root rule), and no iOS device is that wide. */
   --text-input: 1rem;
-  --text-title: max(1.375rem, 1.146vw); /* 22px — the one heading size */
+  --text-title: 1.375rem; /* 22px — the one heading size */
   /* 32px — the LIST'S OWN NAME, and nothing else. A deliberate fifth step: a page title
      is a different role from a section heading (--text-title), which is why 22px read as
      a label rather than as the name of the thing you're looking at. Sits clearly under
      --text-display so the live total still dominates the page — this app weighs packs,
      so the number outranks the name. */
-  --text-page-title: max(2rem, 1.667vw);
-  --text-display: max(4rem, 3.333vw); /* 64px — the live total */
+  --text-page-title: 2rem;
+  --text-display: 4rem; /* 64px — the live total */
   /* ---- CHROME ONLY — two steps for text that annotates the app rather than being its
      content: a popover's own text, and the toolbar's status line. Neither is a revival of
      the removed small tier (there is no --text-sm; body text is --text-base), and
      nothing in the DOCUMENT FLOW may use either — the test is whether the text belongs to the list or to the
      furniture around it. Never put either on an <input>: under 16px iOS Safari zooms the
-     page on focus (see .field in atoms/controls.scss). Both are fluid on the same model
-     as the rest of the scale — fixed at the px floor up to the 1920px anchor, then
-     growing with the viewport (14/1920 ≈ 0.729vw). ---- */
-  --text-chrome: max(0.875rem, 0.729vw); /* 14px — a popover's own text, the topbar status */
-  --text-micro: max(0.75rem, 0.625vw); /* 12px — the small labels sitting above its fields */
+     page on focus (see .field in atoms/controls.scss). Both are rem, so they grow past the
+     1920px anchor with the rest of the scale. ---- */
+  --text-chrome: 0.875rem; /* 14px — a popover's own text, the topbar status */
+  --text-micro: 0.75rem; /* 12px — the small labels sitting above its fields */
 
   /* ---- line-height scale — the two leadings the type system uses, named so they
      can't drift as scattered literals. ---- */
@@ -315,15 +317,15 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --caption-tuck: calc(-1 * var(--space-1) - var(--space-px));
 
   /* ---- spacing (4/8 grid) ---- */
-  --space-px: 2px; /* hairline — sub-grid micro-gap (bar segments, chip stacks) */
-  --space-1: 4px;
-  --space-2: 8px;
-  --space-3: 12px;
-  --space-4: 16px;
-  --space-5: 24px;
-  --space-6: 32px;
-  --space-7: 48px;
-  --space-9: 96px;
+  --space-px: calc(2 * var(--tpx)); /* hairline — sub-grid micro-gap (bar segments, chip stacks) */
+  --space-1: calc(4 * var(--tpx));
+  --space-2: calc(8 * var(--tpx));
+  --space-3: calc(12 * var(--tpx));
+  --space-4: calc(16 * var(--tpx));
+  --space-5: calc(24 * var(--tpx));
+  --space-6: calc(32 * var(--tpx));
+  --space-7: calc(48 * var(--tpx));
+  --space-9: calc(96 * var(--tpx));
 
   /* Keyboard focus is the same 2px ring whether it sits outside a native control (the
      reset's :focus-visible, offset by its own width) or is drawn inward over an
@@ -342,12 +344,12 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   /* in-flow row states (the drag nest-target tint). One step under the lifted row's
      --radius-2, which is the relationship the two drag states want: the row you're
      dragging reads as picked up, the row you'd drop onto only as marked. */
-  --radius-1: 4px;
+  --radius-1: calc(4 * var(--tpx));
   /* in-flow surfaces that sit ON the page rather than over it: the lifted drag row, the
      vault row's hover. NOT dialogs — the dialog card takes --radius-4 (the surface rule
      it shares with .popover, atoms/controls.scss), which is what a surface floating
      over a scrim should take. */
-  --radius-2: 8px;
+  --radius-2: calc(8 * var(--tpx));
   /* small floating OBJECTS: the trail-link hover card + its edit panel, and the toast.
      8px reads squarer than a card this size wants, and 20px turns a 32px card into a
      lozenge, so this sits between them — and 12 keeps the 4px grid the rest of this file
@@ -356,8 +358,8 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      never in the flow. Nested surfaces derive from
      it with calc() rather than hard-coding, so an inner curve can never end up rounder
      than the box holding it. */
-  --radius-3: 12px;
-  --radius-4: 20px; /* floating menus (autocomplete, kebab) — decisively rounder than panels */
+  --radius-3: calc(12 * var(--tpx));
+  --radius-4: calc(20 * var(--tpx)); /* floating menus (autocomplete, kebab) — decisively rounder than panels */
   /* the corner of a row or a well sitting INSIDE a --radius-4 surface, one --space-2
      in from its edge: concentric with the card, so an inner curve is never rounder than
      the box holding it. Read by the menu rows, the travelling plate and the typing well
@@ -368,7 +370,7 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   /* OUTSIDE the scale: a favicon or a link card's mark is another site's image, shown at
      14–16px, and it keeps a corner of its own rather than taking a step of ours — 4px
      would round a mark that small into a coin. */
-  --radius-icon: 2px;
+  --radius-icon: calc(2 * var(--tpx));
 
   /* ---- motion: one table of springs ----
      Every move in the app runs on one of four springs. Each is a (duration, bounce)
@@ -506,14 +508,12 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --z-fullscreen: 100;
 
   /* ---- layout ---- */
-  /* fluid like the type tokens: 1024px floor, growing past the same 1920px
-     anchor (1024/1920 ≈ 53.33vw) so the column keeps its character measure as
-     the type scales instead of getting proportionally narrower.
-     Both halves of that ratio are the same 0.833vw the type tokens use, so the column
-     is 64 base characters wide at EVERY width. Nothing in it needs a px bound of its
-     own to stop it spreading — a 2560px row holds exactly the text a 1280px row does,
-     in bigger type. */
-  --measure: max(64rem, 53.33vw);
+  /* rem like the type: 1024px up to the 1920px anchor and growing with the root past it,
+     so the column keeps its character measure as the type scales instead of getting
+     proportionally narrower. It is 64 base characters wide at EVERY width. Nothing in it
+     needs a px bound of its own to stop it spreading — a 2560px row holds exactly the
+     text a 1280px row does, in bigger type. */
+  --measure: 64rem;
 
   /* ---- the READING column — .prose's width, and the left edge every page's running
      text starts on. Named because a second thing has to agree with it: About's release
@@ -526,13 +526,34 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --account-measure: 26rem;
 
   /* ---- component primitives — shared structure so duplicated values can't drift ---- */
+  /* ONE PIXEL OF THE TYPE: exactly 1px up to the 1920px anchor, and growing with the
+     root font-size past it (a sixteenth of a rem). Everything in rem scales on its own;
+     what was written in px (the glyphs, the boxes and marks drawn at glyph size, the
+     spacing) is counted in this so it scales with them. REGISTERED as a <length>
+     (main.scss), so it resolves to px once on :root and inherits as a number: left
+     unregistered, every element using a token built from it re-resolved the unit itself
+     and restyled on any window resize, even below the anchor where nothing changes. Before it they stood still: on a 3008px-wide window a 16px glyph
+     sat beside 25px words and read as a bullet; then, with the glyphs grown, the fixed
+     spacing between them read as cramped ("this now feels tight between content"). So
+     the spacing scale, the radii, the control heights and the reading measures are
+     counted in it too, and past 1920px the whole page is the 1920 layout, larger. NOT in
+     it: hairlines, the focus ring, --tap (the size of a finger, not of the type) and
+     --text-input (the iOS escape hatch). The glyphs are sized from it in main.scss. */
+  --tpx: calc(1rem / 16);
   /* labelled controls come in two deliberate heights: the standard action/input box and
      the compact word-plus-icon picker. A map expand control shares the compact box. */
-  --control-h: 40px;
-  --control-compact: 30px;
+  --control-h: calc(40 * var(--tpx));
+  --control-compact: calc(30 * var(--tpx));
   /* icon-button box — the dense desktop chrome. The fixed actions track below
      multiplies it, so resizing the button here resizes the track with it. */
-  --icon-btn: 32px;
+  --icon-btn: calc(32 * var(--tpx));
+  /* THE GLYPH: what HugeiconsIcon's :size="16" draws (main.scss sizes it), named so the
+     maths written against it (centring, flush pulls, slots) says what it is measuring */
+  --icon: calc(16 * var(--tpx));
+  /* how far that glyph sits in from its --icon-btn box's edge: what a flush pull takes
+     back (.btn--flush-end) and what a tooltip shifts by to point at the glyph rather than
+     the box (--tip-shift, on the folder and item rows' action clusters) */
+  --icon-inset: calc((var(--icon-btn) - var(--icon)) / 2);
   /* the quantity stepper's ± buttons (ItemRow) — deliberately narrower than
      --icon-btn, and the ONE icon button that doesn't widen to --tap on touch. The
      three parts (− number +) have to read as one control rather than two buttons
@@ -540,20 +561,20 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      the app. It still clears the 24×24 minimum target (WCAG 2.5.8) in both
      directions, and the HEIGHT does take --tap on touch — so the thumb gets 24×44.
      Named here because the qty track below is derived from it. */
-  --qty-btn: 24px;
+  --qty-btn: calc(24 * var(--tpx));
   /* the category colour dot (.swatch, atoms/controls.scss) — the ONE colour mark in
      the app. Named because the category legend hangs its wrapped lines off exactly
      this width (CategoryBar), so the two must move together. */
-  --swatch: 10px;
+  --swatch: calc(10 * var(--tpx));
   /* My Gear's gear-type icon column (VaultGearRow) and how far a row's name sits in from
      it. "Add gear" stays flush left with the folder name: indented, it floated under an
      empty folder's title with nothing to line up with. */
-  --gear-type-w: 1.25rem; /* the 20px glyph's own width: its edge is the folder name's */
+  --gear-type-w: calc(20 * var(--tpx)); /* the 20px glyph's own width: its edge is the folder name's */
   --gear-type-indent: calc(var(--gear-type-w) + var(--space-2));
   /* touch targets — the ~44px Apple-HIG minimum box + the enlarged glyph,
      consumed by every `@media (pointer: coarse)` icon-button override */
   --tap: 44px;
-  --icon-touch: 18px;
+  --icon-touch: calc(18 * var(--tpx));
   /* the negative margin that pulls a --tap-sized touch box back onto the 1.45rem
      text line (so enlarging the hit area doesn't grow row height). Derived from
      --tap — a retune of --tap keeps the rhythm instead of needing every paired
@@ -573,14 +594,14 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      each subtract it back out so the actions column still measures the visible glyphs.
      It was the literal 9px in all six — the one value in the token layer that a retune
      had to find by grep. */
-  --grip-pull: 9px;
+  --grip-pull: calc(9 * var(--tpx));
   /* how far the grip's glyph reaches past its button's right edge (the translateX in
      .grip svg: a third of the 16px glyph), which is how far a row's paint-contained box
      has to reach into the gutter so the dots aren't shaved (.item-wrap, atoms/item.scss) */
-  --grip-bleed: 6px;
+  --grip-bleed: calc(6 * var(--tpx));
   /* field height — .field's min-height, mirrored by the add affordances and the
      packing-row height calc so toggling modes never jumps the row height */
-  --field-h: 36px;
+  --field-h: calc(36 * var(--tpx));
   /* item rows + folder headers share ONE column template so weights stay aligned.
      The meta tracks are FLUID (see fluid-track() at the top of this file):
      full-size at the ≥$bp-full viewport, compressing linearly down to the
@@ -649,11 +670,10 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      set in: "100,000 g" — the 100 kg cap, plus the gap and the 2ch unit slot — is 5.4em
      wide. The px track alone was short of it at both ends of the range. Under 815px it
      was ~3px short, and that one row's number came to rest right of every other number
-     in the column, the exact raggedness .item__wunit exists to prevent. Past 1920px it
-     was short by 14px and rising, because fluid-track() stops growing at 1024 while
-     --text-base keeps going (0.833vw) — a track frozen in pixels under type that isn't.
-     In em it holds at any type size, and max() lets the px track lead where it's
-     already wider. */
+     in the column, the exact raggedness .item__wunit exists to prevent. (Past 1920px it was
+     once short by 14px and rising, a track frozen in pixels under type that wasn't;
+     fluid-track()'s ceiling now grows with the type there too.) In em it holds at any
+     type size, and max() lets the px track lead where it's already wider. */
   --item-col-weight-ro: max(#{fluid-track(80px, 96px)}, 5.4em);
   /* read/share: name · qty · weight · class. The name takes what's left, so the data
      rides the row's right edge — same as the editing and packing rows, and flush with
@@ -678,6 +698,17 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   @include item-cols(fluid-track(36px, 44px));
   --item-gap: var(--space-4); /* column gap shared by item rows, folder headers + the add row (keeps weights aligned) — 16px so the data columns breathe */
   /* category sparkline (the one data-viz mark — CategoryBar) */
-  --bar-h: 6px;
-  --bar-seg-min: 3px;
+  --bar-h: calc(6 * var(--tpx));
+  --bar-seg-min: calc(3 * var(--tpx));
+}
+
+/* THE 1920px ANCHOR. Past it the root font-size grows with the viewport (16/1920 =
+   0.833vw), so every rem in the app grows with it: the type scale, --measure, --tpx and
+   whatever is counted in it, inputs included (the iOS guard's 1rem is a rem too, and no
+   iOS device is 1920px wide). max() keeps a reader's own larger default. Below the
+   anchor this rule doesn't exist, so nothing about it can move a phone or a laptop. */
+@media (min-width: 1920px) {
+  html {
+    font-size: max(100%, 0.833vw);
+  }
 }

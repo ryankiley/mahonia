@@ -258,8 +258,8 @@ async function decide(decision: "allow" | "deny") {
 .az__tile {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: calc(48 * var(--tpx));
+  height: calc(48 * var(--tpx));
   border-radius: var(--radius-3);
   background: var(--paper-2);
   color: var(--ink);
@@ -270,8 +270,8 @@ async function decide(decision: "allow" | "deny") {
   line-height: 1;
 }
 .az__home {
-  width: 22px;
-  height: 22px;
+  width: calc(22 * var(--tpx));
+  height: calc(22 * var(--tpx));
   fill: currentColor;
 }
 /* the tie between them: three dots of the quietest ink, drawn as one dotted rule so
@@ -305,7 +305,7 @@ async function decide(decision: "allow" | "deny") {
 .az__scopeicon {
   flex: none;
   /* centred on the first line of the text beside it: (1.5em line − 20px glyph) / 2 */
-  margin-top: calc((1lh - 20px) / 2);
+  margin-top: calc((1lh - 20 * var(--tpx)) / 2);
   color: var(--ink-2);
 }
 
@@ -319,7 +319,7 @@ async function decide(decision: "allow" | "deny") {
 }
 .az__cautionicon {
   flex: none;
-  margin-top: calc((1lh - 16px) / 2);
+  margin-top: calc((1lh - var(--icon)) / 2);
 }
 
 /* ---- the decision ---- */

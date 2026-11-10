@@ -352,7 +352,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
      16px because line one's mark is 16 either way, favicon or fallback globe (see the
      markup). Declared here, on the row that owns the alignment, so the two marks are
      held to one column by a rule rather than by two size props that happen to agree. */
-  --where-mark: 16px;
+  --where-mark: var(--icon); /* a glyph's slot (tokens.scss) */
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
@@ -394,7 +394,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   align-self: center;
   /* pinned to the shared slot (--where-mark), so neither mark can drift off the other
      and pull its text out of the column when the row wraps. Square by both axes: a
-     favicon is served at 16×16, and holding the height too keeps a non-square source
+     favicon can be any size, and holding the height too keeps a non-square source
      from stretching the slot it shares. */
   inline-size: var(--where-mark);
   block-size: var(--where-mark);

@@ -319,9 +319,11 @@ watch(vaultWidth, (w) => remember(VAULT_W_KEY, String(w)));
 // binding made every change re-render this whole component for a style write. During a
 // divider drag VaultPane writes the SAME property on the same element per frame (see
 // startResize there) and commits the ref once on release, so a resize renders nothing.
+// It goes in as a bare number, not px: CSS turns it into the pane's width against the
+// type (--vault-w, in the styles below).
 const editorRef = ref<HTMLElement | null>(null);
 watchPostEffect(() => {
-  editorRef.value?.style.setProperty("--vault-w", `${vaultWidth.value}px`);
+  editorRef.value?.style.setProperty("--vault-span", String(vaultWidth.value));
 });
 // THE COLUMN MOVES ON A WEB ANIMATION, not a CSS transition, for one reason: a click
 // that catches it mid-move. A transition retargets from the frame it is drawn at but
@@ -585,6 +587,7 @@ function onFocusIn(ev: FocusEvent) {
     // getBoundingClientRect() answers in layout coordinates, so it needs offsetTop
     // taken off it to say where the field sits on the part of the screen you can see.
     const vv = window.visualViewport;
+    const margin = FOCUS_MARGIN * typeScale(); // grows with the type past 1920px
     const vvH = vv?.height ?? window.innerHeight;
     const vvTop = vv?.offsetTop ?? 0;
     const r = el.getBoundingClientRect();
@@ -602,7 +605,7 @@ function onFocusIn(ev: FocusEvent) {
     // scroll to give (ItemInput's placeMenu; the arithmetic is app/utils/viewportRoom).
     // A fine pointer has no keyboard eating the screen, so it keeps the minimum move.
     if (coarse && el.getAttribute("aria-autocomplete") === "list") {
-      const lift = liftForSuggestions(r, { top: vvTop, bottom: vvTop + vvH }, visibleBand().top, FOCUS_MARGIN);
+      const lift = liftForSuggestions(r, { top: vvTop, bottom: vvTop + vvH }, visibleBand().top, margin);
       if (lift) return void window.scrollBy({ top: lift, behavior: motionIsInstant() ? "auto" : "smooth" });
     }
 
@@ -614,10 +617,10 @@ function onFocusIn(ev: FocusEvent) {
     // it, which is the thing a big jump costs you: after centring, the row you were
     // working on is somewhere you have to find again.
     const delta =
-      bottom > vvH - FOCUS_MARGIN
-        ? bottom - (vvH - FOCUS_MARGIN)
-        : top < FOCUS_MARGIN
-          ? top - FOCUS_MARGIN
+      bottom > vvH - margin
+        ? bottom - (vvH - margin)
+        : top < margin
+          ? top - margin
           : 0;
     if (delta) window.scrollBy({ top: delta, behavior: motionIsInstant() ? "auto" : "smooth" });
   }, wait);
@@ -1366,6 +1369,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: flex;
   flex-direction: column;
   min-height: 100svh;
+  /* The My Gear pane's width, in type pixels (--tpx) rather than pixels. The remembered
+     figure (--vault-span, 368 to start) is px at 16px type, so nothing moves up to a
+     1920px window; past it the type keeps growing and so does the list column
+     (--measure), and a pane frozen in px got proportionally narrower until its rows
+     were a dozen characters of 25px type, every name cut off. This way a row holds the
+     same words at 3000px that it does at 1920. */
+  --vault-w: calc(var(--vault-span) * var(--tpx));
 }
 /* Split view: the vault occupies the right of the screen, so the editor's CONTENT
    gives up that width rather than sitting underneath it. Padding on the content
@@ -1518,7 +1528,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
    — which closed the gap to the kebab and opened a matching one before it. Only the
    element that actually sits in the gutter should reach into it. */
 .menu:last-child {
-  margin-right: -13px;
+  margin-right: calc(-13 * var(--tpx)); /* glyph optics, so in type pixels with the glyphs */
 }
 .editor__body {
   /* The folder-to-folder rhythm, named once and read twice: .editor__folders uses it

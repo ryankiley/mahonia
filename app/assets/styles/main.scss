@@ -13,6 +13,41 @@
 @use "atoms/tooltip";
 @use "print";
 
+// Glyphs grow with the type past 1920px (--tpx, tokens.scss), and stand still below it.
+// A glyph's size is an ATTRIBUTE: HugeiconsIcon writes width/height from its `size`
+// prop, in markup kept byte-identical to the upstream component (utils/hugeicon.ts and
+// its test), so it's sized here rather than there. In :where(), at zero specificity, so
+// every rule that already sizes a glyph (the touch glyph, the qty stepper's) still
+// wins; any declaration at all beats a presentation attribute. Matched by width alone:
+// every svg that states one of these widths is a glyph (the map's pins are 17px, drawn
+// by hand into fixed markers; the elevation chart and the wordmark state none), and a
+// camel-case [viewBox] is an attribute name engines don't all match alike on svg.
+@each $px in 12, 14, 16, 20, 24 {
+  :where(svg[width="#{$px}"]) {
+    width: calc(#{$px} * var(--tpx));
+    height: calc(#{$px} * var(--tpx));
+  }
+}
+
+// A tooltip's offset onto its trigger's glyph (Tooltip.vue reads it back in JS), derived
+// from the glyph and box sizes where it's set. Registered as a length so that read gets
+// px: an unregistered custom property comes back as its token stream, and a calc() in it
+// parsed to NaN. 0 where nothing sets it, as an absent property read before.
+// --tpx (tokens.scss), registered so it resolves to px once on :root and inherits as a
+// number. Unregistered, every element whose tokens were built from it re-resolved the unit
+// itself, and restyled on any window resize, below the anchor too, where it can't change.
+@property --tpx {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 1px;
+}
+
+@property --tip-shift {
+  syntax: "<length>";
+  inherits: true;
+  initial-value: 0px;
+}
+
 // Global layout helpers
 .wrap {
   width: 100%;
