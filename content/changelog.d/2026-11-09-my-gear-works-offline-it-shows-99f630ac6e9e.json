@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-09",
+  "added": [
+    "My Gear works offline: it shows your gear as of the last time you were online, read-only, on its page and in a list's My Gear panel.",
+    "On Android and desktop, the installed app's shortcut menu offers New list and My Gear."
+  ],
+  "fixed": [
+    "Offline, My Gear no longer asks a signed-in visitor to sign in, or fails to open with the browser's error page."
+  ]
+}
