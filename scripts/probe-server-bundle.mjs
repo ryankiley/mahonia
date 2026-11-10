@@ -31,12 +31,14 @@ setTimeout(() => {
   process.exit(2);
 }, 60_000);
 
-// shared/ogCard.ts (the model) and server/utils/ogCard.ts (the renderer) both
-// build to an ogCard chunk; the renderer is the one that imports satori.
-const named = await Array.fromAsync(glob("chunks/**/ogCard*.mjs", { cwd: server }));
+// The chunk that imports satori, wherever the bundler put the renderer
+// (server/utils/ogCard.ts): its own ogCard chunk while two card routes shared it,
+// inlined into /og/s's route chunk now that it's the only one. Found by what it
+// imports rather than by name, so the next reshuffle can't fail this for nothing.
+const all = await Array.fromAsync(glob("chunks/**/*.mjs", { cwd: server }));
 const chunks = [];
-for (const c of named) if (/from ['"]satori['"]/.test(await readFile(resolve(server, c), "utf8"))) chunks.push(c);
-if (chunks.length !== 1) throw new Error(`expected one og chunk importing satori under .output/server/chunks, found ${chunks.length} of ${named.join(", ") || "none"}`);
+for (const c of all) if (/from ['"]satori['"]/.test(await readFile(resolve(server, c), "utf8"))) chunks.push(c);
+if (chunks.length !== 1) throw new Error(`expected one chunk importing satori under .output/server/chunks, found ${chunks.length}: ${chunks.join(", ") || "none"}`);
 const og = await import(href(chunks[0]));
 if (!Object.keys(og).length) throw new Error(`${chunks[0]} exported nothing`);
 
