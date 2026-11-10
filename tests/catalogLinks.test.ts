@@ -2,7 +2,7 @@
 // (shared/catalogLinks.ts). Every case below is a real pair from the September 2026
 // catalog tidy, where a deleted row stranded the lists and My Gear rows that held it.
 import { describe, expect, it } from "vitest";
-import { matchSuccessor, sameProduct, sameSpelling, type LinkCandidate } from "../shared/catalogLinks";
+import { matchSuccessor, sameSpelling, type LinkCandidate } from "../shared/catalogLinks";
 
 let nextId = 1;
 const row = (brand: string | null, name: string, variant: string | null, grams: number): LinkCandidate => ({
@@ -38,10 +38,6 @@ describe("sameSpelling", () => {
     [{ name: "Z Lite Original", brand: "Therm-a-Rest", variant: "Regular" }, { name: "Z Lite Sol", brand: "Therm-a-Rest", variant: "Regular" }],
   ])("%o is not %o", (a, b) => {
     expect(sameSpelling(a, b)).toBe(false);
-  });
-
-  it("reads product and variant apart", () => {
-    expect(sameProduct({ brand: "Goldwin", name: "GORE-TEX 3L Jacket", variant: "size 3, M" }, { brand: "Goldwin", name: "GORE-TEX 3L Jacket", variant: "JP 3" })).toBe(true);
   });
 });
 

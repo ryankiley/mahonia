@@ -214,6 +214,8 @@ export const MAX_FOLDERS = 50;
 // so none of them can drift: they had, and a field accepted 1,200 characters the
 // server then cut to 200 without a word.
 export const MAX_TITLE_LEN = 200;
+/** The list's description: the one field that can hold paragraphs. */
+export const MAX_DESCRIPTION_LEN = 4000;
 export const MAX_ITEM_NAME_LEN = 200;
 export const MAX_ITEM_NOTE_LEN = 2000;
 export const MAX_GEAR_TYPE_LEN = 120; // commonName
@@ -764,7 +766,7 @@ function applyOp(state: ListState, op: Op): void {
       // break, and a backup still round-trips. An ITEM's description is a real one-line
       // input and goes through cleanText like the rest — see cleanItemPatch.
       if (typeof p.description === "string")
-        state.description = tidyProse(p.description.slice(0, 4000));
+        state.description = tidyProse(p.description.slice(0, MAX_DESCRIPTION_LEN));
       if (typeof p.displayUnit === "string" && UNITS.includes(p.displayUnit)) state.displayUnit = p.displayUnit;
       // The trail URL is VALIDATED, not just clamped: it ends up in a :href on a page
       // strangers open, and Vue won't sanitize it. An empty string clears the link;
@@ -917,7 +919,7 @@ export function tidyListText<T extends {
   if (typeof list.title === "string") list.title = cleanText(list.title, MAX_TITLE_LEN);
   // prose, so an imported description keeps its paragraphs — see the setMeta case
   if (typeof list.description === "string")
-    list.description = tidyProse(list.description.slice(0, 4000));
+    list.description = tidyProse(list.description.slice(0, MAX_DESCRIPTION_LEN));
   // through its own normalizer, which is where the label's cap and blank rule live
   if (typeof list.trailLabel === "string") {
     const label = normalizeTrailLabel(list.trailLabel);

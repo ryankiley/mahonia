@@ -16,15 +16,8 @@
 // shared/tripPlan.ts turns it into time and calories. What stays out of here is anything
 // that needs more than a number and a unit.
 
-/**
- * Metres per distance unit.
- *
- * Exported because the readouts do their own rounding — a figure under a moving cursor
- * wants a fixed width where a printed one wants its trailing zero gone — and each of them
- * was retyping 1609.344 and 0.3048 to get there. The rounding is theirs; the conversion
- * factor is one number and belongs in one place.
- */
-export const M_PER_UNIT = {
+/** Metres per distance unit: the one place each conversion factor is written. */
+const M_PER_UNIT = {
   m: 1,
   km: 1000,
   mi: 1609.344,

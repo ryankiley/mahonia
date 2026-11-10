@@ -40,6 +40,11 @@ on:
       - shared/searchText.ts
       - shared/vault.ts
       - scripts/seedIdentities.ts
+      # the rest of what the seeder runs: the upsert, and the rename, size and retire passes
+      - scripts/seedUpsert.ts
+      - scripts/seedRenames.ts
+      - scripts/seedSizes.ts
+      - scripts/seedRetire.ts
   # manual re-run (e.g. after setting the secret, or to force a resync)
   workflow_dispatch: {}
 

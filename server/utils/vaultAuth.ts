@@ -82,14 +82,25 @@ export async function resolveVaultForRead(
  * Resolve a user's vault AND mark it used — bump last_seen_at, clear any
  * soft-delete. Split out of requireVault so the rule can be tested without an
  * H3Event; what's left up there is error handling.
+ *
+ * The mark is written at most once a day. Every vault call comes through here, the
+ * autocomplete's per-keystroke search included, and the only reader of last_seen_at
+ * is a reaper that counts in months: so the common request is a read, and the row is
+ * rewritten only when the stamp has gone stale or there is a soft-delete to lift.
  */
+const VAULT_TOUCH_AFTER_MS = 24 * 60 * 60_000;
 export async function touchVaultByUser(db: Db, userId: number): Promise<number | null> {
   const rows = await db
-    .update(vaults)
-    .set({ lastSeenAt: sql`now()`, deletedAt: null })
+    .select({ id: vaults.id, lastSeenAt: vaults.lastSeenAt, deletedAt: vaults.deletedAt })
+    .from(vaults)
     .where(eq(vaults.userId, userId))
-    .returning();
-  return rows[0]?.id ?? null;
+    .limit(1);
+  const vault = rows[0];
+  if (!vault) return null;
+  if (vault.deletedAt || Date.now() - new Date(vault.lastSeenAt).getTime() > VAULT_TOUCH_AFTER_MS) {
+    await db.update(vaults).set({ lastSeenAt: sql`now()`, deletedAt: null }).where(eq(vaults.id, vault.id));
+  }
+  return vault.id;
 }
 
 /**

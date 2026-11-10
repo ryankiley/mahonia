@@ -7,7 +7,7 @@ import { sweepWindow, toIso } from "./time";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { alias, type PgColumn } from "drizzle-orm/pg-core";
 import { vaultFolders, vaultItems, vaultKitParts, vaults } from "../db/schema";
-import { isUniqueViolation, type Db } from "./db";
+import type { Db } from "./db";
 import { liveCatalogRows } from "./catalog";
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
 import {
@@ -35,7 +35,7 @@ import { CLASSIFICATIONS, UNITS, type Classification, type Unit } from "../../sh
 import { clampUnitWeightMg, isSerialId, KCAL_MAX } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { tidyText } from "../../shared/tidyText";
-import { isGearGlyph, type GearGlyph } from "../../shared/gearGlyph";
+import { isGearGlyph } from "../../shared/gearGlyph";
 import { enoughToSearch } from "../../shared/searchText";
 import { rankVaultRows } from "../../shared/vaultSearch";
 
@@ -521,9 +521,6 @@ async function upsertCaptures(
     // diverge wherever tidyText and foldForSearch disagree (a zero-width space is
     // deleted by one and folded to a gap by the other), and each divergence read
     // as "the vault refused this row" on a row it had stored correctly.
-    // No-arg, and it has to be: the two drivers' typed `.returning({ col })`
-    // overloads don't unify, so the bare form is the Db union's only shared one
-    // (see server/utils/db.ts). Read the fields off the full row instead.
     .returning();
   // LIVE rows only. The upsert deliberately leaves `removed_at` alone, so gear you
   // put away on /gear is written and stays put away — the row comes back here, and
@@ -737,34 +734,46 @@ export async function searchVaultItems(
 }
 
 /**
- * Tombstone a row: stop offering it, keep the record so automatic capture can't
- * bring it back. Scoped by vaultId as well as id, so an id from another vault
- * simply matches nothing (no existence oracle, no 403). Returns whether a live row
- * was actually removed.
+ * Tombstone rows: stop offering them, keep the records so automatic capture can't
+ * bring them back. Scoped by vaultId as well as id, so an id from another vault
+ * simply matches nothing (no existence oracle, no 403). One statement however many
+ * ids; answers with the ids of the live rows it actually removed.
  */
-export async function removeVaultItem(db: Db, vaultId: number, id: number): Promise<boolean> {
-  if (!isSerialId(id)) return false;
-  const done = await db
-    .update(vaultItems)
-    .set({ removedAt: new Date(), updatedAt: new Date() })
-    .where(
-      and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId), isNull(vaultItems.removedAt)),
-    )
-    .returning();
-  return done.length > 0;
+export async function removeVaultItems(db: Db, vaultId: number, ids: readonly number[]): Promise<Set<number>> {
+  return markVaultItems(db, vaultId, ids, new Date());
 }
 
-/** Lift a tombstone — the undo behind the remove action. Ownership is part of the
+/** Lift tombstones — the undo behind the remove action. Ownership is part of the
  *  WHERE, not a check on the result: filtering afterwards would already have
  *  written to another account's row. */
+export async function restoreVaultItems(db: Db, vaultId: number, ids: readonly number[]): Promise<Set<number>> {
+  return markVaultItems(db, vaultId, ids, null);
+}
+
+/** The one-row forms the /api/vault/remove endpoint takes: whether the row changed. */
+export async function removeVaultItem(db: Db, vaultId: number, id: number): Promise<boolean> {
+  return (await removeVaultItems(db, vaultId, [id])).size > 0;
+}
 export async function restoreVaultItem(db: Db, vaultId: number, id: number): Promise<boolean> {
-  if (!isSerialId(id)) return false;
+  return (await restoreVaultItems(db, vaultId, [id])).size > 0;
+}
+
+async function markVaultItems(db: Db, vaultId: number, ids: readonly number[], removedAt: Date | null): Promise<Set<number>> {
+  const wanted = [...new Set(ids.filter(isSerialId))];
+  if (!wanted.length) return new Set();
   const done = await db
     .update(vaultItems)
-    .set({ removedAt: null, updatedAt: new Date() })
-    .where(and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId)))
-    .returning();
-  return done.length > 0;
+    .set({ removedAt, updatedAt: new Date() })
+    .where(
+      and(
+        inArray(vaultItems.id, wanted),
+        eq(vaultItems.vaultId, vaultId),
+        // a remove takes only live rows, so removing twice reports the second as a miss
+        removedAt ? isNull(vaultItems.removedAt) : undefined,
+      ),
+    )
+    .returning({ id: vaultItems.id });
+  return new Set(done.map((r) => r.id));
 }
 
 // ---------------------------------------------------------------------------
@@ -800,18 +809,16 @@ export async function reapAbandonedVaults(
   opts?: { staleDays?: number; limit?: number },
 ): Promise<{ vaultsReaped: number }> {
   const { cutoff, limit } = sweepWindow(opts?.staleDays, VAULT_REAP_STALE_DAYS, opts?.limit, VAULT_REAP_BATCH_MAX);
-  const candidates = await db
+  const stale = db
     .select({ id: vaults.id })
     .from(vaults)
     .where(and(isNull(vaults.deletedAt), lt(vaults.lastSeenAt, cutoff)))
     .limit(limit);
-  if (!candidates.length) return { vaultsReaped: 0 };
-
   const done = await db
     .update(vaults)
     .set({ deletedAt: new Date() })
-    .where(inArray(vaults.id, candidates.map((c) => c.id)))
-    .returning();
+    .where(inArray(vaults.id, stale))
+    .returning({ id: vaults.id });
   return { vaultsReaped: done.length };
 }
 

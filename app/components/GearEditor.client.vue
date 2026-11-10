@@ -35,7 +35,7 @@ import { forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeHere } from "~/composables/useResumed";
 import type { Item } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
-import { CHILDREN_BY_PARENT, PEOPLE_CTX, VARIANT_SHOWN } from "~/components/ItemRow.vue";
+import { CHILDREN_BY_PARENT, PEOPLE_CTX, ROW_FLASH, VARIANT_SHOWN } from "~/components/ItemRow.vue";
 import { useGearEditorView } from "~/composables/useGearEditorView";
 
 // The whole editor surface (its own sticky topbar + flex shell). Rendered by
@@ -277,6 +277,7 @@ onBeforeUnmount(() => foldersOpened?.());
 provide(CHILDREN_BY_PARENT, childrenByParent);
 provide(PEOPLE_CTX, { sorted: people, slotById: personSlotById });
 provide(VARIANT_SHOWN, variantShown);
+provide(ROW_FLASH, flash);
 const NO_ITEMS: Item[] = [];
 
 /**
@@ -1245,7 +1246,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :folder="f"
           :items="itemsByFolder.get(f.id) ?? NO_ITEMS"
           :packed="packed"
-          @toast="flash"
         />
       </div>
       <!-- same split as the folders above: presence follows the DATA (v-if — most lists
@@ -1261,7 +1261,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
           :list="snapshot"
           :item="it"
           :prev-id="ungrouped[i - 1]?.id ?? null"
-          @toast="flash"
         />
       </section>
 

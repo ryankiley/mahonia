@@ -175,8 +175,6 @@ export interface VaultEntry extends VaultCapture, VaultKitFields {
 // where it is filed. The arithmetic and the builder live in vaultKit.ts, off the
 // editor's first load; the types and the row's own gate (isKitWorthy) live here.
 
-type VaultKind = "piece" | "kit";
-
 /** One part of a kit as a read hands it back: which piece, how many, and enough of
  *  the piece to draw it under the kit — a put-away part is not in the live list the
  *  page holds, and it is still listed here, flagged. */

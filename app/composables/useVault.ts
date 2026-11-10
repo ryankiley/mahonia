@@ -155,9 +155,11 @@ export function _pendingCapture(): boolean {
 export type CaptureOneResult = "saved" | "unworthy" | "removed" | "full" | "nested" | "failed";
 
 export function useVaultCapture() {
-  // hasVault as well as the fetch: capture must not ASK someone who has no vault
+  // hasVault as well as the fetch: capture does nothing for someone who has no vault
   // (see sync below), and the two come from the same place.
-  const { hasVault, vaultFetch } = useVaultAccess();
+  const { hasVault, vaultKnown, vaultFetch } = useVaultAccess();
+  // the newest sync() of this tick, waiting for its one run (see sync)
+  let queued: Parameters<typeof sync> | null = null;
 
   /**
    * Note a change to the list.
@@ -167,9 +169,18 @@ export function useVaultCapture() {
    * something ready to beacon out. A no-op when nothing a vault row actually
    * stores has changed.
    *
-   * Note there is no "do you have a vault" guard: the FIRST capture is what brings
-   * a vault into being (the endpoint mints one and returns its token), so gating on
-   * having a token would mean never getting one.
+   * Signed out, and known to be, it does nothing at all: there is no vault to add
+   * gear to, and the capture endpoint answers a visitor without an account with a
+   * 401. Without the gate every edit by such a visitor (most of them) built the
+   * capture set, POSTed it four seconds later to be refused, kept it pending, and
+   * beaconed it again on every tab-hide. Before the session has answered it runs as
+   * ever, so a signed-in visitor's first edits are never dropped; and a sign-in
+   * without leaving the list captures from the controller's own session watcher.
+   *
+   * One run per tick, on the last call's arguments. Every mutation calls this, and a
+   * drag, a paste or an undo is one mutation per row it moves: each used to rebuild
+   * the capture set over the whole list, ops × items for a batch whose only
+   * interesting state is the last.
    */
   function sync(
     items: Item[],
@@ -183,53 +194,65 @@ export function useVaultCapture() {
     } = {},
   ): void {
     if (!import.meta.client) return;
-    void (async () => {
-      let built: { caps: VaultCapture[]; fingerprint: string } | null = null;
-      try {
-        const { captureFromList, captureFingerprint } = await loadVault();
-        const all = captureFromList(items, folders);
-        if (!all.length) return;
-        // Gear declined in the chooser stays declined on every later edit — this is
-        // what makes "only the tent is mine" a standing answer rather than a
-        // one-off, since capture otherwise re-offers the whole list every time.
-        const declined = vaultExclusionsFor(opts.editToken ?? "");
-        const caps = declined.size ? all.filter((c) => !declined.has(c.normKey)) : all;
-        if (!caps.length) return;
-        // The decision is consulted HERE, after the capture set is built, so a list
-        // with nothing vault-worthy in it never raises the question. Asking whether
-        // to add gear when there is no gear is a question whose answer changes
-        // nothing — and it burned the one chance to ask about that list.
-        const decision = vaultDecisionFor(opts.editToken ?? "");
-        if (decision === "no") return;
-        // Only ask someone who HAS a vault to ask about. Signed out there is nothing
-        // to add gear to, and the prompt offered one anyway: "Add" recorded the
-        // decision as yes and then 401'd, spending the single question this list
-        // gets. Leaving it unanswered is right — the question fires properly the
-        // first time you edit this list with an account.
-        // ...and only about gear there is still something to decide. The whole
-        // reason a list you built on another device asks at all is that the
-        // per-list answer lives in localStorage and this device has never seen it
-        // — but the vault itself can now be asked, and when it already holds
-        // every row there is nothing to consent to and nothing to move. The rows
-        // correctly stand their save buttons down in that state; asking anyway
-        // put a modal over a list to request permission for a no-op, and spent
-        // the one question that list gets.
-        if (decision === "ask") {
-          if (!hasVault.value) return;
-          const held = opts.held;
-          if (held && caps.every((c) => held.has(c.normKey))) return;
-          return opts.onAsk?.();
-        }
-        built = { caps, fingerprint: captureFingerprint(caps) };
-      } catch {
-        return; // chunk fetch failed (offline before the SW cached it) — skip
-      }
-      // already stored, or already queued for exactly this state
-      if (built.fingerprint === lastFingerprint || built.fingerprint === pending?.fingerprint) return;
-      pending = { items: built.caps, fingerprint: built.fingerprint };
-      clearTimeout(timer);
-      timer = setTimeout(send, captureDebounceMs);
-    })();
+    if (vaultKnown.value && !hasVault.value) return;
+    const first = queued === null;
+    queued = [items, folders, opts];
+    if (!first) return;
+    void loadVault()
+      .then((vault) => {
+        const latest = queued!;
+        queued = null;
+        capture(vault, ...latest);
+      })
+      // chunk fetch failed (offline before the SW cached it) — skip; capture is a
+      // background convenience and never surfaces an error over the list
+      .catch(() => (queued = null));
+  }
+
+  function capture(
+    { captureFromList, captureFingerprint }: Awaited<ReturnType<typeof loadVault>>,
+    ...[items, folders = [], opts = {}]: Parameters<typeof sync>
+  ): void {
+    const all = captureFromList(items, folders);
+    if (!all.length) return;
+    // Gear declined in the chooser stays declined on every later edit — this is
+    // what makes "only the tent is mine" a standing answer rather than a
+    // one-off, since capture otherwise re-offers the whole list every time.
+    const declined = vaultExclusionsFor(opts.editToken ?? "");
+    const caps = declined.size ? all.filter((c) => !declined.has(c.normKey)) : all;
+    if (!caps.length) return;
+    // The decision is consulted HERE, after the capture set is built, so a list
+    // with nothing vault-worthy in it never raises the question. Asking whether
+    // to add gear when there is no gear is a question whose answer changes
+    // nothing — and it burned the one chance to ask about that list.
+    const decision = vaultDecisionFor(opts.editToken ?? "");
+    if (decision === "no") return;
+    // Only ask someone who HAS a vault to ask about (the session may not have
+    // answered yet; signed out for certain never gets this far). The prompt once
+    // offered one anyway: "Add" recorded the decision as yes and then 401'd,
+    // spending the single question this list gets. Leaving it unanswered is
+    // right — the question fires properly the first time you edit this list
+    // with an account.
+    // ...and only about gear there is still something to decide. The whole
+    // reason a list you built on another device asks at all is that the
+    // per-list answer lives in localStorage and this device has never seen it
+    // — but the vault itself can now be asked, and when it already holds
+    // every row there is nothing to consent to and nothing to move. The rows
+    // correctly stand their save buttons down in that state; asking anyway
+    // put a modal over a list to request permission for a no-op, and spent
+    // the one question that list gets.
+    if (decision === "ask") {
+      if (!hasVault.value) return;
+      const held = opts.held;
+      if (held && caps.every((c) => held.has(c.normKey))) return;
+      return opts.onAsk?.();
+    }
+    const fingerprint = captureFingerprint(caps);
+    // already stored, or already queued for exactly this state
+    if (fingerprint === lastFingerprint || fingerprint === pending?.fingerprint) return;
+    pending = { items: caps, fingerprint };
+    clearTimeout(timer);
+    timer = setTimeout(send, captureDebounceMs);
   }
 
   async function send(): Promise<void> {

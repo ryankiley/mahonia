@@ -5,10 +5,6 @@ import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import { MAX_FOLDER_NAME_LEN } from "~~/shared/ops";
 import { bySortOrder } from "~~/shared/weights";
 
-// a row can raise a transient message (banking gear to the vault); the folder just
-// passes it through to the editor, which owns the toast
-defineEmits<{ toast: [string] }>();
-
 // The editor's folder — editable by default, a checklist in packing mode. The
 // share views (/s + /l) render ReadonlyFolderSection instead, so this component
 // (and the editor graph it pulls in) never ships to a read-only page.
@@ -37,15 +33,6 @@ const c = useGearList();
 // FolderRows; this component only owns the clip.)
 const dnd = useItemDnd();
 const anyItemDrag = computed(() => dnd.dragId.value != null);
-
-// a row's floating overlay (the name-autocomplete dropdown, or the mobile ⋯ actions
-// menu) is absolute and can extend past the folder's bottom, which the collapse clip
-// (overflow:hidden) would crop. Count how many are open and lift the clip while any is
-// (same idea as the drag-pass lift).
-const overlayCount = ref(0);
-function onOverlayToggle(open: boolean) {
-  overlayCount.value = Math.max(0, overlayCount.value + (open ? 1 : -1));
-}
 
 // drag-to-reorder folders via the grip handle (a drop line shows where it lands)
 const fdnd = useFolderDnd();
@@ -142,7 +129,7 @@ function onName(e: Event) {
          inner clips — works on Safari, unlike height:auto/interpolate-size which is
          Chromium-only. The chevron rotates in sync. -->
     <div class="folder__body">
-      <div class="folder__bodyinner" :class="{ 'is-dragpass': anyItemDrag && !collapsed, 'is-overlay-open': overlayCount > 0 }">
+      <div class="folder__bodyinner" :class="{ 'is-dragpass': anyItemDrag && !collapsed }">
         <!-- The rows live one component down — a RENDER boundary, not a visual one
              (FolderRows is a fragment; the DOM here is unchanged). This header
              re-renders on every mode switch (`packed` is real: the name input's
@@ -153,8 +140,6 @@ function onName(e: Event) {
           :list="list"
           :folder="folder"
           :items="items"
-          @overlay-toggle="onOverlayToggle"
-          @toast="$emit('toast', $event)"
         />
       </div>
     </div>
@@ -217,9 +202,9 @@ function onName(e: Event) {
 .folder__bodyinner.is-dragpass {
   overflow: visible;
 }
-/* the overlay lift (.is-overlay-open) is in atoms/folder.scss now — /gear renders
-   this same .folder__bodyinner and needs the identical release, and a SCOPED rule
-   only ever matched the elements this component rendered */
+/* the overlay lift (:has(.popover)) is in atoms/folder.scss — /gear renders this
+   same .folder__bodyinner and needs the identical release, and a SCOPED rule only
+   ever matched the elements this component rendered */
 /* packing/checklist mode disables the name input (it's read-only there). Browsers
    grey disabled inputs out (UA -webkit-text-fill-color), so pin it back to full ink —
    the folder name should read the same as it does in edit mode. */

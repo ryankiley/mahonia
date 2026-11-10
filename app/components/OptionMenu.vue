@@ -50,7 +50,7 @@ const props = defineProps<{
    */
   align?: "center" | "baseline";
 }>();
-const emit = defineEmits<{ pick: [key: string]; overlayToggle: [boolean] }>();
+const emit = defineEmits<{ pick: [key: string] }>();
 
 const open = ref(false);
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
@@ -69,12 +69,8 @@ watch(open, (o) => o && nextTick(place));
 
 // The list is position:absolute, so a clipping ancestor crops it — the unit menu on
 // a folder's LAST row opened downward into the collapse clip (overflow:hidden on the
-// folder body) and lost every option past the folder's bottom edge. Ancestors that
-// own such a clip listen for this and lift it while the menu is up, the same
-// overlayToggle contract the name autocomplete keeps (ItemInput → FolderSection).
-// the clip lift, on at open and off when the leave ENDS (useOverlayLift)
-const { lift, release } = useOverlayLift((on) => emit("overlayToggle", on));
-watch(open, (o) => o && lift());
+// folder body) and lost every option past the folder's bottom edge. The body lifts
+// that clip itself for as long as a .popover is inside it (atoms/folder.scss).
 
 useMenuDismiss(open, rootRef);
 
@@ -101,7 +97,7 @@ function pick(key: string) {
            `open` lets it turn a chevron over -->
       <slot name="trigger" :active="active" :open="open" />
     </button>
-    <Transition name="menu" @after-leave="release">
+    <Transition name="menu">
       <MenuList
         v-if="open"
         ref="menuList"

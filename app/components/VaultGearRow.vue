@@ -43,8 +43,6 @@ const emit = defineEmits<{
   remove: [];
   /** a unit picked for this piece's weight (the list row's unit picker, on /gear) */
   unit: [unit: Unit];
-  /** a menu on the row opened or closed — the kind's body lifts its clip while one is open */
-  "overlay-toggle": [open: boolean];
 }>();
 
 const displayName = computed(() => itemDisplayName(props.entry.brand, props.entry.name, props.entry.variant));
@@ -104,7 +102,6 @@ const meta = computed(() => {
       :auto="autoIcon"
       :label="`Icon for ${displayName}`"
       @update:model-value="(g) => emit('icon', g)"
-      @overlay-toggle="(o) => emit('overlay-toggle', o)"
     >
       <template #trigger="{ open, toggle, attrs }">
         <!-- the site's tooltip, as on the list row's icon buttons, not a native title:
@@ -164,8 +161,7 @@ const meta = computed(() => {
         :current="rowUnit"
         :label="`Weight unit for ${displayName}`"
         :title="`Unit for ${displayName}`"
-        @overlay-toggle="(o) => emit('overlay-toggle', o)"
-        @pick="(u) => emit('unit', u as Unit)"
+          @pick="(u) => emit('unit', u as Unit)"
       >
         <template #trigger="{ open }">
           <span class="t-sm t-muted">{{ rowUnit }}</span>

@@ -693,7 +693,6 @@ async function exportGear(kind: string) {
               <VaultSection
                 v-for="section in sections"
                 :key="section.key"
-                v-slot="{ overlay }"
                 :label="section.label"
                 :collapse-key="section.key"
               >
@@ -709,7 +708,6 @@ async function exportGear(kind: string) {
                   @remove="remove(entry)"
                   @unit="(u: Unit) => setEntryUnit(entry, u)"
                   @icon="(g: GearGlyph | null) => setEntryIcon(entry, g)"
-                  @overlay-toggle="overlay"
                 />
               </VaultSection>
             </template>

@@ -67,7 +67,7 @@ export async function deleteAccount(
       .update(lists)
       .set({ deletedAt: now, updatedAt: now })
       .where(and(inArray(lists.id, claimedIds), isNull(lists.deletedAt)))
-      .returning();
+      .returning({ id: lists.id });
     listsDeleted = gone.length;
   }
 
@@ -87,12 +87,15 @@ export async function deleteAccount(
   // stranger's list.
   await db.update(lists).set({ authorUserId: null }).where(eq(lists.authorUserId, userId));
 
-  await db.delete(listClaims).where(eq(listClaims.userId, userId));
-  await db.delete(credentials).where(eq(credentials.userId, userId));
-  await db.delete(accessTokens).where(eq(accessTokens.userId, userId));
-  await db.delete(oauthCodes).where(eq(oauthCodes.userId, userId));
-  await db.delete(authTokens).where(eq(authTokens.userId, userId));
-  await db.delete(sessions).where(eq(sessions.userId, userId));
+  // everything keyed on the account at once; the account row itself goes last
+  await Promise.all([
+    db.delete(listClaims).where(eq(listClaims.userId, userId)),
+    db.delete(credentials).where(eq(credentials.userId, userId)),
+    db.delete(accessTokens).where(eq(accessTokens.userId, userId)),
+    db.delete(oauthCodes).where(eq(oauthCodes.userId, userId)),
+    db.delete(authTokens).where(eq(authTokens.userId, userId)),
+    db.delete(sessions).where(eq(sessions.userId, userId)),
+  ]);
   await db.delete(users).where(eq(users.id, userId));
 
   return { listsDeleted, vaultDeleted: vaultId != null };

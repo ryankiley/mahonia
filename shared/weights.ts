@@ -258,26 +258,17 @@ export function lineMg(item: Pick<Item, "qty" | "unitWeightMg">): number {
 
 /**
  * A row's GROUP line weight for DISPLAY: the item's own line plus its children's lines.
- * Totals never use this (they sum each item's OWN line, so a parent + its kids aren't
- * double-counted) — it's what a parent row shows in its weight column and what a folder
- * subtotal rolls up per top-level row.
+ * What a row's weight column shows (a group's total for a parent, its own line for a
+ * leaf: the one rule the editor's ItemRow and the share views' ReadonlyItemRow both
+ * render), and what a folder subtotal rolls up per top-level row. Totals never use
+ * this (they sum each item's OWN line, so a parent + its kids aren't double-counted).
+ * Hand it the row's own children and the sum is O(children); the whole list works too.
  */
 export function groupLineMg(item: Item, items: readonly Item[]): number {
   let mg = lineMg(item);
   for (const child of items) if (child.parentId === item.id) mg += lineMg(child);
   return mg;
 }
-
-/**
- * What a row's weight column shows: a group's total (own + children) for a parent,
- * its own line for a leaf. The one rule the editor's ItemRow and the share views'
- * ReadonlyItemRow both render, so they can't drift. `children` is this row's own
- * children (already filtered), so the group sum is O(children).
- *
- * groupLineMg over zero children IS the own-line case, so this is that function
- * under the name the two views share — one body, not a wrapper that could drift.
- */
-export const rowDisplayMg: (item: Item, children: readonly Item[]) => number = groupLineMg;
 
 /**
  * A row's calories, under the one rule computeTotals counts by: consumable rows only
@@ -601,6 +592,17 @@ export function computeTotals(list: ListData): Totals {
 // to this pin is made in both places.
 const NUM_LOCALE = "en-US";
 
+// One formatter per precision, made on first use and kept. toLocaleString with options
+// builds a fresh Intl.NumberFormat on every call, and a weight is formatted once or
+// twice per row on every render of a list.
+const grouped: Intl.NumberFormat[] = [];
+const groupedTo = (decimals: number) =>
+  (grouped[decimals] ??= new Intl.NumberFormat(NUM_LOCALE, { maximumFractionDigits: decimals }));
+
+/** How fine each unit reads, and that smallest step as it is written. */
+const UNIT_DECIMALS: Record<Unit, number> = { g: 0, oz: 1, kg: 2, lb: 2 };
+const UNIT_STEP: Record<Unit, string> = { g: "1", oz: "0.1", kg: "0.01", lb: "0.01" };
+
 /**
  * Format milligrams for display in `unit`. STRICT: the selected unit is always
  * the unit shown — grams stay grams, kg stays kg (no auto g→kg / oz→lb promotion).
@@ -618,19 +620,12 @@ export function formatWeight(
 ): string {
   const { withUnit = true, raw = false } = opts;
   const value = fromMg(mg, unit);
-  const decimals = unit === "g" ? 0 : unit === "kg" ? 2 : unit === "oz" ? 1 : 2;
+  const decimals = UNIT_DECIMALS[unit];
   const step = 10 ** -decimals; // smallest value this unit shows: 1 g, 0.1 oz, 0.01 lb/kg
   if (!raw && mg > 0 && Math.round(value / step) === 0) {
-    const stepStr = step.toLocaleString(NUM_LOCALE, {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
-    return withUnit ? `<${stepStr} ${unit}` : `<${stepStr}`;
+    return withUnit ? `<${UNIT_STEP[unit]} ${unit}` : `<${UNIT_STEP[unit]}`;
   }
-  const num = value.toLocaleString(NUM_LOCALE, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: decimals,
-  });
+  const num = groupedTo(decimals).format(value);
   return withUnit ? `${num} ${unit}` : num;
 }
 
@@ -643,7 +638,7 @@ export function formatWeight(
  * field is already clamped to an integer.
  */
 export function formatKcal(kcal: number): string {
-  return Math.round(kcal).toLocaleString(NUM_LOCALE, { maximumFractionDigits: 0 });
+  return groupedTo(0).format(Math.round(kcal));
 }
 
 /**

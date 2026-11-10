@@ -61,8 +61,8 @@ import {
   captureVaultItems,
   classificationOf,
   listVaultItems,
-  removeVaultItem,
-  restoreVaultItem,
+  removeVaultItems,
+  restoreVaultItems,
   searchVaultItems,
   vaultItemById,
   vaultItemByNormKey,
@@ -802,6 +802,8 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
 export const MCP_TOOLS: McpTool[] = MCP_TOOL_REGISTRY.map(({ run: _run, account: _account, ...tool }) => tool);
 const mcpToolByName = new Map(MCP_TOOL_REGISTRY.map((tool) => [tool.name, tool]));
 const argsOf = (raw: unknown) => (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+/** A name as two spellings of it compare: tidied, case folded. */
+const foldName = (name: string) => tidyText(name).toLowerCase();
 
 /** What the account behind the bearer means to one call, for the route's gate: the
  *  scope the tool can't run without, "optional" for a tool that uses an account when
@@ -1300,7 +1302,7 @@ async function linkCatalog(items: Item[]): Promise<string | null> {
     if (item.classification == null && row.categoryHint === "consumable") item.classification = "consumable";
     // the catalog's name for the product, the way a pick stores it, so the editor's
     // live-resolve keeps it current; a name the caller typed differently is theirs
-    if (tidyText(item.name).toLowerCase() === tidyText(row.name).toLowerCase()) item.name = row.name;
+    if (foldName(item.name) === foldName(row.name)) item.name = row.name;
     else item.nameOverridden = true;
   }
   return null;
@@ -1325,8 +1327,8 @@ class FolderBook {
     this.folders = [...existing];
   }
   find(name: string): Folder | undefined {
-    const want = tidyText(name).toLowerCase();
-    return this.folders.find((f) => tidyText(f.name).toLowerCase() === want);
+    const want = foldName(name);
+    return this.folders.find((f) => foldName(f.name) === want);
   }
   resolve(name: string, classification: Classification = "base"): Folder | string {
     const found = this.find(name);
@@ -1664,7 +1666,7 @@ function placeRow(work: ListState, plan: (op: Op) => void, id: string, folderId:
 
 /** How a person on the list is named in an argument: the name, compared tidied and
  *  case-folded as folder names are. */
-const personKey = (name: string) => tidyText(name).toLowerCase();
+
 
 /** the catalog rows an update's relinks name, fetched once for the call */
 type CatalogRows = Awaited<ReturnType<typeof catalogRowsById>>;
@@ -1687,7 +1689,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
   if (r.name !== undefined) {
     if (typeof r.name !== "string" || !r.name.trim()) return `A row keeps a name; give ${label} a new one or leave name out.`;
     patch.name = r.name.trim();
-    if (it.catalogItemId != null && tidyText(patch.name).toLowerCase() !== tidyText(it.name).toLowerCase()) patch.nameOverridden = true;
+    if (it.catalogItemId != null && foldName(patch.name) !== foldName(it.name)) patch.nameOverridden = true;
   }
   const text = (key: string, field: "brand" | "variant" | "commonName" | "description"): string | null => {
     const v = r[key];
@@ -1740,7 +1742,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
     if (r.carried_by === null || r.carried_by === "") patch.personId = null;
     else if (typeof r.carried_by !== "string") return `carried_by on ${label} must be a name on the list, or null.`;
     else {
-      const person = (people ?? []).find((p) => personKey(p.name) === personKey(r.carried_by as string));
+      const person = (people ?? []).find((p) => foldName(p.name) === foldName(r.carried_by as string));
       if (!person) {
         const names = (people ?? []).map((p) => p.name);
         return `No one on this list is called "${r.carried_by}".${names.length ? ` The people are: ${names.join(", ")}.` : " The list names no people yet."}`;
@@ -1765,7 +1767,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
       if (patch.name === undefined) {
         patch.name = row.name;
         patch.nameOverridden = false;
-      } else patch.nameOverridden = tidyText(patch.name).toLowerCase() !== tidyText(row.name).toLowerCase();
+      } else patch.nameOverridden = foldName(patch.name) !== foldName(row.name);
       if (r.gear_type === undefined && !it.commonNameOverridden) {
         patch.commonName = row.commonName ?? "";
         patch.commonNameOverridden = false;
@@ -1790,10 +1792,9 @@ function planMeta(raw: unknown, { plan }: Work): string | null {
 /** the `folders` part: renames, reorders, reclassifications and removals of folders that exist */
 function planFolders(entries: unknown[], { work, ops, plan }: Work): { changed: number } | string {
   if (entries.length > EDIT_MAX) return `At most ${EDIT_MAX} folders in one call.`;
-  const key = (name: string) => tidyText(name).toLowerCase();
   const find = (ref: unknown) =>
-    typeof ref !== "string" ? undefined : (work.folders.find((f) => f.id === ref) ?? work.folders.find((f) => key(f.name) === key(ref)));
-  const changes = entries.map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : {}));
+    typeof ref !== "string" ? undefined : (work.folders.find((f) => f.id === ref) ?? work.folders.find((f) => foldName(f.name) === foldName(ref)));
+  const changes = entries.map(argsOf);
   const missing = changes.filter((c) => !find(c.folder)).map((c) => String(c.folder ?? ""));
   if (missing.length) {
     const names = [...work.folders].sort(bySortOrder).map((f) => f.name);
@@ -1813,7 +1814,7 @@ function planFolders(entries: unknown[], { work, ops, plan }: Work): { changed: 
     const patch: Partial<Folder> = {};
     if (c.name !== undefined) {
       if (typeof c.name !== "string" || !c.name.trim()) return `A folder keeps a name; give "${folder.name}" a new one or leave name out.`;
-      const clash = work.folders.find((f) => f.id !== folder.id && key(f.name) === key(c.name as string));
+      const clash = work.folders.find((f) => f.id !== folder.id && foldName(f.name) === foldName(c.name as string));
       if (clash) return `The list already has a folder called "${clash.name}".`;
       patch.name = tidyText(c.name);
     }
@@ -1854,7 +1855,7 @@ async function planAdds(rows: unknown[], book: FolderBook, { work, plan }: Work)
 /** the `update` part: rows that exist, by id — their fields, catalog link, folder, place and group */
 async function planUpdates(entries: unknown[], book: FolderBook, { work, ops, plan }: Work): Promise<{ updated: number } | string> {
   if (entries.length > EDIT_MAX) return `At most ${EDIT_MAX} rows in one call; send the rest in another.`;
-  const rows = entries.map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : {}));
+  const rows = entries.map(argsOf);
   const unknown = rows.map((r) => String(r.id ?? "")).filter((id) => !work.items.some((i) => i.id === id));
   if (unknown.length) return NO_ROW([...new Set(unknown)]);
   // the catalog rows the relinks name, in one read; an id that isn't one is refused
@@ -2129,7 +2130,7 @@ function gearAsRow(piece: VaultEntry): Record<string, unknown> {
  * the rules the gear page's own writes get, so the two paths can't disagree.
  */
 function gearPatchFrom(raw: unknown): { patch: Record<string, unknown>; problem?: string } {
-  const r = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const r = argsOf(raw);
   const patch: Record<string, unknown> = {};
   // a value sent that the patch below would quietly skip: named instead, so the piece
   // isn't reported done without it (edit_list refuses the same values in words)
@@ -2223,7 +2224,7 @@ function kitInput(raw: Record<string, unknown>, mode: "add" | "update"): KitInpu
   if (items.length > VAULT_KIT_PARTS_MAX) return `A kit holds at most ${VAULT_KIT_PARTS_MAX} items.`;
   const parts: { id: number; qty: number }[] = [];
   for (const it of items) {
-    const o = (it && typeof it === "object" ? it : {}) as Record<string, unknown>;
+    const o = argsOf(it);
     if (!isSerialId(o.id)) return "Each kit item needs a piece's id, from get_my_gear.";
     const count = o.count ?? 1;
     if (typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > VAULT_KIT_QTY_MAX) return `A kit item's count is a whole number from 1 to ${VAULT_KIT_QTY_MAX}.`;
@@ -2260,14 +2261,14 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   for (const part of Object.values(parts)) if (typeof part === "string") return fail(part);
   const { add, update, remove, restore } = parts as Record<keyof typeof parts, unknown[]>;
   if (!add.length && !update.length && !remove.length && !restore.length) return fail("Nothing to change: give add, update, remove or restore.");
-  const updates = update.map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>) : {}));
+  const updates = update.map(argsOf);
   if (!updates.every((e) => isSerialId(e.id))) return fail("Every entry in update needs the piece's id, from get_my_gear.");
   if (![...remove, ...restore].every(isSerialId)) return fail("remove and restore take pieces' ids, from get_my_gear.");
   // the kits the entries name, checked before anything is written, as a malformed
   // catalog_id is: a kit the vault then refuses (a nested part, say) answers per piece
   const addKits: KitInput[] = [];
   for (const raw of add) {
-    const kit = kitInput((raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>, "add");
+    const kit = kitInput(argsOf(raw), "add");
     if (typeof kit === "string") return fail(kit);
     addKits.push(kit);
   }
@@ -2279,7 +2280,7 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   }
   // the catalog rows the adds and updates name, read once; an id that is no catalog
   // row refuses the call before anything is written, as it does on a list row
-  const named = [...add, ...updates].map((e) => (e && typeof e === "object" ? (e as Record<string, unknown>).catalog_id : undefined));
+  const named = [...add, ...updates].map((e) => argsOf(e).catalog_id);
   for (const id of named) if (id != null && !isCatalogId(id)) return fail(`catalog_id ${String(id)} isn't a catalog id; take one from search_catalog.`);
   const linkIds = named.filter(isCatalogId);
   const catalogRows: CatalogRows = linkIds.length ? await catalogRowsById(await useCatalogDb(), linkIds) : new Map();
@@ -2406,13 +2407,15 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   }
 
   const removed: { id: number; status: string }[] = [];
+  // one statement for each, however many ids; an id named twice in remove is a miss
+  // the second time, as it was when each id was its own statement
+  const gone = vaultId != null ? await removeVaultItems(db, vaultId, remove as number[]) : new Set<number>();
   for (const id of remove as number[]) {
-    const done = vaultId != null && (await removeVaultItem(db, vaultId, id));
-    removed.push({ id, status: done ? "removed" : "not_found" });
+    removed.push({ id, status: gone.delete(id) ? "removed" : "not_found" });
   }
+  const back = vaultId != null ? await restoreVaultItems(db, vaultId, restore as number[]) : new Set<number>();
   for (const id of restore as number[]) {
-    const done = vaultId != null && (await restoreVaultItem(db, vaultId, id));
-    removed.push({ id, status: done ? "restored" : "not_found" });
+    removed.push({ id, status: back.has(id) ? "restored" : "not_found" });
   }
   return ok({ added, results, updated, removed });
 }

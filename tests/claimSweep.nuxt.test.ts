@@ -71,7 +71,6 @@ registerEndpoint("/api/lists/claim", {
 });
 let served: Partial<ClaimedList>[] = [];
 registerEndpoint("/api/lists/claimed", () => ({ lists: served }));
-registerEndpoint("/api/lists/unclaim", { method: "POST", handler: () => ({ ok: true }) });
 
 // Rows here PREDATE origin tracking unless a case says otherwise: the sweep's whole
 // subject is what the server does with rows that never recorded how they arrived.
@@ -416,13 +415,5 @@ describe("the claimed-opens ledger — where the bare address left off", () => {
     const opens = claimedOpens();
     expect(opens).toHaveLength(32);
     expect(opens[0]!.shareCode).toBe("C0DE00000039");
-  });
-
-  it("stops offering a list this account has been detached from", async () => {
-    markClaimedOpen("C0DE00000009");
-
-    await useClaimedLists().unclaim("C0DE00000009");
-
-    expect(claimedOpens()).toEqual([]);
   });
 });

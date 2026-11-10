@@ -60,10 +60,6 @@ const props = withDefaults(
 );
 const emit = defineEmits<{
   commit: [NameCommit];
-  // true while the suggestion dropdown is showing — the folder lifts its collapse
-  // clip so a dropdown at the bottom of the folder isn't cropped (see FolderSection).
-  // Named generically ("overlay") because the row's ⋯ menu rides the same lift.
-  overlayToggle: [boolean];
   // Enter (the mobile return key too) landed a commit — the parent may continue
   // the flow by opening a fresh row below (todo-list entry; see ItemRow).
   advance: [];
@@ -320,13 +316,11 @@ const rows = computed(() =>
 );
 
 // the dropdown is position:absolute and can extend past the bottom of its folder,
-// whose body clips overflow for the collapse animation: lifted while it shows, and
-// released when its leave ENDS (useOverlayLift, which says why)
+// whose body clips overflow for the collapse animation; the body lifts that clip for
+// as long as a .popover is inside it (atoms/folder.scss)
 const menuVisible = computed(() => props.suggest && open.value && options.value.length > 0);
-const { lift, release } = useOverlayLift((on) => emit("overlayToggle", on));
 watch(menuVisible, (v) => {
   if (!v) return;
-  lift();
   // placed BEFORE the menu renders (a pre-flush watcher), so it mounts on the right side
   // at the right height and the pop-in grows from the edge it actually hangs off
   placeMenu();
@@ -705,7 +699,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
          inner list, safely inside the card's padding, never over the corners.
          <Transition name="menu"> = the kebab menu's pop-in (fade + spring rise),
          so the two floating menus arrive the same way. -->
-    <Transition name="menu" @after-leave="release">
+    <Transition name="menu">
     <!-- sized to the room left on screen, and flipped above when there is none below:
          see placeMenu -->
     <div

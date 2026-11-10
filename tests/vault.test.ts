@@ -6,7 +6,6 @@ import { gear } from "./helpers/list";
 import { DUPLEX, cap } from "./helpers/vault";
 import { vaultFolders, vaultItems, vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
-import { isUniqueViolation } from "../server/utils/db";
 import { UNIT_WEIGHT_MAX_MG } from "../shared/ops";
 import {
   VAULT_ITEMS_MAX,
