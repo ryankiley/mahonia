@@ -87,6 +87,10 @@ async function verify() {
   }
   state.value = "working";
   try {
+    // The page's own session check went out as it loaded, and this is about to
+    // change who is signed in: let that answer land first (sessionSettled says
+    // what happened when it landed second).
+    await sessionSettled();
     const res = await $fetch<VerifyAnswer>("/api/auth/verify", {
       method: "POST",
       body: confirmed ? { token, confirmed } : { token },
