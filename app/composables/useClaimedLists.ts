@@ -133,7 +133,7 @@ export function forgetClaimedOpen(shareCode: string): void {
  *  this device asks about it until the bare address resumes into it), so without
  *  this the launch after such a change went straight to a list the account no
  *  longer held — offline, into its stale copy as "offline", with no way to notice. */
-export function pruneClaimedOpens(keep: Iterable<string>, owner = cacheOwner()): void {
+function pruneClaimedOpens(keep: Iterable<string>, owner = cacheOwner()): void {
   if (!import.meta.client) return;
   const live = new Set([...keep].map(normalizeShareCode));
   const opens = readOpens(owner);
@@ -371,28 +371,6 @@ export function useClaimedLists() {
     return true;
   }
 
-  /** Detach a list from the account. The list itself is untouched — anyone holding
-   *  its edit link, this user included, can still open it. */
-  async function unclaim(shareCode: string): Promise<boolean> {
-    const owner = cacheOwner();
-    if (!owner) return false;
-    try {
-      const res = await $fetch<{ ok: boolean }>("/api/lists/unclaim", {
-        method: "POST",
-        body: { shareCode },
-      });
-      // the list itself survives, but this account is no longer a way into it —
-      // and a claimed resume is only as good as that claim
-      if (res.ok) {
-        if (owner !== cacheOwner()) return false;
-        dropRow(shareCode, owner);
-      }
-      return res.ok;
-    } catch {
-      return false;
-    }
-  }
-
   /** Forget the device-claim marker — on sign-out, so the next account signed in
    *  on this browser claims its own registry rather than seeing ours already done. */
   function resetClaimMark(owner = cacheOwner()): void {
@@ -420,7 +398,6 @@ export function useClaimedLists() {
     claimOne,
     touchByCode,
     deleteClaimed,
-    unclaim,
     resetClaimMark,
   };
 }

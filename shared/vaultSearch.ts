@@ -12,7 +12,7 @@
 // It lived in server/utils/vaultRepo.ts for the same reason, back when no client
 // searched a vault locally; the pane's own search is what brought it here.
 
-import { SIM_THRESHOLD, STRONG_THRESHOLD, isExactOrPrefixMatch, trigramScore } from "./catalogSearch";
+import { SIM_THRESHOLD, STRONG_THRESHOLD, coverage, runsIn, searchQuery, searchTokens } from "./catalogSearch";
 import { enoughToSearch } from "./searchText";
 import { VAULT_SEARCH_LIMIT } from "./vault";
 import { itemDisplayName } from "./weights";
@@ -78,19 +78,22 @@ const PICK_THRESHOLD = 0.8;
 function scoreVaultRows<T extends RankableVaultRow>(rows: T[], rawQuery: string): { row: T; score: number; tier: number }[] {
   const q = (rawQuery ?? "").trim();
   if (!enoughToSearch(q)) return []; // one character is too noisy for trigrams, unless it is a word
-  return rows
-    .map((row) => {
-      const brandName = itemDisplayName(row.brand ?? null, row.name);
-      // The searchable target is wider than the tier target. Variant is in it (you
-      // may well type "x-mid 2 pro"), and so is the GEAR TYPE — "stove" has to find
-      // your PocketRocket, exactly as it finds the catalog's, or your own gear is
-      // harder to search than a stranger's. commonName is the vault's analogue of
-      // catalog_items.search_terms, and it's excluded from the tier target for the
-      // same reason search_terms is: typing a category noun isn't typing the name.
-      const score = trigramScore(q, `${brandName} ${row.variant ?? ""} ${row.commonName ?? ""}`);
-      return { row, score, tier: isExactOrPrefixMatch(q, brandName) ? 0 : score >= STRONG_THRESHOLD ? 1 : 2 };
-    })
-    .filter((r) => r.score >= SIM_THRESHOLD)
+  const query = searchQuery(q);
+  const scored: { row: T; score: number; tier: number }[] = [];
+  for (const row of rows) {
+    const brandName = itemDisplayName(row.brand ?? null, row.name);
+    // The searchable target is wider than the tier target. Variant is in it (you
+    // may well type "x-mid 2 pro"), and so is the GEAR TYPE — "stove" has to find
+    // your PocketRocket, exactly as it finds the catalog's, or your own gear is
+    // harder to search than a stranger's. commonName is the vault's analogue of
+    // catalog_items.search_terms, and it's excluded from the tier target for the
+    // same reason search_terms is: typing a category noun isn't typing the name.
+    const score = coverage(query, searchTokens(`${brandName} ${row.variant ?? ""} ${row.commonName ?? ""}`));
+    if (score < SIM_THRESHOLD) continue;
+    const tier = runsIn(query.tokens, searchTokens(brandName)) ? 0 : score >= STRONG_THRESHOLD ? 1 : 2;
+    scored.push({ row, score, tier });
+  }
+  return scored
     .sort(
       (a, b) =>
         a.tier - b.tier ||

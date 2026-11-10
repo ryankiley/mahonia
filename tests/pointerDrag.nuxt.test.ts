@@ -13,7 +13,8 @@
 //     pending target in onReset destroyed the payload commit was about to use.
 //     target() is therefore read first, deliberately.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createPointerDrag, createPressArm, lockTextSelection } from "~/utils/pointerDrag";
+import { createPointerDrag, lockTextSelection } from "~/utils/pointerDrag";
+import { createPressArm } from "~/utils/pressArm";
 
 // happy-dom has no layout, so elementFromPoint returns null and getBoundingClientRect
 // is all zeroes. Both are stubbed per-test: the scaffold's decisions are ABOUT those

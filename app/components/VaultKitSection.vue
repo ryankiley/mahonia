@@ -164,7 +164,7 @@ watch(
       </Tooltip>
     </template>
 
-    <template #default="{ overlay }">
+    <template #default>
       <template v-for="{ part, entry } in rows" :key="part.id">
         <VaultGearRow
           v-if="entry"
@@ -174,7 +174,6 @@ watch(
           @edit="emit('edit', entry)"
           @icon="(g: GearGlyph | null) => emit('icon', entry, g)"
           @unit="(u: Unit) => emit('unit', entry, u)"
-          @overlay-toggle="overlay"
         >
           <template #lead>
             <!-- how many the kit holds: held out of sight, not dropped, on a row

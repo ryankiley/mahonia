@@ -10,10 +10,8 @@ import { enoughToSearch, foldForSearch, hasIdeograph, hasKana } from "./searchTe
  *  trailing, like pg_trgm). Output is byte-identical to the prior inlined fold —
  *  guarded by the exact-set assertions in tests/catalogSearch.test.ts. */
 export function trigrams(input: string): Set<string> {
-  const cleaned = foldForSearch(input);
   const out = new Set<string>();
-  if (!cleaned) return out;
-  for (const word of cleaned.split(/\s+/)) {
+  for (const word of searchTokens(input)) {
     const padded = `  ${word} `; // 2 leading + 1 trailing, like pg_trgm
     for (let i = 0; i < padded.length - 2; i++) out.add(padded.slice(i, i + 3));
   }
@@ -21,17 +19,62 @@ export function trigrams(input: string): Set<string> {
 }
 
 /**
- * How well `query` is covered by `target` (≈ pg_trgm word_similarity intent):
- * |T(query) ∩ T(target)| / |T(query)|. Rewards a short fragment/typo that's a
- * substring-ish of a longer name ("duplx" → "zpacks duplex" ≈ 0.67).
+ * Fold + split: the words every helper here compares. Remembered per spelling, because
+ * a search is the same few thousand row texts folded again on every keystroke and the
+ * fold is most of what a ranking costs. Keyed on the text itself, so an edited row is
+ * simply a new key; emptied when it fills.
  */
-export function trigramScore(query: string, target: string): number {
-  const q = trigrams(query);
-  if (q.size === 0) return 0;
-  const t = trigrams(target);
+export function searchTokens(s: string | null | undefined): readonly string[] {
+  if (!s) return NO_TOKENS;
+  let words = folded.get(s);
+  if (!words) {
+    const text = foldForSearch(s);
+    words = text ? text.split(/\s+/) : NO_TOKENS;
+    if (folded.size >= FOLDED_MAX) folded.clear();
+    folded.set(s, words);
+  }
+  return words;
+}
+const NO_TOKENS: readonly string[] = [];
+const folded = new Map<string, readonly string[]>();
+const FOLDED_MAX = 20_000;
+
+/**
+ * A query folded ONCE, for scoring against many rows. The fold is two Unicode
+ * normalisations and five regex passes, and a ranker that took the query as a string
+ * re-ran it for every row it looked at, several times over (the score, the type, the
+ * tier, the junk filter): on the offline cache that is two thousand rows a keystroke.
+ */
+export interface SearchQuery {
+  tokens: readonly string[];
+  grams: readonly string[];
+}
+export function searchQuery(query: string): SearchQuery {
+  return { tokens: searchTokens(query), grams: [...trigrams(query)] };
+}
+
+/**
+ * How well the query is covered by a target's words (≈ pg_trgm word_similarity
+ * intent): |T(query) ∩ T(target)| / |T(query)|. Rewards a short fragment/typo that's a
+ * substring-ish of a longer name ("duplx" → "zpacks duplex" ≈ 0.67).
+ *
+ * The target's trigram set is never built. A trigram of a word is exactly a
+ * three-character window of that word padded, so membership is `includes` on the
+ * padded words laid end to end; the only windows that straddle two words are
+ * letter-space-space and three spaces, which no query trigram is.
+ */
+export function coverage(query: SearchQuery, target: readonly string[]): number {
+  if (!query.grams.length) return 0;
+  let hay = "";
+  for (const word of target) hay += `  ${word} `;
   let hits = 0;
-  for (const g of q) if (t.has(g)) hits++;
-  return hits / q.size;
+  for (const g of query.grams) if (hay.includes(g)) hits++;
+  return hits / query.grams.length;
+}
+
+/** `coverage` for one query against one target, both as typed. */
+export function trigramScore(query: string, target: string): number {
+  return coverage(searchQuery(query), searchTokens(target));
 }
 
 export const SIM_THRESHOLD = 0.3; // matches pg_trgm's default similarity threshold
@@ -96,14 +139,12 @@ export interface LocalCatalogRow extends CatalogSearchResult {
  *   "plex"  vs "Zpacks Duplex"         → mid-word substring, no boundary → false
  */
 export function isExactOrPrefixMatch(query: string, target: string): boolean {
-  const qt = tokens(query);
-  return qt.length > 0 && tokensRunIn(qt, tokens(target));
+  return runsIn(searchTokens(query), searchTokens(target));
 }
 
-/** Fold + split once, for the token-level helpers below. */
-function tokens(s: string | null | undefined): string[] {
-  const folded = foldForSearch(s ?? "");
-  return folded ? folded.split(/\s+/) : [];
+/** The same test on words already folded: a non-empty query running in the target. */
+export function runsIn(qt: readonly string[], tt: readonly string[]): boolean {
+  return qt.length > 0 && tokensRunIn(qt, tt);
 }
 
 /**
@@ -137,8 +178,9 @@ function tokensRunIn(qt: readonly string[], tt: readonly string[]): boolean {
  * search_terms ARE "tent").
  */
 export function typeMatch(query: string, commonName: string | null | undefined): 0 | 1 | 2 {
-  const qt = tokens(query);
-  const tt = tokens(commonName);
+  return typeOf(searchTokens(query), searchTokens(commonName));
+}
+function typeOf(qt: readonly string[], tt: readonly string[]): 0 | 1 | 2 {
   if (!qt.length || !tt.length || qt.length > tt.length) return 0;
   if (!tokensMatchAt(qt, tt, 0)) return 0;
   return qt.length === tt.length ? 2 : 1;
@@ -152,8 +194,10 @@ export function typeMatch(query: string, commonName: string | null | undefined):
  * "tte", "ter" and " ba".
  */
 export function hasTokenHit(query: string, target: string): boolean {
-  const tt = tokens(target);
-  return tokens(query).some((q) => (q.length >= 3 || hasIdeograph(q) || hasKana(q)) && tt.some((t) => t.startsWith(q)));
+  return tokenHit(searchTokens(query), searchTokens(target));
+}
+function tokenHit(qt: readonly string[], tt: readonly string[]): boolean {
+  return qt.some((q) => (q.length >= 3 || hasIdeograph(q) || hasKana(q)) && tt.some((t) => t.startsWith(q)));
 }
 
 /**
@@ -163,8 +207,7 @@ export function hasTokenHit(query: string, target: string): boolean {
  * cap in rankCandidates); it never ranks a row.
  */
 export function isSearchTermRun(query: string, searchTerms: string | null | undefined): boolean {
-  const qt = tokens(query);
-  return qt.length > 0 && tokensRunIn(qt, tokens(searchTerms));
+  return runsIn(searchTokens(query), searchTokens(searchTerms));
 }
 
 export type MatchTier = 0 | 1 | 2 | 3;
@@ -188,9 +231,21 @@ export function matchTier(
   commonName?: string | null,
   searchTerms?: string | null,
 ): MatchTier {
-  if (typeMatch(query, commonName)) return 0;
-  if (isExactOrPrefixMatch(query, brandName)) return 1;
-  if (score >= STRONG_THRESHOLD && hasTokenHit(query, `${brandName} ${searchTerms ?? ""}`)) return 2;
+  const qt = searchTokens(query);
+  const name = searchTokens(brandName);
+  return tierOf(qt, typeOf(qt, searchTokens(commonName)), name, [...name, ...searchTokens(searchTerms)], score);
+}
+/** matchTier on words already folded: `name` is brand + name, `all` adds the search terms. */
+function tierOf(
+  qt: readonly string[],
+  type: 0 | 1 | 2,
+  name: readonly string[],
+  all: readonly string[],
+  score: number,
+): MatchTier {
+  if (type) return 0;
+  if (runsIn(qt, name)) return 1;
+  if (score >= STRONG_THRESHOLD && tokenHit(qt, all)) return 2;
   return 3;
 }
 
@@ -248,20 +303,21 @@ export function rankCandidates(
 ): CatalogSearchResult[] {
   const q = (rawQuery ?? "").trim();
   if (!enoughToSearch(q)) return []; // 1 char is too noisy for trigrams, unless it is a word
-  const scored = rows
-    .map((r) => {
-      const brandName = itemDisplayName(r.brand, r.name);
-      // Score against name AND the derived search terms, mirroring the Neon target
-      // (coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,'')).
-      const score = trigramScore(q, `${brandName} ${r.searchTerms ?? ""}`);
-      return {
-        row: r,
-        score,
-        type: typeMatch(q, r.commonName),
-        tier: matchTier(q, brandName, score, r.commonName, r.searchTerms),
-      };
-    })
-    .filter((r) => r.score >= SIM_THRESHOLD);
+  const query = searchQuery(q);
+  const qt = query.tokens;
+  const scored: { row: LocalCatalogRow; score: number; type: 0 | 1 | 2; tier: MatchTier; terms: readonly string[] }[] = [];
+  for (const row of rows) {
+    // Score against name AND the derived search terms, mirroring the Neon target
+    // (coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,'')). Each is
+    // folded once and reused by everything below; a row under the gate stops here.
+    const name = searchTokens(itemDisplayName(row.brand, row.name));
+    const terms = searchTokens(row.searchTerms);
+    const all = [...name, ...terms];
+    const score = coverage(query, all);
+    if (score < SIM_THRESHOLD) continue;
+    const type = typeOf(qt, searchTokens(row.commonName));
+    scored.push({ row, score, type, tier: tierOf(qt, type, name, all, score), terms });
+  }
   // Junk filter: a weak trigram match is a typo's safety net, not a peer of a real
   // hit. With anything better in the pool it only pads the menu ("copper spur" once
   // ended in a compass and a spoon cover). With nothing better it IS the answer for
@@ -269,7 +325,7 @@ export function rankCandidates(
   // starts no word of any row is a custom name ("my car keys"), and twelve
   // look-alikes under it are noise: the menu stays shut and the typed text stands.
   const anyReal = scored.some((r) => r.tier < 3);
-  const kept = anyReal ? scored.filter((r) => r.tier < 3) : tokens(q).length > 1 ? [] : scored;
+  const kept = anyReal ? scored.filter((r) => r.tier < 3) : qt.length > 1 ? [] : scored;
   kept.sort(
     (a, b) =>
       a.tier - b.tier ||
@@ -281,7 +337,7 @@ export function rankCandidates(
   );
   // a query that names a kind of gear — a common name, or a derived noun/synonym —
   // gets the spread; a product or brand name gets every size it has
-  const generic = scored.some((r) => r.type > 0 || isSearchTermRun(q, r.row.searchTerms));
+  const generic = scored.some((r) => r.type > 0 || runsIn(qt, r.terms));
   const ordered = generic ? diversify(kept, limit) : kept.slice(0, limit);
   return ordered.map(({ row }) => toCatalogResult(row));
 }

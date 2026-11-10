@@ -26,7 +26,7 @@ import {
 } from "../../shared/discovery";
 import type { ListSnapshot } from "../../shared/types";
 import { useDb, type Db } from "./db";
-import { attachAuthorName, findPublishFieldsByEditHash, hydrateForRead, isLive, rowToSnapshot } from "./listRepo";
+import { findPublishFieldsByEditHash, hydrateForRead, isLive, rowToSnapshot } from "./listRepo";
 
 
 // The public-read visibility gate (public + active + not withheld + not deleted),
@@ -115,11 +115,10 @@ export async function publishListByEditHash(
   // Flagging is sticky: a republish can never self-clear a flag (only admin review can).
   // So it's OR'd in the statement, against the row as it stands when the write lands,
   // not against `row` read above: a report or a mutate's reflag arriving between the
-  // two would otherwise be written back to false by a publish that never saw it. (No
-  // RETURNING to read it back: the Db union only shares the full-row form, which would
-  // fetch `data`. The answer below can miss a flag that raced in; the row can't.)
+  // two would otherwise be written back to false by a publish that never saw it. The
+  // answer reads the flag back from the same statement, so it can't miss one either.
   // `status` is left untouched — publishing never affects the owner's edit/share access.
-  await d
+  const written = await d
     .update(lists)
     .set({
       isPublic: decision.isPublic,
@@ -129,8 +128,9 @@ export async function publishListByEditHash(
       publishedAt,
       updatedAt: new Date(),
     })
-    .where(eq(lists.id, row.id));
-  const flagged = row.flagged || decision.flagged;
+    .where(eq(lists.id, row.id))
+    .returning({ flagged: lists.flagged });
+  const flagged = written[0]?.flagged ?? (row.flagged || decision.flagged);
 
   return publicState({ ...row, isPublic: decision.isPublic, flagged, tripType, season });
 }
@@ -172,8 +172,7 @@ export async function getPublicBySlug(slug: string, db?: Db): Promise<ListSnapsh
   // the same current catalog names (and trail-link favicon) as /s and the editor,
   // not the add-time ones — plus the byline, which names this list's author, not
   // whoever happens to be viewing it
-  const snap = await hydrateForRead(hit.d, rowToPublicView(hit.row));
-  return attachAuthorName(hit.d, snap, hit.row.authorUserId);
+  return hydrateForRead(hit.d, rowToPublicView(hit.row), hit.row.authorUserId);
 }
 
 /**
@@ -228,7 +227,7 @@ export async function reportList(slug: string, db?: Db): Promise<boolean> {
     .update(lists)
     .set({ flagged: true, updatedAt: new Date() })
     .where(and(eq(lists.publicSlug, s), ...publicReadConditions()))
-    .returning();
+    .returning({ id: lists.id });
   return res.length > 0;
 }
 
@@ -247,6 +246,6 @@ export async function restoreList(slug: string, db?: Db): Promise<boolean> {
     .update(lists)
     .set({ flagged: false, updatedAt: new Date() })
     .where(and(eq(lists.publicSlug, s), eq(lists.flagged, true), isNull(lists.deletedAt)))
-    .returning();
+    .returning({ id: lists.id });
   return res.length > 0;
 }

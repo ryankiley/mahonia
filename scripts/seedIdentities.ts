@@ -4,9 +4,8 @@
 import { eq } from "drizzle-orm";
 import { vaultItems } from "../server/db/schema";
 import { vaultNormKey } from "../shared/vault";
-import type { useDb } from "../server/utils/db";
+import type { Db } from "../server/utils/db";
 
-type Db = Awaited<ReturnType<typeof useDb>>;
 
 /**
  * Refold every My Gear identity (2026-10-08). A row's norm_key is its brand + name +

@@ -300,7 +300,7 @@ function create() {
   // paints that on <html>, which is the only element that owns it while the pointer is
   // captured. The source row still lifts and follows the pointer during a copy, which
   // is deliberate: a gesture whose held object stayed put would read as broken.
-  return { dragId: drag.dragId, copying: drag.copyKey, drop, start: drag.start, startInsert, reset: drag.reset };
+  return { dragId: drag.dragId, drop, start: drag.start, startInsert, reset: drag.reset };
 }
 
 export function useItemDnd() {

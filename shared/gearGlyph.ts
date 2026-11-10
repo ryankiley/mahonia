@@ -265,11 +265,24 @@ const singular = (words: string) =>
     )
     .join(" ");
 
+// Remembered per spelling: the walk above is ninety regexes (twice on a miss), every
+// row of a list or a vault asks it on every render, and a search of My Gear asks it for
+// every row on every keystroke. Emptied when it fills, so a server that sees every
+// typed gear type there is can't grow it without bound.
+const seen = new Map<string, GearGlyph | null>();
+const SEEN_MAX = 2000;
+
 function glyphOf(text: string | null | undefined): GearGlyph | null {
   const words = (text ?? "").trim().toLowerCase().replace(/\s+/g, " ");
   if (!words) return null;
-  const one = singular(words);
-  return matchRules(words) ?? (one !== words ? matchRules(one) : null);
+  let glyph = seen.get(words);
+  if (glyph === undefined) {
+    const one = singular(words);
+    glyph = matchRules(words) ?? (one !== words ? matchRules(one) : null);
+    if (seen.size >= SEEN_MAX) seen.clear();
+    seen.set(words, glyph);
+  }
+  return glyph;
 }
 
 /**

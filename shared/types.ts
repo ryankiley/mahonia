@@ -101,10 +101,11 @@ export interface Item {
   needsCooking?: boolean;
   description?: string; // optional freeform user text
   productUrl?: string;
+  // What the piece cost, in whole cents of `currency`. It comes with gear picked from
+  // My Gear and goes back to it with a capture (shared/vault gearFromItem); no list
+  // surface shows or edits it.
   priceCents?: number;
-  // Write-only today: ItemRow stamps it from a catalog pick and nothing reads it
-  // back (cleanItemPatch doesn't even carry it through an update). Kept on the type
-  // for that one write; drop both together.
+  // ISO 4217 for priceCents: read and written only beside an amount.
   currency?: string;
   catalogItemId?: number; // linked catalog entry (set when chosen from autocomplete)
   catalogWeightMgAtLink?: number; // catalog weight at link time → powers the "catalog changed" nudge

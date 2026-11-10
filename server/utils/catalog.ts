@@ -24,6 +24,7 @@ import { itemDisplayName } from "../../shared/weights";
 import { enoughToSearch, foldForSearch, foldWidth } from "../../shared/searchText";
 import { UNIT_WEIGHT_MAX_MG, isCatalogId } from "../../shared/ops";
 import { memoized } from "./memoize";
+import { runDdl } from "./ddl";
 import type { Db } from "./db";
 import {
   SEARCH_LIMIT,
@@ -32,11 +33,6 @@ import {
   type LocalCatalogRow,
 toCatalogResult } from "../../shared/catalogSearch";
 import { WEIGHT_SOURCES, type RecentChange } from "../../shared/types";
-
-// trigramScore lives in shared/catalogSearch (single source of truth for the
-// offline client + this server fallback) — re-exported so its one server-side
-// importer (candidates.ts) keeps its import path.
-export { trigramScore } from "../../shared/catalogSearch";
 
 /**
  * The gear-type vocabulary the editor's datalist suggests (#382), without downloading a
@@ -123,25 +119,22 @@ export const CATALOG_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_recent ON catalog_edits (created_at DESC)`,
 ];
 
+// Neon ships pg_trgm and unaccent; PGlite doesn't (see the file header), so the
+// extensions and the GIN trigram index that power fuzzy autocomplete are Neon-only.
+// unaccent folds diacritics (ä→a) at query time so an accented brand ("Fjällräven")
+// matches its plain spelling — mirrors the fold in shared/catalogSearch.ts's
+// trigrams(). It is used in WHERE/ORDER expressions, not an index, so its STABLE
+// volatility is fine.
+const CATALOG_NEON_DDL: string[] = [
+  `CREATE EXTENSION IF NOT EXISTS pg_trgm`,
+  `CREATE EXTENSION IF NOT EXISTS unaccent`,
+  `CREATE INDEX IF NOT EXISTS idx_catalog_trgm ON catalog_items USING gin ((coalesce(brand,'') || ' ' || name) gin_trgm_ops)`,
+];
+
 /** Idempotently create the catalog table + indexes (memoized per process). */
-export const ensureCatalogSchema = memoized(async (db: Db) => {
-  for (const stmt of CATALOG_DDL) await db.execute(sql.raw(stmt));
-  if (isNeon()) {
-    // Neon ships pg_trgm — create the extension + GIN trigram index that
-    // power fuzzy autocomplete. (No-op'd locally; see file header.)
-    await db.execute(sql.raw(`CREATE EXTENSION IF NOT EXISTS pg_trgm`));
-    // unaccent folds diacritics (ä→a) at query time so an accented brand
-    // ("Fjällräven") matches its plain spelling — mirrors the diacritic fold in
-    // shared/catalogSearch.ts's trigrams(). Used in the WHERE/ORDER expressions
-    // below, not an index, so unaccent()'s STABLE volatility is fine.
-    await db.execute(sql.raw(`CREATE EXTENSION IF NOT EXISTS unaccent`));
-    await db.execute(
-      sql.raw(
-        `CREATE INDEX IF NOT EXISTS idx_catalog_trgm ON catalog_items USING gin ((coalesce(brand,'') || ' ' || name) gin_trgm_ops)`,
-      ),
-    );
-  }
-});
+export const ensureCatalogSchema = memoized((db: Db) =>
+  runDdl(db, isNeon() ? [...CATALOG_DDL, ...CATALOG_NEON_DDL] : CATALOG_DDL),
+);
 
 function normalizeQuery(q: unknown): string {
   return typeof q === "string" ? q.trim() : "";

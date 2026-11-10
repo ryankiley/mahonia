@@ -6,7 +6,7 @@ import { sweepWindow, toIso } from "./time";
 import { createError } from "h3";
 import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql, type SQL } from "drizzle-orm";
 import { listClaims, listSnapshots, lists, type ListRow, users } from "../db/schema";
-import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeCalendarDate, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyListText, type Op, MAX_TITLE_LEN, isCatalogId } from "../../shared/ops";
+import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeCalendarDate, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyListText, type Op, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
 import { computeTotals } from "../../shared/weights";
 import {
@@ -17,7 +17,8 @@ import {
   type FullSnap,
 } from "../../shared/snapshotDiff";
 import { UNITS, CLAIMED_LIST_CAP, LIST_META_KEYS } from "../../shared/types";
-import type { ChangeAuthor, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
+import type { CatalogSearchResult } from "../../shared/catalogSearch";
+import type { ChangeAuthor, Item, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
 import { isLikelySpam } from "../../shared/discovery";
 import { normalizeShareCode } from "../../shared/links";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
@@ -54,22 +55,26 @@ function weightColumns(totals: Totals) {
 // (invisible, UI-undeletable weight). Mirrors jsonToListImport's healing rules:
 // unknown folderId → ungrouped, dangling/self parentId → top-level, one nesting
 // level only, and a nested child always carries its parent's folderId.
+/** Cap, normalize, first id wins (the reducer's add rule), keyed by id in the incoming
+ *  order. A normalizer answers null for a row to drop rather than repair. */
+function firstById<R, T extends { id: string }>(
+  raw: readonly R[] | undefined,
+  cap: number,
+  normalize: (r: R) => T | null,
+): Map<string, T> {
+  const out = new Map<string, T>();
+  for (const r of (raw ?? []).slice(0, cap)) {
+    const row = normalize(r);
+    if (row && !out.has(row.id)) out.set(row.id, row);
+  }
+  return out;
+}
+
 function normalizeListData(raw?: Partial<ListData>): ListData {
-  // duplicate ids: first occurrence wins (the reducer's addItem/addFolder rule)
-  const folders: ListData["folders"] = [];
-  const folderIds = new Set<string>();
-  for (const f of (raw?.folders ?? []).slice(0, MAX_FOLDERS).map(normalizeFolder)) {
-    if (folderIds.has(f.id)) continue;
-    folderIds.add(f.id);
-    folders.push(f);
-  }
-  const items: ListData["items"] = [];
-  const byId = new Map<string, ListData["items"][number]>();
-  for (const it of (raw?.items ?? []).slice(0, MAX_ITEMS).map(normalizeItem)) {
-    if (byId.has(it.id)) continue;
-    byId.set(it.id, it);
-    items.push(it);
-  }
+  const folderIds = firstById(raw?.folders, MAX_FOLDERS, normalizeFolder);
+  const folders = [...folderIds.values()];
+  const byId = firstById(raw?.items, MAX_ITEMS, normalizeItem);
+  const items = [...byId.values()];
   for (const it of items) {
     if (it.folderId && !folderIds.has(it.folderId)) it.folderId = null;
     if (it.parentId && (it.parentId === it.id || !byId.has(it.parentId))) it.parentId = null;
@@ -85,13 +90,7 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
   // pointers to heal. sortOrder is renumbered from the incoming order so a hand-edited
   // file with gaps or ties still imports in a sane sequence, the same treatment the JSON
   // importer gives folders.
-  const days: NonNullable<ListData["days"]> = [];
-  const dayIds = new Set<string>();
-  for (const d of (raw?.days ?? []).slice(0, MAX_DAYS).map(normalizeDay)) {
-    if (dayIds.has(d.id)) continue;
-    dayIds.add(d.id);
-    days.push(d);
-  }
+  const days = [...firstById(raw?.days, MAX_DAYS, normalizeDay).values()];
   days.sort((a, b) => a.sortOrder - b.sortOrder).forEach((d, i) => (d.sortOrder = i));
   // Waypoints, same dedupe and cap. WITHOUT this a snapshot restore drops every one of
   // them — the reconstructed data goes through here on its way to the row, and anything
@@ -100,28 +99,19 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
   // No sortOrder to renumber: a waypoint's place on the route IS its order. Sorted by
   // alongM so the stored order matches the walk, and normalizeWaypoint returns null for
   // anything that isn't a placed pin, which is dropped rather than repaired.
-  const waypoints: NonNullable<ListData["waypoints"]> = [];
-  const wpIds = new Set<string>();
-  for (const wp of (raw?.waypoints ?? []).slice(0, MAX_WAYPOINTS)) {
-    const w = normalizeWaypoint(wp);
-    if (!w || wpIds.has(w.id)) continue;
-    wpIds.add(w.id);
-    waypoints.push(w);
-  }
+  const waypoints = [...firstById(raw?.waypoints, MAX_WAYPOINTS, normalizeWaypoint).values()];
   waypoints.sort((a, b) => a.alongM - b.alongM);
   // People: dedupe + cap like folders, renumbered like days — and then the one
   // referential invariant items hold against them, re-applied in bulk exactly as
   // folderId is above: an assignee this list doesn't have heals to unassigned,
   // or a raw create POST persists weight attributed to nobody the UI can show.
-  const people: NonNullable<ListData["people"]> = [];
-  const personIds = new Set<string>();
-  for (const p of (raw?.people ?? []).slice(0, MAX_PEOPLE).map(normalizePerson)) {
-    // the filter's sentinel word is not an id (the addPerson arm refuses it too);
-    // a crafted create carrying it is dropped here and its items heal below
-    if (personIds.has(p.id) || p.id === UNASSIGNED) continue;
-    personIds.add(p.id);
-    people.push(p);
-  }
+  // The filter's sentinel word is not an id (the addPerson arm refuses it too); a
+  // crafted create carrying it is dropped here and its items heal below.
+  const personIds = firstById(raw?.people, MAX_PEOPLE, (p) => {
+    const person = normalizePerson(p);
+    return person.id === UNASSIGNED ? null : person;
+  });
+  const people = [...personIds.values()];
   people.sort((a, b) => a.sortOrder - b.sortOrder).forEach((p, i) => (p.sortOrder = i));
   // names are unique per list (the reducer refuses a collision); a raw create or a
   // list written before that rule gets its repeats numbered rather than dropped —
@@ -198,12 +188,7 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     isPublic: row.isPublic,
     // ISO string for the wire; the driver hands back a Date (neon/PGlite) or, in
     // some paths, an already-serialized string — normalize both.
-    updatedAt:
-      row.updatedAt instanceof Date
-        ? row.updatedAt.toISOString()
-        : row.updatedAt
-          ? String(row.updatedAt)
-          : undefined,
+    updatedAt: row.updatedAt ? toIso(row.updatedAt) : undefined,
   });
 }
 
@@ -216,30 +201,26 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
 // Display-only: never written back to the list's `data` (mutations go through
 // applyOps on the stored row), so storage stays the user's original snapshot.
 export async function hydrateCatalogNames(db: Db, snap: ListSnapshot): Promise<ListSnapshot> {
-  // every catalog-linked row, whatever its override flags: each flag gates its OWN fields
-  // below (nameOverridden the brand/name/variant, commonNameOverridden the gear type), so
-  // filtering on one of them here would freeze the other's field too — a renamed product
-  // would keep the gear type it had at rename time forever, which is not what
-  // shared/types.ts promises ("independent of name/nameOverridden"). A row with both
-  // flags still comes along: its link may need handing on to a successor.
-  const ids = [
-    ...new Set(
-      snap.items
-        // isCatalogId, not a typeof: a stored id past the column's range would make
-        // this query fail on every read of the list, and every write, since the write
-        // path hydrates too. The reducer refuses such an id now; rows written before
-        // it did are simply left un-hydrated rather than taking the list down.
-        .filter((i) => isCatalogId(i.catalogItemId))
-        .map((i) => i.catalogItemId as number),
-    ),
-  ];
-  if (!ids.length) return snap;
-  // liveCatalogRows ensures the catalog table first: THIS query can run first on a
-  // fresh database (a copied list carries catalogItemId), and without the ensure
-  // every list read 500s until some catalog endpoint happens to run (the exact
-  // Neon-only latent bug db.ts's useCatalogDb exists to prevent). Memoized, and
-  // catalog-link-free lists never reach it (the early-out above).
-  const byId = await liveCatalogRows(db, ids);
+  return applyCatalogNames(snap, await liveCatalogRows(db, catalogIdsOf(snap.items)));
+}
+
+/**
+ * The catalog ids a set of rows links to — every linked row, whatever its override
+ * flags: each flag gates its OWN fields in applyCatalogNames (nameOverridden the
+ * brand/name/variant, commonNameOverridden the gear type), so filtering on one here
+ * would freeze the other's field too, and a row with both may still need its link
+ * handed on to a successor. liveCatalogRows dedupes, drops an id past the column's
+ * range (rows written before the reducer refused one are left un-hydrated rather than
+ * failing every read of the list), and ensures the catalog table before it queries:
+ * this can be the first catalog query on a fresh database.
+ */
+function catalogIdsOf(items: readonly Item[]): number[] {
+  return items.flatMap((i) => (typeof i.catalogItemId === "number" ? [i.catalogItemId] : []));
+}
+
+/** hydrateCatalogNames' second half, split out so a caller holding many lists (the
+ *  account export) or a write in flight (the autosave) can fetch the rows its own way. */
+function applyCatalogNames(snap: ListSnapshot, byId: Map<number, CatalogSearchResult>): ListSnapshot {
   if (!byId.size) return snap;
   snap.items = snap.items.map((it) => {
     if (it.catalogItemId == null) return it;
@@ -300,10 +281,21 @@ async function attachTrailFavicon(db: Db, snap: ListSnapshot): Promise<ListSnaps
  *  there re-shipped an immutable icon on every keystroke batch. The editor gets its icon
  *  once from getByEditHash, or from /api/trail-favicon while the list is still a draft.
  *
- *  The two lookups hit different tables and touch different fields, so they run
- *  concurrently rather than paying both latencies in series. */
-export async function hydrateForRead(db: Db, snap: ListSnapshot): Promise<ListSnapshot> {
-  await Promise.all([hydrateCatalogNames(db, snap), attachTrailFavicon(db, snap)]);
+ *  `authorUserId` adds the byline, which belongs to the READ views only (/s and /l,
+ *  not the editor, where you are the author and being told so is noise).
+ *
+ *  The lookups hit different tables and touch different fields, so they run
+ *  concurrently rather than paying each latency in series. */
+export async function hydrateForRead(
+  db: Db,
+  snap: ListSnapshot,
+  authorUserId: number | null = null,
+): Promise<ListSnapshot> {
+  await Promise.all([
+    hydrateCatalogNames(db, snap),
+    attachTrailFavicon(db, snap),
+    attachAuthorName(db, snap, authorUserId),
+  ]);
   return snap;
 }
 
@@ -574,20 +566,23 @@ async function captureSnapshot(
       actor: by.actor ?? null,
       editorUserId: by.editorUserId ?? null,
     });
-    if (demote) {
-      await db
-        .update(listSnapshots)
-        .set({ kind: "diff", snapshot: demote.snapshot })
-        .where(eq(listSnapshots.id, demote.id));
-    }
-    // prune oldest beyond the cap (id tie-breaks same-timestamp rows)
-    const all = await db
+    // Then, together: demote the old anchor, and prune whatever is past the cap
+    // (id tie-breaks same-timestamp rows). They touch different rows — the demoted
+    // one is second-newest, always inside the cap.
+    const kept = db
       .select({ id: listSnapshots.id })
       .from(listSnapshots)
       .where(eq(listSnapshots.listId, row.id))
-      .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id));
-    const stale = all.slice(SNAPSHOT_CAP).map((r) => r.id);
-    if (stale.length) await db.delete(listSnapshots).where(inArray(listSnapshots.id, stale));
+      .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
+      .limit(SNAPSHOT_CAP);
+    await Promise.all([
+      demote &&
+        db
+          .update(listSnapshots)
+          .set({ kind: "diff", snapshot: demote.snapshot })
+          .where(eq(listSnapshots.id, demote.id)),
+      db.delete(listSnapshots).where(and(eq(listSnapshots.listId, row.id), notInArray(listSnapshots.id, kept))),
+    ]);
   } catch {
     /* best-effort: never block a write on snapshotting */
   }
@@ -778,7 +773,7 @@ export async function restoreSnapshotByEditHash(
  * Attached at read time rather than denormalized onto the row so that renaming
  * yourself renames you everywhere at once, including on lists made years ago.
  */
-export async function attachAuthorName(
+async function attachAuthorName(
   db: Db,
   snap: ListSnapshot,
   authorUserId: number | null,
@@ -809,10 +804,7 @@ async function liveRowByShareCode(code: string): Promise<{ db: Db; row: ListRow 
 export async function getByShareCode(code: string): Promise<ListSnapshot | null> {
   const hit = await liveRowByShareCode(code);
   if (!hit) return null;
-  // the byline belongs to the READ views only — /s and /l, not the editor, where
-  // you are the author and being told so is noise
-  const snap = await hydrateForRead(hit.db, rowToSnapshot(hit.row));
-  return attachAuthorName(hit.db, snap, hit.row.authorUserId);
+  return hydrateForRead(hit.db, rowToSnapshot(hit.row), hit.row.authorUserId);
 }
 
 /**
@@ -908,7 +900,7 @@ function normalizeListMeta(raw: Partial<Record<ListMetaKey, unknown>> = {}) {
     // tidyProse, matching the setMeta case — apostrophes and invisibles yes, line
     // breaks kept, because this is the one text field that can hold paragraphs
     description: typeof raw.description === "string" && raw.description
-      ? tidyProse(raw.description.slice(0, 4000)) || undefined
+      ? tidyProse(raw.description.slice(0, MAX_DESCRIPTION_LEN)) || undefined
       : undefined,
     // anything but a real unit is grams
     displayUnit: (typeof raw.displayUnit === "string" && UNITS.includes(raw.displayUnit as Unit)
@@ -960,12 +952,11 @@ export async function exportClaimedLists(db: Db, userId: number): Promise<ListSn
     .where(and(eq(listClaims.userId, userId), isLive()))
     .orderBy(desc(lists.updatedAt))
     .limit(CLAIMED_LIST_CAP);
-  const out: ListSnapshot[] = [];
-  for (const { row } of rows) {
-    // hydrateCatalogNames rather than hydrateForRead: a backup carries no favicon
-    out.push(withOwnerOnly(await hydrateCatalogNames(db, rowToSnapshot(row)), row));
-  }
-  return out;
+  // catalog names only, not hydrateForRead: a backup carries no favicon. One catalog
+  // read for every list together, rather than one per list.
+  const snaps = rows.map(({ row }) => withOwnerOnly(rowToSnapshot(row), row));
+  const byId = await liveCatalogRows(db, snaps.flatMap((s) => catalogIdsOf(s.items)));
+  return snaps.map((s) => applyCatalogNames(s, byId));
 }
 
 export async function versionByEditHash(editHash: string): Promise<number | null> {
@@ -1044,11 +1035,13 @@ export async function createList(
  */
 export async function softDeleteByEditHash(editHash: string, db?: Db): Promise<boolean> {
   const d = db ?? (await useDb());
-  const listId = await findIdByEditHash(editHash, d);
-  if (listId === null) return false;
   const now = new Date();
-  await d.update(lists).set({ deletedAt: now, updatedAt: now }).where(eq(lists.id, listId));
-  return true;
+  const gone = await d
+    .update(lists)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(liveOnly(lists.editTokenHash, editHash))
+    .returning({ id: lists.id });
+  return gone.length > 0;
 }
 
 /**
@@ -1140,7 +1133,10 @@ export async function applyOpsByEditHash(
       Date.now() - lastSnap >= SNAPSHOT_THROTTLE_MS ||
       (opts.actor !== undefined && !(await recentPointBy(d, row.id, opts.actor)));
 
-    const updated = await d
+    // The catalog rows the echo below is hydrated from are read BESIDE the write, not
+    // after it: the ids are known from the state already, and this is the autosave,
+    // a round trip saved on every keystroke batch. A lost CAS wastes one cheap read.
+    const [updated, catalogRows] = await Promise.all([d
       .update(lists)
       .set({
         // every meta column, null for absent — the same LIST_META_KEYS walk create and
@@ -1157,7 +1153,7 @@ export async function applyOpsByEditHash(
         ...(reflag ? { flagged: true } : {}),
       })
       .where(and(eq(lists.id, row.id), eq(lists.version, row.version)))
-      .returning();
+      .returning(), liveCatalogRows(d, catalogIdsOf(state.items))]);
 
     if (updated[0]) {
       // pre-edit recovery point (best-effort; only ~once per throttle window)
@@ -1205,7 +1201,7 @@ export async function applyOpsByEditHash(
       // withOwnerOnly is NOT optional here. This is the autosave echo and the client
       // adopts it wholesale: without it every save hands the editor back a list with no
       // route, wiping the geometry out of the live state between keystrokes.
-      return withOwnerOnly(await hydrateCatalogNames(d, rowToSnapshot(updated[0])), updated[0]);
+      return withOwnerOnly(applyCatalogNames(rowToSnapshot(updated[0]), catalogRows), updated[0]);
     }
     // version moved under us — retry against the latest
   }
@@ -1245,12 +1241,11 @@ export async function reapAbandonedLists(
   const d = db ?? (await useDb());
   const { cutoff, limit } = sweepWindow(opts?.staleDays, LIST_REAP_STALE_DAYS, opts?.limit, REAP_BATCH_MAX);
 
-  // Select the eligible ids first (bounded), then soft-delete them and count via
-  // RETURNING — a reliable affected-row count across both the neon-http and PGlite
-  // drivers. The jsonb_array_length guard is belt-and-suspenders: reap only rows
-  // whose ACTUAL item array holds <= 1 item, so a drifted item_count rollup can't
-  // cause a real (2+ item) list to be reaped.
-  const candidates = await d
+  // One statement: a bounded subquery picks the eligible ids and the UPDATE
+  // soft-deletes them, counted via RETURNING. The jsonb_array_length guard is
+  // belt-and-suspenders: reap only rows whose ACTUAL item array holds <= 1 item, so
+  // a drifted item_count rollup can't cause a real (2+ item) list to be reaped.
+  const eligible = d
     .select({ id: lists.id })
     .from(lists)
     .where(
@@ -1262,16 +1257,12 @@ export async function reapAbandonedLists(
       ),
     )
     .limit(limit);
-  if (!candidates.length) return { reaped: 0 };
-
-  const ids = candidates.map((c) => c.id);
   const now = new Date();
-  // RETURNING only for the row count
   const reaped = await d
     .update(lists)
     .set({ deletedAt: now, updatedAt: now })
-    .where(inArray(lists.id, ids))
-    .returning();
+    .where(inArray(lists.id, eligible))
+    .returning({ id: lists.id });
   return { reaped: reaped.length };
 }
 
@@ -1353,7 +1344,7 @@ export async function rotateEditHash(
     .update(lists)
     .set({ editTokenHash: sha256Hex(next), updatedAt: new Date() })
     .where(liveOnly(lists.editTokenHash, editHash))
-    .returning();
+    .returning({ id: lists.id, authorUserId: lists.authorUserId });
   const row = updated[0];
   if (!row) return null;
 
