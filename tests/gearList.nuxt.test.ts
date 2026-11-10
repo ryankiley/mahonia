@@ -841,6 +841,42 @@ describe("useGearList — getting a pending capture out as the page goes away", 
     ]);
   });
 
+  // Most visitors have no account, and the endpoint answers them with a 401. The
+  // rows used to be built, queued, POSTed and refused on every edit, then beaconed
+  // again on every tab-hide.
+  it("queues nothing for a visitor who is signed out, and captures when they sign in", async () => {
+    hasVault.value = false;
+    try {
+      const c = useGearList();
+      await c.load({ token: TOKEN });
+      setVaultDecisionFor(TOKEN, "yes");
+      c.updateItem("i1", { qty: 2 });
+      await new Promise((r) => setTimeout(r, 50)); // past sync()'s import, were it running
+      expect(_pendingCapture()).toBe(false);
+      window.dispatchEvent(new Event("pagehide"));
+      expect(beacons).toHaveLength(0);
+
+      hasVault.value = true; // a passkey sign-in, same page, no edit after it
+      await rowsQueued();
+    } finally {
+      hasVault.value = true;
+    }
+  });
+
+  // A drag, a paste or an undo is one op per row, and each one notes a change: the
+  // capture set is built once for the tick, from the list as the last op left it.
+  it("builds one capture for a burst of edits, holding the last state", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    setVaultDecisionFor(TOKEN, "yes");
+    c.updateItem("i1", { qty: 2 });
+    c.updateItem("i1", { name: "Triplex" });
+    await rowsQueued();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(beacons).toHaveLength(1);
+    expect((beacons[0]!.body as { items: { name: string }[] }).items.map((i) => i.name)).toEqual(["Triplex"]);
+  });
+
   // Belt and braces: having beaconed the rows, the debounce must not then send
   // them a second time if the page turns out to still be alive (a backgrounded
   // tab that comes back).

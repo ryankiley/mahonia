@@ -19,13 +19,14 @@ unguessable link. The **gear vault** is the one part that asks for an account, b
 - **Calories** on consumables, totalled for the list.
 - **Trip dates**, as calendar dates — no time, no timezone, so a trip doesn't shift when
   you fly.
-- **Share two ways:** a read-only link, and an edit link for co-planning. Either can be
-  replaced if it gets out.
+- **Share two ways:** a read-only link, and an edit link for co-planning. The edit link
+  can be replaced if it gets out.
 - **Packing mode** — the same list as a checklist, for the night before.
 - **A gear vault** that fills itself as you build, so your kit is one pick away next time.
 - **Import** from LighterPack (share link or CSV) or a JSON backup; **export** as CSV,
   JSON or Markdown.
-- **Recovery points**, so an accidental delete is undoable well after the toast.
+- **Recovery points**: the server keeps the last few versions of every list, so a loss
+  past undo can still be put back.
 
 ## Run locally
 

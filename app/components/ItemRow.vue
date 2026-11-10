@@ -23,6 +23,10 @@ export const PEOPLE_CTX: InjectionKey<{
   slotById: Readonly<Ref<Map<string, number>>>;
 }> = Symbol("people");
 export const VARIANT_SHOWN: InjectionKey<Readonly<Ref<ReadonlySet<string>>>> = Symbol("variantShown");
+// ...and the editor's toast, for the one thing a row has to SAY (a save to My Gear that
+// didn't land). Reached the same way: it was an event relayed up through the nested
+// row, the folder's rows and the folder, four components that had nothing to add to it.
+export const ROW_FLASH: InjectionKey<(message: string) => void> = Symbol("flash");
 
 // static per-component tables — module scope so a large list doesn't rebuild
 // them in every row instance
@@ -50,7 +54,7 @@ import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN } from "~~/shared
 import { effectivePersonId, personColor } from "~~/shared/people";
 import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseWeightInput, rowDisplayMg, siblingItems, storedClassification } from "~~/shared/weights";
+import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseWeightInput, groupLineMg, siblingItems, storedClassification } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
 import { QTY_MAX, useItemRowFields } from "~/composables/useItemRowFields";
 import { useItemRowClassification } from "~/composables/useItemRowClassification";
@@ -94,7 +98,7 @@ const props = withDefaults(
 // forwarded up to FolderSection so it can lift its collapse clip while this row has a
 // floating overlay open — the name autocomplete, or the mobile ⋯ menu (otherwise an
 // overlay at the folder's bottom is cropped)
-const emit = defineEmits<{ overlayToggle: [boolean]; toast: [string] }>();
+const flash = inject(ROW_FLASH, () => {});
 const c = useGearList();
 // two jobs for the vault button: telling "your vault is unreachable" from "you
 // don't have one" when banking a row fails (the button is offered signed out too,
@@ -143,7 +147,7 @@ const bareGroup = computed(() => isBareGroup(props.item, isParent.value));
 const { collapsed: nestCollapsed, toggle: toggleNest } = nestCollapse.useFor(() => props.item.id);
 // the packing row's weight — same rule as the read views (ReadonlyItemRow): a
 // group shows its total (own + children), a leaf its own line
-const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
+const rowWeightMg = computed(() => groupLineMg(props.item, children.value));
 // ---- the packing tick ----
 // What this row's box stands for, and what pressing it writes — both resolved by
 // shared/packing, which holds the whole rule and the reasoning behind it. In short: a
@@ -203,19 +207,10 @@ const isDragging = computed(() => dnd.dragId.value === props.item.id);
 // in-flight signal is the cursor, which GearEditor puts on the editing surface rather
 // than here: this row is pointer-events:none while lifted, so it cannot set one.)
 // the group's collapse clip (overflow:hidden on .nest-block, needed for the 1fr↔0fr
-// slide) would crop a child's autocomplete dropdown or a lifted drag row. Lift it
-// while a child overlay is open or any drag is in flight — mirrors the folder's
-// overlay/dragpass lifts. Counts CHILD overlays only (the parent's own dropdown opens
-// above the block); still bubbles each up so the folder lifts its clip too. Never
-// lifts when collapsed (hidden children can't open an overlay or be dragged).
-const nestOverlayCount = ref(0);
-function onChildOverlay(open: boolean) {
-  nestOverlayCount.value = Math.max(0, nestOverlayCount.value + (open ? 1 : -1));
-  emit("overlayToggle", open);
-}
-const nestLifted = computed(
-  () => !nestCollapsed.value && (nestOverlayCount.value > 0 || dnd.dragId.value != null),
-);
+// slide) would crop a lifted drag row, so it lifts while any drag is in flight —
+// mirrors the folder's dragpass lift. (A child's open overlay lifts it too, in CSS: see
+// .nest-block:has(.popover) below.) Never when collapsed: hidden children can't be dragged.
+const nestLifted = computed(() => !nestCollapsed.value && dnd.dragId.value != null);
 const isDropBefore = computed(
   () =>
     dnd.dragId.value != null &&
@@ -666,7 +661,7 @@ const { activeSplit, consumableAria, isConsumable, isWorn, setClass, setSplit, s
 
 // ---- the row's popovers ----
 // One-at-a-time across the whole list (useItemMenu's singleton), and the folder
-// lifts its collapse clip while any is open (overlayToggle). The singleton holds ONE
+// lifts its collapse clip while any is open (atoms/folder.scss). The singleton holds ONE
 // open id, so every popover a row can raise is namespaced off the row id
 // (`<id>:menu`, `<id>:kcal`, …). That's what makes them mutually exclusive for free
 // — opening the calorie popover closes the ⋯ menu, on this row or any other, with
@@ -699,13 +694,6 @@ const menu = useItemMenu();
 const wornRootRef = useTemplateRef<HTMLElement>("wornRootRef");
 const wornPopRef = useTemplateRef<HTMLElement>("wornPopRef");
 const isWornOpen = computed(() => menu.openId.value === `${props.item.id}:worn`);
-// Each of the row's two popovers holds the folder's clip lift through useOverlayLift,
-// for its dedupe and its release on unmount: they sent open/closed straight from a
-// watcher, so a row unmounted with one open never sent the close, and the folder stayed
-// lifted. They release as they close, as they always did. `immediate`, so a row
-// remounted with one still open counts itself in.
-const wornLift = useOverlayLift((on) => emit("overlayToggle", on));
-watch(isWornOpen, (open) => (open ? wornLift.lift() : wornLift.release()), { immediate: true });
 // Whether the worn toggle is drawn at all — offersWorn (shared/fuel): not on water, not
 // on stove fuel, kept where the row already says worn so the value stays clearable
 // (isWorn folds the split in). The slot stays either way — a ghost shirt holds it open,
@@ -715,7 +703,7 @@ watch(isWornOpen, (open) => (open ? wornLift.lift() : wornLift.release()), { imm
 // fuel row stop being worn, and the toggle, the popover and the switch under the pointer
 // all live in the one root this gates: without this term the click that clears worn
 // unmounted the popover from inside itself, mid-transition, with the menu singleton still
-// holding its id, the folder's overlay lift never returned and focus dropped to the body.
+// holding its id, and focus dropped to the body.
 // The same guard classCellShown carries, for the same reason. The toggle goes when the
 // popover does.
 const wornOffered = computed(() => offersWorn(props.item, isWorn.value) || isWornOpen.value);
@@ -729,8 +717,6 @@ const { above: wornAbove, shift: wornShift, place: placeWorn } = useMenuPlacemen
 const kcalRootRef = useTemplateRef<HTMLElement>("kcalRootRef");
 const kcalPopRef = useTemplateRef<HTMLElement>("kcalPopRef");
 const isKcalOpen = computed(() => menu.openId.value === `${props.item.id}:kcal`);
-const kcalLift = useOverlayLift((on) => emit("overlayToggle", on));
-watch(isKcalOpen, (open) => (open ? kcalLift.lift() : kcalLift.release()), { immediate: true });
 // The field itself is offered only once the row IS consumable — the only state in which
 // the number is counted, so offering it sooner would collect a value the totals ignore
 // — and not on stove fuel holding no number, whose "calories" are the wrong kind and
@@ -764,9 +750,8 @@ const kcalOffered = computed(() => isConsumable.value && (isKcalOpen.value ? kca
 //    toggles, or the value is set forever with no field to clear it, still exported and
 //    still read by unwrapEmptied's guard. Same rule the gear type follows (cnameShown).
 //  • AN OPEN POPOVER — the kcal and worn popovers live INSIDE this cell, and clearing the
-//    kcal field is exactly what can turn the row bare. Unmounting the popover the user is
-//    typing in also stranded its overlayToggle(true), leaving the folder's collapse clip
-//    lifted, since the menu singleton never learned it had closed.
+//    kcal field is exactly what can turn the row bare, which would unmount the popover
+//    the user is typing in.
 const classCellShown = computed(
   () => isWater.value || !bareGroup.value || props.item.classification != null || props.item.needsCooking || isKcalOpen.value || isWornOpen.value,
 );
@@ -1053,8 +1038,7 @@ async function onSaveToVault() {
   // the tick would speak for gear the vault doesn't hold
   vaultSave.value = result === "saved" && savedAs() === asked ? "saved" : "idle";
   if (result === "saved") return;
-  emit(
-    "toast",
+  flash(
     result === "unworthy"
       ? isParent.value
         ? "Name the group and weigh the rows under it first"
@@ -1282,7 +1266,6 @@ function dismissFix() {
             @commit="onNameCommit"
             @advance="onAdvance"
             @paste-rows="onPasteRows"
-            @overlay-toggle="$emit('overlayToggle', $event)"
           />
           <!-- collapse a group of nested items — trails the name like the folder's
                chevron (the name hugs its text so this sits right after it) -->
@@ -1553,10 +1536,6 @@ function dismissFix() {
                is exactly the number you want to see in ounces. Water carries it too, on
                the same grounds: its weight is derived from the litres beside it, but
                which unit that derived figure reads in is still yours to pick. -->
-          <!-- overlay-toggle forwarded like the name autocomplete's: the menu opens
-               downward, so on the folder's last row it crosses the collapse clip
-               (and a last CHILD row crosses its group's nest clip too — the parent's
-               onChildOverlay lift rides the same event on the way up) -->
           <OptionMenu
             class="item__unitwrap"
             :options="WEIGHT_UNIT_OPTIONS"
@@ -1564,7 +1543,6 @@ function dismissFix() {
             :label="isParent ? 'Weight unit for this group' : 'Weight unit for this item'"
             :title="`Unit for ${item.name || (isParent ? 'this group' : 'this item')}`"
             @pick="(u) => onRowUnit(u as Unit)"
-            @overlay-toggle="$emit('overlayToggle', $event)"
           >
             <template #trigger="{ open }">
               <span class="t-sm t-muted item__unit">{{ rowUnit }}</span>
@@ -1862,7 +1840,6 @@ function dismissFix() {
               :icon="NodeAddIcon"
               trigger-class="item__nest-btn"
               tooltip
-              @overlay-toggle="$emit('overlayToggle', $event)"
             >
               <li v-for="a in nestActions" :key="a.label" role="none">
                 <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
@@ -1885,7 +1862,6 @@ function dismissFix() {
               menu-label="Who carries this"
               trigger-class="item__person-btn"
               tooltip
-              @overlay-toggle="$emit('overlayToggle', $event)"
             >
               <template #trigger>
                 <span v-if="rowPerson" class="swatch" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />
@@ -1950,7 +1926,6 @@ function dismissFix() {
               menu-label="Item actions"
               :icon="CircleEllipsisIcon"
               trigger-class="menu__btn item__morebtn"
-              @overlay-toggle="$emit('overlayToggle', $event)"
             >
               <!-- the person picker's mobile seat — the desktop trigger is
                    display:none here, so its popover would anchor to nothing. The
@@ -2041,8 +2016,6 @@ function dismissFix() {
           :item="child"
           nested
           :inherited-person-id="effPersonId"
-          @overlay-toggle="onChildOverlay"
-          @toast="$emit('toast', $event)"
         />
         <div v-if="isNestAppendTarget" class="item-nest__droptail" aria-hidden="true" />
         <!-- hidden in packing by the mode CSS (atoms/item.scss), not a v-if — the row
@@ -2965,10 +2938,13 @@ textarea.item__note {
 /* the nested block's thread-line container is the shared .nest-block atom
    (atoms/item.scss), rendered identically by ReadonlyItemRow */
 /* the collapse machinery (1fr↔0fr grid slide + clip) is the shared .nestcollapse atom
-   (atoms/item.scss). The editor's only addition: lift the clip while a child overlay
+   (atoms/item.scss). The editor's only addition: lift the clip while a child's overlay
    is open or a drag is live, so a child's autocomplete dropdown / lifted row isn't
-   cropped (mirrors the folder's is-overlay-open / is-dragpass lifts). */
-.nestcollapse.is-lifted > .nest-block {
+   cropped (mirrors the folder's :has(.popover) / is-dragpass lifts). The overlay half is
+   keyed on the element for the reason the folder's is; an open group only, since a
+   collapsed one's children can't open anything. */
+.nestcollapse.is-lifted > .nest-block,
+.nestcollapse:not([data-collapsed]) > .nest-block:has(.popover) {
   overflow: visible;
 }
 /* drag-to-reorder: insertion line when a nested sibling drops at the end of this

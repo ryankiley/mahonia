@@ -90,10 +90,13 @@ const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.li
 // see somebody's pack, not to be told what the walk would cost THEM against a number they
 // may never have set. The route's shape is a fact about the route; an estimate is a fact
 // about a person, and this page is about neither of the two people involved.
-// Which half of the list is on screen. Shared state rather than a local ref only because
-// it must reset per list — see useReadView.
-const view = useReadView();
-onMounted(resetReadView);
+// Which half of the list is on screen: the gear, or the trip. The component's own, so
+// it starts on the gear for every list (also what the server renders, which matters
+// because /l is indexable and a crawler runs no JavaScript). Deliberately not
+// persisted, following the unit picker on these same pages: a share link is usually
+// opened once, by somebody who did not make the list, and a preference remembered
+// from a different list would decide what they see before they have looked.
+const view = ref<"gear" | "trip">("gear");
 const VIEW_MODES = [
   { key: "gear", label: "Gear", icon: Backpack03Icon },
   { key: "trip", label: "Trip", icon: Route02Icon },

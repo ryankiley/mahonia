@@ -405,16 +405,18 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
   const owner = sessionOwnerMarker(hash);
   if (now.getTime() - new Date(row.lastUsedAt).getTime() > SESSION_REFRESH_AFTER_MS) {
     const expiresAt = new Date(now.getTime() + SESSION_TTL_MS);
-    await db
-      .update(sessions)
-      .set({ lastUsedAt: now, expiresAt })
-      .where(eq(sessions.id, row.sessionId))
-      .catch(() => {});
-    await db
-      .update(users)
-      .set({ lastSeenAt: now })
-      .where(eq(users.id, row.id))
-      .catch(() => {});
+    await Promise.all([
+      db
+        .update(sessions)
+        .set({ lastUsedAt: now, expiresAt })
+        .where(eq(sessions.id, row.sessionId))
+        .catch(() => {}),
+      db
+        .update(users)
+        .set({ lastSeenAt: now })
+        .where(eq(users.id, row.id))
+        .catch(() => {}),
+    ]);
     // AND RE-SET THE COOKIES. Sliding the row alone slides nothing the user can
     // feel: the browser still drops the cookie 90 days after SIGN-IN, so someone
     // who uses Mahonia every week is signed out on day 90 while holding a session
@@ -497,7 +499,7 @@ export async function endSession(event: H3Event): Promise<void> {
  */
 export async function endAllSessions(event: H3Event, userId: number): Promise<number> {
   const db = await useAccountDb();
-  const gone = await db.delete(sessions).where(eq(sessions.userId, userId)).returning();
+  const gone = await db.delete(sessions).where(eq(sessions.userId, userId)).returning({ id: sessions.id });
   clearSessionCookies(event);
   return gone.length;
 }
@@ -510,22 +512,25 @@ export async function endAllSessions(event: H3Event, userId: number): Promise<nu
  */
 export async function sweepExpiredAuth(db: Db): Promise<void> {
   const now = new Date();
-  await db.delete(sessions).where(lt(sessions.expiresAt, now));
-  // the connector's authorization codes live a minute; the ones nobody redeemed go
-  // with the same sweep rather than their own
-  await db.delete(oauthCodes).where(lt(oauthCodes.expiresAt, now));
-  await db
-    .delete(authTokens)
-    .where(
-      or(
-        lt(authTokens.expiresAt, now),
-        // a consumed link is spent the moment it's redeemed, but keep it briefly so
-        // a user double-clicking their link gets "already used" rather than a bare
-        // "unknown link" while the first click's session is still being set up
-        and(
-          sql`${authTokens.consumedAt} is not null`,
-          lt(authTokens.consumedAt, new Date(now.getTime() - MAGIC_LINK_TTL_MS)),
+  // three unrelated tables, so three statements at once
+  await Promise.all([
+    db.delete(sessions).where(lt(sessions.expiresAt, now)),
+    // the connector's authorization codes live a minute; the ones nobody redeemed go
+    // with the same sweep rather than their own
+    db.delete(oauthCodes).where(lt(oauthCodes.expiresAt, now)),
+    db
+      .delete(authTokens)
+      .where(
+        or(
+          lt(authTokens.expiresAt, now),
+          // a consumed link is spent the moment it's redeemed, but keep it briefly so
+          // a user double-clicking their link gets "already used" rather than a bare
+          // "unknown link" while the first click's session is still being set up
+          and(
+            sql`${authTokens.consumedAt} is not null`,
+            lt(authTokens.consumedAt, new Date(now.getTime() - MAGIC_LINK_TTL_MS)),
+          ),
         ),
       ),
-    );
+  ]);
 }

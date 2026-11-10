@@ -35,10 +35,6 @@ const props = defineProps<{
    *  hide/show off these */
   triggerClass?: string;
 }>();
-// the folder lifts its collapse clip while this is open — otherwise a menu opened
-// on the folder's last row is cropped at the folder's bottom edge
-const emit = defineEmits<{ overlayToggle: [boolean] }>();
-
 const menu = useItemMenu();
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
 const listRef = useTemplateRef<HTMLElement>("listRef");
@@ -50,20 +46,10 @@ const listRef = useTemplateRef<HTMLElement>("listRef");
 const { atStart, above, place } = useMenuPlacement(listRef);
 const id = computed(() => `${props.rowId}:${props.kind}`);
 const isOpen = computed(() => menu.openId.value === id.value);
-// the clip lift, by the rules every popover in a folder keeps (useOverlayLift): it
-// released as the menu STARTED to close, so a last row's menu was cut off at the
-// folder's edge mid-fade, and never on unmount
-const { lift, release } = useOverlayLift((on) => emit("overlayToggle", on));
 // measured on the tick the list mounts — it has no size to measure before that
-watch(
-  isOpen,
-  (open) => {
-    if (!open) return;
-    lift();
-    nextTick(place);
-  },
-  { immediate: true }, // a row remounted with this menu still open counts itself in
-);
+watch(isOpen, (open) => open && nextTick(place), {
+  immediate: true, // a row remounted with this menu still open places it too
+});
 function toggle() {
   menu.toggle(id.value, rootRef.value);
 }
@@ -98,7 +84,7 @@ function toggle() {
         </slot>
       </button>
     </Tooltip>
-    <Transition name="menu" @after-leave="release">
+    <Transition name="menu">
       <ul
         v-if="isOpen"
         ref="listRef"

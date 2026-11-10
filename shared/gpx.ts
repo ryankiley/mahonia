@@ -220,9 +220,24 @@ export function filePins(doc: Document): FilePin[] {
  * that happens to work on whichever export you tried first.
  */
 function byLocalName(doc: Document, name: string): Element[] {
-  const want = name.toLowerCase();
-  return [...doc.getElementsByTagName("*")].filter((el) => el.localName.toLowerCase() === want);
+  // One walk of the document, kept for as long as the document is: a file is read for
+  // four dialects' worth of names in turn, and walking every element for each of them
+  // was eight passes over a track that can run to hundreds of thousands of points. A
+  // parsed file is never edited, so the index can't go stale.
+  let index = elementsByName.get(doc);
+  if (!index) {
+    index = new Map();
+    for (const el of doc.getElementsByTagName("*")) {
+      const key = el.localName.toLowerCase();
+      const found = index.get(key);
+      if (found) found.push(el);
+      else index.set(key, [el]);
+    }
+    elementsByName.set(doc, index);
+  }
+  return index.get(name.toLowerCase()) ?? [];
 }
+const elementsByName = new WeakMap<Document, Map<string, Element[]>>();
 
 /** The text of the first descendant with this local name. */
 function localText(el: Element, name: string): string | null {

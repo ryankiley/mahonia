@@ -20,8 +20,9 @@ import {
   splitKnownBrand,
 } from "../../shared/catalogQuality";
 import { itemDisplayName } from "../../shared/weights";
-import { bumpUsage, ensureCatalogSchema, searchCatalog, trigramScore } from "./catalog";
-import { memoized } from "./memoize";
+import { trigramScore } from "../../shared/catalogSearch";
+import { bumpUsage, ensureCatalogSchema, searchCatalog } from "./catalog";
+import { ensureOf } from "./ddl";
 import type { Db } from "./db";
 
 const K_DISTINCT_LISTS = Math.max(2, Number(process.env.CATALOG_MIN_DISTINCT_LISTS) || 3);
@@ -52,9 +53,7 @@ export const CANDIDATES_DDL: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_candidate_open ON catalog_candidates (norm_key) WHERE promoted_into_id IS NULL AND rejected_at IS NULL`,
 ];
 
-const ensureCandidatesSchema = memoized(async (db: Db) => {
-  for (const stmt of CANDIDATES_DDL) await db.execute(sql.raw(stmt));
-});
+const ensureCandidatesSchema = ensureOf(CANDIDATES_DDL);
 
 export interface CandidateObservation {
   brand?: string | null;

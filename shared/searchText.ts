@@ -25,6 +25,22 @@ import { foldApostrophes } from "./tidyText";
  *  apart; the Neon query folds its width through foldWidth before the SQL, since
  *  unaccent() knows nothing of width. */
 export function foldForSearch(input: string): string {
+  return foldLetters(input).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+}
+
+/**
+ * The search fold with "+" left standing: what EXACT matching keys a product name by
+ * (shared/catalogMatch). The catalog relies on that one mark to tell products apart
+ * ("X-Mid Pro 2" and "X-Mid Pro 2+", "Lone Peak 9" and "9+"); dropping it is right for
+ * recall and wrong for identity. Everything else is foldForSearch's, by construction:
+ * the two share every step but the last.
+ */
+export function foldKeepingPlus(input: string): string {
+  return foldLetters(input).replace(/[^\p{L}\p{N}+]+/gu, " ").trim();
+}
+
+/** Every step of the fold but the strip: width, marks, case, the undecomposed letters. */
+function foldLetters(input: string): string {
   return foldWidth(input)
     .normalize("NFD")
     // Every mark but the kana voicing marks: NFD splits ガ into カ + U+3099, and
@@ -34,9 +50,7 @@ export function foldForSearch(input: string): string {
     .replace(/(?![\u3099\u309a])[\p{M}\p{Diacritic}]/gu, "")
     .normalize("NFC")
     .toLowerCase()
-    .replace(/[øßæœłđðþ]/g, (ch) => UNDECOMPOSED[ch]!)
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
+    .replace(/[øßæœłđðþ]/g, (ch) => UNDECOMPOSED[ch]!);
 }
 
 /**

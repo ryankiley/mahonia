@@ -1,4 +1,3 @@
-import type { Ref } from "vue";
 import { enoughToSearch } from "~~/shared/searchText";
 
 // The debounced, abortable autocomplete scaffold, once. The catalog search and the
@@ -27,7 +26,7 @@ export function useDebouncedSearch<T>(
     fallback?: (q: string) => T[] | undefined;
   } = {},
 ) {
-  const results = ref<T[]>([]) as Ref<T[]>;
+  const results = shallowRef<T[]>([]);
   let timer: ReturnType<typeof setTimeout> | undefined;
   let controller: AbortController | undefined;
   let lastQ = "";

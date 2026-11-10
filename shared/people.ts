@@ -178,20 +178,11 @@ export function selectItemsForPerson(items: Item[], selection: PersonSelection):
  *
  * Strict means a parent kept on screen only as context around a matching child
  * is NOT here — that's a rendering concern (the editor solves it in CSS with
- * :has(); the read-only views with visibleItemsForPerson below), and counting
+ * :has(); the read-only views with selectItemsForPerson's `visible`), and counting
  * the parent's own line would put someone else's weight in this person's total.
  */
 export function filterItemsForPerson(items: Item[], selection: PersonSelection): Item[] {
   return selectItemsForPerson(items, selection).counted;
-}
-
-/**
- * The items a selection SHOWS: the strict set above, plus a parent whose only
- * claim is a matching child — kept so that child still renders in its place
- * rather than orphaned. The read-only views render from this; totals never do.
- */
-export function visibleItemsForPerson(items: Item[], selection: PersonSelection): Item[] {
-  return selectItemsForPerson(items, selection).visible;
 }
 
 /**

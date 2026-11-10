@@ -35,6 +35,9 @@ const props = defineProps<{
   /** false drops the worn/consumable column: on the Food tab every row would wear the
    *  same consumable mark, a column that says nothing */
   marks?: boolean;
+  /** offline, showing this device's copy: nothing on the row can change (a change to My
+   *  Gear needs the server). The controls keep their room, so nothing shifts. */
+  readonly?: boolean;
 }>();
 const emit = defineEmits<{
   edit: [];
@@ -43,8 +46,6 @@ const emit = defineEmits<{
   remove: [];
   /** a unit picked for this piece's weight (the list row's unit picker, on /gear) */
   unit: [unit: Unit];
-  /** a menu on the row opened or closed — the kind's body lifts its clip while one is open */
-  "overlay-toggle": [open: boolean];
 }>();
 
 const displayName = computed(() => itemDisplayName(props.entry.brand, props.entry.name, props.entry.variant));
@@ -89,7 +90,7 @@ const meta = computed(() => {
 </script>
 
 <template>
-  <li class="vault__row">
+  <li class="vault__row" :class="{ 'is-readonly': readonly }">
     <!-- the kind of gear, before its name: a fixed column whether or not this row has
          one, so every name starts at the same x. The gear type says the same thing in
          words on the line below.
@@ -100,11 +101,11 @@ const meta = computed(() => {
          stop per row would double the keyboard walk down a page of a hundred. -->
     <GearIconPicker
       class="vault__type"
+      :inert="readonly || undefined"
       :model-value="entry.icon ?? null"
       :auto="autoIcon"
       :label="`Icon for ${displayName}`"
       @update:model-value="(g) => emit('icon', g)"
-      @overlay-toggle="(o) => emit('overlay-toggle', o)"
     >
       <template #trigger="{ open, toggle, attrs }">
         <!-- the site's tooltip, as on the list row's icon buttons, not a native title:
@@ -160,12 +161,12 @@ const meta = computed(() => {
       <span>{{ formatWeight(entry.weightMg, rowUnit, { withUnit: false }) }}</span>
       <OptionMenu
         class="vault__unitwrap"
+        :inert="readonly || undefined"
         :options="WEIGHT_UNIT_OPTIONS"
         :current="rowUnit"
         :label="`Weight unit for ${displayName}`"
         :title="`Unit for ${displayName}`"
-        @overlay-toggle="(o) => emit('overlay-toggle', o)"
-        @pick="(u) => emit('unit', u as Unit)"
+          @pick="(u) => emit('unit', u as Unit)"
       >
         <template #trigger="{ open }">
           <span class="t-sm t-muted">{{ rowUnit }}</span>
@@ -350,6 +351,12 @@ const meta = computed(() => {
    flex-start + --icon-pull for the same reason .vault__cls takes them: baseline
    alignment on a control with no text falls back to its bottom margin edge, which
    drifts down the moment a row grows a second line. */
+/* read-only (offline): the controls go but keep their room, so the weights stay in
+   the column the kit headings' totals line up with */
+.vault__row.is-readonly .vault__actions,
+.vault__row.is-readonly .vault__unitchev {
+  visibility: hidden;
+}
 .vault__actions {
   flex: none;
   display: inline-flex;

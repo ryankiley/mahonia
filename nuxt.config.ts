@@ -460,5 +460,8 @@ export default defineNuxtConfig({
     // internal word stays put on purpose (the API is /api/vault/*, the tables are
     // vault_*, the classes are .vault__*); this is only what people see and share.
     "/vault": { redirect: { to: "/gear", statusCode: 301 } },
+    // The catalog's log of fixes was a page, linked from every page's footer once; how a
+    // catalog weight is sourced and corrected is a section of Help now.
+    "/changes": { redirect: { to: "/help#weights", statusCode: 301 } },
   },
 });

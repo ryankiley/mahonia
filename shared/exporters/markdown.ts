@@ -5,7 +5,7 @@
 
 import type { Item, ListSnapshot } from "../types";
 import { carrierName, effectivePersonId } from "../people";
-import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, isBareGroup, itemDisplayName, lineMg, rowDisplayMg, splitWornQty } from "../weights";
+import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, isBareGroup, itemDisplayName, lineMg, groupLineMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
 
 // a product name with its common name trailing after an em dash, when the item has one
@@ -55,7 +55,7 @@ export function listToMarkdown(list: ListSnapshot): string {
     for (const { item: it, children: kids } of section.rows) {
       // a group's weight is its total (own + children); a plain row shows its own
       // line — kids is already this row's children, so no whole-list rescan
-      const rowMg = rowDisplayMg(it, kids);
+      const rowMg = groupLineMg(it, kids);
       const w = rowMg > 0 ? formatWeight(rowMg, u) : "—";
       // the product name, with the common name trailing it after an em dash when set
       // ("Altra Lone Peak 9+ — Trail runners") so a pasted list still says what each item is

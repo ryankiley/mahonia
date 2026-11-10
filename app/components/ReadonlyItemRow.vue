@@ -10,7 +10,7 @@ const NO_ITEMS: ItemT[] = [];
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { personColor } from "~~/shared/people";
 import type { Classification, Item, ListSnapshot } from "~~/shared/types";
-import { effectiveClassificationInFolder, formatKcal, formatWeight, isBareGroup, rowDisplayMg, splitWornQty, rowDisplayKcal } from "~~/shared/weights";
+import { effectiveClassificationInFolder, formatKcal, formatWeight, isBareGroup, groupLineMg, splitWornQty, rowDisplayKcal } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
 import { consumableIcon } from "~/utils/itemMarks";
 import { Backpack02Icon, ShirtIcon } from "@hugeicons/core-free-icons";
@@ -70,7 +70,7 @@ const isParent = computed(() => children.value.length > 0);
 const bareGroup = computed(() => isBareGroup(props.item, isParent.value));
 // a group shows its total (own + children); a leaf shows its own line weight
 // (`children` holds exactly this row's children, so the sum is O(children))
-const rowWeightMg = computed(() => rowDisplayMg(props.item, children.value));
+const rowWeightMg = computed(() => groupLineMg(props.item, children.value));
 // The unit the row was TYPED in, exactly as the editor and the packing view resolve it
 // (ItemRow's rowUnit). Without this the same row read "32.5 oz" to the person who wrote
 // it and "920 g" to everyone they shared it with — the feature is that a row keeps the

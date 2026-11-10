@@ -121,6 +121,22 @@ describe("LighterPack CSV import", () => {
     expect(pack.priceCents).toBeUndefined();
   });
 
+  // A spreadsheet saved in a locale that writes the decimal as a comma. Every comma was
+  // stripped as a thousands separator, so a 1,5 kg can came in as 15 kg, ten times the
+  // weight and no complaint. The weight field's own rule decides instead (parseDecimal).
+  it("reads a decimal comma as the weight field does, and a thousands comma still", () => {
+    const data = csvToListData(
+      ['name,weight,unit,calories,consumable', 'Bear can,"1,5",kg,,', 'Tent,"1,360",g,,', 'Quilt,"1.234,5",g,,', 'Bars,"0,25",kg,"1,200",1', "Stove,73,g,,"].join("\n"),
+    );
+    const mg = (name: string) => data.items.find((i) => i.name === name)!.unitWeightMg;
+    expect(mg("Bear can")).toBe(toMg(1.5, "kg"));
+    expect(mg("Tent")).toBe(toMg(1360, "g"));
+    expect(mg("Quilt")).toBe(toMg(1234.5, "g"));
+    expect(mg("Bars")).toBe(toMg(0.25, "kg"));
+    expect(mg("Stove")).toBe(toMg(73, "g"));
+    expect(data.items.find((i) => i.name === "Bars")!.kcal).toBe(1200);
+  });
+
   it("falls back to first column for the name when no name header", () => {
     const data = csvToListData("thing,grams\nSpork,18");
     expect(data.items[0]?.name).toBe("Spork");

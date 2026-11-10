@@ -26,7 +26,6 @@ import {
   sortedPeople,
   uniquifyPersonNames,
   UNASSIGNED,
-  visibleItemsForPerson,
 } from "../shared/people";
 import {
   applyListDiff,
@@ -243,12 +242,12 @@ describe("filtering + per-person totals", () => {
     expect(filterItemsForPerson(items, null)).toBe(items); // everyone = the list itself
   });
 
-  it("visibleItemsForPerson keeps a parent as context around a matching child", () => {
+  it("the visible set keeps a parent as context around a matching child", () => {
     const items = gear();
     // Sam's spoon lives in Alex's kit — the kit stays visible so the spoon has a home
-    expect(visibleItemsForPerson(items, "sam").map((i) => i.id)).toEqual(["can", "kit", "spoon"]);
+    expect(selectItemsForPerson(items, "sam").visible.map((i) => i.id)).toEqual(["can", "kit", "spoon"]);
     // …but Alex's view never needed the favor: his kit is his
-    expect(visibleItemsForPerson(items, "alex").map((i) => i.id)).toEqual(["kit", "pot"]);
+    expect(selectItemsForPerson(items, "alex").visible.map((i) => i.id)).toEqual(["kit", "pot"]);
   });
 
   it("resolves the strict and visible sets from one selection", () => {

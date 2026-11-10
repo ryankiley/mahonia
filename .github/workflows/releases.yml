@@ -68,8 +68,9 @@ jobs:
           node-version: 24
           cache: npm
 
-      # --ignore-scripts: postinstall builds the changelog and the catalog, and this
-      # job reads the changelog's sources directly (scripts/changelogSources.ts)
+      # --ignore-scripts: postinstall prepares Nuxt and sets the git hooks, neither of
+      # which this job needs; it reads the changelog's sources directly
+      # (scripts/changelogSources.ts)
       - run: npm ci --ignore-scripts
 
       - name: Cut or update a release per settled changelog date

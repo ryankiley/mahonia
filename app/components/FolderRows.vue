@@ -32,10 +32,6 @@ const props = defineProps<{
   items: Item[];
 }>();
 
-// a row's overlay/toast still reaches the folder (which owns the collapse-clip
-// lift) and the editor (which owns the toast) — forwarded, not handled
-defineEmits<{ overlayToggle: [boolean]; toast: [string] }>();
-
 const c = useGearList();
 
 // Which rows are NEW on this render — the ones TransitionGroup would have given an
@@ -118,8 +114,6 @@ function addBlank() {
       :list="list"
       :item="it"
       :prev-id="items[i - 1]?.id ?? null"
-      @overlay-toggle="$emit('overlayToggle', $event)"
-      @toast="$emit('toast', $event)"
     />
   </div>
 
