@@ -354,8 +354,12 @@ watch(
   color: var(--ink);
   text-align: left;
 }
-.kitsec__choice:hover,
 .kitsec__choice:focus-visible {
   background: var(--popover-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .kitsec__choice:hover {
+    background: var(--popover-hover);
+  }
 }
 </style>

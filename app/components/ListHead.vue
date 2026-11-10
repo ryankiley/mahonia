@@ -1136,15 +1136,12 @@ onClickOutside(trailEl, closeTrail);
 .head__panelinput:focus {
   outline: none;
 }
-.head__panelinput + .head__panellabel {
-  margin-block-start: var(--space-4);
-}
-/* And the same again for the file row, which sits BETWEEN the URL field and the title's
-   label and so breaks the adjacency the rule above depends on — the label was arriving
-   with no space above it at all. Second statement of one spacing; if a third thing ever
-   lands between a field and a label, this wants to become a rule about the panel's
-   children rather than another pair. */
-.head__gpx + .head__panellabel {
+/* Every label after the first starts a new field and takes the step that separates one
+   pair from the next. A rule about the panel's labels, not about what happens to sit
+   before each one: written as "a label after a field" and again as "a label after the
+   file row", it missed the file's error line and the marked-places offer, which render
+   between that row and the title's label and left it with no space above it at all. */
+.head__panellabel ~ .head__panellabel {
   margin-block-start: var(--space-4);
 }
 /* Number and unit on one line, the unit taking only what it needs. NOT absolutely

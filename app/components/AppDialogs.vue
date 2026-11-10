@@ -43,7 +43,7 @@ watch(
     <BaseModal :open="linkState.open" :label="linkState.title" @close="closeLinkFallback">
       <h2 class="t-label">{{ linkState.title }}</h2>
       <p class="t-sm t-muted dlg__lede">Copying isn’t available here. Select the link below and copy it.</p>
-      <input ref="linkInput" class="field dlg__linkfield" :value="linkState.url" readonly @focus="linkInput?.select()" />
+      <input ref="linkInput" class="field well dlg__linkfield" :value="linkState.url" readonly @focus="linkInput?.select()" />
       <div class="dlg__actions">
         <button class="btn btn--primary" @click="closeLinkFallback">Done</button>
       </div>
@@ -54,13 +54,11 @@ watch(
 <style scoped>
 /* the action row (.dlg__actions) is shared shell — it lives in atoms/dialog.scss */
 .dlg__linkfield {
-  /* the import textarea's language — quiet tinted well, rounded a concentric
-     step inside the card (radius-4 − space-2, the same token the .well atom and
-     the menu rows read), not a hairline box. No focus deepen: the field is
-     readonly and arrives preselected. */
-  background: var(--paper-2);
-  border-radius: var(--popover-item-radius);
-  padding: var(--space-2) var(--space-3);
+  /* the import textarea's language: the .well atom's tinted ground and concentric
+     corner, not a hairline box. The atom's ground and not --paper-2, which sat at
+     1.10:1 on this card's float surface: a box you could not see around the one thing
+     the dialog asks you to copy. Only the height and the type size are this field's. */
+  padding-block: var(--space-2);
   font-size: var(--text-base);
 }
 </style>

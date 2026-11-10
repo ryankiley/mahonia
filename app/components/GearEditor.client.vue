@@ -1453,7 +1453,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* The big figure sits between the switcher and whatever that switcher chose. Its own
    space, because it belongs to neither — it is the page's headline in all three views. */
-/* NO margin of its own. The body is a flex column with a --space-4 gap, so a margin on
+/* NO margin of its own. The body is a flex column with its own gap (--body-gap), so a margin on
    the figure is a SECOND gap stacked on the first — which is how the number ended up 32px clear of
    the totals and 48 clear of the elevation chart, two different distances from two
    different stacks. One gap, the body's, and both views sit the same distance below the
@@ -1528,6 +1528,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
      sideways, so declaring it there left the other reading an invalid value and
      collapsing its margin to 0. */
   --folder-gap: var(--space-7);
+  /* The column's own gap, named for the same reason: .editor__addfolder subtracts it to
+     land a folder-gap below the last folder, and a retune here that it did not follow
+     left "Add folder" 8px too low. */
+  --body-gap: var(--space-5);
   /* With ModeBar's 4px padding, the first tab sits 8px from both top and left. */
   padding-block: var(--space-1) var(--space-7);
   display: flex;
@@ -1536,7 +1540,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
      row ListHead owns), and it was reading tight against the page title above it now
      that the sync line no longer sits in this column. Moves the editor toward the air
      the read views already give the same seam (.view is a --space-6 column). */
-  gap: var(--space-5);
+  gap: var(--body-gap);
 }
 /* the first-run pointer moved out of the column and onto the list switcher it
    points at — it lives in ListMenu now, tethered to that control */
@@ -1556,7 +1560,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .packbar-reveal {
   display: grid;
   grid-template-rows: 1fr;
-  /* the body's --space-4 gap reads roomier before a bare text line than before
+  /* the body's gap reads roomier before a bare text line than before
      the folder blocks — tuck it up toward the totals it annotates */
   margin-top: calc(-1 * var(--space-2));
   /* its slide on a mode switch, and the bar's own fade: atoms/modeswitch.scss */
@@ -1629,10 +1633,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__addfolder {
   align-self: flex-start;
   /* sit a full folder-gap below the last folder. This element is a SIBLING of
-     .editor__folders, not a child, so it already carries the body's --space-4 gap and
-     only needs the remainder — but the target is --folder-gap, read from the one
-     declaration above rather than restated. */
-  margin-top: calc(var(--folder-gap) - var(--space-4));
+     .editor__folders, not a child, so it already carries the body's gap and only needs
+     the remainder. Both lengths are read from their one declaration on .editor__body
+     rather than restated. */
+  margin-top: calc(var(--folder-gap) - var(--body-gap));
 }
 .editor__missing {
   padding-block: var(--space-9);

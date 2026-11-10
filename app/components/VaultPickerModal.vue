@@ -149,8 +149,10 @@ const groups = computed(() => {
 /* checkbox — the ItemRow recipe (atoms would be better, but the two are far enough
    apart in markup that hoisting them isn't a clean win yet): invisible native input
    over a Square/SquareCheck pair */
-.vpick__row:hover .check__icon {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .vpick__row:hover .check__icon {
+    color: var(--ink);
+  }
 }
 .vpick__name {
   overflow-wrap: anywhere;
