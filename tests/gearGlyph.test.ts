@@ -152,6 +152,8 @@ describe("which icon a gear type wears", () => {
     ["Emergency blanket", "firstAid"],
     ["E-reader", "phone"],
     ["Hip belt", "backpack"],
+    ["Bungee cords", "backpack"],
+    ["Bungees", "backpack"],
     ["Pee funnel", "toilet"],
     ["Pill bottle", "firstAid"],
     ["Toiletry bottle", "toiletry"],
@@ -180,7 +182,7 @@ describe("which icon a gear type wears", () => {
   });
 
   it("reads a plural the way it reads the singular", () => {
-    expect(gearGlyphFor("Bungee cords")).toBe("cord");
+    expect(gearGlyphFor("Sporks")).toBe("utensils");
     expect(gearGlyphFor("Pouches")).toBe("bag");
     expect(gearGlyphFor("Stuff sacks")).toBe("bag");
     // a word that only looks plural is left alone, so the long tail stays blank
