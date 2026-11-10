@@ -108,7 +108,12 @@ export const GEAR_GLYPH_LABELS: Record<GearGlyph, string> = {
 const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   // the names whose last word would send them to the wrong family
   [/\b(bottle cap|filter cap)\b/, "bottle"],
-  [/\b(stake bag|pole bag|rope bag|snack pouch|snack sack)\b/, "bag"],
+  [/\b(stake bag|pole bag|rope bag|snack (pouch|sack|bag)s?)\b/, "bag"],
+  // a food word in front of what holds or cleans it: since food reads on a tab of its
+  // own (vaultTabOf), a misread here moves the piece off Gear, not just its icon
+  [/\b(coffee|tea) (mugs?|cups?|grinder|dripper|infuser|strainer)\b/, "cup"],
+  [/\b(bar soap|shower gel|hair gel|sanitizer gel)\b/, "toiletry"],
+  [/\btea towels?\b/, "towel"],
   [/\bpill bottle\b/, "firstAid"],
   [/\bfuel bottle\b/, "stove"],
   [/\b(dropper bottle|toiletry bottle|spray bottle|toothbrush case|face wipes?)\b/, "toiletry"],

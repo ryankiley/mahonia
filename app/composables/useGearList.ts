@@ -817,7 +817,17 @@ function create() {
           data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [], people: s.people ?? [] },
         },
       });
-      if (myEpoch !== epoch) return;
+      if (myEpoch !== epoch) {
+        // Landed after the editor moved on (rotate's rule): the list exists now, and its
+        // edit link is in this answer and nowhere else. It goes into Your lists so it can
+        // be found, and the draft that made it is let go, or the next New list would
+        // restore it and make the list twice. Not while a draft is open by now: that
+        // record is its own.
+        const token = useMyLists().registerCreated(res);
+        setVaultDecisionFor(token, "yes");
+        if (!snapshot.value || holdsList()) store.del(DRAFT_KEY);
+        return;
+      }
       flushFailures = 0;
       clearTimeout(retryTimer);
       access.value = { kind: "token", token: res.editToken };
@@ -926,6 +936,9 @@ function create() {
     // one does. A failing save used to swap the word (and its full-ink alert colour)
     // about once a second for as long as the failure lasted.
     if (status.value !== "error") setStatus("saving");
+    // the link this batch goes out under, for the 404 below to tell a dead list from one
+    // whose link was replaced while the batch was out
+    const sentWith = editToken();
     try {
       const res = await $fetch<{ snapshot: ListSnapshot }>("/api/edit/mutate", {
         method: "POST",
@@ -974,10 +987,12 @@ function create() {
       }
       pending = ops.concat(pending); // re-queue (incl. 409 contention) and retry shortly
       // mutate's 404 is permanent (token deleted/rotated mid-session), never
-      // transient — stop retrying; the queue stays persisted on device
+      // transient — stop retrying; the queue stays persisted on device. Unless THIS
+      // device replaced the link while the batch was out (rotate): the old link it went
+      // under is dead, the list isn't, and the same ops go again under the new one.
       if (statusOf(e) === 404) {
-        setStatus("missing");
         persistLocal();
+        if (editToken() === sentWith) setStatus("missing"); // else the finally sends them again
         return;
       }
       // offline surfaces honestly; a genuine server error keeps the "Not saved" cue

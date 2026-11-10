@@ -236,6 +236,17 @@ describe("the editor's row", () => {
     expect(snapshot.value.items[0]!.catalogItemId).toBe(7);
   });
 
+  it("keeps the link when the same size is typed with a straight apostrophe or a doubled space", async () => {
+    for (const typed of ["Women's  Long", "women's long"]) {
+      const w = mountRow(longQuilt({ variant: "Women’s Long" }));
+      const field = w.find<HTMLInputElement>(".item__variant-input");
+      field.element.value = typed;
+      await field.trigger("change");
+      expect(snapshot.value.items[0]!.catalogItemId, typed).toBe(7);
+      w.unmount();
+    }
+  });
+
   it("shows a typed variant on a renamed row's sub-line", () => {
     const w = mountRow(longQuilt({ name: "Summer quilt", brand: "", nameOverridden: true, commonName: undefined }));
     expect((w.find(".item__variant-input").element as HTMLInputElement).value).toBe("Long");

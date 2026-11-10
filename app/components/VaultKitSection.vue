@@ -68,7 +68,9 @@ function step(id: number, by: number) {
 function drop(id: number) {
   send(kitPartRefs(parts.value).filter((r) => r.id !== id));
 }
-const canDrop = (p: VaultKitPart) => !!p.removed || liveCount.value > 1;
+// An item put away from My Gear can always come out, so long as it isn't the last item
+// of any kind: the kit op reads an empty set as "no longer a kit".
+const canDrop = (p: VaultKitPart) => parts.value.length > 1 && (!!p.removed || liveCount.value > 1);
 
 // The name is the heading, as a list's folder name is: saved on change (Enter or
 // leaving the field); Escape puts it back, and so does a blank.
@@ -222,11 +224,11 @@ watch(
         <!-- put away from My Gear: listed by name, it stops counting and can only come out -->
         <li v-else class="kitsec__line kitsec__line--gone">
           <span class="kitsec__name t-clip">{{ itemDisplayName(part.brand, part.name, part.variant) }} <span class="kitsec__gone">· removed</span></span>
-          <Tooltip text="Take out of kit" preferred-placement="top">
+          <Tooltip :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'" preferred-placement="top">
             <button
               type="button"
               class="btn btn--icon btn--ghost ink-quiet"
-              :disabled="busy"
+              :disabled="busy || !canDrop(part)"
               :aria-label="`Take ${part.name} out of ${name}`"
               @click="drop(part.id)"
             >

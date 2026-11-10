@@ -208,14 +208,18 @@ async function saveDraftKit(name: string, parts: { id: number; qty: number }[]) 
   opError.value = "";
   const made = await vault.op({ t: "add", name, weightMg: 0 });
   const kit: VaultOpResult = made.ok && made.item ? await vault.op({ t: "kit", id: made.item.id, parts, ownWeightMg: 0 }) : { ok: false };
-  busy.delete(DRAFT_ID);
   if (!kit.ok || !kit.item) {
     if (made.reason === "duplicate") opError.value = "You already have something called that in My Gear.";
     else fail("make that kit");
-    // a piece made without its kit is real gear now: show it
-    if (made.ok) void loadVault();
+    // The piece went in but its kit didn't: put it back away, so the draft can simply be
+    // tried again (a second add would meet it as "you already have that"), and a piece
+    // the add brought back from put away goes back there. One that won't go is real
+    // gear now: show it.
+    if (made.ok && made.item && !(await vault.remove(made.item.id))) void loadVault();
+    busy.delete(DRAFT_ID);
     return;
   }
+  busy.delete(DRAFT_ID);
   draftKit.value = null;
   items.value = [kit.item, ...items.value];
 }
@@ -265,6 +269,13 @@ const priceTitle = computed(() => {
 // said under the results, or in place of them when the tab found nothing. The query is
 // one for the whole page, so following a count keeps it typed.
 const elsewhere = computed(() => matchesElsewhere(gear.value, query.value, tab.value));
+// The count you pressed is gone once its tab is open, so the keyboard goes back to the
+// search rather than falling to the top of the page.
+const searchEl = useTemplateRef<{ focus: () => void }>("searchEl");
+function followElsewhere(to: VaultTab) {
+  pickTab(to);
+  nextTick(() => searchEl.value?.focus());
+}
 
 // ---- adding gear by hand -------------------------------------------------
 // The half capture can't do. Gear arrives here on its own from every list you build,
@@ -328,7 +339,9 @@ function openEdit(entry: VaultEntry) {
 }
 // One field picked on a row — a piece's own unit, or its icon — the way a list row
 // takes it: shown at once, then saved. The server's answer replaces the row; a save
-// that fails puts the old value back.
+// that fails puts the old value back. Only the row's latest pick does either: an
+// earlier one answering late would put back a value since replaced.
+const latestPatch = new Map<number, number>();
 async function patchEntry(
   entry: VaultEntry,
   patch: Pick<VaultEntry, "entryUnit"> | Pick<VaultEntry, "name"> | { icon: VaultEntry["icon"] | null },
@@ -336,9 +349,12 @@ async function patchEntry(
 ) {
   const before = items.value.find((i) => i.id === entry.id);
   if (!before) return;
+  const mine = (latestPatch.get(entry.id) ?? 0) + 1;
+  latestPatch.set(entry.id, mine);
   putRow({ ...before, ...patch, icon: "icon" in patch ? (patch.icon ?? undefined) : before.icon });
   opError.value = "";
   const res = await vault.op({ t: "edit", id: entry.id, patch });
+  if (latestPatch.get(entry.id) !== mine) return;
   if (res.ok && res.item) return putRow(res.item);
   putRow(before);
   fail(`save that ${what}`);
@@ -615,6 +631,7 @@ async function exportGear(kind: string) {
                  pane draws; only the sizing is this page's -->
             <!-- the tab's own name for what it holds: gear, food, kits -->
             <SearchField
+              ref="searchEl"
               v-model="query"
               class="vault__searchwrap"
               :placeholder="`Search my ${tab}…`"
@@ -722,7 +739,7 @@ async function exportGear(kind: string) {
               :query="query"
               :none="!filtered.length"
               :matches="elsewhere"
-              @pick="pickTab"
+              @pick="followElsewhere"
             />
             <p v-else-if="tab === 'kits' && !onTab.length && !draftKit" class="t-muted vault__none">
               No kits yet. Make one with New kit.

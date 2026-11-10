@@ -141,6 +141,10 @@ export function tidyText(raw: string): string {
   return BLANK_ONLY.test(out) ? "" : out;
 }
 
+/** Whether two strings say the same words once tidied, case aside: "Women's S" typed
+ *  over a stored "Women’s S" is no change of size. */
+export const sameText = (a: string, b: string): boolean => tidyText(a).toLowerCase() === tidyText(b).toLowerCase();
+
 // Horizontal whitespace only — a newline is content here, and U+3000 keeps the
 // exception it has above. Spaces hugging a line break go with it, so a wrapped
 // paragraph doesn't keep the trailing spaces its source had.
