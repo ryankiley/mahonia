@@ -105,6 +105,13 @@ describe("which icon a gear type wears", () => {
     ["Coffee", "food"],
     ["Instant coffee", "food"],
     ["French press", "cup"],
+    // ...and a food word in front of the thing that holds or cleans it is that thing
+    ["Snack bag", "bag"],
+    ["Coffee mug", "cup"],
+    ["Tea infuser", "cup"],
+    ["Bar soap", "toiletry"],
+    ["Shower gel", "toiletry"],
+    ["Tea towel", "towel"],
     ["Sit pad", "chair"],
     ["Big sit pad", "chair"],
     ["Crampons", "iceAxe"],

@@ -126,9 +126,12 @@ const query = computed({
 // count is the one switch that DOES take the words along: you asked for them, and the
 // tab you land on should answer the same question.
 const elsewhere = computed(() => matchesElsewhere(items.value, query.value, tab.value));
+// The count you pressed is gone once its tab is open, so the keyboard goes back to the
+// search rather than falling to the top of the page.
 function followElsewhere(to: VaultTab) {
   queries.value[to] = query.value;
   tab.value = to;
+  nextTick(() => searchEl.value?.focus());
 }
 const searchEl = useTemplateRef<{ focus: () => void }>("searchEl");
 

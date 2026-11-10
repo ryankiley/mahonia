@@ -1118,6 +1118,17 @@ watch(boundaries, renderBounds);
 
 watch(dayLegs, renderLegs);
 
+// A route swapped for another (a new file imported while the plan is open) is a new view:
+// the pan and zoom were onto ground the new route may not touch, so the view is ours
+// again and the new route goes in frame.
+watch(
+  () => props.geometry,
+  () => {
+    touched = false;
+    frame();
+  },
+);
+
 // Arming lights ONE stretch and stands the rest down, so the legs have to be redrawn when
 // it changes.
 watch(() => props.armedRange, renderLegs);

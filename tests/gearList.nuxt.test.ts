@@ -22,7 +22,7 @@ import { gear, snapshotFor as baseSnapshot } from "./helpers/list";
 import { memoryListStore } from "./helpers/gearList";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
-import { localKey, type LocalListRecord } from "~~/shared/localList";
+import { DRAFT_KEY, localKey, type LocalListRecord } from "~~/shared/localList";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultNormKey } from "~~/shared/vault";
@@ -325,6 +325,29 @@ describe("useGearList — a flush that fails after the editor moved on", () => {
     // the retry sets "saving" a backoff later, so that assertion races the very retry
     // this behaviour is for.)
     await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
+  });
+
+  // A batch out under the old link when this device replaces it comes back 404: the
+  // link it went under is dead, not the list. It goes again under the new one, where
+  // it used to mark the list gone and stop queueing every edit after it.
+  it("sends a batch refused under a link replaced mid-flight again, rather than calling the list gone", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    c.setMeta({ title: "Renamed during a rotate" });
+    await awaitMutateInFlight();
+    expect(await c.rotate()).toBe(ROTATED_TOKEN);
+    settleMutate.reject(createError({ statusCode: 404 }));
+    await vi.waitFor(() => expect(mutateCalls).toBe(2), { timeout: 5_000, interval: 25 });
+    expect(c.status.value).not.toBe("missing");
+  });
+
+  it("still calls the list gone on a 404 under the link it holds", async () => {
+    const c = useGearList();
+    await c.load({ token: TOKEN });
+    c.setMeta({ title: "Renamed after it went" });
+    await awaitMutateInFlight();
+    settleMutate.reject(createError({ statusCode: 404 }));
+    await vi.waitFor(() => expect(c.status.value).toBe("missing"));
   });
 });
 
@@ -1107,5 +1130,23 @@ describe("useGearList — a draft whose first save fails", () => {
     expect(c.snapshot.value?.items.find((i) => i.id === id)?.unitWeightMg).toBe(200_000);
     await new Promise((r) => setTimeout(r, 60)); // past the flush debounce
     expect(mutateCalls).toBe(0);
+  });
+
+  // The create can answer once the editor has gone elsewhere (another list, /gear). The
+  // list exists by then, and that answer holds its only edit link.
+  it("keeps the list a late first save made, in Your lists", async () => {
+    useMyLists().forget("created-edit-token"); // the case above made one by this token
+    const c = useGearList();
+    c.startDraft();
+    const id = c.addBlankItem(null);
+    let land!: () => void;
+    createGate = new Promise((resolve) => (land = () => resolve()));
+    c.updateItem(id, { name: "Duplex" });
+    await new Promise((r) => setTimeout(r, 20));
+    c.dispose(); // the editor moves on while the create is out
+    land();
+    await vi.waitFor(() => expect(useMyLists().entries.value.some((e) => e.editToken === "created-edit-token")).toBe(true));
+    // and the draft that made it is let go, so the next New list doesn't make it twice
+    await vi.waitFor(() => expect(records.has(DRAFT_KEY)).toBe(false));
   });
 });
