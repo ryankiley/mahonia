@@ -41,7 +41,7 @@ describe("robots.txt", () => {
   it("…which is safe only while every share surface says noindex itself", () => {
     // Source canaries, in the style of tests/waypointPrivacy.test.ts: the page's meta
     // tag, the header on everything else a share code resolves (the API, the Markdown
-    // twin, the social-card image), and a sitemap that only ever lists /l. Remove any
+    // twin, the social-card image), and a sitemap that lists no list at all. Remove any
     // one of them and the open robots rule above becomes a leak, so they fail together.
     const page = readFileSync(`${ROOT}app/pages/s/[code].vue`, "utf8");
     expect(page).toMatch(/name: "robots", content: "noindex"/);
@@ -55,8 +55,7 @@ describe("robots.txt", () => {
       expect(readFileSync(`${ROOT}${file}`, "utf8"), file).toContain("setNoIndex(event)");
     }
     const sitemap = readFileSync(`${ROOT}server/routes/sitemap.xml.ts`, "utf8");
-    expect(sitemap).toContain("/l/${esc(r.slug)}");
-    expect(sitemap).not.toContain("/s/${");
+    expect(sitemap).not.toMatch(/shareCode|slug|\/s\/|\/l\//);
   });
 });
 

@@ -92,16 +92,11 @@ describe("the read views' ⋯ menu", () => {
     expect(dup.attributes("disabled")).toBeUndefined();
   });
 
-  it("offers Report on every shared list, public or not", async () => {
+  it("offers Report on every shared list", async () => {
     // It used to be gated on isPublic, which no list ever was, so nobody ever saw it.
     // A report is feedback about one list now: the row opens the feedback box with the
-    // list's address in the message, so the private-or-public question doesn't arise.
-    const priv = await openMenu();
-    expect(rows(priv)).toContain("Report list");
-    priv.unmount();
-
-    const pub = await openMenu({ isPublic: true } as Parameters<typeof blankList>[0]);
-    expect(rows(pub)).toContain("Report list");
+    // list's address in the message.
+    expect(rows(await openMenu())).toContain("Report list");
   });
 
   it("closes on the action, so a row can't be pressed twice", async () => {

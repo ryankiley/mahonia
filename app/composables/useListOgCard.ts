@@ -3,7 +3,7 @@ import type { ListSnapshot, Totals } from "~~/shared/types";
 
 // One seam for "this page's social card is this list's card" — the og:image
 // tags for a per-list card, set identically on every surface that unfurls one
-// (/s and /l via useReadonlyListSeo, /e/[code] directly). The next card tag
+// (/s via useReadonlyListSeo, /e/[code] directly). The next card tag
 // gets added here once, not found-and-missed across pages; the same argument
 // useReadonlyListSeo makes for owning the text half.
 //

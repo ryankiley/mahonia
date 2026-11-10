@@ -19,7 +19,6 @@ import {
 import { UNITS, CLAIMED_LIST_CAP, LIST_META_KEYS } from "../../shared/types";
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
 import type { ChangeAuthor, Item, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
-import { isLikelySpam } from "../../shared/discovery";
 import { normalizeShareCode } from "../../shared/links";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
 import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "../../shared/trailDistance";
@@ -185,7 +184,6 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     // all. A recorded track also starts where the walker parked, which is frequently
     // where they live.
     waypoints: [],
-    isPublic: row.isPublic,
     // ISO string for the wire; the driver hands back a Date (neon/PGlite) or, in
     // some paths, an already-serialized string — normalize both.
     updatedAt: row.updatedAt ? toIso(row.updatedAt) : undefined,
@@ -335,7 +333,6 @@ const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val:
   and(eq(col, val), isLive());
 
 // The "is this holder allowed to touch this live, non-deleted list" lookup.
-// Exported so discoveryRepo shares the exact same capability gate (no drift).
 //
 // Split hash-first for the same reason rotateEditHash is: a SESSION's route to a
 // list arrives as a hash, never as a token. claimRepo.claimedEditHash resolves a
@@ -367,59 +364,6 @@ async function findIdByEditHash(editHash: string, db?: Db): Promise<number | nul
     .where(liveOnly(lists.editTokenHash, editHash))
     .limit(1);
   return rows[0]?.id ?? null;
-}
-
-/**
- * findByEditHash narrowed to what the publish flow touches — everything except the
- * two heavy columns, `data` and `routeGeometry`, neither of which publishing ever
- * reads or writes.
- *
- * One projection serves both the read (the editor's prefill, budgeted at 120/min)
- * and the write, because they are two views of the same small field set; splitting
- * them would be two shapes to keep in step for no gain. `Pick<ListRow, …>` rather
- * than a hand-written type, so a schema change can't leave this quietly lying.
- */
-type PublishFields = Pick<
-  ListRow,
-  | "id"
-  | "status"
-  | "publicSlug"
-  | "shareCode"
-  | "isPublic"
-  | "flagged"
-  | "tripType"
-  | "season"
-  | "publishedAt"
-  | "title"
-  | "description"
-  | "trailLabel"
->;
-
-export async function findPublishFieldsByEditHash(
-  editHash: string,
-  db?: Db,
-): Promise<PublishFields | null> {
-  const d = db ?? (await useDb());
-  const rows = await d
-    .select({
-      id: lists.id,
-      status: lists.status,
-      publicSlug: lists.publicSlug,
-      shareCode: lists.shareCode,
-      isPublic: lists.isPublic,
-      flagged: lists.flagged,
-      tripType: lists.tripType,
-      season: lists.season,
-      publishedAt: lists.publishedAt,
-      title: lists.title,
-      description: lists.description,
-      // the spam check reads all three text fields, here as on mutate and restore
-      trailLabel: lists.trailLabel,
-    })
-    .from(lists)
-    .where(liveOnly(lists.editTokenHash, editHash))
-    .limit(1);
-  return rows[0] ?? null;
 }
 
 /**
@@ -715,15 +659,6 @@ export async function restoreSnapshotByEditHash(
   if (s.routeGeometry != null && meta.routeGeometry !== s.routeGeometry)
     data.waypoints = seedRouteEnds(meta.routeGeometry ?? "");
   const totals = computeTotals(data);
-  // restore writes title/description like a mutate does, so it's the same link-spam
-  // vector: publish clean, then restore a link-stuffed earlier snapshot. Re-check
-  // here too (set-only, mirroring applyOpsByEditHash) so this path can't smuggle
-  // spam meta onto an already-public list past the publish-time gate.
-  const spammyMeta = isLikelySpam({
-    title: meta.title,
-    description: meta.description ?? null,
-    trailLabel: meta.trailLabel ?? null,
-  });
 
   // CAS like the mutate path: re-read + version-guard so a concurrent edit can't
   // be silently lost — and snapshot the overwritten state, so that edit is itself
@@ -742,7 +677,6 @@ export async function restoreSnapshotByEditHash(
         ...nulled(meta),
         data,
         ...weightColumns(totals),
-        ...(row.isPublic && spammyMeta ? { flagged: true } : {}),
         version: row.version + 1,
         updatedAt: new Date(),
       })
@@ -1094,34 +1028,6 @@ export async function applyOpsByEditHash(
     };
     const totals = computeTotals(data);
 
-    // The publish-time link-spam gate must survive publishing: a setMeta on an
-    // already-public list re-runs it, or clean-at-publish + spam-stuffed-after
-    // bypasses moderation entirely on the indexable /l page. Set-only (sticky,
-    // like publishList's `row.flagged || decision.flagged`) and gated on batches
-    // that actually touch title/description, so ordinary item edits can never
-    // re-flag an admin-restored list.
-    // trailLabel joins title/description here: it's owner-typed free text that renders
-    // on /l. trailUrl doesn't — it's one validated URL in its own field, and counting
-    // it would flag every list that legitimately uses the feature.
-    // isOpObject first: applyOps above ignores a malformed entry by design, so a raw
-    // `op.t` here threw on a null in the batch — a 500 that rolled back every valid
-    // op sent with it, on the one code path a client cannot route around.
-    const touchesMeta = ops.some(
-      (op) =>
-        isOpObject(op) &&
-        op.t === "setMeta" &&
-        (typeof op.patch?.title === "string" ||
-          typeof op.patch?.description === "string" ||
-          typeof op.patch?.trailLabel === "string"),
-    );
-    const reflag =
-      row.isPublic &&
-      touchesMeta &&
-      isLikelySpam({
-        title: state.title,
-        description: state.description,
-        trailLabel: state.trailLabel,
-      });
 
     // Throttle off the in-hand row (no extra query). Stamping lastSnapshotAt in
     // the SAME CAS update serializes the decision by the version guard, so two
@@ -1150,7 +1056,6 @@ export async function applyOpsByEditHash(
         version: row.version + 1,
         updatedAt: new Date(),
         ...(doSnapshot ? { lastSnapshotAt: new Date() } : {}),
-        ...(reflag ? { flagged: true } : {}),
       })
       .where(and(eq(lists.id, row.id), eq(lists.version, row.version)))
       .returning(), liveCatalogRows(d, catalogIdsOf(state.items))]);
@@ -1178,7 +1083,8 @@ export async function applyOpsByEditHash(
         const touched = new Set<string>();
         const STAGED_KEYS = ["name", "brand", "variant", "commonName", "unitWeightMg", "classification"] as const;
         for (const op of ops) {
-          if (!isOpObject(op)) continue; // same tolerance as applyOps (see touchesMeta)
+          // applyOps ignores a malformed entry by design; a raw op.t would throw on a null
+          if (!isOpObject(op)) continue;
           if (op.t === "addItem") touched.add(op.item.id);
           else if (op.t === "updateItem" && op.patch && STAGED_KEYS.some((k) => op.patch![k] !== undefined)) touched.add(op.id);
         }

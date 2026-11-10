@@ -66,7 +66,6 @@ describe("the takeout's shape", () => {
     shareCode: "ABC123DEF456",
     slug: "trip-a1b2c3",
     version: 3,
-    isPublic: false,
     updatedAt: "2026-06-01T00:00:00.000Z",
     title: "Trip",
     displayUnit: "g",
@@ -118,7 +117,6 @@ describe("the takeout's shape", () => {
   it("carries no edit capability and no version, which belong to the row, not the file", () => {
     const list = listExportObject(snap());
     expect("version" in list).toBe(false);
-    expect("isPublic" in list).toBe(false);
     expect("slug" in list).toBe(false);
     expect(JSON.stringify(list)).not.toMatch(/editToken/);
   });
