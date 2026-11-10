@@ -114,7 +114,14 @@ const RETRY_MS = 30_000;
  * did. `offline` is that state, and the surfaces go read-only on it: a change to My
  * Gear has no queue the way a list edit does, so each would only fail.
  */
-export function useVaultList() {
+export function useVaultList(
+  opts: {
+    /** Awaited before a server answer that CHANGES what is listed goes on screen: the
+     *  list pane holds it until the editor's column has finished moving aside, so the
+     *  re-render lands on a still page rather than in the middle of the move. */
+    before?: () => Promise<unknown>;
+  } = {},
+) {
   const { hasVault, vaultFetch } = useVaultAccess();
   const session = useSession();
   const items = ref<VaultEntry[]>([]);
@@ -197,10 +204,17 @@ export function useVaultList() {
     fetching.value = true;
     try {
       const got = (await vaultFetch<{ items: VaultEntry[] }>("/api/vault/list")).items || [];
+      // The usual answer is the copy already on screen, and replacing the array with
+      // its twin re-rendered every row for nothing. Kept as it is, then; only the
+      // copy's date moves, which the items watcher below won't do for an array that
+      // didn't change.
+      const same = source.value !== "none" && JSON.stringify(got) === JSON.stringify(items.value);
+      if (!same) await opts.before?.();
       // answered for an account this browser no longer holds: the next load is theirs
       if (sessionCacheOwner() === who) {
         source.value = "server";
-        items.value = got;
+        if (same) writeGearCopy(items.value, who);
+        else items.value = got;
         readAt.value = Date.now();
         // cleared only by an answer, so a retry in flight doesn't blink the offline state
         loadError.value = "";

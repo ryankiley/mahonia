@@ -154,7 +154,9 @@ describe("the My Gear pane offline", () => {
 
 // The composable itself, for what no surface shows directly: whose copy a write lands in,
 // when the gear is read-only, and asking again.
-const Harness = defineComponent({ setup: () => useVaultList(), render: () => null });
+const harness = (opts?: Parameters<typeof useVaultList>[0]) =>
+  defineComponent({ setup: () => useVaultList(opts), render: () => null });
+const Harness = harness();
 const signIn = () => {
   setCookie("mh_signed_in", "1");
   useState("session").value = { state: "signedIn", user: { owner: OWNER, email: "a@b.c", displayName: null } };
@@ -252,5 +254,59 @@ describe("asking again", () => {
     answer.resolve({ items: GEAR });
     await flushPromises();
     expect(h.vm.offline).toBe(false);
+  });
+});
+
+// The pane opens beside a column that is still moving aside, and a server answer that
+// landed in the middle of that move re-rendered every row in a frame the move stood
+// still for (2026-11-09).
+describe("the server's answer over the copy", () => {
+  it("leaves the rows alone when it is the copy already on screen, and re-dates the copy", async () => {
+    signIn();
+    writeGearCopy(GEAR, OWNER, 1_000);
+    access.read.mockResolvedValue({ items: structuredClone(GEAR) });
+    const before = vi.fn(() => Promise.resolve());
+    const h = mount(harness({ before }));
+    const painted = h.vm.items;
+    await flushPromises();
+    // the same array, so nothing re-rendered, and nothing to wait for
+    expect(h.vm.items).toBe(painted);
+    expect(before).not.toHaveBeenCalled();
+    expect(h.vm.readonly).toBe(false);
+    expect(readGearCopy(OWNER)!.savedAt).toBeGreaterThan(1_000);
+  });
+
+  it("waits for the surface's say-so before a different answer replaces what is listed", async () => {
+    signIn();
+    writeGearCopy(GEAR, OWNER);
+    const more = [...GEAR, piece(3, "X-Mid")];
+    access.read.mockResolvedValue({ items: more });
+    const landed = deferred<void>();
+    const h = mount(harness({ before: () => landed.promise }));
+    await flushPromises();
+    // answered, and still the copy: the column hasn't landed
+    expect(h.vm.items).toHaveLength(2);
+    expect(h.vm.readonly).toBe(true);
+
+    landed.resolve();
+    await flushPromises();
+    expect(h.vm.items).toHaveLength(3);
+    expect(h.vm.readonly).toBe(false);
+    expect(readGearCopy(OWNER)!.items).toHaveLength(3);
+  });
+
+  it("holds the first read too, when there was no copy to paint", async () => {
+    signIn();
+    access.read.mockResolvedValue({ items: GEAR });
+    const landed = deferred<void>();
+    const h = mount(harness({ before: () => landed.promise }));
+    await flushPromises();
+    expect(h.vm.items).toHaveLength(0);
+    expect(h.vm.loading).toBe(true);
+
+    landed.resolve();
+    await flushPromises();
+    expect(h.vm.items).toHaveLength(2);
+    expect(h.vm.loading).toBe(false);
   });
 });

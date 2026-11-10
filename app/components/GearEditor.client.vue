@@ -334,7 +334,30 @@ watchPostEffect(() => {
 // a phone, where the inset never changes, animates nothing. Nor does the keyboard: the
 // toolbar button pressed with Enter, or Escape in the pane, moves it in one frame.
 let column: { anims: Animation[]; sp: Spring; v0: number; from: number; to: number } | undefined;
-function setVault(open: boolean) {
+// THE PANE AND THE COLUMN SET OFF IN ONE FRAME. The pane is a chunk of its own, and
+// while it was fetched on the press the column had already left: the pane then mounted,
+// every row of your gear with it, a third of the way into the move, and the move is a
+// layout animation, so that mount is a frame it stands still for (measured: one 33-50ms
+// frame in four opens of five at half this machine's speed, the column at full pace).
+// So the chunk is asked for a beat early, on the pointer reaching the button or focus
+// landing on it (the ⋯ menu's warmMenu, for a component that can't mount closed), and a
+// press that still beats it waits for it, briefly: past PANE_WAIT_MS a slow connection
+// opens the old way, column first, rather than leaving the button dead.
+const PANE_WAIT_MS = 150;
+let paneChunk: Promise<unknown> | undefined;
+function warmVault() {
+  // a failed fetch is forgotten, so the next reach asks again
+  return (paneChunk ??= import("~/components/VaultPane.vue").catch(() => (paneChunk = undefined)));
+}
+// what the last press asked for, which the wait above can trail by a moment
+let vaultWanted = false;
+async function setVault(open: boolean) {
+  vaultWanted = open;
+  if (open && !vaultOpen.value) {
+    await Promise.race([warmVault(), new Promise((r) => setTimeout(r, PANE_WAIT_MS))]);
+    // closed again, or opened by an earlier press, while this one waited
+    if (!vaultWanted || vaultOpen.value) return;
+  }
   const el = editorRef.value;
   vaultOpen.value = open;
   if (!el) return;
@@ -368,11 +391,28 @@ function setVault(open: boolean) {
     const anims = [lead];
     if (bar) anims.push(bar.animate([{ marginRight: `${-from}px` }, { marginRight: `${-to}px` }], opts));
     const mine = (column = { anims, sp, v0, from, to });
+    // An opening from rest waits out the pane's first paint. The frame that first draws
+    // the pane lays out and paints every row of your gear, and with the move's clock
+    // already running the column stood at its start for that frame and then jumped
+    // ahead. Held at its first keyframe for the two frames Vue's own Transition takes
+    // before it lets the pane's entrance go, the column leaves on the same frame the
+    // pane does, with that paint behind both. A move caught in flight is never held.
+    if (open && !velocity) {
+      for (const a of anims) a.pause();
+      requestAnimationFrame(() =>
+        requestAnimationFrame(() => {
+          if (column === mine) for (const a of anims) a.play();
+        }),
+      );
+    }
     lead.finished.then(() => {
       if (column === mine) column = undefined;
     }, () => {});
   });
 }
+// the toolbar button: the opposite of what was last asked, not of what is on screen, so a
+// second press inside the wait takes the first one back
+const toggleVault = () => setVault(!vaultWanted);
 const importOpen = ref(false);
 const menuOpen = ref(false);
 // The menu's body is a Lazy component (EditorMenu) behind the same everOpened guard
@@ -978,7 +1018,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
               :class="{ 'is-on': vaultOpen }"
               aria-label="My Gear"
               :aria-expanded="vaultOpen"
-              @click="setVault(!vaultOpen)"
+              @pointerenter="warmVault"
+              @focus="warmVault"
+              @click="toggleVault"
             >
               <HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" />
             </button>
