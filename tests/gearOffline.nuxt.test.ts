@@ -254,3 +254,64 @@ describe("asking again", () => {
     expect(h.vm.offline).toBe(false);
   });
 });
+
+describe("the copy and the account it belongs to, mid-read", () => {
+  // The read answers after a sign-in elsewhere changed the cookie: dropped, and asked
+  // again for whoever holds the browser now, rather than leaving the page stuck on the
+  // old copy, read-only, with nothing saying why.
+  it("asks again when the answer comes back for an account no longer here", async () => {
+    signIn();
+    writeGearCopy(GEAR, OWNER);
+    const first = deferred<{ items: VaultEntry[] }>();
+    access.read.mockReturnValueOnce(first.promise).mockResolvedValue({ items: [piece(9, "Bivy", "Bivy")] });
+    const h = mount(Harness);
+    await flushPromises();
+    expect(h.vm.readonly).toBe(true);
+
+    setCookie("mh_session_owner", OTHER);
+    first.resolve({ items: GEAR });
+    await flushPromises();
+    expect(h.vm.items.map((i) => i.name)).toEqual(["Bivy"]);
+    expect(h.vm.readonly).toBe(false);
+    expect(readGearCopy(OTHER)?.items.map((i) => i.name)).toEqual(["Bivy"]);
+    expect(readGearCopy(OWNER)?.items).toHaveLength(2);
+  });
+
+  it("starts the next account's first ask as a question, not as offline", async () => {
+    signIn();
+    access.read.mockRejectedValue(new Error("offline"));
+    const h = mount(Harness);
+    await flushPromises();
+    expect(h.vm.offline).toBe(true);
+
+    // the account leaves, and a sign-in starts asking again
+    useState("session").value = { state: "signedOut" };
+    access.hasVault.value = false;
+    await flushPromises();
+    useState("session").value = { state: "unresolved" };
+    useState("session-pending").value = true;
+    await flushPromises();
+    expect(h.vm.offline).toBe(false);
+    expect(h.vm.loading).toBe(true);
+  });
+});
+
+describe("asking again, but not from a hidden tab", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(document, "visibilityState");
+  });
+
+  it("leaves a backgrounded tab alone", async () => {
+    signIn();
+    access.read.mockRejectedValue(new Error("offline"));
+    mount(Harness);
+    await flushPromises();
+    expect(access.read).toHaveBeenCalledTimes(1);
+
+    Object.defineProperty(document, "visibilityState", { value: "hidden", configurable: true });
+    document.dispatchEvent(new Event("visibilitychange"));
+    window.dispatchEvent(new Event("online"));
+    await flushPromises();
+    expect(access.read).toHaveBeenCalledTimes(1);
+  });
+});

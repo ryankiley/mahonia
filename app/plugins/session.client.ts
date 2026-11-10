@@ -21,6 +21,9 @@ export default defineNuxtPlugin(() => {
   // not awaited: nothing on first paint depends on it, and blocking hydration on
   // a session lookup would trade a real cost for no visible benefit
   void session.refresh();
+  // ...and again while it can't be answered (offline with an account), for every
+  // surface waiting on it at once
+  useSessionReask();
 
   // Attach the lists this browser holds to the account, so they're waiting on the
   // next device.
