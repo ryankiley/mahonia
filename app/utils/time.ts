@@ -34,8 +34,7 @@ export function timeAgo(ts: number, now: number = Date.now(), opts: { short?: bo
   // sense of the date ("yesterday" the moment the clock rolls over, not at +24h)
   const then = new Date(ts);
   const today = new Date(now);
-  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const days = Math.round((startOfDay(today) - startOfDay(then)) / DAY_MS);
+  const days = calendarDaysBetween(then, today);
   if (days <= 1) return "yesterday";
   if (days < 7) return opts.short ? `${days}d ago` : `${days} days ago`;
 
@@ -70,8 +69,26 @@ export function timeAgo(ts: number, now: number = Date.now(), opts: { short?: bo
  *
  * An open end is legitimate and prints as just the start: you often know when you
  * leave before you know when you're back.
+ *
+ * `relative` words a trip that starts in the coming week the way people say it:
+ * "Tomorrow", "Friday", "Friday – Sunday", "Tomorrow – November 20". The same rule as
+ * the year, one step further: within a week you plan in weekdays (the forecast, the day
+ * off), so the weekday is what you think in and "November 13" is the number you'd have
+ * to convert. Six days is the edge because a week out "Friday" stops saying which one.
+ * A trip already underway or over keeps its dates. Words only, no "on": the label is a
+ * value beside a calendar mark, not a sentence. (Ryan, 2026-11-10.)
+ *
+ * Opt-in because it is only right on the READER's clock: a server render knows neither
+ * their timezone nor when they'll look, so an SSR caller turns it on after hydration,
+ * and a label that stays on screen re-renders from a ticking `now` so "Tomorrow" doesn't
+ * survive the night.
  */
-export function formatDateRange(start?: string, end?: string, now: Date = new Date()): string {
+export function formatDateRange(
+  start?: string,
+  end?: string,
+  now: Date = new Date(),
+  opts: { relative?: boolean } = {},
+): string {
   // The `YYYY-MM-DD` → local Date step is shared/calendar.ts's — a trip starting "Aug 4"
   // must read as Aug 4 in Portland, and that file explains why `new Date(iso)` doesn't.
   const a = parseIsoDate(start);
@@ -79,8 +96,12 @@ export function formatDateRange(start?: string, end?: string, now: Date = new Da
   if (!a && !b) return "";
   const thisYear = now.getFullYear();
   const one = (d: Date) => (d.getFullYear() === thisYear ? fmtMonthDay(d) : fmtFull(d));
-  if (!a || !b) return one(a ?? b!);
-  if (a.getTime() === b.getTime()) return one(a);
+  const soon = (d: Date) => (opts.relative ? inTheComingWeek(d, now) : null);
+  const label = (d: Date) => soon(d) ?? one(d);
+  if (!a || !b) return label(a ?? b!);
+  if (a.getTime() === b.getTime()) return label(a);
+  const first = soon(a);
+  if (first) return `${first} – ${label(b)}`;
 
   const sameYear = a.getFullYear() === b.getFullYear();
   if (!sameYear) return `${fmtFull(a)} – ${fmtFull(b)}`;
@@ -94,3 +115,21 @@ const fmtFull = (d: Date) =>
   d.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
 const fmtMonthDay = (d: Date) =>
   d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+
+/** "Today", "Tomorrow" or the weekday for a calendar day 0–6 days after `now`'s; null
+ *  for any other. */
+function inTheComingWeek(d: Date, now: Date): string | null {
+  const days = calendarDaysBetween(now, d);
+  if (days < 0 || days > 6) return null;
+  if (days === 0) return "Today";
+  if (days === 1) return "Tomorrow";
+  return d.toLocaleDateString("en-US", { weekday: "long" });
+}
+
+/** Whole calendar days from `from`'s date to `to`'s, by the reader's clock: negative into
+ *  the past, and 1 the moment midnight passes rather than 24 hours on. One definition for
+ *  "yesterday" and "tomorrow" both. Rounded, so a DST day's 23 or 25 hours count as one. */
+function calendarDaysBetween(from: Date, to: Date): number {
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return Math.round((day(to) - day(from)) / DAY_MS);
+}
