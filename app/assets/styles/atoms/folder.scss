@@ -83,7 +83,7 @@
    coarse-pointer rule below. */
 .folder__collapse,
 .item__nestcollapse {
-  --chev-glyph: 20px;
+  --chev-glyph: calc(20 * var(--tpx));
   flex: none;
   align-self: center;
   display: flex;
@@ -95,7 +95,7 @@
 /* the row's glyph is 16px; -1px so it hugs the name at the same distance the folder
    chevron does */
 .item__nestcollapse {
-  --chev-glyph: 16px;
+  --chev-glyph: var(--icon);
   margin-left: -1px;
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
@@ -232,7 +232,7 @@
    happens to be added — the offset is a property of this alignment, not of any one
    control. Inherited, so it reaches triggers rendered by child components. */
 .folder__actions {
-  --tip-shift: 8px;
+  --tip-shift: var(--icon-inset);
 }
 /* The drag affordance and the flush-right optics are the .grip atom's
    (atoms/controls.scss), which the folder header's grip already wears alongside this

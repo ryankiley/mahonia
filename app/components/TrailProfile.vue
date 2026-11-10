@@ -587,7 +587,7 @@ const id = useId();
 .tprofile {
   display: block;
   width: 100%;
-  height: clamp(56px, 9vw, 96px);
+  height: clamp(56px, 9vw, calc(96 * var(--tpx)));
 }
 /* the ends sit hard against the mark's own edges, so each figure lines up with the
    point of the route it names rather than floating near it */
@@ -678,7 +678,7 @@ const id = useId();
      which is the part of the chart you most want to interrogate. Padding is inside the
      box, so the same space reserves the room and answers the pointer.
      The readout reads this back (below), so the two can't drift apart. */
-  --tprofile-head: 24px;
+  --tprofile-head: calc(24 * var(--tpx));
   padding-top: var(--tprofile-head);
   /* Horizontal movement belongs to the chart, vertical still scrolls the page. Without
      this the browser holds every touch-drag open as a possible scroll and then cancels the

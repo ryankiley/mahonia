@@ -1381,7 +1381,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: 26px;
+  height: calc(26 * var(--tpx));
   padding: 0 var(--space-2);
   border-radius: var(--radius-1);
   font-size: var(--text-chrome);
@@ -1405,8 +1405,8 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   font-weight: 600;
 }
 .plan__armdot {
-  width: 8px;
-  height: 8px;
+  width: calc(8 * var(--tpx));
+  height: calc(8 * var(--tpx));
   border-radius: 50%;
 }
 /* the unclaimed stretch has no day colour, because it is nobody's */

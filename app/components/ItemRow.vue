@@ -2335,8 +2335,8 @@ function dismissFix() {
    box leaves the plus with no air around it. */
 @media (pointer: coarse) {
   .item__qtybtn svg {
-    width: 16px;
-    height: 16px;
+    width: var(--icon);
+    height: var(--icon);
   }
 }
 /* the pop when the stepper moves the number — the shared `num-pop` keyframe
@@ -2602,14 +2602,14 @@ function dismissFix() {
 /* …and the tooltips move with the glyphs. The rule above puts a 16px picture at the
    RIGHT edge of a 32px button, so a tooltip centred on the button lands 8px left of
    the thing it names — half the difference, on every control in this cluster.
-   A literal length rather than calc((var(--icon-btn) - 16px) / 2): a custom property
-   is read back as its token stream, so an unregistered calc() would reach Tooltip as
-   text and parse to NaN. If --icon-btn (32px) or the 16px glyph size changes, this
-   changes with them.
+   Derived from the two sizes, so it holds past 1920px where both grow (--tpx). Tooltip
+   reads it back in JS, which works because main.scss REGISTERS --tip-shift as a
+   <length>: unregistered, a calc() came back as its token stream and parsed to NaN,
+   which is why this used to be a literal 8px.
    Declared on the CLUSTER, not the controls: custom properties inherit, so this one
    line reaches the triggers ItemRowMenu renders too — which a scoped rule can't. */
 .item__actions {
-  --tip-shift: 8px;
+  --tip-shift: var(--icon-inset);
 }
 /* the grip, the vault tick, duplicate, remove and the qty ± (which sit mid-row but are
    the same kind of thing) rest at the lesser ink and lift under the pointer — the
@@ -2958,7 +2958,7 @@ textarea.item__note {
 /* (still reaches: the swatch is this component's slot content into ItemRowMenu, so
    it carries this scope id even though the button around it doesn't) */
 .item__person-btn .swatch {
-  margin-right: calc((16px - var(--swatch)) / 2);
+  margin-right: calc((var(--icon) - var(--swatch)) / 2);
 }
 /* the carrier tag itself is the shared .item__carrier atom (atoms/item.scss) —
    drawn once for this face, the checklist face and the read rows */

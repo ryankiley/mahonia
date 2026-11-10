@@ -1,4 +1,5 @@
 import type { Ref } from "vue";
+import { typeScale } from "~/utils/typeScale";
 
 // Which SIDE a `.menu__list` popover should hang from — both axes — decided by where
 // it actually fits rather than by the caller remembering.
@@ -54,14 +55,14 @@ const MIN_CAPPED_HEIGHT = 96;
 
 /** The vertical span a menu inside `el` can paint into: the nearest ancestor that
  *  clips on the y axis, cut to the window. The window alone when nothing clips. */
-function verticalBounds(el: HTMLElement): { top: number; bottom: number } {
-  let top = EDGE_PADDING;
-  let bottom = window.innerHeight - EDGE_PADDING;
+function verticalBounds(el: HTMLElement, pad: number): { top: number; bottom: number } {
+  let top = pad;
+  let bottom = window.innerHeight - pad;
   for (let node = el.parentElement; node && node !== document.body; node = node.parentElement) {
     if (getComputedStyle(node).overflowY === "visible") continue;
     const r = node.getBoundingClientRect();
-    top = Math.max(top, r.top + EDGE_PADDING);
-    bottom = Math.min(bottom, r.bottom - EDGE_PADDING);
+    top = Math.max(top, r.top + pad);
+    bottom = Math.min(bottom, r.bottom - pad);
     break;
   }
   return { top, bottom };
@@ -111,6 +112,11 @@ export function useMenuPlacement(
     // scrollHeight, not offsetHeight: a cap from the previous open is still on the
     // card at this point, and the fit test needs the whole menu's height
     const h = opts.within ? list.scrollHeight : list.offsetHeight;
+    // the gaps below are px at the base type size and grow with it past 1920px, as the
+    // CSS spacing around the menu does (utils/typeScale)
+    const scale = typeScale();
+    const edge = EDGE_PADDING * scale;
+    const gap = ANCHOR_GAP * scale;
 
     const trailingLeft = a.right - w; // the default: right edges flush
     const leadingRight = a.left + w; // the flip: left edges flush
@@ -119,7 +125,7 @@ export function useMenuPlacement(
       // slide by the exact overrun, measured off the rendered card rather than a
       // constant: its width is set in CSS (rem), so a hardcoded pixel twin is wrong
       // the moment the root font size isn't 16, and drifts if the rule is retuned
-      shift.value = trailingLeft < EDGE_PADDING ? EDGE_PADDING - trailingLeft : 0;
+      shift.value = trailingLeft < edge ? edge - trailingLeft : 0;
     } else {
       // Prefer the default. Only flip when it would overrun the leading edge AND the
       // flip actually fits — a menu wider than the viewport is beyond helping, and
@@ -128,7 +134,7 @@ export function useMenuPlacement(
         // clientWidth, not innerWidth: the visible edge is the layout viewport's, and
         // innerWidth also counts a classic scrollbar's column (Windows, Linux), so a
         // flipped menu could be judged to fit with its last 15px under the scrollbar.
-        trailingLeft < EDGE_PADDING && leadingRight <= document.documentElement.clientWidth - EDGE_PADDING;
+        trailingLeft < edge && leadingRight <= document.documentElement.clientWidth - edge;
     }
 
     // Same rule downward, and the same preference: below unless below doesn't fit and
@@ -136,9 +142,9 @@ export function useMenuPlacement(
     // which is the right answer — flipping it would only change which end is cut off,
     // and below at least leaves its first row against the trigger you just pressed.
     if (opts.within) {
-      const { top, bottom } = verticalBounds(anchor);
-      const roomBelow = bottom - (a.bottom + ANCHOR_GAP);
-      const roomAbove = a.top - ANCHOR_GAP - top;
+      const { top, bottom } = verticalBounds(anchor, edge);
+      const roomBelow = bottom - (a.bottom + gap);
+      const roomAbove = a.top - gap - top;
       if (h <= roomBelow) {
         above.value = false;
         maxHeight.value = null;
@@ -147,7 +153,7 @@ export function useMenuPlacement(
         maxHeight.value = null;
       } else {
         above.value = roomAbove > roomBelow;
-        maxHeight.value = Math.max(MIN_CAPPED_HEIGHT, Math.floor(Math.max(roomAbove, roomBelow)));
+        maxHeight.value = Math.max(MIN_CAPPED_HEIGHT * scale, Math.floor(Math.max(roomAbove, roomBelow)));
       }
       return;
     }

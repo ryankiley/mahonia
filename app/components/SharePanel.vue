@@ -483,7 +483,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   white-space: normal;
 }
 .share__row > svg {
-  margin-block: calc((1lh - 16px) / 2);
+  margin-block: calc((1lh - var(--icon)) / 2);
 }
 .share__text {
   display: grid;
@@ -514,7 +514,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 }
 .share__nudge > svg {
   flex: none;
-  margin-block: calc((1lh - 16px) / 2);
+  margin-block: calc((1lh - var(--icon)) / 2);
   color: var(--ink-2);
 }
 .share__nudgebody {

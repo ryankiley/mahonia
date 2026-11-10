@@ -864,7 +864,7 @@ async function exportGear(kind: string) {
 /* the switcher's width before it hydrates: its word and chevron, unseen */
 .gear__leadhold {
   visibility: hidden;
-  padding-inline-end: calc(14px + var(--space-1));
+  padding-inline-end: calc(14 * var(--tpx) + var(--space-1));
 }
 /* Signed out there is one thing to do, so the column centres and narrows — the
    same shape /account uses for the same reason. Signed in the page is a wide,

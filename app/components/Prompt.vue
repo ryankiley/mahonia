@@ -106,8 +106,8 @@ const emit = defineEmits<{ dismiss: [] }>();
   .prompt__close {
     min-width: var(--tap);
     min-height: var(--tap);
-    margin-block: calc((var(--tap) - 24px) / -2);
-    margin-inline-end: calc((var(--tap) - 24px) / -2);
+    margin-block: calc((var(--tap) - 24 * var(--tpx)) / -2);
+    margin-inline-end: calc((var(--tap) - 24 * var(--tpx)) / -2);
   }
 }
 </style>

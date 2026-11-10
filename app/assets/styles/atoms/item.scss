@@ -502,7 +502,7 @@
    The editor's rows only: the share views' rows carry no overlays and no typing. */
 .item-wrap {
   content-visibility: auto;
-  contain-intrinsic-size: auto 64px;
+  contain-intrinsic-size: auto calc(64 * var(--tpx));
   /* Paint containment comes with content-visibility, and it clips at this box's
      padding edge. The grip's dots are shifted OUT of the row's right edge by design
      (.grip in atoms/controls.scss: the glyph's own internal padding goes into the

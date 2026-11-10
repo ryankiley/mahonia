@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-10",
+  "changed": [
+    "On very wide screens, icons, spacing and panels now grow with the text instead of staying small beside it.",
+    "My Gear keeps whole names on wide screens, and its divider sits beside the panel and stays under your pointer as you drag.",
+    "In My Gear, Add to and its folder read as one phrase, and gear with no icon gets a quiet placeholder so names line up.",
+    "On phones, the My Gear sheet is the same height signed out as it is with your gear in it.",
+    "The Add a trail panel is shorter, and its labels line up with what you type.",
+    "Microspikes, crampons and snowshoes show a boot and sit under Footwear in My Gear."
+  ],
+  "fixed": [
+    "Lanterns and flashlights no longer show a headlamp icon."
+  ]
+}

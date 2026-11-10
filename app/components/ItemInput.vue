@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
+import { typeScale } from "~/utils/typeScale";
 import { DropletIcon, SafeBoxIcon } from "@hugeicons/core-free-icons";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
@@ -347,11 +348,13 @@ function placeMenu() {
   if (!root) return;
   const anchor = getComputedStyle(root).position === "static" ? root.offsetParent : root;
   if (!anchor) return;
+  // px at the base type size, growing with it past 1920px like the rows they measure
+  const scale = typeScale();
   const r = menuRoom(anchor.getBoundingClientRect(), visibleBand(), {
-    gap: MENU_GAP,
-    edge: MENU_EDGE,
-    min: MENU_MIN,
-    floor: MENU_FLOOR,
+    gap: MENU_GAP * scale,
+    edge: MENU_EDGE * scale,
+    min: MENU_MIN * scale,
+    floor: MENU_FLOOR * scale,
   });
   menuAbove.value = r.above;
   menuRoomPx.value = r.room;

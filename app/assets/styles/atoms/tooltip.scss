@@ -20,7 +20,7 @@
   // above every other floating layer: a tooltip can describe a control inside a
   // popover or a dialog, so it has to clear --z-float rather than tie with it
   z-index: var(--z-tooltip);
-  max-width: 280px;
+  max-width: 17.5rem; /* 280px at the base size; rem, so it grows with the type past 1920px */
   // How far the enter/leave states travel, and in which direction — flipped by
   // placement so the motion always reads as coming OUT of the trigger. As a custom
   // property, the transform itself is written once below instead of once per side.

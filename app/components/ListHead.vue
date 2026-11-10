@@ -590,7 +590,7 @@ onClickOutside(trailEl, closeTrail);
            other field in the editor, so a confirm button would only be confirming
            something already saved. Focus leaving the panel closes it. -->
       <!-- tabindex="-1", so the panel can HOLD focus. A press on anything in here that
-           can't take focus itself — the map-file label, the lede, a strip of padding —
+           can't take focus itself — the map-file label, a field's label, a strip of padding —
            makes the browser focus the nearest ancestor that can, and without this
            that was the editor's <main tabindex="-1"> (the skip link's target). Focus
            arriving there is, to onFocusOut, focus leaving the panel: it closed on the
@@ -615,13 +615,9 @@ onClickOutside(trailEl, closeTrail);
           @focusout="onFocusOut"
           @keyup.escape="closeTrail"
         >
-          <!-- one line before the two fields, because they were two fields and no words:
-               what a link does and what a file does. A span, not a p — the panel is
-               phrasing content — set to block below. -->
-          <span class="t-sm t-muted head__panellede">
-            A link keeps the route with the list. A map file adds its distance and climb; it's
-            read here in your browser and never uploaded.
-          </span>
+          <!-- No lede. Two sentences sat here saying what a link does and what a file
+               does, and how the file is read; Ryan: "too complex". The labels say the
+               first, and the (?) beside the file row says the rest. -->
           <!-- TWO ways in now, which is why the affordance above says "Add a trail" rather
                than naming either of them. A LINK is the common one, so it stays first and
                unadorned. A GPX is the richer one — it carries the distance and the shape of
@@ -790,7 +786,7 @@ onClickOutside(trailEl, closeTrail);
                             - half the 16px glyph
      em can't be used directly (it would resolve against this SVG's inherited 16px,
      not the title's 32px), so the title's own token is multiplied explicitly. */
-  margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - 8px);
+  margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - var(--icon) / 2);
   color: var(--ink-3);
   opacity: 0;
   visibility: hidden;
@@ -894,6 +890,12 @@ onClickOutside(trailEl, closeTrail);
 .head__icon {
   flex: none;
   align-self: center;
+  /* In type pixels like the globe that stands in for it (main.scss sizes glyphs, not
+     images), so past 1920px the site's mark grows with the name beside it. The server
+     takes a site's apple-touch-icon first, 180-192px, so there is resolution to grow
+     into; a site with only a 16px .ico softens there, on a 3000px window. */
+  width: var(--icon);
+  height: var(--icon);
   border-radius: var(--radius-icon);
 }
 /* the globe stands in for a real mark, so it should read as a placeholder rather than
@@ -987,6 +989,9 @@ onClickOutside(trailEl, closeTrail);
 .head__cardicon {
   flex: none;
   display: block;
+  /* type pixels, as .head__icon above */
+  width: calc(14 * var(--tpx));
+  height: calc(14 * var(--tpx));
   border-radius: var(--radius-icon);
 }
 /* The URL FLEXES between a floor and a ceiling rather than being sized by its content.
@@ -1085,9 +1090,9 @@ onClickOutside(trailEl, closeTrail);
   /* 330px: wide enough that an ordinary URL reads without wrapping, narrow enough that
      the panel still sits over the row as a popover rather than becoming a column */
   width: min(20.625rem, 100%);
-  /* Uniform. The Remove row pulls ITSELF into this padding (below) rather than the panel
-     thinning its floor — in "add" mode there is no Remove row, and a thinned floor left
-     the lone URL field crammed against the bottom edge with a full step above it. */
+  /* Uniform, and the grounds' edge: fields, the rule and the Remove row sit on it, the
+     words a step further in (.head__panellabel). A thinned floor once left the lone URL
+     field in "add" mode crammed against the bottom edge with a full step above it. */
   padding: var(--space-3);
   /* The corner and the shadow are the .popover atom's, unmodified and so not declared
      here: --shadow-soft is one value for every size of surface, and with a corner or a
@@ -1097,14 +1102,21 @@ onClickOutside(trailEl, closeTrail);
      holding them. */
   text-align: start;
 }
+/* TWO EDGES, as in every card here (the My Gear pane's rows and search well): the
+   GROUNDS (the fields, the Remove row, the rule) sit on the panel's 12px padding, and the
+   WORDS sit a step further in, on the edge a field's own text already starts on (its 8px
+   inline padding). The labels and the file row used to start on the grounds' edge, so
+   the panel's text had two left edges and the URL in the field missed the label above it.
+   That step is this one rule. */
+.head__panellabel,
+.head__gpx,
+.head__gpxerr {
+  padding-inline: var(--space-2);
+}
 /* 12px + medium weight — the smaller of the two chrome steps, so the labels stay
    subordinate to the fields and row beneath them. A label
    belongs to the field UNDER it, so it sits closer to that field (8) than the field above
    sits to it (16, set on the adjacent-sibling rule below). */
-.head__panellede {
-  display: block;
-  margin-block-end: var(--space-3);
-}
 .head__panellabel {
   margin-block-end: var(--space-2);
   color: var(--ink-3);
@@ -1241,34 +1253,22 @@ onClickOutside(trailEl, closeTrail);
 }
 .head__paneldiv {
   width: 100%;
-  /* 4 below, not 8: the row underneath already carries 8px of its own padding, and a
-     full step here stacked the two into a 16px gap. 4 matches the panel's block-end
-     padding so the hover box has the SAME breathing room above and below it. */
-  margin: var(--space-2) 0 var(--space-1);
+  /* 12 either side, the panel's own padding: the Remove row's hover ground sits 12 off
+     the panel's sides and floor (the grounds' edge), so 12 off the rule too frames it
+     evenly. It was 4 below, to match a pull into the floor the row no longer makes. */
+  margin: var(--space-3) 0;
   border: 0;
   border-block-start: 1px solid var(--line);
 }
-/* The .menu__item atom's treatment, with this panel's own geometry: the negative inline
-   margin lets the highlight breathe past the text while the icon still starts on the
-   panel's 12px content edge, in line with the rule and the fields above it. */
+/* The .menu__item atom's treatment, with this panel's own geometry: its ground on the
+   grounds' edge with the fields and the rule above it, its icon on the words' edge. */
 .head__panelremove {
   /* .menu__item (atoms/controls.scss) supplies the row: background, ink, hover tint,
      concentric radius, transition, cursor, and the centred flex row itself with its
      12px gap. Only this panel's own geometry lives here. The radius comes out right
      because .head__panel keeps the .popover atom's corner — see there. */
-  /* That 12px gap is the one this row wants: a 16px glyph on the panel's 12px content
-     edge leaves the label starting at x40, which is where every other label in the
-     panel starts. */
-  /* The highlight bleeds a full step past the content on each side, leaving it inset
-     just 4px from the panel's edge rather than 8 — a menu row should read as spanning
-     the panel, not as a chip floating inside it. Padding matches the bleed, so the icon
-     still starts on the 12px content edge shared with the rule and the fields. */
-  width: calc(100% + var(--space-2) * 2);
-  margin-inline: calc(var(--space-2) * -1);
-  /* pulls into the panel's floor so the highlight ends 4px off the bottom edge — the
-     same 4px it has above it, without the panel itself thinning its padding (which
-     would strand the lone field in "add" mode) */
-  margin-block-end: calc(var(--space-2) * -1);
+  /* It bled out to 4px off the panel's edge, a third left edge beside the fields' 12 and
+     the words' 20. Now on the two the rest of the panel keeps (see .head__panellabel). */
   padding: var(--space-2);
   font-size: var(--text-chrome);
   line-height: 1.2;

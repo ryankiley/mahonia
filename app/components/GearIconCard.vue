@@ -108,7 +108,7 @@ useMenuDismiss(open, toRef(props, "root"));
   align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-1);
-  padding-inline: calc((var(--iconpick-cell) - 20px) / 2);
+  padding-inline: calc((var(--iconpick-cell) - 20 * var(--tpx)) / 2);
   text-align: start;
 }
 /* the one you have: the menus' wash under full-strength ink */
