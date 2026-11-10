@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "When a kit change can't be saved, My Gear puts the kit back as it was, even with no connection.",
+    "The account page and menu pick up again on their own when the connection returns."
+  ]
+}

@@ -61,13 +61,9 @@ async function finish(fallback: string) {
 
 const { user, signedIn, presence, loaded, pending, refresh, requestLink, signOut, saveProfile, forgetAccountMemos } = useSession();
 // Offline with an account, the session ask fails and stays unresolved, so neither
-// branch below ever drew and this said "Loading…" for good. It says why instead, and
-// asks again when the connection comes back.
+// branch below ever drew and this said "Loading…" for good. It says why instead; the
+// session plugin asks again (useSessionReask), and its answer redraws this.
 const unreachable = computed(() => presence.value === "presumed" && !pending.value);
-const online = useOnline();
-watch(online, (up) => {
-  if (up && unreachable.value) void refresh();
-});
 const { confirm: askConfirm, confirmState } = useDialogs();
 const pk = usePasskeys();
 // whether this browser can do WebAuthn at all — resolved on mount, so the
