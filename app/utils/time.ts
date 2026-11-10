@@ -34,8 +34,7 @@ export function timeAgo(ts: number, now: number = Date.now(), opts: { short?: bo
   // sense of the date ("yesterday" the moment the clock rolls over, not at +24h)
   const then = new Date(ts);
   const today = new Date(now);
-  const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-  const days = Math.round((startOfDay(today) - startOfDay(then)) / DAY_MS);
+  const days = calendarDaysBetween(then, today);
   if (days <= 1) return "yesterday";
   if (days < 7) return opts.short ? `${days}d ago` : `${days} days ago`;
 
@@ -118,12 +117,19 @@ const fmtMonthDay = (d: Date) =>
   d.toLocaleDateString("en-US", { month: "long", day: "numeric" });
 
 /** "Today", "Tomorrow" or the weekday for a calendar day 0–6 days after `now`'s; null
- *  for any other. Rounded, so a DST day's 23 or 25 hours still count as one. */
+ *  for any other. */
 function inTheComingWeek(d: Date, now: Date): string | null {
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const days = Math.round((d.getTime() - today.getTime()) / DAY_MS);
+  const days = calendarDaysBetween(now, d);
   if (days < 0 || days > 6) return null;
   if (days === 0) return "Today";
   if (days === 1) return "Tomorrow";
   return d.toLocaleDateString("en-US", { weekday: "long" });
+}
+
+/** Whole calendar days from `from`'s date to `to`'s, by the reader's clock: negative into
+ *  the past, and 1 the moment midnight passes rather than 24 hours on. One definition for
+ *  "yesterday" and "tomorrow" both. Rounded, so a DST day's 23 or 25 hours count as one. */
+function calendarDaysBetween(from: Date, to: Date): number {
+  const day = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  return Math.round((day(to) - day(from)) / DAY_MS);
 }
