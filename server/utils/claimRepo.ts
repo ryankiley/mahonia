@@ -220,7 +220,7 @@ export async function backfillVaultFromClaims(db: Db, userId: number): Promise<n
     const items = Array.isArray(row.data?.items) ? row.data.items : [];
     // The query is newest first, so the first occurrence wins — the same "your
     // newest weight is your truth" rule the upsert itself follows.
-    for (const cap of captureFromList(items)) if (!byKey.has(cap.normKey)) byKey.set(cap.normKey, cap);
+    for (const cap of captureFromList(items)) byKey.getOrInsert(cap.normKey, cap);
   }
   if (!byKey.size) return 0;
 
