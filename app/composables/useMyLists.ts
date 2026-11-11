@@ -205,5 +205,10 @@ export function useMyLists() {
     return res.editToken;
   }
 
-  return { entries, upsert, touch, forget, forgetSuperseded, deleteList, registerCreated, entryFromSnapshot };
+  /** The edit token this browser holds for a share code, if it holds one: what turns a
+   *  truncated /e/{code} into your own list (editorCapability). */
+  const tokenFor = (shareCode: string): string | undefined =>
+    entries.value.find((e) => e.shareCode === shareCode)?.editToken;
+
+  return { entries, upsert, touch, forget, forgetSuperseded, deleteList, registerCreated, entryFromSnapshot, tokenFor };
 }

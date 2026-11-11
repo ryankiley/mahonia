@@ -64,8 +64,12 @@ useSeoMeta({
   ogDescription: () => seo.value.desc,
 });
 
-// Keep the list you're leaving on screen until this one can paint — see readAhead.
-if (import.meta.client) await readAhead(route);
+// Keep the list you're leaving on screen until this one can paint — see readAhead. Not
+// while the page hydrates: there is nothing on screen to keep, and holding hydration for
+// the read only made the top bar arrive later. The editor mounts with its bar whole
+// (status "loading" keeps the controls up, at a height of its own) and the list lands
+// under it a read later.
+if (import.meta.client && !useNuxtApp().isHydrating) await readAhead(route);
 </script>
 
 <template>
