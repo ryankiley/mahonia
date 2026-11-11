@@ -95,7 +95,7 @@ const RP_NAME = "Mahonia";
  *     if (SettingsService.runtimeSupportsPQC())
  *       defaultSupportedAlgorithmIDs = [COSEALG.ML_DSA_44, ...]
  *
- * On Node 24 that detection succeeds, so the default silently became
+ * On Node 24 and 26 that detection succeeds, so the default silently became
  * [-48, -8, -7, -257] with post-quantum ML-DSA-44 FIRST — the most-preferred
  * algorithm, chosen by whatever the runtime happened to report. Node itself calls
  * ML-DSA-44 experimental and warns that it "might change at any time".
