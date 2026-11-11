@@ -37,6 +37,7 @@ import type { Item } from "~~/shared/types";
 import type { EditorMode } from "~/composables/useEditorMode";
 import { CHILDREN_BY_PARENT, PEOPLE_CTX, ROW_FLASH, VARIANT_SHOWN } from "~/components/ItemRow.vue";
 import { useGearEditorView } from "~/composables/useGearEditorView";
+import { editorCapability } from "~/utils/editorRoute";
 
 // The whole editor surface (its own sticky topbar + flex shell). Rendered by
 // the page routes: /e (bare, prerendered) and /e/[code]
@@ -360,8 +361,10 @@ async function setVault(open: boolean) {
   vaultWanted = open;
   if (open && !vaultOpen.value) {
     await Promise.race([warmVault(), new Promise((r) => setTimeout(r, PANE_WAIT_MS))]);
-    // closed again, or opened by an earlier press, while this one waited
-    if (!vaultWanted || vaultOpen.value) return;
+    // closed again, or opened by an earlier press, while this one waited; or a load
+    // began in the wait and there's no list to open onto any more (the guard above ran
+    // before it)
+    if (!vaultWanted || vaultOpen.value || !snapshot.value) return;
   }
   const el = editorRef.value;
   vaultOpen.value = open;
@@ -528,46 +531,40 @@ watch(listKey, () => {
 // is /e/{code} with no fragment at all, so switching between two claimed lists
 // moves only the param.
 // A run after the first is a switch inside this same instance (A → B on /e/[code]):
-// it reads B's on-device copy ahead first, as the page's setup does for the first
-// list, so A stays on screen until B can paint in the same tick — and the weight
+// it reads B's on-device copy ahead first, as the page's setup does for a list reached
+// from elsewhere in the app (not on a reload: there's nothing on screen to keep), so A
+// stays on screen until B can paint in the same tick — and the weight
 // figure counts from one to the other instead of blanking. A newer route change
 // during that wait wins (routeRun).
 let routeRun = 0;
 watch(
   () => [route.hash, route.params.code] as const,
   async ([h, codeParam], prev) => {
-    // decode HERE, not inside startSession: a malformed hash ("#%") throws, and that
-    // throw must land before the dispose, exactly as it always has.
+    // Read HERE, not inside startSession: a malformed hash ("#%") throws, and that throw
+    // must land before the dispose, exactly as it always has. What each kind means, and
+    // why, is editorCapability's (app/utils/editorRoute.ts), shared with readAhead.
     // first run: ownedEpoch is undefined → dispose is unconditional, clearing (and
     // flushing) whatever session a previous page instance left behind
-    const token = decodeURIComponent((h || "").replace(/^#/, ""));
+    const cap = editorCapability(
+      { hash: h, params: { code: codeParam } },
+      { hasSessionHint: () => session.hasSessionHint(), heldToken: my.tokenFor },
+    );
+    // every run supersedes one still waiting on its read, the key's restore included:
+    // a list picked during that wait must not be overtaken by the one picked before it
+    const run = ++routeRun;
+    // the restore reads nothing ahead itself: the run it triggers does
+    if (cap.kind === "held") return navigateTo({ path: route.path, hash: `#${cap.token}` }, { replace: true });
     if (prev) {
-      const run = ++routeRun;
       await readAhead(route);
       if (run !== routeRun) return;
     }
-    if (token) return startSession({ token });
-    // No token, but a code in the path: a claimed list — IF a session plausibly
-    // exists (the hint cookie; the fetch itself is what proves it). For everyone
-    // else /e/{code} without a fragment is a truncated link, handled below without
-    // a doomed request per visit.
-    // Normalized HERE as well as in load(): a path segment that can't be a share
-    // code at all (/e/garbage) falls through to the draft for the signed-in too,
-    // instead of spending a request to be told 401.
-    const code = normalizeShareCode(typeof codeParam === "string" ? codeParam : "");
-    if (code && session.hasSessionHint()) return startSession({ code });
-    // A well-formed code, no key, no session: a truncated edit link. Say so, and
-    // offer the read-only view the same code opens, rather than landing a fresh
-    // draft under the dead address (which read as "the list is empty"). No request
-    // is made: nothing could succeed without a key or a session.
-    // ...unless this browser holds the key itself. A list made or opened here is in
-    // the registry with its token, so a truncated link to your OWN list opens it for
-    // editing (the fragment is restored and this watcher runs again) rather than
-    // offering you the read-only view of it.
-    const mine = code ? my.entries.value.find((e) => e.shareCode === code)?.editToken : undefined;
-    if (mine) return navigateTo({ path: route.path, hash: `#${mine}` }, { replace: true });
-    // keyless on the code; else a fresh, unsaved draft (persists on first real content)
-    startSession(code ? { keyless: code } : undefined);
+    // a fresh, unsaved draft when there's nothing to open (persists on first real content)
+    startSession(
+      cap.kind === "token" ? { token: cap.token }
+        : cap.kind === "claimed" ? { code: cap.code }
+          : cap.kind === "keyless" ? { keyless: cap.code }
+            : undefined,
+    );
   },
   { immediate: true },
 );
@@ -1054,8 +1051,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
              a list wait for one (their handlers, plus aria-disabled for a screen
              reader; `disabled` would dim them, and the dimming is the same flash).
              A load that ENDS with no list — missing, error, offline with nothing on
-             the device — is a real state, and the bar still stands down for it. -->
-        <template v-if="snapshot || status === 'loading'">
+             the device — is a real state, and the bar still stands down for it.
+             "idle" is no verdict either: it's the beat between one session and the
+             next, as when a truncated link to your own list has its key put back
+             before the load starts (editorCapability's "held"). -->
+        <template v-if="snapshot || status === 'loading' || status === 'idle'">
           <!-- sync state + last-edit time, on the bar's leading edge — the space the
                title vacated when it became a page title. It takes the free width, which
                is what pins the icon cluster to the trailing edge. -->

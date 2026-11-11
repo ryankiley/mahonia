@@ -15,6 +15,7 @@ import { isWaterName } from "~~/shared/water";
 import { createEdits } from "~/composables/useGearListEdits";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
 import { useUndo } from "~/composables/useUndo";
+import { editorCapability, type EditorCapability } from "~/utils/editorRoute";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -577,8 +578,9 @@ function create() {
     // When the editor page read ahead (readAhead, below) the copy is usually already
     // here and nothing is awaited: the list lands in this tick, before the editor
     // renders. A read that outran the page's wait is awaited rather than repeated.
-    const ahead = store.take(storeKey());
-    const local = ahead?.landed ? ahead.landed.record : await (ahead?.read ?? store.get(storeKey()));
+    const key = storeKey();
+    const ahead = store.take(key);
+    const local = ahead?.landed ? ahead.landed.record : await (ahead?.read ?? store.get(key));
     if (myEpoch !== epoch) return; // a newer load() superseded this one
     if (local) {
       // Backfilled on the way in, matching what the server does on the way out
@@ -1410,20 +1412,26 @@ const READ_AHEAD_MS = 250;
  * is untouched until the new editor starts its session), and the new editor's first
  * frame is the list it opened.
  *
- * Mirrors the editor's route watcher: the fragment's token wins, and a bare code is a
- * claimed open only on the session hint. A list not on this device reads as nothing
- * and opens from the network as it always has.
+ * The address is read by editorCapability, the same function the editor's route watcher
+ * acts on, so the key read here is the key load() asks for. A truncated link to a list
+ * this browser holds reads ahead under its token: the watcher restores the fragment and
+ * loads it a moment later. A list not on this device reads as nothing and opens from the
+ * network as it always has.
  */
 export function readAhead(route: { hash: string; params: Record<string, unknown> }): Promise<void> {
-  let token: string;
+  let cap: EditorCapability;
   try {
-    token = decodeURIComponent(route.hash.replace(/^#/, ""));
+    cap = editorCapability(route, {
+      hasSessionHint: () => useSession().hasSessionHint(),
+      heldToken: useMyLists().tokenFor,
+    });
   } catch {
     return Promise.resolve(); // a malformed fragment: the watcher throws on it too
   }
-  const param = route.params.code;
-  const code = normalizeShareCode(typeof param === "string" ? param : "");
-  const key = token ? localKey(token) : code && useSession().hasSessionHint() ? claimedLocalKey(code) : "";
+  const key =
+    cap.kind === "token" || cap.kind === "held" ? localKey(cap.token)
+      : cap.kind === "claimed" ? claimedLocalKey(cap.code)
+        : "";
   if (!key) return Promise.resolve();
   return Promise.race([
     useLocalListStore().prefetch(key),

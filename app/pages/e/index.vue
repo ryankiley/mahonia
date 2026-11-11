@@ -8,8 +8,9 @@
 // <GearEditor>, a .client component, so the body only ever runs in the browser.
 definePageMeta({ layout: false });
 
-// /e#{token}, a list from before share codes: held like /e/{code} — see readAhead
-if (import.meta.client) await readAhead(useRoute());
+// /e#{token}, a list from before share codes: held like /e/{code}, and like it not
+// while hydrating — see readAhead and pages/e/[code].vue
+if (import.meta.client && !useNuxtApp().isHydrating) await readAhead(useRoute());
 </script>
 
 <template>

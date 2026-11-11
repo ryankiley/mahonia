@@ -36,15 +36,26 @@ const isClaimedKey = (key: string) => key.startsWith(CLAIMED_KEY_PREFIX);
 // opening before the editor mounts (readAhead, useGearList), and the load that follows
 // takes the answer from here instead of reading again — with no await once it has
 // landed, so the editor's first render already has the list, and the same read still
-// in flight when it hasn't, so a slow device doesn't pay for a second one. One slot,
-// not a cache: take() empties it whatever it held, and a write to its key drops it, so
-// a read can't outlive the moment it was made and be served to some later open.
+// in flight when it hasn't, so a slow device doesn't pay for a second one.
+// One slot, not a cache, and it belongs to the navigation that filled it. Only a load
+// for ITS key takes it: a load for another list in between (a retry, the online watcher)
+// passes it by rather than throwing it away from under the open it was read for. And it
+// is served only while it's fresh: an open that never came (a navigation cancelled or
+// superseded) leaves a read that ages out instead of being handed to some later open of
+// that list, whose copy may have been written since by another tab. A write to its key
+// here drops it at once.
+const HELD_FRESH_MS = 2000; // the read and its load are one navigation apart: ~250 ms at most
 type Held = {
   key: string;
   read: Promise<LocalListRecord | undefined>;
   landed?: { record: LocalListRecord | undefined };
+  at: number;
 };
 let held: Held | undefined;
+/** Empty the held read — a test seam, so one case's read can't reach the next. */
+export function _dropHeldRead(): void {
+  held = undefined;
+}
 
 export function useLocalListStore() {
   const enabled = import.meta.client && typeof indexedDB !== "undefined";
@@ -115,18 +126,25 @@ export function useLocalListStore() {
 
   /** Read `key` now and hold the read for the next take(). Resolves once it lands. */
   function prefetch(key: string): Promise<void> {
-    const h: Held = { key, read: get(key) };
+    const h: Held = { key, read: get(key), at: performance.now() };
     held = h;
     // first on the promise, so `landed` is set before anyone awaiting this resumes
     return h.read.then((record) => void (h.landed = { record }));
   }
 
   /** The read prefetch(key) started, and only once: `landed` if it has. Undefined for
-   *  any other key, and the caller reads for itself. */
+   *  any other key (which leaves it held) or once it has aged out (which drops it), and
+   *  the caller reads for itself. */
   function take(key: string): Held | undefined {
     const h = held;
+    if (!h) return undefined;
+    if (performance.now() - h.at > HELD_FRESH_MS) {
+      held = undefined;
+      return undefined;
+    }
+    if (h.key !== key) return undefined;
     held = undefined;
-    return h?.key === key ? h : undefined;
+    return h;
   }
 
   return { get, set, del, delClaimed, prefetch, take };

@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-10",
+  "fixed": [
+    "The top bar appears sooner when a list opens, and stays put while a link to one of your own lists that’s missing its key opens."
+  ]
+}
