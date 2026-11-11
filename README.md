@@ -30,7 +30,7 @@ unguessable link. The **gear vault** is the one part that asks for an account, b
 
 ## Run locally
 
-Requires **Node 24** (the pinned version — see `.nvmrc`).
+Requires **Node 26** (the pinned version — see `.nvmrc`).
 
 ```bash
 npm install

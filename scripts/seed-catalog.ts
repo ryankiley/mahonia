@@ -6,7 +6,7 @@
 // CSV stops naming is retired with a pointer to its successor, never deleted
 // (seedRetire.ts). Seeded rows are owner-curated + cited, so they're marked verified=true.
 //
-// Run under Node 24 (the repo's pinned toolchain) via the `seed` npm script,
+// Run under Node 26 (the repo's pinned toolchain) via the `seed` npm script,
 // which uses jiti (ships with Nuxt) to resolve the project's TS imports:
 //   npm run seed
 //
