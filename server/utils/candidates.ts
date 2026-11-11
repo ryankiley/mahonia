@@ -173,7 +173,7 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     .from(catalogCandidates)
     .where(and(inArray(catalogCandidates.normKey, keys), isOpen()));
   const groups = new Map<string, typeof rows>();
-  for (const r of rows) (groups.get(r.normKey) ?? groups.set(r.normKey, []).get(r.normKey)!).push(r);
+  for (const r of rows) groups.getOrInsertComputed(r.normKey, () => []).push(r);
 
   // known catalog brands: the branded-item gate reads the folded set, and the split
   // below wants the catalog's own spelling for each ("Sea to Summit", not "sea to summit")

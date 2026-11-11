@@ -137,7 +137,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   const byProduct = new Map<string, CatalogCsvRow[]>();
   for (const r of rows) {
     const k = `${normKey(r.brand)}|${normKey(r.name)}`;
-    (byProduct.get(k) ?? byProduct.set(k, []).get(k)!).push(r);
+    byProduct.getOrInsertComputed(k, () => []).push(r);
   }
   for (const group of byProduct.values()) {
     for (let a = 0; a < group.length; a++) {
@@ -166,7 +166,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   const byBrand = new Map<string, CatalogCsvRow[]>();
   for (const r of rows) {
     const k = normKey(r.brand);
-    (byBrand.get(k) ?? byBrand.set(k, []).get(k)!).push(r);
+    byBrand.getOrInsertComputed(k, () => []).push(r);
   }
   for (const group of byBrand.values()) {
     for (let a = 0; a < group.length; a++) {
@@ -224,7 +224,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const b = (r.brand ?? "").trim();
     if (!b) continue;
-    (brandSpellings.get(normKey(b)) ?? brandSpellings.set(normKey(b), new Set()).get(normKey(b))!).add(b);
+    brandSpellings.getOrInsertComputed(normKey(b), () => new Set()).add(b);
   }
   for (const spellings of brandSpellings.values()) {
     if (spellings.size > 1) err("brand-case-split", `one brand, ${spellings.size} spellings: ${[...spellings].map((s) => `"${s}"`).join(" / ")} — pick one`);
@@ -235,7 +235,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     for (const d of (r.variant ?? "").split(/,\s*/)) {
       if (!d) continue;
-      (tokenSpellings.get(d.toLowerCase()) ?? tokenSpellings.set(d.toLowerCase(), new Set()).get(d.toLowerCase())!).add(d);
+      tokenSpellings.getOrInsertComputed(d.toLowerCase(), () => new Set()).add(d);
     }
   }
   for (const spellings of tokenSpellings.values()) {
@@ -271,7 +271,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   const catsByType = new Map<string, Map<string, number>>();
   for (const r of rows) {
     const k = (r.commonName ?? "").toLowerCase();
-    const m = catsByType.get(k) ?? catsByType.set(k, new Map()).get(k)!;
+    const m = catsByType.getOrInsertComputed(k, () => new Map());
     m.set(r.categoryHint ?? "other", (m.get(r.categoryHint ?? "other") ?? 0) + 1);
   }
   for (const r of rows) {

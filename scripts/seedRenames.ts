@@ -37,7 +37,7 @@ export async function renameMovedVariants(db: Db, rows: readonly CatalogCsvRow[]
   for (const r of held) {
     if (!r.verified || wanted.has(identity(r.brand, r.name, r.variant))) continue;
     const key = product(r.brand, r.name, Number(r.weightMg), r.sourceUrl);
-    orphans.set(key, [...(orphans.get(key) ?? []), r]);
+    orphans.getOrInsertComputed(key, () => []).push(r);
   }
   const newcomers = new Map<string, CatalogCsvRow[]>();
   for (const r of rows) {
