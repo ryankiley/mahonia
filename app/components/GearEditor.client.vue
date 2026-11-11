@@ -257,7 +257,7 @@ watch(mode, (m, prev) => {
 onBeforeUnmount(() => rowFolds.forEach((a) => a.cancel()));
 
 // THE FOLDERS' ENTRANCE, once per list opened. The container mounts fresh for every list
-// (the body is v-if'd on the snapshot, which a load clears), so its mount IS the list
+// (keyed on listKey, and the body is v-if'd on the snapshot), so its mount IS the list
 // opening: .is-opening goes on before the first paint and comes off when the cascade
 // has landed (playOnce, above; the motion itself is in the styles below). Nothing
 // re-adds it — a reorder, a filter, a return from Trip and a new folder all show their
@@ -499,26 +499,53 @@ let ownedEpoch: number | undefined;
 // fresh draft when it names none), re-capturing the epoch. The ordering is the whole
 // point — see the note above — so it lives in ONE place, called by the route watcher
 // and by newList's in-place reset alike.
+// listKey names the session on screen, for the template: the page now outlives a
+// switch from one list to the next (/e/[code]'s key), so everything that holds one
+// list's state is keyed on it and remounts per list, while the bar, the view switcher
+// and the weight figure stay. An epoch, not the share code: a draft that gains a code
+// as it saves is still the same list on screen.
+const listKey = ref(0);
 function startSession(cap?: { token?: string; code?: string; keyless?: string }) {
   c.dispose(ownedEpoch);
   if (cap?.keyless) c.startKeyless(cap.keyless);
   else if (cap?.token || cap?.code) c.load(cap);
   else c.startDraft();
   ownedEpoch = c.epoch; // load()/startKeyless()/startDraft() mint their epoch synchronously
+  listKey.value = ownedEpoch;
 }
+// What belonged to the list you left doesn't follow you to the next one.
+watch(listKey, () => {
+  menuOpen.value = false;
+  shareOpen.value = false;
+  peopleOpen.value = false;
+  pf.clear();
+  unpin?.();
+  editedHere = false;
+});
 // Drive load off the reactive hash so back/forward + same-route nav between two
 // of your lists dispose+reload correctly (the editor singleton holds one list).
 // The route's CODE param joins the source: a claimed list opened from the switcher
 // is /e/{code} with no fragment at all, so switching between two claimed lists
 // moves only the param.
+// A run after the first is a switch inside this same instance (A → B on /e/[code]):
+// it reads B's on-device copy ahead first, as the page's setup does for the first
+// list, so A stays on screen until B can paint in the same tick — and the weight
+// figure counts from one to the other instead of blanking. A newer route change
+// during that wait wins (routeRun).
+let routeRun = 0;
 watch(
   () => [route.hash, route.params.code] as const,
-  ([h, codeParam]) => {
+  async ([h, codeParam], prev) => {
     // decode HERE, not inside startSession: a malformed hash ("#%") throws, and that
     // throw must land before the dispose, exactly as it always has.
     // first run: ownedEpoch is undefined → dispose is unconditional, clearing (and
     // flushing) whatever session a previous page instance left behind
     const token = decodeURIComponent((h || "").replace(/^#/, ""));
+    if (prev) {
+      const run = ++routeRun;
+      await readAhead(route);
+      if (run !== routeRun) return;
+    }
     if (token) return startSession({ token });
     // No token, but a code in the path: a claimed list — IF a session plausibly
     // exists (the hint cookie; the fetch itself is what proves it). For everyone
@@ -1185,7 +1212,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
-      <ListHead :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" />
+      <ListHead :key="listKey" :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" />
       <!-- The totals bar stands down while planning: that view has its own headline (the
            route's distance), and two display-size figures on one screen would make you
            choose which one the page is about. The pack's weight isn't lost — it rides in
@@ -1213,6 +1240,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            legend all describe that person's pack. The `??` never runs — see the
            `view` computed — it only narrows the type for the template. -->
       <TotalsBar
+        :key="listKey"
         v-show="mode !== 'plan'" data-view="gear"
         :headline="false"
         :list="view.list ?? snapshot"
@@ -1228,6 +1256,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            — the reason we're asking is our problem, not something to make you read. -->
       <LazyPrompt
         v-if="vaultPromptEverShown"
+        :key="listKey"
         :show="!!vaultPrompt"
         dismiss-label="Don’t add this list’s gear to My Gear"
         @dismiss="c.answerVaultPrompt(false)"
@@ -1257,6 +1286,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            "Add people" affordance is the way in before that). -->
       <PeopleBar
         v-if="people.length"
+        :key="listKey"
         v-show="mode !== 'plan'" data-view="gear"
         :people="people"
         :selected="pf.selected.value"
@@ -1266,7 +1296,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       />
       <!-- a filter that matches nothing says so, instead of standing every folder
            down into a silent blank page — the ListMenu empty-state voice -->
-      <FilterEmpty v-if="emptyFilterName" v-show="mode !== 'plan'" data-view="gear" :name="emptyFilterName" @clear="pf.clear()" />
+      <FilterEmpty v-if="emptyFilterName" :key="listKey" v-show="mode !== 'plan'" data-view="gear" :name="emptyFilterName" @clear="pf.clear()" />
       <!-- Lazy like the vault picker: most lists never name anyone, and the manager
            has no business in their first paint. v-if — state resets per open. -->
       <LazyPeopleModal v-if="peopleOpen" @close="peopleOpen = false" />
@@ -1280,7 +1310,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            (~45ms on a 150-row list) after the rows and folder chrome stopped
            re-rendering. The browser now runs the same slide at frame time for free.
            v-if only on the DATA condition (an empty list has no bar in any mode). -->
-      <div v-if="packProgress.total" class="packbar-reveal">
+      <div v-if="packProgress.total" :key="listKey" class="packbar-reveal">
         <div class="packbar t-sm">
           <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
           <button
@@ -1305,7 +1335,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            clips its child permanently, which is right for a one-line bar and wrong here:
            the elevation chart's hover readout is positioned above the chart's own box, so
            a standing clip cut the reading off. This one clips only while it moves. -->
-      <div v-if="everPlan && snapshot && totals" class="planreveal" data-view="plan">
+      <div v-if="everPlan && snapshot && totals" :key="listKey" class="planreveal" data-view="plan">
         <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
       </div>
 
@@ -1321,7 +1351,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            and the accessibility tree exactly as absence did. -->
       <!-- foldersRef: the folders' entrance plays once, when this mounts — a list opened
            (the cascade, script + styles below) -->
-      <div v-show="mode !== 'plan'" ref="foldersRef" data-view="gear" class="editor__folders">
+      <div v-show="mode !== 'plan'" :key="listKey" ref="foldersRef" data-view="gear" class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
           :key="f.id"
@@ -1334,7 +1364,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- same split as the folders above: presence follows the DATA (v-if — most lists
            have no ungrouped rows and shouldn't carry the section), visibility follows
            the MODE (v-show — so leaving planning doesn't rebuild these rows either) -->
-      <section v-if="ungrouped.length" v-show="mode !== 'plan'" data-view="gear" class="panel editor__ungrouped">
+      <section v-if="ungrouped.length" :key="listKey" v-show="mode !== 'plan'" data-view="gear" class="panel editor__ungrouped">
         <p class="t-label">Unfiled</p>
         <!-- prev-id follows this section's render order, so the indent affordance
              points at the row actually shown above -->
@@ -1353,7 +1383,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            the mode, and a switch mounts nothing. (A half-typed folder name can't leak
            across modes — any pointer or Tab out of the input commits it via blur
            before the mode can change.) -->
-      <AddFolder v-show="mode === 'edit'" data-view="gear" class="editor__addfolder" @add="(name) => c.addFolder(name)" />
+      <AddFolder :key="listKey" v-show="mode === 'edit'" data-view="gear" class="editor__addfolder" @add="(name) => c.addFolder(name)" />
     </main>
 
     <main v-else-if="status === 'missing'" id="main-content" tabindex="-1" class="wrap editor__missing">
