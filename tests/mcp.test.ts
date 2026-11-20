@@ -493,6 +493,10 @@ describe("reading", () => {
     expect(catalog.searchCatalog).toHaveBeenCalledWith(expect.anything(), "duplex", 25);
     // a field the catalog has no value for (variant, kcal) is left out, not sent as null
     expect(structured).toEqual({ query: "duplex", results: [{ id: 7, brand: "Zpacks", name: "Duplex", display_name: "Zpacks Duplex", weight_g: 538, gear_type: "Tent", category: "shelter", verified: true, weight_source: "manufacturer" }] });
+    // but the shape still allows the nulls the release before sent, so a client that
+    // listed this one still reads that one after a rollback
+    expectConforms("search_catalog", { query: "duplex", product: { brand: null, name: "Duplex", gear_type: null, category: null }, results: [{ id: 7, brand: null, name: "Duplex", variant: null, display_name: "Duplex", weight_g: 538, gear_type: null, category: null, kcal: null, verified: true, weight_source: "manufacturer", source_url: null }] });
+    expectConforms("get_my_gear", { gear: [{ id: 1, display_name: "Duplex", name: "Duplex", brand: null, variant: null, gear_type: null, kind: "Shelter", weight_g: 538, owned: 1, classification: null, kcal: null, catalog_id: null, price: null, currency: null, product_url: null, last_used: "2026-11-20T00:00:00Z", kit: null, in_kits: [] }], total: 1, offset: 0 });
     await call("search_catalog", { query: "quilt" });
     expect(catalog.searchCatalog).toHaveBeenLastCalledWith(expect.anything(), "quilt", 12);
     expect(toolText(await call("search_catalog", { query: "q" })).isError).toBe(true);

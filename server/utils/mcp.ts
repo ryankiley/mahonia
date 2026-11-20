@@ -304,22 +304,24 @@ const LIST_MARKDOWN = complete(
 // A field a catalog row has no value for (brand, variant, gear type, category,
 // calories, a source) is left out rather than sent as null, as get_list leaves out a
 // row's: twelve results of nulls are tokens a model reads for nothing. The release
-// before this one stopped requiring them, so a client that listed it reads this.
+// before this one stopped requiring them, so a client that listed it reads this. The
+// types still allow null, though none is sent: a client that lists this release and
+// then meets the one before it (a rollback) must still read that one's nulls.
 const CATALOG_RESULT = {
   type: "object",
   properties: {
     id: { type: "integer", description: "The catalog row id, the one create_list and edit_list take as catalog_id." },
-    brand: str("The maker; left out when the product has none."),
+    brand: nullable("string", "The maker; left out when the product has none."),
     name: str("The product name, without brand or variant."),
-    variant: str("Size, length or rating; left out on a product sold one way."),
+    variant: nullable("string", "Size, length or rating; left out on a product sold one way."),
     display_name: str("Brand, name and variant joined."),
     weight_g: { type: "number", description: "The cited weight in grams, to a tenth." },
-    gear_type: str("What kind of thing it is: Tent, Quilt, Trail runners."),
-    category: str("The catalog's category: shelter, sleep, pack, and so on."),
-    kcal: { type: "number", description: "Calories per unit, on food." },
+    gear_type: nullable("string", "What kind of thing it is: Tent, Quilt, Trail runners."),
+    category: nullable("string", "The catalog's category: shelter, sleep, pack, and so on."),
+    kcal: nullable("number", "Calories per unit, on food."),
     verified: { type: "boolean", description: "Whether the cited weight has been verified." },
     weight_source: { type: "string", enum: WEIGHT_SOURCES, description: "Where the weight comes from; community is text people typed on lists, not a cited source." },
-    source_url: str("The page the weight was read from. On a product's variants, when one is cited."),
+    source_url: nullable("string", "The page the weight was read from. On a product's variants, when one is cited."),
   },
   required: ["id", "name", "display_name", "weight_g", "verified", "weight_source"],
 };
@@ -330,7 +332,7 @@ const CATALOG_OUTPUT = {
     product: {
       type: "object",
       description: "The product looked up, when one was.",
-      properties: { brand: str(), name: str("The product name, without brand or variant."), gear_type: str(), category: str() },
+      properties: { brand: nullable("string"), name: str("The product name, without brand or variant."), gear_type: nullable("string"), category: nullable("string") },
       required: ["name"],
     },
     results: { type: "array", description: "A search's matches, best first; or a product's variants, in variant order.", items: CATALOG_RESULT },
@@ -347,16 +349,19 @@ const CREATE_FIELDS = {
   totals: TOTALS_SCHEMA,
   saved_to_account: { type: "boolean", description: "True when the connector's read-and-change access filed the list under its account, where the owner sees it on every device they sign in on." },
 };
-// edit_link is no longer REQUIRED, though every answer here still carries it: the next
-// release answers a repeated create_list with the list it already made, and the server
-// keeps no copy of an edit link to put in that answer. A client validates against the
-// listing it holds, so the shape loosens a release ahead (as the catalog's nulls do),
-// and until then a repeat is answered in words, an isError no listing checks.
+// A repeated create_list answers with the list it already made, and the server keeps
+// no copy of an edit link to put in that answer. The release before this one stopped
+// requiring edit_link (and answered a repeat in words meanwhile), so a client that
+// listed it reads this. repeated is new and optional, so a rollback still reads.
 const CREATE_OUTPUT = {
   type: "object",
   properties: {
     ...CREATE_FIELDS,
-    edit_link: str("The write capability. Keep it; it is the only way to change a list that isn't filed under an account."),
+    repeated: {
+      type: "boolean",
+      description: "True when this call repeated one the same account made in the last ten minutes: no second list was made, and this is the first one, filed under the account, so edit_list takes its share_code. Pass again: true to make another.",
+    },
+    edit_link: str("The write capability. Keep it; it is the only way to change a list that isn't filed under an account. Left out only on a repeat: the server keeps no copy of a link to hand back."),
     account_note: str("Only when the connector sent an access token and the list still could not be filed under its account: the reason, and what to do instead."),
   },
   required: Object.keys(CREATE_FIELDS),
@@ -453,29 +458,30 @@ const LIST_OUTPUT = { type: "object", anyOf: [LIST_DATA, LIST_MARKDOWN, MY_LISTS
  *  null: a closet of a few hundred pieces is mostly empty prices and links, and get_list
  *  already reads that way, so a field cleared by edit_my_gear is one gone from the echo.
  *  times_used is no longer sent. The release before this one stopped requiring all of
- *  them, so a client that listed it reads this. */
+ *  them, so a client that listed it reads this. Their types still allow null, for the
+ *  reason the catalog row's do: a rollback to that release must still read. */
 const GEAR_ROW = {
   type: "object",
   properties: {
     id: { type: "integer", description: "Names the piece to edit_my_gear." },
     display_name: str(`Brand, name and variant joined, the way the gear page shows a piece. ${USER_TEXT}`),
     name: str(USER_TEXT),
-    brand: str(USER_TEXT),
-    variant: str(USER_TEXT),
-    gear_type: str(`Tent, Quilt, Stove. ${USER_TEXT}`),
+    brand: nullable("string", USER_TEXT),
+    variant: nullable("string", USER_TEXT),
+    gear_type: nullable("string", `Tent, Quilt, Stove. ${USER_TEXT}`),
     kind: str("The section the gear page files it under, read from its icon or gear type: Shelter, Sleep, Kitchen, Clothing and the like; Food, which the gear page keeps on a Food tab of its own, read by calories; Other when nothing matches; and Kits for a kit. Not set by hand."),
     weight_g: { type: "number", description: "Grams for one, to a tenth; 0 when it has never been weighed, and a piece says so with unweighed. On a kit, the whole kit: its items plus its own weight, each item flagged the same way." },
     unweighed: { type: "boolean", description: "Only on a piece (not a kit) that has never been weighed: its 0 g is a gap, not a weightless thing." },
     owned: { type: "integer", minimum: 1, description: "How many of this piece the owner has: three of the same bottle is one piece with owned 3. Not how many a trip carries, which is a list row's qty, nor how many a kit holds, which is its item's count. The gear page's totals count one of each." },
-    classification: { type: "string", enum: CLASSIFICATIONS, description: "base, worn or consumable; left out when the owner leaves it to each list." },
-    kcal: { type: "number", description: "Calories in one, on food." },
-    catalog_id: { type: "number", description: "The catalog row the piece is linked to, when it is." },
-    price: { type: "number", description: "What one cost, in the currency's main unit." },
-    currency: str("ISO 4217 code of price, when one was recorded."),
-    product_url: str(),
+    classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; left out when the owner leaves it to each list." },
+    kcal: nullable("number", "Calories in one, on food."),
+    catalog_id: nullable("number", "The catalog row the piece is linked to, when it is."),
+    price: nullable("number", "What one cost, in the currency's main unit."),
+    currency: nullable("string", "ISO 4217 code of price, when one was recorded."),
+    product_url: nullable("string"),
     last_used: str("When a list last carried it, or, for a piece no list has carried, when it was added to My Gear. ISO 8601."),
     kit: {
-      type: "object",
+      type: ["object", "null"],
       description: "Only on a KIT, a set the owner keeps together: what it weighs by itself (a stuff sack) and the items it holds, each also a piece of My Gear by its own id. Its weight_g already counts them, so put a kit on a list either as one row or as its items, never both.",
       properties: {
         own_weight_g: { type: "number", description: "What the kit weighs by itself, in grams; usually 0." },
@@ -695,7 +701,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "create_list",
     title: "Make a new list",
     description:
-      "Creates a list and returns its edit link and share link; a repeat of the same call by an account with read-and-change access names the list it already made instead (see again). Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders; a row with items nested under it is a group (stakes under a tent, snacks under a day). Keep the edit link: it is the only way to change a list that isn't filed under an account. With read-and-change access to an account the list is filed under it too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
+      "Creates a list and returns its edit link and share link; a repeat of the same call by an account with read-and-change access returns the list it already made instead (see again). Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders; a row with items nested under it is a group (stakes under a tent, snacks under a day). Keep the edit link: it is the only way to change a list that isn't filed under an account. With read-and-change access to an account the list is filed under it too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
     // A folder's rows used to be declared twice over, once under folders[].items and once
     // under items, which put two more copies of the row schema in every conversation
     // with the connector on. A row names its folder, so items alone carries them; a
@@ -726,7 +732,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
         again: {
           type: "boolean",
           description:
-            "With read-and-change access, a call with rows identical to one the same account made in the last ten minutes is taken as a retry and makes no second list: the answer names the first, filed under the account, by its share code. Pass true to make the same list twice on purpose.",
+            "With read-and-change access, a call with rows identical to one the same account made in the last ten minutes is taken as a retry and makes no second list: the first comes back, by share code, with repeated set. Pass true to make the same list twice on purpose.",
         },
       },
     },
@@ -1601,6 +1607,7 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
       items: snapshot.items.length,
       totals: describeTotals(snapshot),
       saved_to_account: filed === true,
+      repeated: false,
       edit_link: `${origin}${editLinkPath(snapshot.shareCode, editToken)}`,
       ...(typeof filed === "string" ? { account_note: filed } : {}),
     });
@@ -1614,21 +1621,26 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
  * the share code its window kept, as it now is, provided the account still has it
  * filed. Null when it doesn't (deleted, or taken off the account since), and the call
  * then makes a new list.
- *
- * Said in words, as an isError, for now. A structured answer is checked against the
- * listing the client holds, and one listed before this release requires the edit link
- * on every create_list answer, which a repeat can't carry; an isError is checked
- * against nothing. The next release, once that listing has been replaced by this one,
- * which no longer requires it, answers with the list itself.
  */
 async function madeBefore(event: H3Event, userId: number, hit: Record<string, unknown>): Promise<ToolResult | null> {
   const code = typeof hit.share_code === "string" ? hit.share_code : "";
   const hash = code ? await claimedEditHash(await useAccountDb(), userId, code) : null;
   const snap = hash ? await getByEditHash(hash) : null;
   if (!snap) return null;
-  const rows = snap.items.length === 1 ? "1 row" : `${snap.items.length} rows`;
-  return fail(
-    `No second list was made, and nothing failed: this call repeats a create_list this account made in the last ten minutes, and that list, "${snap.title}" (${rows}, filed under your account), is the answer. Its share code is ${snap.shareCode} and its share link ${shareLink(trustedOrigin(event), snap.shareCode)}. Pass the share code to edit_list to change it. Pass again: true only to make a second copy.`,
+  const origin = trustedOrigin(event);
+  const structured = {
+    title: snap.title,
+    share_link: shareLink(origin, snap.shareCode),
+    share_code: snap.shareCode,
+    folders: snap.folders.length,
+    items: snap.items.length,
+    totals: describeTotals(snap),
+    saved_to_account: true,
+    repeated: true,
+  };
+  return ok(
+    structured,
+    `${JSON.stringify(structured)}\nThis repeats a create_list call made in the last ten minutes, so no second list was made: this is the list that call made, as it is now, filed under your account. Pass its share_code to edit_list to change it, or again: true to make another.`,
   );
 }
 
@@ -1766,8 +1778,7 @@ function tripMeta(args: Record<string, unknown>, { creating = false, linked = fa
 // only for a caller with read-and-change access, whose list is filed under that
 // account, and only for a call that makes rows: an empty or title-only list is what two
 // conversations most often ask for alike, and a spare one costs nothing. The repeat
-// answers with that list as it now is (in words for now; madeBefore says why), read
-// again by the share code the entry keeps,
+// answers with that list as it now is, read again by the share code the entry keeps,
 // which edit_list takes from that same account, and never with its edit link, which
 // the server keeps no copy of (only its hash is stored, and a raw link in the KV store
 // would be one more place to leak it); a list deleted or unfiled since is no answer,
