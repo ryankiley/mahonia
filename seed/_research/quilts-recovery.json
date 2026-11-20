@@ -9,7 +9,7 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20220125080410id_/https://enlightenedequipment.com/revelation-850-10-f-12-c-regular-regular-forest-10d-graphite-7d-171121/",
-      "quote": "<span data-product-weight>25.50 Ounces</span> ; product_attributes JSON: \"weight\":{\"formatted\":\"25.50 Ounces\",\"value\":25.5},\"base\":true (EE's own Revelation 850 10F Regular/Regular SKU page)"
+      "quote": "Weight: 25.50 Ounces (Revelation 850 10F, Regular/Regular)"
     },
     {
       "brand": "Enlightened Equipment",
@@ -20,7 +20,7 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20211016111200id_/https://enlightenedequipment.com/revelation-850-30-f-1-c-regular-regular-burnt-orange-10d-charcoal-10d-5815-38/",
-      "quote": "<span data-product-weight>19.45 Ounces</span> ; product_attributes JSON: \"weight\":{\"formatted\":\"19.45 Ounces\",\"value\":19.45},\"base\":true (EE's own Revelation 850 30F Regular/Regular SKU page)"
+      "quote": "Weight: 19.45 Ounces (Revelation 850 30F, Regular/Regular)"
     },
     {
       "brand": "Enlightened Equipment",
@@ -31,7 +31,7 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20220524032618id_/https://enlightenedequipment.com/revelation-850-40-f-5-c-regular-regular-forest-10d-charcoal-10d-5763-28/",
-      "quote": "<span data-product-weight>15.81 Ounces</span> ; product_attributes JSON: \"weight\":{\"formatted\":\"15.81 Ounces\",\"value\":15.81},\"base\":true (EE's own Revelation 850 40F Regular/Regular SKU page; independently matches outdoorline.eu table Regular/Regular 850 = 448 g / 15.81 oz)"
+      "quote": "Weight: 15.81 Ounces (Revelation 850 40F, Regular/Regular; outdoorline.eu lists the same 448 g / 15.81 oz)"
     },
     {
       "brand": "Enlightened Equipment",
@@ -42,7 +42,7 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20211201053529id_/https://enlightenedequipment.com/enigma-850-10-f-12-c-regular-regular-navy-10d-charcoal-10d-5900-23/",
-      "quote": "<span data-product-weight>24.68 Ounces</span> ; product_attributes JSON: \"weight\":{\"formatted\":\"24.68 Ounces\",\"value\":24.68},\"base\":true (EE's own Enigma 850 10F Regular/Regular SKU page)"
+      "quote": "Weight: 24.68 Ounces (Enigma 850 10F, Regular/Regular)"
     },
     {
       "brand": "Enlightened Equipment",
@@ -53,7 +53,7 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20221209030426id_/https://enlightenedequipment.com/copy-of-enigma-850-30-1-regular-regular-graphite-7d-salmon-7d-6144-3-1/",
-      "quote": "product_attributes JSON: \"weight\":{\"formatted\":\"17.94 Ounces\",\"value\":17.94},\"base\":true (EE's own Enigma 850 30F Regular/Regular SKU page; matches outdoorline.eu table Regular/Regular 850 = 510 g / 17.94 oz)"
+      "quote": "Weight: 17.94 Ounces (Enigma 850 30F, Regular/Regular; outdoorline.eu lists the same 510 g / 17.94 oz)"
     },
     {
       "brand": "Nemo",
@@ -77,7 +77,7 @@
       "weight_secondary": "3.8 oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20200311095059id_/https://www.rei.com/product/148246/rei-co-op-magma-30-sleeping-bag-mens",
-      "quote": "specs JSON: {\"name\":\"Weight\", ... \"sizeValueMap\":{\"Regular - Left Zip\":[\"1 lb. 3.8 oz.\"],\"Long - Left Zip\":[\"1 lb. 6 oz.\"]}} (REI Co-op product page, Regular = 1 lb. 3.8 oz.)"
+      "quote": "Weight: Regular - Left Zip 1 lb. 3.8 oz.; Long - Left Zip 1 lb. 6 oz."
     },
     {
       "brand": "Sea to Summit",

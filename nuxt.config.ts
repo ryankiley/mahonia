@@ -1,5 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
 
+import { readFileSync } from "node:fs";
 // The one external host, the CSP built from it, and the headers every route
 // carries — all in config/security.ts, with the reasoning that goes with them.
 // Imported rather than inlined so tests/csp.test.ts can read the real values
@@ -12,6 +13,10 @@ import { parseDevAllowedHosts } from "./config/devHosts";
 // decide what host a sign-in link may point at (server/utils/origin.ts), so the
 // social card and that decision can't drift onto different domains.
 import { CANONICAL_ORIGIN } from "./shared/site";
+// The catalog product pages are prerendered from the committed CSV — the same
+// reader the server uses at runtime, so the build's route list and the sitemap
+// can't disagree about which pages exist.
+import { catalogPagesFromCsv } from "./shared/catalogPages";
 
 // The page title and description, each also the social card's. KEEP IN STEP WITH
 // public/manifest.webmanifest, which repeats the title as `name` and the description
@@ -141,7 +146,35 @@ export default defineNuxtConfig({
         ignore: (path: string) => path.includes("node_modules/@electric-sql/pglite/"),
       },
     },
+    // The catalog CSV rides into the server bundle as an asset (read by
+    // server/utils/catalogPages.ts through `useStorage("assets:seed")`), so the
+    // product pages, the sitemap and "Pack this" can be served from the file alone —
+    // no database on the pages' path, which is the whole point of prerendering them
+    // (see the /catalog route rule). `pattern` keeps the research JSON and the
+    // common-names map out; only the built CSV ships. The default "server" asset dir
+    // (server/assets) is kept: Nitro concatenates this list.
+    serverAssets: [{ baseName: "seed", dir: "../seed", pattern: "catalog.csv" }],
+  },
 
+  hooks: {
+    // Every catalog product page, from the CSV, at build. Prerendered rather than
+    // rendered on demand because the deployment is a Vercel Hobby project on a Neon
+    // Free database: thousands of pages that a crawler can walk at any hour would be
+    // that many function invocations a sweep and a database that never gets to sleep
+    // (an ISR window of a day only spreads that out). As static files they cost
+    // seconds of build time per production deploy and nothing after. Listed here, not
+    // crawled: `crawlLinks` stays off, so a link from a prerendered page can't drag
+    // anything else into the build.
+    "prerender:routes"({ routes }) {
+      const csv = readFileSync(new URL("./seed/catalog.csv", import.meta.url), "utf8");
+      const pages = catalogPagesFromCsv(csv);
+      // The reader answers a file it can't read with NO pages rather than a throw
+      // (at runtime one odd row must not take the sitemap down). At build, none at
+      // all is a broken file or a renamed column, and a deploy that quietly drops
+      // every product page — and every sitemap entry — is the failure to refuse.
+      if (!pages.length) throw new Error("seed/catalog.csv yielded no catalog product pages to prerender");
+      for (const page of pages) routes.add(`/catalog/${page.slug}`);
+    },
   },
 
   // Hidden client sourcemaps on request — `.map` files beside the chunks, never
@@ -438,6 +471,11 @@ export default defineNuxtConfig({
     "/about": { prerender: true },
     "/help": { prerender: true },
     "/legal": { prerender: true },
+    // The catalog product pages: static HTML from the committed CSV, one file per
+    // product, listed by the `prerender:routes` hook above. A slug that was never
+    // built falls through to the function, whose handler answers 404 from the same
+    // CSV — the only invocation this family can cost.
+    "/catalog/**": { prerender: true },
     // Privacy + Terms were merged into /legal (two sections) — keep the old URLs
     // working with a permanent redirect (bookmarks, external links, llms.txt history).
     // The changelog is GitHub's Releases now — the same entries, one release per day

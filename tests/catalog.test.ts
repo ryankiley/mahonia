@@ -150,6 +150,18 @@ describe("serializeCsv + csvToCatalogRows round-trip", () => {
     expect(rows[1].brand).toBeNull();
   });
 
+  it("reads the quote when the column is there", () => {
+    const rows = csvToCatalogRows(csv);
+    expect(rows[0].quote).toBeNull();
+    const quoted = csvToCatalogRows(
+      serializeCsv(
+        ["brand", "name", "weight_mg", "weight_source", "source_url", "quote"],
+        [{ brand: "Durston", name: "X-Mid 2", weight_mg: 887_000, weight_source: "manufacturer", source_url: "https://durstongear.com/x", quote: "Complete Tent: 31.3 oz / 890 g" }],
+      ),
+    );
+    expect(quoted[0]).toMatchObject({ name: "X-Mid 2", quote: "Complete Tent: 31.3 oz / 890 g" });
+  });
+
   it("rejects an invalid weight_source", () => {
     const bad = "brand,name,variant,category_hint,weight_mg,weight_source,source_url\nX,Y,,pack,100,guessed,https://x\n";
     expect(() => csvToCatalogRows(bad)).toThrow(/weight_source/);

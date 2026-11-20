@@ -27,6 +27,7 @@ const csv = (over: Partial<CatalogCsvRow>): CatalogCsvRow => ({
   kcal: null,
   weightSource: "manufacturer",
   sourceUrl: URL,
+  quote: "Weight: 420 g",
   searchTerms: null,
   ...over,
 });

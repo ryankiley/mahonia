@@ -110,3 +110,14 @@ describe("service worker updates", () => {
     expect(PWA_OPTIONS.workbox?.clientsClaim).toBe(true);
   });
 });
+
+describe("the precache", () => {
+  it("leaves the catalog product pages out", () => {
+    // @vite-pwa/nuxt adds `**/_payload.json` to the precache of every prerendering
+    // app; the product pages under /catalog each have one, and none of them is the
+    // shell (config/pwa.ts says the rest). A build check would be the real gate —
+    // this pins the one line that keeps them out.
+    expect(PWA_OPTIONS.workbox?.globIgnores).toContain("catalog/**");
+    expect(PWA_OPTIONS.workbox?.globPatterns).toEqual(["**/*.{js,css,woff2}"]);
+  });
+});

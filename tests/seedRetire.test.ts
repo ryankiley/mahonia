@@ -18,6 +18,7 @@ const csv = (over: Partial<CatalogCsvRow>): CatalogCsvRow => ({
   variant: null,
   attributes: {},
   attributesUnpublished: [],
+  quote: null,
   categoryHint: "consumable",
   weightMg: 68_000,
   kcal: 290,

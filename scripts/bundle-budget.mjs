@@ -170,7 +170,13 @@ const FIRST_LOAD_BUDGET_KB = 162;
 // The device copy and the offline state are in useVaultList (/gear's and the pane's
 // chunks); the 0.2 that reached first load (160.1) is the copy's forget in useSession,
 // which every way out of an account runs.
-const TOTAL_BUDGET_KB = 341;
+//
+// Re-set 2026-11-20 at 341.1 measured (was 341; main at 314a46b is 336.9): the catalog
+// product pages (#432). The +4.2 is the product page's own route chunk, which the editor
+// never downloads, and the "Pack this" handler, imported on demand by a visitor who
+// arrived from a product page. First load 161.2 → 161.9: the editor's watcher on the
+// address's `add` query, the draft restore it waits on, and the row-adding function.
+const TOTAL_BUDGET_KB = 345;
 // Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
 // to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
 // single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
