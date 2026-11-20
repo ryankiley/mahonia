@@ -12,8 +12,9 @@
 //
 // Lists come from the public share endpoint (a share link is permission to read, so
 // nothing here needs a session or a token). Gear comes from a file in one of two
-// shapes: /gear's own "Download JSON" export, or the connector's get_my_gear answer —
-// both carry the folder names, the weights, the classes and the catalog links.
+// shapes: /gear's own "Download JSON" export, or the connector's get_my_gear answer
+// (every page of it, as an array, when it took more than one) — both carry the folder
+// names, the weights, the classes and the catalog links.
 //
 // Writes go to the local PGlite only. The script refuses to run with DATABASE_URL
 // set, because "mirror a real account" must never mean "write into production".
@@ -169,11 +170,19 @@ function gearRows(text: string, resolve: Resolve): VaultImportRow[] {
   if (own) {
     rows = own.rows;
   } else {
+    // one get_my_gear answer, or every page of one as an array: a page stops at about
+    // 64 KB, so a large closet takes several, and the last says next_offset until the
+    // rest are in hand
     const raw: unknown = JSON.parse(text);
-    if (!isRecord(raw) || !Array.isArray(raw.gear)) {
-      throw new Error("gear file is neither /gear's JSON export nor a get_my_gear answer");
+    const pages = Array.isArray(raw) ? raw : [raw];
+    if (!pages.length || !pages.every((p) => isRecord(p) && Array.isArray(p.gear))) {
+      throw new Error("gear file is neither /gear's JSON export nor a get_my_gear answer (or an array of its pages)");
     }
-    rows = (raw.gear as ConnectorGear[]).flatMap((g): VaultImportRow[] => {
+    const last = pages.at(-1) as Record<string, unknown>;
+    if (typeof last.next_offset === "number") {
+      throw new Error(`gear file is part of a get_my_gear answer: more pieces begin at offset ${last.next_offset}. Save every page, as a JSON array of the answers.`);
+    }
+    rows = pages.flatMap((p) => (p as { gear: ConnectorGear[] }).gear).flatMap((g): VaultImportRow[] => {
       if (!isRecord(g) || typeof g.name !== "string" || !g.name.trim()) return [];
       const brand = g.brand ?? undefined;
       const variant = g.variant ?? undefined;

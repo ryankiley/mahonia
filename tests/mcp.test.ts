@@ -3,7 +3,9 @@ import mcpDelete from "../server/routes/mcp.delete";
 import mcpGet from "../server/routes/mcp.get";
 import mcpHead from "../server/routes/mcp.head";
 import mcp from "../server/routes/mcp.post";
-import { GET_LIST_MAX_BYTES, MCP_INSTRUCTIONS, MCP_INSTRUCTIONS_MAX, MCP_TOOLS, describeList, editHashFrom, fitList, fitMarkdown, shareCodeFrom } from "../server/utils/mcp";
+import { readFileSync } from "node:fs";
+import { GET_LIST_MAX_BYTES, MCP_INSTRUCTIONS, MCP_INSTRUCTIONS_MAX, MCP_SERVER_INFO, MCP_TOOLS, REPLAY_WAIT, describeList, editHashFrom, fitGearPage, fitList, fitMarkdown, shareCodeFrom } from "../server/utils/mcp";
+import { bearerToken } from "../server/utils/http";
 import { sha256Hex } from "../server/utils/tokens";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { MAX_ITEMS, MAX_ITEM_NOTE_LEN } from "../shared/ops";
@@ -31,13 +33,19 @@ const limiter = vi.hoisted(() => {
   // the shared KV the replay window lives in, as a Map: what the limiter's own tests
   // inject, minus the TTL (a case that needs expiry clears it by hand)
   const kv = new Map<string, unknown>();
+  // the TTL each write asked for, so a test can see the window is bounded in the store
+  const ttls = new Map<string, number | undefined>();
   return {
     kv,
+    ttls,
     rateLimit: vi.fn<(event: unknown, action: string) => Promise<void>>(async () => {}),
     rateLimitSubject: vi.fn<(action: string, subject: string) => Promise<void>>(async () => {}),
     useKv: () => ({
       getItem: async <T,>(key: string) => (kv.get(key) as T | undefined) ?? null,
-      setItem: async <T,>(key: string, value: T) => void kv.set(key, value),
+      setItem: async <T,>(key: string, value: T, opts?: { ttl?: number }) => {
+        kv.set(key, value);
+        ttls.set(key, opts?.ttl);
+      },
     }),
   };
 });
@@ -112,7 +120,7 @@ describe("the endpoint's transport", () => {
     const res = resultOf(r)!;
     expect(res.protocolVersion).toBe("2025-06-18");
     expect(res.capabilities).toEqual({ tools: {} });
-    expect(res.serverInfo).toMatchObject({ name: "mahonia", version: "2.0.0" });
+    expect(res.serverInfo).toMatchObject({ name: "mahonia", version: MCP_SERVER_INFO.version });
     expect(res.instructions).toBe(MCP_INSTRUCTIONS);
     expect(r.event.node.res.getHeader("mcp-session-id")).toBeUndefined();
     expect(r.event.node.res.getHeader("cache-control")).toBe("no-store");
@@ -177,6 +185,44 @@ describe("the endpoint's transport", () => {
     expect(() => expectConforms("get_list", { title: "x", share_code: "A", share_link: "u", unit: "stone", totals: {}, folders: [] })).toThrow(/unit|totals/);
     expect(res.nextCursor).toBeUndefined();
     expect((await post(rpc("tools/list", { cursor: "p2" }))).out!.error).toMatchObject({ code: -32602 });
+  });
+
+  // A model reads an argument's description to know what to put in it, and a listing
+  // grades a tool by whether every argument has one. Every property, at every depth.
+  it("describes every argument of every tool, nested ones included", () => {
+    const missing: string[] = [];
+    const walk = (schema: unknown, path: string) => {
+      if (!schema || typeof schema !== "object") return;
+      const s = schema as { properties?: Record<string, unknown>; items?: unknown };
+      for (const [key, prop] of Object.entries(s.properties ?? {})) {
+        if (!(prop as { description?: string }).description) missing.push(`${path}.${key}`);
+        walk(prop, `${path}.${key}`);
+      }
+      if (s.items) walk(s.items, `${path}[]`);
+    };
+    for (const tool of MCP_TOOLS) walk(tool.inputSchema, tool.name);
+    expect(missing).toEqual([]);
+  });
+
+  // create_list's rows are declared once, under items, each naming its folder: the
+  // copy under folders[].items put the row schema in the listing twice more. A client
+  // that read the old listing can still send it (mcpFlow's lists are made that way).
+  it("declares create_list's rows once, under items", () => {
+    const create = MCP_TOOLS.find((t) => t.name === "create_list")!.inputSchema as { properties: { folders: { items: { properties: Record<string, unknown> } } } };
+    expect(Object.keys(create.properties.folders.items.properties)).toEqual(["name", "classification"]);
+    // what a model is handed for the six tools (the output shapes are for validating
+    // clients): 33,018 characters with the second copy, held under this from here on
+    const listed = MCP_TOOLS.map(({ outputSchema: _shape, ...tool }) => tool);
+    expect(JSON.stringify(listed).length).toBeLessThan(32_000);
+  });
+
+  // The registry listing is what directories and clients read before they connect; it
+  // went stale once already, at 1.0.0 while the handshake said 2.0.0.
+  it("keeps the registry listing in step with the handshake, within the registry's limits", () => {
+    const listing = JSON.parse(readFileSync(new URL("../server.json", import.meta.url), "utf8")) as { version: string; description: string; title: string };
+    expect(listing.version).toBe(MCP_SERVER_INFO.version);
+    expect(listing.title).toBe(MCP_SERVER_INFO.title);
+    expect(listing.description.length).toBeLessThanOrEqual(100);
   });
 
   it("answers protocol mistakes as JSON-RPC errors, with the HTTP status the transport asks for", async () => {
@@ -265,6 +311,50 @@ describe("the endpoint's transport", () => {
     const r = await post(rpc("ping"));
     expect(r.status).toBe(429);
     expect(r.out!.error).toMatchObject({ code: -32000, message: expect.stringContaining("Too many requests") });
+    expect(String(r.event.node.res.getHeader("retry-after"))).toBe("60");
+  });
+
+  // The flood guard's store going away is not the caller being over budget. Read as a
+  // 429, a KV timeout took the whole endpoint down for as long as it lasted, handshake
+  // and tool list included, which is what an uptime check sees as an outage.
+  // What needs nothing the budget guards (the handshake, the tool list) goes through;
+  // a tool call is refused in its result, in words, since some tools (search_catalog,
+  // the bearer lookup) are limited by this bucket alone.
+  it("keeps the handshake open when the store behind the budget fails, refuses a tool call in words, and logs it", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    limiter.rateLimit.mockRejectedValueOnce(new Error("fetch failed: ETIMEDOUT"));
+    const r = await post(rpc("initialize", { protocolVersion: "2025-11-25" }));
+    expect(r.status).toBe(200);
+    expect(resultOf(r)!.protocolVersion).toBe("2025-11-25");
+    expect(quiet).toHaveBeenCalledWith(expect.stringContaining("[mcp rate limit]"), expect.any(Error));
+    limiter.rateLimit.mockRejectedValueOnce(new Error("fetch failed: ETIMEDOUT"));
+    const t = await call("get_list", { share_code: "ABC123DEF456" });
+    expect(t.status).toBe(200);
+    expect(toolText(t)).toMatchObject({ isError: true, text: expect.stringContaining("request budget") });
+    expect(repo.getByShareCode).not.toHaveBeenCalled();
+    quiet.mockRestore();
+  });
+
+  // Some clients JSON-encode a tool's arguments a second time. Read as an object, that
+  // string was no arguments at all, and a get_list for a public list became a sign-in.
+  it("reads arguments a client encoded twice, and refuses arguments that aren't an object", async () => {
+    repo.getByShareCode.mockResolvedValue(snap());
+    const r = await post(rpc("tools/call", { name: "get_list", arguments: JSON.stringify({ share_code: "ABC123DEF456" }) }));
+    expect(r.status).toBe(200);
+    expect(toolText(r).isError).toBe(false);
+    expect(repo.getByShareCode).toHaveBeenCalledWith("ABC123DEF456");
+    for (const bad of ["nope", 5, ["ABC123DEF456"]]) {
+      expect((await post(rpc("tools/call", { name: "get_list", arguments: bad }))).out!.error).toMatchObject({ code: -32602 });
+    }
+  });
+
+  it("reads the Bearer scheme in any case, as RFC 7235 has it", () => {
+    const withAuth = (authorization: string) => makeEvent("/mcp", { method: "POST", headers: { authorization } });
+    expect(bearerToken(withAuth("Bearer tok_1"))).toBe("tok_1");
+    expect(bearerToken(withAuth("bearer  tok_2 "))).toBe("tok_2");
+    expect(bearerToken(withAuth("BEARER tok_3"))).toBe("tok_3");
+    expect(bearerToken(withAuth("Basic dXNlcg=="))).toBe("");
+    expect(bearerToken(withAuth("Bearertok"))).toBe("");
   });
 
   it("caps the body", async () => {
@@ -511,6 +601,87 @@ describe("writing", () => {
     expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(6);
   });
 
+  // The usual retry lands while the first call is still writing: it waits for that
+  // answer and gives it back, and says the change is under way when the first runs past
+  // the wait, rather than adding the rows twice.
+  it("edit_list waits on an identical call still being applied and answers from it, or says it is under way", async () => {
+    const was = { ...REPLAY_WAIT };
+    Object.assign(REPLAY_WAIT, { totalMs: 2_000, stepMs: 5 });
+    try {
+      repo.getByEditHash.mockResolvedValue(snap());
+      let release: () => void = () => {};
+      repo.applyOpsByEditHash.mockImplementationOnce(() => new Promise((resolve) => (release = () => resolve(snap()))));
+      const args = { edit_link: EDIT_LINK, add: [{ name: "Spoon" }] };
+      const first = call("edit_list", args);
+      await vi.waitFor(() => expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1));
+      const retry = call("edit_list", args);
+      setTimeout(() => release(), 30);
+      expect(toolText(await first).structured).toMatchObject({ added: 1, repeated: false });
+      expect(toolText(await retry).structured).toMatchObject({ added: 1, repeated: true });
+      expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);
+
+      // a first call that outlasts the wait: the retry writes nothing and says why
+      Object.assign(REPLAY_WAIT, { totalMs: 20 });
+      repo.applyOpsByEditHash.mockImplementationOnce(() => new Promise((resolve) => (release = () => resolve(snap()))));
+      const slowArgs = { edit_link: EDIT_LINK, add: [{ name: "Fork" }] };
+      const slow = call("edit_list", slowArgs);
+      await vi.waitFor(() => expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(2));
+      expect(toolText(await call("edit_list", slowArgs))).toMatchObject({ isError: true, text: expect.stringContaining("being applied") });
+      release();
+      await slow;
+      expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(2);
+    } finally {
+      Object.assign(REPLAY_WAIT, was);
+    }
+  });
+
+  // The in-memory store ignores a TTL, so an entry carries its own time; and the window
+  // a deploy inherits, written in the earlier format, is simply no answer.
+  it("edit_list judges a remembered answer by when it was written, and keeps it ten minutes in the store", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockResolvedValue(snap());
+    const args = { edit_link: EDIT_LINK, add: [{ name: "Spoon" }] };
+    await call("edit_list", args);
+    const [key, entry] = [...limiter.kv.entries()].find(([k]) => k.startsWith("mcp:replay:"))!;
+    expect(limiter.ttls.get(key)).toBe(600);
+    limiter.kv.set(key, { ...(entry as object), at: Date.now() - 11 * 60_000 });
+    expect(toolText(await call("edit_list", args)).structured).toMatchObject({ repeated: false });
+    limiter.kv.set(key, { title: "Timberline", added: 1, repeated: false });
+    expect(toolText(await call("edit_list", args)).structured).toMatchObject({ repeated: false });
+    expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(3);
+  });
+
+  // get_list names the rows in no folder "Unfiled", so a model passes it back; making a
+  // folder of that name put them in a folder called Unfiled. A real one is kept.
+  it("edit_list reads Unfiled as no folder, unless the list has a folder by that name", async () => {
+    repo.getByEditHash.mockResolvedValue(snap());
+    repo.applyOpsByEditHash.mockResolvedValue(snap());
+    type PlannedOp = { t: string; id?: string; folderId?: string | null; item?: { folderId: string | null } };
+    const r = toolText(await call("edit_list", { edit_link: EDIT_LINK, add: [{ name: "Spoon", folder: "unfiled" }], update: [{ id: "i3", folder: "Unfiled" }] }));
+    expect(r.isError, r.text).toBe(false);
+    expect(r.structured).toMatchObject({ folders_made: [] });
+    const ops = repo.applyOpsByEditHash.mock.calls[0]![1] as PlannedOp[];
+    expect(ops.some((o) => o.t === "addFolder")).toBe(false);
+    expect(ops.find((o) => o.t === "addItem")!.item!.folderId).toBeNull();
+    expect(ops.find((o) => o.t === "moveItem" && o.id === "i3")!.folderId).toBeNull();
+    const s = snap();
+    s.folders.push({ id: "f9", name: "Unfiled", defaultClassification: "base", sortOrder: 2 });
+    repo.getByEditHash.mockResolvedValue(s);
+    await call("edit_list", { edit_link: EDIT_LINK, add: [{ name: "Fork", folder: "Unfiled" }] });
+    expect((repo.applyOpsByEditHash.mock.calls[1]![1] as PlannedOp[]).find((o) => o.t === "addItem")!.item!.folderId).toBe("f9");
+  });
+
+  it("edit_list keeps a title, and the trip's end after its start against the stored dates", async () => {
+    repo.getByEditHash.mockResolvedValue(snap()); // 2026-06-20 to 2026-06-21
+    for (const list of [{ title: "  " }, { end_date: "2026-06-19" }, { start_date: "2026-06-22" }]) {
+      expect(toolText(await call("edit_list", { edit_link: EDIT_LINK, list })).isError, JSON.stringify(list)).toBe(true);
+    }
+    expect(repo.applyOpsByEditHash).not.toHaveBeenCalled();
+    repo.applyOpsByEditHash.mockResolvedValue(snap());
+    expect(toolText(await call("edit_list", { edit_link: EDIT_LINK, list: { start_date: "2026-07-01", end_date: "2026-07-03" } })).isError).toBe(false);
+    expect(toolText(await call("edit_list", { edit_link: EDIT_LINK, list: { end_date: "", start_date: "2026-08-01" } })).isError).toBe(false);
+  });
+
   it("edit_list remembers nothing from a call that failed", async () => {
     repo.getByEditHash.mockResolvedValue(snap());
     repo.applyOpsByEditHash.mockResolvedValueOnce(null).mockResolvedValue(snap());
@@ -734,6 +905,47 @@ describe("writing", () => {
 });
 
 describe("describeList", () => {
+  // a row's weight is optional, so a stored 0 is "not weighed yet", and the totals
+  // count it as nothing; the answer says which rows, and how many, so a model doesn't
+  // report a pack weight as complete. A group's own 0 is its container's, not a gap.
+  it("marks the rows with no weight yet, and counts them in the totals", () => {
+    const s = snap();
+    s.items.push(
+      { id: "i5", folderId: "f1", name: "Pillow", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 2 },
+      { id: "i6", folderId: "f2", name: "Day 1", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 1 },
+      { id: "i7", folderId: "f2", parentId: "i6", name: "Oatmeal", unitWeightMg: 0, qty: 2, classification: null, sortOrder: 0 },
+      { id: "i8", folderId: "f2", parentId: "i6", name: "Wraps", unitWeightMg: 40_000, qty: 2, classification: null, sortOrder: 1 },
+      // weighed, and not packed this time: qty 0 is a stored state, and not a gap
+      { id: "i9", folderId: "f1", name: "Spare stakes", unitWeightMg: 10_000, qty: 0, classification: null, sortOrder: 3 },
+      // water's figure is a volume; an empty one is water not planned yet
+      { id: "i10", folderId: "f2", name: "Water", unitWeightMg: 0, qty: 1, classification: null, sortOrder: 2 },
+    );
+    const out = describeList(s, "https://mahonia.app");
+    expectConforms("get_list", out);
+    expect(out.totals).toMatchObject({ unweighed: 2 });
+    const rows = (out.folders as { items: (Record<string, unknown> & { items?: Record<string, unknown>[] })[] }[]).flatMap((f) => f.items.flatMap((r) => [r, ...(r.items ?? [])]));
+    const marked = rows.filter((r) => r.unweighed).map((r) => r.name);
+    expect(marked).toEqual(["Pillow", "Oatmeal"]);
+    expect(rows.find((r) => r.name === "Day 1")).not.toHaveProperty("unweighed");
+    // a list with every weight says nothing about it
+    expect(describeList(snap(), "https://mahonia.app").totals).not.toHaveProperty("unweighed");
+  });
+
+  // A folder's position counts every folder, and one that can't be seen can't be
+  // renamed or removed, so an empty folder is listed, also when a long list is cut.
+  it("lists an empty folder with no rows, and Unfiled only when it has some", () => {
+    const s = snap();
+    s.folders.push({ id: "f3", name: "Kitchen", defaultClassification: "base", sortOrder: 2 });
+    const out = describeList(s, "https://mahonia.app");
+    expectConforms("get_list", out);
+    const folders = out.folders as { id?: string; name: string; items: unknown[] }[];
+    expect(folders.map((f) => [f.name, f.items.length])).toEqual([["Shelter", 1], ["Food", 1], ["Kitchen", 0], ["Unfiled", 1]]);
+    expect(folders.find((f) => f.name === "Kitchen")).toMatchObject({ id: "f3", items: [] });
+    s.items = s.items.filter((i) => i.folderId);
+    expect((describeList(s, "https://mahonia.app").folders as { name: string }[]).map((f) => f.name)).toEqual(["Shelter", "Food", "Kitchen"]);
+    const cut = fitList(out, 900);
+    expect((cut.folders as { name: string }[]).map((f) => f.name)).toContain("Kitchen");
+  });
   it("carries a saved cooking choice through the read schema", () => {
     const s = snap();
     s.items[0]!.needsCooking = true;
@@ -950,6 +1162,34 @@ describe("fitList", () => {
     expect(Buffer.byteLength(text)).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
     expect(JSON.parse(text)).toEqual(structured);
     expect(structured!.truncated).toMatchObject({ notes: true, rows: expect.any(Number) });
+  });
+});
+
+describe("fitGearPage", () => {
+  const piece = (id: number, pad = 0) => ({ id, display_name: `Piece ${id}`, name: `Piece ${id}`, kind: "Other", weight_g: 10, owned: 1, last_used: "2026-11-01T00:00:00.000Z", product_url: "x".repeat(pad) });
+  it("hands a page under the ceiling back as it was", () => {
+    const rows = [piece(1), piece(2)];
+    expect(fitGearPage(rows)).toBe(rows);
+  });
+  it("stops at the last whole piece under the ceiling", () => {
+    const rows = Array.from({ length: 400 }, (_, i) => piece(i, 300));
+    const page = fitGearPage(rows);
+    // every whole piece that fits, and not one more: 96 bytes of envelope, then each
+    // row and its comma
+    let room = GET_LIST_MAX_BYTES - 96;
+    let fits = 0;
+    for (const r of rows) {
+      room -= Buffer.byteLength(JSON.stringify(r)) + 1;
+      if (room < 0) break;
+      fits++;
+    }
+    expect(page.length).toBe(fits);
+    expect(fits).toBeLessThan(400);
+    expect(page).toEqual(rows.slice(0, page.length));
+    expect(Buffer.byteLength(JSON.stringify({ gear: page, total: 400, offset: 0, next_offset: page.length }))).toBeLessThanOrEqual(GET_LIST_MAX_BYTES);
+  });
+  it("always lets one piece through, so paging can't stall", () => {
+    expect(fitGearPage([piece(1, 500)], 100)).toHaveLength(1);
   });
 });
 

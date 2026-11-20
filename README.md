@@ -133,7 +133,11 @@ Add it to a client:
 
 The server is listed in the [official MCP registry](https://registry.modelcontextprotocol.io)
 as `app.mahonia/mahonia`; [`server.json`](server.json) is the listing, published with
-`mcp-publisher` under the domain's DNS proof.
+`mcp-publisher` under the domain's DNS proof. The registry never reads this repo, so a
+change to the listing reaches it only when it is published again (`mcp-publisher login dns`
+then `mcp-publisher publish`) once the change is on `main`; directories such as mcptry copy
+the registry, not the repo. Its version moves with `MCP_SERVER_INFO` in
+`server/utils/mcp.ts`, and a test holds the two in step.
 
 ## Changelog
 

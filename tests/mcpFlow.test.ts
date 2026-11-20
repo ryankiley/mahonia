@@ -182,8 +182,8 @@ describe("an assistant changing a list it already made", () => {
     });
     expect(isError, text).toBe(false);
     expect(data).toMatchObject({ updated: 2, folders_made: ["Snacks"] });
-    // Food is left empty, and get_list leaves an empty folder out
-    expect(layout(await read())).toEqual([["Shelter", ["Stakes", "Duplex (2022)"]], ["Sleep", ["Revelation"]], ["Snacks", ["Bars"]]]);
+    // Food is left empty, and get_list still lists it, so its place and name stay in reach
+    expect(layout(await read())).toEqual([["Shelter", ["Stakes", "Duplex (2022)"]], ["Sleep", ["Revelation"]], ["Food", []], ["Snacks", ["Bars"]]]);
   });
 
   it("changes nothing when any row it names isn't there", async () => {
@@ -222,7 +222,7 @@ describe("an assistant changing a list it already made", () => {
     });
     expect(isError, text).toBe(false);
     expect(data).toMatchObject({ folders_changed: 2, removed: 1, folders: ["Sleep system", "Shelter", "Food"] });
-    expect(layout(await read())).toEqual([["Sleep system", ["Revelation"]], ["Shelter", ["Stakes", "Duplex (2022)"]]]);
+    expect(layout(await read())).toEqual([["Sleep system", ["Revelation"]], ["Shelter", ["Stakes", "Duplex (2022)"]], ["Food", []]]);
     const clash = await call("edit_list", { edit_link: editLink, folders: [{ folder: "Shelter", name: "sleep SYSTEM" }] });
     expect(clash.isError).toBe(true);
     expect(clash.text).toContain('"Sleep system"');
@@ -233,7 +233,7 @@ describe("an assistant changing a list it already made", () => {
     const { data, isError, text } = await call("edit_list", { edit_link: editLink, remove: [row(before, "Stakes").id] });
     expect(isError, text).toBe(false);
     expect(data).toMatchObject({ removed: 1, totals: { item_count: 2 } });
-    expect(layout(await read())).toEqual([["Sleep system", ["Revelation"]], ["Shelter", ["Duplex (2022)"]]]);
+    expect(layout(await read())).toEqual([["Sleep system", ["Revelation"]], ["Shelter", ["Duplex (2022)"]], ["Food", []]]);
   });
 });
 
@@ -296,7 +296,8 @@ describe("groups and relinking, end to end", () => {
     expect(moved.isError, moved.text).toBe(false);
     expect(moved.data.folders_made).toEqual(["Day 1"]);
     list = await read();
-    expect(shape(list)).toEqual([["Day 1", [["Monday", ["Jerky", "Bars", "Gummies"]]]], ["Unfiled", [["Duplex", ["Stakes"]]]]]);
+    // Food, emptied, is still a folder of the list
+    expect(shape(list)).toEqual([["Food", []], ["Day 1", [["Monday", ["Jerky", "Bars", "Gummies"]]]], ["Unfiled", [["Duplex", ["Stakes"]]]]]);
     expect((await call("edit_list", { edit_link: link, update: [{ id: monday.id, group: find(list, "Duplex").id }] })).text).toContain("rows nested under it");
   });
 
@@ -307,7 +308,7 @@ describe("groups and relinking, end to end", () => {
     expect(relinked.isError, relinked.text).toBe(false);
     list = await read();
     // the row is now the catalog's quilt, and still Monday's
-    expect(shape(list)[0]).toEqual(["Day 1", [["Monday", ["Jerky", "Bars", "Revelation"]]]]);
+    expect(shape(list)[1]).toEqual(["Day 1", [["Monday", ["Jerky", "Bars", "Revelation"]]]]);
     expect(find(list, "Revelation")).toMatchObject({ brand: "Enlightened Equipment", variant: "20F Long", weight_g: 590, catalog_id: 1 });
     // relinked again with a weight of its own: the catalog's variant, the owner's weight
     const quilt = find(list, "Revelation");
@@ -330,7 +331,7 @@ describe("groups and relinking, end to end", () => {
     const { data, isError, text } = await call("edit_list", { edit_link: link, remove: [monday.id] });
     expect(isError, text).toBe(false);
     expect(data).toMatchObject({ removed: 4, totals: { item_count: 2 } });
-    expect(shape(await read())).toEqual([["Unfiled", [["Duplex", ["Stakes"]]]]]);
+    expect(shape(await read())).toEqual([["Food", []], ["Day 1", []], ["Unfiled", [["Duplex", ["Stakes"]]]]]);
   });
 });
 

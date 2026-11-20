@@ -64,10 +64,13 @@ export function setDailyEdgeCache(event: H3Event): void {
 }
 
 /** The Bearer token on the request, "" when absent — the one reading of the
- *  Authorization header, shared by the edit-capability and cron gates. */
+ *  Authorization header, shared by the edit-capability and cron gates. The scheme is
+ *  matched without regard to case, as RFC 7235 has it: a hand-configured client that
+ *  sends "bearer" was read as sending no token at all. */
 export function bearerToken(event: H3Event): string {
   const header = getHeader(event, "authorization") || "";
-  return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const m = /^bearer[ \t]+(.*)$/is.exec(header);
+  return m ? m[1]!.trim() : "";
 }
 
 /**

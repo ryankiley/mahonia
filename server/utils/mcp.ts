@@ -80,7 +80,7 @@ import {
 export const MCP_PROTOCOL_VERSIONS = ["2025-06-18", "2025-11-25"];
 export const MCP_LATEST_VERSION = MCP_PROTOCOL_VERSIONS[MCP_PROTOCOL_VERSIONS.length - 1]!;
 // the version the registry listing (server.json) and this handshake both carry
-export const MCP_SERVER_INFO = { name: "mahonia", title: "Mahonia", version: "2.0.0" };
+export const MCP_SERVER_INFO = { name: "mahonia", title: "Mahonia", version: "2.1.0" };
 /** where the free text came from: said once to the client, again on the two tools that
  *  return it, and field by field in get_list's schema ("User text.") */
 const PROVENANCE =
@@ -119,7 +119,7 @@ const ROW_FIELDS = {
   note: { type: "string", maxLength: MAX_ITEM_NOTE_LEN, description: "A short free-text note on the row." },
   kcal: { type: "integer", minimum: 0, description: "Calories per unit, for food." },
   needs_cooking: { type: "boolean", description: "Food to cook on this trip. Each unit assumes one boil for a rough fuel estimate; no quantity or weight changes." },
-  catalog_id: { type: "integer", minimum: 1, maximum: MAX_CATALOG_ID, description: "A catalog row id from search_catalog. The row takes the catalog's brand, name, variant, gear type and cited weight, and follows catalog corrections; a weight_g given as well is kept as your own figure." },
+  catalog_id: { type: "integer", minimum: 1, maximum: MAX_CATALOG_ID, description: "A catalog row id from search_catalog. The row takes the catalog's cited weight unless weight_g is given (then yours is kept), its brand, variant and gear type where you leave them out, and follows catalog corrections; give the catalog's own product name as name to follow its name too, since a different one is kept as yours." },
 } as const;
 /** a row nested under another: the same fields, in its parent's folder */
 const NESTED_ITEM_SCHEMA = { type: "object", properties: ROW_FIELDS, required: ["name"] } as const;
@@ -128,7 +128,7 @@ const ITEM_SCHEMA = {
   type: "object",
   properties: {
     ...ROW_FIELDS,
-    folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "The folder to put it in, by name. Created when the list has no folder of that name." },
+    folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "The folder to put it in, by name. Created when the list has no folder of that name; Unfiled, get_list's name for rows in no folder, leaves it in none." },
     items: {
       type: "array",
       description: "Rows nested under this one, making it a group: stakes under a tent, snacks under a day. One level deep; a nested row is in its parent's folder.",
@@ -196,6 +196,7 @@ const TOTALS_SCHEMA = {
     total_g: { type: "integer", description: "carried_g plus worn_g." },
     item_count: { type: "integer", description: "Rows, nested ones included." },
     kcal: { type: "number", description: "Only when a food row carries calories." },
+    unweighed: { type: "integer", description: "Only when some rows have no weight yet: how many (the rows marked unweighed), each counted as 0 g above." },
   },
   required: ["base_g", "worn_g", "consumable_g", "carried_g", "total_g", "item_count"],
 };
@@ -206,7 +207,8 @@ const ROW_PROPS = {
   name: str(`The product name, without brand or variant. ${USER_TEXT}`),
   display_name: str("Brand, name and variant joined, the way the list shows the row."),
   qty: { type: "number", description: "How many; weight_g is for one. Not on water, which has volume_l." },
-  weight_g: { type: "number", description: "One unit, in grams to a tenth. 0 when the row has no weight. On water, the whole volume's." },
+  weight_g: { type: "number", description: "One unit, in grams to a tenth. 0 when the row has no weight; unweighed marks one with no rows under it. On water, the whole volume's." },
+  unweighed: { type: "boolean", description: "Only on a row, not water, with no weight of one yet and no rows under it: its 0 g is a gap, not a weightless thing." },
   volume_l: { type: "number", description: "On water (a name ending in water), in place of qty: its whole volume in litres. Water is a volume, never a count." },
   classification: { type: "string", enum: CLASSIFICATIONS, description: "The row's own, or its folder's when it has none." },
   brand: str(USER_TEXT),
@@ -280,7 +282,7 @@ const LIST_DATA = {
     },
     folders: {
       type: "array",
-      description: "In the list's order, each with its rows in order. A folder with no rows is left out; rows in no folder come last, under Unfiled, which has no id.",
+      description: "Every folder in the list's order, each with its rows in order, an empty one with none; rows in no folder come last, under Unfiled, which has no id and isn't a folder.",
       items: {
         type: "object",
         properties: { id: str("The folder's id, which edit_list's folders takes."), name: str(USER_TEXT), items: { type: "array", items: ROW } },
@@ -299,37 +301,40 @@ const LIST_MARKDOWN = complete(
   "The list as Markdown: format markdown.",
 );
 
-/** one catalog row, in the two catalog tools' common fields */
-const CATALOG_ROW = {
-  id: { type: "integer", description: "The catalog row id, the one create_list and edit_list take as catalog_id." },
-  variant: nullable("string", "Size, length or rating; null on a product sold one way."),
-  weight_g: { type: "number", description: "The cited weight in grams, to a tenth." },
-  verified: { type: "boolean", description: "Whether the cited weight has been verified." },
-  weight_source: { type: "string", enum: WEIGHT_SOURCES, description: "Where the weight comes from." },
-  kcal: nullable("number", "Calories per unit, on food."),
-};
-
+// The fields a catalog row can lack (brand, variant, gear type, category, calories) are
+// still sent as null, but no longer REQUIRED: a client validates every result against
+// the outputSchema it listed, and a stateless server can't tell it the listing changed,
+// so the shape loosens first and the nulls go in a later release, once the clients
+// that listed this one have listed again. Leaving them out now would fail every search
+// for a session that listed before the deploy.
 const CATALOG_RESULT = {
   type: "object",
   properties: {
-    ...CATALOG_ROW,
-    brand: nullable("string"),
+    id: { type: "integer", description: "The catalog row id, the one create_list and edit_list take as catalog_id." },
+    brand: nullable("string", "The maker; null when the product has none."),
     name: str("The product name, without brand or variant."),
+    variant: nullable("string", "Size, length or rating; null on a product sold one way."),
     display_name: str("Brand, name and variant joined."),
+    weight_g: { type: "number", description: "The cited weight in grams, to a tenth." },
     gear_type: nullable("string", "What kind of thing it is: Tent, Quilt, Trail runners."),
     category: nullable("string", "The catalog's category: shelter, sleep, pack, and so on."),
+    kcal: nullable("number", "Calories per unit, on food."),
+    verified: { type: "boolean", description: "Whether the cited weight has been verified." },
+    weight_source: { type: "string", enum: WEIGHT_SOURCES, description: "Where the weight comes from; community is text people typed on lists, not a cited source." },
     source_url: nullable("string", "The page the weight was read from. On a product's variants."),
   },
-  required: [...Object.keys(CATALOG_ROW), "brand", "name", "display_name", "gear_type", "category"],
+  required: ["id", "name", "display_name", "weight_g", "verified", "weight_source"],
 };
 const CATALOG_OUTPUT = {
   type: "object",
   properties: {
     query: str("The query as searched: trimmed, at most 100 characters. On a search."),
-    product: complete(
-      { brand: nullable("string"), name: str("The product name, without brand or variant."), gear_type: nullable("string"), category: nullable("string") },
-      "The product looked up, when one was.",
-    ),
+    product: {
+      type: "object",
+      description: "The product looked up, when one was.",
+      properties: { brand: nullable("string"), name: str("The product name, without brand or variant."), gear_type: nullable("string"), category: nullable("string") },
+      required: ["name"],
+    },
     results: { type: "array", description: "A search's matches, best first; or a product's variants, in variant order.", items: CATALOG_RESULT },
   },
   required: ["results"],
@@ -337,18 +342,22 @@ const CATALOG_OUTPUT = {
 
 const CREATE_FIELDS = {
   title: str(USER_TEXT),
-  edit_link: str("The write capability. Keep it; it is the only way to change a list that isn't filed under an account."),
   share_link: str("The read capability, safe to pass on."),
   share_code: str(),
   folders: { type: "integer", description: "Folders made." },
   items: { type: "integer", description: "Rows made." },
   totals: TOTALS_SCHEMA,
   saved_to_account: { type: "boolean", description: "True when the connector's read-and-change access filed the list under its account, where the owner sees it on every device they sign in on." },
+  repeated: {
+    type: "boolean",
+    description: "True when this call repeated one the same account made in the last ten minutes: no second list was made, and this is the first one, filed under the account, so edit_list takes its share_code. Pass again: true to make another.",
+  },
 };
 const CREATE_OUTPUT = {
   type: "object",
   properties: {
     ...CREATE_FIELDS,
+    edit_link: str("The write capability. Keep it; it is the only way to change a list that isn't filed under an account. Left out only on a repeat: the server keeps no copy of a link to hand back."),
     account_note: str("Only when the connector sent an access token and the list still could not be filed under its account: the reason, and what to do instead."),
   },
   required: Object.keys(CREATE_FIELDS),
@@ -388,13 +397,13 @@ const UPDATE_ITEM_SCHEMA = {
     variant: { type: ["string", "null"], maxLength: MAX_VARIANT_LEN, description: "Size, length or configuration. Null clears it." },
     gear_type: { type: ["string", "null"], maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is. Null clears it." },
     weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Kept as your own figure on a row picked from the catalog." },
-    qty: { type: "integer", minimum: 1, maximum: MAX_QTY },
+    qty: { type: "integer", minimum: 1, maximum: MAX_QTY, description: "How many; weight_g stays the weight of one." },
     volume_l: { type: "number", minimum: 0, description: "Water only (a name ending in water), in place of qty and weight_g: its whole volume in litres." },
     classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null to follow the folder's default." },
     worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried; 0 removes the split." },
     note: { type: ["string", "null"], maxLength: MAX_ITEM_NOTE_LEN, description: "The row's note. Null clears it." },
     kcal: { type: ["integer", "null"], minimum: 0, description: "Calories per unit, for food. Null clears it." },
-    needs_cooking: { type: "boolean" },
+    needs_cooking: { type: "boolean", description: "Food to cook on this trip, for the rough fuel estimate; false to unmark it." },
     carried_by: { type: ["string", "null"], description: "Who carries it, by the name the list gives that person. Null clears it." },
     catalog_id: {
       type: ["integer", "null"],
@@ -402,7 +411,7 @@ const UPDATE_ITEM_SCHEMA = {
       maximum: MAX_CATALOG_ID,
       description: "Link or relink the row to this catalog row, from search_catalog: it takes the catalog's brand, name, variant, gear type and cited weight, follows catalog corrections, and keeps its folder, place and group. A name, weight_g or gear_type given in the same change is kept as your own. Null unlinks the row, leaving it as it reads.",
     },
-    folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "Move the row to this folder, by name; a new name makes the folder, and an empty string takes it out of every folder. A nested row moved to another folder comes out of its group." },
+    folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "Move the row to this folder, by name; a new name makes the folder, and an empty string or Unfiled takes it out of every folder. A nested row moved to another folder comes out of its group." },
     position: { type: "integer", minimum: 0, description: "Where the row goes among its neighbours, 0 for first. Without it a row moved to another folder or group goes last." },
     group: { type: "string", description: "Nest the row under this top-level row, by its id from get_list, in that row's folder; an empty string takes it out of its group, to the top level of its folder. A row with rows under it can't be nested." },
   },
@@ -441,49 +450,71 @@ const LIST_OUTPUT = { type: "object", anyOf: [LIST_DATA, LIST_MARKDOWN, MY_LISTS
 // One account's gear. Its capability is the access token in the Authorization header
 // rather than an argument; the account section at the end says how that is read.
 
-const GEAR_ROW = complete({
-  id: { type: "integer", description: "Names the piece to edit_my_gear." },
-  display_name: str(`Brand, name and variant joined, the way the gear page shows a piece. ${USER_TEXT}`),
-  name: str(USER_TEXT),
-  brand: nullable("string", USER_TEXT),
-  variant: nullable("string", USER_TEXT),
-  gear_type: nullable("string", `Tent, Quilt, Stove. ${USER_TEXT}`),
-  kind: str("The section the gear page files it under, read from its icon or gear type: Shelter, Sleep, Kitchen, Clothing and the like; Food, which the gear page keeps on a Food tab of its own, read by calories; Other when nothing matches; and Kits for a kit. Not set by hand."),
-  weight_g: { type: "number", description: "Grams for one, to a tenth; 0 when it has never been weighed. On a kit, the whole kit: its items plus its own weight." },
-  owned: { type: "integer", minimum: 1, description: "How many of this piece the owner has: three of the same bottle is one piece with owned 3. Not how many a trip carries, which is a list row's qty, nor how many a kit holds, which is its item's count. The gear page's totals count one of each." },
-  classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null when the owner leaves it to each list." },
-  kcal: nullable("number", "Calories in one, on food."),
-  catalog_id: nullable("number", "The catalog row the piece is linked to; null when it isn't."),
-  price: nullable("number", "What one cost, in the currency's main unit."),
-  currency: nullable("string", "ISO 4217 code of price, when one was recorded."),
-  product_url: nullable("string"),
-  times_used: { type: "integer", description: "How many list saves have carried this piece into My Gear." },
-  last_used: str("When a list last carried it, ISO 8601."),
-  kit: {
-    type: ["object", "null"],
-    description: "Null on a single piece. On a KIT, a set the owner keeps together: what it weighs by itself (a stuff sack) and the items it holds, each also a piece of My Gear by its own id. Its weight_g already counts them, so put a kit on a list either as one row or as its items, never both.",
-    properties: {
-      own_weight_g: { type: "number", description: "What the kit weighs by itself, in grams; usually 0." },
-      items: {
-        type: "array",
-        items: complete({
-          id: { type: "integer", description: "The item's own id in My Gear." },
-          display_name: str(USER_TEXT),
-          count: { type: "integer", description: "How many of it the kit holds." },
-          weight_g: { type: "number", description: "Grams for one." },
-          put_away: { type: "boolean", description: "Removed from My Gear: still listed in the kit, no longer counted in its weight." },
-        }),
+/** One piece of My Gear. The fields a piece can lack are still sent as null (and
+ *  times_used still sent), but no longer REQUIRED, for the reason the catalog row's
+ *  are: the shape loosens in this release, so a later one can leave them out without
+ *  failing a client that listed this one. unweighed is new and optional. */
+const GEAR_ROW = {
+  type: "object",
+  properties: {
+    id: { type: "integer", description: "Names the piece to edit_my_gear." },
+    display_name: str(`Brand, name and variant joined, the way the gear page shows a piece. ${USER_TEXT}`),
+    name: str(USER_TEXT),
+    brand: nullable("string", USER_TEXT),
+    variant: nullable("string", USER_TEXT),
+    gear_type: nullable("string", `Tent, Quilt, Stove. ${USER_TEXT}`),
+    kind: str("The section the gear page files it under, read from its icon or gear type: Shelter, Sleep, Kitchen, Clothing and the like; Food, which the gear page keeps on a Food tab of its own, read by calories; Other when nothing matches; and Kits for a kit. Not set by hand."),
+    weight_g: { type: "number", description: "Grams for one, to a tenth; 0 when it has never been weighed, and a piece says so with unweighed. On a kit, the whole kit: its items plus its own weight, each item flagged the same way." },
+    unweighed: { type: "boolean", description: "Only on a piece (not a kit) that has never been weighed: its 0 g is a gap, not a weightless thing." },
+    owned: { type: "integer", minimum: 1, description: "How many of this piece the owner has: three of the same bottle is one piece with owned 3. Not how many a trip carries, which is a list row's qty, nor how many a kit holds, which is its item's count. The gear page's totals count one of each." },
+    classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null when the owner leaves it to each list." },
+    kcal: nullable("number", "Calories in one, on food."),
+    catalog_id: nullable("number", "The catalog row the piece is linked to; null when it isn't."),
+    price: nullable("number", "What one cost, in the currency's main unit."),
+    currency: nullable("string", "ISO 4217 code of price, when one was recorded."),
+    product_url: nullable("string"),
+    times_used: { type: "integer", description: "Deprecated, and going: how many saves of a list carried the piece, not how many trips. last_used and the order are the signal." },
+    last_used: str("When a list last carried it, or, for a piece no list has carried, when it was added to My Gear. ISO 8601."),
+    kit: {
+      type: ["object", "null"],
+      description: "Null on a single piece. On a KIT, a set the owner keeps together: what it weighs by itself (a stuff sack) and the items it holds, each also a piece of My Gear by its own id. Its weight_g already counts them, so put a kit on a list either as one row or as its items, never both.",
+      properties: {
+        own_weight_g: { type: "number", description: "What the kit weighs by itself, in grams; usually 0." },
+        items: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              id: { type: "integer", description: "The item's own id in My Gear." },
+              display_name: str(USER_TEXT),
+              count: { type: "integer", description: "How many of it the kit holds." },
+              weight_g: { type: "number", description: "Grams for one." },
+              unweighed: { type: "boolean", description: "Only on an item that has never been weighed, so the kit's weight is short by it." },
+              put_away: { type: "boolean", description: "Removed from My Gear: still listed in the kit, no longer counted in its weight." },
+            },
+            required: ["id", "display_name", "count", "weight_g", "put_away"],
+          },
+        },
       },
+      required: ["own_weight_g", "items"],
     },
-    required: ["own_weight_g", "items"],
+    in_kits: { type: "array", items: { type: "integer" }, description: "The ids of the kits this piece is in; empty when none." },
   },
-  in_kits: { type: "array", items: { type: "integer" }, description: "The ids of the kits this piece is in; empty when none." },
-});
-const GEAR_LIST_OUTPUT = complete({
-  gear: { type: "array", items: GEAR_ROW, description: "This page of the matches." },
-  total: { type: "integer", description: "Matches in all, before offset and limit." },
-  offset: { type: "integer" },
-});
+  required: ["id", "display_name", "name", "kind", "weight_g", "owned", "last_used"],
+};
+const GEAR_LIST_OUTPUT = {
+  type: "object",
+  properties: {
+    gear: { type: "array", items: GEAR_ROW, description: "This page of the matches." },
+    total: { type: "integer", description: "Matches in all, before offset and limit." },
+    offset: { type: "integer" },
+    next_offset: {
+      type: "integer",
+      description: "Only when more matches remain: pass it as offset for the next page. A page stops at limit, or sooner when the next piece would take it past about 64 KB.",
+    },
+  },
+  required: ["gear", "total", "offset"],
+};
 const GEAR_EDIT_OUTPUT = complete({
   added: { type: "integer", description: "Pieces that were new to My Gear." },
   results: {
@@ -567,6 +598,7 @@ function gearInput(mode: "add" | "update") {
           type: "array",
           minItems: 1,
           maxItems: VAULT_KIT_PARTS_MAX,
+          description: "Everything the kit holds, replacing what it held: pieces of My Gear by id, each with a count.",
           items: {
             type: "object",
             properties: {
@@ -645,7 +677,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "search_catalog",
     title: "Search the gear catalog",
     description:
-      "Mahonia's cited gear catalog. With query: a fuzzy search by brand, product or kind of gear (\"duplex\", \"zpacks\", \"quilt\"), best first, each result a catalog row with its id, the cited weight in grams and whether it is verified. With product_id (a row id from a search), or brand and name: every variant of that one product (sizes, lengths, temperature ratings) with the weight and source of each. A row on a list that names a catalog_id takes the catalog's brand, variant, gear type and weight.",
+      "Mahonia's cited gear catalog. With query: a fuzzy search by brand, product or kind of gear (\"duplex\", \"zpacks\", \"quilt\"), best first, each result a catalog row with its id, the cited weight in grams and whether it is verified. With product_id (a row id from a search), or brand and name: every variant of that one product (sizes, lengths, temperature ratings) with the weight and source of each. A row on a list that names a catalog_id takes the catalog's brand, variant, gear type and weight. A result whose weight_source is community was gathered from what people typed on lists, not cited: its text is user text and its weight unverified.",
     inputSchema: {
       type: "object",
       properties: {
@@ -664,31 +696,39 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "create_list",
     title: "Make a new list",
     description:
-      "Creates a list and returns its edit link and share link. Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders; a row with items nested under it is a group (stakes under a tent, snacks under a day). Keep the edit link: it is the only way to change a list that isn't filed under an account. With read-and-change access to an account the list is filed under it too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
+      "Creates a list and returns its edit link and share link; a repeat of the same call by an account with read-and-change access returns the list it already made instead (see again). Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders; a row with items nested under it is a group (stakes under a tent, snacks under a day). Keep the edit link: it is the only way to change a list that isn't filed under an account. With read-and-change access to an account the list is filed under it too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
+    // A folder's rows used to be declared twice over, once under folders[].items and once
+    // under items, which put two more copies of the row schema in every conversation
+    // with the connector on. A row names its folder, so items alone carries them; a
+    // folders[].items sent by a client that read the old listing is still taken (create).
     inputSchema: {
       type: "object",
       properties: {
-        title: { type: "string", maxLength: MAX_TITLE_LEN },
+        title: { type: "string", maxLength: MAX_TITLE_LEN, description: "The list's name, such as the trip or the trail. \"Untitled list\" when left out." },
         unit: UNIT_SCHEMA,
         start_date: { type: "string", description: "YYYY-MM-DD" },
         end_date: { type: "string", description: "YYYY-MM-DD" },
         trail_url: { type: "string", maxLength: MAX_TRAIL_URL_LEN, description: "An http(s) link to the route or trail page." },
         trail_label: { type: "string", maxLength: MAX_TRAIL_LABEL_LEN, description: "What to call the trail, when the link's own name won't do." },
-        trail_distance_km: { type: "number", minimum: 0 },
+        trail_distance_km: { type: "number", minimum: 0, description: "The trail's length in kilometres; the list shows distances in km." },
         folders: {
           type: "array",
-          description: "Folders in order, each with its default classification and, optionally, its rows.",
+          description: "Folders in order, each with its default classification. Rows go in items, each naming its folder; a folder named only by a row is made after these, as base.",
           items: {
             type: "object",
             properties: {
-              name: { type: "string", minLength: 1, maxLength: MAX_FOLDER_NAME_LEN },
+              name: { type: "string", minLength: 1, maxLength: MAX_FOLDER_NAME_LEN, description: "The folder's name, unique in the list: Shelter, Clothing, Food." },
               classification: { type: "string", enum: CLASSIFICATIONS, description: "What rows in this folder count as unless they say otherwise. Default base." },
-              items: { type: "array", items: ITEM_SCHEMA },
             },
             required: ["name"],
           },
         },
-        items: { type: "array", description: "Rows not placed through a folder above; each may name its folder.", items: ITEM_SCHEMA },
+        items: { type: "array", description: "The list's rows, in order; each names its folder, or is left in none.", items: ITEM_SCHEMA },
+        again: {
+          type: "boolean",
+          description:
+            "With read-and-change access, a call with rows identical to one the same account made in the last ten minutes is taken as a retry and makes no second list: the first comes back, by share code, with repeated set. Pass true to make the same list twice on purpose.",
+        },
       },
     },
     outputSchema: CREATE_OUTPUT,
@@ -710,12 +750,12 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
           type: "object",
           description: "The list's own fields. Only the fields given change.",
           properties: {
-            title: { type: "string", maxLength: MAX_TITLE_LEN },
+            title: { type: "string", maxLength: MAX_TITLE_LEN, description: "A new name for the list." },
             unit: UNIT_SCHEMA,
             start_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
             end_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
             trail_url: { type: "string", maxLength: MAX_TRAIL_URL_LEN, description: "An http(s) link, or an empty string to clear the trail and what came with it (label, climb, route). A distance stays; clear it with trail_distance_km: 0." },
-            trail_label: { type: "string", maxLength: MAX_TRAIL_LABEL_LEN },
+            trail_label: { type: "string", maxLength: MAX_TRAIL_LABEL_LEN, description: "What to call the trail, when the link's own name won't do; it needs a trail link. An empty string clears it." },
             trail_distance_km: { type: "number", minimum: 0, description: "Stored in metres and shown in the list's own distance unit." },
           },
         },
@@ -754,12 +794,12 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "get_my_gear",
     title: "Read My Gear",
     description:
-      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, the kind the gear page files it under, grams for one, classification, calories, price and product link. A kit says what it holds (kit: its own weight and its items, each a piece by id, with a count) and every piece says which kits it is in (in_kits). A query ranks by a search instead. Needs the person signed in to Mahonia from this connector, or an access token from their account page. Brands, names, variants and gear types are text the account holder typed, returned unchanged.",
+      "The gear the connector's account owns, most recently used first: for each piece its brand, name, variant, gear type, the kind the gear page files it under, grams for one, classification, calories, price and product link; unweighed marks a piece never weighed. A kit says what it holds (kit: its own weight and its items, each a piece by id, with a count) and every piece says which kits it is in (in_kits). A query ranks by a search instead. A page stops at limit or at about 64 KB, whichever comes first, and next_offset says where the next begins. Needs the person signed in to Mahonia from this connector, or an access token from their account page. Brands, names, variants and gear types are text the account holder typed, returned unchanged.",
     inputSchema: {
       type: "object",
       properties: {
         query: { type: "string", description: "Two characters or more (one is enough in Chinese). Ranks by brand, name, variant and gear type instead of by recent use." },
-        limit: { type: "integer", minimum: 1, maximum: GEAR_PAGE_MAX, description: `At most ${GEAR_PAGE_MAX}; ${GEAR_PAGE_DEFAULT} when omitted.` },
+        limit: { type: "integer", minimum: 1, maximum: GEAR_PAGE_MAX, description: `At most ${GEAR_PAGE_MAX}; ${GEAR_PAGE_DEFAULT} when omitted. A page that would pass about 64 KB stops sooner.` },
         offset: { type: "integer", minimum: 0, description: "How many matches to skip, for the next page." },
       },
     },
@@ -781,7 +821,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
           type: "array",
           maxItems: GEAR_EDIT_MAX,
           description: "Changes to pieces that exist, each by id.",
-          items: { type: "object", properties: { id: { type: "integer", minimum: 1 }, ...gearInput("update") }, required: ["id"] },
+          items: { type: "object", properties: { id: { type: "integer", minimum: 1, description: "The piece's id, from get_my_gear." }, ...gearInput("update") }, required: ["id"] },
         },
         remove: { type: "array", maxItems: GEAR_EDIT_MAX, description: "Ids of pieces to put away.", items: { type: "integer", minimum: 1 } },
         restore: { type: "array", maxItems: GEAR_EDIT_MAX, description: "Ids of put-away pieces to bring back.", items: { type: "integer", minimum: 1 } },
@@ -894,10 +934,30 @@ const grams = (mg: number) => Math.round(mg / 100) / 10;
  */
 const shareLink = (origin: string, code: string) => `${origin}/s/${code}`;
 
+/**
+ * The rows whose 0 g is a gap rather than a figure. A row's weight is optional (the
+ * tools say to leave it out when unknown, and the editor keeps a row with none), so a
+ * stored 0 is how "not weighed yet" reads, and the totals count it as nothing; a model
+ * summing a pack had no way to tell that from a weightless row.
+ *
+ * Judged on the weight of ONE, as the rest of the code means "weighed" (computeTotals'
+ * hasWeights, the vault's capture): a weighed row at qty 0 is weighed, not a gap. Left
+ * out: a row with rows under it, whose own weight is its container's and 0 there the
+ * ordinary case ("Day 1", a kit with no bag); and water, whose figure is a volume, so an
+ * empty one is water not yet planned rather than gear not yet weighed. A childless row
+ * at 0 g is counted whatever it is meant to become; nothing stored tells an empty
+ * group-to-be from an unweighed item.
+ */
+function unweighedIds(items: readonly Item[]): Set<string> {
+  const parents = new Set(items.map((i) => i.parentId).filter((id): id is string => !!id));
+  return new Set(items.filter((i) => !parents.has(i.id) && i.unitWeightMg === 0 && !isWaterName(i.name)).map((i) => i.id));
+}
+
 /** The totals block every list-returning tool carries, in grams — get_list's, and the
  *  create and edit_list echoes, which used to compute the whole description to read it. */
 function describeTotals(snap: ListSnapshot): Record<string, unknown> {
   const totals = computeTotals(snap);
+  const unweighed = unweighedIds(snap.items).size;
   return {
     base_g: Math.round(totals.baseMg / 1000),
     worn_g: Math.round(totals.wornMg / 1000),
@@ -906,10 +966,12 @@ function describeTotals(snap: ListSnapshot): Record<string, unknown> {
     total_g: Math.round(totals.totalMg / 1000),
     item_count: totals.itemCount,
     ...(totals.hasKcal ? { kcal: totals.kcalTotal } : {}),
+    ...(unweighed ? { unweighed } : {}),
   };
 }
 
 export function describeList(snap: ListSnapshot, origin: string): Record<string, unknown> {
+  const unweighed = unweighedIds(snap.items);
   const row = (it: Item, children: Item[], parent?: Item): Record<string, unknown> => {
     const out: Record<string, unknown> = {
       id: it.id,
@@ -920,6 +982,7 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
       ...(isWaterName(it.name)
         ? { volume_l: Math.round(lineMg(it) / 10_000) / 100, weight_g: grams(lineMg(it)) }
         : { qty: it.qty, weight_g: grams(it.unitWeightMg) }),
+      ...(unweighed.has(it.id) ? { unweighed: true } : {}),
       classification: effectiveClassification(it, snap.folders),
     };
     if (it.brand) out.brand = it.brand;
@@ -938,7 +1001,9 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
     return out;
   };
   const folders = exportSections(snap)
-    .filter((s) => s.rows.length)
+    // every folder the list has, an empty one too: a folder's position counts them all,
+    // and one that can't be seen can't be renamed or removed; Unfiled only with rows
+    .filter((s) => s.rows.length || s.id)
     .map((s) => ({ ...(s.id ? { id: s.id } : {}), name: s.name, items: s.rows.map((r) => row(r.item, r.children)) }));
   const out: Record<string, unknown> = {
     title: snap.title,
@@ -1037,7 +1102,8 @@ export function fitList(described: Record<string, unknown>, max = GET_LIST_MAX_B
           items.push(kids.length ? { ...own, items: kids } : own);
         }
       }
-      if (items.length) out.push({ ...f, items });
+      // a folder that was empty to begin with stays, as describeList lists it
+      if (items.length || !f.items.length) out.push({ ...f, items });
     }
     return out;
   };
@@ -1357,7 +1423,18 @@ class FolderBook {
     this.onMade?.(folder);
     return folder;
   }
+  /** The folder a ROW names: one of the list's, a new one, or null for "Unfiled", the
+   *  name get_list gives the rows in no folder. A model that read it there passes it
+   *  back, and making a folder of that name put the rows in a folder called Unfiled
+   *  above the real ones. A list that does have a folder called Unfiled keeps it. */
+  forRow(name: string): Folder | null | string {
+    if (!this.find(name) && sameText(name, UNFILED)) return null;
+    return this.resolve(name);
+  }
 }
+
+/** what get_list calls the rows in no folder (exportSections) */
+const UNFILED = "Unfiled";
 
 /**
  * create_list and edit_list's add accept rows in different envelopes, but every row
@@ -1400,9 +1477,9 @@ class ItemPlan {
     let folder = fallbackFolder;
     const named = r.folder;
     if (typeof named === "string" && named.trim()) {
-      const resolved = this.folders.resolve(named);
+      const resolved = this.folders.forRow(named);
       if (typeof resolved === "string") return resolved;
-      if (parent && resolved.id !== parent.folderId) return `"${name}" is grouped under a row in another folder; a nested row is in its group's folder, so leave folder off it or drop group.`;
+      if (parent && (resolved?.id ?? null) !== parent.folderId) return `"${name}" is grouped under a row in another folder; a nested row is in its group's folder, so leave folder off it or drop group.`;
       folder = resolved;
     }
     const folderId = parent ? parent.folderId : (folder?.id ?? null);
@@ -1443,8 +1520,14 @@ class ItemPlan {
 }
 
 async function create(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
-  // the one write with no list to key on: per address, like the web's create
-  await rateLimit(event, "mcp-write");
+  const caller = whoCalls(event);
+  const account = typeof caller === "object" ? caller : null;
+  // the one write with no list to key on: the account's budget when the call carries
+  // one, else the address's, like the web's create; every claude.ai user leaves one
+  // address range, so for them that is a single shared bucket (RATE_LIMITS "mcp")
+  if (account) await rateLimitSubject("mcp-write", `create:${account.userId}`);
+  else await rateLimit(event, "mcp-write");
+  if (args.again != null && typeof args.again !== "boolean") return fail("again must be true or false.");
   const plan = new ItemPlan(new FolderBook([]));
   if (args.folders != null) {
     if (!Array.isArray(args.folders)) return fail("folders must be an array.");
@@ -1471,23 +1554,77 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
 
   const meta = tripMeta(args, { creating: true });
   if (typeof meta === "string") return fail(meta);
-  const unlinked = await linkCatalog(plan.items);
-  if (unlinked) return fail(unlinked);
-  const data: ListData = { folders: plan.folders.folders, items: plan.items };
-  const { editToken, snapshot } = await createList({ ...meta, data });
+
+  // the replay window (the comment above REPLAY_WINDOW_S says who gets one, and why only
+  // for a call that makes rows), claimed before the list is made
+  const writer = account?.scope === "write" ? account : null;
+  const key = writer && plan.items.length && args.again !== true ? createReplayKey(writer.userId, args) : null;
+  if (key) {
+    const seen = await claimReplay(key);
+    if (seen === "busy") {
+      return fail("An identical create_list from this account is still being made, by an earlier call that hasn't answered yet. In a moment, get_list with no share_code will show it; make it again only if it isn't there, and pass again: true only to make a second copy.");
+    }
+    if (seen !== "claimed") {
+      const before = await madeBefore(event, writer!.userId, seen.hit);
+      if (before) return before;
+      // the list that call made is gone or no longer filed: this call makes a new one
+      await markReplayPending(key);
+    }
+  }
+  let remembered: Record<string, unknown> | null = null;
+  try {
+    const unlinked = await linkCatalog(plan.items);
+    if (unlinked) return fail(unlinked);
+    const data: ListData = { folders: plan.folders.folders, items: plan.items };
+    // the byline the browser's create gives a list made while signed in
+    const { editToken, snapshot } = await createList({ ...meta, data, ...(writer ? { authorUserId: writer.userId } : {}) });
+    const origin = trustedOrigin(event);
+    const filed = await fileUnderAccount(event, editToken, snapshot);
+    // remembered only once it is filed, and by share code alone, never the edit link
+    if (filed === true) remembered = { share_code: snapshot.shareCode };
+    return ok({
+      title: snapshot.title,
+      share_link: shareLink(origin, snapshot.shareCode),
+      share_code: snapshot.shareCode,
+      folders: snapshot.folders.length,
+      items: snapshot.items.length,
+      totals: describeTotals(snapshot),
+      saved_to_account: filed === true,
+      repeated: false,
+      edit_link: `${origin}${editLinkPath(snapshot.shareCode, editToken)}`,
+      ...(typeof filed === "string" ? { account_note: filed } : {}),
+    });
+  } finally {
+    if (key) await settleReplay(key, remembered);
+  }
+}
+
+/**
+ * The answer to a repeated create_list: the list the first call made, read again by
+ * the share code its window kept, as it now is, provided the account still has it
+ * filed. Null when it doesn't (deleted, or taken off the account since), and the call
+ * then makes a new list.
+ */
+async function madeBefore(event: H3Event, userId: number, hit: Record<string, unknown>): Promise<ToolResult | null> {
+  const code = typeof hit.share_code === "string" ? hit.share_code : "";
+  const hash = code ? await claimedEditHash(await useAccountDb(), userId, code) : null;
+  const snap = hash ? await getByEditHash(hash) : null;
+  if (!snap) return null;
   const origin = trustedOrigin(event);
-  const filed = await fileUnderAccount(event, editToken, snapshot);
-  return ok({
-    title: snapshot.title,
-    edit_link: `${origin}${editLinkPath(snapshot.shareCode, editToken)}`,
-    share_link: shareLink(origin, snapshot.shareCode),
-    share_code: snapshot.shareCode,
-    folders: snapshot.folders.length,
-    items: snapshot.items.length,
-    totals: describeTotals(snapshot),
-    saved_to_account: filed === true,
-    ...(typeof filed === "string" ? { account_note: filed } : {}),
-  });
+  const structured = {
+    title: snap.title,
+    share_link: shareLink(origin, snap.shareCode),
+    share_code: snap.shareCode,
+    folders: snap.folders.length,
+    items: snap.items.length,
+    totals: describeTotals(snap),
+    saved_to_account: true,
+    repeated: true,
+  };
+  return ok(
+    structured,
+    `${JSON.stringify(structured)}\nThis repeats a create_list call made in the last ten minutes, so no second list was made: this is the list that call made, as it is now, filed under your account. Pass its share_code to edit_list to change it, or again: true to make another.`,
+  );
 }
 
 /**
@@ -1598,17 +1735,83 @@ function tripMeta(args: Record<string, unknown>, { creating = false, linked = fa
 // is in the shared KV store the rate limiter uses, so it holds across serverless
 // instances; without a shared store it degrades to per instance, as the budgets do.
 // A person who means the same rows twice says so with `again: true`, which skips the
-// window; the tool's description tells the model, and `repeated` tells it after.
+// window, neither read nor written; the tool's description tells the model, and
+// `repeated` tells it after.
+//
+// The usual retry arrives while the first call is STILL RUNNING: the client gave up
+// waiting on a slow write, not on a finished one. So the window is claimed before the
+// write (a pending entry) and filled in after it, and a call that finds a claim waits a
+// few seconds for its answer, then says the change is under way rather than making it
+// twice. A call that fails clears its claim, so its own retry goes through; a claim
+// whose call died outright lapses after a minute. Every entry carries the time it was
+// written and is judged by that, not only by the store's TTL, which the in-memory
+// driver (dev, and a deploy without the shared store) ignores. The claim is a read
+// then a write, not an atomic set-if-absent, which the store's interface doesn't have:
+// two identical calls landing in the same few milliseconds can both pass, which a
+// retry seconds behind its first call never does.
 //
 // Keyed on the edit hash, so a stored answer only ever goes back to a caller holding
-// the same link (it carries the share link and totals, nothing more). create_list has
-// no such key: two callers making byte-identical lists from one address range would
-// be handed one edit link, so a retried create makes a second list instead, which is
-// a spare list rather than a leaked capability.
+// the same link (it carries the share link and totals, nothing more).
+//
+// create_list has no list to key on. Its window is keyed on the ACCOUNT instead, and
+// only for a caller with read-and-change access, whose list is filed under that
+// account, and only for a call that makes rows: an empty or title-only list is what two
+// conversations most often ask for alike, and a spare one costs nothing. The repeat
+// answers with that list as it now is, read again by the share code the entry keeps,
+// which edit_list takes from that same account, and never with its edit link, which
+// the server keeps no copy of (only its hash is stored, and a raw link in the KV store
+// would be one more place to leak it); a list deleted or unfiled since is no answer,
+// and the call makes a new one. An anonymous or read-only caller still makes a second
+// list on a retry: keyed on the address instead, two callers making byte-identical
+// lists from one range (every claude.ai call leaves the same one) could be handed each
+// other's list, and a read-only caller's list isn't filed, so its share code alone
+// can't change it. A spare list is the lesser harm there.
 const REPLAY_WINDOW_S = 10 * 60;
+/** how long a claim by a call still running holds the window */
+const REPLAY_PENDING_MS = 60_000;
+/** how long a retry waits on a claimed window for its first call to answer; mutable so
+ *  a test can shorten it */
+export const REPLAY_WAIT = { totalMs: 8_000, stepMs: 250 };
+
+interface ReplayEntry {
+  at: number;
+  pending?: boolean;
+  value?: Record<string, unknown>;
+}
+
+/** The window for one call: what an earlier identical call answered, "busy" while that
+ *  call is still running past the wait, or "claimed" when there was nothing and this
+ *  call now holds it. An entry in an earlier format reads as nothing. */
+async function claimReplay(key: string): Promise<{ hit: Record<string, unknown> } | "busy" | "claimed"> {
+  const read = () => useKv().getItem<ReplayEntry>(key).catch(() => null);
+  let entry = await read();
+  const until = Date.now() + REPLAY_WAIT.totalMs;
+  while (entry?.pending && Date.now() - entry.at < REPLAY_PENDING_MS && Date.now() < until) {
+    await new Promise((resolve) => setTimeout(resolve, REPLAY_WAIT.stepMs));
+    entry = await read();
+  }
+  const now = Date.now();
+  if (entry && !entry.pending && entry.value && now - entry.at < REPLAY_WINDOW_S * 1000) return { hit: entry.value };
+  if (entry?.pending && now - entry.at < REPLAY_PENDING_MS) return "busy";
+  await markReplayPending(key);
+  return "claimed";
+}
+async function markReplayPending(key: string): Promise<void> {
+  await useKv().setItem<ReplayEntry>(key, { at: Date.now(), pending: true }, { ttl: REPLAY_PENDING_MS / 1000 }).catch(() => {});
+}
+/** The claimed window filled in with what the call answered, or emptied when it made
+ *  nothing (the store's interface has no delete, so an empty entry goes over it). */
+async function settleReplay(key: string, value: Record<string, unknown> | null): Promise<void> {
+  const entry: ReplayEntry = value ? { at: Date.now(), value } : { at: 0 };
+  await useKv().setItem<ReplayEntry>(key, entry, { ttl: value ? REPLAY_WINDOW_S : 1 }).catch(() => {});
+}
 function replayKey(hash: string, args: Record<string, unknown>): string {
   const { edit_link: _link, share_code: _code, again: _again, ...rest } = args;
   return `mcp:replay:${sha256Hex(`${hash}|edit_list|${stableJson(rest)}`)}`;
+}
+function createReplayKey(userId: number, args: Record<string, unknown>): string {
+  const { again: _again, ...rest } = args;
+  return `mcp:replay:${sha256Hex(`account:${userId}|create_list|${stableJson(rest)}`)}`;
 }
 function stableJson(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
@@ -1802,6 +2005,13 @@ function planMeta(raw: unknown, { work, plan }: Work): string | null {
   const meta = tripMeta(raw as Record<string, unknown>, { linked: !!work.trailUrl });
   if (typeof meta === "string") return meta;
   if (!Object.keys(meta).length) return "list has nothing to set: give a title, unit, start_date, end_date, trail_url, trail_label or trail_distance_km.";
+  // a list keeps a name, as a row does: a blank one was stored blank, and read as an
+  // empty row in "Your lists" (create_list makes it "Untitled list" instead)
+  if (typeof meta.title === "string" && !meta.title.trim()) return "A list keeps a title: give it a new one, or leave title out.";
+  // one date set against the other as stored, which tripMeta, seeing one call, can't do
+  const start = typeof meta.startDate === "string" ? meta.startDate : (work.startDate ?? "");
+  const end = typeof meta.endDate === "string" ? meta.endDate : (work.endDate ?? "");
+  if (start && end && end < start) return `That would put the trip's end (${end}) before its start (${start}); give both dates, or the other one too.`;
   plan({ t: "setMeta", patch: meta as Extract<Op, { t: "setMeta" }>["patch"] });
   return null;
 }
@@ -1900,9 +2110,9 @@ async function planUpdates(entries: unknown[], book: FolderBook, { work, ops, pl
         const named = r.folder.trim();
         if (!named) folderId = null;
         else {
-          const folder = book.resolve(named);
+          const folder = book.forRow(named);
           if (typeof folder === "string") return folder;
-          folderId = folder.id;
+          folderId = folder?.id ?? null;
         }
         // a row moved to another folder leaves its group; a group keeps its rows
         if (folderId !== it.folderId) parentId = null;
@@ -1966,27 +2176,52 @@ async function editList(event: H3Event, args: Record<string, unknown>): Promise<
   const opened = await writeHashFrom(event, args);
   if (typeof opened === "string") return fail(opened);
   const { hash } = opened;
-  // the replay window, for a call that adds rows (the comment above says why only then)
-  const key = add.length ? replayKey(hash, args) : null;
-  if (key && args.again !== true) {
-    const prior = await useKv().getItem<Record<string, unknown>>(key).catch(() => null);
-    if (prior) {
-      const structured = { ...prior, repeated: true };
+  // the replay window, for a call that adds rows (the comment above says why only then),
+  // claimed before the change is applied
+  const key = add.length && args.again !== true ? replayKey(hash, args) : null;
+  if (key) {
+    const seen = await claimReplay(key);
+    if (seen === "busy") {
+      return fail("The same change is being applied to this list right now, by an earlier call that hasn't answered yet. Read the list with get_list in a moment before sending it again; pass again: true only to add the rows a second time.");
+    }
+    if (seen !== "claimed") {
+      const structured = { ...seen.hit, repeated: true };
       return ok(structured, `${JSON.stringify(structured)}\nThis repeats a call made in the last ten minutes, so nothing was done again. Pass again: true to make the same change a second time.`);
     }
   }
+  // filled in after the write, never before: a call that failed leaves no window, so
+  // its retry goes through
+  let remembered: Record<string, unknown> | null = null;
+  try {
+    const done = await applyEdit(event, hash, args, parts);
+    if (typeof done === "string") return fail(done);
+    remembered = done;
+    return ok(done);
+  } finally {
+    if (key) await settleReplay(key, remembered);
+  }
+}
+
+/** edit_list's parts planned against the list and applied as one batch: the answer, or
+ *  the sentence that refused the call before anything was sent. */
+async function applyEdit(
+  event: H3Event,
+  hash: string,
+  args: Record<string, unknown>,
+  { folders, add, update, remove }: Record<"folders" | "add" | "update" | "remove", unknown[]>,
+): Promise<Record<string, unknown> | string> {
   const w = await openForEdit(hash);
-  if (typeof w === "string") return fail(w);
+  if (typeof w === "string") return w;
   const rowsBefore = w.work.items.length;
 
   if (args.list != null) {
     const problem = planMeta(args.list, w);
-    if (problem) return fail(problem);
+    if (problem) return problem;
   }
   let foldersChanged = 0;
   if (folders.length) {
     const done = planFolders(folders, w);
-    if (typeof done === "string") return fail(done);
+    if (typeof done === "string") return done;
     foldersChanged = done.changed;
   }
   // folders named by a new or moved row and missing from the list are made, in the
@@ -1996,26 +2231,26 @@ async function editList(event: H3Event, args: Record<string, unknown>): Promise<
   let added = 0;
   if (add.length) {
     const done = await planAdds(add, book, w);
-    if (typeof done === "string") return fail(done);
+    if (typeof done === "string") return done;
     added = done.added;
   }
   let updated = 0;
   if (update.length) {
     const done = await planUpdates(update, book, w);
-    if (typeof done === "string") return fail(done);
+    if (typeof done === "string") return done;
     updated = done.updated;
   }
   if (remove.length) {
     const problem = planRemoves(remove, w);
-    if (problem) return fail(problem);
+    if (problem) return problem;
   }
-  if (!w.ops.length) return fail("Nothing to change.");
+  if (!w.ops.length) return "Nothing to change.";
 
   // marked as an assistant's, so the list's recent changes say who made it
   const after = await applyOpsByEditHash(hash, w.ops, undefined, { actor: "assistant" });
-  if (!after) return fail(NO_EDIT_LIST);
+  if (!after) return NO_EDIT_LIST;
   const described = describeList(after, trustedOrigin(event));
-  const result = {
+  return {
     title: described.title,
     unit: described.unit,
     dates: described.dates ?? null,
@@ -2030,10 +2265,6 @@ async function editList(event: H3Event, args: Record<string, unknown>): Promise<
     folders: [...w.work.folders].sort(bySortOrder).map((f) => f.name),
     repeated: false,
   };
-  // remembered after the write, never before: a call that failed leaves no window,
-  // so its retry goes through
-  if (key) await useKv().setItem(key, result, { ttl: REPLAY_WINDOW_S }).catch(() => {});
-  return ok(result);
 }
 
 // ---- My Gear ---------------------------------------------------------------------
@@ -2106,6 +2337,7 @@ async function openGear(event: H3Event, need: AccessScope): Promise<GearHandle |
 /** One piece as the tools return it. Named field by field, as describeList is, so a
  *  column added to the vault later has to be chosen here before it leaves. */
 function gearAsRow(piece: VaultEntry): Record<string, unknown> {
+  const kit = piece.kind === "kit";
   return {
     id: piece.id,
     display_name: itemDisplayName(piece.brand ?? null, piece.name, piece.variant ?? null),
@@ -2114,8 +2346,10 @@ function gearAsRow(piece: VaultEntry): Record<string, unknown> {
     variant: piece.variant ?? null,
     gear_type: piece.commonName ?? null,
     // the page's own section, so "what's in my kitchen" groups the way /gear does
-    kind: piece.kind === "kit" ? "Kits" : gearFamilyLabel(vaultFamilyOf(piece)),
+    kind: kit ? "Kits" : gearFamilyLabel(vaultFamilyOf(piece)),
     weight_g: grams(piece.weightMg),
+    // a kit weighs its items, so its own figure isn't a gap: its items say which are
+    ...(!kit && piece.weightMg === 0 ? { unweighed: true } : {}),
     owned: piece.owned ?? 1,
     classification: piece.classification ?? null,
     kcal: piece.kcal ?? null,
@@ -2123,21 +2357,25 @@ function gearAsRow(piece: VaultEntry): Record<string, unknown> {
     price: piece.priceCents != null ? piece.priceCents / 100 : null,
     currency: piece.currency ?? null,
     product_url: piece.productUrl ?? null,
+    // times_seen counts captures, one per save of a list carrying the piece (it ranks
+    // the autocomplete), so gloves on a handful of lists read as used 320 times. Still
+    // sent because the listing a client already holds requires it; it goes once that
+    // listing has been replaced (see GEAR_ROW)
     times_used: piece.timesSeen,
     last_used: piece.lastUsedAt,
-    kit:
-      piece.kind === "kit"
-        ? {
-            own_weight_g: grams(piece.ownWeightMg ?? 0),
-            items: (piece.parts ?? []).map((p) => ({
-              id: p.id,
-              display_name: itemDisplayName(p.brand ?? null, p.name, p.variant ?? null),
-              count: p.qty,
-              weight_g: grams(p.weightMg),
-              put_away: !!p.removed,
-            })),
-          }
-        : null,
+    kit: kit
+      ? {
+          own_weight_g: grams(piece.ownWeightMg ?? 0),
+          items: (piece.parts ?? []).map((p) => ({
+            id: p.id,
+            display_name: itemDisplayName(p.brand ?? null, p.name, p.variant ?? null),
+            count: p.qty,
+            weight_g: grams(p.weightMg),
+            ...(p.weightMg === 0 && !p.removed ? { unweighed: true } : {}),
+            put_away: !!p.removed,
+          })),
+        }
+      : null,
     in_kits: piece.inKits ?? [],
   };
 }
@@ -2201,11 +2439,35 @@ async function readGear(event: H3Event, args: Record<string, unknown>): Promise<
   const { db, vaultId } = gear;
   // kits too, with what they hold: a kit is gear the owner keeps, and the row says what it is
   const matches = query ? await searchVaultItems(db, vaultId, query, GEAR_PAGE_MAX, { kits: true }) : await listVaultItems(db, vaultId);
+  const gearRows = fitGearPage(matches.slice(offset, offset + limit).map((p) => gearAsRow(p)));
+  const next = offset + gearRows.length;
   return ok({
-    gear: matches.slice(offset, offset + limit).map((p) => gearAsRow(p)),
+    gear: gearRows,
     total: matches.length,
     offset,
+    ...(next < matches.length ? { next_offset: next } : {}),
   });
+}
+
+/**
+ * A page of My Gear held to get_list's byte ceiling, for the same reason: a page past
+ * Claude Code's 25,000-token cut is put in a file the model reads back in slices. The
+ * limit allows a thousand pieces, and a few hundred with names, links and kits already
+ * pass it, so the page stops at the last whole piece that fits and next_offset says
+ * where the rest begin. At least one piece always goes out, so paging can't stall on
+ * one that is large by itself: a kit of a hundred items with long names can pass the
+ * ceiling alone, and that page then does, rather than never being read. A page under
+ * the ceiling comes back as it was.
+ */
+export function fitGearPage(rows: Record<string, unknown>[], max = GET_LIST_MAX_BYTES): Record<string, unknown>[] {
+  // the envelope around the rows: the brackets, the field names, total and offsets
+  const envelope = 96;
+  let used = envelope;
+  for (const [i, r] of rows.entries()) {
+    used += Buffer.byteLength(JSON.stringify(r)) + 1;
+    if (used > max && i > 0) return rows.slice(0, i);
+  }
+  return rows;
 }
 
 /**

@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "app.mahonia/mahonia",
   "title": "Mahonia",
-  "description": "Read, make and edit Mahonia backpacking gear lists through share and edit links; no account needed.",
-  "version": "2.0.0",
+  "description": "Hiking gear lists and pack weights: make and edit lists, search a cited catalog, track your gear.",
+  "version": "2.1.0",
   "websiteUrl": "https://mahonia.app/about",
   "repository": {
     "url": "https://github.com/ryankiley/mahonia",
