@@ -279,7 +279,7 @@ useSeoMeta({
   gap: 2px;
   color: var(--ink);
   border-bottom: 1px solid var(--line-2);
-  transition: border-color var(--dur) var(--ease);
+  transition: border-color var(--spring-fade-dur) var(--spring-fade);
 }
 .prod__host:hover {
   border-bottom-color: var(--ink-2);
