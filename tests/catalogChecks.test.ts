@@ -19,12 +19,35 @@ const row = (o: Partial<CatalogCsvRow> & { name: string }): CatalogCsvRow => ({
   kcal: null,
   weightSource: "manufacturer",
   sourceUrl: "https://acme.example/tent",
+  quote: "Weight: 1000 g",
   searchTerms: null,
   ...o,
 });
 
 const codes = (rows: CatalogCsvRow[], level: "error" | "warning") =>
   runCatalogChecks(rows).filter((f) => f.level === level).map((f) => f.code);
+
+describe("a product's address", () => {
+  it("two products on one slug is an error; variants of one product share it freely", () => {
+    const a = row({ name: "Lone Peak 9", brand: "Altra", weightMg: 300_000 });
+    const b = row({ name: "Lone Peak 9+", brand: "Altra", weightMg: 320_000 });
+    expect(codes([a, b], "error")).not.toContain("slug-collision");
+    // two spellings that fold to one address are two products on one page
+    expect(codes([a, row({ name: "Lone-Peak 9", brand: "Altra", weightMg: 310_000 })], "error")).toContain("slug-collision");
+    const sizes = [
+      row({ name: "X-Mid 2", brand: "Durston", variant: "Regular", weightMg: 887_000 }),
+      row({ name: "X-Mid 2", brand: "Durston", variant: "Solid", weightMg: 990_000 }),
+    ];
+    expect(codes(sizes, "error")).not.toContain("slug-collision");
+  });
+  it("a brand or name that folds to nothing is an error", () => {
+    expect(codes([row({ name: "山と道 Mini", brand: "山と道" })], "error")).toContain("slug-empty");
+  });
+  it("a shipped row without a quote is an error", () => {
+    expect(codes([row({ name: "Quiet Tent", quote: null })], "error")).toContain("quote-missing");
+    expect(codes([row({ name: "Quiet Tent", quote: "  " })], "error")).toContain("quote-missing");
+  });
+});
 
 describe("catalog conventions are errors, not warnings", () => {
   it("a clean row raises nothing", () => {

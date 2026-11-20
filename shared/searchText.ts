@@ -54,6 +54,13 @@ function foldLetters(input: string): string {
     .replace(/[øßæœłđðþ]/g, (ch) => UNDECOMPOSED[ch]!);
 }
 
+/** The Latin letters NFD leaves whole, spelled plainly (ø→o, ß→ss), on lowercase text:
+ *  the fold's own table, for the catalog's address rule (shared/catalogSlug), which
+ *  must spell a brand the way search folds it. */
+export function spellUndecomposed(lower: string): string {
+  return lower.replace(/[øßæœłđðþ]/g, (ch) => UNDECOMPOSED[ch]!);
+}
+
 /**
  * The width fold on its own: a Chinese or Japanese keyboard in full-width mode types
  * "ＭＳＲ" and "２" for MSR and 2, and a Japanese one may type half-width kana ("ｶﾒﾗ"),

@@ -26,6 +26,10 @@ export const CATALOG_CSV_HEADERS = [
   "weight_mg",
   "weight_source",
   "source_url",
+  // the maker's own words for the weight, verbatim from the cited page — what the
+  // product page shows beside the figure (app/pages/catalog). After the provenance
+  // triplet it cites, before kcal (food's own citation stays on the research row).
+  "quote",
   // per-unit food energy — food rows only, blank elsewhere. Last so the
   // weight/provenance triplet stays contiguous; blank rows just gain a comma.
   "kcal",
@@ -162,6 +166,10 @@ export interface CatalogCsvRow {
   kcal: number | null;
   weightSource: string;
   sourceUrl: string | null;
+  // The cited page's own words for the weight (see CATALOG_CSV_HEADERS). Optional in
+  // the parser so a hand-written seven-column CSV still loads; the build writes it
+  // on every row and the checks fail a shipped row without one.
+  quote: string | null;
   // Derived (not a CSV column): the extra words this row is searchable by —
   // category noun + locale/synonym aliases. See scripts/searchTerms.ts.
   searchTerms: string | null;
@@ -182,6 +190,7 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
   const iSrc = idx("weight_source");
   const iUrl = idx("source_url");
   const iKcal = idx("kcal");
+  const iQuote = idx("quote");
   const iAttr = idx("attributes");
   const iUnpub = idx("attributes_unpublished");
   if (iName < 0 || iMg < 0 || iSrc < 0) {
@@ -222,8 +231,9 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
       if (!isAttributeKey(k)) throw new Error(`row ${r + 1} (${name}): attributes_unpublished "${k}" is not an axis`);
       attributesUnpublished.push(k);
     }
+    const brand = iBrand >= 0 ? blankToNull(cells[iBrand]) : null;
     out.push({
-      brand: iBrand >= 0 ? blankToNull(cells[iBrand]) : null,
+      brand,
       name,
       commonName,
       variant: iVariant >= 0 ? blankToNull(cells[iVariant]) : null,
@@ -234,6 +244,7 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
       kcal,
       weightSource,
       sourceUrl: iUrl >= 0 ? blankToNull(cells[iUrl]) : null,
+      quote: iQuote >= 0 ? blankToNull(cells[iQuote]) : null,
       searchTerms: buildSearchTerms(name, categoryHint, commonName),
     });
   }

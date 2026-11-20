@@ -98,9 +98,16 @@ export function usedColorKeys(rows: readonly { colorKey?: string | null }[]): st
   return rows.map((r) => r.colorKey ?? "other");
 }
 
+/** The canonical category a folder's NAME stands for ("Cook system" → kitchen, "Food"
+ *  → consumable), or null for a name it doesn't recognise. By name, not by the colour
+ *  the folder wears: an unrecognised "Misc" can be handed the water hue by the palette
+ *  walk, and is still not where a water filter goes. */
+export function categoryOfName(name: string): string | null {
+  return NAME_TO_KEY[name.trim().toLowerCase().replace(/\s+/g, " ")] ?? null;
+}
+
 export function colorKeyForName(name: string, used: readonly string[]): string {
-  const norm = name.trim().toLowerCase().replace(/\s+/g, " ");
-  const key = NAME_TO_KEY[norm];
+  const key = categoryOfName(name);
   if (key) {
     if (key === "other") return "other";
     if (!used.includes(key)) return key;

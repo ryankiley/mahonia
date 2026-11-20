@@ -782,7 +782,10 @@ function create() {
     status.value = "synced";
     // Restore an in-progress, never-saved draft if one survived a reload/crash.
     // Async (IndexedDB), so the fresh starter paints first and is replaced if found.
-    store.get(DRAFT_KEY).then((local) => {
+    // Kept as `draftRestore` so a write that arrives with the page (a catalog page's
+    // "Pack this", app/utils/packFromCatalog.ts) can wait for it: a row added to the
+    // starter would be overwritten by the restored draft a moment later.
+    draftRestore = store.get(DRAFT_KEY).then((local) => {
       if (myEpoch !== epoch || editToken() || !local) return;
       snapshot.value = tidyListText(local.snapshot); // same backfill as the token path
       // not local.pending: a draft's queue is what was typed while a create was out,
@@ -794,6 +797,10 @@ function create() {
       if (hasRealContent(local.snapshot)) createFromDraft();
     });
   }
+  let draftRestore: Promise<void> = Promise.resolve();
+  /** Resolves once startDraft's restore has settled (immediately when no draft was
+   *  started). Never rejects: a failed restore leaves the fresh starter in place. */
+  const draftSettled = () => draftRestore.catch(() => {});
 
   // Persist a draft to the server on its first real content. The created snapshot
   // keeps the client-side folder/item ids (the create path normalizes but preserves
@@ -1374,7 +1381,7 @@ function create() {
     keylessCode,
     startKeyless,
     authHeaders,
-    load, retryLoad, startDraft, dispose, rotate,
+    load, retryLoad, startDraft, draftSettled, dispose, rotate,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     vaultAuto, vaultDeclined,

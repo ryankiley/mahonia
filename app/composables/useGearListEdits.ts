@@ -2,6 +2,9 @@ import type { DayPatch, ItemPatch, Op } from "~~/shared/ops";
 import { MAX_ITEMS, seedRouteEnds } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
+/** What addCatalogItem needs of a catalog row: the search result's fields, which the
+ *  product endpoint's variants also carry (server/utils/catalog.ts productVariants). */
+export type CatalogPick = Pick<CatalogSearchResult, "id" | "brand" | "name" | "variant" | "weightMg" | "commonName" | "categoryHint" | "kcal">;
 import { splitWeightTail } from "~~/shared/pasteList";
 import { counted, tidyText } from "~~/shared/tidyText";
 import { isWaterName, waterMgFromMl, waterPhrase } from "~~/shared/water";
@@ -232,6 +235,41 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
       // to one person lands in that person's view, not invisibly outside it
       personId: usePersonFilter().assignTarget(snapshot.value.people),
       sortOrder: nextSortOrder(snapshot.value.items, folderId, nest.parentId),
+    };
+    dispatch({ t: "addItem", item });
+    return id;
+  }
+
+  // Add a catalog product as a row — the catalog page's "Pack this", arriving with
+  // the page (app/utils/packFromCatalog.ts). A complete row in one dispatch, like
+  // addVaultItem above and for the same reason; but the VALUES are the catalog's,
+  // not the holder's, so this is an autocomplete pick's semantics (ItemRow's
+  // onNameCommit, catalog branch): linked, weight and name un-overridden so the
+  // catalog's live-resolve keeps them fresh, the link's weight stamped as the
+  // baseline the "catalog changed" nudge compares against.
+  function addCatalogItem(pick: CatalogPick, folderId: string | null): string {
+    if (!snapshot.value) return "";
+    const id = uid();
+    const item: Item = {
+      id,
+      folderId,
+      name: pick.name,
+      brand: pick.brand ?? undefined,
+      variant: pick.variant ?? undefined,
+      commonName: pick.commonName ?? undefined,
+      commonNameOverridden: false,
+      nameOverridden: false,
+      unitWeightMg: pick.weightMg,
+      catalogWeightMgAtLink: pick.weightMg,
+      weightOverridden: false,
+      catalogItemId: pick.id,
+      qty: 1,
+      // the catalog's consumable category is the one class it can speak for (the
+      // autocomplete's rule); everything else follows the folder it lands in
+      classification: pick.categoryHint === "consumable" ? storedClassification("consumable", folderId, snapshot.value.folders) : null,
+      kcal: pick.kcal ?? undefined,
+      personId: usePersonFilter().assignTarget(snapshot.value.people),
+      sortOrder: nextSortOrder(snapshot.value.items, folderId),
     };
     dispatch({ t: "addItem", item });
     return id;
@@ -535,7 +573,7 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
   return {
     setMeta, setUnit, addFolder, updateFolder, moveFolderBefore, addDay,
     updateDay, addWaypoint, ensureRouteEnds, updateWaypoint, removeWaypoint, removeDay,
-    addPerson, updatePerson, removePerson, removeFolder, addBlankItem, addVaultItem,
+    addPerson, updatePerson, removePerson, removeFolder, addBlankItem, addVaultItem, addCatalogItem,
     addBlankItemAfter, pasteItemsAfter, isEmptyRow, discardEmpty, updateItem, removeItem,
     setItemWeight,
     addChild, nestItem, unnest, moveItem, duplicateItem,

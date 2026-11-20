@@ -38,6 +38,8 @@ import type { EditorMode } from "~/composables/useEditorMode";
 import { CHILDREN_BY_PARENT, PEOPLE_CTX, ROW_FLASH, VARIANT_SHOWN } from "~/components/ItemRow.vue";
 import { useGearEditorView } from "~/composables/useGearEditorView";
 import { editorCapability } from "~/utils/editorRoute";
+// a type only: the handler itself is loaded on demand (the "Pack this" watcher)
+import type { PackOutcome } from "~/utils/packFromCatalog";
 
 // The whole editor surface (its own sticky topbar + flex shell). Rendered by
 // the page routes: /e (bare, prerendered) and /e/[code]
@@ -536,9 +538,18 @@ watch(listKey, () => {
 // stays on screen until B can paint in the same tick — and the weight
 // figure counts from one to the other instead of blanking. A newer route change
 // during that wait wins (routeRun).
+//
+// TWO SOURCES, not one getter returning the pair. A getter's array is a fresh value
+// on every run, and Nuxt re-syncs its route object on every same-page navigation —
+// a query change included — so the pair-in-an-array form ran this again on the
+// "Pack this" watcher's own query-clearing replace below (and on the post-hydration
+// restore of a hard-loaded /e?add=…): the session was torn down and started over
+// mid-add, and the teardown wrote whatever snapshot was on screen over the on-device
+// draft slot before the first restore had read it. Vue compares each source's own
+// value, so this now runs only when the hash or the code itself changes.
 let routeRun = 0;
 watch(
-  () => [route.hash, route.params.code] as const,
+  [() => route.hash, () => route.params.code],
   async ([h, codeParam], prev) => {
     // Read HERE, not inside startSession: a malformed hash ("#%") throws, and that throw
     // must land before the dispose, exactly as it always has. What each kind means, and
@@ -554,7 +565,8 @@ watch(
     const run = ++routeRun;
     // the restore reads nothing ahead itself: the run it triggers does
     if (cap.kind === "held") return navigateTo({ path: route.path, hash: `#${cap.token}` }, { replace: true });
-    if (prev) {
+    // prev.length, not prev: two sources hand the first run an EMPTY array, not undefined
+    if (prev?.length) {
       await readAhead(route);
       if (run !== routeRun) return;
     }
@@ -564,6 +576,40 @@ watch(
         : cap.kind === "claimed" ? { code: cap.code }
           : cap.kind === "keyless" ? { keyless: cap.code }
             : undefined,
+    );
+  },
+  { immediate: true },
+);
+// A catalog page's "Pack this" arrives as /e?add=<brand/product>[&variant=…]. A
+// WATCHER, not a one-shot read: /e is prerendered, so a hard load of /e?add=… hydrates
+// against the bare address and is moved to the full one after first paint (the
+// index page's note on the same mechanism), and the query is only there on the
+// second run. The query is cleared BEFORE the add so a reload can't add the row
+// twice, and the handler is loaded on demand — the editor's first load is measured
+// to the kilobyte, and this runs for one visitor in many.
+watch(
+  () => route.query.add,
+  async (add) => {
+    if (typeof add !== "string" || !add) return;
+    const variant = typeof route.query.variant === "string" ? route.query.variant : undefined;
+    await navigateTo({ path: route.path, hash: route.hash, query: {} }, { replace: true });
+    let done: PackOutcome;
+    try {
+      const { packFromCatalog } = await import("~/utils/packFromCatalog");
+      done = await packFromCatalog(c, add, variant);
+    } catch {
+      // the chunk itself gone (a deploy since this tab loaded), past the query already
+      // cleared: said, not swallowed
+      done = { ok: false, reason: "unreachable" };
+    }
+    // three ways to fail, told apart: the catalog answered and has no such product (a
+    // renamed row, a variant that is gone), no answer at all, or another list opened
+    // while it was on its way, which the row must not land in unasked
+    flash(
+      done.ok ? `Added ${done.name}`
+        : done.reason === "missing" ? "Couldn’t find that product in the catalog"
+          : done.reason === "moved" ? "Not added: another list opened first"
+            : "Couldn’t reach the catalog",
     );
   },
   { immediate: true },

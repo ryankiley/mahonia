@@ -437,3 +437,14 @@ shared/vaultKit). All of it loads on a click, which is the shape this backstop i
 meant to price. FIRST LOAD is in its own entry above, 155.9 against 157. MAX_CHUNK
 unmoved at 53.2 against 72. 311 restores the ~6 KB of slack the re-sets above keep
 arguing for.
+
+341 → 345, the catalog product pages (#432): a page per product under /catalog, with
+its cited weight, the maker's words and a "Pack this" that opens the editor with the row
+added. Measured both ways: main at 314a46b builds to 336.9 against 341 (4.1 KB of slack),
+341.1 with the branch. The +4.2 is the product page's own route chunk (a page nobody
+downloads from the editor) plus the Pack this handler, which the editor imports on
+demand and only for a visitor who arrived from a product page. FIRST LOAD moves
+161.2 → 161.9 against the 162 tripwire: the editor gains a watcher on the address's
+`add` query, a `draftSettled` promise and one more row-adding function, and nothing
+else. MAX_CHUNK unmoved at 54.1 against 72. 345 restores the ~4 KB of slack the
+re-anchors above keep arguing for.
