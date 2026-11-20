@@ -128,7 +128,9 @@ describe("an assistant's session, start to finish", () => {
       ["20F Regular", "https://enlightenedequipment.com/revelation"],
     ]);
     const byName = await call("search_catalog", { brand: "zpacks", name: "duplex" });
-    expect(byName.data).toMatchObject({ product: { brand: "Zpacks", name: "Duplex" }, results: [{ variant: null, weight_g: 538, verified: true }] });
+    expect(byName.data).toMatchObject({ product: { brand: "Zpacks", name: "Duplex" }, results: [{ weight_g: 538, verified: true }] });
+    // sold one way: no variant field at all, rather than a null
+    expect((byName.data.results as Record<string, unknown>[])[0]).not.toHaveProperty("variant");
     expect((await call("search_catalog", { brand: "Nobody", name: "Duplex" })).isError).toBe(true);
   });
 });

@@ -261,7 +261,11 @@ describe("the gear tools", () => {
     const r = await tool("edit_my_gear", { update: [{ id: tentId, weight_g: 1010, price: null }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);
     const [done] = r.data.updated as { id: number; status: string; item: Record<string, unknown> }[];
-    expect(done).toMatchObject({ id: tentId, status: "updated", item: { id: tentId, weight_g: 1010, price: null, currency: null } });
+    expect(done).toMatchObject({ id: tentId, status: "updated", item: { id: tentId, weight_g: 1010 } });
+    // a cleared field is gone from the echo, as every field with nothing in it is
+    expect(done!.item).not.toHaveProperty("price");
+    expect(done!.item).not.toHaveProperty("currency");
+    expect(done!.item).not.toHaveProperty("times_used");
     // a piece keeps a name, and an entry with nothing to change is said so, piece by piece
     const bad = (await tool("edit_my_gear", { update: [{ id: tentId, name: null }, { id: tentId }] }, aliceWrite)).data.updated as { status: string }[];
     expect(bad.map((u) => u.status)).toEqual(["invalid", "invalid"]);
@@ -304,7 +308,8 @@ describe("the gear tools", () => {
     expect(linked[0]!.item).toMatchObject({ id: tentId, name: "Duplex", brand: "Zpacks", weight_g: 1200, catalog_id: 1 });
     // unlinked: the piece as it reads, with no link
     const unlinked = (await tool("edit_my_gear", { update: [{ id: duplexId, catalog_id: null }] }, aliceWrite)).data.updated as { item: Record<string, unknown> }[];
-    expect(unlinked[0]!.item).toMatchObject({ name: "Duplex", weight_g: 538, catalog_id: null });
+    expect(unlinked[0]!.item).toMatchObject({ name: "Duplex", weight_g: 538 });
+    expect(unlinked[0]!.item).not.toHaveProperty("catalog_id");
     // an id that names no catalog row refuses the call before anything is written
     const before = (await tool("get_my_gear", {}, aliceRead)).data.total;
     const refused = await tool("edit_my_gear", { add: [{ name: "x", catalog_id: 404 }], remove: [duplexId] }, aliceWrite);
@@ -322,9 +327,11 @@ describe("the gear tools", () => {
     expect(await applyVaultItemOp(db, row!.vaultId, { t: "kit", id: kitId!, parts: [{ id: stoveId!, qty: 2 }], ownWeightMg: 20_000 })).not.toBeNull();
     const found = await tool("get_my_gear", { query: "cook kit" }, aliceRead);
     const kit = (found.data.gear as { id: number }[]).find((g) => g.id === kitId);
-    expect(kit).toMatchObject({ weight_g: 166, kit: { own_weight_g: 20, items: [{ id: stoveId, count: 2, weight_g: 73, put_away: false }] }, in_kits: [] });
+    expect(kit).toMatchObject({ weight_g: 166, kit: { own_weight_g: 20, items: [{ id: stoveId, count: 2, weight_g: 73, put_away: false }] } });
+    expect(kit).not.toHaveProperty("in_kits");
     const stove = ((await tool("get_my_gear", {}, aliceRead)).data.gear as { id: number }[]).find((g) => g.id === stoveId);
-    expect(stove).toMatchObject({ kit: null, in_kits: [kitId] });
+    expect(stove).toMatchObject({ in_kits: [kitId] });
+    expect(stove).not.toHaveProperty("kit");
     expect(stove).not.toHaveProperty("unweighed");
     // the kit itself is never flagged (its weight is its items'), and nor is a weighed item
     expect(kit).not.toHaveProperty("unweighed");
@@ -357,13 +364,15 @@ describe("the gear tools", () => {
     const [up] = changed.data.updated as { status: string; item: Record<string, unknown> }[];
     expect(up).toMatchObject({ status: "updated", item: { weight_g: 121, kit: { own_weight_g: 0, items: [{ id: potId }, { id: lighterId, count: 1 }] } } });
     const spork = ((await tool("get_my_gear", { query: "spork" }, aliceRead)).data.gear as { id: number; in_kits: number[] }[]).find((g) => g.id === sporkId);
-    expect(spork!.in_kits).toEqual([]);
+    expect(spork).not.toHaveProperty("in_kits");
 
     // one level deep: a piece already in a kit can't hold items, and a kit can't be an item
     const nested = await tool("edit_my_gear", { update: [{ id: potId, kit: { items: [{ id: sporkId }] } }] }, aliceWrite);
     expect((nested.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("already in a kit") });
     const kitAsItem = await tool("edit_my_gear", { add: [{ name: "Everything kit", kit: { items: [{ id: kitId }] } }] }, aliceWrite);
-    expect((kitAsItem.data.results as { status: string; reason: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "added", reason: expect.stringContaining("Added as a single piece"), item: { kit: null } });
+    const single = (kitAsItem.data.results as { status: string; reason: string; item: Record<string, unknown> }[])[0];
+    expect(single).toMatchObject({ status: "added", reason: expect.stringContaining("Added as a single piece") });
+    expect(single!.item).not.toHaveProperty("kit");
 
     // a malformed kit refuses the whole call before anything is written
     const both = await tool("edit_my_gear", { update: [{ id: kitId, weight_g: 300, kit: { items: [{ id: potId }] } }] }, aliceWrite);
@@ -373,11 +382,14 @@ describe("the gear tools", () => {
 
     // null turns it back into a piece weighing what the kit did; its items stay pieces
     const undone = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
-    expect((undone.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { weight_g: 121, kit: null } });
+    const piece = (undone.data.updated as { status: string; item: Record<string, unknown> }[])[0];
+    expect(piece).toMatchObject({ status: "updated", item: { weight_g: 121 } });
+    expect(piece!.item).not.toHaveProperty("kit");
     const notAKit = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
     expect((notAKit.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("isn't a kit") });
     const pot = ((await tool("get_my_gear", { query: "titanium pot" }, aliceRead)).data.gear as { id: number; in_kits: number[]; weight_g: number }[]).find((g) => g.id === potId);
-    expect(pot).toMatchObject({ in_kits: [], weight_g: 110 });
+    expect(pot).toMatchObject({ weight_g: 110 });
+    expect(pot).not.toHaveProperty("in_kits");
   });
 
   // The add that started this: a piece with no catalog row, priced, not weighed yet.
@@ -396,7 +408,9 @@ describe("the gear tools", () => {
     expect((repriced.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ price: 120, currency: "USD" });
     // null still clears the price and its currency together
     const cleared = await tool("edit_my_gear", { update: [{ id, price: null }] }, aliceWrite);
-    expect((cleared.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ price: null, currency: null });
+    const unpriced = (cleared.data.updated as { item: Record<string, unknown> }[])[0]!.item;
+    expect(unpriced).not.toHaveProperty("price");
+    expect(unpriced).not.toHaveProperty("currency");
 
     // a value outside its set is named, and nothing of that piece is written
     const bad = await tool("edit_my_gear", { add: [{ name: "Wind shirt", classification: "Worn" }], update: [{ id, weight_g: "410" }] }, aliceWrite);
@@ -418,7 +432,9 @@ describe("the gear tools", () => {
     expect(up, up?.reason).toMatchObject({ status: "updated", item: { name: "Tent kit", catalog_id: 1, weight_g: 60, kit: { items: [{ id: stakesId }] } } });
     // and a kit that already is one takes a link alone, still weighing its items
     const relinked = await tool("edit_my_gear", { update: [{ id: kitId, catalog_id: null }] }, aliceWrite);
-    expect((relinked.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { catalog_id: null, weight_g: 60 } });
+    const unlinkedKit = (relinked.data.updated as { status: string; item: Record<string, unknown> }[])[0];
+    expect(unlinkedKit).toMatchObject({ status: "updated", item: { weight_g: 60 } });
+    expect(unlinkedKit!.item).not.toHaveProperty("catalog_id");
     const again = await tool("edit_my_gear", { update: [{ id: kitId, catalog_id: 1 }] }, aliceWrite);
     expect((again.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { catalog_id: 1, weight_g: 60 } });
   });
