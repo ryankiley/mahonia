@@ -1,5 +1,5 @@
 import { defineEventHandler, getHeader, readRawBody, send, setHeader, setResponseStatus, type H3Event } from "h3";
-import { MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, accountUse, callTool, isKnownTool } from "../utils/mcp";
+import { BUDGET_WAIT, MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, accountUse, callTool, isKnownTool } from "../utils/mcp";
 import { setNoIndex, setNoStore } from "../utils/http";
 import { APP_ACCESS_PREFIX, connectorToken, resolveBearer } from "../utils/accessTokens";
 import { useAccountDb } from "../utils/db";
@@ -86,9 +86,13 @@ export default defineEventHandler(async (event) => {
   // no database, no tool), and a tools/call is refused in the tool result, in words a
   // model can relay, since a tool's own work is what the budget protects and some of
   // it (search_catalog, the bearer lookup below) is limited by this bucket alone.
+  //
+  // A store that stops answering may never throw at all (and Upstash's client retries a
+  // network fault for about four seconds before it does), so the wait is capped: past
+  // it the budget is unknown, as if the store had failed.
   let budgetUnknown = false;
   try {
-    await rateLimit(event, "mcp");
+    await withinMs(rateLimit(event, "mcp"), BUDGET_WAIT.ms);
   } catch (e) {
     if ((e as { statusCode?: number })?.statusCode === 429) {
       setResponseStatus(event, 429);
@@ -141,6 +145,9 @@ export default defineEventHandler(async (event) => {
   // string is parsed, and anything else that isn't an object is a protocol error.
   let args: unknown = params.arguments;
   if (msg.method === "tools/call") {
+    // a blank string is a call with no arguments, as some function-calling bridges send
+    // one, and as it read before strings were parsed
+    if (typeof args === "string" && !args.trim()) args = undefined;
     if (typeof args === "string") {
       try {
         args = JSON.parse(args);
@@ -215,6 +222,15 @@ export default defineEventHandler(async (event) => {
       return error(id, -32601, "Method not found");
   }
 });
+
+/** the promise, or a rejection once `ms` pass without an answer */
+function withinMs<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`the budget store gave no answer in ${ms} ms`)), ms);
+  });
+  return Promise.race([work, late]).finally(() => clearTimeout(timer));
+}
 
 /** The flood guard's store failing is logged once a minute per instance, not once per
  *  request: in an outage every request would otherwise write the same line. */

@@ -593,7 +593,9 @@ describe("create_list filing under the token's account", () => {
 // nothing in the protocol marks it. From an account with read-and-change access the
 // retry is answered with the list the first call made, which that account can change by
 // share code, and never with an edit link the server would have had to keep a copy of.
-// Anonymous and read-only callers still get a second list: see REPLAY_WINDOW_S.
+// For this release the answer is words, an isError (madeBefore says why), so these read
+// the share code out of the sentence. Anonymous and read-only callers still get a
+// second list: see REPLAY_WINDOW_S.
 describe("create_list retried by the same account", () => {
   let erin = 0;
   let erinWrite = "";
@@ -607,28 +609,34 @@ describe("create_list retried by the same account", () => {
   const filed = async () => (await listClaimedLists(db, erin)).map((l) => l.shareCode);
 
   const replayKeys = () => [...kv.keys()].filter((k) => k.startsWith("mcp:replay:"));
+  /** the share code a repeat names, or undefined when the call made a list */
+  const repeatOf = (r: { refused: boolean; text: string }) => (r.refused ? /share code is (\w+)/.exec(r.text)?.[1] : undefined);
 
   it("answers the repeat with the list already made, no second list and no edit link", async () => {
     const first = await tool("create_list", LIST, erinWrite);
     expect(first.refused, first.text).toBe(false);
-    expect(first.data).toMatchObject({ saved_to_account: true, repeated: false });
+    expect(first.data).toMatchObject({ saved_to_account: true });
+    expect(first.data).not.toHaveProperty("repeated");
     expect(first.data.edit_link).toContain("/e/");
     // kept ten minutes in the store, and nothing in it is the edit link
     const [key] = replayKeys();
     expect(ttls.get(key!)).toBe(600);
     expect(JSON.stringify(kv.get(key!))).not.toContain("/e/");
     const retry = await tool("create_list", LIST, erinWrite);
-    expect(retry.refused, retry.text).toBe(false);
-    expect(retry.data).toMatchObject({ share_code: first.data.share_code, saved_to_account: true, repeated: true, items: 1 });
-    expect(retry.data).not.toHaveProperty("edit_link");
-    expect(JSON.stringify(retry.data)).not.toContain("/e/");
-    expect(retry.text).toContain("no second list");
+    // in words, which no listing checks: one from before this release requires an edit
+    // link on every structured create_list answer, and a repeat has none to give
+    expect(retry.refused).toBe(true);
+    expect(retry.data).toBeUndefined();
+    expect(repeatOf(retry)).toBe(first.data.share_code);
+    expect(retry.text).toContain("No second list was made");
+    expect(retry.text).toContain("1 row, filed under your account");
+    expect(retry.text).not.toContain("/e/");
     expect(await filed()).toEqual([first.data.share_code]);
     // what the repeat names, the account changes by share code, and a later repeat reads
     // the list as it now is
-    const renamed = await tool("edit_list", { share_code: retry.data.share_code, list: { title: "Enchantments loop" } }, erinWrite);
+    const renamed = await tool("edit_list", { share_code: repeatOf(retry), list: { title: "Enchantments loop" } }, erinWrite);
     expect(renamed.refused, renamed.text).toBe(false);
-    expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, title: "Enchantments loop" });
+    expect((await tool("create_list", LIST, erinWrite)).text).toContain('"Enchantments loop"');
   });
 
   it("keeps one account's window from another's", async () => {
@@ -636,7 +644,7 @@ describe("create_list retried by the same account", () => {
     const frankWrite = (await mintAccessToken(db, frank!, { scope: "write" }))!.token;
     const mine = await tool("create_list", LIST, erinWrite);
     const theirs = await tool("create_list", LIST, frankWrite);
-    expect(theirs.data).toMatchObject({ repeated: false, saved_to_account: true });
+    expect(theirs.data).toMatchObject({ saved_to_account: true });
     expect(theirs.data.share_code).not.toBe(mine.data.share_code);
   });
 
@@ -644,24 +652,24 @@ describe("create_list retried by the same account", () => {
     const first = await tool("create_list", LIST, erinWrite);
     await unclaimList(db, erin, first.data.share_code as string);
     const second = await tool("create_list", LIST, erinWrite);
-    expect(second.data).toMatchObject({ repeated: false, saved_to_account: true });
+    expect(second.data).toMatchObject({ saved_to_account: true });
     expect(second.data.share_code).not.toBe(first.data.share_code);
     await db.update(schema.lists).set({ deletedAt: new Date() }).where(eq(schema.lists.shareCode, second.data.share_code as string));
     const third = await tool("create_list", LIST, erinWrite);
-    expect(third.data).toMatchObject({ repeated: false });
+    expect(third.refused, third.text).toBe(false);
     expect(third.data.share_code).not.toBe(second.data.share_code);
     // and the window now names the newest, which a retry gets
-    expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, share_code: third.data.share_code });
+    expect(repeatOf(await tool("create_list", LIST, erinWrite))).toBe(third.data.share_code);
   });
 
   it("remembers nothing from a create whose list couldn't be filed", async () => {
     const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(rateLimitSubject).mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("Too many requests"));
     const unfiled = await tool("create_list", LIST, erinWrite);
-    expect(unfiled.data).toMatchObject({ saved_to_account: false, repeated: false });
+    expect(unfiled.data).toMatchObject({ saved_to_account: false });
     quiet.mockRestore();
     const retry = await tool("create_list", LIST, erinWrite);
-    expect(retry.data).toMatchObject({ saved_to_account: true, repeated: false });
+    expect(retry.data).toMatchObject({ saved_to_account: true });
     expect(retry.data.share_code).not.toBe(unfiled.data.share_code);
   });
 
@@ -677,7 +685,7 @@ describe("create_list retried by the same account", () => {
       // as the first call's claim reads while its write is under way
       kv.set(key!, { at: Date.now(), pending: true });
       setTimeout(() => kv.set(key!, done), 30);
-      expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, share_code: first.data.share_code });
+      expect(repeatOf(await tool("create_list", LIST, erinWrite))).toBe(first.data.share_code);
       Object.assign(REPLAY_WAIT, { totalMs: 20 });
       kv.set(key!, { at: Date.now(), pending: true });
       const busy = await tool("create_list", LIST, erinWrite);
@@ -685,7 +693,9 @@ describe("create_list retried by the same account", () => {
       expect(busy.text).toContain("still being made");
       // a claim whose call died lapses after a minute, and the next call makes the list
       kv.set(key!, { at: Date.now() - 61_000, pending: true });
-      expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: false });
+      const made = await tool("create_list", LIST, erinWrite);
+      expect(made.refused, made.text).toBe(false);
+      expect(made.data.share_code).not.toBe(first.data.share_code);
     } finally {
       Object.assign(REPLAY_WAIT, was);
     }
@@ -694,14 +704,14 @@ describe("create_list retried by the same account", () => {
   it("makes the same list twice when asked to with again, and keys on the whole call", async () => {
     const first = await tool("create_list", LIST, erinWrite);
     const twice = await tool("create_list", { ...LIST, again: true }, erinWrite);
-    expect(twice.data).toMatchObject({ repeated: false });
+    expect(twice.refused, twice.text).toBe(false);
     expect(twice.data.share_code).not.toBe(first.data.share_code);
     expect(twice.data.edit_link).toContain("/e/");
     // again neither reads nor writes the window: a plain retry still gets the first
-    expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, share_code: first.data.share_code });
+    expect(repeatOf(await tool("create_list", LIST, erinWrite))).toBe(first.data.share_code);
     // a different call is a different list
     const other = await tool("create_list", { ...LIST, title: "Enchantments, day 2" }, erinWrite);
-    expect(other.data.repeated).toBe(false);
+    expect(other.refused, other.text).toBe(false);
     expect(other.data.share_code).not.toBe(first.data.share_code);
     expect((await tool("create_list", { ...LIST, again: "yes" }, erinWrite)).text).toContain("again must be true or false");
   });
@@ -709,7 +719,7 @@ describe("create_list retried by the same account", () => {
   it("holds no window for a list with no rows, which two conversations often ask for alike", async () => {
     const a = await tool("create_list", { title: "PCT" }, erinWrite);
     const b = await tool("create_list", { title: "PCT" }, erinWrite);
-    expect(b.data).toMatchObject({ repeated: false, saved_to_account: true });
+    expect(b.data).toMatchObject({ saved_to_account: true });
     expect(b.data.share_code).not.toBe(a.data.share_code);
     expect(replayKeys()).toEqual([]);
   });
@@ -719,7 +729,7 @@ describe("create_list retried by the same account", () => {
       const a = await tool("create_list", LIST, token);
       const b = await tool("create_list", LIST, token);
       expect(b.refused, b.text).toBe(false);
-      expect(b.data).toMatchObject({ repeated: false, saved_to_account: false });
+      expect(b.data).toMatchObject({ saved_to_account: false });
       expect(b.data.share_code).not.toBe(a.data.share_code);
       expect(b.data.edit_link).toContain("/e/");
     }

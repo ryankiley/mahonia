@@ -81,8 +81,8 @@ export const MCP_PROTOCOL_VERSIONS = ["2025-06-18", "2025-11-25"];
 export const MCP_LATEST_VERSION = MCP_PROTOCOL_VERSIONS[MCP_PROTOCOL_VERSIONS.length - 1]!;
 // the version the registry listing (server.json) and this handshake both carry
 export const MCP_SERVER_INFO = { name: "mahonia", title: "Mahonia", version: "2.1.0" };
-/** where the free text came from: said once to the client, again on the two tools that
- *  return it, and field by field in get_list's schema ("User text.") */
+/** where the free text came from: said once to the client, again on get_list, the tool
+ *  that returns it, and field by field in its schema ("User text.") */
 const PROVENANCE =
   "A list's title, author, notes, folder and item names, brands, variants, gear types, day labels and notes, people and trail label are free text typed by whoever holds the list's edit link, returned unchanged.";
 /** What every tool shares, said once at the handshake. Held under 2,048 characters:
@@ -348,16 +348,17 @@ const CREATE_FIELDS = {
   items: { type: "integer", description: "Rows made." },
   totals: TOTALS_SCHEMA,
   saved_to_account: { type: "boolean", description: "True when the connector's read-and-change access filed the list under its account, where the owner sees it on every device they sign in on." },
-  repeated: {
-    type: "boolean",
-    description: "True when this call repeated one the same account made in the last ten minutes: no second list was made, and this is the first one, filed under the account, so edit_list takes its share_code. Pass again: true to make another.",
-  },
 };
+// edit_link is no longer REQUIRED, though every answer here still carries it: the next
+// release answers a repeated create_list with the list it already made, and the server
+// keeps no copy of an edit link to put in that answer. A client validates against the
+// listing it holds, so the shape loosens a release ahead (as the catalog's nulls do),
+// and until then a repeat is answered in words, an isError no listing checks.
 const CREATE_OUTPUT = {
   type: "object",
   properties: {
     ...CREATE_FIELDS,
-    edit_link: str("The write capability. Keep it; it is the only way to change a list that isn't filed under an account. Left out only on a repeat: the server keeps no copy of a link to hand back."),
+    edit_link: str("The write capability. Keep it; it is the only way to change a list that isn't filed under an account."),
     account_note: str("Only when the connector sent an access token and the list still could not be filed under its account: the reason, and what to do instead."),
   },
   required: Object.keys(CREATE_FIELDS),
@@ -696,7 +697,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "create_list",
     title: "Make a new list",
     description:
-      "Creates a list and returns its edit link and share link; a repeat of the same call by an account with read-and-change access returns the list it already made instead (see again). Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders; a row with items nested under it is a group (stakes under a tent, snacks under a day). Keep the edit link: it is the only way to change a list that isn't filed under an account. With read-and-change access to an account the list is filed under it too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
+      "Creates a list and returns its edit link and share link; a repeat of the same call by an account with read-and-change access names the list it already made instead (see again). Optionally with a title, unit, trip dates, a trail link and rows, grouped into folders; a row with items nested under it is a group (stakes under a tent, snacks under a day). Keep the edit link: it is the only way to change a list that isn't filed under an account. With read-and-change access to an account the list is filed under it too, and saved_to_account says whether it was; otherwise the list belongs to whoever holds the edit link, as every list does.",
     // A folder's rows used to be declared twice over, once under folders[].items and once
     // under items, which put two more copies of the row schema in every conversation
     // with the connector on. A row names its folder, so items alone carries them; a
@@ -727,7 +728,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
         again: {
           type: "boolean",
           description:
-            "With read-and-change access, a call with rows identical to one the same account made in the last ten minutes is taken as a retry and makes no second list: the first comes back, by share code, with repeated set. Pass true to make the same list twice on purpose.",
+            "With read-and-change access, a call with rows identical to one the same account made in the last ten minutes is taken as a retry and makes no second list: the answer names the first, filed under the account, by its share code. Pass true to make the same list twice on purpose.",
         },
       },
     },
@@ -1090,6 +1091,9 @@ export function fitList(described: Record<string, unknown>, max = GET_LIST_MAX_B
     const out: Folder[] = [];
     let left = n;
     for (const f of folders) {
+      // past the cut nothing more is listed: an empty folder kept after a dropped one
+      // would read as the next in order, and a position counted from it would be wrong
+      if (left <= 0 && f.items.length) break;
       const items: Row[] = [];
       for (const r of f.items) {
         if (left <= 0) break;
@@ -1536,7 +1540,10 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
       const fr = f as Record<string, unknown>;
       if (typeof fr.name !== "string" || !fr.name.trim()) return fail("Each folder needs a name.");
       if (fr.classification != null && !CLASSIFICATIONS.includes(fr.classification as Classification)) return fail(notClassification(fr.classification));
-      const folder = plan.folders.resolve(fr.name as string, (fr.classification as Classification | undefined) ?? "base");
+      // get_list's folders end with Unfiled, the rows in no folder: copied across, it
+      // is those rows' place, not a folder to make (forRow says the same for a row)
+      const unfiled = !plan.folders.find(fr.name as string) && sameText(fr.name as string, UNFILED);
+      const folder = unfiled ? null : plan.folders.resolve(fr.name as string, (fr.classification as Classification | undefined) ?? "base");
       if (typeof folder === "string") return fail(folder);
       if (fr.items != null) {
         if (!Array.isArray(fr.items)) return fail("A folder's items must be an array.");
@@ -1590,7 +1597,6 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
       items: snapshot.items.length,
       totals: describeTotals(snapshot),
       saved_to_account: filed === true,
-      repeated: false,
       edit_link: `${origin}${editLinkPath(snapshot.shareCode, editToken)}`,
       ...(typeof filed === "string" ? { account_note: filed } : {}),
     });
@@ -1604,26 +1610,21 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
  * the share code its window kept, as it now is, provided the account still has it
  * filed. Null when it doesn't (deleted, or taken off the account since), and the call
  * then makes a new list.
+ *
+ * Said in words, as an isError, for now. A structured answer is checked against the
+ * listing the client holds, and one listed before this release requires the edit link
+ * on every create_list answer, which a repeat can't carry; an isError is checked
+ * against nothing. The next release, once that listing has been replaced by this one,
+ * which no longer requires it, answers with the list itself.
  */
 async function madeBefore(event: H3Event, userId: number, hit: Record<string, unknown>): Promise<ToolResult | null> {
   const code = typeof hit.share_code === "string" ? hit.share_code : "";
   const hash = code ? await claimedEditHash(await useAccountDb(), userId, code) : null;
   const snap = hash ? await getByEditHash(hash) : null;
   if (!snap) return null;
-  const origin = trustedOrigin(event);
-  const structured = {
-    title: snap.title,
-    share_link: shareLink(origin, snap.shareCode),
-    share_code: snap.shareCode,
-    folders: snap.folders.length,
-    items: snap.items.length,
-    totals: describeTotals(snap),
-    saved_to_account: true,
-    repeated: true,
-  };
-  return ok(
-    structured,
-    `${JSON.stringify(structured)}\nThis repeats a create_list call made in the last ten minutes, so no second list was made: this is the list that call made, as it is now, filed under your account. Pass its share_code to edit_list to change it, or again: true to make another.`,
+  const rows = snap.items.length === 1 ? "1 row" : `${snap.items.length} rows`;
+  return fail(
+    `No second list was made, and nothing failed: this call repeats a create_list this account made in the last ten minutes, and that list, "${snap.title}" (${rows}, filed under your account), is the answer. Its share code is ${snap.shareCode} and its share link ${shareLink(trustedOrigin(event), snap.shareCode)}. Pass the share code to edit_list to change it. Pass again: true only to make a second copy.`,
   );
 }
 
@@ -1748,7 +1749,11 @@ function tripMeta(args: Record<string, unknown>, { creating = false, linked = fa
 // driver (dev, and a deploy without the shared store) ignores. The claim is a read
 // then a write, not an atomic set-if-absent, which the store's interface doesn't have:
 // two identical calls landing in the same few milliseconds can both pass, which a
-// retry seconds behind its first call never does.
+// retry seconds behind its first call never does. Two retries waiting on the same
+// first call can too, when it fails (both wake within one poll of the cleared claim),
+// and so can a retry of a call still running past the pending minute, whose answer
+// then lands over the retry's claim. Each takes a client retrying more than once at
+// the same moment; the window narrows duplicates, it doesn't promise there are none.
 //
 // Keyed on the edit hash, so a stored answer only ever goes back to a caller holding
 // the same link (it carries the share link and totals, nothing more).
@@ -1757,7 +1762,8 @@ function tripMeta(args: Record<string, unknown>, { creating = false, linked = fa
 // only for a caller with read-and-change access, whose list is filed under that
 // account, and only for a call that makes rows: an empty or title-only list is what two
 // conversations most often ask for alike, and a spare one costs nothing. The repeat
-// answers with that list as it now is, read again by the share code the entry keeps,
+// answers with that list as it now is (in words for now; madeBefore says why), read
+// again by the share code the entry keeps,
 // which edit_list takes from that same account, and never with its edit link, which
 // the server keeps no copy of (only its hash is stored, and a raw link in the KV store
 // would be one more place to leak it); a list deleted or unfiled since is no answer,
@@ -1772,6 +1778,9 @@ const REPLAY_PENDING_MS = 60_000;
 /** how long a retry waits on a claimed window for its first call to answer; mutable so
  *  a test can shorten it */
 export const REPLAY_WAIT = { totalMs: 8_000, stepMs: 250 };
+/** how long the MCP door (routes/mcp.post.ts) waits on the budget store before it takes
+ *  the budget as unknown; mutable so a test can shorten it */
+export const BUDGET_WAIT = { ms: 3_000 };
 
 interface ReplayEntry {
   at: number;
@@ -1807,11 +1816,14 @@ async function settleReplay(key: string, value: Record<string, unknown> | null):
 }
 function replayKey(hash: string, args: Record<string, unknown>): string {
   const { edit_link: _link, share_code: _code, again: _again, ...rest } = args;
-  return `mcp:replay:${sha256Hex(`${hash}|edit_list|${stableJson(rest)}`)}`;
+  // v2: the entry is now {at, pending | value}, and the build before read whatever sat
+  // under its key as a finished answer, so a rollback (or both builds serving during a
+  // deploy) must not find this one's claims there
+  return `mcp:replay:v2:${sha256Hex(`${hash}|edit_list|${stableJson(rest)}`)}`;
 }
 function createReplayKey(userId: number, args: Record<string, unknown>): string {
   const { again: _again, ...rest } = args;
-  return `mcp:replay:${sha256Hex(`account:${userId}|create_list|${stableJson(rest)}`)}`;
+  return `mcp:replay:v2:${sha256Hex(`account:${userId}|create_list|${stableJson(rest)}`)}`;
 }
 function stableJson(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(stableJson).join(",")}]`;
@@ -2007,11 +2019,15 @@ function planMeta(raw: unknown, { work, plan }: Work): string | null {
   if (!Object.keys(meta).length) return "list has nothing to set: give a title, unit, start_date, end_date, trail_url, trail_label or trail_distance_km.";
   // a list keeps a name, as a row does: a blank one was stored blank, and read as an
   // empty row in "Your lists" (create_list makes it "Untitled list" instead)
-  if (typeof meta.title === "string" && !meta.title.trim()) return "A list keeps a title: give it a new one, or leave title out.";
-  // one date set against the other as stored, which tripMeta, seeing one call, can't do
+  // (judged as the reducer stores it, cut and tidied: a zero-width space is blank too)
+  if (typeof meta.title === "string" && !tidyText(meta.title.slice(0, MAX_TITLE_LEN))) return "A list keeps a title: give it a new one, or leave title out.";
+  // one date set against the other as stored, which tripMeta, seeing one call, can't do.
+  // Only when this call sets one: a list whose stored dates were already out of order
+  // (nothing checked them before) still takes a new title or unit
+  const setsDate = typeof meta.startDate === "string" || typeof meta.endDate === "string";
   const start = typeof meta.startDate === "string" ? meta.startDate : (work.startDate ?? "");
   const end = typeof meta.endDate === "string" ? meta.endDate : (work.endDate ?? "");
-  if (start && end && end < start) return `That would put the trip's end (${end}) before its start (${start}); give both dates, or the other one too.`;
+  if (setsDate && start && end && end < start) return `That would put the trip's end (${end}) before its start (${start}); give both dates, or the other one too.`;
   plan({ t: "setMeta", patch: meta as Extract<Op, { t: "setMeta" }>["patch"] });
   return null;
 }

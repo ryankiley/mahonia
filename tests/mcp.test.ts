@@ -4,11 +4,11 @@ import mcpGet from "../server/routes/mcp.get";
 import mcpHead from "../server/routes/mcp.head";
 import mcp from "../server/routes/mcp.post";
 import { readFileSync } from "node:fs";
-import { GET_LIST_MAX_BYTES, MCP_INSTRUCTIONS, MCP_INSTRUCTIONS_MAX, MCP_SERVER_INFO, MCP_TOOLS, REPLAY_WAIT, describeList, editHashFrom, fitGearPage, fitList, fitMarkdown, shareCodeFrom } from "../server/utils/mcp";
+import { BUDGET_WAIT, GET_LIST_MAX_BYTES, MCP_INSTRUCTIONS, MCP_INSTRUCTIONS_MAX, MCP_SERVER_INFO, MCP_TOOLS, REPLAY_WAIT, describeList, editHashFrom, fitGearPage, fitList, fitMarkdown, shareCodeFrom } from "../server/utils/mcp";
 import { bearerToken } from "../server/utils/http";
 import { sha256Hex } from "../server/utils/tokens";
 import { listToMarkdown } from "../shared/exporters/markdown";
-import { MAX_ITEMS, MAX_ITEM_NOTE_LEN } from "../shared/ops";
+import { MAX_ITEMS, MAX_ITEM_NOTE_LEN, MAX_TITLE_LEN } from "../shared/ops";
 import type { Item, ListSnapshot } from "../shared/types";
 import { makeEvent } from "./helpers/http";
 import { expectConforms, expectResultConforms } from "./helpers/mcpSchema";
@@ -335,6 +335,27 @@ describe("the endpoint's transport", () => {
     quiet.mockRestore();
   });
 
+  // A store that stops answering may never throw (Upstash's client retries a network
+  // fault for seconds first), so the door stops waiting and reads it as unknown.
+  it("stops waiting on a budget store that doesn't answer, as if it had failed", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    const was = BUDGET_WAIT.ms;
+    BUDGET_WAIT.ms = 20;
+    try {
+      limiter.rateLimit.mockImplementationOnce(() => new Promise(() => {}));
+      const r = await post(rpc("tools/list"));
+      expect(r.status).toBe(200);
+      expect((resultOf(r) as { tools: unknown[] }).tools.length).toBeGreaterThan(0);
+      limiter.rateLimit.mockImplementationOnce(() => new Promise(() => {}));
+      const t = await call("get_list", { share_code: "ABC123DEF456" });
+      expect(toolText(t)).toMatchObject({ isError: true, text: expect.stringContaining("request budget") });
+      expect(repo.getByShareCode).not.toHaveBeenCalled();
+    } finally {
+      BUDGET_WAIT.ms = was;
+      quiet.mockRestore();
+    }
+  });
+
   // Some clients JSON-encode a tool's arguments a second time. Read as an object, that
   // string was no arguments at all, and a get_list for a public list became a sign-in.
   it("reads arguments a client encoded twice, and refuses arguments that aren't an object", async () => {
@@ -345,6 +366,13 @@ describe("the endpoint's transport", () => {
     expect(repo.getByShareCode).toHaveBeenCalledWith("ABC123DEF456");
     for (const bad of ["nope", 5, ["ABC123DEF456"]]) {
       expect((await post(rpc("tools/call", { name: "get_list", arguments: bad }))).out!.error).toMatchObject({ code: -32602 });
+    }
+    // a blank string is no arguments, as it read before strings were parsed: the tool
+    // runs and answers for itself
+    for (const blank of ["", "  "]) {
+      const none = await post(rpc("tools/call", { name: "search_catalog", arguments: blank }));
+      expect(none.out!.error, JSON.stringify(blank)).toBeUndefined();
+      expect(toolText(none).isError).toBe(true);
     }
   });
 
@@ -538,6 +566,22 @@ describe("writing", () => {
     expect(structured).toMatchObject({ edit_link: `http://mahonia.test/e/ABC123DEF456#${TOKEN}`, share_link: "http://mahonia.test/s/ABC123DEF456", share_code: "ABC123DEF456", folders: 2, items: 3 });
   });
 
+  // get_list's folders end with Unfiled, the rows in no folder; a model copying a list
+  // passes that array to create_list's folders as it reads, and Unfiled became a folder
+  it("create_list reads a folder named Unfiled as the rows in no folder", async () => {
+    repo.createList.mockImplementation(async (init: Record<string, unknown>) => ({
+      editToken: TOKEN,
+      snapshot: snap({ folders: (init.data as { folders: never[] }).folders, items: (init.data as { items: never[] }).items }),
+    }));
+    await call("create_list", {
+      folders: [{ name: "Shelter", items: [{ name: "Tent" }] }, { name: "Unfiled", items: [{ name: "Rain jacket" }] }],
+      items: [{ name: "Hat", folder: "unfiled" }],
+    });
+    const init = repo.createList.mock.calls[0]![0] as { data: { folders: { name: string }[]; items: { name: string; folderId: string | null }[] } };
+    expect(init.data.folders.map((f) => f.name)).toEqual(["Shelter"]);
+    expect(init.data.items.map((i) => [i.name, i.folderId === null])).toEqual([["Tent", false], ["Rain jacket", true], ["Hat", true]]);
+  });
+
   it("create_list refuses what the reducer would mangle, before touching the database", async () => {
     for (const args of [
       { items: [{ name: "x", classification: "carried" }] },
@@ -673,13 +717,19 @@ describe("writing", () => {
 
   it("edit_list keeps a title, and the trip's end after its start against the stored dates", async () => {
     repo.getByEditHash.mockResolvedValue(snap()); // 2026-06-20 to 2026-06-21
-    for (const list of [{ title: "  " }, { end_date: "2026-06-19" }, { start_date: "2026-06-22" }]) {
+    // a title the reducer would store blank, a zero-width space or one past its cap, is as blank as spaces
+    for (const list of [{ title: "  " }, { title: "\u200b" }, { title: `${" ".repeat(MAX_TITLE_LEN)}Trip` }, { end_date: "2026-06-19" }, { start_date: "2026-06-22" }]) {
       expect(toolText(await call("edit_list", { edit_link: EDIT_LINK, list })).isError, JSON.stringify(list)).toBe(true);
     }
     expect(repo.applyOpsByEditHash).not.toHaveBeenCalled();
     repo.applyOpsByEditHash.mockResolvedValue(snap());
     expect(toolText(await call("edit_list", { edit_link: EDIT_LINK, list: { start_date: "2026-07-01", end_date: "2026-07-03" } })).isError).toBe(false);
     expect(toolText(await call("edit_list", { edit_link: EDIT_LINK, list: { end_date: "", start_date: "2026-08-01" } })).isError).toBe(false);
+    // stored out of order (nothing checked before): a call that sets no date still goes
+    // through, and one that sets one is still held to the other
+    repo.getByEditHash.mockResolvedValue(snap({ startDate: "2026-07-10", endDate: "2026-07-05" }));
+    expect(toolText(await call("edit_list", { edit_link: EDIT_LINK, list: { title: "Renamed", unit: "oz" } })).isError).toBe(false);
+    expect(toolText(await call("edit_list", { edit_link: EDIT_LINK, list: { start_date: "2026-07-08" } })).isError).toBe(true);
   });
 
   it("edit_list remembers nothing from a call that failed", async () => {
@@ -943,8 +993,23 @@ describe("describeList", () => {
     expect(folders.find((f) => f.name === "Kitchen")).toMatchObject({ id: "f3", items: [] });
     s.items = s.items.filter((i) => i.folderId);
     expect((describeList(s, "https://mahonia.app").folders as { name: string }[]).map((f) => f.name)).toEqual(["Shelter", "Food", "Kitchen"]);
-    const cut = fitList(out, 900);
-    expect((cut.folders as { name: string }[]).map((f) => f.name)).toContain("Kitchen");
+    // an empty folder before the cut is listed with the rest…
+    const early = snap();
+    early.folders = [early.folders[0]!, { id: "f3", name: "Kitchen", defaultClassification: "base", sortOrder: 1 }, { ...early.folders[1]!, sortOrder: 2 }];
+    const cut = fitList(describeList(early, "https://mahonia.app"), 900);
+    expect(cut.truncated).toMatchObject({ rows: expect.any(Number) });
+    expect((cut.folders as { name: string }[]).map((f) => f.name).slice(0, 2)).toEqual(["Shelter", "Kitchen"]);
+    // …but not past it: kept after a folder that was dropped whole, it would read as
+    // the next folder in order, and a position counted from it would be off by one
+    const long = snap({ folders: [...snap().folders, { id: "f3", name: "Kitchen", defaultClassification: "base", sortOrder: 2 }] });
+    long.items = [
+      ...Array.from({ length: 40 }, (_, i) => ({ id: `s${i}`, folderId: "f1", name: `Shelter row ${i}`, unitWeightMg: 1_000, qty: 1, classification: null, sortOrder: i })),
+      ...Array.from({ length: 40 }, (_, i) => ({ id: `b${i}`, folderId: "f2", name: `Food row ${i}`, unitWeightMg: 1_000, qty: 1, classification: null, sortOrder: i })),
+    ];
+    const whole = describeList(long, "https://mahonia.app");
+    const trimmed = fitList(whole, JSON.stringify(whole).length / 3);
+    expect(trimmed.truncated).toMatchObject({ rows: expect.any(Number) });
+    expect((trimmed.folders as { name: string }[]).map((f) => f.name)).toEqual(["Shelter"]);
   });
   it("carries a saved cooking choice through the read schema", () => {
     const s = snap();
