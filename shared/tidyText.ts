@@ -76,6 +76,24 @@
 const INVISIBLE =
   /[\u0000-\u0008\u000E-\u001F\u007F\u200B\u202A-\u202E\u2066-\u2069\uFEFF]/g;
 
+// The tag characters (U+E0000-U+E007F) draw nothing, and each one stands for an ASCII
+// letter that a language model reads as plainly as the visible text. A note can then
+// say one thing on the page and something else to an assistant reading the list
+// through the connector, which is a stranger's text reaching a model that can act on
+// the reader's account. Their one legitimate use is a subdivision flag: the black flag,
+// a region code of three to seven lowercase letters or digits as tags, and the cancel
+// tag (England, Scotland, Wales). A complete one of those is kept; every other tag
+// character goes. Seven characters per visible flag is too little to hide anything in.
+const TAG_CHARS =
+  /(\u{1F3F4}[\u{E0030}-\u{E0039}\u{E0061}-\u{E007A}]{3,7}\u{E007F})|[\u{E0000}-\u{E007F}]/gu;
+
+/** The characters that draw nothing and mean nothing, gone: the invisible passengers
+ *  and stray tag characters. Nothing else changes, so it is safe on multi-line text and
+ *  on text stored before a rule here existed (the connector runs its output through it). */
+export function dropHidden(raw: string): string {
+  return raw.replace(INVISIBLE, "").replace(TAG_CHARS, "$1");
+}
+
 // Characters that RENDER AS NOTHING but are not whitespace, so \s never folds them and
 // the `|| "Folder"` fallbacks never fire: the Hangul and Khmer fillers, the Braille
 // blank, the Mongolian vowel separator, the word joiner, the soft hyphen, and the two
@@ -132,8 +150,7 @@ const COLLAPSIBLE_SPACE = /[^\S　]+/g;
  * the one field that can, use tidyProse.
  */
 export function tidyText(raw: string): string {
-  const out = raw
-    .replace(INVISIBLE, "")
+  const out = dropHidden(raw)
     .replace(LETTER_FLANKED_APOSTROPHE, CURL_REPLACEMENT)
     .replace(COLLAPSIBLE_SPACE, " ")
     .trim();
@@ -168,8 +185,7 @@ const LINE_ENDINGS = /\r\n?/g;
  * leave every line break exactly where the author put it.
  */
 export function tidyProse(raw: string): string {
-  const out = raw
-    .replace(INVISIBLE, "")
+  const out = dropHidden(raw)
     .replace(LETTER_FLANKED_APOSTROPHE, CURL_REPLACEMENT)
     .replace(LINE_ENDINGS, "\n")
     .replace(HORIZONTAL_SPACE, " ")
