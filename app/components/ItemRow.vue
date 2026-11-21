@@ -2333,11 +2333,11 @@ function dismissFix() {
 .item__qtyfield.is-popping {
   animation: num-pop var(--spring-pop-dur) var(--spring-pop) both;
 }
-.item__unitwrap {
-  position: relative;
-  flex: none;
-  display: inline-flex;
-  /* centres the chevron ON the unit's text rather than letting it stretch.
+/* The unit picker's wrap (.item__unitwrap) is an OptionMenu's root, and that root is
+   already what the pair needs — positioned (.menu), and a rigid inline-flex box that
+   centres its contents (.optmenu, OptionMenu.vue) — so no box is declared for it here.
+   That centring is load-bearing in this cell:
+     it centres the chevron ON the unit's text rather than letting it stretch.
      What it CANNOT do is hand a baseline up: a flex box that centres its own contents
      has none to offer, so a baseline-aligned parent gets a SYNTHESIZED one — a value the
      spec leaves the engine to derive. Where the engines disagree about it, that is what
@@ -2353,24 +2353,11 @@ function dismissFix() {
      that. Re-measure from INK, never from the box model, if this is ever revisited: the
      box formula reports a phantom error here because WebKit sizes the field 24px against
      a 20.8px line box. */
-  align-items: center;
-}
 .item__unit {
   flex: none;
 }
-/* The unit trigger's hit area. The bare glyph-and-caption is ~29×24, well under the
-   44px target, and it was that small before too — the transparent <select> it replaced
-   filled this same content-sized wrapper, so the small target predates the picker.
-   --tap-pull is the row's own idiom (see .item__fixdismiss): grow the box to --tap on
-   touch, then pull the overshoot back out of layout so the line keeps its rhythm.
-   :deep() because the button lives inside OptionMenu — a class passed through a prop
-   carries no scope id, which is the trap that dropped the total off its baseline. */
-@media (pointer: coarse) {
-  .item__unitwrap :deep(.optmenu__btn) {
-    min-height: var(--tap);
-    margin-block: var(--tap-pull);
-  }
-}
+/* (The unit trigger's touch hit area — --tap, pulled back onto the line — is drawn with
+   My Gear's row picker: atoms/item.scss.) */
 /* Quiet by default — one of these sits on every row, and a column of hard chevrons
    would shout louder than the weights they belong to. That resting step (--ink-3, and
    the pin that keeps it from shrinking) is the shared .chev now, atoms/controls.scss.
@@ -2378,16 +2365,12 @@ function dismissFix() {
    takes, because this one lifts on the ROW being hovered, not on its own trigger — a
    column of full-ink marks following the pointer down the list would read as the loud
    thing the quiet default exists to avoid. */
-/* :has(), not a sibling combinator — the select is rendered AFTER the chevron, so
-   `~` from it reaches nothing. Keyboard focus has to light the mark too, or the
-   affordance exists for pointers only. */
+/* Keyboard focus has to light the mark too, or the affordance exists for pointers only:
+   that half is the shared rule (atoms/item.scss), on the wrap's :focus-within. */
 @media (hover: hover) and (pointer: fine) {
   .item:hover .item__unitchev {
     color: var(--ink-2);
   }
-}
-.item__unitwrap:focus-within .item__unitchev {
-  color: var(--ink-2);
 }
 /* transparent native select over the unit text — the same construction the total's
    unit picker uses. The label stays the only thing drawn; this just makes it a
@@ -2836,45 +2819,24 @@ function dismissFix() {
   color: var(--ink-3);
 }
 /* note — a single-line live-text field under the item (no box, no resize handle).
-   reads as a caption: the lightest ink (matching the "Add an item" placeholder) and
-   italic, to sit quietly beneath the item name. */
-.item__note {
-  width: 100%;
-  min-height: 0;
-  /* the upward tuck under the name now lives on the .reveal--note wrapper (so the
-     grid track sizing stays clean); this element just fills its cell */
-  color: var(--ink-3);
-  font-size: var(--text-input); /* static 16px — avoid iOS focus-zoom (see .field in controls.scss) */
-  font-style: italic;
-}
-.item__note::placeholder {
-  color: var(--ink-3);
-}
-/* the note keeps its quiet entered colour (--ink-3) while you type it too — no
-   contrast jump between editing and resting (stays italic) */
-.item__note:focus {
-  outline: none;
-}
-/* …and only the NOTE is a textarea (the gear type beside it is still a one-value
-   field). `field-sizing: content` is what makes it read as a caption that happens to
-   be editable rather than as a box: one line when it holds one, as many as the text
-   takes, never a scrollbar and never a drag handle — the two defaults .head__title
-   drops for the same reason. fitNote() covers the engines without it.
-   `rows="1"` is the floor, so an empty note costs exactly the line the <input> did
-   and the row's height is unchanged until there is something to wrap. */
-textarea.item__note {
-  field-sizing: content;
-  resize: none;
-  overflow: hidden;
-}
-/* quiet "suggest a fix" link under a row */
+   Reads as a caption: the lightest ink (matching the "Add an item" placeholder) and
+   italic, to sit quietly beneath the item name. The recipe (.item__note) is the shared
+   caption field, atoms/item.scss, which the trip plan's day note wears too. Its upward
+   tuck under the name lives on the .reveal--note wrapper (so the grid track sizing
+   stays clean); the element just fills its cell.
+   Only the NOTE is a textarea (the gear type beside it is still a one-value field):
+   one line when it holds one, as many as the text takes, never a scrollbar and never a
+   drag handle — the two defaults .head__title drops for the same reason. fitNote()
+   covers the engines without field-sizing. `rows="1"` is the floor, so an empty note
+   costs exactly the line the <input> did and the row's height is unchanged until there
+   is something to wrap. */
+/* quiet "suggest a fix" link under a row (a <button>: the pointer is the reset's) */
 .item__under-link {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   color: var(--ink-3);
   text-align: left;
-  cursor: pointer;
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
@@ -2910,13 +2872,9 @@ textarea.item__note {
 .nestcollapse:not([data-collapsed]) > .nest-block:has(.popover) {
   overflow: visible;
 }
-/* drag-to-reorder: insertion line when a nested sibling drops at the end of this
-   group (the folder's tail line stands down for it — see FolderSection) */
-.item-nest__droptail {
-  height: var(--space-px);
-  background: var(--ink);
-  margin: var(--space-1) 0;
-}
+/* drag-to-reorder: the insertion line when a nested sibling drops at the end of this
+   group (.item-nest__droptail; the folder's tail line stands down for it — see
+   FolderSection) is drawn with the folder's own — atoms/item.scss */
 /* ever-present "Add an item" at the bottom of a group, so growing a group needs no hover.
    It sits inside the thread line with the rest of the nested block; no horizontal rule.
    Its look IS the folder add row's — one shared add-affordance atom (atoms/item.scss),

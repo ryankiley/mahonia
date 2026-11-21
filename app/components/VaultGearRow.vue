@@ -291,26 +291,17 @@ const meta = computed(() => {
   color: var(--ink-3);
 }
 /* the unit picker beside the figure: content-sized, centred on its own text like the
-   list row's .item__unitwrap, and as quiet at rest — a chevron on every row */
+   list row's .item__unitwrap, and as quiet at rest — a chevron on every row. The box is
+   the OptionMenu root's own (.menu, .optmenu), and its touch hit area and focus lift
+   are shared with the list row's (atoms/item.scss); only the gap and the row's hover
+   are this row's. */
 .vault__unitwrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
   margin-left: 0.25ch;
-}
-@media (pointer: coarse) {
-  .vault__unitwrap :deep(.optmenu__btn) {
-    min-height: var(--tap);
-    margin-block: var(--tap-pull);
-  }
 }
 @media (hover: hover) and (pointer: fine) {
   .vault__row:hover .vault__unitchev {
     color: var(--ink-2);
   }
-}
-.vault__unitwrap:focus-within .vault__unitchev {
-  color: var(--ink-2);
 }
 .vault__weight {
   flex: none;

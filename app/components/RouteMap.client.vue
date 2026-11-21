@@ -1250,12 +1250,18 @@ onBeforeUnmount(() => {
   // popovers and dialogs rather than letting a tile pane sit over a menu.
   z-index: 0;
   isolation: isolate;
+  // the frame is a flex row (below) and the map is the whole of it
+  flex: 1;
 }
 
 // the anchor for anything drawn OVER the map — never the figure, which is taller
 .routemap__frame {
   position: relative;
   display: flex;
+  // The clip is what animates. See setExpanded: the frame is full size from the first
+  // frame, so Leaflet is measured once and only the window onto it moves.
+  // (reduced-motion is handled by the global duration kill-switch, main.scss)
+  transition: clip-path var(--spring-move-dur) var(--spring-move);
 }
 
 /* EXPANDED: the FRAME takes the window, and the figure stays exactly where it was.
@@ -1272,16 +1278,6 @@ onBeforeUnmount(() => {
 }
 .routemap.is-expanded .routemap__canvas {
   height: auto;
-}
-
-/* The clip is what animates. See setExpanded: the frame is full size from the first frame,
-   so Leaflet is measured once and only the window onto it moves. */
-.routemap__frame {
-  // reduced-motion is handled by the global duration kill-switch (main.scss)
-  transition: clip-path var(--spring-move-dur) var(--spring-move);
-}
-.routemap__canvas {
-  flex: 1;
 }
 /* the caption is a footnote at strip size and a distraction at window size — the gesture
    it names still works, and by now you have used it */
@@ -1344,7 +1340,6 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: var(--control-compact);
   height: var(--control-compact);
-  padding: 0;
   border: 1px solid var(--line-2);
   border-radius: var(--radius-1);
   // Leaflet's own controls are white-on-map in both themes because the basemap stays
@@ -1488,6 +1483,10 @@ onBeforeUnmount(() => {
   box-shadow: var(--map-pin-shadow-lifted);
 }
 .routemap__pin {
+  // Leaflet's divIcon ships a white box with a border; both are cleared or every pin
+  // renders inside a little card.
+  background: none;
+  border: 0;
   cursor: grab;
   // BROWSER scrolling only — Leaflet pans with its own JS handlers, so a drag that starts
   // on a pin still moves the map. What this stops is the page scrolling out from under a
@@ -1517,12 +1516,6 @@ onBeforeUnmount(() => {
 }
 .routemap__pin--dark i::before {
   background: var(--map-pin-seat-dark);
-}
-// Leaflet's divIcon ships a white box with a border; both are cleared or every pin
-// renders inside a little card.
-.routemap__pin {
-  background: none;
-  border: 0;
 }
 
 /* THE CHART'S CURSOR, ON THE GROUND.

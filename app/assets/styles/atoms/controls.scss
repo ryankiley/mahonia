@@ -143,6 +143,24 @@
     text-decoration-color: var(--ink-2);
   }
 }
+// The trail link's two riders, the same in the editor (ListHead's .head__*) and the
+// read views (ReadonlyListView's .view__*) — the link's own look is shared above, and
+// these had stayed behind as a copy in each.
+// The globe that stands in for a site's own mark reads as a placeholder rather than as
+// that site's icon: a step lighter than the link text it sits beside.
+.head__icon--fallback,
+.view__trailicon--fallback {
+  color: var(--ink-3);
+  opacity: 0.6;
+}
+// The distance rides after the name as a detail OF it, one step quieter, and never gives
+// way: a long trail name ellipsizes (.t-clip) before the number is squeezed — the name
+// can afford to lose characters, and four characters of distance are useless truncated.
+.head__dist,
+.view__dist {
+  flex: none;
+  color: var(--ink-3);
+}
 
 // Quiet text button — bare like --link, one step calmer: regular weight, faint
 // ink, no chrome; darkens to full ink on hover. For tertiary/secondary text
@@ -463,7 +481,8 @@ input[type="search"]::-webkit-search-decoration {
   // same edge inset as the autocomplete menu (.ac__menu) so the two floating
   // menus' hover tints sit at an identical margin from the card edge
   padding: var(--space-2);
-  list-style: none;
+  // (no list-style: the reset strips the marker from every <ul>, and a menu drawn on a
+  // <div> holds no bare <li>)
   // the surface itself comes from .popover (shared with the autocomplete)
   transform-origin: top right;
 }
@@ -536,7 +555,7 @@ input[type="search"]::-webkit-search-decoration {
   font-size: var(--text-base);
   text-align: left;
   white-space: nowrap;
-  cursor: pointer;
+  // (no cursor: a row is a <button>, which the reset gives the pointer, or a link)
   transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 .menu__item > svg {
@@ -598,16 +617,12 @@ input[type="search"]::-webkit-search-decoration {
 .menu__sect {
   display: contents;
 }
-// NO gap of its own: the header takes .menu__item's, the same gap every other row
-// takes, which is what keeps its glyph in the one glyph column. A second copy here
-// (declared later, same specificity) would win, and would disagree the moment the
-// row's gap is retuned.
-// space-between asks for the chevron on the trailing edge. The label takes the slack
-// (.menu__sectlabel below), so there is no free space left for it to place; the label's
-// flex is what holds the chevron there.
-.menu__secthead {
-  justify-content: space-between;
-}
+// The header (.menu__secthead) has NO rule of its own. No gap: it takes .menu__item's,
+// the same gap every other row takes, which is what keeps its glyph in the one glyph
+// column — a second copy here (declared later, same specificity) would win, and would
+// disagree the moment the row's gap is retuned. And no justify-content: the label takes
+// the slack (.menu__sectlabel below), so there is no free space left to distribute; the
+// label's flex is what holds the chevron on the trailing edge.
 // the section header's chevron is the app's .chev (below) — nothing extra needed.
 // Nor does the section's own <ul> (.menu__sectlist): the reset already strips a list's
 // bullets, margin and padding.

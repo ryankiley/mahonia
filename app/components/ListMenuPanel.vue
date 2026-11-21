@@ -45,7 +45,7 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
 </script>
 
 <template>
-  <MenuList tag="div" class="lm__panel" aria-label="Your lists">
+  <MenuList tag="div" class="menu__list--start lm__panel" aria-label="Your lists">
     <div v-if="filterable" class="lm__filter">
       <input
         ref="fieldRef"
@@ -101,13 +101,11 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
 </template>
 
 <style scoped lang="scss">
-/* the atom anchors menus to the RIGHT (they hang off trailing-edge icons); this
-   one hangs off the bar's leading edge */
+/* the atom anchors menus to the RIGHT (they hang off trailing-edge icons); this one
+   hangs off the bar's leading edge, which is the atom's own .menu__list--start, worn in
+   the markup */
 .lm__panel {
-  right: auto;
-  left: 0;
   max-width: 20rem;
-  transform-origin: top left;
 }
 
 .lm__filter {

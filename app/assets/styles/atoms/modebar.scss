@@ -99,8 +99,9 @@
   }
 }
 
+// the ring is the reset's own (reset.scss); only where it sits is this chip's, drawn
+// inward over the plate
 .modebar__opt:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
   outline-offset: var(--focus-offset-inset);
 }
 

@@ -518,7 +518,7 @@ onClickOutside(trailEl, closeTrail);
           />
           <HugeiconsIcon :icon="InternetIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
           <a
-            class="head__cardurl t-clip"
+            class="head__cardurl t-clip ink-quiet"
             :href="link.href"
             target="_blank"
             rel="nofollow ugc noopener noreferrer"
@@ -656,7 +656,7 @@ onClickOutside(trailEl, closeTrail);
               text="GPX, KML, KMZ, TCX, FIT, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb. The file is read here in your browser and never uploaded."
               preferred-placement="bottom"
             >
-              <button type="button" class="head__gpxwhy" aria-label="Which map files can be read">
+              <button type="button" class="head__gpxwhy ink-quiet" aria-label="Which map files can be read">
                 <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
               </button>
             </Tooltip>
@@ -670,7 +670,7 @@ onClickOutside(trailEl, closeTrail);
           <p v-if="pending" class="head__gpxerr t-sm">
             This route can add {{ counted(pending.pins.length, "marked place") }}.
             <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
-            <button type="button" class="head__gpxno" @click="pending = null">No thanks</button>
+            <button type="button" class="head__gpxno ink-quiet" @click="pending = null">No thanks</button>
           </p>
 
           <!-- edit only. On the way IN the single job is pasting a URL; a title box there
@@ -908,20 +908,9 @@ onClickOutside(trailEl, closeTrail);
   height: var(--icon);
   border-radius: var(--radius-icon);
 }
-/* the globe stands in for a real mark, so it should read as a placeholder rather than
-   as the site's own icon — a step lighter than the link text it sits beside */
-.head__icon--fallback {
-  color: var(--ink-3);
-  opacity: 0.6;
-}
-/* The distance rides after the name as a detail of it. `flex: none` so a long trail
-   name ellipses (.t-clip on the name) instead of squeezing the number out — the name is
-   the thing you can afford to lose characters from, since the card carries the URL
-   in full and this is four characters that are useless truncated. */
-.head__dist {
-  flex: none;
-  color: var(--ink-3);
-}
+/* The globe that stands in for a real mark (.head__icon--fallback) and the distance that
+   rides after the name (.head__dist) are drawn with the read view's own, beside .link
+   in atoms/controls.scss: the trail link reads the same on both. */
 .head__anchor {
   /* deliberately NOT a positioning context: the floating card below is absolute, and
      anchoring it here made .head__anchor its containing block — so `max-width: 100%`
@@ -969,8 +958,8 @@ onClickOutside(trailEl, closeTrail);
      and tight drop were there because --shadow-soft had a 48px spread that read mushy
      at this size, and it hasn't since the token became one value for every surface. */
   border-radius: var(--radius-3);
-  /* the item radius still repins, because the corner still differs from the atom's */
-  --popover-item-radius: calc(var(--radius-3) - var(--space-1));
+  /* (no --popover-item-radius of its own: nothing in this card takes the menus' row
+     corner — a mark, a link and two bare text buttons) */
   font-size: var(--text-chrome);
   /* tight leading, not the inherited 1.5 — the card's height is content + padding, and
      1.5 alone pushed it past the 32px that squares it with the row's icon buttons */
@@ -1016,18 +1005,10 @@ onClickOutside(trailEl, closeTrail);
   flex: 1 1 auto;
   min-width: 12ch;
   max-width: 32ch;
-  /* the one thing here that navigates, so it deepens on hover — quiet at rest, because
-     the card is a place you land on the way to Edit as often as to the trail itself */
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.head__cardurl:focus-visible {
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .head__cardurl:hover {
-    color: var(--ink);
-  }
+  /* the one thing here that navigates, so it deepens under the pointer and on focus —
+     quiet at rest, because the card is a place you land on the way to Edit as often as
+     to the trail itself. The inks are .ink-quiet's (atoms/controls.scss), worn in the
+     markup. */
 }
 /* the actions are the emphasis in this card: full ink, at .btn--quiet's regular
    weight. The explicit font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
@@ -1093,10 +1074,10 @@ onClickOutside(trailEl, closeTrail);
   z-index: var(--z-menu);
   display: flex;
   flex-direction: column;
-  /* no flex gap — every gap here is set explicitly below, because the rhythm ISN'T
-     uniform: a label belongs to the field under it, so those two sit tight while the
-     gap between one field and the next label opens up to separate the pairs */
-  gap: 0;
+  /* no flex gap, declared or otherwise — every gap here is set explicitly below, because
+     the rhythm ISN'T uniform: a label belongs to the field under it, so those two sit
+     tight while the gap between one field and the next label opens up to separate the
+     pairs */
   /* 330px: wide enough that an ordinary URL reads without wrapping, narrow enough that
      the panel still sits over the row as a popover rather than becoming a column */
   width: min(20.625rem, 100%);
@@ -1214,21 +1195,12 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxbtn input {
   display: none;
 }
-/* the (?) that replaced a line of caveats — same quiet treatment the planning rows use */
+/* the (?) that replaced a line of caveats — the same quiet treatment the planning rows
+   use, and the same class for it: .ink-quiet (atoms/controls.scss), in the markup */
 .head__gpxwhy {
   display: inline-flex;
   margin-left: var(--space-1);
-  color: var(--ink-3);
   cursor: help;
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.head__gpxwhy:focus-visible {
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .head__gpxwhy:hover {
-    color: var(--ink);
-  }
 }
 .head__gpxerr {
   color: var(--ink-2);
@@ -1241,25 +1213,15 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxno {
   text-decoration: underline;
   text-underline-offset: var(--underline-offset);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
+/* the yes stands at full ink, so it has nowhere to lift to; the no rests a step back and
+   lifts to meet it — .ink-quiet (atoms/controls.scss), in the markup */
 .head__gpxyes {
   margin-left: var(--space-1);
   color: var(--ink);
 }
 .head__gpxno {
   margin-left: var(--space-2);
-  color: var(--ink-3);
-}
-.head__gpxyes:focus-visible,
-.head__gpxno:focus-visible {
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .head__gpxyes:hover,
-  .head__gpxno:hover {
-    color: var(--ink);
-  }
 }
 .head__paneldiv {
   width: 100%;

@@ -312,7 +312,6 @@ onMounted(() => {
      stops reading as one bar. 8px on a 32px box softens the corner without rounding
      the thing away. */
   border-radius: var(--radius-2);
-  font-size: var(--text-base);
   color: var(--ink-2);
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
@@ -328,11 +327,11 @@ onMounted(() => {
 }
 /* The grid is one tab stop and the arrows walk it, so the focused day has to be
    visible — without a cue you are moving an invisible caret around a month. Only on
-   :focus-visible, so a mouse click doesn't leave a ring behind. */
+   :focus-visible, so a mouse click doesn't leave a ring behind. The ring is the reset's
+   own, drawn inward so it sits inside the cell; it follows the cell's corner, which the
+   rules around this one already set for every state. */
 .cal__day:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
   outline-offset: var(--focus-offset-inset);
-  border-radius: var(--radius-2);
 }
 /* today is MARKED, not selected — a ring rather than a fill, so it can't be mistaken
    for one end of the range */

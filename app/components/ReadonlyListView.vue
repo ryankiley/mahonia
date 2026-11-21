@@ -342,7 +342,6 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   align-items: center;
   gap: var(--space-2);
   color: var(--ink-3);
-  font-size: var(--text-base);
 }
 /* One step up from the rest of the line's ink: a name is content, where "edited 3m ago"
    is status. Still quiet enough to sit under the title without competing with it. */
@@ -353,7 +352,6 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
    bullet (•) reads bigger than a middle-dot at the same size; a small negative inline
    margin pulls the time a touch closer than the meta's flex gap. */
 .view__dot {
-  color: var(--ink-3);
   line-height: 1;
   margin-inline: -2px;
 }
@@ -380,7 +378,6 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-1) var(--space-4);
-  font-size: var(--text-base);
 }
 /* the trail link. The mark identifies the site and the full destination rides on the
    anchor's title attribute, so the hostname isn't repeated in the text. It's the piece
@@ -399,12 +396,9 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   flex: none;
   color: var(--ink-3);
 }
-/* the distance rides after the name as a detail OF it, never truncated — ListHead's
-   .head__dist, one step quieter than the link it trails */
-.view__dist {
-  flex: none;
-  color: var(--ink-3);
-}
+/* (the distance after the name, .view__dist, and the stand-in globe,
+   .view__trailicon--fallback, are drawn with the editor's own — beside .link in
+   atoms/controls.scss) */
 /* The mark never gives way — a shrinking row eats the name, never the icon — and it
    steps OUT of the baseline group its box sits in. Both halves matter: an icon centres
    optically on the line rather than perching on the baseline (an <svg>'s own baseline
@@ -424,11 +418,6 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 }
 .view__trailicon {
   border-radius: var(--radius-icon);
-}
-/* a stand-in, not the site's mark — a step lighter than the link text beside it */
-.view__trailicon--fallback {
-  color: var(--ink-3);
-  opacity: 0.6;
 }
 /* read views are denser than the editor (no add-item row or controls per folder),
    so the inter-folder gap is a step tighter here (space-6, vs the editor's space-7)
@@ -487,7 +476,6 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 /* a whole line of the wrapping row, so it always lands under the name and figures */
 .view__daynote {
   flex: 1 0 100%;
-  margin: 0;
   color: var(--ink-3);
   font-style: italic;
 }

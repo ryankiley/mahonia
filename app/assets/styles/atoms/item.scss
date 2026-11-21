@@ -77,16 +77,12 @@
    "anything but packing"): on a switch into Trip the rows are inside the view that is
    fading out (modeswitch.scss), and a fade of their own restarted each row from
    transparent under it. The fix line arrives with the edit face it belongs to.
-   reduced-motion → the global duration kill-switch makes it instant. */
-@keyframes rowmode-fade {
-  from {
-    opacity: 0;
-  }
-}
+   reduced-motion → the global duration kill-switch makes it instant.
+   The frame is the shared `fade-in` (main.scss). */
 .editor__body.is-rowswitching[data-mode="pack"] .item--check,
 .editor__body.is-rowswitching[data-mode="edit"] .item-row:not(.item--check),
 .editor__body.is-rowswitching[data-mode="edit"] .item-wrap > .reveal {
-  animation: rowmode-fade calc(var(--spring-fade-dur) * 0.9) var(--spring-fade);
+  animation: fade-in calc(var(--spring-fade-dur) * 0.9) var(--spring-fade);
 }
 
 /* ---- the person filter -----------------------------------------------------------
@@ -203,6 +199,16 @@
   border-left: 1px solid var(--line);
 }
 
+/* drag-to-reorder: the insertion line when a row drops at the END of a list — a folder's
+   (FolderRows) or a nested group's (ItemRow). One line for both; they were two scoped
+   copies, and a drop that lands a level in must not look like a different gesture. */
+.folder__droptail,
+.item-nest__droptail {
+  height: var(--space-px);
+  background: var(--ink);
+  margin: var(--space-1) 0;
+}
+
 /* collapse a nested group — hide/show its children. Shared by the editor's ItemRow and
    the share views' ReadonlyItemRow.
 
@@ -314,6 +320,29 @@
 .item__roweight,
 .item__cweight {
   text-align: right;
+}
+
+/* A row's UNIT PICKER — the unit word and its chevron after a weight, on a list row
+   (ItemRow's .item__unitwrap) and on a piece of My Gear (VaultGearRow's
+   .vault__unitwrap). Each class sits on an OptionMenu's root, which is already the
+   positioned, centred inline-flex box the pair needs (.menu here, .optmenu there), so
+   neither restates it; what the two rows shared by hand is below.
+   The trigger's hit area: the bare word-and-glyph is ~29×24, so on a coarse pointer it
+   grows to --tap and the overshoot is pulled back out of the line (--tap-pull), the way
+   the row's icon buttons do it — the target grows, the row's height doesn't.
+   And keyboard focus lights the mark as the row's hover does (each row's own rule):
+   --ink-2, not the --ink other chevrons lift to, because one of these sits on every
+   row and a column of full-ink marks would out-shout the weights. */
+@media (pointer: coarse) {
+  .item__unitwrap .optmenu__btn,
+  .vault__unitwrap .optmenu__btn {
+    min-height: var(--tap);
+    margin-block: var(--tap-pull);
+  }
+}
+.item__unitwrap:focus-within .chev,
+.vault__unitwrap:focus-within .chev {
+  color: var(--ink-2);
 }
 
 /* A worn SPLIT spells its count out in the amount cell — "×12 · 11 worn" where the
@@ -430,6 +459,39 @@
   text-overflow: ellipsis;
 }
 
+/* The CAPTION FIELD — a line of live text under the thing it annotates, in the aside
+   voice: an item's note, and its gear type and variant beside it (ItemRow's
+   .item__note), and a day's note in the trip plan (.plan__daynote), which took the
+   item's recipe wholesale. No box and no handle; the lightest ink, italic, and the same
+   ink while typing as at rest, so nothing jumps between editing and reading. A static
+   16px, like .field, so focusing one on a phone never zooms the page. The caret
+   carries focus.
+   A NOTE is a textarea (a sentence wraps; a value doesn't), sized to its content where
+   the engine can and by script where it can't, so it reads as a caption that grows
+   rather than a box with a scrollbar. */
+.item__note,
+.plan__daynote {
+  width: 100%;
+  min-height: 0;
+  color: var(--ink-3);
+  font-size: var(--text-input);
+  font-style: italic;
+}
+.item__note::placeholder,
+.plan__daynote::placeholder {
+  color: var(--ink-3);
+}
+.item__note:focus,
+.plan__daynote:focus {
+  outline: none;
+}
+textarea.item__note,
+textarea.plan__daynote {
+  field-sizing: content;
+  resize: none;
+  overflow: hidden;
+}
+
 /* The quiet "Add an item" affordance — ONE recipe for the folder's add row and a nested
    group's alike, which were hand-copied from each other (right down to needing the mobile
    compaction written twice, below). Dim text flush with the item names, sharing the name
@@ -448,7 +510,6 @@
      min-height floored the add row's packing fold at 36px (measured 2026-10-17). */
   min-height: 0;
   padding: calc((var(--field-h) - 1.5em) / 2) 0;
-  font-size: var(--text-base);
   color: var(--ink-3);
   /* padding-block on the step spring: the packing fold (atoms/modeswitch.scss) closes
      it with the track, or the row would stop 12px short */

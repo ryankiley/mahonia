@@ -64,7 +64,6 @@ const segments = computed(() => categorySegments(props.list));
    text-indent, both off --swatch) keeps the wrapped lines under the NAME rather than
    under the dot, so the dot reads as the bullet it is. */
 .catbar__item {
-  font-size: var(--text-base);
   /* A flex item's automatic minimum is its MIN-CONTENT width, so a folder name with no
      space or hyphen in it sized this entry to the whole word and ran it off the side of
      the page — the legend clips, so the name was cut with no ellipsis and no way to

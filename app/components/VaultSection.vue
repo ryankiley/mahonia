@@ -81,11 +81,7 @@ const { collapsed, toggle } = usePersistedCollapse("gear.vkind.").useFor(() => p
   line-height: var(--leading-normal);
   cursor: default;
 }
-/* the rows are VaultGearRow's own; the list stacks them, and their rhythm and the
-   hairlines between are the list folder's (.folder__items, atoms/folder.scss) for every
-   line, a kit's extra lines included */
-.vsec__list {
-  display: flex;
-  flex-direction: column;
-}
+/* the rows are VaultGearRow's own; the list (.vsec__list) only stacks them, as a list
+   does, and their rhythm and the hairlines between are the list folder's
+   (.folder__items, atoms/folder.scss) for every line, a kit's extra lines included */
 </style>

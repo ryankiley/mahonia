@@ -57,8 +57,8 @@ watch(
   /* the import textarea's language: the .well atom's tinted ground and concentric
      corner, not a hairline box. The atom's ground and not --paper-2, which sat at
      1.10:1 on this card's float surface: a box you could not see around the one thing
-     the dialog asks you to copy. Only the height and the type size are this field's. */
+     the dialog asks you to copy. Only the height is this field's; the type size is
+     .field's own static 16px. */
   padding-block: var(--space-2);
-  font-size: var(--text-base);
 }
 </style>
