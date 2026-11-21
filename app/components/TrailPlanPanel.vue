@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { IconArrowUpRight, IconChevronDownMedium, IconDrop, IconFire2, IconFootsteps, IconQuestionmarkCircle, IconRacingFlag, IconSun, IconTrashCan } from "~/icons/central";
+import { MountainGlyph, StairsGlyph, TentGlyph } from "~/icons/mahonia";
+import { SvgIcon, type IconChild, type IconNode } from "~/utils/icon";
 import type { Directive } from "vue";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 import { estimateDay, heightIsDerived, shownHeightM } from "~~/shared/tripPlan";
@@ -359,9 +360,10 @@ function lightTip(i: number): string {
 // the two views must agree on what a day is called.
 const dayOrdinal = (i: number) => dayLabel(i, props.snapshot.startDate);
 
-/** Hand lengths in the icon set's 24-unit box; the minute hand reads longer, as on a face. */
-const MINUTE_HAND = 5;
-const HOUR_HAND = 3.4;
+/** Hand lengths in the icon set's 24-unit box, inside Central's dial (radius 9); the
+ *  minute hand reads longer, as on a face. */
+const MINUTE_HAND = 4.5;
+const HOUR_HAND = 3.1;
 
 /** A point on the dial, clockwise from twelve, as an SVG coordinate pair. */
 function polar(angle: number, length: number): string {
@@ -371,10 +373,10 @@ function polar(angle: number, length: number): string {
 /**
  * A clock face whose hands read the estimate beside it.
  *
- * Hugeicons' free set has no hour family — Clock01…05 all carry the identical hand path
- * (`M12 8V12L14 14`, ten past twelve) and differ only in the dial, so none of them can be
- * picked to match a duration. The icon prop takes a plain array though, so the hand is
- * computed here against the same 24-unit box the rest of the set draws in.
+ * The icon set's clock shows one time (`M12 8V12L14.5 14.5`, ten past twelve), so it can't
+ * be picked to match a duration. The icon prop takes a plain array though, so the hands
+ * are computed here, on Central's own dial in the same 24-unit box the set draws in. Like
+ * the set's glyphs, the parts carry no stroke width and take the <svg>'s.
  *
  * Rounded to the nearest hour, and 12 rather than 0 for anything under half an hour,
  * because a face with both hands straight up reads as no time at all.
@@ -390,7 +392,7 @@ function clockIcon(hours: number | undefined): IconNode {
   // An empty dial rather than no icon: the cell still shows "—", and dropping the glyph
   // would pull the column out of line with every other row. A face with no hands states
   // no time, which is exactly the claim.
-  const dial: IconChild = ["circle", { cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "1.5", key: "0" }];
+  const dial: IconChild = ["circle", { cx: "12", cy: "12", r: "9", stroke: "currentColor" }];
   if (hours == null) return [dial];
   // Nearest HALF hour, so a 4 h 39 day reads half past four rather than rounding to five
   // and losing the difference between it and a 4 h 05 one. Never fewer than one half —
@@ -411,8 +413,6 @@ function clockIcon(hours: number | undefined): IconNode {
       stroke: "currentColor",
       strokeLinecap: "round",
       strokeLinejoin: "round",
-      strokeWidth: "1.5",
-      key: "1",
     }],
   ];
 }
@@ -715,7 +715,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             :aria-label="`Remove day ${i + 1}`"
             @click="removeDay(i)"
           >
-            <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" />
+            <SvgIcon :icon="IconTrashCan" />
           </button>
         </header>
 
@@ -746,7 +746,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              does: what you TYPE first, then what follows from it. -->
         <div class="plan__data">
           <span class="plan__cell">
-            <HugeiconsIcon :icon="RouteIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconFootsteps" class="plan__gl" aria-hidden="true" />
             <input
               class="field field--num plan__num"
               inputmode="decimal"
@@ -769,7 +769,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                the column back to the figures after them, which the drop's own variable
                width had been shunting around anyway. -->
           <span class="plan__cell plan__cell--climb" :class="{ 'is-derived': climbIsDerived(i) }">
-            <HugeiconsIcon :icon="Stairs01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="StairsGlyph" class="plan__gl" aria-hidden="true" />
             <input
               class="field field--num plan__num"
               inputmode="decimal"
@@ -785,7 +785,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                  reflection descends. One glyph for one idea, and the pair reads as a
                  matched set in a way two different arrows never did. -->
             <span v-if="descentFor(i) != null" class="plan__drop">
-              <HugeiconsIcon :icon="Stairs01Icon" class="plan__gl plan__gl--down" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="StairsGlyph" class="plan__gl plan__gl--down" aria-hidden="true" />
               <span class="t-num">{{ ascentValue(descentFor(i)) }} <span class="t-muted">{{ ascentUnit }}</span></span>
             </span>
           </span>
@@ -794,13 +794,13 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                a (?) you can actually reach. A bare title= is invisible to a phone and to
                a keyboard; Tooltip is the app's own affordance and answers both. -->
           <span class="plan__cell plan__cell--est">
-            <HugeiconsIcon :icon="clockIcon(estimates[i]?.hours)" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="clockIcon(estimates[i]?.hours)" class="plan__gl" aria-hidden="true" />
             <!-- no `~` on this one: the RANGE is the hedge, and "~4–4.5" says it twice.
                  The calories beside it keep theirs, being a single figure. -->
             <span class="t-num">{{ estimates[i] ? formatHours(estimates[i]!.hours) : "—" }}</span>
             <Tooltip v-if="estimates[i]" text="Walking time only, no breaks. Pace follows the gradient and the weight of your pack." preferred-placement="top">
               <button type="button" class="plan__why ink-quiet" aria-label="How the moving time is worked out">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
           </span>
@@ -816,22 +816,22 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             class="plan__cell plan__cell--est plan__cell--light"
             :class="{ 'is-short': lightShort(i) }"
           >
-            <HugeiconsIcon :icon="Sun03Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconSun" class="plan__gl" aria-hidden="true" />
             <span class="t-num">{{ formatDaylight(dayDaylight[i]!) }}</span>
             <span class="visually-hidden"> of daylight</span>
             <Tooltip :text="lightTip(i)" preferred-placement="top">
               <button type="button" class="plan__why ink-quiet" aria-label="How the daylight is worked out">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
           </span>
 
           <span class="plan__cell plan__cell--est">
-            <HugeiconsIcon :icon="Fire02Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconFire2" class="plan__gl" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${formatKcal(roundKcal(estimates[i]!.totalKcal))}` : "—" }}</span>
             <Tooltip v-if="estimates[i]" :text="`Walking and resting, at ${formatBodyWeight(bodyG, bodyUnit)}${bodyIsDefault ? ' (assumed)' : ''}. Good to about ±20%.`" preferred-placement="top">
               <button type="button" class="plan__why ink-quiet" aria-label="How the calories are worked out">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
           </span>
@@ -847,7 +847,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             target="_blank"
             rel="noopener noreferrer"
             :aria-label="`Forecast where day ${i + 1} ends, on ${dayForecasts[i]!.site}`"
-          >Forecast<HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" /></a>
+          >Forecast<SvgIcon :icon="IconArrowUpRight" size="sm" aria-hidden="true" /></a>
 
         </div>
 
@@ -857,11 +857,11 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              is nothing to say (flat ground, a day with no distance). -->
         <template v-if="dayDistancesM[i] && facts[i]">
           <p class="t-sm plan__fact">
-            <HugeiconsIcon :icon="i === finishDayIndex ? RacingFlagIcon : TentIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="i === finishDayIndex ? IconRacingFlag : TentGlyph" class="plan__gl" aria-hidden="true" />
             <span>{{ campSentence(i, facts[i]!) }}</span>
           </p>
           <p v-if="groundSentence(facts[i]!)" class="t-sm plan__fact">
-            <HugeiconsIcon :icon="MountainIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="MountainGlyph" class="plan__gl" aria-hidden="true" />
             <span>{{ groundSentence(facts[i]!) }}</span>
           </p>
         </template>
@@ -871,7 +871,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              hours follow each day's own pace, and are left out when part of the carry
              falls on ground with no estimate. -->
         <p v-if="dayDistancesM[i] && dayCarries[i]" class="t-sm plan__fact">
-          <HugeiconsIcon :icon="DropletIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconDrop" class="plan__gl" aria-hidden="true" />
           <span>
             Longest carry
             <span class="t-num">{{ formatDistance(dayCarries[i]!.carry.toM - dayCarries[i]!.carry.fromM, distanceUnit) }}</span><template v-if="dayCarries[i]!.hours != null">, <span class="t-num">{{ formatHours(dayCarries[i]!.hours!) }}</span></template>,
@@ -939,7 +939,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                 role="img"
                 :aria-label="dayEnds[i]!.kind === 'camp' ? `Camp at the end of day ${i + 1}` : 'The end of the route'"
               >
-                <HugeiconsIcon :icon="dayEnds[i]!.kind === 'camp' ? TentIcon : RacingFlagIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="dayEnds[i]!.kind === 'camp' ? TentGlyph : IconRacingFlag" aria-hidden="true" />
               </span>
               <span class="t-sm wprow__coord">{{ coordOf(dayEnds[i]!.alongM) }}</span>
               <span class="t-sm wprow__dist">{{ formatDistancePadded(dayEnds[i]!.alongM, distanceUnit) }}</span>
@@ -1020,7 +1020,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
         >
           <template #trigger="{ open }">
             <span class="t-muted">{{ bodyUnit }}</span>
-            <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="12" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="xs" aria-hidden="true" />
           </template>
         </OptionMenu>
       </span>

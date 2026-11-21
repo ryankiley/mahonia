@@ -1,12 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import {
-  ChevronDownIcon,
-  DashedLine02Icon,
-  Delete02Icon,
-  Edit02Icon,
-  ShirtIcon,
-} from "@hugeicons/core-free-icons";
+import { IconChevronDownMedium, IconFashion, IconPencil, IconSquarePlaceholderDashed, IconTrashCan } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -120,9 +114,9 @@ const meta = computed(() => {
           aria-hidden="true"
           @click="toggle"
         >
-          <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
-          <!-- empty: Hugeicons' dashed square, the shape an icon would fill, quietly -->
-          <HugeiconsIcon v-else :icon="DashedLine02Icon" :size="20" :stroke-width="2" />
+          <SvgIcon v-if="typeIcon" :icon="typeIcon" size="lg" />
+          <!-- empty: the dashed square, the shape an icon would fill, quietly -->
+          <SvgIcon v-else :icon="IconSquarePlaceholderDashed" size="lg" />
         </button>
         </Tooltip>
       </template>
@@ -170,12 +164,11 @@ const meta = computed(() => {
       >
         <template #trigger="{ open }">
           <span class="t-sm t-muted">{{ rowUnit }}</span>
-          <HugeiconsIcon
-            :icon="ChevronDownIcon"
+          <SvgIcon
+            :icon="IconChevronDownMedium"
             class="chev vault__unitchev"
             :class="{ 'is-open': open }"
-            :size="12"
-            :stroke-width="2"
+            size="xs"
             aria-hidden="true"
           />
         </template>
@@ -186,11 +179,11 @@ const meta = computed(() => {
          from the name on every row (the reason --item-col-actions is fixed too) -->
     <span v-if="marks !== false" class="vault__cls">
       <span v-if="entry.classification === 'worn'" class="item__mark item__mark--static" title="Worn">
-        <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+        <SvgIcon :icon="IconFashion" aria-hidden="true" />
         <span class="visually-hidden">Worn</span>
       </span>
       <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
-        <HugeiconsIcon :icon="consumableIcon(entry)" :size="16" :stroke-width="2" aria-hidden="true" />
+        <SvgIcon :icon="consumableIcon(entry)" aria-hidden="true" />
         <span class="visually-hidden">Consumable</span>
       </span>
     </span>
@@ -211,7 +204,7 @@ const meta = computed(() => {
           :aria-label="`Edit ${displayName}`"
           @click="emit('edit')"
         >
-          <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconPencil" aria-hidden="true" />
         </button>
       </Tooltip>
       <!-- glyph only, like every other row action on the site: the word was the
@@ -226,7 +219,7 @@ const meta = computed(() => {
             :aria-label="`Remove ${displayName} from My Gear`"
             @click="emit('remove')"
           >
-            <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
+            <SvgIcon :icon="IconTrashCan" aria-hidden="true" />
           </button>
         </Tooltip>
       </slot>
@@ -270,7 +263,7 @@ const meta = computed(() => {
   width: 100%;
   height: 100%;
 }
-/* An empty slot wears Hugeicons' dashed square in the faintest ink, where an icon
+/* An empty slot wears the dashed square in the faintest ink, where an icon
    would sit. It used to be a 14px dashed border drawn in CSS, whose dashes rendered
    unevenly at that size and read on a real page as an image that failed to load. */
 .vault__typebtn.is-blank {

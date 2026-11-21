@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { IconCrossMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 // The account, centred over whatever you were doing.
 //
 // Body and shell are both borrowed, deliberately: BaseModal owns the scrim, the rise,
@@ -38,7 +38,7 @@ const label = computed(() => (presence.value !== "signedOut" ? "Your account" : 
         aria-label="Close your account"
         @click="close"
       >
-        <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconCrossMedium" />
       </button>
     </header>
     <AccountView in-modal @done="close" />

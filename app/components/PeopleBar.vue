@@ -146,12 +146,12 @@ const { onKey } = useRovingRadio(
    The dot and the carry are flex: none (the dot by .swatch, the carry below) so a long
    name can never squeeze them out. */
 /* THE TARGET, drawn apart from the chip — the .switch recipe (controls.scss). The chip
-   is --control-compact (30px) tall because it is read with the mode bar's options; a
+   is --control-compact (32px) tall because it is read with the mode bar's options; a
    thumb needs --tap. A transparent ::before overhangs the chip by the shortfall top
    and bottom, so the target is 44px tall and the chip still looks and lays out as it
    did. Not sideways: the chips sit --space-1 apart and are wide enough already, and an
    overhang there would hand a neighbour's edge to the wrong chip. Coarse pointers only,
-   unlike the switch: a 30px chip is no small thing to catch with a mouse. Where chips
+   unlike the switch: a 32px chip is no small thing to catch with a mouse. Where chips
    wrap onto a second row the two rows' overhangs overlap across the 4px between them
    and 3px into each face; the lower chip, later in the tree, takes that strip. A small
    cost against a target that was 14px short. */

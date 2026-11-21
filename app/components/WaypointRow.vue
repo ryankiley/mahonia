@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Delete02Icon } from "@hugeicons/core-free-icons";
+import { IconTrashCan } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { MAX_LABEL_LEN } from "~~/shared/ops";
 import type { Waypoint, WaypointKind } from "~~/shared/types";
 import { formatDistance, formatDistancePadded, type DisplayDistanceUnit } from "~~/shared/trailDistance";
@@ -88,7 +88,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
       :aria-label="meta.label"
       :style="{ color: meta.color }"
     >
-      <HugeiconsIcon :icon="meta.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+      <SvgIcon :icon="meta.icon" aria-hidden="true" />
     </span>
     <div v-else class="wprow__kind" role="group" :aria-label="`Kind of the ${spoken} at ${spokenAt}`">
       <Tooltip v-for="k in WAYPOINT_KIND_OPTIONS" :key="k.key" :text="k.label" preferred-placement="top">
@@ -101,7 +101,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
           :style="waypoint.kind === k.key ? { color: WAYPOINT_KIND_META[k.key].color } : undefined"
           @click="c.updateWaypoint(waypoint.id, { kind: k.key as WaypointKind })"
         >
-          <HugeiconsIcon :icon="k.icon" :size="16" :stroke-width="2" />
+          <SvgIcon :icon="k.icon" />
         </button>
       </Tooltip>
     </div>
@@ -124,7 +124,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
       :aria-label="`Remove the ${spoken} at ${spokenAt}`"
       @click="c.removeWaypoint(waypoint.id)"
     >
-      <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
+      <SvgIcon :icon="IconTrashCan" />
     </button>
     <span v-else class="wprow__del" aria-hidden="true" />
   </li>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Cancel01Icon, ChevronDownIcon, DashedLine02Icon, ExpandIcon, FolderIcon, ToolCaseIcon } from "@hugeicons/core-free-icons";
+import { IconChevronDownMedium, IconCrossMedium, IconExpandSimple, IconFolder1, IconSquarePlaceholderDashed, IconToolbox } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { gearIcon } from "~/utils/gearIcons";
 import { typeScale } from "~/utils/typeScale";
 import type { VaultEntry } from "~~/shared/vault";
@@ -201,7 +201,7 @@ const sections = computed(() => {
 });
 // each row's mark, once per load rather than twice per row per render: a kit's tool
 // case, a piece's own icon (the one its row on /gear wears)
-const iconById = computed(() => new Map(items.value.map((e) => [e.id, isKit(e) ? ToolCaseIcon : gearIcon(e.commonName, e.name, e.icon)])));
+const iconById = computed(() => new Map(items.value.map((e) => [e.id, isKit(e) ? IconToolbox : gearIcon(e.commonName, e.name, e.icon)])));
 // bold the characters that overlap what's been typed — the same helper, and so the
 // same emphasis, as the autocomplete's rows
 const hl = (text: string) => highlightParts(text, query.value);
@@ -434,7 +434,7 @@ onKeyStroke("Escape", () => emit("close"));
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
 // folder ids are STRINGS in the editor (the vault page's are numeric rows) — no cast
-const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, label: f.name, icon: FolderIcon })));
+const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, label: f.name, icon: IconFolder1 })));
 </script>
 
 <template>
@@ -481,7 +481,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         aria-label="Open My Gear as a full page"
         title="Open My Gear as a full page"
       >
-        <HugeiconsIcon :icon="ExpandIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+        <SvgIcon :icon="IconExpandSimple" aria-hidden="true" />
       </NuxtLink>
       <button
         type="button"
@@ -490,7 +490,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         title="Close"
         @click="emit('close')"
       >
-        <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconCrossMedium" />
       </button>
     </header>
 
@@ -558,7 +558,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             <template #trigger="{ active, open }">
               <span class="t-sm t-muted vp__targetlabel">Add to</span>
               <span class="t-clip">{{ active?.label }}</span>
-              <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
             </template>
           </OptionMenu>
         </div>
@@ -608,10 +608,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             @click="onRowClick(entry, $event)"
           >
             <span class="vp__kit" aria-hidden="true">
-              <HugeiconsIcon v-if="iconById.get(entry.id)" :icon="iconById.get(entry.id)!" :size="16" :stroke-width="2" />
+              <SvgIcon v-if="iconById.get(entry.id)" :icon="iconById.get(entry.id)!" />
               <!-- no icon to draw: /gear's dashed square, so the column holds a mark on every
                    row and a row with none (most of Other) doesn't start its name early -->
-              <HugeiconsIcon v-else :icon="DashedLine02Icon" class="vp__noicon" :size="16" :stroke-width="2" />
+              <SvgIcon v-else :icon="IconSquarePlaceholderDashed" class="vp__noicon" />
             </span>
             <span class="gear__main">
               <!-- the full name on hover, for the rows the ellipsis cut short -->

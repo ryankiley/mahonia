@@ -24,12 +24,12 @@ export function playOnce(el: HTMLElement, cls: string, ms: number): () => void {
 </script>
 
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
+import { IconBackpack, IconDotGrid1x3Horizontal, IconMap, IconShareAndroid, IconSquareCheck, IconSafeSimple } from "~/icons/central";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 import type { Spring } from "~/utils/spring";
 import { motionIsInstant } from "~/plugins/inputModality.client";
 // The ⋯ menu's own glyphs are NOT here — they ride its lazy chunk (EditorMenu);
 // the toolbar keeps only the one that opens it.
-import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeHere } from "~/composables/useResumed";
@@ -297,9 +297,9 @@ const NO_ITEMS: Item[] = [];
 // is that it is a noun beside two gerunds, which was the trade taken deliberately —
 // matching the read view beats matching the suffix.
 const MODES = [
-  { key: "edit", label: "Gear", icon: Backpack03Icon },
-  { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
-  { key: "plan", label: "Trip", icon: Route02Icon },
+  { key: "edit", label: "Gear", icon: IconBackpack },
+  { key: "pack", label: "Packing", icon: IconSquareCheck },
+  { key: "plan", label: "Trip", icon: IconMap },
 ] as const satisfies readonly { key: EditorMode; label: string; icon: IconNode }[];
 
 // The vault palette. Closed by default and only ever opened deliberately, so the
@@ -1076,7 +1076,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
               @focus="warmVault"
               @click="toggleVault"
             >
-              <HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" />
+              <SvgIcon :icon="IconSafeSimple" />
             </button>
           </Tooltip>
           <!-- The account affordance. The editor has its own topbar and never renders
@@ -1098,7 +1098,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :aria-disabled="!snapshot || undefined"
                 @click="toggleShare"
               >
-                <HugeiconsIcon :icon="Share08Icon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconShareAndroid" />
               </button>
             </Tooltip>
             <Transition name="menu">
@@ -1136,7 +1136,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 @focus="warmMenu"
                 @click="toggleMenu"
               >
-                <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconDotGrid1x3Horizontal" />
               </button>
             </Tooltip>
             <!-- The menu itself — rows and feet — is EditorMenu, Lazy
@@ -1245,7 +1245,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         dismiss-label="Don’t add this list’s gear to My Gear"
         @dismiss="c.answerVaultPrompt(false)"
       >
-        <template #icon><HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" /></template>
+        <template #icon><SvgIcon :icon="IconSafeSimple" /></template>
         Add this list’s gear to My Gear?
         <template #action>
           <button class="btn btn--quiet editor__vaultadd" @click="c.answerVaultPrompt(true)">Add</button>

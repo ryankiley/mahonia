@@ -40,11 +40,12 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  // 30px, NOT the design system's 24px --control-1 — the one metric of the port that is
-  // deliberately off. Its menubar is words only; this one puts a 16px icon beside the
-  // word, and 24px leaves 4px of air above and below a mark that needs to sit in its own
-  // space rather than press against the plate's edges. The extra six give the icon room
-  // without making the bar read as buttons. That 30px is --control-compact, which the
+  // 32px, NOT the design system's 24px --control-1 — the one metric of the port that is
+  // deliberately off. Its menubar is words only; this one puts an 18px icon beside the
+  // word, and 24px leaves 3px of air above and below a mark that needs to sit in its own
+  // space rather than press against the plate's edges. 32 keeps the 7px either side the
+  // 16px icon had in the old 30 (the portfolio found 28 "still snug" around 18px glyphs)
+  // without making the bar read as buttons. That 32px is --control-compact, which the
   // people chips and the map's expand control share for the same row rhythm.
   height: var(--control-compact);
   padding: 0 var(--space-2);
@@ -57,9 +58,9 @@
     color var(--spring-fade-dur) var(--spring-fade);
 }
 // THE TARGET on a phone, drawn apart from the tab — the .switch::before pattern
-// (controls.scss). 30px is the height this bar should LOOK (see above), and 14px short of
+// (controls.scss). 32px is the height this bar should LOOK (see above), and 12px short of
 // the --tap every other control grows to on a coarse pointer; growing the tab would
-// change the look and stand the bar taller. A transparent ::before reaches 7px past it
+// change the look and stand the bar taller. A transparent ::before reaches 6px past it
 // above and below instead, absolutely positioned so it costs no layout. Vertical only:
 // the tabs sit 2px apart, and a hit area reaching sideways would land on the neighbour.
 @media (pointer: coarse) {

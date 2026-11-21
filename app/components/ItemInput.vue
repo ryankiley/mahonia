@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
+import { IconDrop, IconSafeSimple } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { typeScale } from "~/utils/typeScale";
-import { DropletIcon, SafeBoxIcon } from "@hugeicons/core-free-icons";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
 import { nameRepeatsBrand, formatWeight, itemDisplayName } from "~~/shared/weights";
@@ -743,7 +743,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
       >
         <template v-if="'water' in opt">
           <span class="ac__name">
-            <HugeiconsIcon :icon="DropletIcon" class="ac__watericon" :size="14" :stroke-width="2" aria-hidden="true" />{{ opt.water.label }}
+            <SvgIcon :icon="IconDrop" class="ac__watericon" size="sm" aria-hidden="true" />{{ opt.water.label }}
           </span>
         </template>
         <!-- one size of the product named in the heading above it: the size leads, with
@@ -769,7 +769,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
             <template v-if="'vault' in opt">
               <!-- the same glyph as the editor toolbar's vault button, so one mark
                    means one thing across both surfaces and reads before the text does -->
-              <HugeiconsIcon :icon="SafeBoxIcon" class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconSafeSimple" class="ac__mineicon" size="sm" aria-hidden="true" />
               <span class="visually-hidden">From My Gear: </span>
             </template>
             <span v-if="named.brand && !nameRepeatsBrand(named.brand, named.name)" class="ac__brand t-clip">

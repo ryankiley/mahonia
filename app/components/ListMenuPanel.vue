@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CheckIcon } from "@hugeicons/core-free-icons";
+import { IconCheckmark1Medium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import type { SwitcherRow } from "~~/shared/switcher";
 import { foldApostrophes } from "~~/shared/tidyText";
 
@@ -73,12 +73,11 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
       >
         <span class="t-clip">{{ savedListTitle(e.title) }}</span>
         <!-- on EVERY row, hidden rather than dropped — see the style -->
-        <HugeiconsIcon
-          :icon="CheckIcon"
+        <SvgIcon
+          :icon="IconCheckmark1Medium"
           class="menu__check"
           :class="{ 'is-on': isCurrent(e) }"
-          :size="14"
-          :stroke-width="2"
+          size="sm"
           aria-hidden="true"
         />
       </NuxtLink>

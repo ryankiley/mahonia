@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CircleXIcon } from "@hugeicons/core-free-icons";
+import { IconCircleX } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // A search box with its own clear — the one /gear and the gear pane both draw.
 //
@@ -43,7 +43,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
       title="Clear search"
       @click="clear"
     >
-      <HugeiconsIcon :icon="CircleXIcon" :size="16" :stroke-width="2" />
+      <SvgIcon :icon="IconCircleX" />
     </button>
   </div>
 </template>
@@ -58,7 +58,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
    rule: search is the one control you reach for on either surface, and an underline
    reads as a caption with a line under it rather than a box you can type in. */
 .sf__input {
-  /* room for the clear button (its inset, its 16px glyph, a gap), so a long query
+  /* room for the clear button (its inset, its 18px glyph, a gap), so a long query
      doesn't run under it */
   padding-right: calc(var(--space-3) + var(--icon) + var(--space-2));
 }

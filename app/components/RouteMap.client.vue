@@ -1,8 +1,8 @@
 <script setup lang="ts">
+import { IconExpand45, IconMinimize45, IconQuestionmarkCircle } from "~/icons/central";
 import { MAX_LABEL_LEN } from "~~/shared/ops";
 import { formatLatLon, nearestAlongM, pointAlong, sliceAlong } from "~~/shared/polyline";
-import { HugeiconsIcon, kebab, type IconNode } from "~/utils/hugeicon";
-import { ArrowExpand02Icon, ArrowShrink02Icon, HelpCircleIcon } from "@hugeicons/core-free-icons";
+import { SvgIcon, kebab, type IconNode } from "~/utils/icon";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { waypointKindMeta } from "~/utils/waypointKinds";
 import { useRouteMapGeometry } from "~/composables/useRouteMapGeometry";
@@ -240,24 +240,23 @@ const PIN_TIP_PX = PIN_PX / 2 + (PIN_PX * Math.SQRT2) / 2;
 const PIN_GLYPH_PX = 17;
 const PIN_GLYPH_STROKE = 2;
 /**
- * A Hugeicon as an SVG STRING.
+ * A glyph as an SVG STRING.
  *
  * Leaflet's divIcon takes HTML, not a component, so the glyph can't be rendered by
- * <HugeiconsIcon> the way it is everywhere else in the app — it has to be serialised. The
- * icon data is a plain `[tag, attrs][]` array from the bundled package, which is why this
- * is a dozen lines rather than a dependency.
+ * <SvgIcon> the way it is everywhere else in the app — it has to be serialised. The
+ * icon data is a plain `[tag, attrs][]` array (app/utils/icon.ts), which is why this is a
+ * dozen lines rather than a dependency.
  *
- * The per-path `stroke-width` is DROPPED and set once on the <svg>. The set draws in a
- * 24-unit box at 1.5, which scales to a 0.7px hairline at pin size — invisible against
- * contour lines. Setting it here lets the paths inherit a weight chosen for the size
- * they're actually drawn at.
+ * The stroke width is set once on the <svg>, as <SvgIcon> does, and the paths inherit a
+ * weight chosen for the size they're actually drawn at; a part that carries its own (a
+ * filled dot's hairline) keeps it.
  */
 function iconSvg(icon: IconNode): string {
   const body = icon
     .map(([tag, attrs]) => {
       const a = Object.entries(attrs)
-        // `key` is Vue's list hint and strokeWidth is set on the parent; neither is SVG
-        .filter(([k]) => k !== "key" && k !== "strokeWidth")
+        // `key` is Vue's list hint, not SVG
+        .filter(([k]) => k !== "key")
         .map(([k, v]) => `${kebab(k)}="${String(v).replace(/[<>&"]/g, "")}"`)
         .join(" ");
       return `<${tag} ${a}/>`;
@@ -1187,10 +1186,8 @@ onBeforeUnmount(() => {
         :title="expanded ? 'Shrink the map' : 'Expand the map'"
         @click="setExpanded(!expanded)"
       >
-        <HugeiconsIcon
-          :icon="expanded ? ArrowShrink02Icon : ArrowExpand02Icon"
-          :size="16"
-          :stroke-width="2"
+        <SvgIcon
+          :icon="expanded ? IconMinimize45 : IconExpand45"
           aria-hidden="true"
         />
       </button>
@@ -1208,7 +1205,7 @@ onBeforeUnmount(() => {
            press-and-hold, and touch is exactly where that one is worth knowing. -->
       <Tooltip v-else :text="gestures" preferred-placement="top">
         <button type="button" class="btn btn--icon btn--ghost routemap__help" aria-label="How to use this map">
-          <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" />
+          <SvgIcon :icon="IconQuestionmarkCircle" size="sm" />
         </button>
       </Tooltip>
     </figcaption>
