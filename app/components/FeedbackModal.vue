@@ -69,7 +69,7 @@ async function send() {
       </template>
 
       <template v-else>
-        <p class="t-sm t-muted fb__lede">Bugs, missing gear, ideas. Anything.</p>
+        <p class="t-sm t-muted">Bugs, missing gear, ideas. Anything.</p>
 
         <textarea
           ref="boxRef"
@@ -91,7 +91,7 @@ async function send() {
           <p class="t-sm t-muted t-num fb__count" :class="{ 'is-low': remaining <= 50 }">
             {{ remaining }}
           </p>
-          <p class="t-sm t-muted fb__notice">
+          <p class="t-sm t-muted">
             This is posted publicly, so leave out anything private.
           </p>
         </div>

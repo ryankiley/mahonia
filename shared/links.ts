@@ -50,9 +50,9 @@ export function claimedEditPath(shareCode: string): string {
 export const LIST_CODE_HEADER = "x-list-code";
 
 // Share codes are Crockford base32, advertised as case-insensitive with the usual
-// confusable folds (I/L→1, O→0). The server normalizes on its side; this is the
-// client's copy of the SAME fold, so a hand-typed /e/{code} URL keys local storage
-// and the request header consistently. Returns "" for anything that can't be a
+// confusable folds (I/L→1, O→0). The one fold, for the server and the client alike, so
+// a hand-typed /e/{code} URL keys local storage and the request header the way the
+// server reads it. Returns "" for anything that can't be a
 // code, which callers treat as "no code here".
 export function normalizeShareCode(raw: string | null | undefined): string {
   const c = (raw || "").toUpperCase().replace(/[IL]/g, "1").replace(/O/g, "0");

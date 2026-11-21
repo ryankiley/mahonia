@@ -185,13 +185,9 @@ export function redirectUriAllowed(requested: string, registered: readonly strin
   if (want.protocol !== "https:" && !loopback) return false;
   if (!loopback) return registered.includes(requested);
   return registered.some((r) => {
-    let have: URL;
-    try {
-      have = new URL(r);
-    } catch {
-      return false;
-    }
+    const have = redirectUrl(r);
     return (
+      !!have &&
       isLoopbackHttp(have) &&
       have.hostname.toLowerCase() === want.hostname.toLowerCase() &&
       have.pathname === want.pathname &&

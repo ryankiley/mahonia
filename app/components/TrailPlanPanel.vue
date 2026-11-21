@@ -12,7 +12,7 @@ import { shiftIsoDate } from "~~/shared/calendar";
 import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
 import { DAYLIGHT_MARGIN_H, daylightHours, formatDaylight, lightIsShort } from "~~/shared/daylight";
-import { formatKcal, formatWeight } from "~~/shared/weights";
+import { bySortOrder, formatKcal, formatWeight } from "~~/shared/weights";
 import type { BodyWeightUnit } from "~~/shared/trailDistance";
 import {
   DEFAULT_BODY_G,
@@ -43,7 +43,7 @@ const props = defineProps<{ snapshot: ListSnapshot; totals: Totals }>();
 const c = useGearList();
 const uid = useId();
 
-const stored = computed(() => [...(props.snapshot.days ?? [])].sort((a, b) => a.sortOrder - b.sortOrder));
+const stored = computed(() => [...(props.snapshot.days ?? [])].sort(bySortOrder));
 
 /**
  * The days of the trip. The DATES already say how many there are, so the itinerary takes
@@ -113,14 +113,12 @@ function removeDay(i: number) {
   c.setMeta(iso < start ? { startDate: "", endDate: "" } : { endDate: iso });
 }
 
-/** A ghost row becoming real. Returns the id to patch. */
+/** A ghost row becoming real. Returns the id to patch. Only ever asked for a row the
+ *  list shows, and `days` is clamped to the reducer's ceiling, so every add here is
+ *  one the reducer takes. */
 function ensureDay(i: number): string | null {
   const existing = stored.value[i];
   if (existing) return existing.id;
-  // belt and braces with the clamp above: never ask for a day the reducer will refuse,
-  // because the caller's fallback is "patch the last stored day" and that would write the
-  // value onto the wrong day entirely
-  if (i >= MAX_DAYS) return null;
   // fill any gap before it too, so sortOrder stays the position in the trip
   for (let k = stored.value.length; k <= i; k++) c.addDay();
   return null; // the patch lands on the next tick, once the op has applied

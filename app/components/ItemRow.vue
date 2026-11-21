@@ -37,12 +37,6 @@ const NO_ITEMS: ItemT[] = [];
 // gear.nest.<id> — one blocking storage read per row per remount was the cost this
 // cache retired (its header carries the reasoning and the cross-tab invalidation).
 const nestCollapse = usePersistedCollapse("gear.nest.");
-// The count's own bounds — at least one of something, and no more than the reducer
-// will store (cleanItemPatch caps at 9999, shared/ops). Both ways in go through the
-// same clamp, so the stepper and the typed field can't disagree about the ceiling,
-// and neither can hand the store a number it would silently rewrite underneath them.
-// the four units as OptionMenu rows — WEIGHT_UNIT_OPTIONS (app/utils/unitOptions),
-// the same list the totals' unit picker draws from
 </script>
 
 <script setup lang="ts">
@@ -95,9 +89,7 @@ const props = withDefaults(
   }>(),
   { prevId: null, nested: false },
 );
-// forwarded up to FolderSection so it can lift its collapse clip while this row has a
-// floating overlay open — the name autocomplete, or the mobile ⋯ menu (otherwise an
-// overlay at the folder's bottom is cropped)
+// the editor's toast (ROW_FLASH, above); silent where nothing provides one
 const flash = inject(ROW_FLASH, () => {});
 const c = useGearList();
 // two jobs for the vault button: telling "your vault is unreachable" from "you
@@ -710,6 +702,11 @@ const isWornOpen = computed(() => menu.openId.value === `${props.item.id}:worn`)
 // popover does.
 const wornOffered = computed(() => offersWorn(props.item, isWorn.value) || isWornOpen.value);
 const { above: wornAbove, shift: wornShift, place: placeWorn } = useMenuPlacement(wornPopRef, { fit: "shift" });
+// Placed on the tick the card mounts (it has no size to measure before that), and for a
+// row that mounts with it already open. No focus move: its controls are a switch and a
+// set of buttons, and pulling focus to the first of those would look like a selection
+// had been made.
+watch(isWornOpen, (open) => open && nextTick(placeWorn), { immediate: true });
 
 // ---- calories (consumable rows only) ----
 // Served in a popover hung off the classification control rather than given a
@@ -719,6 +716,7 @@ const { above: wornAbove, shift: wornShift, place: placeWorn } = useMenuPlacemen
 const kcalRootRef = useTemplateRef<HTMLElement>("kcalRootRef");
 const kcalPopRef = useTemplateRef<HTMLElement>("kcalPopRef");
 const isKcalOpen = computed(() => menu.openId.value === `${props.item.id}:kcal`);
+const { above: kcalAbove, shift: kcalShift, place: placeKcal } = useMenuPlacement(kcalPopRef, { fit: "shift" });
 // The field itself is offered only once the row IS consumable — the only state in which
 // the number is counted, so offering it sooner would collect a value the totals ignore
 // — and not on stove fuel holding no number, whose "calories" are the wrong kind and
@@ -734,12 +732,21 @@ const isKcalOpen = computed(() => menu.openId.value === `${props.item.id}:kcal`)
 // hand. So an open popover keeps the controls it opened with; the next open reads the
 // row afresh. (The same principle wornOffered follows for its toggle.)
 const kcalHeld = ref(false);
-// immediate: the menu singleton outlives a row (a mode switch rebuilds every row), so a
-// row can mount with its popover already open, and must decide then too
+// immediate: the menu singleton outlives a row, so a row can mount with its popover
+// already open, and must decide (and place the card) then too
 watch(
   isKcalOpen,
-  (open) => {
-    if (open) kcalHeld.value = offersKcal(props.item);
+  (open, was) => {
+    if (!open) return;
+    kcalHeld.value = offersKcal(props.item);
+    // on the tick the card mounts — it has no size to measure before that
+    nextTick(() => {
+      placeKcal();
+      // focus the field on open — the popover exists to take one number, so landing
+      // anywhere else would make every use a click plus a tab. On an open only: a row
+      // that mounts under an open popover takes no focus it didn't have.
+      if (was === false) kcalRootRef.value?.querySelector<HTMLInputElement>("input")?.focus();
+    });
   },
   { immediate: true },
 );
@@ -757,34 +764,11 @@ const kcalOffered = computed(() => isConsumable.value && (isKcalOpen.value ? kca
 const classCellShown = computed(
   () => isWater.value || !bareGroup.value || props.item.classification != null || props.item.needsCooking || isKcalOpen.value || isWornOpen.value,
 );
-const { above: kcalAbove, shift: kcalShift, place: placeKcal } = useMenuPlacement(kcalPopRef, { fit: "shift" });
 
-/** Open (or close) one of the row's classification popovers, placing it once the
- *  card exists to measure. `focusField` is false for the worn popover, whose
- *  controls are a switch and a set of buttons — pulling focus to the first of
- *  those would look like a selection had been made. */
-async function togglePop(
-  kind: "worn" | "kcal",
-  rootRef: HTMLElement | null,
-  isOpen: boolean,
-  place: () => void,
-  focusField: boolean,
-) {
-  const opening = !isOpen;
-  menu.toggle(`${props.item.id}:${kind}`, rootRef);
-  if (!opening) return;
-  // on the tick the card mounts — it has no size to measure before that
-  await nextTick();
-  place();
-  if (focusField) {
-    // focus the field on open — the popover exists to take one number, so landing
-    // anywhere else would make every use a click plus a tab
-    rootRef?.querySelector<HTMLInputElement>("input")?.focus();
-  }
-}
-
-const toggleWorn = () => togglePop("worn", wornRootRef.value, isWornOpen.value, placeWorn, false);
-const toggleKcal = () => togglePop("kcal", kcalRootRef.value, isKcalOpen.value, placeKcal, true);
+// Open or close one of the two; what follows an open (placing the card, the kcal
+// field's focus) is the watchers' above.
+const toggleWorn = () => menu.toggle(`${props.item.id}:worn`, wornRootRef.value);
+const toggleKcal = () => menu.toggle(`${props.item.id}:kcal`, kcalRootRef.value);
 function onKcal(e: Event) {
   const el = e.target as HTMLInputElement;
   const raw = el.value.trim();
@@ -2510,7 +2494,8 @@ function dismissFix() {
      like two different components. */
   width: 13rem;
 }
-/* flipped when the row sits too close to the viewport floor (see togglePop) */
+/* flipped when the row sits too close to the viewport floor (measured on open:
+   placeWorn / placeKcal) */
 .item__pop.is-above {
   top: auto;
   bottom: calc(100% + var(--space-1));

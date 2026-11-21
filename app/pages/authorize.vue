@@ -23,7 +23,7 @@
 import { AddCircleIcon, Alert02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import type { IconNode } from "~/utils/hugeicon";
-import { clientMark } from "~/utils/clientMark";
+import { clientMark, type AskingClient, type ReturnTo } from "~/utils/clientMark";
 import type { AccessScope } from "~~/shared/types";
 
 useHead({
@@ -40,7 +40,7 @@ const route = useRoute();
 const { signedIn, presence, hasSessionHint, refresh } = useSession();
 
 type Checked =
-  | { ok: true; client: { label: string; kind: "document" | "registered" }; level: AccessScope; returnTo: { host: string; loopback: boolean } }
+  | { ok: true; client: AskingClient; level: AccessScope; returnTo: ReturnTo }
   | { ok: false; error: string; description: string; redirect: string | null };
 const { data: checked } = await useFetch<Checked>("/api/oauth/authorize", { query: route.query, key: `authorize:${route.fullPath}` });
 

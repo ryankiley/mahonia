@@ -12,6 +12,7 @@
 
 import type { GearGlyph } from "./gearGlyph";
 import { foldForSearch } from "./searchText";
+import { MAX_URL_LEN } from "./trailLink";
 import type { Classification, Item, Unit } from "./types";
 import { isWaterName } from "./water";
 
@@ -34,7 +35,7 @@ export const VAULT_CAPTURE_MAX = 200;
  *  client applies — one set of numbers, not two. */
 export const VAULT_NAME_MAX = 200;
 export const VAULT_SHORT_MAX = 120;
-export const VAULT_URL_MAX = 2000;
+export const VAULT_URL_MAX = MAX_URL_LEN;
 
 /**
  * A piece of gear as the client offers it up for capture — the subset of a list
@@ -275,23 +276,19 @@ export function listNormKeys(
 export function isVaultWorthy(item: Item, hasChildren: boolean): boolean {
   if (!item.name.trim()) return false;
   if (hasChildren) return false;
-  if (isWaterRow(item)) return false;
+  // Water is the one list row the editor synthesises from a volume (see shared/water.ts),
+  // never gear. By the NAME alone, which is how the editor decides a row is the water
+  // row: the class can't be asked, because water under a folder that is already
+  // consumable stores none of its own.
+  if (isWaterName(item.name)) return false;
   return item.unitWeightMg > 0 || item.catalogItemId != null;
-}
-
-/** Water is the one list row the editor synthesises from a volume (see
- *  shared/water.ts) — never gear. By the NAME alone, which is how the editor decides a
- *  row is the water row: the class can't be asked, because water under a folder that
- *  is already consumable stores none of its own. */
-export function isWaterRow(item: Item): boolean {
-  return isWaterName(item.name);
 }
 
 /**
  * Project a list Item onto the gear it describes, asking only whether it has a
  * NAME — not whether a live editor ought to be banking it.
  *
- * Split out from captureFromItem for the import path, where isVaultWorthy's rules
+ * Kept apart from capture's gate for the import path, where isVaultWorthy's rules
  * are wrong: it exists to keep a half-typed row out of your vault while you are
  * still typing it, and nothing in a file you deliberately chose is half-typed. Its
  * weight test in particular would drop every un-weighed row in a gear CSV — gear
@@ -336,16 +333,12 @@ export function gearFromItem(item: Item, folderName?: string): VaultCapture | nu
   };
 }
 
-/** Project a list Item as CAPTURE sees it: the projection above, behind the rule
- *  about which rows an open editor should be banking at all, and marked when its
- *  text is still the catalog's. Here and not in gearFromItem: an imported file says
- *  nothing about whether its names were ever edited, so it is never respelled. */
-function captureFromItem(
-  item: Item,
-  hasChildren: boolean,
-  folderName?: string,
-): VaultCapture | null {
-  if (!isVaultWorthy(item, hasChildren)) return null;
+/** Project a list Item as CAPTURE sees it: the projection above, marked when its text
+ *  is still the catalog's (a pick nobody renamed is kept under the catalog's current
+ *  spelling, the server's respell). Here and not in gearFromItem: an imported file says
+ *  nothing about whether its names were ever edited, so it is never respelled. Which
+ *  rows an open editor should be banking at all is the caller's question (isVaultWorthy). */
+export function captureOf(item: Item, folderName?: string): VaultCapture | null {
   const cap = gearFromItem(item, folderName);
   return cap && { ...cap, catalogSpelling: item.catalogItemId != null && !item.nameOverridden };
 }
@@ -367,11 +360,8 @@ export function captureFromList(
   const folderName = new Map(folders.map((f) => [f.id, f.name]));
   const byKey = new Map<string, VaultCapture>();
   for (const item of items) {
-    const cap = captureFromItem(
-      item,
-      parents.has(item.id),
-      item.folderId ? folderName.get(item.folderId) : undefined,
-    );
+    if (!isVaultWorthy(item, parents.has(item.id))) continue;
+    const cap = captureOf(item, item.folderId ? folderName.get(item.folderId) : undefined);
     if (cap) byKey.set(cap.normKey, cap);
   }
   return [...byKey.values()].slice(0, VAULT_CAPTURE_MAX);
@@ -387,7 +377,7 @@ export function captureFromList(
  * on the press, and lives with the rest of the kit code (vaultKit.ts), off that path.
  */
 export function isKitWorthy(parent: Item, children: readonly Item[]): boolean {
-  if (isWaterRow(parent)) return false;
+  if (isWaterName(parent.name)) return false;
   const own = vaultNormKey(parent.brand, parent.name, parent.variant);
   return (
     !!own &&

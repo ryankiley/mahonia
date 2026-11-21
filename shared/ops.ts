@@ -9,7 +9,7 @@ import { isCalendarDate } from "./calendar";
 import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
 import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
-import { normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "./trailLink";
+import { MAX_URL_LEN, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "./trailLink";
 import type { Classification, Folder, Item, ListMeta, ListMetaKey, ListSnapshot, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { CLASSIFICATIONS, UNITS, WAYPOINT_KINDS } from "./types";
 import { MAX_PERSON_NAME_LEN, personNameTaken, UNASSIGNED } from "./people";
@@ -93,8 +93,6 @@ export type Op =
         endDate: string;
       }>;
     };
-
-const CLASSES = CLASSIFICATIONS;
 
 // `YYYY-MM-DD`, and a date that actually exists — the regex alone would accept
 // 2026-02-31, which Date normalises to March and would silently move the trip.
@@ -320,7 +318,7 @@ function normalizeWornSplit(
 /** A stored product link: http(s) only, length-capped. Anything else is no link.
  *  Deliberately not tidied — see cleanText below on why URLs keep their apostrophes. */
 const httpUrl = (raw: string): string | undefined => {
-  const url = raw.trim().slice(0, 2000);
+  const url = raw.trim().slice(0, MAX_URL_LEN);
   return safeUrl(url) ? url : undefined;
 };
 
@@ -385,7 +383,7 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
     const wq = Math.round(patch.wornQty);
     out.wornQty = wq > 0 ? Math.min(MAX_QTY, wq) : undefined; // ≤0 clears the split
   }
-  if (patch.classification === null || (typeof patch.classification === "string" && CLASSES.includes(patch.classification)))
+  if (patch.classification === null || (typeof patch.classification === "string" && CLASSIFICATIONS.includes(patch.classification)))
     out.classification = patch.classification;
   // NO worn/consumable-clears-wornQty rule here: applyOp's updateItem arm runs it
   // on the merged item (where it can also see qty), so stating it twice only
@@ -417,7 +415,7 @@ function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   const out: Partial<Folder> = {};
   if (typeof patch.name === "string") out.name = cleanText(patch.name, MAX_FOLDER_NAME_LEN);
   if (typeof patch.colorKey === "string" && SAFE_COLOR_KEY.test(patch.colorKey)) out.colorKey = patch.colorKey;
-  if (typeof patch.defaultClassification === "string" && CLASSES.includes(patch.defaultClassification))
+  if (typeof patch.defaultClassification === "string" && CLASSIFICATIONS.includes(patch.defaultClassification))
     out.defaultClassification = patch.defaultClassification;
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
   return out;
@@ -875,7 +873,7 @@ export function normalizeItem(raw: Item): Item {
     Math.max(0, Math.min(MAX_QTY, Math.round(Number.isFinite(n) ? n : 1))),
     clampUnitWeightMg(Number(raw.unitWeightMg) || 0),
   );
-  let classification = CLASSES.includes(raw.classification as Classification)
+  let classification = CLASSIFICATIONS.includes(raw.classification as Classification)
     ? (raw.classification as Classification)
     : null;
   const worn = normalizeWornSplit(qty, classification, raw.wornQty);
@@ -991,7 +989,7 @@ export function normalizeFolder(raw: Folder): Folder {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     name: cleanText(String(raw.name ?? ""), MAX_FOLDER_NAME_LEN) || "Folder",
     colorKey: raw.colorKey && SAFE_COLOR_KEY.test(String(raw.colorKey)) ? String(raw.colorKey) : "other",
-    defaultClassification: CLASSES.includes(raw.defaultClassification)
+    defaultClassification: CLASSIFICATIONS.includes(raw.defaultClassification)
       ? raw.defaultClassification
       : "base",
     // a `sortBy` from the days folders could be name/weight-sorted is dropped here:

@@ -36,11 +36,11 @@ import { editLinkPath, normalizeShareCode } from "../../shared/links";
 import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
 import { carrierName } from "../../shared/people";
 import { dayClimbs, parseProfile } from "../../shared/profile";
-import { enoughToSearch } from "../../shared/searchText";
+import { enoughToSearch, SEARCH_QUERY_MAX } from "../../shared/searchText";
 import { dropHidden, sameText, tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, MAX_TRAIL_LABEL_LEN, MAX_TRAIL_URL_LEN, normalizeTrailUrl } from "../../shared/trailLink";
 import { dayLabel } from "../../shared/tripDay";
-import { UNITS, WEIGHT_SOURCES, type AccessScope, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type ListState, type Unit, CLASSIFICATIONS } from "../../shared/types";
+import { UNITS, WEIGHT_SOURCES, type AccessScope, type Classification, type Folder, type Item, type ListData, type ListSnapshot, type ListState, CLASSIFICATIONS } from "../../shared/types";
 import { captureFromList, OWNED_MAX, VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry, type VaultItemOp } from "../../shared/vault";
 import { VAULT_KIT_PARTS_MAX, VAULT_KIT_QTY_MAX } from "../../shared/vaultKit";
 import { vaultFamilyOf } from "../../shared/vaultView";
@@ -55,7 +55,7 @@ import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextB
 import { trustedOrigin } from "./origin";
 import { rateLimit, rateLimitSubject, useKv } from "./rateLimit";
 import { sha256Hex } from "./tokens";
-import { mintVault, touchVaultByUser } from "./vaultAuth";
+import { mintVault, touchVaultByUser, vaultIdOrMint } from "./vaultAuth";
 import {
   addVaultItems,
   applyVaultItemOp,
@@ -65,6 +65,7 @@ import {
   removeVaultItems,
   restoreVaultItems,
   searchVaultItems,
+  unitOf,
   vaultItemById,
   vaultItemByNormKey,
 } from "./vaultRepo";
@@ -330,7 +331,7 @@ const CATALOG_RESULT = {
 const CATALOG_OUTPUT = {
   type: "object",
   properties: {
-    query: str("The query as searched: trimmed, at most 100 characters. On a search."),
+    query: str(`The query as searched: trimmed, at most ${SEARCH_QUERY_MAX} characters. On a search.`),
     product: {
       type: "object",
       description: "The product looked up, when one was.",
@@ -868,7 +869,10 @@ interface ToolResult {
   isError?: boolean;
 }
 
+/** A tool's failure: a sentence the model can read and act on, flagged isError. The
+ *  route answers its own refusals of a tools/call in this shape too (mcp.post.ts). */
 const fail = (text: string): ToolResult => ({ content: [{ type: "text", text }], isError: true });
+export { fail as toolFailure };
 /** the sentence for a classification argument that isn't one of the three */
 const notClassification = (v: unknown) => `"${String(v)}" isn't a classification; use base, worn or consumable.`;
 /** Every string in a result with the hidden characters taken out (shared/tidyText's
@@ -974,11 +978,11 @@ function unweighedIds(items: readonly Item[]): Set<string> {
   return new Set(items.filter((i) => !parents.has(i.id) && i.unitWeightMg === 0 && !isWaterName(i.name)).map((i) => i.id));
 }
 
-/** The totals block every list-returning tool carries, in grams — get_list's, and the
- *  create and edit_list echoes, which used to compute the whole description to read it. */
-function describeTotals(snap: ListSnapshot): Record<string, unknown> {
+/** The totals block every list-returning tool carries, in grams: get_list's, and the
+ *  create and edit_list echoes, which read it without describing the rows. `unweighed`
+ *  is the count of unweighedIds, for a caller that already holds the set. */
+function describeTotals(snap: ListSnapshot, unweighed = unweighedIds(snap.items).size): Record<string, unknown> {
   const totals = computeTotals(snap);
-  const unweighed = unweighedIds(snap.items).size;
   return {
     base_g: Math.round(totals.baseMg / 1000),
     worn_g: Math.round(totals.wornMg / 1000),
@@ -990,6 +994,21 @@ function describeTotals(snap: ListSnapshot): Record<string, unknown> {
     ...(unweighed ? { unweighed } : {}),
   };
 }
+
+/** The trip's dates as the tools answer them, when the list has either. */
+const datesOf = (snap: ListSnapshot) => (snap.startDate || snap.endDate ? { start: snap.startDate ?? null, end: snap.endDate ?? null } : undefined);
+
+/** The list's trail as the tools answer it, when it has a link or a distance. */
+const trailOf = (snap: ListSnapshot) =>
+  snap.trailUrl || snap.trailDistanceM
+    ? {
+        url: snap.trailUrl ?? null,
+        label: snap.trailLabel ?? null,
+        distance_m: snap.trailDistanceM ?? null,
+        ascent_m: snap.trailAscentM ?? null,
+        descent_m: snap.trailDescentM ?? null,
+      }
+    : undefined;
 
 export function describeList(snap: ListSnapshot, origin: string): Record<string, unknown> {
   const unweighed = unweighedIds(snap.items);
@@ -1031,19 +1050,13 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
     share_code: snap.shareCode,
     share_link: shareLink(origin, snap.shareCode),
     unit: snap.displayUnit,
-    totals: describeTotals(snap),
+    totals: describeTotals(snap, unweighed.size),
   };
   if (snap.description) out.description = snap.description;
-  if (snap.startDate || snap.endDate) out.dates = { start: snap.startDate ?? null, end: snap.endDate ?? null };
-  if (snap.trailUrl || snap.trailDistanceM) {
-    out.trail = {
-      url: snap.trailUrl ?? null,
-      label: snap.trailLabel ?? null,
-      distance_m: snap.trailDistanceM ?? null,
-      ascent_m: snap.trailAscentM ?? null,
-      descent_m: snap.trailDescentM ?? null,
-    };
-  }
+  const dates = datesOf(snap);
+  if (dates) out.dates = dates;
+  const trail = trailOf(snap);
+  if (trail) out.trail = trail;
   const days = [...(snap.days ?? [])].sort(bySortOrder);
   if (days.length) {
     // a day's climb is typed, or read off the route's profile the way the Trip tab and
@@ -1259,7 +1272,7 @@ async function catalog(args: Record<string, unknown>): Promise<ToolResult> {
       results: found.variants.map((v) => catalogResult(found, v)),
     });
   }
-  const query = typeof args.query === "string" ? args.query.trim().slice(0, 100) : "";
+  const query = typeof args.query === "string" ? args.query.trim().slice(0, SEARCH_QUERY_MAX) : "";
   if (!enoughToSearch(query)) return fail("Give a query of two characters or more (one is enough in Chinese), or a product_id from an earlier search.");
   const limit = clampInt(args.limit, 1, SEARCH_LIMIT_MAX, SEARCH_LIMIT_DEFAULT);
   const rows = await searchCatalog(await useCatalogDb(), query, limit);
@@ -1341,7 +1354,7 @@ function toItem(raw: object, folderId: string | null, sortOrder: number): Item |
   const r = raw as Record<string, unknown>;
   const name = typeof r.name === "string" ? r.name.trim() : "";
   if (!name) return "Every row needs a name.";
-  if (r.classification != null && !CLASSIFICATIONS.includes(r.classification as Classification)) return notClassification(r.classification);
+  if (r.classification != null && !classificationOf(r.classification)) return notClassification(r.classification);
   if (r.weight_g != null && (typeof r.weight_g !== "number" || !(r.weight_g >= 0))) return `weight_g on "${name}" must be a number of grams, 0 or more.`;
   const water = waterAmount(r, isWaterName(name), `"${name}"`);
   if (typeof water === "string") return water;
@@ -1352,7 +1365,7 @@ function toItem(raw: object, folderId: string | null, sortOrder: number): Item |
     name,
     unitWeightMg: water?.unitWeightMg ?? (typeof r.weight_g === "number" ? Math.round(r.weight_g * 1000) : 0),
     qty,
-    classification: (r.classification as Classification | undefined) ?? null,
+    classification: classificationOf(r.classification) ?? null,
     sortOrder,
   };
   if (typeof r.brand === "string" && r.brand.trim()) item.brand = r.brand.trim();
@@ -1456,10 +1469,11 @@ class FolderBook {
   /** The folder a ROW names: one of the list's, a new one, or null for "Unfiled", the
    *  name get_list gives the rows in no folder. A model that read it there passes it
    *  back, and making a folder of that name put the rows in a folder called Unfiled
-   *  above the real ones. A list that does have a folder called Unfiled keeps it. */
-  forRow(name: string): Folder | null | string {
+   *  above the real ones. A list that does have a folder called Unfiled keeps it.
+   *  create_list's folders go through here too, each with the class it states. */
+  forRow(name: string, classification?: Classification): Folder | null | string {
     if (!this.find(name) && sameText(name, UNFILED)) return null;
-    return this.resolve(name);
+    return this.resolve(name, classification);
   }
 }
 
@@ -1565,11 +1579,10 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
       if (!f || typeof f !== "object") return fail("Each folder needs a name.");
       const fr = f as Record<string, unknown>;
       if (typeof fr.name !== "string" || !fr.name.trim()) return fail("Each folder needs a name.");
-      if (fr.classification != null && !CLASSIFICATIONS.includes(fr.classification as Classification)) return fail(notClassification(fr.classification));
+      if (fr.classification != null && !classificationOf(fr.classification)) return fail(notClassification(fr.classification));
       // get_list's folders end with Unfiled, the rows in no folder: copied across, it
-      // is those rows' place, not a folder to make (forRow says the same for a row)
-      const unfiled = !plan.folders.find(fr.name as string) && sameText(fr.name as string, UNFILED);
-      const folder = unfiled ? null : plan.folders.resolve(fr.name as string, (fr.classification as Classification | undefined) ?? "base");
+      // is those rows' place, not a folder to make (forRow, as for a row)
+      const folder = plan.folders.forRow(fr.name as string, classificationOf(fr.classification));
       if (typeof folder === "string") return fail(folder);
       if (fr.items != null) {
         if (!Array.isArray(fr.items)) return fail("A folder's items must be an array.");
@@ -1616,12 +1629,7 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
     // remembered only once it is filed, and by share code alone, never the edit link
     if (filed === true) remembered = { share_code: snapshot.shareCode };
     return ok({
-      title: snapshot.title,
-      share_link: shareLink(origin, snapshot.shareCode),
-      share_code: snapshot.shareCode,
-      folders: snapshot.folders.length,
-      items: snapshot.items.length,
-      totals: describeTotals(snapshot),
+      ...madeEcho(snapshot, origin),
       saved_to_account: filed === true,
       repeated: false,
       edit_link: `${origin}${editLinkPath(snapshot.shareCode, editToken)}`,
@@ -1631,6 +1639,17 @@ async function create(event: H3Event, args: Record<string, unknown>): Promise<To
     if (key) await settleReplay(key, remembered);
   }
 }
+
+/** What create_list says of a list it made: the fields its first answer and its answer
+ *  to a repeat share, in the order both give them. */
+const madeEcho = (snap: ListSnapshot, origin: string) => ({
+  title: snap.title,
+  share_link: shareLink(origin, snap.shareCode),
+  share_code: snap.shareCode,
+  folders: snap.folders.length,
+  items: snap.items.length,
+  totals: describeTotals(snap),
+});
 
 /**
  * The answer to a repeated create_list: the list the first call made, read again by
@@ -1643,17 +1662,7 @@ async function madeBefore(event: H3Event, userId: number, hit: Record<string, un
   const hash = code ? await claimedEditHash(await useAccountDb(), userId, code) : null;
   const snap = hash ? await getByEditHash(hash) : null;
   if (!snap) return null;
-  const origin = trustedOrigin(event);
-  const structured = {
-    title: snap.title,
-    share_link: shareLink(origin, snap.shareCode),
-    share_code: snap.shareCode,
-    folders: snap.folders.length,
-    items: snap.items.length,
-    totals: describeTotals(snap),
-    saved_to_account: true,
-    repeated: true,
-  };
+  const structured = { ...madeEcho(snap, trustedOrigin(event)), saved_to_account: true, repeated: true };
   return ok(
     structured,
     `${JSON.stringify(structured)}\nThis repeats a create_list call made in the last ten minutes, so no second list was made: this is the list that call made, as it is now, filed under your account. Pass its share_code to edit_list to change it, or again: true to make another.`,
@@ -1692,8 +1701,9 @@ async function fileUnderAccount(event: H3Event, editToken: string, snapshot: Lis
     // the vault tables as well as the account's: on Neon they're ensured on first use
     // rather than migrated, and the capture below writes them
     const db = await useVaultDb();
-    const vaultId = (await touchVaultByUser(db, caller.userId)) ?? (await mintVault(db, caller.userId));
-    await captureVaultItems(db, vaultId, captureFromList(snapshot.items, snapshot.folders)).catch((e) => {
+    const vaultId = await vaultIdOrMint(db, caller.userId);
+    // no folders: they only name the folder a capture sat in, which the vault drops
+    await captureVaultItems(db, vaultId, captureFromList(snapshot.items)).catch((e) => {
       console.error("[vault capture]", e);
     });
     return true;
@@ -1713,7 +1723,7 @@ function tripMeta(args: Record<string, unknown>, { creating = false, linked = fa
     meta.title = args.title;
   }
   if (args.unit != null) {
-    if (!UNITS.includes(args.unit as Unit)) return `"${String(args.unit)}" isn't a unit; use g, kg, oz or lb.`;
+    if (!unitOf(args.unit)) return `"${String(args.unit)}" isn't a unit; use g, kg, oz or lb.`;
     meta.displayUnit = args.unit;
   }
   for (const [key, field] of [["start_date", "startDate"], ["end_date", "endDate"]] as const) {
@@ -1977,10 +1987,9 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
   if (water) patch.unitWeightMg = water.unitWeightMg;
   if (isWater && patch.unitWeightMg !== undefined) patch.qty = 1;
   if (r.classification !== undefined) {
-    if (r.classification !== null && !CLASSIFICATIONS.includes(r.classification as Classification)) {
-      return `"${String(r.classification)}" isn't a classification; use base, worn or consumable, or null to follow the folder.`;
-    }
-    patch.classification = r.classification as Classification | null;
+    const cls = r.classification === null ? null : classificationOf(r.classification);
+    if (cls === undefined) return `"${String(r.classification)}" isn't a classification; use base, worn or consumable, or null to follow the folder.`;
+    patch.classification = cls;
   }
   if (r.worn_qty !== undefined) {
     if (typeof r.worn_qty !== "number" || !Number.isFinite(r.worn_qty)) return `worn_qty on ${label} must be a whole number.`;
@@ -2093,8 +2102,9 @@ function planFolders(entries: unknown[], { work, ops, plan }: Work): { changed: 
       patch.name = tidyText(c.name);
     }
     if (c.classification !== undefined) {
-      if (!CLASSIFICATIONS.includes(c.classification as Classification)) return notClassification(c.classification);
-      patch.defaultClassification = c.classification as Classification;
+      const cls = classificationOf(c.classification);
+      if (!cls) return notClassification(c.classification);
+      patch.defaultClassification = cls;
     }
     if (Object.keys(patch).length) plan({ t: "updateFolder", id: folder.id, patch });
     if (c.position !== undefined) {
@@ -2296,14 +2306,14 @@ async function applyEdit(
   // marked as an assistant's, so the list's recent changes say who made it
   const after = await applyOpsByEditHash(hash, w.ops, undefined, { actor: "assistant" });
   if (!after) return NO_EDIT_LIST;
-  const described = describeList(after, trustedOrigin(event));
+  // the list's own facts only: the rows aren't echoed, so they aren't described
   return {
-    title: described.title,
-    unit: described.unit,
-    dates: described.dates ?? null,
-    trail: described.trail ?? null,
-    share_link: described.share_link,
-    totals: described.totals,
+    title: after.title,
+    unit: after.displayUnit,
+    dates: datesOf(after) ?? null,
+    trail: trailOf(after) ?? null,
+    share_link: shareLink(trustedOrigin(event), after.shareCode),
+    totals: describeTotals(after),
     added,
     updated,
     removed: rowsBefore + added - w.work.items.length,
@@ -2475,7 +2485,7 @@ function gearPatchFrom(raw: unknown): { patch: Record<string, unknown>; problem?
 async function readGear(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
   const gear = await openGear(event, "read");
   if (typeof gear === "string") return fail(gear);
-  const query = typeof args.query === "string" ? args.query.trim().slice(0, 100) : "";
+  const query = typeof args.query === "string" ? args.query.trim().slice(0, SEARCH_QUERY_MAX) : "";
   if (query && !enoughToSearch(query)) return fail("A query needs two characters or more (one is enough in Chinese); leave it out to read everything.");
   const limit = clampInt(args.limit, 1, GEAR_PAGE_MAX, GEAR_PAGE_DEFAULT);
   const offset = clampInt(args.offset, 0, GEAR_PAGE_MAX, 0);

@@ -142,10 +142,7 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
         // people's: person dots and folder dots are the same swatch two rows apart
         // (CategoryBar above, chips below), so a person taking the Shelter
         // folder's green would put one color on two meanings. Distinct across both.
-        colorKey: nextFolderColor([
-          ...usedColorKeys(snapshot.value?.folders ?? []),
-          ...usedColorKeys(people),
-        ]),
+        colorKey: nextFolderColor(usedColorKeys([...(snapshot.value?.folders ?? []), ...people])),
         sortOrder: people.length,
       },
     });

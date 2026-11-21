@@ -108,20 +108,19 @@ export function waterPhrase(text: string): { name: string; ml: number } | null {
   return { name: /^water$/i.test(name) ? "Water" : name, ml };
 }
 
-/** Just the volume waterPhrase reads, in ml. */
-export function waterPhraseMl(text: string): number | null {
-  return waterPhrase(text)?.ml ?? null;
-}
-
-/** What the name field's MENU offers as water, in ml: everything waterPhraseMl reads,
- *  plus the two things only a menu can offer, since neither is a line that says water
- *  with a volume: a bare "water" (a litre, to be corrected in the row) and a bare volume
- *  ("500 ml"). Null when the text is neither. */
-export function waterMenuMl(text: string): number | null {
+/** What the name field's MENU offers as water, as the name the row would keep and the
+ *  volume in ml: everything waterPhrase reads, plus the two things only a menu can offer,
+ *  since neither is a line that says water with a volume: a bare "water" (a litre, to be
+ *  corrected in the row) and a bare volume ("500 ml"), both named Water. Null when the
+ *  text is neither. */
+export function waterMenu(text: string): { name: string; ml: number } | null {
   // exact "water" here, not isWaterName: the menu's row renames the line to "Water", so
   // offering it on "Drinking water" would trade the name typed for a litre on Enter
-  if (/^water$/i.test(text.trim())) return 1000;
-  return waterPhraseMl(text) ?? parseVolumeMl(text.trim().toLowerCase());
+  if (/^water$/i.test(text.trim())) return { name: "Water", ml: 1000 };
+  const phrase = waterPhrase(text);
+  if (phrase) return phrase;
+  const ml = parseVolumeMl(text);
+  return ml == null ? null : { name: "Water", ml };
 }
 
 /** A water weight as the bare number of litres its fields show ("1.75"), or "" at zero. */

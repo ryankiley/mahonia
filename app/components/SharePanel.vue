@@ -10,7 +10,7 @@ import {
   UserMultiple02Icon,
   ViewIcon,
 } from "@hugeicons/core-free-icons";
-import type { ExportItem } from "~/composables/useListExports";
+import { ROW_FLASH } from "~/components/ItemRow.vue";
 import type { ChangeAuthor, ListSnapshot, SnapshotMeta } from "~~/shared/types";
 
 // Everything about getting this list to someone else, in ONE place, as two tabs.
@@ -52,11 +52,6 @@ const props = defineProps<{
   authHeaders: Record<string, string>;
   /** the READ-ONLY link the plain-text export appends — see the note in GearEditor */
   shareUrl: string;
-  /** The editor's toast, as a function rather than an event: an export closes the
-   *  panel and THEN finishes (the exporter chunk loads, the clipboard answers), and
-   *  by then this component is unmounted, and an unmounted component's emits go
-   *  nowhere. A function prop is just a reference and still reaches the editor. */
-  flash: (msg: string) => void;
 }>();
 const emit = defineEmits<{
   close: [];
@@ -64,6 +59,13 @@ const emit = defineEmits<{
   copyEdit: [];
   rotate: [];
 }>();
+
+// The editor's toast, by inject (ROW_FLASH, the way a row reaches it) rather than an
+// event: an export closes the panel and THEN finishes (the exporter chunk loads, the
+// clipboard answers), and by then this component is unmounted, and an unmounted
+// component's emits go nowhere. The injected function is just a reference and still
+// reaches the editor.
+const flash = inject(ROW_FLASH, () => {});
 
 const { plateRef, listRef, on } = useMenuPlate();
 
@@ -104,7 +106,7 @@ const { onKey } = useRovingRadio(
 // inside iOS Safari's gesture window, which a cold chunk fetch would spend.
 const { warmExporters, exportItems } = useListExports(
   () => props.snapshot,
-  (msg) => props.flash(msg),
+  flash,
   () => props.shareUrl,
 );
 watch(tab, (t) => t === "export" && warmExporters());
@@ -159,7 +161,6 @@ function act(run: () => unknown) {
   emit("close");
   void run();
 }
-const runExport = (item: ExportItem) => act(item.run);
 
 // ---- recent changes ----
 // The recovery points the server already keeps: the closest thing to an activity log
@@ -377,7 +378,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
               class="menu__item share__row"
               :aria-label="item.label"
               :aria-describedby="`${uid}-hint-${item.key}`"
-              @click="runExport(item)"
+              @click="act(item.run)"
             >
               <HugeiconsIcon :icon="item.icon" :size="16" :stroke-width="2" aria-hidden="true" />
               <span class="share__text">

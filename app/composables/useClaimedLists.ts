@@ -15,7 +15,7 @@ import type { ClaimedOpen } from "~~/shared/switcher";
 import { CLAIMED_LIST_CAP, type ClaimedList } from "~~/shared/types";
 import { forget, recall, recallJson, remember } from "../utils/remember";
 import { OWNED, ownedKey, sessionCacheOwner } from "../utils/sessionOwner";
-import { deleteListOnServer } from "./useMyLists";
+import { deleteListOnServer, madeHere } from "./useMyLists";
 
 
 // Which set of device tokens we've already claimed, so a signed-in visitor doesn't
@@ -294,8 +294,8 @@ export function useClaimedLists() {
     // the server can tell that era apart (it has the list's creation date), so the
     // decision belongs to it — see server/utils/claimRepo.
     const entries = useMyLists().entries.value;
-    const editTokens = entries.filter((e) => e.origin !== "opened").map((e) => e.editToken);
-    const openedTokens = entries.filter((e) => e.origin === "opened").map((e) => e.editToken);
+    const editTokens = entries.filter(madeHere).map((e) => e.editToken);
+    const openedTokens = entries.filter((e) => !madeHere(e)).map((e) => e.editToken);
     // Both buckets, so a registry that changes only in its opened rows still
     // re-runs the sweep. (It also retires every mark written by the version that
     // fingerprinted one bucket — which is what re-sweeps the lists this bug had

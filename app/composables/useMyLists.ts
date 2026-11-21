@@ -69,6 +69,11 @@ function storageEntries(): Ref<MyListEntry[]> {
   return entries;
 }
 
+/** A list this browser made, as against one merely opened here through its edit link.
+ *  The sign-in prompt counts by this and the claim sweep claims by it, so the number
+ *  offered is the number filed. A row from before `origin` existed counts as made. */
+export const madeHere = (e: Pick<MyListEntry, "origin">): boolean => e.origin !== "opened";
+
 export function useMyLists() {
   if (!_entries) _entries = storageEntries();
   const entries = _entries;

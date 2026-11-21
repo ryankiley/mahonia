@@ -110,7 +110,7 @@ const meta = computed(() => {
       <template #trigger="{ open, toggle, attrs }">
         <!-- the site's tooltip, as on the list row's icon buttons, not a native title:
              it shows at once and in the app's type -->
-        <Tooltip :text="typeLabel ? `${typeLabel} · Change icon` : 'Pick an icon'" :disabled="open" preferred-placement="top">
+        <Tooltip :text="typeLabel ? `${typeLabel} · Change icon` : 'Pick an icon'" :disabled="open">
         <button
           type="button"
           class="vault__typebtn"
@@ -139,7 +139,7 @@ const meta = computed(() => {
       </p>
       <!-- the sub-line: the gear type, the calories and calories for the weight on
            food, then what it cost (see `meta`) -->
-      <p v-if="meta.length" class="t-sm t-muted vault__meta">
+      <p v-if="meta.length" class="t-sm t-muted">
         <template v-for="(part, i) in meta" :key="i"
           ><span v-if="i" class="sep"> · </span>{{ part }}</template
         >
@@ -204,7 +204,7 @@ const meta = computed(() => {
            arrival. -->
       <!-- the tooltip says the verb, the accessible name the whole thing: the row it
            hangs off already names the piece (ItemRow's split, WCAG 2.5.3 either way) -->
-      <Tooltip text="Edit" preferred-placement="top">
+      <Tooltip text="Edit">
         <button
           type="button"
           class="btn btn--icon btn--ghost vault__act ink-quiet"
@@ -218,7 +218,7 @@ const meta = computed(() => {
            widest thing in the row and said what the bin already says. The label
            lives on aria-label + title. -->
       <slot name="remove">
-        <Tooltip text="Remove" preferred-placement="top">
+        <Tooltip text="Remove">
           <button
             type="button"
             class="btn btn--icon btn--ghost vault__act ink-quiet"

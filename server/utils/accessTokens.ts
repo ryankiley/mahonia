@@ -30,6 +30,7 @@
 // got into the account is exactly what ending every session wouldn't reach.
 
 import { and, desc, eq, or, sql } from "drizzle-orm";
+import type { PgColumn } from "drizzle-orm/pg-core";
 import type { H3Event } from "h3";
 import type { AccessScope, AccessTokenSummary } from "../../shared/types";
 import { accessTokens, oauthCodes, users } from "../db/schema";
@@ -138,6 +139,14 @@ export async function issueAppTokens(
 }
 
 /**
+ * A row made while its account's address was unproven opens nothing once the address
+ * is proven, even one written after the claim swept the table: see sessions.unproven
+ * in server/db/schema.ts. The one predicate for every such row (a session, a passkey,
+ * a token), each naming its own `unproven` column, read with `users` joined in.
+ */
+export const notRetired = (unproven: PgColumn) => or(eq(unproven, false), eq(users.emailVerified, false));
+
+/**
  * Trade a refresh token for the next pair, rotating both hashes in one UPDATE keyed
  * on the old refresh hash. Only the client the grant was made for may refresh it, so
  * the client_id travels with the request and is matched here. A refresh token that
@@ -155,11 +164,6 @@ export async function issueAppTokens(
  * would kill the pair the first of them was just handed. The late one is refused and
  * the grant kept.
  */
-/** A token made while its account's address was unproven opens nothing once it is
- *  proven, even one written after the claim swept the table: see sessions.unproven in
- *  server/db/schema.ts. Read with the account joined in. */
-const notRetired = () => or(eq(accessTokens.unproven, false), eq(users.emailVerified, false));
-
 export async function refreshAppTokens(db: Db, rawRefresh: unknown, clientId: unknown): Promise<IssuedTokens | null> {
   if (typeof rawRefresh !== "string" || !rawRefresh.startsWith(APP_REFRESH_PREFIX) || rawRefresh.length > RAW_TOKEN_MAX) return null;
   if (typeof clientId !== "string" || !clientId) return null;
@@ -168,7 +172,7 @@ export async function refreshAppTokens(db: Db, rawRefresh: unknown, clientId: un
     .select({ id: accessTokens.id, scope: accessTokens.scope, refreshHash: accessTokens.refreshHash, expiresAt: accessTokens.expiresAt })
     .from(accessTokens)
     .innerJoin(users, eq(users.id, accessTokens.userId))
-    .where(and(or(eq(accessTokens.refreshHash, hash), eq(accessTokens.refreshPrevHash, hash)), eq(accessTokens.clientId, clientId), notRetired()))
+    .where(and(or(eq(accessTokens.refreshHash, hash), eq(accessTokens.refreshPrevHash, hash)), eq(accessTokens.clientId, clientId), notRetired(accessTokens.unproven)))
     .limit(1);
   if (!row || !isAccessScope(row.scope)) return null;
   if (row.refreshHash !== hash) {
@@ -263,7 +267,7 @@ export async function resolveBearer(db: Db, raw: string): Promise<ConnectorIdent
     .select({ id: accessTokens.id, userId: accessTokens.userId, scope: accessTokens.scope, expiresAt: accessTokens.expiresAt, lastUsedAt: accessTokens.lastUsedAt })
     .from(accessTokens)
     .innerJoin(users, eq(users.id, accessTokens.userId))
-    .where(and(eq(accessTokens.tokenHash, sha256Hex(raw)), notRetired()))
+    .where(and(eq(accessTokens.tokenHash, sha256Hex(raw)), notRetired(accessTokens.unproven)))
     .limit(1);
   if (!row || !isAccessScope(row.scope)) return null;
   const now = Date.now();

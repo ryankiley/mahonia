@@ -4,12 +4,13 @@ import { ArrowUpRight01Icon, Backpack03Icon, Calendar03Icon, GlobeIcon, Location
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
-import { routeLengthM, shownHeightM } from "~~/shared/tripPlan";
-import { formatDistance, heightWithUnit, resolveDistanceUnit } from "~~/shared/trailDistance";
+import { shownHeightM } from "~~/shared/tripPlan";
+import { formatDistance, heightWithUnit, resolveDistanceUnit, routeLengthM } from "~~/shared/trailDistance";
 import type { PersonSelection } from "~~/shared/people";
 import type { Item, ListSnapshot, Person, Totals, Unit } from "~~/shared/types";
 import { variantShownIds } from "~~/shared/variantShown";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
+import { READ_ROWS } from "./ReadonlyItemRow.vue";
 
 // The body of the read-only page (/s/[code]): the heading, the totals and the
 // folder/ungrouped block, over the useReadonlyList view-model (kept in the page).
@@ -54,6 +55,13 @@ const childrenByParent = computed(() => groupItemsByParent(props.list?.items ?? 
 // carrying which, and a filtered view that dropped the size would read as a
 // different row than the unfiltered one.
 const variantShown = computed(() => variantShownIds(props.list?.items ?? []));
+// ...and those tables, with the list itself, as the rows reach them (READ_ROWS)
+provide(READ_ROWS, {
+  list: toRef(props, "list"),
+  childrenByParent,
+  contextOnlyIds: toRef(props, "contextOnlyIds"),
+  variantShownIds: variantShown,
+});
 const NO_ITEMS: Item[] = [];
 
 // Quiet meta line under the title — the maker's name and the list's last-edit time,
@@ -286,10 +294,10 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
     <FilterEmpty v-if="view === 'gear' && filteredEmptyName" :name="filteredEmptyName" @clear="$emit('pick-person', null)" />
 
     <div v-if="view === 'gear'" class="view__folders">
-      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" :variant-shown-ids="variantShown" />
+      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" />
       <section v-if="ungrouped.length">
         <p class="t-label view__ungrouped">Unfiled</p>
-        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" :variant-shown-ids="variantShown" />
+        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :item="it" />
       </section>
     </div>
   </main>

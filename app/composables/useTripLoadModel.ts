@@ -1,5 +1,5 @@
 import type { ListSnapshot, Totals, TripDay } from "~~/shared/types";
-import { burnDownMg, descentIsDistinct, routeLengthM } from "~~/shared/tripPlan";
+import { burnDownMg, descentIsDistinct } from "~~/shared/tripPlan";
 import { isWaterName } from "~~/shared/water";
 import { effectiveClassification, lineMg } from "~~/shared/weights";
 import {
@@ -8,6 +8,7 @@ import {
   heightValue,
   parseBodyWeightG,
   resolveDistanceUnit,
+  routeLengthM,
 } from "~~/shared/trailDistance";
 import type { ComputedRef, Ref } from "vue";
 

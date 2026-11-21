@@ -1,7 +1,6 @@
 import { createError, defineEventHandler } from "h3";
 import { applyOpsByEditHash } from "../../utils/listRepo";
-import { requireEdit } from "../../utils/editAuth";
-import { resolveSession } from "../../utils/authSession";
+import { editorOf, requireEdit } from "../../utils/editAuth";
 import { notFound, readJsonBodyCapped } from "../../utils/http";
 import type { Op } from "../../../shared/ops";
 
@@ -21,9 +20,7 @@ export default defineEventHandler(async (event) => {
   if (ops.length > 4000) throw createError({ statusCode: 400, statusMessage: "Too many ops" });
 
   // who, for recent changes: read from the session only if a point is taken
-  const snapshot = await applyOpsByEditHash(hash, ops, undefined, {
-    editor: async () => (await resolveSession(event))?.id ?? null,
-  });
+  const snapshot = await applyOpsByEditHash(hash, ops, undefined, { editor: editorOf(event) });
   if (!snapshot) throw notFound();
   return { snapshot };
 });

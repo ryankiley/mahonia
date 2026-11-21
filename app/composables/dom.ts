@@ -97,6 +97,44 @@ export function useNow(): Ref<Date> {
   return now;
 }
 
+/**
+ * Call `retry` for as long as `when` holds: something couldn't be asked of the server
+ * (the session, My Gear) and is asked again until it answers.
+ *
+ * Three triggers, because the browser's "online" event is the least reliable of them:
+ * navigator.onLine stays true through a dead trailhead connection, a captive portal or
+ * a server blip, so it may never fire. Coming back to the tab or app asks too, and so
+ * does a slow clock while the answer is missing. Never from a hidden tab: a phone with
+ * Mahonia in the background on no signal would wake its radio every 30 s for nothing,
+ * and coming back is a trigger of its own.
+ */
+export function useRetryWhile(when: Readonly<Ref<boolean>>, retry: () => void, everyMs = 30_000): void {
+  if (!import.meta.client) return;
+  const run = () => {
+    if (when.value && document.visibilityState === "visible") retry();
+  };
+  window.addEventListener("online", run);
+  // a DOCUMENT event, so it doesn't fit useWindowEvent's WindowEventMap signature
+  document.addEventListener("visibilitychange", run);
+  let tick: ReturnType<typeof setInterval> | undefined;
+  watch(
+    when,
+    (on) => {
+      clearInterval(tick);
+      tick = on ? setInterval(run, everyMs) : undefined;
+    },
+    { immediate: true },
+  );
+  // a plugin's lives as long as the app; a component's (or a test's) goes with it
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      window.removeEventListener("online", run);
+      document.removeEventListener("visibilitychange", run);
+      clearInterval(tick);
+    });
+  }
+}
+
 // The three ways an open popover gets dismissed, wired in one call.
 //
 // Every menu in the app wants exactly the same set — an outside click, a scroll

@@ -170,10 +170,14 @@ const named = computed(() => ({ name: form.name, commonName: form.commonName }))
 // calories, and most food here carries no class at all (it took its list folder's), so
 // gating on one left the tab's own number unenterable. Food is the tab's rule
 // (vaultTabOf), read live off the fields and the picked icon like everything else here.
+//
+// The fuel half on its own (kcalCounts) is what onSubmit asks before it sends a number:
+// one reading of it, so the field shown and the number saved can't part.
+const kcalCounts = computed(() => offersKcal({ ...named.value, kcal: props.entry?.kcal }));
 const kcalOffered = computed(
   () =>
     (form.classification === "consumable" || vaultTabOf({ ...named.value, icon: form.icon ?? undefined }) === "food") &&
-    offersKcal({ ...named.value, kcal: props.entry?.kcal }),
+    kcalCounts.value,
 );
 // ...and "Worn" leaves the picker on water and stove fuel, as the editor row drops its
 // worn toggle there (offersWorn, the one rule for both): nobody wears a gas canister.
@@ -288,7 +292,7 @@ async function onSubmit() {
   // stops being true of the food). On a fuel row it WOULD be counted, so a number typed
   // before the name was edited into fuel — the field gone, the digits still in the ref —
   // is dropped rather than saved unseen, and the next list to pick this row gets none.
-  if (changed("kcal") && offersKcal({ ...named.value, kcal: props.entry?.kcal })) {
+  if (changed("kcal") && kcalCounts.value) {
     const k = form.kcal.trim() ? Math.max(0, Math.round(Number(form.kcal))) : 0;
     patch.kcal = k > 0 ? k : null;
   }

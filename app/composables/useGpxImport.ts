@@ -2,7 +2,7 @@ import { ref, watch, type Ref } from "vue";
 import { profileToString } from "~~/shared/profile";
 import { cumulativeM, decodePolyline, nearestAlongM, routeGeometryFromPoints } from "~~/shared/polyline";
 import type { FilePin, TrackPoint } from "~~/shared/gpx";
-import { MAX_WAYPOINTS, type Op } from "~~/shared/ops";
+import { MAX_LABEL_LEN, MAX_WAYPOINTS, type Op } from "~~/shared/ops";
 import type { ListSnapshot, WaypointKind } from "~~/shared/types";
 
 /**
@@ -113,7 +113,7 @@ export function useGpxImport(c: GpxTarget) {
       // we gave it.
       if (pin.name) {
         const made = (c.snapshot.value?.waypoints ?? []).find((w) => w.alongM === alongM);
-        if (made) c.updateWaypoint(made.id, { label: pin.name.slice(0, 120) });
+        if (made) c.updateWaypoint(made.id, { label: pin.name.slice(0, MAX_LABEL_LEN) });
       }
     }
   }

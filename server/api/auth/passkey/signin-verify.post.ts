@@ -1,10 +1,8 @@
 import { defineEventHandler } from "h3";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
-import { eq } from "drizzle-orm";
 import { openPrivate, startSession } from "../../../utils/authSession";
 import { findCredential, touchCredential } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
-import { users } from "../../../db/schema";
 import { readJsonBodyCapped } from "../../../utils/http";
 import { trustedOrigin } from "../../../utils/origin";
 import { rpIdFor, takeChallenge } from "../../../utils/passkeys";
@@ -58,18 +56,12 @@ export default defineEventHandler(async (event) => {
 
   if (!verification.verified) return { ok: false as const };
 
-  // the counter stamp and the email read are independent, so they go out together
-  // (one round trip on neon-http, which has no pipelining); the session starts only
-  // once the stamp has landed
-  const [, row] = await Promise.all([
-    touchCredential(db, cred.id, verification.authenticationInfo.newCounter),
-    db.select({ email: users.email }).from(users).where(eq(users.id, cred.userId)).limit(1),
-  ]);
+  // the session starts only once the counter stamp has landed
+  await touchCredential(db, cred.id, verification.authenticationInfo.newCounter);
   // the ceremony happened in this browser: its lists follow (see startSession). The
   // session is as unproven as the account was when the key was looked up, not now:
   // a claim landing in between must leave it stamped (claimUnverifiedAccount)
   await startSession(event, db, cred.userId, { sweep: true, unproven: cred.accountUnproven });
-  // null, not "" — an account made with a passkey genuinely has no address, and
-  // the client distinguishes "none yet" from "" nowhere else
-  return { ok: true as const, user: { email: row[0]?.email ?? null } };
+  // the address came back with the credential (findCredential joins the account)
+  return { ok: true as const, user: { email: cred.email } };
 });

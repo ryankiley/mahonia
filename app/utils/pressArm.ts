@@ -2,13 +2,12 @@
 // drags put that module on the first load, and this half has one caller, the My Gear
 // pane, which loads when it is opened.
 //
-// A press that BECOMES a drag. Both vault surfaces let you grab a row anywhere —
-// the row is the whole target, so there's no grip to hang the gesture on — which
-// means every press needs the same scaffold to decide what it was: a record of
-// where it started, window-level move/up/cancel listeners, and a travel
-// threshold before the drag is armed and handed off. This owns that arming;
-// what the drag then IS (createPointerDrag on /vault, the editor's insert
-// gesture in the pane) stays with the caller, in onDrag.
+// A press that BECOMES a drag. The pane lets you grab a row anywhere — the row is
+// the whole target, so there's no grip to hang the gesture on — which means every
+// press needs the same scaffold to decide what it was: a record of where it
+// started, window-level move/up/cancel listeners, and a travel threshold before
+// the drag is armed and handed off. This owns that arming; what the drag then IS
+// (the editor's insert gesture) stays with the caller, in onDrag.
 
 interface PressArmOptions<T> {
   /** px of pointer travel that separates a drag from a stray press */

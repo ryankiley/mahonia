@@ -1,6 +1,6 @@
 // Domain types shared by the client editor, the op-reducer, and the server/DB.
 
-// The one import here. trailDistance.ts imports nothing, so this can't cycle, and
+// A type-only import, erased at build, so this can't cycle, and
 // re-declaring `"km" | "mi"` in two files is how the two quietly drift apart.
 import type { DisplayDistanceUnit } from "./trailDistance";
 
@@ -239,8 +239,9 @@ export interface ListMeta {
   trailUrl?: string;
   trailLabel?: string;
   // How far the route goes, in METRES — typed by the owner, never fetched (the linked
-  // page can't be read server-side; see the note atop shared/trailDistance.ts). A
-  // property of the route, so it belongs to the link and is cleared with it.
+  // page can't be read server-side; see the note atop shared/trailDistance.ts). The
+  // trip's length, typed with or without a link, and cleared by emptying its own field
+  // (CLEARS_WITH_LINK in shared/trailLink.ts leaves it).
   trailDistanceM?: number;
   // Which unit that distance READS in, "km" or "mi". Absent = miles; present = the owner
   // picked, and the pick is remembered. It used to fall back to the weight unit, on the
@@ -277,9 +278,7 @@ export interface ListMeta {
   // timezone. A trip's dates are the ones written on a permit — they don't shift
   // because you flew somewhere, which is exactly what storing an instant would do.
   //
-  // Two optional strings and nothing else. This is NOT a trip planner: there are no
-  // days, no waypoints, no itinerary. See the note in shared/ops.ts's setMeta case
-  // for why the smaller thing was chosen deliberately.
+  // Two optional strings. The itinerary itself (`days`, `waypoints`) lives in ListData.
   startDate?: string;
   endDate?: string;
 }
@@ -332,6 +331,24 @@ export function pickListMeta<T extends Partial<ListMeta>>(src: T): Pick<T, ListM
   for (const key of LIST_META_KEYS) if (key in src) out[key] = src[key];
   return out as Pick<T, ListMetaKey & keyof T>;
 }
+
+/**
+ * The entity lists a list holds, in one place: the row's `data`, the delta chain, the
+ * in-place reconcile and a draft's first save all walk this list, so a sixth arrives in
+ * all of them at once. A list left out of any one of them is a list erased by the next
+ * write (waypoints once were). The check below is the half `satisfies` can't make: it
+ * fails to compile until a new ListData key is listed.
+ */
+export const ENTITY_KEYS = ["folders", "items", "days", "waypoints", "people"] as const satisfies readonly (keyof ListData)[];
+export type EntityKey = (typeof ENTITY_KEYS)[number];
+const _entityKeysAreExhaustive: Exclude<keyof ListData, EntityKey> extends never ? true : never = true;
+void _entityKeysAreExhaustive;
+
+/** A state's content as the `data` a row, a full snapshot and a create body all carry:
+ *  every entity list, each coerced to an array, because a list written before
+ *  days/waypoints/people existed has no key at all. */
+export const stateData = (s: ListData): ListData =>
+  Object.fromEntries(ENTITY_KEYS.map((key) => [key, s[key] ?? []])) as unknown as ListData;
 
 /** Canonical wire shape returned by the API and held by the client editor. */
 export interface ListSnapshot extends ListState {

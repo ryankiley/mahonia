@@ -8,13 +8,17 @@
 // has it — the person who just read it off the page they linked.
 //
 // Stored in METRES, the way weight is stored in milligrams: one canonical unit, the
-// entry unit is a display concern. Distance is a property of the ROUTE, so it lives
-// on the trail link rather than on the list — clearing the link clears it too.
+// entry unit is a display concern. It is the trip's length, typed with or without a
+// link, so removing the link leaves it (CLEARS_WITH_LINK, shared/trailLink.ts).
 //
 // This file is only the LENGTH. Elevation, gradient, the per-day itinerary and the burn
 // model all exist now and all live elsewhere — shared/gpx.ts reads the route's shape,
 // shared/tripPlan.ts turns it into time and calories. What stays out of here is anything
 // that needs more than a number and a unit.
+
+// The one import: tidyText.ts pins the locale numbers are grouped in (heights render on
+// the server-rendered share views too) and imports nothing itself, so nothing can cycle.
+import { formatCount } from "./tidyText";
 
 /** Metres per distance unit: the one place each conversion factor is written. */
 const M_PER_UNIT = {
@@ -213,7 +217,7 @@ export function heightUnitFor(unit: DisplayDistanceUnit): "ft" | "m" {
  * the conversion, which is why that part lives here.
  */
 export function heightValue(metres: number, unit: DisplayDistanceUnit, step = 1): string {
-  return heightNumber(metres, unit, step).toLocaleString(NUM_LOCALE);
+  return formatCount(heightNumber(metres, unit, step));
 }
 
 /** The one conversion under every height readout: metres into the display unit, held
@@ -222,12 +226,6 @@ export function heightValue(metres: number, unit: DisplayDistanceUnit, step = 1)
 function heightNumber(metres: number, unit: DisplayDistanceUnit, step: number): number {
   return Math.round(metres / M_PER_UNIT[heightUnitFor(unit)] / step) * step;
 }
-
-/** Pinned, as tidyText.ts pins the one weights and counts use: heights render on the server-rendered share
- *  views too, and an ambient locale would group "7,316" one way in the HTML and another
- *  on hydration. Restated rather than imported — this module imports nothing, because
- *  types.ts imports it. */
-const NUM_LOCALE = "en-US";
 
 /**
  * A height with its unit word — "7,316 ft" — at the STATED step (heightStepFor). The
@@ -362,8 +360,8 @@ export function normalizeBodyWeightUnit(raw: unknown): BodyWeightUnit | undefine
  * comes back lower-case with its dots and spaces gone ("fl. oz" → "floz"), "" when there
  * is none. The one rule for reading an amount someone typed — a body weight below and a
  * water volume (shared/water.ts) both start here, so what counts as a number can't
- * drift between them. (It lives in this file because this file imports nothing, and
- * types.ts relies on that.)
+ * drift between them. (It lives in this file because this file imports no domain module,
+ * so both can reach it without a cycle.)
  */
 export function splitAmount(raw: unknown): { n: number; unit: string } | null {
   if (raw == null) return null;
@@ -406,6 +404,18 @@ export function bodyWeightFieldValue(grams: number | undefined, unit: BodyWeight
 }
 
 /**
+ * The route's length as a denominator: the stated distance, or the days' sum where
+ * they have been given more than it. The plan's headline, the shared view's itinerary
+ * and the profile's day cuts all size against this same figure.
+ */
+export function routeLengthM(
+  trailDistanceM: number | null | undefined,
+  dayDistancesM: readonly (number | null | undefined)[],
+): number {
+  return Math.max(trailDistanceM ?? 0, dayDistancesM.reduce<number>((sum, d) => sum + (d ?? 0), 0));
+}
+
+/**
  * The trip's headline distance and the unit it reads in — the figure planning mode puts
  * at the top of the page.
  *
@@ -424,8 +434,7 @@ export function tripHeadline(list: {
   days?: { distanceM?: number }[];
 }): { value: string; unit: DisplayDistanceUnit } {
   const unit = resolveDistanceUnit(list.trailDistanceUnit);
-  const typed = (list.days ?? []).reduce((s, d) => s + (d?.distanceM ?? 0), 0);
-  const metres = Math.max(list.trailDistanceM ?? 0, typed);
+  const metres = routeLengthM(list.trailDistanceM, (list.days ?? []).map((d) => d?.distanceM));
   // Bare number to one decimal, never a unit switch: formatDistance drops below a
   // kilometre to metres, which is right in prose and wrong beside the headline's
   // own unit control still saying "km".

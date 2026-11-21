@@ -1,5 +1,5 @@
 import { defineEventHandler, getHeader, readRawBody, send, setHeader, setResponseStatus, type H3Event } from "h3";
-import { BUDGET_WAIT, MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, accountUse, callTool, isKnownTool } from "../utils/mcp";
+import { BUDGET_WAIT, MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, accountUse, callTool, isKnownTool, toolFailure } from "../utils/mcp";
 import { setNoIndex, setNoStore } from "../utils/http";
 import { APP_ACCESS_PREFIX, connectorToken, resolveBearer } from "../utils/accessTokens";
 import { useAccountDb } from "../utils/db";
@@ -159,7 +159,7 @@ export default defineEventHandler(async (event) => {
       return error(id, -32602, "arguments must be an object of the tool's parameters");
     }
     if (budgetUnknown) {
-      return result(id, { content: [{ type: "text", text: "Mahonia couldn't check its request budget just now, so nothing was run. Try again in a minute." }], isError: true });
+      return result(id, toolFailure("Mahonia couldn't check its request budget just now, so nothing was run. Try again in a minute."));
     }
   }
 
@@ -179,10 +179,10 @@ export default defineEventHandler(async (event) => {
         identity = await resolveBearer(await useAccountDb(), bearer);
       } catch (e) {
         console.error("[mcp bearer]", e);
-        return result(id, { content: [{ type: "text", text: "Mahonia couldn't check the sign-in just now, so nothing was run. Try again in a minute." }], isError: true });
+        return result(id, toolFailure("Mahonia couldn't check the sign-in just now, so nothing was run. Try again in a minute."));
       }
+      event.context.connector = identity;
     }
-    if (bearer) event.context.connector = identity;
     // An app's access token that opens nothing has almost always aged out, and its
     // client holds the refresh token: create_list answers it as the account tools do,
     // or the first list of a conversation an hour on is made but never filed. A
@@ -262,6 +262,6 @@ async function runTool(event: H3Event, name: string, args: unknown) {
           : status === 409
             ? "The list was being saved from an open editor at the same moment, so nothing was changed; send the same call again."
             : "That didn't work; the request was well formed but the server could not complete it.";
-    return { content: [{ type: "text" as const, text }], isError: true };
+    return toolFailure(text);
   }
 }

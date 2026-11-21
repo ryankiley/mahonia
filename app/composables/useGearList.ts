@@ -6,7 +6,7 @@ import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/li
 import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey } from "~~/shared/localList";
 import { reconcileSnapshot } from "~~/shared/reconcile";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
-import { pickListMeta } from "~~/shared/types";
+import { pickListMeta, stateData } from "~~/shared/types";
 import type { CaptureOneResult } from "./useVault";
 import type { VaultCapture, VaultGearKey } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
@@ -50,6 +50,10 @@ type VaultAsk = { step: "prompt"; title: string } | { step: "picker"; rows: Vaul
 const FLUSH_DEBOUNCE_MS = 450;
 /** The first wait after a failed flush; it doubles per failure to a 30 s ceiling. */
 const FLUSH_BACKOFF_MS = 1500;
+/** The most ops one request carries: the client's batch size, well under what the
+ *  server takes. It refuses an oversized batch rather than truncating it, so a longer
+ *  queue goes out in batches of this many. */
+const FLUSH_BATCH_MAX = 500;
 // Both read at the moment the timer is set — for tests. The suites that drive this
 // controller with real timers (tests/gearList.nuxt.test.ts and company) wait out the
 // flush debounce on nearly every case, and the backoff once.
@@ -818,9 +822,9 @@ function create() {
           // every meta field — a trail link added to the draft must survive its
           // first save, and so must the dates, which sit in the same meta row and
           // are set the same way; LIST_META_KEYS is what keeps the next one from
-          // being forgotten here
+          // being forgotten here, and ENTITY_KEYS does the same for the lists
           ...pickListMeta(s),
-          data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [], people: s.people ?? [] },
+          data: stateData(s),
         },
       });
       if (myEpoch !== epoch) {
@@ -932,11 +936,11 @@ function create() {
     // dispose() may already have cleared both of these.
     const myKey = storeKey();
     const snapAtFlush = snapshot.value;
-    // ≤500 ops per request — the server 400s on oversized batches instead of
-    // truncating. A longer queue (offline session) drains across sequential
-    // flushes: the finally reschedules while pending is non-empty, and the
-    // rebase below re-applies the remainder onto each merged snapshot.
-    const ops = pending.splice(0, 500);
+    // One batch per request (FLUSH_BATCH_MAX). A longer queue (offline session)
+    // drains across sequential flushes: the finally reschedules while pending is
+    // non-empty, and the rebase below re-applies the remainder onto each merged
+    // snapshot.
+    const ops = pending.splice(0, FLUSH_BATCH_MAX);
     inFlight = true;
     let failed = false;
     // DON'T ANNOUNCE A RETRY. Once the line reads "Not saved", flipping it to
@@ -1017,7 +1021,7 @@ function create() {
       if (myEpoch === epoch) {
         inFlight = false;
         // ONLY chase the queue when this attempt actually landed. This is what drains
-        // a >500-op backlog across sequential flushes (see the splice above) — but on
+        // a backlog past FLUSH_BATCH_MAX across sequential flushes (see the splice above) — but on
         // the failure path `pending` is never empty, because the catch just re-queued
         // the batch, so it fired every time and replaced the backoff above with its
         // own 450ms. That is what made a failing save retry ~1/second forever.
@@ -1168,7 +1172,7 @@ function create() {
     const snap = snapshot.value;
     const item = snap?.items.find((i) => i.id === id);
     if (!snap || !item) return "failed";
-    const { result, landed } = await vault.captureOne(item, snap.items, snap.folders, editToken());
+    const { result, landed } = await vault.captureOne(item, snap.items, snap.folders);
     // Folded in HERE rather than inside capture: the answer belongs to this list's
     // state, so a response that outlives the list (or the account) writes into a
     // Map that resetSession has already replaced, and nothing leaks anywhere.
@@ -1340,12 +1344,11 @@ function create() {
     // unconditionally (a new instance clearing whatever came before it).
     if (ownEpoch !== undefined && ownEpoch !== epoch) return;
     // best-effort: flush unsynced edits before teardown (SPA nav / unmount) so
-    // queued ops aren't silently dropped on the way out. Capped at the server's
-    // 500-op batch limit (it rejects oversized batches); the remainder is safe in
-    // the on-device copy below and drains on the next open. A dead token would only
-    // 404, so don't bother.
+    // queued ops aren't silently dropped on the way out. Capped at one batch
+    // (FLUSH_BATCH_MAX); the remainder is safe in the on-device copy below and drains
+    // on the next open. A dead token would only 404, so don't bother.
     if (pending.length && holdsList() && !remoteMissing()) {
-      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending.slice(0, 500) } }).catch(() => {});
+      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending.slice(0, FLUSH_BATCH_MAX) } }).catch(() => {});
     }
     // capture the latest state on device before teardown — the debounced persist
     // may not have fired, and SPA nav / unmount must not drop the last edits

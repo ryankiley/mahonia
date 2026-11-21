@@ -11,7 +11,7 @@ import { and, eq, gt, isNull, lt, or } from "drizzle-orm";
 import type { H3Event } from "h3";
 import { createError, deleteCookie, getCookie, setCookie } from "h3";
 import { authTokens, credentials, oauthCodes, sessions, users } from "../db/schema";
-import { revokeAllAccessTokens } from "./accessTokens";
+import { notRetired, revokeAllAccessTokens } from "./accessTokens";
 import { useAccountDb, type Db } from "./db";
 import { setNoIndex, setPrivate } from "./http";
 import { rateLimit, type RateLimitAction } from "./rateLimit";
@@ -433,18 +433,6 @@ function isSecureRequest(event: H3Event): boolean {
 }
 
 /**
- * Start a signed-in session: mint the cookie value, store its hash, set the
- * cookie.
- *
- * HttpOnly — no script ever needs to read it, and the app's CSP already allows
- * inline script, so keeping it off `document.cookie` matters.
- * SameSite=Lax — the sign-in link is a cross-site top-level GET from an email
- * client, which Lax permits, while still blocking the cross-site POSTs that CSRF
- * needs. Every mutating endpoint is a POST, so Lax carries the CSRF defence for
- * anything done AS a session; server/middleware/sameOrigin.ts is the second line,
- * and the only one for the requests that start a session and so have no cookie.
- */
-/**
  * The readable owner marker for a session: a hash of the token's hash, cut to 16 hex
  * characters. Not a credential and not the user's id — it names WHICH account's
  * browser-local caches to read (see SESSION_OWNER_COOKIE), nothing more. A fresh
@@ -494,6 +482,17 @@ function setSessionCookies(event: H3Event, token: string, expiresAt: Date): void
 }
 
 /**
+ * Start a signed-in session: mint the cookie value, store its hash, set the
+ * cookie.
+ *
+ * HttpOnly — no script ever needs to read it, and the app's CSP already allows
+ * inline script, so keeping it off `document.cookie` matters.
+ * SameSite=Lax — the sign-in link is a cross-site top-level GET from an email
+ * client, which Lax permits, while still blocking the cross-site POSTs that CSRF
+ * needs. Every mutating endpoint is a POST, so Lax carries the CSRF defence for
+ * anything done AS a session; server/middleware/sameOrigin.ts is the second line,
+ * and the only one for the requests that start a session and so have no cookie.
+ *
  * `sweep` — whether this browser's lists may follow it into the account unasked.
  *
  * Signing in attaches the lists a browser made to the account (the claim sweep,
@@ -554,7 +553,7 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
     .innerJoin(users, eq(users.id, sessions.userId))
     // a session made while the address was unproven is over once it is proven, even
     // one written after the claim swept the table (claimUnverifiedAccount)
-    .where(and(eq(sessions.tokenHash, hash), gt(sessions.expiresAt, now), or(eq(sessions.unproven, false), eq(users.emailVerified, false))))
+    .where(and(eq(sessions.tokenHash, hash), gt(sessions.expiresAt, now), notRetired(sessions.unproven)))
     .limit(1);
   const row = rows[0];
   if (!row) return null;

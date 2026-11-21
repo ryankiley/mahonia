@@ -23,7 +23,6 @@ const props = defineProps<{
   options: readonly { key: string; label: string }[];
   /** names the picker for a screen reader, e.g. "Weight unit" */
   label: string;
-  title?: string;
   /** an explicit accessible name for the trigger, where the figure alone reads oddly */
   triggerLabel?: string;
   /**
@@ -58,7 +57,7 @@ const captionParts = computed(() =>
       :options="props.options"
       :current="props.unit"
       :label="props.label"
-      :title="props.title"
+      title="Change unit"
       :trigger-label="props.triggerLabel"
       @pick="(u) => $emit('pick', u)"
     >

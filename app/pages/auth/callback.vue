@@ -36,7 +36,7 @@ let confirmed = false;
 const addFailed = ref(false);
 
 // the lists this browser made: what the second question is about
-const deviceLists = computed(() => useMyLists().entries.value.filter((e) => e.origin !== "opened").length);
+const deviceLists = computed(() => useMyLists().entries.value.filter(madeHere).length);
 
 type VerifyAnswer =
   | { ok: true; sweep: boolean }
@@ -62,13 +62,14 @@ function ask(question: "confirm" | "lists") {
   rearm();
   state.value = question;
 }
+useWindowEvent("focus", rearm);
 onMounted(() => {
-  window.addEventListener("focus", rearm);
   document.addEventListener("visibilitychange", rearm);
+  // the link is sent as the page arrives, with no click (the top of this file says why)
+  void verify();
 });
 onBeforeUnmount(() => {
   clearTimeout(arming);
-  window.removeEventListener("focus", rearm);
   document.removeEventListener("visibilitychange", rearm);
 });
 
@@ -136,8 +137,6 @@ async function finish() {
   state.value = "done";
   await useReturnTo().resume("/gear");
 }
-
-onMounted(verify);
 </script>
 
 <template>

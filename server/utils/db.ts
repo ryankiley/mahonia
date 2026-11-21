@@ -1,6 +1,7 @@
 // Database access. Local dev uses PGlite (in-process Postgres, zero setup);
 // production uses Neon when DATABASE_URL is set. Same Drizzle API either way.
-// Schema is ensured idempotently on first use (dev); prod would run migrations.
+// There is no migration step: the schema is ensured idempotently on first use, by
+// build() in dev and by the use*Db() and ensure*Schema() helpers below on Neon.
 
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "../db/schema";

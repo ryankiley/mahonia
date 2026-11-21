@@ -82,6 +82,10 @@ export function enoughToSearch(query: string): boolean {
   return query.length >= 2 || hasIdeograph(query);
 }
 
+/** The most of a typed query a server search reads, in characters: the catalog's and
+ *  the vault's endpoints and the connector's two searches all cut a query at this length. */
+export const SEARCH_QUERY_MAX = 100;
+
 /** Whether the text carries an ideograph (a Chinese character, or a kanji). One is a
  *  word, and two is a long one, so the length rules written for letters don't apply. */
 export const hasIdeograph = (s: string): boolean => /\p{Ideographic}/u.test(s);

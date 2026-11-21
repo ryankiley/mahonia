@@ -11,7 +11,7 @@
 import type { Totals, Unit } from "~~/shared/types";
 import { listSummaryBits } from "~~/shared/weights";
 
-export const GENERIC_TITLE = "Mahonia — pack lists, weighed";
+const GENERIC_TITLE = "Mahonia — pack lists, weighed";
 const GENERIC_DESC = "Make a packing list, see what it weighs, share it. No login needed.";
 
 // The default "Untitled list" (or empty) is "not named" — an unnamed list keeps
@@ -28,4 +28,15 @@ export function editorSeo(
   if (!totals) return { name, desc: `${name}, a packing list on Mahonia.` };
   // the same facts, in the same words, as the read views' description (listSummaryBits)
   return { name, desc: `${name}, a packing list (${listSummaryBits(totals, displayUnit).join(" · ")}) on Mahonia.` };
+}
+
+/** That copy as the page's description and card text, for both surfaces: the unnamed
+ *  list's card title is the site's. The tab title stays each caller's own (the editor
+ *  says "Untitled list" where the server-rendered head says only "Mahonia"). */
+export function useEditorSeoMeta(seo: { readonly value: { name: string; desc: string } }): void {
+  useSeoMeta({
+    description: () => seo.value.desc,
+    ogTitle: () => seo.value.name || GENERIC_TITLE,
+    ogDescription: () => seo.value.desc,
+  });
 }

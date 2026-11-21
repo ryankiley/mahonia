@@ -5,16 +5,15 @@
 
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
-  accessTokens,
   authTokens,
   credentials,
   listClaims,
   lists,
-  oauthCodes,
   sessions,
   users,
   vaults,
 } from "../db/schema";
+import { revokeAllAccessTokens } from "./accessTokens";
 import type { Db } from "./db";
 import { deleteVaultContents } from "./vaultRepo";
 
@@ -89,8 +88,8 @@ export async function deleteAccount(
   await Promise.all([
     db.delete(listClaims).where(eq(listClaims.userId, userId)),
     db.delete(credentials).where(eq(credentials.userId, userId)),
-    db.delete(accessTokens).where(eq(accessTokens.userId, userId)),
-    db.delete(oauthCodes).where(eq(oauthCodes.userId, userId)),
+    // every token and connected app, and the codes not yet traded for one
+    revokeAllAccessTokens(db, userId),
     db.delete(authTokens).where(eq(authTokens.userId, userId)),
     db.delete(sessions).where(eq(sessions.userId, userId)),
   ]);

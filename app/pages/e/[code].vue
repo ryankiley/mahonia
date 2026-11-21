@@ -48,21 +48,13 @@ const seo = computed(() => editorSeo(snap.value?.title, totals.value, snap.value
 // The card image: an edit link unfurls with the same per-list card as the share
 // link, addressed by the share code this route already resolves through — the
 // secret token in the fragment plays no part.
-useListOgCard(() =>
-  snap.value && totals.value
-    ? { path: `/og/s/${snap.value.shareCode}`, list: snap.value, totals: totals.value }
-    : null,
-);
+useListOgCard(() => snap.value, () => totals.value);
 useHead({
   title: () => (seo.value.name ? `${seo.value.name} — Mahonia` : "Mahonia"),
   // a capability link, not a page — keep it out of search (og still drives previews)
   meta: [{ name: "robots", content: "noindex" }],
 });
-useSeoMeta({
-  description: () => seo.value.desc,
-  ogTitle: () => seo.value.name || GENERIC_TITLE,
-  ogDescription: () => seo.value.desc,
-});
+useEditorSeoMeta(seo);
 
 // Keep the list you're leaving on screen until this one can paint — see readAhead. Not
 // while the page hydrates: there is nothing on screen to keep, and holding hydration for

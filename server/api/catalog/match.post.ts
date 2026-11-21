@@ -1,9 +1,9 @@
 import { createError, defineEventHandler } from "h3";
 import { buildCatalogNameIndex, lookupImported, type ImportedName } from "../../../shared/catalogMatch";
-import { MAX_ITEMS, MAX_ITEM_NAME_LEN } from "../../../shared/ops";
+import { MAX_BRAND_LEN, MAX_ITEMS, MAX_ITEM_NAME_LEN, MAX_VARIANT_LEN } from "../../../shared/ops";
 import { activeCatalogRows } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
-import { setNoIndex } from "../../utils/http";
+import { isObjectLike, readJsonBodyCapped, setNoIndex } from "../../utils/http";
 import { rateLimit } from "../../utils/rateLimit";
 
 // Which of these imported names are catalog products, word for word? One request per
@@ -15,15 +15,15 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "catalog-match");
   setNoIndex(event);
 
-  const body = (await readJsonBodyCapped(event, 64_000)) as { names?: unknown } | null;
+  const body = await readJsonBodyCapped<{ names?: unknown }>(event, 64_000);
   const raw = Array.isArray(body?.names) ? (body.names as unknown[]) : null;
   if (!raw) throw createError({ statusCode: 400, statusMessage: "names[] required" });
   if (raw.length > MAX_ITEMS) throw createError({ statusCode: 413, statusMessage: `At most ${MAX_ITEMS} names` });
 
   const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : undefined);
   const names: ImportedName[] = raw.map((n) => {
-    const o = (n && typeof n === "object" ? n : {}) as Record<string, unknown>;
-    return { name: str(o.name, MAX_ITEM_NAME_LEN) ?? "", brand: str(o.brand, 120), variant: str(o.variant, 120) };
+    const o = (isObjectLike(n) ? n : {}) as Record<string, unknown>;
+    return { name: str(o.name, MAX_ITEM_NAME_LEN) ?? "", brand: str(o.brand, MAX_BRAND_LEN), variant: str(o.variant, MAX_VARIANT_LEN) };
   });
 
   const index = buildCatalogNameIndex(await activeCatalogRows(await useCatalogDb()));

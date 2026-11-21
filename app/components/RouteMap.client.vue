@@ -190,19 +190,6 @@ function resize() {
 }
 
 /**
- * A Hugeicon as an SVG STRING.
- *
- * Leaflet's divIcon takes HTML, not a component, so the glyph can't be rendered by
- * <HugeiconsIcon> the way it is everywhere else in the app — it has to be serialised. The
- * icon data is a plain `[tag, attrs][]` array from the bundled package, which is why this
- * is a dozen lines rather than a dependency.
- *
- * The per-path `stroke-width` is DROPPED and set once on the <svg>. The set draws in a
- * 24-unit box at 1.5, which scales to a 0.7px hairline at pin size — invisible against
- * contour lines. Setting it here lets the paths inherit a weight chosen for the size
- * they're actually drawn at.
- */
-/**
  * The drop. Big enough to hold a legible glyph, small enough not to bury the terrain.
  *
  * 22px was sized for a coloured disc, where the fill did the finding and the glyph was a
@@ -252,6 +239,19 @@ const TRACE_PX = 12;
 const PIN_TIP_PX = PIN_PX / 2 + (PIN_PX * Math.SQRT2) / 2;
 const PIN_GLYPH_PX = 17;
 const PIN_GLYPH_STROKE = 2;
+/**
+ * A Hugeicon as an SVG STRING.
+ *
+ * Leaflet's divIcon takes HTML, not a component, so the glyph can't be rendered by
+ * <HugeiconsIcon> the way it is everywhere else in the app — it has to be serialised. The
+ * icon data is a plain `[tag, attrs][]` array from the bundled package, which is why this
+ * is a dozen lines rather than a dependency.
+ *
+ * The per-path `stroke-width` is DROPPED and set once on the <svg>. The set draws in a
+ * 24-unit box at 1.5, which scales to a 0.7px hairline at pin size — invisible against
+ * contour lines. Setting it here lets the paths inherit a weight chosen for the size
+ * they're actually drawn at.
+ */
 function iconSvg(icon: IconNode): string {
   const body = icon
     .map(([tag, attrs]) => {
@@ -444,15 +444,6 @@ function endLift() {
   resetLift(true);
 }
 
-/**
- * Draw the pins.
- *
- * A waypoint stores only a DISTANCE, so its position is walked out of the polyline here —
- * which is the whole reason no coordinate is ever stored for one.
- *
- * The label goes on with textContent, never into the divIcon's html. That html is set as
- * innerHTML, and a label is text somebody typed on a list anyone with the link can open.
- */
 /** The day-boundary handles. Same lift gesture as a pin, a different thing to commit. */
 function renderBounds() {
   if (!map || !L) return;
@@ -555,6 +546,15 @@ function renderFinish() {
   }).addTo(map);
 }
 
+/**
+ * Draw the pins.
+ *
+ * A waypoint stores only a DISTANCE, so its position is walked out of the polyline here —
+ * which is the whole reason no coordinate is ever stored for one.
+ *
+ * The label goes on with textContent, never into the divIcon's html. That html is set as
+ * innerHTML, and a label is text somebody typed on a list anyone with the link can open.
+ */
 function renderPins() {
   if (!map || !L) return;
   for (const m of pins) m.remove();

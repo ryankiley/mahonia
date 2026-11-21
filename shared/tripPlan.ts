@@ -400,18 +400,6 @@ export function descentIsDistinct(
   return descentM != null && ascentM != null && descentM !== ascentM;
 }
 
-/**
- * The route's length as a denominator: the stated distance, or the days' sum where
- * they have been given more than it. The plan's headline, the shared view's itinerary
- * and the profile's day cuts all size against this same figure.
- */
-export function routeLengthM(
-  trailDistanceM: number | null | undefined,
-  dayDistancesM: readonly (number | null | undefined)[],
-): number {
-  return Math.max(trailDistanceM ?? 0, dayDistancesM.reduce<number>((sum, d) => sum + (d ?? 0), 0));
-}
-
 /** True when the figure on screen came from the route rather than from the user —
  *  the app marks a derived climb so it doesn't read as something you typed. */
 export function heightIsDerived(

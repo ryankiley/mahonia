@@ -7,7 +7,7 @@ import { MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
 import { effectiveClassificationInFolder, fromMg, itemDisplayName, parseDecimal, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportSections } from "./rows";
-import { CSV_DECIMALS, csvCell, stripFormulaGuard } from "./csvCell";
+import { csvCell, csvPrice, csvWeight, stripFormulaGuard } from "./csvCell";
 import { uid } from "../id";
 
 // Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
@@ -25,7 +25,6 @@ const truthy = (v: string | undefined) =>
 // ---- export ----
 export function listToCsv(list: ListSnapshot): string {
   const u = list.displayUnit;
-  const esc = csvCell;
   // One lookup table for both the exported folder name and effective class; an export
   // can contain hundreds of rows, so each must not scan every folder twice.
   const folderById = new Map(list.folders.map((folder) => [folder.id, folder]));
@@ -54,25 +53,25 @@ export function listToCsv(list: ListSnapshot): string {
     // makes a row typed in ounces come back as ounces instead of being flattened to
     // the list's unit on every round-trip.
     const ru = it.entryUnit ?? u;
-    const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, ru).toFixed(CSV_DECIMALS[ru]) : "";
+    const w = csvWeight(it.unitWeightMg, ru);
     // the split gets its OWN column: the boolean Worn column can't carry a count
     // (a split row must not import back as fully worn)
     const wq = splitWornQty(it, cls);
     out.push(
       [
-        esc(folderName(it.folderId)),
+        csvCell(folderName(it.folderId)),
         // brand has its own column, so the name field carries model + variant
-        esc(itemDisplayName(null, it.name, it.variant)),
-        esc(it.commonName ?? ""),
-        esc(it.brand ?? ""),
+        csvCell(itemDisplayName(null, it.name, it.variant)),
+        csvCell(it.commonName ?? ""),
+        csvCell(it.brand ?? ""),
         it.qty,
         w,
         it.unitWeightMg > 0 ? ru : "",
         cls === "worn" ? "1" : "",
         cls === "consumable" ? "1" : "",
-        it.priceCents != null ? (it.priceCents / 100).toFixed(2) : "",
-        esc(it.productUrl ?? ""),
-        esc(it.description ?? ""),
+        csvPrice(it.priceCents),
+        csvCell(it.productUrl ?? ""),
+        csvCell(it.description ?? ""),
         wq > 0 ? wq : "",
         // only meaningful on a consumable row, and that's the only place it's
         // counted (see computeTotals) — so a stale value on a demoted row isn't
@@ -81,7 +80,7 @@ export function listToCsv(list: ListSnapshot): string {
         // The EFFECTIVE carrier (a child falls back to its parent's), materialized per
         // row because the flat CSV loses nesting: a child re-imports as top-level, so
         // an assignment it only inherited has to be written out or it's gone.
-        esc(carrierName(list, it, it === item ? null : item)),
+        csvCell(carrierName(list, it, it === item ? null : item)),
         it.needsCooking === true ? "1" : "",
       ].join(","),
     );
@@ -202,10 +201,7 @@ export function csvToListData(
       personId.set(key, id);
       // seeded with the folders' hues too, like the editor's addPerson — one
       // color, one meaning, even when both sets render side by side
-      const colorKey = nextFolderColor([
-        ...usedColorKeys(folders),
-        ...usedColorKeys(people),
-      ]);
+      const colorKey = nextFolderColor(usedColorKeys([...folders, ...people]));
       people.push({ id, name: key, colorKey, sortOrder: people.length });
     }
     return personId.get(key)!;

@@ -71,6 +71,13 @@ function pinsOf(row: Row): VaultPinField[] | undefined {
   return out.length ? out : undefined;
 }
 
+/** A unit off the wire or out of the column, or undefined for anything else. */
+export const unitOf = (v: unknown): Unit | undefined => (UNITS.includes(v as Unit) ? (v as Unit) : undefined);
+/** A classification off the wire or out of the column, or undefined for anything else:
+ *  the CHECK would reject it, and a 500 is the wrong answer to one bad field. */
+export const classificationOf = (v: unknown): Classification | undefined =>
+  CLASSIFICATIONS.includes(v as Classification) ? (v as Classification) : undefined;
+
 /** DB row → wire shape: SQL nulls become absent fields, so the client sees the same
  *  optional-property shape the capture side produces. */
 // The vault's backfill, in the one place every read converts a row (the live list, the
@@ -83,13 +90,6 @@ function pinsOf(row: Row): VaultPinField[] | undefined {
 // the SAME key. Tidying what's shown cannot re-key a row, split one in two, or miss the
 // upsert target. The stored column keeps whatever it had until the next capture
 // rewrites it from an already-tidied list item.
-/** A unit off the wire or out of the column, or undefined for anything else. */
-export const unitOf = (v: unknown): Unit | undefined => (UNITS.includes(v as Unit) ? (v as Unit) : undefined);
-/** A classification off the wire or out of the column, or undefined for anything else:
- *  the CHECK would reject it, and a 500 is the wrong answer to one bad field. */
-export const classificationOf = (v: unknown): Classification | undefined =>
-  CLASSIFICATIONS.includes(v as Classification) ? (v as Classification) : undefined;
-
 function toEntry(row: Row): VaultEntry {
   return {
     id: row.id,
@@ -211,10 +211,6 @@ function url(v: unknown): string | undefined {
   return v.trim().slice(0, VAULT_URL_MAX) || undefined;
 }
 
-/** A weight off the wire, clamped by the same rule the list reducer applies. Flooring
- *  at zero was not enough: a direct POST
- *  of 1e19 reached the bigint column and errored the whole multi-row capture, so
- *  one hostile row took a whole list's gear down with it. */
 /** A price off the wire: whole cents, floored at zero and capped so an integer
  *  column can hold it. Zero reads as absent, like kcal — nobody records paying
  *  nothing, and a stored 0 would print as "0.00" on every row that never had one. */
@@ -292,6 +288,9 @@ function sanitizeOne(c: Omit<VaultCapture, "normKey">): VaultCapture | null {
     priceCents: centsOf(c.priceCents),
     // dropped without an amount, so the pair can never half-exist in the table
     currency: centsOf(c.priceCents) != null ? currencyOf(c.currency) : undefined,
+    // clamped by the rule the list reducer applies. Flooring at zero was not enough:
+    // a direct POST of 1e19 reached the bigint column and errored the whole multi-row
+    // capture, so one hostile row took a whole list's gear down with it
     weightMg: Number.isFinite(c.weightMg) ? clampUnitWeightMg(c.weightMg) : 0,
     classification: classificationOf(c.classification),
     kcal: kcalOf(c.kcal),
@@ -353,6 +352,32 @@ export async function captureVaultItemsReporting(
 }
 
 /**
+ * What an incoming row does to each content column of the row it lands on, before
+ * any pin is asked: the spelling is the incoming one, and every other field is set
+ * by a row that carries it and left alone by one that doesn't. Stated once for the
+ * writes that land on an existing row — a capture, which wraps each in its pin
+ * (captureSet), and a hand add over a tombstone, which is itself the pin
+ * (addVaultItems) — so a column can't be merged by one and forgotten by the other.
+ * The weight is not here: each write has its own rule for it.
+ */
+function incoming() {
+  return {
+    brand: sql`excluded.brand`,
+    name: sql`excluded.name`,
+    variant: sql`excluded.variant`,
+    commonName: sql`coalesce(excluded.common_name, ${vaultItems.commonName})`,
+    classification: sql`coalesce(excluded.classification, ${vaultItems.classification})`,
+    kcal: sql`coalesce(excluded.kcal, ${vaultItems.kcal})`,
+    productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
+    // The currency follows the amount rather than coalescing on its own — a kept
+    // "399" under a newly-arrived "GBP" would be a price nobody paid.
+    priceCents: sql`coalesce(excluded.price_cents, ${vaultItems.priceCents})`,
+    currency: sql`case when excluded.price_cents is not null then excluded.currency else ${vaultItems.currency} end`,
+    catalogItemId: sql`coalesce(excluded.catalog_item_id, ${vaultItems.catalogItemId})`,
+  };
+}
+
+/**
  * The ON CONFLICT set a capture writes over a row the vault already holds, with the
  * merge rules captureVaultItemsReporting describes. ONE set for the two writes that
  * use it — a list's capture and a group's save as a kit (captureKit) — so a field
@@ -360,50 +385,25 @@ export async function captureVaultItemsReporting(
  * since that is where the two differ.
  */
 function captureSet(now: Date, weightMg: SQL) {
+  const rule = incoming();
   return {
     // brand/name/variant move as ONE spelling: they fold to the same key either
     // way, so capture takes the incoming one — unless you've corrected it on
     // /gear, in which case yours is the truth and no list can talk over it.
-    brand: keepIfPinned(vaultItems.namePinned, vaultItems.brand, sql`excluded.brand`),
-    name: keepIfPinned(vaultItems.namePinned, vaultItems.name, sql`excluded.name`),
-    variant: keepIfPinned(vaultItems.namePinned, vaultItems.variant, sql`excluded.variant`),
-    commonName: keepIfPinned(
-      vaultItems.commonNamePinned,
-      vaultItems.commonName,
-      sql`coalesce(excluded.common_name, ${vaultItems.commonName})`,
-    ),
+    brand: keepIfPinned(vaultItems.namePinned, vaultItems.brand, rule.brand),
+    name: keepIfPinned(vaultItems.namePinned, vaultItems.name, rule.name),
+    variant: keepIfPinned(vaultItems.namePinned, vaultItems.variant, rule.variant),
+    commonName: keepIfPinned(vaultItems.commonNamePinned, vaultItems.commonName, rule.commonName),
     weightMg,
-    classification: keepIfPinned(
-      vaultItems.classificationPinned,
-      vaultItems.classification,
-      sql`coalesce(excluded.classification, ${vaultItems.classification})`,
-    ),
-    kcal: keepIfPinned(
-      vaultItems.kcalPinned,
-      vaultItems.kcal,
-      sql`coalesce(excluded.kcal, ${vaultItems.kcal})`,
-    ),
-    productUrl: keepIfPinned(
-      vaultItems.productUrlPinned,
-      vaultItems.productUrl,
-      sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
-    ),
-    // The pair moves under ONE pin, and the currency follows the amount rather
-    // than coalescing on its own — a kept "399" under a newly-arrived "GBP"
-    // would be a price nobody paid.
-    priceCents: keepIfPinned(
-      vaultItems.pricePinned,
-      vaultItems.priceCents,
-      sql`coalesce(excluded.price_cents, ${vaultItems.priceCents})`,
-    ),
-    currency: keepIfPinned(
-      vaultItems.pricePinned,
-      vaultItems.currency,
-      sql`case when excluded.price_cents is not null then excluded.currency else ${vaultItems.currency} end`,
-    ),
+    classification: keepIfPinned(vaultItems.classificationPinned, vaultItems.classification, rule.classification),
+    kcal: keepIfPinned(vaultItems.kcalPinned, vaultItems.kcal, rule.kcal),
+    productUrl: keepIfPinned(vaultItems.productUrlPinned, vaultItems.productUrl, rule.productUrl),
+    // the pair moves under ONE pin (incoming says how the currency follows the amount)
+    priceCents: keepIfPinned(vaultItems.pricePinned, vaultItems.priceCents, rule.priceCents),
+    currency: keepIfPinned(vaultItems.pricePinned, vaultItems.currency, rule.currency),
     // Not pinnable, and deliberately: the link is already first-write-wins, so a
     // pin would say nothing the coalesce doesn't already say.
-    catalogItemId: sql`coalesce(excluded.catalog_item_id, ${vaultItems.catalogItemId})`,
+    catalogItemId: rule.catalogItemId,
     // Usage, not content. A pinned row is still gear a list just reached for,
     // and the autocomplete ranks on exactly these two — so they are never
     // guarded, however much of the row you've corrected by hand.
@@ -768,17 +768,16 @@ async function markVaultItems(db: Db, vaultId: number, ids: readonly number[], r
 // ---------------------------------------------------------------------------
 // the nightly reaper
 // ---------------------------------------------------------------------------
-// Vaults are minted lazily and never signed out of, so without this they only ever
-// accumulate: every abandoned device, every browser that captured once and never
-// came back. `last_seen_at` is bumped by requireVault on EVERY vault request
-// — capture included, which for anyone actively building lists is constant — so
-// "not seen in months" is a strong signal and not a proxy for "quiet lately".
+// Vaults are minted lazily, and only this and an account's own deletion remove one.
+// `last_seen_at` is stamped by touchVaultByUser, which every vault request goes through
+// (capture included, which for anyone actively building lists is constant) and which
+// writes it at most once a day — so "not seen in months" is a strong signal and not a
+// proxy for "quiet lately".
 //
 // Two stages, the shape lists already use (see listRepo): soft-delete first, hard
-// delete only after a grace window. That matters more here than it does for a
-// list: there is no account and no email behind a vault, so a hard reap would be
-// unrecoverable for someone who kept the link in a note and came back late. Inside
-// the grace, using the link is enough — requireVault clears deleted_at.
+// delete only after a grace window. Inside the grace, using the vault is enough:
+// touchVaultByUser clears deleted_at. Every vault is an account's, and neither stage
+// asks whether that account is still live: its My Gear goes with the vault.
 
 /** Untouched for this long and a vault is presumed abandoned. Much longer than a
  *  list's 30: a list is reaped for being EMPTY as well as stale, whereas a full
@@ -1056,22 +1055,14 @@ export async function addVaultItems(
       setWhere: isNotNull(vaultItems.removedAt),
       set: {
         // An add is an EXPLICIT act, so what you typed wins outright — no pin check
-        // (you ARE the pin) and no coalesce on the fields you actually filled in.
-        brand: sql`excluded.brand`,
-        name: sql`excluded.name`,
-        variant: sql`excluded.variant`,
-        commonName: sql`coalesce(excluded.common_name, ${vaultItems.commonName})`,
+        // (you ARE the pin) and no coalesce on the fields you actually filled in:
+        // capture's own rules for the content columns, without their pins.
+        ...incoming(),
         // re-adding a put-away KIT by name brings it back, but never with the typed
         // weight as its own — that figure is its parts' (see the capture guard)
         weightMg: sql`case when ${vaultItems.kind} <> 'kit' and excluded.weight_mg > 0 then excluded.weight_mg else ${vaultItems.weightMg} end`,
-        classification: sql`coalesce(excluded.classification, ${vaultItems.classification})`,
-        kcal: sql`coalesce(excluded.kcal, ${vaultItems.kcal})`,
-        productUrl: sql`coalesce(excluded.product_url, ${vaultItems.productUrl})`,
-        priceCents: sql`coalesce(excluded.price_cents, ${vaultItems.priceCents})`,
-        currency: sql`case when excluded.price_cents is not null then excluded.currency else ${vaultItems.currency} end`,
-        // the rest the add form takes: the catalog row picked, how many you own and the
-        // unit you typed in, each kept from before only where the add left it out
-        catalogItemId: sql`coalesce(excluded.catalog_item_id, ${vaultItems.catalogItemId})`,
+        // the rest the add form takes: how many you own and the unit you typed in,
+        // each kept from before only where the add left it out
         owned: sql`coalesce(excluded.owned, ${vaultItems.owned})`,
         entryUnit: sql`coalesce(excluded.entry_unit, ${vaultItems.entryUnit})`,
         // pins UNION — an add must never RELEASE one an earlier edit earned

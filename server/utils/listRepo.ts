@@ -13,11 +13,10 @@ import {
   diffListState,
   fullSnapToState,
   reconstructChainAt,
-  stateData,
   stateToFullSnap,
   type FullSnap,
 } from "../../shared/snapshotDiff";
-import { CLAIMED_LIST_CAP, LIST_META_KEYS } from "../../shared/types";
+import { CLAIMED_LIST_CAP, LIST_META_KEYS, stateData } from "../../shared/types";
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
 import type { ChangeAuthor, Item, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
 import { normalizeShareCode } from "../../shared/links";
@@ -46,15 +45,6 @@ function weightColumns(totals: Totals) {
   };
 }
 
-// Normalize + cap inbound content through the SAME reducer helpers the mutate path
-// uses, so the create/restore paths can never be a clamp-bypass into raw JSONB.
-// Beyond the per-field clamps, this is the only write path that takes a WHOLE list
-// at once, so the reducer's list-wide referential invariants (enforced per-op in
-// ops.ts addItem/moveItem) must be re-applied in bulk here — otherwise a raw create
-// POST can persist dangling refs that render nowhere yet still count in totals
-// (invisible, UI-undeletable weight). Mirrors jsonToListImport's healing rules:
-// unknown folderId → ungrouped, dangling/self parentId → top-level, one nesting
-// level only, and a nested child always carries its parent's folderId.
 /** Cap, normalize, first id wins (the reducer's add rule), keyed by id in the incoming
  *  order. A normalizer answers null for a row to drop rather than repair. */
 function firstById<R, T extends { id: string }>(
@@ -70,6 +60,15 @@ function firstById<R, T extends { id: string }>(
   return out;
 }
 
+// Normalize + cap inbound content through the SAME reducer helpers the mutate path
+// uses, so the create/restore paths can never be a clamp-bypass into raw JSONB.
+// Beyond the per-field clamps, this is the only write path that takes a WHOLE list
+// at once, so the reducer's list-wide referential invariants (enforced per-op in
+// ops.ts addItem/moveItem) must be re-applied in bulk here — otherwise a raw create
+// POST can persist dangling refs that render nowhere yet still count in totals
+// (invisible, UI-undeletable weight). Mirrors jsonToListImport's healing rules:
+// unknown folderId → ungrouped, dangling/self parentId → top-level, one nesting
+// level only, and a nested child always carries its parent's folderId.
 function normalizeListData(raw?: Partial<ListData>): ListData {
   const folderIds = firstById(raw?.folders, MAX_FOLDERS, normalizeFolder);
   const folders = [...folderIds.values()];
@@ -585,25 +584,10 @@ export async function listSnapshotsByEditHash(
     .orderBy(...NEWEST_FIRST)
     .limit(SNAPSHOT_CAP);
   // Other editors by the name they CHOSE, never their email, and nothing for an
-  // account without one (attachAuthorName's rule). Ids never leave the server.
-  const others = [
-    ...new Set(rows.map((r) => r.editorUserId).filter((u): u is number => u != null && u !== viewerUserId)),
-  ];
-  const names = new Map<number, string>();
-  if (others.length) {
-    try {
-      const found = await d
-        .select({ id: users.id, displayName: users.displayName })
-        .from(users)
-        .where(inArray(users.id, others));
-      for (const u of found) {
-        const name = u.displayName?.trim();
-        if (name) names.set(u.id, name);
-      }
-    } catch {
-      /* no account tables yet: nobody to name */
-    }
-  }
+  // account without one (chosenNames). Ids never leave the server.
+  const others = rows.map((r) => r.editorUserId).filter((u): u is number => u != null && u !== viewerUserId);
+  // no account tables yet: nobody to name
+  const names = await chosenNames(d, others).catch(() => new Map<number, string>());
   const byOf = (r: (typeof rows)[number]): ChangeAuthor | null => {
     if (r.actor === "assistant") return { kind: "assistant" };
     if (r.editorUserId == null) return null;
@@ -700,11 +684,32 @@ export async function restoreSnapshotByEditHash(
 }
 
 /**
- * Resolve a list's maker to the name shown under its title on the read views.
+ * The display names these accounts CHOSE, by id: the one read behind every name this
+ * module shows for an account (a list's byline, who made a recent change).
  *
- * Only a display name the account CHOSE is ever surfaced — never the email, never
- * a fallback derived from it. An account with no display name stays anonymous,
- * which is the default and the setting most people will leave alone.
+ * Only a display name the account chose is ever surfaced — never the email, never
+ * a fallback derived from it. An account with no display name is absent from the
+ * answer and stays anonymous, which is the default and the setting most people will
+ * leave alone.
+ */
+async function chosenNames(db: Db, userIds: readonly number[]): Promise<Map<number, string>> {
+  const names = new Map<number, string>();
+  const ids = [...new Set(userIds)];
+  if (!ids.length) return names;
+  const found = await db
+    .select({ id: users.id, displayName: users.displayName })
+    .from(users)
+    .where(inArray(users.id, ids));
+  for (const u of found) {
+    const name = u.displayName?.trim();
+    if (name) names.set(u.id, name);
+  }
+  return names;
+}
+
+/**
+ * Resolve a list's maker to the name shown under its title on the read views
+ * (chosenNames' rule).
  *
  * Attached at read time rather than denormalized onto the row so that renaming
  * yourself renames you everywhere at once, including on lists made years ago.
@@ -715,12 +720,7 @@ async function attachAuthorName(
   authorUserId: number | null,
 ): Promise<ListSnapshot> {
   if (authorUserId == null) return snap;
-  const rows = await db
-    .select({ displayName: users.displayName })
-    .from(users)
-    .where(eq(users.id, authorUserId))
-    .limit(1);
-  const name = rows[0]?.displayName?.trim();
+  const name = (await chosenNames(db, [authorUserId])).get(authorUserId);
   if (name) snap.authorName = name;
   return snap;
 }

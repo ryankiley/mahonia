@@ -94,7 +94,9 @@ export function displayUrl(url: URL): string {
 // The stored bounds. They live here, applied INSIDE the normalizers, because the DB
 // columns are bare `text` — these are the only limit there is, and a caller that
 // remembered to normalize but forgot to clamp would be an unbounded write.
-export const MAX_TRAIL_URL_LEN = 2000; // matches an item's productUrl
+/** The longest link a list or My Gear stores: a trail's, an item's product page. */
+export const MAX_URL_LEN = 2000;
+export const MAX_TRAIL_URL_LEN = MAX_URL_LEN;
 export const MAX_TRAIL_LABEL_LEN = 120;
 
 /**

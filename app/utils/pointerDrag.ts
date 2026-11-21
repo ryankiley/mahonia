@@ -1,11 +1,11 @@
-// Shared pointer-drag scaffolding for the site's drag-to-reorder gestures (the
-// editor's item rows + folders, the vault pane, /vault). createPointerDrag owns
-// a drag's LIFECYCLE — listener attach/detach, explicit pointer capture, the
-// text-selection lock, Escape/pointercancel aborts, and the outside-the-surface
-// release-to-cancel — while each caller keeps only its own drop-target math and
-// commit. createPressArm (utils/pressArm.ts) owns the step BEFORE that: deciding
-// whether a press on a row is a drag at all. One copy of each, so the gesture
-// plumbing can't drift between surfaces.
+// Shared pointer-drag scaffolding for the editor's drag gestures (its item rows and
+// folders, and a piece of My Gear dragged in from the pane, which rides the item
+// drag). createPointerDrag owns a drag's LIFECYCLE — listener attach/detach, explicit
+// pointer capture, the text-selection lock, Escape/pointercancel aborts, and the
+// outside-the-surface release-to-cancel — while each caller keeps only its own
+// drop-target math and commit. createPressArm (utils/pressArm.ts) owns the step BEFORE
+// that: deciding whether a press on a row is a drag at all. One copy of each, so the
+// gesture plumbing can't drift between surfaces.
 
 interface PointerDragHooks<T> {
   /** Update the caller's drop target from the pointer. `el` is the current

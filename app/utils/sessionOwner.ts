@@ -58,7 +58,7 @@ export const OWNED = {
  *  way out of an account. */
 export function forgetOwned(owner: string | null): void {
   if (!import.meta.client || owner === null) return;
-  for (const base of Object.values(OWNED)) forget(`${base}.${owner}`);
+  for (const base of Object.values(OWNED)) forget(ownedKey(base, owner)!);
 }
 
 /**

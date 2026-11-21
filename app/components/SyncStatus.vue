@@ -3,7 +3,7 @@ import { hasRealContent } from "~~/shared/localList";
 
 // The list's live sync state + last-edit time, in one quiet text line on the
 // leading edge of the editor's top bar. The words carry the state — "Syncing…",
-// "Synced · edited 1 hour ago", "Offline · saved on device" — and the state word
+// "edited 1 hour ago", "Offline · saved on device" — and the state word
 // swaps in place on change. No animation here: a save
 // cycle flips the word Synced→Syncing…→Synced in ~15ms, so animating a word that
 // changes faster than the motion runs looked like it was racing itself. A subtler
@@ -65,11 +65,11 @@ const stateWord = computed(() => {
       return ""; // idle
   }
 });
-// No leading "·" when the state word has stood down — it would open the line with a
-// dangling separator. The dot only joins two things when there are two.
+// Stands alone: the only state that shows a time is the resting one, whose word has
+// stood down (above), so there is never a state word for it to join.
 const timeSuffix = computed(() =>
   status.value === "synced" && editedAt.value != null
-    ? `${stateWord.value ? " · " : ""}edited ${timeAgo(editedAt.value, now.value.getTime())}`
+    ? `edited ${timeAgo(editedAt.value, now.value.getTime())}`
     : "",
 );
 
@@ -99,11 +99,11 @@ const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "");
   font-size: var(--text-chrome);
   /* one line; a long "edited Jul 8" clips rather than wraps — .t-clip, on the element */
 }
-/* Below the stack point the bar is genuinely tight — the mode toggle, share and kebab
-   leave ~130px, and the full string wants ~180. Drop the TIME rather than ellipsis the
-   line: "Synced · edi…" is worse than "Synced", and the state word is the part that's
-   load-bearing. This is the same mobile-crowding concern that used to keep the whole
-   line out of the bar; it's answered here instead of by relocating the component. */
+/* Below the stack point the bar is genuinely tight, so the TIME goes rather than
+   ellipsising: "edited 4 min…" says less than nothing, and a state word, when there
+   is one, is the part that's load-bearing. This is the same mobile-crowding concern
+   that used to keep the whole line out of the bar; it's answered here instead of by
+   relocating the component. */
 @media (max-width: $bp-stack) {
   .syncstatus__time {
     display: none;

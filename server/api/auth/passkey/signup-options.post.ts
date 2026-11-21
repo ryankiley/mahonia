@@ -56,13 +56,10 @@ export default defineEventHandler(async (event) => {
   }
 
   // The user handle the authenticator stores. Random and opaque rather than a row
-  // id, because there IS no row id yet — and nothing ever looks an account up by it
-  // (sign-in resolves the credential id instead), so it only has to be stable for
-  // the length of the ceremony.
-  // An opaque handle for an account that doesn't exist yet. Never used to look an
-  // account up (sign-in resolves the credential id), so it only has to be
-  // unguessable and unique enough that two accounts on one device don't render
-  // identically in a password manager.
+  // id, because there IS no row id yet. Nothing ever looks an account up by it
+  // (sign-in resolves the credential id instead), so it only has to be unguessable
+  // and unique enough that two accounts on one device don't render identically in a
+  // password manager.
   const handle = randomSecret();
 
   // What the OS prompt shows, and what names this passkey in a password manager

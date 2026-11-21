@@ -53,11 +53,10 @@ const route = useRoute();
 // The hint alone decides the shape — it carries no capability, and being wrong
 // costs one 401 on a page the person asked for anyway. Waiting for the session to
 // resolve would make the control change under the cursor on every load. "Presumed"
-// is that reading, defined once in useSession; set on mount rather than computed so
-// the server-rendered (hint-less) shape hydrates without a mismatch.
-const known = ref(false);
-onMounted(() => (known.value = presence.value !== "signedOut"));
-watch(presence, (p) => (known.value = p !== "signedOut"));
+// is that reading, defined once in useSession. Read straight off it: the template is
+// all inside <ClientOnly>, so nothing here is drawn on the server (which has no hint)
+// for the browser's answer to mismatch.
+const known = computed(() => presence.value !== "signedOut");
 
 const open = ref(false);
 const menuRef = useTemplateRef<HTMLElement>("menuRef");

@@ -76,3 +76,11 @@ export async function requireEdit(event: H3Event, action: RateLimitAction): Prom
   await rateLimit(event, action);
   return requireEditHash(event);
 }
+
+/**
+ * Who is making an edit, for the list's recent changes: the signed-in account's id,
+ * or null. A lookup rather than a value, because the repo asks only when a recovery
+ * point is actually taken, which keeps the session read off the autosave's path. It
+ * names an editor and gates nothing: the capability is requireEdit's.
+ */
+export const editorOf = (event: H3Event) => async (): Promise<number | null> => (await resolveSession(event))?.id ?? null;

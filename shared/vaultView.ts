@@ -92,18 +92,15 @@ const descMissingLast = (a: number | null, b: number | null): number =>
 export function searchVaultRows(rows: VaultEntry[], rawQuery: string): VaultEntry[] {
   const q = (rawQuery ?? "").trim();
   if (!q) return rows;
-  const folded = foldForSearch(q);
+  if (enoughToSearch(q)) return rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
   // A query the fold eats whole ("’", "-") is still a question about what's on screen:
   // both sides fold their apostrophes and the match is raw, as it was before the fold.
-  const fold = folded ? foldForSearch : (s: string) => foldApostrophes(s.toLowerCase());
+  const fold = foldForSearch(q) ? foldForSearch : (s: string) => foldApostrophes(s.toLowerCase());
   const terms = fold(q).split(/\s+/);
-  const literal = (fields: (r: VaultEntry) => (string | undefined)[]) =>
-    rows.filter((r) => {
-      const text = fold(fields(r).join(" "));
-      return terms.every((t) => text.includes(t));
-    });
-  if (!enoughToSearch(q)) return literal((r) => [r.brand, r.name, r.variant, r.commonName]);
-  return rankVaultRows(rows, q, Number.POSITIVE_INFINITY);
+  return rows.filter((r) => {
+    const text = fold([r.brand, r.name, r.variant, r.commonName].join(" "));
+    return terms.every((t) => text.includes(t));
+  });
 }
 
 /**
@@ -202,7 +199,7 @@ export function groupVaultByKind(rows: VaultEntry[]): VaultKindSection[] {
     (r) => vaultFamilyOf(r) ?? ("other" as const),
   );
   return [
-    ...(kits.length ? [{ key: "kits" as const, label: "Kits", entries: kits }] : []),
+    ...(kits.length ? [{ key: "kits" as const, label: VAULT_TAB_LABEL.kits, entries: kits }] : []),
     ...GEAR_FAMILIES.filter((f) => byFamily.has(f.key)).map((f) => ({ key: f.key, label: f.label, entries: byFamily.get(f.key)! })),
     ...(byFamily.has("other") ? [{ key: "other" as const, label: gearFamilyLabel(null), entries: byFamily.get("other")! }] : []),
   ];

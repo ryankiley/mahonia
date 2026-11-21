@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import VaultPane from "~/components/VaultPane.vue";
-import { gearCopyKey } from "~/utils/gearCopy";
+import { OWNED, ownedKey } from "~/utils/sessionOwner";
 import { readGearCopy, useVaultList, useVaultOps, writeGearCopy } from "~/composables/useVaultList";
 import type { VaultEntry } from "~~/shared/vault";
 import { vaultRow } from "./helpers/vault";
@@ -181,7 +181,7 @@ describe("the copy and the account it belongs to", () => {
 
   it("drops entries that would break the page rather than painting them", () => {
     localStorage.setItem(
-      gearCopyKey(OWNER)!,
+      ownedKey(OWNED.gearCopy, OWNER)!,
       JSON.stringify({ items: [GEAR[0], null, { id: "x", name: "Bad" }, { ...GEAR[1], parts: [{ id: 1 }] }], savedAt: 5 }),
     );
     expect(readGearCopy(OWNER)).toEqual({ items: [GEAR[0]], savedAt: 5 });

@@ -66,7 +66,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
     <h2 class="t-label">Keyboard shortcuts</h2>
 
     <div v-for="g in GROUPS" :key="g.title" class="keys__group">
-      <p class="t-label t-muted keys__head">{{ g.title }}</p>
+      <p class="t-label t-muted">{{ g.title }}</p>
       <dl class="keys__list">
         <template v-for="(r, i) in g.rows" :key="i">
           <dt class="keys__keys">
