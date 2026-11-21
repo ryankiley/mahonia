@@ -261,7 +261,11 @@ describe("the gear tools", () => {
     const r = await tool("edit_my_gear", { update: [{ id: tentId, weight_g: 1010, price: null }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);
     const [done] = r.data.updated as { id: number; status: string; item: Record<string, unknown> }[];
-    expect(done).toMatchObject({ id: tentId, status: "updated", item: { id: tentId, weight_g: 1010, price: null, currency: null } });
+    expect(done).toMatchObject({ id: tentId, status: "updated", item: { id: tentId, weight_g: 1010 } });
+    // a cleared field is gone from the echo, as every field with nothing in it is
+    expect(done!.item).not.toHaveProperty("price");
+    expect(done!.item).not.toHaveProperty("currency");
+    expect(done!.item).not.toHaveProperty("times_used");
     // a piece keeps a name, and an entry with nothing to change is said so, piece by piece
     const bad = (await tool("edit_my_gear", { update: [{ id: tentId, name: null }, { id: tentId }] }, aliceWrite)).data.updated as { status: string }[];
     expect(bad.map((u) => u.status)).toEqual(["invalid", "invalid"]);
@@ -304,7 +308,8 @@ describe("the gear tools", () => {
     expect(linked[0]!.item).toMatchObject({ id: tentId, name: "Duplex", brand: "Zpacks", weight_g: 1200, catalog_id: 1 });
     // unlinked: the piece as it reads, with no link
     const unlinked = (await tool("edit_my_gear", { update: [{ id: duplexId, catalog_id: null }] }, aliceWrite)).data.updated as { item: Record<string, unknown> }[];
-    expect(unlinked[0]!.item).toMatchObject({ name: "Duplex", weight_g: 538, catalog_id: null });
+    expect(unlinked[0]!.item).toMatchObject({ name: "Duplex", weight_g: 538 });
+    expect(unlinked[0]!.item).not.toHaveProperty("catalog_id");
     // an id that names no catalog row refuses the call before anything is written
     const before = (await tool("get_my_gear", {}, aliceRead)).data.total;
     const refused = await tool("edit_my_gear", { add: [{ name: "x", catalog_id: 404 }], remove: [duplexId] }, aliceWrite);
@@ -322,9 +327,11 @@ describe("the gear tools", () => {
     expect(await applyVaultItemOp(db, row!.vaultId, { t: "kit", id: kitId!, parts: [{ id: stoveId!, qty: 2 }], ownWeightMg: 20_000 })).not.toBeNull();
     const found = await tool("get_my_gear", { query: "cook kit" }, aliceRead);
     const kit = (found.data.gear as { id: number }[]).find((g) => g.id === kitId);
-    expect(kit).toMatchObject({ weight_g: 166, kit: { own_weight_g: 20, items: [{ id: stoveId, count: 2, weight_g: 73, put_away: false }] }, in_kits: [] });
+    expect(kit).toMatchObject({ weight_g: 166, kit: { own_weight_g: 20, items: [{ id: stoveId, count: 2, weight_g: 73, put_away: false }] } });
+    expect(kit).not.toHaveProperty("in_kits");
     const stove = ((await tool("get_my_gear", {}, aliceRead)).data.gear as { id: number }[]).find((g) => g.id === stoveId);
-    expect(stove).toMatchObject({ kit: null, in_kits: [kitId] });
+    expect(stove).toMatchObject({ in_kits: [kitId] });
+    expect(stove).not.toHaveProperty("kit");
     expect(stove).not.toHaveProperty("unweighed");
     // the kit itself is never flagged (its weight is its items'), and nor is a weighed item
     expect(kit).not.toHaveProperty("unweighed");
@@ -357,13 +364,15 @@ describe("the gear tools", () => {
     const [up] = changed.data.updated as { status: string; item: Record<string, unknown> }[];
     expect(up).toMatchObject({ status: "updated", item: { weight_g: 121, kit: { own_weight_g: 0, items: [{ id: potId }, { id: lighterId, count: 1 }] } } });
     const spork = ((await tool("get_my_gear", { query: "spork" }, aliceRead)).data.gear as { id: number; in_kits: number[] }[]).find((g) => g.id === sporkId);
-    expect(spork!.in_kits).toEqual([]);
+    expect(spork).not.toHaveProperty("in_kits");
 
     // one level deep: a piece already in a kit can't hold items, and a kit can't be an item
     const nested = await tool("edit_my_gear", { update: [{ id: potId, kit: { items: [{ id: sporkId }] } }] }, aliceWrite);
     expect((nested.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("already in a kit") });
     const kitAsItem = await tool("edit_my_gear", { add: [{ name: "Everything kit", kit: { items: [{ id: kitId }] } }] }, aliceWrite);
-    expect((kitAsItem.data.results as { status: string; reason: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "added", reason: expect.stringContaining("Added as a single piece"), item: { kit: null } });
+    const single = (kitAsItem.data.results as { status: string; reason: string; item: Record<string, unknown> }[])[0];
+    expect(single).toMatchObject({ status: "added", reason: expect.stringContaining("Added as a single piece") });
+    expect(single!.item).not.toHaveProperty("kit");
 
     // a malformed kit refuses the whole call before anything is written
     const both = await tool("edit_my_gear", { update: [{ id: kitId, weight_g: 300, kit: { items: [{ id: potId }] } }] }, aliceWrite);
@@ -373,11 +382,14 @@ describe("the gear tools", () => {
 
     // null turns it back into a piece weighing what the kit did; its items stay pieces
     const undone = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
-    expect((undone.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { weight_g: 121, kit: null } });
+    const piece = (undone.data.updated as { status: string; item: Record<string, unknown> }[])[0];
+    expect(piece).toMatchObject({ status: "updated", item: { weight_g: 121 } });
+    expect(piece!.item).not.toHaveProperty("kit");
     const notAKit = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
     expect((notAKit.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("isn't a kit") });
     const pot = ((await tool("get_my_gear", { query: "titanium pot" }, aliceRead)).data.gear as { id: number; in_kits: number[]; weight_g: number }[]).find((g) => g.id === potId);
-    expect(pot).toMatchObject({ in_kits: [], weight_g: 110 });
+    expect(pot).toMatchObject({ weight_g: 110 });
+    expect(pot).not.toHaveProperty("in_kits");
   });
 
   // The add that started this: a piece with no catalog row, priced, not weighed yet.
@@ -396,7 +408,9 @@ describe("the gear tools", () => {
     expect((repriced.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ price: 120, currency: "USD" });
     // null still clears the price and its currency together
     const cleared = await tool("edit_my_gear", { update: [{ id, price: null }] }, aliceWrite);
-    expect((cleared.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ price: null, currency: null });
+    const unpriced = (cleared.data.updated as { item: Record<string, unknown> }[])[0]!.item;
+    expect(unpriced).not.toHaveProperty("price");
+    expect(unpriced).not.toHaveProperty("currency");
 
     // a value outside its set is named, and nothing of that piece is written
     const bad = await tool("edit_my_gear", { add: [{ name: "Wind shirt", classification: "Worn" }], update: [{ id, weight_g: "410" }] }, aliceWrite);
@@ -418,7 +432,9 @@ describe("the gear tools", () => {
     expect(up, up?.reason).toMatchObject({ status: "updated", item: { name: "Tent kit", catalog_id: 1, weight_g: 60, kit: { items: [{ id: stakesId }] } } });
     // and a kit that already is one takes a link alone, still weighing its items
     const relinked = await tool("edit_my_gear", { update: [{ id: kitId, catalog_id: null }] }, aliceWrite);
-    expect((relinked.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { catalog_id: null, weight_g: 60 } });
+    const unlinkedKit = (relinked.data.updated as { status: string; item: Record<string, unknown> }[])[0];
+    expect(unlinkedKit).toMatchObject({ status: "updated", item: { weight_g: 60 } });
+    expect(unlinkedKit!.item).not.toHaveProperty("catalog_id");
     const again = await tool("edit_my_gear", { update: [{ id: kitId, catalog_id: 1 }] }, aliceWrite);
     expect((again.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { catalog_id: 1, weight_g: 60 } });
   });
@@ -593,9 +609,7 @@ describe("create_list filing under the token's account", () => {
 // nothing in the protocol marks it. From an account with read-and-change access the
 // retry is answered with the list the first call made, which that account can change by
 // share code, and never with an edit link the server would have had to keep a copy of.
-// For this release the answer is words, an isError (madeBefore says why), so these read
-// the share code out of the sentence. Anonymous and read-only callers still get a
-// second list: see REPLAY_WINDOW_S.
+// Anonymous and read-only callers still get a second list: see REPLAY_WINDOW_S.
 describe("create_list retried by the same account", () => {
   let erin = 0;
   let erinWrite = "";
@@ -609,34 +623,28 @@ describe("create_list retried by the same account", () => {
   const filed = async () => (await listClaimedLists(db, erin)).map((l) => l.shareCode);
 
   const replayKeys = () => [...kv.keys()].filter((k) => k.startsWith("mcp:replay:"));
-  /** the share code a repeat names, or undefined when the call made a list */
-  const repeatOf = (r: { refused: boolean; text: string }) => (r.refused ? /share code is (\w+)/.exec(r.text)?.[1] : undefined);
 
   it("answers the repeat with the list already made, no second list and no edit link", async () => {
     const first = await tool("create_list", LIST, erinWrite);
     expect(first.refused, first.text).toBe(false);
-    expect(first.data).toMatchObject({ saved_to_account: true });
-    expect(first.data).not.toHaveProperty("repeated");
+    expect(first.data).toMatchObject({ saved_to_account: true, repeated: false });
     expect(first.data.edit_link).toContain("/e/");
     // kept ten minutes in the store, and nothing in it is the edit link
     const [key] = replayKeys();
     expect(ttls.get(key!)).toBe(600);
     expect(JSON.stringify(kv.get(key!))).not.toContain("/e/");
     const retry = await tool("create_list", LIST, erinWrite);
-    // in words, which no listing checks: one from before this release requires an edit
-    // link on every structured create_list answer, and a repeat has none to give
-    expect(retry.refused).toBe(true);
-    expect(retry.data).toBeUndefined();
-    expect(repeatOf(retry)).toBe(first.data.share_code);
-    expect(retry.text).toContain("No second list was made");
-    expect(retry.text).toContain("1 row, filed under your account");
-    expect(retry.text).not.toContain("/e/");
+    expect(retry.refused, retry.text).toBe(false);
+    expect(retry.data).toMatchObject({ share_code: first.data.share_code, saved_to_account: true, repeated: true, items: 1 });
+    expect(retry.data).not.toHaveProperty("edit_link");
+    expect(JSON.stringify(retry.data)).not.toContain("/e/");
+    expect(retry.text).toContain("no second list");
     expect(await filed()).toEqual([first.data.share_code]);
     // what the repeat names, the account changes by share code, and a later repeat reads
     // the list as it now is
-    const renamed = await tool("edit_list", { share_code: repeatOf(retry), list: { title: "Enchantments loop" } }, erinWrite);
+    const renamed = await tool("edit_list", { share_code: retry.data.share_code, list: { title: "Enchantments loop" } }, erinWrite);
     expect(renamed.refused, renamed.text).toBe(false);
-    expect((await tool("create_list", LIST, erinWrite)).text).toContain('"Enchantments loop"');
+    expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, title: "Enchantments loop" });
   });
 
   it("keeps one account's window from another's", async () => {
@@ -644,7 +652,7 @@ describe("create_list retried by the same account", () => {
     const frankWrite = (await mintAccessToken(db, frank!, { scope: "write" }))!.token;
     const mine = await tool("create_list", LIST, erinWrite);
     const theirs = await tool("create_list", LIST, frankWrite);
-    expect(theirs.data).toMatchObject({ saved_to_account: true });
+    expect(theirs.data).toMatchObject({ repeated: false, saved_to_account: true });
     expect(theirs.data.share_code).not.toBe(mine.data.share_code);
   });
 
@@ -652,24 +660,24 @@ describe("create_list retried by the same account", () => {
     const first = await tool("create_list", LIST, erinWrite);
     await unclaimList(db, erin, first.data.share_code as string);
     const second = await tool("create_list", LIST, erinWrite);
-    expect(second.data).toMatchObject({ saved_to_account: true });
+    expect(second.data).toMatchObject({ repeated: false, saved_to_account: true });
     expect(second.data.share_code).not.toBe(first.data.share_code);
     await db.update(schema.lists).set({ deletedAt: new Date() }).where(eq(schema.lists.shareCode, second.data.share_code as string));
     const third = await tool("create_list", LIST, erinWrite);
-    expect(third.refused, third.text).toBe(false);
+    expect(third.data).toMatchObject({ repeated: false });
     expect(third.data.share_code).not.toBe(second.data.share_code);
     // and the window now names the newest, which a retry gets
-    expect(repeatOf(await tool("create_list", LIST, erinWrite))).toBe(third.data.share_code);
+    expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, share_code: third.data.share_code });
   });
 
   it("remembers nothing from a create whose list couldn't be filed", async () => {
     const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
     vi.mocked(rateLimitSubject).mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("Too many requests"));
     const unfiled = await tool("create_list", LIST, erinWrite);
-    expect(unfiled.data).toMatchObject({ saved_to_account: false });
+    expect(unfiled.data).toMatchObject({ saved_to_account: false, repeated: false });
     quiet.mockRestore();
     const retry = await tool("create_list", LIST, erinWrite);
-    expect(retry.data).toMatchObject({ saved_to_account: true });
+    expect(retry.data).toMatchObject({ saved_to_account: true, repeated: false });
     expect(retry.data.share_code).not.toBe(unfiled.data.share_code);
   });
 
@@ -685,7 +693,7 @@ describe("create_list retried by the same account", () => {
       // as the first call's claim reads while its write is under way
       kv.set(key!, { at: Date.now(), pending: true });
       setTimeout(() => kv.set(key!, done), 30);
-      expect(repeatOf(await tool("create_list", LIST, erinWrite))).toBe(first.data.share_code);
+      expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, share_code: first.data.share_code });
       Object.assign(REPLAY_WAIT, { totalMs: 20 });
       kv.set(key!, { at: Date.now(), pending: true });
       const busy = await tool("create_list", LIST, erinWrite);
@@ -693,9 +701,7 @@ describe("create_list retried by the same account", () => {
       expect(busy.text).toContain("still being made");
       // a claim whose call died lapses after a minute, and the next call makes the list
       kv.set(key!, { at: Date.now() - 61_000, pending: true });
-      const made = await tool("create_list", LIST, erinWrite);
-      expect(made.refused, made.text).toBe(false);
-      expect(made.data.share_code).not.toBe(first.data.share_code);
+      expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: false });
     } finally {
       Object.assign(REPLAY_WAIT, was);
     }
@@ -704,14 +710,14 @@ describe("create_list retried by the same account", () => {
   it("makes the same list twice when asked to with again, and keys on the whole call", async () => {
     const first = await tool("create_list", LIST, erinWrite);
     const twice = await tool("create_list", { ...LIST, again: true }, erinWrite);
-    expect(twice.refused, twice.text).toBe(false);
+    expect(twice.data).toMatchObject({ repeated: false });
     expect(twice.data.share_code).not.toBe(first.data.share_code);
     expect(twice.data.edit_link).toContain("/e/");
     // again neither reads nor writes the window: a plain retry still gets the first
-    expect(repeatOf(await tool("create_list", LIST, erinWrite))).toBe(first.data.share_code);
+    expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, share_code: first.data.share_code });
     // a different call is a different list
     const other = await tool("create_list", { ...LIST, title: "Enchantments, day 2" }, erinWrite);
-    expect(other.refused, other.text).toBe(false);
+    expect(other.data.repeated).toBe(false);
     expect(other.data.share_code).not.toBe(first.data.share_code);
     expect((await tool("create_list", { ...LIST, again: "yes" }, erinWrite)).text).toContain("again must be true or false");
   });
@@ -719,7 +725,7 @@ describe("create_list retried by the same account", () => {
   it("holds no window for a list with no rows, which two conversations often ask for alike", async () => {
     const a = await tool("create_list", { title: "PCT" }, erinWrite);
     const b = await tool("create_list", { title: "PCT" }, erinWrite);
-    expect(b.data).toMatchObject({ saved_to_account: true });
+    expect(b.data).toMatchObject({ repeated: false, saved_to_account: true });
     expect(b.data.share_code).not.toBe(a.data.share_code);
     expect(replayKeys()).toEqual([]);
   });
@@ -729,7 +735,7 @@ describe("create_list retried by the same account", () => {
       const a = await tool("create_list", LIST, token);
       const b = await tool("create_list", LIST, token);
       expect(b.refused, b.text).toBe(false);
-      expect(b.data).toMatchObject({ saved_to_account: false });
+      expect(b.data).toMatchObject({ repeated: false, saved_to_account: false });
       expect(b.data.share_code).not.toBe(a.data.share_code);
       expect(b.data.edit_link).toContain("/e/");
     }

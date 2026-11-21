@@ -3,7 +3,7 @@
   "name": "app.mahonia/mahonia",
   "title": "Mahonia",
   "description": "Hiking gear lists and pack weights: make and edit lists, search a cited catalog, track your gear.",
-  "version": "2.1.0",
+  "version": "2.2.0",
   "websiteUrl": "https://mahonia.app/about",
   "repository": {
     "url": "https://github.com/ryankiley/mahonia",
