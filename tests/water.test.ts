@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatVolume, isWaterName, itemQtyLabel, parseVolumeMl, waterMenuMl, waterMgFromMl, waterPhrase, waterPhraseMl, waterVolumeLabel } from "../shared/water";
+import { formatVolume, isWaterName, itemQtyLabel, parseVolumeMl, waterMenu, waterMgFromMl, waterPhrase, waterVolumeLabel } from "../shared/water";
 import { listToMarkdown } from "../shared/exporters/markdown";
 import { listToText } from "../shared/exporters/text";
 import { blankList, folder, item } from "./helpers/list";
+
+const waterPhraseMl = (text: string) => waterPhrase(text)?.ml ?? null;
+const waterMenuMl = (text: string) => waterMenu(text)?.ml ?? null;
 
 describe("parseVolumeMl — human volume → millilitres", () => {
   it("reads litres (the default for a bare number) and millilitres", () => {
@@ -106,7 +109,7 @@ describe("itemQtyLabel — amount labels incl. the worn split", () => {
   });
 });
 
-describe("waterPhraseMl", () => {
+describe("waterPhrase — the volume", () => {
   it("reads water with a volume, either way round", () => {
     expect(waterPhraseMl("Water 2 L")).toBe(2000);
     expect(waterPhraseMl("water 500 ml")).toBe(500);
@@ -125,7 +128,7 @@ describe("waterPhraseMl", () => {
   });
 });
 
-describe("waterMenuMl — what the name field's menu offers as water", () => {
+describe("waterMenu — what the name field's menu offers as water", () => {
   it("offers a litre for a bare \"water\" and the volume for a bare volume", () => {
     expect(waterMenuMl("water")).toBe(1000);
     expect(waterMenuMl(" Water ")).toBe(1000);

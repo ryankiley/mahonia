@@ -134,11 +134,7 @@ useHead({
         ? `${seo.value.name} — Mahonia`
         : "Untitled list — Mahonia",
 });
-useSeoMeta({
-  description: () => seo.value.desc,
-  ogTitle: () => seo.value.name || GENERIC_TITLE,
-  ogDescription: () => seo.value.desc,
-});
+useEditorSeoMeta(seo);
 const {
   anyPacked,
   childrenByParent,
@@ -485,8 +481,9 @@ watch(status, (s) => {
   if (s !== "missing" || !resumed.value || editedHere) return;
   const code = normalizeShareCode(typeof route.params.code === "string" ? route.params.code : "");
   if (!code || code !== resumed.value) return;
-  const token = decodeURIComponent(route.hash.replace(/^#/, ""));
-  if (token) my.forget(token);
+  // the token load() just tried is the controller's (missingEntry reads it the same
+  // way); a claimed open holds none
+  if (c.editToken) my.forget(c.editToken);
   else if (openedByCode.value) forgetClaimedOpen(code);
   const next = resumeHere(code);
   resumed.value = next?.shareCode ?? null;
@@ -668,7 +665,6 @@ async function copy(text: string, msg: string, linkFallbackTitle: string) {
   // be copied by hand
   showLinkFallback(text, linkFallbackTitle);
 }
-const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
 // The four export actions and the rows that draw them are the sharing panel's
 // (SharePanel's Export tab, through useListExports). What the editor hands it is the
@@ -678,9 +674,9 @@ const origin = () => (typeof location !== "undefined" ? location.origin : "");
 // A draft has no share code yet — no link rather than a broken one (same guard
 // copyShare() makes before offering to copy it).
 // The two links a list is handed out by, each spelled once.
-const readUrl = computed(() => (snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : ""));
+const readUrl = computed(() => (snapshot.value?.shareCode ? `${location.origin}/s/${snapshot.value.shareCode}` : ""));
 // the token stays in the fragment (see shared/links.editLinkPath)
-const editUrl = computed(() => (c.editToken ? `${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}` : ""));
+const editUrl = computed(() => (c.editToken ? `${location.origin}${editLinkPath(snapshot.value?.shareCode, c.editToken)}` : ""));
 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
 // Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
@@ -932,16 +928,6 @@ async function forgetMissingList() {
   newList({ replace: true });
 }
 
-// The ⋯ menu, now grouped rather than flat.
-//
-// It used to be eight peers in one column: making a list, moving data in and out,
-// and handing out edit access all read as the same kind of thing. The two sharing
-// items moved to the sharing panel, and the export formats followed them onto its
-// Export tab; what's left is the plain actions, the site foot and the destructive one.
-//
-// One table drives the markup AND the dispatch, so an action can't exist in one
-// without the other (a string-keyed lookup would let a typo no-op).
-
 // ---- the shortcuts sheet ----
 // Lazy + mounted on first use, like the other dialogs: a reference nobody has opened
 // should cost nobody anything.
@@ -1122,7 +1108,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :edit-token="c.editToken"
                 :auth-headers="c.authHeaders()"
                 :share-url="readUrl"
-                :flash="flash"
                 @close="shareOpen = false"
                 @copy-read="copyShare"
                 @copy-edit="copyEditLink"
@@ -1212,7 +1197,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
-      <ListHead :key="listKey" :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" />
+      <ListHead :key="listKey" :snapshot="snapshot" :distance-is-headline="mode === 'plan'" />
       <!-- The totals bar stands down while planning: that view has its own headline (the
            route's distance), and two display-size figures on one screen would make you
            choose which one the page is about. The pack's weight isn't lost — it rides in
@@ -1229,7 +1214,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
         :label="headline.label"
         :trigger-label="headline.triggerLabel"
         :caption="filterCaption"
-        title="Change unit"
         @pick="headline.pick"
       />
       <!-- v-show, not v-if: presence is constant, visibility follows the mode — so
@@ -1335,7 +1319,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            clips its child permanently, which is right for a one-line bar and wrong here:
            the elevation chart's hover readout is positioned above the chart's own box, so
            a standing clip cut the reading off. This one clips only while it moves. -->
-      <div v-if="everPlan && snapshot && totals" :key="listKey" class="planreveal" data-view="plan">
+      <div v-if="everPlan" :key="listKey" class="planreveal" data-view="plan">
         <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
       </div>
 

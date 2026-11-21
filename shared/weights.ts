@@ -87,14 +87,17 @@ export function parseDecimal(raw: string): number {
   return figure ? numFromGroup(figure[1]!) : Number.NaN;
 }
 
-// The input scanner both parsers below share: a number (digits with any mix of
-// ',' / '.' separators), optionally followed by a unit word. One definition so
-// parseWeightInput and entryUnitFromInput can never disagree about what counts
-// as a token; a fresh regex per call because /g carries lastIndex state.
+// A number as the weight field reads one: digits with any mix of ',' / '.' separators.
 // Digit-led, or a separator-led fraction (".9oz", ",9"): the shorthand a scale-reader
 // types. Without the second branch the scanner skipped the dot and read ".9oz" as 9 oz —
-// ten times the weight, with no complaint.
-const weightScan = () => /(-?(?:[\d][\d.,]*|[.,]\d+))\s*([a-z]+)?/g;
+// ten times the weight, with no complaint. Exported for the paste reader
+// (shared/pasteList), so a figure that counts there is one that counts here.
+export const WEIGHT_NUMBER = String.raw`(?:\d[\d.,]*|[.,]\d+)`;
+// The input scanner both parsers below share: that number, optionally followed by a
+// unit word. One definition so parseWeightInput and entryUnitFromInput can never
+// disagree about what counts as a token; a fresh regex per call because /g carries
+// lastIndex state.
+const weightScan = () => new RegExp(String.raw`(-?${WEIGHT_NUMBER})\s*([a-z]+)?`, "g");
 
 /** One number the scanner found, and the unit it named (null = named none). */
 interface WeightGroup {
@@ -131,7 +134,8 @@ interface WeightGroup {
  * parsers below so "how much" and "which unit" can never disagree about which
  * numbers counted.
  */
-function weightGroups(text: string): WeightGroup[] {
+function weightGroups(raw: unknown): WeightGroup[] {
+  const text = raw == null ? "" : String(raw).trim().toLowerCase();
   const re = weightScan();
   const all: (WeightGroup & { start: number; end: number })[] = [];
   let m: RegExpExecArray | null;
@@ -176,13 +180,9 @@ export function parseWeightInput(
   raw: string,
   defaultUnit: Unit = "g",
 ): number | null {
-  if (raw == null) return null;
-  const text = String(raw).trim().toLowerCase();
-  if (!text) return null;
-
   let mg = 0;
   let matched = false;
-  for (const g of weightGroups(text)) {
+  for (const g of weightGroups(raw)) {
     // `?? defaultUnit` is only as good as the unit handed in. The pre-refactor loop
     // skipped a group whose unit didn't resolve, so a caller passing something that
     // isn't a Unit got null — the sentinel every caller checks. Without this the
@@ -215,11 +215,8 @@ export function parseWeightInput(
  * "32.5 oz (921 g)" that is "oz", the one the typist actually chose.
  */
 export function entryUnitFromInput(raw: string): Unit | null {
-  if (raw == null) return null;
-  const text = String(raw).trim().toLowerCase();
-  if (!text) return null;
   const seen = new Set<Unit>();
-  for (const g of weightGroups(text)) if (g.unit) seen.add(g.unit);
+  for (const g of weightGroups(raw)) if (g.unit) seen.add(g.unit);
   return seen.size === 1 ? [...seen][0]! : null;
 }
 
@@ -609,9 +606,8 @@ const grouped: Intl.NumberFormat[] = [];
 const groupedTo = (decimals: number) =>
   (grouped[decimals] ??= new Intl.NumberFormat(NUM_LOCALE, { maximumFractionDigits: decimals }));
 
-/** How fine each unit reads, and that smallest step as it is written. */
+/** How fine each unit reads. */
 const UNIT_DECIMALS: Record<Unit, number> = { g: 0, oz: 1, kg: 2, lb: 2 };
-const UNIT_STEP: Record<Unit, string> = { g: "1", oz: "0.1", kg: "0.01", lb: "0.01" };
 
 /**
  * Format milligrams for display in `unit`. STRICT: the selected unit is always
@@ -633,7 +629,7 @@ export function formatWeight(
   const decimals = UNIT_DECIMALS[unit];
   const step = 10 ** -decimals; // smallest value this unit shows: 1 g, 0.1 oz, 0.01 lb/kg
   if (!raw && mg > 0 && Math.round(value / step) === 0) {
-    return withUnit ? `<${UNIT_STEP[unit]} ${unit}` : `<${UNIT_STEP[unit]}`;
+    return withUnit ? `<${step} ${unit}` : `<${step}`;
   }
   const num = groupedTo(decimals).format(value);
   return withUnit ? `${num} ${unit}` : num;

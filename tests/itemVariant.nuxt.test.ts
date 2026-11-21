@@ -16,7 +16,7 @@ import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { ref, type Ref } from "vue";
 import ItemName from "~/components/ItemName.vue";
-import ReadonlyItemRow from "~/components/ReadonlyItemRow.vue";
+import ReadonlyItemRow, { READ_ROWS } from "~/components/ReadonlyItemRow.vue";
 import { useEditorMode } from "~/composables/useEditorMode";
 import { mountRowOver, rowProvides } from "./helpers/itemRow";
 import type { Item, ListSnapshot } from "~~/shared/types";
@@ -65,8 +65,16 @@ describe("<ItemName>", () => {
 describe("the share view's row", () => {
   function mountRo(row: Item, children: Item[] = [], shown: ReadonlySet<string> = new Set()) {
     const list = blankList({ items: [row, ...children] });
+    // what the view provides its rows (READ_ROWS): the list and its one-pass tables
+    const rows = {
+      list: ref(list),
+      childrenByParent: ref(new Map([[row.id, children]])),
+      contextOnlyIds: ref(undefined),
+      variantShownIds: ref(shown),
+    };
     return mount(ReadonlyItemRow, {
-      props: { list, item: row, childrenByParent: new Map([[row.id, children]]), variantShownIds: shown },
+      props: { item: row },
+      global: { provide: { [READ_ROWS as symbol]: rows } },
     });
   }
 

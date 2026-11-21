@@ -265,14 +265,18 @@ const addToCursor = `https://cursor.com/install-mcp?name=mahonia&config=${btoa(J
 // ChatGPT has no install link: its button copies the address and opens the settings
 // page where a connector is made, so the paste is the only step left
 const chatGptConnectors = "https://chatgpt.com/#settings/Connectors";
-async function copyAddress() {
-  tokenNote.value = (await copyText(mcpUrl)) ? "Address copied." : "Couldn’t copy. Select it and copy it by hand.";
+// Every copy in this section, and the line it leaves under it: the address, a fresh
+// token, the command that carries one. Through the shared copyText(), awaited straight
+// from the click so iOS Safari still counts it as the user's own gesture.
+async function copy(text: string, done = "Copied.", failed = "Couldn’t copy. Select it and copy it by hand.") {
+  tokenNote.value = (await copyText(text)) ? done : failed;
 }
-async function copyForChatGpt() {
-  tokenNote.value = (await copyText(mcpUrl))
-    ? "Address copied. In ChatGPT, turn on developer mode under Apps & Connectors and paste it into a new connector."
-    : "Couldn’t copy. Select the address and copy it by hand.";
-}
+const copyForChatGpt = () =>
+  copy(
+    mcpUrl,
+    "Address copied. In ChatGPT, turn on developer mode under Apps & Connectors and paste it into a new connector.",
+    "Couldn’t copy. Select the address and copy it by hand.",
+  );
 // the hand-minted token is the second way in, for a client that can't open a
 // sign-in, and stays folded until asked for: the button above is the ordinary path
 const tokenForm = ref(false);
@@ -314,13 +318,6 @@ async function makeToken() {
     tokenNote.value = "Couldn’t make a token. Try again?";
   }
   tokenBusy.value = false;
-}
-
-// through the shared copyText(), awaited straight from the click so iOS Safari still
-// counts it as the user's own gesture
-async function copyFresh(what: "token" | "command") {
-  const ok = await copyText(what === "token" ? freshToken.value : claudeCommand.value);
-  tokenNote.value = ok ? "Copied." : "Couldn’t copy. Select it and copy it by hand.";
 }
 
 // the same action for both kinds, in each one's words: a token is revoked, an app
@@ -618,7 +615,7 @@ async function onSignOut() {
               <a :href="addToCursor" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn">
                 <HugeiconsIcon :icon="CubeIcon" :size="16" :stroke-width="2" aria-hidden="true" /> Cursor
               </a>
-              <button type="button" class="btn btn--ghost acct__btn" @click="copyAddress">
+              <button type="button" class="btn btn--ghost acct__btn" @click="copy(mcpUrl, 'Address copied.')">
                 <HugeiconsIcon :icon="Copy01Icon" :size="16" :stroke-width="2" aria-hidden="true" /> Copy address
               </button>
             </div>
@@ -668,8 +665,8 @@ async function onSignOut() {
               <p class="t-sm t-muted">For Claude Code, this one line adds the connector with the token:</p>
               <code class="acct__secret">{{ claudeCommand }}</code>
               <div class="acct__copies">
-                <button type="button" class="btn btn--ghost acct__btn" @click="copyFresh('token')">Copy token</button>
-                <button type="button" class="btn btn--ghost acct__btn" @click="copyFresh('command')">Copy command</button>
+                <button type="button" class="btn btn--ghost acct__btn" @click="copy(freshToken)">Copy token</button>
+                <button type="button" class="btn btn--ghost acct__btn" @click="copy(claudeCommand)">Copy command</button>
               </div>
             </div>
             <p v-if="tokenNote" class="t-sm acct__note">{{ tokenNote }}</p>
@@ -691,10 +688,10 @@ async function onSignOut() {
                it sat mid-dialog between two settings, as if it were one. One row, the
                everyday action first. -->
           <section class="acct__section acct__signouts">
-            <button type="button" class="btn btn--ghost acct__btn acct__signout" @click="onSignOut">Sign out</button>
+            <button type="button" class="btn btn--ghost acct__btn" @click="onSignOut">Sign out</button>
             <button
               type="button"
-              class="btn btn--ghost acct__btn acct__signout"
+              class="btn btn--ghost acct__btn"
               :disabled="signingOutAll"
               @click="onSignOutEverywhere"
             >

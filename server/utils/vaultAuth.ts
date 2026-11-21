@@ -124,6 +124,16 @@ export async function mintVault(db: Db, userId: number): Promise<number> {
 }
 
 /**
+ * The account's vault, marked used, minted when it has none yet: touchVaultByUser,
+ * then mintVault. For the writes that reach a vault by user id rather than by a
+ * request's session and must have somewhere to land: the sign-in backfill and a list
+ * the connector files. Each holds a user id it has already verified.
+ */
+export async function vaultIdOrMint(db: Db, userId: number): Promise<number> {
+  return (await touchVaultByUser(db, userId)) ?? (await mintVault(db, userId));
+}
+
+/**
  * Resolve the signed-in user's vault, creating it if this is their first capture.
  *
  * ONLY for capture — the write that happens automatically as you build a list, and

@@ -3,6 +3,7 @@ import { openPrivate } from "../../utils/authSession";
 import { resolveVaultForRead } from "../../utils/vaultAuth";
 import { searchVaultItems } from "../../utils/vaultRepo";
 import { queryString } from "../../utils/http";
+import { SEARCH_QUERY_MAX } from "../../../shared/searchText";
 
 // Autocomplete against your own gear — the "pull from the vault" half of the
 // feature, consumed alongside /api/catalog/search by the item input.
@@ -21,7 +22,7 @@ export default defineEventHandler(async (event) => {
   if (!resolved) return { results: [] };
   const { db, vaultId } = resolved;
 
-  const q = queryString(event, "q", 100);
+  const q = queryString(event, "q", SEARCH_QUERY_MAX);
 
   return { results: await searchVaultItems(db, vaultId, q) };
 });

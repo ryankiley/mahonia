@@ -154,7 +154,7 @@ watch(
       <span class="t-num t-muted kitsec__total">{{ formatWeight(kit.weightMg, unit) }}</span>
       <!-- the site's tooltip on every icon-only button here, as on a list row: the verb
            shown, the whole name on aria-label -->
-      <Tooltip v-if="isKit && !readonly" text="Remove" preferred-placement="top">
+      <Tooltip v-if="isKit && !readonly" text="Remove">
         <button
           type="button"
           class="btn btn--icon btn--ghost ink-quiet"
@@ -181,7 +181,7 @@ watch(
             <!-- how many the kit holds: held out of sight, not dropped, on a row
                  that can't change, so the columns stay put down the kit -->
             <span v-if="counts" class="kitsec__step" :class="{ 'is-idle': part.qty <= 1 && partMax(part.id) <= 1 }">
-              <Tooltip text="One fewer" preferred-placement="top">
+              <Tooltip text="One fewer">
                 <button
                   type="button"
                   class="btn btn--icon btn--ghost ink-quiet"
@@ -194,10 +194,7 @@ watch(
               </Tooltip>
               <span class="t-sm t-num kitsec__count" :aria-label="`${part.qty} in the kit`">{{ part.qty }}</span>
               <!-- at the cap it says why: a kit holds no more than you own -->
-              <Tooltip
-                :text="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. Change Number owned in its Edit.` : 'One more'"
-                preferred-placement="top"
-              >
+              <Tooltip :text="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. Change Number owned in its Edit.` : 'One more'">
                 <button
                   type="button"
                   class="btn btn--icon btn--ghost ink-quiet"
@@ -211,7 +208,7 @@ watch(
             </span>
           </template>
           <template #remove>
-            <Tooltip :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'" preferred-placement="top">
+            <Tooltip :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'">
               <button
                 type="button"
                 class="btn btn--icon btn--ghost ink-quiet"
@@ -227,7 +224,7 @@ watch(
         <!-- put away from My Gear: listed by name, it stops counting and can only come out -->
         <li v-else class="kitsec__line kitsec__line--gone">
           <span class="kitsec__name t-clip">{{ itemDisplayName(part.brand, part.name, part.variant) }} <span class="kitsec__gone">· removed</span></span>
-          <Tooltip v-if="!readonly" :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'" preferred-placement="top">
+          <Tooltip v-if="!readonly" :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'">
             <button
               type="button"
               class="btn btn--icon btn--ghost ink-quiet"
@@ -243,8 +240,8 @@ watch(
       <!-- a weight of the kit's own (a group saved off a list whose heading had one) -->
       <li v-if="kit.ownWeightMg" class="kitsec__line">
         <span class="kitsec__name">Its own weight</span>
-        <span class="t-num kitsec__weight">{{ formatWeight(kit.ownWeightMg, unit) }}</span>
-        <Tooltip v-if="!readonly" text="Remove its own weight" preferred-placement="top">
+        <span class="t-num">{{ formatWeight(kit.ownWeightMg, unit) }}</span>
+        <Tooltip v-if="!readonly" text="Remove its own weight">
           <button
             type="button"
             class="btn btn--icon btn--ghost ink-quiet"

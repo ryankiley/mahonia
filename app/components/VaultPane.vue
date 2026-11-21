@@ -7,7 +7,7 @@ import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { matchesElsewhere, searchVaultRows, VAULT_TAB_LABEL, VAULT_TABS, vaultSections, vaultTabOf, type VaultTab } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
-import { formatKcal, formatWeight, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
+import { formatKcal, formatWeight, groupBy, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
 import { counted } from "~~/shared/tidyText";
 import { addVaultKit } from "~/composables/useVaultUnfold";
 import { kitItemCount } from "~~/shared/vaultKit";
@@ -188,13 +188,9 @@ onMounted(() => {
 // (Ryan: "keep kits out of items tab here since it has its own").
 const isKit = (entry: VaultEntry) => entry.kind === "kit";
 // each tab's rows, in one pass over the gear
-const byTab = computed(() => {
-  const out: Record<VaultTab, VaultEntry[]> = { gear: [], kits: [], food: [] };
-  for (const i of items.value) out[vaultTabOf(i)].push(i);
-  return out;
-});
+const byTab = computed(() => groupBy(items.value, vaultTabOf));
 // the open tab's rows, ranked when a search is typed
-const filtered = computed(() => searchVaultRows(byTab.value[tab.value], query.value));
+const filtered = computed(() => searchVaultRows(byTab.value.get(tab.value) ?? [], query.value));
 // With nothing typed, the gear reads by kind — shelter, clothing and so on — the way
 // /gear groups it, so the pane and the page read alike. A search ranks across all of
 // it instead: the best match first matters more than where it lives. Kits and food are
@@ -561,7 +557,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
           >
             <template #trigger="{ active, open }">
               <span class="t-sm t-muted vp__targetlabel">Add to</span>
-              <span class="t-clip vp__targetname">{{ active?.label }}</span>
+              <span class="t-clip">{{ active?.label }}</span>
               <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
             </template>
           </OptionMenu>

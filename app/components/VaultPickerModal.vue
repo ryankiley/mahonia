@@ -3,7 +3,7 @@ import { HugeiconsIcon } from "~/utils/hugeicon";
 import { CheckmarkSquare02Icon, SquareIcon } from "@hugeicons/core-free-icons";
 import type { Unit } from "~~/shared/types";
 import type { VaultCapture } from "~~/shared/vault";
-import { formatWeightAuto, itemDisplayName, unitSystem } from "~~/shared/weights";
+import { formatWeightAuto, groupBy, itemDisplayName, unitSystem } from "~~/shared/weights";
 
 // "Which of these is yours?" — shown when you answer Add on a list you didn't
 // start. The only lists that ever ask are shared ones, and on a trip planned
@@ -45,16 +45,9 @@ function toggleAll() {
 // Grouped by the list folder each row came from, because that's the shape the
 // person is looking at on the page behind the dialog — scanning "is this mine?"
 // down a flat list of forty rows is much harder than down the folder you packed.
-const groups = computed(() => {
-  const by = new Map<string, VaultCapture[]>();
-  for (const c of caps ?? []) {
-    const key = c.folder ?? "";
-    const list = by.get(key);
-    if (list) list.push(c);
-    else by.set(key, [c]);
-  }
-  return [...by.entries()].map(([folder, rows]) => ({ folder, rows }));
-});
+const groups = computed(() =>
+  [...groupBy(caps ?? [], (c) => c.folder ?? "")].map(([folder, rows]) => ({ folder, rows })),
+);
 </script>
 
 <template>

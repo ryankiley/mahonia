@@ -6,9 +6,10 @@ import {
   formatDistancePadded,
   heightUnitFor,
   heightValue,
+  routeLengthM,
   type DisplayDistanceUnit,
 } from "~~/shared/trailDistance";
-import { dayRanges, descentIsDistinct, routeLengthM } from "~~/shared/tripPlan";
+import { dayRanges, descentIsDistinct } from "~~/shared/tripPlan";
 // gradeBandFor is the function the SHADING bands by, not a second copy of its two
 // thresholds — so the number under the cursor and the colour under the cursor can never
 // disagree about what "steep" means. There used to be a STEEP_PCT in this file saying 10

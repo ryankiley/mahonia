@@ -7,18 +7,19 @@ import type { ListSnapshot, Totals } from "~~/shared/types";
 // gets added here once, not found-and-missed across pages; the same argument
 // useReadonlyListSeo makes for owning the text half.
 //
-// While the source is null (list not yet resolved, or not found) every getter
+// While the list or its totals is null (not yet resolved, or not found) every getter
 // yields undefined and unhead keeps the app-level static card from app.vue — a
 // bad link unfurls as the site. Width/height are unconditional: the static
 // fallback is the same 1200×630, so the values hold either way.
-export function useListOgCard(
-  source: () => { path: string; list: ListSnapshot; totals: Totals } | null,
-): void {
+//
+// The image is /og/s's, addressed by the list's share code: the same capability as the
+// read page, whichever surface is asking.
+export function useListOgCard(list: () => ListSnapshot | null, totals: () => Totals | null): void {
   const origin = useSiteOrigin();
   const card = computed(() => {
-    const s = source();
-    if (!s) return null;
-    return { url: `${origin}${s.path}`, alt: ogCardAlt(ogCardModel(s.list, s.totals)) };
+    const [l, t] = [list(), totals()];
+    if (!l || !t) return null;
+    return { url: `${origin}/og/s/${l.shareCode}`, alt: ogCardAlt(ogCardModel(l, t)) };
   });
   useSeoMeta({
     ogImage: () => card.value?.url,

@@ -118,11 +118,7 @@ export function useReadonlyListSeo(snapshot: Ref<ListSnapshot | null>, totals: R
   });
   // the card IMAGE — rendered per list by /og/s, addressed by the same capability as
   // the page itself; tag assembly lives in useListOgCard
-  useListOgCard(() =>
-    snapshot.value && totals.value
-      ? { path: `/og/s/${snapshot.value.shareCode}`, list: snapshot.value, totals: totals.value }
-      : null,
-  );
+  useListOgCard(() => snapshot.value, () => totals.value);
   useSeoMeta({
     description: () => desc.value,
     ogTitle: () => (snapshot.value ? snapshot.value.title : "Mahonia"),

@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { flushPromises, mount } from "@vue/test-utils";
 import SharePanel from "~/components/SharePanel.vue";
+import { ROW_FLASH } from "~/components/ItemRow.vue";
 import type { ChangeAuthor, ClaimedList, SnapshotMeta } from "~~/shared/types";
 import { snapshotFor } from "./helpers/list";
 
@@ -78,8 +79,9 @@ function mountPanel(over: { editToken?: string; shareCode?: string } = {}) {
       editToken: over.editToken ?? "held-token",
       authHeaders: { Authorization: "Bearer held-token" },
       shareUrl: `https://mahonia.app/s/${SHARE}`,
-      flash,
     },
+    // the editor's toast, which the panel reaches by inject (ROW_FLASH)
+    global: { provide: { [ROW_FLASH as symbol]: flash } },
     attachTo: document.body,
   });
 }

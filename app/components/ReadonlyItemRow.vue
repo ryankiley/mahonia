@@ -1,5 +1,30 @@
 <script lang="ts">
-import type { Item as ItemT } from "~~/shared/types";
+import type { InjectionKey, Ref } from "vue";
+import type { Item as ItemT, ListSnapshot as ListT } from "~~/shared/types";
+
+// What ReadonlyListView works out ONCE per snapshot for every row, reached by inject
+// rather than threaded down as props (the editor's rows take theirs the same way, from
+// keys of their own: these pages must not import that graph). As props the four passed
+// through the folder, which read none of them, and through each group row to its
+// children; and a prop that is a fresh Map per poll re-renders every row it passes
+// through. Injected, a row subscribes to a table only where it looks something up.
+//  • the list as the viewer sees it: their unit, their person filter's rows
+//  • children grouped by parent id, one groupItemsByParent pass, so a row doesn't
+//    re-scan the item array for its children
+//  • the rows kept on screen only as a label for a matching child, under a person
+//    filter (useReadonlyList computes the set). Such a row's own line is not in the
+//    page's totals, so it prints no weight; the editor blanks the same cell in CSS,
+//    which is the only way it can, since no row there sees the filter.
+//  • the rows whose variant shows on the sub-line under the name: the same product
+//    held in two variants, where the variant is what tells them apart
+//    (shared/variantShown). Every other row's sub-line carries the gear type and note
+//    alone; the name line is brand + product always.
+export const READ_ROWS: InjectionKey<{
+  list: Readonly<Ref<ListT | null>>;
+  childrenByParent: Readonly<Ref<Map<string, ItemT[]>>>;
+  contextOnlyIds: Readonly<Ref<ReadonlySet<string> | undefined>>;
+  variantShownIds: Readonly<Ref<ReadonlySet<string>>>;
+}> = Symbol("readRows");
 
 // one stable empty array for every leaf row — module scope so a large list
 // doesn't mint a fresh identity per row
@@ -9,7 +34,7 @@ const NO_ITEMS: ItemT[] = [];
 <script setup lang="ts">
 import { HugeiconsIcon } from "~/utils/hugeicon";
 import { personColor } from "~~/shared/people";
-import type { Classification, Item, ListSnapshot } from "~~/shared/types";
+import type { Classification, Item } from "~~/shared/types";
 import { effectiveClassificationInFolder, formatKcal, formatWeight, isBareGroup, groupLineMg, splitWornQty, rowDisplayKcal } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
 import { consumableIcon } from "~/utils/itemMarks";
@@ -20,49 +45,27 @@ import { Backpack02Icon, ShirtIcon } from "@hugeicons/core-free-icons";
 // (indented), exactly mirroring the editor. Deliberately its OWN component, not ItemRow
 // with a flag — the read pages must not pull the editor graph (autocomplete, drag,
 // useGearList, the modals) into their bundle just to render static text.
-//
-// `childrenByParent` is one groupItemsByParent pass per snapshot (ReadonlyListView),
-// threaded to every row so rows don't each re-scan the whole item array.
-const props = withDefaults(
-  defineProps<{
-    list: ListSnapshot;
-    item: Item;
-    childrenByParent: Map<string, Item[]>;
-    /**
-     * Rows kept on screen only as a label for a matching child, under a person
-     * filter (useReadonlyList computes the set). Such a row's own line is not in
-     * this page's totals, so it prints no weight — the editor blanks the same cell
-     * in CSS, which is the only way it can, since no row there sees the filter.
-     */
-    contextOnlyIds?: ReadonlySet<string>;
-    /**
-     * Rows whose variant shows on the sub-line under the name: the same product held
-     * in two variants, where the variant is what tells them apart (ReadonlyListView
-     * computes the set once, from shared/variantShown). Every other row's sub-line
-     * carries the gear type and note alone; the name line is brand + product always.
-     */
-    variantShownIds?: ReadonlySet<string>;
-    nested?: boolean;
-  }>(),
-  { nested: false },
-);
+const props = defineProps<{ item: Item; nested?: boolean }>();
+const rows = inject(READ_ROWS)!;
+// a row is only ever drawn under the view's own `v-if="list"`
+const list = computed(() => rows.list.value!);
 
 /** this row's variant earns its place on the sub-line (a typed one as readily as a
  *  picked one: the rule is about the list, not where the variant came from) */
-const variantOnRow = computed(() => !!props.variantShownIds?.has(props.item.id));
+const variantOnRow = computed(() => rows.variantShownIds.value.has(props.item.id));
 
 /** this row is scaffolding around a match, not one of the filtered person's own */
-const isContextOnly = computed(() => !!props.contextOnlyIds?.has(props.item.id));
+const isContextOnly = computed(() => !!rows.contextOnlyIds.value?.has(props.item.id));
 
 // Both the effective class and the exception mark need this folder. Resolve it once per
 // row rather than searching the folder list for each derived value.
 const folder = computed(() =>
-  props.item.folderId ? props.list.folders.find((itemFolder) => itemFolder.id === props.item.folderId) : undefined,
+  props.item.folderId ? list.value.folders.find((itemFolder) => itemFolder.id === props.item.folderId) : undefined,
 );
 const effClass = computed(() => effectiveClassificationInFolder(props.item, folder.value));
 // one level of nesting: a nested row never renders its own children
 const children = computed(() =>
-  props.nested ? NO_ITEMS : (props.childrenByParent.get(props.item.id) ?? NO_ITEMS),
+  props.nested ? NO_ITEMS : (rows.childrenByParent.value.get(props.item.id) ?? NO_ITEMS),
 );
 const isParent = computed(() => children.value.length > 0);
 // a group holding nothing of its own — the row's per-unit marks stand down on it
@@ -78,7 +81,7 @@ const rowWeightMg = computed(() => groupLineMg(props.item, children.value));
 // A GROUP resolves the same way, though nothing was typed on it: there its entryUnit is
 // the unit the owner picked for the TOTAL (ItemRow documents the double duty), and a
 // group they set to ounces has to read in ounces here too, for the same reason.
-const rowUnit = computed(() => props.item.entryUnit ?? props.list.displayUnit);
+const rowUnit = computed(() => props.item.entryUnit ?? list.value.displayUnit);
 
 // The LINE's calories, on the same terms as the line's weight beside it: kcal is stored
 // per unit, so this is kcal × qty. The totals bar already shows the list's calorie
@@ -92,7 +95,7 @@ const rowUnit = computed(() => props.item.entryUnit ?? props.list.displayUnit);
 // On the NAME line, where every read row's calories go — not in the class column the
 // editor seats a group's in: this row's column is cut for two 16px marks, and the
 // figure spilling out of it ran into the weight (measured, 2026-09-05).
-const lineKcal = computed(() => rowDisplayKcal(props.item, children.value, props.list.folders));
+const lineKcal = computed(() => rowDisplayKcal(props.item, children.value, list.value.folders));
 // A base row with a worn SPLIT counts as worn here exactly as it does in the editor
 // (ItemRow's isWorn): the row has something on your body, so the column says so.
 const splitWorn = computed(() => splitWornQty(props.item, effClass.value));
@@ -166,7 +169,7 @@ const collapsed = ref(true);
 // inherits silently — the editor's checklist face draws the same line), from the
 // list's own people so the share reads exactly what the owner marked.
 const rowPerson = computed(() =>
-  props.item.personId ? props.list.people?.find((p) => p.id === props.item.personId) : undefined,
+  props.item.personId ? list.value.people?.find((p) => p.id === props.item.personId) : undefined,
 );
 </script>
 
@@ -247,16 +250,7 @@ const rowPerson = computed(() =>
          group total shown above). Collapsed by default in the share view. -->
     <div v-if="isParent" class="nestcollapse" :data-collapsed="collapsed || null">
       <div class="ro-nest nest-block">
-        <ReadonlyItemRow
-          v-for="child in children"
-          :key="child.id"
-          :list="list"
-          :item="child"
-          :children-by-parent="childrenByParent"
-          :context-only-ids="contextOnlyIds"
-          :variant-shown-ids="variantShownIds"
-          nested
-        />
+        <ReadonlyItemRow v-for="child in children" :key="child.id" :item="child" nested />
       </div>
     </div>
   </div>

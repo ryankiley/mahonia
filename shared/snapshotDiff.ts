@@ -12,7 +12,7 @@
 
 import { normalizeDistanceUnit } from "./trailDistance";
 import type { Folder, Item, ListData, ListMetaKey, ListState, Person, TripDay, Waypoint } from "./types";
-import { LIST_META_KEYS } from "./types";
+import { ENTITY_KEYS, LIST_META_KEYS, stateData } from "./types";
 
 export interface ListDiff {
   meta?: Partial<Pick<ListState, ListMetaKey>>;
@@ -50,23 +50,9 @@ export interface FullSnap {
   data: ListData;
 }
 
-// The five entity lists. Each writes two diff keys named after it, `<list>Upsert` and
-// `<list>Del`. One list on the way out (diffListState) and the same one on the way back
-// (applyListDiff), so a sixth list arrives in one place rather than as two more
-// hand-copied blocks.
-const ENTITY_KEYS = ["folders", "items", "days", "waypoints", "people"] as const satisfies readonly (keyof ListData)[];
-
-/** A state's content as the `data` a row and a full snapshot both store: EVERY entity
- *  list the reducer holds, in one place, because a list left out here is a list erased
- *  by the next write. days/waypoints/people are coerced: a list written before they
- *  existed has no key at all. */
-export const stateData = (s: ListState): ListData => ({
-  folders: s.folders,
-  items: s.items,
-  days: s.days ?? [],
-  waypoints: s.waypoints ?? [],
-  people: s.people ?? [],
-});
+// Each entity list writes two diff keys named after it, `<list>Upsert` and `<list>Del`:
+// ENTITY_KEYS on the way out (diffListState) and the same list on the way back
+// (applyListDiff).
 
 // Every meta field rides the full-snapshot form as a nullable: absent → null on the
 // way out, null → undefined on the way back — undefined, not "", because these are

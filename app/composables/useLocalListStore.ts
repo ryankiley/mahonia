@@ -1,4 +1,4 @@
-import { CLAIMED_KEY_PREFIX, copyReadableBy, type LocalListRecord } from "~~/shared/localList";
+import { CLAIMED_KEY_PREFIX, copyReadableBy, isClaimedKey, type LocalListRecord } from "~~/shared/localList";
 import { idbRequest } from "~~/shared/idb";
 import { sessionAccount } from "../utils/sessionOwner";
 
@@ -30,7 +30,6 @@ const tx = <T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequ
 //
 // A copy from before the stamp existed has nothing to compare and is still read,
 // so nothing typed offline is lost to the upgrade.
-const isClaimedKey = (key: string) => key.startsWith(CLAIMED_KEY_PREFIX);
 
 // ONE READ HELD FOR THE LOAD THAT ASKED FOR IT. The editor page reads the list it is
 // opening before the editor mounts (readAhead, useGearList), and the load that follows

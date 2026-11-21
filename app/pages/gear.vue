@@ -295,17 +295,11 @@ function followElsewhere(to: VaultTab) {
 // search over the form: one form for adding and correcting, so a piece goes in with
 // everything it can hold. It replaced an inline name-and-weight row, which hid the
 // rest and read as broken. A piece lands under its kind by itself.
-const adding = ref(false);
 const BLANK_PIECE: VaultEntry = { id: 0, normKey: "", name: "", weightMg: 0, timesSeen: 0, lastUsedAt: "", createdAt: "" };
 function openAdd() {
   if (offline.value) return;
   query.value = "";
-  adding.value = true;
   editing.value = { ...BLANK_PIECE };
-}
-function closeDialog() {
-  editing.value = null;
-  adding.value = false;
 }
 // in place, first in its kind (the page orders by last use), rather than a reload
 // (the dialog closes itself, with `close`, only when the add was made in the opening
@@ -334,6 +328,8 @@ function offerAdded(item: VaultEntry) {
 // someone who only came to look — the LazyCatalogCorrectionModal idiom.
 const editing = ref<VaultEntry | null>(null);
 const editorEverOpened = useLatch(() => editing.value);
+// Adding is the dialog open on the blank piece (openAdd): no stored piece has its id.
+const adding = computed(() => editing.value?.id === BLANK_PIECE.id);
 // The brands and gear types your gear already uses, most used first: the dialog suggests
 // them ahead of the catalog's under Brand and Gear type.
 const knownVocab = computed(() => {
@@ -813,7 +809,7 @@ async function exportGear(kind: string) {
       :unit="unit"
       :default-currency="vaultCurrency"
       :known="knownVocab"
-      @close="closeDialog"
+      @close="editing = null"
       @saved="onItemSaved"
       @added="onItemAdded"
     >

@@ -3,8 +3,9 @@
 // ceremony plumbing to server/utils/passkeys.ts.
 
 import { toIso } from "./time";
-import { and, desc, eq, getTableColumns, or } from "drizzle-orm";
+import { and, desc, eq, getTableColumns } from "drizzle-orm";
 import { credentials, users } from "../db/schema";
+import { notRetired } from "./accessTokens";
 import type { Db } from "./db";
 import { cleanLine } from "./http";
 import type { PasskeySummary } from "../../shared/types";
@@ -78,16 +79,17 @@ export async function savePasskey(
  *  user — for a discoverable ("usernameless") sign-in the credential is what
  *  TELLS us the user. A key made while the account's address was unproven finds
  *  nothing once it is proven (claimUnverifiedAccount); `accountUnproven` says what
- *  the address was as this read happened, for the session the sign-in starts. */
+ *  the address was as this read happened, for the session the sign-in starts, and
+ *  `email` is the account's, from the same join, for the sign-in's answer. */
 export async function findCredential(db: Db, credentialId: string) {
   const rows = await db
-    .select({ credential: getTableColumns(credentials), emailVerified: users.emailVerified })
+    .select({ credential: getTableColumns(credentials), emailVerified: users.emailVerified, email: users.email })
     .from(credentials)
     .innerJoin(users, eq(users.id, credentials.userId))
-    .where(and(eq(credentials.credentialId, credentialId), or(eq(credentials.unproven, false), eq(users.emailVerified, false))))
+    .where(and(eq(credentials.credentialId, credentialId), notRetired(credentials.unproven)))
     .limit(1);
   const row = rows[0];
-  return row ? { ...row.credential, accountUnproven: !row.emailVerified } : null;
+  return row ? { ...row.credential, accountUnproven: !row.emailVerified, email: row.email } : null;
 }
 
 /** Record a successful use: bump the signature counter and stamp the time. The

@@ -1,4 +1,5 @@
 import { DAY_MS, parseIsoDate } from "~~/shared/calendar";
+import { counted } from "~~/shared/tidyText";
 
 // Human "time ago" — one source of truth for the editor's sync-status line and the
 // "Your lists" registry, so the two phrase elapsed time identically. Reads like
@@ -25,10 +26,10 @@ export function timeAgo(ts: number, now: number = Date.now(), opts: { short?: bo
   if (s < 45) return "just now";
 
   const m = Math.round(s / 60);
-  if (m < 60) return opts.short ? `${m}m ago` : m === 1 ? "1 minute ago" : `${m} minutes ago`;
+  if (m < 60) return opts.short ? `${m}m ago` : `${counted(m, "minute")} ago`;
 
   const h = Math.round(m / 60);
-  if (h < 24) return opts.short ? `${h}h ago` : h === 1 ? "1 hour ago" : `${h} hours ago`;
+  if (h < 24) return opts.short ? `${h}h ago` : `${counted(h, "hour")} ago`;
 
   // past a day, count whole CALENDAR days so the wording matches the reader's
   // sense of the date ("yesterday" the moment the clock rolls over, not at +24h)

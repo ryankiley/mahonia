@@ -52,7 +52,7 @@ const triggerAttrs = computed(() => ({
 </script>
 
 <template>
-  <div ref="rootRef" class="menu iconpick">
+  <div ref="rootRef" class="menu">
     <slot name="trigger" :open="open" :toggle="toggle" :attrs="triggerAttrs" />
     <GearIconCard
       v-if="mounted"

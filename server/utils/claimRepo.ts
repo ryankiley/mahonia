@@ -14,7 +14,7 @@ import type { Db } from "./db";
 import { findLiveByEditHashes, isLive } from "./listRepo";
 import { sha256Hex } from "./tokens";
 import { captureVaultItems, unitOf } from "./vaultRepo";
-import { mintVault, touchVaultByUser } from "./vaultAuth";
+import { vaultIdOrMint } from "./vaultAuth";
 import { VAULT_CAPTURE_MAX, captureFromList, type VaultCapture } from "../../shared/vault";
 import { normalizeShareCode } from "../../shared/links";
 import { CLAIMED_LIST_CAP, type ClaimedList } from "../../shared/types";
@@ -235,7 +235,7 @@ export async function backfillVaultFromClaims(db: Db, userId: number): Promise<n
   //
   // Mints on demand: signing in on a new device is exactly when someone has claims
   // but no vault row yet, and that is the case this function exists to serve.
-  const vaultId = (await touchVaultByUser(db, userId)) ?? (await mintVault(db, userId));
+  const vaultId = await vaultIdOrMint(db, userId);
 
   // chunked to the per-call cap so a large collection isn't silently truncated by
   // the sanitizer's slice

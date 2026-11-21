@@ -2,7 +2,7 @@ import { defineEventHandler } from "h3";
 import { issueAppTokens, refreshAppTokens } from "../utils/accessTokens";
 import { useAccountDb } from "../utils/db";
 import { setNoStore } from "../utils/http";
-import { isCodeVerifier, mcpResource, oauthError, pkceChallenge, readFormBody, redeemAuthCode } from "../utils/oauth";
+import { isCodeVerifier, oauthError, pkceChallenge, readFormBody, redeemAuthCode, wrongResource } from "../utils/oauth";
 import { trustedOrigin } from "../utils/origin";
 import { rateLimit } from "../utils/rateLimit";
 
@@ -38,9 +38,8 @@ export default defineEventHandler(async (event) => {
   if (!body.client_id) return oauthError(event, "invalid_request", "client_id is required.");
   if (!isCodeVerifier(body.code_verifier)) return oauthError(event, "invalid_request", "code_verifier is required: 43 to 128 unreserved characters.");
   // the resource parameter (RFC 8707) is accepted, and must name this endpoint
-  if (body.resource !== undefined && body.resource !== mcpResource(trustedOrigin(event))) {
-    return oauthError(event, "invalid_target", `Tokens here are for ${mcpResource(trustedOrigin(event))}.`);
-  }
+  const elsewhere = wrongResource(trustedOrigin(event), body.resource);
+  if (elsewhere) return oauthError(event, "invalid_target", elsewhere);
   // the code is spent before it is checked, so a code that fails a check below is
   // gone as well: one try is all a code gets
   const code = await redeemAuthCode(db, body.code);

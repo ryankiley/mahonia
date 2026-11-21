@@ -69,6 +69,13 @@ function scopeFromRequest(raw: unknown): AccessScope | null {
  *  and what a client's `resource` parameter has to say. */
 export const mcpResource = (origin: string) => `${origin}/mcp`;
 
+/** The `resource` parameter (RFC 8707) is optional, and when sent must name this
+ *  endpoint: the sentence that refuses any other, or null. The authorization request
+ *  and the token request both carry one, and both answer invalid_target with this. */
+export function wrongResource(origin: string, resource: string | undefined): string | null {
+  return resource !== undefined && resource !== mcpResource(origin) ? `Tokens here are for ${mcpResource(origin)}.` : null;
+}
+
 /** RFC 9728: who issues tokens for /mcp, and what they can ask for. */
 export function protectedResourceMetadata(origin: string) {
   return {
@@ -159,8 +166,8 @@ export async function checkAuthorizeRequest(db: Db, origin: string, q: Record<st
   if (str("code_challenge_method") !== "S256") return back("invalid_request", "code_challenge_method must be S256.");
   const scope = scopeFromRequest(str("scope"));
   if (!scope) return back("invalid_scope", "This server grants read, write and offline_access.");
-  const resource = str("resource");
-  if (resource !== undefined && resource !== mcpResource(origin)) return back("invalid_target", `Tokens here are for ${mcpResource(origin)}.`);
+  const elsewhere = wrongResource(origin, str("resource"));
+  if (elsewhere) return back("invalid_target", elsewhere);
   return { ok: true, client, redirectUri, state, scope, codeChallenge };
 }
 

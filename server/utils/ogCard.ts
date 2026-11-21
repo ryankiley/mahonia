@@ -282,13 +282,12 @@ export const ogCardSvg = (m: OgCardModel, fonts: SatoriOptions["fonts"]) => svgO
 export const renderOgCard = (m: OgCardModel, fonts: SatoriOptions["fonts"]) => pngOf(cardVnode(m), fonts);
 
 /**
- * The whole response tail the two og routes share: model → fonts → render →
- * headers, and the one fallback policy. What stays IN the routes is exactly
- * what differs between them — which repo resolves the list, and whether the
- * surface is indexable (setNoIndex) — the same division of labor as
- * setNoIndex/notFound themselves. (This is not the rate-limit-and-headers
- * wrapper server/utils/http.ts warns against: rateLimit and its ordering stay
- * at the call sites.)
+ * The whole response tail of an og route: model → fonts → render → headers, and
+ * the one fallback policy. What stays IN the route is what is its own — which
+ * repo resolves the list, and whether the surface is indexable (setNoIndex) —
+ * the same division of labor as setNoIndex/notFound themselves. (This is not the
+ * rate-limit-and-headers wrapper server/utils/http.ts warns against: rateLimit and
+ * its ordering stay at the call sites.)
  */
 export async function sendOgCard(event: H3Event, list: OgCardSource): Promise<Buffer | void> {
   try {

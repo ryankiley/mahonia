@@ -99,7 +99,6 @@ const planTip = computed(() => {
         :options="WEIGHT_UNIT_OPTIONS"
         label="Weight unit"
         :trigger-label="`${totalDisplay} ${list.displayUnit}, change unit`"
-        title="Change unit"
         @pick="(u) => emit('set-unit', u as Unit)"
       />
     </div>
@@ -277,16 +276,9 @@ const planTip = computed(() => {
   border-inline-start: 1px solid var(--line);
 }
 
-/* Its fold on a mode switch: atoms/modeswitch.scss. */
-/* Packing's header is the list's name, the tabs and the total. The Base/Worn/
-   Consumable line and the category bar are the weighing view's instruments, and on a
-   phone they held the first checkbox at the bottom edge of the screen (measured:
-   763px of 844). Keyed on the editor body's data-mode like everything else the mode
-   changes (folder.scss, item.scss), so the swap rides the same one CSS pass as the
-   rows. display, not a reveal grid: nothing here animates on a mode switch, and a
-   250px slide would read as the page flinching. Lives HERE rather than in the editor
-   because this component owns the class; the editor's scoped sheet can't see it.
-   The WHOLE selector sits inside :global(): in Vue 3 scoped CSS a leading
-   :global(ancestor) swallows the descendant after it, and the rule silently became
-   `.editor__body[data-mode="pack"] {}` — matched nothing it was meant to. */
+/* The breakdown stands down in packing: that mode's header is the list's name, the
+   tabs and the total, and on a phone the Base/Worn/Consumable line and the category
+   bar held the first checkbox at the bottom edge of the screen (measured: 763px of
+   844). Its fold on the mode switch is keyed on the editor body's data-mode with
+   everything else the mode changes, in atoms/modeswitch.scss. */
 </style>

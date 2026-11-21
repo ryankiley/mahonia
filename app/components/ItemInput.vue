@@ -10,7 +10,7 @@ import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
 import { catalogNameKeys } from "~~/shared/catalogMatch";
 import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
-import { formatVolume, isWaterName, waterMenuMl, waterMgFromMl, waterPhrase } from "~~/shared/water";
+import { formatVolume, isWaterName, waterMenu, waterMgFromMl, waterPhrase } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
 import { menuRoom, visibleBand } from "~/utils/viewportRoom";
@@ -200,10 +200,10 @@ const waterSuggestion = computed<WaterSug | null>(() => {
   if (props.sources === "catalog") return null;
   // read by shared/water, the way the Enter and paste paths read the same text, so
   // the menu can't offer less than Enter would make ("Water - 2 L" once did)
-  const ml = waterMenuMl(draft.value);
-  if (ml == null || ml <= 0) return null;
-  // the name the line keeps ("Drinking water"), or Water for a bare volume or "water"
-  const name = waterPhrase(draft.value)?.name ?? "Water";
+  // the name is the one the line keeps ("Drinking water"), or Water for a bare volume
+  const water = waterMenu(draft.value);
+  if (!water) return null;
+  const { ml, name } = water;
   return { ml, name, label: `${name} · ${formatVolume(ml)}`, weightMg: waterMgFromMl(ml) };
 });
 

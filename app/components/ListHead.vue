@@ -9,6 +9,7 @@ import {
   resolveDistanceUnit,
 } from "~~/shared/trailDistance";
 import { displayUrl, parseTrailLink, safeUrl, CLEARS_WITH_LINK } from "~~/shared/trailLink";
+import { counted } from "~~/shared/tidyText";
 // shared/gpx is deliberately absent here AND in useGpxImport, which now owns the
 // reading — it is reached through `await import()` inside onGpx, so the file reader
 // isn't on the first load of a list nobody imports into. Not even MAX_GPX_BYTES: one
@@ -16,6 +17,7 @@ import { displayUrl, parseTrailLink, safeUrl, CLEARS_WITH_LINK } from "~~/shared
 // easy way to undo this without noticing.
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
+import { ROW_FLASH } from "~/components/ItemRow.vue";
 
 // The editor's title block: the list's name as a page title, with an optional link to
 // the route it was packed for.
@@ -294,11 +296,12 @@ function remove() {
 // Copy the destination — that URL, not the list's own share link (the toolbar handles
 // that one). Goes through the shared copyText(), which carries the async-write +
 // execCommand fallback iOS Safari needs, and reports via the editor's toast rather than
-// a local icon swap, so every copy in the app confirms the same way.
-const emit = defineEmits<{ toast: [message: string] }>();
+// a local icon swap, so every copy in the app confirms the same way. The toast is
+// reached by inject, the way a row reaches it (ROW_FLASH, ItemRow).
+const flash = inject(ROW_FLASH, () => {});
 async function copyLink() {
   if (!link.value) return;
-  emit("toast", (await copyText(link.value.href)) ? "Trail link copied" : "Copy failed");
+  flash((await copyText(link.value.href)) ? "Trail link copied" : "Copy failed");
 }
 
 // ---- trip dates ----
@@ -665,8 +668,7 @@ onClickOutside(trailEl, closeTrail);
                one tap each. Phrased with the count so the answer is informed: "add 11" is a
                different question from "add 98" — and 98 is what a yes will do, not a guess. -->
           <p v-if="pending" class="head__gpxerr t-sm">
-            This route can add {{ pending.pins.length }}
-            {{ pending.pins.length === 1 ? "marked place" : "marked places" }}.
+            This route can add {{ counted(pending.pins.length, "marked place") }}.
             <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
             <button type="button" class="head__gpxno" @click="pending = null">No thanks</button>
           </p>

@@ -202,11 +202,6 @@ export async function searchCatalog(
 }
 
 /**
- * Increment usage_count for catalog rows that were just added to a list. This is
- * what makes autocomplete self-improve: the gear people actually carry floats to
- * the top of the ranking. Best-effort + bounded; works on PGlite + Neon.
- */
-/**
  * Every active row, in the autocomplete's result shape — the pool the import matcher
  * indexes by exact name (shared/catalogMatch.ts). The same whole-table read the PGlite
  * search path makes: the catalog is small and bounded, and an import is rare.
@@ -350,6 +345,11 @@ export async function liveCatalogRows(db: Db, ids: readonly number[]): Promise<M
   return out;
 }
 
+/**
+ * Increment usage_count for catalog rows that were just added to a list. This is
+ * what makes autocomplete self-improve: the gear people actually carry floats to
+ * the top of the ranking. Best-effort + bounded; works on PGlite + Neon.
+ */
 export async function bumpUsage(db: Db, ids: number[]): Promise<void> {
   const clean = [...new Set(ids.filter(isCatalogId))].slice(0, 50);
   if (!clean.length) return;
