@@ -334,8 +334,10 @@
    --ink-2, not the --ink other chevrons lift to, because one of these sits on every
    row and a column of full-ink marks would out-shout the weights. */
 @media (pointer: coarse) {
-  .item__unitwrap .optmenu__btn,
-  .vault__unitwrap .optmenu__btn {
+  /* .optmenu named too: the wrap IS the OptionMenu's root, and the extra class keeps
+     this ahead of the component's own trigger rule, which loads later at equal weight */
+  .item__unitwrap.optmenu .optmenu__btn,
+  .vault__unitwrap.optmenu .optmenu__btn {
     min-height: var(--tap);
     margin-block: var(--tap-pull);
   }

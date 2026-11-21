@@ -1236,7 +1236,7 @@ onClickOutside(trailEl, closeTrail);
    grounds' edge with the fields and the rule above it, its icon on the words' edge. */
 .head__panelremove {
   /* .menu__item (atoms/controls.scss) supplies the row: background, ink, hover tint,
-     concentric radius, transition, cursor, and the centred flex row itself with its
+     concentric radius, transition, and the centred flex row itself with its
      12px gap. Only this panel's own geometry lives here. The radius comes out right
      because .head__panel keeps the .popover atom's corner — see there. */
   /* It bled out to 4px off the panel's edge, a third left edge beside the fields' 12 and

@@ -2785,8 +2785,8 @@ function dismissFix() {
 }
 /* the common-name field is an upright quiet LABEL (--ink-2), distinct from the note's
    italic aside voice below it — mirrors the read-only sub-line's two voices. .item__note
-   also matches this element and sets italic, so pin the override at higher specificity to
-   win regardless of source order. */
+   (atoms/item.scss) also matches this element and sets italic; the two classes together
+   outweigh it. */
 .item__note.item__gtype-input {
   color: var(--ink-2);
   font-style: normal;
