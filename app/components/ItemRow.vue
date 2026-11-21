@@ -345,6 +345,9 @@ function onRowFocusIn() {
   );
 }
 onBeforeUnmount(() => {
+  // A row that goes mid-fold (a link followed, a filter that hides it) never reaches the
+  // fold's finish, which is what discards it: do that here, or the blank row stays saved.
+  if (leaving.value && c.isEmptyRow(props.item.id)) c.discardEmpty(props.item.id);
   for (const a of leaveAnims) a.cancel();
 });
 

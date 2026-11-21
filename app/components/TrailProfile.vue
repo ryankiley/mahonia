@@ -564,7 +564,7 @@ const id = useId();
          container is, so no height is measurable from the picture — these carry it in
          figures instead, which is the same division of labour the numbers above the chart
          already make. aria-hidden: <desc> says all of it, and better. -->
-    <p v-if="facts" class="tprofile__facts">
+    <p v-if="facts && (ascentM || descentDiffers)" class="tprofile__facts">
       <FigureChip v-if="ascentM" label="Elevation gain" :value="asHeight(ascentM)" :unit="heightUnit" />
       <!-- The descent only when it is a DIFFERENT fact. On a loop it equals the climb by
            definition, and two figures carrying one fact is one figure too many; where they

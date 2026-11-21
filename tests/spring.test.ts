@@ -26,6 +26,9 @@ describe("cssDurationMs — a CSS time, in milliseconds", () => {
   it("falls back on a value it can't read", () => {
     expect(cssDurationMs("", FALLBACK)).toBe(FALLBACK);
     expect(cssDurationMs("fast", FALLBACK)).toBe(FALLBACK);
+    // a zero is no duration to wait on
+    expect(cssDurationMs("0s", FALLBACK)).toBe(FALLBACK);
+    expect(cssDurationMs("0ms", FALLBACK)).toBe(FALLBACK);
     expect(cssDurationMs(null, FALLBACK)).toBe(FALLBACK);
     // a bare number has no unit to say which it is
     expect(cssDurationMs("390", FALLBACK)).toBe(FALLBACK);
