@@ -24,21 +24,26 @@ import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 // kit's items (VaultKitSection), and a row copied three times is a row that drifts. A
 // kit's section swaps the trailing controls (the `actions` slot) for its own: how many
 // it holds, and taking the piece out of the kit.
-const props = defineProps<{
-  entry: VaultEntry;
-  unit: Unit;
-  /** the row's own remove is in flight */
-  busy?: boolean;
-  /** the kits a piece is in, by name ("Cook kit, Fire kit"): a string, so it compares
-   *  by value and a page render doesn't re-render every row */
-  inKits?: string;
-  /** false drops the worn/consumable column: on the Food tab every row would wear the
-   *  same consumable mark, a column that says nothing */
-  marks?: boolean;
-  /** offline, showing this device's copy: nothing on the row can change (a change to My
-   *  Gear needs the server). The controls keep their room, so nothing shifts. */
-  readonly?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    entry: VaultEntry;
+    unit: Unit;
+    /** the row's own remove is in flight */
+    busy?: boolean;
+    /** the kits a piece is in, by name ("Cook kit, Fire kit"): a string, so it compares
+     *  by value and a page render doesn't re-render every row */
+    inKits?: string;
+    /** false drops the worn/consumable column: on the Food tab every row would wear the
+     *  same consumable mark, a column that says nothing. Shown unless a caller says
+     *  otherwise, which takes the default below: left out, a Boolean prop reads false,
+     *  and the column went from a kit's rows, whose section doesn't pass it. */
+    marks?: boolean;
+    /** offline, showing this device's copy: nothing on the row can change (a change to My
+     *  Gear needs the server). The controls keep their room, so nothing shifts. */
+    readonly?: boolean;
+  }>(),
+  { marks: true },
+);
 const emit = defineEmits<{
   edit: [];
   /** an icon picked from the row's own icon (null: back to the gear type's) */
@@ -184,7 +189,7 @@ const meta = computed(() => {
     <!-- the editor's own marks, in a fixed column whether or not the row carries
          one — an auto column would size to the count and steal a different amount
          from the name on every row (the reason --item-col-actions is fixed too) -->
-    <span v-if="marks !== false" class="vault__cls">
+    <span v-if="marks" class="vault__cls">
       <span v-if="entry.classification === 'worn'" class="item__mark item__mark--static" title="Worn">
         <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
         <span class="visually-hidden">Worn</span>

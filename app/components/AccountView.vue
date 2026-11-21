@@ -79,6 +79,12 @@ onMounted(() => {
 // address and owes you a reason. So the surface has a mode, and defaults to
 // signing in — after launch that's the overwhelmingly common reason to be here.
 const mode = ref<"signin" | "create">("signin");
+// The heading, handed up as well as drawn (v-model:heading). The dialog mount draws its
+// own title row and names itself by it, and the switch above lives here: with its own
+// copy of the rule, and no way to see `mode`, the dialog said "Sign in" over the create
+// form. Down here because it reads `mode` at once.
+const headingOut = defineModel<string>("heading");
+watchEffect(() => (headingOut.value = heading.value));
 
 // ---- signing in ----------------------------------------------------------
 const signingIn = ref(false);
@@ -777,9 +783,6 @@ async function onSignOut() {
   padding-block: 0 var(--space-6);
   text-align: center;
 }
-/* The secondary action. The system is deliberately de-outlined (see
-   atoms/controls.scss), so this gets a quiet FILL rather than a border — it reads
-   as a button at rest without introducing the one device that file rules out. */
 .acct__empty .acct__wide {
   width: 100%;
 }
@@ -837,15 +840,24 @@ async function onSignOut() {
     text-decoration-color: var(--ink-2);
   }
 }
+/* The secondary action. The system is deliberately de-outlined (see
+   atoms/controls.scss), so this gets a quiet FILL rather than a border — it reads
+   as a button at rest without introducing the one device that file rules out.
+   The fill is an AMOUNT OF INK, not a paper tone: this column sits on the page and in
+   the account dialog alike, and a named tone is only right on one ground. In dark,
+   --paper-3 is the dialog card's exact surface, so the hover fill vanished into it and
+   the --paper-2 rest sat darker than the card it was meant to lift off. --lit and
+   --lit-hover (tokens.scss) are a plate and its step up under the pointer, mixed from
+   ink so they composite over whichever ground this lands on. */
 .acct__empty .acct__alt {
   width: 100%;
-  background: var(--paper-2);
+  background: var(--lit);
   color: var(--ink-2);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .acct__empty .acct__alt:hover {
-    background: var(--paper-3);
+    background: var(--lit-hover);
     color: var(--ink);
   }
 }
@@ -1026,10 +1038,28 @@ async function onSignOut() {
 .acct__tokenrow .acct__input {
   flex: 1 1 12rem;
 }
-/* the picker's trigger wears the row's button recipe through triggerClass; the only
-   thing to add is that its longer label never breaks inside the pill */
-.acct__scope {
+/* The picker's trigger, as the bordered pill the field and the button beside it are.
+   Its classes arrive through triggerClass, so the global .btn and .btn--ghost land on
+   it, but nothing scoped here did: the trigger is OptionMenu's own inner button, not its
+   root, and that component's bare-trigger rule (no padding, inherited ink) outranks
+   .btn. It drew as a bare word between two pills. So the row's recipe is carried across
+   by hand: .btn's inline padding and .btn--ghost's ink put back, and .acct__btn's
+   hairline, ground and hover, which "Make token" takes from that class. And its longer
+   label never breaks inside the pill. */
+.acct__tokenrow :deep(.acct__scope) {
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-2);
   white-space: nowrap;
+}
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .acct__tokenrow :deep(.acct__scope:hover) {
+    background: var(--paper-2);
+    border-color: var(--line-2);
+    color: var(--ink);
+  }
 }
 .acct__fresh {
   display: flex;

@@ -1637,7 +1637,7 @@ function dismissFix() {
                     <label class="t-sm t-muted item__poplabel" :for="`${item.id}-kcal`">kcal each</label>
                     <input
                       :id="`${item.id}-kcal`"
-                      class="field field--num item__popinput"
+                      class="field field--num well item__popinput"
                       :value="item.kcal ?? ''"
                       placeholder="0"
                       inputmode="numeric"
@@ -1970,7 +1970,7 @@ function dismissFix() {
     <Transition name="reveal">
       <div v-if="showFix" class="reveal">
         <div class="item__fixrow">
-          <button type="button" class="item__under-link t-sm" @click="openFix">
+          <button type="button" class="item__under-link ink-quiet t-sm" @click="openFix">
             Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, rowUnit) }} · suggest a fix
           </button>
           <button
@@ -2499,24 +2499,29 @@ function dismissFix() {
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+/* The chip's ground is AN AMOUNT OF INK, the well's two (.well, atoms/controls.scss): 7%
+   at rest, 10% under the pointer — the same pair the kcal field takes in the popover
+   beside this one, so the two cards' grounds agree. It drew them in --paper-2 and
+   --paper-3, page tones on a floating card: 1.10:1 at rest on the light popover, and in
+   dark --paper-3 IS --surface-float, so pointing at a count erased its chip. Not --lit:
+   that is the tone for ON, and here on is the inverted chip below. */
 .item__split {
   min-width: var(--icon-btn);
   min-height: var(--icon-btn);
   padding-inline: var(--space-2);
   border-radius: var(--pop-inner-radius);
-  background: var(--paper-2);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
   color: var(--ink-2);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .item__split:hover {
-    background: var(--paper-3);
+    background: color-mix(in oklab, var(--ink) 10%, transparent);
     color: var(--ink);
   }
 }
-/* the chosen count takes the same quiet-grey chip as an active row toggle, one step
-   deeper — the popover's own ground is already --paper-2, so the resting chip has to
-   sit above it to read as a button at all */
+/* the chosen count is inverted ink: the one chip in the row that is ON, a full step
+   past the grounds the others rest on */
 .item__split.is-active,
 .item__split.is-active:hover {
   background: var(--ink);
@@ -2528,19 +2533,21 @@ function dismissFix() {
    So the field declares itself here, and only here.
    A FILL rather than a border does it: --surface-float is the brightest tone on the
    page, so a well sunk into it reads as "type here" at a glance, where a hairline
-   rectangle has to be looked at to be seen. */
+   rectangle has to be looked at to be seen.
+   That fill is the .well atom (atoms/controls.scss), worn in the markup: an amount of
+   ink, which composites over the card, where the --paper-2 this used sat at 1.10:1 on
+   it. Focus is the atom's too, the ground deepening a step and nothing drawn round it —
+   the one focus every contained field on a floating surface takes (the trail panel's
+   fields, the searches, the paste boxes). This one used to swap to --paper-3 and add a
+   hairline ring; the ring was standing in for a deepening that couldn't show, since
+   --paper-3 is the card's own colour in dark. Only the geometry is this field's — the
+   transparent edge included: it is part of the box's size, and under forced colours,
+   where fills are stripped, it is repainted and is all the field has. */
 .item__popinput {
   min-height: var(--icon-btn);
   padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--pop-inner-radius);
-  background: var(--paper-2);
-}
-/* focus deepens the well and rings it — the caret alone is too quiet once the field
-   has a ground of its own to sit on */
-.item__popinput:focus {
-  background: var(--paper-3);
-  border-color: var(--line-2);
 }
 .item__popline {
   display: flex;
@@ -2830,19 +2837,14 @@ function dismissFix() {
    covers the engines without field-sizing. `rows="1"` is the floor, so an empty note
    costs exactly the line the <input> did and the row's height is unchanged until there
    is something to wrap. */
-/* quiet "suggest a fix" link under a row (a <button>: the pointer is the reset's) */
+/* quiet "suggest a fix" link under a row (a <button>: the pointer is the reset's). Its
+   inks are .ink-quiet's (atoms/controls.scss), in the markup: the lesser ink at rest,
+   full ink under the pointer and on keyboard focus, on the fade. */
 .item__under-link {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  color: var(--ink-3);
   text-align: left;
-}
-/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
-@media (hover: hover) and (pointer: fine) {
-  .item__under-link:hover {
-    color: var(--ink);
-  }
 }
 /* the suggest-a-fix nudge + an × to dismiss it from the page */
 .item__fixrow {

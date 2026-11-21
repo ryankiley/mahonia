@@ -1583,11 +1583,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
 
 /* on = the pane (or the sharing panel) is open: the icon takes full ink and a soft
    ground, so the button reads as a held state rather than a hover. One rule for both,
-   so the two topbar popovers signal their state identically. */
+   so the two topbar popovers signal their state identically — and --lit for the ground,
+   the one tone the app uses for "on" (the mode tabs, the person filter, the row
+   toggles), where this used a second one, --paper-2. */
 .editor__vault.is-on,
 .editor__share.is-on {
   color: var(--ink);
-  background: var(--paper-2);
+  background: var(--lit);
 }
 /* The sharing panel hangs off a 32px button near the right end of the bar. `.menu`
    makes that button the containing block, so `right: 0` puts the panel's right edge at
