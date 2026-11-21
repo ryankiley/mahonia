@@ -54,7 +54,9 @@ export default defineEventHandler(async (event) => {
   // counted before any of them saved, so the count above let them all through. A key
   // saved past the cap comes back out, and its ceremony gets the refusal it would
   // have had a moment later.
-  if (await removePasskeyBeyondCap(db, user.id, saved)) throw tooManyPasskeys();
+  // The check failing is not the save failing: the key is in, so the owner still hears
+  // of it below. The cap is housekeeping; the notice is the security signal.
+  if (await removePasskeyBeyondCap(db, user.id, saved).catch(() => false)) throw tooManyPasskeys();
 
   // Tell the owner. Best-effort and never allowed to fail the registration it rode
   // in on: a passkey that saved but whose notice didn't send is a strictly better
