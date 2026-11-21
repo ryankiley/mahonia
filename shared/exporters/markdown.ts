@@ -8,6 +8,7 @@ import { carrierName, effectivePersonId } from "../people";
 import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, isBareGroup, itemDisplayName, lineMg, groupLineMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
 import { isWaterName, waterVolumeLabel } from "../water";
+import { dropHidden } from "../tidyText";
 
 // a product name with its common name trailing after an em dash, when the item has one
 const withCommon = (name: string, commonName?: string) =>
@@ -107,5 +108,7 @@ export function listToMarkdown(list: ListSnapshot): string {
     out.push(`- **Total:** ${formatWeight(totals.totalMg, u)}`);
   }
 
-  return out.join("\n");
+  // the read a model gets when it fetches a share link, so nothing in it may be hidden
+  // from the person who shared it: tidyText's rule for stored text, kept at the door too
+  return dropHidden(out.join("\n"));
 }
