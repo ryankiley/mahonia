@@ -974,6 +974,21 @@ export async function softDeleteByEditHash(editHash: string, db?: Db): Promise<b
 }
 
 /**
+ * A batch in words, for its recovery point: the summary, or the plain "edit" when it
+ * has nothing to say, or can't be worked out at all. It never throws. The summary is
+ * read off ops a client sent, AFTER the write they caused has landed, and the reducer
+ * passes over a malformed op that the summary may still try to read: a throw here
+ * would answer a saved batch with an error, and the editor would send it again.
+ */
+function describeChange(ops: readonly Op[], before: Parameters<typeof summarizeOps>[1]): string {
+  try {
+    return summarizeOps(ops, before).slice(0, MAX_SUMMARY_LEN) || "edit";
+  } catch {
+    return "edit";
+  }
+}
+
+/**
  * Apply a batch of ops via compare-and-set on version. Ops MERGE: if another
  * editor bumped the version between read and write, we re-read and re-apply onto
  * the latest state (so independent edits both land). Returns the authoritative
@@ -1057,7 +1072,7 @@ export async function applyOpsByEditHash(
       // description of the change — but the ops that caused it are right here, and
       // they are an exact one. Derived once on write; free to read back.
       if (doSnapshot)
-        await captureSnapshot(d, row, summarizeOps(ops, before).slice(0, MAX_SUMMARY_LEN) || "edit", {
+        await captureSnapshot(d, row, describeChange(ops, before), {
           actor: opts.actor ?? null,
           editorUserId: await lookupEditor(opts.editor),
         });
@@ -1172,7 +1187,7 @@ const LIST_PURGE_GRACE_DAYS = Number(process.env.LIST_PURGE_GRACE_DAYS) || 90;
 
 /**
  * Permanently delete lists soft-deleted more than `graceDays` ago (+ their
- * snapshots). Batched (`limit`) like the reaper so one run can't issue an unbounded
+ * snapshots and the claims accounts held on them). Batched (`limit`) like the reaper so one run can't issue an unbounded
  * delete. Returns how many list rows were purged.
  */
 export async function purgeDeletedLists(
@@ -1189,9 +1204,22 @@ export async function purgeDeletedLists(
   if (!doomed.length) return { purged: 0 };
   const ids = doomed.map((r) => r.id);
 
-  // drop child snapshots first (no DB-level FK, so this is manual), then the rows
+  // drop what hangs off the lists first (no DB-level FK, so this is manual), then the rows
   await ensureSnapshotSchema(d);
   await d.delete(listSnapshots).where(inArray(listSnapshots.listId, ids));
+  // The claims accounts held on them too. Every read of a claim joins a live list, so
+  // one left behind is never seen again and nothing could ever remove it: it would
+  // sit in the table for good, one per account per purged list.
+  //
+  // Not allowed to fail the purge. list_claims is the account layer's table, made on
+  // first use, so a database nobody has signed in to has none (and no claims); and a
+  // delete that fails for any other reason costs a few stray rows, where stopping
+  // here would leave the lists themselves unpurged night after night.
+  try {
+    await d.delete(listClaims).where(inArray(listClaims.listId, ids));
+  } catch (e) {
+    console.warn("[purge lists] the purged lists' claims were not dropped", (e as Error).message);
+  }
   await d.delete(lists).where(inArray(lists.id, ids));
   return { purged: ids.length };
 }

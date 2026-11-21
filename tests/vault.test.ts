@@ -696,6 +696,33 @@ describe("vault reaping — bounding a table nothing else ever shrinks", () => {
     expect(await reapAbandonedVaults(db, { limit: 2 })).toEqual({ vaultsReaped: 2 });
     expect(await reapAbandonedVaults(db, { limit: 2 })).toEqual({ vaultsReaped: 1 });
   });
+
+  // An account's My Gear is the account's for as long as the account is: someone who
+  // packs once a year comes back to what they left. Only a vault no account owns
+  // (the link-owned ones from before accounts) is ever abandoned.
+  it("never reaps an account's vault, however long it has gone unseen", async () => {
+    const mine = await seedVault(365);
+    await db.update(vaults).set({ userId: 7 }).where(eq(vaults.id, mine));
+    const orphan = await seedVault(365);
+
+    expect(await reapAbandonedVaults(db)).toEqual({ vaultsReaped: 1 });
+    const rows = await db.select().from(vaults);
+    expect(rows.find((r) => r.id === mine)!.deletedAt).toBeNull();
+    expect(rows.find((r) => r.id === orphan)!.deletedAt).not.toBeNull();
+    expect(await listVaultItems(db, mine)).toHaveLength(1);
+  });
+
+  it("never purges an account's vault, even one that carries a soft-delete", async () => {
+    const mine = await seedVault(400);
+    await db.update(vaults).set({ userId: 7, deletedAt: ago(120) }).where(eq(vaults.id, mine));
+    const orphan = await seedVault(400);
+    await db.update(vaults).set({ deletedAt: ago(120) }).where(eq(vaults.id, orphan));
+
+    expect(await purgeDeletedVaults(db)).toEqual({ vaultsPurged: 1 });
+    expect((await db.select().from(vaults)).map((r) => r.id)).toEqual([mine]);
+    expect(await listVaultItems(db, mine)).toHaveLength(1);
+    expect(await listVaultItems(db, orphan)).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------

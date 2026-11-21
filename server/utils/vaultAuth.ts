@@ -48,11 +48,10 @@ async function vaultFor(
  * resolveVaultForRead below, where "no vault yet" is a normal state, not an
  * error.
  *
- * `last_seen_at` is bumped on every resolve so an abandoned vault can be reaped on
- * the same schedule as an abandoned list, instead of accumulating forever. That
- * bump also clears any soft-delete the reaper had set: a vault whose owner comes
- * back inside the purge grace revives simply by being used, with no separate
- * restore path to remember to call.
+ * Resolving a vault stamps its `last_seen_at` (touchVaultByUser, at most once a
+ * day), and the same write clears a soft-delete should the row carry one, with no
+ * separate restore path to remember to call. The nightly sweep takes only vaults no
+ * account owns (vaultRepo), so an account's vault is never reaped for going unseen.
  */
 export async function requireVault(event: H3Event): Promise<{ db: Db; vaultId: number }> {
   const { db, vaultId } = await vaultFor(event);
@@ -84,9 +83,10 @@ export async function resolveVaultForRead(
  * H3Event; what's left up there is error handling.
  *
  * The mark is written at most once a day. Every vault call comes through here, the
- * autocomplete's per-keystroke search included, and the only reader of last_seen_at
- * is a reaper that counts in months: so the common request is a read, and the row is
- * rewritten only when the stamp has gone stale or there is a soft-delete to lift.
+ * autocomplete's per-keystroke search included, and nothing reads last_seen_at to
+ * the day (the nightly sweep counts in months, and only over vaults no account
+ * owns): so the common request is a read, and the row is rewritten only when the
+ * stamp has gone stale or there is a soft-delete to lift.
  */
 const VAULT_TOUCH_AFTER_MS = 24 * 60 * 60_000;
 export async function touchVaultByUser(db: Db, userId: number): Promise<number | null> {

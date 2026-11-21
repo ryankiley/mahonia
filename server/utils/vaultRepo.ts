@@ -682,6 +682,39 @@ export async function vaultItemById(db: Db, vaultId: number, id: number): Promis
   return rows[0] ? ((await withKits(db, vaultId, [toEntry(rows[0])]))[0] ?? null) : null;
 }
 
+/** What a change needs to know of a row before it is made: whether it is a kit, and
+ *  the currency its price is in (none without a price), both as toEntry reads them. */
+export interface VaultItemFacts {
+  kind: "piece" | "kit";
+  currency?: string;
+}
+export const vaultItemFactsOf = (item: Pick<VaultEntry, "kind" | "currency">): VaultItemFacts => ({
+  kind: item.kind === "kit" ? "kit" : "piece",
+  currency: item.currency,
+});
+
+/**
+ * vaultItemFactsOf for many rows in ONE read, by id: live or put away, as
+ * vaultItemById reads them, and an id that isn't this vault's simply absent. For a
+ * call that changes many pieces (the connector's edit_my_gear takes fifty), which
+ * would otherwise read each row, and the whole vault's kit links beside it, to learn
+ * two columns.
+ */
+export async function vaultItemFacts(db: Db, vaultId: number, ids: readonly number[]): Promise<Map<number, VaultItemFacts>> {
+  const wanted = [...new Set(ids.filter(isSerialId))];
+  if (!wanted.length) return new Map();
+  const rows = await db
+    .select({ id: vaultItems.id, kind: vaultItems.kind, priceCents: vaultItems.priceCents, currency: vaultItems.currency })
+    .from(vaultItems)
+    .where(and(eq(vaultItems.vaultId, vaultId), inArray(vaultItems.id, wanted)));
+  return new Map(
+    rows.map((r): [number, VaultItemFacts] => [
+      r.id,
+      { kind: r.kind === "kit" ? "kit" : "piece", currency: r.priceCents != null ? (r.currency ?? undefined) : undefined },
+    ]),
+  );
+}
+
 /**
  * The live row with this identity (brand + name + variant, folded as vaultNormKey
  * folds them), or null. The MCP gear tools answer an add that came back as a
@@ -768,26 +801,30 @@ async function markVaultItems(db: Db, vaultId: number, ids: readonly number[], r
 // ---------------------------------------------------------------------------
 // the nightly reaper
 // ---------------------------------------------------------------------------
-// Vaults are minted lazily, and only this and an account's own deletion remove one.
-// `last_seen_at` is stamped by touchVaultByUser, which every vault request goes through
-// (capture included, which for anyone actively building lists is constant) and which
-// writes it at most once a day — so "not seen in months" is a strong signal and not a
-// proxy for "quiet lately".
+// AN ACCOUNT'S MY GEAR IS NEVER REAPED. It is the account's for as long as the account
+// is, however long it goes unopened: a hiker who packs once a year comes back to the
+// gear, the pins and the kits they left. An account's vault goes only when the account
+// is closed (accountRepo.deleteAccount).
 //
-// Two stages, the shape lists already use (see listRepo): soft-delete first, hard
-// delete only after a grace window. Inside the grace, using the vault is enough:
-// touchVaultByUser clears deleted_at. Every vault is an account's, and neither stage
-// asks whether that account is still live: its My Gear goes with the vault.
+// What is reaped is a vault NO account owns: `user_id IS NULL`, the link-owned vaults
+// from before My Gear moved into an account. Nothing can open one (every vault request
+// resolves a session to its account's vault), so nothing stamps its `last_seen_at`
+// again and it only ages. Two stages, the shape lists use (see listRepo): soft-delete
+// first, hard delete after a grace window.
+//
+// Both stages say `user_id IS NULL` for themselves, the purge as well as the reap: an
+// account's vault that somehow carries a deleted_at is still not purged, and the next
+// request that opens it clears the mark (touchVaultByUser).
 
-/** Untouched for this long and a vault is presumed abandoned. Much longer than a
- *  list's 30: a list is reaped for being EMPTY as well as stale, whereas a full
- *  vault is exactly what someone might return to after a season off. */
+/** How long an ownerless vault goes unseen before it is soft-deleted. */
 const VAULT_REAP_STALE_DAYS = Number(process.env.VAULT_REAP_STALE_DAYS) || 180;
-/** How long a soft-deleted vault stays revivable — the same 90 days a list gets. */
+/** How long a soft-deleted ownerless vault is kept before it is purged: the same 90
+ *  days a list gets. */
 const VAULT_PURGE_GRACE_DAYS = Number(process.env.VAULT_PURGE_GRACE_DAYS) || 90;
 
-/** Soft-delete vaults not seen in `staleDays`. Batched, so one run can never issue
- *  an unbounded write — a backlog just drains over successive nights. */
+/** Soft-delete the vaults no account owns that have not been seen in `staleDays`.
+ *  Batched, so one run can never issue an unbounded write — a backlog just drains
+ *  over successive nights. */
 export async function reapAbandonedVaults(
   db: Db,
   opts?: { staleDays?: number; limit?: number },
@@ -796,7 +833,7 @@ export async function reapAbandonedVaults(
   const stale = db
     .select({ id: vaults.id })
     .from(vaults)
-    .where(and(isNull(vaults.deletedAt), lt(vaults.lastSeenAt, cutoff)))
+    .where(and(isNull(vaults.userId), isNull(vaults.deletedAt), lt(vaults.lastSeenAt, cutoff)))
     .limit(limit);
   const done = await db
     .update(vaults)
@@ -806,9 +843,9 @@ export async function reapAbandonedVaults(
   return { vaultsReaped: done.length };
 }
 
-/** Hard-delete vaults soft-deleted more than `graceDays` ago, with their gear (and
- *  any folders left from before My Gear dropped them). This is the stage that
- *  actually reclaims the storage. */
+/** Hard-delete the ownerless vaults soft-deleted more than `graceDays` ago, with their
+ *  gear (and any folders left from before My Gear dropped them). This is the stage
+ *  that actually reclaims the storage. */
 export async function purgeDeletedVaults(
   db: Db,
   opts?: { graceDays?: number; limit?: number },
@@ -817,7 +854,7 @@ export async function purgeDeletedVaults(
   const doomed = await db
     .select({ id: vaults.id })
     .from(vaults)
-    .where(and(isNotNull(vaults.deletedAt), lt(vaults.deletedAt, cutoff)))
+    .where(and(isNull(vaults.userId), isNotNull(vaults.deletedAt), lt(vaults.deletedAt, cutoff)))
     .limit(limit);
   if (!doomed.length) return { vaultsPurged: 0 };
   const ids = doomed.map((r) => r.id);
