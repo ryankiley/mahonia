@@ -69,6 +69,8 @@ export default defineEventHandler(async (event) => {
       ...credential,
       discoverable: true, // residentKey: "required" — see signup-options
       label: null,
+      // the address is only a claim until its link comes back (claimUnverifiedAccount)
+      unproven: true,
     });
   } catch (e) {
     // The unique index on credential_id. Unlike register-verify, this is NOT a
@@ -83,7 +85,7 @@ export default defineEventHandler(async (event) => {
     return { ok: false as const, reason: "invalid" as const };
   }
 
-  await startSession(event, db, user.id, { sweep: true });
+  await startSession(event, db, user.id, { sweep: true, unproven: true });
 
   // Best-effort, and never allowed to fail the signup it rode in on.
   if (canSendEmail()) {

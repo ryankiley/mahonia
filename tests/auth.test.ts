@@ -208,7 +208,7 @@ describe("an address is only a claim until a link comes back", () => {
       .values({ tokenHash, userId, expiresAt: new Date(Date.now() + 60_000) });
 
   const addPasskey = (userId: number, credentialId: string) =>
-    savePasskey(db, { userId, credentialId, ...PASSKEY, label: null });
+    savePasskey(db, { userId, credentialId, ...PASSKEY, label: null, unproven: false });
 
   const sessionHashes = async () =>
     (await db.select().from(schema.sessions)).map((r) => r.tokenHash);
@@ -296,7 +296,7 @@ describe("an address is only a claim until a link comes back", () => {
     // A session is all minting takes, and the passkey signup hands one over: a write
     // token in a config file, and an app allowed seconds ago whose code is still out.
     const seeded = await createAccount(db, "ryan@example.com");
-    const minted = await mintAccessToken(db, seeded.id, { label: "mine now", scope: "write" });
+    const minted = await mintAccessToken(db, seeded.id, { label: "mine now", scope: "write", unproven: false });
     await db.insert(schema.oauthCodes).values({
       codeHash: sha256Hex("pending-code"),
       userId: seeded.id,

@@ -3,8 +3,8 @@
 // ceremony plumbing to server/utils/passkeys.ts.
 
 import { toIso } from "./time";
-import { and, desc, eq } from "drizzle-orm";
-import { credentials } from "../db/schema";
+import { and, desc, eq, getTableColumns, or } from "drizzle-orm";
+import { credentials, users } from "../db/schema";
 import type { Db } from "./db";
 import { cleanLine } from "./http";
 import type { PasskeySummary } from "../../shared/types";
@@ -57,6 +57,9 @@ export async function savePasskey(
     transports?: string[] | null;
     discoverable: boolean;
     label?: string | null;
+    /** the account's address was unproven when whatever authorized this key was
+     *  checked: see sessions.unproven in server/db/schema.ts */
+    unproven: boolean;
   },
 ): Promise<void> {
   await db.insert(credentials).values({
@@ -67,19 +70,24 @@ export async function savePasskey(
     transports: input.transports?.length ? JSON.stringify(input.transports) : null,
     discoverable: input.discoverable,
     label: (input.label && cleanPasskeyLabel(input.label)) || null,
+    unproven: input.unproven,
   });
 }
 
 /** Look a credential up by the id the authenticator presented. Not scoped by
  *  user — for a discoverable ("usernameless") sign-in the credential is what
- *  TELLS us the user. */
+ *  TELLS us the user. A key made while the account's address was unproven finds
+ *  nothing once it is proven (claimUnverifiedAccount); `accountUnproven` says what
+ *  the address was as this read happened, for the session the sign-in starts. */
 export async function findCredential(db: Db, credentialId: string) {
   const rows = await db
-    .select()
+    .select({ credential: getTableColumns(credentials), emailVerified: users.emailVerified })
     .from(credentials)
-    .where(eq(credentials.credentialId, credentialId))
+    .innerJoin(users, eq(users.id, credentials.userId))
+    .where(and(eq(credentials.credentialId, credentialId), or(eq(credentials.unproven, false), eq(users.emailVerified, false))))
     .limit(1);
-  return rows[0] ?? null;
+  const row = rows[0];
+  return row ? { ...row.credential, accountUnproven: !row.emailVerified } : null;
 }
 
 /** Record a successful use: bump the signature counter and stamp the time. The

@@ -37,7 +37,9 @@ export default defineEventHandler(async (event) => {
   const label = typeof body?.label === "string" ? cleanPasskeyLabel(body.label) || null : null;
   try {
     const { syncable, ...credential } = verified;
-    await savePasskey(db, { userId: user.id, ...credential, discoverable: syncable, label });
+    // stamped from the session as it was checked above, so a claim landing during the
+    // ceremony leaves this key worthless (claimUnverifiedAccount)
+    await savePasskey(db, { userId: user.id, ...credential, discoverable: syncable, label, unproven: user.unproven });
   } catch {
     // the unique index on credential_id — this key is already registered, which is
     // a no-op rather than an error worth showing

@@ -62,7 +62,7 @@ beforeEach(async () => {
 describe("startSession → resolveSession", () => {
   it("round-trips: the cookie a sign-in sets is the credential resolve accepts", async () => {
     const start = visit();
-    await startSession(start, db, userId, { sweep: true });
+    await startSession(start, db, userId, { sweep: true, unproven: false });
     const token = setCookieValue(start, SESSION_COOKIE)!;
     // the readable hint rides along, carrying no capability
     expect(setCookieValue(start, SESSION_HINT_COOKIE)).toBe("1");
@@ -80,7 +80,7 @@ describe("startSession → resolveSession", () => {
     const resolved = visit(`${SESSION_COOKIE}=${token}`);
     const user = await resolveSession(resolved);
     const account = accountMarker({ id: userId, email: "ryan@example.com" });
-    expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null, owner, sweep: true, account });
+    expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null, owner, sweep: true, unproven: false, account });
     // Sessions from before the marker existed acquire it without reissuing their
     // credential or writing the database.
     expect(setCookieValue(resolved, SESSION_OWNER_COOKIE)).toBe(owner);
@@ -88,7 +88,7 @@ describe("startSession → resolveSession", () => {
     // per SESSION, by design: signing in again mints a different marker, which the
     // browser reads as a change of owner and starts its caches over
     const again = visit();
-    await startSession(again, db, userId, { sweep: true });
+    await startSession(again, db, userId, { sweep: true, unproven: false });
     expect(setCookieValue(again, SESSION_OWNER_COOKIE)).toMatch(/^[0-9a-f]{16}$/);
     expect(setCookieValue(again, SESSION_OWNER_COOKIE)).not.toBe(owner);
     // ...while the ACCOUNT marker is the same on every session it has: what a
@@ -105,7 +105,7 @@ describe("startSession → resolveSession", () => {
   // that live on, and a say-so that vanished with it stopped the sweep for good.
   it("carries whether the browser's lists may follow, and takes a later yes", async () => {
     const start = visit();
-    await startSession(start, db, userId, { sweep: false });
+    await startSession(start, db, userId, { sweep: false, unproven: false });
     const cookie = `${SESSION_COOKIE}=${setCookieValue(start, SESSION_COOKIE)}`;
     expect((await resolveSession(visit(cookie)))!.sweep).toBe(false);
 
