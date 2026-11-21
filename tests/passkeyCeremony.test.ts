@@ -154,7 +154,7 @@ describe("signup-verify — minting an account", () => {
 
   it("rolls the account back when the credential is already registered — no unreachable row survives", async () => {
     const owner = await findOrCreateUser(db, "owner@example.com");
-    await savePasskey(db, { userId: owner.id, credentialId: "cred-dup", ...PASSKEY });
+    await savePasskey(db, { userId: owner.id, credentialId: "cred-dup", ...PASSKEY, unproven: false });
 
     const flowId = await startChallenge("chal-d", undefined, "second@example.com");
     verifyMock.mockResolvedValue(verified("cred-dup"));

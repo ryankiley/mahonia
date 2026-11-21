@@ -105,9 +105,9 @@ beforeAll(async () => {
     { brand: "Clif", name: "Builders Bar", variant: null, weightMg: 68_000, weightSource: "manufacturer", sourceUrl: "https://clifbar.com/builders", verified: true, commonName: "Energy bar", categoryHint: "consumable", kcal: 290, searchTerms: "snack food" },
   ]);
   [alice, bob] = (await db.insert(schema.users).values([{ email: "alice@example.com" }, { email: "bob@example.com" }]).returning()).map((u) => u.id);
-  aliceRead = (await mintAccessToken(db, alice, { label: "Reader", scope: "read" }))!.token;
-  aliceWrite = (await mintAccessToken(db, alice, { label: "Claude Code", scope: "write" }))!.token;
-  bobWrite = (await mintAccessToken(db, bob, { scope: "write" }))!.token;
+  aliceRead = (await mintAccessToken(db, alice, { label: "Reader", scope: "read", unproven: false }))!.token;
+  aliceWrite = (await mintAccessToken(db, alice, { label: "Claude Code", scope: "write", unproven: false }))!.token;
+  bobWrite = (await mintAccessToken(db, bob, { scope: "write", unproven: false }))!.token;
 });
 
 describe("minting and revoking", () => {
@@ -131,7 +131,7 @@ describe("minting and revoking", () => {
   });
 
   it("lets an account revoke only its own", async () => {
-    const spare = (await mintAccessToken(db, alice, { scope: "read" }))!;
+    const spare = (await mintAccessToken(db, alice, { scope: "read", unproven: false }))!;
     expect(await revokeAccessToken(db, bob, spare.id)).toBe(false);
     expect(await resolveBearer(db, spare.token)).not.toBeNull();
     expect(await revokeAccessToken(db, alice, spare.id)).toBe(true);
@@ -141,7 +141,7 @@ describe("minting and revoking", () => {
   it("refuses the token past the ceiling", async () => {
     // bob holds one already, so the ceiling is reached one mint early
     const minted = [];
-    for (let i = 0; i < ACCESS_TOKENS_MAX; i++) minted.push(await mintAccessToken(db, bob, { scope: "read" }));
+    for (let i = 0; i < ACCESS_TOKENS_MAX; i++) minted.push(await mintAccessToken(db, bob, { scope: "read", unproven: false }));
     expect(minted.filter(Boolean)).toHaveLength(ACCESS_TOKENS_MAX - 1);
     expect(minted[ACCESS_TOKENS_MAX - 1]).toBeNull();
     for (const t of await listAccessTokens(db, bob)) if (t.scope === "read") await revokeAccessToken(db, bob, t.id);
@@ -470,8 +470,8 @@ describe("create_list filing under the token's account", () => {
   let carolRead = "";
   beforeAll(async () => {
     [carol] = (await db.insert(schema.users).values([{ email: "carol@example.com" }]).returning()).map((u) => u.id);
-    carolWrite = (await mintAccessToken(db, carol, { scope: "write" }))!.token;
-    carolRead = (await mintAccessToken(db, carol, { scope: "read" }))!.token;
+    carolWrite = (await mintAccessToken(db, carol, { scope: "write", unproven: false }))!.token;
+    carolRead = (await mintAccessToken(db, carol, { scope: "read", unproven: false }))!.token;
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -511,7 +511,7 @@ describe("create_list filing under the token's account", () => {
   });
 
   it("asks an app whose access token has aged out to refresh, rather than making the list unfiled", async () => {
-    const app = await issueAppTokens(db, { userId: carol, clientId: "https://claude.ai/oauth/claude-code-client-metadata", label: "Claude", scope: "write" });
+    const app = await issueAppTokens(db, { userId: carol, clientId: "https://claude.ai/oauth/claude-code-client-metadata", label: "Claude", scope: "write", unproven: false });
     await db.update(schema.accessTokens).set({ expiresAt: new Date(Date.now() - 1) }).where(eq(schema.accessTokens.refreshHash, sha256Hex(app.refresh_token)));
     const r = await door("create_list", LIST, app.access_token);
     expect(r.status).toBe(401);
@@ -559,7 +559,7 @@ describe("create_list filing under the token's account", () => {
     expect((await tool("get_list", { share_code: lists[0]!.share_code })).data.title).toBe("Wonderland");
 
     const [dave] = (await db.insert(schema.users).values([{ email: "dave@example.com" }]).returning()).map((u) => u.id);
-    const daveRead = (await mintAccessToken(db, dave!, { scope: "read" }))!.token;
+    const daveRead = (await mintAccessToken(db, dave!, { scope: "read", unproven: false }))!.token;
     expect((await tool("get_list", {}, daveRead)).data).toEqual({ lists: [] });
   });
 
@@ -616,8 +616,8 @@ describe("create_list retried by the same account", () => {
   let erinRead = "";
   beforeAll(async () => {
     [erin] = (await db.insert(schema.users).values([{ email: "erin@example.com" }]).returning()).map((u) => u.id);
-    erinWrite = (await mintAccessToken(db, erin, { scope: "write" }))!.token;
-    erinRead = (await mintAccessToken(db, erin, { scope: "read" }))!.token;
+    erinWrite = (await mintAccessToken(db, erin, { scope: "write", unproven: false }))!.token;
+    erinRead = (await mintAccessToken(db, erin, { scope: "read", unproven: false }))!.token;
   });
   const LIST = { title: "Enchantments", items: [{ name: "Quilt", weight_g: 600 }] };
   const filed = async () => (await listClaimedLists(db, erin)).map((l) => l.shareCode);
@@ -649,7 +649,7 @@ describe("create_list retried by the same account", () => {
 
   it("keeps one account's window from another's", async () => {
     const [frank] = (await db.insert(schema.users).values([{ email: "frank@example.com" }]).returning()).map((u) => u.id);
-    const frankWrite = (await mintAccessToken(db, frank!, { scope: "write" }))!.token;
+    const frankWrite = (await mintAccessToken(db, frank!, { scope: "write", unproven: false }))!.token;
     const mine = await tool("create_list", LIST, erinWrite);
     const theirs = await tool("create_list", LIST, frankWrite);
     expect(theirs.data).toMatchObject({ repeated: false, saved_to_account: true });

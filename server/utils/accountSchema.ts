@@ -158,6 +158,15 @@ export const ACCOUNT_DDL: string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_credential_id ON credentials (credential_id)`,
   `CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials (user_id)`,
 
+  // Made while the account's address was unproven: such a row opens nothing once it
+  // is proven (see sessions.unproven in server/db/schema.ts). Defaulted false, which
+  // leaves rows from before the column as they were: the claim deletes those anyway,
+  // and only a request in flight at the moment of a claim could write a straggler.
+  `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE credentials ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE oauth_codes ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
+
   // list_claims — "this account holds this list". See server/db/schema.ts for why
   // it's a join table and not an owner column, and why it stores no secret.
   `CREATE TABLE IF NOT EXISTS list_claims (

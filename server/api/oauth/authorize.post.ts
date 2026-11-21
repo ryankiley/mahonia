@@ -25,6 +25,7 @@ export default defineEventHandler(async (event) => {
     redirectUri: check.redirectUri,
     codeChallenge: check.codeChallenge,
     scope: check.scope,
+    unproven: user.unproven,
   });
   return { ok: true as const, redirect: redirectWith(check.redirectUri, { code, state: check.state }) };
 });

@@ -32,7 +32,7 @@
 import { and, desc, eq, or, sql } from "drizzle-orm";
 import type { H3Event } from "h3";
 import type { AccessScope, AccessTokenSummary } from "../../shared/types";
-import { accessTokens, oauthCodes } from "../db/schema";
+import { accessTokens, oauthCodes, users } from "../db/schema";
 import type { Db } from "./db";
 import { bearerToken } from "./http";
 import { toIso } from "./time";
@@ -101,7 +101,7 @@ interface IssuedTokens {
 export async function mintAccessToken(
   db: Db,
   userId: number,
-  opts: { label?: string | null; scope: AccessScope },
+  opts: { label?: string | null; scope: AccessScope; unproven: boolean },
 ): Promise<{ id: number; token: string } | null> {
   const [{ held } = { held: 0 }] = await db
     .select({ held: sql<number>`count(*)` })
@@ -112,7 +112,7 @@ export async function mintAccessToken(
   const label = (opts.label ?? "").trim().slice(0, LABEL_MAX) || null;
   const [row] = await db
     .insert(accessTokens)
-    .values({ tokenHash: sha256Hex(token), userId, kind: "token", label, scope: opts.scope })
+    .values({ tokenHash: sha256Hex(token), userId, kind: "token", label, scope: opts.scope, unproven: opts.unproven })
     .returning();
   return { id: row!.id, token };
 }
@@ -130,10 +130,10 @@ function freshPair(scope: AccessScope) {
 /** A new grant for an app that was just allowed: the row, and its first pair. */
 export async function issueAppTokens(
   db: Db,
-  grant: { userId: number; clientId: string; label: string; scope: AccessScope },
+  grant: { userId: number; clientId: string; label: string; scope: AccessScope; unproven: boolean },
 ): Promise<IssuedTokens> {
   const pair = freshPair(grant.scope);
-  await db.insert(accessTokens).values({ ...pair.set, userId: grant.userId, kind: "app", clientId: grant.clientId, label: grant.label, scope: grant.scope });
+  await db.insert(accessTokens).values({ ...pair.set, userId: grant.userId, kind: "app", clientId: grant.clientId, label: grant.label, scope: grant.scope, unproven: grant.unproven });
   return pair.issued;
 }
 
@@ -155,6 +155,11 @@ export async function issueAppTokens(
  * would kill the pair the first of them was just handed. The late one is refused and
  * the grant kept.
  */
+/** A token made while its account's address was unproven opens nothing once it is
+ *  proven, even one written after the claim swept the table: see sessions.unproven in
+ *  server/db/schema.ts. Read with the account joined in. */
+const notRetired = () => or(eq(accessTokens.unproven, false), eq(users.emailVerified, false));
+
 export async function refreshAppTokens(db: Db, rawRefresh: unknown, clientId: unknown): Promise<IssuedTokens | null> {
   if (typeof rawRefresh !== "string" || !rawRefresh.startsWith(APP_REFRESH_PREFIX) || rawRefresh.length > RAW_TOKEN_MAX) return null;
   if (typeof clientId !== "string" || !clientId) return null;
@@ -162,7 +167,8 @@ export async function refreshAppTokens(db: Db, rawRefresh: unknown, clientId: un
   const [row] = await db
     .select({ id: accessTokens.id, scope: accessTokens.scope, refreshHash: accessTokens.refreshHash, expiresAt: accessTokens.expiresAt })
     .from(accessTokens)
-    .where(and(or(eq(accessTokens.refreshHash, hash), eq(accessTokens.refreshPrevHash, hash)), eq(accessTokens.clientId, clientId)))
+    .innerJoin(users, eq(users.id, accessTokens.userId))
+    .where(and(or(eq(accessTokens.refreshHash, hash), eq(accessTokens.refreshPrevHash, hash)), eq(accessTokens.clientId, clientId), notRetired()))
     .limit(1);
   if (!row || !isAccessScope(row.scope)) return null;
   if (row.refreshHash !== hash) {
@@ -256,7 +262,8 @@ export async function resolveBearer(db: Db, raw: string): Promise<ConnectorIdent
   const [row] = await db
     .select({ id: accessTokens.id, userId: accessTokens.userId, scope: accessTokens.scope, expiresAt: accessTokens.expiresAt, lastUsedAt: accessTokens.lastUsedAt })
     .from(accessTokens)
-    .where(eq(accessTokens.tokenHash, sha256Hex(raw)))
+    .innerJoin(users, eq(users.id, accessTokens.userId))
+    .where(and(eq(accessTokens.tokenHash, sha256Hex(raw)), notRetired()))
     .limit(1);
   if (!row || !isAccessScope(row.scope)) return null;
   const now = Date.now();

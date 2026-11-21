@@ -65,8 +65,10 @@ export default defineEventHandler(async (event) => {
     touchCredential(db, cred.id, verification.authenticationInfo.newCounter),
     db.select({ email: users.email }).from(users).where(eq(users.id, cred.userId)).limit(1),
   ]);
-  // the ceremony happened in this browser: its lists follow (see startSession)
-  await startSession(event, db, cred.userId, { sweep: true });
+  // the ceremony happened in this browser: its lists follow (see startSession). The
+  // session is as unproven as the account was when the key was looked up, not now:
+  // a claim landing in between must leave it stamped (claimUnverifiedAccount)
+  await startSession(event, db, cred.userId, { sweep: true, unproven: cred.accountUnproven });
   // null, not "" — an account made with a passkey genuinely has no address, and
   // the client distinguishes "none yet" from "" nowhere else
   return { ok: true as const, user: { email: row[0]?.email ?? null } };

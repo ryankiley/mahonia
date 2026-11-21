@@ -51,5 +51,5 @@ export default defineEventHandler(async (event) => {
   if (pkceChallenge(body.code_verifier) !== code.codeChallenge) {
     return oauthError(event, "invalid_grant", "code_verifier does not match the code's challenge.");
   }
-  return issueAppTokens(db, { userId: code.userId, clientId: code.clientId, label: code.clientName, scope: code.scope });
+  return issueAppTokens(db, { userId: code.userId, clientId: code.clientId, label: code.clientName, scope: code.scope, unproven: code.unproven });
 });

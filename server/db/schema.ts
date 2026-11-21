@@ -494,6 +494,14 @@ export const sessions = pgTable(
     // asking (the claim sweep). True for a sign-in the browser made itself, false
     // for one a person only confirmed there. See startSession.
     sweepOk: boolean("sweep_ok").notNull().default(false),
+    // Made on the say-so of an account whose address nobody had proved yet: true from
+    // passkey signup until a link sent to the address comes back. Once one does
+    // (claimUnverifiedAccount), a row marked here opens nothing. The claim deletes
+    // these rows too, but a sign-in already in flight can write one just after it, and
+    // this is what makes that straggler worthless. Sessions, passkeys, access tokens
+    // and authorization codes all carry it, each stamped from the credential that
+    // authorized making it, never read fresh at insert time.
+    unproven: boolean("unproven").notNull().default(false),
   }
 );
 
@@ -532,6 +540,8 @@ export const accessTokens = pgTable(
     refreshPrevHash: text("refresh_prev_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    // see sessions.unproven
+    unproven: boolean("unproven").notNull().default(false),
   }
 );
 
@@ -579,6 +589,8 @@ export const oauthCodes = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // see sessions.unproven; carried to the grant the code is traded for
+    unproven: boolean("unproven").notNull().default(false),
   }
 );
 
@@ -615,6 +627,8 @@ export const credentials = pgTable(
     label: text("label"), // human-set name, so a list of keys is meaningful
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    // see sessions.unproven
+    unproven: boolean("unproven").notNull().default(false),
   }
 );
 

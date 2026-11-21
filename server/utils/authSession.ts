@@ -70,6 +70,10 @@ interface ResolvedUser extends SessionUser {
   /** Whether this session's browser may attach the lists it made to the account
    *  without asking. See startSession. */
   sweep: boolean;
+  /** Whether the account's address was unproven as this session was read. Anything
+   *  this session goes on to make (a passkey, a token, an authorization code) carries
+   *  it, so a claim that lands mid-request leaves that thing worthless. */
+  unproven: boolean;
   /** Which ACCOUNT this is, as an opaque marker that is the same across its
    *  sessions (accountMarker), where `owner` is new with each one. */
   account: string;
@@ -395,6 +399,15 @@ export async function consumeMagicToken(db: Db, rawToken: string): Promise<Redee
  * unverified, so the next link redoes the eviction — whereas flipping first and
  * failing would leave a verified account still carrying a stranger's passkey, with
  * nothing left to try again.
+ *
+ * WHAT THE DELETES CAN'T REACH. These are separate statements, and every way of
+ * making a session, passkey or token checks its credential first and writes later.
+ * A stranger's request already past its check when this runs can write a fresh row
+ * after the delete that would have caught it. So every such row is stamped
+ * `unproven` when the account it was made for was unproven at the check, and the
+ * flip below is what retires them: from then on an unproven row opens nothing, wherever
+ * it is read (resolveSession, findCredential, resolveBearer, refreshAppTokens). The
+ * deletes stay, as the tidy part; the stamp is the guarantee.
  */
 export async function claimUnverifiedAccount(db: Db, userId: number): Promise<void> {
   await db.delete(credentials).where(eq(credentials.userId, userId));
@@ -491,11 +504,17 @@ function setSessionCookies(event: H3Event, token: string, expiresAt: Date): void
  * signs them in and no more, and the lists wait for a question of their own
  * (allowSessionSweep). On the session row, not in the browser's storage: storage
  * is cleared under a session that lives on, and the answer has to outlast it.
+ *
+ * `unproven` — the account's address was unproven when the credential behind this
+ * sign-in was checked: a passkey on a passkey-signup account that no link has come
+ * back for. Taken from that check, never re-read here, so a claim landing in between
+ * leaves this session stamped and worthless (claimUnverifiedAccount). A sign-in by
+ * link is never unproven: the link is the proof.
  */
-export async function startSession(event: H3Event, db: Db, userId: number, opts: { sweep: boolean }): Promise<void> {
+export async function startSession(event: H3Event, db: Db, userId: number, opts: { sweep: boolean; unproven: boolean }): Promise<void> {
   const token = randomSecret();
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS);
-  await db.insert(sessions).values({ tokenHash: sha256Hex(token), userId, expiresAt, sweepOk: opts.sweep });
+  await db.insert(sessions).values({ tokenHash: sha256Hex(token), userId, expiresAt, sweepOk: opts.sweep, unproven: opts.unproven });
   setSessionCookies(event, token, expiresAt);
 }
 
@@ -529,10 +548,13 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
       id: users.id,
       email: users.email,
       displayName: users.displayName,
+      emailVerified: users.emailVerified,
     })
     .from(sessions)
     .innerJoin(users, eq(users.id, sessions.userId))
-    .where(and(eq(sessions.tokenHash, hash), gt(sessions.expiresAt, now)))
+    // a session made while the address was unproven is over once it is proven, even
+    // one written after the claim swept the table (claimUnverifiedAccount)
+    .where(and(eq(sessions.tokenHash, hash), gt(sessions.expiresAt, now), or(eq(sessions.unproven, false), eq(users.emailVerified, false))))
     .limit(1);
   const row = rows[0];
   if (!row) return null;
@@ -568,6 +590,7 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
     displayName: row.displayName ?? null,
     owner,
     sweep: row.sweepOk,
+    unproven: !row.emailVerified,
     account: accountMarker(row),
   };
 }

@@ -179,7 +179,7 @@ export function errorRedirect(redirectUri: string, error: string, description: s
 /** Allow: mint the code the client will trade for tokens. Raw value returned, hash kept. */
 export async function mintAuthCode(
   db: Db,
-  grant: { userId: number; client: OAuthClient; redirectUri: string; codeChallenge: string; scope: AccessScope },
+  grant: { userId: number; client: OAuthClient; redirectUri: string; codeChallenge: string; scope: AccessScope; unproven: boolean },
 ): Promise<string> {
   const code = randomSecret();
   await db.insert(oauthCodes).values({
@@ -191,6 +191,7 @@ export async function mintAuthCode(
     codeChallenge: grant.codeChallenge,
     scope: grant.scope,
     expiresAt: new Date(Date.now() + CODE_TTL_MS),
+    unproven: grant.unproven,
   });
   return code;
 }

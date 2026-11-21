@@ -70,7 +70,7 @@ export default defineEventHandler(async (event) => {
   // A sign-in this browser asked for brings its lists with it. One a person
   // confirmed here signs them in and leaves the lists for the page to ask about:
   // see startSession.
-  await startSession(event, db, user.id, { sweep: sameBrowser });
+  await startSession(event, db, user.id, { sweep: sameBrowser, unproven: false });
   forgetAskingBrowser(event);
   return { ok: true as const, user: { email: user.email }, sweep: sameBrowser };
 });
