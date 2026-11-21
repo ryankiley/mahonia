@@ -1,5 +1,5 @@
-import { defineEventHandler, getHeader, readRawBody, send, setResponseStatus, type H3Event } from "h3";
-import { MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, accountUse, callTool, isKnownTool } from "../utils/mcp";
+import { defineEventHandler, getHeader, readRawBody, send, setHeader, setResponseStatus, type H3Event } from "h3";
+import { BUDGET_WAIT, MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, accountUse, callTool, isKnownTool } from "../utils/mcp";
 import { setNoIndex, setNoStore } from "../utils/http";
 import { APP_ACCESS_PREFIX, connectorToken, resolveBearer } from "../utils/accessTokens";
 import { useAccountDb } from "../utils/db";
@@ -77,11 +77,30 @@ export default defineEventHandler(async (event) => {
   // A budget refused is still a JSON-RPC answer. Left to throw, the limiter's 429
   // would arrive as the framework's error page, which a connector reads as the
   // server being unreachable rather than as something to wait out.
+  //
+  // Only a refused budget is a 429. This used to catch everything, so a KV store that
+  // timed out or was briefly unreachable turned every request, initialize and
+  // tools/list included, into "too many requests" from a server that had answered
+  // none: down, to a connector and to every uptime check. Now a store that can't say
+  // lets through what needs nothing it guards (the handshake, the tool list, a ping:
+  // no database, no tool), and a tools/call is refused in the tool result, in words a
+  // model can relay, since a tool's own work is what the budget protects and some of
+  // it (search_catalog, the bearer lookup below) is limited by this bucket alone.
+  //
+  // A store that stops answering may never throw at all (and Upstash's client retries a
+  // network fault for about four seconds before it does), so the wait is capped: past
+  // it the budget is unknown, as if the store had failed.
+  let budgetUnknown = false;
   try {
-    await rateLimit(event, "mcp");
-  } catch {
-    setResponseStatus(event, 429);
-    return error(null, -32000, "Too many requests; wait a minute and try again");
+    await withinMs(rateLimit(event, "mcp"), BUDGET_WAIT.ms);
+  } catch (e) {
+    if ((e as { statusCode?: number })?.statusCode === 429) {
+      setResponseStatus(event, 429);
+      setHeader(event, "Retry-After", 60);
+      return error(null, -32000, "Too many requests; wait a minute and try again");
+    }
+    budgetUnknown = true;
+    logStoreFault(e);
   }
 
   const raw = await readRawBody(event, false).catch(() => undefined);
@@ -120,15 +139,49 @@ export default defineEventHandler(async (event) => {
   if (typeof msg.method !== "string") return error(id, -32600, "A request needs a method");
   const params = (msg.params && typeof msg.params === "object" ? msg.params : {}) as Record<string, unknown>;
 
+  // A tool's arguments are an object. Some clients send them JSON-encoded a second
+  // time, as a string; read as an object that string is no arguments at all, and a
+  // get_list for a public list became the account's lists and a sign-in prompt. So a
+  // string is parsed, and anything else that isn't an object is a protocol error.
+  let args: unknown = params.arguments;
+  if (msg.method === "tools/call") {
+    // a blank string is a call with no arguments, as some function-calling bridges send
+    // one, and as it read before strings were parsed
+    if (typeof args === "string" && !args.trim()) args = undefined;
+    if (typeof args === "string") {
+      try {
+        args = JSON.parse(args);
+      } catch {
+        // left as the string, and refused below
+      }
+    }
+    if (args != null && (typeof args !== "object" || Array.isArray(args))) {
+      return error(id, -32602, "arguments must be an object of the tool's parameters");
+    }
+    if (budgetUnknown) {
+      return result(id, { content: [{ type: "text", text: "Mahonia couldn't check its request budget just now, so nothing was run. Try again in a minute." }], isError: true });
+    }
+  }
+
   // The account behind the bearer, for the calls that use one (accountUse, read off
   // the registry): resolved once here and left on the event. The gate is the scope
   // an account tool names; create_list only uses an account when there is one.
-  const use = msg.method === "tools/call" && typeof params.name === "string" ? accountUse(params.name, params.arguments) : undefined;
+  const use = msg.method === "tools/call" && typeof params.name === "string" ? accountUse(params.name, args) : undefined;
   if (use) {
     // Whether a bearer of ours was carried at all is the difference between "sign in"
     // and "sign in again"; the database is touched only when there is one to look up.
     const bearer = connectorToken(event);
-    const identity = bearer ? await resolveBearer(await useAccountDb(), bearer) : null;
+    let identity: Awaited<ReturnType<typeof resolveBearer>> = null;
+    if (bearer) {
+      // a database fault here would otherwise leave as the framework's 500 page, which
+      // a connector reads as the server gone, not as a call to try again
+      try {
+        identity = await resolveBearer(await useAccountDb(), bearer);
+      } catch (e) {
+        console.error("[mcp bearer]", e);
+        return result(id, { content: [{ type: "text", text: "Mahonia couldn't check the sign-in just now, so nothing was run. Try again in a minute." }], isError: true });
+      }
+    }
     if (bearer) event.context.connector = identity;
     // An app's access token that opens nothing has almost always aged out, and its
     // client holds the refresh token: create_list answers it as the account tools do,
@@ -163,12 +216,31 @@ export default defineEventHandler(async (event) => {
       return result(id, { tools: MCP_TOOLS });
     case "tools/call": {
       if (!isKnownTool(params.name)) return error(id, -32602, `Unknown tool: ${String(params.name ?? "")}`);
-      return result(id, await runTool(event, params.name, params.arguments));
+      return result(id, await runTool(event, params.name, args));
     }
     default:
       return error(id, -32601, "Method not found");
   }
 });
+
+/** the promise, or a rejection once `ms` pass without an answer */
+function withinMs<T>(work: Promise<T>, ms: number): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`the budget store gave no answer in ${ms} ms`)), ms);
+  });
+  return Promise.race([work, late]).finally(() => clearTimeout(timer));
+}
+
+/** The flood guard's store failing is logged once a minute per instance, not once per
+ *  request: in an outage every request would otherwise write the same line. */
+let lastStoreFault = 0;
+function logStoreFault(e: unknown): void {
+  const now = Date.now();
+  if (now - lastStoreFault < 60_000) return;
+  lastStoreFault = now;
+  console.error("[mcp rate limit] the budget store failed; tool calls are refused until it answers", e);
+}
 
 /** A tool that throws answers with isError rather than a 500: the model reads the
  *  sentence and tries again, and a stack trace is not a sentence. Nothing about the
