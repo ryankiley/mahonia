@@ -99,8 +99,9 @@
   }
 }
 
+// the ring is the reset's own (reset.scss); only where it sits is this chip's, drawn
+// inward over the plate
 .modebar__opt:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
   outline-offset: var(--focus-offset-inset);
 }
 
@@ -124,9 +125,11 @@
 }
 
 // The icons are this app's addition, not the design system's — its menubar is words only.
-// They go first at every width and vanish before the word does.
+// They go first at every width and vanish before the word does. The bar's own options
+// only: the chip is worn elsewhere (the share panel's tabs, the people bar), and an icon
+// added there is that surface's to hide.
 @media (max-width: 380px) {
-  .modebar__opt svg {
+  .modebar .modebar__opt svg {
     display: none;
   }
 }

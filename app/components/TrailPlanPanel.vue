@@ -1147,25 +1147,12 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__del--end {
   margin-left: auto;
 }
-/* The day's note: the item note's caption voice (ItemRow's .item__note), at day scale —
-   the lightest ink, italic, no box and no handle, one line until the text wraps. 16px,
-   static, so focusing it on a phone never zooms the page. */
+/* The day's note: the item note's caption voice, at day scale — the lightest ink,
+   italic, no box and no handle, one line until the text wraps. 16px, static, so focusing
+   it on a phone never zooms the page. That is the shared caption field (atoms/item.scss,
+   one rule with ItemRow's .item__note); only its box in this column is set here. */
 .plan__daynote {
   display: block;
-  width: 100%;
-  min-height: 0;
-  color: var(--ink-3);
-  font-size: var(--text-input);
-  font-style: italic;
-  field-sizing: content;
-  resize: none;
-  overflow: hidden;
-}
-.plan__daynote::placeholder {
-  color: var(--ink-3);
-}
-.plan__daynote:focus {
-  outline: none;
 }
 /* the row's data, as glyph-and-figure pairs — an item row's grammar at day scale */
 /* EACH CELL AS WIDE AS WHAT IT HOLDS, and one even gap between them.

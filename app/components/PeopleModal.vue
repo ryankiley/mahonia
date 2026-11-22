@@ -278,8 +278,8 @@ function remove(p: Person) {
     background: var(--lit-hover); /* the chosen swatch answers the pointer too */
   }
 }
+/* the reset's ring, drawn inward over the plate */
 .ppl__swatchbtn:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
   outline-offset: var(--focus-offset-inset);
 }
 /* Standing ALONE — nobody named yet, so the list above it doesn't render — this is

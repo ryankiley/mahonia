@@ -589,6 +589,12 @@ const id = useId();
   display: block;
   width: 100%;
   height: clamp(56px, 9vw, calc(96 * var(--tpx)));
+  /* An SVG root clips to its viewBox by default, and a stroke is centred on its path — so
+     at x=0 and at the far right, half of every dot of the cursor (.tprofile__cursor,
+     below) fell outside the box and was cut away. The line looked like it came apart
+     exactly at the two ends you can scrub to. Nothing here is drawn beyond the box on
+     purpose, so letting strokes finish is all this does. */
+  overflow: visible;
 }
 /* the ends sit hard against the mark's own edges, so each figure lines up with the
    point of the route it names rather than floating near it */
@@ -661,13 +667,6 @@ const id = useId();
   stroke-width: 2;
   stroke-linecap: round;
   stroke-dasharray: 0 5;
-}
-/* An SVG root clips to its viewBox by default, and a stroke is centred on its path — so at
-   x=0 and at the far right, half of every dot fell outside the box and was cut away. The
-   line looked like it came apart exactly at the two ends you can scrub to. Nothing here is
-   drawn beyond the box on purpose, so letting strokes finish is all this does. */
-.tprofile {
-  overflow: visible;
 }
 .tprofile-wrap {
   position: relative;

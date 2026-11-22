@@ -128,12 +128,8 @@ const isAppendTarget = computed(
    scoped styles match through the scope id stamped on the elements, and these
    elements are stamped with this component's now. */
 
-/* drag-to-reorder: insertion line when dropping at the end of this folder */
-.folder__droptail {
-  height: var(--space-px);
-  background: var(--ink);
-  margin: var(--space-1) 0;
-}
+/* (the drag's insertion line at the end of this folder, .folder__droptail, is drawn
+   with a nested group's own — atoms/item.scss) */
 /* THE ADD LINK BECOMES THE ROW. The blank row's name field sits on the link text's own
    pixel (.folder__addbtn is built to the field's geometry) and never moves; the row's
    box grows from nothing under it (grid rows 0fr→1fr — height:auto doesn't animate in
@@ -151,7 +147,7 @@ const isAppendTarget = computed(
   animation: item-in var(--spring-step-dur) var(--spring-step);
 }
 .folder__items > .is-new:has(> .reveal, > .nestcollapse) {
-  animation: item-fade var(--spring-fade-dur) var(--spring-fade);
+  animation: fade-in var(--spring-fade-dur) var(--spring-fade);
 }
 .folder__items > .is-new > :deep(*) {
   min-height: 0;
@@ -161,7 +157,7 @@ const isAppendTarget = computed(
    ItemRow's fold uses) */
 .folder__items > .is-new :deep(.item__meta > :not(.item__trail)),
 .folder__items > .is-new :deep(.item__meta > .item__trail > *) {
-  animation: item-fade var(--spring-fade-dur) var(--spring-fade);
+  animation: fade-in var(--spring-fade-dur) var(--spring-fade);
 }
 @keyframes item-in {
   from {
@@ -169,11 +165,7 @@ const isAppendTarget = computed(
     padding-bottom: 0;
   }
 }
-@keyframes item-fade {
-  from {
-    opacity: 0;
-  }
-}
+/* (the fade is the shared `fade-in` keyframe — main.scss) */
 /* the next link: hidden while the field stands in its place, then in once the box has
    carried it most of a row down (a third of the step beat). Its top padding grows from
    0 on the same spring: the row keeps its own 8px above the field from the first frame
@@ -182,7 +174,7 @@ const isAppendTarget = computed(
 .folder__add.is-arriving {
   animation:
     add-in var(--spring-step-dur) var(--spring-step),
-    item-fade var(--spring-fade-dur) var(--spring-fade) calc(var(--spring-step-dur) / 3) backwards;
+    fade-in var(--spring-fade-dur) var(--spring-fade) calc(var(--spring-step-dur) / 3) backwards;
 }
 @keyframes add-in {
   from {

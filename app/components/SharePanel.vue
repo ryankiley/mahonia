@@ -258,7 +258,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
           ref="opts"
           type="button"
           role="tab"
-          class="share__tab"
+          class="modebar__opt share__tab"
           :class="{ 'is-active': tab === t.key }"
           :aria-selected="tab === t.key"
           :aria-controls="panelId(t.key)"
@@ -418,11 +418,14 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   }
 }
 
-/* ---- the tabs: the mode bar's look (ModeBar.vue), not a segmented track ----
+/* ---- the tabs: the mode bar's own chip (.modebar__opt, atoms/modebar.scss), not a
+   segmented track ----
    No track and no outline: the selected tab wears --lit, the one tone the app uses for
    "this is the one that's on" (the mode bar, the person filter, the chips), and the
    other answers the pointer with the mode bar's wash. A raised white pill in an outlined
-   track was the reference's control, and the only one of its kind in this app. */
+   track was the reference's control, and the only one of its kind in this app.
+   The chip brings its height, its inks, the wash, the plate, the inward focus ring and
+   the touch hit area; what's below is where a tab here differs from one in the bar. */
 .share__tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -430,48 +433,12 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   margin-bottom: var(--space-2);
 }
 .share__tab {
-  height: var(--control-compact);
+  /* each tab fills half the panel, so the word centres in it (in the bar a chip hugs
+     its label and there is nothing to centre) */
+  justify-content: center;
+  /* the panel's concentric corner, like the rows under it, and the strong weight */
   border-radius: var(--popover-item-radius);
-  color: var(--ink-3);
-  font-size: var(--text-chrome);
   font-weight: 600;
-  transition:
-    background-color var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade);
-}
-/* the mode bar's two amounts, for its reason (sRGB isn't symmetric) */
-@media (hover: hover) and (pointer: fine) {
-  .share__tab:hover {
-    background: light-dark(
-      color-mix(in oklab, var(--ink) 3.5%, transparent),
-      color-mix(in oklab, var(--ink) 5%, transparent)
-    );
-    color: var(--ink);
-  }
-}
-.share__tab:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
-  outline-offset: var(--focus-offset-inset);
-}
-.share__tab.is-active {
-  background: var(--lit);
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .share__tab.is-active:hover {
-    background: var(--lit-hover);
-  }
-}
-/* the 30px tab grows a hit area to the --tap floor on a phone, the mode bar's way */
-@media (pointer: coarse) {
-  .share__tab {
-    position: relative;
-  }
-  .share__tab::before {
-    content: "";
-    position: absolute;
-    inset: calc((var(--control-compact) - var(--tap)) / 2) 0;
-  }
 }
 
 /* ---- rows ---- */
@@ -492,7 +459,6 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 }
 .share__name {
   color: var(--ink);
-  font-size: var(--text-base);
 }
 .share__hint {
   color: var(--ink-2);

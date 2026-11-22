@@ -88,20 +88,19 @@ const planTip = computed(() => {
          zeroed (not a placeholder line) so nothing reflows when the first
          weighted item lands — the number just counts up. -->
     <!-- The figure, its unit and the picker behind them are Headline: the one the
-         editor draws above all three of its views, so the two can't drift. Nothing
-         else goes inside .totals__main: its :empty rule (below) needs the wrapper
-         bare when no headline is drawn. -->
-    <div class="totals__main">
-      <Headline
-        v-if="props.headline"
-        :value="totalDisplay"
-        :unit="list.displayUnit"
-        :options="WEIGHT_UNIT_OPTIONS"
-        label="Weight unit"
-        :trigger-label="`${totalDisplay} ${list.displayUnit}, change unit`"
-        @pick="(u) => emit('set-unit', u as Unit)"
-      />
-    </div>
+         editor draws above all three of its views, so the two can't drift. It stands
+         directly in .totals, with no row of its own: the breakdown below reads whether
+         it is the FIRST thing in here (its :first-child rule) to know whether a figure
+         sits above it. -->
+    <Headline
+      v-if="props.headline"
+      :value="totalDisplay"
+      :unit="list.displayUnit"
+      :options="WEIGHT_UNIT_OPTIONS"
+      label="Weight unit"
+      :trigger-label="`${totalDisplay} ${list.displayUnit}, change unit`"
+      @pick="(u) => emit('set-unit', u as Unit)"
+    />
 
     <!-- always rendered: the bar holds a blank rail at zero so it never reflows in.
          the chips stay per-category — they pop in as each class first gains weight -->
@@ -180,23 +179,10 @@ const planTip = computed(() => {
      number, two spacings. */
   padding-block: 0 var(--space-4);
 }
-/* An empty row still costs a row GAP, and this one is empty in the editor: the big figure
-   moved out to GearEditor's shared Headline, so `props.headline` is false there and this
-   wrapper renders with nothing in it. The 24px it was still charging is what put "Base"
-   and "Worn" a row lower than planning's figures — the two views' small print sitting at
-   different heights under the same number. It still holds the headline where one is
-   passed, so this hides it only when there is genuinely nothing to show. */
-.totals__main:empty {
-  display: none;
-}
-.totals__main {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-/* the figure, its unit and its chevron are Headline's own (Headline.vue) */
+/* the figure, its unit and its chevron are Headline's own (Headline.vue), and it is
+   drawn here only where one is passed: in the editor the big figure moved out to
+   GearEditor's shared Headline, so `props.headline` is false there and nothing stands
+   above the breakdown */
 .totals__breakdown {
   /* one step up from --space-4 — the display-size figure above has a lot of optical
      mass, so the breakdown needs more clearance than a body-copy gap to stop reading
@@ -214,8 +200,9 @@ const planTip = computed(() => {
 /* …but only when the figure is actually IN here. In the editor it isn't — it moved out to
    the shared Headline — so this margin was clearance from something one level up that
    already keeps its own distance, and the two stacked put "Base" a row below where
-   planning's figures sit under the identical number. */
-.totals__main:empty + .totals__breakdown {
+   planning's figures sit under the identical number. With no figure the breakdown is
+   the first element in .totals, which is the test. */
+.totals__breakdown:first-child {
   margin-top: 0;
 }
 

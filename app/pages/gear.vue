@@ -904,12 +904,12 @@ async function exportGear(kind: string) {
   max-width: 32ch;
 }
 /* mark + value + chevron, on the trailing edge over the rows' own trailing controls;
-   the value says which question it answers, so no "View" word */
+   the value says which question it answers, so no "View" word. The class is on an
+   OptionMenu's root, which is already a centred inline-flex box (.optmenu), and the
+   three parts are spaced inside its trigger; only where it sits and its ink are set
+   here. */
 .vault__view {
   margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
   white-space: nowrap;
   color: var(--ink-2);
   transition: color var(--spring-fade-dur) var(--spring-fade);
