@@ -44,7 +44,7 @@ export type DisplayDistanceUnit = (typeof DISPLAY_DISTANCE_UNITS)[number];
 // The stored bound, applied INSIDE the parser for the same reason trailLink.ts
 // clamps there: this is the only limit there is. 10,000 km is longer than the
 // longest thru-hike on earth and still nowhere near a float that misbehaves.
-const MAX_DISTANCE_M = 10_000_000;
+export const MAX_DISTANCE_M = 10_000_000;
 
 /** One unit word → the unit it names, or null when the word isn't a unit we know. */
 function unitFromToken(token: string): DistanceUnit | null {

@@ -16,10 +16,11 @@
 // tools instead take a bearer in the Authorization header — a token
 // minted by hand on the account page (server/utils/accessTokens.ts), or the access
 // token of an app the person signed in through the connector's OAuth flow
-// (server/utils/oauth.ts). The list tools never look at that header, with one
+// (server/utils/oauth.ts). The list tools never look at that header, with two
 // exceptions: a get_list with no share_code is asking for the lists filed under the
 // account, and an edit_list that names its list by share_code rather than by edit link
-// is asking to change one of them; each is an account tool for that call (byAccount).
+// is asking to change one of them; each is an account tool for that call (get_list's
+// own account rule, and byAccount for edit_list).
 // The route checks the header for the account tools before any of them
 // runs and answers a missing one with the 401 that starts a sign-in (mcp.post.ts); the
 // account section at the end of this file is what runs once it has passed.
@@ -33,9 +34,11 @@ import { exportSections } from "../../shared/exporters/rows";
 import { colorKeyForName, usedColorKeys } from "../../shared/categories";
 import { uid } from "../../shared/id";
 import { editLinkPath, normalizeShareCode } from "../../shared/links";
-import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
+import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_PERSON_NAME_LEN, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
+import { PRICE_MAX_CENTS } from "../../shared/money";
 import { carrierName } from "../../shared/people";
 import { dayClimbs, parseProfile } from "../../shared/profile";
+import { MAX_DISTANCE_M } from "../../shared/trailDistance";
 import { enoughToSearch, SEARCH_QUERY_MAX } from "../../shared/searchText";
 import { dropHidden, sameText, tidyText } from "../../shared/tidyText";
 import { CLEARS_WITH_LINK, MAX_TRAIL_LABEL_LEN, MAX_TRAIL_URL_LEN, normalizeTrailUrl } from "../../shared/trailLink";
@@ -108,6 +111,12 @@ export const MCP_INSTRUCTIONS = [
 // The reducer's own caps on free text and counts (shared/ops, shared/trailLink) are
 // stated in the schemas below, so a model knows them before a value is quietly cut to fit.
 
+/** the per-unit weight cap (shared/ops) in grams, and water's in litres at 1 kg each */
+const UNIT_WEIGHT_MAX_G = UNIT_WEIGHT_MAX_MG / 1000;
+const WATER_MAX_L = UNIT_WEIGHT_MAX_MG / 1_000_000;
+/** a by-name catalog lookup's brand and name, each cut to this */
+const LOOKUP_TEXT_MAX = 200;
+
 const SEARCH_LIMIT_MAX = 25;
 const SEARCH_LIMIT_DEFAULT = 12;
 
@@ -117,13 +126,13 @@ const ROW_FIELDS = {
   brand: { type: "string", maxLength: MAX_BRAND_LEN, description: "The maker, when known." },
   variant: { type: "string", maxLength: MAX_VARIANT_LEN, description: "Size, length or configuration that changes the weight, such as Long or 20F." },
   gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is: Tent, Quilt, Trail runners." },
-  weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Omit when unknown; the list keeps working without it, and a row with a catalog_id takes the catalog's cited weight." },
+  weight_g: { type: "number", minimum: 0, maximum: UNIT_WEIGHT_MAX_G, description: "Weight of ONE unit, in grams. Omit when unknown; the list keeps working without it, and a row with a catalog_id takes the catalog's cited weight." },
   qty: { type: "integer", minimum: 1, maximum: MAX_QTY, description: "How many. Default 1." },
-  volume_l: { type: "number", minimum: 0, description: "Water only (a name ending in water), in place of qty and weight_g: its whole volume in litres, 1 kg each." },
+  volume_l: { type: "number", minimum: 0, maximum: WATER_MAX_L, description: "Water only (a name ending in water), in place of qty and weight_g: its whole volume in litres, 1 kg each." },
   classification: { type: "string", enum: CLASSIFICATIONS, description: "base, worn or consumable. Omit to follow the folder's default." },
   worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried (three pairs of socks, one on your feet). For a row that is entirely worn, set classification to worn instead." },
   note: { type: "string", maxLength: MAX_ITEM_NOTE_LEN, description: "A short free-text note on the row." },
-  kcal: { type: "integer", minimum: 0, description: "Calories per unit, for food." },
+  kcal: { type: "integer", minimum: 0, maximum: KCAL_MAX, description: "Calories per unit, for food." },
   needs_cooking: { type: "boolean", description: "Food to cook on this trip. Each unit assumes one boil for a rough fuel estimate; no quantity or weight changes." },
   catalog_id: { type: "integer", minimum: 1, maximum: MAX_CATALOG_ID, description: "A catalog row id from search_catalog. The row takes the catalog's cited weight unless weight_g is given (then yours is kept), its brand, variant and gear type where you leave them out, and follows catalog corrections; give the catalog's own product name as name to follow its name too, since a different one is kept as yours." },
 } as const;
@@ -392,7 +401,7 @@ const EDIT_LIST_OUTPUT = complete({
   },
 });
 
-/** how many rows or folders one edit call may touch */
+/** how many folder changes, updates or removals one edit call may name; add is held to MAX_ITEMS */
 const EDIT_MAX = 200;
 
 /** One row's changes for edit_list's update: the row by id, then any of the fields
@@ -406,20 +415,20 @@ const UPDATE_ITEM_SCHEMA = {
     brand: { type: ["string", "null"], maxLength: MAX_BRAND_LEN, description: "The maker. Null clears it." },
     variant: { type: ["string", "null"], maxLength: MAX_VARIANT_LEN, description: "Size, length or configuration. Null clears it." },
     gear_type: { type: ["string", "null"], maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is. Null clears it." },
-    weight_g: { type: "number", minimum: 0, description: "Weight of ONE unit, in grams. Kept as your own figure on a row picked from the catalog." },
+    weight_g: { type: "number", minimum: 0, maximum: UNIT_WEIGHT_MAX_G, description: "Weight of ONE unit, in grams. Kept as your own figure on a row picked from the catalog." },
     qty: { type: "integer", minimum: 1, maximum: MAX_QTY, description: "How many; weight_g stays the weight of one." },
-    volume_l: { type: "number", minimum: 0, description: "Water only (a name ending in water), in place of qty and weight_g: its whole volume in litres." },
+    volume_l: { type: "number", minimum: 0, maximum: WATER_MAX_L, description: "Water only (a name ending in water), in place of qty and weight_g: its whole volume in litres." },
     classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null to follow the folder's default." },
     worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried; 0 removes the split." },
     note: { type: ["string", "null"], maxLength: MAX_ITEM_NOTE_LEN, description: "The row's note. Null clears it." },
-    kcal: { type: ["integer", "null"], minimum: 0, description: "Calories per unit, for food. Null clears it." },
+    kcal: { type: ["integer", "null"], minimum: 0, maximum: KCAL_MAX, description: "Calories per unit, for food. Null clears it." },
     needs_cooking: { type: "boolean", description: "Food to cook on this trip, for the rough fuel estimate; false to unmark it." },
-    carried_by: { type: ["string", "null"], description: "Who carries it, by the name the list gives that person. Null clears it." },
+    carried_by: { type: ["string", "null"], maxLength: MAX_PERSON_NAME_LEN, description: "Who carries it, by the name the list gives that person. Null clears it." },
     catalog_id: {
       type: ["integer", "null"],
       minimum: 1,
       maximum: MAX_CATALOG_ID,
-      description: "Link or relink the row to this catalog row, from search_catalog: it takes the catalog's brand, name, variant, gear type and cited weight, follows catalog corrections, and keeps its folder, place and group. A name, weight_g or gear_type given in the same change is kept as your own. Null unlinks the row, leaving it as it reads.",
+      description: "Link or relink the row to this catalog row, from search_catalog: it takes the catalog's brand, name, variant, gear type and cited weight, follows catalog corrections, and keeps its folder, place and group. A name, brand, variant, weight_g or gear_type given in the same change is kept as your own, and so is a gear type typed on the row before. Null unlinks the row, leaving it as it reads.",
     },
     folder: { type: "string", maxLength: MAX_FOLDER_NAME_LEN, description: "Move the row to this folder, by name; a new name makes the folder, and an empty string or Unfiled takes it out of every folder. A nested row moved to another folder comes out of its group." },
     position: { type: "integer", minimum: 0, description: "Where the row goes among its neighbours, 0 for first. Without it a row moved to another folder or group goes last." },
@@ -488,7 +497,7 @@ const GEAR_ROW = {
     last_used: str("When a list last carried it, or, for a piece no list has carried, when it was added to My Gear. ISO 8601."),
     kit: {
       type: ["object", "null"],
-      description: "Only on a KIT, a set the owner keeps together: what it weighs by itself (a stuff sack) and the items it holds, each also a piece of My Gear by its own id. Its weight_g already counts them, so put a kit on a list either as one row or as its items, never both.",
+      description: "Only on a KIT, a set the owner keeps together: what it weighs by itself (a stuff sack) and the items it holds, each also a piece of My Gear by its own id. Its weight_g already counts them: on a list, give the kit's row its own_weight_g with the items nested under it, never weight_g beside them.",
       properties: {
         own_weight_g: { type: "number", description: "What the kit weighs by itself, in grams; usually 0." },
         items: {
@@ -535,7 +544,7 @@ const GEAR_EDIT_OUTPUT = complete({
       type: "object",
       properties: {
         index: { type: "integer", description: "Position in add." },
-        status: { type: "string", enum: ["added", "already_have", "invalid", "full"], description: "already_have: the same brand, name and variant is there already, untouched, and item is that piece. invalid: no name, or a kit that could not be made. full: My Gear is at its ceiling." },
+        status: { type: "string", enum: ["added", "already_have", "invalid", "full"], description: "already_have: the same brand, name and variant is there already, untouched, and item is that piece. invalid: no name, or a value of the wrong type or out of range; reason says which. A kit the vault won't make is added as a single piece, with a reason. full: My Gear is at its ceiling." },
         item: GEAR_ROW,
         reason: { type: "string", description: "Why an entry was not done as sent, in a sentence." },
       },
@@ -581,7 +590,7 @@ function gearInput(mode: "add" | "update") {
     brand: { type: t("string"), maxLength: VAULT_SHORT_MAX, description: `The maker.${orNull}` },
     variant: { type: t("string"), maxLength: VAULT_SHORT_MAX, description: `Size, length or rating: Long, 20F.${orNull}` },
     gear_type: { type: t("string"), maxLength: VAULT_SHORT_MAX, description: `What kind of thing it is: Tent, Quilt.${orNull}` },
-    weight_g: { type: "number", minimum: 0, description: "Grams for one. 0 records it as not weighed yet." },
+    weight_g: { type: "number", minimum: 0, maximum: UNIT_WEIGHT_MAX_G, description: "Grams for one. 0 records it as not weighed yet." },
     owned: {
       type: t("integer"),
       minimum: 1,
@@ -589,7 +598,7 @@ function gearInput(mode: "add" | "update") {
       description: `How many of it the owner has, when more than one: three of the same bottle is one piece with owned 3, not three pieces.${nullable ? " Null sets it back to one." : ""}`,
     },
     classification: { type: t("string"), enum: nullable ? [...CLASSIFICATIONS, null] : CLASSIFICATIONS, description: `base, worn or consumable.${orNull}` },
-    kcal: { type: t("integer"), minimum: 0, description: `Calories in one, for food.${orNull}` },
+    kcal: { type: t("integer"), minimum: 0, maximum: KCAL_MAX, description: `Calories in one, for food.${orNull}` },
     catalog_id: {
       type: t("integer"),
       minimum: 1,
@@ -599,7 +608,7 @@ function gearInput(mode: "add" | "update") {
         : "A catalog row from search_catalog. The piece takes the catalog's brand, name, variant, gear type and weight, each unless given here; a name can be left out.",
     },
     product_url: { type: t("string"), maxLength: VAULT_URL_MAX, description: `The maker's or a shop's page for it.${orNull}` },
-    price: { type: t("number"), minimum: 0, description: `What one cost, in the currency's main unit: 199.95.${orNull}` },
+    price: { type: t("number"), minimum: 0, maximum: PRICE_MAX_CENTS / 100, description: `What one cost, in the currency's main unit: 199.95.${orNull}` },
     currency: { type: "string", minLength: 3, maxLength: 3, description: "ISO 4217 code for price, such as USD. Ignored without a price." },
     kit: {
       type: nullable ? ["object", "null"] : "object",
@@ -619,7 +628,7 @@ function gearInput(mode: "add" | "update") {
             required: ["id"],
           },
         },
-        own_weight_g: { type: "number", minimum: 0, description: "What the kit weighs by itself, a stuff sack or a strap, in grams. Default 0." },
+        own_weight_g: { type: "number", minimum: 0, maximum: UNIT_WEIGHT_MAX_G, description: "What the kit weighs by itself, a stuff sack or a strap, in grams. Default 0." },
       },
       required: ["items"],
     },
@@ -696,11 +705,11 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "What to search for: two characters or more, or a single Chinese character." },
+        query: { type: "string", maxLength: SEARCH_QUERY_MAX, description: "What to search for: two characters or more, or a single Chinese character." },
         limit: { type: "integer", minimum: 1, maximum: SEARCH_LIMIT_MAX, description: `Matches to return, up to ${SEARCH_LIMIT_MAX}. Default ${SEARCH_LIMIT_DEFAULT}.` },
-        product_id: { type: "integer", minimum: 1, description: "Instead of a query: a catalog row id, for that product's variants." },
-        brand: { type: "string", description: "With name, instead of a query: the product's maker." },
-        name: { type: "string", description: "With brand, instead of a query: the product name without brand or variant." },
+        product_id: { type: "integer", minimum: 1, maximum: MAX_CATALOG_ID, description: "Instead of a query: a catalog row id, for that product's variants." },
+        brand: { type: "string", maxLength: LOOKUP_TEXT_MAX, description: "With name, instead of a query: the product's maker." },
+        name: { type: "string", maxLength: LOOKUP_TEXT_MAX, description: "With brand, instead of a query: the product name without brand or variant." },
       },
     },
     outputSchema: CATALOG_OUTPUT,
@@ -725,9 +734,10 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
         end_date: { type: "string", description: "YYYY-MM-DD" },
         trail_url: { type: "string", maxLength: MAX_TRAIL_URL_LEN, description: "An http(s) link to the route or trail page." },
         trail_label: { type: "string", maxLength: MAX_TRAIL_LABEL_LEN, description: "What to call the trail, when the link's own name won't do." },
-        trail_distance_km: { type: "number", minimum: 0, description: "The trail's length in kilometres; the list shows distances in km." },
+        trail_distance_km: { type: "number", minimum: 0, maximum: MAX_DISTANCE_M / 1000, description: "The trail's length in kilometres; the list shows distances in km." },
         folders: {
           type: "array",
+          maxItems: MAX_FOLDERS,
           description: "Folders in order, each with its default classification. Rows go in items, each naming its folder; a folder named only by a row is made after these, as base.",
           items: {
             type: "object",
@@ -738,7 +748,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
             required: ["name"],
           },
         },
-        items: { type: "array", description: "The list's rows, in order; each names its folder, or is left in none.", items: ITEM_SCHEMA },
+        items: { type: "array", maxItems: MAX_ITEMS, description: "The list's rows, in order; each names its folder, or is left in none.", items: ITEM_SCHEMA },
         again: {
           type: "boolean",
           description:
@@ -771,7 +781,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
             end_date: { type: "string", description: "YYYY-MM-DD, or an empty string to clear." },
             trail_url: { type: "string", maxLength: MAX_TRAIL_URL_LEN, description: "An http(s) link, or an empty string to clear the trail and what came with it (label, climb, route). A distance stays; clear it with trail_distance_km: 0." },
             trail_label: { type: "string", maxLength: MAX_TRAIL_LABEL_LEN, description: "What to call the trail, when the link's own name won't do; it needs a trail link. An empty string clears it." },
-            trail_distance_km: { type: "number", minimum: 0, description: "Stored in metres and shown in the list's own distance unit." },
+            trail_distance_km: { type: "number", minimum: 0, maximum: MAX_DISTANCE_M / 1000, description: "Stored in metres and shown in the list's own distance unit." },
           },
         },
         folders: {
@@ -790,7 +800,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
             required: ["folder"],
           },
         },
-        add: { type: "array", description: "New rows. Each may name its folder, or the group to join.", items: ADD_ITEM_SCHEMA },
+        add: { type: "array", maxItems: MAX_ITEMS, description: "New rows. Each may name its folder, or the group to join.", items: ADD_ITEM_SCHEMA },
         update: { type: "array", maxItems: EDIT_MAX, description: "Changes to rows that exist, each by id.", items: UPDATE_ITEM_SCHEMA },
         remove: { type: "array", maxItems: EDIT_MAX, description: "Ids of rows to take off, from get_list.", items: { type: "string" } },
         again: {
@@ -813,7 +823,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     inputSchema: {
       type: "object",
       properties: {
-        query: { type: "string", description: "Two characters or more (one is enough in Chinese). Ranks by brand, name, variant and gear type instead of by recent use." },
+        query: { type: "string", maxLength: SEARCH_QUERY_MAX, description: "Two characters or more (one is enough in Chinese). Ranks by brand, name, variant and gear type instead of by recent use." },
         limit: { type: "integer", minimum: 1, maximum: GEAR_PAGE_MAX, description: `At most ${GEAR_PAGE_MAX}; ${GEAR_PAGE_DEFAULT} when omitted. A page that would pass about 64 KB stops sooner.` },
         offset: { type: "integer", minimum: 0, description: "How many matches to skip, for the next page." },
       },
@@ -954,12 +964,6 @@ async function getList(event: H3Event, args: Record<string, unknown>): Promise<T
 /** milligrams to grams, to a tenth: the precision a kitchen scale has */
 const grams = (mg: number) => Math.round(mg / 100) / 10;
 
-/**
- * The list as data. A WHITELIST, field by field, rather than the snapshot spread: the
- * snapshot a share code resolves to already carries nothing owner-only (rowToSnapshot),
- * but this is a second read path onto the same rows and it should fail closed on its
- * own. Nothing here reaches for a field it doesn't name.
- */
 const shareLink = (origin: string, code: string) => `${origin}/s/${code}`;
 
 /**
@@ -1013,6 +1017,12 @@ const trailOf = (snap: ListSnapshot) =>
       }
     : undefined;
 
+/**
+ * The list as data. A WHITELIST, field by field, rather than the snapshot spread: the
+ * snapshot a share code resolves to already carries nothing owner-only (rowToSnapshot),
+ * but this is a second read path onto the same rows and it should fail closed on its
+ * own. Nothing here reaches for a field it doesn't name.
+ */
 export function describeList(snap: ListSnapshot, origin: string): Record<string, unknown> {
   const unweighed = unweighedIds(snap.items);
   const row = (it: Item, children: Item[], parent?: Item): Record<string, unknown> => {
@@ -1265,8 +1275,8 @@ function withoutEmpty(fields: Record<string, unknown>): Record<string, unknown> 
 async function catalog(args: Record<string, unknown>): Promise<ToolResult> {
   if (args.product_id != null && !isCatalogId(args.product_id)) return fail("product_id is a catalog row's id, a whole number from search_catalog's results.");
   const id = isCatalogId(args.product_id) ? args.product_id : undefined;
-  const brand = typeof args.brand === "string" ? args.brand.trim().slice(0, 200) : undefined;
-  const name = typeof args.name === "string" ? args.name.trim().slice(0, 200) : undefined;
+  const brand = typeof args.brand === "string" ? args.brand.trim().slice(0, LOOKUP_TEXT_MAX) : undefined;
+  const name = typeof args.name === "string" ? args.name.trim().slice(0, LOOKUP_TEXT_MAX) : undefined;
   if (id || name) {
     const found = await productVariants(await useCatalogDb(), { id, brand, name });
     if (!found) return fail("No active catalog product matches that. Search first and pass a product_id from the results.");
@@ -1363,7 +1373,7 @@ function waterAmount(r: Record<string, unknown>, water: boolean, label: string):
 const ROW_FIELD_PROBLEM = {
   qty: (v: unknown, label: string) => (typeof v !== "number" || !Number.isFinite(v) ? `qty on ${label} must be a whole number.` : null),
   worn_qty: (v: unknown, label: string) => (typeof v !== "number" || !Number.isFinite(v) ? `worn_qty on ${label} must be a whole number.` : null),
-  kcal: (v: unknown, label: string) => (v !== null && (typeof v !== "number" || !(v >= 0)) ? `kcal on ${label} must be a number, or null to clear it.` : null),
+  kcal: (v: unknown, label: string) => (v !== null && (typeof v !== "number" || !(v >= 0)) ? `kcal on ${label} must be a number, 0 or more, or null for none.` : null),
   needs_cooking: (v: unknown, label: string) => (typeof v !== "boolean" ? `needs_cooking on ${label} must be true or false.` : null),
 } as const;
 const ROW_FIELDS_CHECKED = Object.keys(ROW_FIELD_PROBLEM) as (keyof typeof ROW_FIELD_PROBLEM)[];
@@ -1786,7 +1796,11 @@ function tripMeta(args: Record<string, unknown>, { creating = false, linked = fa
     meta.trailLabel = args.trail_label;
   }
   if (args.trail_distance_km != null) {
-    if (typeof args.trail_distance_km !== "number" || !(args.trail_distance_km >= 0)) return "trail_distance_km must be a number of kilometres, 0 or more.";
+    // past the cap the reducer stores nothing, so an over-large figure (metres sent as
+    // kilometres) would clear the list's distance and still answer as a success
+    if (typeof args.trail_distance_km !== "number" || !(args.trail_distance_km >= 0) || args.trail_distance_km > MAX_DISTANCE_M / 1000) {
+      return `trail_distance_km must be a number of kilometres, 0 to ${(MAX_DISTANCE_M / 1000).toLocaleString("en-US")}.`;
+    };
     meta.trailDistanceM = Math.round(args.trail_distance_km * 1000);
     if (creating) meta.trailDistanceUnit = "km";
   }
@@ -2792,7 +2806,8 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   }
   const back = vaultId != null ? await restoreVaultItems(db, vaultId, restore as number[]) : new Set<number>();
   for (const id of restore as number[]) {
-    removed.push({ id, status: back.has(id) ? "restored" : "not_found" });
+    // like remove above: an id named twice is a miss the second time
+    removed.push({ id, status: back.delete(id) ? "restored" : "not_found" });
   }
   return ok({ added, results, updated, removed });
 }
