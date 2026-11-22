@@ -1,7 +1,10 @@
 import { glyph, line } from "./parts";
 
-/** A funnel with a drop under it: anything that filters or treats water. */
+/** A funnel with a drop under it: anything that filters or treats water. The funnel is
+ *  Central's filter funnel (IconFilter1) in proportion, its wide rounded top and the
+ *  curve into the spout, shortened to leave room; the drop is Central's IconDrop scaled
+ *  down, so it matches the water icons beside it. */
 export const WaterFilterGlyph = glyph(
-  line("M4.5 3H19.5C20.4 3 20.85 4.08 20.2 4.7L14 10.5V12.5H10V10.5L3.8 4.7C3.15 4.08 3.6 3 4.5 3Z"),
-  line("M12 15.5C12 15.5 9.5 17.9 9.5 19.5C9.5 20.88 10.62 22 12 22C13.38 22 14.5 20.88 14.5 19.5C14.5 17.9 12 15.5 12 15.5Z"),
+  line("M7.91 3H16.09A2.24 2.24 0 0 1 17.67 6.82L14.7 9.8C14.25 10.25 14 10.86 14 11.49V12.5H10V11.49C10 10.86 9.75 10.25 9.3 9.8L6.33 6.82A2.24 2.24 0 0 1 7.91 3Z"),
+  line("M14.5 19.5C14.5 20.88 13.38 22 12 22C10.62 22 9.5 20.88 9.5 19.5C9.5 18.07 10.83 16.51 11.55 15.77C11.8 15.51 12.2 15.51 12.45 15.77C13.17 16.51 14.5 18.07 14.5 19.5Z"),
 );
