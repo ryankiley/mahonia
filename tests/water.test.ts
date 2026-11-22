@@ -180,6 +180,13 @@ describe("isWaterName — water as the last word, never gear", () => {
       expect(isWaterName(n), n).toBe(false);
     }
   });
+
+  // "İ" lower-cases to an i and a combining dot, which is a mark and not a letter, so
+  // a plain toLowerCase() made the letter in front of "water" stop counting as one
+  it("still sees the letter in front of the word when it is a dotted capital I", () => {
+    expect(isWaterName("İwater")).toBe(false);
+    expect(isWaterName("İ water")).toBe(true);
+  });
 });
 
 describe("waterPhrase — the name a water line keeps, and its volume", () => {
@@ -194,5 +201,15 @@ describe("waterPhrase — the name a water line keeps, and its volume", () => {
     for (const t of ["Drinking water", "water", "500 ml", "Water bottle 1L", "Smartwater 1L", "Bag for dirty water 2L"]) {
       expect(waterPhrase(t), t).toBeNull();
     }
+  });
+
+  // The name is cut out of the text AS TYPED at the place "water" was found in its
+  // lower-cased copy. "İ" lower-cases to two characters, so each one before the word
+  // moved the cut one place right: the name took the volume's first digit, or the
+  // bracket that opens it (and was then refused as not water at all).
+  it("cuts the name where the word ends, whatever is in front of it", () => {
+    expect(waterPhrase("İİ water 2 L")).toEqual({ name: "İİ water", ml: 2000 });
+    expect(waterPhrase("DİİL water (2 L)")).toEqual({ name: "DİİL water", ml: 2000 });
+    expect(waterPhrase("İİwater 2 L")).toBeNull();
   });
 });

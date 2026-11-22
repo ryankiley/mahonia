@@ -283,12 +283,12 @@ export const vaults = pgTable(
     // link-owned era and is unreachable by design.
     userId: integer("user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    // bumped on use, so an abandoned vault can be reaped on the same schedule as
-    // an abandoned list rather than accumulating forever
+    // stamped on use (touchVaultByUser). The nightly sweep reads it only for a vault
+    // no account owns: an account's vault is never reaped (vaultRepo)
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
-    // Soft-delete, set by the reaper and cleared by requireVault — so a vault whose
-    // owner comes back after the stale window is REVIVED by being used rather than
-    // being already gone.
+    // Soft-delete, set by the nightly sweep on a vault no account owns and purged
+    // after a grace window. Cleared whenever a vault is used (touchVaultByUser), so a
+    // mark on an account's vault never outlives its next request.
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   }
 );

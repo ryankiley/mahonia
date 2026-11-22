@@ -48,7 +48,7 @@ import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_QTY, MAX_VARIANT_LEN } from "
 import { effectivePersonId, personColor } from "~~/shared/people";
 import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseWeightInput, groupLineMg, siblingItems, storedClassification } from "~~/shared/weights";
+import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseKcal, parseWeightInput, groupLineMg, siblingItems, storedClassification } from "~~/shared/weights";
 import { isWaterName, itemQtyLabel } from "~~/shared/water";
 import { useItemRowFields } from "~/composables/useItemRowFields";
 import { useItemRowClassification } from "~/composables/useItemRowClassification";
@@ -774,14 +774,12 @@ const toggleWorn = () => menu.toggle(`${props.item.id}:worn`, wornRootRef.value)
 const toggleKcal = () => menu.toggle(`${props.item.id}:kcal`, kcalRootRef.value);
 function onKcal(e: Event) {
   const el = e.target as HTMLInputElement;
-  const raw = el.value.trim();
   // "" (and anything unparseable) clears — the reducer treats a non-number as
   // absent rather than 0, so an emptied field means "not filled in", not "zero
   // calories". Resync afterwards so a rejected entry doesn't linger in the box.
-  // A thousands separator is not unparseable: the line below this field prints
-  // "2,700 kcal", and a number typed back the way the app wrote it must not clear.
-  const n = raw === "" ? null : Number(raw.replace(/[,\s]/g, ""));
-  c.updateItem(props.item.id, { kcal: n != null && isFinite(n) ? n : null });
+  // parseKcal reads a thousands separator, as My Gear's field does: the line below
+  // this field prints "2,700 kcal", and a number typed back that way must not clear.
+  c.updateItem(props.item.id, { kcal: parseKcal(el.value) });
   el.value = props.item.kcal ? String(props.item.kcal) : "";
 }
 // ---- nesting ----

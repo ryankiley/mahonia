@@ -28,14 +28,19 @@ export const VAULT_DDL: string[] = [
   // one vault per account — also the conflict target that makes lazy minting safe
   // against two concurrent captures (see mintVault in vaultAuth.ts)
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vaults_user ON vaults (user_id)`,
-  // soft-delete for the nightly reaper; cleared on use, so a late return revives
-  // the vault instead of finding it gone (see server/db/schema.ts)
+  // Soft-delete, for the nightly sweep of the vaults NO account owns (user_id IS
+  // NULL, from before My Gear moved into an account): an account's vault is never
+  // reaped or purged (vaultRepo). Cleared whenever a vault is used, so a mark on an
+  // account's vault doesn't outlive its next request (see server/db/schema.ts).
   `ALTER TABLE vaults ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,
-  // the reaper's scan: live vaults, oldest-seen first
+  // the reap's scan (reapAbandonedVaults): vaults not yet soft-deleted, oldest-seen
+  // first. It serves the last_seen_at range; the sweep's `user_id IS NULL` is a
+  // recheck on the rows it yields, not part of the index.
   `CREATE INDEX IF NOT EXISTS idx_vaults_stale ON vaults (last_seen_at) WHERE deleted_at IS NULL`,
   // the purge's scan (purgeDeletedVaults) walks the OPPOSITE condition — vaults
   // already soft-deleted, past the grace window — which the index above cannot
-  // serve, being scoped to exactly the rows the purge ignores.
+  // serve, being scoped to exactly the rows the purge ignores. The same recheck on
+  // `user_id IS NULL` applies.
   `CREATE INDEX IF NOT EXISTS idx_vaults_purge ON vaults (deleted_at) WHERE deleted_at IS NOT NULL`,
 
   // The folders My Gear had before it grouped by kind: unread and unwritten now, but

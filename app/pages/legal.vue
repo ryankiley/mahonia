@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 9 November 2026</p>
+        <p class="t-sm t-muted">Last updated 22 November 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -157,12 +157,10 @@ useHead({
         </ul>
         <p>
           Some things are also cleaned up automatically, and the timings are exact rather than
-          vague. A list that never got past a single item and hasn’t been edited for
-          <strong>30 days</strong> is removed; a list with two items or more never expires. Saved
-          gear untouched for <strong>180 days</strong> is set aside, and signing in within the next
-          <strong>90 days</strong> brings it back. A list you delete, or one that’s cleaned
-          up, is held for those same 90 days before it’s deleted for good, so if you’ve lost one,
-          email me and I’ll see what can be recovered.
+          vague. A list with one item or none that hasn’t been edited for
+          <strong>30 days</strong> is removed; a list with two items or more never expires. A list
+          you delete, or one that’s cleaned up, is held for <strong>90 days</strong> before it’s
+          deleted for good, so if you’ve lost one, email me and I’ll see what can be recovered.
         </p>
         <p>
           No system is perfectly secure. Please don’t put sensitive personal information into a

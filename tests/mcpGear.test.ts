@@ -421,6 +421,89 @@ describe("the gear tools", () => {
     expect((await tool("edit_my_gear", { add: [{ brand: "Nameless" }] }, aliceWrite)).data.results).toMatchObject([{ status: "invalid", reason: expect.stringContaining("needs a name") }]);
   });
 
+  // One call can name a piece more than once, and each entry is judged against what
+  // the one before it left, not against how the piece stood when the call arrived:
+  // the currency a price keeps, whether there is a kit to turn back, whether a weight
+  // is a kit's to take.
+  it("judge a piece named twice in one update by what the earlier entry left", async () => {
+    // names no other case here uses: an add of a piece the account holds answers with that piece
+    const added = await tool("edit_my_gear", { add: [{ name: "Twice-named can", weight_g: 200 }, { name: "Twice-named burner", weight_g: 80 }, { name: "Twice-named screen", weight_g: 30 }] }, aliceWrite);
+    expect((added.data.results as { status: string }[]).map((r) => r.status)).toEqual(["added", "added", "added"]);
+    const [canId, stoveId, screenId] = (added.data.results as { item: { id: number } }[]).map((r) => r.item.id);
+
+    const r = await tool(
+      "edit_my_gear",
+      {
+        update: [
+          // priced in euros, then repriced with no currency named: the first entry's stands
+          { id: canId, price: 10, currency: "EUR" },
+          { id: canId, price: 12 },
+          // made a kit; then a weight, which a kit can't take; then turned back, twice
+          { id: stoveId, kit: { items: [{ id: screenId }] } },
+          { id: stoveId, weight_g: 500 },
+          { id: stoveId, kit: null },
+          { id: stoveId, kit: null },
+          // an id that is nobody's, and the first piece once more
+          { id: 999_999, weight_g: 1 },
+          { id: canId, price: null },
+          { id: canId, price: 3 },
+        ],
+      },
+      aliceWrite,
+    );
+    expect(r.refused, r.text).toBe(false);
+    const updated = r.data.updated as { id: number; status: string; reason?: string; item?: Record<string, unknown> }[];
+    expect(updated.map((u) => [u.id, u.status, u.reason])).toEqual([
+      [canId, "updated", undefined],
+      [canId, "updated", undefined],
+      [stoveId, "updated", undefined],
+      [stoveId, "invalid", "That is a kit, and a kit weighs what its items weigh: give kit.own_weight_g for what it weighs by itself, or change an item's weight. Nothing was changed on it."],
+      [stoveId, "updated", undefined],
+      [stoveId, "invalid", "That piece isn't a kit, so there is nothing to turn back. Nothing was changed on it."],
+      [999_999, "not_found", undefined],
+      [canId, "updated", undefined],
+      [canId, "updated", undefined],
+    ]);
+    expect(updated[0]!.item).toMatchObject({ price: 10, currency: "EUR" });
+    expect(updated[1]!.item).toMatchObject({ price: 12, currency: "EUR" });
+    expect(updated[2]!.item).toMatchObject({ weight_g: 30, kit: { own_weight_g: 0, items: [{ id: screenId, count: 1 }] } });
+    expect(updated[4]!.item).toMatchObject({ weight_g: 30 });
+    expect(updated[4]!.item).not.toHaveProperty("kit");
+    // cleared, then priced again: no currency is left for the new price to keep
+    expect(updated[7]!.item).not.toHaveProperty("price");
+    expect(updated[8]!.item).toMatchObject({ price: 3 });
+    expect(updated[8]!.item).not.toHaveProperty("currency");
+    // the answer is the same JSON twice, as every tool's is
+    expect(r.text).toBe(JSON.stringify(r.data));
+  });
+
+  // What an update asks of its pieces beforehand (is it there, is it a kit, what currency
+  // is its price in) is ONE read for the call. Asked piece by piece it was two round
+  // trips each, on a driver that sends every statement as its own request, and the tool
+  // takes fifty pieces. Counted here as what each further piece adds to a call: the one
+  // read that hands its changed row back with its kits, and nothing before it.
+  it("read what an update needs of its pieces once for the call, not once for each", async () => {
+    const added = await tool("edit_my_gear", { add: [1, 2, 3, 4].map((n) => ({ name: `Counted piece ${n}`, weight_g: 10 })) }, aliceWrite);
+    const ids = (added.data.results as { status: string; item: { id: number } }[]).map((r) => r.item.id);
+    expect(new Set(ids).size).toBe(4);
+
+    /** how many reads one edit_my_gear call makes, every entry of it landing */
+    const readsFor = async (update: { id: number; weight_g: number }[]) => {
+      const reads = vi.spyOn(db, "select");
+      try {
+        const r = await tool("edit_my_gear", { update }, aliceWrite);
+        expect((r.data.updated as { status: string }[]).map((u) => u.status)).toEqual(update.map(() => "updated"));
+        return reads.mock.calls.length;
+      } finally {
+        reads.mockRestore();
+      }
+    };
+    const one = await readsFor([{ id: ids[0]!, weight_g: 11 }]);
+    const four = await readsFor(ids.map((id) => ({ id, weight_g: 12 })));
+    // three more pieces, three more reads
+    expect(four - one).toBe(3);
+  });
+
   it("file catalog food as consumable, and link a kit to the catalog without taking the product's weight", async () => {
     const food = await tool("edit_my_gear", { add: [{ catalog_id: 2 }] }, aliceWrite);
     expect((food.data.results as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ name: "Builders Bar", classification: "consumable", weight_g: 68, kcal: 290 });

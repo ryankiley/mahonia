@@ -68,6 +68,9 @@ import {
   unitOf,
   vaultItemById,
   vaultItemByNormKey,
+  vaultItemFacts,
+  vaultItemFactsOf,
+  type VaultItemFacts,
 } from "./vaultRepo";
 
 /**
@@ -1349,6 +1352,22 @@ function waterAmount(r: Record<string, unknown>, water: boolean, label: string):
   return { unitWeightMg: waterMgFromMl(r.volume_l * 1000) };
 }
 
+/**
+ * A row's count-like fields, each checked for what it takes: the sentence for a value
+ * that isn't one, or null. One set for a new row (toItem) and a row that exists
+ * (rowPatch), so the two can't disagree on what is a mistake or how to say so: a new
+ * row used to read a mistyped value as not sent, and `qty: "3"` made a row of one
+ * without a word. Which values count as SENT is each caller's: null clears a field on
+ * an update, and on a new row it is the same as leaving the field out.
+ */
+const ROW_FIELD_PROBLEM = {
+  qty: (v: unknown, label: string) => (typeof v !== "number" || !Number.isFinite(v) ? `qty on ${label} must be a whole number.` : null),
+  worn_qty: (v: unknown, label: string) => (typeof v !== "number" || !Number.isFinite(v) ? `worn_qty on ${label} must be a whole number.` : null),
+  kcal: (v: unknown, label: string) => (v !== null && (typeof v !== "number" || !(v >= 0)) ? `kcal on ${label} must be a number, or null to clear it.` : null),
+  needs_cooking: (v: unknown, label: string) => (typeof v !== "boolean" ? `needs_cooking on ${label} must be true or false.` : null),
+} as const;
+const ROW_FIELDS_CHECKED = Object.keys(ROW_FIELD_PROBLEM) as (keyof typeof ROW_FIELD_PROBLEM)[];
+
 /** One row as the reducer stores it, or the sentence explaining why it can't be. */
 function toItem(raw: object, folderId: string | null, sortOrder: number): Item | string {
   const r = raw as Record<string, unknown>;
@@ -1356,6 +1375,12 @@ function toItem(raw: object, folderId: string | null, sortOrder: number): Item |
   if (!name) return "Every row needs a name.";
   if (r.classification != null && !classificationOf(r.classification)) return notClassification(r.classification);
   if (r.weight_g != null && (typeof r.weight_g !== "number" || !(r.weight_g >= 0))) return `weight_g on "${name}" must be a number of grams, 0 or more.`;
+  // a value sent for one of these that it can't take is refused, as an update refuses
+  // it; one left out, or null, takes the default below
+  for (const field of ROW_FIELDS_CHECKED) {
+    const problem = r[field] == null ? null : ROW_FIELD_PROBLEM[field](r[field], `"${name}"`);
+    if (problem) return problem;
+  }
   const water = waterAmount(r, isWaterName(name), `"${name}"`);
   if (typeof water === "string") return water;
   const qty = clampInt(r.qty, 1, MAX_QTY, 1);
@@ -1975,7 +2000,8 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
     if (it.catalogItemId != null) patch.weightOverridden = true;
   }
   if (r.qty !== undefined) {
-    if (typeof r.qty !== "number" || !Number.isFinite(r.qty)) return `qty on ${label} must be a whole number.`;
+    const problem = ROW_FIELD_PROBLEM.qty(r.qty, label);
+    if (problem) return problem;
     patch.qty = clampInt(r.qty, 1, MAX_QTY, 1);
   }
   // judged by the name the row will have, so a rename to Water takes its litres in the
@@ -1992,7 +2018,8 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
     patch.classification = cls;
   }
   if (r.worn_qty !== undefined) {
-    if (typeof r.worn_qty !== "number" || !Number.isFinite(r.worn_qty)) return `worn_qty on ${label} must be a whole number.`;
+    const problem = ROW_FIELD_PROBLEM.worn_qty(r.worn_qty, label);
+    if (problem) return problem;
     const qty = patch.qty ?? it.qty;
     const worn = clampInt(r.worn_qty, 0, MAX_QTY, 0);
     // a row that is entirely worn is a worn row, not a split the size of itself,
@@ -2003,12 +2030,14 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
     } else patch.wornQty = worn;
   }
   if (r.kcal !== undefined) {
-    if (r.kcal !== null && (typeof r.kcal !== "number" || !(r.kcal >= 0))) return `kcal on ${label} must be a number, or null to clear it.`;
+    const problem = ROW_FIELD_PROBLEM.kcal(r.kcal, label);
+    if (problem) return problem;
     patch.kcal = r.kcal === null ? null : Math.round(r.kcal as number);
   }
   if (r.needs_cooking !== undefined) {
-    if (typeof r.needs_cooking !== "boolean") return `needs_cooking on ${label} must be true or false.`;
-    patch.needsCooking = r.needs_cooking;
+    const problem = ROW_FIELD_PROBLEM.needs_cooking(r.needs_cooking, label);
+    if (problem) return problem;
+    patch.needsCooking = r.needs_cooking as boolean;
   }
   if (r.carried_by !== undefined) {
     if (r.carried_by === null || r.carried_by === "") patch.personId = null;
@@ -2674,6 +2703,13 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
 
   // update: each piece by id, the kit first and then its fields
   const updated: { id: number; status: string; item?: Record<string, unknown>; reason?: string }[] = [];
+  // What an entry asks of its piece before changing it (is it there, is it a kit, what
+  // currency is its price in), read for every id at once: one query, where a read per
+  // entry was two round trips each. Read HERE, after the adds, which can bring a
+  // put-away piece back with a new price; and kept current below as each entry lands,
+  // so a piece named twice is judged by what the earlier entry left.
+  const facts: Map<number, VaultItemFacts> =
+    vaultId != null && updates.length ? await vaultItemFacts(db, vaultId, updates.map((e) => e.id as number)) : new Map();
   for (const [n, e] of updates.entries()) {
     const id = e.id as number;
     const kit = updateKits[n];
@@ -2694,8 +2730,8 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
       updated.push({ id, status: "not_found" });
       continue;
     }
-    // read once: an id that isn't this vault's is not_found before anything is tried
-    const before = await vaultItemById(db, vaultId, id);
+    // an id that isn't this vault's is not_found before anything is tried
+    const before = facts.get(id);
     if (!before) {
       updated.push({ id, status: "not_found" });
       continue;
@@ -2703,7 +2739,14 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
     // a price sent without its currency keeps the one the piece had: the vault takes the
     // two as one field, and would otherwise read the silence as no currency at all
     if (typeof patch.priceCents === "number" && patch.currency === undefined && before.currency) patch.currency = before.currency;
-    let after: VaultEntry = before;
+    // the piece as each write hands it back, and what the next entry will ask of it
+    let after: VaultEntry | undefined;
+    let now = before;
+    const landed = (item: VaultEntry) => {
+      after = item;
+      now = vaultItemFactsOf(item);
+      facts.set(id, now);
+    };
     // the kit first, so a change that clears one can then give the piece a weight,
     // and a kit the vault refuses leaves the whole entry undone
     if (kit !== undefined) {
@@ -2716,25 +2759,28 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
         updated.push({ id, status: "invalid", reason: `${KIT_REFUSED} Nothing was changed on it.` });
         continue;
       }
-      after = made.item;
+      landed(made.item);
     }
     // a kit weighs its items, so a catalog link leaves the product's weight off it; a
     // weight the call typed on a kit is still refused below, in words
-    if (catalogWeight && after.kind === "kit") delete patch.weightMg;
+    if (catalogWeight && now.kind === "kit") delete patch.weightMg;
     if (Object.keys(patch).length) {
       const outcome = await applyVaultItemOp(db, vaultId, { t: "edit", id, patch } as VaultItemOp);
       if (!outcome || "refused" in outcome) {
         // the row exists (read above), so a refusal is a change the vault won't make:
         // a weight on a kit, whose weight is its items', says so
-        const why = after.kind === "kit" && "weightMg" in patch ? KIT_WEIGHT : "That change would not leave a valid piece. Nothing was changed on it.";
+        const why = now.kind === "kit" && "weightMg" in patch ? KIT_WEIGHT : "That change would not leave a valid piece. Nothing was changed on it.";
         // the kit part has landed by now, so the answer says that much is done
-        if (kit !== undefined) updated.push({ id, status: "updated", item: gearAsRow(after), reason: `The kit was changed; its other fields were not. ${why.replace(" Nothing was changed on it.", "")}` });
+        if (after) updated.push({ id, status: "updated", item: gearAsRow(after), reason: `The kit was changed; its other fields were not. ${why.replace(" Nothing was changed on it.", "")}` });
         else updated.push({ id, status: "invalid", reason: why });
         continue;
       }
-      after = outcome.item;
+      landed(outcome.item);
     }
-    updated.push({ id, status: "updated", item: gearAsRow(after) });
+    // every entry that reaches here changed a kit or a field, and holds the row that
+    // write handed back; the read is for the type, and for an entry that somehow didn't
+    const row = after ?? (await vaultItemById(db, vaultId, id));
+    updated.push(row ? { id, status: "updated", item: gearAsRow(row) } : { id, status: "not_found" });
   }
 
   const removed: { id: number; status: string }[] = [];
