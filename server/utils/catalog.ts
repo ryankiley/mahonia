@@ -23,6 +23,7 @@ import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
 import { enoughToSearch, foldForSearch, foldWidth } from "../../shared/searchText";
 import { UNIT_WEIGHT_MAX_MG, isCatalogId } from "../../shared/ops";
+import { seedManaged } from "../../shared/catalogQuality";
 import { memoized } from "./memoize";
 import { runDdl } from "./ddl";
 import { toIso } from "./time";
@@ -123,6 +124,8 @@ export const CATALOG_DDL: string[] = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_item ON catalog_edits (catalog_item_id, created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_recent ON catalog_edits (created_at DESC)`,
+  // undo — an in-app verification's prior row fields, for the admin revert (schema.ts)
+  `ALTER TABLE catalog_edits ADD COLUMN IF NOT EXISTS undo jsonb`,
 ];
 
 // Neon ships pg_trgm and unaccent; PGlite doesn't (see the file header), so the
@@ -462,8 +465,10 @@ export async function proposeCorrection(
   // `javascript://trusted-domain/` URL would otherwise pass isTrustedSource).
   const safeSource = isHttpUrl(input.sourceUrl) ? input.sourceUrl!.slice(0, 2000) : undefined;
   const cited = isTrustedSource(safeSource);
-  // uncited/community values are wiki-open; a verified value needs a trusted citation
-  const applies = !item.verified || cited;
+  // uncited/community values are wiki-open; a verified value needs a trusted citation.
+  // An admin's in-app verification never moves on its own: applied here, the weight would
+  // leave its quote and weight_source behind, describing a figure the row no longer holds.
+  const applies = item.verifiedBy == null && (!item.verified || cited);
   const status: "applied" | "proposed" = applies ? "applied" : "proposed";
 
   await db.insert(catalogEdits).values({
@@ -550,9 +555,20 @@ export async function revertEdit(db: Db, editId: number): Promise<CorrectionOutc
     )
     .limit(1);
   if (newer.length) return { status: "rejected" };
+  if (edit.undo) {
+    // an in-app verification: once the seed has taken the row over, the research owns it
+    // and the snapshot would hand it back to the database
+    const [item] = await db
+      .select({ verified: catalogItems.verified, verifiedBy: catalogItems.verifiedBy })
+      .from(catalogItems)
+      .where(eq(catalogItems.id, Number(edit.catalogItemId)))
+      .limit(1);
+    if (item && seedManaged(item)) return { status: "rejected" };
+  }
   await db
     .update(catalogItems)
-    .set({ weightMg: Number(edit.oldWeightMg), updatedAt: new Date() })
+    // a verification's undo puts back what it changed besides the weight (CatalogEditUndo)
+    .set({ weightMg: Number(edit.oldWeightMg), updatedAt: new Date(), ...(edit.undo ?? {}) })
     .where(eq(catalogItems.id, Number(edit.catalogItemId)));
   await db.update(catalogEdits).set({ status: "reverted" }).where(eq(catalogEdits.id, id));
   return { status: "applied", weightMg: Number(edit.oldWeightMg) };

@@ -4,7 +4,7 @@ import * as schema from "../server/db/schema";
 import mcp from "../server/routes/mcp.post";
 import { ACCESS_TOKEN_PREFIX, mintAccessToken } from "../server/utils/accessTokens";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
-import { CATALOG_DDL } from "../server/utils/catalog";
+import { CATALOG_DDL, proposeCorrection, revertEdit } from "../server/utils/catalog";
 import { LISTS_DDL } from "../server/utils/db";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { catalogRow, seedCatalogRow } from "./helpers/catalog";
@@ -55,6 +55,7 @@ let otherWrite = "";
 let duplex = 0;
 let community = 0;
 let retired = 0;
+let merged = 0;
 const NEVER_MINTED = `${ACCESS_TOKEN_PREFIX}this-was-never-minted`;
 const DURSTON = "https://durstongear.com/products/x-mid-2";
 
@@ -64,6 +65,7 @@ beforeAll(async () => {
   duplex = (await seedCatalogRow(db, { brand: "Zpacks", name: "Duplex", weightMg: 539_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/duplex", verified: true, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter" })).id;
   community = (await seedCatalogRow(db, { brand: "Durston", name: "X-Mid 2", weightMg: 1_000_000, commonName: "tent", categoryHint: "shelter", searchTerms: "tent" })).id;
   retired = (await seedCatalogRow(db, { brand: "Durston", name: "X-Mid 1", status: "removed" })).id;
+  merged = (await seedCatalogRow(db, { brand: "Zpacks", name: "Duplex (2019)", status: "merged", mergedIntoId: duplex })).id;
   const [ryan, other] = (await db.insert(schema.users).values([{ email: "admin@example.com" }, { email: "other@example.com" }]).returning()).map((u) => u.id);
   admin = ryan!;
   adminWrite = (await mintAccessToken(db, admin, { scope: "write", unproven: false }))!.token;
@@ -138,6 +140,26 @@ describe("verifying", () => {
     expect((search.structuredContent!.results as { id: number }[]).map((r) => r.id)).toContain(id);
   });
 
+  it("keeps the row's link when a scale weight comes with none", async () => {
+    const row = await seedCatalogRow(db, { brand: "Nitecore", name: "NU25", categoryHint: "electronics", weightMg: 45_000, sourceUrl: "https://flashlight.nitecore.com/nu25" });
+    expect((await verify({ catalog_id: row.id, weight_g: 47, weight_source: "measured" })).refused).toBe(false);
+    expect(await catalogRow(db, row.id)).toMatchObject({ sourceUrl: "https://flashlight.nitecore.com/nu25", weightSource: "measured", verifiedBy: admin });
+  });
+
+  it("reads the range and the category from a gear type that changes", async () => {
+    // typed as a stuff sack (other, 4–1600 g), really a tent
+    const row = await seedCatalogRow(db, { brand: "Tarptent", name: "Rainbow", commonName: "Stuff sack", categoryHint: "other", weightMg: 30_000 });
+    expect((await verify({ catalog_id: row.id, gear_type: "Tent", weight_g: 1800, weight_source: "measured" })).refused).toBe(false);
+    expect(await catalogRow(db, row.id)).toMatchObject({ commonName: "Tent", categoryHint: "shelter" });
+  });
+
+  it("brings a retired row back under its old id rather than refusing it", async () => {
+    const done = await verify({ brand: "Durston", name: "X-Mid 1", gear_type: "Tent", weight_g: 790, weight_source: "measured" });
+    expect(done.refused, done.text).toBe(false);
+    expect(done.data.row.id).toBe(retired);
+    expect(await catalogRow(db, retired)).toMatchObject({ status: "active", verified: true, verifiedBy: admin });
+  });
+
   it("refuses a new product that is already a row, or looks like one, and names it", async () => {
     const same = await verify({ brand: "Zpacks", name: "Duplex", gear_type: "Tent", weight_g: 539, weight_source: "measured" });
     expect(same.refused).toBe(true);
@@ -168,7 +190,7 @@ describe("what it refuses", () => {
     expect(await refusal({ catalog_id: community, weight_g: 1022, source_url: DURSTON, quote: "Weight: 1,200 g" })).toContain("doesn't state 1022 g");
     expect(await refusal({ catalog_id: 3_000_000_000, weight_g: 1022, weight_source: "measured" })).toContain("catalog_id");
     expect(await refusal({ catalog_id: 999_999, weight_g: 1022, weight_source: "measured" })).toContain("No catalog row");
-    expect(await refusal({ catalog_id: retired, weight_g: 1022, weight_source: "measured" })).toContain("retired");
+    expect(await refusal({ catalog_id: merged, weight_g: 539, weight_source: "measured" })).toContain(`retired into row ${duplex}`);
     expect(await refusal({ weight_g: 1022, weight_source: "measured" })).toContain("catalog_id");
     expect(await refusal({ name: "Mystery Thing", weight_g: 100, weight_source: "measured" })).toContain("gear_type");
   });
@@ -183,5 +205,57 @@ describe("what it refuses", () => {
     expect((await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured", outside_range_ok: true })).refused).toBe(false);
     // a new product whose gear type names no kind of gear is held to "other"
     expect(await refusal({ brand: "Acme", name: "Gizmo", gear_type: "Gizmo", weight_g: 2000, weight_source: "measured" })).toContain("other");
+  });
+});
+
+describe("undoing a verification, and corrections after one", () => {
+  /** the newest applied edit on a row: what the admin feed's revert button names */
+  const lastEdit = async (id: number) => {
+    const edits = await db.select().from(schema.catalogEdits).where(eq(schema.catalogEdits.catalogItemId, id));
+    return edits.filter((e) => e.status === "applied").sort((a, b) => b.id - a.id)[0]!;
+  };
+
+  it("puts the row back as it was, not the weight alone", async () => {
+    const row = await seedCatalogRow(db, { brand: "Big Agnes", name: "Copper Spur UL1", commonName: "tent", categoryHint: "shelter", weightMg: 1_000_000, sourceUrl: "https://example.com/copper-spur" });
+    await verify({ catalog_id: row.id, weight_g: 1020, source_url: "https://bigagnes.com/copper-spur-ul1", quote: "Packaged weight: 1020 g" });
+    expect((await revertEdit(db, (await lastEdit(row.id)).id)).status).toBe("applied");
+    expect(await catalogRow(db, row.id)).toMatchObject({
+      weightMg: 1_000_000, verified: false, verifiedBy: null, weightSource: "community", sourceUrl: "https://example.com/copper-spur", sourceQuote: null, commonName: "tent",
+    });
+  });
+
+  it("undoes a second verification back to the first", async () => {
+    const row = await seedCatalogRow(db, { brand: "Thermarest", name: "NeoAir XLite NXT", categoryHint: "sleep", weightMg: 400_000 });
+    await verify({ catalog_id: row.id, weight_g: 370, weight_source: "measured" });
+    await verify({ catalog_id: row.id, weight_g: 354, source_url: "https://thermarest.com/xlite", quote: "Weight: 354 g" });
+    await revertEdit(db, (await lastEdit(row.id)).id);
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 370_000, verified: true, verifiedBy: admin, weightSource: "measured", sourceQuote: null });
+  });
+
+  it("retires a product the verification added, and adding it again brings it back", async () => {
+    const added = await verify({ brand: "Hyperlite", name: "Unbound 40", gear_type: "Backpack", weight_g: 850, weight_source: "measured" });
+    const id = added.data.row.id as number;
+    await revertEdit(db, (await lastEdit(id)).id);
+    expect((await catalogRow(db, id)).status).toBe("removed");
+    const again = await verify({ brand: "Hyperlite", name: "Unbound 40", gear_type: "Backpack", weight_g: 860, weight_source: "measured" });
+    expect(again.data.row.id).toBe(id);
+    expect((await catalogRow(db, id)).status).toBe("active");
+  });
+
+  it("won't undo a verification the seed has since taken over", async () => {
+    const row = await seedCatalogRow(db, { brand: "Gossamer Gear", name: "Mariposa 60", categoryHint: "pack", weightMg: 900_000 });
+    await verify({ catalog_id: row.id, weight_g: 940, weight_source: "measured" });
+    // what upsertSeedRows does when the research names it
+    await db.update(schema.catalogItems).set({ verifiedBy: null, sourceQuote: null, weightSource: "manufacturer" }).where(eq(schema.catalogItems.id, row.id));
+    expect((await revertEdit(db, (await lastEdit(row.id)).id)).status).toBe("rejected");
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 940_000, verified: true, verifiedBy: null });
+  });
+
+  it("holds a cited correction to a verified-in-app row for review", async () => {
+    const row = await seedCatalogRow(db, { brand: "REI", name: "Flash 22", categoryHint: "pack", weightMg: 400_000 });
+    await verify({ catalog_id: row.id, weight_g: 420, weight_source: "measured" });
+    const out = await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 380_000, sourceUrl: "https://www.rei.com/product/flash-22" });
+    expect(out.status).toBe("proposed");
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 420_000, weightSource: "measured", verifiedBy: admin });
   });
 });

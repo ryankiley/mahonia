@@ -173,7 +173,19 @@ export const catalogItems = pgTable(
 // Trust-tiered: editing an uncited/community value applies instantly; editing a
 // verified value becomes a `proposed` row unless the correction carries a
 // citation from a trusted manufacturer/retailer domain (then it auto-applies).
+// A row an admin verified in the app (verified_by set) takes corrections as
+// `proposed` only: its weight stands on the evidence the admin gave.
 // ---------------------------------------------------------------------------
+/** What an in-app verification (verify_catalog_item) changed on its row besides the
+ *  weight, as it stood before: the admin revert puts it back with the old weight. A
+ *  product the verification added has `{ status: "removed" }`, so reverting retires it. */
+export type CatalogEditUndo = Partial<
+  Pick<
+    typeof catalogItems.$inferSelect,
+    "weightSource" | "sourceUrl" | "sourceQuote" | "verified" | "verifiedBy" | "commonName" | "searchTerms" | "categoryHint" | "status" | "mergedIntoId"
+  >
+>;
+
 // legacy column still in the database, undeclared: confirmations (see the header)
 export const catalogEdits = pgTable(
   "catalog_edits",
@@ -185,6 +197,8 @@ export const catalogEdits = pgTable(
     sourceUrl: text("source_url"), // citation; validated against a domain allowlist for auto-promote
     reason: text("reason"),
     status: text("status").notNull().default("applied"), // applied|proposed|reverted|rejected
+    // set on an in-app verification only: the row's fields before it (CatalogEditUndo)
+    undo: jsonb("undo").$type<CatalogEditUndo>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   }
 );

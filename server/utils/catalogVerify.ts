@@ -7,9 +7,12 @@
 // The checks are the audit's own, run at write time: a manufacturer weight needs a
 // citation URL and a quote that states it, every weight sits in its kind of gear's range
 // unless the admin confirms an outlier, and a new product may not duplicate a live row.
+// Every verification records what it replaced in catalog_edits.undo, so the admin revert
+// puts the row back as it was (or retires a product the verification added), and the
+// corrections path leaves a verified-in-app row's weight alone (proposeCorrection).
 
 import { and, eq, sql } from "drizzle-orm";
-import { catalogEdits, catalogItems } from "../db/schema";
+import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
 import { categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged } from "../../shared/catalogQuality";
 import { isCatalogId, MAX_BRAND_LEN, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { tidyText } from "../../shared/tidyText";
@@ -73,10 +76,6 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
     if (!isCatalogId(args.catalog_id)) return "catalog_id is a catalog row's id, a whole number from search_catalog.";
     [current] = await db.select().from(catalogItems).where(eq(catalogItems.id, args.catalog_id)).limit(1);
     if (!current) return `No catalog row has id ${args.catalog_id}.`;
-    if (current.status !== "active") {
-      return current.mergedIntoId ? `Row ${current.id} was retired into row ${current.mergedIntoId}; verify that one.` : `Row ${current.id} was retired from the catalog.`;
-    }
-    if (seedManaged(current)) return `Row ${current.id} comes from Mahonia's research files and is already verified; a change to it belongs in seed/_research.`;
   } else {
     const name = text(args.name, MAX_ITEM_NAME_LEN);
     if (!name) return "Give catalog_id for a row in the catalog, or name (with brand, variant and gear_type) for a product it doesn't have.";
@@ -84,21 +83,40 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
     const typedBrand = text(args.brand, MAX_BRAND_LEN);
     const brand = typedBrand ? spelledAs(typedBrand, await catalogBrands(db)) : null;
     const variant = normalizeVariant(text(args.variant, MAX_VARIANT_LEN)) || null;
+    // the identity index holds retired rows too, so a retired row of this identity is the
+    // product's own row: brought back below, never a second one beside it
     const [same] = await db
-      .select({ id: catalogItems.id })
+      .select()
       .from(catalogItems)
       .where(and(sql`coalesce(${catalogItems.brand}, '') = ${brand ?? ""}`, eq(catalogItems.name, name), sql`coalesce(${catalogItems.variant}, '') = ${variant ?? ""}`))
       .limit(1);
-    if (same) return `${itemDisplayName(brand, name, variant)} is already catalog row ${same.id}; pass catalog_id ${same.id} to verify it.`;
-    const near = await closestCatalogMatch(db, brand, name, variant);
-    if (near) {
-      return `Catalog row ${near.id}, ${itemDisplayName(near.brand, near.name, near.variant)}, looks like the same product; pass catalog_id ${near.id} to verify it, or give the size or version that tells them apart.`;
+    if (same?.status === "active") return `${itemDisplayName(brand, name, variant)} is already catalog row ${same.id}; pass catalog_id ${same.id} to verify it.`;
+    if (same) current = same;
+    else {
+      const near = await closestCatalogMatch(db, brand, name, variant);
+      if (near) {
+        return `Catalog row ${near.id}, ${itemDisplayName(near.brand, near.name, near.variant)}, looks like the same product; pass catalog_id ${near.id} to verify it, or give the size or version that tells them apart.`;
+      }
+      fresh = { brand, name, variant };
     }
-    fresh = { brand, name, variant };
+  }
+
+  // A retired row: one merged into a successor is verified there; one removed outright
+  // comes back under its old id, as the seed's upsert brings back a row the research names
+  // again, so the lists that kept holding that id pick it up. A live research row is the
+  // research's to change.
+  let revive = false;
+  if (current && current.status !== "active") {
+    if (current.mergedIntoId) return `Row ${current.id} was retired into row ${current.mergedIntoId}; verify that one.`;
+    revive = true;
+  } else if (current && seedManaged(current)) {
+    return `Row ${current.id} comes from Mahonia's research files and is already verified; a change to it belongs in seed/_research.`;
   }
 
   // ---- the range, by the row's kind of gear ----
-  const kind = category ?? (fresh ? categoryForGearType(gearType) : current?.categoryHint) ?? "other";
+  // the category given, else the one a given gear type names, else the row's own
+  const typedKind = category ?? categoryForGearType(gearType);
+  const kind = typedKind ?? current?.categoryHint ?? "other";
   const [lo, hi] = RANGE_G[kind] ?? RANGE_G.other!;
   if ((grams < lo || grams > hi) && args.outside_range_ok !== true) {
     return `${grams} g is outside ${lo}–${hi} g, the usual range for ${kind}. Check the number or the category; if the person confirms it, send outside_range_ok: true.`;
@@ -122,7 +140,7 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
           ...verified,
         })
         .returning();
-      await recordEdit(db, row!.id, weightMg, weightMg, sourceUrl, notes || "Added and verified by an admin");
+      await recordEdit(db, row!.id, weightMg, weightMg, sourceUrl, notes || "Added and verified by an admin", { status: "removed" });
       return { row: row!, created: true };
     } catch (e) {
       // the identity index: the same product added a moment ago
@@ -132,14 +150,31 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
   }
 
   const row = current!;
-  // the edit history first, as a correction writes it: the change stays revertible
-  await recordEdit(db, row.id, Number(row.weightMg), weightMg, sourceUrl, notes || (source === "measured" ? "Verified: weighed by an admin" : "Verified against the maker's published weight"));
+  // the edit history first, as a correction writes it, with what the update below replaces:
+  // the admin revert puts all of it back, not the weight alone
+  const undo: CatalogEditUndo = {
+    weightSource: row.weightSource,
+    sourceUrl: row.sourceUrl,
+    sourceQuote: row.sourceQuote,
+    verified: row.verified,
+    verifiedBy: row.verifiedBy,
+    commonName: row.commonName,
+    searchTerms: row.searchTerms,
+    categoryHint: row.categoryHint,
+    status: row.status,
+    mergedIntoId: row.mergedIntoId,
+  };
+  const reason = notes || (source === "measured" ? "Verified: weighed by an admin" : "Verified against the maker's published weight");
+  await recordEdit(db, row.id, Number(row.weightMg), weightMg, sourceUrl, reason, undo);
   const [updated] = await db
     .update(catalogItems)
     .set({
       ...verified,
-      ...(category ? { categoryHint: category } : {}),
+      // a scale weight usually comes with no link: the row keeps the one it had
+      sourceUrl: sourceUrl ?? row.sourceUrl,
+      ...(typedKind ? { categoryHint: typedKind } : {}),
       ...(label ? { commonName: label, searchTerms: normKey(label) || null } : {}),
+      ...(revive ? { status: "active", mergedIntoId: null } : {}),
     })
     .where(eq(catalogItems.id, row.id))
     .returning();
@@ -147,7 +182,7 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
 }
 
 /** One line of the catalog's edit history (catalog_edits), applied: where a verification's
- *  date, source and notes are kept, and what the admin revert reads. */
-async function recordEdit(db: Db, catalogItemId: number, oldWeightMg: number, newWeightMg: number, sourceUrl: string | null, reason: string): Promise<void> {
-  await db.insert(catalogEdits).values({ catalogItemId, oldWeightMg, newWeightMg, sourceUrl, reason, status: "applied" });
+ *  date, source and notes are kept, and what the admin revert reads and undoes. */
+async function recordEdit(db: Db, catalogItemId: number, oldWeightMg: number, newWeightMg: number, sourceUrl: string | null, reason: string, undo: CatalogEditUndo): Promise<void> {
+  await db.insert(catalogEdits).values({ catalogItemId, oldWeightMg, newWeightMg, sourceUrl, reason, status: "applied", undo });
 }
