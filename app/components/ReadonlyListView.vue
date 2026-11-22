@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Backpack03Icon, Calendar03Icon, GlobeIcon, Location01Icon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
+import { IconArrowUpRight, IconBackpack, IconCalendarDays, IconFootsteps, IconMap, IconMapPin, IconGlobe2 } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
@@ -108,8 +108,8 @@ const dateLabel = computed(() =>
 // from a different list would decide what they see before they have looked.
 const view = ref<"gear" | "trip">("gear");
 const VIEW_MODES = [
-  { key: "gear", label: "Gear", icon: Backpack03Icon },
-  { key: "trip", label: "Trip", icon: Route02Icon },
+  { key: "gear", label: "Gear", icon: IconBackpack },
+  { key: "trip", label: "Trip", icon: IconMap },
 ] as const;
 
 const days = computed(() => props.list?.days ?? []);
@@ -202,10 +202,10 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
             class="view__trailicon"
             :src="list.trailFaviconDataUrl"
             alt=""
-            width="16"
-            height="16"
+            width="18"
+            height="18"
           />
-          <HugeiconsIcon :icon="GlobeIcon" v-else class="view__trailicon view__trailicon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconGlobe2" v-else class="view__trailicon view__trailicon--fallback" aria-hidden="true" />
           <span class="t-clip">{{ trail.name }}</span>
           <!-- How far it goes — the one fact about the route that isn't in its name,
                and the second thing anybody asks after it. The editor's own head row
@@ -220,7 +220,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
              takes it without one), so it stands where the trail would, with the pin the
              editor's row wears, and reads like the dates beside it. -->
         <span v-else-if="distanceLabel" class="view__dates">
-          <HugeiconsIcon :icon="Location01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconMapPin" aria-hidden="true" />
           <span>{{ distanceLabel }}</span>
         </span>
 
@@ -233,7 +233,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
                with the trail's: the row wraps on a narrow screen and the two then stack,
                so a mark that measured differently started its text at a different x. See
                --where-mark below, which is what actually holds the two to one slot. -->
-          <HugeiconsIcon :icon="Calendar03Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconCalendarDays" aria-hidden="true" />
           <span>{{ dateLabel }}</span>
         </span>
       </p>
@@ -257,14 +257,14 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
         <li v-for="(d, i) in days" :key="d.id" class="view__day">
           <span class="view__dayname">{{ dayLabel(i, list.startDate) }}</span>
           <span v-if="d.distanceM" class="view__dayfig">
-            <HugeiconsIcon :icon="RouteIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconFootsteps" size="sm" aria-hidden="true" />
             {{ formatDistance(d.distanceM, distanceUnit) }}
           </span>
           <!-- `!= null`, not truthiness: a day that genuinely climbs nothing still has a
                climb to report, and hiding it made a flat or downhill day look like a day
                whose data was missing. The editor shows the 0; so does this. -->
           <span v-if="climbFor(i) != null" class="view__dayfig">
-            <HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconArrowUpRight" size="sm" aria-hidden="true" />
             {{ asHeight(climbFor(i)!) }}
           </span>
           <!-- the owner's note on the day, on its own line under the figures, in the

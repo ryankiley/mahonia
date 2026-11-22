@@ -287,7 +287,8 @@ describe("the gear tools", () => {
     expect((await tool("edit_my_gear", { remove: [tentId] }, aliceWrite)).data.removed).toEqual([{ id: tentId, status: "removed" }]);
     expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(1);
     expect((await tool("edit_my_gear", { remove: [tentId] }, aliceWrite)).data.removed).toEqual([{ id: tentId, status: "not_found" }]);
-    expect((await tool("edit_my_gear", { restore: [tentId] }, aliceWrite)).data.removed).toEqual([{ id: tentId, status: "restored" }]);
+    // an id named twice reads as remove reads it: a miss the second time
+    expect((await tool("edit_my_gear", { restore: [tentId, tentId] }, aliceWrite)).data.removed).toEqual([{ id: tentId, status: "restored" }, { id: tentId, status: "not_found" }]);
     expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(2);
   });
 

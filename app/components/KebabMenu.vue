@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { EllipsisIcon } from "@hugeicons/core-free-icons";
+import { IconDotGrid1x3Horizontal } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // The ⋯ actions menu's SHELL — the quiet kebab, the popover, the travelling plate and
 // the dismiss rules (outside tap, a scroll gesture, Escape) — the three things that
@@ -45,7 +45,7 @@ const close = () => {
       :aria-expanded="open"
       @click="toggle"
     >
-      <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
+      <SvgIcon :icon="IconDotGrid1x3Horizontal" />
     </button>
     <Transition name="menu">
       <MenuList v-if="open" :aria-label="label">

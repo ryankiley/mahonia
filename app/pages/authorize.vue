@@ -20,9 +20,9 @@
 // cookie every few seconds while signed out — a cookie read, nothing more, until the
 // other tab has set it — so it moves on to the consent the moment that happens. The
 // window Claude is watching is this one.
-import { AddCircleIcon, Alert02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import type { IconNode } from "~/utils/hugeicon";
+import { IconCirclePlus, IconExclamationTriangle, IconEyeOpen, IconPencil2 } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
+import type { IconNode } from "~/utils/icon";
 import { clientMark, type AskingClient, type ReturnTo } from "~/utils/clientMark";
 import type { AccessScope } from "~~/shared/types";
 
@@ -64,15 +64,15 @@ const wants = computed(() =>
 const scopes = computed<{ icon: IconNode; text: string }[]>(() =>
   writes.value
     ? [
-        { icon: ViewIcon, text: "See what’s in My Gear" },
-        { icon: Edit02Icon, text: "Change what’s in My Gear" },
-        { icon: ViewIcon, text: "See your lists" },
-        { icon: Edit02Icon, text: "Change your lists" },
-        { icon: AddCircleIcon, text: "Add new lists to your account" },
+        { icon: IconEyeOpen, text: "See what’s in My Gear" },
+        { icon: IconPencil2, text: "Change what’s in My Gear" },
+        { icon: IconEyeOpen, text: "See your lists" },
+        { icon: IconPencil2, text: "Change your lists" },
+        { icon: IconCirclePlus, text: "Add new lists to your account" },
       ]
     : [
-        { icon: ViewIcon, text: "See what’s in My Gear" },
-        { icon: ViewIcon, text: "See your lists" },
+        { icon: IconEyeOpen, text: "See what’s in My Gear" },
+        { icon: IconEyeOpen, text: "See your lists" },
       ],
 );
 // Who is asking, as the page names and draws them: a logo and our own name for it only
@@ -147,7 +147,7 @@ async function decide(decision: "allow" | "deny") {
           <!-- the two parties, side by side: the app asking, and Mahonia -->
           <div class="az__marks" aria-hidden="true">
             <span class="az__tile">
-              <HugeiconsIcon v-if="mark?.icon" :icon="mark.icon" :size="24" :stroke-width="1.5" />
+              <SvgIcon v-if="mark?.icon" :icon="mark.icon" size="xl" />
               <span v-else class="az__initial">{{ mark?.initial }}</span>
             </span>
             <span class="az__tie" />
@@ -181,7 +181,7 @@ async function decide(decision: "allow" | "deny") {
                 <h1 class="t-title">Allow {{ label }} to:</h1>
                 <ul class="az__scopes">
                   <li v-for="s in scopes" :key="s.text" class="az__scope">
-                    <HugeiconsIcon :icon="s.icon" :size="20" :stroke-width="1.5" class="az__scopeicon" aria-hidden="true" />
+                    <SvgIcon :icon="s.icon" size="lg" :stroke-width="1.25" class="az__scopeicon" aria-hidden="true" />
                     <span>{{ s.text }}</span>
                   </li>
                 </ul>
@@ -190,7 +190,7 @@ async function decide(decision: "allow" | "deny") {
 
               <!-- what Mahonia couldn't check, said before the buttons rather than under them -->
               <div v-if="checked.returnTo.loopback || !mark?.checked" class="az__caution">
-                <HugeiconsIcon :icon="Alert02Icon" :size="16" :stroke-width="2" class="az__cautionicon" aria-hidden="true" />
+                <SvgIcon :icon="IconExclamationTriangle" class="az__cautionicon" aria-hidden="true" />
                 <!-- one short paragraph, whichever of the two applies -->
                 <p>
                   <template v-if="!mark?.checked">Mahonia can’t confirm who made this app. </template>

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { IconBackpack, IconFashion } from "~/icons/central";
 import type { InjectionKey, Ref } from "vue";
 import type { Item as ItemT, ListSnapshot as ListT } from "~~/shared/types";
 
@@ -32,13 +33,12 @@ const NO_ITEMS: ItemT[] = [];
 </script>
 
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
+import { SvgIcon } from "~/utils/icon";
 import { personColor } from "~~/shared/people";
 import type { Classification, Item } from "~~/shared/types";
 import { effectiveClassificationInFolder, formatKcal, formatWeight, isBareGroup, groupLineMg, splitWornQty, rowDisplayKcal } from "~~/shared/weights";
 import { itemQtyLabel } from "~~/shared/water";
 import { consumableIcon } from "~/utils/itemMarks";
-import { Backpack02Icon, ShirtIcon } from "@hugeicons/core-free-icons";
 
 // The share views' row (/s + /l): name (a web-search link via <ItemName search>),
 // amount, line weight — and its nested children, rendered the SAME way one level down
@@ -143,7 +143,7 @@ const markClass = computed<Classification>(() => (isWorn.value ? "worn" : effCla
 // both of them unlit) — which is why the backpack is drawn here and not in itemMarks,
 // a module on the editor's first load.
 const markIcon = computed(() =>
-  markClass.value === "worn" ? ShirtIcon : markClass.value === "consumable" ? consumableIcon(props.item) : Backpack02Icon,
+  markClass.value === "worn" ? IconFashion : markClass.value === "consumable" ? consumableIcon(props.item) : IconBackpack,
 );
 // the hover title, matching the editor's tooltip: a split names its count, since
 // "Worn" alone would overstate a row that is mostly in the pack. The word is also the
@@ -229,7 +229,7 @@ const rowPerson = computed(() =>
            where it always did. -->
       <span class="item__roclass">
         <span v-if="showMark" class="item__romark" :title="markTitle">
-          <HugeiconsIcon :icon="markIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="markIcon" aria-hidden="true" />
           <!-- a SPLIT already reads "×3 · 1 worn" in the amount cell, so a second
                "worn" here would only say it twice -->
           <span v-if="!splitWorn" class="visually-hidden"> · {{ markTitle.toLowerCase() }}</span>
@@ -324,12 +324,14 @@ const rowPerson = computed(() =>
    ON the text line rather than straddling it. This works where the carrier tag's old
    0.04em did not (see atoms/item.scss) because the mark is an inline-level box in a
    `block` cell; vertical-align has no effect on a flex item, which is what that one
-   was. -0.125em is measured, not guessed: it lands the 16px glyph's midpoint on the
-   weight cell's to the pixel at the row's base size. */
+   was. The drop holds the glyph's middle 0.375em above the baseline, which lands it on
+   the weight figures' to the pixel at the row's base size (measured at 16px as
+   -0.125em, the same thing then); stated against --icon so it holds whatever size the
+   glyph is. */
 .item__romark {
   display: inline-flex;
   color: var(--ink-2);
-  vertical-align: -0.125em;
+  vertical-align: calc(0.375em - var(--icon) / 2);
 }
 /* how many rows a shut group is holding — the quietest thing on the line (it is about
    the chevron it follows, not about the gear), and gone the moment they're on screen */

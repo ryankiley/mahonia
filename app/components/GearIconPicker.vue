@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { IconNode } from "~/utils/hugeicon";
+import type { IconNode } from "~/utils/icon";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 
 // Pick a piece's icon from a popover over the thing you pressed — the row's icon on

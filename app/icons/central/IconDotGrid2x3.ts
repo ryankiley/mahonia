@@ -1,0 +1,4 @@
+// Generated: a central icons glyph, outside this repo's MIT licence (see ./index.ts).
+import type { IconNode } from "../../utils/icon";
+
+export const IconDotGrid2x3: IconNode = [["path",{d:"M10 5C10 5.55 9.55 6 9 6C8.45 6 8 5.55 8 5C8 4.45 8.45 4 9 4C9.55 4 10 4.45 10 5Z",stroke:"currentColor"}],["path",{d:"M10 12C10 12.55 9.55 13 9 13C8.45 13 8 12.55 8 12C8 11.45 8.45 11 9 11C9.55 11 10 11.45 10 12Z",stroke:"currentColor"}],["path",{d:"M10 19C10 19.55 9.55 20 9 20C8.45 20 8 19.55 8 19C8 18.45 8.45 18 9 18C9.55 18 10 18.45 10 19Z",stroke:"currentColor"}],["path",{d:"M16 12C16 12.55 15.55 13 15 13C14.45 13 14 12.55 14 12C14 11.45 14.45 11 15 11C15.55 11 16 11.45 16 12Z",stroke:"currentColor"}],["path",{d:"M16 19C16 19.55 15.55 20 15 20C14.45 20 14 19.55 14 19C14 18.45 14.45 18 15 18C15.55 18 16 18.45 16 19Z",stroke:"currentColor"}],["path",{d:"M16 5C16 5.55 15.55 6 15 6C14.45 6 14 5.55 14 5C14 4.45 14.45 4 15 4C15.55 4 16 4.45 16 5Z",stroke:"currentColor"}]];

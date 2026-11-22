@@ -1,15 +1,7 @@
 <script setup lang="ts">
+import { IconArrowsRepeatCircle, IconClock, IconEyeOpen, IconPencil2, IconSquareBehindSquare1, IconUserAdd, IconUserDuo } from "~/icons/central";
 import { counted } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import {
-  Clock01Icon,
-  Copy01Icon,
-  Edit02Icon,
-  Exchange01Icon,
-  UserAdd01Icon,
-  UserMultiple02Icon,
-  ViewIcon,
-} from "@hugeicons/core-free-icons";
+import { SvgIcon } from "~/utils/icon";
 import { ROW_FLASH } from "~/components/ItemRow.vue";
 import type { ChangeAuthor, ListSnapshot, SnapshotMeta } from "~~/shared/types";
 
@@ -27,7 +19,7 @@ import type { ChangeAuthor, ListSnapshot, SnapshotMeta } from "~~/shared/types";
 // they are one panel.
 //
 // Both tabs draw their rows the menu's way: `.menu__item`, `[data-row]`, the
-// travelling plate, the 16px glyph in the menu's one glyph column, plus a second line.
+// travelling plate, the glyph in the menu's one glyph column, plus a second line.
 // On Share the label is the whole act ("Copy edit link") and the line is who that
 // hands the list to. Read one at a time that looks like it restates the name; read
 // as the pair it is, "see" against "change" is the plainest statement of how the two
@@ -282,7 +274,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
               :aria-describedby="`${uid}-hint-read`"
               @click="act(() => emit('copyRead'))"
             >
-              <HugeiconsIcon :icon="ViewIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconEyeOpen" aria-hidden="true" />
               <span class="share__text">
                 <span class="share__name">Copy read-only link</span>
                 <span :id="`${uid}-hint-read`" class="share__hint">Anyone with it can see this list</span>
@@ -301,7 +293,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
               :aria-describedby="`${uid}-hint-edit`"
               @click="act(() => emit('copyEdit'))"
             >
-              <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconPencil2" aria-hidden="true" />
               <span class="share__text">
                 <span class="share__name">Copy edit link</span>
                 <span :id="`${uid}-hint-edit`" class="share__hint">Anyone with it can change this list</span>
@@ -313,7 +305,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
                entries in place of rows. Collapsed: it's reassurance you go looking for.
                These are the server's recovery points: WHAT changed, WHEN, and who when
                anyone can be named ("You", "Assistant", or a name an editor chose). -->
-          <MenuSection v-model:open="activityOpen" label="Recent changes" :icon="Clock01Icon">
+          <MenuSection v-model:open="activityOpen" label="Recent changes" :icon="IconClock">
             <div class="share__activity">
               <p v-if="activityState === 'loading'" class="t-muted">Loading…</p>
               <p v-else-if="activityState === 'error'" class="t-muted">Couldn’t load recent changes.</p>
@@ -343,14 +335,14 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
               :disabled="claim === 'claiming'"
               @click="addToAccount"
             >
-              <HugeiconsIcon :icon="UserAdd01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconUserAdd" aria-hidden="true" />
               Add to your account
             </button>
             <p v-if="claim === 'failed'" role="alert" class="t-muted share__note">
               That didn’t save. Check your connection and try again.
             </p>
             <button type="button" data-row class="menu__item" @click="act(() => emit('rotate'))">
-              <HugeiconsIcon :icon="Exchange01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconArrowsRepeatCircle" aria-hidden="true" />
               {{ holdsEditLink ? "Replace edit link" : "Get a new edit link" }}
             </button>
           </li>
@@ -360,12 +352,12 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
       <!-- EXPORT: the link first, then the files. -->
       <div v-else :id="panelId('export')" role="tabpanel" :aria-labelledby="tabId('export')">
         <div class="share__nudge">
-          <HugeiconsIcon :icon="UserMultiple02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconUserDuo" aria-hidden="true" />
           <div class="share__nudgebody">
             <p class="share__name">Sending this to someone?</p>
             <p class="share__nudgetext">Send the link instead. It always shows the latest version.</p>
             <button type="button" class="btn btn--primary share__nudgebtn" @click="act(() => emit('copyRead'))">
-              <HugeiconsIcon :icon="Copy01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" />
               Copy read-only link
             </button>
           </div>
@@ -380,7 +372,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
               :aria-describedby="`${uid}-hint-${item.key}`"
               @click="act(item.run)"
             >
-              <HugeiconsIcon :icon="item.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="item.icon" aria-hidden="true" />
               <span class="share__text">
                 <span class="share__name">{{ item.format }}</span>
                 <span :id="`${uid}-hint-${item.key}`" class="share__hint">{{ item.hint }}</span>
@@ -509,10 +501,10 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 .share__note {
   padding: var(--space-2) var(--space-3);
 }
-/* The entries start where the rows' labels do: past a row's inset, its 16px glyph and
+/* The entries start where the rows' labels do: past a row's inset, its glyph (--icon) and
    the gap, so they read as the section's contents. */
 .share__activity {
-  padding: var(--space-1) var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-4) + var(--space-3));
+  padding: var(--space-1) var(--space-3) var(--space-2) calc(var(--space-3) + var(--icon) + var(--space-3));
 }
 .share__log {
   display: grid;

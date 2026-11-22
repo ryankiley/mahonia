@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 
 // Which of a list's views you're looking at.
 //
@@ -77,7 +77,7 @@ const { onKey } = useRovingRadio(
       :tabindex="m.key === current ? 0 : -1"
       @click="$emit('pick', m.key)"
     >
-      <HugeiconsIcon :icon="m.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+      <SvgIcon :icon="m.icon" aria-hidden="true" />
       <span>{{ m.label }}</span>
     </button>
   </div>

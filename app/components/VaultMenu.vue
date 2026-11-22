@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Csv01Icon, FileImportIcon, TaskAdd01Icon, ThirdBracketIcon } from "@hugeicons/core-free-icons";
+import { IconBrackets1, IconFileArrowLeftIn, IconFileExcel, IconSquareChecklist } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 // My Gear's ⋯ actions menu — the same quiet kebab the editor and the read views
 // carry, in the one place that didn't have one.
 //
@@ -37,7 +37,7 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
            isn't about this page's gear -->
       <li role="none">
         <NuxtLink to="/e" data-row role="menuitem" class="menu__item" @click="close()">
-          <HugeiconsIcon :icon="TaskAdd01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconSquareChecklist" aria-hidden="true" />
           Create a list
         </NuxtLink>
       </li>
@@ -50,18 +50,18 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
         <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'import')">
           <!-- the marks the editor's Import row and the list exports wear, so one act
                keeps one picture wherever you meet it -->
-          <HugeiconsIcon :icon="FileImportIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconFileArrowLeftIn" aria-hidden="true" />
           Import gear…
         </button>
         <!-- the same two words the editor's and the read views' export rows use, so
              one action keeps one name wherever you meet it -->
         <template v-if="canExport">
           <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'csv')">
-            <HugeiconsIcon :icon="Csv01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconFileExcel" aria-hidden="true" />
             Download CSV
           </button>
           <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'json')">
-            <HugeiconsIcon :icon="ThirdBracketIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconBrackets1" aria-hidden="true" />
             Download JSON
           </button>
         </template>

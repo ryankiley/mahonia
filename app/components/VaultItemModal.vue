@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, DashedLine02Icon } from "@hugeicons/core-free-icons";
+import { IconChevronDownMedium, IconSquarePlaceholderDashed } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import type { Classification, Unit } from "~~/shared/types";
 import { ownedOf, VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry, type VaultItemOp, type VaultItemPatch } from "~~/shared/vault";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
@@ -487,9 +487,9 @@ async function add(p: VaultItemPatch) {
                 :aria-label="`Icon: ${shownLabel ?? 'none'}`"
                 @click="toggle"
               >
-                <HugeiconsIcon v-if="shownIcon" :icon="shownIcon" :size="20" :stroke-width="2" aria-hidden="true" />
-                <HugeiconsIcon v-else :icon="DashedLine02Icon" class="vitem__noicon" :size="20" :stroke-width="2" aria-hidden="true" />
-                <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon v-if="shownIcon" :icon="shownIcon" size="lg" aria-hidden="true" />
+                <SvgIcon v-else :icon="IconSquarePlaceholderDashed" class="vitem__noicon" size="lg" aria-hidden="true" />
+                <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
               </button>
             </template>
           </GearIconPicker>
@@ -524,7 +524,7 @@ async function add(p: VaultItemPatch) {
           >
             <template #trigger="{ active, open }">
               <span>{{ active?.label }}</span>
-              <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
             </template>
           </OptionMenu>
         </div>

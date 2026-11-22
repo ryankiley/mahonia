@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { IconBackpack, IconBlockSortAscending, IconBlockSortDescending, IconCandy, IconChevronDownMedium, IconClock, IconFilterAscending, IconFire2, IconLightning, IconPlusMedium, IconShapesPlusXSquareCircle, IconStar, IconToolbox } from "~/icons/central";
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Backpack03Icon, ChevronDownIcon, ChocolateIcon, PlusSignIcon, Clock01Icon, FireIcon, FlashIcon, ToolCaseIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon } from "@hugeicons/core-free-icons";
+import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -93,7 +93,7 @@ function putRow(row: VaultEntry) {
 const TAB_KEY = "gear.vault.tab.v1";
 // the names and order are shared/vaultView's, which the list's panel and the search's
 // "2 on Food" read too; the icons are this bar's (Food wears its kind's own, as its rows do)
-const TAB_ICON = { gear: Backpack03Icon, kits: ToolCaseIcon, food: ChocolateIcon };
+const TAB_ICON = { gear: IconBackpack, kits: IconToolbox, food: IconCandy };
 const TABS = VAULT_TABS.map((key) => ({ key, label: VAULT_TAB_LABEL[key], icon: TAB_ICON[key] }));
 const isTab = (v: unknown): v is VaultTab => VAULT_TABS.some((t) => t === v);
 const tab = ref<VaultTab>("gear");
@@ -483,19 +483,19 @@ const { open: openAccount } = useAccountModal();
 // gear in a pack-weight app: what to cut), then use, and A–Z last, since the search
 // already finds a thing by its name.
 const VIEW_OPTIONS = [
-  { key: "kinds", label: "By kind", icon: Shapes01Icon },
-  { key: "heaviest", label: "Heaviest", icon: SortingNineOneIcon },
-  { key: "lightest", label: "Lightest", icon: SortingOneNineIcon },
-  { key: "recent", label: "Recently used", icon: Clock01Icon },
-  { key: "most", label: "Most used", icon: StarIcon },
-  { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
+  { key: "kinds", label: "By kind", icon: IconShapesPlusXSquareCircle },
+  { key: "heaviest", label: "Heaviest", icon: IconBlockSortDescending },
+  { key: "lightest", label: "Lightest", icon: IconBlockSortAscending },
+  { key: "recent", label: "Recently used", icon: IconClock },
+  { key: "most", label: "Most used", icon: IconStar },
+  { key: "az", label: "A–Z", icon: IconFilterAscending },
 ];
 // Food's: calories for the weight first (what a bar and a dinner are compared by),
 // then calories outright, then the Gear tab's orders without By kind, since food is
 // one kind.
 const FOOD_VIEW_OPTIONS = [
-  { key: "dense", label: "Calorie dense", icon: FlashIcon },
-  { key: "kcal", label: "Most calories", icon: FireIcon },
+  { key: "dense", label: "Calorie dense", icon: IconLightning },
+  { key: "kcal", label: "Most calories", icon: IconFire2 },
   ...VIEW_OPTIONS.filter((o) => o.key !== "kinds"),
 ];
 const viewOptions = computed(() => (tab.value === "food" ? FOOD_VIEW_OPTIONS : VIEW_OPTIONS));
@@ -624,7 +624,7 @@ async function exportGear(kind: string) {
           <div class="vault__tabbar">
             <ModeBar :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
             <button v-if="tab !== 'kits' && !offline" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openAdd">
-              <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconPlusMedium" aria-hidden="true" />
               {{ tab === "food" ? "Add food" : "Add gear" }}
             </button>
           </div>
@@ -655,9 +655,9 @@ async function exportGear(kind: string) {
               @pick="pickView"
             >
               <template #trigger="{ open }">
-                <HugeiconsIcon :icon="viewOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="viewOption.icon" class="vault__viewmark" aria-hidden="true" />
                 {{ viewOption.label }}
-                <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
+                <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
               </template>
             </OptionMenu>
           </div>

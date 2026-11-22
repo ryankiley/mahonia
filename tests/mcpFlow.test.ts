@@ -95,6 +95,12 @@ describe("an assistant's session, start to finish", () => {
     const { data, isError, text } = await call("edit_list", { edit_link: editLink, list: { start_date: "2026-08-14", end_date: "2026-08-16", trail_url: "https://caltopo.com/m/ABC", trail_label: "Timberline", trail_distance_km: 64 } });
     expect(isError, text).toBe(false);
     expect(data).toMatchObject({ dates: { start: "2026-08-14", end: "2026-08-16" }, trail: { url: "https://caltopo.com/m/ABC", label: "Timberline", distance_m: 64_000 } });
+    // metres sent as kilometres: refused, where it used to clear the distance and succeed
+    const tooFar = await call("edit_list", { edit_link: editLink, list: { trail_distance_km: 64_000 } });
+    expect(tooFar.isError).toBe(true);
+    expect(tooFar.text).toContain("0 to 10,000");
+    const after = await call("get_list", { share_code: shareCode });
+    expect(after.data).toMatchObject({ trail: { distance_m: 64_000 } });
   });
 
   it("reads the same list back by its share link, as data and as Markdown", async () => {
@@ -413,8 +419,8 @@ describe("what a model plausibly sends", () => {
     const bad: [Record<string, unknown>, string][] = [
       [{ qty: "3" }, 'qty on "Socks" must be a whole number.'],
       [{ worn_qty: "1" }, 'worn_qty on "Socks" must be a whole number.'],
-      [{ kcal: "250" }, 'kcal on "Socks" must be a number, or null to clear it.'],
-      [{ kcal: -5 }, 'kcal on "Socks" must be a number, or null to clear it.'],
+      [{ kcal: "250" }, 'kcal on "Socks" must be a number, 0 or more, or null for none.'],
+      [{ kcal: -5 }, 'kcal on "Socks" must be a number, 0 or more, or null for none.'],
       [{ needs_cooking: "yes" }, 'needs_cooking on "Socks" must be true or false.'],
     ];
     const lists = async () => (await db.select({ id: schema.lists.id }).from(schema.lists)).length;

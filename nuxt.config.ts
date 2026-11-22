@@ -6,7 +6,6 @@
 // instead of regexing them out of this file.
 import { SECURITY_HEADERS, TILE_ORIGIN } from "./config/security";
 import { PWA_OPTIONS } from "./config/pwa";
-import { hugeiconsPrecision } from "./config/icons";
 import { parseDevAllowedHosts } from "./config/devHosts";
 // The canonical origin, single-sourced — the server reads the same constant to
 // decide what host a sign-in link may point at (server/utils/origin.ts), so the
@@ -93,20 +92,6 @@ export default defineNuxtConfig({
             : { driver: "memory" },
       },
     },
-    vite: {
-      // The icon package bundled INTO the SSR build, so config/icons.ts's rounding
-      // reaches the server side too. Vite's SSR build externalises node_modules and
-      // Nitro bundles them afterwards, past every Vite transform, so without this the
-      // share views would render a glyph's full-precision `d` on the server and
-      // hydrate the rounded one on the client.
-      //
-      // PRODUCTION ONLY, like the plugin it exists for. Under `nuxt dev` the same
-      // line makes vite-node inline the package's 6,025-re-export barrel — every
-      // re-export a sequential awaited `__vite_ssr_import__` — which was measured at
-      // 7–25 s on the first render of every dev start and ~+800 MB RSS. Dev leaves
-      // both sides at full precision, which agree with each other regardless.
-      ssr: { noExternal: ["@hugeicons/core-free-icons"] },
-    },
   },
 
   nitro: {
@@ -125,16 +110,6 @@ export default defineNuxtConfig({
     // up from .output to the workspace's node_modules, so `nuxt preview` and the
     // seed/audit scripts keep working unchanged.
     externals: {
-      // Bundle the icon package INTO the server build rather than shipping it as
-      // an external: it is sideEffects-free and only a handful of icons are used,
-      // so inlining tree-shakes it to those, where the external copy was the whole
-      // package (24 MB / 6,000 files, 65% of the server output) plus a 673 KB
-      // barrel loaded on every cold start. Since the production Vite SSR build
-      // bundles the package itself (`$production.vite.ssr.noExternal`, for the
-      // rounding), Nitro no longer meets a bare import of it and this entry is a
-      // belt to that brace — keep both: dropping the other reintroduces a
-      // server/client mismatch on every share view's glyphs.
-      inline: ["@hugeicons/core-free-icons"],
       traceOptions: {
         // function form: node-file-trace matches string globs against paths
         // relative to its base ("/"), which proved brittle — predicate it instead
@@ -158,27 +133,10 @@ export default defineNuxtConfig({
   sourcemap: process.env.BUNDLE_MAPS === "1" ? { client: "hidden" } : undefined,
 
   vite: {
-    // the icon set's path data rounded to two decimals at build time — see
-    // config/icons.ts for the measurement and the proof that nothing moves
-    plugins: [hugeiconsPrecision()],
-    // (…and bundled into the SSR build so the server side rounds too — but only in
-    // production; see `$production.vite.ssr` above for why not in dev.)
-    build: {
-      rolldownOptions: {
-        // Skip loading the 6,000 re-exports of @hugeicons/core-free-icons' barrel
-        // that nothing imports. Rolldown otherwise loads and transforms every one of
-        // them on both build sides to keep the ~70 the app draws (measured: 6,026
-        // modules → 3, ~890 → ~220 ms, output byte-identical). The package is
-        // `sideEffects: false` and its index is pure re-exports, which is the shape
-        // the optimisation is for; rolldown plans to make it the default. Here, not
-        // under $client, so the SSR build gets it too.
-        experimental: { lazyBarrel: true },
-      },
-    },
     // Compile out Vue's Options-API runtime (data()/mixins/computed-object
     // components). Every component here is <script setup>, and the client's Vue
     // dependencies are too (vue-router's views, Nuxt's own components; the icon
-    // component is app/utils/hugeicon.ts, functional). The flag is Vue's own
+    // component is app/utils/icon.ts, functional). The flag is Vue's own
     // documented tree-shaking switch — a few KB off every page for code nothing
     // calls. TRIPWIRE: a future dependency that ships an Options-API component
     // will break loudly at runtime with this off; if one ever must be adopted,

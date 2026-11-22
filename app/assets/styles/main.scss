@@ -13,20 +13,28 @@
 @use "atoms/tooltip";
 @use "print";
 
-// Glyphs grow with the type past 1920px (--tpx, tokens.scss), and stand still below it.
-// A glyph's size is an ATTRIBUTE: HugeiconsIcon writes width/height from its `size`
-// prop, in markup kept byte-identical to the upstream component (utils/hugeicon.ts and
-// its test), so it's sized here rather than there. In :where(), at zero specificity, so
-// every rule that already sizes a glyph (the touch glyph, the qty stepper's) still
-// wins; any declaration at all beats a presentation attribute. Matched by width alone:
-// every svg that states one of these widths is a glyph (the map's pins are 17px, drawn
-// by hand into fixed markers; the elevation chart and the wordmark state none), and a
-// camel-case [viewBox] is an attribute name engines don't all match alike on svg.
-@each $px in 12, 14, 16, 20, 24 {
-  :where(svg[width="#{$px}"]) {
-    width: calc(#{$px} * var(--tpx));
-    height: calc(#{$px} * var(--tpx));
+// SvgIcon's glyphs (utils/icon.ts). SIZE: each named step reads its token (--icon-xs …
+// --icon-xl, tokens.scss), so a step moves in one place, and the steps grow with the type
+// past 1920px (--tpx) and stand still below it. SvgIcon also writes the same numbers as
+// width/height attributes, for the moment before this stylesheet arrives; any declaration
+// beats a presentation attribute. In :where(), at zero specificity, so every rule that
+// already sizes a glyph (the touch glyph, the qty stepper's) still wins.
+// STROKE: flat. SvgIcon puts each step's width, in screen px, on the <svg>, and
+// non-scaling-stroke keeps the parts at it however large the glyph is drawn, so a glyph
+// past 1920px is bigger but no bolder (the portfolio's lesson: a stroke that scaled with
+// its icon read heavy on an ultrawide). The map's pins are drawn by hand, not by SvgIcon.
+@each $step in xs, sm, lg, xl {
+  :where(.svgicon--#{$step}) {
+    width: var(--icon-#{$step});
+    height: var(--icon-#{$step});
   }
+}
+:where(.svgicon--md) {
+  width: var(--icon);
+  height: var(--icon);
+}
+:where(.svgicon) > * {
+  vector-effect: non-scaling-stroke;
 }
 
 // A tooltip's offset onto its trigger's glyph (Tooltip.vue reads it back in JS), derived

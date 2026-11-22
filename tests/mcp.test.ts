@@ -183,6 +183,9 @@ describe("the endpoint's transport", () => {
     const item = (tools[2]!.inputSchema as { properties: { items: { items: { properties: Record<string, { maxLength?: number }> } } } }).properties.items.items.properties;
     expect(item.name!.maxLength).toBe(200);
     expect(item.note!.maxLength).toBe(2000);
+    // …and the numeric caps the handlers clamp to, not only the text ones
+    const nums = item as unknown as Record<string, { maximum?: number }>;
+    expect([nums.weight_g!.maximum, nums.volume_l!.maximum, nums.kcal!.maximum]).toEqual([100_000, 100, 1_000_000]);
     expect(tools[0]!.description).toContain("free text typed by whoever holds the list's edit link");
     // …and the check is live: a wrong shape is refused in the schema's own terms
     expect(() => expectConforms("search_catalog", { query: "x", results: [{ id: "7" }] })).toThrow(/search_catalog result does not match/);
@@ -248,6 +251,10 @@ describe("the endpoint's transport", () => {
     const notRpc = await post({ method: "ping", id: 1 });
     expect(notRpc.status).toBe(400);
     expect(notRpc.out!.error).toMatchObject({ code: -32600 });
+    // a request with no method is an Invalid Request too, with the same 400
+    const noMethod = await post({ jsonrpc: "2.0", id: 1 });
+    expect(noMethod.status).toBe(400);
+    expect(noMethod.out!.error).toMatchObject({ code: -32600, message: "A request needs a method" });
   });
 
   it("refuses a foreign Origin with 403 and an unknown MCP-Protocol-Version with 400, never with the newer spec's codes", async () => {

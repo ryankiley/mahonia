@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { IconChevronDownMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // The page's one big number, and the same ELEMENT in every view.
 //
@@ -65,15 +65,13 @@ const captionParts = computed(() =>
         <AnimatedCount class="t-num t-display" :value="props.value" />
         <span class="headline__uc" aria-hidden="true">
           <span class="headline__unit">{{ props.unit }}</span>
-          <!-- stroke 2.25, not the app-wide 2: at size 16 it renders an exact 1.5px
-               stroke (a crisp 3 device px at 2x), so the chevron holds its weight beside
-               a display-size figure instead of thinning out against it. -->
-          <HugeiconsIcon
-            :icon="ChevronDownIcon"
+          <!-- md's flat 1.5px line (a crisp 3 device px at 2x) is the weight this chevron
+               was tuned to, so it holds beside a display-size figure instead of thinning
+               out against it. -->
+          <SvgIcon
+            :icon="IconChevronDownMedium"
             class="chev"
             :class="{ 'is-open': open }"
-            :size="16"
-            :stroke-width="2.25"
           />
         </span>
       </template>

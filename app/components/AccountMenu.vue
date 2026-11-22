@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-// UserRoundKey is a lucide name with no hugeicons twin; UserLock01 is the nearest
-// person-plus-credentials glyph.
-// SafeBox is the editor toolbar's own My Gear glyph — the same thing named the same
+import { IconArrowBoxLeft, IconUser, IconUserKey, IconSafeSimple } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
+// UserKey: a person with credentials, for the private account.
+// Vault is the editor toolbar's own My Gear glyph — the same thing named the same
 // way, so the row and the button can't read as two different destinations.
-import { Logout01Icon, SafeBoxIcon, UserIcon, UserLock01Icon } from "@hugeicons/core-free-icons";
 
 // The account affordance in the top bar. Two shapes, because signed in and signed
 // out are different jobs:
@@ -100,7 +99,7 @@ const { open: openAccount } = useAccountModal();
         aria-label="Sign in"
         @click="openAccount"
       >
-        <HugeiconsIcon :icon="UserLock01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconUserKey" />
       </button>
     </Tooltip>
     <button
@@ -137,19 +136,19 @@ const { open: openAccount } = useAccountModal();
         <MenuList v-if="open" aria-label="Your account">
           <li v-if="showGear" role="none">
             <NuxtLink to="/gear" data-row role="menuitem" class="menu__item" @click="open = false">
-              <HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconSafeSimple" aria-hidden="true" />
               My Gear
             </NuxtLink>
           </li>
           <li v-if="!onAccount" role="none">
             <button type="button" data-row role="menuitem" class="menu__item" @click="open = false; openAccount()">
-              <HugeiconsIcon :icon="UserIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconUser" aria-hidden="true" />
               Your account
             </button>
           </li>
           <li role="none">
             <button type="button" data-row role="menuitem" class="menu__item" @click="onSignOut">
-              <HugeiconsIcon :icon="Logout01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconArrowBoxLeft" aria-hidden="true" />
               Sign out
             </button>
           </li>
@@ -177,7 +176,7 @@ const { open: openAccount } = useAccountModal();
    like the icon weight"). No colour of its own: it inherits the button's, so it rests
    at the same ink as the glyphs beside it — --ink-2 in the site bar, the editor's
    quieter --ink-3 — and darkens with them on hover, focus and open. Medium, not
-   semibold: the icons are 2px strokes on a 24 grid drawn at 16px, ~1.33px of ink,
+   semibold: the icons draw a flat 1.5px line,
    which is a 14px medium stem; semibold read as a bold black mark in a row of thin
    grey lines.
    Sized like the glyphs beside it, in --tpx: they grow with the type past the 1920px

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 
 // One of a row's popover menus. The carrier picker, the nesting actions and the
 // mobile ⋯ overflow were this exact shape written three times in ItemRow: a .menu
@@ -80,7 +80,7 @@ function toggle() {
         @click="toggle"
       >
         <slot name="trigger">
-          <HugeiconsIcon v-if="icon" :icon="icon" :size="16" :stroke-width="2" />
+          <SvgIcon v-if="icon" :icon="icon" />
         </slot>
       </button>
     </Tooltip>

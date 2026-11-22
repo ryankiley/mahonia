@@ -1,5 +1,6 @@
-import { CookieIcon, DropletIcon, Fuel01Icon } from "@hugeicons/core-free-icons";
-import type { IconNode } from "./hugeicon";
+import { IconCookies, IconDrop } from "../icons/central";
+import { FuelCanGlyph } from "../icons/mahonia";
+import type { IconNode } from "./icon";
 import { isWaterName } from "~~/shared/water";
 import { isFuelRow, type Named } from "~~/shared/fuel";
 
@@ -22,8 +23,7 @@ import { isFuelRow, type Named } from "~~/shared/fuel";
  * editor row, the shared read row and /gear — and a rule copied three times is the
  * shape that lets the share view keep drawing a cookie after the editor stops.
  * Same reasoning as WAYPOINT_KIND_META next door; same reason it sits in `app/` and
- * not `shared/`, too: the glyphs come from the Hugeicons package, which the server
- * has no business importing. (The text rules themselves — which rows are water, which
+ * not `shared/`, too: the glyphs are icon data the server has no business importing. (The text rules themselves — which rows are water, which
  * are fuel — live in shared/, where the server can read them.)
  *
  * Only this one glyph rule lives here. The share row's other two pictures — the shirt
@@ -32,4 +32,4 @@ import { isFuelRow, type Named } from "~~/shared/fuel";
  * and an icon the editor never draws has no business on it.
  */
 export const consumableIcon = (row: Named): IconNode =>
-  isWaterName(row.name) ? DropletIcon : isFuelRow(row) ? Fuel01Icon : CookieIcon;
+  isWaterName(row.name) ? IconDrop : isFuelRow(row) ? FuelCanGlyph : IconCookies;

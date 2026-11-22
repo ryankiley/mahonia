@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Delete02Icon, GripVerticalIcon } from "@hugeicons/core-free-icons";
+import { IconDotGrid2x3, IconTrashCan } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import { MAX_FOLDER_NAME_LEN } from "~~/shared/ops";
 import { bySortOrder } from "~~/shared/weights";
@@ -109,7 +109,7 @@ function onName(e: Event) {
           aria-label="Remove folder"
           @click="c.removeFolder(folder.id)"
         >
-          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
+          <SvgIcon :icon="IconTrashCan" />
         </button>
         <!-- drag via pointerdown; arrow keys give the focused grip the reordering
              its label promises (a drag needs a pointer) -->
@@ -120,7 +120,7 @@ function onName(e: Event) {
           @pointerdown="fdnd.start(folder.id, $event)"
           @keydown="onGripKey"
         >
-          <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
+          <SvgIcon :icon="IconDotGrid2x3" />
         </button>
       </div>
     </header>

@@ -1,4 +1,5 @@
 <script lang="ts">
+import { IconCodeTree, IconCalculator, IconCheckmark1Medium, IconChevronDownMedium, IconCircleDotsCenter1, IconCrossMedium, IconDotGrid2x3, IconFashion, IconFormSquare, IconSlideAdd, IconListAdd, IconMinusMedium, IconPlusMedium, IconSquareCheck, IconSquareMinus, IconTextIndentLeft, IconTextIndentRight, IconTrashCan, IconUser, IconSafeSimple } from "~/icons/central";
 import type { InjectionKey, Ref } from "vue";
 import type { Item as ItemT, Person, Unit } from "~~/shared/types";
 
@@ -40,8 +41,7 @@ const nestCollapse = usePersistedCollapse("gear.nest.");
 </script>
 
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, Delete02Icon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, MinusSignSquareIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
 import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_QTY, MAX_VARIANT_LEN } from "~~/shared/ops";
@@ -794,10 +794,10 @@ const nestActions = computed(() => {
   const acts: { label: string; icon: IconNode; run: () => void }[] = [];
   // a nested row can't nest further, and a row that already HAS children uses its
   // own ever-present "Add an item" instead
-  if (!props.nested && !isParent.value) acts.push({ label: "Add a nested item", icon: ListPlusIcon, run: () => c.addChild(props.item.id) });
-  if (props.nested) acts.push({ label: "Move out of the group", icon: ListIndentDecreaseIcon, run: () => c.unnest(props.item.id) });
+  if (!props.nested && !isParent.value) acts.push({ label: "Add a nested item", icon: IconListAdd, run: () => c.addChild(props.item.id) });
+  if (props.nested) acts.push({ label: "Move out of the group", icon: IconTextIndentLeft, run: () => c.unnest(props.item.id) });
   else if (canIndent.value)
-    acts.push({ label: "Nest under the item above", icon: ListIndentIncreaseIcon, run: () => c.nestItem(props.item.id, props.prevId!) });
+    acts.push({ label: "Nest under the item above", icon: IconTextIndentRight, run: () => c.nestItem(props.item.id, props.prevId!) });
   return acts;
 });
 
@@ -808,7 +808,7 @@ const nestActions = computed(() => {
 // name anyone. The trigger only exists once the list has people; assigned, it
 // swaps its glyph for the carrier's own .swatch dot (the vault button's
 // state-swap move) — colour stays in a dot, chrome stays ink, and the dot
-// carries the state at a contrast a tinted 16px glyph never met.
+// carries the state at a contrast a tinted glyph never met.
 // The people in display order and their slots come from GearEditor (PEOPLE_CTX):
 // sorted once per snapshot for every row, not once per row.
 const { sorted: peopleSorted, slotById } = inject(PEOPLE_CTX)!;
@@ -1079,7 +1079,7 @@ const overflowActions = computed(() => {
   // Each entry wears the glyph its own inline button wears, the vault's state swap
   // included — the row and the menu should not name one action two ways.
   const acts: { label: string; icon: IconNode; run: () => void; nest?: true }[] = [
-    { label: "Duplicate", icon: LayerAddIcon, run: () => c.duplicateItem(props.item.id) },
+    { label: "Duplicate", icon: IconSlideAdd, run: () => c.duplicateItem(props.item.id) },
     ...nestActions.value.map((a) => ({ ...a, nest: true as const })),
   ];
   // Reads its own state, like the inline button's tooltip does — "Saved" is the
@@ -1089,14 +1089,14 @@ const overflowActions = computed(() => {
   // to stay as a disabled "Already in My Gear" line) — a menu row that can only
   // say "nothing to do" is an action list advertising a non-action.
   if (vaultOffered.value)
-    acts.push({ label: vaultLabel.value, icon: vaultSaved.value ? CheckIcon : SafeBoxIcon, run: onSaveToVault });
+    acts.push({ label: vaultLabel.value, icon: vaultSaved.value ? IconCheckmark1Medium : IconSafeSimple, run: onSaveToVault });
   // LAST, the way the destructive icon sat last in the desktop cluster — a menu is a
   // list you read top to bottom, so the one irreversible entry belongs at the end of
   // it rather than under the thumb. "Remove item" here and in the icon's aria-label:
   // a menu row and a screen reader both arrive without the row in front of them, so
   // both name the thing. Only the TOOLTIP drops the noun, because it is pinned to the
   // very row it would remove.
-  acts.push({ label: "Remove item", icon: Delete02Icon, run: () => c.removeItem(props.item.id) });
+  acts.push({ label: "Remove item", icon: IconTrashCan, run: () => c.removeItem(props.item.id) });
   return acts;
 });
 
@@ -1181,16 +1181,15 @@ function dismissFix() {
           :aria-label="`Packed: ${editableName || 'item'}`"
           @change="onTick($event)"
         />
-        <!-- absolute-stroke-width pins the drawn line at ~1.33px — what the surrounding
-             16px icons render (2 nominal × 16/24) — so the bigger box doesn't read bolder
-             than its row -->
-        <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <!-- lg, a step up from the row's md glyphs, drawing the same flat 1.5px line,
+             so the bigger box doesn't read bolder than its row -->
+        <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" size="lg" aria-hidden="true" />
         <!-- the dash, on GROUP rows only: a leaf's box stands for exactly one row and
              can never be mixed, and this is a third inline SVG on every row of a long
              checklist. It is also what the atom's own :indeterminate rule keys on to
              know this .check has a mixed face to swap in (controls.scss). -->
-        <HugeiconsIcon v-if="isParent" :icon="MinusSignSquareIcon" class="check__icon check__icon--mixed" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-        <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <SvgIcon v-if="isParent" :icon="IconSquareMinus" class="check__icon check__icon--mixed" size="lg" aria-hidden="true" />
+        <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" size="lg" aria-hidden="true" />
       </span>
       <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
           the carrier, riding the name cell (display-only — this face is a <label>
@@ -1458,7 +1457,7 @@ function dismissFix() {
               @mousedown.prevent
               @click="stepQty(-1)"
             >
-              <HugeiconsIcon :icon="MinusSignIcon" :size="16" :stroke-width="2" />
+              <SvgIcon :icon="IconMinusMedium" />
             </button>
             <!-- is-popping only ever comes from the STEPPER (popQty). Typing a
                  number already shows you the number; popping the field on a commit
@@ -1488,7 +1487,7 @@ function dismissFix() {
               @mousedown.prevent
               @click="stepQty(1)"
             >
-              <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" />
+              <SvgIcon :icon="IconPlusMedium" />
             </button>
           </template>
         </div>
@@ -1540,12 +1539,11 @@ function dismissFix() {
                    by accident. Same chevron the total's unit carries, at row scale —
                    one vocabulary for one gesture. 12/2 renders an exact 1px stroke
                    (12 ÷ 24 × 2), the small-size counterpart to the total's 16/2.25. -->
-              <HugeiconsIcon
-                :icon="ChevronDownIcon"
+              <SvgIcon
+                :icon="IconChevronDownMedium"
                 class="chev item__unitchev"
                 :class="{ 'is-open': open }"
-                :size="12"
-                :stroke-width="2"
+                size="xs"
                 aria-hidden="true"
               />
             </template>
@@ -1599,7 +1597,7 @@ function dismissFix() {
                   @mousedown.prevent
                   @click="toggleKcal"
                 >
-                  <HugeiconsIcon :icon="consumableGlyph" :size="16" :stroke-width="2" />
+                  <SvgIcon :icon="consumableGlyph" />
                 </button>
               </Tooltip>
               <Transition name="menu">
@@ -1652,7 +1650,7 @@ function dismissFix() {
                          popover is something you typed, this is the one line the app
                          worked out. -->
                     <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
-                      <HugeiconsIcon :icon="CalculateIcon" class="item__poplineicon" :size="14" aria-hidden="true" :stroke-width="2" />
+                      <SvgIcon :icon="IconCalculator" class="item__poplineicon" size="sm" aria-hidden="true" />
                       {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
                     </p>
                   </template>
@@ -1678,7 +1676,7 @@ function dismissFix() {
             <div v-else class="item__cls">
               <Tooltip text="Consumable" preferred-placement="top">
                 <span class="item__clsfixed item__mark" role="img" aria-label="Consumable">
-                  <HugeiconsIcon :icon="consumableGlyph" :size="16" :stroke-width="2" />
+                  <SvgIcon :icon="consumableGlyph" />
                 </span>
               </Tooltip>
             </div>
@@ -1700,7 +1698,7 @@ function dismissFix() {
                   @mousedown.prevent
                   @click="toggleWorn"
                 >
-                  <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" />
+                  <SvgIcon :icon="IconFashion" />
                 </button>
               </Tooltip>
               <Transition name="menu">
@@ -1760,7 +1758,7 @@ function dismissFix() {
                  column it exists to sit in. -->
             <div v-else class="item__cls" aria-hidden="true">
               <span class="item__clsfixed item__clsghost">
-                <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconFashion" />
               </span>
             </div>
           </div>
@@ -1799,7 +1797,7 @@ function dismissFix() {
                   @mousedown.prevent
                   @click="onSaveToVault"
                 >
-                  <HugeiconsIcon :icon="vaultSaved ? CheckIcon : SafeBoxIcon" :size="16" :stroke-width="2" />
+                  <SvgIcon :icon="vaultSaved ? IconCheckmark1Medium : IconSafeSimple" />
                 </button>
               </Tooltip>
             </Transition>
@@ -1826,13 +1824,13 @@ function dismissFix() {
               :row-id="item.id"
               kind="nest"
               label="Nesting"
-              :icon="NodeAddIcon"
+              :icon="IconCodeTree"
               trigger-class="item__nest-btn"
               tooltip
             >
               <li v-for="a in nestActions" :key="a.label" role="none">
                 <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
-                  <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+                  <SvgIcon :icon="a.icon" aria-hidden="true" />
                   {{ a.label }}
                 </button>
               </li>
@@ -1854,7 +1852,7 @@ function dismissFix() {
             >
               <template #trigger>
                 <span v-if="rowPerson" class="swatch" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />
-                <HugeiconsIcon v-else :icon="UserIcon" :size="16" :stroke-width="2" />
+                <SvgIcon v-else :icon="IconUser" />
               </template>
               <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
                 <button
@@ -1884,7 +1882,7 @@ function dismissFix() {
                 @mousedown.prevent
                 @click="c.duplicateItem(item.id)"
               >
-                <HugeiconsIcon :icon="LayerAddIcon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconSlideAdd" />
               </button>
             </Tooltip>
             <!-- "Remove", not "Remove item": the tooltip hangs off the row it acts on, so
@@ -1899,7 +1897,7 @@ function dismissFix() {
                 @mousedown.prevent
                 @click="c.removeItem(item.id)"
               >
-                <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconTrashCan" />
               </button>
             </Tooltip>
             <!-- mobile overflow: on a phone the trailing icons crowd the two-line row, so
@@ -1913,7 +1911,7 @@ function dismissFix() {
               kind="menu"
               label="More actions"
               menu-label="Item actions"
-              :icon="CircleEllipsisIcon"
+              :icon="IconCircleDotsCenter1"
               trigger-class="menu__btn item__morebtn"
             >
               <!-- the person picker's mobile seat — the desktop trigger is
@@ -1947,7 +1945,7 @@ function dismissFix() {
               </li>
               <li v-for="a in overflowActions" :key="a.label" role="none" :class="{ item__nestact: a.nest }">
                 <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
-                  <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+                  <SvgIcon :icon="a.icon" aria-hidden="true" />
                   {{ a.label }}
                 </button>
               </li>
@@ -1961,7 +1959,7 @@ function dismissFix() {
               @pointerdown="dnd.start(item.id, $event)"
               @keydown="onGripKey"
             >
-              <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
+              <SvgIcon :icon="IconDotGrid2x3" />
             </button>
           </div>
         </div>
@@ -1981,7 +1979,7 @@ function dismissFix() {
             aria-label="Dismiss suggestion"
             @click="dismissFix"
           >
-            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
+            <SvgIcon :icon="IconCrossMedium" size="sm" />
           </button>
         </div>
       </div>
@@ -2154,9 +2152,9 @@ function dismissFix() {
 /* checkbox — the shared .check atom (controls.scss): Square (empty) under
    SquareCheck (checked), the same glyph as the header's packing toggle, stacked in
    one grid cell with the native control stretched invisibly over them. 20px — a
-   step up from the old 18px drawn box; the icons pin their stroke at ~1.33px
-   (absolute-stroke-width) so the bigger box keeps the same line weight the
-   surrounding 16px icons render. The row's only addition: the whole box is the tap
+   step up from the old 18px drawn box; every step draws the same flat 1.5px line
+   (utils/icon.ts), so the bigger box keeps the line weight of the surrounding
+   md icons. The row's only addition: the whole box is the tap
    target, so pointing at it darkens the glyph like the row's other quiet marks.
    Pointer-gated — it paints (see the note on .btn:hover, controls.scss): a tap on a
    phone would leave the glyph inked after the finger had gone. */
@@ -2575,8 +2573,8 @@ function dismissFix() {
 .item__actions :deep(.btn--icon) {
   justify-content: flex-end;
 }
-/* …and the tooltips move with the glyphs. The rule above puts a 16px picture at the
-   RIGHT edge of a 32px button, so a tooltip centred on the button lands 8px left of
+/* …and the tooltips move with the glyphs. The rule above puts an 18px picture at the
+   RIGHT edge of a 32px button, so a tooltip centred on the button lands 7px left of
    the thing it names — half the difference, on every control in this cluster.
    Derived from the two sizes, so it holds past 1920px where both grow (--tpx). Tooltip
    reads it back in JS, which works because main.scss REGISTERS --tip-shift as a
@@ -2899,7 +2897,7 @@ function dismissFix() {
    User glyph — which is the whole reason this button swaps glyph for swatch; a grey
    disc behind it was the redundant half, and the loud one in a dense list.
    The dot then rides the glyph column like everything else: half the difference
-   between a 16px glyph's footprint and the swatch, taken off the right, puts its
+   between the glyph's footprint (--icon) and the swatch, taken off the right, puts its
    centre at 24 instead of 3px past it. */
 /* (still reaches: the swatch is this component's slot content into ItemRowMenu, so
    it carries this scope id even though the button around it doesn't) */
@@ -3117,13 +3115,19 @@ function dismissFix() {
      queries — is already drawing exactly this. What this adds is the narrow DESKTOP
      window, which until now got the height without the width. */
   .item__classcell .btn--icon,
-  .item__classcell .item__clsfixed {
+  .item__classcell .item__clsfixed,
+  .item__trail :deep(.item__morebtn) {
     width: var(--tap);
     padding: calc((var(--tap) - var(--icon-btn)) / 2);
   }
+  /* …and the grip's box, the same width, so all four sit at one pitch on a fine pointer
+     as on a coarse one. No padding: its dots sit flush at the box's right edge (.grip). */
+  .item__trail .item__grip {
+    width: var(--tap);
+  }
   /* mobile trailing cluster = ⋯ · grip. Everything else the row can do — the note, the
      nesting actions, the vault save and the removal — moves into the ⋯ menu, which
-     names each one in words rather than asking a 16px glyph to.
+     names each one in words rather than asking a glyph to.
      It is width that decides how many stay: on a coarse pointer every .btn--icon grows
      to --tap, so each inline icon costs 48px of a line that also has to carry the qty,
      the weight and the two classification toggles. Delete was the last one held back —
@@ -3235,21 +3239,18 @@ function dismissFix() {
      left a wider hole before the grip (Ryan, 2026-09-12: "still don't look evenly
      spaced"). So the grip's box comes back by half a box and a little more, which
      puts the dots' left edge the same 32px past the ⋯'s ink as each glyph sits past
-     the last. The box is --tap on a coarse pointer and --icon-btn on a fine one
-     (.btn--icon's own rule), hence the token, set both ways. Replaces .grip's
+     the last. The box is --tap at every pointer down here (above). The 1px is
+     Central's geometry at 18px: the ⋯'s ink is 13.5px wide and the dots' 6px, which
+     puts the dots' ink 30px past the ⋯'s, as the marks sit apart. Replaces .grip's
      --grip-pull here: that pull evens the desktop cluster, where the ⋯ is
-     right-aligned; this is the same idea for a centred one. */
+     right-aligned; this is the same idea for a centred one. The folder header below
+     $bp-stack wears the same rule (atoms/folder.scss), so its trash stays in the ⋯'s
+     column. */
   .item__trail :deep(.item__morebtn) {
     justify-content: center;
   }
   .item__trail .item__grip {
-    --trail-box: var(--icon-btn);
-    margin-left: calc(-1 * (var(--trail-box) / 2 + 2px));
-  }
-  @media (pointer: coarse) {
-    .item__trail .item__grip {
-      --trail-box: var(--tap);
-    }
+    margin-left: calc(-1 * (var(--tap) / 2 + var(--tpx)));
   }
   .item__classcell {
     flex: none;

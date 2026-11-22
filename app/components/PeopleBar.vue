@@ -118,10 +118,10 @@ const { onKey } = useRovingRadio(
    for a button standing on its own, and a row of options never does), the chrome type
    and the quiet ink, the wash under a pointer, the inward focus ring, the --lit plate
    when chosen (the app's one on-plate, and it answers the pointer a step up), and on a
-   coarse pointer the transparent ::before that makes a 30px chip a 44px target — top and
+   coarse pointer the transparent ::before that makes a 32px chip a 44px target — top and
    bottom only, since the chips sit --space-1 apart and an overhang sideways would hand
    a neighbour's edge to the wrong chip. Where chips wrap onto a second row the two
-   rows' overhangs overlap across the 4px between them and 3px into each face; the
+   rows' overhangs overlap across the 4px between them and 2px into each face; the
    lower chip, later in the tree, takes that strip. A small cost against a target that
    was 14px short.
    What a chip here adds: a HAIRLINE, so an OFF chip still has an edge to find, unlike
