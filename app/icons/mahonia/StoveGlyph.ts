@@ -1,11 +1,11 @@
 import { glyph, line } from "./parts";
 
-/** A canister stove, after Ryan's sketch: the domed gas can, the burner on it, a
- *  teardrop flame above, and the pot supports reaching out flat. */
+/** A canister stove, after Ryan's sketch: the domed gas can, a stem up to the pot
+ *  supports, and a teardrop flame above them. The supports are one shallow cradle; drawn
+ *  as arms reaching out flat they made the whole glyph read as a figure with its hands up. */
 export const StoveGlyph = glyph(
-  line("M6.5 22H17.5C18.88 22 20 20.88 20 19.5V19C20 16.79 17.31 15 14 15H10C6.69 15 4 16.79 4 19V19.5C4 20.88 5.12 22 6.5 22Z"),
-  line("M8.5 15V13C8.5 12.45 8.95 12 9.5 12H14.5C15.05 12 15.5 12.45 15.5 13V15"),
-  line("M12 2C14 3.9 15.2 5.6 15.2 7C15.2 8.5 13.8 9.4 12 9.4C10.2 9.4 8.8 8.5 8.8 7C8.8 5.6 10 3.9 12 2Z"),
-  line("M6.3 7.2H3.5L8.5 12"),
-  line("M17.7 7.2H20.5L15.5 12"),
+  line("M12 2C14 3.7 15 5.2 15 6.6C15 8.1 13.7 9.1 12 9.1C10.3 9.1 9 8.1 9 6.6C9 5.2 10 3.7 12 2Z"),
+  line("M4 9.5V12C4 12.55 4.45 13 5 13H19C19.55 13 20 12.55 20 12V9.5"),
+  line("M12 13V16"),
+  line("M6.5 21.5H17.5C18.88 21.5 20 20.38 20 19C20 17.34 17.31 16 14 16H10C6.69 16 4 17.34 4 19C4 20.38 5.12 21.5 6.5 21.5Z"),
 );

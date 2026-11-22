@@ -1,7 +1,9 @@
 import { glyph, line } from "./parts";
 
-/** Two peaks: elevation. */
+/** Two peaks: elevation. One outline, every corner rounded the way Central rounds a
+ *  triangle's, and the front peak's flank running on a little way behind the junction so
+ *  the two read as one in front of the other. */
 export const MountainGlyph = glyph(
-  line("M2.7 18.5L9.1 7.3C9.5 6.6 10.5 6.6 10.9 7.3L15 14.5"),
-  line("M13.2 11.4L14.9 8.6C15.3 7.95 16.25 7.95 16.65 8.6L21.3 18.5C21.6 19.2 21.1 20 20.35 20H3.55C2.8 20 2.35 19.2 2.7 18.5"),
+  line("M3.95 15.61L8.16 7.18C8.71 6.08 10.29 6.08 10.84 7.18L13.43 12.36L14.57 10.65C15.21 9.69 16.64 9.78 17.16 10.81L19.55 15.61C20.22 16.94 19.25 18.5 17.76 18.5L5.74 18.5C4.25 18.5 3.28 16.94 3.95 15.61Z"),
+  line("M13.43 12.36L14.5 14.5"),
 );

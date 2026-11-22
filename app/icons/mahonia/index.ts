@@ -8,9 +8,10 @@
 // no stroke width of its own and takes the one on the <svg>.
 //
 // The older glyphs here (poles, jacket, tube, stove, headlamp, carabiner, boot, gaiter,
-// ice axe) were drawn and tuned in review, several from Ryan's sketches, and kept as
-// they were when the app moved off Hugeicons; the rest were drawn for that move, for
-// gear Central has no picture for. app/utils/gearIcons.ts joins name to icon.
+// ice axe) were drawn and tuned in review, several from Ryan's sketches. When the app
+// moved off Hugeicons they kept their ideas and were redrawn to these rules, all but the
+// carabiner, which already followed them. The rest were drawn for that move, for gear
+// Central has no picture for. app/utils/gearIcons.ts joins name to icon.
 //
 // One module per glyph, like ../central, so each lands only in the chunks that draw it;
 // the pieces they're built from are in ./parts.ts.
