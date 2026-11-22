@@ -242,6 +242,16 @@
   }
 }
 
+// The plain fade-in: a thing that arrives in place, from transparent. Global for the
+// reason num-pop is, below (Vue renames a scoped @keyframes per component): the row
+// faces on a mode switch (atoms/item.scss), a new row and its add link (FolderRows) and
+// the editor's "Loading…" (GearEditor) each kept this frame under a name of their own.
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
 // The FIGURE POP — one keyframe for every number in the app that changes in place:
 // the big total (AnimatedCount runs it per character, with a stagger) and a row's
 // quantity (ItemRow runs it on the whole field when the ± stepper moves it). Global

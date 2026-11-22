@@ -1751,12 +1751,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   visibility: hidden;
 }
 .editor__loading.is-said {
-  animation: loading-in var(--spring-fade-dur) var(--spring-fade) backwards;
-}
-@keyframes loading-in {
-  from {
-    opacity: 0;
-  }
+  animation: fade-in var(--spring-fade-dur) var(--spring-fade) backwards; /* main.scss */
 }
 /* the toast base + its enter/leave motion now live in the shared .toast atom
    (controls.scss), used by the read views' menu too; the undo bar just adds its

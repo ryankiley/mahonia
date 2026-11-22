@@ -5,7 +5,7 @@ import type { Classification, Unit } from "~~/shared/types";
 import { ownedOf, VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry, type VaultItemOp, type VaultItemPatch } from "~~/shared/vault";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
 import { CLASS_ICONS } from "~/utils/classIcons";
-import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
+import { entryUnitFromInput, formatWeight, itemDisplayName, parseKcal, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 import { sameText } from "~~/shared/tidyText";
 import { vaultTabOf } from "~~/shared/vaultView";
@@ -293,7 +293,8 @@ async function onSubmit() {
   // before the name was edited into fuel — the field gone, the digits still in the ref —
   // is dropped rather than saved unseen, and the next list to pick this row gets none.
   if (changed("kcal") && kcalCounts.value) {
-    const k = form.kcal.trim() ? Math.max(0, Math.round(Number(form.kcal))) : 0;
+    // read as the list row reads it (parseKcal): "2,700" is 2700, not not-a-number
+    const k = Math.max(0, Math.round(parseKcal(form.kcal) ?? 0));
     patch.kcal = k > 0 ? k : null;
   }
   if (changed("price")) {

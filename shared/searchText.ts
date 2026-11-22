@@ -142,8 +142,9 @@ const foldForHighlight = (raw: string): string =>
 /** Lower case, ONE CHARACTER FOR ONE, for the same reason the fold above is: "İ"
  *  lower-cases to two code units, and a plain toLowerCase() on the row's text slid every
  *  highlight after it one place to the right. A character whose lower case is another
- *  length keeps its own. */
-const lowerOneForOne = (raw: string): string =>
+ *  length keeps its own. Exported for shared/water, which finds "water" in a lower-cased
+ *  copy of a name and cuts the name as typed at that place. */
+export const lowerOneForOne = (raw: string): string =>
   raw.replace(/[A-Z]|[^\u0000-\u007F]/gu, (ch) => {
     const lower = ch.toLowerCase();
     return lower.length === ch.length ? lower : ch;

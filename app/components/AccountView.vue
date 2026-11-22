@@ -807,7 +807,6 @@ async function onSignOut() {
   gap: var(--space-3);
   width: 100%;
   color: var(--ink-3);
-  font-size: var(--text-base);
 }
 .acct__or::before,
 .acct__or::after {
@@ -1051,13 +1050,10 @@ async function onSignOut() {
   overflow-wrap: anywhere;
   user-select: all;
 }
-.acct__copies {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-/* the client buttons: the row gap every other row on this surface keeps, and the
-   .btn atom's own icon-to-label gap, so a pill with a mark reads like the sign-in's */
+/* the copy buttons under a fresh token, and the client buttons: one wrapping row each.
+   The clients take the row gap every other row on this surface keeps, and the .btn
+   atom's own icon-to-label gap, so a pill with a mark reads like the sign-in's. */
+.acct__copies,
 .acct__clients {
   display: flex;
   flex-wrap: wrap;

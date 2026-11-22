@@ -48,6 +48,26 @@ describe("snapshots — vandalism recovery", () => {
     expect(snaps).toHaveLength(1);
   });
 
+  // The summary is words about a write that has ALREADY landed: it is worked out after
+  // the save, from ops a client sent. So nothing an op can hold may make it throw: the
+  // list would be saved and the request answered with an error, and the editor would
+  // send the same batch again. A name that can't be read as text is one such op.
+  it("saves and answers normally when a batch can't be summarized, with a plain reason", async () => {
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const { editToken } = await seedList(db, { folders: [folder], items: [item("i1", "Tent")] });
+    // no id, so the reducer passes over it; the summary still reads its name
+    const unreadable = { t: "addItem", item: { name: { toString: 1 } } } as never;
+
+    const saved = await applyOpsByEditToken(editToken, [{ t: "updateItem", id: "i1", patch: { name: "Tent v2" } }, unreadable], db);
+    // the answer is the saved list, the valid op applied
+    expect(saved!.items.find((i) => i.id === "i1")!.name).toBe("Tent v2");
+    const [row] = await db.select().from(lists);
+    expect(row!.version).toBe(2);
+    // and the point before it is there to go back to, described as plainly as it can be
+    const snaps = await listSnapshotsByEditToken(editToken, db);
+    expect(snaps!.map((s) => s.reason)).toEqual(["edit"]);
+  });
+
   // An edit through the connector always leaves a point, named as an assistant's, so
   // it shows in recent changes and restoring that point undoes it. A burst of calls is
   // one entry: otherwise five quick calls would push every earlier point out of the cap.

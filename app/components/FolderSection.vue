@@ -151,7 +151,8 @@ function onName(e: Event) {
 .folder.folder--dragging {
   opacity: 0.4;
 }
-/* drop line marking where a dragged folder will land (sits in the gap between folders) */
+/* drop line marking where a dragged folder will land: it sits in the middle of the gap
+   between folders, which is the editor's own --folder-gap (GearEditor's .editor__body) */
 .folder--drop-before::before,
 .folder--drop-after::after {
   content: "";
@@ -163,10 +164,10 @@ function onName(e: Event) {
   pointer-events: none;
 }
 .folder--drop-before::before {
-  top: calc(-0.5 * var(--space-7));
+  top: calc(-0.5 * var(--folder-gap));
 }
 .folder--drop-after::after {
-  bottom: calc(-0.5 * var(--space-7));
+  bottom: calc(-0.5 * var(--folder-gap));
 }
 /* same column template as ItemRow so the remove + grip line up with item controls */
 /* packing mode drops the folder's trailing actions, so the header's grid narrows

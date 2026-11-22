@@ -14,6 +14,8 @@ import { itemDisplayName, nameRepeatsBrand, rowDisplayKcal,
   isBareGroup,
   listSummaryBits,
   nextSortOrder,
+  formatKcal,
+  parseKcal,
   parseWeightInput,
   splitWornQty,
   toMg,
@@ -699,5 +701,25 @@ describe("listSummaryBits — the facts a list's unfurl states", () => {
       "1,284 items",
       "4.1 kg base weight",
     ]);
+  });
+});
+
+// The calories fields' reader, the row's and My Gear's: the number as typed, with the
+// grouping the app itself prints taken back out.
+describe("parseKcal — calories as typed", () => {
+  it("reads a number typed back the way the app prints it", () => {
+    expect(parseKcal("500")).toBe(500);
+    expect(parseKcal("2,700")).toBe(2700);
+    expect(parseKcal(" 1 350 ")).toBe(1350);
+    expect(parseKcal(formatKcal(12_345))).toBe(12_345);
+  });
+
+  it("answers null for nothing typed and for anything that isn't a number", () => {
+    for (const raw of ["", "   ", ",", "lots", "12abc"]) expect(parseKcal(raw)).toBeNull();
+  });
+
+  it("leaves the sign and the fraction to whoever stores it", () => {
+    expect(parseKcal("-5")).toBe(-5);
+    expect(parseKcal("12.5")).toBe(12.5);
   });
 });

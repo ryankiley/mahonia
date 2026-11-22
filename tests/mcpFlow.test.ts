@@ -405,6 +405,50 @@ describe("what a model plausibly sends", () => {
     expect(list.folders[0]!.items.map((r) => [r.name, r.volume_l, r.weight_g])).toEqual([["Water", 2.5, 2500], ["Water", 0.5, 500]]);
   });
 
+  // A new row took a mistyped count in silence: qty "3" made a row of one and said
+  // nothing, where the same value on an update is refused in a sentence. A model can't
+  // correct what it isn't told, so a new row refuses what an update refuses, in the
+  // same words. A field simply left out (or null) still takes its default.
+  it("refuses a mistyped qty, worn_qty, kcal or needs_cooking on a new row, as an update does", async () => {
+    const bad: [Record<string, unknown>, string][] = [
+      [{ qty: "3" }, 'qty on "Socks" must be a whole number.'],
+      [{ worn_qty: "1" }, 'worn_qty on "Socks" must be a whole number.'],
+      [{ kcal: "250" }, 'kcal on "Socks" must be a number, or null to clear it.'],
+      [{ kcal: -5 }, 'kcal on "Socks" must be a number, or null to clear it.'],
+      [{ needs_cooking: "yes" }, 'needs_cooking on "Socks" must be true or false.'],
+    ];
+    const lists = async () => (await db.select({ id: schema.lists.id }).from(schema.lists)).length;
+    const before = await lists();
+    for (const [field, sentence] of bad) {
+      const made = await call("create_list", { title: "Typed wrong", items: [{ name: "Socks", ...field }] });
+      expect(made.isError, JSON.stringify(field)).toBe(true);
+      expect(made.text).toBe(sentence);
+      const added = await call("edit_list", { edit_link: editLink, add: [{ name: "Socks", ...field }] });
+      expect(added.isError, JSON.stringify(field)).toBe(true);
+      expect(added.text).toBe(sentence);
+      // a nested row is a new row too
+      const nested = await call("edit_list", { edit_link: editLink, add: [{ name: "Bag", items: [{ name: "Socks", ...field }] }] });
+      expect(nested.text).toBe(sentence);
+    }
+    // nothing was made on the way to a refusal
+    expect(await lists()).toBe(before);
+
+    // the update's own sentence, for the same value on a row that exists
+    const made = await call("create_list", { title: "Defaults", items: [{ name: "Socks" }, { name: "Gloves", qty: null, worn_qty: null, kcal: null, needs_cooking: null }] });
+    expect(made.isError, made.text).toBe(false);
+    const link = made.data.edit_link as string;
+    const rows = ((await call("get_list", { share_code: link })).data as { folders: { items: Record<string, unknown>[] }[] }).folders[0]!.items;
+    // left out, or null: one of it, nothing worn, no calories, not for cooking
+    for (const row of rows) {
+      expect(row.qty).toBe(1);
+      expect(row).not.toHaveProperty("worn_qty");
+      expect(row).not.toHaveProperty("kcal");
+      expect(row).not.toHaveProperty("needs_cooking");
+    }
+    const updated = await call("edit_list", { edit_link: link, update: [{ id: rows[0]!.id, qty: "3" }] });
+    expect(updated.text).toBe('qty on "Socks" must be a whole number.');
+  });
+
   it("reads a blank edit link as one left out, and refuses a product id that isn't one", async () => {
     const blank = await call("edit_list", { edit_link: "", list: { title: "x" } });
     expect(blank.isError).toBe(true);

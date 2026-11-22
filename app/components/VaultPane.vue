@@ -541,38 +541,36 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             {{ t.label }}
           </button>
         </div>
-        <div v-if="folders.length" class="vp__target">
-          <!-- the last native dropdown in the app, converted with the rest: it wasn't
-               the transparent-overlay pattern, just an ordinary <select>, which left it
-               the one control that opened an OS list instead of ours.
-               "Add to" is INSIDE the trigger: the phrase reads as one sentence, a word
-               space between its words (Ryan, 2026-11-10), with one hover ground around it,
-               where a label beside the button stood 16px off the folder's name. -->
-          <OptionMenu
-            class="vp__select"
-            :options="targetOptions"
-            :current="targetFolderId ?? ''"
-            label="Folder to add into"
-            @pick="(k) => (targetFolderId = k)"
-          >
-            <template #trigger="{ active, open }">
-              <span class="t-sm t-muted vp__targetlabel">Add to</span>
-              <span class="t-clip">{{ active?.label }}</span>
-              <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
-            </template>
-          </OptionMenu>
-        </div>
+        <!-- the last native dropdown in the app, converted with the rest: it wasn't
+             the transparent-overlay pattern, just an ordinary <select>, which left it
+             the one control that opened an OS list instead of ours.
+             "Add to" is INSIDE the trigger: the phrase reads as one sentence, a word
+             space between its words (Ryan, 2026-11-10), with one hover ground around it,
+             where a label beside the button stood 16px off the folder's name. -->
+        <OptionMenu
+          v-if="folders.length"
+          class="vp__select"
+          :options="targetOptions"
+          :current="targetFolderId ?? ''"
+          label="Folder to add into"
+          @pick="(k) => (targetFolderId = k)"
+        >
+          <template #trigger="{ active, open }">
+            <span class="t-sm t-muted vp__targetlabel">Add to</span>
+            <span class="t-clip">{{ active?.label }}</span>
+            <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
+          </template>
+        </OptionMenu>
       </div>
 
-      <div class="vp__controls">
-        <!-- the field and its own clear — SearchField, the same control /gear draws -->
-        <SearchField
-          ref="searchEl"
-          v-model="query"
-          :placeholder="`Search my ${tab}…`"
-          :label="`Search my ${tab}`"
-        />
-      </div>
+      <!-- the field and its own clear — SearchField, the same control /gear draws -->
+      <SearchField
+        ref="searchEl"
+        v-model="query"
+        class="vp__search"
+        :placeholder="`Search my ${tab}…`"
+        :label="`Search my ${tab}`"
+      />
 
       <!-- offline: how old the copy is, or that there is none (with a failed read's own
            words). The copy itself still lists below and still adds to the list. -->
@@ -743,13 +741,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
        card's corner less that inset: 20 - 12 = 8px, the --radius-2 the mode bar's chips
        wear. The .popover pin (20 - 8) is for its 8px inset. */
     --popover-item-radius: calc(var(--radius-4) - var(--vp-pad));
-  }
-  /* The grip hangs OUTSIDE the card (below), so the card can't clip: overflow:hidden
-     cut the old straddling divider in half, a 1.5px sliver you could grab only on its
-     inner 4.5px. The clipping the card did moves to the list, the one thing in here
-     that scrolls under its edge, with bottom corners concentric with the card's, so a
-     row scrolled half out of view still can't paint past the card's corner. */
-  .vp {
+    /* The grip hangs OUTSIDE the card (below), so the card can't clip: overflow:hidden
+       cut the old straddling divider in half, a 1.5px sliver you could grab only on its
+       inner 4.5px. The clipping the card did moves to the list, the one thing in here
+       that scrolls under its edge, with bottom corners concentric with the card's, so a
+       row scrolled half out of view still can't paint past the card's corner. */
     overflow: visible;
   }
   .vp__list {
@@ -819,11 +815,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__resize:focus-visible {
   outline: none;
 }
-/* the rows carry their own --space-2 inline padding, so the header and controls
-   need the same inset to line up with them rather than hugging the card edge */
+/* the rows carry their own --space-2 inline padding, so the header and the bar need
+   the same inset to line up with them rather than hugging the card edge (the search
+   field does NOT take it — see .vp__search) */
 .vp__head,
 .vp__bar,
-.vp__controls,
 .vp__note,
 .vp__offline,
 .vp__empty {
@@ -855,10 +851,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   position: relative; /* the hit area below hangs off it */
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--popover-item-radius);
-  font-size: var(--text-base);
   color: var(--ink-3);
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
@@ -916,29 +910,19 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__open {
   flex: none;
 }
-.vp__controls {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+/* the search field, its clear and their touch target are SearchField's own; the class
+   lands on its root */
+/* The field's ground sits on the panel's own padding edge, the way the active tab's chip
+   hangs out to it above (and every row's hover ground does below), with its text pulled
+   in by the header's step, so the grounds share one edge and the words share another.
+   So the field stands directly in the card, with none of the header's --space-2 inset:
+   inset like the rest, the box started 8px inside the tab's chip and the edge read as a
+   mistake. */
+.vp__search {
   margin-bottom: var(--space-2);
 }
-/* the search field, its clear and their touch target are SearchField's own */
-/* The field's ground hangs into the panel's padding the way the active tab's chip does
-   above it (and every row's hover ground below it), with its text pulled in by the same
-   step, so the grounds share one edge and the words share another. Inset like the rest,
-   the box started 8px inside the tab's chip and the edge read as a mistake. */
-.vp__controls :deep(.sf) {
-  margin-inline: calc(-1 * var(--space-2));
-}
-.vp__controls :deep(.sf__input) {
+.vp__search :deep(.sf__input) {
   padding-inline-start: var(--space-2);
-}
-.vp__target {
-  display: flex;
-  align-items: center;
-  /* the far end of the tab row, and the side that gives way: a long folder name
-     ellipsizes before the tabs do */
-  margin-inline-start: auto;
 }
 /* "Add to" is two words and was wrapping onto two lines next to the folder's name,
    throwing the row's baseline out; and it holds while the name gives way */
@@ -954,6 +938,9 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    that wraps a name and must be allowed to ellipsize it. */
 .vp__select.optmenu {
   flex: 0 1 auto;
+  /* the far end of the tab row, and the side that gives way: a long folder name
+     ellipsizes before the tabs do */
+  margin-inline-start: auto;
 }
 /* The trigger takes the toolbar's "Your packs" chip (ListMenu's .lm__trigger), the
    app's other word-and-chevron menu: 4px between its parts, not OptionMenu's bare 8
@@ -1081,13 +1068,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with /vault's rows, which used to hand-mirror
-   these rules. Only the typed-match emphasis is the pane's own: */
-/* the characters that overlap what you've typed read bold — the same emphasis, from
-   the same helper, as the autocomplete's rows (.ac__hl) */
-.vp__hl {
-  font-weight: 700;
-  color: var(--ink);
-}
+   these rules. The typed-match emphasis (.vp__hl: the characters that overlap what
+   you've typed read bold) is there too, one rule with the autocomplete's rows'. */
 .vp__inlist {
   color: var(--ink-3);
 }

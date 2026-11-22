@@ -135,6 +135,14 @@
   font-weight: 600;
   font-size: var(--text-title);
   letter-spacing: var(--track-tight);
+  /* …and as a FIELD (the editor's and My Gear's headers, below) it sizes to the typed
+     text so the chevron hugs the name, not the full column. min-width is a small floor
+     ONLY so a *cleared* name stays clickable (folders are always created with a name) —
+     4ch floored the box wider than short names like "Pack", stranding the chevron a
+     variable distance from the text; 2ch lets every real name hug tightly. */
+  width: auto;
+  field-sizing: content;
+  min-width: 2ch;
 }
 
 /* rule lines between items — a quiet spec-sheet rhythm; padding here (not on the
@@ -188,16 +196,8 @@
   align-items: baseline;
   gap: var(--space-1);
 }
-/* size to the typed text so the chevron hugs the name (not the full column) — the
-   cap/truncation + name type come from the shared folder atom. min-width is a small
-   floor ONLY so a *cleared* name stays clickable (folders are always created with a
-   name) — 4ch floored the box wider than short names like "Pack", stranding the
-   chevron a variable distance from the text; 2ch lets every real name hug tightly. */
-.folder__name {
-  width: auto;
-  field-sizing: content;
-  min-width: 2ch;
-}
+/* (the name sizes to its typed text so the chevron hugs it — .folder__name, above, with
+   the rest of the name's type) */
 /* remove + grip share the trailing actions cluster — evenly spaced + aligned
    with the item actions cluster below (both end at the grid edge) */
 .folder__actions {

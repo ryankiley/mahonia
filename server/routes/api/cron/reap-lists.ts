@@ -1,6 +1,6 @@
 import { defineEventHandler } from "h3";
 import { requireAdmin } from "../../../utils/auth";
-import { useDb, useVaultDb } from "../../../utils/db";
+import { useAccountDb, useDb, useVaultDb } from "../../../utils/db";
 import { purgeDeletedLists, reapAbandonedLists } from "../../../utils/listRepo";
 import { purgeDeletedVaults, reapAbandonedVaults } from "../../../utils/vaultRepo";
 import { refreshStaleFavicons } from "../../../utils/trailFavicon";
@@ -12,13 +12,12 @@ import { setNoIndex } from "../../../utils/http";
 //              see reapAbandonedLists in server/utils/listRepo.ts) so the table
 //              can't be padded indefinitely with contentless rows.
 //   2. PURGE — hard-delete rows soft-deleted past LIST_PURGE_GRACE_DAYS (+ their
-//              snapshots) to reclaim the storage; the grace window keeps a reap
-//              reversible until then.
-//   3. VAULTS — the same two stages for vaults, which are minted lazily and
-//              never signed out of, so nothing else would ever bound their growth.
-//              Longer
-//              windows than a list gets; see reapAbandonedVaults for why, and for
-//              why using a link inside the grace revives the vault.
+//              snapshots and the claims accounts held on them) to reclaim the
+//              storage; the grace window keeps a reap reversible until then.
+//   3. VAULTS — the same two stages for the vaults NO account owns (the link-owned
+//              ones from before My Gear moved into an account), which nothing can
+//              open any more. An account's vault is never reaped or purged; see
+//              reapAbandonedVaults in server/utils/vaultRepo.ts.
 //   4. FAVICONS — re-fetch trail-link favicons older than a month, oldest first and
 //              batch-capped (see server/utils/trailFavicon.ts). Rides along here
 //              rather than as its own vercel.json entry because it IS list
@@ -41,6 +40,14 @@ export default defineEventHandler(async (event) => {
 
   const db = await useDb();
   const reaped = await reapAbandonedLists(db);
+  // The purge drops the purged lists' claims, and list_claims is the account layer's
+  // table, made on first use: asked for here so a cold instance has it to delete from.
+  // Like the vault stage below it must not be able to fail list maintenance: if the
+  // account schema can't be ensured the purge still runs, and skips only the claims
+  // (purgeDeletedLists).
+  await useAccountDb().catch((e) => {
+    console.warn("[cron] account schema not ensured", (e as Error).message);
+  });
   const purged = await purgeDeletedLists(db);
   // Vault maintenance must not be able to fail list maintenance: the vault schema
   // is ensured on first use, so a run that touches it before any vault exists is

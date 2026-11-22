@@ -82,6 +82,27 @@ describe("the edit dialog on a fuel entry", () => {
   });
 });
 
+// The list prints calories grouped ("2,700 kcal"), and a number typed back that way
+// must save as that number: the field once read it as not a number and cleared the
+// calories the piece had.
+describe("the edit dialog's calories", () => {
+  it("saves a number typed with a thousands separator", async () => {
+    const w = open(entry("Trail mix", { kcal: 500 }));
+    await kcalField(w)!.setValue("2,700");
+    await w.get("button.btn--primary").trigger("click");
+    await flushPromises();
+    expect(patchSent()).toEqual({ kcal: 2700 });
+  });
+
+  it("still clears on something that isn't a number", async () => {
+    const w = open(entry("Trail mix", { kcal: 500 }));
+    await kcalField(w)!.setValue("lots");
+    await w.get("button.btn--primary").trigger("click");
+    await flushPromises();
+    expect(patchSent()).toEqual({ kcal: null });
+  });
+});
+
 // A catalog link is to one size, by the list row's rule: the dialog unlinks a piece typed
 // to another size, and keeps the link for the same size however it's typed, or a cleared one.
 describe("the edit dialog on a catalog-linked piece", () => {

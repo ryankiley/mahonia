@@ -835,6 +835,8 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   overflow: hidden;
   /* the pop-in scales from where the menu hangs off the input (kebab: top right) */
   transform-origin: top left;
+  /* the rest state of the exit's wipe, below */
+  clip-path: inset(-2px round var(--radius-4));
 }
 /* The EXIT folds. The card wipes upward into the field (a clip-path inset from the
    bottom) while it fades, so the list reads as retracting into the input it grew from
@@ -844,9 +846,6 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
    this tall, and longer would lag a fast typist's next row. The rest state's clip sits 2px outside the box so the
    .popover outline, painted outside it, keeps drawing. (Ryan, 2026-09-05: "a nicer exit
    animation for the predictive menu".) */
-.ac__menu {
-  clip-path: inset(-2px round var(--radius-4));
-}
 .ac__menu.menu-leave-active {
   transition:
     opacity var(--spring-step-dur) var(--spring-step),
@@ -927,7 +926,6 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   gap: var(--space-3);
   padding: var(--space-2) var(--space-2);
   cursor: pointer;
-  font-size: var(--text-base);
   /* both track the shared .popover surface rather than being guessed: the concentric
      radius is the token derived from its corner (tokens.scss), the hover tint below is
      declared on .popover itself (atoms/controls.scss) */
@@ -971,7 +969,6 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
    width before the weight to itself. */
 .ac__product {
   padding: var(--space-2);
-  font-size: var(--text-base);
   cursor: default;
 }
 .ac__opt--size .ac__name {
@@ -1007,12 +1004,8 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   font-style: italic;
   color: var(--ink-3);
 }
-/* the characters that overlap what you've typed read bold — best-practice
-   typeahead emphasis; the rest of the name stays normal weight */
-.ac__hl {
-  font-weight: 700;
-  color: var(--ink);
-}
+/* (the characters that overlap what you've typed read bold, .ac__hl — the emphasis is
+   shared with the My Gear pane's rows: atoms/gear.scss) */
 .ac__watericon {
   vertical-align: -2px;
   margin-right: var(--space-1);
