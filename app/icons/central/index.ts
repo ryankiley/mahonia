@@ -19,7 +19,6 @@ export { IconArrowsRepeatCircle } from "./IconArrowsRepeatCircle";
 export { IconBackpack } from "./IconBackpack";
 export { IconBlockSortAscending } from "./IconBlockSortAscending";
 export { IconBlockSortDescending } from "./IconBlockSortDescending";
-export { IconBottle } from "./IconBottle";
 export { IconBrackets1 } from "./IconBrackets1";
 export { IconBug } from "./IconBug";
 export { IconCalculator } from "./IconCalculator";

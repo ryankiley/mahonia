@@ -1,8 +1,11 @@
 import { glyph, line } from "./parts";
 
-/** A folding knife, its blade half open. */
+/** A folding knife, open: a short handle with its rivet, the blade swung out from the
+ *  handle's end. Drawn half open, the blade lying back over a long handle, it read as a
+ *  sled. Central's only knife is the table knife in its fork-and-knife, which is the
+ *  meal icon, and alone it is too thin to read at 20px. */
 export const PocketKnifeGlyph = glyph(
-  line("M5.5 13H15.5C17.16 13 18.5 14.34 18.5 16C18.5 17.66 17.16 19 15.5 19H5.5C3.84 19 2.5 17.66 2.5 16C2.5 14.34 3.84 13 5.5 13Z"),
-  line("M9.5 13L21.5 5.5C20.9 9.6 18.2 13 14.5 13"),
-  line("M6 16H6.01"),
+  line("M5 14H12C13.38 14 14.5 15.12 14.5 16.5C14.5 17.88 13.38 19 12 19H5C3.62 19 2.5 17.88 2.5 16.5C2.5 15.12 3.62 14 5 14Z"),
+  line("M11 14L21.5 4.5C21.5 9 18.6 13.2 14.3 15.4"),
+  line("M5.5 16.5H5.51"),
 );
