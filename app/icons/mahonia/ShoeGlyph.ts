@@ -1,9 +1,11 @@
 import { glyph, line } from "./parts";
 
-/** A trail shoe from the side: the heel tab, two laces, the sole. */
+/** A trail runner from the side, cut low the way a sneaker is: the heel tab, the dip at
+ *  the ankle, the tongue standing up, the laces sloping to a round toe with its cap, and
+ *  a thick sole. Drawn with a tall flat back and no tongue it read as a slipper. */
 export const ShoeGlyph = glyph(
-  line("M2 17V7C2 6.45 2.45 6 3 6H7.3C7.85 6 8.3 6.4 8.4 6.95C8.75 8.75 10.3 10 12.15 10H13.4L19.1 11.95C20.85 12.55 22 14.2 22 16.05V17"),
-  line("M2 17H22V18C22 19.1 21.1 20 20 20H4C2.9 20 2 19.1 2 18V17Z"),
-  line("M13.6 10.1L14.9 7.6"),
-  line("M17.1 11.3L18.4 8.8"),
+  line("M2 15.5V9C2 7.62 3.12 6.5 4.5 6.5C5.5 6.5 6 9 7.5 9C9 9 9.4 6.9 10 5.8C10.4 5.1 11.2 4.8 11.9 5.2L18.2 9.4C20.6 11 22 12.9 22 15.5"),
+  line("M2 15.5H22V17C22 18.1 21.1 19 20 19H4C2.9 19 2 18.1 2 17V15.5Z"),
+  line("M13.79 6.46L12.79 7.96"),
+  line("M18.2 9.4C18.2 10.6 17.4 11.6 16.3 12C15.2 12.4 14.5 13.6 14.5 15.5"),
 );
