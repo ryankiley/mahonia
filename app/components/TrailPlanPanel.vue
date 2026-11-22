@@ -700,17 +700,23 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
           <!-- the folder header's chevron (NestChevron), on the folder atom's own box —
                this had a private restatement of its rotate recipe, minus the atom's
                44px touch target -->
+          <!-- Only on a day that EXISTS. A fold is remembered against the day's id, and a
+               ghost (a day the dates imply that nothing has been typed into) has none: its
+               chevron took the press and did nothing. It arrives with the day's first
+               figure or note. The header needs no stand-in for it: the name leads and
+               the delete goes to the far edge on its own margin. -->
           <NestChevron
+            v-if="d"
             folder
             noun="day"
             class="plan__collapse--tight"
-            :collapsed="!!collapsed[d?.id ?? '']"
+            :collapsed="!!collapsed[d.id]"
             :label="dayOrdinal(i)"
-            @toggle="d && toggleDay(d.id)"
+            @toggle="toggleDay(d.id)"
           />
           <button
             type="button"
-            class="btn btn--icon btn--ghost plan__del plan__del--end"
+            class="btn btn--icon btn--ghost ink-quiet plan__del"
             :title="`Remove day ${i + 1}`"
             :aria-label="`Remove day ${i + 1}`"
             @click="removeDay(i)"
@@ -1139,12 +1145,11 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__collapse--tight {
   margin-left: calc(var(--space-2) * -1 + 2px);
 }
+/* …and only the delete goes to the far edge. Its inks are .ink-quiet's (controls.scss):
+   a resting colour stated here tied the ghost button's hover on specificity and won on
+   order, so the glyph never answered the pointer. */
 .plan__del {
   flex: none;
-  color: var(--ink-3);
-}
-/* …and only the delete goes to the far edge */
-.plan__del--end {
   margin-left: auto;
 }
 /* The day's note: the item note's caption voice, at day scale — the lightest ink,

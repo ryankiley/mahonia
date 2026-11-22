@@ -7,12 +7,15 @@ import { SvgIcon } from "~/utils/icon";
 // click-outside, Escape, the focus trap and focus restore, and AccountView is the same
 // component /account renders. This file is the wiring between them and nothing else.
 const { state, close } = useAccountModal();
-// The dialog's accessible name tracks the same state its heading does — a screen
-// reader announcing "Your account" over a sign-in form is the same mismatch. Same
-// rule as AccountView's heading: a presumed account (offline, hint present) is
-// still "your account", loading, rather than a sign-in you don't need.
+// The title, and the dialog's accessible name with it, are the panel's own heading
+// (v-model:heading): it knows whether it is a sign-in, the create form or the account,
+// and a screen reader announcing one over another is the same mismatch as the title
+// showing it. Until the panel has said, the half of its rule that needs no panel: a
+// presumed account (offline, hint present) is still "your account", loading, rather
+// than a sign-in you don't need.
 const { presence } = useSession();
-const label = computed(() => (presence.value !== "signedOut" ? "Your account" : "Sign in"));
+const heading = ref<string>();
+const label = computed(() => heading.value ?? (presence.value !== "signedOut" ? "Your account" : "Sign in"));
 </script>
 
 <template>
@@ -41,7 +44,7 @@ const label = computed(() => (presence.value !== "signedOut" ? "Your account" : 
         <SvgIcon :icon="IconCrossMedium" />
       </button>
     </header>
-    <AccountView in-modal @done="close" />
+    <AccountView v-model:heading="heading" in-modal @done="close" />
   </BaseModal>
 </template>
 

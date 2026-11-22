@@ -1,0 +1,20 @@
+{
+  "date": "2026-11-21",
+  "fixed": [
+    "Folding rows, the switch between views and the route map closing move at their intended speed instead of snapping.",
+    "The total weight and a row's count no longer blank when changed in quick succession.",
+    "A shared list's trip view shows the route's elevation gain and loss under the profile.",
+    "A trip day you haven't filled in no longer shows a collapse arrow that does nothing.",
+    "The delete button on a trip day and the kind buttons on a waypoint darken when you point at them.",
+    "On My Gear's Kits tab, a kit's items show their worn and consumable marks again.",
+    "When making an access token, the access picker looks like the button it is.",
+    "The account dialog's title says Create an account when you switch to creating one.",
+    "In dark mode, selected tabs, held gear and buttons inside pop-up panels no longer fade into the panel.",
+    "Fields and the tip card inside pop-up panels stand out from the panel in light and dark.",
+    "Folder arrows, Add folder and other quiet controls darken on keyboard focus, as they do under the pointer.",
+    "On very wide screens, a row's menus keep their distance from the window's top and bottom when choosing to open above or below.",
+    "On My Gear, the suggestions under a kit's Add an item highlight under the pointer.",
+    "The list switcher and the My Gear and Share buttons show they are open in the same tone as the selected mode tab.",
+    "A blank row is cleared even if you leave the page while it is folding away."
+  ]
+}

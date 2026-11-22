@@ -633,7 +633,7 @@ onClickOutside(trailEl, closeTrail);
           <label class="head__panellabel" :for="`${fieldsId}-url`">Link</label>
           <input
             :id="`${fieldsId}-url`"
-            class="head__panelinput"
+            class="well head__panelinput"
             type="url"
             inputmode="url"
             placeholder="https://"
@@ -677,7 +677,7 @@ onClickOutside(trailEl, closeTrail);
             <label class="head__panellabel" :for="`${fieldsId}-title`">Link title</label>
             <input
               :id="`${fieldsId}-title`"
-              class="head__panelinput"
+              class="well head__panelinput"
               :placeholder="link?.name ?? ''"
               :value="snapshot.trailLabel ?? ''"
               @change="commitLabel"
@@ -705,7 +705,7 @@ onClickOutside(trailEl, closeTrail);
           <span class="head__distrow">
             <input
               :id="`${fieldsId}-dist`"
-              class="head__panelinput head__distinput"
+              class="well head__panelinput head__distinput"
               inputmode="decimal"
               autocorrect="off"
               spellcheck="false"
@@ -1114,7 +1114,12 @@ onClickOutside(trailEl, closeTrail);
 /* filled, unlike the borderless .field used everywhere else: inside a floating panel
    there's no surrounding structure to imply where the input begins, so the fill IS the
    boundary. Each label sits above its own field, so a placeholder never has to stand in
-   for one. */
+   for one.
+   The fill is the .well atom (atoms/controls.scss), worn in the markup: its ground (an
+   amount of ink, so it shows on this card in both themes, where the --paper-2 this used
+   sat at 1.10:1 on it), its ink, its placeholder, and its focus — the ground deepens a
+   step and nothing is drawn round it, the one focus every contained field on a floating
+   surface takes. Only the geometry below is this panel's. */
 .head__panelinput {
   width: 100%;
   /* 2em — a field twice the height of its own type, which is the proportion a compact
@@ -1132,14 +1137,9 @@ onClickOutside(trailEl, closeTrail);
      own inputs carry no border at all — the caret carries focus. */
   /* smaller than the panel's own corner — derived, so it tracks --radius-3 */
   border-radius: calc(var(--radius-3) - var(--space-1));
-  background: var(--paper-2);
-  color: var(--ink);
   /* stays at 16px while the labels above drop to 12px: 14 would sit better with them,
      but anything under 16px makes iOS Safari zoom the page on focus (atoms/controls.scss) */
   font-size: var(--text-input);
-}
-.head__panelinput:focus {
-  outline: none;
 }
 /* Every label after the first starts a new field and takes the step that separates one
    pair from the next. A rule about the panel's labels, not about what happens to sit

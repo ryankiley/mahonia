@@ -34,7 +34,7 @@ import { type GradeBand, gradeBandFor, gradeRuns, gradeSeries, gradeSpread } fro
 // And one policy: M/L only, no bezier smoothing. A smoothed profile invents terrain
 // between samples, which is the same refusal the burn-down makes by not drawing a line
 // between two days.
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** elevations in metres, evenly spaced BY DISTANCE (see shared/gpx.ts) */
   profile: number[];
   /** each day's distance in metres, in order — the cuts along the x axis */
@@ -52,9 +52,12 @@ const props = defineProps<{
    * planning view turns this off and carries them among its own figures; the shared view
    * has no such row and lets the chart do it. The chart draws the shape either way — this
    * file's header has always said the numbers beside it are the page's job.
+   *
+   * ON by default, and the default has to be stated: Vue casts an absent Boolean prop
+   * to false, so "leave it off to get the figures" printed none.
    */
   facts?: boolean;
-}>();
+}>(), { facts: true });
 
 /**
  * WHERE ON THE ROUTE THE CURSOR IS, for anything drawing that same route alongside.
@@ -561,7 +564,7 @@ const id = useId();
          container is, so no height is measurable from the picture — these carry it in
          figures instead, which is the same division of labour the numbers above the chart
          already make. aria-hidden: <desc> says all of it, and better. -->
-    <p v-if="facts !== false" class="tprofile__facts">
+    <p v-if="facts && (ascentM || descentDiffers)" class="tprofile__facts">
       <FigureChip v-if="ascentM" label="Elevation gain" :value="asHeight(ascentM)" :unit="heightUnit" />
       <!-- The descent only when it is a DIFFERENT fact. On a loop it equals the climb by
            definition, and two figures carrying one fact is one figure too many; where they

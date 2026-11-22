@@ -410,18 +410,10 @@ input[type="search"]::-webkit-search-decoration {
 // short of the visual edge, a hairline surface ledge around every sliced row —
 // and nudged the 8px concentric-tint inset to 9. Outlines follow the radius,
 // draw outside, and take no space.
-// Items inside consume the hover tint declared here and the concentric
-// --popover-item-radius (tokens.scss, derived from this surface's --radius-4), so
-// both stay pinned to this surface's geometry.
-.popover {
-  // HOW MUCH INK a surface takes to show it's the one you're on, as an AMOUNT
-  // rather than a colour — so something that isn't drawn in plain ink can mix the
-  // same number with its own (the ⋯ menu's destructive row washes red from this).
-  // Lifted from the design system's --wash-* tokens, which make the same split for
-  // the same reason.
-  --popover-wash: 8%;
-  --popover-hover: color-mix(in oklab, var(--ink) var(--popover-wash), transparent);
-}
+// Items inside consume the row wash (--popover-wash / --popover-hover) and the
+// concentric --popover-item-radius, both in tokens.scss: the radius is derived from this
+// surface's --radius-4, so it stays pinned to this surface's geometry, and the wash is
+// declared on the root so a row drawn like a menu's outside a popover lights too.
 // The floating surface itself, and the dialog card (.dlg, atoms/dialog.scss) wears the
 // same one: one recipe for everything that floats over the page, written once so the
 // menus and the dialogs cannot drift. .dlg takes it by selector and not by wearing
@@ -708,8 +700,8 @@ input[type="search"]::-webkit-search-decoration {
   height: 0;
   border-radius: var(--popover-item-radius);
   // NOT var(--popover-hover), though it resolves to the same thing by default.
-  // That property is declared on .popover, so the var() inside it is substituted
-  // THERE and the finished colour inherits down — an inline --hov-ink on this
+  // That property is declared on the root (tokens.scss), so the var() inside it is
+  // substituted THERE and the finished colour inherits down — an inline --hov-ink on this
   // element could never reach it. Mixing here is what lets the plate take a hue
   // the row hands it (useMenuPlate); unset, it is plain ink at the same amount.
   background: color-mix(in oklab, var(--hov-ink, var(--ink)) var(--popover-wash), transparent);
@@ -1188,6 +1180,11 @@ input[type="search"]::-webkit-search-decoration {
 .addfolder__btn {
   color: var(--ink-3);
   transition: color var(--spring-fade-dur) var(--spring-fade);
+}
+/* lifts for the keyboard as it does for the pointer (see .btn--quiet): focus at every
+   pointer, the hover only where hovering is real */
+.addfolder__btn:focus-visible {
+  color: var(--ink);
 }
 @media (hover: hover) and (pointer: fine) {
   .addfolder__btn:hover {

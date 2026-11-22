@@ -686,10 +686,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    own scroll position while you work through the vault. */
 /* The SURFACE (lifted background, radius, soft shadow, forced-colors edge) comes
    from the shared .popover atom — the same one the autocomplete and kebab menus
-   wear, so this panel can't drift from them. It also hands down --popover-hover,
-   which the rows below consume beside --popover-item-radius (the token derived from
-   this surface's corner, tokens.scss), so the concentric corner and the hover tint
-   stay pinned to this surface's geometry.
+   wear, so this panel can't drift from them. The rows below take the menus' row wash
+   (--popover-hover) and --popover-item-radius (the token derived from this surface's
+   corner), both in tokens.scss, so the concentric corner and the hover tint stay pinned
+   to this surface's geometry.
    Everything here is position + size only.
 
    Desktop: a floating column pinned to the right, clear of the sticky topbar and
@@ -881,8 +881,12 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     translate: 0 -50%;
   }
 }
+/* --lit, the app's one tone for "on" (the mode tabs, the person filter, the row
+   toggles), and an amount of ink, so it composites over this card. It was --paper-3,
+   a page tone that IS --surface-float in dark: the chosen tab had no ground at all
+   there and was told from the others by its ink alone. */
 .vp__tab.is-active {
-  background: var(--paper-3);
+  background: var(--lit);
   color: var(--ink);
 }
 /* THE PANEL HEADER is the .panel__head atom (controls.scss); only the offset onto
@@ -1038,12 +1042,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   -webkit-touch-callout: none;
 }
 /* HELD: the touch hold has armed (see liftedId), so the row is picked up and the next
-   move carries it. The --paper-3 ground the active tab wears, a step past the hover
-   tint, because this has to read as a different state from "under your finger" — it is
-   the moment a scroll became a drag. No transition: it lands with the vibration tick,
-   and feedback that a hold registered is instant or it isn't feedback. */
+   move carries it. --lit-hover, the step of ink past both the hover tint (8%) and the
+   plate the active tab wears, because this has to read as a different state from "under
+   your finger" — it is the moment a scroll became a drag. An amount of ink, not the
+   --paper-3 it was: that tone is this card's own colour in dark, so there the hold
+   showed nothing. No transition: it lands with the vibration tick, and feedback that a
+   hold registered is instant or it isn't feedback. */
 .vp__add.is-lifted {
-  background: var(--paper-3);
+  background: var(--lit-hover);
 }
 /* Split from :hover, not merged with it: focus is not a pointer state and a keyboard
    driving a touch device still needs the highlight, while the hover twin paints only

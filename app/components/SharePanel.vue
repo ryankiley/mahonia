@@ -461,7 +461,12 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 /* Laid out on the rows' columns: its mark in the glyph column (the card's inset is a
    row's), its text where a row's label starts, so it reads as part of the same list
    rather than a box dropped on top of it. Shaped like the plate (the item radius),
-   since it sits where a row would. */
+   since it sits where a row would.
+   Its ground is AN AMOUNT OF INK — the well's 7% (.well, atoms/controls.scss, which has
+   the measurements: 1.17:1 on the light popover, 1.23 on the dark) — because the panel
+   is a floating surface. It was --paper-2, a page tone, which sat at 1.10:1 on this card
+   in either theme: a box you had to look for around the one piece of advice the tab
+   gives. */
 .share__nudge {
   display: flex;
   align-items: start;
@@ -469,7 +474,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   margin-bottom: var(--space-1);
   padding: var(--space-3);
   border-radius: var(--popover-item-radius);
-  background: var(--paper-2);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
 }
 .share__nudge > svg {
   flex: none;
