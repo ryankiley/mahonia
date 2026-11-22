@@ -124,9 +124,15 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
 
   for (const op of reportable) {
     switch (op.t) {
-      case "addItem":
-        added.add(itemDisplayName(op.item?.brand, op.item?.name, op.item?.variant));
+      case "addItem": {
+        // Read the way normalizeItem stores them: off the wire a name can be absent and
+        // a brand a number, the reducer keeps both rows, and itemDisplayName trims what
+        // it is handed, so a field that wasn't text threw here after the write landed.
+        const it: { brand?: unknown; name?: unknown; variant?: unknown } = op.item ?? {};
+        const text = (v: unknown) => (v ? String(v) : undefined);
+        added.add(itemDisplayName(text(it.brand), String(it.name ?? ""), text(it.variant)));
         break;
+      }
       case "removeItem": {
         const n = labelOf(op.id);
         // A row with no name was never gear — it's a blank someone abandoned, and
@@ -209,12 +215,12 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
           // history. Reading the patch raw made the summary say
           // «Renamed Ryan’s tent → Ryan's  big   tent» — the right of that arrow is a
           // string that exists nowhere in the list and never did.
+          // Only a STRING is a new value, which is the reducer's own test
+          // (cleanItemPatch): a null or a number in one of these leaves the field as it
+          // stood, where handing it to tidyText threw.
+          const next = (v: unknown, stood: string | undefined) => (typeof v === "string" ? tidyText(v) : stood);
           const afterLabel = was
-            ? itemDisplayName(
-                p.brand !== undefined ? tidyText(p.brand) : was.brand,
-                p.name !== undefined ? tidyText(p.name) : was.name,
-                p.variant !== undefined ? tidyText(p.variant) : was.variant,
-              )
+            ? itemDisplayName(next(p.brand, was.brand), next(p.name, was.name) ?? "", next(p.variant, was.variant))
             : "";
           if (beforeLabel && isCosmetic(beforeLabel, afterLabel)) break; // a tidy-up, not news
           // A DIFFERENT PIECE OF GEAR, said definitely rather than guessed: the row

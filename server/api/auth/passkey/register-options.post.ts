@@ -1,7 +1,7 @@
-import { createError, defineEventHandler } from "h3";
+import { defineEventHandler } from "h3";
 import { requireAccount } from "../../../utils/authSession";
-import { existingCredentialIds, MAX_PASSKEYS_PER_USER } from "../../../utils/credentialRepo";
-import { registrationOptions, requirePasskeysConfigured, startChallenge } from "../../../utils/passkeys";
+import { existingCredentialIds } from "../../../utils/credentialRepo";
+import { registrationOptions, requirePasskeyRoom, requirePasskeysConfigured, startChallenge } from "../../../utils/passkeys";
 
 // Step 1 of adding a passkey: hand the browser the challenge and parameters for
 // the ceremony. Requires a session — you add a passkey to an account you're
@@ -13,9 +13,7 @@ export default defineEventHandler(async (event) => {
 
   // one credential read serves both the cap check and excludeCredentials below
   const existing = await existingCredentialIds(db, user.id);
-  if (existing.length >= MAX_PASSKEYS_PER_USER) {
-    throw createError({ statusCode: 409, statusMessage: "Too many passkeys" });
-  }
+  requirePasskeyRoom(existing.length);
 
   // The account handle the authenticator stores. The email is what the OS prompt
   // shows, so the user can tell their accounts apart; the handle is opaque and

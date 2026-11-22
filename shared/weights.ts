@@ -648,6 +648,20 @@ export function formatKcal(kcal: number): string {
 }
 
 /**
+ * A calorie count as typed, or null for nothing typed and for anything that isn't a
+ * number. The other way round from formatKcal: the line beside the field prints
+ * "2,700 kcal", so a number typed back the way the app wrote it reads as that number
+ * (grouping commas and spaces are taken out first) rather than as not a number, which
+ * cleared the calories. Sign, rounding and the ceiling are whoever stores it (kcalOf).
+ */
+export function parseKcal(raw: string): number | null {
+  const digits = raw.replace(/[,\s]/g, "");
+  if (digits === "") return null;
+  const n = Number(digits);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
  * Pick a display unit by magnitude, then format — for comparison and marketing
  * surfaces (SEO/OG meta, feed cards) where "5 kg" reads better than "5,000 g".
  * Metric promotes g→kg at ≥1 kg; imperial promotes oz→lb at ≥1 lb. This is the

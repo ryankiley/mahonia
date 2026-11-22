@@ -4,6 +4,7 @@
 // Water counts as a consumable (see Classification in types.ts), so it stays out
 // of base weight.
 
+import { lowerOneForOne } from "./searchText";
 import type { Classification } from "./types";
 import { lineMg, splitWornQty } from "./weights";
 import { splitAmount } from "./trailDistance";
@@ -73,9 +74,13 @@ export function formatVolume(ml: number): string {
  * would be one more figure a renamed row could carry where nobody can see it.
  */
 export function isWaterName(name: string): boolean {
-  const low = name.trim().toLowerCase();
+  if (!/water/i.test(name)) return false; // nearly every row, every render
+  // Lower-cased ONE CHARACTER FOR ONE (lowerOneForOne): a plain toLowerCase() turns "İ"
+  // into an i and a combining dot, which is a mark and not a letter, so "İwater" passed
+  // the letter test below where "Iwater" and "Smartwater" do not.
+  const low = lowerOneForOne(name.trim());
   const at = low.lastIndexOf("water");
-  if (at < 0) return false; // nearly every row, every render
+  if (at < 0) return false;
   const before = low.slice(0, at);
   if (/[\p{L}\p{N}]$/u.test(before) || /\bfor\b/.test(before)) return false;
   const after = low.slice(at + 5).trim();
@@ -92,7 +97,10 @@ export function isWaterName(name: string): boolean {
  *  so all three make the same row. */
 export function waterPhrase(text: string): { name: string; ml: number } | null {
   const t = text.trim();
-  const low = t.toLowerCase();
+  // The same length as `t`, character for character, because `at` below cuts the name
+  // out of `t`: a plain toLowerCase() makes "İ" two characters, and each one in front of
+  // the word slid the cut one place right ("İİ water 2 L" kept the name "İİ water 2").
+  const low = lowerOneForOne(t);
   const at = low.lastIndexOf("water");
   if (at < 0) return null;
   const before = low.slice(0, at).trim();

@@ -33,6 +33,7 @@
 import type { H3Event } from "h3";
 import { createError } from "h3";
 import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server";
+import { MAX_PASSKEYS_PER_USER } from "./credentialRepo";
 import { trustedOrigin } from "./origin";
 import { randomSecret, sha256Hex } from "./tokens";
 import { sharedKvConfigured, useKv } from "./rateLimit";
@@ -142,6 +143,28 @@ export function requirePasskeysConfigured(): void {
     "[passkey] no shared KV configured (KV_REST_API_URL / KV_REST_API_TOKEN) — passkeys are unavailable",
   );
   throw createError({ statusCode: 503, statusMessage: "Passkeys unavailable" });
+}
+
+/**
+ * Refuse another passkey for an account already holding the most it may
+ * (MAX_PASSKEYS_PER_USER). Asked at BOTH halves of adding a key, with the count as
+ * that request reads it: register-options, so nobody touches a sensor for a key that
+ * can't be kept, and register-verify, because a ceremony stays redeemable for minutes
+ * after it is opened and a batch opened while there was room would otherwise all
+ * land. One refusal, so the two can't word it differently. Verifies that arrive
+ * TOGETHER all pass this, each reading the count before any has saved: what holds
+ * the cap against those is register-verify's look after the save
+ * (removePasskeyBeyondCap).
+ */
+export function requirePasskeyRoom(held: number): void {
+  if (held >= MAX_PASSKEYS_PER_USER) throw tooManyPasskeys();
+}
+
+/** The refusal itself, for register-verify's second look: a key that was saved beside
+ *  others arriving at the same moment and turned out to be one past the cap. Returned
+ *  rather than thrown, like notFound, so the call site keeps its `throw`. */
+export function tooManyPasskeys() {
+  return createError({ statusCode: 409, statusMessage: "Too many passkeys" });
 }
 
 interface StoredChallenge {
