@@ -158,7 +158,7 @@ watch(open, (o) => {
         <span>{{ resumed ? (all.length > 1 ? "Picked up where you left off. Your other lists are here." : "Picked up where you left off.") : "Pick up where you left off" }}</span>
         <button
           type="button"
-          class="lm__hintclose"
+          class="lm__hintclose ink-quiet"
           aria-label="Dismiss"
           title="Dismiss"
           @click="emit('dismiss-hint')"
@@ -220,13 +220,23 @@ watch(open, (o) => {
    (see the note on .btn:hover, controls.scss) — otherwise tapping the trigger left
    the fill sitting there after the menu had already closed. */
 .lm__trigger.is-on {
-  background: var(--paper-2);
+  /* --lit, the app's one tone for "this control is on" (the mode tabs right under this
+     bar, the person filter, the row toggles); it was --paper-2, a second tone for the
+     same statement */
+  background: var(--lit);
   color: var(--ink);
 }
 @media (hover: hover) and (pointer: fine) {
   .lm__trigger:hover {
     background: var(--paper-2);
     color: var(--ink);
+  }
+  /* …and the open trigger still answers the pointer, a step up from its plate, as every
+     lit control does (--lit-hover, tokens.scss). It has to be said: the pointer is ON the
+     trigger the moment a click opens the menu, and the hover rule above, equal in weight
+     and later, would otherwise put the resting hover ground back over the plate. */
+  .lm__trigger.is-on:hover {
+    background: var(--lit-hover);
   }
 }
 /* the app's dropdown mark, and it turns over when the menu is open — it IS the ⋯
@@ -262,14 +272,10 @@ watch(open, (o) => {
   width: max-content;
   max-width: min(26rem, calc(100vw - 2 * var(--space-4)));
 }
+/* the inks are .ink-quiet's (atoms/controls.scss), in the markup: the lesser ink at
+   rest, full ink under the pointer and on keyboard focus, on the fade */
 .lm__hintclose {
-  color: var(--ink-3);
   font-size: var(--text-base);
   line-height: 1;
-}
-@media (hover: hover) and (pointer: fine) {
-  .lm__hintclose:hover {
-    color: var(--ink);
-  }
 }
 </style>

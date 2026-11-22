@@ -1207,7 +1207,7 @@ onBeforeUnmount(() => {
            than it does for the estimates, because one of the gestures it explains is the
            press-and-hold, and touch is exactly where that one is worth knowing. -->
       <Tooltip v-else :text="gestures" preferred-placement="top">
-        <button type="button" class="btn btn--icon btn--ghost routemap__help" aria-label="How to use this map">
+        <button type="button" class="btn btn--icon btn--ghost ink-quiet routemap__help" aria-label="How to use this map">
           <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" />
         </button>
       </Tooltip>
@@ -1385,10 +1385,9 @@ onBeforeUnmount(() => {
   font-size: var(--text-chrome);
   color: var(--ink-3);
 }
-/* The (?) sits where the sentence did, and quietly — it is an offer, not a notice. */
-.routemap__help {
-  color: var(--ink-3);
-}
+/* The (?) sits where the sentence did, and quietly — it is an offer, not a notice. Its
+   inks are .ink-quiet's (controls.scss), so it lifts under keyboard focus as well as
+   under the pointer. */
 
 // ARMED: one stretch of the route is the only thing worth aiming at, so the cursor says
 // so and everything else on the line stands down (see DIM). A deliberate mode rather than

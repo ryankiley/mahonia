@@ -377,6 +377,19 @@ describe("a kit on /gear", () => {
     expect(w.get(".kitsec").text()).toContain("· removed");
   });
 
+  // A kit's items are rows of gear like any other, class mark included. The section
+  // passes the row no `marks`, and a Boolean prop left out reads false: the column the
+  // Food tab asks to drop went from every kit as well.
+  it("draws an item's worn or consumable mark on the Kits tab", async () => {
+    listRows = [{ ...stove, classification: "worn" }, pot, kit];
+    storage.set("gear.vault.tab.v1", "kits");
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec .vault__row")).toHaveLength(2));
+    // the column on every row, so the weights beside it line up; the mark on the worn one
+    expect(w.findAll(".kitsec .vault__cls")).toHaveLength(2);
+    expect(w.findAll('.kitsec .vault__cls [title="Worn"]')).toHaveLength(1);
+  });
+
   it("says a kit's save failed, rather than the reload behind it wiping the message", async () => {
     listRows = [stove, pot, kit];
     storage.set("gear.vault.tab.v1", "kits");

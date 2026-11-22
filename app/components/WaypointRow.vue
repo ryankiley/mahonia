@@ -94,7 +94,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
       <Tooltip v-for="k in WAYPOINT_KIND_OPTIONS" :key="k.key" :text="k.label" preferred-placement="top">
         <button
           type="button"
-          class="btn btn--icon btn--ghost wprow__kindbtn"
+          class="btn btn--icon btn--ghost ink-quiet wprow__kindbtn"
           :class="{ 'item__mark': waypoint.kind === k.key }"
           :aria-pressed="waypoint.kind === k.key"
           :aria-label="k.label"
@@ -205,8 +205,8 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
   align-items: center;
   gap: var(--space-px);
 }
-/* quiet until chosen; .item__mark supplies the plate and the inline style the hue */
-.wprow__kindbtn {
-  color: var(--ink-3);
-}
+/* quiet until chosen; .item__mark supplies the plate and the inline style the hue. The
+   quiet is .ink-quiet's (controls.scss), worn in the markup: a resting colour stated here
+   tied the ghost button's hover on specificity and won on order, so an unchosen kind
+   never answered the pointer. */
 </style>

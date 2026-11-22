@@ -42,6 +42,7 @@ function onClick(e: MouseEvent) {
 
 <template>
   <button
+    class="ink-quiet"
     :class="folder ? 'folder__collapse' : 'item__nestcollapse'"
     :aria-expanded="!collapsed"
     :aria-label="`${collapsed ? 'Expand' : 'Collapse'} ${label}`"

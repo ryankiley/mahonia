@@ -62,7 +62,7 @@ const born = ref(chars.value.length);
 let runUntil = 0; // performance.now() at which the run playing now has landed
 
 function runMs(): number {
-  const stagger = (el.value && parseFloat(getComputedStyle(el.value).getPropertyValue("--stagger-ch"))) || 40;
+  const stagger = cssDurationMs(el.value && getComputedStyle(el.value).getPropertyValue("--stagger-ch"), 40);
   return springCss("pop").duration + stagger * Math.max(0, chars.value.length - 1);
 }
 function play() {

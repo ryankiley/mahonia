@@ -138,30 +138,21 @@ export function useMenuPlacement(
     }
 
     // Same rule downward, and the same preference: below unless below doesn't fit and
-    // above does. A menu TALLER than the viewport fails both tests and stays below,
-    // which is the right answer — flipping it would only change which end is cut off,
-    // and below at least leaves its first row against the trigger you just pressed.
-    if (opts.within) {
-      const { top, bottom } = verticalBounds(anchor, edge);
-      const roomBelow = bottom - (a.bottom + gap);
-      const roomAbove = a.top - gap - top;
-      if (h <= roomBelow) {
-        above.value = false;
-        maxHeight.value = null;
-      } else if (h <= roomAbove) {
-        above.value = true;
-        maxHeight.value = null;
-      } else {
-        above.value = roomAbove > roomBelow;
-        maxHeight.value = Math.max(MIN_CAPPED_HEIGHT * scale, Math.floor(Math.max(roomAbove, roomBelow)));
-      }
-      return;
-    }
-
-    const belowBottom = a.bottom + ANCHOR_GAP + h;
-    const aboveTop = a.top - ANCHOR_GAP - h;
-    above.value =
-      belowBottom > window.innerHeight - EDGE_PADDING && aboveTop >= EDGE_PADDING;
+    // above does. ONE fit test for both kinds of menu, measured against the window or
+    // (`within`) the card that clips it: it was written out once for each, and only one
+    // of the two copies learned the type scale.
+    const { top, bottom } = opts.within ? verticalBounds(anchor, edge) : { top: edge, bottom: window.innerHeight - edge };
+    const roomBelow = bottom - (a.bottom + gap);
+    const roomAbove = a.top - gap - top;
+    // Neither side holds it. A `within` menu takes the roomier side and is capped to
+    // that room. Any other stays below at its own height, which is the right answer for
+    // a menu TALLER than the viewport: flipping it would only change which end is cut
+    // off, and below at least leaves its first row against the trigger you just pressed.
+    const capped = !!opts.within && h > roomBelow && h > roomAbove;
+    above.value = capped ? roomAbove > roomBelow : h > roomBelow && h <= roomAbove;
+    maxHeight.value = capped
+      ? Math.max(MIN_CAPPED_HEIGHT * scale, Math.floor(Math.max(roomAbove, roomBelow)))
+      : null;
   }
 
   return { atStart, above, shift, maxHeight, place };

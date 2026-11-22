@@ -60,6 +60,20 @@ export function springTiming(sp: Spring, v = 0, px = 100): { duration: number; e
 export function springCss(name: SpringName): { easing: string; duration: number } {
   const cs = typeof document === "undefined" ? null : getComputedStyle(document.documentElement);
   const easing = cs?.getPropertyValue(`--spring-${name}`).trim() || "ease-out";
-  const duration = parseFloat(cs?.getPropertyValue(`--spring-${name}-dur`) ?? "") || SPRINGS[name][0] * 1.5;
+  const duration = cssDurationMs(cs?.getPropertyValue(`--spring-${name}-dur`), SPRINGS[name][0] * 1.5);
   return { easing, duration };
+}
+
+/**
+ * A CSS time as milliseconds, by its unit. The tokens are written in ms, but a
+ * production build's minifier ships `390ms` as the shorter `.39s`, and a bare parseFloat
+ * read that as 0.39 ms: every JS-timed spring ran in under a millisecond, on the live
+ * site only. Anything that isn't a positive time with a unit (an empty read, a zero)
+ * answers `fallback`.
+ */
+export function cssDurationMs(raw: string | null | undefined, fallback: number): number {
+  const m = /^\s*(\d*\.?\d+)(ms|s)\s*$/i.exec(raw ?? "");
+  if (!m) return fallback;
+  const ms = parseFloat(m[1]!) * (m[2]!.toLowerCase() === "s" ? 1000 : 1);
+  return ms || fallback;
 }
