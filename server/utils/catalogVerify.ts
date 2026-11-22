@@ -11,7 +11,7 @@
 // puts the row back as it was (or retires a product the verification added), and the
 // corrections path leaves a verified-in-app row's weight alone (proposeCorrection).
 
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, sql, type SQL } from "drizzle-orm";
 import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
 import { categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged } from "../../shared/catalogQuality";
 import { isCatalogId, MAX_BRAND_LEN, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
@@ -127,20 +127,30 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
   const label = typedLabel ? spelledAs(typedLabel, await catalogGearTypes(db)) : null;
   const verified = { weightMg, weightSource: source as string, sourceUrl, sourceQuote: quote || null, verified: true, verifiedBy: userId, updatedAt: new Date() };
 
+  // The edit history and the row are written in ONE statement (the edit as a data-modifying
+  // CTE), so neither lands without the other: an "applied" edit for a change that never
+  // happened would hand the admin revert a weight to restore that the row never left.
   if (fresh) {
     try {
-      const [row] = await db
-        .insert(catalogItems)
-        .values({
-          ...fresh,
-          categoryHint: kind,
-          commonName: label,
-          searchTerms: normKey(label) || null,
-          status: "active",
-          ...verified,
-        })
-        .returning();
-      await recordEdit(db, row!.id, weightMg, weightMg, sourceUrl, notes || "Added and verified by an admin", { status: "removed" });
+      const added = db.$with("added").as(
+        db
+          .insert(catalogItems)
+          .values({
+            ...fresh,
+            categoryHint: kind,
+            commonName: label,
+            searchTerms: normKey(label) || null,
+            status: "active",
+            ...verified,
+          })
+          .returning(),
+      );
+      const [edit] = await db
+        .with(added)
+        .insert(catalogEdits)
+        .values(editRow(sql`(select ${sql.identifier("id")} from ${sql.identifier("added")})`, weightMg, weightMg, sourceUrl, notes || "Added and verified by an admin", { status: "removed" }))
+        .returning({ catalogItemId: catalogEdits.catalogItemId });
+      const [row] = await db.select().from(catalogItems).where(eq(catalogItems.id, edit!.catalogItemId)).limit(1);
       return { row: row!, created: true };
     } catch (e) {
       // the identity index: the same product added a moment ago
@@ -150,8 +160,8 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
   }
 
   const row = current!;
-  // the edit history first, as a correction writes it, with what the update below replaces:
-  // the admin revert puts all of it back, not the weight alone
+  // what the update replaces, kept on the edit: the admin revert puts all of it back,
+  // not the weight alone
   const undo: CatalogEditUndo = {
     weightSource: row.weightSource,
     sourceUrl: row.sourceUrl,
@@ -165,8 +175,11 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
     mergedIntoId: row.mergedIntoId,
   };
   const reason = notes || (source === "measured" ? "Verified: weighed by an admin" : "Verified against the maker's published weight");
-  await recordEdit(db, row.id, Number(row.weightMg), weightMg, sourceUrl, reason, undo);
+  const edit = db.$with("edit").as(
+    db.insert(catalogEdits).values(editRow(row.id, Number(row.weightMg), weightMg, sourceUrl, reason, undo)).returning({ id: catalogEdits.id }),
+  );
   const [updated] = await db
+    .with(edit)
     .update(catalogItems)
     .set({
       ...verified,
@@ -183,6 +196,6 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
 
 /** One line of the catalog's edit history (catalog_edits), applied: where a verification's
  *  date, source and notes are kept, and what the admin revert reads and undoes. */
-async function recordEdit(db: Db, catalogItemId: number, oldWeightMg: number, newWeightMg: number, sourceUrl: string | null, reason: string, undo: CatalogEditUndo): Promise<void> {
-  await db.insert(catalogEdits).values({ catalogItemId, oldWeightMg, newWeightMg, sourceUrl, reason, status: "applied", undo });
+function editRow(catalogItemId: number | SQL, oldWeightMg: number, newWeightMg: number, sourceUrl: string | null, reason: string, undo: CatalogEditUndo) {
+  return { catalogItemId, oldWeightMg, newWeightMg, sourceUrl, reason, status: "applied", undo };
 }

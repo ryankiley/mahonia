@@ -33,6 +33,9 @@ export function gramsInQuote(q: string): number[] {
 
 const OZ_G = 28.349523125;
 const LB_G = 453.59237;
+/** One imperial figure: "19", "2.1", or ".60" whole, never the "60" of ".60" (which
+ *  read as 60 oz, 1.7 kg, and backed a weight the quote doesn't state). */
+const NUM = String.raw`(?<![\d.])(\d*\.\d+|\d+)`;
 
 /** Every weight a quote states, in grams: its metric figures (gramsInQuote) and its
  *  imperial ones, "1 lb 3 oz" read as one figure and a lone "19 oz" or "2.1 lbs" as
@@ -40,12 +43,12 @@ const LB_G = 453.59237;
  *  gives ounces alone. */
 export function weightsInQuote(q: string): number[] {
   const out = gramsInQuote(q);
-  const rest = q.replace(/(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)\.?,?\s*(\d+(?:\.\d+)?)\s*(?:oz|ounces?)\b/gi, (_, lb: string, oz: string) => {
+  const rest = q.replace(new RegExp(`${NUM}\\s*(?:lbs?|pounds?)\\.?,?\\s*${NUM}\\s*(?:oz|ounces?)\\b`, "gi"), (_, lb: string, oz: string) => {
     out.push(parseFloat(lb) * LB_G + parseFloat(oz) * OZ_G);
     return " ";
   });
-  for (const m of rest.matchAll(/(\d+(?:\.\d+)?)\s*(?:oz|ounces?)\b/gi)) out.push(parseFloat(m[1]!) * OZ_G);
-  for (const m of rest.matchAll(/(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)\b/gi)) out.push(parseFloat(m[1]!) * LB_G);
+  for (const m of rest.matchAll(new RegExp(`${NUM}\\s*(?:oz|ounces?)\\b`, "gi"))) out.push(parseFloat(m[1]!) * OZ_G);
+  for (const m of rest.matchAll(new RegExp(`${NUM}\\s*(?:lbs?|pounds?)\\b`, "gi"))) out.push(parseFloat(m[1]!) * LB_G);
   return out;
 }
 

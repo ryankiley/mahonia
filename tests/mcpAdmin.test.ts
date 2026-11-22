@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import mcp from "../server/routes/mcp.post";
@@ -49,6 +49,7 @@ async function verify(args: Record<string, unknown>) {
 
 let db: TestDb;
 let admin = 0;
+let otherId = 0;
 let adminWrite = "";
 let adminRead = "";
 let otherWrite = "";
@@ -68,6 +69,7 @@ beforeAll(async () => {
   merged = (await seedCatalogRow(db, { brand: "Zpacks", name: "Duplex (2019)", status: "merged", mergedIntoId: duplex })).id;
   const [ryan, other] = (await db.insert(schema.users).values([{ email: "admin@example.com" }, { email: "other@example.com" }]).returning()).map((u) => u.id);
   admin = ryan!;
+  otherId = other!;
   adminWrite = (await mintAccessToken(db, admin, { scope: "write", unproven: false }))!.token;
   adminRead = (await mintAccessToken(db, admin, { scope: "read", unproven: false }))!.token;
   otherWrite = (await mintAccessToken(db, other!, { scope: "write", unproven: false }))!.token;
@@ -95,8 +97,20 @@ describe("who sees it and who can call it", () => {
     expect((await catalogRow(db, community)).verified).toBe(false);
   });
 
-  it("asks a dead bearer to sign in again, and a read-only admin to reconnect", async () => {
-    expect((await call({ catalog_id: community, weight_g: 1022 }, NEVER_MINTED)).status).toBe(401);
+  it("asks only an admin's lapsed token to sign in again, and a read-only admin to reconnect", async () => {
+    const lapsed = async (userId: number) => {
+      const minted = (await mintAccessToken(db, userId, { scope: "write", unproven: false }))!;
+      await db.update(schema.accessTokens).set({ expiresAt: new Date(Date.now() - 60_000) }).where(eq(schema.accessTokens.id, minted.id));
+      return minted.token;
+    };
+    // the admin's client refreshes on the 401
+    expect((await call({ catalog_id: community, weight_g: 1022 }, await lapsed(admin))).status).toBe(401);
+    // a made-up bearer, or anyone else's lapsed one, learns nothing about the tool
+    for (const token of [NEVER_MINTED, await lapsed(otherId)]) {
+      const { status, reply } = await call({ catalog_id: community, weight_g: 1022 }, token);
+      expect(status).toBe(200);
+      expect(reply.error).toEqual({ code: -32602, message: `Unknown tool: ${TOOL}` });
+    }
     expect((await call({ catalog_id: community, weight_g: 1022 }, adminRead)).status).toBe(403);
   });
 
@@ -249,6 +263,19 @@ describe("undoing a verification, and corrections after one", () => {
     await db.update(schema.catalogItems).set({ verifiedBy: null, sourceQuote: null, weightSource: "manufacturer" }).where(eq(schema.catalogItems.id, row.id));
     expect((await revertEdit(db, (await lastEdit(row.id)).id)).status).toBe("rejected");
     expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 940_000, verified: true, verifiedBy: null });
+  });
+
+  it("writes the row and its edit together or not at all", async () => {
+    const row = await seedCatalogRow(db, { brand: "Sawyer", name: "Squeeze", categoryHint: "water", weightMg: 85_000 });
+    // the row's update fails after the edit is written, as a dropped connection would
+    await db.execute(sql`ALTER TABLE catalog_items ADD CONSTRAINT no_88 CHECK (weight_mg <> 88000)`);
+    try {
+      await call({ catalog_id: row.id, weight_g: 88, weight_source: "measured" }, adminWrite);
+    } finally {
+      await db.execute(sql`ALTER TABLE catalog_items DROP CONSTRAINT no_88`);
+    }
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 85_000, verified: false, verifiedBy: null });
+    expect(await db.select().from(schema.catalogEdits).where(eq(schema.catalogEdits.catalogItemId, row.id))).toEqual([]);
   });
 
   it("holds a cited correction to a verified-in-app row for review", async () => {

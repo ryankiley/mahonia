@@ -7,10 +7,10 @@ import { and, eq, isNotNull } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
 import type { Db } from "../server/utils/db";
 import { RESEARCH_DIR } from "./paths";
-import type { ResearchRow } from "./research";
+import { GRADUATED_FILE_NAME, type ResearchRow } from "./research";
 import { identity } from "./seedUpsert";
 
-export const GRADUATE_FILE = join(RESEARCH_DIR, "verified-in-app.json");
+export const GRADUATE_FILE = join(RESEARCH_DIR, GRADUATED_FILE_NAME);
 
 type Row = typeof catalogItems.$inferSelect;
 

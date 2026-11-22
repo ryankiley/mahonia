@@ -27,6 +27,17 @@ describe("catalog:graduate", () => {
     expect(errors).toEqual([]);
   });
 
+  it("holds a graduated row's quote to the tool's reading, ounces included", () => {
+    // taken on its ounces (567 g = 1 lb 4 oz); the 500 g is another thing on the page
+    const row = { brand: "Gossamer Gear", name: "The Two", variant: null, category_hint: "shelter", common_name: "Tent", weight_value: 567, weight_unit: "g" as const, weight_source: "manufacturer", source_url: "https://gossamergear.com/the-two", quote: "Packed weight 1 lb 4 oz; fits a 500 g canister" };
+    const quoteErrors = (file: string, r: typeof row) => runResearchChecks([{ file, rows: [r] }]).filter((f) => f.code === "quote");
+    expect(quoteErrors("verified-in-app.json", row)).toEqual([]);
+    // an ounce figure that doesn't back the weight fails the graduated row too
+    expect(quoteErrors("verified-in-app.json", { ...row, quote: "Packed weight 23 oz" })).toHaveLength(1);
+    // the hand research keeps its metric read
+    expect(quoteErrors("shelters.json", row)).toHaveLength(1);
+  });
+
   it("replaces a row's earlier copy and keeps the rest", () => {
     const before = [{ brand: "Durston", name: "X-Mid 2", variant: null, weight_value: 1000 }, { brand: "Toaks", name: "Pot", variant: null, weight_value: 90 }];
     const merged = mergeResearch(before, [{ brand: "Durston", name: "X-Mid 2", variant: null, weight_value: 1022 }]);
