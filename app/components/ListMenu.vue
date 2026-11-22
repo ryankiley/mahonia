@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { IconChevronDownMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { mergeSwitcherRows } from "~~/shared/switcher";
 
 // The editor's list switcher: a word in the toolbar that opens a filterable menu
@@ -141,12 +141,11 @@ watch(open, (o) => {
       <!-- "Your", because a bare count here read as a fact about the list you're on
            ("1 pack") rather than the lists you have -->
       Your packs
-      <HugeiconsIcon
-        :icon="ChevronDownIcon"
+      <SvgIcon
+        :icon="IconChevronDownMedium"
         class="chev"
         :class="{ 'is-open': open }"
-        :size="14"
-        :stroke-width="2"
+        size="sm"
         aria-hidden="true"
       />
     </button>

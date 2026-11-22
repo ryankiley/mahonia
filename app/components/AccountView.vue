@@ -10,10 +10,10 @@
 // and has two — VaultPane and /gear, ~470 lines of template between them, with a
 // comment in the page admitting its prompt is copied "WORD FOR WORD" from the pane.
 // Signing in and deleting an account are worse things to keep in sync by hand.
+import { IconChevronDownMedium, IconClaudeai, IconCursor, IconEyeOpen, IconKey1, IconOpenai, IconPencil2, IconSquareBehindSquare1 } from "~/icons/central";
 import { counted } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChatGptIcon, ChevronDownIcon, ClaudeIcon, Copy01Icon, CubeIcon, Edit02Icon, Key01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import type { IconNode } from "~/utils/hugeicon";
+import { SvgIcon } from "~/utils/icon";
+import type { IconNode } from "~/utils/icon";
 import type { AccessScope, AccessTokenSummary, PasskeySummary } from "~~/shared/types";
 
 // In the MODAL you are already where you want to be, so finishing means closing and
@@ -256,8 +256,8 @@ const freshToken = ref("");
 // the picker's rows; the key is the word the endpoint takes, the label is ours, and the
 // marks are the share panel's for a read-only and an edit link
 const SCOPES: readonly { key: AccessScope; label: string; icon: IconNode }[] = [
-  { key: "read", label: "Read only", icon: ViewIcon },
-  { key: "write", label: "Read and change", icon: Edit02Icon },
+  { key: "read", label: "Read only", icon: IconEyeOpen },
+  { key: "write", label: "Read and change", icon: IconPencil2 },
 ];
 const scopeName = (scope: AccessScope) => SCOPES.find((s) => s.key === scope)!.label.toLowerCase();
 const mcpUrl = `${useSiteOrigin()}/mcp`;
@@ -487,7 +487,7 @@ async function onSignOut() {
             :disabled="signingIn"
             @click="signInWithPasskey"
           >
-            <HugeiconsIcon :icon="Key01Icon" :size="16" :stroke-width="2" />
+            <SvgIcon :icon="IconKey1" />
             {{ signingIn ? "Waiting for your device…" : "Sign in with a passkey" }}
           </button>
           <p v-if="signinNote" class="t-sm acct__note">{{ signinNote }}</p>
@@ -541,7 +541,7 @@ async function onSignOut() {
                 class="btn btn--primary"
                 :disabled="creating || !signupEmail.trim() || !canPasskey"
               >
-                <HugeiconsIcon :icon="Key01Icon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconKey1" />
                 {{ creating ? "Waiting for your device…" : "Create account with a passkey" }}
               </button>
             </form>
@@ -588,7 +588,7 @@ async function onSignOut() {
             <div class="acct__sectionhead">
               <h2 class="t-label acct__label">Passkeys</h2>
               <button type="button" class="btn btn--quiet acct__add" :disabled="pkBusy" @click="addPasskey">
-                <HugeiconsIcon :icon="Key01Icon" :size="14" aria-hidden="true" :stroke-width="2" /> Add
+                <SvgIcon :icon="IconKey1" size="sm" aria-hidden="true" /> Add
               </button>
             </div>
             <ul v-if="passkeys.length" class="acct__list">
@@ -612,17 +612,17 @@ async function onSignOut() {
             <!-- each client's own mark on its button; Cursor's is the cube its logo is drawn as -->
             <div class="acct__clients">
               <a :href="addToClaude" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
-                <HugeiconsIcon :icon="ClaudeIcon" :size="16" :stroke-width="2" aria-hidden="true" /> Add to Claude
+                <SvgIcon :icon="IconClaudeai" aria-hidden="true" /> Add to Claude
               </a>
               <!-- the copy runs inside the click, before the link opens the settings page -->
               <a :href="chatGptConnectors" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn" @click="copyForChatGpt">
-                <HugeiconsIcon :icon="ChatGptIcon" :size="16" :stroke-width="2" aria-hidden="true" /> ChatGPT
+                <SvgIcon :icon="IconOpenai" aria-hidden="true" /> ChatGPT
               </a>
               <a :href="addToCursor" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn">
-                <HugeiconsIcon :icon="CubeIcon" :size="16" :stroke-width="2" aria-hidden="true" /> Cursor
+                <SvgIcon :icon="IconCursor" aria-hidden="true" /> Cursor
               </a>
               <button type="button" class="btn btn--ghost acct__btn" @click="copy(mcpUrl, 'Address copied.')">
-                <HugeiconsIcon :icon="Copy01Icon" :size="16" :stroke-width="2" aria-hidden="true" /> Copy address
+                <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" /> Copy address
               </button>
             </div>
             <p class="t-sm t-muted">Any other MCP client takes the address. Each one asks you to sign in here the first time.</p>
@@ -658,7 +658,7 @@ async function onSignOut() {
               >
                 <template #trigger="{ active, open }">
                   <span>{{ active?.label }}</span>
-                  <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+                  <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
                 </template>
               </OptionMenu>
               <button type="submit" class="btn btn--ghost acct__btn" :disabled="tokenBusy">

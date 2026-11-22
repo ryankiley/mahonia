@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CheckmarkSquare02Icon, SquareIcon } from "@hugeicons/core-free-icons";
+import { IconFormSquare, IconSquareCheck } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 // The single mount point for the app-wide confirm + copy-link-fallback dialogs
 // (state in useDialogs). Rendered once in app.vue so every page — including the
 // layout-less editor — shares one instance. Both reuse BaseModal (scrim, rise,
@@ -26,8 +26,8 @@ watch(
       <label v-if="confirmState.checkboxLabel" class="dlg__opt">
         <span class="check">
           <input v-model="confirmState.checked" type="checkbox" class="check__box" />
-          <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-          <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+          <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" size="lg" aria-hidden="true" />
+          <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" size="lg" aria-hidden="true" />
         </span>
         <span class="dlg__opttext">
           {{ confirmState.checkboxLabel }}

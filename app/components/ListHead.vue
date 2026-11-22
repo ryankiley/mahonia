@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, InternetIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import { IconCalendarDays, IconChevronDownMedium, IconGlobe2, IconMapPin, IconPencil2, IconQuestionmarkCircle, IconSquareBehindSquare1, IconTrashCan } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
 import {
   distanceFieldValue,
@@ -423,11 +423,9 @@ onClickOutside(trailEl, closeTrail);
         @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
         @change="commitTitle"
       />
-      <HugeiconsIcon
-        :icon="Edit02Icon"
+      <SvgIcon
+        :icon="IconPencil2"
         class="head__pencil"
-        :size="16"
-        :stroke-width="2"
         aria-hidden="true"
       />
     </div>
@@ -460,7 +458,7 @@ onClickOutside(trailEl, closeTrail);
         <!-- a PIN, not the globe: this affordance is about the place you're going.
              The two globes below are different — they're the fallback mark for a site
              with no favicon, standing in for "a website", which a pin would misstate. -->
-        <HugeiconsIcon :icon="Location01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+        <SvgIcon :icon="IconMapPin" aria-hidden="true" />
         <!-- A distance with no link reads in the slot, as a set date does beside it: a
              fact rather than an invitation, and still the way into the panel (where the
              link can be added and the distance changed or cleared). -->
@@ -491,10 +489,10 @@ onClickOutside(trailEl, closeTrail);
             class="head__icon"
             :src="icon"
             alt=""
-            width="16"
-            height="16"
+            width="18"
+            height="18"
           />
-          <HugeiconsIcon :icon="InternetIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconGlobe2" v-else class="head__icon head__icon--fallback" aria-hidden="true" />
           <span class="t-clip">{{ link.name }}</span>
           <!-- The one fact about the route that isn't in its name. Muted and after the
                name, so it reads as a detail OF the trail rather than a second link;
@@ -516,7 +514,7 @@ onClickOutside(trailEl, closeTrail);
             width="14"
             height="14"
           />
-          <HugeiconsIcon :icon="InternetIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconGlobe2" v-else class="head__cardicon head__icon--fallback" size="sm" aria-hidden="true" />
           <a
             class="head__cardurl t-clip ink-quiet"
             :href="link.href"
@@ -529,13 +527,12 @@ onClickOutside(trailEl, closeTrail);
             aria-label="Copy link"
             @click="copyLink"
           >
-            <!-- 14, tracking the card's own type: a glyph sits at the size of the text
-                 beside it, 1:1. 16 is the size for marks beside 16px text (the link row)
-                 and reads oversized in here. The stroke drops below the house's 2 as
-                 well — at 14 a 2-weight outline carries more ink than the words it sits
-                 among, so it stops reading as their equal. 1.75 and not 1.5: the lighter
-                 stroke went spindly, and this is the smallest step back that matches. -->
-            <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="1.75" aria-hidden="true" />
+            <!-- sm, tracking the card's own 14px type; md is for marks beside 16px text (the
+                 link row) and reads oversized in here. The line drops a step below sm's
+                 1.25px as well: among these words a fuller outline carries more ink than
+                 they do and stops reading as their equal. 1px is what the old tuning drew
+                 (1.75 on the 24 grid at 14px); lighter still went spindly. -->
+            <SvgIcon :icon="IconSquareBehindSquare1" size="sm" :stroke-width="1" aria-hidden="true" />
           </button>
           <!-- no Remove here: removal lives one level in, behind Edit (the fields row
                below carries it). Keeping a destructive action out of a surface that
@@ -566,7 +563,7 @@ onClickOutside(trailEl, closeTrail);
           :aria-expanded="datesOpen"
           @click="datesOpen ? closeDates() : openDates()"
         >
-          <HugeiconsIcon :icon="Calendar03Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconCalendarDays" aria-hidden="true" />
           {{ dateLabel || "Add dates" }}
         </button>
         <Transition name="menu">
@@ -657,7 +654,7 @@ onClickOutside(trailEl, closeTrail);
               preferred-placement="bottom"
             >
               <button type="button" class="head__gpxwhy ink-quiet" aria-label="Which map files can be read">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
           </p>
@@ -729,12 +726,11 @@ onClickOutside(trailEl, closeTrail);
                 <span class="t-sm t-muted">{{ distanceUnit }}</span>
                 <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
                      total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
-                <HugeiconsIcon
-                  :icon="ChevronDownIcon"
+                <SvgIcon
+                  :icon="IconChevronDownMedium"
                   class="chev"
                   :class="{ 'is-open': open }"
-                  :size="12"
-                  :stroke-width="2"
+                  size="xs"
                   aria-hidden="true"
                 />
               </template>
@@ -743,7 +739,7 @@ onClickOutside(trailEl, closeTrail);
           <template v-if="mode === 'edit'">
             <hr class="head__paneldiv" />
             <button type="button" class="menu__item head__panelremove" @click="remove">
-              <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" aria-hidden="true" />
+              <SvgIcon :icon="IconTrashCan" aria-hidden="true" />
               Remove link
             </button>
           </template>
@@ -793,7 +789,7 @@ onClickOutside(trailEl, closeTrail);
                             + half-leading (1.2 - 0.969 - 0.219) / 2 = 0.006em
                             + ascent 0.969em
                             - half the cap height 0.352em      = 0.62em to the centre
-                            - half the 16px glyph
+                            - half the 18px glyph
      em can't be used directly (it would resolve against this SVG's inherited 16px,
      not the title's 32px), so the title's own token is multiplied explicitly. */
   margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - var(--icon) / 2);

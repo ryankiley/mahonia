@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CheckmarkSquare02Icon, SquareIcon } from "@hugeicons/core-free-icons";
+import { IconFormSquare, IconSquareCheck } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
 import type { VaultCapture } from "~~/shared/vault";
 import { formatWeightAuto, groupBy, itemDisplayName, unitSystem } from "~~/shared/weights";
@@ -83,8 +83,8 @@ const groups = computed(() =>
                 :aria-label="`Add ${itemDisplayName(c.brand, c.name, c.variant)} to My Gear`"
                 @change="toggle(c.normKey)"
               />
-              <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-              <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+              <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" size="lg" aria-hidden="true" />
+              <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" size="lg" aria-hidden="true" />
             </span>
             <span class="vpick__name">{{ itemDisplayName(c.brand, c.name, c.variant) }}</span>
             <span class="t-sm t-muted t-num vpick__weight">{{

@@ -15,9 +15,9 @@
 // on a spork). Everything else goes without: a compass, an umbrella, a whistle. No
 // icon is better than a one-off one.
 //
-// The answer is a NAME, not a drawing: the drawings are Hugeicons glyphs and a few of
-// our own (app/utils/gearGlyphs.ts), and the server and the tests have no business
-// importing either. app/utils/gearIcons.ts turns the name into the icon.
+// The answer is a NAME, not a drawing: the drawings are Central's (app/icons/
+// central) and our own (app/icons/mahonia), and the server and the tests
+// have no business importing either. app/utils/gearIcons.ts turns the name into the icon.
 //
 // Rules run in order and the first match wins, so a narrow rule sits above the broad
 // one it would otherwise lose to: "bottle cap" before "cap", "stake bag" before

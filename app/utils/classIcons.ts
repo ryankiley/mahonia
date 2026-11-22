@@ -1,5 +1,5 @@
-import { Backpack02Icon, CookieIcon, ShirtIcon } from "@hugeicons/core-free-icons";
-import type { IconNode } from "./hugeicon";
+import { IconBackpack, IconCookies, IconFashion } from "../icons/central";
+import type { IconNode } from "./icon";
 import type { Classification } from "~~/shared/types";
 
 // What each class wears where you CHOOSE one (My Gear's Show filter, the edit dialog's
@@ -10,7 +10,7 @@ import type { Classification } from "~~/shared/types";
 // the editor's first load, so a table exported from it rides along with every list
 // opened, backpack and all, for two pickers that live on /gear.
 export const CLASS_ICONS: Record<Classification, IconNode> = {
-  base: Backpack02Icon,
-  worn: ShirtIcon,
-  consumable: CookieIcon,
+  base: IconBackpack,
+  worn: IconFashion,
+  consumable: IconCookies,
 };

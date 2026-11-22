@@ -1,0 +1,4 @@
+// Generated: a central icons glyph, outside this repo's MIT licence (see ./index.ts).
+import type { IconNode } from "../../utils/icon";
+
+export const IconAirpods: IconNode = [["path",{d:"M7 12.74V18.5C7 19.33 7.67 20 8.5 20C9.33 20 10 19.33 10 18.5L10 8.5C10 6.01 7.99 4 5.5 4C5.14 4 4.79 4.04 4.46 4.12C3.49 4.35 3 5.36 3 6.36V10.64C3 11.64 3.49 12.65 4.46 12.88C4.79 12.96 5.14 13 5.5 13C6.03 13 6.53 12.91 7 12.74ZM7 12.74V12",stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round"}],["path",{d:"M17 12.74V18.5C17 19.33 16.33 20 15.5 20C14.67 20 14 19.33 14 18.5L14 8.5C14 6.01 16.01 4 18.5 4C18.86 4 19.21 4.04 19.54 4.12C20.51 4.35 21 5.36 21 6.36V10.64C21 11.64 20.51 12.65 19.54 12.88C19.21 12.96 18.86 13 18.5 13C17.97 13 17.47 12.91 17 12.74ZM17 12.74V12",stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round"}]];

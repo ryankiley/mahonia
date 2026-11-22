@@ -1,5 +1,5 @@
-import { Csv01Icon, HashIcon, ThirdBracketIcon, Txt01Icon } from "@hugeicons/core-free-icons";
-import type { IconNode } from "~/utils/hugeicon";
+import { IconBrackets1, IconFileExcel, IconFileText, IconHashtag } from "~/icons/central";
+import type { IconNode } from "~/utils/icon";
 import type { ListSnapshot } from "~~/shared/types";
 
 export interface ExportItem {
@@ -127,10 +127,10 @@ export function useListExports(
   // also what tells a copy from a download there, now that the rows carry no trailing
   // mark.
   const exportItems: ExportItem[] = [
-    { key: "text", label: "Copy as plain text", format: "Plain text", hint: "One paragraph to paste, link included", icon: Txt01Icon, run: copyPlainText },
-    { key: "markdown", label: "Copy as Markdown", format: "Markdown", hint: "A table to paste", icon: HashIcon, run: copyMarkdown },
-    { key: "csv", label: "Download CSV", format: "CSV", hint: "Spreadsheet file", icon: Csv01Icon, run: downloadCsv },
-    { key: "json", label: "Download JSON", format: "JSON", hint: "Full backup file", icon: ThirdBracketIcon, run: downloadJson },
+    { key: "text", label: "Copy as plain text", format: "Plain text", hint: "One paragraph to paste, link included", icon: IconFileText, run: copyPlainText },
+    { key: "markdown", label: "Copy as Markdown", format: "Markdown", hint: "A table to paste", icon: IconHashtag, run: copyMarkdown },
+    { key: "csv", label: "Download CSV", format: "CSV", hint: "Spreadsheet file", icon: IconFileExcel, run: downloadCsv },
+    { key: "json", label: "Download JSON", format: "JSON", hint: "Full backup file", icon: IconBrackets1, run: downloadJson },
   ];
 
   // exportItems ONLY. The four actions were returned individually too, and after both

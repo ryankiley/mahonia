@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Delete02Icon, MinusSignIcon, PlusSignIcon, RemoveCircleIcon } from "@hugeicons/core-free-icons";
+import { IconCircleMinus, IconMinusMedium, IconPlusMedium, IconTrashCan } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, type VaultEntry, type VaultKitPart } from "~~/shared/vault";
 import type { GearGlyph } from "~~/shared/gearGlyph";
@@ -161,7 +161,7 @@ watch(
           :aria-label="`Remove ${name} from My Gear`"
           @click="emit('remove')"
         >
-          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconTrashCan" aria-hidden="true" />
         </button>
       </Tooltip>
     </template>
@@ -189,7 +189,7 @@ watch(
                   :aria-label="`One fewer ${part.name} in ${name}`"
                   @click="step(part.id, -1)"
                 >
-                  <HugeiconsIcon :icon="MinusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                  <SvgIcon :icon="IconMinusMedium" size="sm" aria-hidden="true" />
                 </button>
               </Tooltip>
               <span class="t-sm t-num kitsec__count" :aria-label="`${part.qty} in the kit`">{{ part.qty }}</span>
@@ -202,7 +202,7 @@ watch(
                   :aria-label="`One more ${part.name} in ${name}`"
                   @click="step(part.id, 1)"
                 >
-                  <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                  <SvgIcon :icon="IconPlusMedium" size="sm" aria-hidden="true" />
                 </button>
               </Tooltip>
             </span>
@@ -216,7 +216,7 @@ watch(
                 :aria-label="`Take ${part.name} out of ${name}`"
                 @click="drop(part.id)"
               >
-                <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="IconCircleMinus" aria-hidden="true" />
               </button>
             </Tooltip>
           </template>
@@ -232,7 +232,7 @@ watch(
               :aria-label="`Take ${part.name} out of ${name}`"
               @click="drop(part.id)"
             >
-              <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconCircleMinus" aria-hidden="true" />
             </button>
           </Tooltip>
         </li>
@@ -249,7 +249,7 @@ watch(
             :aria-label="`Remove ${name}'s own weight`"
             @click="send(kitPartRefs(parts), 0)"
           >
-            <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconCircleMinus" aria-hidden="true" />
           </button>
         </Tooltip>
       </li>

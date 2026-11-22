@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { IconCrossMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // A prompt carrying ONE decision, in the column after the figure it concerns.
 //
@@ -36,7 +36,7 @@ const emit = defineEmits<{ dismiss: [] }>();
         <span class="prompt__text"><slot /></span>
         <slot name="action" />
         <button type="button" class="prompt__close" :aria-label="dismissLabel" :title="dismissLabel" @click="emit('dismiss')">
-          <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
+          <SvgIcon :icon="IconCrossMedium" />
         </button>
       </div>
     </div>

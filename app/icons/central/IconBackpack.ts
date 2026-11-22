@@ -1,0 +1,4 @@
+// Generated: a central icons glyph, outside this repo's MIT licence (see ./index.ts).
+import type { IconNode } from "../../utils/icon";
+
+export const IconBackpack: IconNode = [["path",{d:"M15 11V13",stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round"}],["path",{d:"M9 11V13",stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round"}],["path",{d:"M10 17H14",stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round"}],["path",{d:"M9 5V4C9 2.9 9.9 2 11 2H13C14.1 2 15 2.9 15 4V5",stroke:"currentColor",strokeLinejoin:"round"}],["path",{d:"M18 5H6C4.9 5 4 5.9 4 7V8C4 9.66 5.34 11 7 11H17C18.66 11 20 9.66 20 8V7C20 5.9 19.1 5 18 5Z",stroke:"currentColor",strokeLinejoin:"round"}],["path",{d:"M5 10.5V18C5 19.66 6.34 21 8 21H16C17.66 21 19 19.66 19 18V10.5",stroke:"currentColor"}]];

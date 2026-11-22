@@ -168,7 +168,9 @@ prefix the PR title (`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:`) o
 ## License
 
 Code is [MIT](LICENSE). The gear catalog data under `seed/` is licensed separately — see
-[`seed/LICENSE.md`](seed/LICENSE.md).
+[`seed/LICENSE.md`](seed/LICENSE.md). The interface icons in `app/utils/centralIcons.ts` are
+[central icons](https://iconists.co/central), licensed to this project under the
+[iconists license](https://iconists.co/license) and not covered by the MIT license.
 
 Third-party notices for the libraries bundled into the client are in
 [`public/licenses.txt`](public/licenses.txt), served at `/licenses.txt`. The file exists

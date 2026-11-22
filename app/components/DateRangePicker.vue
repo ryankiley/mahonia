@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { IconChevronLeftMedium, IconChevronRightMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { isoDate, parseIsoDate } from "~~/shared/calendar";
 
 // A month grid for picking a trip's two dates.
@@ -164,7 +164,7 @@ onMounted(() => {
         aria-label="Previous month"
         @click="step(-1)"
       >
-        <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconChevronLeftMedium" />
       </button>
       <!-- polite, not assertive: the month changing is feedback on an action the
            reader just took, not an interruption -->
@@ -175,7 +175,7 @@ onMounted(() => {
         aria-label="Next month"
         @click="step(1)"
       >
-        <HugeiconsIcon :icon="ArrowRight01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconChevronRightMedium" />
       </button>
     </div>
 
