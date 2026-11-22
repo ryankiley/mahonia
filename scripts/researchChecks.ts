@@ -15,18 +15,8 @@ import { gearLabel } from "./catalogChecks";
 import { identityKey, isCitationUrl, isWeightSource, specToMg } from "./catalogCsv";
 import { researchGearType, type ResearchFile } from "./research";
 import { ATTRIBUTE_KEYS } from "../shared/catalogAxes";
-import { RANGE_G } from "../shared/catalogQuality";
+import { gramsInQuote, quoteTolerance, RANGE_G } from "../shared/catalogQuality";
 import type { Unit } from "../shared/types";
-
-/** All gram-equivalent figures mentioned in a quote (kg converted to g).
- *  Handles thousands separators ("1,790 g" is 1790, not 790). */
-function gramsInQuote(q: string): number[] {
-  const out: number[] = [];
-  const num = (s: string) => parseFloat(s.replace(/,/g, ""));
-  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*kg/gi)) out.push(num(m[1]) * 1000);
-  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*g(?![a-z])/gi)) out.push(num(m[1]));
-  return out;
-}
 
 const WORD_NUMBER: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
 
@@ -156,7 +146,7 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
       if (grams.length) {
         const nearest = grams.reduce((a, b) => (Math.abs(b - g) < Math.abs(a - g) ? b : a));
         const diff = Math.abs(g - nearest);
-        if (diff > Math.max(8, 0.05 * nearest)) {
+        if (diff > quoteTolerance(nearest)) {
           err("quote", `${where}: computed ${g.toFixed(0)} g, nearest quote figure ${nearest} g (Δ${diff.toFixed(0)} g) | grams in quote: ${grams.join(", ")} | "${(r.quote ?? "").slice(0, 90)}"`);
         }
       }

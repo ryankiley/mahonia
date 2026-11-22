@@ -145,6 +145,14 @@ export const catalogItems = pgTable(
     sourceUrl: text("source_url"), // the citation (manufacturer spec page preferred)
     productUrl: text("product_url"), // optional buy/official link, distinct from the citation
     verified: boolean("verified").notNull().default(false), // owner-curated trust
+    // The admin account that verified this row in the app (verify_catalog_item), or null.
+    // A verified row with no verifier is the seed's: the research names it, and the seed
+    // retires it when the research stops. A row with one belongs to the database, and the
+    // seed leaves it alone until the research names it and takes it over (seedUpsert.ts).
+    verifiedBy: integer("verified_by"),
+    // The maker's own words for the weight, kept from an in-app verification so
+    // `catalog:graduate` can write the row back out as research with its quote.
+    sourceQuote: text("source_quote"),
     usageCount: integer("usage_count").notNull().default(0), // ranks autocomplete
     status: text("status").notNull().default("active"), // active|merged|removed
     // Where a retired row's links now point: the row the research replaced it with

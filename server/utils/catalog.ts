@@ -100,6 +100,11 @@ export const CATALOG_DDL: string[] = [
   // kcal — cited per-unit food energy (food rows only; null elsewhere). ALTER so
   // existing tables self-migrate, same as search_terms/common_name.
   `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS kcal integer`,
+  // verified_by + source_quote — an in-app verification (verify_catalog_item): the
+  // admin account behind it, and the maker's words for the weight. Null on every
+  // seeded and community row; see schema.ts for what verified_by means to the seed.
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS verified_by integer`,
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS source_quote text`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used

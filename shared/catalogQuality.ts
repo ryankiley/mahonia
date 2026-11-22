@@ -19,6 +19,49 @@ export const RANGE_G: Record<string, [number, number]> = {
   other: [4, 1600],
 };
 
+// --- citations and ownership (the audit, the seed, verify_catalog_item) ----
+
+/** All gram-equivalent figures mentioned in a quote (kg converted to g).
+ *  Handles thousands separators ("1,790 g" is 1790, not 790). */
+export function gramsInQuote(q: string): number[] {
+  const out: number[] = [];
+  const num = (s: string) => parseFloat(s.replace(/,/g, ""));
+  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*kg/gi)) out.push(num(m[1]!) * 1000);
+  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*g(?![a-z])/gi)) out.push(num(m[1]!));
+  return out;
+}
+
+const OZ_G = 28.349523125;
+const LB_G = 453.59237;
+
+/** Every weight a quote states, in grams: its metric figures (gramsInQuote) and its
+ *  imperial ones, "1 lb 3 oz" read as one figure and a lone "19 oz" or "2.1 lbs" as
+ *  their own. What verify_catalog_item holds a quote to, since a US maker's page often
+ *  gives ounces alone. */
+export function weightsInQuote(q: string): number[] {
+  const out = gramsInQuote(q);
+  const rest = q.replace(/(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)\.?,?\s*(\d+(?:\.\d+)?)\s*(?:oz|ounces?)\b/gi, (_, lb: string, oz: string) => {
+    out.push(parseFloat(lb) * LB_G + parseFloat(oz) * OZ_G);
+    return " ";
+  });
+  for (const m of rest.matchAll(/(\d+(?:\.\d+)?)\s*(?:oz|ounces?)\b/gi)) out.push(parseFloat(m[1]!) * OZ_G);
+  for (const m of rest.matchAll(/(\d+(?:\.\d+)?)\s*(?:lbs?|pounds?)\b/gi)) out.push(parseFloat(m[1]!) * LB_G);
+  return out;
+}
+
+/** How far a quoted figure may sit from the weight it backs: 8 g or 5%, whichever is
+ *  more. The research audit's tolerance, so a rounded ounce figure still agrees. */
+export const quoteTolerance = (grams: number) => Math.max(8, 0.05 * grams);
+
+/** Whether a quote states this weight: some figure in it within quoteTolerance. */
+export const quoteBacksWeight = (quote: string, grams: number) =>
+  weightsInQuote(quote).some((f) => Math.abs(f - grams) <= quoteTolerance(f));
+
+/** A row the seed owns: verified, and not by an admin in the app. Only these may be
+ *  renamed or retired for the CSV not naming them; a community row and an in-app
+ *  verified one (verified_by set) belong to the database. */
+export const seedManaged = (r: { verified: boolean; verifiedBy: number | null }) => r.verified && r.verifiedBy == null;
+
 // --- community intake (Phase 3) -------------------------------------------
 
 /** Normalize a string to a comparison key — the ONE search fold (shared/searchText),

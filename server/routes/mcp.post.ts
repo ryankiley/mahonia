@@ -1,7 +1,8 @@
 import { defineEventHandler, getHeader, readRawBody, send, setHeader, setResponseStatus, type H3Event } from "h3";
-import { BUDGET_WAIT, MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, MCP_TOOLS, accountUse, callTool, isKnownTool, toolFailure } from "../utils/mcp";
+import { BUDGET_WAIT, MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, accountUse, callTool, isAdminTool, isKnownTool, mcpToolsFor, toolFailure } from "../utils/mcp";
 import { setNoIndex, setNoStore } from "../utils/http";
 import { APP_ACCESS_PREFIX, connectorToken, resolveBearer } from "../utils/accessTokens";
+import { isAdmin } from "../utils/admin";
 import { useAccountDb } from "../utils/db";
 import { bearerChallenge } from "../utils/oauth";
 import { trustedOrigin } from "../utils/origin";
@@ -167,10 +168,17 @@ export default defineEventHandler(async (event) => {
   // the registry): resolved once here and left on the event. The gate is the scope
   // an account tool names; create_list only uses an account when there is one.
   const use = msg.method === "tools/call" && typeof params.name === "string" ? accountUse(params.name, args) : undefined;
+  // An admin tool (verify_catalog_item) is no tool at all to anyone but an admin: a call
+  // with no bearer, or a bearer that isn't an admin's, gets the answer a name that
+  // doesn't exist gets. A dead bearer still gets the 401 below, so an admin's client
+  // refreshes its token as it would for any account tool.
+  const adminTool = msg.method === "tools/call" && isAdminTool(params.name);
+  const unknownTool = () => error(id, -32602, `Unknown tool: ${String(params.name ?? "")}`);
   if (use) {
     // Whether a bearer of ours was carried at all is the difference between "sign in"
     // and "sign in again"; the database is touched only when there is one to look up.
     const bearer = connectorToken(event);
+    if (adminTool && !bearer) return unknownTool();
     let identity: Awaited<ReturnType<typeof resolveBearer>> = null;
     if (bearer) {
       // a database fault here would otherwise leave as the framework's 500 page, which
@@ -192,6 +200,7 @@ export default defineEventHandler(async (event) => {
     if (!identity && (use !== "optional" || refreshable)) {
       return bearerChallenge(event, 401, bearer ? "That token no longer opens an account; sign in to Mahonia again." : "Sign in to Mahonia to reach your lists and My Gear.");
     }
+    if (adminTool && !isAdmin(identity?.userId)) return unknownTool();
     if (use === "write" && identity?.scope !== "write") {
       return bearerChallenge(event, 403, "This connection can only read. To change your gear or your lists, connect Mahonia again and allow read-and-change access.");
     }
@@ -213,15 +222,28 @@ export default defineEventHandler(async (event) => {
       // one page, always: six tools fit without a cursor, and a cursor that arrives anyway
       // names a page this server never handed out
       if (params.cursor != null) return error(id, -32602, "Invalid cursor");
-      return result(id, { tools: MCP_TOOLS });
+      return result(id, { tools: mcpToolsFor(await listingAccount(event)) });
     case "tools/call": {
-      if (!isKnownTool(params.name)) return error(id, -32602, `Unknown tool: ${String(params.name ?? "")}`);
+      if (!isKnownTool(params.name)) return unknownTool();
       return result(id, await runTool(event, params.name, args));
     }
     default:
       return error(id, -32601, "Method not found");
   }
 });
+
+/** The account a tools/list is answered for, by its bearer: only an admin's list differs
+ *  (mcpToolsFor), so no bearer, a dead one, or an account database that doesn't answer
+ *  all get the public list rather than an error. */
+async function listingAccount(event: H3Event): Promise<number | undefined> {
+  const bearer = connectorToken(event);
+  if (!bearer) return undefined;
+  try {
+    return (await resolveBearer(await useAccountDb(), bearer))?.userId;
+  } catch {
+    return undefined;
+  }
+}
 
 /** the promise, or a rejection once `ms` pass without an answer */
 function withinMs<T>(work: Promise<T>, ms: number): Promise<T> {

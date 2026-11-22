@@ -48,7 +48,9 @@ import { gearFamilyLabel } from "../../shared/gearGlyph";
 import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, lineMg, nextSortOrder, siblingItems } from "../../shared/weights";
 import { isWaterName, waterMgFromMl } from "../../shared/water";
 import type { ConnectorIdentity } from "./accessTokens";
+import { isAdmin } from "./admin";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
+import { CATEGORIES, VERIFY_SOURCES, verifyCatalogItem } from "./catalogVerify";
 import { claimLists, claimedEditHash, listClaimedLists } from "./claimRepo";
 import { useAccountDb, useCatalogDb, useVaultDb, type Db } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
@@ -644,6 +646,9 @@ type RegisteredMcpTool = McpTool & {
    *  rule that answers from the call's arguments. The route reads this before dispatch
    *  (mcp.post.ts); unset means the tool never looks. */
   account?: AccessScope | "optional" | ((args: Record<string, unknown>) => AccessScope | "optional" | undefined);
+  /** listed for, and callable by, an admin account only (isAdmin); to anyone else the
+   *  route answers it as a tool that doesn't exist */
+  admin?: true;
 };
 
 const READ = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false };
@@ -847,11 +852,45 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     account: "write",
     run: editGear,
   },
+  {
+    name: "verify_catalog_item",
+    title: "Verify a catalog row",
+    description:
+      "Admin only. Marks a catalog row verified with the maker's published weight or the person's own scale weight, live at once. By catalog_id for a row search_catalog found (a community row), or by brand, name, variant and gear_type for a product the catalog doesn't have; a new product that looks like a row already there is refused with that row's id. manufacturer, the default, needs source_url and quote, the maker's own line with the weight, which must state weight_g. measured is a weight from the person's scale; say so in notes. A weight outside its kind of gear's usual range is refused: send outside_range_ok only after the person confirms the number.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        catalog_id: { type: "integer", minimum: 1, maximum: MAX_CATALOG_ID, description: "The row to verify, from search_catalog." },
+        brand: { type: "string", description: "A new product: its maker." },
+        name: { type: "string", description: "A new product: its name without brand or variant." },
+        variant: { type: "string", description: "A new product: the size or version, where it changes the weight." },
+        gear_type: { type: "string", description: "What it is (\"Tent\", \"Rain jacket\"). Needed for a new product; on a row, replaces its gear type." },
+        category: { type: "string", enum: CATEGORIES, description: "The kind of gear, for the weight range. Read from gear_type when not given." },
+        weight_g: { type: "number", exclusiveMinimum: 0, description: "Weight of one unit in grams." },
+        weight_source: { type: "string", enum: [...VERIFY_SOURCES], description: "manufacturer (default) or measured." },
+        source_url: { type: "string", description: "The maker's page with the weight. Needed for manufacturer." },
+        quote: { type: "string", description: "The maker's line that states the weight, word for word. Needed for manufacturer." },
+        outside_range_ok: { type: "boolean", description: "The person has confirmed a weight outside the usual range." },
+        notes: { type: "string", description: "Anything worth keeping with the verification." },
+      },
+      required: ["weight_g"],
+    },
+    annotations: EDIT,
+    account: "write",
+    admin: true,
+    run: verifyCatalog,
+  },
 ];
 
 /** Public protocol metadata. Handlers and the account rule stay server-only and never
  *  reach tools/list. */
-export const MCP_TOOLS: McpTool[] = MCP_TOOL_REGISTRY.map(({ run: _run, account: _account, ...tool }) => tool);
+const listed = (tools: RegisteredMcpTool[]): McpTool[] => tools.map(({ run: _run, account: _account, admin: _admin, ...tool }) => tool);
+/** What tools/list shows everyone: every tool but the admin ones. */
+export const MCP_TOOLS: McpTool[] = listed(MCP_TOOL_REGISTRY.filter((tool) => !tool.admin));
+const MCP_ADMIN_LISTING: McpTool[] = listed(MCP_TOOL_REGISTRY);
+/** tools/list for the account behind the request's bearer, if any: an admin's list
+ *  carries the admin tools too. */
+export const mcpToolsFor = (userId: number | undefined): McpTool[] => (isAdmin(userId) ? MCP_ADMIN_LISTING : MCP_TOOLS);
 const mcpToolByName = new Map(MCP_TOOL_REGISTRY.map((tool) => [tool.name, tool]));
 const argsOf = (raw: unknown) => (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
 
@@ -894,6 +933,11 @@ const ok = (structured: Record<string, unknown>, text?: string): ToolResult => {
   const clean = unhidden(structured) as Record<string, unknown>;
   return { content: [{ type: "text", text: text === undefined ? JSON.stringify(clean) : dropHidden(text) }], structuredContent: clean };
 };
+
+/** A tool only an admin account may see or call (the route hides it from the rest). */
+export function isAdminTool(name: unknown): boolean {
+  return typeof name === "string" && mcpToolByName.get(name)?.admin === true;
+}
 
 export function isKnownTool(name: unknown): name is string {
   return typeof name === "string" && mcpToolByName.has(name);
@@ -2399,6 +2443,19 @@ async function readMyLists(event: H3Event): Promise<ToolResult> {
       updated_at: l.updatedAt,
     })),
   });
+}
+
+/** verify_catalog_item: the route has already answered anyone but an admin as a tool
+ *  that doesn't exist; this is the second lock, in case a path ever skips the first. */
+async function verifyCatalog(event: H3Event, args: Record<string, unknown>): Promise<ToolResult> {
+  const caller = event.context.connector;
+  if (!caller || !isAdmin(caller.userId)) return fail("Unknown tool: verify_catalog_item");
+  await rateLimitSubject("mcp-write", `admin:${caller.userId}`);
+  const done = await verifyCatalogItem(await useCatalogDb(), caller.userId, args);
+  if (typeof done === "string") return fail(done);
+  // bigint arrives as a string from one driver and a number from the other
+  const row = { ...done.row, weightMg: Number(done.row.weightMg) };
+  return ok({ created: done.created, row: catalogResult(row, row) });
 }
 
 interface GearHandle {
