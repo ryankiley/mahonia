@@ -34,7 +34,7 @@ import { exportSections } from "../../shared/exporters/rows";
 import { colorKeyForName, usedColorKeys } from "../../shared/categories";
 import { uid } from "../../shared/id";
 import { editLinkPath, normalizeShareCode } from "../../shared/links";
-import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
+import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_PERSON_NAME_LEN, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { carrierName } from "../../shared/people";
 import { dayClimbs, parseProfile } from "../../shared/profile";
@@ -423,7 +423,7 @@ const UPDATE_ITEM_SCHEMA = {
     note: { type: ["string", "null"], maxLength: MAX_ITEM_NOTE_LEN, description: "The row's note. Null clears it." },
     kcal: { type: ["integer", "null"], minimum: 0, maximum: KCAL_MAX, description: "Calories per unit, for food. Null clears it." },
     needs_cooking: { type: "boolean", description: "Food to cook on this trip, for the rough fuel estimate; false to unmark it." },
-    carried_by: { type: ["string", "null"], description: "Who carries it, by the name the list gives that person. Null clears it." },
+    carried_by: { type: ["string", "null"], maxLength: MAX_PERSON_NAME_LEN, description: "Who carries it, by the name the list gives that person. Null clears it." },
     catalog_id: {
       type: ["integer", "null"],
       minimum: 1,
@@ -748,7 +748,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
             required: ["name"],
           },
         },
-        items: { type: "array", description: "The list's rows, in order; each names its folder, or is left in none.", items: ITEM_SCHEMA },
+        items: { type: "array", maxItems: MAX_ITEMS, description: "The list's rows, in order; each names its folder, or is left in none.", items: ITEM_SCHEMA },
         again: {
           type: "boolean",
           description:
@@ -800,7 +800,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
             required: ["folder"],
           },
         },
-        add: { type: "array", description: "New rows. Each may name its folder, or the group to join.", items: ADD_ITEM_SCHEMA },
+        add: { type: "array", maxItems: MAX_ITEMS, description: "New rows. Each may name its folder, or the group to join.", items: ADD_ITEM_SCHEMA },
         update: { type: "array", maxItems: EDIT_MAX, description: "Changes to rows that exist, each by id.", items: UPDATE_ITEM_SCHEMA },
         remove: { type: "array", maxItems: EDIT_MAX, description: "Ids of rows to take off, from get_list.", items: { type: "string" } },
         again: {
