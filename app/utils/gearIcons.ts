@@ -1,7 +1,7 @@
-import { IconAirpods, IconBackpack, IconBottle, IconBug, IconCamera1, IconCandy, IconCap, IconChair, IconCooking, IconCup, IconDice5, IconDrop, IconFashion, IconForkKnife, IconForkSpoon, IconHammer, IconLightning, IconMedicalCrossSquare, IconMoneybag, IconPhone, IconSelectLasso, IconShovel, IconSleep, IconSmartwatch2, IconWallet1 } from "../icons/central";
+import { IconAirpods, IconBackpack, IconBottle, IconBug, IconCamera1, IconCandy, IconCap, IconChair, IconCooking, IconCup, IconDice5, IconDrop, IconFashion, IconForkKnife, IconForkSpoon, IconHammer, IconHead, IconLightning, IconMedicalCrossSquare, IconMoneybag, IconPhone, IconSelectLasso, IconShovel, IconSleep, IconSmartwatch2, IconWallet1 } from "../icons/central";
 import type { IconNode } from "./icon";
 import { GEAR_GLYPH_LABELS, GEAR_GLYPHS, gearGlyphFor, type GearGlyph } from "~~/shared/gearGlyph";
-import { CanisterGlyph, CarabinerGlyph, GlassesGlyph, GloveGlyph, HeadlampGlyph, HikingBootGlyph, IceAxeGlyph, JacketGlyph, NeckGaiterGlyph, PantsGlyph, PocketKnifeGlyph, ShoeGlyph, SleepingPadGlyph, SocksGlyph, StoveGlyph, TentGlyph, TowelGlyph, TrekkingPolesGlyph, TubeGlyph, UnderwearGlyph, WaterFilterGlyph } from "../icons/mahonia";
+import { CanisterGlyph, CarabinerGlyph, GlassesGlyph, GloveGlyph, HeadlampGlyph, HikingBootGlyph, IceAxeGlyph, JacketGlyph, PantsGlyph, PocketKnifeGlyph, ShoeGlyph, SleepingPadGlyph, SocksGlyph, StoveGlyph, TentGlyph, TowelGlyph, TrekkingPolesGlyph, TubeGlyph, UnderwearGlyph, WaterFilterGlyph } from "../icons/mahonia";
 
 // The icon for each name shared/gearGlyph.ts can answer. A Record over the whole
 // union, so a name added there without a drawing here is a type error, not a row that
@@ -28,7 +28,7 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   shoe: ShoeGlyph,
   boot: HikingBootGlyph,
   hat: IconCap,
-  neck: NeckGaiterGlyph,
+  neck: IconHead,
   glove: GloveGlyph,
   glasses: GlassesGlyph,
   bottle: IconBottle,

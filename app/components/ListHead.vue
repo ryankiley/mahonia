@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconCalendarDays, IconChevronDownMedium, IconGlobe2, IconMapPin, IconPencil, IconQuestionmarkCircle, IconSquareBehindSquare1, IconTrashCan } from "~/icons/central";
+import { IconCalendarDays, IconChevronDownMedium, IconGlobe2, IconMapPin, IconPencil2, IconQuestionmarkCircle, IconSquareBehindSquare1, IconTrashCan } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
 import {
@@ -424,7 +424,7 @@ onClickOutside(trailEl, closeTrail);
         @change="commitTitle"
       />
       <SvgIcon
-        :icon="IconPencil"
+        :icon="IconPencil2"
         class="head__pencil"
         aria-hidden="true"
       />

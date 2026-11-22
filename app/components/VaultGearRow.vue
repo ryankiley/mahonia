@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconChevronDownMedium, IconFashion, IconPencil, IconSquarePlaceholderDashed, IconTrashCan } from "~/icons/central";
+import { IconChevronDownMedium, IconFashion, IconPencil2, IconSquarePlaceholderDashed, IconTrashCan } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
@@ -209,7 +209,7 @@ const meta = computed(() => {
           :aria-label="`Edit ${displayName}`"
           @click="emit('edit')"
         >
-          <SvgIcon :icon="IconPencil" aria-hidden="true" />
+          <SvgIcon :icon="IconPencil2" aria-hidden="true" />
         </button>
       </Tooltip>
       <!-- glyph only, like every other row action on the site: the word was the

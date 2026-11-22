@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconArrowsRepeatCircle, IconClock, IconEyeOpen, IconPencil, IconSquareBehindSquare1, IconUserAdd, IconUserDuo } from "~/icons/central";
+import { IconArrowsRepeatCircle, IconClock, IconEyeOpen, IconPencil2, IconSquareBehindSquare1, IconUserAdd, IconUserDuo } from "~/icons/central";
 import { counted } from "~~/shared/tidyText";
 import { SvgIcon } from "~/utils/icon";
 import { ROW_FLASH } from "~/components/ItemRow.vue";
@@ -293,7 +293,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
               :aria-describedby="`${uid}-hint-edit`"
               @click="act(() => emit('copyEdit'))"
             >
-              <SvgIcon :icon="IconPencil" aria-hidden="true" />
+              <SvgIcon :icon="IconPencil2" aria-hidden="true" />
               <span class="share__text">
                 <span class="share__name">Copy edit link</span>
                 <span :id="`${uid}-hint-edit`" class="share__hint">Anyone with it can change this list</span>

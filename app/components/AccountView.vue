@@ -10,7 +10,7 @@
 // and has two — VaultPane and /gear, ~470 lines of template between them, with a
 // comment in the page admitting its prompt is copied "WORD FOR WORD" from the pane.
 // Signing in and deleting an account are worse things to keep in sync by hand.
-import { IconChevronDownMedium, IconClaudeai, IconCursor, IconEyeOpen, IconKey1, IconOpenai, IconPencil, IconSquareBehindSquare1 } from "~/icons/central";
+import { IconChevronDownMedium, IconClaudeai, IconCursor, IconEyeOpen, IconKey1, IconOpenai, IconPencil2, IconSquareBehindSquare1 } from "~/icons/central";
 import { counted } from "~~/shared/tidyText";
 import { SvgIcon } from "~/utils/icon";
 import type { IconNode } from "~/utils/icon";
@@ -257,7 +257,7 @@ const freshToken = ref("");
 // marks are the share panel's for a read-only and an edit link
 const SCOPES: readonly { key: AccessScope; label: string; icon: IconNode }[] = [
   { key: "read", label: "Read only", icon: IconEyeOpen },
-  { key: "write", label: "Read and change", icon: IconPencil },
+  { key: "write", label: "Read and change", icon: IconPencil2 },
 ];
 const scopeName = (scope: AccessScope) => SCOPES.find((s) => s.key === scope)!.label.toLowerCase();
 const mcpUrl = `${useSiteOrigin()}/mcp`;

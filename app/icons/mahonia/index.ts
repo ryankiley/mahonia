@@ -7,7 +7,7 @@
 // Central glyph, so <SvgIcon :icon> draws it unchanged; like those, it carries
 // no stroke width of its own and takes the one on the <svg>.
 //
-// The older glyphs here (poles, jacket, tube, stove, headlamp, carabiner, boot, gaiter,
+// The older glyphs here (poles, jacket, tube, stove, headlamp, carabiner, boot,
 // ice axe) were drawn and tuned in review, several from Ryan's sketches. When the app
 // moved off Hugeicons they kept their ideas and were redrawn to these rules, all but the
 // carabiner, which already followed them. The rest were drawn for that move, for gear
@@ -22,7 +22,6 @@ export { StoveGlyph } from "./StoveGlyph";
 export { HeadlampGlyph } from "./HeadlampGlyph";
 export { CarabinerGlyph } from "./CarabinerGlyph";
 export { HikingBootGlyph } from "./HikingBootGlyph";
-export { NeckGaiterGlyph } from "./NeckGaiterGlyph";
 export { IceAxeGlyph } from "./IceAxeGlyph";
 export { TentGlyph } from "./TentGlyph";
 export { SleepingPadGlyph } from "./SleepingPadGlyph";

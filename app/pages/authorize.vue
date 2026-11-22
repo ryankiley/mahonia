@@ -20,7 +20,7 @@
 // cookie every few seconds while signed out — a cookie read, nothing more, until the
 // other tab has set it — so it moves on to the consent the moment that happens. The
 // window Claude is watching is this one.
-import { IconCirclePlus, IconExclamationTriangle, IconEyeOpen, IconPencil } from "~/icons/central";
+import { IconCirclePlus, IconExclamationTriangle, IconEyeOpen, IconPencil2 } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 import type { IconNode } from "~/utils/icon";
 import { clientMark, type AskingClient, type ReturnTo } from "~/utils/clientMark";
@@ -65,9 +65,9 @@ const scopes = computed<{ icon: IconNode; text: string }[]>(() =>
   writes.value
     ? [
         { icon: IconEyeOpen, text: "See what’s in My Gear" },
-        { icon: IconPencil, text: "Change what’s in My Gear" },
+        { icon: IconPencil2, text: "Change what’s in My Gear" },
         { icon: IconEyeOpen, text: "See your lists" },
-        { icon: IconPencil, text: "Change your lists" },
+        { icon: IconPencil2, text: "Change your lists" },
         { icon: IconCirclePlus, text: "Add new lists to your account" },
       ]
     : [

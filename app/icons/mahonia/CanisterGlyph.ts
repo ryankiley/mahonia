@@ -1,8 +1,10 @@
 import { glyph, line } from "./parts";
 
-/** A lidded canister: a bear canister, a jar or a cooler, sealed. Its shoulders step out
- *  at 45° with radius-3 bends, the way Central's IconBottle draws its own. */
+/** A lidded canister: a bear canister, a jar or a cooler, sealed. Central's own jar
+ *  (IconTipjar) without its coin and slot: the same lid, a short neck under it before
+ *  the shoulders step out, and the art inside 3–21 like Central's. Drawn shoulders-first
+ *  from the lid's edge and 2–22 tall, it read as sitting off from the icons around it. */
 export const CanisterGlyph = glyph(
-  line("M7.5 2H16.5C17.33 2 18 2.67 18 3.5V4C18 4.83 17.33 5.5 16.5 5.5H7.5C6.67 5.5 6 4.83 6 4V3.5C6 2.67 6.67 2 7.5 2Z"),
-  line("M7 5.5L5.88 6.62C5.32 7.18 5 7.95 5 8.74V19C5 20.66 6.34 22 8 22H16C17.66 22 19 20.66 19 19V8.74C19 7.95 18.68 7.18 18.12 6.62L17 5.5"),
+  line("M7.5 6.5H16.5C17.33 6.5 18 5.83 18 5V4.5C18 3.67 17.33 3 16.5 3H7.5C6.67 3 6 3.67 6 4.5V5C6 5.83 6.67 6.5 7.5 6.5Z"),
+  line("M7 6.5V7.45C7 8.13 6.77 8.79 6.34 9.32L5.66 10.18C5.23 10.71 5 11.37 5 12.05V18C5 19.66 6.34 21 8 21H16C17.66 21 19 19.66 19 18V12.05C19 11.37 18.77 10.71 18.34 10.18L17.66 9.32C17.23 8.79 17 8.13 17 7.45V6.5"),
 );
