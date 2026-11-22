@@ -136,7 +136,11 @@ export default defineEventHandler(async (event) => {
     return error(null, -32600, "A request id must be a string or a number");
   }
   const id = msg.id as Id;
-  if (typeof msg.method !== "string") return error(id, -32600, "A request needs a method");
+  if (typeof msg.method !== "string") {
+    // Invalid Request, with the 400 every other one above carries
+    setResponseStatus(event, 400);
+    return error(id, -32600, "A request needs a method");
+  }
   const params = (msg.params && typeof msg.params === "object" ? msg.params : {}) as Record<string, unknown>;
 
   // A tool's arguments are an object. Some clients send them JSON-encoded a second
