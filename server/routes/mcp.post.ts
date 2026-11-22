@@ -220,8 +220,8 @@ export default defineEventHandler(async (event) => {
     case "ping":
       return result(id, {});
     case "tools/list":
-      // one page, always: six tools fit without a cursor, and a cursor that arrives anyway
-      // names a page this server never handed out
+      // one page, always: the tools fit without a cursor (six, or seven for an admin), and
+      // a cursor that arrives anyway names a page this server never handed out
       if (params.cursor != null) return error(id, -32602, "Invalid cursor");
       return result(id, { tools: mcpToolsFor(await listingAccount(event)) });
     case "tools/call": {

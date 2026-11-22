@@ -23,12 +23,20 @@ import { isUniqueViolation, type Db } from "./db";
 
 export const VERIFY_SOURCES = ["manufacturer", "measured"] as const;
 export const CATEGORIES = Object.keys(RANGE_G);
+/** The caps the tool's schema declares (mcp.ts). A quote or a link past its cap is
+ *  refused, not cut: a cut quote can lose the figure it was sent for, and a cut link
+ *  goes nowhere. Notes are only kept, so they are cut like any other note. */
+export const VERIFY_QUOTE_MAX = MAX_ITEM_NOTE_LEN;
+export const VERIFY_URL_MAX = 2000;
+export const VERIFY_NOTES_MAX = 500;
 
 type CatalogRow = typeof catalogItems.$inferSelect;
 export interface Verified {
   row: CatalogRow;
   /** a product the catalog didn't have, added by this call */
   created: boolean;
+  /** a retired row of this product, brought back under its old id by this call */
+  revived: boolean;
 }
 
 /** A one-line text argument, tidied and capped; "" when absent or not a string. */
@@ -56,15 +64,17 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
   }
   const source = args.weight_source ?? "manufacturer";
   if (!VERIFY_SOURCES.includes(source as (typeof VERIFY_SOURCES)[number])) return `weight_source is manufacturer (the maker's published weight) or measured (weighed on the person's own scale).`;
-  const sourceUrl = typeof args.source_url === "string" && args.source_url.trim() ? args.source_url.trim().slice(0, 2000) : null;
+  const sourceUrl = typeof args.source_url === "string" && args.source_url.trim() ? args.source_url.trim() : null;
+  if (sourceUrl && sourceUrl.length > VERIFY_URL_MAX) return `source_url is at most ${VERIFY_URL_MAX} characters; give the page's own address.`;
   if (sourceUrl && !isHttpUrl(sourceUrl)) return "source_url must be an http or https address.";
-  const quote = typeof args.quote === "string" ? args.quote.trim().slice(0, MAX_ITEM_NOTE_LEN) : "";
+  const quote = typeof args.quote === "string" ? args.quote.trim() : "";
+  if (quote.length > VERIFY_QUOTE_MAX) return `quote is at most ${VERIFY_QUOTE_MAX} characters; quote only the line that states the weight.`;
   if (source === "manufacturer") {
     if (!sourceUrl) return "A manufacturer weight needs source_url, the maker's page that publishes it.";
     if (!quote) return "A manufacturer weight needs quote, the maker's own line that states the weight.";
     if (!quoteBacksWeight(quote, grams)) return `The quote doesn't state ${grams} g: none of its figures is within 8 g or 5% of it. Check the number, or quote the line that gives this weight.`;
   }
-  const notes = text(args.notes, 500);
+  const notes = text(args.notes, VERIFY_NOTES_MAX);
   const gearType = text(args.gear_type, MAX_GEAR_TYPE_LEN);
   const category = args.category == null ? null : String(args.category).trim().toLowerCase();
   if (category != null && !CATEGORIES.includes(category)) return `category is one of ${CATEGORIES.join(", ")}.`;
@@ -151,7 +161,7 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
         .values(editRow(sql`(select ${sql.identifier("id")} from ${sql.identifier("added")})`, weightMg, weightMg, sourceUrl, notes || "Added and verified by an admin", { status: "removed" }))
         .returning({ catalogItemId: catalogEdits.catalogItemId });
       const [row] = await db.select().from(catalogItems).where(eq(catalogItems.id, edit!.catalogItemId)).limit(1);
-      return { row: row!, created: true };
+      return { row: row!, created: true, revived: false };
     } catch (e) {
       // the identity index: the same product added a moment ago
       if (!isUniqueViolation(e)) throw e;
@@ -191,7 +201,7 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
     })
     .where(eq(catalogItems.id, row.id))
     .returning();
-  return { row: updated!, created: false };
+  return { row: updated!, created: false, revived: revive };
 }
 
 /** One line of the catalog's edit history (catalog_edits), applied: where a verification's

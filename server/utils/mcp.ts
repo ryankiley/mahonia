@@ -33,7 +33,7 @@ import { exportSections } from "../../shared/exporters/rows";
 import { colorKeyForName, usedColorKeys } from "../../shared/categories";
 import { uid } from "../../shared/id";
 import { editLinkPath, normalizeShareCode } from "../../shared/links";
-import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op } from "../../shared/ops";
+import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { carrierName } from "../../shared/people";
 import { dayClimbs, parseProfile } from "../../shared/profile";
 import { enoughToSearch, SEARCH_QUERY_MAX } from "../../shared/searchText";
@@ -50,7 +50,7 @@ import { isWaterName, waterMgFromMl } from "../../shared/water";
 import type { ConnectorIdentity } from "./accessTokens";
 import { isAdmin } from "./admin";
 import { catalogRowsById, productVariants, searchCatalog } from "./catalog";
-import { CATEGORIES, VERIFY_SOURCES, verifyCatalogItem } from "./catalogVerify";
+import { CATEGORIES, VERIFY_NOTES_MAX, VERIFY_QUOTE_MAX, VERIFY_SOURCES, VERIFY_URL_MAX, verifyCatalogItem } from "./catalogVerify";
 import { claimLists, claimedEditHash, listClaimedLists } from "./claimRepo";
 import { useAccountDb, useCatalogDb, useVaultDb, type Db } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
@@ -346,6 +346,16 @@ const CATALOG_OUTPUT = {
     results: { type: "array", description: "A search's matches, best first; or a product's variants, in variant order.", items: CATALOG_RESULT },
   },
   required: ["results"],
+};
+// verify_catalog_item (admin only): the row as it now stands, in search_catalog's shape
+const VERIFY_OUTPUT = {
+  type: "object",
+  properties: {
+    created: { type: "boolean", description: "True when this call added a product the catalog didn't have." },
+    revived: { type: "boolean", description: "True when this call brought a retired row of the product back under its old id." },
+    row: { ...CATALOG_RESULT, description: "The verified row, as search_catalog now finds it." },
+  },
+  required: ["created", "revived", "row"],
 };
 
 const CREATE_FIELDS = {
@@ -856,26 +866,29 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "verify_catalog_item",
     title: "Verify a catalog row",
     description:
-      "Admin only. Marks a catalog row verified with the maker's published weight or the person's own scale weight, live at once. By catalog_id for a row search_catalog found (a community row), or by brand, name, variant and gear_type for a product the catalog doesn't have; a new product that looks like a row already there is refused with that row's id. manufacturer, the default, needs source_url and quote, the maker's own line with the weight, which must state weight_g. measured is a weight from the person's scale; say so in notes. A weight outside its kind of gear's usual range is refused: send outside_range_ok only after the person confirms the number.",
+      "Admin only. Marks a catalog row verified with the maker's published weight or the person's own scale weight, live at once for everyone who uses the catalog. By catalog_id for a row search_catalog found (a community row), or by brand, name, variant and gear_type for a product the catalog doesn't have; a new product that looks like a live row is refused with that row's id, and a retired row of the same product comes back under its old id (revived). manufacturer, the default, needs source_url and quote, the maker's own line with the weight, which must state weight_g in grams, ounces or pounds. measured is a weight from the person's scale; the row keeps its link, and say so in notes. A weight outside its kind of gear's usual range is refused: send outside_range_ok only after the person confirms the number.",
     inputSchema: {
       type: "object",
       properties: {
         catalog_id: { type: "integer", minimum: 1, maximum: MAX_CATALOG_ID, description: "The row to verify, from search_catalog." },
-        brand: { type: "string", description: "A new product: its maker." },
-        name: { type: "string", description: "A new product: its name without brand or variant." },
-        variant: { type: "string", description: "A new product: the size or version, where it changes the weight." },
-        gear_type: { type: "string", description: "What it is (\"Tent\", \"Rain jacket\"). Needed for a new product; on a row, replaces its gear type." },
-        category: { type: "string", enum: CATEGORIES, description: "The kind of gear, for the weight range. Read from gear_type when not given." },
-        weight_g: { type: "number", exclusiveMinimum: 0, description: "Weight of one unit in grams." },
+        brand: { type: "string", maxLength: MAX_BRAND_LEN, description: "A new product: its maker." },
+        name: { type: "string", maxLength: MAX_ITEM_NAME_LEN, description: "A new product: its name without brand or variant." },
+        variant: { type: "string", maxLength: MAX_VARIANT_LEN, description: "A new product: the size or version, where it changes the weight." },
+        gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What it is (\"Tent\", \"Rain jacket\"). Needed for a new product; on a row, replaces its gear type and the category it names." },
+        category: { type: "string", enum: CATEGORIES, description: "The kind of gear, for the weight range. Read from gear_type, then the row, when not given." },
+        weight_g: { type: "number", exclusiveMinimum: 0, maximum: UNIT_WEIGHT_MAX_MG / 1000, description: "Weight of one unit in grams." },
         weight_source: { type: "string", enum: [...VERIFY_SOURCES], description: "manufacturer (default) or measured." },
-        source_url: { type: "string", description: "The maker's page with the weight. Needed for manufacturer." },
-        quote: { type: "string", description: "The maker's line that states the weight, word for word. Needed for manufacturer." },
+        source_url: { type: "string", maxLength: VERIFY_URL_MAX, description: "The maker's page with the weight. Needed for manufacturer; kept from the row when a measured weight leaves it out." },
+        quote: { type: "string", maxLength: VERIFY_QUOTE_MAX, description: "The maker's line that states the weight, word for word. Needed for manufacturer." },
         outside_range_ok: { type: "boolean", description: "The person has confirmed a weight outside the usual range." },
-        notes: { type: "string", description: "Anything worth keeping with the verification." },
+        notes: { type: "string", maxLength: VERIFY_NOTES_MAX, description: "Anything worth keeping with the verification." },
       },
       required: ["weight_g"],
     },
-    annotations: EDIT,
+    outputSchema: VERIFY_OUTPUT,
+    // open-world as well as destructive: the row it writes is the one every person's search
+    // and every list holding that catalog_id reads, so a client should look at it twice
+    annotations: EDIT_SHARED,
     account: "write",
     admin: true,
     run: verifyCatalog,
@@ -887,10 +900,12 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
 const listed = (tools: RegisteredMcpTool[]): McpTool[] => tools.map(({ run: _run, account: _account, admin: _admin, ...tool }) => tool);
 /** What tools/list shows everyone: every tool but the admin ones. */
 export const MCP_TOOLS: McpTool[] = listed(MCP_TOOL_REGISTRY.filter((tool) => !tool.admin));
-const MCP_ADMIN_LISTING: McpTool[] = listed(MCP_TOOL_REGISTRY);
+/** What an admin's tools/list shows: every registered tool. Also the set the schema
+ *  conventions and output shapes are held to in tests, so an admin tool can't skip them. */
+export const MCP_ADMIN_TOOLS: McpTool[] = listed(MCP_TOOL_REGISTRY);
 /** tools/list for the account behind the request's bearer, if any: an admin's list
  *  carries the admin tools too. */
-export const mcpToolsFor = (userId: number | undefined): McpTool[] => (isAdmin(userId) ? MCP_ADMIN_LISTING : MCP_TOOLS);
+export const mcpToolsFor = (userId: number | undefined): McpTool[] => (isAdmin(userId) ? MCP_ADMIN_TOOLS : MCP_TOOLS);
 const mcpToolByName = new Map(MCP_TOOL_REGISTRY.map((tool) => [tool.name, tool]));
 const argsOf = (raw: unknown) => (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
 
@@ -2455,7 +2470,7 @@ async function verifyCatalog(event: H3Event, args: Record<string, unknown>): Pro
   if (typeof done === "string") return fail(done);
   // bigint arrives as a string from one driver and a number from the other
   const row = { ...done.row, weightMg: Number(done.row.weightMg) };
-  return ok({ created: done.created, row: catalogResult(row, row) });
+  return ok({ created: done.created, revived: done.revived, row: catalogResult(row, row) });
 }
 
 interface GearHandle {

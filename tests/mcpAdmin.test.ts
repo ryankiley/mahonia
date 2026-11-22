@@ -11,6 +11,7 @@ import { catalogRow, seedCatalogRow } from "./helpers/catalog";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
 import { makeEvent } from "./helpers/http";
+import { expectResultConforms } from "./helpers/mcpSchema";
 
 // verify_catalog_item, the one admin tool, driven through the real endpoint against a
 // real (in-memory) database. Held here: only an account named in ADMIN_USER_IDS sees it
@@ -44,6 +45,8 @@ const call = (args: unknown, token?: string) => post({ jsonrpc: "2.0", id: 1, me
 async function verify(args: Record<string, unknown>) {
   const { reply } = await call(args, adminWrite);
   const result = reply.result!;
+  // the declared outputSchema, compiled closed, as every MCP suite holds its calls to
+  expectResultConforms(TOOL, result);
   return { refused: result.isError ?? false, text: result.content[0]!.text, data: result.structuredContent as { created: boolean; row: Record<string, unknown> } };
 }
 
@@ -80,6 +83,23 @@ afterEach(() => {
 });
 
 describe("who sees it and who can call it", () => {
+  it("is listed as the public six plus itself, declared like them, and says it writes for everyone", async () => {
+    const tools = (await post({ jsonrpc: "2.0", id: 1, method: "tools/list" }, adminWrite)).reply.result!.tools as unknown as {
+      name: string;
+      outputSchema?: { type: string };
+      annotations: Record<string, boolean>;
+      inputSchema: { properties: Record<string, { type?: string; maxLength?: number; maximum?: number }> };
+    }[];
+    expect(tools.map((t) => t.name)).toEqual(["get_list", "search_catalog", "create_list", "edit_list", "get_my_gear", "edit_my_gear", TOOL]);
+    const tool = tools.at(-1)!;
+    expect(tool.outputSchema?.type).toBe("object");
+    expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true });
+    // every free-text argument carries the cap the tool holds it to, as the other tools' do
+    const uncapped = Object.entries(tool.inputSchema.properties).filter(([, p]) => p.type === "string" && !("enum" in p) && p.maxLength == null);
+    expect(uncapped.map(([k]) => k)).toEqual([]);
+    expect(tool.inputSchema.properties.weight_g!.maximum).toBe(100_000);
+  });
+
   it("is listed for an admin's bearer only", async () => {
     expect(await listed(adminWrite)).toContain(TOOL);
     expect(await listed(adminRead)).toContain(TOOL);
@@ -170,7 +190,7 @@ describe("verifying", () => {
   it("brings a retired row back under its old id rather than refusing it", async () => {
     const done = await verify({ brand: "Durston", name: "X-Mid 1", gear_type: "Tent", weight_g: 790, weight_source: "measured" });
     expect(done.refused, done.text).toBe(false);
-    expect(done.data.row.id).toBe(retired);
+    expect(done.data).toMatchObject({ created: false, revived: true, row: { id: retired } });
     expect(await catalogRow(db, retired)).toMatchObject({ status: "active", verified: true, verifiedBy: admin });
   });
 
@@ -198,6 +218,9 @@ describe("what it refuses", () => {
     expect(await refusal({ ...base, weight_g: "1022" })).toContain("weight_g");
     expect(await refusal({ ...base, weight_g: 1022, weight_source: "guessed" })).toContain("weight_source");
     expect(await refusal({ ...base, weight_g: 1022, source_url: "javascript:alert(1)" })).toContain("http");
+    // a quote or a link past its cap is refused whole, never cut short of its figure
+    expect(await refusal({ ...base, weight_g: 1022, source_url: `${DURSTON}?${"x".repeat(2000)}` })).toContain("source_url is at most");
+    expect(await refusal({ catalog_id: community, weight_g: 1022, source_url: DURSTON, quote: `${"Specs. ".repeat(300)}1022 g` })).toContain("quote is at most");
     expect(await refusal({ ...base, weight_g: 1022, category: "spaceship" })).toContain("category");
     expect(await refusal({ catalog_id: community, weight_g: 1022, quote: "1022 g" })).toContain("source_url");
     expect(await refusal({ catalog_id: community, weight_g: 1022, source_url: DURSTON })).toContain("quote");
