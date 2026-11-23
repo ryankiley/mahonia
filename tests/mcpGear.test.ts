@@ -16,7 +16,8 @@ import { deleteAccount } from "../server/utils/accountRepo";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { listClaimedLists } from "../server/utils/claimRepo";
-import { REPLAY_WAIT, sizeConflict } from "../server/utils/mcp";
+import { REPLAY_WAIT } from "../server/utils/mcp";
+import { sizeConflict } from "../server/utils/catalogSizes";
 import { LISTS_DDL } from "../server/utils/db";
 import { rateLimitSubject } from "../server/utils/rateLimit";
 import { sha256Hex } from "../server/utils/tokens";
@@ -399,6 +400,94 @@ describe("the gear tools", () => {
     expect(relinked!.reason).toContain("is by Norda");
   });
 
+  it("relinks without moving a piece's size unasked, and replaces what the old row gave even once it was re-weighed or retired", async () => {
+    const cited = { weightSource: "manufacturer", sourceUrl: "https://maker.example/k", verified: true, categoryHint: "clothing", commonName: "Rain pants" };
+    const [kLarge, kMedium, kNext, borealis, nutBar, bag] = await db
+      .insert(schema.catalogItems)
+      .values([
+        { ...cited, brand: "Rab", name: "Kinetic Pants", variant: "Large", weightMg: 320_000 },
+        { ...cited, brand: "Rab", name: "Kinetic Pants", variant: "Medium", weightMg: 310_000 },
+        { ...cited, brand: "Rab", name: "Kinetic 2.0 Pants", variant: "Medium", weightMg: 300_000 },
+        { ...cited, brand: "Rab", name: "Borealis Jacket", variant: "Women's", weightMg: 250_000, commonName: "Softshell jacket" },
+        { ...cited, brand: "Clif", name: "Nut Butter Bar", variant: null, weightMg: 50_000, commonName: "Energy bar", categoryHint: "consumable", kcal: 230 },
+        { ...cited, brand: "Clif", name: "Nut Butter Bar Tote", variant: null, weightMg: 40_000, commonName: null, categoryHint: "other" },
+      ])
+      .returning();
+    type Updated = { status: string; item?: Record<string, unknown>; reason?: string };
+    const update = async (...entries: Record<string, unknown>[]) => (await tool("edit_my_gear", { update: entries }, aliceWrite)).data.updated as Updated[];
+    const add = async (...pieces: Record<string, unknown>[]) =>
+      ((await tool("edit_my_gear", { add: pieces }, aliceWrite)).data.results as Updated[]);
+
+    // a piece added from the catalog, relinked to another size: refused unless the call says the size
+    const [fromRow] = await add({ catalog_id: kLarge!.id });
+    const pieceId = fromRow!.item!.id as number;
+    const [unasked] = await update({ id: pieceId, catalog_id: kMedium!.id });
+    expect(unasked).toMatchObject({ status: "invalid" });
+    expect(unasked!.reason).toContain("send its variant with the link");
+    const [asked] = await update({ id: pieceId, catalog_id: kMedium!.id, variant: "Medium" });
+    expect(asked).toMatchObject({ status: "updated", item: { variant: "Medium", weight_g: 310, catalog_id: kMedium!.id } });
+
+    // the Medium re-weighed after the link: its old 310 g is still the link's, so a relink replaces it
+    await db.update(schema.catalogItems).set({ weightMg: 315_000 }).where(eq(schema.catalogItems.id, kMedium!.id));
+    await db.insert(schema.catalogEdits).values({ catalogItemId: kMedium!.id, oldWeightMg: 310_000, newWeightMg: 315_000, status: "applied", reason: "re-weighed" });
+    const [back] = await update({ id: pieceId, catalog_id: kLarge!.id, variant: "Large" });
+    expect(back).toMatchObject({ status: "updated", item: { variant: "Large", weight_g: 320, catalog_id: kLarge!.id } });
+
+    // a piece linked to a row since retired still unlinks when another size is typed onto it
+    await db.update(schema.catalogItems).set({ status: "removed" }).where(eq(schema.catalogItems.id, kLarge!.id));
+    const [retyped] = await update({ id: pieceId, variant: "Medium" });
+    expect(retyped).toMatchObject({ status: "updated", item: { variant: "Medium" } });
+    expect(retyped!.item).not.toHaveProperty("catalog_id");
+    expect(retyped!.reason).toContain(`Unlinked from catalog row ${kLarge!.id}`);
+    // and a retired row's weight is still the link's on a relink
+    const [second] = await add({ catalog_id: kMedium!.id });
+    await db.update(schema.catalogItems).set({ status: "removed" }).where(eq(schema.catalogItems.id, kMedium!.id));
+    const [onward] = await update({ id: second!.item!.id, catalog_id: kNext!.id });
+    expect(onward).toMatchObject({ status: "updated", item: { name: "Kinetic 2.0 Pants", variant: "Medium", weight_g: 300, catalog_id: kNext!.id } });
+
+    // food the link made consumable, its calories and gear type go with a relink to a row that has none
+    const [bar] = await add({ catalog_id: nutBar!.id });
+    expect(bar).toMatchObject({ status: "added", item: { classification: "consumable", kcal: 230, gear_type: "Energy bar" } });
+    const [tote] = await update({ id: bar!.item!.id, catalog_id: bag!.id });
+    expect(tote).toMatchObject({ status: "updated", item: { name: "Nut Butter Bar Tote", weight_g: 40, catalog_id: bag!.id } });
+    expect(tote!.item).not.toHaveProperty("kcal");
+    expect(tote!.item).not.toHaveProperty("gear_type");
+    expect(tote!.item!.classification).not.toBe("consumable");
+
+    // a row that names only its cut takes a piece of that cut in any size, and asks a bare size for its cut
+    const [hers, bare] = await add({ brand: "Rab", name: "Borealis Jacket", variant: "Women's Large" }, { brand: "Rab", name: "Borealis Jacket", variant: "Large", owned: 2 });
+    const [cutLinked, cutAsked] = await update({ id: hers!.item!.id, catalog_id: borealis!.id }, { id: bare!.item!.id, catalog_id: borealis!.id });
+    expect(cutLinked).toMatchObject({ status: "updated", item: { variant: "Women’s Large", weight_g: 250, catalog_id: borealis!.id } });
+    expect(cutAsked).toMatchObject({ status: "invalid" });
+    expect(cutAsked!.reason).toContain("Women's in any size");
+
+    // a colour run on without a comma is the owner's own word, not another size
+    const [coloured] = await add({ brand: "Rab", name: "Kinetic 2.0 Pants", variant: "Medium Black" });
+    const [colourLinked] = await update({ id: coloured!.item!.id, catalog_id: kNext!.id });
+    expect(colourLinked).toMatchObject({ status: "updated", item: { variant: "Medium Black", catalog_id: kNext!.id } });
+
+    // names that share no word are another product, held or added
+    const [bivy] = await add({ brand: "Rab", name: "Alpine Bivi" });
+    const [heldOther] = await update({ id: bivy!.item!.id, catalog_id: kNext!.id });
+    expect(heldOther).toMatchObject({ status: "invalid" });
+    expect(heldOther!.reason).toContain("doesn't look like");
+    const [addedOther] = await add({ brand: "Rab", name: "Neutrino Bag", catalog_id: kNext!.id });
+    expect(addedOther).toMatchObject({ status: "invalid" });
+    expect(addedOther!.reason).toContain("doesn't look like");
+
+    // an update that neither links nor retypes a size reads nothing of the catalog
+    const reads = vi.spyOn(db, "select");
+    try {
+      await update({ id: colourLinked!.item!.id as number, weight_g: 305 });
+      const linkedReads = reads.mock.calls.length;
+      reads.mockClear();
+      await update({ id: bivy!.item!.id as number, weight_g: 900 });
+      expect(linkedReads).toBe(reads.mock.calls.length);
+    } finally {
+      reads.mockRestore();
+    }
+  });
+
   it("tells two sizes apart axis by axis, the cut and the owner's own extra words aside", () => {
     const row = (variant: string | null, commonName = "Hiking pants", categoryHint = "clothing") => ({ brand: null, name: "x", variant, commonName, categoryHint });
     const differ: [string, string, string?, string?][] = [
@@ -415,6 +504,23 @@ describe("the gear tools", () => {
       ["6ft", "6ft 6in", "Quilt", "sleep"],
       ["2-pack", "3-pack", "Bungee cord", "other"],
       ["47mm", "47mm, Solar", "Watch", "electronics"],
+      // a lower-case letter is the size it names
+      ["m", "Large"],
+      // a row that names only its cut is that cut, in any size
+      ["Large", "Women's", "Fleece"],
+      ["Men's Large", "Women's", "Fleece"],
+      // typed loosely, a size is still read, and still another size
+      ["Mens Medium", "Men's Small", "Rain jacket"],
+      ["men's large", "Men's Small", "Rain jacket"],
+      ["Medium Black", "Large", "Rain jacket"],
+      ["Wide Regular", "Long", "Sleeping pad", "sleep"],
+      ["6ft 6in Black", "6ft", "Bivy", "shelter"],
+      ["2 m", "1m", "Charging cable", "electronics"],
+      // a word the reader can't place still tells two rows apart
+      ["Men's Medium, Short", "Men's Medium, Regular", "Rain jacket"],
+      ["Regular", "Regular Mummy", "Sleeping pad", "sleep"],
+      ["Double Wide", "Long", "Sleeping pad", "sleep"],
+      ["Standard", "X-Large", "Food bag", "other"],
     ];
     for (const [piece, catalog, type, kind] of differ) expect(sizeConflict(piece, row(catalog, type, kind)), `${piece} / ${catalog}`).toBe(true);
     const same: [string | null, string | null, string?][] = [
@@ -426,8 +532,31 @@ describe("the gear tools", () => {
       ["Trail Team Edition, L/XL", null, "Hat"],
       [null, "Large"],
       ["Men's US 9", "US 9", "Trail runners"],
+      ["Women's Large", "Women's", "Fleece"],
+      // the ways people type the row's own size
+      ["Men's Medium Black", "Men's Medium", "Rain jacket"],
+      ["mens medium", "Men's Medium", "Rain jacket"],
+      ["Men's 9", "Men's US 9", "Trail runners"],
+      ["Men's 8.5", "Men's US 8.5", "Trail runners"],
+      ["Men's US9", "Men's US 9", "Trail runners"],
+      ["20F Regular Wide", "20F, Regular Wide", "Quilt"],
+      ["regular wide", "Regular Wide", "Sleeping pad"],
+      ["850fp, 20F", "20F, 850FP", "Quilt"],
+      ["Regular, Short, 10F", "10F, Short, Regular", "Quilt"],
+      ["pack of 2", "2-pack", "Bungee cord"],
+      ["Large/X-Large", "L/XL", "Hat"],
+      ["30 liter", "30L", "Backpack"],
+      ["Extra Large", "X-Large"],
+      // one shoe sold under two labels matches either
+      ["Men's US 9", "Men's US 9 / Women's US 10", "Trail runners"],
+      ["Women's US 10", "Men's US 9 / Women's US 10", "Trail runners"],
+      // the row's own words with a colour after them, the m of a metre kept a metre
+      ["Solid inner, carbon short poles Black", "Solid inner, carbon short poles", "Tent"],
+      ["1 m", "1m", "Charging cable"],
     ];
-    for (const [piece, catalog, type] of same) expect(sizeConflict(piece, row(catalog, type)), `${piece} / ${catalog}`).toBe(false);
+    const kindOf = (type?: string) =>
+      ({ Quilt: "sleep", "Sleeping pad": "sleep", Backpack: "pack", "Bungee cord": "other", Tent: "shelter", "Charging cable": "electronics" })[type ?? ""];
+    for (const [piece, catalog, type] of same) expect(sizeConflict(piece, row(catalog, type, kindOf(type))), `${piece} / ${catalog}`).toBe(false);
   });
 
   it("say what a kit holds, list its items as pieces of their own, and refuse a weight on one", async () => {

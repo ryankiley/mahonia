@@ -16,10 +16,12 @@
 //     confirm it (weight_confirmed);
 //   • the source: a scale weight put over a maker's published one replaces the maker's
 //     figure and its quote for everyone, so it waits for the person too, and a scale
-//     weight of gear sold by size names the size that was weighed;
-//   • duplicates: a new product may not repeat a live row (a near match is named, and
-//     distinct_from says the person checked it is another product), and the same call
-//     sent twice (a retry) writes nothing the second time;
+//     weight of gear sold by size names the size that was weighed. Every one of these
+//     the call raises is named in ONE refusal, so the person's confirmation covers what
+//     they were told and nothing they weren't;
+//   • duplicates: a new product may not repeat a live row (every near match is named, and
+//     distinct_from lists the ones the person checked are other products), and the same
+//     call sent twice (a retry) writes nothing the second time;
 //   • volume: a runaway loop stops at VERIFY_HOURLY_MAX verifications an hour.
 // Every verification records what it replaced in catalog_edits.undo, so revert_catalog_edit
 // puts the row back as it was (its name too, or retires a product the verification added),
@@ -27,7 +29,6 @@
 
 import { and, desc, eq, getTableColumns, gt, isNotNull, sql, type SQL } from "drizzle-orm";
 import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
-import { extractAttributes } from "../../scripts/catalogAttributes";
 import { normalizeGearType } from "../../scripts/gearTypes";
 import { soldByOf } from "../../shared/catalogAxes";
 import { categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged } from "../../shared/catalogQuality";
@@ -36,7 +37,8 @@ import { tidyText } from "../../shared/tidyText";
 import { itemDisplayName } from "../../shared/weights";
 import { catalogBrands, catalogGearTypes, isHttpUrl, revertEdit } from "./catalog";
 import { houseRuleProblems, type RuleRow } from "./catalogHouseRules";
-import { closestCatalogMatch } from "./candidates";
+import { catalogMatches } from "./candidates";
+import { namesSize } from "./catalogSizes";
 import { isUniqueViolation, type Db } from "./db";
 
 export const VERIFY_SOURCES = ["manufacturer", "measured"] as const;
@@ -139,8 +141,9 @@ export async function verifyCatalogItem(
     return `weight_g is the weight of one unit in grams, above 0 and up to ${UNIT_WEIGHT_MAX_MG / 1e6} kg.`;
   }
   // outside_range_ok is what the first release called it, and a chat holding that listing
-  // still sends it
-  const confirmed = args.weight_confirmed === true || args.outside_range_ok === true;
+  // still sends it: it only ever answered the range, so it answers nothing else
+  const confirmed = args.weight_confirmed === true;
+  const rangeConfirmed = confirmed || args.outside_range_ok === true;
   const source = args.weight_source ?? "manufacturer";
   if (!VERIFY_SOURCES.includes(source as (typeof VERIFY_SOURCES)[number])) return `weight_source is manufacturer (the maker's published weight) or measured (weighed on the person's own scale).`;
   const sourceUrl = typeof args.source_url === "string" && args.source_url.trim() ? args.source_url.trim() : null;
@@ -159,12 +162,19 @@ export async function verifyCatalogItem(
   // measured row, and what the audit reads as an as-carried figure on a pouch meal
   const storedQuote = quote || (source === "measured" ? `Weighed on an admin's scale: ${grams} g` : null);
   const notes = text(args.notes, VERIFY_NOTES_MAX);
-  // the gear-type vocabulary's canonical word ("trail runner" → "Trail runners"), which the
-  // audit holds every row to
-  const gearType = normalizeGearType(text(args.gear_type, MAX_GEAR_TYPE_LEN));
+  // the gear type in its canonical case and alias ("tent" → "Tent"), which the audit holds
+  // every row to, then spelled as the verified rows already spell it, a plural folded onto
+  // the singular there or the other way round ("Hiking pant" → "Hiking pants"); the kind
+  // of gear and the sizes are read by that spelling, the one the row will carry
+  const typedType = normalizeGearType(text(args.gear_type, MAX_GEAR_TYPE_LEN));
+  const gearTypes = await catalogGearTypes(db);
+  const gearType = typedType ? spelledAs(typedType, gearTypes, gearTypeKey) : "";
   const category = args.category == null ? null : String(args.category).trim().toLowerCase();
   if (category != null && !CATEGORIES.includes(category)) return `category is one of ${CATEGORIES.join(", ")}.`;
-  if (args.distinct_from != null && !isCatalogId(args.distinct_from)) return "distinct_from is the id of the catalog row a refusal named as the same product.";
+  // the rows the person checked are other products: a list, or one id from a chat that
+  // holds the first listing
+  const distinct: unknown[] = args.distinct_from == null ? [] : Array.isArray(args.distinct_from) ? args.distinct_from : [args.distinct_from];
+  if (!distinct.every(isCatalogId)) return "distinct_from lists the ids of the catalog rows a refusal named as looking like the same product.";
   const typedBrand = async () => {
     const b = text(args.brand, MAX_BRAND_LEN);
     return b ? spelledAs(b, await catalogBrands(db)) : null;
@@ -204,11 +214,19 @@ export async function verifyCatalogItem(
     if (same) current = same;
     else {
       // A near match is only a likeness: the person can say it is another product, by
-      // the row's own id, so one checked row is let past and nothing else is. Without
-      // it, the only way past was to change the text until it stopped matching.
-      const near = await closestCatalogMatch(db, brand, name, variant);
-      if (near && near.id !== args.distinct_from) {
-        return `Catalog row ${near.id}, ${itemDisplayName(near.brand, near.name, near.variant)}, looks like the same product; pass catalog_id ${near.id} to verify it, or give the size that tells them apart. If the person confirms it is a different product, send distinct_from: ${near.id}; don't rename it to get past this.`;
+      // the row's own id. Every near match is named at once, so the rows let past are the
+      // ones the person checked and nothing else. Without it, the only way past was to
+      // change the text until it stopped matching.
+      const matches = await catalogMatches(db, brand, name, variant);
+      const near = matches.filter((m) => !distinct.includes(m.id));
+      if (near.length) {
+        const ids = [...matches.filter((m) => distinct.includes(m.id)), ...near].map((m) => m.id).join(", ");
+        const rows = near.map((m) => `${m.id}, ${itemDisplayName(m.brand, m.name, m.variant)}`);
+        const dont = "don't rename it to get past this.";
+        if (rows.length === 1) {
+          return `Catalog row ${rows[0]}, looks like the same product; pass catalog_id ${near[0]!.id} to verify it, or give the size that tells them apart. If the person confirms it is a different product, send distinct_from: [${ids}]; ${dont}`;
+        }
+        return `Catalog rows ${rows.join("; ")} look like the same product; pass the catalog_id of the one it is to verify that row, or give the size that tells them apart. If the person confirms it is none of them, send distinct_from: [${ids}]; ${dont}`;
       }
       fresh = true;
     }
@@ -229,33 +247,34 @@ export async function verifyCatalogItem(
     return `Row ${current.id} comes from Mahonia's research files and is already verified; a change to it belongs in seed/_research.`;
   }
 
-  // ---- the number: its kind of gear's range, and what the row weighs now ----
+  // ---- what waits for the person: each concern the call raises, named in one refusal ----
   // the category given, else the one a given gear type names, else the row's own
   const typedKind = category ?? categoryForGearType(gearType);
   const kind = typedKind ?? current?.categoryHint ?? "other";
   const [lo, hi] = RANGE_G[kind] ?? RANGE_G.other!;
-  if ((grams < lo || grams > hi) && !confirmed) {
-    return `${grams} g is outside ${lo}–${hi} g, the usual range for ${kind}. Check the number (grams, for one, a pair as the pair) and the category; if the person confirms it, send weight_confirmed: true.`;
+  const concerns: string[] = [];
+  if ((grams < lo || grams > hi) && !rangeConfirmed) {
+    concerns.push(`${grams} g is outside ${lo}–${hi} g, the usual range for ${kind}: check the number (grams, for one, a pair as the pair) and the category.`);
   }
   const nowG = current ? Number(current.weightMg) / 1000 : 0;
-  if (current && nowG > 0 && bigChange(nowG, grams) && !confirmed) {
-    return `Row ${current.id}, ${itemDisplayName(current.brand, current.name, current.variant)}, weighs ${nowG} g now, and ${grams} g is a change of more than 30%. Check it is the right row, the right size and the right number; if the person confirms it, send weight_confirmed: true.`;
+  if (current && nowG > 0 && bigChange(nowG, grams)) {
+    concerns.push(`Row ${current.id}, ${itemDisplayName(current.brand, current.name, current.variant)}, weighs ${nowG} g now, and ${grams} g is a change of more than 30%: check it is the right row, the right size and the right number.`);
   }
-
   // A scale weight over a maker's published one replaces the maker's figure and its quote
-  // for everyone who uses the catalog (the undo keeps both). Often the person meant their
-  // own piece, which takes its own weight without touching the shared row.
-  if (source === "measured" && current?.status === "active" && current.weightSource === "manufacturer" && !confirmed) {
+  // for everyone who uses the catalog (the undo keeps both), a row brought back included.
+  // Often the person meant their own piece, which takes its own weight without touching
+  // the shared row.
+  if (source === "measured" && current?.weightSource === "manufacturer") {
     let from = "";
     try {
       from = current.sourceUrl ? `, from ${new URL(current.sourceUrl).hostname.replace(/^www\./, "")}` : "";
     } catch {}
-    return `Row ${current.id}, ${itemDisplayName(current.brand, current.name, current.variant)}, carries the maker's published weight (${nowG} g${from}). A scale weight replaces it, and its quote, for everyone who uses the catalog. To record the person's own weight and keep the maker's, give their piece weight_g with edit_my_gear; to add the size they weighed as a row of its own, send brand, name and variant without catalog_id. If the person wants this row changed, send weight_confirmed: true.`;
+    concerns.push(`Row ${current.id}, ${itemDisplayName(current.brand, current.name, current.variant)}, carries the maker's published weight (${nowG} g${from}), and a scale weight replaces it, and its quote, for everyone who uses the catalog. To record the person's own weight and keep the maker's, give their piece weight_g with edit_my_gear; to add the size they weighed as a row of its own, send brand, name and variant without catalog_id.`);
   }
 
   // the gear type given, or the row's own: either joins the suggestions once verified
   const typedLabel = gearType || current?.commonName?.trim() || "";
-  const label = typedLabel ? spelledAs(typedLabel, await catalogGearTypes(db), gearTypeKey) : null;
+  const label = typedLabel ? spelledAs(typedLabel, gearTypes, gearTypeKey) : null;
   const effectiveUrl = sourceUrl ?? current?.sourceUrl ?? null;
   const finalKind = typedKind ?? current?.categoryHint ?? kind;
 
@@ -292,10 +311,14 @@ export async function verifyCatalogItem(
   }
 
   // One weighing is one size: on gear sold by size, a scale weight with no size in the
-  // variant would read as every size's. After the house style, so a name put right
-  // comes first and the size second.
-  if (source === "measured" && soldByOf(label).includes("size") && !extractAttributes(identity.variant, label, finalKind).size && !confirmed) {
-    return `A scale weight is the one size that was weighed, and ${label} is sold by size: name it in variant ("Men's Medium", "Men's US 9"). If it is only sold in one size, send weight_confirmed: true.`;
+  // variant would read as every size's. After the house style, so a name put right comes
+  // first. A size the reader can't place ("Men's 32x30") counts as one.
+  if (source === "measured" && soldByOf(label).includes("size") && !namesSize(identity.variant, { commonName: label, categoryHint: finalKind })) {
+    concerns.push(`A scale weight is the one size that was weighed, and ${label} is sold by size: name the size in variant ("Men's Medium", "Men's US 9"), unless it is sold in one size only.`);
+  }
+  if (concerns.length && !confirmed) {
+    if (concerns.length === 1) return `${concerns[0]} If the person confirms it, send weight_confirmed: true.`;
+    return `${concerns.length} things wait for the person: ${concerns.map((c, i) => `(${i + 1}) ${c}`).join(" ")} If they confirm all of it, send weight_confirmed: true.`;
   }
 
   // ---- volume: a loop that went wrong stops here ----

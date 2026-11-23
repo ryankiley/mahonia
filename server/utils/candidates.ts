@@ -135,31 +135,36 @@ const mode = <T>(arr: T[]): T | undefined => {
 };
 
 /**
- * The live catalog row a product most likely already is, or null; the duplicate test the
- * nightly promotion and verify_catalog_item share. A product WITH a size or version only
- * matches a row of that size: the names alone score two sizes of one product as
+ * The live catalog rows a product may already be, the likeliest first: the duplicate test
+ * the nightly promotion and verify_catalog_item share. A product WITH a size or version
+ * only matches a row of that size: the names alone score two sizes of one product as
  * duplicates of each other. One without a size may match any size of the product. And a
  * name that says MORE than the row is a different product, not a duplicate:
  * trigramScore is coverage of the query's trigrams by the target, so "Zpacks Duplex
  * Zip" scored its parent "Duplex" at about 0.75. A word the row lacks refuses the
  * match; a generic noun ("tent") is not such a word.
  */
-export async function closestCatalogMatch(db: Db, brand: string | null, name: string, variant: string | null): Promise<CatalogSearchResult | null> {
+export async function catalogMatches(db: Db, brand: string | null, name: string, variant: string | null): Promise<CatalogSearchResult[]> {
   const full = itemDisplayName(brand, name, variant);
   const matches = await searchCatalog(db, full, 5);
   const sizeKey = normKey(variant);
   const tokensOf = (t: string) => normKey(t).split(" ").filter(Boolean);
   const said = tokensOf(full).filter((t) => !GENERIC_GEAR_TERMS.has(t));
-  let best: CatalogSearchResult | null = null, bestScore = 0;
+  const scored: { m: CatalogSearchResult; s: number }[] = [];
   for (const m of matches) {
     if (sizeKey && normKey(m.variant) !== sizeKey) continue;
     const target = itemDisplayName(m.brand, m.name, m.variant);
     const has = new Set(tokensOf(target));
     if (said.some((t) => !has.has(t))) continue;
     const s = trigramScore(full, target);
-    if (s > bestScore) { bestScore = s; best = m; }
+    if (s >= DEDUP_THRESHOLD) scored.push({ m, s });
   }
-  return bestScore >= DEDUP_THRESHOLD ? best : null;
+  return scored.sort((a, b) => b.s - a.s).map(({ m }) => m);
+}
+
+/** The likeliest of catalogMatches, or null. */
+export async function closestCatalogMatch(db: Db, brand: string | null, name: string, variant: string | null): Promise<CatalogSearchResult | null> {
+  return (await catalogMatches(db, brand, name, variant))[0] ?? null;
 }
 
 interface CorroborateResult {

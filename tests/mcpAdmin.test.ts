@@ -271,7 +271,13 @@ describe("what it refuses", () => {
   it("refuses a weight outside its kind of gear's range until the person confirms it", async () => {
     const row = await seedCatalogRow(db, { brand: "Six Moon Designs", name: "Lunar Solo", commonName: "Tent", categoryHint: "shelter", weightMg: 740_000 });
     expect(await refusal({ catalog_id: row.id, weight_g: 50, weight_source: "measured" })).toContain("120–3500 g");
-    expect((await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured", outside_range_ok: true })).refused).toBe(false);
+    // the first release's outside_range_ok answers the range and nothing else: the change
+    // from 740 g still waits, and weight_confirmed covers it
+    const legacy = await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured", outside_range_ok: true });
+    expect(legacy.refused).toBe(true);
+    expect(legacy.text).toContain("more than 30%");
+    expect(legacy.text).not.toContain("120–3500 g");
+    expect((await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured", weight_confirmed: true })).refused).toBe(false);
     // a new product whose gear type names no kind of gear is held to "other"
     expect(await refusal({ brand: "Acme", name: "Gizmo", gear_type: "Gizmo", weight_g: 2000, weight_source: "measured" })).toContain("other");
   });
@@ -440,16 +446,73 @@ describe("the rules a chat doesn't have to be told", () => {
     const args = { brand: "Goldwin", name: "3L Jacket", gear_type: "Rain jacket", weight_g: 400, source_url: "https://goldwin.example/3l", quote: "Weight: 400 g" };
     const near = await verify(args);
     expect(near.refused).toBe(true);
-    expect(near.text).toContain(`distinct_from: ${gore.id}`);
+    expect(near.text).toContain(`distinct_from: [${gore.id}]`);
     expect(near.text).toContain("don't rename it");
     // another row's id says nothing about this one
     expect((await verify({ ...args, distinct_from: duplex })).text).toContain(`Catalog row ${gore.id}`);
-    expect((await verify({ ...args, distinct_from: "x" })).text).toContain("distinct_from is");
+    expect((await verify({ ...args, distinct_from: "x" })).text).toContain("distinct_from lists");
     const added = await verify({ ...args, distinct_from: gore.id });
     expect(added.refused, added.text).toBe(false);
     expect(added.data.created).toBe(true);
     // the exact product is still the row it is, distinct_from or not
     expect((await verify({ ...args, distinct_from: gore.id })).text).not.toContain("distinct_from:");
+  });
+
+  it("names every concern a call raises in one refusal, so one confirmation covers only what was said", async () => {
+    const row = await seedCatalogRow(db, { brand: "Acme", name: "Gale Shell", commonName: "Rain jacket", categoryHint: "clothing", weightMg: 100_000, weightSource: "manufacturer", sourceUrl: "https://acme.example/gale", sourceQuote: "Weight: 100 g", verified: true, verifiedBy: admin });
+    const held = await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured" });
+    expect(held.refused).toBe(true);
+    expect(held.text).toContain("things wait for the person");
+    expect(held.text).toContain("more than 30%");
+    expect(held.text).toContain("maker's published weight");
+    expect(held.text).toContain("sold by size");
+    expect((await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured", weight_confirmed: true })).refused).toBe(false);
+  });
+
+  it("holds a scale weight over a maker's on a row it brings back, too", async () => {
+    const row = await seedCatalogRow(db, { brand: "Acme", name: "Revived Stake", commonName: "Tent stakes", categoryHint: "shelter", weightMg: 90_000, weightSource: "manufacturer", sourceUrl: "https://acme.example/stake", sourceQuote: "Weight: 90 g", status: "removed" });
+    const held = await verify({ catalog_id: row.id, weight_g: 80, weight_source: "measured" });
+    expect(held.refused).toBe(true);
+    expect(held.text).toContain("maker's published weight");
+    const done = await verify({ catalog_id: row.id, weight_g: 80, weight_source: "measured", weight_confirmed: true });
+    expect(done.refused, done.text).toBe(false);
+    expect(done.data).toMatchObject({ revived: true });
+  });
+
+  it("takes any size a person names in a scale weight's variant, and asks only when there is none", async () => {
+    const base = { brand: "Caudata", gear_type: "Rain jacket", weight_g: 210, weight_source: "measured" };
+    for (const [name, variant] of [["Axolotl Shell", "Men's Medium Tall"], ["Eft Shell", "Kids Medium"], ["Siren Shell", "Small/Medium"], ["Hellbender Shell", "Men's XXX-Large"]]) {
+      const done = await verify({ ...base, name, variant });
+      expect(done.refused, `${variant}: ${done.text}`).toBe(false);
+    }
+    const cut = await verify({ ...base, name: "Olm Shell", variant: "Men's" });
+    expect(cut.refused).toBe(true);
+    expect(cut.text).toContain("sold by size");
+  });
+
+  it("names every near match at once, and lets past only the ones the person checked", async () => {
+    const shield = await seedCatalogRow(db, { brand: "Montane", name: "Pertex Shield 3L Jacket", commonName: "Rain jacket", categoryHint: "clothing", weightMg: 420_000, verified: true, weightSource: "manufacturer" });
+    const pertex = await seedCatalogRow(db, { brand: "Montane", name: "Pertex 3L Jacket", commonName: "Rain jacket", categoryHint: "clothing", weightMg: 400_000, verified: true, weightSource: "manufacturer" });
+    const args = { brand: "Montane", name: "3L Jacket", gear_type: "Rain jacket", weight_g: 400, source_url: "https://montane.example/3l", quote: "Weight: 400 g" };
+    const near = await verify(args);
+    expect(near.refused).toBe(true);
+    expect(near.text).toContain(`${shield.id}, Montane Pertex Shield 3L Jacket`);
+    expect(near.text).toContain(`${pertex.id}, Montane Pertex 3L Jacket`);
+    // one checked row says nothing about the other
+    const one = await verify({ ...args, distinct_from: [shield.id] });
+    expect(one.refused).toBe(true);
+    expect(one.text).toContain(`Catalog row ${pertex.id}`);
+    expect(one.text).toContain(`distinct_from: [${shield.id}, ${pertex.id}]`);
+    const added = await verify({ ...args, distinct_from: [shield.id, pertex.id] });
+    expect(added.refused, added.text).toBe(false);
+    expect(added.data.created).toBe(true);
+  });
+
+  it("reads the kind of gear and the sizes by the gear type as the catalog spells it", async () => {
+    await seedCatalogRow(db, { brand: "Prana", name: "Stretch Zion", variant: "Men's Medium, Regular", commonName: "Hiking pants", categoryHint: "clothing", weightMg: 400_000, verified: true, weightSource: "manufacturer" });
+    const done = await verify({ brand: "Kuhl", name: "Silencr Pant", variant: "Men's Medium, Regular", gear_type: "Hiking pant", weight_g: 410, weight_source: "measured" });
+    expect(done.refused, done.text).toBe(false);
+    expect(done.data.row).toMatchObject({ gear_type: "Hiking pants", category: "clothing" });
   });
 
   it("spells a plural gear type as the vocabulary already has it", async () => {
@@ -522,6 +585,9 @@ describe("linking the person's own piece in the same call", () => {
     expect(wrong.text).toContain("by Houdini");
     expect(wrong.text).toContain("Nothing was written");
     expect(await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.name, "Fly Creek HV UL2"))).toEqual([]);
+    // the same maker, but names that share no word, is another product too
+    const unrelated = await adminCall(TOOL, { brand: "Houdini", name: "Pace Pants", gear_type: "Hiking pants", weight_g: 250, weight_source: "measured", variant: "Men's Medium", gear_id: shoe });
+    expect(unrelated.text).toContain("doesn't look like");
 
     const large = await seedCatalogRow(db, { brand: "Patagonia", name: "Quandary Pants", variant: "Large", commonName: "Hiking pants", categoryHint: "clothing", weightMg: 300_000 });
     const medium = await addPiece({ brand: "Patagonia", name: "Quandary Pants", variant: "Medium", gear_type: "Hiking pants" });
@@ -529,6 +595,23 @@ describe("linking the person's own piece in the same call", () => {
     expect(sized.text).toContain("is Medium");
     expect((await catalogRow(db, large.id)).verified).toBe(false);
 
-    expect((await adminCall(TOOL, { catalog_id: large.id, weight_g: 305, weight_source: "measured", gear_id: 999_999 })).text).toContain("No piece of your My Gear has id 999999");
+    expect((await adminCall(TOOL, { catalog_id: large.id, weight_g: 305, weight_source: "measured", gear_id: 999_999 })).text).toContain("No piece of your My Gear has id 999999");    // the inseam is read by the gear type as the catalog spells it, a singular included
+    await seedCatalogRow(db, { brand: "Prana", name: "Zion Pant", variant: "Men's Medium, Long", commonName: "Hiking pants", categoryHint: "clothing", weightMg: 410_000, verified: true, weightSource: "manufacturer" });
+    const short = await addPiece({ brand: "Kuhl", name: "Renegade Pant", variant: "Men's Medium, Short", gear_type: "Hiking pants" });
+    const singular = await adminCall(TOOL, { brand: "Kuhl", name: "Renegade Pant", variant: "Men's Medium, Regular", gear_type: "Hiking pant", weight_g: 410, weight_source: "measured", gear_id: short });
+    expect(singular.refused).toBe(true);
+    expect(singular.text).toContain("is Men’s Medium, Short");
+    // a bare shoe number is read as one only by the gear type the catalog spells ("Trail runners")
+    await seedCatalogRow(db, { brand: "Altra", name: "Lone Peak 9", variant: "Men's US 9", commonName: "Trail runners", categoryHint: "clothing", weightMg: 300_000, verified: true, weightSource: "manufacturer" });
+    const ten = await addPiece({ brand: "Topo", name: "Ultraventure 4", variant: "10" });
+    const shoe10 = await adminCall(TOOL, { brand: "Topo", name: "Ultraventure 4", variant: "Men's US 9", gear_type: "Trail runner", weight_g: 280, weight_source: "measured", gear_id: ten });
+    expect(shoe10.refused).toBe(true);
+    expect(shoe10.text).toContain("is 10, and the row is Men’s US 9");
+    // a piece typed with only its cut matches a row that names only its cut
+    const hoody = await addPiece({ brand: "Arc'teryx", name: "Atom Hoody", variant: "Women's Large", gear_type: "Insulated jacket" });
+    const cut = await adminCall(TOOL, { brand: "Arc'teryx", name: "Atom Hoody", variant: "Women's", gear_type: "Insulated jacket", weight_g: 320, source_url: "https://arcteryx.example/atom", quote: "Weight: 320 g", gear_id: hoody });
+    expect(cut.refused, cut.text).toBe(false);
+    expect(cut.data.gear).toMatchObject({ id: hoody, variant: "Women’s Large", weight_g: 320 });
+
   });
 });
