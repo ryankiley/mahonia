@@ -292,7 +292,7 @@ describe("the gear tools", () => {
     expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(2);
   });
 
-  it("link a piece to the catalog as it is added or later, taking the catalog's fields where none were given, and unlink", async () => {
+  it("link a piece to the catalog as it is added, taking the catalog's fields where none were given, or later, keeping its own, and unlink", async () => {
     const r = await tool("edit_my_gear", { add: [{ catalog_id: 1 }, { name: "Spare Duplex", catalog_id: 1, weight_g: 90 }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);
     const results = r.data.results as { status: string; item?: Record<string, unknown> }[];
@@ -303,10 +303,10 @@ describe("the gear tools", () => {
     expect(results[1]!.item).toMatchObject({ name: "Spare Duplex", brand: "Zpacks", weight_g: 90, catalog_id: 1 });
     const duplexId = results[0]!.item!.id as number;
     expect((await tool("get_my_gear", { query: "duplex" }, aliceRead)).data.gear).toHaveLength(2);
-    // relinked later: the catalog's name and brand, the owner's weight
+    // relinked later: the piece's own name and brand, and the weight the call gave
     const linked = (await tool("edit_my_gear", { update: [{ id: tentId, catalog_id: 1, weight_g: 1200 }] }, aliceWrite)).data.updated as { status: string; item: Record<string, unknown> }[];
     expect(linked[0]!.status).toBe("updated");
-    expect(linked[0]!.item).toMatchObject({ id: tentId, name: "Duplex", brand: "Zpacks", weight_g: 1200, catalog_id: 1 });
+    expect(linked[0]!.item).toMatchObject({ id: tentId, name: "X-Mid 2", brand: "Durston", weight_g: 1200, catalog_id: 1 });
     // unlinked: the piece as it reads, with no link
     const unlinked = (await tool("edit_my_gear", { update: [{ id: duplexId, catalog_id: null }] }, aliceWrite)).data.updated as { item: Record<string, unknown> }[];
     expect(unlinked[0]!.item).toMatchObject({ name: "Duplex", weight_g: 538 });
@@ -318,6 +318,51 @@ describe("the gear tools", () => {
     expect(refused.text).toContain("isn't in the catalog");
     expect((await tool("edit_my_gear", { update: [{ id: duplexId, catalog_id: 1.5 }] }, aliceWrite)).refused).toBe(true);
     expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(before);
+  });
+
+  // A connector chat linked a cap typed "L/XL" to a catalog row with no size (one weight
+  // for every size), and the link wrote the row's empty variant over the owner's.
+  it("links a piece already held without writing over what it has, and refuses another size", async () => {
+    const [pants] = await db
+      .insert(schema.catalogItems)
+      .values({ brand: "Patagonia", name: "Quandary Pants", variant: "Large", weightMg: 300_000, weightSource: "manufacturer", sourceUrl: "https://patagonia.com/quandary", verified: true, commonName: "Hiking pants", categoryHint: "clothing" })
+      .returning();
+    const add = await tool(
+      "edit_my_gear",
+      {
+        add: [
+          { brand: "Norda", name: "Luster Cap", variant: "L/XL" },
+          { brand: "Zpacks", name: "My Duplex", gear_type: "Shelter", weight_g: 560 },
+          { brand: "Patagonia", name: "Quandary Pants", variant: "Medium", weight_g: 290 },
+          { brand: "Patagonia", name: "Quandary Pants", variant: "Men's L" },
+        ],
+      },
+      aliceWrite,
+    );
+    expect(add.refused, add.text).toBe(false);
+    const [cap, duplex, medium, large] = (add.data.results as { item: { id: number } }[]).map((x) => x.item.id);
+    const r = await tool(
+      "edit_my_gear",
+      { update: [{ id: cap, catalog_id: 1 }, { id: duplex, catalog_id: 1 }, { id: medium, catalog_id: pants!.id }, { id: large, catalog_id: pants!.id }] },
+      aliceWrite,
+    );
+    expect(r.refused, r.text).toBe(false);
+    const [capped, own, refused, sized] = r.data.updated as { status: string; item?: Record<string, unknown>; reason?: string }[];
+    // its size and name kept; the weight and gear type it lacked, from the row
+    expect(capped).toMatchObject({ status: "updated", item: { name: "Luster Cap", brand: "Norda", variant: "L/XL", weight_g: 538, gear_type: "Tent", catalog_id: 1 } });
+    // a weight and gear type of its own stand over the row's
+    expect(own).toMatchObject({ status: "updated", item: { name: "My Duplex", weight_g: 560, gear_type: "Shelter", catalog_id: 1 } });
+    // a link is to one size: the Medium isn't linked to the Large, and is left as it was
+    expect(refused!.status).toBe("invalid");
+    expect(refused!.reason).toContain("a link is to one size");
+    const asLeft = ((await tool("get_my_gear", { query: "quandary" }, aliceRead)).data.gear as Record<string, unknown>[]).find((g) => g.id === medium);
+    expect(asLeft).toMatchObject({ variant: "Medium", weight_g: 290 });
+    expect(asLeft).not.toHaveProperty("catalog_id");
+    // the same size typed with its cut and a letter is the row's size
+    expect(sized).toMatchObject({ status: "updated", item: { variant: "Men’s L", weight_g: 300, catalog_id: pants!.id } });
+    // sending the size moves the piece to it, and the link with it
+    const moved = (await tool("edit_my_gear", { update: [{ id: medium, variant: "Large", catalog_id: pants!.id }] }, aliceWrite)).data.updated as { status: string; item: Record<string, unknown> }[];
+    expect(moved[0]).toMatchObject({ status: "updated", item: { variant: "Large", weight_g: 290, catalog_id: pants!.id } });
   });
 
   it("say what a kit holds, list its items as pieces of their own, and refuse a weight on one", async () => {

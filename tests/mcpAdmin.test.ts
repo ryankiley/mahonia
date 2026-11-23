@@ -380,7 +380,11 @@ describe("the rules a chat doesn't have to be told", () => {
   it("holds a new row to the catalog's house style, in the audit's own words", async () => {
     const colour = await verify({ brand: "Norda", name: "Luster Cap", variant: "Stone, Large", gear_type: "Hat", weight_g: 36, weight_source: "measured" });
     expect(colour.refused).toBe(true);
-    expect(colour.text).toContain("colour");
+    // the colour word is named, so the size beside it isn't read as refused too
+    expect(colour.text).toContain('"Stone" in variant');
+    const edition = await verify({ brand: "Norda", name: "Luster Cap", variant: "Trail Team Edition", gear_type: "Hat", weight_g: 36, weight_source: "measured" });
+    expect(edition.refused).toBe(true);
+    expect(edition.text).toContain("an edition isn't a size");
     const repeated = await verify({ brand: "Goldwin", name: "Goldwin 0 3L Jacket", variant: "JP 4", gear_type: "Rain jacket", weight_g: 300, weight_source: "measured" });
     expect(repeated.text).toContain("name starts with the brand");
     // a size letter is put into the catalog's words, not refused
