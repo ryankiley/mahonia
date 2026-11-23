@@ -237,8 +237,8 @@ const RATE_LIMITS = {
   "oauth-token": 60,
   "oauth-revoke": 30,
   "oauth-register": 5,
-  // the admin gate itself (see requireAdmin) — throttled against brute force
-  "admin": 30,
+  // the cron routes' gate (see requireCron) — throttled against brute force
+  "cron": 30,
 } as const satisfies Record<string, number>;
 
 export type RateLimitAction = keyof typeof RATE_LIMITS;
