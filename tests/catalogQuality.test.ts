@@ -162,4 +162,17 @@ describe("weightsInQuote — the figures verify_catalog_item holds a quote to", 
     expect(quoteBacksWeight(".5 oz", 14)).toBe(true);
     expect(quoteBacksWeight(".5 oz", 142)).toBe(false);
   });
+
+  it("leaves out a weight per area and a rate, which are not what a thing weighs", () => {
+    // a fabric spec read as the item's weight would back a number the page never gave
+    expect(read("Fabric: DCF 1.0 oz/yd²")).toEqual([]);
+    expect(read("Shell: 36 g/m2 ripstop")).toEqual([]);
+    expect(read("40 gsm nylon")).toEqual([]);
+    expect(read("Burns 12 g/hr on low")).toEqual([]);
+    expect(read("2.5 oz per square yard")).toEqual([]);
+    // a slash before a number is the same weight in another unit
+    expect(read("Weight: 539 g / 19 oz")).toEqual([539, 539]);
+    expect(read("36 oz/1022 g")).toEqual([1022, 1021]);
+    expect(quoteBacksWeight("Fabric: DCF 1.0 oz/yd²", 28)).toBe(false);
+  });
 });
