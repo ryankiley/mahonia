@@ -279,8 +279,8 @@ async function attachTrailFavicon(db: Db, snap: ListSnapshot): Promise<ListSnaps
  *  there re-shipped an immutable icon on every keystroke batch. The editor gets its icon
  *  once from getByEditHash, or from /api/trail-favicon while the list is still a draft.
  *
- *  `authorUserId` adds the byline, which belongs to the READ views only (/s and /l,
- *  not the editor, where you are the author and being told so is noise).
+ *  `authorUserId` adds the byline, which belongs to the READ view only (/s, not the
+ *  editor, where you are the author and being told so is noise).
  *
  *  The lookups hit different tables and touch different fields, so they run
  *  concurrently rather than paying each latency in series. */

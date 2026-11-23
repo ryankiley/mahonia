@@ -110,14 +110,6 @@ export const LISTS_DDL: string[] = [
     consumable_weight_mg bigint NOT NULL DEFAULT 0,
     total_weight_mg bigint NOT NULL DEFAULT 0,
     item_count integer NOT NULL DEFAULT 0,
-    is_public boolean NOT NULL DEFAULT false,
-    published_at timestamptz,
-    trip_type text,
-    season text,
-    primary_category text,
-    view_count integer NOT NULL DEFAULT 0,
-    flagged boolean NOT NULL DEFAULT false,
-    claim_phrase_hash text,
     last_snapshot_at timestamptz,
     version integer NOT NULL DEFAULT 1,
     status text NOT NULL DEFAULT 'active',
@@ -125,9 +117,6 @@ export const LISTS_DDL: string[] = [
     updated_at timestamptz NOT NULL DEFAULT now(),
     deleted_at timestamptz
   )`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trip_type text`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS view_count integer NOT NULL DEFAULT 0`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS flagged boolean NOT NULL DEFAULT false`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS last_snapshot_at timestamptz`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_url text`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_label text`,
@@ -142,6 +131,12 @@ export const LISTS_DDL: string[] = [
   // the byline on the read views — who MADE the list (set once at creation, never
   // re-pointed by a claim); resolves to that account's optional display name
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS author_user_id integer`,
+  // Columns from the first version that nothing ever read, dropped where an older
+  // database still has them. Publishing's (is_public, published_at, trip_type, season,
+  // flagged) are still in production and go in a deploy after this one, with
+  // vault_folders: the deploy before it selects them, and a rollback to it must still
+  // find them.
+  `ALTER TABLE lists DROP COLUMN IF EXISTS primary_category, DROP COLUMN IF EXISTS view_count, DROP COLUMN IF EXISTS claim_phrase_hash`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,

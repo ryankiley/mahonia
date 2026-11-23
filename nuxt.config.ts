@@ -304,7 +304,7 @@ export default defineNuxtConfig({
         // context, so the canonical prod host is used here (from shared/site.ts, which
         // is now the one place that host is written down; sitemap/robots still derive
         // theirs from the request, since a forged host there answers only itself). SSR
-        // routes (/s, /l) override og:title/description per-list via their own useSeoMeta.
+        // routes (/s, /e/{code}) override og:title/description per-list via their own useSeoMeta.
         { property: "og:type", content: "website" },
         { property: "og:site_name", content: "Mahonia" },
         { property: "og:title", content: SITE_TITLE },
@@ -331,8 +331,8 @@ export default defineNuxtConfig({
 
   // Per-route rendering. "/" is a tiny client-decided page (app/pages/index.vue: the
   // list you opened last, else a fresh draft); the editor stays a pure client island (edit token in
-  // the URL fragment, no SSR value). Everything else (legal pages, the public /l
-  // read view) is SSR by default.
+  // the URL fragment, no SSR value). Everything else (the /s read view, the legal
+  // pages) is SSR by default.
   routeRules: {
     // Security headers on EVERY route — including prerendered/static ones. A
     // server middleware would only run for dynamic responses, leaving prerendered
@@ -369,8 +369,8 @@ export default defineNuxtConfig({
     // the one surface you can't scroll away from.
     //
     // The cost of dropping it is one invocation per open of a capability link, which
-    // is the cheapest traffic on the site: /s/{code} and /l/{slug} carry the PUBLIC
-    // share traffic and are already uncached SSR, so this can't be the expensive
+    // is the cheapest traffic on the site: /s/{code} carries the PUBLIC share traffic
+    // and is already uncached SSR, so this can't be the expensive
     // route. Freshness on your own list's name is worth more than collapsing a
     // burst that, on an edit link, is one bot deep.
     //

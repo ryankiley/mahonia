@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { Folder, Item } from "~~/shared/types";
 
-// The share views' folder (/s + /l): static name + collapse + readonly rows.
+// The share view's folder (/s): static name + collapse + readonly rows.
 // Deliberately its OWN component, not FolderSection with a flag — the read pages
 // must not pull the editor graph (useGearList, both drag composables, ItemRow's
 // autocomplete) into their bundle just to render a static list.

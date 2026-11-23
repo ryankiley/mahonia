@@ -30,7 +30,7 @@ interface AccountDeletion {
  *
  * GOES, ALWAYS: the account row, its sessions and pending sign-in links, its
  * passkeys, the access tokens its connectors hold and the apps that signed in
- * through the connector, its claims, and its vault with every item and folder in it. A vault has exactly one owner, so none of that is
+ * through the connector, its claims, and its vault with every item in it. A vault has exactly one owner, so none of that is
  * shared — it's gone in the strong sense rather than soft-deleted, because no link
  * remains that could bring it back and nobody else could miss it.
  *

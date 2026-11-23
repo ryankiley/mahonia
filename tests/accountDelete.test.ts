@@ -27,11 +27,10 @@ async function makeUser(db: TestDb, email: string): Promise<number> {
   return rows[0]!.id;
 }
 
-/** A vault with one folder, one piece of gear and a kit holding it. */
+/** A vault with one piece of gear and a kit holding it. */
 async function makeVault(db: TestDb, userId: number): Promise<number> {
   const v = await db.insert(schema.vaults).values({ userId }).returning();
   const vaultId = v[0]!.id;
-  await db.insert(schema.vaultFolders).values({ vaultId, name: "Shelter" });
   const [tent] = await db
     .insert(schema.vaultItems)
     .values({
@@ -89,7 +88,6 @@ describe("closing an account", () => {
     // nothing can reach
     expect(await count(db, "vaults", `id = ${vaultId}`)).toBe(0);
     expect(await count(db, "vault_items", `vault_id = ${vaultId}`)).toBe(0);
-    expect(await count(db, "vault_folders", `vault_id = ${vaultId}`)).toBe(0);
     expect(await count(db, "vault_kit_parts", "true")).toBe(0);
   });
 

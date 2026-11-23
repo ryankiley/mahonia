@@ -589,12 +589,10 @@ export function computeTotals(list: ListData): Totals {
 
 // Number formatting is PINNED to one locale, never the ambient default.
 // `toLocaleString(undefined, …)` resolves to the render lambda's locale on the
-// server and the visitor's in the browser, and the read-only share views
-// (/l/{slug}, /s/{code}) render weights server-side — so a visitor whose browser
-// says de-DE would hydrate "1.235" over an SSR'd "1,235" (and "1,5 kg" over
-// "1.5 kg"), a mismatch Vue silently patches after paint. Those pages are also
-// edge-cached, so the HTML every visitor gets carries whichever locale the lambda
-// happened to have. Pinning makes the two sides agree by construction. This is the
+// server and the visitor's in the browser, and the read-only share view (/s/{code})
+// renders weights server-side — so a visitor whose browser says de-DE would hydrate
+// "1.235" over an SSR'd "1,235" (and "1,5 kg" over "1.5 kg"), a mismatch Vue silently
+// patches after paint. Pinning makes the two sides agree by construction. This is the
 // same rule the date formatters already follow, which pin for exactly this reason. The pin
 // itself is tidyText's NUM_LOCALE, the one counted() groups a count with, so a weight and
 // the count beside it cannot be pinned apart.

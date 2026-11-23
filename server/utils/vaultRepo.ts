@@ -6,7 +6,7 @@
 import { sweepWindow, toIso } from "./time";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { alias, type PgColumn } from "drizzle-orm/pg-core";
-import { vaultFolders, vaultItems, vaultKitParts, vaults } from "../db/schema";
+import { vaultItems, vaultKitParts, vaults } from "../db/schema";
 import type { Db } from "./db";
 import { liveCatalogRows } from "./catalog";
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
@@ -844,8 +844,7 @@ export async function reapAbandonedVaults(
 }
 
 /** Hard-delete the ownerless vaults soft-deleted more than `graceDays` ago, with their
- *  gear (and any folders left from before My Gear dropped them). This is the stage
- *  that actually reclaims the storage. */
+ *  gear. This is the stage that actually reclaims the storage. */
 export async function purgeDeletedVaults(
   db: Db,
   opts?: { graceDays?: number; limit?: number },
@@ -880,7 +879,6 @@ export async function deleteVaultContents(db: Db, vaultIds: number[]): Promise<v
       ),
     );
   await db.delete(vaultItems).where(inArray(vaultItems.vaultId, vaultIds));
-  await db.delete(vaultFolders).where(inArray(vaultFolders.vaultId, vaultIds));
 }
 
 // ---------------------------------------------------------------------------

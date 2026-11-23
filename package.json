@@ -56,9 +56,13 @@
     "vitest": "^5.0.2",
     "vue-tsc": "^3.3.5"
   },
+  "//": "overrides → @vercel/analytics: v2 declares an optional peer of vue-router@^4, but Nuxt 4 ships vue-router 5, and a strict install (Vercel, CI, no legacy-peer-deps) refuses the pair. The module runs on 5; its range is only stale. Drop this override once a release accepts ^5 (2.1.0-canary already does).",
   "overrides": {
     "satori": {
       "fflate": "0.7.5"
+    },
+    "@vercel/analytics": {
+      "vue-router": "^5.4.0"
     }
   }
 }

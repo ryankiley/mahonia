@@ -68,13 +68,6 @@ describe("reapAbandonedLists — soft-deletes near-empty abandoned lists", () =>
     expect(reaped).toBe(0);
   });
 
-  it("publish status is not a factor — reaps a public/once-published near-empty list", async () => {
-    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
-    await seed(db, { updatedAt: stale(), itemCount: 1, data: oneItem, isPublic: true, publishedAt: stale() });
-    const { reaped } = await reapAbandonedLists(db);
-    expect(reaped).toBe(1);
-  });
-
   it("guards against a drifted item_count (rollup says 0 but data holds 2 items)", async () => {
     const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     // the actual JSONB item array (2) wins over a stale count → real list, survives

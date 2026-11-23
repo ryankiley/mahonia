@@ -75,15 +75,11 @@ export const CATALOG_DDL: string[] = [
     brand text,
     name text NOT NULL,
     variant text,
-    description text,
     category_hint text,
     weight_mg bigint NOT NULL,
     weight_source text NOT NULL CHECK (weight_source IN (${WEIGHT_SOURCES.map((s) => `'${s}'`).join(",")})),
     source_url text,
     product_url text,
-    image_url text,
-    msrp_cents integer,
-    currency text,
     verified boolean NOT NULL DEFAULT false,
     usage_count integer NOT NULL DEFAULT 0,
     status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','merged','removed')),
@@ -106,6 +102,9 @@ export const CATALOG_DDL: string[] = [
   // seeded and community row; see schema.ts for what verified_by means to the seed.
   `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS verified_by integer`,
   `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS source_quote text`,
+  // Columns from the first version that nothing ever read or wrote, dropped where an
+  // older database still has them.
+  `ALTER TABLE catalog_items DROP COLUMN IF EXISTS description, DROP COLUMN IF EXISTS image_url, DROP COLUMN IF EXISTS msrp_cents, DROP COLUMN IF EXISTS currency`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used
@@ -119,9 +118,10 @@ export const CATALOG_DDL: string[] = [
     source_url text,
     reason text,
     status text NOT NULL DEFAULT 'applied' CHECK (status IN ('applied','proposed','reverted','rejected')),
-    confirmations integer NOT NULL DEFAULT 0,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
+  // a first-version column nothing ever read, dropped where it still exists
+  `ALTER TABLE catalog_edits DROP COLUMN IF EXISTS confirmations`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_item ON catalog_edits (catalog_item_id, created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_recent ON catalog_edits (created_at DESC)`,
   // undo — an in-app verification's prior row fields, for revert_catalog_edit (schema.ts)
