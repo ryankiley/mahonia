@@ -1,7 +1,9 @@
 /** The accounts that may use the admin tools (verify_catalog_item,
  *  catalog_changes and revert_catalog_edit): ADMIN_USER_IDS,
  *  comma-separated. Unset or empty is nobody, so a deploy that forgets the variable
- *  opens nothing. Read per call, so a changed value needs no restart. */
+ *  opens nothing. Read per call, but Vercel hands a deployment its environment when it
+ *  is built: a value set or changed there reaches only the deployments made after it.
+ *  An id is users.id, which the app never shows; read it in the database. */
 function adminIds(): number[] {
   return (process.env.ADMIN_USER_IDS ?? "")
     .split(",")
