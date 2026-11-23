@@ -418,27 +418,20 @@ describe("useGearList — whose gear is this?", () => {
     expect(c.vaultAuto.value).toBe(false);
   });
 
-  // The regression that made the ask worth nothing. load() runs three one-time
-  // backfills (water rename, folder colours, stranded children) through the SAME
-  // dispatch() every user edit goes through — so merely OPENING a shared list
+  // The regression that made the ask worth nothing. load() runs a one-time backfill
+  // (water's qty fold) through the SAME dispatch() every user edit goes through — so merely OPENING a shared list
   // captured the whole thing before its owner's gear was ever in question.
   it("does not capture — or ask — for load()'s own backfills", async () => {
-    listResponse = withGear(
-      [
-        gear(),
-        gear({ id: "i2", name: "Water · 1 L", brand: undefined, classification: "consumable" }),
-        // stored with a count before the reducer folded one: becomes its whole volume
-        gear({ id: "i3", name: "Water", brand: undefined, qty: 3, unitWeightMg: 3_000_000, classification: "consumable" }),
-      ],
-      [folder({ colorKey: "other" })], // triggers the colour backfill
-    );
+    listResponse = withGear([
+      gear(),
+      // stored with a count before the reducer folded one: becomes its whole volume
+      gear({ id: "i3", name: "Water", brand: undefined, qty: 3, unitWeightMg: 3_000_000, classification: "consumable" }),
+    ]);
     const c = await opened();
 
-    // the backfills really did run (else this passes for the wrong reason)
+    // the backfill really did run (else this passes for the wrong reason)
     await vi.waitFor(() => {
-      expect(c.snapshot.value?.items.find((i) => i.id === "i2")?.name).toBe("Water");
       expect(c.snapshot.value?.items.find((i) => i.id === "i3")).toMatchObject({ qty: 1, unitWeightMg: 9_000_000 });
-      expect(c.snapshot.value?.folders[0]?.colorKey).not.toBe("other");
     });
     expect(c.vaultPrompt.value).toBeNull();
     expect(captureCalls).toBe(0);

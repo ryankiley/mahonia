@@ -15,7 +15,7 @@ import {
 import { deleteAccount } from "../server/utils/accountRepo";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { CATALOG_DDL } from "../server/utils/catalog";
-import { listClaimedLists, unclaimList } from "../server/utils/claimRepo";
+import { listClaimedLists } from "../server/utils/claimRepo";
 import { REPLAY_WAIT } from "../server/utils/mcp";
 import { LISTS_DDL } from "../server/utils/db";
 import { rateLimitSubject } from "../server/utils/rateLimit";
@@ -742,7 +742,9 @@ describe("create_list retried by the same account", () => {
 
   it("makes a new list when the one the window names was deleted or taken off the account", async () => {
     const first = await tool("create_list", LIST, erinWrite);
-    await unclaimList(db, erin, first.data.share_code as string);
+    // off the account (as rotating its link does), the list itself untouched
+    const [{ id: firstId }] = await db.select({ id: schema.lists.id }).from(schema.lists).where(eq(schema.lists.shareCode, first.data.share_code as string));
+    await db.delete(schema.listClaims).where(eq(schema.listClaims.listId, firstId!));
     const second = await tool("create_list", LIST, erinWrite);
     expect(second.data).toMatchObject({ repeated: false, saved_to_account: true });
     expect(second.data.share_code).not.toBe(first.data.share_code);

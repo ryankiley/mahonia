@@ -6,13 +6,8 @@
 // The sign-in sweep — what the browser sends the claim endpoint, and when it
 // bothers sending anything at all.
 //
-// The split matters: rows this browser made go in `editTokens` and are claimed
-// outright, rows that arrived through someone else's link go in `openedTokens`
-// and are only ever claimed under the server's narrower rule (a list from before
-// origin tracking, whose mark was never recorded — see server/utils/claimRepo).
-// Sending the second bucket is what lets a pre-accounts list that got stamped by a
-// reopen reach the account without anyone pressing anything; NOT claiming on the
-// strength of it is what keeps a shared list out of your account.
+// Only rows this browser made are sent. A row that arrived through someone else's
+// link stays out, which is what keeps a shared list out of your account.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { listEntry } from "./helpers/myLists";
 import { stubLocalStorage } from "./helpers/storage";
@@ -62,22 +57,22 @@ const storage = stubLocalStorage();
 // nothing" and passes the wrong tests).
 interface ClaimBody {
   editTokens: string[];
-  openedTokens: string[];
 }
 const posted: ClaimBody[] = [];
 registerEndpoint("/api/lists/claim", {
   method: "POST",
   handler: async (event) => {
     const body = await readBody<ClaimBody>(event);
-    posted.push({ editTokens: body.editTokens ?? [], openedTokens: body.openedTokens ?? [] });
+    // the whole body, so anything sent beside editTokens fails a toEqual
+    posted.push({ ...body, editTokens: body.editTokens ?? [] });
     return { claimed: 0, lists: [] };
   },
 });
 let served: Partial<ClaimedList>[] = [];
 registerEndpoint("/api/lists/claimed", () => ({ lists: served }));
 
-// Rows here PREDATE origin tracking unless a case says otherwise: the sweep's whole
-// subject is what the server does with rows that never recorded how they arrived.
+// Rows here carry no origin unless a case says otherwise, which the registry reads
+// as made here (madeHere).
 const entry = (over: Partial<MyListEntry> & { editToken: string }): MyListEntry =>
   listEntry({ origin: undefined, lastOpened: 0, ...over });
 
@@ -101,43 +96,41 @@ beforeEach(() => {
 });
 
 describe("claimDeviceLists — what goes to the server", () => {
-  it("splits the registry into owned and opened buckets", async () => {
+  it("sends only the lists this browser made", async () => {
     entries.value = [
       entry({ editToken: "mine", origin: "created" }),
-      entry({ editToken: "legacy" }), // predates the field
+      entry({ editToken: "unmarked" }),
       entry({ editToken: "theirs", origin: "opened", shareCode: "C0DE00000002" }),
     ];
 
     await useClaimedLists().claimDeviceLists();
 
     expect(posted).toHaveLength(1);
-    // an absent origin is still treated as yours — the guess this app has always made
-    expect([...posted[0]!.editTokens].sort()).toEqual(["legacy", "mine"]);
-    // sent, but the server decides; being in this array claims nothing by itself
-    expect(posted[0]!.openedTokens).toEqual(["theirs"]);
+    // an absent origin is treated as yours; a list opened from someone's link is not sent
+    expect({ ...posted[0]!, editTokens: [...posted[0]!.editTokens].sort() }).toEqual({ editTokens: ["mine", "unmarked"] });
   });
 
-  it("sends a registry that is nothing BUT opened rows", async () => {
-    // the stranded case: the only list on this device got stamped by a reopen. The
-    // old sweep sent an empty array here and the account never heard of it.
-    entries.value = [entry({ editToken: "stamped", origin: "opened" })];
+  it("sends an empty claim once for a registry of only opened rows, then stops", async () => {
+    entries.value = [entry({ editToken: "theirs", origin: "opened" })];
 
     await useClaimedLists().claimDeviceLists();
+    expect(posted).toEqual([{ editTokens: [] }]);
 
-    expect(posted).toEqual([{ editTokens: [], openedTokens: ["stamped"] }]);
+    // every claim also rebuilds My Gear from the account's lists, bumping each row's
+    // use count, so an unchanged empty set must not send again on the next load
+    await useClaimedLists().claimDeviceLists();
+    expect(posted).toHaveLength(1);
   });
 
-  it("re-runs when only an opened row changes", async () => {
+  it("doesn't re-run when only an opened row changes", async () => {
     entries.value = [entry({ editToken: "mine", origin: "created" })];
     await useClaimedLists().claimDeviceLists();
     expect(posted).toHaveLength(1);
 
-    // a fingerprint over one bucket would call this "no change" and skip it
     entries.value = [...entries.value, entry({ editToken: "opened-one", origin: "opened" })];
     await useClaimedLists().claimDeviceLists();
 
-    expect(posted).toHaveLength(2);
-    expect(posted[1]!.openedTokens).toEqual(["opened-one"]);
+    expect(posted).toHaveLength(1);
   });
 
   it("skips the request when the whole registry is unchanged", async () => {
@@ -178,7 +171,7 @@ describe("claimDeviceLists — what goes to the server", () => {
     sweep.value = true;
     await useClaimedLists().claimDeviceLists();
 
-    expect(posted).toEqual([{ editTokens: ["mine"], openedTokens: [] }]);
+    expect(posted).toEqual([{ editTokens: ["mine"] }]);
   });
 
   it("goes by the session and not by anything this browser remembers", async () => {

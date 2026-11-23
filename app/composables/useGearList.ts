@@ -1,11 +1,11 @@
 import type { Op } from "~~/shared/ops";
 import { applyOps, tidyListText, rebaseOnto } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
-import { colorKeyForName, STARTER_FOLDERS, usedColorKeys } from "~~/shared/categories";
+import { STARTER_FOLDERS } from "~~/shared/categories";
 import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey } from "~~/shared/localList";
 import { reconcileSnapshot } from "~~/shared/reconcile";
-import type { Folder, Item, ListSnapshot } from "~~/shared/types";
+import type { Folder, ListSnapshot } from "~~/shared/types";
 import { pickListMeta, stateData } from "~~/shared/types";
 import type { CaptureOneResult } from "./useVault";
 import type { VaultCapture, VaultGearKey } from "~~/shared/vault";
@@ -119,12 +119,11 @@ function create() {
     epochRef.value = ++epoch;
     return epoch;
   }
-  // True while load() runs its one-time backfills (water names, folder colours,
-  // stranded children). Those go through dispatch like any edit — which is right for
-  // persistence, and wrong for the vault: they fire on OPEN, so a list someone
-  // shared with you would capture its owner's whole gear set into your vault the
-  // moment a single legacy folder needed a colour. Suppressed here rather than at
-  // each backfill, so a fourth one added later inherits the rule instead of
+  // True while load() runs its one-time backfills (water's qty fold). Those go through
+  // dispatch like any edit — which is right for persistence, and wrong for the vault:
+  // they fire on OPEN, so a list someone shared with you would capture its owner's
+  // whole gear set into your vault the moment a single row needed one. Suppressed here
+  // rather than at each backfill, so one added later inherits the rule instead of
   // reintroducing the leak.
   let hydrating = false;
   // Raised when gear would reach the vault from a list this device didn't create
@@ -624,42 +623,12 @@ function create() {
       // CREATED instead (useVaultCapture().captureNewList), where the device knows
       // it made the thing; everything else still captures as you edit.
       hydrating = true;
-      // one-time cleanups: early water rows were named "Water · 1 L"; the volume now
-      // lives in the litres field, so the name should just be "Water". And water is a
-      // volume, not a count (foldWaterQty, shared/ops): a row stored with qty 3 before
-      // the reducer folded it becomes its whole volume at qty 1, weighing what it did.
+      // one-time cleanup: water is a volume, not a count (foldWaterQty, shared/ops): a
+      // row stored with qty 3 before the reducer folded it becomes its whole volume at
+      // qty 1, weighing what it did. Self-persists via the mutate flow.
       for (const it of merged.items) {
-        if (/^water\s*·/i.test(it.name)) updateItem(it.id, { name: "Water" });
-        else if (isWaterName(it.name) && it.qty > 1) updateItem(it.id, { qty: 1, unitWeightMg: lineMg(it) });
+        if (isWaterName(it.name) && it.qty > 1) updateItem(it.id, { qty: 1, unitWeightMg: lineMg(it) });
       }
-      // one-time backfill: lists imported before folders got colours assigned have
-      // every folder on the neutral grey ("other"), so the category chart reads as
-      // all grey. Reassign distinct palette hues — same logic as addFolder — so the
-      // viz is colourful. "other" is never auto-assigned and has no picker, so the
-      // only folders carrying it came from a pre-colour import; recolouring is safe
-      // and self-persists via the mutate flow (covers existing prod lists on open).
-      const colorKeys = usedColorKeys(merged.folders);
-      merged.folders.forEach((f, i) => {
-        if (colorKeys[i] !== "other") return;
-        const colorKey = colorKeyForName(f.name, colorKeys);
-        colorKeys[i] = colorKey;
-        updateFolder(f.id, { colorKey });
-      });
-      // one-time heal: before the reducer cascaded folderId on cross-folder parent
-      // moves (shared/ops.ts moveItem), a dragged parent could strand its children's
-      // folderId in the old folder — skewing class totals and folder-delete scope.
-      // A same-place moveItem on the parent is a pure no-op for the parent itself
-      // and re-runs the cascade; self-persists via the mutate flow like the
-      // backfills above.
-      const stranded = new Set<Item>();
-      const itemById = new Map(merged.items.map((item) => [item.id, item]));
-      for (const it of merged.items) {
-        if (it.parentId == null) continue;
-        const parent = itemById.get(it.parentId);
-        if (parent && parent.folderId !== it.folderId) stranded.add(parent);
-      }
-      for (const p of stranded)
-        dispatch({ t: "moveItem", id: p.id, folderId: p.folderId, sortOrder: p.sortOrder });
       hydrating = false;
       // Upgrade a legacy bare /e#{token} URL to the share-ready pretty path
       // (/e/{shareCode}#{token}) once the share code is known. Pre-#54 lists —
@@ -1164,7 +1133,7 @@ function create() {
   // else, and were the longest stretch of this file that had nothing to do with syncing.
   // The few named here are the ones the engine itself calls.
   const edits = createEdits({ snapshot, dispatch, offerUndo, pendingBlankId });
-  const { updateFolder, updateItem } = edits;
+  const { updateItem } = edits;
 
   /** Bank one row on demand — see useVault.captureOne for why it bypasses the
    *  debounce and the consent prompt that the automatic path is built around. */

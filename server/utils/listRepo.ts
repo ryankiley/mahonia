@@ -384,13 +384,10 @@ async function findIdByEditHash(editHash: string, db: Db): Promise<number | null
 export async function findLiveByEditHashes(
   editHashes: string[],
   db: Db,
-): Promise<{ id: number; editTokenHash: string; createdAt: Date }[]> {
+): Promise<{ id: number }[]> {
   if (!editHashes.length) return [];
   return db
-    // createdAt rides along for the claim rule: a list made before origin tracking
-    // existed carries no trustworthy "how did you get this" mark, and the server is
-    // the only place that still knows which era a list is from (see claimRepo).
-    .select({ id: lists.id, editTokenHash: lists.editTokenHash, createdAt: lists.createdAt })
+    .select({ id: lists.id })
     .from(lists)
     .where(
       and(

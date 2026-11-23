@@ -8,7 +8,7 @@
 // holding that link.
 
 import { toIso } from "./time";
-import { and, desc, eq, inArray } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { listClaims, lists } from "../db/schema";
 import type { Db } from "./db";
 import { findLiveByEditHashes, isLive } from "./listRepo";
@@ -23,28 +23,6 @@ import { CLAIMED_LIST_CAP, type ClaimedList } from "../../shared/types";
 // request may carry, since "Your lists" is a device registry a person built by hand
 // and anything past it is not a real browser, and how many rows a read returns. The
 // client reads the same number to know when the rows it holds are the whole account.
-
-/**
- * When the device registry started recording HOW a list got onto a browser.
- *
- * `origin` shipped with accounts themselves (commit 20f8a81, "Move the vault into
- * an account"), so no list made before this instant could have had one recorded —
- * and the client has always treated those unmarked rows as yours, which is the
- * right guess for nearly all of them.
- *
- * That grandfathering used to be undone by simply REOPENING such a list through
- * its own edit link: the registry stamped the row "opened" after the fact, and the
- * sweep below then skipped it forever, so the account never heard about a list the
- * browser had held all along. The stamp is a guess made too late to mean anything,
- * and this timestamp is what lets the server ignore it — the browser itself has no
- * idea when a list was made.
- *
- * Deliberately the COMMIT instant rather than the deploy that followed it: erring
- * early only costs a list the automatic sweep (it can still be added by hand from
- * the sharing menu), while erring late would grandfather lists whose "opened" mark
- * is real and attach someone else's list to an account.
- */
-const ORIGIN_TRACKING_SINCE = new Date("2026-08-02T01:45:17Z");
 
 /** Ceiling on a single backfill. A personal gear collection is dozens of items;
  *  this only bounds the pathological account. */
@@ -61,17 +39,10 @@ const isToken = (t: unknown): t is string =>
  * persists is (user, list), which is why a database dump still contains no write
  * capability for anyone's list.
  *
- * TWO BUCKETS, because the browser can't always tell whose list it's holding.
- * `editTokens` are the ones its registry calls yours (made, imported or cloned
- * here) and are claimed outright. `openedTokens` arrived through an edit link
- * someone may have SENT you — never claimed on that basis alone, because quietly
- * attaching a shared list to your account is a surprise. They're claimed only when
- * the list predates origin tracking (see ORIGIN_TRACKING_SINCE), where the mark
- * distinguishing the two cases was never recorded in the first place and the app
- * has always guessed "yours".
- *
- * The decision is HERE rather than in the client for the reason the split exists at
- * all: `lists.created_at` is the deciding fact and only the server has it.
+ * The sign-in sweep sends the lists the browser's registry calls yours: made,
+ * imported or cloned there. One that arrived through someone else's edit link is
+ * claimed only by choice (the sharing menu's claimOne, the connector's create_list),
+ * because quietly attaching a shared list to your account is a surprise.
  *
  * Unresolvable tokens are skipped in silence rather than reported: a device
  * registry accumulates dead entries (deleted lists, rotated links), and a
@@ -82,22 +53,16 @@ export async function claimLists(
   db: Db,
   userId: number,
   editTokens: string[],
-  openedTokens: string[] = [],
 ): Promise<number> {
-  // Owned first, then the conditional ones fill what's left of the budget: the cap
-  // bounds one request, and a registry big enough to hit it should spend it on the
-  // lists whose ownership isn't in question.
   const owned = editTokens.filter(isToken).slice(0, CLAIMED_LIST_CAP);
-  const opened = openedTokens.filter(isToken).slice(0, CLAIMED_LIST_CAP - owned.length);
-  if (!owned.length && !opened.length) return 0;
+  if (!owned.length) return 0;
 
   // Two statements for the whole batch, not two per token. Hashing is local and
   // synchronous, so the only round trips left are the resolve and the insert —
   // where a registry of 200 tokens used to cost 400 sequential ones, which on
   // Neon's HTTP driver (no pipelining) is the difference between a sign-in that
   // lands and one you watch happen.
-  const ownedHashes = new Set(owned.map(sha256Hex));
-  const rows = await findLiveByEditHashes([...ownedHashes, ...opened.map(sha256Hex)], db);
+  const rows = await findLiveByEditHashes(owned.map(sha256Hex), db);
   if (!rows.length) return 0;
 
   // SORTED, which is the part that matters. Two overlapping claims from the same
@@ -112,21 +77,7 @@ export async function claimLists(
   // ON CONFLICT DO NOTHING tolerates a repeated pair within one statement (that
   // restriction belongs to DO UPDATE). It costs nothing and makes the row count
   // obviously equal to the key count.
-  const listIds = [
-    ...new Set(
-      rows
-        // the opened-bucket gate: a row that only came back for a token from that
-        // bucket has to be old enough that its "opened" mark could never have been
-        // recorded. A token in BOTH buckets is owned — the outright claim wins.
-        .filter(
-          (r) =>
-            ownedHashes.has(r.editTokenHash) ||
-            new Date(r.createdAt).getTime() < ORIGIN_TRACKING_SINCE.getTime(),
-        )
-        .map((r) => r.id),
-    ),
-  ].sort((a, b) => a - b);
-  if (!listIds.length) return 0;
+  const listIds = [...new Set(rows.map((r) => r.id))].sort((a, b) => a - b);
 
   // ON CONFLICT DO NOTHING ... RETURNING gives back only the rows actually
   // inserted, so the count still means "newly claimed" and re-claiming stays a
@@ -278,27 +229,4 @@ export async function claimedEditHash(
     )
     .limit(1);
   return rows[0]?.editTokenHash ?? null;
-}
-
-/**
- * Drop a claim — "remove from my account", the account-level counterpart of "remove
- * from this device". The list itself is untouched and anyone with its link (this
- * user included) can still open it. Scoped by userId in the WHERE, so one account
- * can't unclaim another's.
- */
-export async function unclaimList(db: Db, userId: number, shareCode: string): Promise<boolean> {
-  const code = normalizeShareCode(shareCode);
-  if (!code) return false;
-  // the share code resolves to its list INSIDE the delete — one round trip, not a
-  // select-then-delete pair
-  const done = await db
-    .delete(listClaims)
-    .where(
-      and(
-        eq(listClaims.userId, userId),
-        inArray(listClaims.listId, db.select({ id: lists.id }).from(lists).where(eq(lists.shareCode, code))),
-      ),
-    )
-    .returning();
-  return done.length > 0;
 }
