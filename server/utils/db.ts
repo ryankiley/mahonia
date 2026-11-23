@@ -133,8 +133,9 @@ export const LISTS_DDL: string[] = [
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS author_user_id integer`,
   // Columns from the first version that nothing ever read, dropped where an older
   // database still has them. Publishing's (is_public, published_at, trip_type, season,
-  // flagged) are still in production and go in a deploy after this one: the deploy
-  // before it selects them, and a rollback to it must still find them.
+  // flagged) are still in production and go in a deploy after this one, with
+  // vault_folders: the deploy before it selects them, and a rollback to it must still
+  // find them.
   `ALTER TABLE lists DROP COLUMN IF EXISTS primary_category, DROP COLUMN IF EXISTS view_count, DROP COLUMN IF EXISTS claim_phrase_hash`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,

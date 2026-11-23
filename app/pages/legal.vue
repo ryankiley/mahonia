@@ -115,7 +115,7 @@ useHead({
           database), <strong>Upstash</strong> (rate limiting, and the short-lived challenge a
           passkey needs), <strong>Resend</strong> (sending sign-in links, so it handles
           your email address), and <strong>GitHub</strong>, where feedback you send from the app
-          becomes a public issue carrying only what you typed in the box.
+          becomes a public issue carrying only what was in the box when you sent it.
         </p>
         <p>
           One more, and only on one screen. When a list has a route, the planning view draws it on
@@ -224,8 +224,9 @@ useHead({
         <p>
           Please don’t use Mahonia to break the law, infringe others’ rights, post abusive or
           deceptive content, impersonate people, or attack, overload, or scrape the service.
-          “Report list” in a shared list’s ⋯ menu opens the feedback box, and like any feedback
-          it becomes a public issue. To report something privately or request a takedown, email
+          “Report list” in a shared list’s ⋯ menu opens the feedback box with the list’s title
+          already in it, and like any feedback it becomes a public issue. To report something
+          privately or request a takedown, email
           <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> with enough detail to find
           the content. I may remove content or limit access.
         </p>

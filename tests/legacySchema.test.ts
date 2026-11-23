@@ -1,7 +1,8 @@
 // The retired columns and table as an OLDER database meets them: production still has
 // them when a new build's ensure first runs there. The DDL drops them in place, keeps
-// every row, and leaves publishing's columns for a later deploy (the deploy before this
-// one selects them, so a rollback to it must still find them).
+// every row, and leaves publishing's columns and vault_folders for a later deploy (the
+// deploy before this one selects the columns and deletes from the table, so a rollback
+// to it must still find them).
 
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
@@ -73,14 +74,14 @@ describe("the retired columns on a database that still has them", () => {
     for (const c of ["folder_id", "description", "description_pinned"]) expect(vaultCols).not.toContain(c);
     // the price's currency is a live column of the same name, on the gear, not the catalog
     expect(vaultCols).toContain("currency");
-    expect(await hasTable(db, "vault_folders")).toBe(false);
   });
 
-  it("keeps publishing's columns, which the deploy before this one still selects", async () => {
+  it("keeps publishing's columns and vault_folders, which the deploy before this one still uses", async () => {
     const db = await olderDb();
     await runDdl(db, DDL);
     const listCols = await columns(db, "lists");
     for (const c of ["is_public", "published_at", "trip_type", "season", "flagged"]) expect(listCols).toContain(c);
+    expect(await hasTable(db, "vault_folders")).toBe(true);
   });
 
   it("keeps every row, and today's select reads them", async () => {

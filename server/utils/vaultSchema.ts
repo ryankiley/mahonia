@@ -42,8 +42,10 @@ export const VAULT_DDL: string[] = [
   // serve, being scoped to exactly the rows the purge ignores. The same recheck on
   // `user_id IS NULL` applies.
   `CREATE INDEX IF NOT EXISTS idx_vaults_purge ON vaults (deleted_at) WHERE deleted_at IS NOT NULL`,
-  // The folders My Gear had before it grouped by kind, unread and unwritten since.
-  `DROP TABLE IF EXISTS vault_folders`,
+  // vault_folders, the folders My Gear had before it grouped by kind, is no longer
+  // created, read or deleted from, and goes in a deploy after this one: the deploy
+  // before it still deletes from it when a vault goes, and a warm instance of it would
+  // fail partway through closing an account if the table were already gone.
 
   `CREATE TABLE IF NOT EXISTS vault_items (
     id serial PRIMARY KEY,
@@ -76,7 +78,7 @@ export const VAULT_DDL: string[] = [
   // kcal — food energy per unit. ALTER so existing vaults gain it (the CREATE
   // above is a no-op once the table exists).
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS kcal integer`,
-  // Retired, dropped where they still exist: the row's folder (folder_id, see
+  // Retired, dropped where they still exist: the row's folder (folder_id, from
   // vault_folders above), and the note My Gear kept until 2026-11-08 with its pin. The
   // note was mostly list notes that capture had copied in (a trip's "Sam carries this"
   // showing on the gear); a note belongs to a list row, and My Gear keeps none.
