@@ -124,7 +124,9 @@ describe("jsonToListImport sanitization", () => {
       }),
     )!;
     expect(parsed.title).toHaveLength(200);
-    expect(parsed.data.folders[0]!.colorKey).toBe("other");
+    // the injected value never survives: it falls to "other", which the import then
+    // recolours to a palette hue like any folder that came without one
+    expect(parsed.data.folders[0]!.colorKey).toMatch(/^[a-z]+$/);
     expect(parsed.data.folders[0]!.defaultClassification).toBe("base");
     const anvil = parsed.data.items[0]!;
     expect(anvil.unitWeightMg).toBe(UNIT_WEIGHT_MAX_MG);
@@ -153,6 +155,26 @@ describe("jsonToListImport sanitization", () => {
     expect(one!.folderId).toBe(a!.id);
     // "ghost" exists nowhere → unfiled, like addItem's dangling-folder coercion
     expect(two!.folderId).toBeNull();
+  });
+
+  it("gives folders that came without a colour distinct hues, and keeps the grey bucket grey", () => {
+    const parsed = jsonToListImport(
+      JSON.stringify({
+        folders: [
+          { id: "a", name: "Shelter", sortOrder: 0 },
+          { id: "b", name: "Kitchen", colorKey: "other", sortOrder: 1 },
+          { id: "c", name: "Misc", sortOrder: 2 },
+          { id: "d", name: "Worn", colorKey: "sky", sortOrder: 3 },
+        ],
+        items: [],
+      }),
+    )!;
+    const [shelter, kitchen, misc, worn] = parsed.data.folders.map((f) => f.colorKey);
+    expect(shelter).not.toBe("other");
+    expect(kitchen).not.toBe("other");
+    expect(new Set([shelter, kitchen, worn]).size).toBe(3);
+    expect(misc).toBe("other");
+    expect(worn).toBe("sky");
   });
 
   it("caps folder and item counts at the reducer's hard limits", () => {

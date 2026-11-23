@@ -40,9 +40,17 @@ const CLAIMED_ROWS_KEY = OWNED.claimedRows;
 // the bare address ranks the two together (shared/switcher resumeTarget).
 const CLAIMED_OPENS_KEY = OWNED.claimedOpens;
 
+// Unscoped keys from before the cache was kept per account (#406). They can hold the
+// last account's list titles and share codes, so they're cleared on the way through.
+const LEGACY_KEYS = ["gear.claimed.v1", "gear.claimed.rows.v1", "gear.claimed.opens.v1"];
+
 /** The cookie is current even while an old /api/auth/me response is still on screen. */
 function cacheOwner(): string | null {
   return sessionCacheOwner() ?? useSession().user.value?.owner ?? null;
+}
+
+function forgetLegacyCache(): void {
+  for (const key of LEGACY_KEYS) forget(key);
 }
 
 // Enough to cover any plausible rotation of lists; the ledger is only ever read to
@@ -170,6 +178,7 @@ export function useClaimedLists() {
     lists.value = rows;
     const key = ownedKey(CLAIMED_ROWS_KEY, owner);
     if (!key) return;
+    forgetLegacyCache();
     if (rows.length) remember(key, JSON.stringify(rows));
     else forget(key);
   }
@@ -284,9 +293,11 @@ export function useClaimedLists() {
     // invisible way in (claimOne below adds one by choice).
     const editTokens = sweptTokens();
     const mark = fingerprint ?? deviceFingerprint(editTokens);
-    // storage blocked reads as "" — fall through and claim; it's idempotent
-    const seen = recall(markKey) ?? "";
-    if (editTokens.length && mark === seen) {
+    // Skip once this exact set has been sent, an empty one included: a claim also
+    // rebuilds My Gear from the account's lists, which bumps every row's use count.
+    // Storage blocked reads as null — fall through and claim; it's idempotent.
+    const seen = recall(markKey);
+    if (seen !== null && mark === seen) {
       // nothing new to attach, but we still want the account's own list
       if (!loaded.value) await refresh();
       return;
@@ -366,6 +377,7 @@ export function useClaimedLists() {
     // the bare address into one of them
     if (rowsKey) forget(rowsKey);
     if (opensKey) forget(opensKey);
+    forgetLegacyCache();
     lists.value = [];
     loaded.value = false;
   }

@@ -10,7 +10,8 @@ import {
 } from "../server/utils/claimRepo";
 import { findByEditHash, rotateEditHash } from "../server/utils/listRepo";
 import { randomEditToken, sha256Hex } from "../server/utils/tokens";
-import { byToken, createTestDb, makeList as makeListRow, type TestDb } from "./helpers/db";
+import { CLAIMED_LIST_CAP } from "../shared/types";
+import { byToken, createTestDb, makeList as makeListRow, makeLists, type TestDb } from "./helpers/db";
 
 const findByEditToken = byToken(findByEditHash);
 
@@ -52,6 +53,13 @@ describe("claiming a list onto an account", () => {
     const n = await claimLists(db, USER, ["not-a-real-token", list.editToken, ""]);
     expect(n).toBe(1);
     expect(await listClaimedLists(db, USER)).toHaveLength(1);
+  });
+
+  it("claims at most CLAIMED_LIST_CAP lists in one call", async () => {
+    const titles = Array.from({ length: CLAIMED_LIST_CAP + 1 }, (_, i) => `L${i}`);
+    const tokens = (await makeLists(db, titles, WEIGHED)).map((l) => l.editToken);
+    expect(await claimLists(db, USER, tokens)).toBe(CLAIMED_LIST_CAP);
+    expect(await listClaimedLists(db, USER)).toHaveLength(CLAIMED_LIST_CAP);
   });
 
   it("stores NO edit token — a dump of the claims yields no capability", async () => {

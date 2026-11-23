@@ -110,12 +110,16 @@ describe("claimDeviceLists — what goes to the server", () => {
     expect({ ...posted[0]!, editTokens: [...posted[0]!.editTokens].sort() }).toEqual({ editTokens: ["mine", "unmarked"] });
   });
 
-  it("sends an empty claim for a registry of only opened rows, and still reads the account", async () => {
+  it("sends an empty claim once for a registry of only opened rows, then stops", async () => {
     entries.value = [entry({ editToken: "theirs", origin: "opened" })];
 
     await useClaimedLists().claimDeviceLists();
-
     expect(posted).toEqual([{ editTokens: [] }]);
+
+    // every claim also rebuilds My Gear from the account's lists, bumping each row's
+    // use count, so an unchanged empty set must not send again on the next load
+    await useClaimedLists().claimDeviceLists();
+    expect(posted).toHaveLength(1);
   });
 
   it("doesn't re-run when only an opened row changes", async () => {

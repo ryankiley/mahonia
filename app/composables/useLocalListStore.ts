@@ -27,6 +27,9 @@ const tx = <T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequ
 // back, whichever session that is. For the same reason leaving an account
 // (delClaimed) drops only the copies with nothing unsent in them; one still
 // holding edits waits, unreadable to anyone else, for its account to return.
+//
+// A copy from before the stamp existed has nothing to compare and is still read,
+// so nothing typed offline is lost to the upgrade.
 
 // ONE READ HELD FOR THE LOAD THAT ASKED FOR IT. The editor page reads the list it is
 // opening before the editor mounts (readAhead, useGearList), and the load that follows

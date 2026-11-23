@@ -39,8 +39,9 @@ const isToken = (t: unknown): t is string =>
  * persists is (user, list), which is why a database dump still contains no write
  * capability for anyone's list.
  *
- * The tokens are the ones the browser's registry calls yours: made, imported or
- * cloned there. A list that arrived through someone else's edit link is never sent,
+ * The sign-in sweep sends the lists the browser's registry calls yours: made,
+ * imported or cloned there. One that arrived through someone else's edit link is
+ * claimed only by choice (the sharing menu's claimOne, the connector's create_list),
  * because quietly attaching a shared list to your account is a surprise.
  *
  * Unresolvable tokens are skipped in silence rather than reported: a device

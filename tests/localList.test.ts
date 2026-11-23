@@ -91,9 +91,8 @@ describe("copyReadableBy — whose on-device copy this is", () => {
     expect(copyReadableBy(claimed, { account: "aaaa" }, null)).toBe(false);
   });
 
-  it("reads an unstamped claimed copy back to nobody", () => {
-    expect(copyReadableBy(claimed, {}, "bbbb")).toBe(false);
-    expect(copyReadableBy(claimed, {}, null)).toBe(false);
+  it("still reads a copy from before copies were stamped", () => {
+    expect(copyReadableBy(claimed, {}, "bbbb")).toBe(true);
   });
 
   it("leaves a list held by its edit link to whoever holds the device", () => {
