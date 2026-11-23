@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-22",
+  "fixed": [
+    "In Safari, a list title, folder or group name that ends in a bracket or closing quote no longer loses its last character."
+  ]
+}

@@ -459,6 +459,8 @@
 .item__carrier-name {
   overflow: hidden;
   text-overflow: ellipsis;
+  /* it shrink-wraps the name, so a hung closing mark would sit outside it and be cut */
+  hanging-punctuation: none;
 }
 
 /* The CAPTION FIELD — a line of live text under the thing it annotates, in the aside
