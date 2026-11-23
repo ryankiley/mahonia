@@ -53,8 +53,8 @@ import { bySortOrder, computeTotals, effectiveClassification, itemDisplayName, l
 import { isWaterName, waterMgFromMl } from "../../shared/water";
 import type { ConnectorIdentity } from "./accessTokens";
 import { isAdmin } from "./admin";
-import { catalogRowsById, linkedRowsBefore, type LinkedBefore, productVariants, recentChanges, searchCatalog } from "./catalog";
-import { cutOnly, sizeConflict } from "./catalogSizes";
+import { catalogRowsById, productVariants, recentChanges, searchCatalog } from "./catalog";
+import { sizeConflict } from "./catalogSizes";
 import { CATEGORIES, undoCatalogEdit, VERIFY_NOTES_MAX, VERIFY_QUOTE_MAX, VERIFY_SOURCES, VERIFY_URL_MAX, verifyCatalogItem, type VerifyIdentity } from "./catalogVerify";
 import { claimLists, claimedEditHash, listClaimedLists } from "./claimRepo";
 import { useAccountDb, useCatalogDb, useVaultDb, type Db } from "./db";
@@ -2118,6 +2118,7 @@ function placeRow(work: ListState, plan: (op: Op) => void, id: string, folderId:
 
 /** the catalog rows an update's relinks name, fetched once for the call */
 type CatalogRows = Awaited<ReturnType<typeof catalogRowsById>>;
+type CatalogRow = CatalogRows extends Map<number, infer R> ? R : never;
 
 /**
  * One row's changes as the reducer's own patch, or the sentence saying why not.
@@ -2636,11 +2637,7 @@ function productMismatch(piece: PieceIdentity, row: LinkRow): string | undefined
 function gearMismatch(piece: PieceIdentity, row: LinkRow): string | undefined {
   const product = productMismatch(piece, row);
   if (product) return product;
-  if (sizeConflict(piece.variant, row)) {
-    const name = itemDisplayName(piece.brand ?? null, piece.name, piece.variant ?? null);
-    if (cutOnly(row)) return `${name} is ${piece.variant}, and the row is ${row.variant} in any size; the piece's variant says that cut too ("${row.variant} Medium") to be linked to it.`;
-    return `${name} is ${piece.variant}, and the row is ${row.variant}.`;
-  }
+  if (sizeConflict(piece.variant, row)) return `${itemDisplayName(piece.brand ?? null, piece.name, piece.variant ?? null)} is ${piece.variant}, and the row is ${row.variant}.`;
   return undefined;
 }
 
@@ -2838,21 +2835,19 @@ export function fitGearPage(rows: Record<string, unknown>[], max = GET_LIST_MAX_
  * calories), the way a list row takes them from a pick (linkCatalog), so it reads as
  * one picked on the site. A piece already held (`held`) keeps what is its own and takes
  * the rest: its spelling stays whole unless the call sends part of it, and a gear type,
- * a weight or calories come from the row only where it has none. What an earlier link
- * put on the piece is the catalog's, not the owner's (`linked`: the row it is linked to
- * now, whatever its status, and the weights and gear types that row's edit history says
- * it carried, since a row re-weighed after the link still gave the old weight). A relink
- * replaces that like a blank, and clears it where the new row has none, else a link to
- * the wrong row, once made, could never be put right; a piece spelled wholly by its
- * earlier link takes the new row's spelling, in its own size only. The catalog's text
+ * a weight or calories come from the row only where it has none. What still matches the
+ * row the piece is linked to now (`was`, whatever its status) is the catalog's, not the
+ * owner's: a relink replaces it like a blank, and clears it where the new row has none,
+ * else a link to the wrong row, once made, could never be put right; a piece spelled
+ * wholly by its earlier link takes the new row's spelling, in its own size only. The catalog's text
  * once replaced the piece's own, so linking a cap to a row with no size cleared the size
  * the owner had typed; nothing on a piece follows the row afterwards (a list carries the
  * piece's own name and weight), so what the link wrote was simply lost. Whatever is
  * written goes through the ordinary patch, pinned like every field typed into My Gear.
  *
- * Refused: a row that is another product (productMismatch), and one of another size
- * (sizeConflict), a piece spelled by its earlier link included unless the call sends the
- * size it moves to. A size typed onto a linked piece that is another size than the row's
+ * Refused: a row that is another product (productMismatch), and one whose size the
+ * piece's contradicts (sizeConflict), a piece spelled by its earlier link included unless
+ * the call sends the size it moves to. A size typed onto a linked piece that is another size than the row's
  * unlinks it: a link is to one size. The site unlinks on any retyped variant
  * (VaultItemModal); here an added colour or a respelling keeps the link, since an
  * assistant often rewrites what the owner typed without changing the size.
@@ -2861,12 +2856,11 @@ function fromCatalog<P extends { patch: Record<string, unknown>; problem?: strin
   piece: P,
   catalogRows: CatalogRows,
   held?: VaultItemFacts,
-  linked?: LinkedBefore,
+  was?: CatalogRow,
 ): P & { catalogWeight?: true; note?: string } {
   if (piece.problem) return piece;
   const id = piece.patch.catalogItemId;
   const row = isCatalogId(id) ? catalogRows.get(id) : undefined;
-  const was = linked?.row;
   if (!row) {
     const typed = piece.patch.variant;
     if (was && id === undefined && typeof typed === "string" && typed.trim() && sizeConflict(typed, was)) {
@@ -2879,8 +2873,8 @@ function fromCatalog<P extends { patch: Record<string, unknown>; problem?: strin
     return piece;
   }
   const patch = { ...piece.patch };
-  // what the piece holds that the row it was linked to gave it, then or before a later edit
-  const gave = (mine: unknown, theirs: unknown, past?: ReadonlySet<unknown>) => was != null && mine != null && (mine === theirs || !!past?.has(mine));
+  // what the piece holds that the row it was linked to gave it
+  const gave = (mine: unknown, theirs: unknown) => was != null && mine != null && mine === theirs;
   const fold = (s: string | null | undefined) => normKey(s ?? "");
   const spelledByLink =
     !!was && !!held && fold(held.name) === fold(was.name) && fold(held.brand) === fold(was.brand) && fold(held.variant) === fold(was.variant);
@@ -2919,20 +2913,17 @@ function fromCatalog<P extends { patch: Record<string, unknown>; problem?: strin
   const named = held ? undefined : productMismatch(identity, row);
   if (named) return { ...piece, problem: `${named} Check the catalog_id; if it is that product, send its brand and name with the link.` };
   if (sizeConflict(identity.variant, row)) {
-    if (cutOnly(row)) {
-      return { ...piece, problem: `It is ${identity.variant}, and catalog row ${row.id} is ${row.variant} in any size; a piece links to it when its variant says that cut too ("${row.variant} Medium"). Send variant with the cut, or link the row for its cut.` };
-    }
     const advice = sentVariant ? "Link the row for that size, or leave variant out." : "Link the row for its size, or send variant to change the piece's.";
     return { ...piece, problem: `It is ${identity.variant}, and catalog row ${row.id} is ${row.variant}; a link is to one size. ${advice}` };
   }
   // a gear type, weight or calories of the piece's own stay; the earlier link's are
   // replaced by the row's, or cleared where the row has none
-  const ownType = held?.commonName && !gave(held.commonName, was?.commonName, linked?.types) ? held.commonName : undefined;
+  const ownType = held?.commonName && !gave(held.commonName, was?.commonName) ? held.commonName : undefined;
   if (patch.commonName === undefined && !ownType) {
     if (row.commonName) patch.commonName = row.commonName;
     else if (held?.commonName) patch.commonName = null;
   }
-  const ownWeight = held?.weightMg && !gave(held.weightMg, was?.weightMg, linked?.weights) ? held.weightMg : 0;
+  const ownWeight = held?.weightMg && !gave(held.weightMg, was?.weightMg) ? held.weightMg : 0;
   const catalogWeight = patch.weightMg === undefined && !ownWeight;
   if (catalogWeight) patch.weightMg = row.weightMg;
   const ownKcal = held?.kcal != null && !gave(held.kcal, was?.kcal) ? held.kcal : undefined;
@@ -3088,19 +3079,14 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   // The rows the pieces are linked to now, for the entries that link or retype a size: a
   // relink tells what the earlier link gave the piece by them, and a size typed onto a
   // linked piece is checked against its row (fromCatalog). Read whatever their status (a
-  // retired row still says what it gave), with what their edit history says they
-  // carried. An entry that changes neither reads nothing more.
+  // retired row still says what it gave); an entry that changes neither reads nothing more.
   const touching = updates
     .filter((e) => e.catalog_id !== undefined || e.variant !== undefined)
     .map((e) => facts.get(e.id as number)?.catalogItemId)
     .filter((cid): cid is number => isCatalogId(cid));
-  const linkedBefore = touching.length ? await linkedRowsBefore(await useCatalogDb(), touching) : new Map<number, LinkedBefore>();
+  const linkedBefore: CatalogRows = touching.length ? await catalogRowsById(await useCatalogDb(), touching, true) : new Map();
   // a piece linked earlier in this call is linked to a row the call named
-  const linkedTo = (cid: number | undefined): LinkedBefore | undefined => {
-    if (cid == null) return undefined;
-    const named = catalogRows.get(cid);
-    return linkedBefore.get(cid) ?? (named ? { row: named, weights: new Set(), types: new Set() } : undefined);
-  };
+  const linkedTo = (cid: number | undefined) => (cid == null ? undefined : (linkedBefore.get(cid) ?? catalogRows.get(cid)));
   for (const [n, e] of updates.entries()) {
     const id = e.id as number;
     const kit = updateKits[n];

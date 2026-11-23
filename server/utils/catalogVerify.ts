@@ -313,7 +313,7 @@ export async function verifyCatalogItem(
   // One weighing is one size: on gear sold by size, a scale weight with no size in the
   // variant would read as every size's. After the house style, so a name put right comes
   // first. A size the reader can't place ("Men's 32x30") counts as one.
-  if (source === "measured" && soldByOf(label).includes("size") && !namesSize(identity.variant, { commonName: label, categoryHint: finalKind })) {
+  if (source === "measured" && soldByOf(label).includes("size") && !namesSize(identity.variant)) {
     concerns.push(`A scale weight is the one size that was weighed, and ${label} is sold by size: name the size in variant ("Men's Medium", "Men's US 9"), unless it is sold in one size only.`);
   }
   if (concerns.length && !confirmed) {

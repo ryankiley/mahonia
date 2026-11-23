@@ -400,7 +400,7 @@ describe("the gear tools", () => {
     expect(relinked!.reason).toContain("is by Norda");
   });
 
-  it("relinks without moving a piece's size unasked, and replaces what the old row gave even once it was re-weighed or retired", async () => {
+  it("relinks without moving a piece's size unasked, and replaces what the old row gave even once it was retired", async () => {
     const cited = { weightSource: "manufacturer", sourceUrl: "https://maker.example/k", verified: true, categoryHint: "clothing", commonName: "Rain pants" };
     const [kLarge, kMedium, kNext, borealis, nutBar, bag] = await db
       .insert(schema.catalogItems)
@@ -427,9 +427,7 @@ describe("the gear tools", () => {
     const [asked] = await update({ id: pieceId, catalog_id: kMedium!.id, variant: "Medium" });
     expect(asked).toMatchObject({ status: "updated", item: { variant: "Medium", weight_g: 310, catalog_id: kMedium!.id } });
 
-    // the Medium re-weighed after the link: its old 310 g is still the link's, so a relink replaces it
-    await db.update(schema.catalogItems).set({ weightMg: 315_000 }).where(eq(schema.catalogItems.id, kMedium!.id));
-    await db.insert(schema.catalogEdits).values({ catalogItemId: kMedium!.id, oldWeightMg: 310_000, newWeightMg: 315_000, status: "applied", reason: "re-weighed" });
+    // the Medium's 310 g is the link's, so a relink back replaces it
     const [back] = await update({ id: pieceId, catalog_id: kLarge!.id, variant: "Large" });
     expect(back).toMatchObject({ status: "updated", item: { variant: "Large", weight_g: 320, catalog_id: kLarge!.id } });
 
@@ -454,12 +452,12 @@ describe("the gear tools", () => {
     expect(tote!.item).not.toHaveProperty("gear_type");
     expect(tote!.item!.classification).not.toBe("consumable");
 
-    // a row that names only its cut takes a piece of that cut in any size, and asks a bare size for its cut
-    const [hers, bare] = await add({ brand: "Rab", name: "Borealis Jacket", variant: "Women's Large" }, { brand: "Rab", name: "Borealis Jacket", variant: "Large", owned: 2 });
-    const [cutLinked, cutAsked] = await update({ id: hers!.item!.id, catalog_id: borealis!.id }, { id: bare!.item!.id, catalog_id: borealis!.id });
+    // a row that names only its cut takes a piece of that cut in any size, and refuses the other cut
+    const [hers, his] = await add({ brand: "Rab", name: "Borealis Jacket", variant: "Women's Large" }, { brand: "Rab", name: "Borealis Jacket", variant: "Men's Large", owned: 2 });
+    const [cutLinked, otherCut] = await update({ id: hers!.item!.id, catalog_id: borealis!.id }, { id: his!.item!.id, catalog_id: borealis!.id });
     expect(cutLinked).toMatchObject({ status: "updated", item: { variant: "Women’s Large", weight_g: 250, catalog_id: borealis!.id } });
-    expect(cutAsked).toMatchObject({ status: "invalid" });
-    expect(cutAsked!.reason).toContain("Women's in any size");
+    expect(otherCut).toMatchObject({ status: "invalid" });
+    expect(otherCut!.reason).toContain("a link is to one size");
 
     // a colour run on without a comma is the owner's own word, not another size
     const [coloured] = await add({ brand: "Rab", name: "Kinetic 2.0 Pants", variant: "Medium Black" });
@@ -488,42 +486,33 @@ describe("the gear tools", () => {
     }
   });
 
-  it("tells two sizes apart axis by axis, the cut and the owner's own extra words aside", () => {
+  it("refuses a size only where the piece's contradicts the row's", () => {
     const row = (variant: string | null, commonName = "Hiking pants", categoryHint = "clothing") => ({ brand: null, name: "x", variant, commonName, categoryHint });
-    const differ: [string, string, string?, string?][] = [
+    const kindOf = (type?: string) =>
+      ({ Quilt: "sleep", "Sleeping pad": "sleep", Bivy: "shelter", Backpack: "pack", "Bungee cord": "other", Tent: "shelter", "Charging cable": "electronics", Watch: "electronics", "Food bag": "other" })[type ?? ""];
+    const contradicts: [string, string, string?][] = [
       ["X-Large", "Large"],
       ["Large", "X-Large"],
       ["Medium", "Large"],
+      ["m", "Large"],
       ["Women's US 8", "Men's US 8.5", "Trail runners"],
       ["US 9", "US 9.5", "Trail runners"],
       ["Men's", "Women's", "Trail runners"],
-      ["25F, Large", "25F, X-Large", "Quilt", "sleep"],
-      ["Regular", "Regular Wide", "Sleeping pad", "sleep"],
-      ["Regular Wide", "Regular", "Sleeping pad", "sleep"],
-      ["Regular", "20F, Regular", "Quilt", "sleep"],
-      ["6ft", "6ft 6in", "Quilt", "sleep"],
-      ["2-pack", "3-pack", "Bungee cord", "other"],
-      ["47mm", "47mm, Solar", "Watch", "electronics"],
-      // a lower-case letter is the size it names
-      ["m", "Large"],
-      // a row that names only its cut is that cut, in any size
-      ["Large", "Women's", "Fleece"],
       ["Men's Large", "Women's", "Fleece"],
-      // typed loosely, a size is still read, and still another size
+      ["25F, Large", "25F, X-Large", "Quilt"],
+      ["6ft", "6ft 6in", "Quilt"],
+      ["2-pack", "3-pack", "Bungee cord"],
+      ["pack of 2", "3-pack", "Bungee cord"],
+      ["2 m", "1m", "Charging cable"],
+      // typed loosely, or with a colour run on, a size is still read
       ["Mens Medium", "Men's Small", "Rain jacket"],
       ["men's large", "Men's Small", "Rain jacket"],
       ["Medium Black", "Large", "Rain jacket"],
-      ["Wide Regular", "Long", "Sleeping pad", "sleep"],
-      ["6ft 6in Black", "6ft", "Bivy", "shelter"],
-      ["2 m", "1m", "Charging cable", "electronics"],
-      // a word the reader can't place still tells two rows apart
-      ["Men's Medium, Short", "Men's Medium, Regular", "Rain jacket"],
-      ["Regular", "Regular Mummy", "Sleeping pad", "sleep"],
-      ["Double Wide", "Long", "Sleeping pad", "sleep"],
-      ["Standard", "X-Large", "Food bag", "other"],
+      ["Men's Medium Black", "Men's Large", "Rain jacket"],
+      ["6ft 6in Black", "6ft", "Bivy"],
     ];
-    for (const [piece, catalog, type, kind] of differ) expect(sizeConflict(piece, row(catalog, type, kind)), `${piece} / ${catalog}`).toBe(true);
-    const same: [string | null, string | null, string?][] = [
+    for (const [piece, catalog, type] of contradicts) expect(sizeConflict(piece, row(catalog, type, kindOf(type))), `${piece} / ${catalog}`).toBe(true);
+    const links: [string | null, string | null, string?][] = [
       ["Men's L", "Large"],
       ["l", "Large"],
       ["Large", "Men’s Large"],
@@ -547,16 +536,21 @@ describe("the gear tools", () => {
       ["Large/X-Large", "L/XL", "Hat"],
       ["30 liter", "30L", "Backpack"],
       ["Extra Large", "X-Large"],
+      ["Solid inner, carbon short poles Black", "Solid inner, carbon short poles", "Tent"],
+      ["1 m", "1m", "Charging cable"],
       // one shoe sold under two labels matches either
       ["Men's US 9", "Men's US 9 / Women's US 10", "Trail runners"],
       ["Women's US 10", "Men's US 9 / Women's US 10", "Trail runners"],
-      // the row's own words with a colour after them, the m of a metre kept a metre
-      ["Solid inner, carbon short poles Black", "Solid inner, carbon short poles", "Tent"],
-      ["1 m", "1m", "Charging cable"],
+      // on purpose: a piece that says less than its row, or says it in words no axis reads,
+      // contradicts nothing, and links (it keeps its own variant and weight)
+      ["Regular", "Regular Wide", "Sleeping pad"],
+      ["Regular", "20F, Regular", "Quilt"],
+      ["Large", "Women's", "Fleece"],
+      ["47mm", "47mm, Solar", "Watch"],
+      ["Regular", "Regular Mummy", "Sleeping pad"],
+      ["Standard", "X-Large", "Food bag"],
     ];
-    const kindOf = (type?: string) =>
-      ({ Quilt: "sleep", "Sleeping pad": "sleep", Backpack: "pack", "Bungee cord": "other", Tent: "shelter", "Charging cable": "electronics" })[type ?? ""];
-    for (const [piece, catalog, type] of same) expect(sizeConflict(piece, row(catalog, type, kindOf(type))), `${piece} / ${catalog}`).toBe(false);
+    for (const [piece, catalog, type] of links) expect(sizeConflict(piece, row(catalog, type, kindOf(type))), `${piece} / ${catalog}`).toBe(false);
   });
 
   it("say what a kit holds, list its items as pieces of their own, and refuse a weight on one", async () => {

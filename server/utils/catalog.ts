@@ -302,49 +302,16 @@ export async function productVariants(
  * Active catalog rows by id, in the search result's shape: what a row LINKED to the
  * catalog takes from it (the cited weight, the brand, the variant, the gear type),
  * the way a pick in the editor does. Ids that name nothing are simply absent.
+ * `anyStatus` reads retired rows too: a piece linked to one still holds what it gave.
  */
-export async function catalogRowsById(db: Db, ids: readonly number[]): Promise<Map<number, CatalogSearchResult>> {
+export async function catalogRowsById(db: Db, ids: readonly number[], anyStatus = false): Promise<Map<number, CatalogSearchResult>> {
   const wanted = [...new Set(ids.filter(isCatalogId))];
   if (!wanted.length) return new Map();
   const rows = await db
     .select()
     .from(catalogItems)
-    .where(and(inArray(catalogItems.id, wanted), eq(catalogItems.status, "active")));
+    .where(anyStatus ? inArray(catalogItems.id, wanted) : and(inArray(catalogItems.id, wanted), eq(catalogItems.status, "active")));
   return new Map(rows.map((r) => [r.id, toCatalogResult(r)]));
-}
-
-/** A row a piece of My Gear is linked to, as a relink reads it to tell what the earlier
- *  link wrote on the piece: the row as it is now, and the weights and gear types its edit
- *  history says it carried, since a row re-weighed after the link still gave the old one. */
-export interface LinkedBefore {
-  row: CatalogSearchResult;
-  weights: ReadonlySet<number>;
-  types: ReadonlySet<string>;
-}
-
-/**
- * The rows pieces are linked to, by id, whatever their status (a retired row still says
- * what its link gave), each with the weights and gear types it carried before its applied
- * or undone edits. Two reads, both by the ids asked for.
- */
-export async function linkedRowsBefore(db: Db, ids: readonly number[]): Promise<Map<number, LinkedBefore>> {
-  const wanted = [...new Set(ids.filter(isCatalogId))];
-  if (!wanted.length) return new Map();
-  const rows = await db.select().from(catalogItems).where(inArray(catalogItems.id, wanted));
-  const out = new Map<number, LinkedBefore & { weights: Set<number>; types: Set<string> }>(
-    rows.map((r) => [r.id, { row: toCatalogResult(r), weights: new Set<number>(), types: new Set<string>() }]),
-  );
-  const edits = await db
-    .select({ id: catalogEdits.catalogItemId, oldWeightMg: catalogEdits.oldWeightMg, newWeightMg: catalogEdits.newWeightMg, undo: catalogEdits.undo })
-    .from(catalogEdits)
-    .where(and(inArray(catalogEdits.catalogItemId, wanted), inArray(catalogEdits.status, ["applied", "reverted"])));
-  for (const e of edits) {
-    const linked = out.get(e.id);
-    if (!linked) continue;
-    linked.weights.add(Number(e.oldWeightMg)).add(Number(e.newWeightMg));
-    if (e.undo?.commonName) linked.types.add(e.undo.commonName);
-  }
-  return out;
 }
 
 /** A merge chain longer than this is a loop, or a catalog nobody should trust. */
