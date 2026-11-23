@@ -134,6 +134,17 @@ h4 {
 textarea {
   text-wrap: stable;
 }
+// …and no hanging punctuation inside a form control. A field is its own measure and it
+// always clips at its edge, so a mark hung past that edge is a mark cut off, with no
+// ellipsis to say so. Safari also leaves the hung mark out of the box's width, so a
+// `field-sizing: content` field (the list title, a folder or group name) lost a trailing
+// ")" or "”": "Kitchen (shared)" read "Kitchen (shared". `first` goes too: a note that
+// opens with a quote would hang it off the field's left edge the same way.
+input,
+select,
+textarea {
+  hanging-punctuation: none;
+}
 
 // Don't let long unbroken strings (URLs, tokens) force horizontal overflow.
 //

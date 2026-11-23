@@ -127,6 +127,9 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  /* a clipped line hangs nothing: the text forms (the read views, My Gear's headings)
+     would cut a trailing ")" as the field does (reset.scss) */
+  hanging-punctuation: none;
   font-weight: 600;
   font-size: var(--text-title);
   letter-spacing: var(--track-tight);
