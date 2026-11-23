@@ -37,6 +37,7 @@ import { editLinkPath, normalizeShareCode } from "../../shared/links";
 import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_PERSON_NAME_LEN, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { carrierName } from "../../shared/people";
+import { extractAttributes } from "../../scripts/catalogAttributes";
 import { normalizeVariant, normKey } from "../../shared/catalogQuality";
 import { dayClimbs, parseProfile } from "../../shared/profile";
 import { MAX_DISTANCE_M } from "../../shared/trailDistance";
@@ -106,8 +107,8 @@ export const MCP_INSTRUCTIONS = [
   "Mahonia is a gear-list and pack-weight tracker for hikers. Weights are in grams everywhere. A row's classification is base (in the pack), worn (on the body) or consumable (food, fuel, water). Water (a name ending in water) is a volume, volume_l, never a count.",
   PROVENANCE,
   "Lists need no account. A share link (mahonia.app/s/CODE) is permission to read a list: pass its code or the whole link to get_list, as data or as Markdown. An edit link (mahonia.app/e/CODE#token) is permission to change it: pass it whole to edit_list, keep it private, and never show it to anyone who should only read. create_list returns both; keep the edit link, the only way back into a list that isn't filed under an account.",
-  "Read a list with get_list first for the ids edit_list takes. Rows group one level deep: stakes under a tent, snacks under a day. A catalog_id from search_catalog gives a row, or a piece of My Gear, the catalog's cited brand, variant, gear type and weight.",
-  "An account has its own lists and its own gear, My Gear. They open once the person signs in to Mahonia from this connector, or with an access token from their account page; until then a call that needs them asks the person to sign in. get_list with no share_code names the account's filed lists, edit_list can change one by share_code instead of its edit link, and create_list files the lists it makes there. get_my_gear reads My Gear; edit_my_gear adds, changes, puts away and restores pieces. Changing anything of the account's needs read-and-change access.",
+  "Read a list with get_list first for the ids edit_list takes. Rows group one level deep: stakes under a tent, snacks under a day. A catalog_id from search_catalog gives a row the catalog's cited brand, variant, gear type and weight, and a piece of My Gear what it lacks.",
+  "An account has its own lists and its own gear, My Gear. They open once the person signs in to Mahonia from this connector, or with an access token from their account page; until then a call that needs them asks the person to sign in. get_list with no share_code names the account's filed lists, edit_list can change one by share_code instead of its edit link, and create_list files the lists it makes there. get_my_gear reads My Gear; edit_my_gear adds, changes, puts away and restores pieces. Changing them needs read-and-change access.",
   "A KIT is a piece of My Gear that holds other pieces, a set kept together such as a cook kit, weighing its own weight plus its items'; edit_my_gear's kit makes or changes one. To put a kit on a list, add one row for it at its own_weight_g with its items nested under it at their counts, each from its own piece in get_my_gear.",
 ].join(" ");
 
@@ -657,8 +658,8 @@ function gearInput(mode: "add" | "update") {
       minimum: 1,
       maximum: MAX_CATALOG_ID,
       description: nullable
-        ? "Link or relink the piece to this catalog row, from search_catalog. It keeps its own name, brand, variant, gear type and weight, taking the catalog's only where it has none, and a size other than the row's is refused. Null unlinks it."
-        : "A catalog row from search_catalog. The piece takes the catalog's brand, name, variant, gear type and weight, each unless given here; a name can be left out.",
+        ? "Link or relink the piece to this catalog row, from search_catalog. It keeps its own name, brand and variant, and its gear type and weight unless an earlier link gave them; the row fills the rest. Another product or size is refused, and it never follows later catalog changes. Null unlinks it."
+        : "A catalog row from search_catalog. The piece takes the catalog's brand, name, variant, gear type and weight, each unless given here; a name can be left out. Another product or size is refused.",
     },
     product_url: { type: t("string"), maxLength: VAULT_URL_MAX, description: `The maker's or a shop's page for it.${orNull}` },
     price: { type: t("number"), minimum: 0, maximum: PRICE_MAX_CENTS / 100, description: `What one cost, in the currency's main unit: 199.95.${orNull}` },
@@ -893,7 +894,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
     name: "edit_my_gear",
     title: "Change My Gear",
     description:
-      "Changes the connector's account's My Gear, in one call. add puts new pieces in; one the account already holds (same brand, name and variant) comes back as already_have and is left as it was. update changes pieces by the ids get_my_gear gives, only the fields sent, null clearing one. A piece that names a catalog_id is linked to that catalog row: a new one takes its brand, name, variant, gear type and weight, one already held only what it lacks, and another size is refused; null unlinks it. remove puts pieces away by id: they stop being offered on lists, and the lists that still carry them will not bring them back. restore brings put-away pieces back. kit, on a piece added or updated, makes it a kit of other pieces by id (replacing what it held), and null on update turns a kit back into a single piece; a kit's weight is its items', so a kit takes own_weight_g, never weight_g. Each piece answers for itself, in the order sent, with a reason when it wasn't done as sent. What is added or changed here counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs read-and-change access.",
+      "Changes the connector's account's My Gear, in one call. add puts new pieces in; one the account already holds (same brand, name and variant) comes back as already_have and is left as it was. update changes pieces by the ids get_my_gear gives, only the fields sent, null clearing one. A piece that names a catalog_id is linked to that catalog row: a new one takes its brand, name, variant, gear type and weight, one already held keeps its own, and another product or size is refused; null unlinks it. remove puts pieces away by id: they stop being offered on lists, and the lists that still carry them will not bring them back. restore brings put-away pieces back. kit, on a piece added or updated, makes it a kit of other pieces by id (replacing what it held), and null on update turns a kit back into a single piece; a kit's weight is its items', so a kit takes own_weight_g, never weight_g. Each piece answers for itself, in the order sent, with a reason when it wasn't done as sent. What is added or changed here counts as the owner's own word on the piece, so a list saved later cannot overwrite it. Needs read-and-change access.",
     inputSchema: {
       type: "object",
       properties: {
@@ -926,13 +927,14 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
         name: { type: "string", maxLength: MAX_ITEM_NAME_LEN, description: "The name without brand or variant. For a new product, or beside a catalog_id to rename the row." },
         variant: { type: "string", maxLength: MAX_VARIANT_LEN, description: "Only the size or configuration that changes the weight, in the catalog's form, never a colour or an edition; left out when one weight covers every size. Beside a catalog_id, \"\" clears the row's." },
         gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What it is (\"Tent\", \"Rain jacket\"). Needed for a new product; on a row, replaces its gear type and the category it names." },
-        category: { type: "string", enum: CATEGORIES, description: "The kind of gear, for the weight range. Read from gear_type, then the row, when not given." },
-        weight_g: { type: "number", exclusiveMinimum: 0, maximum: UNIT_WEIGHT_MAX_MG / 1000, description: "Weight of one unit as sold, in grams; a pair as the pair, a pack sold only as a pack as the pack." },
-        weight_source: { type: "string", enum: [...VERIFY_SOURCES], description: "manufacturer (default) or measured." },
+        category: { type: "string", enum: CATEGORIES, description: "The kind of gear, for the weight range. Read from gear_type, then the row, when not given. pack is packs themselves; their accessories (pouches, pockets, covers, straps, cords) are other." },
+        weight_g: { type: "number", exclusiveMinimum: 0, maximum: UNIT_WEIGHT_MAX_MG / 1000, description: "Weight of one unit as sold, in grams; a pair as the pair, a pack sold only as a pack as the pack. Decimals are kept: send the exact conversion (3 oz is 85.05), not a rounded one." },
+        weight_source: { type: "string", enum: [...VERIFY_SOURCES], description: "manufacturer (default) or measured. measured over a row with the maker's weight replaces that figure and its quote for everyone, so it waits for weight_confirmed; the person's own piece can take their weight instead. A measured weight of gear sold by size names the size weighed." },
         source_url: { type: "string", maxLength: VERIFY_URL_MAX, description: "The maker's page with the weight (its own answer in the page's Q&A counts), or a stockist's spec table restating it; never a review, or a number only in the page's code. Needed for manufacturer; kept from the row when a measured weight leaves it out." },
         quote: { type: "string", maxLength: VERIFY_QUOTE_MAX, description: "The line that states the weight, word for word, with its label (\"Weight: 3 ounces\"). Needed for manufacturer." },
-        weight_confirmed: { type: "boolean", description: "The person has confirmed this exact weight after being told why it looks unusual." },
-        gear_id: { type: "integer", minimum: 1, description: "A piece of the person's My Gear, from get_my_gear, to link to the verified row. It must be the same product and size." },
+        weight_confirmed: { type: "boolean", description: "The person has confirmed this exact call after being told why it looks unusual: the weight, a scale weight replacing a maker's, or gear sold in one size." },
+        distinct_from: { type: "integer", minimum: 1, maximum: MAX_CATALOG_ID, description: "The catalog row a refusal named as looking like the same product, once the person has confirmed it is a different one. Never rename a product to get past that refusal." },
+        gear_id: { type: "integer", minimum: 1, description: "A piece of the person's My Gear, from get_my_gear, to link to the verified row. It must be the same product and size. Its weight becomes the row's; a piece doesn't follow the row's later changes." },
         notes: { type: "string", maxLength: VERIFY_NOTES_MAX, description: "Anything worth keeping with the verification." },
       },
       required: ["weight_g"],
@@ -2589,7 +2591,7 @@ async function verifyCatalog(event: H3Event, args: Record<string, unknown>): Pro
     piece &&
     ((identity: VerifyIdentity) => {
       const mismatch = gearMismatch(piece, identity);
-      return mismatch && `gear_id ${piece.id}: ${mismatch} Nothing was written. Check the id; if it really is this product, verify without gear_id and link the piece with edit_my_gear.`;
+      return mismatch && `gear_id ${piece.id}: ${mismatch} Nothing was written. Check the id; if it really is this product, put the piece's name or size right with edit_my_gear first, then send gear_id again.`;
     });
   const done = await verifyCatalogItem(await useCatalogDb(), userId, args, precheck);
   if (typeof done === "string") return fail(done);
@@ -2607,19 +2609,29 @@ async function verifyCatalog(event: H3Event, args: Record<string, unknown>): Pro
   return ok({ ...answer, gear: gearAsRow(linked.item) });
 }
 
-/** Why a piece of My Gear isn't the product verify_catalog_item is about to verify, or
- *  undefined when it can be: the brand, when both have one, folds the same; the names
- *  share a word; and the sizes don't differ (sizeConflict, the rule edit_my_gear's links
- *  keep). Loose on purpose, as people type their gear, but it stops the id of the wrong
- *  piece, or the wrong size. */
-function gearMismatch(piece: VaultEntry, row: { brand: string | null; name: string; variant: string | null }): string | undefined {
+type PieceIdentity = { brand?: string | null; name: string; variant?: string | null };
+
+/** Why a piece of My Gear isn't the product a catalog row is, or undefined when it can
+ *  be: the brand, when both have one, folds the same, and the names share a word. Loose
+ *  on purpose, as people type their gear, but it stops the id of the wrong piece or the
+ *  wrong row. Both tools that link a piece hold it to this (verify_catalog_item's
+ *  gear_id, edit_my_gear's catalog_id). */
+function productMismatch(piece: PieceIdentity, row: LinkRow): string | undefined {
   const name = itemDisplayName(piece.brand ?? null, piece.name, piece.variant ?? null);
   const rowName = itemDisplayName(row.brand, row.name, row.variant);
   if (piece.brand && row.brand && normKey(piece.brand) !== normKey(row.brand)) return `${name} is by ${piece.brand}, and the row is ${rowName}.`;
   const words = (s: string) => new Set(normKey(s).split(" ").filter((w) => w.length > 1));
   const pieceWords = words(`${piece.brand ?? ""} ${piece.name}`);
   if (![...words(row.name)].some((w) => pieceWords.has(w))) return `${name} doesn't look like ${rowName}.`;
-  if (sizeConflict(piece.variant, row.variant)) return `${name} is ${piece.variant}, and the row is ${row.variant}.`;
+  return undefined;
+}
+
+/** productMismatch, then the size (sizeConflict): what verify_catalog_item's gear_id
+ *  holds a piece to before anything is written. */
+function gearMismatch(piece: PieceIdentity, row: LinkRow): string | undefined {
+  const product = productMismatch(piece, row);
+  if (product) return product;
+  if (sizeConflict(piece.variant, row)) return `${itemDisplayName(piece.brand ?? null, piece.name, piece.variant ?? null)} is ${piece.variant}, and the row is ${row.variant}.`;
   return undefined;
 }
 
@@ -2815,62 +2827,139 @@ export function fitGearPage(rows: Record<string, unknown>[], max = GET_LIST_MAX_
  * The catalog's fields on a piece that names a catalog_id, each where the call gave
  * none. A new piece takes them all (brand, name, variant, gear type, weight and
  * calories), the way a list row takes them from a pick (linkCatalog), so it reads as
- * one picked on the site. A piece already held (`held`) keeps what it has and takes
- * only what it lacks: its spelling stays whole unless the call sends part of it, and
- * a gear type, a weight or calories come from the row only where it has none. The
+ * one picked on the site. A piece already held (`held`) keeps what is its own and takes
+ * the rest: its spelling stays whole unless the call sends part of it, and a gear type,
+ * a weight or calories come from the row only where it has none. What an earlier link
+ * put on the piece is the catalog's, not the owner's, so a relink replaces it like a
+ * blank (else a link to the wrong row, once made, could never be put right). The
  * catalog's text once replaced the piece's own, so linking a cap to a row with no size
  * cleared the size the owner had typed; nothing on a piece follows the row afterwards
  * (a list carries the piece's own name and weight), so what the link wrote was simply
  * lost. Whatever is written goes through the ordinary patch, pinned like every field
- * typed into My Gear. A size other than the row's is refused, by the rule the site
- * keeps: a link is to one size.
+ * typed into My Gear.
+ *
+ * Refused, as the site refuses them: a row that is another product (productMismatch),
+ * and one of another size (sizeConflict). And a size typed onto a linked piece that
+ * isn't the row's unlinks it, the site's rule too (VaultItemModal): a link is to one size.
  */
 function fromCatalog<P extends { patch: Record<string, unknown>; problem?: string }>(
   piece: P,
   catalogRows: CatalogRows,
   held?: VaultItemFacts,
-): P & { catalogWeight?: true } {
+): P & { catalogWeight?: true; note?: string } {
+  if (piece.problem) return piece;
   const id = piece.patch.catalogItemId;
   const row = isCatalogId(id) ? catalogRows.get(id) : undefined;
-  if (!row || piece.problem) return piece;
+  // the row the piece is linked to now, when it is one the catalog still has
+  const was = held?.catalogItemId != null ? catalogRows.get(held.catalogItemId) : undefined;
+  if (!row) {
+    const typed = piece.patch.variant;
+    if (was && id === undefined && typeof typed === "string" && typed.trim() && sizeConflict(typed, was)) {
+      return {
+        ...piece,
+        patch: { ...piece.patch, catalogItemId: null },
+        note: `Unlinked from catalog row ${was.id}, ${itemDisplayName(was.brand, was.name, was.variant)}: a link is to one size.`,
+      };
+    }
+    return piece;
+  }
   const patch = { ...piece.patch };
-  // food and fuel are never base weight, as a list row picked from the catalog knows
-  if (patch.classification === undefined && row.categoryHint === "consumable") patch.classification = "consumable";
+  // what the piece holds that the row it was linked to gave it
+  const gave = (mine: unknown, theirs: unknown) => was != null && mine != null && mine === theirs;
+  const fold = (s: string | null | undefined) => normKey(s ?? "");
+  const spelledByLink =
+    !!was && !!held && fold(held.name) === fold(was.name) && fold(held.brand) === fold(was.brand) && fold(held.variant) === fold(was.variant);
+  // food and fuel are never base weight, as a list row picked from the catalog knows; a
+  // piece its owner filed as worn or consumable stays so, as the site's pick leaves it
+  if (patch.classification === undefined && row.categoryHint === "consumable" && held?.classification == null) patch.classification = "consumable";
+  // what the piece is called with only what the call sends over it: the product it is,
+  // judged BEFORE the row fills anything in, or a piece spelled by an earlier link would
+  // take the new row's name and pass as it (a tent relinked to a food bar)
+  const as = (p: Record<string, unknown>) => ({
+    brand: p.brand === undefined ? (held?.brand ?? null) : (p.brand as string | null),
+    name: typeof p.name === "string" ? p.name : (held?.name ?? row.name),
+    variant: p.variant === undefined ? (held?.variant ?? null) : (p.variant as string | null),
+  });
+  const product = held ? productMismatch(as(patch), row) : undefined;
+  if (product) return { ...piece, problem: `${product} Check the catalog_id; if it is that product, send its brand and name with the link.` };
   // the spelling is one decision (the vault pins the three together): a piece held keeps
-  // its own unless the call names part of it, and a new one is spelled as the catalog is
-  if (!held) {
+  // its own unless the call names part of it, and a new one is spelled as the catalog is,
+  // as is one whose spelling the earlier link gave it
+  const sentVariant = patch.variant !== undefined;
+  if (!held || spelledByLink) {
     if (patch.name === undefined) patch.name = row.name;
     if (patch.brand === undefined) patch.brand = row.brand ?? null;
     if (patch.variant === undefined) patch.variant = row.variant ?? null;
   }
-  const size = patch.variant === undefined ? held?.variant : (patch.variant as string | null);
-  if (sizeConflict(size, row.variant)) {
-    return { ...piece, problem: `It is ${size}, and catalog row ${row.id} is ${row.variant}; a link is to one size. Link the row for its size, or send variant to change the piece's.` };
+  const identity = as(patch);
+  // a new piece is checked as it will be called, the row's words filling what it leaves out
+  const named = held ? undefined : productMismatch(identity, row);
+  if (named) return { ...piece, problem: `${named} Check the catalog_id; if it is that product, send its brand and name with the link.` };
+  if (sizeConflict(identity.variant, row)) {
+    const advice = sentVariant ? "Link the row for that size, or leave variant out." : "Link the row for its size, or send variant to change the piece's.";
+    return { ...piece, problem: `It is ${identity.variant}, and catalog row ${row.id} is ${row.variant}; a link is to one size. ${advice}` };
   }
-  if (patch.commonName === undefined && row.commonName && !held?.commonName) patch.commonName = row.commonName;
-  const catalogWeight = patch.weightMg === undefined && !held?.weightMg;
+  const ownType = held?.commonName && !gave(held.commonName, was?.commonName) ? held.commonName : undefined;
+  if (patch.commonName === undefined && row.commonName && !ownType) patch.commonName = row.commonName;
+  const ownWeight = held?.weightMg && !gave(held.weightMg, was?.weightMg) ? held.weightMg : 0;
+  const catalogWeight = patch.weightMg === undefined && !ownWeight;
   if (catalogWeight) patch.weightMg = row.weightMg;
-  if (patch.kcal === undefined && row.kcal != null && held?.kcal == null) patch.kcal = row.kcal;
+  const ownKcal = held?.kcal != null && !gave(held.kcal, was?.kcal) ? held.kcal : undefined;
+  if (patch.kcal === undefined && row.kcal != null && ownKcal == null) patch.kcal = row.kcal;
   return { ...piece, patch, ...(catalogWeight ? { catalogWeight: true as const } : {}) };
 }
 
-/** Words of a size as the catalog spells it, the cut ("Men's") left out: people often
- *  leave it off what they type, and it isn't the size. Single letters count here ("L",
- *  "XL"), unlike in a name. */
-const sizeWords = (variant: string) =>
-  new Set(normKey(normalizeVariant(variant).replace(/\b(?:men|women|kids?|youth|unisex)(?:['’]s)?\b/gi, " ")).split(" ").filter(Boolean));
+/** A catalog row as the link checks read it: what it is called, and the gear type and
+ *  kind its variant is read by. */
+interface LinkRow {
+  brand: string | null;
+  name: string;
+  variant: string | null;
+  commonName?: string | null;
+  categoryHint?: string | null;
+}
 
-/** True when a piece's size and a catalog row's name two different sizes: both state
- *  one, and neither says all of the other ("Regular" on a "20F, Regular" row is the
- *  same size said with less; "Large/X-Large" against "Medium" is not). A row with no
- *  variant names no size to differ from, and a piece with none claims nothing. */
-function sizeConflict(pieceVariant: string | null | undefined, rowVariant: string | null | undefined): boolean {
-  if (!pieceVariant?.trim() || !rowVariant?.trim()) return false;
-  const piece = sizeWords(pieceVariant);
-  const row = sizeWords(rowVariant);
-  if (!piece.size || !row.size) return false;
-  const within = (a: Set<string>, b: Set<string>) => [...a].every((w) => b.has(w));
-  return !within(piece, row) && !within(row, piece);
+/** A variant read for comparing sizes: lower-case size letters raised ("l" is the
+ *  catalog's "L", which normalizeVariant writes as "Large"), its axes read by the
+ *  build's own reader (fit, size, length, width, rating, volume...), and the parts that
+ *  aren't an axis ("Solar", "2-pack", "trail weight") kept as folded words. Word sets
+ *  alone read "X-Large" as {x, large} and "9.5" as {9, 5}, and passed both against
+ *  "Large" and "9". */
+function sizeOf(variant: string, row: LinkRow) {
+  const v = normalizeVariant(variant.replace(/(?<![\w'’])(?:xxs|xs|s|m|l|xl|xxl)(?![\w'’])/gi, (s) => s.toUpperCase()));
+  const read = (text: string) => extractAttributes(text, row.commonName, row.categoryHint) as Record<string, unknown>;
+  const rest = v
+    .split(/,\s*/)
+    .filter((part) => !Object.keys(read(part)).length)
+    .map((part) => normKey(part))
+    .filter(Boolean);
+  return { axes: read(v), rest };
+}
+
+/**
+ * True when a piece's variant and a catalog row's name two different sizes. A row with
+ * no variant names no size to differ from, and a piece with none claims nothing. Axis
+ * by axis, where the piece states any: a cut ("Men's") may be missing on either side,
+ * as people leave it off what they type, but any other axis one side states and the
+ * other doesn't, or states otherwise, is another size ("Regular" against "20F,
+ * Regular" or "Regular Wide" is refused: the piece is asked to say which). What the
+ * row says beyond its axes the piece says too; the piece's own extra words (a colour,
+ * an edition) are its owner's.
+ */
+export function sizeConflict(pieceVariant: string | null | undefined, row: LinkRow): boolean {
+  if (!pieceVariant?.trim() || !row.variant?.trim()) return false;
+  const piece = sizeOf(pieceVariant, row);
+  const cat = sizeOf(row.variant, row);
+  if (Object.keys(piece.axes).length) {
+    for (const key of new Set([...Object.keys(piece.axes), ...Object.keys(cat.axes)])) {
+      const mine = piece.axes[key];
+      const theirs = cat.axes[key];
+      if (mine === undefined || theirs === undefined) {
+        if (key !== "fit") return true;
+      } else if (String(mine).toLowerCase() !== String(theirs).toLowerCase()) return true;
+    }
+  }
+  return cat.rest.some((word) => !piece.rest.includes(word));
 }
 
 /** A kit as an edit_my_gear entry sends it, checked: undefined when the entry names
@@ -3005,6 +3094,11 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   // so a piece named twice is judged by what the earlier entry left.
   const facts: Map<number, VaultItemFacts> =
     vaultId != null && updates.length ? await vaultItemFacts(db, vaultId, updates.map((e) => e.id as number)) : new Map();
+  // the rows the pieces are linked to now, beside the rows the call names: a relink tells
+  // what the earlier link gave the piece by them, and a size typed onto a linked piece is
+  // checked against its row (fromCatalog). Read in the same one query, only when missing.
+  const linkedNow = [...facts.values()].map((f) => f.catalogItemId).filter((cid): cid is number => isCatalogId(cid) && !catalogRows.has(cid));
+  if (linkedNow.length) for (const [cid, r] of await catalogRowsById(await useCatalogDb(), linkedNow)) catalogRows.set(cid, r);
   for (const [n, e] of updates.entries()) {
     const id = e.id as number;
     const kit = updateKits[n];
@@ -3032,7 +3126,7 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
       continue;
     }
     // the catalog's fields, read against the piece as it stands: it keeps what it has
-    const { patch, problem, catalogWeight } = fromCatalog(typed, catalogRows, before);
+    const { patch, problem, catalogWeight, note } = fromCatalog(typed, catalogRows, before);
     if (problem) {
       updated.push({ id, status: "invalid", reason: `${problem} Nothing was changed on it.` });
       continue;
@@ -3081,7 +3175,7 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
     // every entry that reaches here changed a kit or a field, and holds the row that
     // write handed back; the read is for the type, and for an entry that somehow didn't
     const row = after ?? (await vaultItemById(db, vaultId, id));
-    updated.push(row ? { id, status: "updated", item: gearAsRow(row) } : { id, status: "not_found" });
+    updated.push(row ? { id, status: "updated", item: gearAsRow(row), ...(note ? { reason: note } : {}) } : { id, status: "not_found" });
   }
 
   const removed: { id: number; status: string }[] = [];

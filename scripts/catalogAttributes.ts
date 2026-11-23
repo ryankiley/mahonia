@@ -187,7 +187,10 @@ export function extractAttributes(
   onConflict?: (message: string) => void,
 ): RowAttributes {
   const out: RowAttributes = {};
-  const v = (variant ?? "").trim();
+  // A row written in the app is tidied into the house apostrophe ("Men’s Large"), and
+  // every form here is spelled with the straight one, so such a row read as no fit and
+  // no size at all. The research files use the straight one, so this changes none of them.
+  const v = (variant ?? "").trim().replace(/’/g, "'");
   if (!v) return out;
   const type = (commonName ?? "").trim().toLowerCase();
   const cat = (categoryHint ?? "").trim().toLowerCase();

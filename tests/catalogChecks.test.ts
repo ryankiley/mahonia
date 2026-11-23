@@ -128,6 +128,8 @@ describe("catalog conventions are errors, not warnings", () => {
     expect(colour).toHaveLength(1);
     // the chat read the whole variant quoted back as all of it refused
     expect(colour[0]!.message).toContain('"Stone" in variant');
+    // every colour at once, so a two-colour variant isn't refused twice over
+    expect(runCatalogChecks([cap("Black/Red, Large")]).find((f) => f.code === "colour-variant")!.message).toContain('"Black", "Red" in variant');
     expect(codes([cap("Trail Team Edition")], "error")).toEqual(["variant-edition"]);
     expect(codes([cap("Special Editions")], "error")).toContain("variant-edition");
     // an edition sold as its own build is a product, named in the name, as the research has them

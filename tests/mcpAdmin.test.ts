@@ -406,6 +406,59 @@ describe("the rules a chat doesn't have to be told", () => {
     expect(await catalogRow(db, row.id)).toMatchObject({ name: "Arc'teryx Cormac Hoody", variant: null, verified: false });
   });
 
+  it("holds a scale weight over a maker's weight for the person, and keeps the link when they confirm", async () => {
+    const row = await seedCatalogRow(db, { brand: "REI Co-op", name: "Packmod Bungees", variant: "2-pack", commonName: "Bungee cord", categoryHint: "other", weightMg: 85_050, weightSource: "manufacturer", sourceUrl: "https://www.rei.com/product/201969", sourceQuote: "Weight: 3 ounces", verified: true, verifiedBy: admin });
+    const held = await verify({ catalog_id: row.id, weight_g: 60, weight_source: "measured" });
+    expect(held.refused).toBe(true);
+    expect(held.text).toContain("maker's published weight (85.05 g, from rei.com)");
+    expect(held.text).toContain("weight_g with edit_my_gear");
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 85_050, weightSource: "manufacturer", sourceQuote: "Weight: 3 ounces" });
+    const done = await verify({ catalog_id: row.id, weight_g: 60, weight_source: "measured", weight_confirmed: true });
+    expect(done.refused, done.text).toBe(false);
+    // the maker's quote goes (the undo keeps it); the product page stays as the row's link
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 60_000, weightSource: "measured", sourceQuote: "Weighed on an admin's scale: 60 g", sourceUrl: "https://www.rei.com/product/201969" });
+    // over a scale weight, another scale weight needs no confirming
+    expect((await verify({ catalog_id: row.id, weight_g: 61, weight_source: "measured" })).refused).toBe(false);
+  });
+
+  it("asks a scale weight of gear sold by size to name the size weighed", async () => {
+    const base = { brand: "Caudata", name: "Salamander Shell", gear_type: "Rain jacket", weight_g: 210, weight_source: "measured" };
+    const unsized = await verify(base);
+    expect(unsized.refused).toBe(true);
+    expect(unsized.text).toContain("sold by size");
+    expect((await verify({ ...base, variant: "Men's Medium" })).refused).toBe(false);
+    // sold in one size: the person says so
+    expect((await verify({ ...base, name: "Salamander Wind Shell", weight_confirmed: true })).refused).toBe(false);
+    // a maker's weight that names no size covers every size, as before
+    expect((await verify({ ...base, name: "Newt Shell", weight_source: "manufacturer", source_url: "https://caudata.example/newt", quote: "Weight: 210 g" })).refused).toBe(false);
+    // gear not sold by size needs none
+    expect((await verify({ brand: "Caudata", name: "Tadpole Pouch", gear_type: "Pouch", weight_g: 30, weight_source: "measured" })).refused).toBe(false);
+  });
+
+  it("lets a near match past only by its own id, once the person says it is another product", async () => {
+    const gore = await seedCatalogRow(db, { brand: "Goldwin", name: "GORE-TEX 3L Jacket", commonName: "Rain jacket", categoryHint: "clothing", weightMg: 420_000, verified: true, weightSource: "manufacturer" });
+    const args = { brand: "Goldwin", name: "3L Jacket", gear_type: "Rain jacket", weight_g: 400, source_url: "https://goldwin.example/3l", quote: "Weight: 400 g" };
+    const near = await verify(args);
+    expect(near.refused).toBe(true);
+    expect(near.text).toContain(`distinct_from: ${gore.id}`);
+    expect(near.text).toContain("don't rename it");
+    // another row's id says nothing about this one
+    expect((await verify({ ...args, distinct_from: duplex })).text).toContain(`Catalog row ${gore.id}`);
+    expect((await verify({ ...args, distinct_from: "x" })).text).toContain("distinct_from is");
+    const added = await verify({ ...args, distinct_from: gore.id });
+    expect(added.refused, added.text).toBe(false);
+    expect(added.data.created).toBe(true);
+    // the exact product is still the row it is, distinct_from or not
+    expect((await verify({ ...args, distinct_from: gore.id })).text).not.toContain("distinct_from:");
+  });
+
+  it("spells a plural gear type as the vocabulary already has it", async () => {
+    await seedCatalogRow(db, { brand: "Sea to Summit", name: "Accessory Bungee", commonName: "Bungee cord", categoryHint: "other", weightMg: 20_000, verified: true, weightSource: "manufacturer" });
+    const done = await verify({ brand: "Nite Ize", name: "Gear Tie Bungee", gear_type: "Bungee cords", weight_g: 22, weight_source: "measured" });
+    expect(done.refused, done.text).toBe(false);
+    expect(done.data.row).toMatchObject({ gear_type: "Bungee cord" });
+  });
+
   it("won't take a fabric's weight per area as what the thing weighs", async () => {
     // 1.0 oz is 28 g, within 8 g of 34: read as a weight, the quote would have backed it
     const done = await verify({ brand: "STAN", name: "DCF Square Purse", variant: "Medium", gear_type: "Wallet", weight_g: 34, source_url: "https://stanstore.official.ec/items/69875220", quote: "Fabric: DCF 1.0 oz/yd²" });

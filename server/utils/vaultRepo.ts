@@ -683,8 +683,9 @@ export async function vaultItemById(db: Db, vaultId: number, id: number): Promis
 }
 
 /** What a change needs to know of a row before it is made: whether it is a kit, the
- *  currency its price is in (none without a price), and what a catalog link would fill
- *  (its spelling, gear type, weight and calories), all as toEntry reads them. */
+ *  currency its price is in (none without a price), and what a catalog link reads (the
+ *  piece's spelling, gear type, weight, calories and class, and the row it is linked to
+ *  now), all as toEntry reads them. */
 export interface VaultItemFacts {
   kind: "piece" | "kit";
   currency?: string;
@@ -695,8 +696,10 @@ export interface VaultItemFacts {
   /** 0 when never weighed; a kit's is its own, not its items' */
   weightMg: number;
   kcal?: number;
+  classification?: VaultEntry["classification"];
+  catalogItemId?: number;
 }
-type FactFields = "kind" | "currency" | "brand" | "name" | "variant" | "commonName" | "weightMg" | "kcal";
+type FactFields = "kind" | "currency" | "brand" | "name" | "variant" | "commonName" | "weightMg" | "kcal" | "classification" | "catalogItemId";
 export const vaultItemFactsOf = (item: Pick<VaultEntry, FactFields | "ownWeightMg">): VaultItemFacts => ({
   kind: item.kind === "kit" ? "kit" : "piece",
   currency: item.currency,
@@ -706,6 +709,8 @@ export const vaultItemFactsOf = (item: Pick<VaultEntry, FactFields | "ownWeightM
   commonName: item.commonName,
   weightMg: item.kind === "kit" ? (item.ownWeightMg ?? 0) : item.weightMg,
   kcal: item.kcal,
+  classification: item.classification,
+  catalogItemId: item.catalogItemId,
 });
 
 /**

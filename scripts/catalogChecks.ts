@@ -325,10 +325,13 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // --- ERROR: colour-as-attribute in variant ------------------------------
   // The word is named, not the whole variant: "Trail Team Edition, Stone" quoted whole
   // read as if every part of it were refused, when only "Stone" was.
+  // Every colour word, so "Black/Red" isn't refused for "Black" and then again for "Red".
+  const COLOUR_WORDS = new RegExp(COLOUR_ATTR.source, "gi");
   for (const r of rows) {
-    const colour = r.variant?.match(COLOUR_ATTR)?.[0];
-    if (colour) {
-      err("colour-variant", `${gearLabel(r)}: "${colour}" in variant "${r.variant}" is a colour — colour rarely affects weight, so drop it`);
+    const colours = [...new Set(r.variant?.match(COLOUR_WORDS) ?? [])];
+    if (colours.length) {
+      const named = colours.map((c) => `"${c}"`).join(", ");
+      err("colour-variant", `${gearLabel(r)}: ${named} in variant "${r.variant}" ${colours.length > 1 ? "are colours" : "is a colour"} — colour rarely affects weight, so drop ${colours.length > 1 ? "them" : "it"}`);
     }
   }
 
