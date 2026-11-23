@@ -61,8 +61,8 @@ import { isKitWorthy, isVaultWorthy, vaultNormKey, vaultRowFields } from "~~/sha
 import { motionIsInstant } from "~/plugins/inputModality.client";
 
 // The editor's row — editable by default, a checklist row in packing mode. A nested item
-// renders the SAME row with `nested` set (indented, one level only). The share views
-// (/s + /l) render ReadonlyItemRow instead, so this component (and the editor graph it
+// renders the SAME row with `nested` set (indented, one level only). The share view
+// (/s) renders ReadonlyItemRow instead, so this component (and the editor graph it
 // pulls in) never ships to a read-only page.
 const props = withDefaults(
   defineProps<{

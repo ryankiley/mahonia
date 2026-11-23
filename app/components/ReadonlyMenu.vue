@@ -42,8 +42,8 @@ const { toast, flash } = useToast();
 // the read view's initial payload).
 //
 // The link the plain-text copy appends is THIS PAGE — the same URL "Copy link" below
-// hands out, whether that's /s/{code} or a public /l/{slug}. A read view never holds an
-// edit token, so unlike the editor there's nothing here to leak.
+// hands out, the /s/{code} share link. A read view never holds an edit token, so unlike
+// the editor there's nothing here to leak.
 const pageUrl = () => (typeof location !== "undefined" ? location.href : "");
 const { warmExporters, exportItems } = useListExports(() => props.snapshot, flash, pageUrl);
 

@@ -6,7 +6,7 @@ import type { EffectScope, Ref } from "vue";
 // shapes with ~3 KB brotli of the entry chunk; these cover exactly the
 // signatures the app uses. Note the window-less API: @vueuse/nuxt compiled a
 // bare `window` argument to `undefined` in the server build, and without that
-// module an SSR-rendered component (the /s and /l read views) would throw on
+// module an SSR-rendered component (the /s read view) would throw on
 // it — so the window reference lives HERE, behind import.meta.client, and
 // callers never touch it.
 //

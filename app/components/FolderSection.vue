@@ -6,7 +6,7 @@ import { MAX_FOLDER_NAME_LEN } from "~~/shared/ops";
 import { bySortOrder } from "~~/shared/weights";
 
 // The editor's folder — editable by default, a checklist in packing mode. The
-// share views (/s + /l) render ReadonlyFolderSection instead, so this component
+// share view (/s) renders ReadonlyFolderSection instead, so this component
 // (and the editor graph it pulls in) never ships to a read-only page.
 //
 // `items` is this folder's items, pre-grouped + sorted by the parent (one

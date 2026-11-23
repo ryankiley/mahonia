@@ -40,7 +40,7 @@ import { effectiveClassificationInFolder, formatKcal, formatWeight, isBareGroup,
 import { itemQtyLabel } from "~~/shared/water";
 import { consumableIcon } from "~/utils/itemMarks";
 
-// The share views' row (/s + /l): name (a web-search link via <ItemName search>),
+// The share view's row (/s): name (a web-search link via <ItemName search>),
 // amount, line weight — and its nested children, rendered the SAME way one level down
 // (indented), exactly mirroring the editor. Deliberately its OWN component, not ItemRow
 // with a flag — the read pages must not pull the editor graph (autocomplete, drag,

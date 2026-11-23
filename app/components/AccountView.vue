@@ -1,9 +1,8 @@
 <script setup lang="ts">
 // The account surface itself — sign-in when signed out, settings when signed in.
 //
-// Mount-agnostic, like ReadonlyListView (which /s and /l both render): the account
-// modal shows this over whatever you were doing, and /account renders the same thing
-// for a bookmark, a typed URL, or the "Get a new link" button on a dead magic link.
+// Mount-agnostic: the account modal shows this over whatever you were doing, and
+// /account renders the same thing for a bookmark, a typed URL, or the "Get a new link" button on a dead magic link.
 // One implementation, so the two can't drift.
 //
 // That last part is the whole point of the extraction. The vault went the other way

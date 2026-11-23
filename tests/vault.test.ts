@@ -4,7 +4,7 @@ import { stubLocalStorage } from "./helpers/storage";
 import { listEntry } from "./helpers/myLists";
 import { gear } from "./helpers/list";
 import { DUPLEX, cap } from "./helpers/vault";
-import { vaultFolders, vaultItems, vaults } from "../server/db/schema";
+import { vaultItems, vaults } from "../server/db/schema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { UNIT_WEIGHT_MAX_MG } from "../shared/ops";
 import {
@@ -360,15 +360,13 @@ describe("vault capture — the upsert's merge rules", () => {
     expect((await listVaultItems(db, 2))[0]!.weightMg).toBe(100_000);
   });
 
-  it("caps and types a direct POST's fields, and files nothing under a folder it names", async () => {
+  it("caps and types a direct POST's fields, and ignores a folder it names", async () => {
     await captureVaultItems(db, VAULT, [
       cap({ brand: "B".repeat(500), folder: "F".repeat(5_000), productUrl: 123 }),
     ]);
     const row = (await listVaultItems(db, VAULT))[0]!;
     expect(row.brand!.length).toBe(120);
     expect(row.productUrl).toBeUndefined();
-    // My Gear has no folders: the list-folder name a capture carries makes none
-    expect(await db.select().from(vaultFolders)).toHaveLength(0);
   });
 
   it("drops rows that don't normalize (no name)", async () => {
@@ -667,17 +665,14 @@ describe("vault reaping — bounding a table nothing else ever shrinks", () => {
     expect(await db.select().from(vaults)).toHaveLength(1);
   });
 
-  it("purges past the grace, taking the gear and any old folders with it", async () => {
+  it("purges past the grace, taking the gear with it", async () => {
     const id = await seedVault(400);
-    // a folder from before My Gear dropped them: still swept up with the vault
-    await db.insert(vaultFolders).values({ vaultId: id, name: "Shelter", sortOrder: 1 });
     await db.update(vaults).set({ deletedAt: ago(120) }).where(eq(vaults.id, id));
 
     expect(await purgeDeletedVaults(db)).toEqual({ vaultsPurged: 1 });
     expect(await db.select().from(vaults)).toHaveLength(0);
     // no orphans left behind — there's no DB-level FK doing this for us
     expect(await listVaultItems(db, id)).toHaveLength(0);
-    expect(await db.select().from(vaultFolders).where(eq(vaultFolders.vaultId, id))).toHaveLength(0);
   });
 
   it("leaves another vault's gear alone when it purges one", async () => {
@@ -1383,10 +1378,9 @@ describe("vault import — putting a file's worth of gear back", () => {
     expect((await only(db))!.weightMg).toBe(539_000);
   });
 
-  it("files nothing under the folder names a file carries", async () => {
+  it("takes a row whose file names a folder, and ignores the folder", async () => {
     await importVaultItems(db, VAULT, [imported({ folder: "Shelter" })]);
     expect(await only(db)).toBeDefined();
-    expect(await db.select().from(vaultFolders)).toHaveLength(0);
   });
 
   it("takes at most one request's worth of rows", async () => {

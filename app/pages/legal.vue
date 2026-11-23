@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 21 November 2026</p>
+        <p class="t-sm t-muted">Last updated 22 November 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -223,10 +223,11 @@ useHead({
         <h3>Fair use of Mahonia</h3>
         <p>
           Please don’t use Mahonia to break the law, infringe others’ rights, post abusive or
-          deceptive content, impersonate people, or attack, overload, or scrape the service. A
-          shared list can be flagged with “Report list” in its ⋯ menu; to report a problem or
-          request a takedown, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>
-          with enough detail to find the content. I may remove content or limit access.
+          deceptive content, impersonate people, or attack, overload, or scrape the service.
+          “Report list” in a shared list’s ⋯ menu opens the feedback box, and like any feedback
+          it becomes a public issue. To report something privately or request a takedown, email
+          <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> with enough detail to find
+          the content. I may remove content or limit access.
         </p>
 
         <h3>It’s free and provided “as is”</h3>

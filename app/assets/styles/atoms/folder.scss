@@ -175,7 +175,7 @@
    with --row-cols (atoms/item.scss): each mode supplies only what legitimately
    differs. The read view previously re-declared this whole rule to change that ONE
    line, which meant the shared bits existed twice — a retune of the margin here
-   silently didn't reach /s and /l. */
+   silently didn't reach the read view. */
 .folder__head {
   display: grid;
   grid-template-columns: var(--head-cols, var(--item-cols));

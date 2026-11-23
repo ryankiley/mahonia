@@ -11,9 +11,11 @@
 // CREATE ... IF NOT EXISTS strings (db.ts, catalog.ts, candidates.ts,
 // vaultSchema.ts, accountSchema.ts), ensured idempotently on first use — there is
 // no drizzle-kit and no migration step — so the indexes and CHECKs live there,
-// with their reasoning. Two consequences: a table declared here may carry legacy
-// columns the database still has (nullable or defaulted, so harmless — nothing
-// drops them), and a column added here must ALSO be added to the DDL.
+// with their reasoning. Two consequences: a column added here must ALSO be added to
+// the DDL, and one taken out of here stays in the database until a `DROP COLUMN IF
+// EXISTS` in the DDL retires it. That drop never ships in the same deploy that stops
+// declaring the column: the deploy before it selects every column declared here, so
+// rolling back to it would fail on the missing one.
 
 import { bigint, boolean, integer, jsonb, pgTable, primaryKey, serial, text, timestamp } from "drizzle-orm/pg-core";
 import type { ListData } from "../../shared/types";
@@ -22,8 +24,6 @@ import type { FullSnap, ListDiff } from "../../shared/snapshotDiff";
 // A snapshot row's JSONB: a full payload (`kind:'base'`) or a reverse-delta (`kind:'diff'`).
 type SnapshotPayload = FullSnap | ListDiff;
 
-// legacy columns still in the database, undeclared: primary_category,
-// view_count, claim_phrase_hash (see the header)
 export const lists = pgTable(
   "lists",
   {
@@ -68,16 +68,6 @@ export const lists = pgTable(
     consumableWeightMg: bigint("consumable_weight_mg", { mode: "number" }).notNull().default(0),
     totalWeightMg: bigint("total_weight_mg", { mode: "number" }).notNull().default(0),
     itemCount: integer("item_count").notNull().default(0),
-    // Publishing's columns, unread since it was retired (2026-11-09): a list was made
-    // public at /l/{slug} with a trip type and season, and withheld (`flagged`) on a
-    // spam heuristic or reports. No list was ever made public, and nothing reads or
-    // writes these now; they stay only because this app has no migration step to drop
-    // a column with (see db.ts).
-    isPublic: boolean("is_public").notNull().default(false),
-    publishedAt: timestamp("published_at", { withTimezone: true }),
-    tripType: text("trip_type"),
-    season: text("season"),
-    flagged: boolean("flagged").notNull().default(false),
     // The byline on the read views — who MADE the list.
     //
     // Set ONCE at creation and never re-pointed by claiming: an edit link is
@@ -118,8 +108,6 @@ export type ListRow = typeof lists.$inferSelect;
 // forgoing gin_trgm_ops (the catalog is small + bounded, so the seq scan is
 // cheap).
 // ---------------------------------------------------------------------------
-// legacy columns still in the database, undeclared: description, image_url,
-// msrp_cents, currency (see the header)
 export const catalogItems = pgTable(
   "catalog_items",
   {
@@ -166,7 +154,6 @@ export const catalogItems = pgTable(
 // verified value becomes a `proposed` row unless the correction carries a
 // citation from a trusted manufacturer/retailer domain (then it auto-applies).
 // ---------------------------------------------------------------------------
-// legacy column still in the database, undeclared: confirmations (see the header)
 export const catalogEdits = pgTable(
   "catalog_edits",
   {
@@ -293,30 +280,6 @@ export const vaults = pgTable(
   }
 );
 
-/**
- * LEGACY: the folders My Gear had before it grouped by kind (shared/vaultView).
- * Nothing reads or writes them now, and vault_items no longer declares the folder_id
- * that filed a row into one. The table stays declared because whatever deletes a
- * vault's rows — the purge, closing an account, scripts/mirror-account.ts — deletes
- * its old folders too.
- */
-export const vaultFolders = pgTable(
-  "vault_folders",
-  {
-    id: serial("id").primaryKey(),
-    vaultId: integer("vault_id").notNull(),
-    name: text("name").notNull(),
-    // drag order on /vault; ties break on id so the order is always total
-    sortOrder: integer("sort_order").notNull().default(0),
-    // LEGACY, unread: the per-folder sort (manual|name|heaviest|lightest) that My
-    // Gear used to offer. The feature is gone; the column stays until a migration
-    // drops it, and nothing writes or reads it.
-    sortBy: text("sort_by"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  }
-);
-
-
 // Relational, not JSONB (unlike a list's content): the vault is QUERIED — fuzzy
 // autocomplete while building a list, sorted browsing on /vault — which is the
 // same reason catalog_items is a real table.
@@ -360,11 +323,6 @@ export const vaultItems = pgTable(
     kcal: integer("kcal"),
     catalogItemId: integer("catalog_item_id"), // set when the row came from a catalog pick
     productUrl: text("product_url"),
-    // legacy columns still in the database, undeclared: description and
-    // description_pinned. My Gear kept a note until 2026-11-08, mostly list notes that
-    // capture had copied in (a trip's "Sam carries this" showing on the gear), so the
-    // two were cut apart: a note belongs to a list row, and My Gear keeps none. Also
-    // folder_id, the row's folder from when My Gear had folders (vaultFolders).
     // What it cost, in whole cents of `currency`. The gear is where a price belongs:
     // a list row's price is the same purchase counted again in every list it's in.
     priceCents: integer("price_cents"),

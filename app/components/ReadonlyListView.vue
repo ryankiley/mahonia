@@ -76,8 +76,8 @@ const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.tr
 // empty string when the list has no dates, which the v-if reads as absent.
 // A trip in the coming week reads "Tomorrow" / "Friday" — but only once this is running
 // in the reader's browser: /s is server-rendered, and the server's clock is in the wrong
-// timezone for "Tomorrow" (and an indexed /l page would keep saying it). So the server
-// and the hydrating render print the dates, and the browser re-words them on mount.
+// timezone for "Tomorrow". So the server and the hydrating render print the dates, and
+// the browser re-words them on mount.
 const hydrated = ref(false);
 onMounted(() => (hydrated.value = true));
 const dateLabel = computed(() =>
@@ -101,8 +101,8 @@ const dateLabel = computed(() =>
 // may never have set. The route's shape is a fact about the route; an estimate is a fact
 // about a person, and this page is about neither of the two people involved.
 // Which half of the list is on screen: the gear, or the trip. The component's own, so
-// it starts on the gear for every list (also what the server renders, which matters
-// because /l is indexable and a crawler runs no JavaScript). Deliberately not
+// it starts on the gear for every list (also what the server renders, which is all a
+// link-preview bot or a reader without JavaScript ever sees). Deliberately not
 // persisted, following the unit picker on these same pages: a share link is usually
 // opened once, by somebody who did not make the list, and a preference remembered
 // from a different list would decide what they see before they have looked.
@@ -169,7 +169,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
       <p v-if="list.authorName || editedAt != null" class="view__meta">
         <span v-if="list.authorName" class="view__byline">by {{ list.authorName }}</span>
         <!-- the relative time is a client concern (avoids an SSR/hydration time
-             mismatch on the indexable /l page); the dot only shows once it does -->
+             mismatch on the server-rendered page); the dot only shows once it does -->
         <ClientOnly>
           <template v-if="editedAt != null">
             <span v-if="list.authorName" class="view__dot" aria-hidden="true">•</span>
@@ -183,8 +183,9 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
            by side without a separator between them. A narrow phone wraps them onto two
            lines rather than squeezing the trail name down to an ellipsis. -->
       <p v-if="trail || distanceLabel || dateLabel" class="view__where">
-        <!-- nofollow ugc: /l is indexable and this is a viewer-submitted outbound link,
-             so without it the public feed reads as a link farm. The favicon is a data:
+        <!-- nofollow ugc: a viewer-submitted outbound link, on a page that is already
+             noindex (pages/s/[code].vue); the rel says so to anything that reads the
+             page anyway. The favicon is a data:
              URL (fetched server-side, cached per host), so no third-party request leaves
              the viewer's browser and img-src stays 'self' data:. -->
         <a
