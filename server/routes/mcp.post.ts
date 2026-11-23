@@ -172,8 +172,9 @@ export default defineEventHandler(async (event) => {
   // the registry): resolved once here and left on the event. The gate is the scope
   // an account tool names; create_list only uses an account when there is one.
   const use = msg.method === "tools/call" && typeof params.name === "string" ? accountUse(params.name, args) : undefined;
-  // An admin tool (verify_catalog_item) is no tool at all to anyone but an admin: a call
-  // with no bearer, a dead or made-up one, or one that isn't an admin's, gets the answer
+  // An admin tool (verify_catalog_item, catalog_changes, revert_catalog_edit) is no tool
+  // at all to anyone but an admin: a call with no bearer, a dead or made-up one, or one
+  // that isn't an admin's, gets the answer
   // a name that doesn't exist gets. The one exception is an admin's own app token past
   // its hour, which gets the 401 below, so the admin's client refreshes it.
   const adminTool = msg.method === "tools/call" && isAdminTool(params.name);
@@ -224,7 +225,7 @@ export default defineEventHandler(async (event) => {
     case "ping":
       return result(id, {});
     case "tools/list":
-      // one page, always: the tools fit without a cursor (six, or seven for an admin), and
+      // one page, always: the tools fit without a cursor (six, or nine for an admin), and
       // a cursor that arrives anyway names a page this server never handed out
       if (params.cursor != null) return error(id, -32602, "Invalid cursor");
       return result(id, { tools: mcpToolsFor(await listingAccount(event)) });

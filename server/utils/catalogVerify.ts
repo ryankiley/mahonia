@@ -7,17 +7,17 @@
 // The checks are the audit's own, run at write time: a manufacturer weight needs a
 // citation URL and a quote that states it, every weight sits in its kind of gear's range
 // unless the admin confirms an outlier, and a new product may not duplicate a live row.
-// Every verification records what it replaced in catalog_edits.undo, so the admin revert
+// Every verification records what it replaced in catalog_edits.undo, so revert_catalog_edit
 // puts the row back as it was (or retires a product the verification added), and the
 // corrections path leaves a verified-in-app row's weight alone (proposeCorrection).
 
-import { and, eq, sql, type SQL } from "drizzle-orm";
+import { and, eq, getTableColumns, sql, type SQL } from "drizzle-orm";
 import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
 import { categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged } from "../../shared/catalogQuality";
 import { isCatalogId, MAX_BRAND_LEN, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { tidyText } from "../../shared/tidyText";
 import { itemDisplayName } from "../../shared/weights";
-import { catalogBrands, catalogGearTypes, isHttpUrl } from "./catalog";
+import { catalogBrands, catalogGearTypes, isHttpUrl, revertEdit } from "./catalog";
 import { closestCatalogMatch } from "./candidates";
 import { isUniqueViolation, type Db } from "./db";
 
@@ -37,6 +37,8 @@ export interface Verified {
   created: boolean;
   /** a retired row of this product, brought back under its old id by this call */
   revived: boolean;
+  /** the catalog_edits row this call wrote: what revert_catalog_edit takes to undo it */
+  editId: number;
 }
 
 /** A one-line text argument, tidied and capped; "" when absent or not a string. */
@@ -139,7 +141,7 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
 
   // The edit history and the row are written in ONE statement (the edit as a data-modifying
   // CTE), so neither lands without the other: an "applied" edit for a change that never
-  // happened would hand the admin revert a weight to restore that the row never left.
+  // happened would hand revert_catalog_edit a weight to restore that the row never left.
   if (fresh) {
     try {
       const added = db.$with("added").as(
@@ -159,9 +161,9 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
         .with(added)
         .insert(catalogEdits)
         .values(editRow(sql`(select ${sql.identifier("id")} from ${sql.identifier("added")})`, weightMg, weightMg, sourceUrl, notes || "Added and verified by an admin", { status: "removed" }))
-        .returning({ catalogItemId: catalogEdits.catalogItemId });
+        .returning({ id: catalogEdits.id, catalogItemId: catalogEdits.catalogItemId });
       const [row] = await db.select().from(catalogItems).where(eq(catalogItems.id, edit!.catalogItemId)).limit(1);
-      return { row: row!, created: true, revived: false };
+      return { row: row!, created: true, revived: false, editId: edit!.id };
     } catch (e) {
       // the identity index: the same product added a moment ago
       if (!isUniqueViolation(e)) throw e;
@@ -170,7 +172,7 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
   }
 
   const row = current!;
-  // what the update replaces, kept on the edit: the admin revert puts all of it back,
+  // what the update replaces, kept on the edit: revert_catalog_edit puts all of it back,
   // not the weight alone
   const undo: CatalogEditUndo = {
     weightSource: row.weightSource,
@@ -188,7 +190,7 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
   const edit = db.$with("edit").as(
     db.insert(catalogEdits).values(editRow(row.id, Number(row.weightMg), weightMg, sourceUrl, reason, undo)).returning({ id: catalogEdits.id }),
   );
-  const [updated] = await db
+  const [written] = await db
     .with(edit)
     .update(catalogItems)
     .set({
@@ -200,12 +202,28 @@ export async function verifyCatalogItem(db: Db, userId: number, args: Record<str
       ...(revive ? { status: "active", mergedIntoId: null } : {}),
     })
     .where(eq(catalogItems.id, row.id))
-    .returning();
-  return { row: updated!, created: false, revived: revive };
+    // the edit's id, read from the CTE the same statement wrote it in
+    .returning({ ...getTableColumns(catalogItems), editId: sql<number>`(select ${sql.identifier("id")} from ${sql.identifier("edit")})` });
+  const { editId, ...updated } = written!;
+  return { row: updated, created: false, revived: revive, editId: Number(editId) };
+}
+
+/**
+ * revert_catalog_edit's work: undo one applied edit, an admin's verification or a
+ * community correction, and answer the row as it now stands, or a sentence saying why not.
+ */
+export async function undoCatalogEdit(db: Db, editId: unknown): Promise<{ row: CatalogRow } | string> {
+  if (!isCatalogId(editId)) return "edit_id is a catalog edit's id, a whole number from verify_catalog_item or catalog_changes.";
+  const out = await revertEdit(db, editId);
+  if (out.status === "notfound") return `No catalog edit has id ${editId}.`;
+  if (out.status !== "applied") return out.reason ?? `Edit ${editId} can't be undone.`;
+  // catalog rows are retired, never deleted, so the edit's row is there to read back
+  const [row] = await db.select().from(catalogItems).where(eq(catalogItems.id, out.catalogItemId!)).limit(1);
+  return { row: row! };
 }
 
 /** One line of the catalog's edit history (catalog_edits), applied: where a verification's
- *  date, source and notes are kept, and what the admin revert reads and undoes. */
+ *  date, source and notes are kept, and what revert_catalog_edit reads and undoes. */
 function editRow(catalogItemId: number | SQL, oldWeightMg: number, newWeightMg: number, sourceUrl: string | null, reason: string, undo: CatalogEditUndo) {
   return { catalogItemId, oldWeightMg, newWeightMg, sourceUrl, reason, status: "applied", undo };
 }

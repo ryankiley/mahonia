@@ -1,5 +1,5 @@
 import { defineEventHandler } from "h3";
-import { requireAdmin } from "../../../utils/auth";
+import { requireCron } from "../../../utils/auth";
 import { useAccountDb, useDb, useVaultDb } from "../../../utils/db";
 import { purgeDeletedLists, reapAbandonedLists } from "../../../utils/listRepo";
 import { purgeDeletedVaults, reapAbandonedVaults } from "../../../utils/vaultRepo";
@@ -29,14 +29,14 @@ import { setNoIndex } from "../../../utils/http";
 // Scheduling: what Hobby still constrains is FREQUENCY, not count — once a day, and
 // Vercel may fire the job anywhere inside the scheduled hour. So the 20-minute gap
 // from corroborate-catalog in vercel.json is a nicety, not a guarantee: both jobs can
-// land at once. Harmless today (they touch different tables, and the shared "admin"
+// land at once. Harmless today (they touch different tables, and the shared "cron"
 // rate-limit budget is 30/min against two requests), but don't add work here that
 // assumes the catalog job has already finished.
-// Auth: requireAdmin with the cron door — Bearer $CRON_SECRET (Vercel) or
-// x-admin-token for a manual run; rate-limited, 404 otherwise.
+// Auth: requireCron, Bearer $CRON_SECRET (Vercel sends it; a manual run sends the
+// same); rate-limited, 404 otherwise.
 export default defineEventHandler(async (event) => {
   setNoIndex(event);
-  await requireAdmin(event, { orBearer: process.env.CRON_SECRET });
+  await requireCron(event);
 
   const db = await useDb();
   const reaped = await reapAbandonedLists(db);

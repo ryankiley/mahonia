@@ -4,7 +4,7 @@ import * as schema from "../server/db/schema";
 import mcp from "../server/routes/mcp.post";
 import { ACCESS_TOKEN_PREFIX, mintAccessToken } from "../server/utils/accessTokens";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
-import { CATALOG_DDL, proposeCorrection, revertEdit } from "../server/utils/catalog";
+import { CATALOG_DDL, proposeCorrection } from "../server/utils/catalog";
 import { LISTS_DDL } from "../server/utils/db";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { catalogRow, seedCatalogRow } from "./helpers/catalog";
@@ -13,12 +13,14 @@ import { dbState } from "./helpers/dbMock";
 import { makeEvent } from "./helpers/http";
 import { expectResultConforms } from "./helpers/mcpSchema";
 
-// verify_catalog_item, the one admin tool, driven through the real endpoint against a
-// real (in-memory) database. Held here: only an account named in ADMIN_USER_IDS sees it
-// in tools/list or can call it, and to everyone else it is a tool that doesn't exist; an
-// admin's call verifies a row at once, stamped with the account, or adds a product the
-// catalog lacks; and a call the audit would fail (a quote that doesn't state the weight,
-// a weight out of range, a duplicate product) is refused with a sentence.
+// The admin tools (verify_catalog_item, catalog_changes, revert_catalog_edit), driven
+// through the real endpoint against a real (in-memory) database. Held here: only an
+// account named in ADMIN_USER_IDS sees them in tools/list or can call them, and to
+// everyone else they are tools that don't exist; an admin's call verifies a row at once,
+// stamped with the account, or adds a product the catalog lacks; a call the audit would
+// fail (a quote that doesn't state the weight, a weight out of range, a duplicate
+// product) is refused with a sentence; and the edit history lists every change and
+// undoes one by its id.
 
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 vi.mock("../server/utils/rateLimit", () => ({
@@ -30,6 +32,7 @@ vi.mock("../server/utils/rateLimit", () => ({
 vi.stubEnv("DATABASE_URL", "");
 
 const TOOL = "verify_catalog_item";
+const ADMIN_TOOLS = [TOOL, "catalog_changes", "revert_catalog_edit"];
 type ToolAnswer = { structuredContent?: Record<string, unknown>; content: { text: string }[]; isError?: boolean };
 type Reply = { result?: ToolAnswer & { tools?: { name: string }[] }; error?: { code: number; message: string } | string };
 
@@ -40,14 +43,22 @@ async function post(body: unknown, token?: string) {
 }
 const listed = async (token?: string) =>
   ((await post({ jsonrpc: "2.0", id: 1, method: "tools/list" }, token)).reply.result!.tools ?? []).map((t) => t.name);
-const call = (args: unknown, token?: string) => post({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: TOOL, arguments: args } }, token);
+const callTool = (name: string, args: unknown, token?: string) => post({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }, token);
+const call = (args: unknown, token?: string) => callTool(TOOL, args, token);
+/** an admin's call to any admin tool that the tool answered, held to its declared shape */
+async function adminCall(name: string, args: Record<string, unknown>, token = adminWrite): Promise<{ refused: boolean; text: string; data: any }> {
+  const { reply } = await callTool(name, args, token);
+  const result = reply.result!;
+  expectResultConforms(name, result);
+  return { refused: result.isError ?? false, text: result.content[0]!.text, data: result.structuredContent };
+}
 /** an admin's call that the tool answered: its row, or its refusal */
 async function verify(args: Record<string, unknown>) {
   const { reply } = await call(args, adminWrite);
   const result = reply.result!;
   // the declared outputSchema, compiled closed, as every MCP suite holds its calls to
   expectResultConforms(TOOL, result);
-  return { refused: result.isError ?? false, text: result.content[0]!.text, data: result.structuredContent as { created: boolean; row: Record<string, unknown> } };
+  return { refused: result.isError ?? false, text: result.content[0]!.text, data: result.structuredContent as { created: boolean; row: Record<string, unknown>; edit_id: number } };
 }
 
 let db: TestDb;
@@ -83,36 +94,48 @@ afterEach(() => {
 });
 
 describe("who sees it and who can call it", () => {
-  it("is listed as the public six plus itself, declared like them, and says it writes for everyone", async () => {
+  it("is listed as the public six plus the admin three, declared like them, the writers saying they write for everyone", async () => {
     const tools = (await post({ jsonrpc: "2.0", id: 1, method: "tools/list" }, adminWrite)).reply.result!.tools as unknown as {
       name: string;
       outputSchema?: { type: string };
       annotations: Record<string, boolean>;
       inputSchema: { properties: Record<string, { type?: string; maxLength?: number; maximum?: number }> };
     }[];
-    expect(tools.map((t) => t.name)).toEqual(["get_list", "search_catalog", "create_list", "edit_list", "get_my_gear", "edit_my_gear", TOOL]);
-    const tool = tools.at(-1)!;
-    expect(tool.outputSchema?.type).toBe("object");
-    expect(tool.annotations).toEqual({ readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true });
-    // every free-text argument carries the cap the tool holds it to, as the other tools' do
-    const uncapped = Object.entries(tool.inputSchema.properties).filter(([, p]) => p.type === "string" && !("enum" in p) && p.maxLength == null);
-    expect(uncapped.map(([k]) => k)).toEqual([]);
-    expect(tool.inputSchema.properties.weight_g!.maximum).toBe(100_000);
+    expect(tools.map((t) => t.name)).toEqual(["get_list", "search_catalog", "create_list", "edit_list", "get_my_gear", "edit_my_gear", ...ADMIN_TOOLS]);
+    const [verifyTool, changesTool, revertTool] = tools.slice(-3) as [(typeof tools)[0], (typeof tools)[0], (typeof tools)[0]];
+    for (const tool of [verifyTool, changesTool, revertTool]) {
+      expect(tool.outputSchema?.type, tool.name).toBe("object");
+      // every free-text argument carries the cap the tool holds it to, as the other tools' do
+      const uncapped = Object.entries(tool.inputSchema.properties).filter(([, p]) => p.type === "string" && !("enum" in p) && p.maxLength == null);
+      expect(uncapped.map(([k]) => k), tool.name).toEqual([]);
+    }
+    const writesForEveryone = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true };
+    expect(verifyTool.annotations).toEqual(writesForEveryone);
+    expect(revertTool.annotations).toEqual(writesForEveryone);
+    expect(changesTool.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false });
+    expect(verifyTool.inputSchema.properties.weight_g!.maximum).toBe(100_000);
   });
 
   it("is listed for an admin's bearer only", async () => {
-    expect(await listed(adminWrite)).toContain(TOOL);
-    expect(await listed(adminRead)).toContain(TOOL);
-    expect(await listed()).not.toContain(TOOL);
-    expect(await listed(otherWrite)).not.toContain(TOOL);
-    expect(await listed(NEVER_MINTED)).not.toContain(TOOL);
+    expect(await listed(adminWrite)).toEqual(expect.arrayContaining(ADMIN_TOOLS));
+    expect(await listed(adminRead)).toEqual(expect.arrayContaining(ADMIN_TOOLS));
+    for (const token of [undefined, otherWrite, NEVER_MINTED]) {
+      expect((await listed(token)).filter((name) => ADMIN_TOOLS.includes(name))).toEqual([]);
+    }
   });
 
   it("answers anyone but an admin as a tool that doesn't exist", async () => {
+    const calls: [string, Record<string, unknown>][] = [
+      [TOOL, { catalog_id: community, weight_g: 1022, weight_source: "measured" }],
+      ["catalog_changes", {}],
+      ["revert_catalog_edit", { edit_id: 1 }],
+    ];
     for (const token of [undefined, otherWrite]) {
-      const { status, reply } = await call({ catalog_id: community, weight_g: 1022, weight_source: "measured" }, token);
-      expect(status).toBe(200);
-      expect(reply.error).toEqual({ code: -32602, message: `Unknown tool: ${TOOL}` });
+      for (const [name, args] of calls) {
+        const { status, reply } = await callTool(name, args, token);
+        expect(status).toBe(200);
+        expect(reply.error).toEqual({ code: -32602, message: `Unknown tool: ${name}` });
+      }
     }
     expect((await catalogRow(db, community)).verified).toBe(false);
   });
@@ -132,11 +155,14 @@ describe("who sees it and who can call it", () => {
       expect(reply.error).toEqual({ code: -32602, message: `Unknown tool: ${TOOL}` });
     }
     expect((await call({ catalog_id: community, weight_g: 1022 }, adminRead)).status).toBe(403);
+    // a read-only admin connection reads the history but can't undo anything in it
+    expect((await adminCall("catalog_changes", {}, adminRead)).refused).toBe(false);
+    expect((await callTool("revert_catalog_edit", { edit_id: 1 }, adminRead)).status).toBe(403);
   });
 
   it("opens to nobody when ADMIN_USER_IDS is unset", async () => {
     vi.stubEnv("ADMIN_USER_IDS", "");
-    expect(await listed(adminWrite)).not.toContain(TOOL);
+    expect((await listed(adminWrite)).filter((name) => ADMIN_TOOLS.includes(name))).toEqual([]);
     expect((await call({ catalog_id: community, weight_g: 1022, weight_source: "measured" }, adminWrite)).reply.error).toEqual({ code: -32602, message: `Unknown tool: ${TOOL}` });
   });
 });
@@ -149,6 +175,8 @@ describe("verifying", () => {
     expect(await catalogRow(db, community)).toMatchObject({ verified: true, verifiedBy: admin, sourceQuote: "Total Weight: 36 oz / 1022 g", commonName: "Tent" });
     const edits = await db.select().from(schema.catalogEdits).where(eq(schema.catalogEdits.catalogItemId, community));
     expect(edits.map((e) => [Number(e.oldWeightMg), Number(e.newWeightMg), e.reason, e.status])).toEqual([[1_000_000, 1_022_000, "Checked the spec table", "applied"]]);
+    // the answer names that edit, for revert_catalog_edit
+    expect(done.data.edit_id).toBe(edits[0]!.id);
   });
 
   it("takes a quote in ounces, and a pound-and-ounce figure as one weight", async () => {
@@ -169,6 +197,8 @@ describe("verifying", () => {
     expect(done.refused).toBe(false);
     expect(done.data).toMatchObject({ created: true, row: { brand: "Zpacks", name: "Altaplex", gear_type: "Tent", category: "shelter", weight_g: 440, verified: true } });
     const id = done.data.row.id as number;
+    const [edit] = await db.select().from(schema.catalogEdits).where(eq(schema.catalogEdits.catalogItemId, id));
+    expect(done.data.edit_id).toBe(edit!.id);
     expect((await catalogRow(db, id)).verifiedBy).toBe(admin);
     const search = (await post({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "search_catalog", arguments: { query: "altaplex" } } })).reply.result!;
     expect((search.structuredContent!.results as { id: number }[]).map((r) => r.id)).toContain(id);
@@ -245,17 +275,15 @@ describe("what it refuses", () => {
   });
 });
 
-describe("undoing a verification, and corrections after one", () => {
-  /** the newest applied edit on a row: what the admin feed's revert button names */
-  const lastEdit = async (id: number) => {
-    const edits = await db.select().from(schema.catalogEdits).where(eq(schema.catalogEdits.catalogItemId, id));
-    return edits.filter((e) => e.status === "applied").sort((a, b) => b.id - a.id)[0]!;
-  };
+describe("the edit history, undoing a verification, and corrections after one", () => {
+  const revert = (edit_id: number) => adminCall("revert_catalog_edit", { edit_id });
 
   it("puts the row back as it was, not the weight alone", async () => {
     const row = await seedCatalogRow(db, { brand: "Big Agnes", name: "Copper Spur UL1", commonName: "tent", categoryHint: "shelter", weightMg: 1_000_000, sourceUrl: "https://example.com/copper-spur" });
-    await verify({ catalog_id: row.id, weight_g: 1020, source_url: "https://bigagnes.com/copper-spur-ul1", quote: "Packaged weight: 1020 g" });
-    expect((await revertEdit(db, (await lastEdit(row.id)).id)).status).toBe("applied");
+    const done = await verify({ catalog_id: row.id, weight_g: 1020, source_url: "https://bigagnes.com/copper-spur-ul1", quote: "Packaged weight: 1020 g" });
+    const undone = await revert(done.data.edit_id);
+    expect(undone.refused, undone.text).toBe(false);
+    expect(undone.data).toMatchObject({ edit_id: done.data.edit_id, retired: false, row: { id: row.id, weight_g: 1000, verified: false } });
     expect(await catalogRow(db, row.id)).toMatchObject({
       weightMg: 1_000_000, verified: false, verifiedBy: null, weightSource: "community", sourceUrl: "https://example.com/copper-spur", sourceQuote: null, commonName: "tent",
     });
@@ -263,16 +291,18 @@ describe("undoing a verification, and corrections after one", () => {
 
   it("undoes a second verification back to the first", async () => {
     const row = await seedCatalogRow(db, { brand: "Thermarest", name: "NeoAir XLite NXT", categoryHint: "sleep", weightMg: 400_000 });
-    await verify({ catalog_id: row.id, weight_g: 370, weight_source: "measured" });
-    await verify({ catalog_id: row.id, weight_g: 354, source_url: "https://thermarest.com/xlite", quote: "Weight: 354 g" });
-    await revertEdit(db, (await lastEdit(row.id)).id);
+    const first = await verify({ catalog_id: row.id, weight_g: 370, weight_source: "measured" });
+    const second = await verify({ catalog_id: row.id, weight_g: 354, source_url: "https://thermarest.com/xlite", quote: "Weight: 354 g" });
+    // the older one can't go first: it would throw the newer one away unseen
+    expect((await revert(first.data.edit_id)).text).toContain(`newer applied edit, ${second.data.edit_id}`);
+    expect((await revert(second.data.edit_id)).refused).toBe(false);
     expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 370_000, verified: true, verifiedBy: admin, weightSource: "measured", sourceQuote: null });
   });
 
   it("retires a product the verification added, and adding it again brings it back", async () => {
     const added = await verify({ brand: "Hyperlite", name: "Unbound 40", gear_type: "Backpack", weight_g: 850, weight_source: "measured" });
     const id = added.data.row.id as number;
-    await revertEdit(db, (await lastEdit(id)).id);
+    expect((await revert(added.data.edit_id)).data.retired).toBe(true);
     expect((await catalogRow(db, id)).status).toBe("removed");
     const again = await verify({ brand: "Hyperlite", name: "Unbound 40", gear_type: "Backpack", weight_g: 860, weight_source: "measured" });
     expect(again.data.row.id).toBe(id);
@@ -281,11 +311,42 @@ describe("undoing a verification, and corrections after one", () => {
 
   it("won't undo a verification the seed has since taken over", async () => {
     const row = await seedCatalogRow(db, { brand: "Gossamer Gear", name: "Mariposa 60", categoryHint: "pack", weightMg: 900_000 });
-    await verify({ catalog_id: row.id, weight_g: 940, weight_source: "measured" });
+    const done = await verify({ catalog_id: row.id, weight_g: 940, weight_source: "measured" });
     // what upsertSeedRows does when the research names it
     await db.update(schema.catalogItems).set({ verifiedBy: null, sourceQuote: null, weightSource: "manufacturer" }).where(eq(schema.catalogItems.id, row.id));
-    expect((await revertEdit(db, (await lastEdit(row.id)).id)).status).toBe("rejected");
+    expect((await revert(done.data.edit_id)).text).toContain("seed/_research");
     expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 940_000, verified: true, verifiedBy: null });
+  });
+
+  it("refuses an edit that isn't there, or is already undone", async () => {
+    expect((await revert(999_999)).text).toContain("No catalog edit has id 999999");
+    const row = await seedCatalogRow(db, { brand: "Petzl", name: "Bindi", categoryHint: "electronics", weightMg: 40_000 });
+    const done = await verify({ catalog_id: row.id, weight_g: 35, weight_source: "measured" });
+    expect((await revert(done.data.edit_id)).refused).toBe(false);
+    expect((await revert(done.data.edit_id)).text).toContain("already undone");
+  });
+
+  it("lists the edit history newest first, one row's or every row's, and undoes a suggested fix", async () => {
+    const row = await seedCatalogRow(db, { brand: "Nemo", name: "Tensor", categoryHint: "sleep", weightMg: 500_000 });
+    // a community row: an uncited fix applies at once
+    await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 450_000, reason: "my scale says 450" });
+    const done = await verify({ catalog_id: row.id, weight_g: 425, weight_source: "measured" });
+    const history = await adminCall("catalog_changes", { catalog_id: row.id });
+    expect(history.data.changes.map((c: Record<string, unknown>) => [c.kind, c.status, c.old_weight_g, c.new_weight_g, c.catalog_id])).toEqual([
+      ["verification", "applied", 450, 425, row.id],
+      ["correction", "applied", 500, 450, row.id],
+    ]);
+    expect(history.data.changes[0].id).toBe(done.data.edit_id);
+    expect(history.data.changes[1].reason).toBe("my scale says 450");
+    expect((await adminCall("catalog_changes", { limit: 1 })).data.changes).toHaveLength(1);
+    expect((await adminCall("catalog_changes", { limit: 0 })).text).toContain("limit");
+    // the fix sits under the verification; undo that first, then the fix itself
+    const fix = history.data.changes[1].id as number;
+    expect((await revert(fix)).refused).toBe(true);
+    await revert(done.data.edit_id);
+    expect((await revert(fix)).data.row).toMatchObject({ id: row.id, weight_g: 500 });
+    const after = await adminCall("catalog_changes", { catalog_id: row.id });
+    expect(after.data.changes.map((c: Record<string, unknown>) => c.status)).toEqual(["reverted", "reverted"]);
   });
 
   it("writes the row and its edit together or not at all", async () => {

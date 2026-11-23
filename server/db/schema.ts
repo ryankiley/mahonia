@@ -168,7 +168,7 @@ export const catalogItems = pgTable(
 // catalog_edits — the wiki history (Phase 3). One row per change to a catalog
 // weight. No accounts, so we identify a change by the change itself, not a user.
 // Every weight change is recorded here so any edit is revertible and the history
-// is auditable (powers the recent-changes feed + one-click revert).
+// is auditable (catalog_changes lists it, revert_catalog_edit undoes it).
 //
 // Trust-tiered: editing an uncited/community value applies instantly; editing a
 // verified value becomes a `proposed` row unless the correction carries a
@@ -177,7 +177,7 @@ export const catalogItems = pgTable(
 // `proposed` only: its weight stands on the evidence the admin gave.
 // ---------------------------------------------------------------------------
 /** What an in-app verification (verify_catalog_item) changed on its row besides the
- *  weight, as it stood before: the admin revert puts it back with the old weight. A
+ *  weight, as it stood before: revert_catalog_edit puts it back with the old weight. A
  *  product the verification added has `{ status: "removed" }`, so reverting retires it. */
 export type CatalogEditUndo = Partial<
   Pick<

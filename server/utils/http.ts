@@ -9,16 +9,16 @@ import { READ_EDGE_CACHE_CONTROL } from "../../shared/site";
  *
  * A helper rather than a wrapper that sets it for you. The obvious next step —
  * defineApiHandler(action, handler), headers and rate limit together — is a trap
- * this codebase would spring immediately: requireAdmin (the cron routes' gate
- * too) already calls rateLimit("admin") itself, so a wrapper that also called it
- * would charge the same budget twice on every admin and cron request; two catalog
+ * this codebase would spring immediately: requireCron (the cron routes' gate)
+ * already calls rateLimit("cron") itself, so a wrapper that also called it
+ * would charge the same budget twice on every cron request; two catalog
  * endpoints deliberately rate-limit BEFORE setting their cache headers, so a 429
  * is never cached at the edge, which a fixed order would undo; and auth/request
  * rate-limits twice, on two different subjects, at two points in its body. Three
  * separate one-line calls can express all of that. One wrapper can't.
  *
  * The bundles that ARE safe are narrow ones, each over endpoints that share one
- * fixed order and never go near requireAdmin: openPrivate and requireAccount
+ * fixed order and never go near requireCron: openPrivate and requireAccount
  * (authSession.ts) for the endpoints answering with one person's own data, which
  * all set both headers and then rate-limit, and requireEdit (editAuth.ts) for the
  * edit endpoints, which all rate-limit before resolving the capability.
