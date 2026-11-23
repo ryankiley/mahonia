@@ -133,6 +133,14 @@ export const catalogItems = pgTable(
     sourceUrl: text("source_url"), // the citation (manufacturer spec page preferred)
     productUrl: text("product_url"), // optional buy/official link, distinct from the citation
     verified: boolean("verified").notNull().default(false), // owner-curated trust
+    // The admin account that verified this row in the app (verify_catalog_item), or null.
+    // A verified row with no verifier is the seed's: the research names it, and the seed
+    // retires it when the research stops. A row with one belongs to the database, and the
+    // seed leaves it alone until the research names it and takes it over (seedUpsert.ts).
+    verifiedBy: integer("verified_by"),
+    // The maker's own words for the weight, kept from an in-app verification so
+    // `catalog:graduate` can write the row back out as research with its quote.
+    sourceQuote: text("source_quote"),
     usageCount: integer("usage_count").notNull().default(0), // ranks autocomplete
     status: text("status").notNull().default("active"), // active|merged|removed
     // Where a retired row's links now point: the row the research replaced it with
@@ -148,12 +156,24 @@ export const catalogItems = pgTable(
 // catalog_edits — the wiki history (Phase 3). One row per change to a catalog
 // weight. No accounts, so we identify a change by the change itself, not a user.
 // Every weight change is recorded here so any edit is revertible and the history
-// is auditable (powers the recent-changes feed + one-click revert).
+// is auditable (catalog_changes lists it, revert_catalog_edit undoes it).
 //
 // Trust-tiered: editing an uncited/community value applies instantly; editing a
 // verified value becomes a `proposed` row unless the correction carries a
 // citation from a trusted manufacturer/retailer domain (then it auto-applies).
+// A row an admin verified in the app (verified_by set) takes corrections as
+// `proposed` only: its weight stands on the evidence the admin gave.
 // ---------------------------------------------------------------------------
+/** What an in-app verification (verify_catalog_item) changed on its row besides the
+ *  weight, as it stood before: revert_catalog_edit puts it back with the old weight. A
+ *  product the verification added has `{ status: "removed" }`, so reverting retires it. */
+export type CatalogEditUndo = Partial<
+  Pick<
+    typeof catalogItems.$inferSelect,
+    "weightSource" | "sourceUrl" | "sourceQuote" | "verified" | "verifiedBy" | "commonName" | "searchTerms" | "categoryHint" | "status" | "mergedIntoId"
+  >
+>;
+
 export const catalogEdits = pgTable(
   "catalog_edits",
   {
@@ -164,6 +184,8 @@ export const catalogEdits = pgTable(
     sourceUrl: text("source_url"), // citation; validated against a domain allowlist for auto-promote
     reason: text("reason"),
     status: text("status").notNull().default("applied"), // applied|proposed|reverted|rejected
+    // set on an in-app verification only: the row's fields before it (CatalogEditUndo)
+    undo: jsonb("undo").$type<CatalogEditUndo>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   }
 );

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emergingBrandTokens, isBrandedTypedItem, isVariantRedundant, normKey, normalizeVariant, splitKnownBrand } from "../shared/catalogQuality";
+import { emergingBrandTokens, isBrandedTypedItem, isVariantRedundant, normKey, normalizeVariant, quoteBacksWeight, splitKnownBrand, weightsInQuote } from "../shared/catalogQuality";
 
 describe("normKey — a candidate's identity is the search fold", () => {
   it("keeps a name in any script, and folds an accent as the search does", () => {
@@ -144,5 +144,22 @@ describe("catalog-intake brands", () => {
     expect(isBrandedTypedItem({ name: "Solitary Maker", knownBrands: new Set(), emergingBrands: emerging })).toBe(false);
     expect(splitKnownBrand("Timmermade Alpha Cruiser", new Map(), emerging))
       .toEqual({ brand: "Timmermade", name: "Alpha Cruiser" });
+  });
+});
+
+describe("weightsInQuote — the figures verify_catalog_item holds a quote to", () => {
+  const read = (q: string) => weightsInQuote(q).map(Math.round);
+  it("reads grams, ounces, pounds, and a pound-and-ounce figure as one", () => {
+    expect(read("Total Weight: 36 oz / 1022 g")).toEqual([1022, 1021]);
+    expect(read("Weight: 1 lb 4 oz")).toEqual([567]);
+    expect(read("1 lb, 3.5 oz")).toEqual([553]);
+    expect(read("2.1 lbs")).toEqual([953]);
+  });
+
+  it("reads a figure with no leading digit whole", () => {
+    // once read as "60 oz", 1.7 kg, which backed a weight the quote never stated
+    expect(read("The Deuce #2 - .60 oz")).toEqual([17]);
+    expect(quoteBacksWeight(".5 oz", 14)).toBe(true);
+    expect(quoteBacksWeight(".5 oz", 142)).toBe(false);
   });
 });

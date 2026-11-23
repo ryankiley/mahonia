@@ -489,13 +489,17 @@ export interface AccessTokenSummary {
   lastUsedAt: string | null;
 }
 
-/** One catalog weight correction, as the admin patrol feed lists them. */
+/** One line of the catalog's edit history, as the admin tool catalog_changes lists it. */
 export interface RecentChange {
   id: number;
+  catalogItemId: number;
   itemName: string;
   oldWeightMg: number;
   newWeightMg: number;
   status: string;
+  /** an admin's in-app verification (its undo snapshot is kept), else a "suggest a fix" correction */
+  verification: boolean;
   sourceUrl: string | null;
+  reason: string | null;
   createdAt: string;
 }

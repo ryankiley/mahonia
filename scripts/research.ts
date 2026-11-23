@@ -106,6 +106,10 @@ export interface ResearchRow {
   kcal_quote?: string | null;
 }
 
+/** The research file `npm run catalog:graduate` writes: rows an admin verified in the app
+ *  (verify_catalog_item), whose quotes the audit reads in ounces as the tool did. */
+export const GRADUATED_FILE_NAME = "verified-in-app.json";
+
 /** A parsed research file, or a parse error for it. Rows are `[]` when `parseError`
  *  is set — the CALLER decides how to bucket it (build → skipped/exit 0; audit →
  *  errors/exit 1), so the reader never swallows or logs the failure itself. */

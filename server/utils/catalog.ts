@@ -23,6 +23,7 @@ import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
 import { enoughToSearch, foldForSearch, foldWidth } from "../../shared/searchText";
 import { UNIT_WEIGHT_MAX_MG, isCatalogId } from "../../shared/ops";
+import { seedManaged } from "../../shared/catalogQuality";
 import { memoized } from "./memoize";
 import { runDdl } from "./ddl";
 import { toIso } from "./time";
@@ -96,6 +97,11 @@ export const CATALOG_DDL: string[] = [
   // kcal — cited per-unit food energy (food rows only; null elsewhere). ALTER so
   // existing tables self-migrate, same as search_terms/common_name.
   `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS kcal integer`,
+  // verified_by + source_quote — an in-app verification (verify_catalog_item): the
+  // admin account behind it, and the maker's words for the weight. Null on every
+  // seeded and community row; see schema.ts for what verified_by means to the seed.
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS verified_by integer`,
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS source_quote text`,
   // Columns from the first version that nothing ever read or wrote, dropped where an
   // older database still has them.
   `ALTER TABLE catalog_items DROP COLUMN IF EXISTS description, DROP COLUMN IF EXISTS image_url, DROP COLUMN IF EXISTS msrp_cents, DROP COLUMN IF EXISTS currency`,
@@ -118,6 +124,8 @@ export const CATALOG_DDL: string[] = [
   `ALTER TABLE catalog_edits DROP COLUMN IF EXISTS confirmations`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_item ON catalog_edits (catalog_item_id, created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_recent ON catalog_edits (created_at DESC)`,
+  // undo — an in-app verification's prior row fields, for revert_catalog_edit (schema.ts)
+  `ALTER TABLE catalog_edits ADD COLUMN IF NOT EXISTS undo jsonb`,
 ];
 
 // Neon ships pg_trgm and unaccent; PGlite doesn't (see the file header), so the
@@ -411,7 +419,7 @@ const TRUSTED_DOMAINS = new Set([
 ]);
 
 /** True only for http(s) URLs — keeps non-fetchable schemes (javascript:, data:)
- * out of stored citations, which are rendered as links in the changes feed. */
+ * out of stored citations, which catalog_changes hands on as links. */
 export function isHttpUrl(url: string | undefined | null): boolean {
   return safeUrl(url) !== null;
 }
@@ -453,12 +461,14 @@ export async function proposeCorrection(
   if (newW === oldW) return { status: "noop", weightMg: oldW, itemName };
 
   // Drop non-http(s) schemes before the value is stored or rendered as a link
-  // (javascript:/data: citations are an XSS vector in the changes feed, and a
+  // (javascript:/data: citations are an XSS vector wherever one is shown as a link, and a
   // `javascript://trusted-domain/` URL would otherwise pass isTrustedSource).
   const safeSource = isHttpUrl(input.sourceUrl) ? input.sourceUrl!.slice(0, 2000) : undefined;
   const cited = isTrustedSource(safeSource);
-  // uncited/community values are wiki-open; a verified value needs a trusted citation
-  const applies = !item.verified || cited;
+  // uncited/community values are wiki-open; a verified value needs a trusted citation.
+  // An admin's in-app verification never moves on its own: applied here, the weight would
+  // leave its quote and weight_source behind, describing a figure the row no longer holds.
+  const applies = item.verifiedBy == null && (!item.verified || cited);
   const status: "applied" | "proposed" = applies ? "applied" : "proposed";
 
   await db.insert(catalogEdits).values({
@@ -485,25 +495,30 @@ export async function proposeCorrection(
 }
 
 
-/** Recent catalog weight changes (newest first): the admin patrol feed that revert reads. */
-export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]> {
+/** Recent catalog edits (newest first), all of them or one row's: the admin patrol feed
+ *  (catalog_changes) that names the ids revert_catalog_edit takes. */
+export async function recentChanges(db: Db, limit = 50, catalogItemId?: number): Promise<RecentChange[]> {
   const rows = await db
     .select({
       id: catalogEdits.id,
+      catalogItemId: catalogEdits.catalogItemId,
       brand: catalogItems.brand,
       name: catalogItems.name,
       variant: catalogItems.variant,
       oldWeightMg: catalogEdits.oldWeightMg,
       newWeightMg: catalogEdits.newWeightMg,
       status: catalogEdits.status,
+      verification: sql<boolean>`${catalogEdits.undo} is not null`,
       sourceUrl: catalogEdits.sourceUrl,
+      reason: catalogEdits.reason,
       createdAt: catalogEdits.createdAt,
     })
     .from(catalogEdits)
     .leftJoin(catalogItems, eq(catalogEdits.catalogItemId, catalogItems.id))
+    .where(catalogItemId == null ? undefined : eq(catalogEdits.catalogItemId, catalogItemId))
     // Timestamps are commonly equal for back-to-back edits (including on
     // PGlite), so the serial id is the deterministic second half of "newest".
-    // Without it the admin feed can hand the stale-revert guard the newer edit
+    // Without it catalog_changes can hand the stale-revert guard the newer edit
     // as though it were the older one.
     .orderBy(desc(catalogEdits.createdAt), desc(catalogEdits.id))
     // Whole, not merely clamped: Drizzle hands LIMIT to Postgres as given, and the
@@ -512,25 +527,42 @@ export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]>
     .limit(Math.min(100, Math.max(1, Math.trunc(Number.isFinite(limit) ? limit : 50))));
   return rows.map((r) => ({
     id: r.id,
+    catalogItemId: Number(r.catalogItemId),
     // the left join leaves brand/name/variant null for an edit whose item is gone
     itemName: itemDisplayName(r.brand, r.name ?? "", r.variant) || "(removed item)",
     oldWeightMg: Number(r.oldWeightMg),
     newWeightMg: Number(r.newWeightMg),
     status: r.status,
+    verification: Boolean(r.verification),
     sourceUrl: r.sourceUrl ?? null,
+    reason: r.reason ?? null,
     createdAt: toIso(r.createdAt),
   }));
 }
 
-/** One-click revert (admin): restore an applied edit's prior weight + mark it reverted. */
-export async function revertEdit(db: Db, editId: number): Promise<CorrectionOutcome> {
+/** What revert_catalog_edit is told: the weight put back, or the sentence saying why not. */
+export interface RevertOutcome {
+  status: "applied" | "rejected" | "notfound";
+  /** on a rejection, why, in a sentence the admin tool hands on */
+  reason?: string;
+  /** the row the edit was on */
+  catalogItemId?: number;
+  weightMg?: number;
+}
+
+/** Undo an applied edit (revert_catalog_edit): restore its prior weight, and for an in-app
+ *  verification everything else it changed, and mark it reverted. */
+export async function revertEdit(db: Db, editId: number): Promise<RevertOutcome> {
   const id = Number(editId);
   // catalog_edits.id is the same PostgreSQL serial range as catalog_items.id.
-  if (!isCatalogId(id)) return { status: "rejected" };
+  if (!isCatalogId(id)) return { status: "rejected", reason: "edit_id is a catalog edit's id, a whole number from catalog_changes." };
   const rows = await db.select().from(catalogEdits).where(eq(catalogEdits.id, id)).limit(1);
   const edit = rows[0];
   if (!edit) return { status: "notfound" };
-  if (edit.status !== "applied") return { status: "rejected" }; // only applied edits moved a weight
+  const catalogItemId = Number(edit.catalogItemId);
+  // only applied edits moved a weight
+  if (edit.status === "reverted") return { status: "rejected", reason: `Edit ${id} is already undone.`, catalogItemId };
+  if (edit.status !== "applied") return { status: "rejected", reason: `Edit ${id} is ${edit.status} and never moved the weight; there is nothing to undo.`, catalogItemId };
   // only the MOST RECENT applied edit can be reverted — reverting an older one
   // would silently discard newer changes and desync the weight from the feed
   const newer = await db
@@ -543,12 +575,26 @@ export async function revertEdit(db: Db, editId: number): Promise<CorrectionOutc
         gt(catalogEdits.id, id),
       ),
     )
+    .orderBy(desc(catalogEdits.id))
     .limit(1);
-  if (newer.length) return { status: "rejected" };
+  if (newer[0]) return { status: "rejected", reason: `Row ${catalogItemId} has a newer applied edit, ${newer[0].id}; undo the newest first.`, catalogItemId };
+  if (edit.undo) {
+    // an in-app verification: once the seed has taken the row over, the research owns it
+    // and the snapshot would hand it back to the database
+    const [item] = await db
+      .select({ verified: catalogItems.verified, verifiedBy: catalogItems.verifiedBy })
+      .from(catalogItems)
+      .where(eq(catalogItems.id, Number(edit.catalogItemId)))
+      .limit(1);
+    if (item && seedManaged(item)) {
+      return { status: "rejected", reason: `Row ${catalogItemId} now comes from Mahonia's research files; a change to it belongs in seed/_research.`, catalogItemId };
+    }
+  }
   await db
     .update(catalogItems)
-    .set({ weightMg: Number(edit.oldWeightMg), updatedAt: new Date() })
+    // a verification's undo puts back what it changed besides the weight (CatalogEditUndo)
+    .set({ weightMg: Number(edit.oldWeightMg), updatedAt: new Date(), ...(edit.undo ?? {}) })
     .where(eq(catalogItems.id, Number(edit.catalogItemId)));
   await db.update(catalogEdits).set({ status: "reverted" }).where(eq(catalogEdits.id, id));
-  return { status: "applied", weightMg: Number(edit.oldWeightMg) };
+  return { status: "applied", weightMg: Number(edit.oldWeightMg), catalogItemId };
 }

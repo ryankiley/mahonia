@@ -24,6 +24,7 @@
     "og:site": "jiti scripts/render-og-site.ts",
     "catalog:build": "jiti scripts/build-catalog.ts",
     "catalog:audit": "jiti scripts/audit-catalog.ts",
+    "catalog:graduate": "jiti scripts/catalog-graduate.ts",
     "seed": "jiti scripts/seed-catalog.ts",
     "mirror": "jiti scripts/mirror-account.ts",
     "ios:fixtures": "jiti scripts/emit-ios-fixtures.ts"
