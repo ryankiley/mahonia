@@ -19,27 +19,15 @@ import { CLAIMED_LIST_CAP } from "../../../shared/types";
 export default defineEventHandler(async (event) => {
   const { user, db } = await requireAccount(event, "list-claim");
 
-  const body = await readJsonBodyCapped<{ editTokens?: unknown; openedTokens?: unknown }>(
-    event,
-    64_000,
-  );
-  const tokenList = (v: unknown) => arrayOf(v, (t): t is string => typeof t === "string", CLAIMED_LIST_CAP);
-  const editTokens = tokenList(body?.editTokens);
-  // The lists this browser says arrived via someone else's link. Sent so the SERVER
-  // can judge them — it knows when each list was made, and the browser doesn't —
-  // but claimed only under claimLists' narrower rule, never on the say-so of being
-  // in this array.
-  const openedTokens = tokenList(body?.openedTokens);
+  const body = await readJsonBodyCapped<{ editTokens?: unknown }>(event, 64_000);
+  const editTokens = arrayOf(body?.editTokens, (t): t is string => typeof t === "string", CLAIMED_LIST_CAP);
 
   // useVaultDb as well as the account db: the backfill below writes vault rows, and
   // on Neon the vault tables are ensured on first use rather than migrated. Without
   // this the write would throw into the swallowed catch and the backfill would
   // silently never happen on a cold instance.
   await useVaultDb();
-  const claimed =
-    editTokens.length || openedTokens.length
-      ? await claimLists(db, user.id, editTokens, openedTokens)
-      : 0;
+  const claimed = editTokens.length ? await claimLists(db, user.id, editTokens) : 0;
 
   // Rebuild the vault from every list this account holds, not just the ones that
   // happen to get opened. Without this, signing in on a new device shows your

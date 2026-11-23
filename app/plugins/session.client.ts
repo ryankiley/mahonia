@@ -11,7 +11,7 @@
 // plausibly a session to fetch. That matters here more than it usually would —
 // `/e` is prerendered and CDN-served with zero function invocations, and it's the
 // route the whole site redirects to.
-import { deviceFingerprint } from "~/composables/useClaimedLists";
+import { deviceFingerprint, sweptTokens } from "~/composables/useClaimedLists";
 
 export default defineNuxtPlugin(() => {
   const session = useSession();
@@ -49,10 +49,8 @@ export default defineNuxtPlugin(() => {
   // already, so signing in on a new device simply finds it. That claim-on-sign-in
   // step only existed while a vault was owned by a link the browser happened to
   // hold.
-  const registryFingerprint = computed(() =>
-    // the whole registry — the same set the claim sends, both buckets
-    deviceFingerprint(useMyLists().entries.value.map((e) => e.editToken)),
-  );
+  // the same set the claim sends, so a list merely opened here doesn't re-run it
+  const registryFingerprint = computed(() => deviceFingerprint(sweptTokens()));
   // On the OWNER, not on signedIn: an account replaced by another in this browser
   // (B's sign-in link redeemed while A was in) never flips signedIn, and the
   // switcher kept A's lists until a reload.

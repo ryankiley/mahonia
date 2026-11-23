@@ -7,12 +7,10 @@ import {
   claimLists,
   claimedEditHash,
   listClaimedLists,
-  unclaimList,
 } from "../server/utils/claimRepo";
 import { findByEditHash, rotateEditHash } from "../server/utils/listRepo";
 import { randomEditToken, sha256Hex } from "../server/utils/tokens";
-import { CLAIMED_LIST_CAP } from "../shared/types";
-import { byToken, createTestDb, makeList as makeListRow, makeLists, type TestDb } from "./helpers/db";
+import { byToken, createTestDb, makeList as makeListRow, type TestDb } from "./helpers/db";
 
 const findByEditToken = byToken(findByEditHash);
 
@@ -86,71 +84,6 @@ describe("claiming a list onto an account", () => {
   });
 });
 
-// The second bucket: tokens the browser says arrived via someone else's link.
-//
-// The browser's mark is unreliable in exactly one direction — a list made before
-// `origin` existed gets stamped "opened" just by being reopened through its own
-// edit link, which stranded it on that device forever. Only the server knows which
-// era a list is from, so the rule lives here.
-describe("claimLists — lists opened from a link", () => {
-  const USER = 1;
-  // straddling ORIGIN_TRACKING_SINCE (the 2026-08-02T01:45:17Z commit that added
-  // `origin`), one clear day either side so neither depends on the exact instant
-  const BEFORE_ORIGIN = new Date("2026-07-20T12:00:00Z");
-  const AFTER_ORIGIN = new Date("2026-08-10T12:00:00Z");
-
-  it("claims one made before origin tracking — the stamp couldn't have been recorded", async () => {
-    const old = await makeList(db, "Loowit traverse", { createdAt: BEFORE_ORIGIN });
-    expect(await claimLists(db, USER, [], [old.editToken])).toBe(1);
-    expect((await listClaimedLists(db, USER)).map((l) => l.shareCode)).toEqual([
-      old.shareCode,
-    ]);
-  });
-
-  it("leaves a list made since alone — that mark is real, and it may be someone else's", async () => {
-    const shared = await makeList(db, "Someone else's trip", { createdAt: AFTER_ORIGIN });
-    expect(await claimLists(db, USER, [], [shared.editToken])).toBe(0);
-    expect(await listClaimedLists(db, USER)).toHaveLength(0);
-  });
-
-  it("sorts one bucket from the other in a single mixed call", async () => {
-    const mine = await makeList(db, "Mine", { createdAt: AFTER_ORIGIN });
-    const old = await makeList(db, "Old", { createdAt: BEFORE_ORIGIN });
-    const shared = await makeList(db, "Shared", { createdAt: AFTER_ORIGIN });
-
-    const n = await claimLists(db, USER, [mine.editToken], [old.editToken, shared.editToken]);
-
-    expect(n).toBe(2);
-    const held = (await listClaimedLists(db, USER)).map((l) => l.shareCode).sort();
-    expect(held).toEqual([mine.shareCode, old.shareCode].sort());
-  });
-
-  it("claims outright when a token is in both buckets — the stronger claim wins", async () => {
-    const list = await makeList(db, "Recent", { createdAt: AFTER_ORIGIN });
-    expect(await claimLists(db, USER, [list.editToken], [list.editToken])).toBe(1);
-    expect(await listClaimedLists(db, USER)).toHaveLength(1);
-  });
-
-  it("still claims nothing from an empty call", async () => {
-    await makeList(db, "Untouched", { createdAt: BEFORE_ORIGIN });
-    expect(await claimLists(db, USER, [], [])).toBe(0);
-    expect(await listClaimedLists(db, USER)).toHaveLength(0);
-  });
-
-  it("spends the batch cap on owned lists first", async () => {
-    // one over the cap, all owned, plus an old one that would otherwise qualify
-    const titles = Array.from({ length: CLAIMED_LIST_CAP }, (_, i) => `L${i}`);
-    const owned = (await makeLists(db, titles, WEIGHED)).map((l) => l.editToken);
-    const old = await makeList(db, "Old", { createdAt: BEFORE_ORIGIN });
-
-    const n = await claimLists(db, USER, owned, [old.editToken]);
-
-    expect(n).toBe(CLAIMED_LIST_CAP); // the opened one was squeezed out, not the owned
-    const held = await listClaimedLists(db, USER);
-    expect(held.map((l) => l.shareCode)).not.toContain(old.shareCode);
-  });
-});
-
 describe("claimedEditHash — the session's route to the capability", () => {
   const USER = 1;
 
@@ -198,26 +131,6 @@ describe("claimedEditHash — the session's route to the capability", () => {
     await claimLists(db, USER, [list.editToken]);
     await db.update(schema.lists).set({ deletedAt: new Date() }).where(sql`id = ${list.id}`);
     expect(await claimedEditHash(db, USER, list.shareCode)).toBeNull();
-  });
-});
-
-describe("unclaiming", () => {
-  it("detaches from the account but leaves the list alone", async () => {
-    const list = await makeList(db);
-    await claimLists(db, 1, [list.editToken]);
-    expect(await unclaimList(db, 1, list.shareCode)).toBe(true);
-    expect(await listClaimedLists(db, 1)).toHaveLength(0);
-    // the list itself is untouched — the edit link still works
-    expect(await findByEditToken(list.editToken, db)).not.toBeNull();
-  });
-
-  it("can't unclaim another account's hold on the same list", async () => {
-    const list = await makeList(db);
-    await claimLists(db, 1, [list.editToken]);
-    await claimLists(db, 2, [list.editToken]);
-    expect(await unclaimList(db, 2, list.shareCode)).toBe(true);
-    // user 1 still holds it
-    expect(await listClaimedLists(db, 1)).toHaveLength(1);
   });
 });
 

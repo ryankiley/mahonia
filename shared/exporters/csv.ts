@@ -5,7 +5,7 @@ import type { ListData, ListSnapshot, Unit } from "../types";
 import { colorKeyForName, nextFolderColor, usedColorKeys } from "../categories";
 import { MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
-import { effectiveClassificationInFolder, fromMg, itemDisplayName, parseDecimal, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
+import { effectiveClassificationInFolder, itemDisplayName, parseDecimal, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
 import { exportSections } from "./rows";
 import { csvCell, csvPrice, csvWeight, stripFormulaGuard } from "./csvCell";
 import { uid } from "../id";

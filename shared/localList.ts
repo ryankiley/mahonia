@@ -59,7 +59,6 @@ export const isClaimedKey = (key: string): boolean => key.startsWith(CLAIMED_KEY
 /** Whether a session of the account `account` (its marker, or null with nobody
  *  signed in) may read the copy stored under `key`. Every copy but a claimed
  *  open's belongs to the device; a claimed open's belongs to the account that
- *  wrote it. One from before the stamp existed has nothing to compare and is
- *  still read (useLocalListStore says why). */
+ *  wrote it. */
 export const copyReadableBy = (key: string, record: Pick<LocalListRecord, "account">, account: string | null): boolean =>
-  !isClaimedKey(key) || record.account === undefined || record.account === account;
+  !isClaimedKey(key) || record.account === account;

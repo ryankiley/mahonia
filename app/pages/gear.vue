@@ -410,23 +410,11 @@ function onItemSaved(item: VaultEntry) {
 // made on this page before its unit picker went (it sat on the weight total, which
 // went for answering no question). Each row picks its own unit as well.
 const UNIT_KEY = "gear.gear.unit.v1";
-// The key before it stored a SYSTEM ("metric" | "imperial") rather than a unit,
-// because the page formatted with formatWeightAuto and a system was all that took.
-// It reads a column now — formatWeight, strict, like every other inventory column in
-// the app — because auto-promotion put a 12 g stake and a 1.2 kg tent in different
-// units in the same column, which cannot be read by eye and makes "Heaviest first"
-// look broken. Mapped once on read so an ounces user still opens in ounces.
-const LEGACY_SYSTEM_KEY = "gear.gear.system.v1";
 const unit = ref<Unit>("g");
 onMounted(() => {
   const saved = recall(UNIT_KEY);
   if (saved && (UNITS as string[]).includes(saved)) {
     unit.value = saved as Unit;
-    return;
-  }
-  const legacy = recall(LEGACY_SYSTEM_KEY);
-  if (legacy === "imperial" || legacy === "metric") {
-    setUnit(legacy === "imperial" ? "oz" : "g");
     return;
   }
   // No stored choice: inherit the most recent list on this device — and inherit its

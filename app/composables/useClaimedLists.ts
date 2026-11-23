@@ -15,7 +15,7 @@ import type { ClaimedOpen } from "~~/shared/switcher";
 import { CLAIMED_LIST_CAP, type ClaimedList } from "~~/shared/types";
 import { forget, recall, recallJson, remember } from "../utils/remember";
 import { OWNED, ownedKey, sessionCacheOwner } from "../utils/sessionOwner";
-import { deleteListOnServer, madeHere } from "./useMyLists";
+import { deleteListOnServer, madeHere, useMyLists } from "./useMyLists";
 
 
 // Which set of device tokens we've already claimed, so a signed-in visitor doesn't
@@ -40,15 +40,9 @@ const CLAIMED_ROWS_KEY = OWNED.claimedRows;
 // the bare address ranks the two together (shared/switcher resumeTarget).
 const CLAIMED_OPENS_KEY = OWNED.claimedOpens;
 
-const LEGACY_KEYS = ["gear.claimed.v1", "gear.claimed.rows.v1", "gear.claimed.opens.v1"];
-
 /** The cookie is current even while an old /api/auth/me response is still on screen. */
 function cacheOwner(): string | null {
   return sessionCacheOwner() ?? useSession().user.value?.owner ?? null;
-}
-
-function forgetLegacyCache(): void {
-  for (const key of LEGACY_KEYS) forget(key);
 }
 
 // Enough to cover any plausible rotation of lists; the ledger is only ever read to
@@ -149,9 +143,12 @@ function readCachedRows(): ClaimedList[] {
   return key ? recallJson(key, Array.isArray, []).filter(isClaimedRow) : [];
 }
 
-/** The registry as one comparable string. Exported so the session plugin, which
- *  watches for the registry to change, computes the same value it then passes in
- *  here — one fingerprint per change, not one per watcher and one per claim. */
+/** The edit tokens the sign-in sweep sends: the lists this browser made. */
+export const sweptTokens = (): string[] => useMyLists().entries.value.filter(madeHere).map((e) => e.editToken);
+
+/** The swept set as one comparable string. Exported so the session plugin, which
+ *  watches for it to change, computes the same value it then passes in here — one
+ *  fingerprint per change, not one per watcher and one per claim. */
 export function deviceFingerprint(tokens: string[]): string {
   return [...tokens].sort().join("|");
 }
@@ -173,7 +170,6 @@ export function useClaimedLists() {
     lists.value = rows;
     const key = ownedKey(CLAIMED_ROWS_KEY, owner);
     if (!key) return;
-    forgetLegacyCache();
     if (rows.length) remember(key, JSON.stringify(rows));
     else forget(key);
   }
@@ -282,28 +278,15 @@ export function useClaimedLists() {
       if (!loaded.value) await refresh();
       return;
     }
-    // The registry, split by what this browser knows about each row. Lists it made
-    // are claimed outright. Lists that arrived through someone else's edit link go
-    // in the second bucket and are NOT claimed for being there — quietly attaching
-    // a shared list to your account is a surprise, and a claim is meant to be a
-    // private bookmark rather than a second, invisible way in.
-    //
-    // They're sent at all because that mark is unreliable in one direction: a list
-    // from before `origin` existed gets stamped "opened" merely by being reopened
-    // through its own link, which used to strand it on this device forever. Only
-    // the server can tell that era apart (it has the list's creation date), so the
-    // decision belongs to it — see server/utils/claimRepo.
-    const entries = useMyLists().entries.value;
-    const editTokens = entries.filter(madeHere).map((e) => e.editToken);
-    const openedTokens = entries.filter((e) => !madeHere(e)).map((e) => e.editToken);
-    // Both buckets, so a registry that changes only in its opened rows still
-    // re-runs the sweep. (It also retires every mark written by the version that
-    // fingerprinted one bucket — which is what re-sweeps the lists this bug had
-    // already stranded, without anything to migrate.)
-    const mark = fingerprint ?? deviceFingerprint([...editTokens, ...openedTokens]);
+    // The lists this browser made. One that arrived through someone else's edit link
+    // is never swept in: quietly attaching a shared list to your account is a
+    // surprise, and a claim is meant to be a private bookmark rather than a second,
+    // invisible way in (claimOne below adds one by choice).
+    const editTokens = sweptTokens();
+    const mark = fingerprint ?? deviceFingerprint(editTokens);
     // storage blocked reads as "" — fall through and claim; it's idempotent
     const seen = recall(markKey) ?? "";
-    if ((editTokens.length || openedTokens.length) && mark === seen) {
+    if (editTokens.length && mark === seen) {
       // nothing new to attach, but we still want the account's own list
       if (!loaded.value) await refresh();
       return;
@@ -311,7 +294,7 @@ export function useClaimedLists() {
     try {
       const res = await $fetch<{ claimed: number; lists: ClaimedList[] }>("/api/lists/claim", {
         method: "POST",
-        body: { editTokens, openedTokens },
+        body: { editTokens },
       });
       if (!adoptAnswer(res, owner)) return;
       remember(markKey, mark); // a blocked write just means claiming again next time
@@ -383,7 +366,6 @@ export function useClaimedLists() {
     // the bare address into one of them
     if (rowsKey) forget(rowsKey);
     if (opensKey) forget(opensKey);
-    forgetLegacyCache();
     lists.value = [];
     loaded.value = false;
   }

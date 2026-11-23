@@ -1046,8 +1046,7 @@ export async function addVaultItems(
   // first, and the INSERT may not touch a row twice
   const rows: { index: number; cap: VaultCapture }[] = [];
   const seen = new Set<string>();
-  ops.forEach((op, index) => {
-    const cap = cleaned[index];
+  cleaned.forEach((cap, index) => {
     if (!cap) return;
     if (seen.has(cap.normKey)) {
       results[index] = { refused: "duplicate", normKey: cap.normKey };
