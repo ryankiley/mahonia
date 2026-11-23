@@ -600,7 +600,7 @@ export async function resolveSession(event: H3Event): Promise<ResolvedUser | nul
  * `action`. Headers first, so a 429 carries them too.
  *
  * Narrow in the way requireAccount is (see the argument there and in http.ts): no
- * caller goes near requireAdmin, none needs its limit before its cache headers,
+ * caller goes near requireCron, none needs its limit before its cache headers,
  * and none limits twice. What comes AFTER differs per endpoint (a session, a
  * vault, an edit capability, nothing at all), so that stays at the call site.
  */
@@ -617,10 +617,10 @@ export async function openPrivate(event: H3Event, action: RateLimitAction): Prom
  * connection with the account schema ensured.
  *
  * http.ts argues against a general headers-plus-rate-limit wrapper, and that
- * argument stands: it is about requireAdmin charging the admin budget twice and
+ * argument stands: it is about requireCron charging the cron budget twice and
  * the catalog routes needing their limit BEFORE their cache headers. This is
  * narrower than that wrapper — only the endpoints that need a signed-in account,
- * none of which go near requireAdmin, and all of which set both headers first.
+ * none of which go near requireCron, and all of which set both headers first.
  * Ten handlers spelling the same five lines is exactly the drift such a bundle
  * exists to stop (one of them had quietly dropped setPrivate).
  */

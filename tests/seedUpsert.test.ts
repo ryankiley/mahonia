@@ -44,6 +44,18 @@ describe("upsertSeedRows", () => {
     expect(await all()).toHaveLength(3);
   });
 
+  it("takes over a row an admin verified in the app when the research names it, id kept", async () => {
+    const [inApp] = await db
+      .insert(schema.catalogItems)
+      .values({ brand: "Zpacks", name: "Duplex", weightMg: 539_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/products/duplex-tent", sourceQuote: "19.0 oz / 539 g", verified: true, verifiedBy: 7, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter" })
+      .returning();
+    // every seeded field already agrees: the verifier alone makes it a change
+    expect(await upsertSeedRows(db, [csv({})])).toEqual({ inserted: 0, updated: 1, unchanged: 0 });
+    const [after] = await all();
+    expect(after).toMatchObject({ id: inApp!.id, verified: true, verifiedBy: null, sourceQuote: null });
+    expect(await upsertSeedRows(db, [csv({})])).toEqual({ inserted: 0, updated: 0, unchanged: 1 });
+  });
+
   it("updates a changed row in place, id kept, and leaves the others alone", async () => {
     await upsertSeedRows(db, [csv({}), csv({ variant: "Olive" })]);
     const [plain] = await all();

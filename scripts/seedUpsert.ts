@@ -20,7 +20,9 @@ const INSERT_BATCH = 500;
  * seeded fields moved is updated in place (id kept), and the rest are left alone. A
  * retired row the research names again comes back under its old id, so the lists that
  * never stopped holding that id pick it up where they left off. Seeded rows are
- * owner-curated and cited, so they are written verified.
+ * owner-curated and cited, so they are written verified. A row an admin verified in the
+ * app that the research now names is taken over the same way: id kept, its verifier and
+ * quote cleared, the seed's from here on.
  *
  * The table is read ONCE and matched in memory. Matching each CSV row with its own
  * SELECT was some four thousand round trips to Neon per reseed, minutes of a run that
@@ -42,6 +44,8 @@ export async function upsertSeedRows(
     searchTerms: row.searchTerms,
     commonName: row.commonName,
     verified: true,
+    verifiedBy: null,
+    sourceQuote: null,
   });
 
   const fresh: (typeof catalogItems.$inferInsert)[] = [];
@@ -65,6 +69,7 @@ export async function upsertSeedRows(
       cur.searchTerms !== row.searchTerms ||
       cur.commonName !== row.commonName ||
       cur.verified !== true ||
+      cur.verifiedBy != null ||
       cur.status !== "active";
     if (!changed) {
       unchanged++;
