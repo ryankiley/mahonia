@@ -77,7 +77,7 @@ const SECONDARY_UNIT_RE =
 function secondaryUnit(s: string): Unit | null {
   const m = s.match(SECONDARY_UNIT_RE);
   if (!m) return null;
-  const w = m[1].toLowerCase();
+  const w = m[1]!.toLowerCase();
   if (w.startsWith("k")) return "kg";
   if (w.startsWith("l") || w.startsWith("p")) return "lb";
   if (w.startsWith("o")) return "oz";
@@ -171,7 +171,7 @@ export interface CatalogCsvRow {
 export function csvToCatalogRows(text: string): CatalogCsvRow[] {
   const grid = parseCsv(text);
   if (grid.length === 0) return [];
-  const header = grid[0].map((h) => h.trim());
+  const header = grid[0]!.map((h) => h.trim());
   const idx = (col: string) => header.indexOf(col);
   const iBrand = idx("brand");
   const iName = idx("name");
@@ -190,8 +190,8 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
 
   const out: CatalogCsvRow[] = [];
   for (let r = 1; r < grid.length; r++) {
-    const cells = grid[r];
-    if (cells.length === 1 && cells[0].trim() === "") continue; // blank line
+    const cells = grid[r]!;
+    if (cells.length === 1 && cells[0]!.trim() === "") continue; // blank line
     const name = (cells[iName] ?? "").trim();
     if (!name) continue;
     const weightMg = Number((cells[iMg] ?? "").trim());

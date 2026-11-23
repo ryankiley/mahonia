@@ -246,14 +246,14 @@ export function extractAttributes(
 
     // gender, with or without a size after it: "Women's", "Men's M", "Women's US 8", "Men's 32"
     if ((m = dim.match(/^(Men's|Women's)(?: (.+))?$/))) {
-      set("fit", m[1]);
+      set("fit", m[1]!);
       if (m[2]) sizeToken(m[2], true);
       continue;
     }
     // Osprey's women's fits: "WM/L", "WXS/S"
     if ((m = dim.match(/^W(XS\/S|S\/M|M\/L|L\/XL)$/))) {
       set("fit", "Women's");
-      sizeToken(m[1], true);
+      sizeToken(m[1]!, true);
       continue;
     }
 
@@ -288,7 +288,7 @@ export function extractAttributes(
     }
     // torso: "M torso", "Regular torso", "17in torso", "S/M torso"
     if ((m = dim.match(/^(.+) torso$/))) {
-      set("torso", m[1]);
+      set("torso", m[1]!);
       continue;
     }
 
@@ -332,12 +332,12 @@ export function extractAttributes(
     // ice axes), "1m" (a cable), anything but clothing; bare inches only where the gear's
     // one dimension is its length, and on a sheet it's the pad width it fits
     if (cat !== "clothing" && (m = dim.match(/^(\d+ft|\d+(?:-\d+)?cm|\d+m)(?: hank)?$/))) {
-      set("length", m[1]);
+      set("length", m[1]!);
       continue;
     }
     if ((m = dim.match(/^(\d+(?:\.\d+)?in)$/))) {
-      if (traits.lengthIn) set("length", m[1]);
-      else if (traits.widthIn) set("width", m[1]);
+      if (traits.lengthIn) set("length", m[1]!);
+      else if (traits.widthIn) set("width", m[1]!);
       continue;
     }
 
@@ -345,8 +345,8 @@ export function extractAttributes(
     // "Regular, Regular" (length, width); Zpacks writes "Slim-Short" (width-length)
     if (lengthScaled) {
       if ((m = dim.match(/^(Slim|Standard|Regular|Wide)-(Short|Regular|Long|Medium)$/))) {
-        set("width", m[1]);
-        set("length", m[2]);
+        set("width", m[1]!);
+        set("length", m[2]!);
         continue;
       }
       if (/^(?:Wide|Slim)$/.test(dim) || (out.length !== undefined && dim === "Regular")) {
@@ -354,7 +354,7 @@ export function extractAttributes(
         continue;
       }
       if ((m = dim.match(LENGTH_SCALE_TOKEN))) {
-        set("length", m[1]);
+        set("length", m[1]!);
         if (m[2]) set("width", m[2]);
         continue;
       }
@@ -373,7 +373,7 @@ export function extractAttributes(
     }
     // the maker's own scale: "Size D", "Size 2"
     if ((m = dim.match(/^Size ([A-Z0-9]+)$/))) {
-      set("size", m[1]);
+      set("size", m[1]!);
       continue;
     }
     // everything else that reads as a size: letters, ranges, a shoe size, a size word

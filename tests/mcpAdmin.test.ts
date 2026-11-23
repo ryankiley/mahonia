@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
 import mcp from "../server/routes/mcp.post";
@@ -79,7 +79,7 @@ beforeAll(async () => {
   dbState.db = db;
   duplex = (await seedCatalogRow(db, { brand: "Zpacks", name: "Duplex", weightMg: 539_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/duplex", verified: true, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter" })).id;
   community = (await seedCatalogRow(db, { brand: "Durston", name: "X-Mid 2", weightMg: 1_000_000, commonName: "tent", categoryHint: "shelter", searchTerms: "tent" })).id;
-  retired = (await seedCatalogRow(db, { brand: "Durston", name: "X-Mid 1", status: "removed" })).id;
+  retired = (await seedCatalogRow(db, { brand: "Durston", name: "X-Mid 1", commonName: "Tent", categoryHint: "shelter", weightMg: 800_000, status: "removed" })).id;
   merged = (await seedCatalogRow(db, { brand: "Zpacks", name: "Duplex (2019)", status: "merged", mergedIntoId: duplex })).id;
   const [ryan, other] = (await db.insert(schema.users).values([{ email: "admin@example.com" }, { email: "other@example.com" }]).returning()).map((u) => u.id);
   admin = ryan!;
@@ -180,13 +180,13 @@ describe("verifying", () => {
   });
 
   it("takes a quote in ounces, and a pound-and-ounce figure as one weight", async () => {
-    const row = await seedCatalogRow(db, { brand: "Gossamer Gear", name: "The Two", categoryHint: "shelter", weightMg: 700_000 });
+    const row = await seedCatalogRow(db, { brand: "Gossamer Gear", name: "The Two", commonName: "Tent", categoryHint: "shelter", weightMg: 700_000 });
     expect((await verify({ catalog_id: row.id, weight_g: 567, source_url: "https://gossamergear.com/the-two", quote: "Weight: 1 lb 4 oz" })).refused).toBe(false);
     expect((await verify({ catalog_id: row.id, weight_g: 652, source_url: "https://gossamergear.com/the-two", quote: "23 oz" })).refused).toBe(false);
   });
 
   it("takes the person's own scale weight with no link or quote", async () => {
-    const row = await seedCatalogRow(db, { brand: "Toaks", name: "Titanium 750 Pot", categoryHint: "cook", weightMg: 90_000 });
+    const row = await seedCatalogRow(db, { brand: "Toaks", name: "Titanium 750 Pot", commonName: "Pot", categoryHint: "cook", weightMg: 90_000 });
     const done = await verify({ catalog_id: row.id, weight_g: 103, weight_source: "measured", notes: "Weighed on my scale" });
     expect(done.data.row).toMatchObject({ weight_g: 103, weight_source: "measured", verified: true });
     expect((await catalogRow(db, row.id)).verifiedBy).toBe(admin);
@@ -205,7 +205,7 @@ describe("verifying", () => {
   });
 
   it("keeps the row's link when a scale weight comes with none", async () => {
-    const row = await seedCatalogRow(db, { brand: "Nitecore", name: "NU25", categoryHint: "electronics", weightMg: 45_000, sourceUrl: "https://flashlight.nitecore.com/nu25" });
+    const row = await seedCatalogRow(db, { brand: "Nitecore", name: "NU25", commonName: "Headlamp", categoryHint: "electronics", weightMg: 45_000, sourceUrl: "https://flashlight.nitecore.com/nu25" });
     expect((await verify({ catalog_id: row.id, weight_g: 47, weight_source: "measured" })).refused).toBe(false);
     expect(await catalogRow(db, row.id)).toMatchObject({ sourceUrl: "https://flashlight.nitecore.com/nu25", weightSource: "measured", verifiedBy: admin });
   });
@@ -213,7 +213,9 @@ describe("verifying", () => {
   it("reads the range and the category from a gear type that changes", async () => {
     // typed as a stuff sack (other, 4–1600 g), really a tent
     const row = await seedCatalogRow(db, { brand: "Tarptent", name: "Rainbow", commonName: "Stuff sack", categoryHint: "other", weightMg: 30_000 });
-    expect((await verify({ catalog_id: row.id, gear_type: "Tent", weight_g: 1800, weight_source: "measured" })).refused).toBe(false);
+    // 30 g to 1800 g is far from what the row weighed: it waits for the person's word
+    expect((await verify({ catalog_id: row.id, gear_type: "Tent", weight_g: 1800, weight_source: "measured" })).text).toContain("weight_confirmed");
+    expect((await verify({ catalog_id: row.id, gear_type: "Tent", weight_g: 1800, weight_source: "measured", weight_confirmed: true })).refused).toBe(false);
     expect(await catalogRow(db, row.id)).toMatchObject({ commonName: "Tent", categoryHint: "shelter" });
   });
 
@@ -267,7 +269,7 @@ describe("what it refuses", () => {
   });
 
   it("refuses a weight outside its kind of gear's range until the person confirms it", async () => {
-    const row = await seedCatalogRow(db, { brand: "Six Moon Designs", name: "Lunar Solo", categoryHint: "shelter", weightMg: 740_000 });
+    const row = await seedCatalogRow(db, { brand: "Six Moon Designs", name: "Lunar Solo", commonName: "Tent", categoryHint: "shelter", weightMg: 740_000 });
     expect(await refusal({ catalog_id: row.id, weight_g: 50, weight_source: "measured" })).toContain("120–3500 g");
     expect((await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured", outside_range_ok: true })).refused).toBe(false);
     // a new product whose gear type names no kind of gear is held to "other"
@@ -290,13 +292,13 @@ describe("the edit history, undoing a verification, and corrections after one", 
   });
 
   it("undoes a second verification back to the first", async () => {
-    const row = await seedCatalogRow(db, { brand: "Thermarest", name: "NeoAir XLite NXT", categoryHint: "sleep", weightMg: 400_000 });
+    const row = await seedCatalogRow(db, { brand: "Thermarest", name: "NeoAir XLite NXT", commonName: "Sleeping pad", categoryHint: "sleep", weightMg: 400_000 });
     const first = await verify({ catalog_id: row.id, weight_g: 370, weight_source: "measured" });
     const second = await verify({ catalog_id: row.id, weight_g: 354, source_url: "https://thermarest.com/xlite", quote: "Weight: 354 g" });
     // the older one can't go first: it would throw the newer one away unseen
     expect((await revert(first.data.edit_id)).text).toContain(`newer applied edit, ${second.data.edit_id}`);
     expect((await revert(second.data.edit_id)).refused).toBe(false);
-    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 370_000, verified: true, verifiedBy: admin, weightSource: "measured", sourceQuote: null });
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 370_000, verified: true, verifiedBy: admin, weightSource: "measured", sourceQuote: "Weighed on an admin's scale: 370 g" });
   });
 
   it("retires a product the verification added, and adding it again brings it back", async () => {
@@ -310,7 +312,7 @@ describe("the edit history, undoing a verification, and corrections after one", 
   });
 
   it("won't undo a verification the seed has since taken over", async () => {
-    const row = await seedCatalogRow(db, { brand: "Gossamer Gear", name: "Mariposa 60", categoryHint: "pack", weightMg: 900_000 });
+    const row = await seedCatalogRow(db, { brand: "Gossamer Gear", name: "Mariposa 60", commonName: "Backpack", categoryHint: "pack", weightMg: 900_000 });
     const done = await verify({ catalog_id: row.id, weight_g: 940, weight_source: "measured" });
     // what upsertSeedRows does when the research names it
     await db.update(schema.catalogItems).set({ verifiedBy: null, sourceQuote: null, weightSource: "manufacturer" }).where(eq(schema.catalogItems.id, row.id));
@@ -320,14 +322,14 @@ describe("the edit history, undoing a verification, and corrections after one", 
 
   it("refuses an edit that isn't there, or is already undone", async () => {
     expect((await revert(999_999)).text).toContain("No catalog edit has id 999999");
-    const row = await seedCatalogRow(db, { brand: "Petzl", name: "Bindi", categoryHint: "electronics", weightMg: 40_000 });
+    const row = await seedCatalogRow(db, { brand: "Petzl", name: "Bindi", commonName: "Headlamp", categoryHint: "electronics", weightMg: 40_000 });
     const done = await verify({ catalog_id: row.id, weight_g: 35, weight_source: "measured" });
     expect((await revert(done.data.edit_id)).refused).toBe(false);
     expect((await revert(done.data.edit_id)).text).toContain("already undone");
   });
 
   it("lists the edit history newest first, one row's or every row's, and undoes a suggested fix", async () => {
-    const row = await seedCatalogRow(db, { brand: "Nemo", name: "Tensor", categoryHint: "sleep", weightMg: 500_000 });
+    const row = await seedCatalogRow(db, { brand: "Nemo", name: "Tensor", commonName: "Sleeping pad", categoryHint: "sleep", weightMg: 500_000 });
     // a community row: an uncited fix applies at once
     await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 450_000, reason: "my scale says 450" });
     const done = await verify({ catalog_id: row.id, weight_g: 425, weight_source: "measured" });
@@ -350,11 +352,14 @@ describe("the edit history, undoing a verification, and corrections after one", 
   });
 
   it("writes the row and its edit together or not at all", async () => {
-    const row = await seedCatalogRow(db, { brand: "Sawyer", name: "Squeeze", categoryHint: "water", weightMg: 85_000 });
+    const row = await seedCatalogRow(db, { brand: "Sawyer", name: "Squeeze", commonName: "Water filter", categoryHint: "water", weightMg: 85_000 });
     // the row's update fails after the edit is written, as a dropped connection would
     await db.execute(sql`ALTER TABLE catalog_items ADD CONSTRAINT no_88 CHECK (weight_mg <> 88000)`);
     try {
-      await call({ catalog_id: row.id, weight_g: 88, weight_source: "measured" }, adminWrite);
+      const { reply } = await call({ catalog_id: row.id, weight_g: 88, weight_source: "measured" }, adminWrite);
+      // the write itself failed, not a check before it
+      expect(reply.result?.isError ?? true).toBe(true);
+      expect(reply.result?.content[0]?.text ?? "").not.toMatch(/house style|weight_confirmed|outside/);
     } finally {
       await db.execute(sql`ALTER TABLE catalog_items DROP CONSTRAINT no_88`);
     }
@@ -363,10 +368,110 @@ describe("the edit history, undoing a verification, and corrections after one", 
   });
 
   it("holds a cited correction to a verified-in-app row for review", async () => {
-    const row = await seedCatalogRow(db, { brand: "REI", name: "Flash 22", categoryHint: "pack", weightMg: 400_000 });
+    const row = await seedCatalogRow(db, { brand: "REI", name: "Flash 22", commonName: "Backpack", categoryHint: "pack", weightMg: 400_000 });
     await verify({ catalog_id: row.id, weight_g: 420, weight_source: "measured" });
     const out = await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 380_000, sourceUrl: "https://www.rei.com/product/flash-22" });
     expect(out.status).toBe("proposed");
     expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 420_000, weightSource: "measured", verifiedBy: admin });
+  });
+});
+
+describe("the rules a chat doesn't have to be told", () => {
+  it("holds a new row to the catalog's house style, in the audit's own words", async () => {
+    const colour = await verify({ brand: "Norda", name: "Luster Cap", variant: "Stone, Large", gear_type: "Hat", weight_g: 36, weight_source: "measured" });
+    expect(colour.refused).toBe(true);
+    expect(colour.text).toContain("colour");
+    const repeated = await verify({ brand: "Goldwin", name: "Goldwin 0 3L Jacket", variant: "JP 4", gear_type: "Rain jacket", weight_g: 300, weight_source: "measured" });
+    expect(repeated.text).toContain("name starts with the brand");
+    // a size letter is put into the catalog's words, not refused
+    const sized = await verify({ brand: "Caudata", name: "NewtFlex Pants", variant: "L", gear_type: "Pants", weight_g: 300, weight_source: "measured" });
+    expect(sized.refused, sized.text).toBe(false);
+    expect(sized.data.row.variant).toBe("Large");
+  });
+
+  it("puts a community row's name right as it verifies it, and the undo puts the old name back", async () => {
+    const row = await seedCatalogRow(db, { brand: "Arc'teryx", name: "Arc'teryx Cormac Hoody", commonName: "Sun hoodie", categoryHint: "clothing", weightMg: 160_000 });
+    const asTyped = await verify({ catalog_id: row.id, weight_g: 158, weight_source: "measured" });
+    expect(asTyped.text).toContain("name starts with the brand");
+    expect(asTyped.text).toContain("beside the catalog_id");
+    const renamed = await verify({ catalog_id: row.id, name: "Cormac Hoody", variant: "Men's Large", weight_g: 158, weight_source: "measured" });
+    expect(renamed.refused, renamed.text).toBe(false);
+    // tidied into the house apostrophe, as every typed name is
+    expect(await catalogRow(db, row.id)).toMatchObject({ name: "Cormac Hoody", variant: "Men’s Large", verifiedBy: admin });
+    expect((await adminCall("revert_catalog_edit", { edit_id: renamed.data.edit_id })).refused).toBe(false);
+    expect(await catalogRow(db, row.id)).toMatchObject({ name: "Arc'teryx Cormac Hoody", variant: null, verified: false });
+  });
+
+  it("won't take a fabric's weight per area as what the thing weighs", async () => {
+    // 1.0 oz is 28 g, within 8 g of 34: read as a weight, the quote would have backed it
+    const done = await verify({ brand: "STAN", name: "DCF Square Purse", variant: "Medium", gear_type: "Wallet", weight_g: 34, source_url: "https://stanstore.official.ec/items/69875220", quote: "Fabric: DCF 1.0 oz/yd²" });
+    expect(done.refused).toBe(true);
+    expect(done.text).toContain("doesn't state 34 g");
+  });
+
+  it("refuses a maker's weight cited to a review site, and a tent stored at its trail weight", async () => {
+    const review = await verify({ brand: "Petzl", name: "Actik Core", gear_type: "Headlamp", weight_g: 75, source_url: "https://www.outdoorgearlab.com/reviews/headlamp/petzl-actik-core", quote: "We measured 75 g" });
+    expect(review.text).toContain("review site");
+    const trail = await verify({ brand: "Nemo", name: "Dagger OSMO 2P", gear_type: "Tent", weight_g: 1450, source_url: "https://www.nemoequipment.com/dagger-osmo", quote: "Minimum trail weight: 1450 g. Packed weight: 1640 g" });
+    expect(trail.refused).toBe(true);
+    expect(trail.text).toContain("1640");
+  });
+
+  it("writes nothing the second time the same call comes", async () => {
+    const row = await seedCatalogRow(db, { brand: "Black Diamond", name: "Distance Flask", variant: "500ml", commonName: "Soft flask", categoryHint: "water", weightMg: 40_000 });
+    const first = await verify({ catalog_id: row.id, weight_g: 42, weight_source: "measured" });
+    const again = await verify({ catalog_id: row.id, weight_g: 42, weight_source: "measured" });
+    expect(again.refused, again.text).toBe(false);
+    expect(again.data).toMatchObject({ unchanged: true, edit_id: first.data.edit_id });
+    expect(await db.select().from(schema.catalogEdits).where(eq(schema.catalogEdits.catalogItemId, row.id))).toHaveLength(1);
+  });
+
+  it("stops a loop that went wrong at the hourly ceiling", async () => {
+    const row = await seedCatalogRow(db, { brand: "Smartwool", name: "Hike Light Crew", variant: "Men's Large", commonName: "Socks", categoryHint: "clothing", weightMg: 50_000 });
+    // the hour's verifications so far, topped up to the ceiling with edits that changed nothing
+    const [{ n }] = await db.select({ n: sql<number>`count(*)` }).from(schema.catalogEdits).where(sql`${schema.catalogEdits.undo} is not null`);
+    const filler = Array.from({ length: Math.max(0, 60 - Number(n)) }, () => ({ catalogItemId: row.id, oldWeightMg: 50_000, newWeightMg: 50_000, status: "reverted", undo: { status: "active" } }));
+    await db.insert(schema.catalogEdits).values(filler);
+    try {
+      expect((await verify({ catalog_id: row.id, weight_g: 52, weight_source: "measured" })).text).toContain("in the last hour");
+    } finally {
+      await db.delete(schema.catalogEdits).where(and(eq(schema.catalogEdits.catalogItemId, row.id), eq(schema.catalogEdits.status, "reverted")));
+    }
+    expect((await verify({ catalog_id: row.id, weight_g: 52, weight_source: "measured" })).refused).toBe(false);
+  });
+});
+
+describe("linking the person's own piece in the same call", () => {
+  const addPiece = async (piece: Record<string, unknown>) => {
+    const added = await adminCall("edit_my_gear", { add: [piece] });
+    return added.data.results[0].item.id as number;
+  };
+
+  it("links the piece, keeping its own name and variant and taking the row's weight", async () => {
+    const id = await addPiece({ brand: "Norda", name: "Luster Cap", variant: "Trail Team Edition, L/XL", gear_type: "Hat" });
+    const done = await adminCall(TOOL, { brand: "Norda", name: "Luster Cap", gear_type: "Hat", weight_g: 36, source_url: "https://nordarun.com/products/luster-cap-u-rose", quote: "Weight – 36g", gear_id: id });
+    expect(done.refused, done.text).toBe(false);
+    expect(done.data.gear).toMatchObject({ id, catalog_id: done.data.row.id, weight_g: 36, name: "Luster Cap", variant: "Trail Team Edition, L/XL" });
+    // a piece typed without its cut still matches the row's size
+    const socks = await addPiece({ brand: "Darn Tough", name: "Light Hiker Micro Crew", variant: "Large", gear_type: "Socks" });
+    const pair = await adminCall(TOOL, { brand: "Darn Tough", name: "Light Hiker Micro Crew", variant: "Men's Large", gear_type: "Socks", weight_g: 61, weight_source: "measured", gear_id: socks });
+    expect(pair.refused, pair.text).toBe(false);
+    expect(pair.data.gear).toMatchObject({ id: socks, weight_g: 61, variant: "Large" });
+  });
+
+  it("refuses a piece that isn't the product, or isn't its size, before writing anything", async () => {
+    const shoe = await addPiece({ brand: "Houdini", name: "Silvestre Approach Shoe", variant: "EU 44", gear_type: "Approach shoes" });
+    const wrong = await adminCall(TOOL, { brand: "Big Agnes", name: "Fly Creek HV UL2", gear_type: "Tent", weight_g: 1100, weight_source: "measured", gear_id: shoe });
+    expect(wrong.text).toContain("by Houdini");
+    expect(wrong.text).toContain("Nothing was written");
+    expect(await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.name, "Fly Creek HV UL2"))).toEqual([]);
+
+    const large = await seedCatalogRow(db, { brand: "Patagonia", name: "Quandary Pants", variant: "Large", commonName: "Hiking pants", categoryHint: "clothing", weightMg: 300_000 });
+    const medium = await addPiece({ brand: "Patagonia", name: "Quandary Pants", variant: "Medium", gear_type: "Hiking pants" });
+    const sized = await adminCall(TOOL, { catalog_id: large.id, weight_g: 305, weight_source: "measured", gear_id: medium });
+    expect(sized.text).toContain("is Medium");
+    expect((await catalogRow(db, large.id)).verified).toBe(false);
+
+    expect((await adminCall(TOOL, { catalog_id: large.id, weight_g: 305, weight_source: "measured", gear_id: 999_999 })).text).toContain("No piece of your My Gear has id 999999");
   });
 });

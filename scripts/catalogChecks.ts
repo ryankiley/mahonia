@@ -29,8 +29,10 @@ const VARIANT_COMMENTARY =
 
 // Colour words that are weight-irrelevant and shouldn't fragment identity.
 // (Checked on VARIANT only — product names like "Silver Shadow" live in `name`.)
+// The second line is colourway words a maker names a colour by ("Stone", "Moss"), none of
+// them a size or a version; words that are also product words (gold, copper, sky) stay out.
 const COLOUR_ATTR =
-  /\b(black|white|grey|gray|blue|navy|red|green|olive|khaki|tan|charcoal|sage|orange|yellow|purple|pink|brown|silver|graphite|slate|teal|maroon|burgundy|cream|beige|ivory|coyote|avalanche|habitat)\b/i;
+  /\b(black|white|grey|gray|blue|navy|red|green|olive|khaki|tan|charcoal|sage|orange|yellow|purple|pink|brown|silver|graphite|slate|teal|maroon|burgundy|cream|beige|ivory|coyote|avalanche|habitat|stone|sand|moss|forest|clay|rust|onyx|midnight|ocean|indigo|cobalt|crimson|scarlet|plum|mocha|espresso|heather|bronze)\b/i;
 
 // Pole-family items (trekking poles + their baskets/paws) — the ONE class of
 // paired gear that keeps a "per pair" unit label, since single-pole use is a real
@@ -142,10 +144,10 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const group of byProduct.values()) {
     for (let a = 0; a < group.length; a++) {
       for (let b = a + 1; b < group.length; b++) {
-        const wa = group[a].weightMg;
-        const wb = group[b].weightMg;
-        const va = normKey(group[a].variant);
-        const vb = normKey(group[b].variant);
+        const wa = group[a]!.weightMg;
+        const wb = group[b]!.weightMg;
+        const va = normKey(group[a]!.variant);
+        const vb = normKey(group[b]!.variant);
         const oneBlank = va === "" || vb === "";
         const sameWeight = oneBlank ? Math.abs(wa - wb) <= 0.01 * Math.max(wa, wb) : wa === wb;
         if (!sameWeight) continue;
@@ -153,7 +155,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
         if (subset) {
           err(
             "duplicate-row",
-            `${group[a].brand} ${group[a].name}: same weight (${wa} mg vs ${wb} mg) for variants "${group[a].variant ?? ""}" and "${group[b].variant ?? ""}" — likely the same product twice`,
+            `${group[a]!.brand} ${group[a]!.name}: same weight (${wa} mg vs ${wb} mg) for variants "${group[a]!.variant ?? ""}" and "${group[b]!.variant ?? ""}" — likely the same product twice`,
           );
         }
       }
@@ -171,9 +173,9 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const group of byBrand.values()) {
     for (let a = 0; a < group.length; a++) {
       for (let b = a + 1; b < group.length; b++) {
-        if (group[a].weightMg !== group[b].weightMg) continue;
-        const ta = normKey(group[a].name).split(" ").filter(Boolean);
-        const tb = normKey(group[b].name).split(" ").filter(Boolean);
+        if (group[a]!.weightMg !== group[b]!.weightMg) continue;
+        const ta = normKey(group[a]!.name).split(" ").filter(Boolean);
+        const tb = normKey(group[b]!.name).split(" ").filter(Boolean);
         if (ta.join(" ") === tb.join(" ")) continue; // same-name case handled above
         const [sh, lo] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
         if (sh.join("").length < 4 || !tokenRunIncludes(lo, sh)) continue;
@@ -187,7 +189,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
         if (extra.length > 0 && extra.every((t) => VERSION.test(t))) continue;
         err(
           "duplicate-name",
-          `${group[a].brand}: "${group[a].name}" and "${group[b].name}" — same weight (${group[a].weightMg} mg), one name contains the other; likely the same product`,
+          `${group[a]!.brand}: "${group[a]!.name}" and "${group[b]!.name}" — same weight (${group[a]!.weightMg} mg), one name contains the other; likely the same product`,
         );
       }
     }
@@ -277,7 +279,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const m = catsByType.get((r.commonName ?? "").toLowerCase())!;
     const total = [...m.values()].reduce((a, b) => a + b, 0);
-    const [home, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+    const [home, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0]!;
     if (total >= 5 && n / total >= 0.9 && (r.categoryHint ?? "other") !== home) {
       err("category-outlier", `${gearLabel(r)}: filed under ${r.categoryHint} while ${n} of ${total} "${r.commonName}" rows are ${home} — move it (or fix the gear type)`);
     }
@@ -329,7 +331,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
 
   // --- WARNING: weight outside the category's plausible range ----------------
   for (const r of rows) {
-    const range = RANGE_G[r.categoryHint ?? "other"] ?? RANGE_G.other;
+    const range = RANGE_G[r.categoryHint ?? "other"] ?? RANGE_G.other!;
     const g = r.weightMg / 1000;
     if (g < range[0] || g > range[1]) {
       warn("plausibility", `${gearLabel(r)}: ${g.toFixed(1)} g outside ${r.categoryHint} range ${range[0]}–${range[1]} g`);

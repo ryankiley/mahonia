@@ -182,7 +182,19 @@ export const catalogItems = pgTable(
 export type CatalogEditUndo = Partial<
   Pick<
     typeof catalogItems.$inferSelect,
-    "weightSource" | "sourceUrl" | "sourceQuote" | "verified" | "verifiedBy" | "commonName" | "searchTerms" | "categoryHint" | "status" | "mergedIntoId"
+    | "brand"
+    | "name"
+    | "variant"
+    | "weightSource"
+    | "sourceUrl"
+    | "sourceQuote"
+    | "verified"
+    | "verifiedBy"
+    | "commonName"
+    | "searchTerms"
+    | "categoryHint"
+    | "status"
+    | "mergedIntoId"
   >
 >;
 

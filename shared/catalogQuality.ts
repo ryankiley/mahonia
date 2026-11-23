@@ -21,13 +21,18 @@ export const RANGE_G: Record<string, [number, number]> = {
 
 // --- citations and ownership (the audit, the seed, verify_catalog_item) ----
 
+/** After a unit: a rate or a weight per area, never what the thing weighs. A fabric's
+ *  "36 g/m²" or "1.0 oz/yd²", a stove's "12 g/hr", a "per square metre" figure. A slash
+ *  before a number stays a weight: "539 g / 19 oz" is one weight in two units. */
+const NOT_A_RATE = String.raw`(?!\s*\/\s*[a-z²]|\s*per\s+(?:sq|square|m\b|metre|meter|yd|yard|ft|foot|hour|hr|day|litre|liter|l\b))`;
+
 /** All gram-equivalent figures mentioned in a quote (kg converted to g).
  *  Handles thousands separators ("1,790 g" is 1790, not 790). */
 export function gramsInQuote(q: string): number[] {
   const out: number[] = [];
   const num = (s: string) => parseFloat(s.replace(/,/g, ""));
-  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*kg/gi)) out.push(num(m[1]!) * 1000);
-  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*g(?![a-z])/gi)) out.push(num(m[1]!));
+  for (const m of q.matchAll(new RegExp(String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*kg${NOT_A_RATE}`, "gi"))) out.push(num(m[1]!) * 1000);
+  for (const m of q.matchAll(new RegExp(String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*g(?![a-z])${NOT_A_RATE}`, "gi"))) out.push(num(m[1]!));
   return out;
 }
 
@@ -47,8 +52,8 @@ export function weightsInQuote(q: string): number[] {
     out.push(parseFloat(lb) * LB_G + parseFloat(oz) * OZ_G);
     return " ";
   });
-  for (const m of rest.matchAll(new RegExp(`${NUM}\\s*(?:oz|ounces?)\\b`, "gi"))) out.push(parseFloat(m[1]!) * OZ_G);
-  for (const m of rest.matchAll(new RegExp(`${NUM}\\s*(?:lbs?|pounds?)\\b`, "gi"))) out.push(parseFloat(m[1]!) * LB_G);
+  for (const m of rest.matchAll(new RegExp(`${NUM}\\s*(?:oz|ounces?)\\b${NOT_A_RATE}`, "gi"))) out.push(parseFloat(m[1]!) * OZ_G);
+  for (const m of rest.matchAll(new RegExp(`${NUM}\\s*(?:lbs?|pounds?)\\b${NOT_A_RATE}`, "gi"))) out.push(parseFloat(m[1]!) * LB_G);
   return out;
 }
 
