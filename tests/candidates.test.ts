@@ -127,9 +127,10 @@ describe("community intake — corroborateCatalog", () => {
 
   // and the dedup reads the size too: a typed "Revelation" in Long is the catalog's
   // Revelation in Long, not its Regular beside it
-  it("merges a typed size into the catalog's row of that size", async () => {
+  it("merges a typed size into the catalog's row of that size, however many sizes it has", async () => {
+    for (const variant of ["Regular", "Short", "Regular Wide", "Long Wide", "X-Long"])
+      await cited(db, { brand: "Enlightened Equipment", name: "Revelation", variant, weightMg: 500_000 });
     const long = await cited(db, { brand: "Enlightened Equipment", name: "Revelation", variant: "Long", weightMg: 560_000 });
-    await cited(db, { brand: "Enlightened Equipment", name: "Revelation", variant: "Regular", weightMg: 500_000 });
     for (const i of [1, 2, 3])
       await stageCandidates(db, i, [{ brand: "Enlightened Equipment", name: "Revelation", variant: "Long", weightMg: 565_000 }]);
     const r = await corroborateCatalog(db);
@@ -137,7 +138,7 @@ describe("community intake — corroborateCatalog", () => {
     expect(r.promoted).toBe(0);
     const [row] = (await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, long.id))) as any[];
     expect(row.usageCount).toBeGreaterThan(0);
-    expect(await catalogCount(db)).toBe(2);
+    expect(await catalogCount(db)).toBe(6);
   });
 
   // "other" tops out at 1.6 kg; a typed "Tent" says which band applies, and the

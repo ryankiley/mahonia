@@ -146,7 +146,9 @@ const mode = <T>(arr: T[]): T | undefined => {
  */
 export async function catalogMatches(db: Db, brand: string | null, name: string, variant: string | null): Promise<CatalogSearchResult[]> {
   const full = itemDisplayName(brand, name, variant);
-  const matches = await searchCatalog(db, full, 5);
+  // by the product alone, every size of it: the search reads no variant, and a size in the
+  // query only weakens the match it is after
+  const matches = await searchCatalog(db, itemDisplayName(brand, name), 50);
   const sizeKey = normKey(variant);
   const tokensOf = (t: string) => normKey(t).split(" ").filter(Boolean);
   const said = tokensOf(full).filter((t) => !GENERIC_GEAR_TERMS.has(t));

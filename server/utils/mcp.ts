@@ -77,6 +77,7 @@ import {
   vaultItemByNormKey,
   vaultItemFacts,
   vaultItemFactsOf,
+  VAULT_ITEMS_MAX,
   type VaultItemFacts,
 } from "./vaultRepo";
 
@@ -134,7 +135,7 @@ const ROW_FIELDS = {
   variant: { type: "string", maxLength: MAX_VARIANT_LEN, description: "Size, length or configuration that changes the weight, such as Long or 20F." },
   gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is: Tent, Quilt, Trail runners." },
   weight_g: { type: "number", minimum: 0, maximum: UNIT_WEIGHT_MAX_G, description: "Weight of ONE unit, in grams. Omit when unknown; the list keeps working without it, and a row with a catalog_id takes the catalog's cited weight." },
-  qty: { type: "integer", minimum: 1, maximum: MAX_QTY, description: "How many. Default 1." },
+  qty: { type: "integer", minimum: 0, maximum: MAX_QTY, description: "How many. Default 1." },
   volume_l: { type: "number", minimum: 0, maximum: WATER_MAX_L, description: "Water only (a name ending in water), in place of qty and weight_g: its whole volume in litres, 1 kg each." },
   classification: { type: "string", enum: CLASSIFICATIONS, description: "base, worn or consumable. Omit to follow the folder's default." },
   worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried (three pairs of socks, one on your feet). For a row that is entirely worn, set classification to worn instead." },
@@ -456,7 +457,7 @@ const UPDATE_ITEM_SCHEMA = {
     variant: { type: ["string", "null"], maxLength: MAX_VARIANT_LEN, description: "Size, length or configuration. Null clears it." },
     gear_type: { type: ["string", "null"], maxLength: MAX_GEAR_TYPE_LEN, description: "What kind of thing it is. Null clears it." },
     weight_g: { type: "number", minimum: 0, maximum: UNIT_WEIGHT_MAX_G, description: "Weight of ONE unit, in grams. Kept as your own figure on a row picked from the catalog." },
-    qty: { type: "integer", minimum: 1, maximum: MAX_QTY, description: "How many; weight_g stays the weight of one." },
+    qty: { type: "integer", minimum: 0, maximum: MAX_QTY, description: "How many; weight_g stays the weight of one." },
     volume_l: { type: "number", minimum: 0, maximum: WATER_MAX_L, description: "Water only (a name ending in water), in place of qty and weight_g: its whole volume in litres." },
     classification: { type: ["string", "null"], enum: [...CLASSIFICATIONS, null], description: "base, worn or consumable; null to follow the folder's default." },
     worn_qty: { type: "integer", minimum: 0, description: "Of qty, how many are worn rather than carried; 0 removes the split." },
@@ -572,7 +573,7 @@ const VERIFY_OUTPUT = {
     unchanged: { type: "boolean", description: "True when the row already stood exactly as asked (the same call sent twice): nothing was written." },
     row: { ...CATALOG_RESULT, description: "The verified row, as search_catalog now finds it." },
     edit_id: { type: "integer", description: "The edit that verified it: revert_catalog_edit with it undoes the verification." },
-    warnings: { type: "array", items: { type: "string" }, description: "Only when there is something the person should hear about what was written (a scale weight that replaced the maker's, or that names no size on gear sold by size): tell them, with how to put it right." },
+    warnings: { type: "array", items: { type: "string" }, description: "Only when there is something the person should hear about the row as verified (a scale weight that replaced the maker's, or that names no size on gear sold by size): tell them, with how to put it right." },
     gear: { ...GEAR_ROW, description: "With gear_id: the person's piece, now linked to the row." },
   },
   required: ["created", "revived", "unchanged", "row", "edit_id"],
@@ -810,7 +811,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
         again: {
           type: "boolean",
           description:
-            "With read-and-change access, a call with rows identical to one the same account made in the last ten minutes is taken as a retry and makes no second list: the first comes back, by share code, with repeated set. Pass true to make the same list twice on purpose.",
+            "True to make the same list twice on purpose; otherwise an identical call within ten minutes is a retry (repeated).",
         },
       },
     },
@@ -864,7 +865,7 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
         again: {
           type: "boolean",
           description:
-            "A call with rows to add that is identical to one made in the last ten minutes is taken as a retry and does nothing: the earlier result comes back with repeated set. Pass true to make the same change a second time on purpose.",
+            "True to make the same change twice on purpose; otherwise an identical call adding rows within ten minutes is a retry (repeated).",
         },
       },
     },
@@ -1077,7 +1078,7 @@ export async function callTool(event: H3Event, name: string, rawArgs: unknown): 
 export function shareCodeFrom(input: unknown): string {
   if (typeof input !== "string") return "";
   const s = input.trim();
-  const m = /\/[se]\/([^/?#]+?)(?:\.md)?(?:[?#].*)?$/i.exec(s);
+  const m = /\/[se]\/([^/?#]+?)(?:\.md)?\/?(?:[?#].*)?$/i.exec(s);
   return normalizeShareCode(m ? m[1]! : s);
 }
 
@@ -1228,7 +1229,7 @@ export function describeList(snap: ListSnapshot, origin: string): Record<string,
       ascent_m: d.ascentM ?? (d.distanceM ? (climbs[i]?.ascentM ?? null) : null),
     }));
   }
-  if (snap.people?.length) out.people = snap.people.map((p) => p.name);
+  if (snap.people?.length) out.people = [...snap.people].sort(bySortOrder).map((p) => p.name);
   if (snap.authorName) out.author = snap.authorName;
   // the rows last: a reader meets the trip's facts before tens of kilobytes of them,
   // and fitList's notice slots in between without reordering anything
@@ -1502,8 +1503,7 @@ function waterAmount(r: Record<string, unknown>, water: boolean, label: string):
   if (water && typeof r.qty === "number" && r.qty > 1) return `Water is a volume, not a count: give ${label} its whole volume as volume_l, in litres, without qty.`;
   if (r.volume_l === undefined) return null;
   if (!water) return `volume_l is for water, a row whose name ends in water; give ${label} weight_g and qty instead.`;
-  if (typeof r.volume_l !== "number" || !(r.volume_l >= 0)) return `volume_l on ${label} must be a number of litres, 0 or more.`;
-  if (r.weight_g != null) return `Give ${label} volume_l or weight_g, not both; a litre of water is 1,000 g.`;
+  if (typeof r.volume_l !== "number" || !(r.volume_l >= 0 && r.volume_l <= WATER_MAX_L)) return `volume_l on ${label} must be litres, from 0 to ${WATER_MAX_L}.`;
   return { unitWeightMg: waterMgFromMl(r.volume_l * 1000) };
 }
 
@@ -1518,7 +1518,8 @@ function waterAmount(r: Record<string, unknown>, water: boolean, label: string):
 const ROW_FIELD_PROBLEM = {
   qty: (v: unknown, label: string) => (typeof v !== "number" || !Number.isFinite(v) ? `qty on ${label} must be a whole number.` : null),
   worn_qty: (v: unknown, label: string) => (typeof v !== "number" || !Number.isFinite(v) ? `worn_qty on ${label} must be a whole number.` : null),
-  kcal: (v: unknown, label: string) => (v !== null && (typeof v !== "number" || !(v >= 0)) ? `kcal on ${label} must be a number, 0 or more, or null for none.` : null),
+  kcal: (v: unknown, label: string) => (v !== null && (typeof v !== "number" || !(v >= 0 && v <= KCAL_MAX)) ? `kcal on ${label} must be a number from 0 to ${KCAL_MAX}, or null for none.` : null),
+  weight_g: (v: unknown, label: string) => (typeof v !== "number" || !(v >= 0 && v <= UNIT_WEIGHT_MAX_G) ? `weight_g on ${label} must be grams for one, from 0 to ${UNIT_WEIGHT_MAX_G}.` : null),
   needs_cooking: (v: unknown, label: string) => (typeof v !== "boolean" ? `needs_cooking on ${label} must be true or false.` : null),
 } as const;
 const ROW_FIELDS_CHECKED = Object.keys(ROW_FIELD_PROBLEM) as (keyof typeof ROW_FIELD_PROBLEM)[];
@@ -1529,7 +1530,6 @@ function toItem(raw: object, folderId: string | null, sortOrder: number): Item |
   const name = typeof r.name === "string" ? r.name.trim() : "";
   if (!name) return "Every row needs a name.";
   if (r.classification != null && !classificationOf(r.classification)) return notClassification(r.classification);
-  if (r.weight_g != null && (typeof r.weight_g !== "number" || !(r.weight_g >= 0))) return `weight_g on "${name}" must be a number of grams, 0 or more.`;
   // a value sent for one of these that it can't take is refused, as an update refuses
   // it; one left out, or null, takes the default below
   for (const field of ROW_FIELDS_CHECKED) {
@@ -1538,7 +1538,7 @@ function toItem(raw: object, folderId: string | null, sortOrder: number): Item |
   }
   const water = waterAmount(r, isWaterName(name), `"${name}"`);
   if (typeof water === "string") return water;
-  const qty = clampInt(r.qty, 1, MAX_QTY, 1);
+  const qty = clampInt(r.qty, 0, MAX_QTY, 1);
   const item: Item = {
     id: uid(),
     folderId,
@@ -1565,11 +1565,11 @@ function toItem(raw: object, folderId: string | null, sortOrder: number): Item |
   if (typeof r.kcal === "number") item.kcal = clampInt(r.kcal, 0, KCAL_MAX, 0);
   if (typeof r.needs_cooking === "boolean") item.needsCooking = r.needs_cooking;
   if (r.catalog_id != null) {
-    if (!isCatalogId(r.catalog_id)) return `catalog_id on "${name}" isn't a catalog id; take one from search_catalog.`;
+    if (!isCatalogId(r.catalog_id)) return `catalog_id on "${name}" must be a catalog id, a whole number from search_catalog.`;
     item.catalogItemId = r.catalog_id;
     // whether the caller gave a figure of their own, decided before the catalog's
     // arrives (linkCatalog); the reducer keeps the flag either way
-    item.weightOverridden = typeof r.weight_g === "number";
+    item.weightOverridden = typeof r.weight_g === "number" && r.weight_g > 0;
   }
   return item;
 }
@@ -1627,7 +1627,7 @@ class FolderBook {
     this.folders = [...existing];
   }
   find(name: string): Folder | undefined {
-    return this.folders.find((f) => sameText(f.name, name));
+    return folderNamed(this.folders, name);
   }
   resolve(name: string, classification: Classification = "base"): Folder | string {
     const found = this.find(name);
@@ -1639,7 +1639,7 @@ class FolderBook {
       name: tidyText(name),
       colorKey: colorKeyForName(name, used),
       defaultClassification: classification,
-      sortOrder: this.folders.length,
+      sortOrder: this.folders.reduce((n, f) => Math.max(n, f.sortOrder + 1), 0),
     };
     this.folders.push(folder);
     this.made.push(folder);
@@ -1659,6 +1659,9 @@ class FolderBook {
 
 /** what get_list calls the rows in no folder (exportSections) */
 const UNFILED = "Unfiled";
+/** a folder by the id get_list gives it, or by its name */
+const folderNamed = (folders: readonly Folder[], ref: unknown) =>
+  typeof ref !== "string" ? undefined : (folders.find((f) => f.id === ref) ?? folders.find((f) => sameText(f.name, ref)));
 
 /**
  * create_list and edit_list's add accept rows in different envelopes, but every row
@@ -1689,7 +1692,7 @@ class ItemPlan {
     const nested = r.items;
     if (nested != null && !Array.isArray(nested)) return `items on "${name}" must be an array of rows.`;
     let parent: Item | null = null;
-    if (r.group != null) {
+    if (given(r.group)) {
       if (typeof r.group !== "string" || !r.group.trim()) return `group on "${name}" must be a row's id, from get_list.`;
       if (Array.isArray(nested) && nested.length) return `"${name}" can't both join a group and have rows nested under it; groups are one level deep.`;
       const id = r.group.trim();
@@ -1714,8 +1717,8 @@ class ItemPlan {
     for (const child of Array.isArray(nested) ? nested : []) {
       if (!child || typeof child !== "object") return `Each row nested under "${item.name}" must be an object with at least a name.`;
       const c = child as Record<string, unknown>;
-      if (c.items != null || c.group != null || (typeof c.folder === "string" && c.folder.trim())) {
-        return `A row nested under "${item.name}" is in its folder and can't nest rows of its own; leave folder, group and items off it.`;
+      if ((Array.isArray(c.items) ? c.items.length : c.items != null) || given(c.group)) {
+        return `A row nested under "${item.name}" can't nest rows of its own; groups are one level deep, so leave group and items off it.`;
       }
       const kid = toItem(child, folderId, this.nextSortOrder(folderId, item.id));
       if (typeof kid === "string") return kid;
@@ -2073,6 +2076,7 @@ const NO_ROW = (ids: string[]) =>
 
 interface Work {
   work: ListState;
+  shareCode: string;
   ops: Op[];
   plan: (op: Op) => void;
 }
@@ -2083,7 +2087,7 @@ async function openForEdit(hash: string): Promise<Work | string> {
   if (!snap) return NO_EDIT_LIST;
   const work = structuredClone(snap) as unknown as ListState;
   const ops: Op[] = [];
-  return { work, ops, plan: (op) => {
+  return { work, shareCode: snap.shareCode, ops, plan: (op) => {
     ops.push(op);
     applyOps(work, [op]);
   } };
@@ -2155,14 +2159,15 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
   // a gear type the owner typed (or cleared) is theirs, as the editor marks it
   if (r.gear_type !== undefined) patch.commonNameOverridden = true;
   if (r.weight_g !== undefined) {
-    if (typeof r.weight_g !== "number" || !(r.weight_g >= 0)) return `weight_g on ${label} must be a number of grams, 0 or more.`;
-    patch.unitWeightMg = Math.round(r.weight_g * 1000);
+    const problem = ROW_FIELD_PROBLEM.weight_g(r.weight_g, label);
+    if (problem) return problem;
+    patch.unitWeightMg = Math.round((r.weight_g as number) * 1000);
     if (it.catalogItemId != null) patch.weightOverridden = true;
   }
   if (r.qty !== undefined) {
     const problem = ROW_FIELD_PROBLEM.qty(r.qty, label);
     if (problem) return problem;
-    patch.qty = clampInt(r.qty, 1, MAX_QTY, 1);
+    patch.qty = clampInt(r.qty, 0, MAX_QTY, 1);
   }
   // judged by the name the row will have, so a rename to Water takes its litres in the
   // same change; a weight given for water is the whole volume's, at qty 1, so a count
@@ -2206,7 +2211,7 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
       const person = (people ?? []).find((p) => sameText(p.name, r.carried_by as string));
       if (!person) {
         const names = (people ?? []).map((p) => p.name);
-        return `No one on this list is called "${r.carried_by}".${names.length ? ` The people are: ${names.join(", ")}.` : " The list names no people yet."}`;
+        return `No one on this list is called "${r.carried_by}".${names.length ? ` The people are: ${names.join(", ")}.` : " The list names no people yet."} People are added on the list's page.`;
       }
       patch.personId = person.id;
     }
@@ -2214,12 +2219,12 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
   if (r.catalog_id !== undefined) {
     if (r.catalog_id === null) patch.catalogItemId = null;
     else {
-      if (!isCatalogId(r.catalog_id)) return `catalog_id on ${label} isn't a catalog id; take one from search_catalog.`;
+      if (!isCatalogId(r.catalog_id)) return `catalog_id on ${label} must be a catalog id, a whole number from search_catalog.`;
       const row = catalogRows.get(r.catalog_id);
       if (!row) return `catalog_id ${r.catalog_id} isn't in the catalog; take an id from search_catalog.`;
       patch.catalogItemId = row.id;
       patch.catalogWeightMgAtLink = row.weightMg;
-      if (patch.unitWeightMg === undefined) {
+      if (!patch.unitWeightMg) {
         patch.unitWeightMg = row.weightMg;
         patch.weightOverridden = false;
       } else patch.weightOverridden = true;
@@ -2245,7 +2250,8 @@ function planMeta(raw: unknown, { work, plan }: Work): string | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return "list must be an object of the list's own fields.";
   const meta = tripMeta(raw as Record<string, unknown>, { linked: !!work.trailUrl });
   if (typeof meta === "string") return meta;
-  if (!Object.keys(meta).length) return "list has nothing to set: give a title, unit, start_date, end_date, trail_url, trail_label or trail_distance_km.";
+  // list: {} beside other parts sets nothing; fields none of which it knows are a mistake
+  if (!Object.keys(meta).length) return Object.keys(raw).length ? "list has nothing to set: give a title, unit, start_date, end_date, trail_url, trail_label or trail_distance_km." : null;
   // a list keeps a name, as a row does: a blank one was stored blank, and read as an
   // empty row in "Your lists" (create_list makes it "Untitled list" instead)
   // (judged as the reducer stores it, cut and tidied: a zero-width space is blank too)
@@ -2264,18 +2270,17 @@ function planMeta(raw: unknown, { work, plan }: Work): string | null {
 /** the `folders` part: renames, reorders, reclassifications and removals of folders that exist */
 function planFolders(entries: unknown[], { work, ops, plan }: Work): { changed: number } | string {
   if (entries.length > EDIT_MAX) return `At most ${EDIT_MAX} folders in one call.`;
-  const find = (ref: unknown) =>
-    typeof ref !== "string" ? undefined : (work.folders.find((f) => f.id === ref) ?? work.folders.find((f) => sameText(f.name, ref)));
   const changes = entries.map(argsOf);
-  const missing = changes.filter((c) => !find(c.folder)).map((c) => String(c.folder ?? ""));
+  const targets = changes.map((c) => folderNamed(work.folders, c.folder)?.id);
+  const missing = changes.filter((_c, i) => !targets[i]).map((c) => String(c.folder ?? ""));
   if (missing.length) {
     const names = [...work.folders].sort(bySortOrder).map((f) => f.name);
-    return `No folder on this list is ${missing.map((m) => `"${m}"`).join(", ")}. The folders are: ${names.join(", ") || "none yet"}.`;
+    return `No folder on this list is ${missing.map((m) => `"${m}"`).join(", ")}. The folders are: ${names.join(", ") || "none yet"}. A new folder is made by naming it as an add row's folder.`;
   }
   let changed = 0;
-  for (const c of changes) {
-    const folder = find(c.folder);
-    // a folder removed earlier in this same call has nothing left to change
+  for (const [i, c] of changes.entries()) {
+    // as it stands now; a folder removed earlier in this same call has nothing left to change
+    const folder = work.folders.find((f) => f.id === targets[i]);
     if (!folder) continue;
     const before = ops.length;
     if (c.remove === true) {
@@ -2314,7 +2319,6 @@ function planFolders(entries: unknown[], { work, ops, plan }: Work): { changed: 
 
 /** the `add` part: new rows, into folders by name or under groups by id */
 async function planAdds(rows: unknown[], book: FolderBook, { work, plan }: Work): Promise<{ added: number } | string> {
-  if (work.items.length + rows.length > MAX_ITEMS) return `A list holds at most ${MAX_ITEMS} rows; this one has ${work.items.length}.`;
   const planned = new ItemPlan(book, work.items);
   const problem = planned.placeAll(rows, null);
   if (problem) return problem;
@@ -2388,7 +2392,7 @@ async function planUpdates(entries: unknown[], book: FolderBook, { work, ops, pl
 
 /** the `remove` part: rows off by id, a group's nested rows with it */
 function planRemoves(raw: unknown[], { work, plan }: Work): string | null {
-  const ids = [...new Set(raw.map(String))];
+  const ids = [...new Set(raw.map((r) => String(argsOf(r).id ?? r)))];
   if (ids.length > EDIT_MAX) return `At most ${EDIT_MAX} rows in one call; send the rest in another.`;
   const unknown = ids.filter((id) => !work.items.some((i) => i.id === id));
   if (unknown.length) return NO_ROW(unknown);
@@ -2430,10 +2434,14 @@ async function editList(event: H3Event, args: Record<string, unknown>): Promise<
     if (seen === "busy") {
       return fail("The same change is being applied to this list right now, by an earlier call that hasn't answered yet. Read the list with get_list in a moment before sending it again; pass again: true only to add the rows a second time.");
     }
-    if (seen !== "claimed") {
+    // a repeat only while the list still stands as that call left it: the same rows added
+    // again after they were taken off, here or on the page, is a change of its own
+    const now = seen === "claimed" ? null : await getByEditHash(hash);
+    if (seen !== "claimed" && now && JSON.stringify(describeTotals(now)) === JSON.stringify(seen.hit.totals)) {
       const structured = { ...seen.hit, repeated: true };
       return ok(structured, `${JSON.stringify(structured)}\nThis repeats a call made in the last ten minutes, so nothing was done again. Pass again: true to make the same change a second time.`);
     }
+    if (seen !== "claimed") await markReplayPending(key);
   }
   // filled in after the write, never before: a call that failed leaves no window, so
   // its retry goes through
@@ -2458,6 +2466,9 @@ async function applyEdit(
 ): Promise<Record<string, unknown> | string> {
   const w = await openForEdit(hash);
   if (typeof w === "string") return w;
+  if (typeof args.edit_link === "string" && /\/e\//i.test(args.edit_link) && shareCodeFrom(args.edit_link) !== w.shareCode) {
+    return "That edit link's code and the token after its # belong to different lists. Copy the edit link again, whole.";
+  }
   const rowsBefore = w.work.items.length;
 
   if (args.list != null) {
@@ -2490,10 +2501,9 @@ async function applyEdit(
     const problem = planRemoves(remove, w);
     if (problem) return problem;
   }
-  if (!w.ops.length) return "Nothing to change.";
-
-  // marked as an assistant's, so the list's recent changes say who made it
-  const after = await applyOpsByEditHash(hash, w.ops, undefined, { actor: "assistant" });
+  // marked as an assistant's, so the list's recent changes say who made it; a call that
+  // asks for what the list already holds (a retried move) answers the list as it stands
+  const after = w.ops.length ? await applyOpsByEditHash(hash, w.ops, undefined, { actor: "assistant" }) : await getByEditHash(hash);
   if (!after) return NO_EDIT_LIST;
   // the list's own facts only: the rows aren't echoed, so they aren't described
   return {
@@ -2793,12 +2803,13 @@ async function readGear(event: H3Event, args: Record<string, unknown>): Promise<
   const query = typeof args.query === "string" ? args.query.trim().slice(0, SEARCH_QUERY_MAX) : "";
   if (query && !enoughToSearch(query)) return fail("A query needs two characters or more (one is enough in Chinese); leave it out to read everything.");
   const limit = clampInt(args.limit, 1, GEAR_PAGE_MAX, GEAR_PAGE_DEFAULT);
-  const offset = clampInt(args.offset, 0, GEAR_PAGE_MAX, 0);
+  if (args.offset != null && !Number.isInteger(args.offset)) return fail("offset is a whole number, the next_offset of the page before.");
+  const offset = clampInt(args.offset, 0, VAULT_ITEMS_MAX, 0);
   // no vault yet is the ordinary state of a new account, and it reads as empty
   if (gear.vaultId == null) return ok({ gear: [], total: 0, offset });
   const { db, vaultId } = gear;
   // kits too, with what they hold: a kit is gear the owner keeps, and the row says what it is
-  const matches = query ? await searchVaultItems(db, vaultId, query, GEAR_PAGE_MAX, { kits: true }) : await listVaultItems(db, vaultId);
+  const matches = query ? await searchVaultItems(db, vaultId, query, VAULT_ITEMS_MAX, { kits: true }) : await listVaultItems(db, vaultId);
   const gearRows = fitGearPage(matches.slice(offset, offset + limit).map((p) => gearAsRow(p)));
   const next = offset + gearRows.length;
   return ok({
@@ -2863,6 +2874,7 @@ function fromCatalog<P extends { patch: Record<string, unknown>; problem?: strin
   const id = piece.patch.catalogItemId;
   const row = isCatalogId(id) ? catalogRows.get(id) : undefined;
   if (!row) {
+    if (isCatalogId(id)) return { ...piece, problem: `catalog_id ${id} isn't in the catalog; take an id from search_catalog.` };
     const typed = piece.patch.variant;
     if (was && id === undefined && typeof typed === "string" && typed.trim() && sizeConflict(typed, was)) {
       return {
@@ -2925,7 +2937,7 @@ function fromCatalog<P extends { patch: Record<string, unknown>; problem?: strin
     else if (held?.commonName) patch.commonName = null;
   }
   const ownWeight = held?.weightMg && !gave(held.weightMg, was?.weightMg) ? held.weightMg : 0;
-  const catalogWeight = patch.weightMg === undefined && !ownWeight;
+  const catalogWeight = !patch.weightMg && !ownWeight;
   if (catalogWeight) patch.weightMg = row.weightMg;
   const ownKcal = held?.kcal != null && !gave(held.kcal, was?.kcal) ? held.kcal : undefined;
   if (patch.kcal === undefined && ownKcal == null) {
@@ -2948,14 +2960,14 @@ interface LinkRow {
 /** A kit as an edit_my_gear entry sends it, checked: undefined when the entry names
  *  none, null to turn a kit back into a piece (update only), or the parts with the
  *  kit's own weight. A string is the sentence that refuses the whole call. */
-type KitInput = { parts: { id: number; qty: number }[]; ownWeightMg: number } | null | undefined;
+type KitInput = { parts: { id: number; qty: number }[]; ownWeightMg?: number } | null | undefined;
 function kitInput(raw: Record<string, unknown>, mode: "add" | "update"): KitInput | string {
   const k = raw.kit;
   if (k === undefined) return undefined;
   if (k === null) return mode === "update" ? null : "kit can't be null on a new piece; leave it out.";
   if (typeof k !== "object" || Array.isArray(k)) return "kit must be an object with items.";
   if (raw.weight_g !== undefined) return "A kit weighs what its items weigh, so give kit.own_weight_g for what it weighs by itself, not weight_g.";
-  const { items, own_weight_g: own = 0 } = k as Record<string, unknown>;
+  const { items, own_weight_g: own } = k as Record<string, unknown>;
   if (!Array.isArray(items) || !items.length) return "A kit needs items: at least one piece of My Gear, by its id from get_my_gear.";
   if (items.length > VAULT_KIT_PARTS_MAX) return `A kit holds at most ${VAULT_KIT_PARTS_MAX} items.`;
   const parts: { id: number; qty: number }[] = [];
@@ -2966,6 +2978,7 @@ function kitInput(raw: Record<string, unknown>, mode: "add" | "update"): KitInpu
     if (typeof count !== "number" || !Number.isInteger(count) || count < 1 || count > VAULT_KIT_QTY_MAX) return `A kit item's count is a whole number from 1 to ${VAULT_KIT_QTY_MAX}.`;
     parts.push({ id: o.id, qty: count });
   }
+  if (own === undefined) return { parts };
   if (typeof own !== "number" || !Number.isFinite(own) || own < 0) return "kit.own_weight_g is grams, 0 or more.";
   return { parts, ownWeightMg: Math.round(own * 1000) };
 }
@@ -2989,8 +3002,8 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   const { add, update, remove, restore } = parts;
   if (!add.length && !update.length && !remove.length && !restore.length) return fail("Nothing to change: give add, update, remove or restore.");
   const updates = update.map(argsOf);
-  if (!updates.every((e) => isSerialId(e.id))) return fail("Every entry in update needs the piece's id, from get_my_gear.");
-  if (![...remove, ...restore].every(isSerialId)) return fail("remove and restore take pieces' ids, from get_my_gear.");
+  if (!updates.every((e) => isSerialId(e.id))) return fail("Every entry in update needs the piece's id, a whole number from get_my_gear (not text).");
+  if (![...remove, ...restore].every(isSerialId)) return fail("remove and restore take pieces' ids, whole numbers from get_my_gear (not text).");
   // the kits the entries name, checked before anything is written, as a malformed
   // catalog_id is: a kit the vault then refuses (a nested part, say) answers per piece
   const addKits: KitInput[] = [];
@@ -3005,13 +3018,12 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
     if (typeof kit === "string") return fail(kit);
     updateKits.push(kit);
   }
-  // the catalog rows the adds and updates name, read once; an id that is no catalog
-  // row refuses the call before anything is written, as it does on a list row
+  // the catalog rows the adds and updates name, read once; a value that can't be an id
+  // refuses the call, and an id that names no live row refuses its own piece (fromCatalog)
   const named = [...add, ...updates].map((e) => argsOf(e).catalog_id);
-  for (const id of named) if (id != null && !isCatalogId(id)) return fail(`catalog_id ${String(id)} isn't a catalog id; take one from search_catalog.`);
+  for (const id of named) if (id != null && !isCatalogId(id)) return fail(`catalog_id must be a catalog id, a whole number from search_catalog; ${JSON.stringify(id)} isn't one.`);
   const linkIds = named.filter(isCatalogId);
   const catalogRows: CatalogRows = linkIds.length ? await catalogRowsById(await useCatalogDb(), linkIds) : new Map();
-  for (const id of linkIds) if (!catalogRows.has(id)) return fail(`catalog_id ${id} isn't in the catalog; take an id from search_catalog.`);
   const { db, userId } = gear;
   let vaultId = gear.vaultId;
 
@@ -3023,10 +3035,8 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
   if (add.length) {
     const pieces = add.map((raw) => fromCatalog(gearPatchFrom(raw), catalogRows));
     const hasName = (p: (typeof pieces)[number]) => typeof p.patch.name === "string" && p.patch.name.trim() !== "";
-    for (const [index, p] of pieces.entries()) {
-      const reason = p.problem ?? (hasName(p) ? undefined : "A piece needs a name, or a catalog_id to take one from.");
-      results.push({ index, status: "invalid", ...(reason ? { reason } : {}) });
-    }
+    // each is invalid until it lands; one whose name tidies to nothing never does
+    for (const [index, p] of pieces.entries()) results.push({ index, status: "invalid", reason: p.problem ?? "A piece needs a name, or a catalog_id to take one from." });
     const named = pieces.map((p, index) => ({ p, index })).filter(({ p }) => !p.problem && hasName(p));
     if (named.length) {
       vaultId ??= await mintVault(db, userId);
@@ -3138,7 +3148,9 @@ async function editGear(event: H3Event, args: Record<string, unknown>): Promise<
         updated.push({ id, status: "invalid", reason: "That piece isn't a kit, so there is nothing to turn back. Nothing was changed on it." });
         continue;
       }
-      const made = await applyVaultItemOp(db, vaultId, kit ? { t: "kit", id, ...kit } : { t: "kit", id, parts: [] });
+      // a kit's own weight left out is the one it has (a new kit's is 0)
+      const own = kit?.ownWeightMg ?? (before.kind === "kit" ? before.weightMg : 0);
+      const made = await applyVaultItemOp(db, vaultId, kit ? { t: "kit", id, ...kit, ownWeightMg: own } : { t: "kit", id, parts: [] });
       if (!made || "refused" in made) {
         updated.push({ id, status: "invalid", reason: `${KIT_REFUSED} Nothing was changed on it.` });
         continue;

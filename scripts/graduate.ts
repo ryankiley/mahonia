@@ -14,8 +14,11 @@ export const GRADUATE_FILE = join(RESEARCH_DIR, GRADUATED_FILE_NAME);
 
 type Row = typeof catalogItems.$inferSelect;
 
-/** One in-app verified row as a research row, or null when it carries no citation URL. */
-export function asResearchRow(r: Row): ResearchRow | null {
+/** One in-app verified row as a research row, or null when it carries no citation URL
+ *  (also how verify_catalog_item's house rules read the row it is about to write). */
+export function asResearchRow(
+  r: Pick<Row, "brand" | "name" | "variant" | "categoryHint" | "commonName" | "weightMg" | "weightSource" | "sourceUrl" | "sourceQuote">,
+): ResearchRow | null {
   if (!r.sourceUrl) return null;
   return {
     brand: r.brand,

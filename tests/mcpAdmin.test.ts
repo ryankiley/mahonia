@@ -124,36 +124,33 @@ describe("who sees it and who can call it", () => {
     }
   });
 
-  it("answers anyone but an admin as a tool that doesn't exist", async () => {
+  it("answers a signed-in account that isn't an admin as a tool that doesn't exist, and asks anyone else to sign in", async () => {
     const calls: [string, Record<string, unknown>][] = [
       [TOOL, { catalog_id: community, weight_g: 1022, weight_source: "measured" }],
       ["catalog_changes", {}],
       ["revert_catalog_edit", { edit_id: 1 }],
     ];
-    for (const token of [undefined, otherWrite]) {
-      for (const [name, args] of calls) {
-        const { status, reply } = await callTool(name, args, token);
-        expect(status).toBe(200);
-        expect(reply.error).toEqual({ code: -32602, message: `Unknown tool: ${name}` });
-      }
+    for (const [name, args] of calls) {
+      const { status, reply } = await callTool(name, args, otherWrite);
+      expect(status).toBe(200);
+      expect(reply.error).toEqual({ code: -32602, message: `Unknown tool: ${name}` });
+      // the names are in the public source; a call with no sign-in is asked for one
+      expect((await callTool(name, args)).status).toBe(401);
     }
     expect((await catalogRow(db, community)).verified).toBe(false);
   });
 
-  it("asks only an admin's lapsed token to sign in again, and a read-only admin to reconnect", async () => {
+  it("asks a lapsed or made-up token to sign in again, and a read-only admin to reconnect", async () => {
     const lapsed = async (userId: number) => {
       const minted = (await mintAccessToken(db, userId, { scope: "write", unproven: false }))!;
       await db.update(schema.accessTokens).set({ expiresAt: new Date(Date.now() - 60_000) }).where(eq(schema.accessTokens.id, minted.id));
       return minted.token;
     };
-    // the admin's client refreshes on the 401
-    expect((await call({ catalog_id: community, weight_g: 1022 }, await lapsed(admin))).status).toBe(401);
-    // a made-up bearer, or anyone else's lapsed one, learns nothing about the tool
-    for (const token of [NEVER_MINTED, await lapsed(otherId)]) {
-      const { status, reply } = await call({ catalog_id: community, weight_g: 1022 }, token);
-      expect(status).toBe(200);
-      expect(reply.error).toEqual({ code: -32602, message: `Unknown tool: ${TOOL}` });
+    // a client refreshes on the 401, and a token that opens nothing writes nothing
+    for (const token of [await lapsed(admin), NEVER_MINTED, await lapsed(otherId)]) {
+      expect((await call({ catalog_id: community, weight_g: 1022 }, token)).status).toBe(401);
     }
+    expect((await catalogRow(db, community)).verified).toBe(false);
     expect((await call({ catalog_id: community, weight_g: 1022 }, adminRead)).status).toBe(403);
     // a read-only admin connection reads the history but can't undo anything in it
     expect((await adminCall("catalog_changes", {}, adminRead)).refused).toBe(false);
@@ -271,12 +268,6 @@ describe("what it refuses", () => {
   it("refuses a weight outside its kind of gear's range until the person confirms it", async () => {
     const row = await seedCatalogRow(db, { brand: "Six Moon Designs", name: "Lunar Solo", commonName: "Tent", categoryHint: "shelter", weightMg: 740_000 });
     expect(await refusal({ catalog_id: row.id, weight_g: 50, weight_source: "measured" })).toContain("120–3500 g");
-    // the first release's outside_range_ok answers the range and nothing else: the change
-    // from 740 g still waits, and weight_confirmed covers it
-    const legacy = await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured", outside_range_ok: true });
-    expect(legacy.refused).toBe(true);
-    expect(legacy.text).toContain("more than 30%");
-    expect(legacy.text).not.toContain("120–3500 g");
     expect((await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured", weight_confirmed: true })).refused).toBe(false);
     // a new product whose gear type names no kind of gear is held to "other"
     expect(await refusal({ brand: "Acme", name: "Gizmo", gear_type: "Gizmo", weight_g: 2000, weight_source: "measured" })).toContain("other");
@@ -317,13 +308,20 @@ describe("the edit history, undoing a verification, and corrections after one", 
     expect((await catalogRow(db, id)).status).toBe("active");
   });
 
-  it("won't undo a verification the seed has since taken over", async () => {
+  it("won't undo a verification or a correction the seed has since taken over", async () => {
     const row = await seedCatalogRow(db, { brand: "Gossamer Gear", name: "Mariposa 60", commonName: "Backpack", categoryHint: "pack", weightMg: 900_000 });
     const done = await verify({ catalog_id: row.id, weight_g: 940, weight_source: "measured" });
     // what upsertSeedRows does when the research names it
     await db.update(schema.catalogItems).set({ verifiedBy: null, sourceQuote: null, weightSource: "manufacturer" }).where(eq(schema.catalogItems.id, row.id));
     expect((await revert(done.data.edit_id)).text).toContain("seed/_research");
     expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 940_000, verified: true, verifiedBy: null });
+    // a community correction keeps no snapshot: the research's weight since is what stops it
+    const kumo = await seedCatalogRow(db, { brand: "Gossamer Gear", name: "Kumo 36", commonName: "Backpack", categoryHint: "pack", weightMg: 600_000 });
+    await proposeCorrection(db, { catalogItemId: kumo.id, newWeightMg: 650_000 });
+    const [fix] = (await adminCall("catalog_changes", { catalog_id: kumo.id })).data.changes;
+    await db.update(schema.catalogItems).set({ weightMg: 620_000, verified: true, weightSource: "manufacturer" }).where(eq(schema.catalogItems.id, kumo.id));
+    expect((await revert(fix.id)).text).toContain("has changed since");
+    expect(await catalogRow(db, kumo.id)).toMatchObject({ weightMg: 620_000, verified: true });
   });
 
   it("refuses an edit that isn't there, or is already undone", async () => {
@@ -406,8 +404,8 @@ describe("the rules a chat doesn't have to be told", () => {
     expect(asTyped.text).toContain("beside the catalog_id");
     const renamed = await verify({ catalog_id: row.id, name: "Cormac Hoody", variant: "Men's Large", weight_g: 158, weight_source: "measured" });
     expect(renamed.refused, renamed.text).toBe(false);
-    // tidied into the house apostrophe, as every typed name is
-    expect(await catalogRow(db, row.id)).toMatchObject({ name: "Cormac Hoody", variant: "Men’s Large", verifiedBy: admin });
+    // the apostrophe straight, as the seed spells it, so the research naming it finds this row
+    expect(await catalogRow(db, row.id)).toMatchObject({ name: "Cormac Hoody", variant: "Men's Large", verifiedBy: admin });
     expect((await adminCall("revert_catalog_edit", { edit_id: renamed.data.edit_id })).refused).toBe(false);
     expect(await catalogRow(db, row.id)).toMatchObject({ name: "Arc'teryx Cormac Hoody", variant: null, verified: false });
   });
@@ -436,8 +434,11 @@ describe("the rules a chat doesn't have to be told", () => {
     expect(unsized.refused, unsized.text).toBe(false);
     expect(unsized.data.warnings).toHaveLength(1);
     expect(unsized.data.warnings![0]).toContain("sold by size");
+    const id = (unsized.data.row as { id: number }).id;
+    // a retry writes nothing, and still says so
+    expect((await verify({ ...base, catalog_id: id })).data).toMatchObject({ unchanged: true, warnings: [expect.stringContaining("sold by size")] });
     // the warning's way out: the same row, the size named
-    const sized = await verify({ ...base, catalog_id: (unsized.data.row as { id: number }).id, variant: "Men's Medium" });
+    const sized = await verify({ ...base, catalog_id: id, variant: "Men's Medium" });
     expect(sized.refused, sized.text).toBe(false);
     expect(sized.data.warnings).toBeUndefined();
     // a maker's weight that names no size covers every size, as before
@@ -457,13 +458,13 @@ describe("the rules a chat doesn't have to be told", () => {
     expect(near.text).toContain(`distinct_from: [${gore.id}]`);
     expect(near.text).toContain("don't rename it");
     // another row's id says nothing about this one
-    expect((await verify({ ...args, distinct_from: duplex })).text).toContain(`Catalog row ${gore.id}`);
-    expect((await verify({ ...args, distinct_from: "x" })).text).toContain("distinct_from lists");
-    const added = await verify({ ...args, distinct_from: gore.id });
+    expect((await verify({ ...args, distinct_from: [duplex] })).text).toContain(`Catalog row ${gore.id}`);
+    expect((await verify({ ...args, distinct_from: gore.id })).text).toContain("distinct_from lists");
+    const added = await verify({ ...args, distinct_from: [gore.id] });
     expect(added.refused, added.text).toBe(false);
     expect(added.data.created).toBe(true);
     // the exact product is still the row it is, distinct_from or not
-    expect((await verify({ ...args, distinct_from: gore.id })).text).not.toContain("distinct_from:");
+    expect((await verify({ ...args, distinct_from: [gore.id] })).text).not.toContain("distinct_from:");
   });
 
   it("holds only the weight for the person, and names the rest in the answer's warnings", async () => {
@@ -614,7 +615,7 @@ describe("linking the person's own piece in the same call", () => {
     const ten = await addPiece({ brand: "Topo", name: "Ultraventure 4", variant: "10" });
     const shoe10 = await adminCall(TOOL, { brand: "Topo", name: "Ultraventure 4", variant: "Men's US 9", gear_type: "Trail runner", weight_g: 280, weight_source: "measured", gear_id: ten });
     expect(shoe10.refused).toBe(true);
-    expect(shoe10.text).toContain("is 10, and the row is Men’s US 9");
+    expect(shoe10.text).toContain("is 10, and the row is Men's US 9");
     // a piece typed with only its cut matches a row that names only its cut
     const hoody = await addPiece({ brand: "Arc'teryx", name: "Atom Hoody", variant: "Women's Large", gear_type: "Insulated jacket" });
     const cut = await adminCall(TOOL, { brand: "Arc'teryx", name: "Atom Hoody", variant: "Women's", gear_type: "Insulated jacket", weight_g: 320, source_url: "https://arcteryx.example/atom", quote: "Weight: 320 g", gear_id: hoody });

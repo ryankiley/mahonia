@@ -32,9 +32,9 @@ import { normalizeGearType } from "../../scripts/gearTypes";
 import { soldByOf } from "../../shared/catalogAxes";
 import { categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged } from "../../shared/catalogQuality";
 import { isCatalogId, MAX_BRAND_LEN, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
-import { tidyText } from "../../shared/tidyText";
+import { foldApostrophes, tidyText } from "../../shared/tidyText";
 import { itemDisplayName } from "../../shared/weights";
-import { catalogBrands, catalogGearTypes, isHttpUrl, revertEdit } from "./catalog";
+import { catalogBrands, catalogGearTypes, isHttpUrl } from "./catalog";
 import { houseRuleProblems, type RuleRow } from "./catalogHouseRules";
 import { catalogMatches } from "./candidates";
 import { namesSize } from "./catalogSizes";
@@ -74,11 +74,12 @@ export interface Verified {
   warnings: string[];
 }
 
-/** A one-line text argument, tidied and capped; "" when absent or not a string. */
-const text = (v: unknown, max: number) => (typeof v === "string" ? tidyText(v).slice(0, max) : "");
+/** A one-line text argument, tidied and capped, its apostrophe straight as the seed spells
+ *  it (the seed finds a row by its exact name); "" when absent or not a string. */
+const text = (v: unknown, max: number) => (typeof v === "string" ? foldApostrophes(tidyText(v)).slice(0, max) : "");
 
 /** The vocabulary's own spelling of a label, matched through the search fold (case,
- *  accents and punctuation aside: "arcteryx" or "Arc'teryx" → "Arc’teryx"), else the label
+ *  accents and punctuation aside: "arcteryx" or "Arc’teryx" → "Arc'teryx"), else the label
  *  with its first letter raised. A verified row joins the brand and gear-type suggestions
  *  (catalogBrands, catalogGearTypes), and the audit fails a brand spelled two ways. */
 function spelledAs(label: string, vocabulary: string[], loose?: (s: string) => string): string {
@@ -143,10 +144,7 @@ export async function verifyCatalogItem(
   if (!Number.isFinite(grams) || weightMg <= 0 || weightMg > UNIT_WEIGHT_MAX_MG) {
     return `weight_g is the weight of one unit in grams, above 0 and up to ${UNIT_WEIGHT_MAX_MG / 1e6} kg.`;
   }
-  // outside_range_ok is what the first release called it, and a chat holding that listing
-  // still sends it: it only ever answered the range, so it answers nothing else
   const confirmed = args.weight_confirmed === true;
-  const rangeConfirmed = confirmed || args.outside_range_ok === true;
   const source = args.weight_source ?? "manufacturer";
   if (!VERIFY_SOURCES.includes(source as (typeof VERIFY_SOURCES)[number])) return `weight_source is manufacturer (the maker's published weight) or measured (weighed on the person's own scale).`;
   const sourceUrl = typeof args.source_url === "string" && args.source_url.trim() ? args.source_url.trim() : null;
@@ -174,10 +172,9 @@ export async function verifyCatalogItem(
   const gearType = typedType ? spelledAs(typedType, gearTypes, gearTypeKey) : "";
   const category = args.category == null ? null : String(args.category).trim().toLowerCase();
   if (category != null && !CATEGORIES.includes(category)) return `category is one of ${CATEGORIES.join(", ")}.`;
-  // the rows the person checked are other products: a list, or one id from a chat that
-  // holds the first listing
-  const distinct: unknown[] = args.distinct_from == null ? [] : Array.isArray(args.distinct_from) ? args.distinct_from : [args.distinct_from];
-  if (!distinct.every(isCatalogId)) return "distinct_from lists the ids of the catalog rows a refusal named as looking like the same product.";
+  // the rows the person checked are other products
+  const distinct = args.distinct_from ?? [];
+  if (!Array.isArray(distinct) || !distinct.every(isCatalogId)) return "distinct_from lists the ids of the catalog rows a refusal named as looking like the same product.";
   const typedBrand = async () => {
     const b = text(args.brand, MAX_BRAND_LEN);
     return b ? spelledAs(b, await catalogBrands(db)) : null;
@@ -257,7 +254,7 @@ export async function verifyCatalogItem(
   const [lo, hi] = RANGE_G[kind] ?? RANGE_G.other!;
   const concerns: string[] = [];
   const warnings: string[] = [];
-  if ((grams < lo || grams > hi) && !rangeConfirmed) {
+  if (grams < lo || grams > hi) {
     concerns.push(`${grams} g is outside ${lo}–${hi} g, the usual range for ${kind}: check the number (grams, for one, a pair as the pair) and the category.`);
   }
   const nowG = current ? Number(current.weightMg) / 1000 : 0;
@@ -280,7 +277,12 @@ export async function verifyCatalogItem(
   const typedLabel = gearType || current?.commonName?.trim() || "";
   const label = typedLabel ? spelledAs(typedLabel, gearTypes, gearTypeKey) : null;
   const effectiveUrl = sourceUrl ?? current?.sourceUrl ?? null;
-  const finalKind = typedKind ?? current?.categoryHint ?? kind;
+  // One weighing is one size: on gear sold by size, a scale weight with no size in the
+  // variant reads as every size's, unless the product comes in one size. A size the reader
+  // can't place ("Men's 32x30") counts as one.
+  if (source === "measured" && soldByOf(label).includes("size") && !namesSize(identity.variant)) {
+    warnings.push(`${label} is sold by size, and this scale weight names none, so it now reads as every size's. Unless it is sold in one size only, send verify_catalog_item again with the row's catalog_id and the size that was weighed in variant ("Men's Medium", "Men's US 9"); if that size is already a row of its own, revert_catalog_edit with edit_id undoes this one instead.`);
+  }
 
   // ---- the same call twice: the row already stands as asked ----
   if (
@@ -294,7 +296,7 @@ export async function verifyCatalogItem(
     current.brand === identity.brand &&
     current.name === identity.name &&
     current.variant === identity.variant &&
-    current.categoryHint === finalKind &&
+    current.categoryHint === kind &&
     current.commonName === label
   ) {
     const [last] = await db
@@ -303,23 +305,17 @@ export async function verifyCatalogItem(
       .where(and(eq(catalogEdits.catalogItemId, current.id), eq(catalogEdits.status, "applied")))
       .orderBy(desc(catalogEdits.id))
       .limit(1);
-    if (last) return { row: current, created: false, revived: false, editId: last.id, unchanged: true, warnings: [] };
+    if (last) return { row: current, created: false, revived: false, editId: last.id, unchanged: true, warnings };
   }
 
   // ---- the house style: what the build would refuse in this row ----
-  const ruleRow: RuleRow = { ...identity, commonName: label, categoryHint: finalKind, weightMg, weightSource: source as string, sourceUrl: effectiveUrl, sourceQuote: storedQuote };
+  const ruleRow: RuleRow = { ...identity, commonName: label, categoryHint: kind, weightMg, weightSource: source as string, sourceUrl: effectiveUrl, sourceQuote: storedQuote };
   const problems = houseRuleProblems(ruleRow, await siblingsOf(db, identity.brand, identity.name, current?.id));
   if (problems.length) {
     const fix = args.catalog_id != null ? "pass brand, name, variant or gear_type beside the catalog_id to put the row right" : "change the brand, name, variant or gear type";
     return `The catalog's house style refuses ${display}: ${problems.join(" ")} To fix it, ${fix}, and send it again.`;
   }
 
-  // One weighing is one size: on gear sold by size, a scale weight with no size in the
-  // variant reads as every size's, unless the product comes in one size. A size the reader
-  // can't place ("Men's 32x30") counts as one.
-  if (source === "measured" && soldByOf(label).includes("size") && !namesSize(identity.variant)) {
-    warnings.push(`${label} is sold by size, and this scale weight names none, so it now reads as every size's. Unless it is sold in one size only, send verify_catalog_item again with the row's catalog_id and the size that was weighed in variant ("Men's Medium", "Men's US 9").`);
-  }
   if (concerns.length && !confirmed) {
     if (concerns.length === 1) return `${concerns[0]} If the person confirms it, send weight_confirmed: true.`;
     return `${concerns.length} things wait for the person: ${concerns.map((c, i) => `(${i + 1}) ${c}`).join(" ")} If they confirm all of it, send weight_confirmed: true.`;
@@ -413,29 +409,55 @@ export async function verifyCatalogItem(
   } catch (e) {
     // a rename onto the identity of another row
     if (!isUniqueViolation(e)) throw e;
-    return `${display} is already another catalog row; search for it and verify that one instead.`;
+    return `${display} is already another catalog row, maybe a retired one; to verify that one instead, send its brand, name and variant without catalog_id.`;
   }
 }
 
 /**
  * revert_catalog_edit's work: undo one applied edit, an admin's verification or a
  * community correction, and answer the row as it now stands, or a sentence saying why not.
+ * The weight goes back, and for a verification everything else it changed (CatalogEditUndo).
  */
 export async function undoCatalogEdit(db: Db, editId: unknown): Promise<{ row: CatalogRow } | string> {
+  // catalog_edits.id is the same PostgreSQL serial range as catalog_items.id
   if (!isCatalogId(editId)) return "edit_id is a catalog edit's id, a whole number from verify_catalog_item or catalog_changes.";
-  let out: Awaited<ReturnType<typeof revertEdit>>;
+  const [edit] = await db.select().from(catalogEdits).where(eq(catalogEdits.id, editId)).limit(1);
+  if (!edit) return `No catalog edit has id ${editId}.`;
+  const rowId = Number(edit.catalogItemId);
+  // only applied edits moved a weight
+  if (edit.status === "reverted") return `Edit ${editId} is already undone.`;
+  if (edit.status !== "applied") return `Edit ${editId} is ${edit.status} and never moved the weight; there is nothing to undo.`;
+  // only the most recent applied edit: undoing an older one would throw the newer away unseen
+  const [newer] = await db
+    .select({ id: catalogEdits.id })
+    .from(catalogEdits)
+    .where(and(eq(catalogEdits.catalogItemId, rowId), eq(catalogEdits.status, "applied"), gt(catalogEdits.id, editId)))
+    .orderBy(desc(catalogEdits.id))
+    .limit(1);
+  if (newer) return `Row ${rowId} has a newer applied edit, ${newer.id}; undo the newest first.`;
+  if (edit.undo) {
+    // a verification: once the seed has taken the row over, the research owns it and the
+    // snapshot would hand it back to the database
+    const [item] = await db.select().from(catalogItems).where(eq(catalogItems.id, rowId)).limit(1);
+    if (item && seedManaged(item)) return `Row ${rowId} now comes from Mahonia's research files; a change to it belongs in seed/_research.`;
+  }
+  let row: CatalogRow | undefined;
   try {
-    out = await revertEdit(db, editId);
+    [row] = await db
+      .update(catalogItems)
+      .set({ weightMg: Number(edit.oldWeightMg), updatedAt: new Date(), ...(edit.undo ?? {}) })
+      // only while the row holds what the edit wrote: a weight set since (the seed's, when
+      // the research took the row over) isn't the edit's to put back
+      .where(and(eq(catalogItems.id, rowId), eq(catalogItems.weightMg, Number(edit.newWeightMg))))
+      .returning();
   } catch (e) {
     // a verification that renamed its row, undone after another row took the old name
     if (!isUniqueViolation(e)) throw e;
     return `Edit ${editId} renamed its row, and another row now has the old name, so it can't be put back. Rename one of them first.`;
   }
-  if (out.status === "notfound") return `No catalog edit has id ${editId}.`;
-  if (out.status !== "applied") return out.reason ?? `Edit ${editId} can't be undone.`;
-  // catalog rows are retired, never deleted, so the edit's row is there to read back
-  const [row] = await db.select().from(catalogItems).where(eq(catalogItems.id, out.catalogItemId!)).limit(1);
-  return { row: row! };
+  if (!row) return `Row ${rowId} has changed since edit ${editId}, so there is nothing of it to undo; verify the row again to set its weight.`;
+  await db.update(catalogEdits).set({ status: "reverted" }).where(eq(catalogEdits.id, editId));
+  return { row };
 }
 
 /** One line of the catalog's edit history (catalog_edits), applied: where a verification's

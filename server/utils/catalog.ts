@@ -18,12 +18,11 @@
 // Engine is detected via DATABASE_URL, the same signal db.ts uses.
 
 import { safeUrl } from "../../shared/trailLink";
-import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
 import { enoughToSearch, foldForSearch, foldWidth } from "../../shared/searchText";
 import { UNIT_WEIGHT_MAX_MG, isCatalogId } from "../../shared/ops";
-import { seedManaged } from "../../shared/catalogQuality";
 import { memoized } from "./memoize";
 import { runDdl } from "./ddl";
 import { toIso } from "./time";
@@ -498,7 +497,7 @@ export async function proposeCorrection(
 
 /** Recent catalog edits (newest first), all of them or one row's: the admin patrol feed
  *  (catalog_changes) that names the ids revert_catalog_edit takes. */
-export async function recentChanges(db: Db, limit = 50, catalogItemId?: number): Promise<RecentChange[]> {
+export async function recentChanges(db: Db, limit: number, catalogItemId?: number): Promise<RecentChange[]> {
   const rows = await db
     .select({
       id: catalogEdits.id,
@@ -522,10 +521,7 @@ export async function recentChanges(db: Db, limit = 50, catalogItemId?: number):
     // Without it catalog_changes can hand the stale-revert guard the newer edit
     // as though it were the older one.
     .orderBy(desc(catalogEdits.createdAt), desc(catalogEdits.id))
-    // Whole, not merely clamped: Drizzle hands LIMIT to Postgres as given, and the
-    // route's `?limit=2.5` reached here as 2.5 and failed the query (a 500 for a
-    // hand-edited URL). NaN would fail the same way, so it takes the default.
-    .limit(Math.min(100, Math.max(1, Math.trunc(Number.isFinite(limit) ? limit : 50))));
+    .limit(limit);
   return rows.map((r) => ({
     id: r.id,
     catalogItemId: Number(r.catalogItemId),
@@ -539,63 +535,4 @@ export async function recentChanges(db: Db, limit = 50, catalogItemId?: number):
     reason: r.reason ?? null,
     createdAt: toIso(r.createdAt),
   }));
-}
-
-/** What revert_catalog_edit is told: the weight put back, or the sentence saying why not. */
-export interface RevertOutcome {
-  status: "applied" | "rejected" | "notfound";
-  /** on a rejection, why, in a sentence the admin tool hands on */
-  reason?: string;
-  /** the row the edit was on */
-  catalogItemId?: number;
-  weightMg?: number;
-}
-
-/** Undo an applied edit (revert_catalog_edit): restore its prior weight, and for an in-app
- *  verification everything else it changed, and mark it reverted. */
-export async function revertEdit(db: Db, editId: number): Promise<RevertOutcome> {
-  const id = Number(editId);
-  // catalog_edits.id is the same PostgreSQL serial range as catalog_items.id.
-  if (!isCatalogId(id)) return { status: "rejected", reason: "edit_id is a catalog edit's id, a whole number from catalog_changes." };
-  const rows = await db.select().from(catalogEdits).where(eq(catalogEdits.id, id)).limit(1);
-  const edit = rows[0];
-  if (!edit) return { status: "notfound" };
-  const catalogItemId = Number(edit.catalogItemId);
-  // only applied edits moved a weight
-  if (edit.status === "reverted") return { status: "rejected", reason: `Edit ${id} is already undone.`, catalogItemId };
-  if (edit.status !== "applied") return { status: "rejected", reason: `Edit ${id} is ${edit.status} and never moved the weight; there is nothing to undo.`, catalogItemId };
-  // only the MOST RECENT applied edit can be reverted — reverting an older one
-  // would silently discard newer changes and desync the weight from the feed
-  const newer = await db
-    .select({ id: catalogEdits.id })
-    .from(catalogEdits)
-    .where(
-      and(
-        eq(catalogEdits.catalogItemId, Number(edit.catalogItemId)),
-        eq(catalogEdits.status, "applied"),
-        gt(catalogEdits.id, id),
-      ),
-    )
-    .orderBy(desc(catalogEdits.id))
-    .limit(1);
-  if (newer[0]) return { status: "rejected", reason: `Row ${catalogItemId} has a newer applied edit, ${newer[0].id}; undo the newest first.`, catalogItemId };
-  if (edit.undo) {
-    // an in-app verification: once the seed has taken the row over, the research owns it
-    // and the snapshot would hand it back to the database
-    const [item] = await db
-      .select({ verified: catalogItems.verified, verifiedBy: catalogItems.verifiedBy })
-      .from(catalogItems)
-      .where(eq(catalogItems.id, Number(edit.catalogItemId)))
-      .limit(1);
-    if (item && seedManaged(item)) {
-      return { status: "rejected", reason: `Row ${catalogItemId} now comes from Mahonia's research files; a change to it belongs in seed/_research.`, catalogItemId };
-    }
-  }
-  await db
-    .update(catalogItems)
-    // a verification's undo puts back what it changed besides the weight (CatalogEditUndo)
-    .set({ weightMg: Number(edit.oldWeightMg), updatedAt: new Date(), ...(edit.undo ?? {}) })
-    .where(eq(catalogItems.id, Number(edit.catalogItemId)));
-  await db.update(catalogEdits).set({ status: "reverted" }).where(eq(catalogEdits.id, id));
-  return { status: "applied", weightMg: Number(edit.oldWeightMg), catalogItemId };
 }

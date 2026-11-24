@@ -392,18 +392,21 @@ describe("what a model plausibly sends", () => {
     expect(list.totals.total_g).toBe(3065);
     expect((await call("get_list", { share_code: link, format: "markdown" })).text).toContain("| Water | 3 L |");
 
-    // a count on water is refused, telling the model what the row wants; volume_l on
-    // anything but water is too, and so is volume_l beside weight_g
+    // a count on water is refused, telling the model what the row wants, and so is
+    // volume_l on anything but water
     for (const [args, says] of [
       [{ update: [{ id: water!.id, qty: 3 }] }, "volume_l"],
       [{ add: [{ name: "Water", qty: 2, weight_g: 1000 }] }, "volume_l"],
       [{ update: [{ id: bottle!.id, volume_l: 1 }] }, "volume_l is for water"],
-      [{ add: [{ name: "Water", volume_l: 1, weight_g: 1000 }] }, "not both"],
     ] as const) {
       const r = await call("edit_list", { edit_link: link, ...args });
       expect(r.isError, JSON.stringify(args)).toBe(true);
       expect(r.text).toContain(says);
     }
+    // the row as get_list gave it, volume and weight both, is taken back: the volume decides
+    const copied = await call("create_list", { title: "Copy", folders: [{ name: "Water", items: [{ ...water, weight_g: 1 }] }] });
+    expect(copied.isError, copied.text).toBe(false);
+    expect(copied.data.totals).toMatchObject({ total_g: 3000 });
 
     // litres change it, and a rename to Water takes its litres in the same change
     expect((await call("edit_list", { edit_link: link, update: [{ id: water!.id, volume_l: 2.5 }, { id: bottle!.id, name: "Water", volume_l: 0.5 }] })).isError).toBe(false);
@@ -419,8 +422,8 @@ describe("what a model plausibly sends", () => {
     const bad: [Record<string, unknown>, string][] = [
       [{ qty: "3" }, 'qty on "Socks" must be a whole number.'],
       [{ worn_qty: "1" }, 'worn_qty on "Socks" must be a whole number.'],
-      [{ kcal: "250" }, 'kcal on "Socks" must be a number, 0 or more, or null for none.'],
-      [{ kcal: -5 }, 'kcal on "Socks" must be a number, 0 or more, or null for none.'],
+      [{ kcal: "250" }, 'kcal on "Socks" must be a number from 0 to 1000000, or null for none.'],
+      [{ kcal: -5 }, 'kcal on "Socks" must be a number from 0 to 1000000, or null for none.'],
       [{ needs_cooking: "yes" }, 'needs_cooking on "Socks" must be true or false.'],
     ];
     const lists = async () => (await db.select({ id: schema.lists.id }).from(schema.lists)).length;
@@ -497,5 +500,78 @@ describe("what a model plausibly sends", () => {
     const found = await rpc("tools/call", { name: "search_catalog", arguments: { query: "trailcraft" } });
     expect(found.content[0]!.text).toContain("Trailcraft");
     expect(JSON.stringify(found)).not.toMatch(tags);
+  });
+});
+
+// What the third review found a model would hit: an answer that said something happened
+// that didn't, and calls refused or misread for a shape that was fine.
+describe("answers that say what happened, and shapes that shouldn't be refused", () => {
+  type Row = { id: string; name: string; qty?: number; weight_g: number; classification: string };
+  type Section = { id?: string; name: string; items: Row[] };
+  const read = async (link: string) => (await call("get_list", { share_code: link })).data as { folders: Section[]; totals: Record<string, number> };
+  const BAR = 4;
+
+  it("adds rows again after they were taken off, and answers a retried move with the list", async () => {
+    const link = (await call("create_list", { title: "Retry", folders: [{ name: "Shelter", items: [{ name: "Tent", weight_g: 900 }] }] })).data.edit_link as string;
+    const add = { edit_link: link, add: [{ name: "Stakes", folder: "Shelter", weight_g: 60, qty: 6 }] };
+    expect((await call("edit_list", add)).data).toMatchObject({ added: 1, repeated: false });
+    // a retry finds the list as that call left it, and does nothing again
+    expect((await call("edit_list", add)).data).toMatchObject({ repeated: true });
+    const [tent, stakes] = (await read(link)).folders[0]!.items;
+    expect((await call("edit_list", { edit_link: link, remove: [{ id: stakes!.id }] })).isError).toBe(false);
+    // the same rows put back once they were taken off are a change of their own
+    expect((await call("edit_list", add)).data).toMatchObject({ added: 1, repeated: false, totals: { total_g: 1260 } });
+    const move = { edit_link: link, update: [{ id: tent!.id, position: 1 }] };
+    expect((await call("edit_list", move)).isError).toBe(false);
+    const again = await call("edit_list", move);
+    expect(again.isError, again.text).toBe(false);
+    expect(again.data).toMatchObject({ updated: 0, totals: { total_g: 1260 } });
+  });
+
+  it("finds a folder by its id, keeps a renamed folder's later changes, and puts a new folder last", async () => {
+    const link = (await call("create_list", { title: "Folders", folders: ["A", "B", "C", "D"].map((name) => ({ name, items: [{ name: `${name} row` }] })) })).data.edit_link as string;
+    const c = (await read(link)).folders.find((f) => f.name === "C")!;
+    const renamed = await call("edit_list", {
+      edit_link: link,
+      folders: [{ folder: "C", name: "Food" }, { folder: "C", classification: "consumable" }, { folder: "A", remove: true }, { folder: "B", remove: true }],
+    });
+    expect(renamed.isError, renamed.text).toBe(false);
+    const dRow = (await read(link)).folders.find((f) => f.name === "D")!.items[0]!;
+    const moved = await call("edit_list", { edit_link: link, add: [{ name: "Pot", folder: "Kitchen" }], update: [{ id: dRow.id, folder: c.id }] });
+    expect(moved.isError, moved.text).toBe(false);
+    expect(moved.data.folders_made).toEqual(["Kitchen"]);
+    const folders = (await read(link)).folders;
+    expect(folders.map((f) => [f.name, f.items.map((r) => [r.name, r.classification])])).toEqual([
+      ["Food", [["C row", "consumable"], ["D row", "consumable"]]],
+      ["D", []],
+      ["Kitchen", [["Pot", "base"]]],
+    ]);
+  });
+
+  it("takes qty 0, group \"\", a nested row's folder or empty items, and 0 g beside a catalog_id as not weighed", async () => {
+    const made = await call("create_list", {
+      title: "Shapes",
+      folders: [{ name: "Pack", items: [{ name: "Spare socks", qty: 0, weight_g: 50, group: "" }, { name: "Tent", weight_g: 900, items: [{ name: "Stakes", weight_g: 10, folder: "Pack", items: [] }] }, { name: "Builders Bar", catalog_id: BAR, weight_g: 0 }] }],
+    });
+    expect(made.isError, made.text).toBe(false);
+    expect(made.data.totals).toMatchObject({ total_g: 978 });
+    const rows = (await read(made.data.edit_link as string)).folders[0]!.items;
+    expect(rows.map((r) => [r.name, r.qty ?? 1, r.weight_g])).toEqual([["Spare socks", 0, 50], ["Tent", 1, 900], ["Builders Bar", 1, 68]]);
+    // a weight past the cap is refused, not cut to it
+    const heavy = await call("edit_list", { edit_link: made.data.edit_link, add: [{ name: "Anvil", weight_g: 250_000 }] });
+    expect(heavy.isError).toBe(true);
+    expect(heavy.text).toContain("from 0 to 100000");
+  });
+
+  it("refuses an edit link whose code names another list than its token opens", async () => {
+    const a = (await call("create_list", { title: "Alice trip", items: [{ name: "Tent" }] })).data;
+    const b = (await call("create_list", { title: "Mallory list", items: [{ name: "Bait" }] })).data;
+    const crafted = `${String(a.edit_link).split("#")[0]}#${String(b.edit_link).split("#")[1]}`;
+    const r = await call("edit_list", { edit_link: crafted, add: [{ name: "Stove" }] });
+    expect(r.isError).toBe(true);
+    expect(r.text).toContain("different lists");
+    expect((await call("edit_list", { edit_link: b.edit_link, add: [{ name: "Stove" }] })).isError).toBe(false);
+    // and a share link copied with a trailing slash reads
+    expect((await call("get_list", { share_code: `${String(a.share_link)}/` })).isError).toBe(false);
   });
 });
