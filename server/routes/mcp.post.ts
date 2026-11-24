@@ -1,7 +1,7 @@
 import { defineEventHandler, getHeader, readRawBody, send, setHeader, setResponseStatus, type H3Event } from "h3";
 import { BUDGET_WAIT, MCP_INSTRUCTIONS, MCP_LATEST_VERSION, MCP_PROTOCOL_VERSIONS, MCP_SERVER_INFO, accountUse, callTool, isAdminTool, isKnownTool, mcpToolsFor, toolFailure } from "../utils/mcp";
 import { setNoIndex, setNoStore } from "../utils/http";
-import { APP_ACCESS_PREFIX, connectorToken, lapsedBearerOwner, resolveBearer } from "../utils/accessTokens";
+import { APP_ACCESS_PREFIX, connectorToken, resolveBearer } from "../utils/accessTokens";
 import { anyAdmin, isAdmin } from "../utils/admin";
 import { useAccountDb } from "../utils/db";
 import { bearerChallenge } from "../utils/oauth";
@@ -172,18 +172,17 @@ export default defineEventHandler(async (event) => {
   // the registry): resolved once here and left on the event. The gate is the scope
   // an account tool names; create_list only uses an account when there is one.
   const use = msg.method === "tools/call" && typeof params.name === "string" ? accountUse(params.name, args) : undefined;
-  // An admin tool (verify_catalog_item, catalog_changes, revert_catalog_edit) is no tool
-  // at all to anyone but an admin: a call with no bearer, a dead or made-up one, or one
-  // that isn't an admin's, gets the answer
-  // a name that doesn't exist gets. The one exception is an admin's own app token past
-  // its hour, which gets the 401 below, so the admin's client refreshes it.
+  // An admin tool (verify_catalog_item, catalog_changes, revert_catalog_edit) is listed
+  // only to an admin, and a live bearer that isn't an admin's gets the answer a name that
+  // doesn't exist gets. With no bearer or a dead one it asks for a sign-in like any tool
+  // that needs an account: the names are in the public source, so hiding them there
+  // kept nothing secret, and an admin's lapsed token is refreshed the ordinary way.
   const adminTool = msg.method === "tools/call" && isAdminTool(params.name);
   const unknownTool = () => error(id, -32602, `Unknown tool: ${String(params.name ?? "")}`);
   if (use) {
     // Whether a bearer of ours was carried at all is the difference between "sign in"
     // and "sign in again"; the database is touched only when there is one to look up.
     const bearer = connectorToken(event);
-    if (adminTool && !bearer) return unknownTool();
     let identity: Awaited<ReturnType<typeof resolveBearer>> = null;
     if (bearer) {
       // a database fault here would otherwise leave as the framework's 500 page, which
@@ -202,7 +201,6 @@ export default defineEventHandler(async (event) => {
     // hand-minted token can't be refreshed, so a dead one still gets its list, with a
     // note beside the link saying why it wasn't filed.
     const refreshable = !identity && !!bearer?.startsWith(APP_ACCESS_PREFIX);
-    if (adminTool && !identity && !(await lapsedAdminToken(bearer!))) return unknownTool();
     if (!identity && (use !== "optional" || refreshable)) {
       return bearerChallenge(event, 401, bearer ? "That token no longer opens an account; sign in to Mahonia again." : "Sign in to Mahonia to reach your lists and My Gear.");
     }
@@ -249,18 +247,6 @@ async function listingAccount(event: H3Event): Promise<number | undefined> {
     return (await withinMs((async () => resolveBearer(await useAccountDb(), bearer))(), BUDGET_WAIT.ms))?.userId;
   } catch {
     return undefined;
-  }
-}
-
-/** Whether a bearer that opens nothing is an admin's own app token past its hour: the
- *  one dead bearer an admin tool answers with the 401 a client refreshes on. A fault
- *  in the lookup answers no, so the tool stays hidden. */
-async function lapsedAdminToken(bearer: string): Promise<boolean> {
-  if (!anyAdmin()) return false;
-  try {
-    return isAdmin(await withinMs((async () => lapsedBearerOwner(await useAccountDb(), bearer))(), BUDGET_WAIT.ms));
-  } catch {
-    return false;
   }
 }
 

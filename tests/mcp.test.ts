@@ -850,7 +850,9 @@ describe("writing", () => {
     expect(toolText(r).structured).toMatchObject({ title: "Renamed", share_link: "http://mahonia.test/s/ABC123DEF456", added: 0, updated: 0, removed: 0, folders_changed: 0 });
     expect(JSON.stringify(resultOf(r))).not.toContain(TOKEN);
     expect(toolText(await call("edit_list", { edit_link: TOKEN })).isError).toBe(true);
-    expect(toolText(await call("edit_list", { edit_link: TOKEN, list: {} })).isError).toBe(true);
+    // an empty list part is nothing to do, not a mistake; fields it doesn't know are
+    expect(toolText(await call("edit_list", { edit_link: TOKEN, list: {} })).isError).toBe(false);
+    expect(toolText(await call("edit_list", { edit_link: TOKEN, list: { titel: "Renamed" } })).isError).toBe(true);
     expect(toolText(await call("edit_list", { edit_link: TOKEN, list: { start_date: "2026-13-40" } })).isError).toBe(true);
     expect(toolText(await call("edit_list", { edit_link: TOKEN, add: "Spoon" })).isError).toBe(true);
     expect(repo.applyOpsByEditHash).toHaveBeenCalledTimes(1);

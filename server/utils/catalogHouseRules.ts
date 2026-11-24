@@ -11,7 +11,8 @@
 import { extractAttributes } from "../../scripts/catalogAttributes";
 import { runCatalogChecks, type Finding } from "../../scripts/catalogChecks";
 import type { CatalogCsvRow } from "../../scripts/catalogCsv";
-import { GRADUATED_FILE_NAME, type ResearchRow } from "../../scripts/research";
+import { asResearchRow } from "../../scripts/graduate";
+import { GRADUATED_FILE_NAME } from "../../scripts/research";
 import { runResearchChecks } from "../../scripts/researchChecks";
 
 /** A catalog row in the fields the checks read. */
@@ -46,20 +47,6 @@ function asCsvRow(r: RuleRow): CatalogCsvRow {
   };
 }
 
-/** The row as catalog:graduate would write it into seed/_research (asResearchRow). */
-const asResearchRow = (r: RuleRow): ResearchRow => ({
-  brand: r.brand,
-  name: r.name,
-  variant: r.variant,
-  category_hint: r.categoryHint,
-  common_name: r.commonName,
-  weight_value: r.weightMg / 1000,
-  weight_unit: "g",
-  weight_source: r.weightSource,
-  source_url: r.sourceUrl ?? "",
-  ...(r.sourceQuote ? { quote: r.sourceQuote } : {}),
-});
-
 const errorsOf = (findings: Finding[]) => findings.filter((f) => f.level === "error").map((f) => f.message);
 
 /**
@@ -71,7 +58,9 @@ const errorsOf = (findings: Finding[]) => findings.filter((f) => f.level === "er
 export function houseRuleProblems(row: RuleRow, siblings: RuleRow[]): string[] {
   const before = new Set(errorsOf(runCatalogChecks(siblings.map(asCsvRow))));
   const found = errorsOf(runCatalogChecks([...siblings, row].map(asCsvRow))).filter((m) => !before.has(m));
-  // a row with no citation never graduates (graduate skips it), so only the CSV rules hold it
-  if (row.sourceUrl) found.push(...errorsOf(runResearchChecks([{ file: GRADUATED_FILE_NAME, rows: [asResearchRow(row)] }])));
+  // the row as catalog:graduate would write it; one with no citation never graduates, so
+  // only the CSV rules hold it
+  const research = asResearchRow(row);
+  if (research) found.push(...errorsOf(runResearchChecks([{ file: GRADUATED_FILE_NAME, rows: [research] }])));
   return [...new Set(found)].map((m) => m.replace(`${GRADUATED_FILE_NAME}: `, ""));
 }

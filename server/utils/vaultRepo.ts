@@ -37,16 +37,11 @@ import { isGearGlyph } from "../../shared/gearGlyph";
 import { enoughToSearch } from "../../shared/searchText";
 import { rankVaultRows } from "../../shared/vaultSearch";
 
-/** Upper bound on the rows pulled into memory for a search or a browse. A vault is
- *  personal gear, so real ones are dozens of rows; this only bounds the pathological
- *  case, and the JS ranker over a few hundred rows is far cheaper than the round
- *  trip that fetched them. */
-const POOL_LIMIT = 1000;
-
-/** Ceiling on TOTAL rows (live + removed) one vault may hold. Twice POOL_LIMIT:
- *  the reads truncate at 1000 anyway, so rows past that are invisible to their
- *  own owner — the ceiling bounds junk, not use. Capture drops new keys over the
- *  cap rather than erroring; updates to existing rows always land. */
+/** Ceiling on TOTAL rows (live + removed) one vault may hold, and so on what a search
+ *  or a browse pulls into memory: real vaults are dozens of rows, and the JS ranker
+ *  over a couple of thousand is far cheaper than the round trip that fetched them. The
+ *  ceiling bounds junk, not use. Capture drops new keys over the cap rather than
+ *  erroring; updates to existing rows always land. */
 export const VAULT_ITEMS_MAX = 2000;
 
 type Row = typeof vaultItems.$inferSelect;
@@ -582,7 +577,7 @@ async function vaultItemCount(db: Db, vaultId: number): Promise<number> {
   return Number(n);
 }
 
-/** A vault's live rows, most-recently-used first, bounded to POOL_LIMIT — the
+/** A vault's live rows, most-recently-used first, every one of them — the
  *  one read behind both the /vault browse and the autocomplete's candidate pool
  *  (idx_vault_recent serves exactly this shape). */
 function liveRows(db: Db, vaultId: number) {
@@ -592,10 +587,9 @@ function liveRows(db: Db, vaultId: number) {
     .where(liveIn(vaultId))
     // id breaks the tie, so the order is TOTAL — captureVaultItems stamps one
     // `now` onto a whole batch, so a 200-row import leaves 200 rows sharing a
-    // last_used_at, and an untotal order lets two queries truncate at POOL_LIMIT
-    // on different subsets of them.
+    // last_used_at, and an untotal order lets two pages split them differently.
     .orderBy(desc(vaultItems.lastUsedAt), asc(vaultItems.id))
-    .limit(POOL_LIMIT);
+    .limit(VAULT_ITEMS_MAX);
 }
 
 /** "A live row of this vault" — the predicate, written once. The browse, the
@@ -629,13 +623,13 @@ export async function listVaultItems(db: Db, vaultId: number): Promise<VaultEntr
  *
  * Scoped to an ask, not to the vault, and that is the whole design. The editor's
  * question is about the ~40 rows of one open list, so answering it with the
- * vault's entire contents shipped up to POOL_LIMIT rows to a page that renders
+ * vault's entire contents shipped up to a thousand rows to a page that renders
  * none of them — and made the answer an app-lifetime cache, which is where the
  * lifetime bugs came from (see the composable that used to hold it). Ask about a
  * list, get a list back, and the answer dies with the list.
  *
- * It also retires an argument the whole-vault read needed: bounded at
- * POOL_LIMIT, a key OUTSIDE that window hid the save button on a row its owner
+ * It also retires an argument the whole-vault read needed: bounded at a
+ * thousand rows, a key OUTSIDE that window hid the save button on a row its owner
  * could not see, remove or restore on /gear. An ask has no window.
  *
  * `weightMg`, or null when the row's weight is PINNED. Membership alone is not
@@ -1015,10 +1009,8 @@ export async function applyVaultItemOp(
   op: VaultItemOp,
 ): Promise<{ item: VaultEntry } | AddRefusal | null> {
   if (op?.t === "kit") return kitVaultItem(db, vaultId, op);
-  const done =
-    op?.t === "add" ? ((await addVaultItems(db, vaultId, [op]))[0] ?? null)
-    : op?.t === "edit" ? await editVaultItem(db, vaultId, op)
-    : null;
+  if (op?.t === "add") return (await addVaultItems(db, vaultId, [op]))[0] ?? null;
+  const done = op?.t === "edit" ? await editVaultItem(db, vaultId, op) : null;
   // the row as every other read shows it: a kit with its parts and derived weight,
   // a piece with the kits it is in
   if (done && "item" in done && done.item) {
@@ -1133,11 +1125,12 @@ export async function addVaultItems(
       },
     })
     .returning();
-  // no row back for a key = its conflict was with a live row and setWhere declined it
-  const back = new Map(done.map((row) => [row.normKey, row]));
+  // no row back for a key = its conflict was with a live row and setWhere declined it;
+  // each as every read shows it, so a put-away kit brought back answers with its items
+  const back = new Map((await withKits(db, vaultId, done.map(toEntry))).map((e) => [e.normKey, e]));
   for (const r of landing) {
-    const row = back.get(r.cap.normKey);
-    results[r.index] = row ? { item: toEntry(row) } : { refused: "duplicate", normKey: r.cap.normKey };
+    const item = back.get(r.cap.normKey);
+    results[r.index] = item ? { item } : { refused: "duplicate", normKey: r.cap.normKey };
   }
   return results;
 }
@@ -1278,7 +1271,7 @@ export async function setKitParts(
     if (!isSerialId(p?.id) || p.id === kitId) return null;
     const qty = partQty(p.qty);
     if (qty === null) return null;
-    qtyOf.set(p.id, qty);
+    qtyOf.set(p.id, Math.min(VAULT_KIT_QTY_MAX, (qtyOf.get(p.id) ?? 0) + qty));
   }
   if (!qtyOf.size || qtyOf.size > VAULT_KIT_PARTS_MAX) return null;
   const ids = [...qtyOf.keys()];

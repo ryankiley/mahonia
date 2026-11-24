@@ -156,6 +156,16 @@ describe("weightsInQuote — the figures verify_catalog_item holds a quote to", 
     expect(read("2.1 lbs")).toEqual([953]);
   });
 
+  it("reads grams and kilograms spelled out, and no decimal comma's last digits", () => {
+    expect(read("This product weighs 169 grams in size M.")).toEqual([169]);
+    expect(read("Weight | 100 Grams")).toEqual([100]);
+    expect(read("100 gr")).toEqual([100]);
+    expect(read("1.2 kilograms")).toEqual([1200]);
+    expect(read("2 kilos")).toEqual([2000]);
+    expect(read("Range: 5 kilometres")).toEqual([]);
+    expect(quoteBacksWeight("Gewicht: 1,2 kg", 2000)).toBe(false);
+  });
+
   it("reads a figure with no leading digit whole", () => {
     // once read as "60 oz", 1.7 kg, which backed a weight the quote never stated
     expect(read("The Deuce #2 - .60 oz")).toEqual([17]);

@@ -503,7 +503,7 @@ describe("vaultGearAmong — the membership read the editor runs on", () => {
   });
 
   it("has no window to fall outside of, however much gear the vault holds", async () => {
-    // The whole-vault read was bounded at POOL_LIMIT, and a key outside that
+    // The whole-vault read was bounded at a thousand rows, and a key outside that
     // window hid the save button on a row its owner could not see, remove or
     // restore on /gear — a state with no way out. An ask has no window: seed past
     // the browse's bound and the answer is still about the keys asked for.

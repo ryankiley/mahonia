@@ -19,8 +19,8 @@ import {
   isTrustedSource,
   proposeCorrection,
   recentChanges,
-  revertEdit,
 } from "../server/utils/catalog";
+import { undoCatalogEdit } from "../server/utils/catalogVerify";
 
 // A fresh in-memory catalog DB (PGlite, no disk) with the catalog DDL applied.
 async function freshCatalogDb() {
@@ -319,11 +319,11 @@ describe("proposeCorrection — trust-tiered wiki edits", () => {
     expect(
       (await proposeCorrection(db, { catalogItemId: MAX_CATALOG_ID + 1, newWeightMg: 9_000 })).status,
     ).toBe("rejected");
-    expect((await revertEdit(db, MAX_CATALOG_ID + 1)).status).toBe("rejected");
+    expect(await undoCatalogEdit(db, MAX_CATALOG_ID + 1)).toContain("edit_id");
   });
 });
 
-describe("revertEdit — one-click undo of an applied edit", () => {
+describe("undoCatalogEdit — one-click undo of an applied edit", () => {
   it("restores the prior weight and won't double-revert", async () => {
     const db = await freshCatalogDb();
     const row = await seedCatalogRow(db, { name: "Stake" });
@@ -332,11 +332,10 @@ describe("revertEdit — one-click undo of an applied edit", () => {
     expect(changes[0].newWeightMg).toBe(9_000);
     expect(changes[0].itemName).toBe("Stake");
 
-    const out = await revertEdit(db, changes[0].id);
-    expect(out.status).toBe("applied");
+    expect(await undoCatalogEdit(db, changes[0].id)).toMatchObject({ row: { id: row.id } });
     expect(await weightOf(db, row.id)).toBe(12_000);
     // reverting a non-applied edit is rejected
-    expect((await revertEdit(db, changes[0].id)).status).toBe("rejected");
+    expect(await undoCatalogEdit(db, changes[0].id)).toContain("already undone");
   });
 
   it("refuses to revert a stale (non-latest) applied edit", async () => {
@@ -347,7 +346,7 @@ describe("revertEdit — one-click undo of an applied edit", () => {
     const changes = await recentChanges(db, 10); // newest first → [B, A]
     const editA = changes[1].id;
     // reverting the older edit A would silently drop B → must be rejected
-    expect((await revertEdit(db, editA)).status).toBe("rejected");
+    expect(await undoCatalogEdit(db, editA)).toContain("newer applied edit");
     expect(await weightOf(db, row.id)).toBe(300_000); // unchanged
   });
 });
@@ -363,16 +362,5 @@ describe("activeCatalogRows — the import matcher's pool", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ brand: "MSR", name: "PocketRocket 2 Stove", weightMg: 73_000, variant: null, kcal: null });
     expect(typeof rows[0]!.weightMg).toBe("number");
-  });
-});
-
-describe("recentChanges — the limit reaches SQL whole", () => {
-  it("truncates a fractional limit and defaults a NaN one, rather than failing the query", async () => {
-    const db = await freshCatalogDb();
-    const row = await seedCatalogRow(db, { name: "Stake", weightMg: 100_000 });
-    for (const newWeightMg of [101_000, 102_000, 103_000]) await proposeCorrection(db, { catalogItemId: row.id, newWeightMg });
-
-    await expect(recentChanges(db, 2.5)).resolves.toHaveLength(2);
-    await expect(recentChanges(db, Number.NaN)).resolves.toHaveLength(3);
   });
 });

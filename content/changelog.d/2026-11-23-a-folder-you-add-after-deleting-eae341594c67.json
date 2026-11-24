@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-23",
+  "fixed": [
+    "A folder you add after deleting others now goes at the end of the list, not between the folders that are left.",
+    "An AI assistant that adds back rows you took off a list now adds them, rather than saying it already had."
+  ]
+}

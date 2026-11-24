@@ -281,19 +281,3 @@ export async function resolveBearer(db: Db, raw: string): Promise<ConnectorIdent
   }
   return { userId: row.userId, scope: row.scope };
 }
-
-/**
- * The account behind an app's access token that has passed its hour and is otherwise
- * good (issued, not revoked, its account standing), or null: the one dead bearer whose
- * client holds a refresh token. An admin tool answers only its admin's lapsed token with
- * a 401 (mcp.post.ts), so a made-up or someone else's bearer learns nothing about it.
- */
-export async function lapsedBearerOwner(db: Db, raw: string): Promise<number | null> {
-  const [row] = await db
-    .select({ userId: accessTokens.userId, expiresAt: accessTokens.expiresAt })
-    .from(accessTokens)
-    .innerJoin(users, eq(users.id, accessTokens.userId))
-    .where(and(eq(accessTokens.tokenHash, sha256Hex(raw)), notRetired(accessTokens.unproven)))
-    .limit(1);
-  return row?.expiresAt && new Date(row.expiresAt).getTime() <= Date.now() ? row.userId : null;
-}

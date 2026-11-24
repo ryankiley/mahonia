@@ -49,7 +49,9 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
     // next distinct palette colour (see colorKeyForName)
     const colorKey = colorKeyForName(name, usedColorKeys(folders));
     const id = uid();
-    dispatch({ t: "addFolder", folder: { id, name, colorKey, defaultClassification: "base", sortOrder: folders.length } });
+    // after the last one: a removed folder leaves a gap the count would land in
+    const sortOrder = folders.reduce((n, f) => Math.max(n, f.sortOrder + 1), 0);
+    dispatch({ t: "addFolder", folder: { id, name, colorKey, defaultClassification: "base", sortOrder } });
     return id;
   }
   const updateFolder = (id: string, patch: Partial<Folder>) =>

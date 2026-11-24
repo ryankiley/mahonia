@@ -314,11 +314,12 @@ describe("the gear tools", () => {
     const unlinked = (await tool("edit_my_gear", { update: [{ id: duplexId, catalog_id: null }] }, aliceWrite)).data.updated as { item: Record<string, unknown> }[];
     expect(unlinked[0]!.item).toMatchObject({ name: "Duplex", weight_g: 538 });
     expect(unlinked[0]!.item).not.toHaveProperty("catalog_id");
-    // an id that names no catalog row refuses the call before anything is written
+    // an id that names no live catalog row refuses its own piece, as a piece answers for
+    // itself; a value that can't be an id refuses the call before anything is written
     const before = (await tool("get_my_gear", {}, aliceRead)).data.total;
-    const refused = await tool("edit_my_gear", { add: [{ name: "x", catalog_id: 404 }], remove: [duplexId] }, aliceWrite);
-    expect(refused.refused).toBe(true);
-    expect(refused.text).toContain("isn't in the catalog");
+    const dead = await tool("edit_my_gear", { add: [{ name: "x", catalog_id: 404 }] }, aliceWrite);
+    expect(dead.refused).toBe(false);
+    expect((dead.data.results as unknown[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("isn't in the catalog") });
     expect((await tool("edit_my_gear", { update: [{ id: duplexId, catalog_id: 1.5 }] }, aliceWrite)).refused).toBe(true);
     expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(before);
   });
@@ -593,10 +594,10 @@ describe("the gear tools", () => {
     const over = await tool("edit_my_gear", { update: [{ id: kitId, kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 9 }], own_weight_g: 12 } }] }, aliceWrite);
     expect((over.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ weight_g: 159, kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 2 }] } });
 
-    // items REPLACE what it held
+    // items REPLACE what it held; its own weight, left out, stays what it was
     const changed = await tool("edit_my_gear", { update: [{ id: kitId, kit: { items: [{ id: potId }, { id: lighterId, count: 1 }] } }] }, aliceWrite);
     const [up] = changed.data.updated as { status: string; item: Record<string, unknown> }[];
-    expect(up).toMatchObject({ status: "updated", item: { weight_g: 121, kit: { own_weight_g: 0, items: [{ id: potId }, { id: lighterId, count: 1 }] } } });
+    expect(up).toMatchObject({ status: "updated", item: { weight_g: 133, kit: { own_weight_g: 12, items: [{ id: potId }, { id: lighterId, count: 1 }] } } });
     const spork = ((await tool("get_my_gear", { query: "spork" }, aliceRead)).data.gear as { id: number; in_kits: number[] }[]).find((g) => g.id === sporkId);
     expect(spork).not.toHaveProperty("in_kits");
 
@@ -617,7 +618,7 @@ describe("the gear tools", () => {
     // null turns it back into a piece weighing what the kit did; its items stay pieces
     const undone = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
     const piece = (undone.data.updated as { status: string; item: Record<string, unknown> }[])[0];
-    expect(piece).toMatchObject({ status: "updated", item: { weight_g: 121 } });
+    expect(piece).toMatchObject({ status: "updated", item: { weight_g: 133 } });
     expect(piece!.item).not.toHaveProperty("kit");
     const notAKit = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
     expect((notAKit.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("isn't a kit") });
@@ -1058,5 +1059,35 @@ describe("create_list retried by the same account", () => {
       expect(b.data.share_code).not.toBe(a.data.share_code);
       expect(b.data.edit_link).toContain("/e/");
     }
+  });
+});
+
+// What the third review found an assistant would be told wrong, or refused for nothing.
+describe("My Gear answers that say what happened", () => {
+  type Result = { status: string; item?: Record<string, unknown>; reason?: string };
+  // a token of its own: the suites above revoke the shared ones on their way
+  let write = "";
+  beforeAll(async () => {
+    write = (await mintAccessToken(db, alice, { label: "Third review", scope: "write", unproven: false }))!.token;
+  });
+  const add = async (...pieces: Record<string, unknown>[]) => (await tool("edit_my_gear", { add: pieces }, write)).data.results as Result[];
+
+  it("sums a kit item named twice, answers a re-added kit with its items, says why a name is refused, and takes the catalog's weight for 0 g", async () => {
+    const [lighter, pot] = await add({ name: "R3 lighter", weight_g: 10, owned: 3 }, { name: "R3 pot", weight_g: 50 });
+    const [lighterId, potId] = [lighter!.item!.id, pot!.item!.id];
+    const [kit] = await add({ name: "R3 kit", kit: { items: [{ id: lighterId, count: 2 }, { id: lighterId }, { id: potId }] } });
+    expect(kit!.item).toMatchObject({ weight_g: 80, kit: { items: [{ id: lighterId, count: 3 }, { id: potId, count: 1 }] } });
+    // put away and added again by name: the kit comes back with what it holds
+    expect((await tool("edit_my_gear", { remove: [kit!.item!.id] }, write)).refused).toBe(false);
+    const [back] = await add({ name: "R3 kit", weight_g: 900 });
+    expect(back).toMatchObject({ status: "added", item: { weight_g: 80, kit: { items: [{ id: lighterId, count: 3 }, { id: potId }] } } });
+    // a name that tidies to nothing is invalid, and says so
+    const [blank] = await add({ name: "​" });
+    expect(blank).toMatchObject({ status: "invalid", reason: expect.stringContaining("needs a name") });
+    // 0 g beside a catalog_id is "not weighed": the catalog's figure fills it
+    const [bar] = await add({ name: "R3 bar", catalog_id: 2, weight_g: 0 });
+    expect(bar!.item).toMatchObject({ weight_g: 68, catalog_id: 2 });
+    // a page offset sent as text is refused, not read as the first page again
+    expect((await tool("get_my_gear", { offset: "300" }, write)).refused).toBe(true);
   });
 });

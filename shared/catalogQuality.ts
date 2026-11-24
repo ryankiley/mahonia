@@ -26,13 +26,19 @@ export const RANGE_G: Record<string, [number, number]> = {
  *  before a number stays a weight: "539 g / 19 oz" is one weight in two units. */
 const NOT_A_RATE = String.raw`(?!\s*\/\s*[a-z²]|\s*per\s+(?:sq|square|m\b|metre|meter|yd|yard|ft|foot|hour|hr|day|litre|liter|l\b))`;
 
-/** All gram-equivalent figures mentioned in a quote (kg converted to g).
- *  Handles thousands separators ("1,790 g" is 1790, not 790). */
-export function gramsInQuote(q: string): number[] {
+/** All gram-equivalent figures mentioned in a quote (kg converted to g). Handles thousands
+ *  separators ("1,790 g" is 1790, not 790), and never reads a decimal comma's last digits
+ *  ("1,2 kg" isn't 2 kg). `spelled` reads "169 grams" and "1.2 kilograms" too, as
+ *  verify_catalog_item does; the hand research's spelled-out quotes are lists and tables
+ *  ("368/538 Grams", "Kilograms 1.29 1.33") that a single-figure read would flag. */
+export function gramsInQuote(q: string, spelled = false): number[] {
   const out: number[] = [];
   const num = (s: string) => parseFloat(s.replace(/,/g, ""));
-  for (const m of q.matchAll(new RegExp(String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*kg${NOT_A_RATE}`, "gi"))) out.push(num(m[1]!) * 1000);
-  for (const m of q.matchAll(new RegExp(String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*g(?![a-z])${NOT_A_RATE}`, "gi"))) out.push(num(m[1]!));
+  const figure = String.raw`(?<![\d.,])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*`;
+  const kg = spelled ? String.raw`(?:kg|kilo(?:gram)?s?(?![a-z]))` : "kg";
+  const g = spelled ? "g(?:rams?|r)?" : "g";
+  for (const m of q.matchAll(new RegExp(`${figure}${kg}${NOT_A_RATE}`, "gi"))) out.push(num(m[1]!) * 1000);
+  for (const m of q.matchAll(new RegExp(`${figure}${g}(?![a-z])${NOT_A_RATE}`, "gi"))) out.push(num(m[1]!));
   return out;
 }
 
@@ -47,7 +53,7 @@ const NUM = String.raw`(?<![\d.])(\d*\.\d+|\d+)`;
  *  their own. What verify_catalog_item holds a quote to, since a US maker's page often
  *  gives ounces alone. */
 export function weightsInQuote(q: string): number[] {
-  const out = gramsInQuote(q);
+  const out = gramsInQuote(q, true);
   const rest = q.replace(new RegExp(`${NUM}\\s*(?:lbs?|pounds?)\\.?,?\\s*${NUM}\\s*(?:oz|ounces?)\\b`, "gi"), (_, lb: string, oz: string) => {
     out.push(parseFloat(lb) * LB_G + parseFloat(oz) * OZ_G);
     return " ";
