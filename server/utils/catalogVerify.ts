@@ -13,12 +13,8 @@
 //     (catalogHouseRules), so a row written here is one the build accepts;
 //   • the number: a weight outside its kind of gear's range, or far from what an existing
 //     row weighs (the wrong row picked, a slip of the decimal), waits for the person to
-//     confirm it (weight_confirmed);
-//   • the source: a scale weight put over a maker's published one replaces the maker's
-//     figure and its quote for everyone, so it waits for the person too, and a scale
-//     weight of gear sold by size names the size that was weighed. Every one of these
-//     the call raises is named in ONE refusal, so the person's confirmation covers what
-//     they were told and nothing they weren't;
+//     confirm it (weight_confirmed). Both are named in ONE refusal, so the person's
+//     confirmation covers what they were told and nothing they weren't;
 //   • duplicates: a new product may not repeat a live row (every near match is named, and
 //     distinct_from lists the ones the person checked are other products), and the same
 //     call sent twice (a retry) writes nothing the second time;
@@ -26,6 +22,9 @@
 // Every verification records what it replaced in catalog_edits.undo, so revert_catalog_edit
 // puts the row back as it was (its name too, or retires a product the verification added),
 // and the corrections path leaves a verified-in-app row's weight alone (proposeCorrection).
+// So what the person should hear, but what one call undoes, is written and named in the
+// answer's warnings rather than refused: a scale weight that replaced the maker's published
+// one, and a scale weight of gear sold by size that names no size.
 
 import { and, desc, eq, getTableColumns, gt, isNotNull, sql, type SQL } from "drizzle-orm";
 import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
@@ -69,6 +68,10 @@ export interface Verified {
   editId: number;
   /** the row already stood exactly as asked (the same call sent twice): nothing written */
   unchanged: boolean;
+  /** what the person should hear about what was written, each undone by
+   *  revert_catalog_edit with editId: a scale weight that replaced the maker's, or one
+   *  that names no size on gear sold by size */
+  warnings: string[];
 }
 
 /** A one-line text argument, tidied and capped; "" when absent or not a string. */
@@ -253,6 +256,7 @@ export async function verifyCatalogItem(
   const kind = typedKind ?? current?.categoryHint ?? "other";
   const [lo, hi] = RANGE_G[kind] ?? RANGE_G.other!;
   const concerns: string[] = [];
+  const warnings: string[] = [];
   if ((grams < lo || grams > hi) && !rangeConfirmed) {
     concerns.push(`${grams} g is outside ${lo}–${hi} g, the usual range for ${kind}: check the number (grams, for one, a pair as the pair) and the category.`);
   }
@@ -263,13 +267,13 @@ export async function verifyCatalogItem(
   // A scale weight over a maker's published one replaces the maker's figure and its quote
   // for everyone who uses the catalog (the undo keeps both), a row brought back included.
   // Often the person meant their own piece, which takes its own weight without touching
-  // the shared row.
+  // the shared row, so the answer says so, and how to put the maker's back.
   if (source === "measured" && current?.weightSource === "manufacturer") {
     let from = "";
     try {
       from = current.sourceUrl ? `, from ${new URL(current.sourceUrl).hostname.replace(/^www\./, "")}` : "";
     } catch {}
-    concerns.push(`Row ${current.id}, ${itemDisplayName(current.brand, current.name, current.variant)}, carries the maker's published weight (${nowG} g${from}), and a scale weight replaces it, and its quote, for everyone who uses the catalog. To record the person's own weight and keep the maker's, give their piece weight_g with edit_my_gear; to add the size they weighed as a row of its own, send brand, name and variant without catalog_id.`);
+    warnings.push(`Row ${current.id}, ${itemDisplayName(current.brand, current.name, current.variant)}, carried the maker's published weight (${nowG} g${from}), and this scale weight replaced it, and its quote, for everyone who uses the catalog. If the person meant only their own piece, revert_catalog_edit with edit_id puts the maker's back, and edit_my_gear's weight_g records theirs.`);
   }
 
   // the gear type given, or the row's own: either joins the suggestions once verified
@@ -299,7 +303,7 @@ export async function verifyCatalogItem(
       .where(and(eq(catalogEdits.catalogItemId, current.id), eq(catalogEdits.status, "applied")))
       .orderBy(desc(catalogEdits.id))
       .limit(1);
-    if (last) return { row: current, created: false, revived: false, editId: last.id, unchanged: true };
+    if (last) return { row: current, created: false, revived: false, editId: last.id, unchanged: true, warnings: [] };
   }
 
   // ---- the house style: what the build would refuse in this row ----
@@ -311,10 +315,10 @@ export async function verifyCatalogItem(
   }
 
   // One weighing is one size: on gear sold by size, a scale weight with no size in the
-  // variant would read as every size's. After the house style, so a name put right comes
-  // first. A size the reader can't place ("Men's 32x30") counts as one.
+  // variant reads as every size's, unless the product comes in one size. A size the reader
+  // can't place ("Men's 32x30") counts as one.
   if (source === "measured" && soldByOf(label).includes("size") && !namesSize(identity.variant)) {
-    concerns.push(`A scale weight is the one size that was weighed, and ${label} is sold by size: name the size in variant ("Men's Medium", "Men's US 9"), unless it is sold in one size only.`);
+    warnings.push(`${label} is sold by size, and this scale weight names none, so it now reads as every size's. Unless it is sold in one size only, send verify_catalog_item again with the row's catalog_id and the size that was weighed in variant ("Men's Medium", "Men's US 9").`);
   }
   if (concerns.length && !confirmed) {
     if (concerns.length === 1) return `${concerns[0]} If the person confirms it, send weight_confirmed: true.`;
@@ -358,7 +362,7 @@ export async function verifyCatalogItem(
         .values(editRow(sql`(select ${sql.identifier("id")} from ${sql.identifier("added")})`, weightMg, weightMg, sourceUrl, notes || "Added and verified by an admin", { status: "removed" }))
         .returning({ id: catalogEdits.id, catalogItemId: catalogEdits.catalogItemId });
       const [row] = await db.select().from(catalogItems).where(eq(catalogItems.id, edit!.catalogItemId)).limit(1);
-      return { row: row!, created: true, revived: false, editId: edit!.id, unchanged: false };
+      return { row: row!, created: true, revived: false, editId: edit!.id, unchanged: false, warnings };
     } catch (e) {
       // the identity index: the same product added a moment ago
       if (!isUniqueViolation(e)) throw e;
@@ -405,7 +409,7 @@ export async function verifyCatalogItem(
       // the edit's id, read from the CTE the same statement wrote it in
       .returning({ ...getTableColumns(catalogItems), editId: sql<number>`(select ${sql.identifier("id")} from ${sql.identifier("edit")})` });
     const { editId, ...updated } = written!;
-    return { row: updated, created: false, revived: revive, editId: Number(editId), unchanged: false };
+    return { row: updated, created: false, revived: revive, editId: Number(editId), unchanged: false, warnings };
   } catch (e) {
     // a rename onto the identity of another row
     if (!isUniqueViolation(e)) throw e;

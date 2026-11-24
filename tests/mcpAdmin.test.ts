@@ -58,7 +58,7 @@ async function verify(args: Record<string, unknown>) {
   const result = reply.result!;
   // the declared outputSchema, compiled closed, as every MCP suite holds its calls to
   expectResultConforms(TOOL, result);
-  return { refused: result.isError ?? false, text: result.content[0]!.text, data: result.structuredContent as { created: boolean; row: Record<string, unknown>; edit_id: number } };
+  return { refused: result.isError ?? false, text: result.content[0]!.text, data: result.structuredContent as { created: boolean; row: Record<string, unknown>; edit_id: number; warnings?: string[] } };
 }
 
 let db: TestDb;
@@ -412,33 +412,41 @@ describe("the rules a chat doesn't have to be told", () => {
     expect(await catalogRow(db, row.id)).toMatchObject({ name: "Arc'teryx Cormac Hoody", variant: null, verified: false });
   });
 
-  it("holds a scale weight over a maker's weight for the person, and keeps the link when they confirm", async () => {
+  it("writes a scale weight over a maker's weight, warns that it replaced it, and the warning's undo puts it back", async () => {
     const row = await seedCatalogRow(db, { brand: "REI Co-op", name: "Packmod Bungees", variant: "2-pack", commonName: "Bungee cord", categoryHint: "other", weightMg: 85_050, weightSource: "manufacturer", sourceUrl: "https://www.rei.com/product/201969", sourceQuote: "Weight: 3 ounces", verified: true, verifiedBy: admin });
-    const held = await verify({ catalog_id: row.id, weight_g: 60, weight_source: "measured" });
-    expect(held.refused).toBe(true);
-    expect(held.text).toContain("maker's published weight (85.05 g, from rei.com)");
-    expect(held.text).toContain("weight_g with edit_my_gear");
-    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 85_050, weightSource: "manufacturer", sourceQuote: "Weight: 3 ounces" });
-    const done = await verify({ catalog_id: row.id, weight_g: 60, weight_source: "measured", weight_confirmed: true });
+    const done = await verify({ catalog_id: row.id, weight_g: 60, weight_source: "measured" });
     expect(done.refused, done.text).toBe(false);
+    expect(done.data.warnings).toHaveLength(1);
+    expect(done.data.warnings![0]).toContain("maker's published weight (85.05 g, from rei.com)");
+    expect(done.data.warnings![0]).toContain("revert_catalog_edit");
     // the maker's quote goes (the undo keeps it); the product page stays as the row's link
     expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 60_000, weightSource: "measured", sourceQuote: "Weighed on an admin's scale: 60 g", sourceUrl: "https://www.rei.com/product/201969" });
-    // over a scale weight, another scale weight needs no confirming
-    expect((await verify({ catalog_id: row.id, weight_g: 61, weight_source: "measured" })).refused).toBe(false);
+    expect((await adminCall("revert_catalog_edit", { edit_id: done.data.edit_id })).refused).toBe(false);
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 85_050, weightSource: "manufacturer", sourceQuote: "Weight: 3 ounces" });
+    // scale weights again: over the first, the second has nothing to warn of
+    expect((await verify({ catalog_id: row.id, weight_g: 60, weight_source: "measured" })).refused).toBe(false);
+    const again = await verify({ catalog_id: row.id, weight_g: 61, weight_source: "measured" });
+    expect(again.refused, again.text).toBe(false);
+    expect(again.data.warnings).toBeUndefined();
   });
 
-  it("asks a scale weight of gear sold by size to name the size weighed", async () => {
+  it("warns that a scale weight of gear sold by size names no size, and writes it", async () => {
     const base = { brand: "Caudata", name: "Salamander Shell", gear_type: "Rain jacket", weight_g: 210, weight_source: "measured" };
     const unsized = await verify(base);
-    expect(unsized.refused).toBe(true);
-    expect(unsized.text).toContain("sold by size");
-    expect((await verify({ ...base, variant: "Men's Medium" })).refused).toBe(false);
-    // sold in one size: the person says so
-    expect((await verify({ ...base, name: "Salamander Wind Shell", weight_confirmed: true })).refused).toBe(false);
+    expect(unsized.refused, unsized.text).toBe(false);
+    expect(unsized.data.warnings).toHaveLength(1);
+    expect(unsized.data.warnings![0]).toContain("sold by size");
+    // the warning's way out: the same row, the size named
+    const sized = await verify({ ...base, catalog_id: (unsized.data.row as { id: number }).id, variant: "Men's Medium" });
+    expect(sized.refused, sized.text).toBe(false);
+    expect(sized.data.warnings).toBeUndefined();
     // a maker's weight that names no size covers every size, as before
-    expect((await verify({ ...base, name: "Newt Shell", weight_source: "manufacturer", source_url: "https://caudata.example/newt", quote: "Weight: 210 g" })).refused).toBe(false);
+    const maker = await verify({ ...base, name: "Newt Shell", weight_source: "manufacturer", source_url: "https://caudata.example/newt", quote: "Weight: 210 g" });
+    expect(maker.data.warnings).toBeUndefined();
     // gear not sold by size needs none
-    expect((await verify({ brand: "Caudata", name: "Tadpole Pouch", gear_type: "Pouch", weight_g: 30, weight_source: "measured" })).refused).toBe(false);
+    const pouch = await verify({ brand: "Caudata", name: "Tadpole Pouch", gear_type: "Pouch", weight_g: 30, weight_source: "measured" });
+    expect(pouch.refused, pouch.text).toBe(false);
+    expect(pouch.data.warnings).toBeUndefined();
   });
 
   it("lets a near match past only by its own id, once the person says it is another product", async () => {
@@ -458,36 +466,36 @@ describe("the rules a chat doesn't have to be told", () => {
     expect((await verify({ ...args, distinct_from: gore.id })).text).not.toContain("distinct_from:");
   });
 
-  it("names every concern a call raises in one refusal, so one confirmation covers only what was said", async () => {
+  it("holds only the weight for the person, and names the rest in the answer's warnings", async () => {
     const row = await seedCatalogRow(db, { brand: "Acme", name: "Gale Shell", commonName: "Rain jacket", categoryHint: "clothing", weightMg: 100_000, weightSource: "manufacturer", sourceUrl: "https://acme.example/gale", sourceQuote: "Weight: 100 g", verified: true, verifiedBy: admin });
     const held = await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured" });
     expect(held.refused).toBe(true);
-    expect(held.text).toContain("things wait for the person");
     expect(held.text).toContain("more than 30%");
-    expect(held.text).toContain("maker's published weight");
-    expect(held.text).toContain("sold by size");
-    expect((await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured", weight_confirmed: true })).refused).toBe(false);
+    expect(held.text).not.toMatch(/maker's published weight|sold by size/);
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 100_000 });
+    const done = await verify({ catalog_id: row.id, weight_g: 50, weight_source: "measured", weight_confirmed: true });
+    expect(done.refused, done.text).toBe(false);
+    expect(done.data.warnings).toEqual([expect.stringContaining("maker's published weight"), expect.stringContaining("sold by size")]);
   });
 
-  it("holds a scale weight over a maker's on a row it brings back, too", async () => {
+  it("warns of a scale weight over a maker's on a row it brings back, too", async () => {
     const row = await seedCatalogRow(db, { brand: "Acme", name: "Revived Stake", commonName: "Tent stakes", categoryHint: "shelter", weightMg: 90_000, weightSource: "manufacturer", sourceUrl: "https://acme.example/stake", sourceQuote: "Weight: 90 g", status: "removed" });
-    const held = await verify({ catalog_id: row.id, weight_g: 80, weight_source: "measured" });
-    expect(held.refused).toBe(true);
-    expect(held.text).toContain("maker's published weight");
+    // 80 g is under the range for shelter, which still waits for the person; the maker's weight doesn't
     const done = await verify({ catalog_id: row.id, weight_g: 80, weight_source: "measured", weight_confirmed: true });
     expect(done.refused, done.text).toBe(false);
-    expect(done.data).toMatchObject({ revived: true });
+    expect(done.data).toMatchObject({ revived: true, warnings: [expect.stringContaining("maker's published weight")] });
   });
 
-  it("takes any size a person names in a scale weight's variant, and asks only when there is none", async () => {
+  it("takes any size a person names in a scale weight's variant, and warns only when there is none", async () => {
     const base = { brand: "Caudata", gear_type: "Rain jacket", weight_g: 210, weight_source: "measured" };
     for (const [name, variant] of [["Axolotl Shell", "Men's Medium Tall"], ["Eft Shell", "Kids Medium"], ["Siren Shell", "Small/Medium"], ["Hellbender Shell", "Men's XXX-Large"]]) {
       const done = await verify({ ...base, name, variant });
       expect(done.refused, `${variant}: ${done.text}`).toBe(false);
+      expect(done.data.warnings, variant).toBeUndefined();
     }
     const cut = await verify({ ...base, name: "Olm Shell", variant: "Men's" });
-    expect(cut.refused).toBe(true);
-    expect(cut.text).toContain("sold by size");
+    expect(cut.refused, cut.text).toBe(false);
+    expect(cut.data.warnings).toEqual([expect.stringContaining("sold by size")]);
   });
 
   it("names every near match at once, and lets past only the ones the person checked", async () => {
