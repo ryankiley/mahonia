@@ -682,15 +682,35 @@ export async function vaultItemById(db: Db, vaultId: number, id: number): Promis
   return rows[0] ? ((await withKits(db, vaultId, [toEntry(rows[0])]))[0] ?? null) : null;
 }
 
-/** What a change needs to know of a row before it is made: whether it is a kit, and
- *  the currency its price is in (none without a price), both as toEntry reads them. */
+/** What a change needs to know of a row before it is made: whether it is a kit, the
+ *  currency its price is in (none without a price), and what a catalog link reads (the
+ *  piece's spelling, gear type, weight, calories and class, and the row it is linked to
+ *  now), all as toEntry reads them. */
 export interface VaultItemFacts {
   kind: "piece" | "kit";
   currency?: string;
+  brand?: string;
+  name: string;
+  variant?: string;
+  commonName?: string;
+  /** 0 when never weighed; a kit's is its own, not its items' */
+  weightMg: number;
+  kcal?: number;
+  classification?: VaultEntry["classification"];
+  catalogItemId?: number;
 }
-export const vaultItemFactsOf = (item: Pick<VaultEntry, "kind" | "currency">): VaultItemFacts => ({
+type FactFields = "kind" | "currency" | "brand" | "name" | "variant" | "commonName" | "weightMg" | "kcal" | "classification" | "catalogItemId";
+export const vaultItemFactsOf = (item: Pick<VaultEntry, FactFields | "ownWeightMg">): VaultItemFacts => ({
   kind: item.kind === "kit" ? "kit" : "piece",
   currency: item.currency,
+  brand: item.brand,
+  name: item.name,
+  variant: item.variant,
+  commonName: item.commonName,
+  weightMg: item.kind === "kit" ? (item.ownWeightMg ?? 0) : item.weightMg,
+  kcal: item.kcal,
+  classification: item.classification,
+  catalogItemId: item.catalogItemId,
 });
 
 /**
@@ -698,21 +718,18 @@ export const vaultItemFactsOf = (item: Pick<VaultEntry, "kind" | "currency">): V
  * vaultItemById reads them, and an id that isn't this vault's simply absent. For a
  * call that changes many pieces (the connector's edit_my_gear takes fifty), which
  * would otherwise read each row, and the whole vault's kit links beside it, to learn
- * two columns.
+ * a few columns. The row is read whole and put through toEntry, so the text and the
+ * weight read exactly as every other read of the piece has them.
  */
 export async function vaultItemFacts(db: Db, vaultId: number, ids: readonly number[]): Promise<Map<number, VaultItemFacts>> {
   const wanted = [...new Set(ids.filter(isSerialId))];
   if (!wanted.length) return new Map();
   const rows = await db
-    .select({ id: vaultItems.id, kind: vaultItems.kind, priceCents: vaultItems.priceCents, currency: vaultItems.currency })
+    .select()
     .from(vaultItems)
     .where(and(eq(vaultItems.vaultId, vaultId), inArray(vaultItems.id, wanted)));
-  return new Map(
-    rows.map((r): [number, VaultItemFacts] => [
-      r.id,
-      { kind: r.kind === "kit" ? "kit" : "piece", currency: r.priceCents != null ? (r.currency ?? undefined) : undefined },
-    ]),
-  );
+  // no withKits: a kit's own weight is what its row holds, and the facts don't need its items
+  return new Map(rows.map((r): [number, VaultItemFacts] => [r.id, vaultItemFactsOf(toEntry(r))]));
 }
 
 /**

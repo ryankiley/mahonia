@@ -302,14 +302,15 @@ export async function productVariants(
  * Active catalog rows by id, in the search result's shape: what a row LINKED to the
  * catalog takes from it (the cited weight, the brand, the variant, the gear type),
  * the way a pick in the editor does. Ids that name nothing are simply absent.
+ * `anyStatus` reads retired rows too: a piece linked to one still holds what it gave.
  */
-export async function catalogRowsById(db: Db, ids: readonly number[]): Promise<Map<number, CatalogSearchResult>> {
+export async function catalogRowsById(db: Db, ids: readonly number[], anyStatus = false): Promise<Map<number, CatalogSearchResult>> {
   const wanted = [...new Set(ids.filter(isCatalogId))];
   if (!wanted.length) return new Map();
   const rows = await db
     .select()
     .from(catalogItems)
-    .where(and(inArray(catalogItems.id, wanted), eq(catalogItems.status, "active")));
+    .where(anyStatus ? inArray(catalogItems.id, wanted) : and(inArray(catalogItems.id, wanted), eq(catalogItems.status, "active")));
   return new Map(rows.map((r) => [r.id, toCatalogResult(r)]));
 }
 

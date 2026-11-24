@@ -323,9 +323,27 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   }
 
   // --- ERROR: colour-as-attribute in variant ------------------------------
+  // The word is named, not the whole variant: "Trail Team Edition, Stone" quoted whole
+  // read as if every part of it were refused, when only "Stone" was.
+  // Every colour word, so "Black/Red" isn't refused for "Black" and then again for "Red".
+  const COLOUR_WORDS = new RegExp(COLOUR_ATTR.source, "gi");
   for (const r of rows) {
-    if (r.variant && COLOUR_ATTR.test(r.variant)) {
-      err("colour-variant", `${gearLabel(r)}: variant contains a colour ("${r.variant}") — colour rarely affects weight`);
+    const colours = [...new Set(r.variant?.match(COLOUR_WORDS) ?? [])];
+    if (colours.length) {
+      const named = colours.map((c) => `"${c}"`).join(", ");
+      err("colour-variant", `${gearLabel(r)}: ${named} in variant "${r.variant}" ${colours.length > 1 ? "are colours" : "is a colour"} — colour rarely affects weight, so drop ${colours.length > 1 ? "them" : "it"}`);
+    }
+  }
+
+  // --- ERROR: an edition in variant ------------------------------------------
+  // An edition, collaboration release or colourway special is not a size or a config.
+  // One that weighs what the base product weighs IS the base product (no variant); one
+  // sold as its own build, with its own weight, is a product of its own and names the
+  // edition in `name` ("Kindle Paperwhite Signature Edition"), as every research row
+  // that has one already does.
+  for (const r of rows) {
+    if (/\beditions?\b/i.test(r.variant ?? "")) {
+      err("variant-edition", `${gearLabel(r)}: "${r.variant}" — an edition isn't a size; one that weighs the same is the base product (no variant), one sold as its own build names the edition in the name`);
     }
   }
 

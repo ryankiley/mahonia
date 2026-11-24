@@ -122,6 +122,20 @@ describe("catalog conventions are errors, not warnings", () => {
     expect(codes([row({ name: "Distance Carbon Trekking Poles", variant: "per pair", categoryHint: "other", weightMg: 300_000, commonName: "Trekking poles" })], "error")).not.toContain("variant-filler");
   });
 
+  it("colour-variant names the colour word, not the whole variant; variant-edition keeps an edition out of the variant", () => {
+    const cap = (variant: string) => row({ brand: "Norda", name: "Luster Cap", variant, categoryHint: "clothing", weightMg: 36_000, commonName: "Hat" });
+    const colour = runCatalogChecks([cap("Trail Team Edition, Stone")]).filter((f) => f.code === "colour-variant");
+    expect(colour).toHaveLength(1);
+    // the chat read the whole variant quoted back as all of it refused
+    expect(colour[0]!.message).toContain('"Stone" in variant');
+    // every colour at once, so a two-colour variant isn't refused twice over
+    expect(runCatalogChecks([cap("Black/Red, Large")]).find((f) => f.code === "colour-variant")!.message).toContain('"Black", "Red" in variant');
+    expect(codes([cap("Trail Team Edition")], "error")).toEqual(["variant-edition"]);
+    expect(codes([cap("Special Editions")], "error")).toContain("variant-edition");
+    // an edition sold as its own build is a product, named in the name, as the research has them
+    expect(codes([row({ brand: "Amazon", name: "Kindle Paperwhite Signature Edition", variant: "2024", categoryHint: "electronics", weightMg: 214_000, commonName: "E-reader" })], "error")).not.toContain("variant-edition");
+  });
+
   it("footwear-size and per-pair-label", () => {
     expect(codes([row({ name: "Lone Peak 9", variant: "Men's 9", categoryHint: "clothing", weightMg: 600_000, commonName: "Trail runners" })], "error")).toContain("footwear-size");
     expect(codes([row({ name: "Merino Sock", variant: "M, per pair", categoryHint: "clothing", weightMg: 60_000, commonName: "Socks" })], "error")).toContain("per-pair-label");
