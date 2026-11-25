@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-25",
+  "fixed": [
+    "A page that is one message, like the 404, sits midway between the top bar and the footer instead of riding high."
+  ]
+}

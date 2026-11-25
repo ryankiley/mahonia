@@ -109,6 +109,16 @@
   display: grid;
   place-items: center;
   text-align: center;
+  /* EQUAL AIR ABOVE AND BELOW. .page pads --space-5 over its content and --space-9
+     under it, which is right for a page that runs down to the footer and wrong for one
+     centred in the window: the message sat 36px high on the padding alone. */
+  padding-block: var(--space-5);
+}
+/* ...and the footer keeps its rule but gives up the --space-7 it stands off the content
+   by, which was another 24px of lift. With both gone the message sits midway between
+   the top bar's rule and the footer's, which is what the eye measures it against. */
+.shell:has(.page--alone) .foot {
+  margin-top: 0;
 }
 .page--alone > .prose {
   align-items: center;
