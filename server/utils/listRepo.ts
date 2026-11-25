@@ -769,9 +769,10 @@ export async function getTextByShareCode(code: string): Promise<ListSnapshot | n
  *
  * rowToSnapshot omits the route's geometry and its waypoints, so every read path starts
  * without them and has to ask. That is the wrong way round from how it reads — but it is
- * the only shape that fails CLOSED: /s (getByShareCode) builds on rowToSnapshot, and any
- * read path added later will too. Opt-in
- * means forgetting leaks nothing; opt-out means forgetting publishes somebody's route.
+ * the only shape that fails CLOSED: every share-code read (the /s page, its card, its
+ * Markdown, the connector's get_list) builds on rowToSnapshot, and any read path added
+ * later will too. Opt-in means forgetting leaks nothing; opt-out means forgetting
+ * publishes somebody's route.
  *
  * This wrapper existed once before, for body weight, and three owner paths forgot to call
  * it — which is why tests/waypointPrivacy.test.ts asserts BOTH halves: that a viewer never

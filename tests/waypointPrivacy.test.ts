@@ -19,8 +19,8 @@ import { ROOT } from "./helpers/sources";
 //
 // The protection is architectural: rowToSnapshot omits both, so every read path starts
 // without them and has to ask. That is the wrong way round from how it reads, and it is
-// the only shape that fails CLOSED — /s builds on rowToSnapshot, and so will any read
-// path added later.
+// the only shape that fails CLOSED — every share-code read builds on rowToSnapshot, and
+// so will any read path added later.
 //
 // This file asserts BOTH halves, because the last time the app had a wrapper like this
 // only the "doesn't leak" half was tested, and THREE owner paths quietly forgot to call

@@ -55,6 +55,9 @@ describe("the retired columns on a database that still has them", () => {
     await db.execute(sql`INSERT INTO vault_items (vault_id, norm_key, name, folder_id, description)
       VALUES (1, 'tent', 'Tent', 9, 'Sam carries this')`);
     await db.execute(sql`INSERT INTO vault_folders (vault_id, name) VALUES (1, 'Shelter')`);
+    // the older shape really is there, so the drops below have something to drop
+    expect(await hasTable(db, "vault_folders")).toBe(true);
+    expect(await columns(db, "lists")).toContain("is_public");
     return db;
   }
 

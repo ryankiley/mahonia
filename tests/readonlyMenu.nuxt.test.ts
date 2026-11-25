@@ -17,6 +17,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import ReadonlyMenu from "~/components/ReadonlyMenu.vue";
+import { useFeedback } from "~/composables/useFeedback";
 import { blankList } from "./helpers/list";
 
 enableAutoUnmount(afterEach);
@@ -97,6 +98,19 @@ describe("the read views' ⋯ menu", () => {
     // A report is feedback about one list now: the row opens the feedback box with the
     // list's address in the message.
     expect(rows(await openMenu())).toContain("Report list");
+  });
+
+  it("opens the feedback box from Report, naming the list and not its link", async () => {
+    const w = await openMenu({ title: "Wonderland", shareCode: "ABCD2345EFGH" });
+    const report = w.findAll('[role="menuitem"]').find((b) => b.text().trim() === "Report list")!;
+    await report.trigger("click");
+    const { state } = useFeedback();
+    expect(state.open).toBe(true);
+    expect(state.title).toBe("Report this list");
+    expect(state.preset).toContain('"Wonderland"');
+    expect(state.preset).toContain("ABCD");
+    // feedback is filed where anyone can read it, so the whole code must not travel
+    expect(state.preset).not.toContain("ABCD2345EFGH");
   });
 
   it("closes on the action, so a row can't be pressed twice", async () => {

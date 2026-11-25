@@ -7,7 +7,7 @@
 //   1. Decide whether a stored URL is safe to render. Vue does NOT sanitize attribute
 //      bindings, so a `javascript:`/`data:` value bound to :href executes on click.
 //      The retired /changes page carried this guard first; it lives here so every
-//      render site shares it (the same reason SLUG_RE moved into discovery.ts).
+//      render site shares it.
 //
 //   2. Derive a readable NAME from the URL. The obvious alternative — fetch the page
 //      and read its <title>/og:title — does not work: alltrails.com answers a

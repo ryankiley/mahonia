@@ -146,7 +146,7 @@ export default defineEventHandler(async (event) => {
 
   // A tool's arguments are an object. Some clients send them JSON-encoded a second
   // time, as a string; read as an object that string is no arguments at all, and a
-  // get_list for a public list became the account's lists and a sign-in prompt. So a
+  // get_list for a shared list became the account's lists and a sign-in prompt. So a
   // string is parsed, and anything else that isn't an object is a protocol error.
   let args: unknown = params.arguments;
   if (msg.method === "tools/call") {

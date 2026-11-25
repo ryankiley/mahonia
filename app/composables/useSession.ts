@@ -17,7 +17,7 @@ interface SessionState {
   owner: string;
   email: string | null;
   /** Optional and opt-in — the only part of an account anyone else ever sees.
-   *  Null means this person's public lists carry no byline, which is the default. */
+   *  Null means this person's shared lists carry no byline, which is the default. */
   displayName: string | null;
   /** Whether the lists this browser made may be attached to the account without
    *  asking: true for a sign-in made here, false for one only confirmed here until

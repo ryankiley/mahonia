@@ -118,10 +118,12 @@ export const LISTS_DDL: string[] = [
   // Columns from the first version that nothing ever read, dropped where an older
   // database still has them.
   `ALTER TABLE lists DROP COLUMN IF EXISTS primary_category, DROP COLUMN IF EXISTS view_count, DROP COLUMN IF EXISTS claim_phrase_hash`,
-  // The columns of the retired list publishing, dropped a deploy after the one that
-  // stopped selecting them, so a rollback to that one still found them. A rollback to a
-  // deploy from before 2026-11-22 needs is_public, published_at and season added back
-  // by hand first: it selects them and its own DDL does not create them.
+  // The columns of the retired list publishing, dropped some deploys after #575
+  // (3959696a) stopped selecting them, so a rollback to that deploy still found them. A
+  // deploy from before #575 selects all five, and its own DDL re-adds trip_type and
+  // flagged but not is_public, published_at or season. Going back that far means rolling
+  // back FIRST and adding those three by hand after: every cold instance of this deploy
+  // or a later one drops them again.
   `ALTER TABLE lists DROP COLUMN IF EXISTS is_public, DROP COLUMN IF EXISTS published_at, DROP COLUMN IF EXISTS trip_type, DROP COLUMN IF EXISTS season, DROP COLUMN IF EXISTS flagged`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
