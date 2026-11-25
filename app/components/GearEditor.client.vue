@@ -114,7 +114,7 @@ const showIntro = computed(
 );
 
 // Reflect the list's given name in the tab title AND the page's social/preview
-// metadata, matching the read views (/l, /s): a named list carries its name; an
+// metadata, matching the read view (/s): a named list carries its name; an
 // unnamed draft (the bare-domain landing) keeps the generic site card, so the
 // static nuxt.config card that unfurls the bare domain is unchanged.
 //
