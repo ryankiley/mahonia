@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "Switching between Gear and Packing, the list eases into place a little more slowly and what arrives fades in gently.",
+    "Menus fade out gently when they close."
+  ],
+  "fixed": [
+    "Switching to Gear, the weight breakdown fades in as one piece instead of its figures uncovering a line at a time.",
+    "On a phone, a menu you scroll away from fades out instead of sometimes vanishing in one frame."
+  ]
+}
