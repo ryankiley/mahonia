@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { IconArrowUpRight, IconBackpack, IconCalendarDays, IconFootsteps, IconMap, IconMapPin, IconGlobe2 } from "~/icons/central";
+import { IconBackpack, IconCalendarDays, IconFootsteps, IconMap, IconMapPin, IconGlobe2 } from "~/icons/central";
+import { StairsGlyph } from "~/icons/mahonia";
 import { SvgIcon } from "~/utils/icon";
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
@@ -147,7 +148,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 </script>
 
 <template>
-  <main v-if="list && totals" id="main-content" tabindex="-1" class="wrap view">
+  <main v-if="list && totals" id="main-content" tabindex="-1" class="wrap view" :class="{ 'has-modes': hasTrip }">
     <!-- WHICH VIEW, and only when there is a choice to make. Two modes, not the editor's
          three: packing is impossible here, because a tick is the owner's list data and a
          viewer holds no edit token. A list with no trip keeps exactly the page it had
@@ -264,8 +265,9 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
           <!-- `!= null`, not truthiness: a day that genuinely climbs nothing still has a
                climb to report, and hiding it made a flat or downhill day look like a day
                whose data was missing. The editor shows the 0; so does this. -->
+          <!-- the stairs, as on the editor's day row: one glyph for a day's climb on both -->
           <span v-if="climbFor(i) != null" class="view__dayfig">
-            <SvgIcon :icon="IconArrowUpRight" size="sm" aria-hidden="true" />
+            <SvgIcon :icon="StairsGlyph" size="sm" aria-hidden="true" />
             {{ asHeight(climbFor(i)!) }}
           </span>
           <!-- the owner's note on the day, on its own line under the figures, in the
@@ -297,7 +299,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
     <div v-if="view === 'gear'" class="view__folders">
       <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" />
       <section v-if="ungrouped.length">
-        <p class="t-label view__ungrouped">Unfiled</p>
+        <h2 class="t-label view__ungrouped">Unfiled</h2>
         <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :item="it" />
       </section>
     </div>
@@ -431,6 +433,13 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 .view__modes {
   margin-bottom: var(--space-1);
 }
+/* ...and matches where it SITS, which takes the page's top padding too: with a mode bar
+   the column starts .editor__body's one step under the toolbar, not the full step a
+   title wants, so flipping between an edit link and its share link leaves the bar where
+   it was (it sat 20px lower here). A list with no trip has no bar and keeps the title's. */
+.view.has-modes {
+  padding-block-start: var(--space-1);
+}
 .view__trip {
   margin-top: var(--space-6);
 }
@@ -487,6 +496,8 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 }
 .view__ungrouped {
   margin-bottom: var(--space-1);
+  /* a heading like the folders' (ReadonlyFolderSection), in the paragraph's leading */
+  line-height: inherit;
 }
 /* the people block: heading tight to its chips, the pair one unit in the column */
 .view__people {

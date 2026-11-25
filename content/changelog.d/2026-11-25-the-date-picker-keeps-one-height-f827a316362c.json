@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "The date picker keeps one height, and reads each day's full date to a screen reader.",
+    "The calorie note says where to set your weight while it is using an assumed one.",
+    "A shared trip marks each day's climb with the stairs the editor uses."
+  ],
+  "fixed": [
+    "A trail link pasted without https:// is accepted, and one that isn't a link now says so instead of vanishing.",
+    "Adding a trail link no longer nudges the page down a few pixels.",
+    "Typing the first figure into a blank trip day no longer drops keyboard focus.",
+    "A shared list's Gear and Trip tabs sit where the editor's do."
+  ]
+}

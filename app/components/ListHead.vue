@@ -8,7 +8,7 @@ import {
   parseDistanceM,
   resolveDistanceUnit,
 } from "~~/shared/trailDistance";
-import { displayUrl, parseTrailLink, safeUrl, CLEARS_WITH_LINK } from "~~/shared/trailLink";
+import { displayUrl, normalizeTrailUrl, parseTrailLink, safeUrl, CLEARS_WITH_LINK } from "~~/shared/trailLink";
 import { counted } from "~~/shared/tidyText";
 // shared/gpx is deliberately absent here AND in useGpxImport, which now owns the
 // reading — it is reached through `await import()` inside onGpx, so the file reader
@@ -157,12 +157,51 @@ const icon = computed(() => props.snapshot.trailFaviconDataUrl ?? fetchedIcon.va
 // object (shared/trailLink CLEARS_WITH_LINK), spread here and by the MCP edit_list
 // tool, so the next field added there is cleared on both paths.
 
-// Commits on @change (blur/Enter), the uncontrolled :value pattern the title uses — not
-// per keystroke, so a half-typed URL never reaches the reducer (which would reject it).
+// The Link field is a DRAFT while it's being typed in, as the title is: null when the
+// box shows the stored link, else what is in the box. Vue re-applies a :value on every
+// render, so bound straight to snapshot.trailUrl the box could not keep a value the
+// reducer refuses, and a refused link used to vanish with the panel and no word said.
+const urlDraft = ref<string | null>(null);
+const urlError = ref("");
+// A refused link holds the panel open through the gesture that committed it (the Enter,
+// or the press elsewhere that blurred the field), so the line saying why is seen. One
+// gesture can ask to close twice (a focusout, then the click), so the hold is a state
+// that the NEXT press or key ends, not a count.
+let urlHeld = false;
+const releaseUrlHold = () => {
+  urlHeld = false;
+};
+// capture, so the Enter that commits releases an older hold before its handler sets a new one
+useWindowEvent("pointerdown", releaseUrlHold, { capture: true, passive: true });
+useWindowEvent("keydown", releaseUrlHold, { capture: true, passive: true });
+
+function onUrlInput(e: Event) {
+  urlDraft.value = (e.target as HTMLInputElement).value;
+  urlError.value = "";
+  urlHeld = false;
+}
+
+// Commits on @change (blur/Enter), not per keystroke, so a half-typed URL never reaches
+// the reducer. What the reducer would refuse is not sent at all: it stays in the box
+// with a line under it. normalizeTrailUrl is the reducer's own test, and the href it
+// returns is what goes in the op, so "alltrails.com/…" is stored as https whichever
+// build the server is running.
 function commitUrl(e: Event) {
   const value = (e.target as HTMLInputElement).value.trim();
-  c.setMeta({ trailUrl: value });
-  if (!value) c.setMeta({ ...CLEARS_WITH_LINK });
+  if (!value) {
+    c.setMeta({ trailUrl: "" });
+    c.setMeta({ ...CLEARS_WITH_LINK });
+    urlDraft.value = null;
+    return;
+  }
+  const href = normalizeTrailUrl(value);
+  if (!href) {
+    urlError.value = "That isn’t a link.";
+    urlHeld = true;
+    return;
+  }
+  c.setMeta({ trailUrl: href });
+  urlDraft.value = null;
 }
 
 function commitLabel(e: Event) {
@@ -325,6 +364,7 @@ const dateLabel = computed(() =>
 // click outside the calendar, which includes the ones landing on the card, and those
 // are not its to close.
 function closeTrail() {
+  if (urlHeld) return; // a link was just refused: see urlHeld
   if (surface.value !== "dates") surface.value = null;
 }
 function closeDates() {
@@ -366,8 +406,17 @@ async function openFields(next: "add" | "edit") {
 function commitAndClose(e: KeyboardEvent) {
   if (e.isComposing) return; // an IME confirming a composition, not a commit
   (e.target as HTMLInputElement).blur();
+  // a link refused by that commit keeps the panel, and the caret goes back to fix it
+  if (urlHeld) return void document.getElementById(`${fieldsId}-url`)?.focus();
   closeTrail();
 }
+// the draft and its line belong to one opening of the panel
+watch(open, (isOpen) => {
+  if (isOpen) return;
+  urlDraft.value = null;
+  urlError.value = "";
+  urlHeld = false;
+});
 
 // Close when focus leaves the panel by keyboard. Tabbing between the two inputs (or to
 // Remove) keeps it open; tabbing past the last control puts the row back to rest.
@@ -482,8 +531,8 @@ onClickOutside(trailEl, closeTrail);
           @click="toggleCard"
         >
           <!-- every link carries a mark. The site's own once we've cached it; a globe
-               until then — some hosts block the fetch outright. Same 16px box either
-               way, so nothing shifts when the real icon arrives. -->
+               until then — some hosts block the fetch outright. Same 20px box (--icon)
+               either way, so nothing shifts when the real icon arrives. -->
           <img
             v-if="icon"
             class="head__icon"
@@ -581,7 +630,15 @@ onClickOutside(trailEl, closeTrail);
                  fills its two ends and tints between them, and the affordance this
                  popover hangs off has swapped its label to the range. A third copy
                  inside the panel restated what you were looking at. -->
-            <button v-if="dateLabel" type="button" class="btn btn--quiet head__dateclear" @click="clearDates">
+            <!-- Always laid out, so the panel is one height before and after the first
+                 pick. With nothing to clear it is `visibility: hidden`, which takes it out
+                 of the tab order and the accessibility tree as well as out of sight. -->
+            <button
+              type="button"
+              class="btn btn--quiet head__dateclear"
+              :style="dateLabel ? undefined : { visibility: 'hidden' }"
+              @click="clearDates"
+            >
               Clear
             </button>
           </span>
@@ -639,10 +696,16 @@ onClickOutside(trailEl, closeTrail);
             placeholder="https://"
             autocorrect="off"
             spellcheck="false"
-            :value="snapshot.trailUrl ?? ''"
+            :value="urlDraft ?? snapshot.trailUrl ?? ''"
+            :aria-invalid="urlError ? true : undefined"
+            :aria-describedby="urlError ? `${fieldsId}-urlerr` : undefined"
+            @input="onUrlInput"
             @change="commitUrl"
             @keydown.enter="commitAndClose"
           />
+          <!-- the Link field's own line, directly under it and in the map file's error
+               style: under "Import map file" it read as a word about the file -->
+          <p v-if="urlError" :id="`${fieldsId}-urlerr`" class="head__gpxerr t-sm" role="alert">{{ urlError }}</p>
 
           <p class="head__gpx t-sm">
             <label class="head__gpxbtn">
@@ -861,14 +924,20 @@ onClickOutside(trailEl, closeTrail);
 .head__title::placeholder {
   color: var(--ink-ghost);
 }
-/* the trail link row — baseline-aligned with the type around it. Holds the "Add trail
-   link" button OR the resolved link, in the same place, and keeps its height either way
-   so nothing below shifts as the affordance fades in or a link is added. */
+/* The trail link row. Holds the "Add a trail" button OR the resolved link, in the same
+   place, and keeps its height either way so nothing below shifts as the affordance
+   fades in or a link is added.
+   CENTRED, not baseline-aligned. A .btn is a centred flex box that leads with its icon,
+   so the baseline it offers is that icon's foot; the link offers its text's. On one
+   line the two were set level with each other, which dropped the link 4px under the
+   dates beside it and grew the row from 24px to 28. Every item here is one line of the
+   same type size and leading, so centring the boxes puts their text on one baseline,
+   which is what baseline alignment was reaching for. */
 .head__trail {
   position: relative; /* anchors the edit panel */
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
+  align-items: center;
   /* Two gaps, because the two axes are answering different questions.
      ACROSS: --space-4, not --space-2. This row used to hold ONE affordance, where a
      tight gap only had to separate an icon from its label. It now holds two

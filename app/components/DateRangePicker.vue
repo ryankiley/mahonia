@@ -56,12 +56,22 @@ const monthLabel = computed(() =>
   new Date(viewY.value, viewM.value, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }),
 );
 
+// A day's name for a screen reader, which otherwise hears a bare "4" in a grid whose
+// weekday letters are hidden from it. en-US like the month label above it. "Today"
+// leads the one cell that is ringed for the eye.
+const DAY_NAME = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+const dayLabel = (date: Date, v: string) => (v === today ? `Today, ${DAY_NAME.format(date)}` : DAY_NAME.format(date));
+
 /** The cells to render: leading blanks to line up the 1st, then each day. */
 const cells = computed(() => {
   const lead = new Date(viewY.value, viewM.value, 1).getDay(); // 0 = Sunday, and the grid starts there
   const days = new Date(viewY.value, viewM.value + 1, 0).getDate();
-  const out: ({ iso: string; d: number } | null)[] = Array.from({ length: lead }, () => null);
-  for (let d = 1; d <= days; d++) out.push({ iso: iso(viewY.value, viewM.value, d), d });
+  const out: ({ iso: string; d: number; label: string } | null)[] = Array.from({ length: lead }, () => null);
+  for (let d = 1; d <= days; d++) {
+    const date = new Date(viewY.value, viewM.value, d);
+    const v = isoDate(date);
+    out.push({ iso: v, d, label: dayLabel(date, v) });
+  }
   return out;
 });
 
@@ -220,6 +230,7 @@ onMounted(() => {
             'is-between': inRange(c.iso) && c.iso !== start && c.iso !== end,
             'is-today': c.iso === today,
           }"
+          :aria-label="c.label"
           :aria-selected="c.iso === start || c.iso === end || inRange(c.iso)"
           :tabindex="c.iso === focused ? 0 : -1"
           @click="pick(c.iso); moveFocus(c.iso)"

@@ -812,7 +812,8 @@ function applyOp(state: ListState, op: Op): void {
       // The trail URL is VALIDATED, not just clamped: it ends up in a :href on a page
       // strangers open, and Vue won't sanitize it. An empty string clears the link;
       // anything that isn't http(s) is dropped, so a hostile client can't persist a
-      // javascript: value by talking to the API directly.
+      // javascript: value by talking to the API directly. (A bare "alltrails.com/…"
+      // is http(s): normalizeTrailUrl reads it as https, here and on the server alike.)
       if (typeof p.trailUrl === "string") {
         const href = normalizeTrailUrl(p.trailUrl);
         if (href) state.trailUrl = href;

@@ -131,3 +131,22 @@ describe("closing one surface", () => {
     expect(pinned()).toBe(false);
   });
 });
+
+// The calendar's "Clear" row arrived with the first date picked and made the panel
+// about 40px taller under the pointer. Its place is kept from the start.
+describe("the calendar's Clear row", () => {
+  const clear = () => wrapper.get<HTMLButtonElement>("button.head__dateclear");
+
+  it("is laid out but hidden while there is nothing to clear, and the same row once there is", async () => {
+    await datesButton().trigger("click");
+    const row = clear().element;
+    // visibility, not display: hidden from sight, the tab order and the accessibility
+    // tree, and still taking its line
+    expect(row.style.visibility).toBe("hidden");
+    expect(row.style.display).toBe("");
+
+    await wrapper.setProps({ snapshot: { ...(wrapper.props() as { snapshot: object }).snapshot, startDate: "2026-08-04" } });
+    expect(clear().element).toBe(row);
+    expect(row.style.visibility).toBe("");
+  });
+});

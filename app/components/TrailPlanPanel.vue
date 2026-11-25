@@ -130,6 +130,34 @@ function ensureDay(i: number): string | null {
   for (let k = stored.value.length; k <= i; k++) c.addDay();
   return null; // the patch lands on the next tick, once the op has applied
 }
+
+// ---- a row's identity ----
+// A stored day's row is keyed by the day, so removing one folds ITS row away. A ghost has
+// no id, so its row is keyed by a token held against its position. When a day first
+// appears where a ghost was showing, it takes that ghost's token and keeps it: the row
+// is the same row before and after its first figure. Keyed by the new id instead, Vue
+// rebuilt the row under the field just typed into, and the Tab out of it landed on
+// <body>. The token is handed over, not shared, so the next ghost at that position is a
+// row of its own and no two rows can hold one key.
+const ghostKeys: (string | undefined)[] = [];
+const adoptedKeys = new Map<string, string>();
+let ghostSeq = 0;
+const dayKey = (d: { id: string } | null, i: number) =>
+  d ? (adoptedKeys.get(d.id) ?? d.id) : (ghostKeys[i] ??= `ghost-${ghostSeq++}`);
+// sync, so the hand-over is done before the render that would otherwise change the key
+watch(
+  stored,
+  (now, was) => {
+    const known = new Set(was.map((d) => d.id));
+    for (let i = was.length; i < now.length; i++) {
+      const token = ghostKeys[i];
+      if (!token || known.has(now[i]!.id)) continue;
+      adoptedKeys.set(now[i]!.id, token);
+      ghostKeys[i] = undefined;
+    }
+  },
+  { flush: "sync" },
+);
 const {
   ascentUnit,
   bodyFieldValue,
@@ -199,6 +227,13 @@ function formatHours(h: number): string {
 // Rounded to the nearest 100. The model admits ±20%; a figure ending in 7 would claim a
 // precision it does not have.
 const roundKcal = (k: number) => Math.round(k / 100) * 100;
+// The (?) beside a day's calories. While the weight is the default it says where to
+// change it: the field is at the foot of the tab, under every day, wearing the same
+// word, and from a day's row nothing else says it exists.
+const burnTip = computed(() => {
+  const at = formatBodyWeight(bodyG.value, bodyUnit.value);
+  return `Walking and resting, at ${at}${bodyIsDefault.value ? " (assumed). Set your weight below the days" : ""}. Good to about ±20%.`;
+});
 const tripKcal = computed(() =>
   estimates.value.reduce((s, e) => s + (e?.totalKcal ?? 0), 0),
 );
@@ -486,9 +521,11 @@ const descentFor = (i: number) =>
 // a HEIGHT and reads in metres or feet, never the km/mi beside it — same parser,
 // the fallback unit is the whole difference.
 async function commitDayMetres(maybeId: string | null, field: "distanceM" | "ascentM", e: Event) {
+  // read BEFORE the wait: a ghost's row stays put while its day arrives (see dayKey), and
+  // the render in between sets the field to the new day's figure, which is none
+  const raw = (e.target as HTMLInputElement).value.trim();
   const id = await realDayId(maybeId);
   if (!id) return;
-  const raw = (e.target as HTMLInputElement).value.trim();
   const unit = field === "distanceM" ? distanceUnit.value : ascentUnit.value;
   // "" and NOT undefined, spelled out per field. The patch is JSON on its way to
   // the server and JSON.stringify drops undefined keys, so clearing a day's figure
@@ -514,8 +551,9 @@ async function realDayId(id: string | null): Promise<string | null> {
 // The day's note commits on change like the figures do. "" is the clear: a string
 // survives the JSON trip whole, so it needs no sentinel (see DayPatch).
 async function commitDayNote(maybeId: string | null, e: Event) {
+  const note = (e.target as HTMLTextAreaElement).value.trim(); // before the wait, as above
   const id = await realDayId(maybeId);
-  if (id) c.updateDay(id, { note: (e.target as HTMLTextAreaElement).value.trim() });
+  if (id) c.updateDay(id, { note });
 }
 // The note grows to fit its text: natively through field-sizing, by hand where that is
 // missing, and fitTextarea is the gate (a no-op where it isn't needed). On mount AND on
@@ -708,7 +746,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
          removed, so "Add a day" and the day's delete move the days under them rather
          than dropping them a row in one frame (measured 2026-10-17). -->
     <TransitionGroup v-else name="dayin" tag="ol" class="plan__days">
-      <li v-for="(d, i) in days" :key="d?.id ?? `ghost-${i}`" class="plan__day">
+      <li v-for="(d, i) in days" :key="dayKey(d, i)" class="plan__day">
         <div class="plan__dayinner">
         <!-- The heading takes the FOLDER treatment — a day groups a stretch of the walk
              the way a folder groups gear, so it reads at the same level. Unlike a folder
@@ -859,7 +897,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
           <span class="plan__cell plan__cell--est">
             <SvgIcon :icon="IconFire2" class="plan__gl" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${formatKcal(roundKcal(estimates[i]!.totalKcal))}` : "—" }}</span>
-            <Tooltip v-if="estimates[i]" :text="`Walking and resting, at ${formatBodyWeight(bodyG, bodyUnit)}${bodyIsDefault ? ' (assumed)' : ''}. Good to about ±20%.`" preferred-placement="top">
+            <Tooltip v-if="estimates[i]" :text="burnTip" preferred-placement="top">
               <button type="button" class="plan__why ink-quiet" aria-label="How the calories are worked out">
                 <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
