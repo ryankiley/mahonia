@@ -91,3 +91,7 @@ a page other than the row's own cites it with `attributes_source_url` + `attribu
 bar); an axis the maker was found not to publish is recorded in `attributes_unpublished` so the
 audit's to-do list names only unread rows.
 
+Every research file is in one layout (a row a key a line, keys in `ResearchRow` order, no
+blank optional keys); `npm test` fails a file that isn't, and `npm run catalog:format`
+rewrites them all without changing a value.
+

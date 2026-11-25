@@ -9,7 +9,6 @@
       "common_name": "Shirt",
       "weight_value": 228,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/tubular-t",
       "quote": "Tubular T weight for size 4 is 228 g."
@@ -22,7 +21,6 @@
       "common_name": "Shirt",
       "weight_value": 239,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/tubular-t-baseball",
       "quote": "Tubular T weight for size 4 is 239 g."
@@ -35,7 +33,6 @@
       "common_name": "Fleece",
       "weight_value": 148,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/shag-zip-hoodie",
       "quote": "weight is ~148g for size 4"
@@ -43,12 +40,10 @@
     {
       "brand": "Gnuhr",
       "name": "Wool Shag Beanie",
-      "variant": null,
       "category_hint": "clothing",
       "common_name": "Beanie",
       "weight_value": 35,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/wool-shag-beanie",
       "quote": "Wool Shag Beanie weighs 35 g."
@@ -56,12 +51,10 @@
     {
       "brand": "Gnuhr",
       "name": "Gno Cap",
-      "variant": null,
       "category_hint": "clothing",
       "common_name": "Hat",
       "weight_value": 75,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/gno-cap",
       "quote": "weight is ~ 75g"
@@ -74,7 +67,6 @@
       "common_name": "Pants",
       "weight_value": 466,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/big-up-pants",
       "quote": "weight is ~ 466g for size 4"
@@ -87,7 +79,6 @@
       "common_name": "Shorts",
       "weight_value": 343,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/big-up-shorts",
       "quote": "weight is ~343g for size 4"
@@ -100,7 +91,6 @@
       "common_name": "Pants",
       "weight_value": 453,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/explora-pants",
       "quote": "weight is ~ 453g for size 4"
@@ -113,7 +103,6 @@
       "common_name": "Shorts",
       "weight_value": 299,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/explora-shorts",
       "quote": "weight is ~ 299g for size 4"
@@ -126,7 +115,6 @@
       "common_name": "Pants",
       "weight_value": 389,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/power-pants",
       "quote": "weight is ~ 389g for size 4"
@@ -139,7 +127,6 @@
       "common_name": "Shorts",
       "weight_value": 148,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/warp-short-short",
       "quote": "weight is ~148g for size 4"
@@ -152,7 +139,6 @@
       "common_name": "Shorts",
       "weight_value": 254,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/warp-short-long",
       "quote": "weight is ~254g for size 4"
@@ -165,7 +151,6 @@
       "common_name": "Shorts",
       "weight_value": 197,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/warp-short-short-lined",
       "quote": "weight is ~197g for size 3-4"
@@ -178,7 +163,6 @@
       "common_name": "Tank top",
       "weight_value": 208,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/warp-t-tank",
       "quote": "weight is ~ 208g for size 3-4"
@@ -186,13 +170,11 @@
     {
       "brand": "Gnuhr",
       "name": "Warp Kit Vest",
-      "variant": null,
       "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "Vest",
       "weight_value": 205,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/warp-kit-vest",
       "quote": "simplified construction / weight is ~205g"
@@ -200,13 +182,11 @@
     {
       "brand": "Gnuhr",
       "name": "Breaker Skirt DCF",
-      "variant": null,
       "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "Rain skirt",
       "weight_value": 57,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/breaker-skirt-dcf",
       "quote": "weight is ~ 57g"
@@ -214,12 +194,10 @@
     {
       "brand": "Gnuhr",
       "name": "Sling 1 v3.0",
-      "variant": null,
       "category_hint": "pack",
       "common_name": "Sling bag",
       "weight_value": 26,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/sling-1-v3-0",
       "quote": "Sling 1 weighs 26 g."
@@ -227,25 +205,22 @@
     {
       "brand": "Gnuhr",
       "name": "Sling 2 v3.0",
-      "variant": null,
       "category_hint": "pack",
       "common_name": "Sling bag",
       "weight_value": 49,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/sling-2-v3-0",
       "quote": "Sling 2 weighs 49 g."
     },
     {
       "brand": "Gnuhr",
-      "name": "OEM Soft Flask 500 ml",
+      "name": "OEM Soft Flask",
       "variant": "500ml",
       "category_hint": "water",
       "common_name": "Soft flask",
       "weight_value": 32,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/oem-r-soft-flask-500-ml",
       "quote": "weight is ~32g"
@@ -253,13 +228,11 @@
     {
       "brand": "Gnuhr",
       "name": "Nalgene 16oz",
-      "variant": null,
       "attributes": {"volume_l": 0.473},
       "category_hint": "water",
       "common_name": "Water bottle",
       "weight_value": 92,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/gnuhr-nalgene-16oz",
       "quote": "Weight: 3.25 oz (92 g)"
@@ -267,12 +240,10 @@
     {
       "brand": "Gnuhr",
       "name": "Lighter",
-      "variant": null,
       "category_hint": "cook",
       "common_name": "Lighter",
       "weight_value": 11,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/gnuhr-lighter",
       "quote": "Weight: ~11 grams (0.39 oz)"
@@ -280,12 +251,10 @@
     {
       "brand": "CW&T x Gnuhr",
       "name": "Little Scissors",
-      "variant": null,
       "category_hint": "firstaid",
       "common_name": "Scissors",
       "weight_value": 24,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/cw-and-t-gnuhr-little-scissors",
       "quote": "Weighs 24g."
@@ -293,12 +262,10 @@
     {
       "brand": "CW&T x Gnuhr",
       "name": "Pen Type-C Ultra",
-      "variant": null,
       "category_hint": "other",
       "common_name": "Pen",
       "weight_value": 12.8,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.gnuhr.com/products/cw-and-t-gnuhr-pen-type-c-ultra",
       "quote": "Weighs 12.8g"

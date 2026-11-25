@@ -4,7 +4,6 @@
     {
       "brand": "Zpacks",
       "name": "Travel & Trail Hiking Pants",
-      "variant": "",
       "attributes": {"size": "S"},
       "attributes_source_url": "https://zpacks.com/products/zpacks-travel-trail-hiking-pants",
       "attributes_quote": "Small / Black - 287; Medium / Black - 301; Large / Black - 327",
@@ -20,7 +19,6 @@
     {
       "brand": "Zpacks",
       "name": "Travel & Trail Convertible Hiking Pants",
-      "variant": "",
       "attributes": {"size": "S"},
       "attributes_source_url": "https://zpacks.com/products/zpacks-travel-trail-convertible-hiking-pants",
       "attributes_quote": "Small / Black - 324; Medium / Black - 337; Large / Black - 359",
@@ -48,8 +46,7 @@
     },
     {
       "brand": "Zpacks",
-      "name": "Ultralight Sunglasses Case w/ Microfiber Cloth",
-      "variant": "",
+      "name": "Ultralight Sunglasses Case with Microfiber Cloth",
       "category_hint": "other",
       "common_name": "case",
       "weight_value": 26,
@@ -62,7 +59,6 @@
     {
       "brand": "Zpacks",
       "name": "Radiant Wool T-Shirt",
-      "variant": "",
       "attributes": {"size": "XS"},
       "attributes_source_url": "https://zpacks.com/products/radiant-merino-wool-t-shirt",
       "attributes_quote": "Extra Small / Charcoal - 110; Small / Charcoal - 118; Medium / Charcoal - 126",
@@ -78,7 +74,6 @@
     {
       "brand": "Zpacks x Vaucluse",
       "name": "Ventilation Frame + Sleeve",
-      "variant": "",
       "category_hint": "other",
       "common_name": "ventilation frame",
       "weight_value": 137,
@@ -91,7 +86,6 @@
     {
       "brand": "Zpacks",
       "name": "Octa Fleece Thermal Bottoms",
-      "variant": "",
       "attributes": {"size": "S"},
       "attributes_source_url": "https://zpacks.com/products/octa-thermal-bottoms-long-underwear-leggings",
       "attributes_quote": "Small - 99 g; Medium - 105 g; Large - 109 g",
@@ -107,7 +101,6 @@
     {
       "brand": "Zpacks",
       "name": "Trail Cool T-Shirt",
-      "variant": "",
       "attributes": {"size": "XS"},
       "attributes_source_url": "https://zpacks.com/products/zpacks-trail-cool-t-shirt-obs",
       "attributes_quote": "Extra Small / Gray - 75; Small / Gray - 84; Medium / Gray - 93",
@@ -123,7 +116,6 @@
     {
       "brand": "Zpacks",
       "name": "Ventum Wind Shell Jacket",
-      "variant": "",
       "attributes": {"size": "S"},
       "attributes_source_url": "https://zpacks.com/products/wind-shell-jacket",
       "attributes_quote": "Small / Black - 55; Medium / Black - 57; Large / Black - 59",
@@ -203,7 +195,6 @@
     {
       "brand": "Zpacks",
       "name": "Tiny Oval Carabiner",
-      "variant": "",
       "category_hint": "other",
       "common_name": "carabiner",
       "weight_value": 1.5,
@@ -286,7 +277,6 @@
     {
       "brand": "Zpacks",
       "name": "Trail Cool Joggers",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "joggers",
       "weight_value": 203,
@@ -315,7 +305,6 @@
     {
       "brand": "Zpacks",
       "name": "Mirage Merino Sun Hoody",
-      "variant": "",
       "attributes": {"size": "XS"},
       "attributes_source_url": "https://zpacks.com/products/the-mirage-merino-sun-hoody",
       "attributes_quote": "Extra Small / Autumn - 200; Small / Autumn - 211; Medium / Autumn - 220",
@@ -331,7 +320,6 @@
     {
       "brand": "Zpacks",
       "name": "Down Hood",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hood",
       "weight_value": 36,
@@ -344,7 +332,6 @@
     {
       "brand": "Zpacks",
       "name": "Comfy Camp Pillow",
-      "variant": "",
       "category_hint": "sleep",
       "common_name": "pillow",
       "weight_value": 92,
@@ -357,7 +344,6 @@
     {
       "brand": "Zpacks",
       "name": "Down Booties",
-      "variant": "",
       "attributes": {"size": "S"},
       "attributes_source_url": "https://zpacks.com/products/zpacks-down-booties",
       "attributes_quote": "Total Weight: Small: 1.3oz (38 g); Medium: 1.6 oz (45 g); Large: 1.8 oz (51 g)",
@@ -389,7 +375,6 @@
     {
       "brand": "Zpacks",
       "name": "Hexamid Bathtub Groundsheet",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 76,
@@ -401,8 +386,7 @@
     },
     {
       "brand": "Zpacks",
-      "name": "Mini Hair Brush w/ Mirror",
-      "variant": "",
+      "name": "Mini Hair Brush with Mirror",
       "category_hint": "other",
       "common_name": "hairbrush",
       "weight_value": 33,
@@ -415,7 +399,6 @@
     {
       "brand": "Zpacks",
       "name": "Titanium Trail Spoon",
-      "variant": "",
       "category_hint": "cook",
       "common_name": "spoon",
       "weight_value": 11.1,
@@ -428,7 +411,6 @@
     {
       "brand": "Zpacks",
       "name": "XL Airplane Case",
-      "variant": "",
       "category_hint": "other",
       "common_name": "case",
       "weight_value": 106,
@@ -441,7 +423,6 @@
     {
       "brand": "Zpacks",
       "name": "Octa Fleece Camp Pants",
-      "variant": "",
       "attributes": {"size": "S"},
       "attributes_source_url": "https://zpacks.com/products/zpacks-octa-fleece-camp-pants",
       "attributes_quote": "Small / Black - 147; Medium / Black - 151; Large / Black - 157",
@@ -457,7 +438,6 @@
     {
       "brand": "Zpacks",
       "name": "Trail Trucker Hat",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "trucker hat",
       "weight_value": 75,
@@ -470,7 +450,6 @@
     {
       "brand": "Zpacks",
       "name": "Trail Cool Sun Hoody",
-      "variant": "",
       "attributes": {"size": "XS"},
       "attributes_source_url": "https://zpacks.com/products/zpacks-trail-cool-sun-hoody",
       "attributes_quote": "Extra Small / Gray - 146; Small / Gray - 156; Medium / Gray - 163",
@@ -486,7 +465,6 @@
     {
       "brand": "Zpacks",
       "name": "Trail Cool Hiking Shorts",
-      "variant": "",
       "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "shorts",
@@ -500,7 +478,6 @@
     {
       "brand": "Zpacks",
       "name": "Potty Pack with Trowel",
-      "variant": "",
       "category_hint": "other",
       "common_name": "bathroom kit",
       "weight_value": 39,
@@ -513,7 +490,6 @@
     {
       "brand": "Zpacks",
       "name": "Itty Bitty Ditty Bag",
-      "variant": "",
       "attributes": {"volume_l": 0.56},
       "attributes_source_url": "https://zpacks.com/products/itty-bitty-ditty-bag",
       "attributes_quote": "Volume: ~34 cubic inches (.56 liters)",
@@ -529,7 +505,6 @@
     {
       "brand": "Zpacks",
       "name": "Ultralight Titanium Whistle",
-      "variant": "",
       "category_hint": "other",
       "common_name": "whistle",
       "weight_value": 5,
@@ -542,7 +517,6 @@
     {
       "brand": "Zpacks",
       "name": "Ultralight Sunglasses Case",
-      "variant": "",
       "category_hint": "other",
       "common_name": "case",
       "weight_value": 17,
@@ -555,7 +529,6 @@
     {
       "brand": "Zpacks x TownShirt",
       "name": "Button Up Hiking Shirt",
-      "variant": "",
       "attributes": {"size": "L"},
       "attributes_source_url": "https://zpacks.com/products/zpacks-x-townshirt-button-up-hiking-shirt",
       "attributes_quote": "Small / Olive Drab - 157; Medium / Olive Drab - 165; Large / Olive Drab - 177",
@@ -571,7 +544,6 @@
     {
       "brand": "Zpacks x Glacial Gear",
       "name": "Wool Trail Rag",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "bandana",
       "weight_value": 17,
@@ -584,7 +556,6 @@
     {
       "brand": "Zpacks",
       "name": "Sleeping Pad Slide Stopper Set",
-      "variant": "",
       "category_hint": "other",
       "common_name": "straps",
       "weight_value": 11.26,
@@ -597,7 +568,6 @@
     {
       "brand": "Zpacks",
       "name": "Gear Nest",
-      "variant": "",
       "category_hint": "other",
       "common_name": "pouch",
       "weight_value": 10.5,
@@ -610,7 +580,6 @@
     {
       "brand": "Zpacks",
       "name": "Brushtail Possum Mittens",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "mittens",
       "weight_value": 31,
@@ -623,7 +592,6 @@
     {
       "brand": "Zpacks",
       "name": "Fingerless Brushtail Possum Gloves",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "gloves",
       "weight_value": 29,
@@ -636,7 +604,6 @@
     {
       "brand": "Zpacks",
       "name": "Conductive Brushtail Possum Gloves",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "gloves",
       "weight_value": 33,
@@ -649,7 +616,6 @@
     {
       "brand": "Zpacks",
       "name": "Brushtail Possum Socks",
-      "variant": "",
       "attributes": {"size": "S"},
       "attributes_source_url": "https://zpacks.com/products/possumdown-socks",
       "attributes_quote": "Small - 77; Medium - 85; Large - 94; Extra Large - 98",
@@ -665,7 +631,6 @@
     {
       "brand": "Zpacks",
       "name": "Brushtail Possum Beanie",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "beanie",
       "weight_value": 67,
@@ -678,7 +643,6 @@
     {
       "brand": "Zpacks",
       "name": "Vertice Rain Kilt",
-      "variant": "",
       "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain skirt",
@@ -692,7 +656,6 @@
     {
       "brand": "Zpacks",
       "name": "DCF Rain Kilt",
-      "variant": "",
       "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain skirt",
@@ -751,7 +714,6 @@
     {
       "brand": "Zpacks",
       "name": "Travel Utility Zip",
-      "variant": "",
       "category_hint": "other",
       "common_name": "zipper pouch",
       "weight_value": 26,
@@ -764,7 +726,6 @@
     {
       "brand": "Zpacks",
       "name": "Trekking Pole Cup",
-      "variant": "",
       "category_hint": "other",
       "common_name": "pole holder",
       "weight_value": 4,
@@ -777,7 +738,6 @@
     {
       "brand": "Zpacks",
       "name": "Shoulder Strap Pads",
-      "variant": "",
       "category_hint": "other",
       "common_name": "shoulder pads",
       "weight_value": 27,
@@ -790,7 +750,6 @@
     {
       "brand": "Zpacks",
       "name": "Wallet Stuff Sack",
-      "variant": "",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "common_name": "stuff sack",
@@ -804,7 +763,6 @@
     {
       "brand": "Zpacks",
       "name": "Tablet Zip Pouch",
-      "variant": "",
       "category_hint": "other",
       "common_name": "zipper pouch",
       "weight_value": 13.5,
@@ -817,7 +775,6 @@
     {
       "brand": "Zpacks",
       "name": "Phablet Zip Pouch",
-      "variant": "",
       "category_hint": "other",
       "common_name": "zipper pouch",
       "weight_value": 10.6,
@@ -830,7 +787,6 @@
     {
       "brand": "Zpacks",
       "name": "Phone Zip Pouch",
-      "variant": "",
       "category_hint": "other",
       "common_name": "zipper pouch",
       "weight_value": 9.4,
@@ -843,7 +799,6 @@
     {
       "brand": "Zpacks",
       "name": "Wallet Zip Pouch",
-      "variant": "",
       "category_hint": "other",
       "common_name": "zipper pouch",
       "weight_value": 6.2,
@@ -856,7 +811,6 @@
     {
       "brand": "Zpacks",
       "name": "Passport Zip Pouch",
-      "variant": "",
       "category_hint": "other",
       "common_name": "zipper pouch",
       "weight_value": 9.4,
@@ -869,7 +823,6 @@
     {
       "brand": "Zpacks",
       "name": "Glasses Zip Pouch",
-      "variant": "",
       "category_hint": "other",
       "common_name": "zipper pouch",
       "weight_value": 10.6,
@@ -882,7 +835,6 @@
     {
       "brand": "Zpacks",
       "name": "Document Zip Pouch",
-      "variant": "",
       "category_hint": "other",
       "common_name": "zipper pouch",
       "weight_value": 27,
@@ -895,7 +847,6 @@
     {
       "brand": "Zpacks",
       "name": "Arc Backpack Belt",
-      "variant": "",
       "category_hint": "other",
       "common_name": "hip belt",
       "weight_value": 108,
@@ -908,7 +859,6 @@
     {
       "brand": "Zpacks",
       "name": "Multi-Pack",
-      "variant": "",
       "category_hint": "pack",
       "common_name": "chest pack",
       "weight_value": 86,
@@ -921,7 +871,6 @@
     {
       "brand": "Zpacks",
       "name": "Tri-Fold Minimalist Wallet",
-      "variant": "",
       "category_hint": "other",
       "common_name": "wallet",
       "weight_value": 12.2,
@@ -934,7 +883,6 @@
     {
       "brand": "Zpacks",
       "name": "Pack Liner",
-      "variant": "",
       "category_hint": "other",
       "common_name": "pack liner",
       "weight_value": 35,
@@ -947,7 +895,6 @@
     {
       "brand": "Zpacks",
       "name": "Pack Cover",
-      "variant": "",
       "category_hint": "other",
       "common_name": "pack cover",
       "weight_value": 40,
@@ -1072,7 +1019,6 @@
     {
       "brand": "Zpacks",
       "name": "Cooking Pot Stuff Sack",
-      "variant": "",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "common_name": "stuff sack",
@@ -1086,7 +1032,6 @@
     {
       "brand": "Zpacks",
       "name": "Umbrella Stuff Sack",
-      "variant": "",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "common_name": "stuff sack",
@@ -1100,7 +1045,6 @@
     {
       "brand": "Zpacks",
       "name": "Rock Sack",
-      "variant": "",
       "category_hint": "other",
       "common_name": "rock sack",
       "weight_value": 4.2,
@@ -1113,7 +1057,6 @@
     {
       "brand": "Zpacks",
       "name": "Stake Sack",
-      "variant": "",
       "category_hint": "other",
       "common_name": "stake sack",
       "weight_value": 3.4,
@@ -1126,7 +1069,6 @@
     {
       "brand": "Zpacks",
       "name": "Lumbar Pad",
-      "variant": "",
       "category_hint": "other",
       "common_name": "back pad",
       "weight_value": 28,
@@ -1251,7 +1193,6 @@
     {
       "brand": "Zpacks",
       "name": "Front Utility Pack Accessory",
-      "variant": "",
       "category_hint": "pack",
       "common_name": "chest pack",
       "weight_value": 81,
@@ -1264,7 +1205,6 @@
     {
       "brand": "Zpacks",
       "name": "Airplane Case",
-      "variant": "",
       "category_hint": "other",
       "common_name": "case",
       "weight_value": 87,
@@ -1277,7 +1217,6 @@
     {
       "brand": "Zpacks",
       "name": "Carbon Fiber Staff",
-      "variant": "",
       "category_hint": "other",
       "common_name": "hiking staff",
       "weight_value": 232,
@@ -1290,7 +1229,6 @@
     {
       "brand": "Zpacks",
       "name": "Flat Groundsheet",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 60,
@@ -1303,7 +1241,6 @@
     {
       "brand": "Zpacks",
       "name": "Solo-Plus Bathtub Groundsheet",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 99,
@@ -1316,7 +1253,6 @@
     {
       "brand": "Zpacks",
       "name": "Solo Bathtub Groundsheet",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 91,
@@ -1329,7 +1265,6 @@
     {
       "brand": "Zpacks",
       "name": "Groundsheet Poncho",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "poncho",
       "weight_value": 166,
@@ -1342,7 +1277,6 @@
     {
       "brand": "Zpacks",
       "name": "Double-Hook Apparatus",
-      "variant": "",
       "category_hint": "other",
       "common_name": "gear hooks",
       "weight_value": 2.1,
@@ -1355,7 +1289,6 @@
     {
       "brand": "Zpacks",
       "name": "Groundsheet Attachment Kit",
-      "variant": "",
       "category_hint": "other",
       "common_name": "rigging kit",
       "weight_value": 11,
@@ -1394,7 +1327,6 @@
     {
       "brand": "Zpacks",
       "name": "Vertice Rain Mitts",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "rain mitts",
       "weight_value": 21,
@@ -1407,7 +1339,6 @@
     {
       "brand": "Zpacks",
       "name": "Padded Belt for Frameless Backpacks",
-      "variant": "",
       "category_hint": "other",
       "common_name": "hip belt",
       "weight_value": 88,
@@ -1420,7 +1351,6 @@
     {
       "brand": "Zpacks",
       "name": "Bear Bagging Kit",
-      "variant": "",
       "category_hint": "other",
       "common_name": "bear hang kit",
       "weight_value": 92,
@@ -1433,7 +1363,6 @@
     {
       "brand": "Zpacks",
       "name": "Water Bottle Sleeve",
-      "variant": "",
       "category_hint": "other",
       "common_name": "bottle sleeve",
       "weight_value": 16,
@@ -1446,7 +1375,6 @@
     {
       "brand": "Zpacks",
       "name": "Top Side Pocket",
-      "variant": "",
       "category_hint": "other",
       "common_name": "pack pocket",
       "weight_value": 14,
@@ -1459,7 +1387,6 @@
     {
       "brand": "Zpacks",
       "name": "Rain Gaiters",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "gaiters",
       "weight_value": 51,
@@ -1472,7 +1399,6 @@
     {
       "brand": "Zpacks",
       "name": "Foam Sit Pad",
-      "variant": "",
       "category_hint": "other",
       "common_name": "sit pad",
       "weight_value": 27,
@@ -1485,7 +1411,6 @@
     {
       "brand": "Zpacks",
       "name": "Duplex Freestanding Flex Kit",
-      "variant": "",
       "category_hint": "other",
       "common_name": "tent poles",
       "weight_value": 394,
@@ -1498,7 +1423,6 @@
     {
       "brand": "Zpacks",
       "name": "Micro-Fleece Hat",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "beanie",
       "weight_value": 28,
@@ -1511,7 +1435,6 @@
     {
       "brand": "Zpacks",
       "name": "Mesh Tent Pocket",
-      "variant": "",
       "category_hint": "other",
       "common_name": "pouch",
       "weight_value": 4,
@@ -1524,7 +1447,6 @@
     {
       "brand": "Zpacks",
       "name": "Foldable Trail Hat",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "sun hat",
       "weight_value": 54,
@@ -1537,7 +1459,6 @@
     {
       "brand": "Zpacks",
       "name": "Trail Cool Socks",
-      "variant": "",
       "attributes": {"size": "M"},
       "attributes_source_url": "https://zpacks.com/products/trail-cool-socks",
       "attributes_quote": "Medium - 21; Large - 22; Extra Large - 26",
@@ -1553,7 +1474,6 @@
     {
       "brand": "Zpacks",
       "name": "Down Jacket",
-      "variant": "",
       "attributes": {"size": "S"},
       "attributes_source_url": "https://zpacks.com/products/zpacks-down-jacket",
       "attributes_quote": "Small / Azure Blue - 174 … XX-Large / Navy Blue - 249",
@@ -1569,7 +1489,6 @@
     {
       "brand": "Zpacks",
       "name": "Neck Gaiter",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "neck gaiter",
       "weight_value": 31,
@@ -1582,7 +1501,6 @@
     {
       "brand": "Zpacks",
       "name": "Hexamid Tent",
-      "variant": "",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://zpacks.com/products/hexamid-solo-tent",
       "attributes_quote": "Ultralight 1 Person Tent | Hexamid Solo Tent | Zpacks",
@@ -1598,7 +1516,6 @@
     {
       "brand": "Zpacks",
       "name": "Umbrella Holster",
-      "variant": "",
       "category_hint": "other",
       "common_name": "umbrella mount",
       "weight_value": 6,

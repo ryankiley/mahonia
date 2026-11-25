@@ -3,7 +3,6 @@
     {
       "brand": "Garmin",
       "name": "inReach Mini 2",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 100,
       "weight_unit": "g",
@@ -21,7 +20,7 @@
       "weight_secondary": "4.06 oz",
       "weight_source": "manufacturer",
       "source_url": "https://imrbatteries.com/products/nitecore-nb5000-ultra-lightweight-power-bank-5-000mah.json",
-      "quote": "Weight:  115g ±3g (4.06oz ±0.11oz)"
+      "quote": "Weight: 115g ±3g (4.06oz ±0.11oz)"
     },
     {
       "brand": "Goal Zero",
@@ -49,7 +48,6 @@
     {
       "brand": "Adventure Medical Kits",
       "name": "Ultralight/Watertight .5 Medical Kit",
-      "variant": "",
       "category_hint": "firstaid",
       "weight_value": 3.6,
       "weight_unit": "oz",
@@ -60,7 +58,6 @@
     {
       "brand": "Adventure Medical Kits",
       "name": "Ultralight/Watertight .7 Medical Kit",
-      "variant": "",
       "category_hint": "firstaid",
       "weight_value": 5.8,
       "weight_unit": "oz",
@@ -71,7 +68,6 @@
     {
       "brand": "Petzl",
       "name": "e+LITE",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 26,
       "weight_unit": "g",
@@ -119,7 +115,6 @@
     {
       "brand": "Justin's",
       "name": "Classic Almond Butter Squeeze Pack",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 1.15,
       "weight_unit": "oz",
@@ -133,7 +128,6 @@
     {
       "brand": "RXBAR",
       "name": "Protein Bar (Chocolate Sea Salt)",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 1.83,
       "weight_unit": "oz",
@@ -147,7 +141,6 @@
     {
       "brand": "Skratch Labs",
       "name": "Hydration Sport Drink Mix",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 22,
       "weight_unit": "g",
@@ -161,7 +154,6 @@
     {
       "brand": "Liquid I.V.",
       "name": "Hydration Multiplier",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 0.56,
       "weight_unit": "oz",
@@ -219,7 +211,6 @@
     {
       "brand": "ENO",
       "name": "SingleNest Hammock",
-      "variant": "",
       "category_hint": "shelter",
       "weight_value": 16,
       "weight_unit": "oz",
@@ -230,7 +221,6 @@
     {
       "brand": "ENO",
       "name": "DoubleNest Hammock",
-      "variant": "",
       "category_hint": "shelter",
       "weight_value": 19,
       "weight_unit": "oz",
@@ -241,7 +231,6 @@
     {
       "brand": "ENO",
       "name": "Sub6 Ultralight Hammock",
-      "variant": "",
       "category_hint": "shelter",
       "weight_value": 5.8,
       "weight_unit": "oz",
@@ -252,7 +241,6 @@
     {
       "brand": "ENO",
       "name": "Atlas Suspension Straps",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 9,
       "weight_unit": "oz",
@@ -263,7 +251,6 @@
     {
       "brand": "ENO",
       "name": "Atlas XL Suspension Straps",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 13,
       "weight_unit": "oz",
@@ -274,7 +261,6 @@
     {
       "brand": "ENO",
       "name": "Helios Ultralight Suspension Straps",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4.3,
       "weight_unit": "oz",
@@ -285,7 +271,6 @@
     {
       "brand": "Helinox",
       "name": "Chair One",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 893,
       "weight_unit": "g",
@@ -307,7 +292,6 @@
     {
       "brand": "AeroPress",
       "name": "Go",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 11.4,
       "weight_unit": "oz",
@@ -318,7 +302,6 @@
     {
       "brand": "Litesmith",
       "name": "Folding Sit Pad",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 0.98,
       "weight_unit": "oz",

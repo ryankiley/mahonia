@@ -3,7 +3,8 @@
     {
       "brand": "Katabatic Gear",
       "name": "Sawatch 15",
-      "variant": "15F, 900FP, Regular",
+      "variant": "900FP, Regular",
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "weight_value": 24.7,
       "weight_unit": "oz",
@@ -14,7 +15,8 @@
     {
       "brand": "Sea to Summit",
       "name": "Spark 15F",
-      "variant": "15F, Regular",
+      "variant": "Regular",
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "weight_value": 25.7,
       "weight_unit": "oz",
@@ -27,7 +29,7 @@
       "brand": "Zpacks",
       "name": "Solo Quilt",
       "variant": "20F, 900FP, Standard",
-      "attributes": {"width": "Standard"},
+      "attributes": {"width": "Standard", "length": "Medium"},
       "attributes_source_url": "https://zpacks.com/products/solo-quilt",
       "attributes_quote": "Width: Slim / Standard / Broad; Length: Short / Medium / Long",
       "category_hint": "sleep",
@@ -41,7 +43,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Flicker UL Quilt",
-      "variant": "20F, Regular, 950+FP",
+      "variant": "20F, 950+FP, Regular",
       "category_hint": "sleep",
       "weight_value": 1.59,
       "weight_unit": "lb",
@@ -49,21 +51,6 @@
       "weight_source": "manufacturer",
       "source_url": "https://featheredfriends.com/products/flicker-ul-ultralight-down-quilt-sleeping-bag",
       "quote": "20 Degree / Regular -- Average Weight: Reg 1 lb 9.5 oz / 723 g (Fill Weight: Reg 14.7 oz / 417 g)"
-    },
-    {
-      "brand": "Nemo",
-      "name": "Tensor Extreme Conditions Ultralight Insulated",
-      "variant": "Regular Mummy",
-      "attributes": {"r_value": 8.5},
-      "attributes_source_url": "https://www.nemoequipment.com/products/tensor-extreme-ultralight-sleeping-pad.json",
-      "attributes_quote": "achieving an 8.5 R-value and a mind-bending warmth-to-weight ratio",
-      "category_hint": "sleep",
-      "weight_value": 17,
-      "weight_unit": "oz",
-      "weight_secondary": "472 g",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.campman.com/camp-hike/nemo-tensor-extreme-conditions-sleeping-pad/",
-      "quote": "Regular Mummy size weight: 17 oz (472 g)"
     },
     {
       "brand": "Sea to Summit",
@@ -82,7 +69,8 @@
     {
       "brand": "Therm-a-Rest",
       "name": "Corus 20F",
-      "variant": "20F / -6C, Regular, 650FP down",
+      "variant": "650FP, Regular",
+      "attributes": {"temp_f": 20},
       "category_hint": "sleep",
       "weight_value": 1.62,
       "weight_unit": "lb",

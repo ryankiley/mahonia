@@ -4,12 +4,10 @@
     {
       "brand": "Apple",
       "name": "iPhone 18 Pro",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Phone",
       "weight_value": 211,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.apple.com/iphone-18-pro/specs/",
       "quote": "iPhone 18 Pro Weight: 7.44 ounces (211 grams)"
@@ -17,12 +15,10 @@
     {
       "brand": "Apple",
       "name": "iPhone 18 Pro Max",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Phone",
       "weight_value": 249,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.apple.com/iphone-18-pro/specs/",
       "quote": "iPhone 18 Pro Max Weight: 8.78 ounces (249 grams)"
@@ -35,7 +31,6 @@
       "common_name": "Smartwatch",
       "weight_value": 39.5,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/148589",
       "quote": "Weight — 46mm Aluminum, GPS: 39.5 grams (Apple Watch Series 12 Tech Specs)."
@@ -48,7 +43,6 @@
       "common_name": "Smartwatch",
       "weight_value": 38.6,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/148589",
       "quote": "Weight — 46mm Aluminum, GPS + Cellular: 38.6 grams. Apple's aluminium cellular case is LIGHTER than the GPS one, the same way it was on Series 10 and Series 11 (Apple Watch Series 12 Tech Specs)."
@@ -61,7 +55,6 @@
       "common_name": "Smartwatch",
       "weight_value": 44.9,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/148589",
       "quote": "Weight — 46mm Titanium: 44.9 grams. Apple publishes ONE weight for the titanium case, so the variant carries no GPS/Cellular split (Apple Watch Series 12 Tech Specs)."
@@ -74,7 +67,6 @@
       "common_name": "Smartwatch",
       "weight_value": 51.3,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/148589",
       "quote": "Weight (Pearl White ceramic): 51.3 grams; weight (Night Blue ceramic): 52.9 grams — the 46mm model's ceramic case, which stands 47mm tall (Apple Watch Series 12 Tech Specs). Stored as Pearl White."
@@ -87,7 +79,6 @@
       "common_name": "Smartwatch",
       "weight_value": 32.2,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/148589",
       "quote": "Weight — 42mm Aluminum, GPS: 32.2 grams (Apple Watch Series 12 Tech Specs)."
@@ -100,7 +91,6 @@
       "common_name": "Smartwatch",
       "weight_value": 31.5,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/148589",
       "quote": "Weight — 42mm Aluminum, GPS + Cellular: 31.5 grams (Apple Watch Series 12 Tech Specs)."
@@ -113,7 +103,6 @@
       "common_name": "Smartwatch",
       "weight_value": 36.5,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/148589",
       "quote": "Weight — 42mm Titanium: 36.5 grams. Apple publishes ONE weight for the titanium case, so the variant carries no GPS/Cellular split (Apple Watch Series 12 Tech Specs)."
@@ -126,7 +115,6 @@
       "common_name": "Smartwatch",
       "weight_value": 41.7,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/148589",
       "quote": "Weight (Pearl White ceramic): 41.7 grams; weight (Night Blue ceramic): 42.8 grams — the 42mm model's ceramic case, which stands 43mm tall (Apple Watch Series 12 Tech Specs). Stored as Pearl White."
@@ -137,9 +125,8 @@
       "variant": "49mm, Titanium",
       "category_hint": "electronics",
       "common_name": "Smartwatch",
-      "weight_value": 63.0,
+      "weight_value": 63,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/148758",
       "quote": "Weight (natural): 63.0 grams; weight (black): 63.1 grams — 49mm Grade 5 titanium case (Apple Watch Ultra 4 Tech Specs). Stored as the natural finish."

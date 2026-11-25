@@ -81,7 +81,7 @@
       "weight_secondary": "150 g",
       "weight_source": "manufacturer",
       "source_url": "https://www.outdoorresearch.com/products/mens-echo-hoodie-287625",
-      "quote": "<div class=\"specs-title\">Weight:</div> <div class=\"specs-content\">5.29 oz/ 150 g</div>"
+      "quote": "Weight: 5.29 oz/ 150 g"
     },
     {
       "brand": "Outdoor Research",
@@ -97,7 +97,6 @@
     {
       "brand": "Outdoor Research",
       "name": "ActiveIce Chroma Sun Gloves",
-      "variant": "",
       "category_hint": "clothing",
       "weight_value": 1.2,
       "weight_unit": "oz",
@@ -145,7 +144,6 @@
     {
       "brand": "Smartwool",
       "name": "Merino 250 Cuffed Beanie",
-      "variant": "",
       "category_hint": "clothing",
       "weight_value": 2.1,
       "weight_unit": "oz",
@@ -157,6 +155,7 @@
       "brand": "Enlightened Equipment",
       "name": "Copperfield Wind Pants",
       "variant": "Men's",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 1.31,
       "weight_unit": "oz",

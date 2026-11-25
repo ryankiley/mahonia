@@ -4,7 +4,6 @@
     {
       "brand": "Garmin",
       "name": "GPSMAP 65",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 217,
@@ -16,7 +15,6 @@
     {
       "brand": "Garmin",
       "name": "GPSMAP 65s",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 217,
@@ -28,19 +26,17 @@
     {
       "brand": "Garmin",
       "name": "GPSMAP 66i",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 230,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/623975/pn/010-02088-01",
-      "quote": "Weight: 8.1 oz (230 g) with batteries"
+      "quote": "Weight: 8.1 oz (230 g) with batteries"
     },
     {
       "brand": "Garmin",
       "name": "GPSMAP 66s",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 230,
@@ -52,7 +48,6 @@
     {
       "brand": "Garmin",
       "name": "GPSMAP 66sr",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 230,
@@ -64,7 +59,6 @@
     {
       "brand": "Garmin",
       "name": "GPSMAP 66st",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 230,
@@ -76,31 +70,28 @@
     {
       "brand": "Garmin",
       "name": "GPSMAP 67",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 230,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/890189/pn/010-02813-00",
-      "quote": "Weight: 8.1 oz (230 g) with batteries"
+      "quote": "Weight: 8.1 oz (230 g) with batteries"
     },
     {
       "brand": "Garmin",
       "name": "GPSMAP 67i",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 230,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/890109/pn/010-02812-00",
-      "quote": "Weight: 8.1 oz (230 g) with batteries"
+      "quote": "Weight: 8.1 oz (230 g) with batteries"
     },
     {
       "brand": "Garmin",
       "name": "GPSMAP H1",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 276,
@@ -112,7 +103,6 @@
     {
       "brand": "Garmin",
       "name": "GPSMAP H1i Plus",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 290,
@@ -124,43 +114,39 @@
     {
       "brand": "Garmin",
       "name": "Montana 710",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 410,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1435641/pn/010-02963-00",
-      "quote": "Weight: 14.5 oz (410 g) with included lithium-ion battery pack"
+      "quote": "Weight: 14.5 oz (410 g) with included lithium-ion battery pack"
     },
     {
       "brand": "Garmin",
       "name": "Montana 710i",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 410,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1436461/pn/010-02964-00",
-      "quote": "Weight: 14.5 oz (410 g) with included lithium-ion battery pack"
+      "quote": "Weight: 14.5 oz (410 g) with included lithium-ion battery pack"
     },
     {
       "brand": "Garmin",
       "name": "Montana 760i",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 410,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1436101/pn/010-02964-10",
-      "quote": "Weight: 14.5 oz (410 g) with included lithium-ion battery pack"
+      "quote": "Weight: 14.5 oz (410 g) with included lithium-ion battery pack"
     },
     {
       "brand": "Garmin",
       "name": "Rino 700",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 268,
@@ -172,7 +158,6 @@
     {
       "brand": "Garmin",
       "name": "Rino 750",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 348,
@@ -184,7 +169,6 @@
     {
       "brand": "Garmin",
       "name": "Rino 750t",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 348,
@@ -196,7 +180,6 @@
     {
       "brand": "Garmin",
       "name": "Rino 755t",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 348,
@@ -208,7 +191,6 @@
     {
       "brand": "Garmin",
       "name": "eTrex 22x",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 141.7,
@@ -220,7 +202,6 @@
     {
       "brand": "Garmin",
       "name": "eTrex 32x",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 141.7,
@@ -232,7 +213,6 @@
     {
       "brand": "Garmin",
       "name": "eTrex SE",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 156.5,
@@ -244,7 +224,6 @@
     {
       "brand": "Garmin",
       "name": "eTrex Solar",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 141,
@@ -256,7 +235,6 @@
     {
       "brand": "Garmin",
       "name": "eTrex Touch",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS handheld",
       "weight_value": 150,
@@ -268,7 +246,6 @@
     {
       "brand": "Garmin",
       "name": "Enduro 3",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 63,
@@ -280,7 +257,6 @@
     {
       "brand": "Garmin",
       "name": "Forerunner 165",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 39,
@@ -292,7 +268,6 @@
     {
       "brand": "Garmin",
       "name": "Forerunner 170",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 41,
@@ -304,7 +279,6 @@
     {
       "brand": "Garmin",
       "name": "Forerunner 255",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 49,
@@ -316,7 +290,6 @@
     {
       "brand": "Garmin",
       "name": "Forerunner 255S",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 39,
@@ -328,7 +301,6 @@
     {
       "brand": "Garmin",
       "name": "Forerunner 265",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 47,
@@ -340,7 +312,6 @@
     {
       "brand": "Garmin",
       "name": "Forerunner 265S",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 39,
@@ -376,7 +347,6 @@
     {
       "brand": "Garmin",
       "name": "Forerunner 70",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 40,
@@ -388,19 +358,17 @@
     {
       "brand": "Garmin",
       "name": "Forerunner 955",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 52,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/777655/pn/010-02638-10",
-      "quote": "Weight: 52 g"
+      "quote": "Weight: 52 g"
     },
     {
       "brand": "Garmin",
       "name": "Forerunner 955 Solar",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 53,
@@ -412,19 +380,17 @@
     {
       "brand": "Garmin",
       "name": "Forerunner 965",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 53,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/886725/pn/010-02809-00",
-      "quote": "Weight: 53 g"
+      "quote": "Weight: 53 g"
     },
     {
       "brand": "Garmin",
       "name": "Forerunner 970",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 56,
@@ -436,31 +402,28 @@
     {
       "brand": "Garmin",
       "name": "Instinct 2 Solar",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 53,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/775697/pn/010-02627-10",
-      "quote": "Weight: 53 g"
+      "quote": "Weight: 53 g"
     },
     {
       "brand": "Garmin",
       "name": "Instinct 2S Solar",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 43,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/741462/pn/010-02564-10",
-      "quote": "Weight: 43 g"
+      "quote": "Weight: 43 g"
     },
     {
       "brand": "Garmin",
       "name": "Instinct 2X Solar",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 67,
@@ -479,7 +442,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1316397/pn/010-02936-00",
-      "quote": "Weight: 53 g"
+      "quote": "Weight: 53 g"
     },
     {
       "brand": "Garmin",
@@ -491,7 +454,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1315317/pn/010-02934-00",
-      "quote": "Weight: 52 g"
+      "quote": "Weight: 52 g"
     },
     {
       "brand": "Garmin",
@@ -503,7 +466,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1622337/pn/010-03020-02",
-      "quote": "Weight: 59 g"
+      "quote": "Weight: 59 g"
     },
     {
       "brand": "Garmin",
@@ -527,7 +490,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1800201/pn/010-03398-00",
-      "quote": "Weight: 67 g"
+      "quote": "Weight: 67 g"
     },
     {
       "brand": "Garmin",
@@ -580,7 +543,6 @@
     {
       "brand": "Garmin",
       "name": "Venu 3",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 47,
@@ -592,14 +554,13 @@
     {
       "brand": "Garmin",
       "name": "Venu 3S",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 40,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/873214/pn/010-02785-01",
-      "quote": "Weight: 27 g (40 g with included band)"
+      "quote": "Weight: 27 g (40 g with included band)"
     },
     {
       "brand": "Garmin",
@@ -611,7 +572,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1613801/pn/010-03013-03",
-      "quote": "Weight: 33 g (46 g with included band)"
+      "quote": "Weight: 33 g (46 g with included band)"
     },
     {
       "brand": "Garmin",
@@ -623,12 +584,11 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1614061/pn/010-03014-00",
-      "quote": "Weight: 38 g (56 g with included band)"
+      "quote": "Weight: 38 g (56 g with included band)"
     },
     {
       "brand": "Garmin",
       "name": "Venu X1",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 40,
@@ -671,7 +631,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/884088/pn/010-02804-00",
-      "quote": "Weight: 88 g (case only: 60 g)"
+      "quote": "Weight: 88 g (case only: 60 g)"
     },
     {
       "brand": "Garmin",
@@ -683,7 +643,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/735520/pn/010-02540-24",
-      "quote": "Weight: 73 g (case only: 50 g)"
+      "quote": "Weight: 73 g (case only: 50 g)"
     },
     {
       "brand": "Garmin",
@@ -695,7 +655,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/735611/pn/010-02540-00",
-      "quote": "Weight: 79 g (case only: 56 g)"
+      "quote": "Weight: 79 g (case only: 56 g)"
     },
     {
       "brand": "Garmin",
@@ -707,7 +667,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/866191/pn/010-02777-10",
-      "quote": "Weight: 73 g (case only: 50 g)"
+      "quote": "Weight: 73 g (case only: 50 g)"
     },
     {
       "brand": "Garmin",
@@ -719,7 +679,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1479413/pn/010-02777-02",
-      "quote": "Weight: 79 g (case only: 56 g)"
+      "quote": "Weight: 79 g (case only: 56 g)"
     },
     {
       "brand": "Garmin",
@@ -731,7 +691,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/735548/pn/010-02539-28",
-      "quote": "Weight: 58 g (case only: 42 g)"
+      "quote": "Weight: 58 g (case only: 42 g)"
     },
     {
       "brand": "Garmin",
@@ -743,7 +703,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/735626/pn/010-02539-12",
-      "quote": "Weight: 63 g (case only: 47 g)"
+      "quote": "Weight: 63 g (case only: 47 g)"
     },
     {
       "brand": "Garmin",
@@ -767,7 +727,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/735563/pn/010-02541-22",
-      "quote": "Weight: 89 g (case only: 61 g)"
+      "quote": "Weight: 89 g (case only: 61 g)"
     },
     {
       "brand": "Garmin",
@@ -887,7 +847,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1701921/pn/010-03198-00",
-      "quote": "Weight: 77 g (case only: 56 g)"
+      "quote": "Weight: 77 g (case only: 56 g)"
     },
     {
       "brand": "Garmin",
@@ -899,7 +859,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1703902/pn/010-03199-00",
-      "quote": "Weight: 90 g (case only: 65 g)"
+      "quote": "Weight: 90 g (case only: 65 g)"
     },
     {
       "brand": "Garmin",
@@ -911,7 +871,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1723221/pn/010-03380-00",
-      "quote": "Weight: 93 g (case only: 68 g)"
+      "quote": "Weight: 93 g (case only: 68 g)"
     },
     {
       "brand": "Garmin",
@@ -935,7 +895,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/2021193/pn/010-04762-00",
-      "quote": "Weight: 75 g (case only: 53 g)"
+      "quote": "Weight: 75 g (case only: 53 g)"
     },
     {
       "brand": "Garmin",
@@ -947,7 +907,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/2021175/pn/010-04763-10",
-      "quote": "Weight: 91 g (case only: 65 g)"
+      "quote": "Weight: 91 g (case only: 65 g)"
     },
     {
       "brand": "Garmin",
@@ -971,7 +931,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1962732/pn/010-04336-25",
-      "quote": "Weight: 78 g (case only: 56 g)"
+      "quote": "Weight: 78 g (case only: 56 g)"
     },
     {
       "brand": "Garmin",
@@ -983,7 +943,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1959805/pn/010-04338-05",
-      "quote": "Weight: 84 g (case only: 63 g)"
+      "quote": "Weight: 84 g (case only: 63 g)"
     },
     {
       "brand": "Garmin",
@@ -995,7 +955,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1962713/pn/010-04337-15",
-      "quote": "Weight: 99 g (case only: 73 g)"
+      "quote": "Weight: 99 g (case only: 73 g)"
     },
     {
       "brand": "Garmin",
@@ -1007,7 +967,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1959921/pn/010-04339-05",
-      "quote": "Weight: 102 g (case only: 77 g)"
+      "quote": "Weight: 102 g (case only: 77 g)"
     },
     {
       "brand": "Garmin",
@@ -1031,7 +991,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1828661/pn/010-03405-00",
-      "quote": "Weight: 73 g (case only: 52 g)"
+      "quote": "Weight: 73 g (case only: 52 g)"
     },
     {
       "brand": "Garmin",
@@ -1055,7 +1015,7 @@
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.garmin.com/en-US/p/1963258/pn/010-04553-10",
-      "quote": "Weight: 94 g (case only: 66 g)"
+      "quote": "Weight: 94 g (case only: 66 g)"
     },
     {
       "brand": "Garmin",
@@ -1072,7 +1032,6 @@
     {
       "brand": "Garmin",
       "name": "vívoactive 5",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 36,
@@ -1084,7 +1043,6 @@
     {
       "brand": "Garmin",
       "name": "vívoactive 6",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "GPS watch",
       "weight_value": 36,
@@ -1096,7 +1054,6 @@
     {
       "brand": "Garmin",
       "name": "inReach Mini 3 Plus",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "satellite messenger",
       "weight_value": 125.2,

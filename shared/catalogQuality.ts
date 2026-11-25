@@ -86,6 +86,13 @@ export function normKey(s: string | null | undefined): string {
   return foldForSearch(s ?? "");
 }
 
+/** A citation quote as the page reads it: one line, single spaces. A non-breaking,
+ *  thin or zero-width space copied off a page is a space (or nothing), and a run of
+ *  whitespace, line breaks included, is one space. The words themselves never change. */
+export function tidyQuote(s: string): string {
+  return s.replace(/[    ]/g, " ").replace(/[​﻿]/g, "").replace(/\s+/g, " ").trim();
+}
+
 /** A variant is redundant when its tokens already appear (contiguously) in the
  *  name — e.g. name "Copper Spur HV UL3" + variant "UL3" → renders "…UL3 · UL3".
  *  Such variants should be cleared (the name already carries the size/config). */

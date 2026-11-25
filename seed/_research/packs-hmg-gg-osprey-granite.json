@@ -39,7 +39,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Murmur 36",
-      "variant": "",
       "attributes": {"volume_l": 36},
       "category_hint": "pack",
       "weight_value": 7.9,
@@ -87,7 +86,6 @@
     {
       "brand": "Six Moon Designs",
       "name": "Swift X",
-      "variant": "",
       "attributes": {"volume_l": 56},
       "attributes_source_url": "https://www.sixmoondesigns.com/products/swift-x-ultralight-backpack",
       "attributes_quote": "Total Volume: 3417 ci | 56 L",

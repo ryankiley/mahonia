@@ -7,9 +7,9 @@ import { join } from "node:path";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
 import type { Db } from "../server/utils/db";
-import { normalizeVariant } from "../shared/catalogQuality";
+import { normalizeVariant, tidyQuote } from "../shared/catalogQuality";
 import { RESEARCH_DIR } from "./paths";
-import { GRADUATED_FILE_NAME, type ResearchRow } from "./research";
+import { formatResearchFile, GRADUATED_FILE_NAME, inlineJson, type ResearchRow } from "./research";
 import { identity } from "./seedUpsert";
 
 export const GRADUATE_FILE = join(RESEARCH_DIR, GRADUATED_FILE_NAME);
@@ -32,7 +32,7 @@ export function asResearchRow(
     weight_unit: "g",
     weight_source: r.weightSource,
     source_url: r.sourceUrl,
-    ...(r.sourceQuote ? { quote: r.sourceQuote } : {}),
+    ...(r.sourceQuote ? { quote: tidyQuote(r.sourceQuote) } : {}),
   };
 }
 
@@ -86,13 +86,7 @@ function rowSpans(raw: string): { start: number; end: number }[] {
   return spans;
 }
 
-/** JSON with a space after every colon and comma, nested objects too: how most research
- *  files write a row on one line, and a nested value inside a pretty one. */
-function spacedJson(v: unknown): string {
-  if (Array.isArray(v)) return `[${v.map(spacedJson).join(", ")}]`;
-  if (v && typeof v === "object") return `{${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${spacedJson(x)}`).join(", ")}}`;
-  return JSON.stringify(v);
-}
+const spacedJson = inlineJson;
 
 /** A row written as its own slice of the file was: on one line, spaced or tight, or one key
  *  a line at the slice's indent, nested values inline unless the slice opened them on lines
@@ -170,7 +164,8 @@ export function planGraduation(
     if (file === GRADUATED_FILE_NAME) continue;
     const { text, replaced } = rewriteResearchRows(raw, wanted);
     if (!replaced.size) continue;
-    writes.set(file, text);
+    // in the house layout, whatever the row's slice looked like (catalog:format)
+    writes.set(file, formatResearchFile(JSON.parse(text)));
     inPlace.set(file, replaced.size);
     for (const key of replaced) placed.add(key);
   }
@@ -178,7 +173,7 @@ export function planGraduation(
   if (rest.length) {
     const before = graduatedRaw ? (JSON.parse(graduatedRaw) as { _comment?: string; rows?: ResearchRow[] }) : {};
     const rows = mergeResearch(before.rows ?? [], rest);
-    writes.set(GRADUATED_FILE_NAME, `${JSON.stringify({ _comment: before._comment ?? GRADUATED_COMMENT, rows }, null, 2)}\n`);
+    writes.set(GRADUATED_FILE_NAME, formatResearchFile({ _comment: before._comment ?? GRADUATED_COMMENT, rows }));
   }
   return { writes, inPlace, toGraduated: rest.length };
 }

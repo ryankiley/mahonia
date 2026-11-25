@@ -3,7 +3,6 @@
     {
       "brand": "Mammut",
       "name": "Trion 35",
-      "variant": "",
       "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "weight_value": 1480,
@@ -15,7 +14,6 @@
     {
       "brand": "Mammut",
       "name": "Lithium 30",
-      "variant": "",
       "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "weight_value": 930,
@@ -27,7 +25,6 @@
     {
       "brand": "Mammut",
       "name": "Ducan 30",
-      "variant": "",
       "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "weight_value": 920,
@@ -39,14 +36,13 @@
     {
       "brand": "Marmot",
       "name": "Tungsten UL 2P",
-      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 1340,
+      "weight_value": 1546,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://marmotau.com/products/tungsten-ul-2p-2",
-      "quote": "Minimum Weight: 1340g"
+      "source_url": "https://web.archive.org/web/20250912100742/https://marmotau.com/products/tungsten-ul-2p-2",
+      "quote": "Total Weight: 1546g Minimum Weight: 1340g"
     },
     {
       "brand": "Marmot",
@@ -63,14 +59,13 @@
     {
       "brand": "Marmot",
       "name": "Tungsten 2P",
-      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 4.98,
-      "weight_unit": "lb",
+      "weight_value": 2670,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.rei.com/product/200288/marmot-tungsten-2p-tent-with-footprint",
-      "quote": "Minimum trail weight: 4 lbs. 15.7 oz."
+      "source_url": "https://marmotau.com/products/tungsten-2p-2",
+      "quote": "Total Weight: 2670g"
     },
     {
       "brand": "Kelty",
@@ -87,7 +82,6 @@
     {
       "brand": "Kelty",
       "name": "Redwing 50",
-      "variant": "",
       "attributes": {"volume_l": 50},
       "category_hint": "pack",
       "weight_value": 3.25,
@@ -111,7 +105,6 @@
     {
       "brand": "Klymit",
       "name": "Static V",
-      "variant": "",
       "attributes": {"r_value": 1.3, "length": "72in", "width": "23in"},
       "attributes_source_url": "https://klymit.com/products/static-v-sleeping-pad",
       "attributes_quote": "ASTM R-Value: 1.3; Dimensions: 72 x 23 x 2.5 in / 183 x 58 x 6.4 cm",
@@ -125,7 +118,6 @@
     {
       "brand": "Klymit",
       "name": "Static V Base",
-      "variant": "",
       "attributes": {"r_value": 1.3, "length": "72in", "width": "23in"},
       "attributes_source_url": "https://klymit.com/products/static-v-base-sleeping-pad",
       "attributes_quote": "ASTM R-Value: 1.3; Dimensions: 72 x 23 x 2.5 in / 183 x 58 x 6.4 cm",
@@ -139,13 +131,15 @@
     {
       "brand": "Klymit",
       "name": "Insulated Static V Lite",
-      "variant": "",
+      "attributes": {"r_value": 1.9, "length": "72in"},
+      "attributes_source_url": "http://web.archive.org/web/20230602180826/https://klymit.com/products/insulated-static-v-lite-sleeping-pad",
+      "attributes_quote": "R-Value 4.4/ASTM 1.9 / Dimensions 72 x 23 x 2.5 in / 183 x 58 x 6 cm",
       "category_hint": "sleep",
-      "weight_value": 19.9,
+      "weight_value": 20,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
-      "source_url": "https://klymit.com/products/insulated-static-v-lite-sleeping-pad",
-      "quote": "Weight: 19.9 oz / 556 g"
+      "source_url": "http://web.archive.org/web/20230602180826/https://klymit.com/products/insulated-static-v-lite-sleeping-pad",
+      "quote": "Weight 20 oz / 567 g"
     },
     {
       "brand": "SlingFin",
@@ -183,14 +177,14 @@
     {
       "brand": "Naturehike",
       "name": "Cloud Up 2",
-      "variant": "20D, trail weight",
+      "variant": "20D",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 1.38,
+      "weight_value": 1.8,
       "weight_unit": "kg",
       "weight_source": "manufacturer",
-      "source_url": "https://www.naturehike.com/products/cloud-up-2-person-ultralight-backpacking-tent",
-      "quote": "Minimum Weight: approx. 1.38 kg / 3.04 lbs"
+      "source_url": "https://web.archive.org/web/20260910155626/https://www.naturehike.com/products/cloud-up-2-person-ultralight-backpacking-tent",
+      "quote": "Minimum Weight: approx. 1.38 kg / 3.04 lbs Packed Weight: approx. 1.8 kg / 3.97 lbs"
     },
     {
       "brand": "Naturehike",

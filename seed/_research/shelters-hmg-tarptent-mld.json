@@ -27,7 +27,6 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Mid 1",
-      "variant": "",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 16,
@@ -39,7 +38,6 @@
     {
       "brand": "Tarptent",
       "name": "Notch",
-      "variant": "",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.tarptent.com/product/notch/",
       "attributes_quote": "Sleeps: 1",
@@ -53,7 +51,6 @@
     {
       "brand": "Tarptent",
       "name": "Notch Li",
-      "variant": "",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.tarptent.com/product/notch-li/",
       "attributes_quote": "Sleeps: 1",
@@ -67,18 +64,19 @@
     {
       "brand": "Tarptent",
       "name": "ProTrail Li",
-      "variant": "trail weight",
+      "attributes": {"persons": 1},
+      "attributes_source_url": "http://web.archive.org/web/20260420141153/https://www.tarptent.com/product/protrail-li/",
+      "attributes_quote": "Sleeps: 1+",
       "category_hint": "shelter",
-      "weight_value": 15.95,
+      "weight_value": 18.45,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.tarptent.com/product/protrail-li/",
-      "quote": "Minimum Weight: 15.95 oz / 453 g (without bags and stakes)"
+      "source_url": "https://web.archive.org/web/20260420141153/https://www.tarptent.com/product/protrail-li/",
+      "quote": "Typical Weight: 18.45 oz / 523 g (with bags and stakes) Minimum Weight: 15.95 oz / 453 g (without bags and stakes)"
     },
     {
       "brand": "Tarptent",
       "name": "Double Rainbow",
-      "variant": "",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 1118,
@@ -102,7 +100,6 @@
     {
       "brand": "Tarptent",
       "name": "Aeon Li",
-      "variant": "",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.tarptent.com/product/aeon-li/",
       "attributes_quote": "Sleeps: 1",
@@ -128,7 +125,6 @@
     {
       "brand": "Tarptent",
       "name": "StratoSpire Li",
-      "variant": "",
       "attributes": {"persons": 2},
       "attributes_source_url": "https://www.tarptent.com/product/stratospire-li/",
       "attributes_quote": "Sleeps: 2",
@@ -212,7 +208,7 @@
     {
       "brand": "Mountain Laurel Designs",
       "name": "Cricket Pyramid Tarp",
-      "variant": "20d Pro SilPoly",
+      "variant": "20D Pro Silpoly",
       "category_hint": "shelter",
       "weight_value": 12.5,
       "weight_unit": "oz",

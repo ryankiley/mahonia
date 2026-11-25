@@ -118,6 +118,25 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
+  // --- ERROR: a gender in the name ---------------------------------------------
+  // Men's / Women's is the fit, an axis the build reads out of the variant ("Women's
+  // Medium" → fit + size). In the name it is invisible to that, and it splits one
+  // product into two names ("Women's Tarn Down Jacket" beside "Men's Tarn Down Jacket").
+  for (const r of rows) {
+    if (/\b(?:Men|Women)'s\b/i.test(r.name)) {
+      err("name-gender", `${gearLabel(r)}: Men's / Women's goes in the variant ("Women's Medium"), where it is read as the fit`);
+    }
+  }
+
+  // --- ERROR: a unit mark in the name -------------------------------------------
+  // The variant's unit rule holds in the name too: 8in, not 8"; 7ft x 9ft, not 7' x 9';
+  // 15F, not 15°F; 5/8in, not ⅝". A size the maker sells several of is a variant.
+  for (const r of rows) {
+    if (/\d\s*["″”′]|\d'(?!s\b)|°|[¼½¾⅓⅔⅛⅜⅝⅞]/.test(r.name)) {
+      err("name-unit-mark", `${gearLabel(r)}: a unit mark in the name — spell the unit ("8in", "7ft", "15F", "5/8in"), or move a size to the variant`);
+    }
+  }
+
   // --- ERROR: variant carries research commentary instead of a clean config ---
   // Keyword-driven (deterministic, low false-positive). A legit size spec like
   // "(US size 9 / M9)" or "(tapered)" must NOT trip — only prose markers do.
@@ -268,8 +287,11 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
 
   // --- ERROR: a row filed where none of its gear type's siblings are ------------
   // category_hint drives sort order, the plausibility band, and the consumable
-  // flag; a running cap in `other` beside 17 caps in `clothing` is a misfile. Only
-  // fires when the gear type has a clear home: at least 5 rows and 90% agreement.
+  // flag; a running cap in `other` beside 17 caps in `clothing` is a misfile. One
+  // gear type has one category (2026-11-25; it was "5+ rows, 90% agreeing" until a
+  // sunscreen sat in `other` beside eight in `consumable`). A thing that is filed
+  // differently is a different gear type ("Gas lantern" in cook, "Lantern" in
+  // electronics). A tie names every row, so someone decides.
   const catsByType = new Map<string, Map<string, number>>();
   for (const r of rows) {
     const k = (r.commonName ?? "").toLowerCase();
@@ -278,20 +300,26 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   }
   for (const r of rows) {
     const m = catsByType.get((r.commonName ?? "").toLowerCase())!;
+    if (m.size < 2) continue;
     const total = [...m.values()].reduce((a, b) => a + b, 0);
-    const [home, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0]!;
-    if (total >= 5 && n / total >= 0.9 && (r.categoryHint ?? "other") !== home) {
-      err("category-outlier", `${gearLabel(r)}: filed under ${r.categoryHint} while ${n} of ${total} "${r.commonName}" rows are ${home} — move it (or fix the gear type)`);
+    const [[home, n], [, runnerUp]] = [...m.entries()].sort((a, b) => b[1] - a[1]) as [[string, number], [string, number]];
+    if ((r.categoryHint ?? "other") !== home || n === runnerUp) {
+      err("category-outlier", `${gearLabel(r)}: filed under ${r.categoryHint} while ${n} of ${total} "${r.commonName}" rows are ${home} — one gear type, one category (move it, or give it its own gear type)`);
     }
   }
 
-  // --- ERROR: a number and its unit split, or a prime mark, in a variant --------
+  // --- ERROR: a number and its unit split, or a unit mark, in a variant ---------
   // normalizeVariant emits "6ft" / "400ml" / "5ft 6in"; a hand edit that slips past
-  // it ("6 ft", '17" torso') fails here.
+  // it ("6 ft", '17" torso', "⅝in", "20°F") fails here. Numbers are plain: "1L" not
+  // "1.0L", "6ft" not "6ft 0in", a bare dimension "20x72" not "20 x 72".
   for (const r of rows) {
     const v = r.variant ?? "";
-    if (/\d\s+(?:ft|in|yd|cm|mm|m|km|g|kg|oz|lb|ml|qt|gal|mAh|gsm)\b/.test(v) || /["']/.test(v.replace(/\b\w+'s\b/g, ""))) {
-      err("variant-unit-spacing", `${gearLabel(r)}: "${v}" — a number and its unit are one token ("6ft", "400ml"), and feet/inches are spelled out`);
+    if (
+      /\d\s+(?:ft|in|yd|cm|mm|m|km|g|kg|oz|lb|ml|qt|gal|mAh|gsm)\b/.test(v) ||
+      /["'°¼½¾⅓⅔⅛⅜⅝⅞]/.test(v.replace(/\b\w+'s\b/g, "")) ||
+      /\b\d+\.0(?=[A-Za-z])|\dft 0in\b|\b\d+(?:\.\d+)? x \d+(?:\.\d+)?\b/.test(v)
+    ) {
+      err("variant-unit-spacing", `${gearLabel(r)}: "${v}" — a number and its unit are one token ("6ft", "400ml", "5/8in"), plainly written ("1L", "6ft", "20x72"), with no unit marks`);
     }
   }
 
@@ -491,9 +519,41 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   }
 
   // --- ERROR: variant just repeats the name (e.g. "Copper Spur HV UL3" + "UL3") -
+  // Whole, or one part of it: "Elementum Pack Ultra [Ultra, 50L]" says Ultra twice,
+  // and a sleeping bag named for its rating ("Spark 15F", "Egret UL 20") doesn't say
+  // 15F again in the variant; the rating goes in `attributes` instead. A bag whose
+  // name carries no rating states it in the variant ("UltraLite [20F, 6ft]").
   for (const r of rows) {
-    if (r.variant && isVariantRedundant(r.name, r.variant)) {
+    if (!r.variant) continue;
+    if (isVariantRedundant(r.name, r.variant)) {
       err("variant-redundant", `${gearLabel(r)}: variant "${r.variant}" already in the name — clear it`);
+      continue;
+    }
+    const nameWords = ` ${normKey(r.name.replace(/'/g, ""))} `;
+    for (const part of r.variant.split(/,\s*/)) {
+      const rating = /^(-?\d+)F$/.exec(part);
+      const repeated = rating
+        ? new RegExp(` ${rating[1]}(?: ?f)? `).test(nameWords)
+        : isVariantRedundant(r.name, part);
+      if (repeated) err("variant-redundant", `${gearLabel(r)}: "${part}" in the variant is already in the name — drop it${rating ? " (the rating goes in attributes)" : ""}`);
+    }
+  }
+
+  // --- ERROR: a variant's axes out of order ---------------------------------------
+  // Gender, then rating, then fill power, then length or size, then the rest:
+  // "Women's, 15F, Regular", "20F, 850FP, Long". Ninety percent of rows already read
+  // that way; a row that doesn't ("Regular, 20F") reads as a different product.
+  const AXIS_ORDER: [RegExp, string][] = [
+    [/^(?:Men|Women)'s\b/, "gender"],
+    [/^-?\d+F$/, "rating"],
+    [/^\d+\+?FP$/, "fill power"],
+    [/^(?:(?:X{1,3}-)?(?:Small|Large)|Medium|Short|Regular|Long|Tall|Petite)(?: Wide| Mummy| Rectangular)?$|^\d+ft(?: \d+in)?(?: Wide)?$/, "length or size"],
+  ];
+  for (const r of rows) {
+    const ranks = (r.variant ?? "").split(/,\s*/).map((p) => AXIS_ORDER.findIndex(([re]) => re.test(p))).filter((i) => i >= 0);
+    const at = ranks.findIndex((x, i) => i > 0 && x < ranks[i - 1]!);
+    if (at > 0) {
+      err("variant-axis-order", `${gearLabel(r)}: "${r.variant}" — ${AXIS_ORDER[ranks[at]!]![1]} goes before ${AXIS_ORDER[ranks[at - 1]!]![1]} (gender, rating, fill power, length or size, then the rest)`);
     }
   }
 

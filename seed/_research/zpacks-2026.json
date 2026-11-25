@@ -15,7 +15,6 @@
     {
       "brand": "Zpacks",
       "name": "Duplex Lite",
-      "variant": "",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 15.2,
@@ -63,7 +62,6 @@
     {
       "brand": "Zpacks",
       "name": "Big Ass Camp Tarp",
-      "variant": "",
       "category_hint": "shelter",
       "weight_value": 9,
       "weight_unit": "oz",
@@ -73,8 +71,8 @@
     },
     {
       "brand": "Zpacks",
-      "name": "Flat Tarp 7' x 9'",
-      "variant": "",
+      "name": "Flat Tarp",
+      "variant": "7ft x 9ft",
       "category_hint": "shelter",
       "weight_value": 4.7,
       "weight_unit": "oz",
@@ -84,8 +82,8 @@
     },
     {
       "brand": "Zpacks",
-      "name": "Flat Tarp 8.5' x 10'",
-      "variant": "",
+      "name": "Flat Tarp",
+      "variant": "8.5ft x 10ft",
       "category_hint": "shelter",
       "weight_value": 6.4,
       "weight_unit": "oz",
@@ -96,7 +94,6 @@
     {
       "brand": "Zpacks",
       "name": "Arc Haul Ultra 40L",
-      "variant": "",
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 21.1,
@@ -108,7 +105,6 @@
     {
       "brand": "Zpacks",
       "name": "Arc Haul Ultra 70L",
-      "variant": "",
       "attributes": {"volume_l": 70},
       "category_hint": "pack",
       "weight_value": 22.2,
@@ -120,7 +116,6 @@
     {
       "brand": "Zpacks",
       "name": "Arc Zip Ultra 62L",
-      "variant": "",
       "attributes": {"volume_l": 62},
       "category_hint": "pack",
       "weight_value": 24.7,
@@ -132,7 +127,6 @@
     {
       "brand": "Zpacks",
       "name": "Super Nero Ultra 50L",
-      "variant": "",
       "attributes": {"volume_l": 50},
       "category_hint": "pack",
       "weight_value": 379,
@@ -155,7 +149,6 @@
     {
       "brand": "Zpacks",
       "name": "Bagger Ultra 25L",
-      "variant": "",
       "attributes": {"volume_l": 25},
       "category_hint": "pack",
       "weight_value": 12.4,
@@ -225,7 +218,6 @@
     {
       "brand": "Zpacks",
       "name": "Stove Stuff Sack",
-      "variant": "",
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "common_name": "stuff sack",

@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { asResearchRow, inAppVerified, mergeResearch, planGraduation, rewriteResearchRows, researchIdentity } from "../scripts/graduate";
-import type { ResearchRow } from "../scripts/research";
+import { formatResearchFile, type ResearchRow } from "../scripts/research";
 import { runResearchChecks } from "../scripts/researchChecks";
 import { seedCatalogRow } from "./helpers/catalog";
 import { createTestDb } from "./helpers/db";
@@ -140,7 +140,9 @@ describe("catalog:graduate, a research row corrected in the app", () => {
     expect([...plan.inPlace]).toEqual([["shelters.json", 1]]);
     expect(plan.toGraduated).toBe(2);
     expect([...plan.writes.keys()].sort()).toEqual(["shelters.json", "verified-in-app.json"]);
-    expect(plan.writes.get("shelters.json")).toBe(rewriteResearchRows(pretty, by(corrected)).text);
+    // the row as rewriteResearchRows leaves it, and the file in the house layout (catalog:format)
+    expect(plan.writes.get("shelters.json")).toBe(formatResearchFile(JSON.parse(rewriteResearchRows(pretty, by(corrected)).text)));
+    for (const text of plan.writes.values()) expect(text).toBe(formatResearchFile(JSON.parse(text)));
     const graduated = JSON.parse(plan.writes.get("verified-in-app.json")!);
     expect(graduated._comment).toBe("Rows verified in the app.");
     expect(graduated.rows.map((r: ResearchRow) => [r.name, r.weight_value])).toEqual([["Titanium 750 Pot", 103], ["X-Mid 2", 1022]]);

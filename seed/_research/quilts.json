@@ -25,7 +25,8 @@
     {
       "brand": "Katabatic Gear",
       "name": "Flex 22",
-      "variant": "22F, 850FP, Regular",
+      "variant": "850FP, Regular",
+      "attributes": {"temp_f": 22},
       "category_hint": "sleep",
       "weight_value": 23.9,
       "weight_unit": "oz",
@@ -36,7 +37,8 @@
     {
       "brand": "Katabatic Gear",
       "name": "Alsek 22",
-      "variant": "22F, 850FP, Regular",
+      "variant": "850FP, Regular",
+      "attributes": {"temp_f": 22},
       "category_hint": "sleep",
       "weight_value": 23.3,
       "weight_unit": "oz",
@@ -47,7 +49,8 @@
     {
       "brand": "Katabatic Gear",
       "name": "Palisade 30",
-      "variant": "30F, 850FP, Regular",
+      "variant": "850FP, Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 19.8,
       "weight_unit": "oz",
@@ -58,8 +61,8 @@
     {
       "brand": "Hammock Gear",
       "name": "Premium Burrow 20",
-      "variant": "20F, 850FP, Standard",
-      "attributes": {"length": "Standard", "width": "Standard"},
+      "variant": "850FP, Standard",
+      "attributes": {"length": "Standard", "width": "Standard", "temp_f": 20},
       "category_hint": "sleep",
       "weight_value": 21.72,
       "weight_unit": "oz",
@@ -70,8 +73,8 @@
     {
       "brand": "Hammock Gear",
       "name": "Premium Burrow 30",
-      "variant": "30F, 850FP, Standard",
-      "attributes": {"length": "Standard", "width": "Standard"},
+      "variant": "850FP, Standard",
+      "attributes": {"length": "Standard", "width": "Standard", "temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 18.37,
       "weight_unit": "oz",

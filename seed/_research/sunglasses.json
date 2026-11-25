@@ -1,11 +1,77 @@
 {
   "rows": [
-    {"brand":"Oakley x Satisfy","name":"Eye Jacket","variant":null,"category_hint":"other","weight_value":24,"weight_unit":"g","weight_secondary":null,"weight_source":"measured","source_url":"https://satisfyrunning.com/products/satisfy-oakley-eye-jacket","quote":"Weighing in at only 24 grams","common_name":"sunglasses"},
-    {"brand":"Oakley","name":"Eye Jacket Redux","variant":null,"category_hint":"other","weight_value":24,"weight_unit":"g","weight_secondary":null,"weight_source":"community","source_url":"https://www.oakley.com/en-us/product/W0OO9438","quote":"Oakley publishes no weight; 24 g from the identical Eye Jacket Redux frame measured in the Satisfy colorway (satisfyrunning.com: 'only 24 grams')","common_name":"sunglasses"},
-    {"brand":"Oakley","name":"Radar EV Path","variant":null,"category_hint":"other","weight_value":28,"weight_unit":"g","weight_secondary":null,"weight_source":"measured","source_url":"https://www.bikeradar.com/reviews/clothing/sunglasses-and-goggles/sunglasses/oakley-radar-ev-path-prizm-sunglasses-review","quote":"the 28g Radar EV Path drops a gram compared to the original"},
-    {"brand":"Oakley","name":"Sutro","variant":null,"category_hint":"other","weight_value":32,"weight_unit":"g","weight_secondary":null,"weight_source":"measured","source_url":"https://road.cc/content/review/259423-oakley-sutro-glasses","quote":"Weight: 32g"},
-    {"brand":"Oakley","name":"Sutro Lite","variant":null,"category_hint":"other","weight_value":32,"weight_unit":"g","weight_secondary":null,"weight_source":"measured","source_url":"https://road.cc/content/review/oakley-sutro-lite-280615","quote":"Weight: 32g"},
-    {"brand":"goodr","name":"OG","variant":null,"category_hint":"other","weight_value":22.1,"weight_unit":"g","weight_secondary":"0.78 oz","weight_source":"measured","source_url":"https://www.packhacker.com/travel-gear/goodr/og-sunglasses/","quote":"0.78 oz (22.1 g)"},
-    {"brand":"Sunski","name":"Treeline","variant":null,"category_hint":"other","weight_value":28.1,"weight_unit":"g","weight_secondary":null,"weight_source":"manufacturer","source_url":"https://sunski.com/products/og-treeline","quote":"Weight: 28.1 grams"}
+    {
+      "brand": "Oakley x Satisfy",
+      "name": "Eye Jacket",
+      "category_hint": "other",
+      "common_name": "sunglasses",
+      "weight_value": 24,
+      "weight_unit": "g",
+      "weight_source": "measured",
+      "source_url": "https://satisfyrunning.com/products/satisfy-oakley-eye-jacket",
+      "quote": "Weighing in at only 24 grams"
+    },
+    {
+      "brand": "Oakley",
+      "name": "Eye Jacket Redux",
+      "category_hint": "other",
+      "common_name": "sunglasses",
+      "weight_value": 24,
+      "weight_unit": "g",
+      "weight_source": "community",
+      "source_url": "https://www.oakley.com/en-us/product/W0OO9438",
+      "quote": "Oakley publishes no weight; 24 g from the identical Eye Jacket Redux frame measured in the Satisfy colorway (satisfyrunning.com: 'only 24 grams')"
+    },
+    {
+      "brand": "Oakley",
+      "name": "Radar EV Path",
+      "category_hint": "other",
+      "weight_value": 28,
+      "weight_unit": "g",
+      "weight_source": "measured",
+      "source_url": "https://www.bikeradar.com/reviews/clothing/sunglasses-and-goggles/sunglasses/oakley-radar-ev-path-prizm-sunglasses-review",
+      "quote": "the 28g Radar EV Path drops a gram compared to the original"
+    },
+    {
+      "brand": "Oakley",
+      "name": "Sutro",
+      "category_hint": "other",
+      "weight_value": 32,
+      "weight_unit": "g",
+      "weight_source": "measured",
+      "source_url": "https://road.cc/content/review/259423-oakley-sutro-glasses",
+      "quote": "Weight: 32g"
+    },
+    {
+      "brand": "Oakley",
+      "name": "Sutro Lite",
+      "category_hint": "other",
+      "weight_value": 32,
+      "weight_unit": "g",
+      "weight_source": "measured",
+      "source_url": "https://road.cc/content/review/oakley-sutro-lite-280615",
+      "quote": "Weight: 32g"
+    },
+    {
+      "brand": "goodr",
+      "name": "OG",
+      "category_hint": "other",
+      "weight_value": 22.1,
+      "weight_unit": "g",
+      "weight_secondary": "0.78 oz",
+      "weight_source": "measured",
+      "source_url": "https://www.packhacker.com/travel-gear/goodr/og-sunglasses/",
+      "quote": "0.78 oz (22.1 g)"
+    },
+    {
+      "brand": "Sunski",
+      "name": "Treeline",
+      "category_hint": "other",
+      "weight_value": 28.1,
+      "weight_unit": "g",
+      "weight_source": "manufacturer",
+      "source_url": "https://sunski.com/products/og-treeline",
+      "quote": "Weight: 28.1 grams"
+    }
   ]
 }
