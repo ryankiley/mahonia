@@ -48,7 +48,7 @@ const mountRow = (row: Item) => mountRowOver(snapshot, [{ ...row }]);
 
 // open the popover, then answer for what it holds
 async function openPop(w: ReturnType<typeof mountRow>) {
-  await w.get('button[aria-label="Consumable: yes"]').trigger("click");
+  await w.get('button[aria-label^="Consumable for "][aria-label$=": yes"]').trigger("click");
   await nextTick();
   const pop = w.get('[role="dialog"][aria-label="Consumable"]');
   return {
@@ -95,7 +95,7 @@ describe("the simple cooking estimate", () => {
 
   it("reveals the cooking toggle only after Consumable is on, without adding calculator inputs", async () => {
     const w = mountRow(item({ id: "meal", name: "Pasta", classification: "base", qty: 6, unitWeightMg: 100_000, kcal: 400 }));
-    await w.get('button[aria-label="Consumable: no"]').trigger("click");
+    await w.get('button[aria-label="Consumable for Pasta: no"]').trigger("click");
     const pop = w.get('[role="dialog"][aria-label="Consumable"]');
     const consumable = pop.get('[role="switch"][aria-label^="Consumable"]');
     expect(pop.find('[aria-label="Needs cooking"]').exists()).toBe(false);

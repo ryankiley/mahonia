@@ -151,7 +151,7 @@ export function waterVolumeLabel(item: { qty: number; unitWeightMg: number }): s
  * rather than a meaningless "×1"; everything else keeps its ×quantity. Pass the
  * row's effective classification to surface a worn split ("×3 · 1 worn").
  *
- * `hideSingle` blanks a plain "×1" — the read views take it, because a quantity of
+ * `hideSingle` blanks a plain "×1" — the read views and the packing checklist take it, because a quantity of
  * one is the default and a column where nearly every cell says the same thing is a
  * column that has to be read past to find the rows that actually carry a count. A
  * split still speaks ("×3 · 1 worn"), and so does water.

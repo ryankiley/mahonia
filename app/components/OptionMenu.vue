@@ -165,6 +165,17 @@ function pick(key: string) {
 .optmenu__btn--baseline {
   align-items: baseline;
 }
+/* A bare trigger's keyboard ring. The box hugs its text, so the reset's ring drew a
+   hard square whose outer edge (offset + width, 4px out) landed exactly on a neighbour
+   one --space-1 away: a row's unit against its weight. Half the offset leaves a pixel
+   clear on both sides of the ring, and a small corner softens it. Same width and ink,
+   so it is still the app's ring. On focus only, so nothing moves at rest; :where()
+   adds no weight, so a caller's own corner still wins, and a .btn trigger keeps the
+   button's ring whole. */
+.optmenu__btn:where(:not(.btn):focus-visible) {
+  border-radius: var(--radius-1);
+  outline-offset: calc(var(--focus-offset) / 2);
+}
 .optmenu__list {
   min-width: 7rem;
 }

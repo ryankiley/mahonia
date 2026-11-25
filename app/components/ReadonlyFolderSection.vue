@@ -22,7 +22,9 @@ const collapsed = ref(false);
   <section class="folder" :data-collapsed="collapsed || null">
     <header class="folder__head">
       <div class="folder__title">
-        <span class="folder__name">{{ folder.name }}</span>
+        <!-- an h2 under the list's h1, beside "The trip": what the page is divided into,
+             as My Gear's kinds are (VaultSection) -->
+        <h2 class="folder__name">{{ folder.name }}</h2>
         <NestChevron folder :collapsed="collapsed" :label="folder.name || 'folder'" @toggle="collapsed = !collapsed" />
       </div>
     </header>
@@ -64,6 +66,9 @@ const collapsed = ref(false);
 .folder__name {
   /* a flex child must be allowed to shrink for the atom's ellipsis to engage */
   min-width: 0;
+  /* a heading in the span's metrics: the reset gives h2 a 1.2 line (its size, weight
+     and margins are already the atom's and the reset's) */
+  line-height: inherit;
 }
 .folder__empty {
   color: var(--ink-3);

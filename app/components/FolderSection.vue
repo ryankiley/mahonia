@@ -106,7 +106,7 @@ function onName(e: Event) {
         <button
           class="btn btn--icon btn--ghost ink-quiet"
           title="Remove folder"
-          aria-label="Remove folder"
+          :aria-label="`Remove ${folder.name || 'folder'}`"
           @click="c.removeFolder(folder.id)"
         >
           <SvgIcon :icon="IconTrashCan" />
