@@ -20,6 +20,7 @@ export { IconBackpack } from "./IconBackpack";
 export { IconBlockSortAscending } from "./IconBlockSortAscending";
 export { IconBlockSortDescending } from "./IconBlockSortDescending";
 export { IconBrackets1 } from "./IconBrackets1";
+export { IconBubbleQuestion } from "./IconBubbleQuestion";
 export { IconBug } from "./IconBug";
 export { IconCalculator } from "./IconCalculator";
 export { IconCalendarDays } from "./IconCalendarDays";

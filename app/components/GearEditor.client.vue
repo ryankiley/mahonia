@@ -1649,7 +1649,19 @@ function onCorrected(res: { status: string; itemName?: string }) {
    — which closed the gap to the kebab and opened a matching one before it. Only the
    element that actually sits in the gutter should reach into it. */
 .menu:last-child {
-  margin-right: calc(-13 * var(--tpx)); /* glyph optics, so in type pixels with the glyphs */
+  /* glyph optics, so in type pixels with the glyphs */
+  --gutter-pull: calc(13 * var(--tpx));
+  margin-right: calc(-1 * var(--gutter-pull));
+}
+/* ...and its popover gives most of the pull back. A .menu__list hangs from its
+   trigger's right edge, and this trigger's edge is 13px into a 16px gutter: on a
+   phone the card opened 3px from the screen edge. It keeps --space-2 instead, the
+   same clearance useMenuPlacement holds every other menu to (EDGE_PADDING). One
+   property for the pull and the card, so a retune of one can't leave the other
+   behind. :deep because the list is EditorMenu's root, two components down (the Lazy
+   wrapper, then MenuList). */
+.menu:last-child :deep(.menu__list) {
+  right: calc(var(--gutter-pull) - var(--space-2));
 }
 .editor__body {
   /* The folder-to-folder rhythm, named once and read twice: .editor__folders uses it
