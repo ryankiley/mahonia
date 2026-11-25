@@ -30,8 +30,8 @@ export default defineNuxtConfig({
   // so registering "@vercel/analytics" silently injected nothing.
   modules: ["@vercel/analytics/nuxt", "@vite-pwa/nuxt"],
 
-  // Master switch for the offline plumbing (service worker + background sync, and
-  // the offline catalog search). ON by default — the site is a full PWA out of the
+  // Master switch for the offline plumbing (the service worker and the offline
+  // catalog search). ON by default — the site is a full PWA out of the
   // box (installable, boots from cache, offline edits queue + replay). Setting
   // NUXT_PUBLIC_OFFLINE=false (that exact string) is the kill switch: the gated
   // plugin then unregisters any SW + drops its caches, a clean rollback (see

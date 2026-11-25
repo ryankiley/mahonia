@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-25",
+  "fixed": [
+    "A change that failed to send could be sent a second time later and undo a newer edit to the same row."
+  ]
+}
