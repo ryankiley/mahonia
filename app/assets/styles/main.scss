@@ -94,6 +94,34 @@
   padding-block: var(--space-5) var(--space-9);
 }
 
+/* A PAGE THAT IS ONE MESSAGE AND ONE WAY ON, centred both ways between the top bar and
+   the footer: the 404, a shared list that isn't there, the page a sign-in link lands
+   on. Three short lines at the top-left of an empty page looked like a page that hadn't
+   finished loading, and two of the three sat left while the 404 sat centred. The rule
+   across the app: anything with rows or a title bar reads from the left, and a page
+   with neither centres. Its content is one child (a .prose block), so the grid has one
+   cell to centre.
+   The height comes down a chain that exists only while one of these is on the page:
+   the layout's column is a plain block (layouts/default.vue), and a page's own root
+   <div> sits between it and <main> on every page but the error page. */
+.page--alone {
+  flex: 1 0 auto;
+  display: grid;
+  place-items: center;
+  text-align: center;
+}
+.page--alone > .prose {
+  align-items: center;
+}
+.shell__main:has(.page--alone),
+.shell__main > div:has(> .page--alone) {
+  display: flex;
+  flex-direction: column;
+}
+.shell__main > div:has(> .page--alone) {
+  flex: 1 0 auto;
+}
+
 /* The sticky bar at the top of every page — the site bar (SiteTopbar) and the editor's
    own bar (GearEditor) each carried this block scoped, byte-identical. It sticks so the
    nav + actions stay in reach through a long list; print.scss unsticks it — with

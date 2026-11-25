@@ -812,17 +812,21 @@ async function onSignOut() {
 .acct__why {
   margin-block-end: var(--space-3);
 }
-/* one step of another page (asStep): the host page's left edge, not a centred column.
-   The line that switches between signing in and creating an account stays centred: it
-   hangs off the full-width buttons above it, like the "or" rule, not off the page's
-   text. */
-.acct--step .acct__empty {
+/* LEFT-ALIGNED wherever something above it already is: one step of another page
+   (asStep, under the host page's own left edge) and the dialog (under a title that sits
+   left of its close button). A centred column there put a centred paragraph and a
+   centred last line under a left-aligned heading. The rule across the app: anything
+   with a title bar or rows reads from the left, and only a page that is this column
+   alone (/account, signed out) centres it. The line that switches between signing in
+   and creating an account goes left with the rest; the "or" rule is drawn, not set, so
+   it still spans. */
+.acct--step .acct__empty,
+.acct--modal .acct__empty {
   align-items: stretch;
-  margin-inline: 0;
   text-align: start;
 }
-.acct--step .acct__swap {
-  text-align: center;
+.acct--step .acct__empty {
+  margin-inline: 0;
 }
 .acct__or {
   display: flex;
