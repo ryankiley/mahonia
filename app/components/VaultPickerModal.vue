@@ -53,7 +53,7 @@ const groups = computed(() =>
 <template>
   <BaseModal :open="!!caps" label="Choose which gear is yours" @close="emit('cancel')">
     <template v-if="caps">
-      <h2 class="t-label">Add to My Gear</h2>
+      <h2 class="t-label panel__title">Add to My Gear</h2>
       <p class="t-sm t-muted dlg__lede">
         You didn’t start this list, so some of it may not be yours. Uncheck anything that
         isn’t.

@@ -123,3 +123,9 @@ describe("importing gear", () => {
     expect(w.text()).not.toContain("Added 1 piece of gear.");
   });
 });
+
+describe("the Import gear paste box", () => {
+  it("has a name of its own, not only a placeholder", () => {
+    expect(openDialog().get("textarea").attributes("aria-label")).toBe("CSV or JSON backup");
+  });
+});

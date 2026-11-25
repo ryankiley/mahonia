@@ -1,8 +1,8 @@
 import { reactive } from "vue";
 
 // The feedback box, opened over whatever you were doing — from the editor's ⋯ menu,
-// the read views' ⋯ menu, and the read views' "Report list" (which is feedback about
-// one list, with the message seeded).
+// the read views' ⋯ menu, My Gear's ⋯ menu, and the read views' "Report list" (which
+// is feedback about one list, with the message seeded).
 //
 // Module-level singleton driving ONE <FeedbackModal> mount in app.vue, the same shape
 // as useAccountModal and useDialogs, so a surface opens it without wiring its own

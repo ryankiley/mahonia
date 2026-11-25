@@ -176,3 +176,30 @@ describe("importing a list", () => {
     await vi.waitFor(() => expect(push).toHaveBeenCalledOnce());
   });
 });
+
+// The words point at what the editor shows. A backup's row there is "JSON" on the
+// Sharing panel's Export tab; "Download JSON" is a label only the read view's and My
+// Gear's menus show, and the dialog sent people looking for it.
+describe("where the import dialog says a backup comes from", () => {
+  it("names the Export tab in its hint and in both refusals, and never Download JSON", async () => {
+    const w = dialog();
+    expect(w.get(".import__hint").text()).toContain("A file can also be a JSON backup from the Export tab in Sharing.");
+
+    await submit(w, '{"not":"a list"}');
+    expect(w.get(".import__err").text()).toBe(
+      "That looks like JSON, but not a list backup. Make one from the Export tab in Sharing.",
+    );
+
+    const text = '{"not":"a list"}';
+    w.findComponent({ name: "FilePickButton" }).vm.$emit("text", text, new File([text], "pack.json"));
+    await nextTick();
+    expect(w.get(".import__err").text()).toBe(
+      "Couldn’t read that file as a list backup. Make one from the Export tab in Sharing.",
+    );
+    expect(w.text()).not.toContain("Download JSON");
+  });
+
+  it("names the paste box for a screen reader, not by its placeholder alone", () => {
+    expect(dialog().get("textarea").attributes("aria-label")).toBe("LighterPack link or CSV");
+  });
+});

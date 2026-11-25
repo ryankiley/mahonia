@@ -77,9 +77,11 @@ const onVault = computed(() => route.path === "/gear");
 // itself, and not in a bar that already has the button.
 const showGear = computed(() => !onVault.value && !hasGearButton);
 
-// The account opens OVER the page now, so there's nowhere to come back from and
-// nothing to remember. useReturnTo still earns its keep for the magic link, which
-// leaves the browser entirely and returns in a new tab — see /auth/callback.
+// The account opens OVER the page now, so a passkey sign-in has nowhere to come back
+// from and this control remembers nothing. The emailed link is the exception: it
+// leaves the browser and returns in a new tab, so the dialog remembers the page when
+// the link is asked for (AccountView's sendLink, useReturnTo) and /auth/callback
+// returns to it.
 const { open: openAccount } = useAccountModal();
 </script>
 

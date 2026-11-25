@@ -187,6 +187,14 @@ export function useMenuDismiss(
   onDismiss?: () => void,
 ): void {
   const close = onDismiss ?? (() => (open.value = false));
+  // Focus that is in the menu as it closes goes back to its trigger, the first button
+  // in it, rather than falling to the page when the row it was on is removed. For
+  // Escape, and for a row that closes the menu itself: the dialog such a row opens
+  // returns focus to whatever held it then (BaseModal).
+  const focusTrigger = () => {
+    const root = target.value;
+    if (root?.contains(document.activeElement)) root.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+  };
   let scope: EffectScope | null = null;
   const bind = (on: boolean) => {
     if (on && !scope) {
@@ -206,17 +214,14 @@ export function useMenuDismiss(
         // Escape closes the menu and nothing else: caught on the way DOWN (capture),
         // ahead of a dialog's own window listener, and marked handled so a menu inside
         // a dialog doesn't take the dialog with it (onKeyStroke skips a handled key).
-        // Focus that was in the menu goes back to its trigger, the first button in it,
-        // rather than falling to the page.
+        // Focus that was in the menu goes back to its trigger (focusTrigger).
         useWindowEvent(
           "keydown",
           (e) => {
             if (e.key !== "Escape") return;
-            const root = target.value;
-            const inside = !!root?.contains(document.activeElement);
             e.preventDefault();
+            focusTrigger();
             close();
-            if (inside) root?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
           },
           { capture: true },
         );
@@ -226,7 +231,11 @@ export function useMenuDismiss(
       scope = null;
     }
   };
-  watch(open, bind);
+  // the watch runs before the closed menu's rows leave the page, so focus is still on one
+  watch(open, (on) => {
+    if (!on) focusTrigger();
+    bind(on);
+  });
   onScopeDispose(() => bind(false));
 }
 

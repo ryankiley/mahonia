@@ -17,7 +17,23 @@ const dlg = useTemplateRef<HTMLDivElement>("dlg");
 const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), textarea:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+// Where focus goes back to. Usually the control that was pressed. A MENU ROW is the
+// exception: its menu closed on the same press, so the row is gone by the time the
+// dialog closes and focus fell to <body>. Then it is the menu's trigger (the ⋯), the
+// first button in the menu's root, as useMenuDismiss has it for Escape.
 let restoreEl: HTMLElement | null = null;
+let menuTrigger: HTMLElement | null = null;
+function restoreFocus() {
+  const to = restoreEl?.isConnected ? restoreEl : menuTrigger?.isConnected ? menuTrigger : null;
+  restoreEl = menuTrigger = null;
+  // nothing was recorded: never opened, which is every server render (no document)
+  if (!to) return;
+  // Focus that has already gone somewhere else stays there: another dialog this one's
+  // action opened, or the page it navigated to.
+  const active = document.activeElement;
+  if (active && active !== document.body && !dlg.value?.contains(active)) return;
+  to.focus();
+}
 // `immediate`: dialogs are Lazy-mounted on first use already open (see `appear`
 // below), so a plain watch would never fire for that first open
 watch(
@@ -25,6 +41,8 @@ watch(
   (open) => {
     if (open) {
       restoreEl = document.activeElement as HTMLElement | null;
+      menuTrigger =
+        restoreEl?.closest('[role="menu"]')?.closest(".menu")?.querySelector<HTMLElement>("button") ?? null;
       // nextTick: the dlg node exists only after this open renders. Yield if a
       // caller already placed focus inside (the link-fallback preselects its
       // input). reset.scss suppresses the container's non-keyboard focus ring.
@@ -32,14 +50,12 @@ watch(
         const el = dlg.value;
         if (el && !el.contains(document.activeElement)) el.focus();
       });
-    } else if (restoreEl) {
-      // the invoker may have unmounted while the dialog was up
-      if (restoreEl.isConnected) restoreEl.focus();
-      restoreEl = null;
-    }
+    } else restoreFocus();
   },
   { immediate: true },
 );
+// a dialog its parent mounts with v-if (People) is never told it closed
+onBeforeUnmount(() => props.open && restoreFocus());
 
 // cycle Tab between the dialog's first/last focusable descendants
 function onTab(e: KeyboardEvent) {

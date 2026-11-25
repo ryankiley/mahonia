@@ -1251,7 +1251,7 @@ input[type="search"]::-webkit-search-decoration {
 }
 
 /* THE PANEL HEADER — title left, flush-end X right — worn by the vault pane and the
-   account dialog. Each surface keeps only the offset that puts it on its
+   account dialog (every dialog wears the title alone, for its full ink). Each surface keeps only the offset that puts it on its
    own container's edge (a negative top nudge, a padding-block-start). */
 .panel__head {
   display: flex;

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconBrackets1, IconFileArrowLeftIn, IconFileExcel, IconSquareChecklist } from "~/icons/central";
+import { IconBrackets1, IconBug, IconFileArrowLeftIn, IconFileExcel, IconSquareChecklist } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 import { SITE_LINKS } from "~/utils/siteLinks";
 // My Gear's ⋯ actions menu — the same quiet kebab the editor and the read views
@@ -24,6 +24,10 @@ import { SITE_LINKS } from "~/utils/siteLinks";
 // from when it was a site page; it is laid out as the editor is now (Your packs, the
 // tabs, this ⋯), and a footer under it was the one part still saying "website", ruling
 // a line under an empty page (Ryan: "why is this footer here vs in the ⋯ menu?").
+//
+// "Send feedback…" leads that foot, in the editor's seat for it and under the editor's
+// mark and words: feedback belongs beside the thing you would report on (SiteFooter),
+// and this page had no way to send any.
 const {
   /** Signed in, with gear to import into. Signed out the menu is only the way to a
    *  new list, which needs no account. */
@@ -76,6 +80,10 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
       <!-- the site foot, ruled off from this page's own rows: for everyone, signed in or
            not, since it is now the only way from here to these three -->
       <li role="none" class="menu__foot">
+        <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'feedback')">
+          <SvgIcon :icon="IconBug" aria-hidden="true" />
+          Send feedback…
+        </button>
         <NuxtLink v-for="l in SITE_LINKS" :key="l.to" :to="l.to" data-row role="menuitem" class="menu__item" @click="close()">
           <SvgIcon :icon="l.icon" aria-hidden="true" />
           {{ l.label }}

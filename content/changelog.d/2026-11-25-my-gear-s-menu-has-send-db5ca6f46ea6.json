@@ -1,0 +1,18 @@
+{
+  "date": "2026-11-25",
+  "added": [
+    "My Gear's ⋯ menu has Send feedback."
+  ],
+  "changed": [
+    "Create an account says why it asks for an email, and what to do if your browser can't make a passkey.",
+    "Dialog titles are darker than the headings inside them, and Keyboard shortcuts lines its descriptions up.",
+    "The account page is centered, like Help and About."
+  ],
+  "fixed": [
+    "A sign-in link asked for from a list now brings you back to that list.",
+    "Closing a dialog opened from a menu returns keyboard focus to the menu's button.",
+    "Gear first saved from inside a group files under its own kind in My Gear, not under Other.",
+    "The My Gear panel puts a space between a weight and its unit.",
+    "Import's hint and errors point to the Export tab, where a list's JSON backup is made."
+  ]
+}

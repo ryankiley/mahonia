@@ -58,6 +58,10 @@ describe("suggestions in the edit dialog", () => {
     expect(input(open(), "Size or version").attributes("placeholder")).toBe("Add a size");
   });
 
+  it("asks for a product the same way, so no field under a label is blank space", () => {
+    expect(input(open(), "Product").attributes("placeholder")).toBe("Add a product");
+  });
+
   it("shows the price placeholder in the currency a bare number would be saved in", () => {
     const priced = mount(VaultItemModal, {
       props: { entry, unit: "g", defaultCurrency: "USD" },
