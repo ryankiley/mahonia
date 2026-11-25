@@ -349,7 +349,7 @@ export async function verifyCatalogItem(
   // ---- the house style: what the build would refuse in this row ----
   const ruleRow: RuleRow = { ...identity, commonName: label, categoryHint: kind, weightMg, weightSource: source as string, sourceUrl: effectiveUrl, sourceQuote: storedQuote };
   // a research row graduates back into its own research file, not verified-in-app.json
-  const problems = houseRuleProblems(ruleRow, await comparedRows(db, identity.brand, identity.name, current?.id), research ? "research" : undefined);
+  const problems = houseRuleProblems(ruleRow, await comparedRows(db, identity.brand, identity.name, current?.id), research ? "research" : undefined, current?.status === "active" ? asRuleRow(current) : undefined);
   if (problems.length) {
     const fix = research
       ? "check source_url is the maker's own page and quote its line that states the weight"

@@ -59,9 +59,15 @@ const errorsOf = (findings: Finding[]) => findings.filter((f) => f.level === "er
  * the row graduates to: verified-in-app.json, or for a research row its own research file,
  * where the audit reads a quote's metric figures only (researchChecks).
  */
-export function houseRuleProblems(row: RuleRow, siblings: RuleRow[], file: string = GRADUATED_FILE_NAME): string[] {
+export function houseRuleProblems(row: RuleRow, siblings: RuleRow[], file: string = GRADUATED_FILE_NAME, was?: RuleRow): string[] {
   const before = new Set(errorsOf(runCatalogChecks(siblings.map(asCsvRow))));
-  const found = errorsOf(runCatalogChecks([...siblings, row].map(asCsvRow))).filter((m) => !before.has(m));
+  // `was` is the row as it stands, when the write changes one. A finding it already shared
+  // with other rows (a variant token spelled two ways across the catalog) is the catalog's,
+  // not this write's: correcting the row's weight isn't refused for it. A finding of the row
+  // alone (its name repeating its brand) is still its own to put right.
+  const shared = was ? new Set(errorsOf(runCatalogChecks([...siblings, was].map(asCsvRow)))) : new Set<string>();
+  const alone = new Set(errorsOf(runCatalogChecks([asCsvRow(row)])));
+  const found = errorsOf(runCatalogChecks([...siblings, row].map(asCsvRow))).filter((m) => !before.has(m) && !(shared.has(m) && !alone.has(m)));
   // the row as catalog:graduate would write it; one with no citation never graduates, so
   // only the CSV rules hold it
   const research = asResearchRow(row);
