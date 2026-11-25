@@ -174,14 +174,14 @@
     {
       "brand": "Superior Wilderness Designs",
       "name": "Long Haul 50L",
-      "variant": "Ultra 200X, minimum",
+      "variant": "Ultra 200X",
       "attributes": {"volume_l": 50},
       "category_hint": "pack",
-      "weight_value": 28.6,
+      "weight_value": 30.2,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.swdbackpacks.com/product-page/ultralight-long-haul-50l-internal-frame",
-      "quote": "Base weight of the pack : 28.6oz"
+      "quote": "Average weight including all optional items: 30.2oz"
     },
     {
       "brand": "Superior Wilderness Designs",
@@ -198,14 +198,14 @@
     {
       "brand": "Superior Wilderness Designs",
       "name": "Big Wild 70L",
-      "variant": "Ultra 400X, minimum",
+      "variant": "Ultra 400X",
       "attributes": {"volume_l": 70},
       "category_hint": "pack",
-      "weight_value": 33,
+      "weight_value": 36.9,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.swdbackpacks.com/product-page/big-wild-70l-ultra400",
-      "quote": "Minimum usable weight: 33oz for size medium."
+      "quote": "Total weight including all removable items – 36.9oz"
     },
     {
       "brand": "Osprey",
