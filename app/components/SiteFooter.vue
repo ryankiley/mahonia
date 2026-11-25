@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // A slim navigation line for non-editor pages, mounted by the default layout.
-// The editor keeps these destinations in its top-right menu to leave its canvas open.
+// The editor and My Gear keep these destinations in their top-right menus to leave
+// their canvas open (utils/siteLinks); My Gear hides this row with the body's `bare`.
 
 // The footer reads NO session state, and that is the point of it. It used to, for
 // one link: "My Gear" is signed-in chrome, so it needed the hint cookie to know

@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "The My Gear panel opens the full page with the word Manage instead of an icon.",
+    "An empty My Gear, or an empty tab on it, says what the tab holds and offers a button to add the first one.",
+    "My Gear has no footer: Help, About, and Legal are in its ⋯ menu, as in the list editor.",
+    "My Gear's Food tab wears a fork and knife instead of a candy."
+  ],
+  "fixed": [
+    "On a phone, the My Gear panel's tabs and search field have the same corners as the Gear, Packing, and Trip tabs."
+  ]
+}

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { IconBrackets1, IconFileArrowLeftIn, IconFileExcel, IconSquareChecklist } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
+import { SITE_LINKS } from "~/utils/siteLinks";
 // My Gear's ⋯ actions menu — the same quiet kebab the editor and the read views
 // carry, in the one place that didn't have one.
 //
@@ -17,6 +18,12 @@ import { SvgIcon } from "~/utils/icon";
 // "Create a list" leads it. It was a word in the bar beside this menu, and on a phone
 // the bar ran brand, page name, that word, the account glyph and ⋯ edge to edge with
 // no air; the bar now holds the page's name and two glyphs at every width.
+//
+// Help, About and Legal close it, as they close the editor's menu, and for the editor's
+// reason: this page has no footer (gear.vue marks the body `bare`). It had the site's,
+// from when it was a site page; it is laid out as the editor is now (Your packs, the
+// tabs, this ⋯), and a footer under it was the one part still saying "website", ruling
+// a line under an empty page (Ryan: "why is this footer here vs in the ⋯ menu?").
 const {
   /** Signed in, with gear to import into. Signed out the menu is only the way to a
    *  new list, which needs no account. */
@@ -65,6 +72,14 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
             Download JSON
           </button>
         </template>
+      </li>
+      <!-- the site foot, ruled off from this page's own rows: for everyone, signed in or
+           not, since it is now the only way from here to these three -->
+      <li role="none" class="menu__foot">
+        <NuxtLink v-for="l in SITE_LINKS" :key="l.to" :to="l.to" data-row role="menuitem" class="menu__item" @click="close()">
+          <SvgIcon :icon="l.icon" aria-hidden="true" />
+          {{ l.label }}
+        </NuxtLink>
       </li>
     </template>
   </KebabMenu>

@@ -71,6 +71,22 @@
   }
 }
 
+// The second button of a pair that stands on its own (an empty state's "Add gear" and
+// "Create a list"): contained like the primary beside it, a step quieter. A ghost there
+// set a pill next to a bare word, and the two read as a button and a caption rather
+// than two things to press (Ryan: "it feels weird when one is contained and other is
+// not"). The ground is an AMOUNT OF INK (--lit, the grey the account disc rests on, and
+// --lit-hover under the pointer), so it holds on a page, a dialog and a popover alike.
+.btn--soft {
+  background: var(--lit);
+  color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .btn--soft:hover {
+    background: var(--lit-hover);
+  }
+}
+
 // ghost === default (kept for intent at call sites): the hover fill is .btn's own,
 // and only the ink is this variant's
 .btn--ghost {
