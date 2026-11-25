@@ -34,8 +34,8 @@
 //      before. `npm run dev` mails itself a working localhost link with no
 //      configuration, and a Vercel preview mails itself its own deploy URL —
 //      both of which the README's "runs with no environment variables" promise
-//      depends on, and neither of which is worth hardening, because a preview
-//      runs against an isolated database branch (see databaseUrl() in db.ts).
+//      depends on, and neither of which is worth hardening: only `main`
+//      deploys from git (vercel.json), so a preview is one made by hand.
 //   3. Production: CANONICAL_ORIGIN. Pinned, unforgeable, ignores the request.
 //
 // Note what is NOT here: an allowlist of hosts to accept from the request. A
