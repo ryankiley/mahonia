@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconBug, IconCircleInfo, IconCircleMinus, IconFileArrowLeftIn, IconKeyboard, IconLaw, IconQuestionmarkCircle, IconSquareDottedBehindSquare, IconTrashCan, IconUserAdd } from "~/icons/central";
+import { IconBubbleQuestion, IconBug, IconCircleInfo, IconCircleMinus, IconFileArrowLeftIn, IconKeyboard, IconLaw, IconSquareDottedBehindSquare, IconTrashCan, IconUserAdd } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 
 // The editor's ⋯ menu — the list of actions, NOT the button that opens it. The
@@ -106,19 +106,30 @@ const MENU_ACTIONS: MenuAction[] = [
 ];
 // Help and site destinations live together, away from list operations and the
 // destructive pair. The editor has no footer; the sticky toolbar keeps them in reach.
+//
+// The shortcuts sheet stands down on a touch device: it lists keys a phone doesn't
+// have, so the row led to a page of things you can't press. `pointer: coarse` is the
+// same test that grows the icon buttons to --tap, so "phone" means one thing here. A
+// tablet with a keyboard attached loses the row and keeps the sheet — `?` still opens it.
+const touch = !!window.matchMedia?.("(pointer: coarse)").matches;
 const SITE_ACTIONS: MenuAction[] = [
-  { label: "Keyboard shortcuts", icon: IconKeyboard, event: "shortcuts" },
+  { label: "Keyboard shortcuts", icon: IconKeyboard, event: "shortcuts", hidden: () => touch },
   { label: "Send feedback…", icon: IconBug, event: "feedback" },
 ];
 // Help, About and Legal sit beside them: links, not events, since they go somewhere
 // rather than do something to the list.
+//
+// Help is a question in a BUBBLE, not in a circle: About's mark is the "i" in a circle,
+// and two ringed glyphs one row apart read as the same icon twice. Neighbouring rows
+// take different outlines so the shape tells them apart before the character inside does.
 const SITE_LINKS = [
-  { to: "/help", label: "Help", icon: IconQuestionmarkCircle },
+  { to: "/help", label: "Help", icon: IconBubbleQuestion },
   { to: "/about", label: "About", icon: IconCircleInfo },
   { to: "/legal", label: "Legal", icon: IconLaw },
 ];
 // what the menu renders: the rows a state hides (Duplicate on the first-run screen)
 const menuActions = computed(() => MENU_ACTIONS.filter((a) => !a.hidden?.()));
+const siteActions = computed(() => SITE_ACTIONS.filter((a) => !a.hidden?.()));
 
 // Close BEFORE the action runs, matching the dispatch order the rows have always had.
 function act(event: MenuEvent | FootEvent) {
@@ -145,7 +156,7 @@ function act(event: MenuEvent | FootEvent) {
            by the shared .menu__foot, and from the destructive pair below by the next. -->
       <li role="none" class="menu__foot">
         <button
-          v-for="a in SITE_ACTIONS"
+          v-for="a in siteActions"
           :key="a.label"
           type="button"
           data-row

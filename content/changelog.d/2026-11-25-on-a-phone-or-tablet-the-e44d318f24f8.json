@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "On a phone or tablet the editor's ⋯ menu no longer offers Keyboard shortcuts, since there are no keys to press.",
+    "Help in the editor's ⋯ menu has a speech-bubble icon, so it no longer looks like About beside it."
+  ],
+  "fixed": [
+    "The editor's ⋯ menu no longer opens hard against the edge of the screen on a phone."
+  ]
+}
