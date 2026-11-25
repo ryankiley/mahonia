@@ -212,7 +212,7 @@ export async function verifyCatalogItem(
     };
   } else {
     const name = text(args.name, MAX_ITEM_NAME_LEN);
-    if (!name) return "Give catalog_id for a row in the catalog, or name (with brand, variant and gear_type) for a product it doesn't have.";
+    if (!name) return "Give catalog_id for a row in the catalog, or name (with brand, variant, and gear_type) for a product it doesn't have.";
     if (!gearType) return "A new product needs gear_type, what it is (\"Tent\", \"Rain jacket\"), the label a pick fills in.";
     identity = { brand: await typedBrand(), name, variant: typedVariant() };
     const { brand, variant } = identity;
@@ -298,7 +298,7 @@ export async function verifyCatalogItem(
   }
   const nowG = current ? Number(current.weightMg) / 1000 : 0;
   if (current && nowG > 0 && bigChange(nowG, grams)) {
-    concerns.push(`Row ${current.id}, ${itemDisplayName(current.brand, current.name, current.variant)}, weighs ${nowG} g now, and ${grams} g is a change of more than 30%: check it is the right row, the right size and the right number.`);
+    concerns.push(`Row ${current.id}, ${itemDisplayName(current.brand, current.name, current.variant)}, weighs ${nowG} g now, and ${grams} g is a change of more than 30%: check it is the right row, the right size, and the right number.`);
   }
   // A scale weight over a maker's published one replaces the maker's figure and its quote
   // for everyone who uses the catalog (the undo keeps both), a row brought back included.
@@ -354,8 +354,8 @@ export async function verifyCatalogItem(
     const fix = research
       ? "check source_url is the maker's own page and quote its line that states the weight"
       : args.catalog_id != null
-        ? "pass brand, name, variant or gear_type beside the catalog_id to put the row right"
-        : "change the brand, name, variant or gear type";
+        ? "pass brand, name, variant, or gear_type beside the catalog_id to put the row right"
+        : "change the brand, name, variant, or gear type";
     return `The catalog's house style refuses ${display}: ${problems.join(" ")} To fix it, ${fix}, and send it again.`;
   }
 
@@ -452,7 +452,7 @@ export async function verifyCatalogItem(
   } catch (e) {
     // a rename onto the identity of another row
     if (!isUniqueViolation(e)) throw e;
-    return `${display} is already another catalog row, maybe a retired one; to verify that one instead, send its brand, name and variant without catalog_id.`;
+    return `${display} is already another catalog row, maybe a retired one; to verify that one instead, send its brand, name, and variant without catalog_id.`;
   }
 }
 
