@@ -33,8 +33,8 @@ const { mount: dialogs } = useDialogs();
          names itself. It sat in the trailing slot, where it read as "404 Sign in". -->
     <SiteTopbar :label="String(error?.statusCode ?? 'Error')" />
 
-    <main id="main-content" tabindex="-1" class="wrap page err">
-      <div class="prose err__body">
+    <main id="main-content" tabindex="-1" class="wrap page page--alone">
+      <div class="prose">
         <h1 class="t-title">
           {{ notFound ? "This page doesn’t exist." : "Something went wrong." }}
         </h1>
@@ -62,18 +62,8 @@ const { mount: dialogs } = useDialogs();
 </template>
 
 <style scoped>
-/* Centred both ways in the space between the top bar and the footer. The message is
-   three short lines, and at the top-left of an empty page it looked like a page that
-   hadn't finished loading. */
-.err {
-  flex: 1 0 auto;
-  display: grid;
-  place-items: center;
-}
-.err__body {
-  align-items: center;
-  text-align: center;
-}
+/* Centred both ways by .page--alone (main.scss), which the other pages that are one
+   message and one way on wear too. */
 /* Dev only. The stack is one long line, and a bare <pre> ran it off the page. Read as
    code, left-aligned, across the column. */
 .err__dump {
@@ -81,15 +71,5 @@ const { mount: dialogs } = useDialogs();
   text-align: left;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
-}
-</style>
-
-<style>
-/* Unscoped, because it reaches the layout's column, which this page doesn't own. That
-   column is a plain block, so it has no height for <main> to fill. This makes it a flex
-   column only while it holds the error page, and every other page is untouched. */
-.shell__main:has(> .err) {
-  display: flex;
-  flex-direction: column;
 }
 </style>

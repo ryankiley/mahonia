@@ -306,12 +306,12 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   </main>
 
   <!-- Nothing to show, so it takes the shape the site already uses for exactly that:
-       .page + .prose, the same block app/error.vue renders. It used to build its own
-       (.view's flex column at full --measure width, with --space-9 above), which put a
-       single muted line hard against the page gutter — 46px left of where text starts
-       on every other page, alone in a 1024px column with nothing to sit against. The
-       reading column gives it a left edge shared with the rest of the site. -->
-  <main v-else id="main-content" tabindex="-1" class="wrap page">
+       .page--alone + .prose, the same block app/error.vue renders, centred as the 404
+       is. It used to build its own (.view's flex column at full --measure width, with
+       --space-9 above), which put a single muted line hard against the page gutter;
+       then it took the reading column's left edge, which left it reading from the left
+       at the top of the page while the 404 beside it sat in the middle. -->
+  <main v-else id="main-content" tabindex="-1" class="wrap page page--alone">
     <div class="prose">
       <p>This list doesn’t exist, or was deleted.</p>
       <p><NuxtLink to="/e" class="btn btn--primary">Create a list</NuxtLink></p>

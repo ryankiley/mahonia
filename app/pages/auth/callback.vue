@@ -143,69 +143,73 @@ async function finish() {
 <template>
   <div>
     <SiteTopbar />
-    <main id="main-content" tabindex="-1" class="wrap page">
-      <template v-if="state === 'working' || state === 'done'">
-        <h1 class="t-title">Signing you in…</h1>
-        <p class="t-muted cb__line">One moment.</p>
-      </template>
+    <!-- One message and one way on, in every state, so it sits where the 404 does
+         (.page--alone, main.scss) rather than at the page's top-left corner. -->
+    <main id="main-content" tabindex="-1" class="wrap page page--alone">
+      <div class="cb">
+        <template v-if="state === 'working' || state === 'done'">
+          <h1 class="t-title">Signing you in…</h1>
+          <p class="t-muted cb__line">One moment.</p>
+        </template>
 
-      <template v-else-if="state === 'confirm'">
-        <h1 class="t-title cb__account">Sign in as {{ asking.email }}?</h1>
-        <p class="t-muted cb__line">
-          {{
-            asking.asked
-              ? "This link was asked for in a different browser. Carry on only if you asked for it."
-              : "Carry on only if this address is yours."
-          }}
-        </p>
-        <p v-if="asking.evicts" class="t-muted cb__line">
-          Signing in removes any passkey already on this account and signs out anyone else using it.
-        </p>
-        <div class="cb__actions">
-          <button type="button" class="btn btn--primary" :disabled="!armed" @click="confirm">Sign in</button>
-          <NuxtLink to="/" class="btn btn--quiet">Not me</NuxtLink>
-        </div>
-      </template>
+        <template v-else-if="state === 'confirm'">
+          <h1 class="t-title cb__account">Sign in as {{ asking.email }}?</h1>
+          <p class="t-muted cb__line">
+            {{
+              asking.asked
+                ? "This link was asked for in a different browser. Carry on only if you asked for it."
+                : "Carry on only if this address is yours."
+            }}
+          </p>
+          <p v-if="asking.evicts" class="t-muted cb__line">
+            Signing in removes any passkey already on this account and signs out anyone else using it.
+          </p>
+          <div class="cb__actions">
+            <button type="button" class="btn btn--primary" :disabled="!armed" @click="confirm">Sign in</button>
+            <NuxtLink to="/" class="btn btn--quiet">Not me</NuxtLink>
+          </div>
+        </template>
 
-      <template v-else-if="state === 'lists'">
-        <h1 class="t-title">Add this browser’s {{ deviceLists === 1 ? "list" : "lists" }} to your account?</h1>
-        <p class="t-muted cb__line cb__account">
-          You’re signed in as {{ asking.email }}. Add
-          {{ deviceLists === 1 ? "it and it opens" : "them and they open" }} on any device you sign in on.
-        </p>
-        <p v-if="addFailed" class="t-muted cb__line">That didn’t go through. Try again, or carry on without.</p>
-        <div class="cb__actions">
-          <button type="button" class="btn btn--primary" :disabled="!armed" @click="addLists">
-            {{ deviceLists === 1 ? "Add list" : "Add lists" }}
-          </button>
-          <button type="button" class="btn btn--quiet" @click="finish">Not now</button>
-        </div>
-      </template>
+        <template v-else-if="state === 'lists'">
+          <h1 class="t-title">Add this browser’s {{ deviceLists === 1 ? "list" : "lists" }} to your account?</h1>
+          <p class="t-muted cb__line cb__account">
+            You’re signed in as {{ asking.email }}. Add
+            {{ deviceLists === 1 ? "it and it opens" : "them and they open" }} on any device you sign in on.
+          </p>
+          <p v-if="addFailed" class="t-muted cb__line">That didn’t go through. Try again, or carry on without.</p>
+          <div class="cb__actions">
+            <button type="button" class="btn btn--primary" :disabled="!armed" @click="addLists">
+              {{ deviceLists === 1 ? "Add list" : "Add lists" }}
+            </button>
+            <button type="button" class="btn btn--quiet" @click="finish">Not now</button>
+          </div>
+        </template>
 
-      <template v-else-if="state === 'invalid'">
-        <h1 class="t-title">That link has expired</h1>
-        <p class="t-muted cb__line">
-          Sign-in links work once and last 15 minutes.
-        </p>
-        <NuxtLink to="/account" class="btn btn--primary cb__action">Get a new link</NuxtLink>
-      </template>
+        <template v-else-if="state === 'invalid'">
+          <h1 class="t-title">That link has expired</h1>
+          <p class="t-muted cb__line">
+            Sign-in links work once and last 15 minutes.
+          </p>
+          <NuxtLink to="/account" class="btn btn--primary cb__action">Get a new link</NuxtLink>
+        </template>
 
-      <template v-else>
-        <h1 class="t-title">Couldn’t sign you in</h1>
-        <p class="t-muted cb__line">
-          Something went wrong on the way. Your link is probably still good.
-        </p>
-        <button type="button" class="btn btn--primary cb__action" @click="verify">Try again</button>
-      </template>
+        <template v-else>
+          <h1 class="t-title">Couldn’t sign you in</h1>
+          <p class="t-muted cb__line">
+            Something went wrong on the way. Your link is probably still good.
+          </p>
+          <button type="button" class="btn btn--primary cb__action" @click="verify">Try again</button>
+        </template>
+      </div>
     </main>
   </div>
 </template>
 
 <style scoped>
-.page {
+.cb {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: center;
   gap: var(--space-2);
 }
 .cb__line {
@@ -222,6 +226,7 @@ async function finish() {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
+  justify-content: center;
   gap: var(--space-2);
 }
 </style>

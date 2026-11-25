@@ -809,20 +809,42 @@ async function onSignOut() {
 /* "or" sitting in a hairline. The rule is drawn with a flex child either side
    rather than a pseudo-element on the text, so it centres correctly whatever the
    word's width and needs no background-matching trick to punch the gap. */
+/* TWO DISTANCES in this column, and no third. Things that are one group sit --space-3
+   apart (a field and its button; in the dialog, the title and the line under it), and
+   the groups sit --space-5 apart: the explanation, the form, the line that switches
+   forms, and then the card's own padding below it, which is --space-5 as well. It ran
+   22 / 28 / 12 / 16 / 24 down the dialog, so the explanation stood further from the
+   field than from its own title and the last line crowded the button.
+   The column's gap is --space-4 (what the "or" rule wants either side of it), so each
+   group edge adds the --space-2 that makes it --space-5. */
 .acct__why {
-  margin-block-end: var(--space-3);
+  margin-block-end: var(--space-2);
 }
-/* one step of another page (asStep): the host page's left edge, not a centred column.
-   The line that switches between signing in and creating an account stays centred: it
-   hangs off the full-width buttons above it, like the "or" rule, not off the page's
-   text. */
-.acct--step .acct__empty {
+.acct__swap {
+  margin-block-start: var(--space-2);
+}
+/* In the dialog the title is drawn by the dialog (AccountModal), a --space-3 gap plus its
+   header's --space-2 above this column. Taking the --space-2 back here puts the title
+   and its line one group's distance apart, and leaves the signed-in dialog, whose body
+   is sections and not this column, as it was. */
+.acct--modal .acct__empty {
+  margin-block-start: calc(-1 * var(--space-2));
+}
+/* LEFT-ALIGNED wherever something above it already is: one step of another page
+   (asStep, under the host page's own left edge) and the dialog (under a title that sits
+   left of its close button). A centred column there put a centred paragraph and a
+   centred last line under a left-aligned heading. The rule across the app: anything
+   with a title bar or rows reads from the left, and only a page that is this column
+   alone (/account, signed out) centres it. The line that switches between signing in
+   and creating an account goes left with the rest; the "or" rule is drawn, not set, so
+   it still spans. */
+.acct--step .acct__empty,
+.acct--modal .acct__empty {
   align-items: stretch;
-  margin-inline: 0;
   text-align: start;
 }
-.acct--step .acct__swap {
-  text-align: center;
+.acct--step .acct__empty {
+  margin-inline: 0;
 }
 .acct__or {
   display: flex;
