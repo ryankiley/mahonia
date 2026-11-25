@@ -304,7 +304,7 @@ export function summarizeOps(ops: readonly Op[], before?: SummaryBefore): string
     const name = reweighed.only();
     return name ? `Changed ${name}’s weight` : `Changed ${plural(reweighed.n, "weight")}`;
   }
-  if (reclassified.n && labelEdits === reclassified.n) return `Reclassified ${reclassified.one("item")}`;
+  if (reclassified.n && labelEdits === reclassified.n) return `Changed how ${reclassified.one("item")} ${reclassified.n === 1 ? "counts" : "count"}`;
   if (reassigned.n && labelEdits === reassigned.n) return `Reassigned ${reassigned.one("item")}`;
   if (moved.n && !labelEdits) return `Moved ${moved.one("item")}`;
   // packing ticks are their own kind of session and shouldn't read as "edited"

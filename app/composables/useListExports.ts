@@ -52,7 +52,7 @@ export function useListExports(
   // the chunk loads (and can FAIL to load: offline before the SW cached it, or a
   // dropped connection — the old static imports never could, so say so); then the
   // act. Written once, so the four below are only the part that differs.
-  const LOAD_FAILED = "Couldn’t load the exporter. Try again.";
+  const LOAD_FAILED = "Couldn’t get that ready. Try again.";
   async function withExporter<M>(
     load: () => Promise<M>,
     act: (mod: M, snap: ListSnapshot) => Promise<void> | void,
@@ -79,12 +79,12 @@ export function useListExports(
     withExporter(textExporter, async ({ listToText }, snap) => {
       const shareUrl = getShareUrl();
       const ok = await copyText(listToText(snap, { shareUrl }));
-      flash(ok ? (shareUrl ? "Copied, with the read-only link" : "Copied as plain text") : "Copy failed");
+      flash(ok ? (shareUrl ? "Copied, with the read-only link" : "Copied as plain text") : "Couldn’t copy. Try again.");
     });
 
   const copyMarkdown = () =>
     withExporter(mdExporter, async ({ listToMarkdown }, snap) => {
-      flash((await copyText(listToMarkdown(snap))) ? "Copied as Markdown" : "Copy failed");
+      flash((await copyText(listToMarkdown(snap))) ? "Copied as Markdown" : "Couldn’t copy. Try again.");
     });
 
   // downloadFile() + listFileBase() (the saved file is named after the list) live

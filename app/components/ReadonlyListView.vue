@@ -311,7 +311,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
        reading column gives it a left edge shared with the rest of the site. -->
   <main v-else id="main-content" tabindex="-1" class="wrap page">
     <div class="prose">
-      <p>This list doesn’t exist (or was removed).</p>
+      <p>This list doesn’t exist, or was deleted.</p>
       <p><NuxtLink to="/e" class="btn btn--primary">Create a list</NuxtLink></p>
     </div>
   </main>

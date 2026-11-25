@@ -51,7 +51,7 @@ async function send() {
     // infrastructure (see the handler); anything else gets a generic line
     error.value =
       (e as { data?: { statusMessage?: string } })?.data?.statusMessage ||
-      "Couldn’t send that just now. Try again in a moment.";
+      "Couldn’t send that just now. Try again.";
   }
 }
 </script>

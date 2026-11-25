@@ -30,8 +30,8 @@ describe("the profile's own climb and drop figures", () => {
     expect(w.find(".tprofile").exists()).toBe(true);
     const facts = w.find(".tprofile__facts");
     expect(facts.exists()).toBe(true);
-    expect(facts.text()).toContain("Elevation gain");
-    expect(facts.text()).toContain("Elevation loss");
+    expect(facts.text()).toContain("Route climb");
+    expect(facts.text()).toContain("Route descent");
   });
 
   it("stand down where the page carries them itself (the planning view)", () => {

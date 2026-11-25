@@ -37,7 +37,7 @@ describe("summarizeOps", () => {
     expect(summarizeOps([{ t: "updateItem", id: "a", patch: { unitWeightMg: 900 } }] as Op[]))
       .toBe("Changed 1 weight");
     expect(summarizeOps([{ t: "updateItem", id: "a", patch: { classification: "worn" } }] as Op[]))
-      .toBe("Reclassified 1 item");
+      .toBe("Changed how 1 item counts");
   });
 
   it("counts a unit change as a weight change — it re-expresses the same number", () => {

@@ -734,7 +734,7 @@ async function copyEditLink() {
   // a claimed open holds no edit link to copy — the server only ever stored its
   // hash, so this device can't produce one without rotating (which mints a new one)
   if (!c.editToken && c.claimCode)
-    return flash("This device doesn’t hold the edit link. Replace it in Sharing to get one");
+    return flash("The edit link isn’t saved on this device. Use “Get a new edit link” in Sharing.");
   if (!(await askConfirm({
     title: "Copy the edit link?",
     message: "Anyone with it can edit this list. Only send it to people you trust.",
@@ -899,8 +899,8 @@ const missingMessage = computed(() =>
       : keylessCode.value
         // a fragment-less /e/{code}: the key that opens it for editing is gone from
         // the link, not the list — the read-only view still opens with the same code
-        ? "This edit link is missing its key, so it can’t open the list for editing. Ask for the edit link again, or open the read-only view."
-        : "This list isn’t in this browser, or the link is invalid.",
+        ? "This edit link is incomplete, so it can’t open the list for editing. Ask for the whole link again, or open the read-only view."
+        : "This link doesn’t open a list. Check you have the whole link, or ask for it again.",
 );
 // A load that ended with nothing to show and no verdict: no copy on the device and
 // either no network — it loads itself when the network returns (the controller's
@@ -1014,10 +1014,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
     res.status === "applied"
       ? "Catalog updated for everyone. Thank you."
       : res.status === "proposed"
-        ? "Suggested, pending a citation"
+        ? "Suggested. It applies once there’s a source link."
         : res.status === "noop"
           ? "That already matches the catalog"
-          : "Couldn’t submit that fix",
+          : "Couldn’t send that fix. Try again.",
   );
 }
 
@@ -1416,7 +1416,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     <main v-else-if="unloaded" id="main-content" tabindex="-1" class="wrap editor__missing">
       <p class="t-muted">
         {{ status === "offline"
-          ? "This list isn’t saved on this device, and there’s no connection to load it from. It will open on its own once you’re back online."
+          ? "You’re offline, and this list isn’t saved on this device. It opens once you’re back online."
           : "This list couldn’t be loaded. Check your connection and try again." }}
       </p>
       <button v-if="status === 'error'" class="btn btn--primary" @click="c.retryLoad()">Try again</button>

@@ -565,11 +565,11 @@ const id = useId();
          figures instead, which is the same division of labour the numbers above the chart
          already make. aria-hidden: <desc> says all of it, and better. -->
     <p v-if="facts && (ascentM || descentDiffers)" class="tprofile__facts">
-      <FigureChip v-if="ascentM" label="Elevation gain" :value="asHeight(ascentM)" :unit="heightUnit" />
+      <FigureChip v-if="ascentM" label="Route climb" :value="asHeight(ascentM)" :unit="heightUnit" />
       <!-- The descent only when it is a DIFFERENT fact. On a loop it equals the climb by
            definition, and two figures carrying one fact is one figure too many; where they
            differ, the gap between them IS the net height change, which is worth seeing. -->
-      <FigureChip v-if="descentDiffers" label="Elevation loss" :value="asHeight(descentM ?? 0)" :unit="heightUnit" />
+      <FigureChip v-if="descentDiffers" label="Route descent" :value="asHeight(descentM ?? 0)" :unit="heightUnit" />
     </p>
   </figure>
 </template>

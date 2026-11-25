@@ -45,7 +45,7 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
 </script>
 
 <template>
-  <MenuList tag="div" class="menu__list--start lm__panel" aria-label="Your lists">
+  <MenuList tag="div" class="menu__list--start lm__panel" aria-label="Your packs">
     <div v-if="filterable" class="lm__filter">
       <input
         ref="fieldRef"

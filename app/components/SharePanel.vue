@@ -317,7 +317,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
             <SvgIcon :icon="IconPencil2" aria-hidden="true" />
             <span class="share__text">
               <span class="share__name">Copy edit link</span>
-              <span :id="`${uid}-hint-edit`" class="share__hint">Anyone with it can change this list</span>
+              <span :id="`${uid}-hint-edit`" class="share__hint">Anyone with it can edit this list</span>
             </span>
           </button>
         </li>

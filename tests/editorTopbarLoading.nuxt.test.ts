@@ -117,6 +117,6 @@ describe("the top bar while a list loads from the network", () => {
     expect(useGearList().status.value).toBe("missing");
     expect(bar().find(".topbar__status").exists()).toBe(false);
     expect(button("Sharing").exists()).toBe(false);
-    expect(wrapper.find(".editor__missing").text()).toContain("isn’t in this browser");
+    expect(wrapper.find(".editor__missing").text()).toContain("doesn’t open a list");
   });
 });

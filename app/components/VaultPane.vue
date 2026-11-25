@@ -647,20 +647,19 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            has gear that hasn't been made into a set, an empty Food tab no food packed -->
       <div v-else-if="tab === 'kits'" class="vp__empty">
         <p class="t-sm t-muted">
-          No kits yet. Make one with New kit on
-          <NuxtLink to="/gear" class="link vp__pagelink">the My Gear page</NuxtLink>, or save a group on a
-          list to My Gear as one.
+          No kits yet. Make one on
+          <NuxtLink to="/gear" class="link vp__pagelink">the My Gear page</NuxtLink>, or save a group from
+          a list as a kit.
         </p>
       </div>
       <div v-else-if="tab === 'food'" class="vp__empty">
         <p class="t-sm t-muted">
-          No food yet. Add food to this list and it’ll collect itself here, with its
-          calories.
+          No food yet. Food you add to a list is saved here, with its calories.
         </p>
       </div>
       <div v-else class="vp__empty">
         <p class="t-sm t-muted">
-          No gear saved yet. Add gear to this list and it’ll collect itself here.
+          No gear yet. Gear you add to a list is saved here.
         </p>
       </div>
       </template>

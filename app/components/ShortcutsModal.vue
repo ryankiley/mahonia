@@ -33,25 +33,25 @@ interface Row {
 }
 const GROUPS: { title: string; rows: Row[] }[] = [
   {
-    title: "A row",
+    title: "An item",
     rows: [
       // "drag" alone was not enough: the row is mostly text fields, so the ⋮⋮ handle is
       // the only thing that starts a drag — and the first person to try this reached
       // for the row body and concluded the feature was broken. The arrow-key entry
       // below already said "on the drag handle"; this one has to as well.
-      { mod: ALT, keys: ["drag"], what: "Duplicate a row from its ⋮⋮ handle. The copy lands where you drop it, with everything on it" },
-      { keys: ["↑", "↓"], what: "In a weight field, nudge the weight in that row’s own unit" },
-      { mod: "Shift", keys: ["↑", "↓"], what: "Nudge it by ten of those" },
-      { keys: ["↑", "↓"], what: "On the drag handle, move a row (or a folder) one place" },
+      { mod: ALT, keys: ["drag"], what: "Duplicate an item from its ⋮⋮ handle. The copy lands where you drop it, with everything on it" },
+      { keys: ["↑", "↓"], what: "In a weight field, nudge the weight in that item’s own unit" },
+      { mod: "Shift", keys: ["↑", "↓"], what: "Nudge the weight ten steps at a time" },
+      { keys: ["↑", "↓"], what: "On the drag handle, move an item (or a folder) one place" },
     ],
   },
   {
     title: "While dragging",
     rows: [
-      { keys: ["Esc"], what: "Put it back: the drop is cancelled and nothing moves" },
+      { keys: ["Esc"], what: "Cancel the drag. Nothing moves" },
       // the non-obvious half of the copy gesture, and the reason it earns a second
       // line: the modifier LATCHES, so you needn't still be holding it at the drop
-      { keys: [ALT], what: "Press it any time before the drop; let go and keep dragging to cancel" },
+      { keys: [ALT], what: "Drop a copy instead of moving. Let go before the drop to move after all" },
     ],
   },
   {
@@ -85,7 +85,7 @@ const GROUPS: { title: string; rows: Row[] }[] = [
          unless somebody says it out loud. One line, and only one — a shortcut sheet
          that starts collecting tips stops being a shortcut sheet. -->
     <p class="t-sm t-muted keys__note">
-      A weight field also takes its unit: type <em>32.5 oz</em> on a gram list and that row keeps ounces.
+      A weight field also takes its unit: type <em>32.5 oz</em> on a gram list and that item keeps ounces.
     </p>
 
     <div class="dlg__actions">

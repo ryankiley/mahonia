@@ -125,7 +125,7 @@ async function sendLink() {
     r === "sent"
       ? `Check ${email} for a link.`
       : r === "unavailable"
-        ? "Sign-in links aren’t set up on this deployment yet."
+        ? "Sign-in links aren’t set up on this site yet."
         : "Couldn’t send that. Check the address and try again.";
 }
 
@@ -159,7 +159,7 @@ async function createWithPasskey() {
           ? "This browser can’t make a passkey. Use a sign-in link instead."
           : r === "cancelled"
             ? ""
-            : "Couldn’t create the passkey. Try again?";
+            : "Couldn’t create the passkey. Try again.";
 }
 
 // ---- display name --------------------------------------------------------
@@ -183,7 +183,7 @@ async function saveName() {
     ? name.value.trim()
       ? "Saved. Lists you make now carry your name."
       : "Cleared. Your lists are anonymous again."
-    : "Couldn’t save that. Try again?";
+    : "Couldn’t save that. Check your connection and try again.";
 }
 
 /** when a credential was last used, as the three lists on this page say it */
@@ -208,7 +208,7 @@ async function addPasskey() {
   if (result === "ok") {
     pkNote.value = "Added. You can sign in with it from now on.";
     await loadPasskeys();
-  } else if (result === "failed") pkNote.value = "That didn’t work. Try again?";
+  } else if (result === "failed") pkNote.value = "That didn’t work. Try again.";
   // "cancelled" is a choice, not a failure — say nothing
 }
 
@@ -270,6 +270,9 @@ const addToCursor = `https://cursor.com/install-mcp?name=mahonia&config=${btoa(J
 // ChatGPT has no install link: its button copies the address and opens the settings
 // page where a connector is made, so the paste is the only step left
 const chatGptConnectors = "https://chatgpt.com/#settings/Connectors";
+// The address is not on the page, so a copy that fails has to say it: "select it" would
+// point at nothing.
+const ADDRESS_NOT_COPIED = `Couldn’t copy. The address is ${mcpUrl}.`;
 // Every copy in this section, and the line it leaves under it: the address, a fresh
 // token, the command that carries one. Through the shared copyText(), awaited straight
 // from the click so iOS Safari still counts it as the user's own gesture.
@@ -280,7 +283,7 @@ const copyForChatGpt = () =>
   copy(
     mcpUrl,
     "Address copied. In ChatGPT, turn on developer mode under Apps & Connectors and paste it into a new connector.",
-    "Couldn’t copy. Select the address and copy it by hand.",
+    ADDRESS_NOT_COPIED,
   );
 // the hand-minted token is the second way in, for a client that can't open a
 // sign-in, and stays folded until asked for: the button above is the ordinary path
@@ -320,7 +323,7 @@ async function makeToken() {
       tokenNote.value = "That’s as many tokens as an account can hold. Revoke one to make room.";
     }
   } catch {
-    tokenNote.value = "Couldn’t make a token. Try again?";
+    tokenNote.value = "Couldn’t make a token. Check your connection and try again.";
   }
   tokenBusy.value = false;
 }
@@ -332,8 +335,8 @@ async function revokeToken(t: AccessTokenSummary) {
   if (!(await askConfirm({
     title: app ? `Disconnect ${t.label ?? "this app"}?` : "Revoke this token?",
     message: app
-      ? "It loses access to My Gear and will ask you to sign in again. Your gear doesn’t change."
-      : "Whatever uses it loses access to My Gear. Your gear doesn’t change.",
+      ? "It loses access to your account and will ask you to sign in again. Your gear and lists don’t change."
+      : "Whatever uses it loses access to your account. Your gear and lists don’t change.",
     confirmLabel: app ? "Disconnect" : "Revoke",
   }))) return;
   freshToken.value = "";
@@ -341,7 +344,7 @@ async function revokeToken(t: AccessTokenSummary) {
   try {
     await $fetch("/api/account/tokens/revoke", { method: "POST", body: { id: t.id } });
   } catch {
-    tokenNote.value = app ? "Couldn’t disconnect it. Try again?" : "Couldn’t revoke it. Try again?";
+    tokenNote.value = app ? "Couldn’t disconnect it. Check your connection and try again." : "Couldn’t revoke it. Check your connection and try again.";
   }
   await loadTokens();
 }
@@ -369,7 +372,7 @@ async function exportEverything() {
     const g = data.gear.items.length;
     exportNote.value = `Saved ${counted(n, "list")} and ${counted(g, "piece")} of gear.`;
   } catch {
-    exportNote.value = "Couldn't build the file. Try again?";
+    exportNote.value = "Couldn’t build the file. Check your connection and try again.";
   } finally {
     exporting.value = false;
   }
@@ -397,7 +400,7 @@ async function deleteAccount() {
         // Says what TICKING it does. A hint that explains the unticked state reads
         // backwards under a box you're deciding whether to tick, and this is the
         // consequence people don't anticipate: the lists aren't only yours.
-        hint: "Anyone you’ve sent a link to loses it too.",
+        hint: "Anyone you’ve sent a link to loses the list too.",
       },
     }))
   )
@@ -423,7 +426,7 @@ async function deleteAccount() {
       : "Account deleted. Your lists are untouched.";
     setTimeout(() => (gone.value = ""), 8000);
   } catch {
-    deleteNote.value = "Couldn't delete the account. Try again?";
+    deleteNote.value = "Couldn’t delete the account. Check your connection and try again.";
   }
   deleting.value = false;
 }
@@ -448,7 +451,7 @@ async function onSignOutEverywhere() {
     // looking at the account), and on the page you're already on /account.
     await refresh(true);
   } catch {
-    pkNote.value = "Couldn't sign out everywhere. Try again?";
+    pkNote.value = "Couldn’t sign out everywhere. Check your connection and try again.";
   }
   signingOutAll.value = false;
 }
@@ -598,8 +601,8 @@ async function onSignOut() {
               </li>
             </ul>
             <p class="t-sm t-muted">
-              Sign in with your fingerprint or screen lock. A link always works too, so removing
-              them all locks nothing.
+              Sign in with your fingerprint or screen lock. An emailed link always works too, so
+              it’s safe to remove them all.
             </p>
             <p v-if="pkNote" class="t-sm acct__note">{{ pkNote }}</p>
           </section>
@@ -620,7 +623,7 @@ async function onSignOut() {
               <a :href="addToCursor" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn">
                 <SvgIcon :icon="IconCursor" aria-hidden="true" /> Cursor
               </a>
-              <button type="button" class="btn btn--ghost acct__btn" @click="copy(mcpUrl, 'Address copied.')">
+              <button type="button" class="btn btn--ghost acct__btn" @click="copy(mcpUrl, 'Address copied.', ADDRESS_NOT_COPIED)">
                 <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" /> Copy address
               </button>
             </div>
@@ -680,8 +683,8 @@ async function onSignOut() {
           <section class="acct__section">
             <h2 class="t-label acct__label">Take your data with you</h2>
             <p class="t-sm t-muted">
-              One file with every list on this account, each in the same shape as a list's own
-              JSON download, plus My Gear. Any list in it can be restored through Import.
+              One file with every list on this account, plus My Gear. Import can restore any list in
+              it.
             </p>
             <button type="button" class="btn btn--ghost acct__btn" :disabled="exporting" @click="exportEverything">
               {{ exporting ? "Building the file…" : "Download everything" }}
@@ -707,8 +710,8 @@ async function onSignOut() {
           <section class="acct__section">
             <h2 class="t-label acct__label">Delete your account</h2>
             <p class="t-sm t-muted">
-              Your email, passkeys, and saved gear go for good. Your lists stay; they belong
-              to their edit links, and any link you’ve shared still opens them.
+              Your email, passkeys, and My Gear are deleted for good. Your lists and their links
+              keep working unless you choose to delete them too.
             </p>
             <button
               type="button"

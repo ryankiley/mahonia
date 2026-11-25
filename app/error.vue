@@ -36,7 +36,7 @@ const { mount: dialogs } = useDialogs();
     <main id="main-content" tabindex="-1" class="wrap page err">
       <div class="prose err__body">
         <h1 class="t-title">
-          {{ notFound ? "This page doesn't exist." : "Something went wrong." }}
+          {{ notFound ? "This page doesn’t exist." : "Something went wrong." }}
         </h1>
         <p>
           {{
@@ -47,7 +47,7 @@ const { mount: dialogs } = useDialogs();
         </p>
         <p>
           <button class="btn btn--primary" type="button" @click="clearError({ redirect: '/e' })">
-            Start a packing list
+            Create a list
           </button>
         </p>
         <!-- not for a 404: its stack is the router saying "no such page", and in dev it

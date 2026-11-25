@@ -194,7 +194,7 @@ watch(
               </Tooltip>
               <span class="t-sm t-num kitsec__count" :aria-label="`${part.qty} in the kit`">{{ part.qty }}</span>
               <!-- at the cap it says why: a kit holds no more than you own -->
-              <Tooltip :text="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. Change Number owned in its Edit.` : 'One more'">
+              <Tooltip :text="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. To add another, edit this piece and raise “Number owned”.` : 'One more'">
                 <button
                   type="button"
                   class="btn btn--icon btn--ghost ink-quiet"
@@ -239,14 +239,14 @@ watch(
       </template>
       <!-- a weight of the kit's own (a group saved off a list whose heading had one) -->
       <li v-if="kit.ownWeightMg" class="kitsec__line">
-        <span class="kitsec__name">Its own weight</span>
+        <span class="kitsec__name">The kit’s own weight</span>
         <span class="t-num">{{ formatWeight(kit.ownWeightMg, unit) }}</span>
         <Tooltip v-if="!readonly" text="Remove its own weight">
           <button
             type="button"
             class="btn btn--icon btn--ghost ink-quiet"
             :disabled="busy"
-            :aria-label="`Remove ${name}'s own weight`"
+            :aria-label="`Remove ${name}’s own weight`"
             @click="send(kitPartRefs(parts), 0)"
           >
             <SvgIcon :icon="IconCircleMinus" aria-hidden="true" />

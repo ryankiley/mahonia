@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "import");
   const body = await readJsonBodyCapped<{ url?: string }>(event, 4_000);
   const id = lighterpackId(typeof body?.url === "string" ? body.url : "");
-  if (!id) throw createError({ statusCode: 400, statusMessage: "Not a LighterPack share link" });
+  if (!id) throw createError({ statusCode: 400, statusMessage: "That isn’t a LighterPack share link." });
 
   let csv: string;
   try {
@@ -33,14 +33,14 @@ export default defineEventHandler(async (event) => {
     // killed it. The host is fixed and redirects are refused, so this was never
     // attacker-reachable; it's the read itself that had no ceiling.
     const read = await readResponseCapped(res, 512_000, "reject");
-    if (!read.ok) throw createError({ statusCode: 413, statusMessage: "List too large" });
+    if (!read.ok) throw createError({ statusCode: 413, statusMessage: "That list is too large to import." });
     csv = read.body?.toString("utf8") ?? "";
   } catch (e) {
     if ((e as { statusCode?: number }).statusCode) throw e;
-    throw createError({ statusCode: 502, statusMessage: "Couldn’t reach LighterPack" });
+    throw createError({ statusCode: 502, statusMessage: "Couldn’t reach LighterPack." });
   }
 
   const data = csvToListData(csv);
-  if (!data.items.length) throw createError({ statusCode: 422, statusMessage: "No items found in that list" });
+  if (!data.items.length) throw createError({ statusCode: 422, statusMessage: "No items found in that list." });
   return { data };
 });

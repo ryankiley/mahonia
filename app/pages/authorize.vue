@@ -120,9 +120,9 @@ async function decide(decision: "allow" | "deny") {
       window.location.assign(res.redirect);
       return;
     }
-    note.value = res.description ?? "That didn’t work. Try again?";
+    note.value = res.description ?? "That didn’t work. Try again.";
   } catch {
-    note.value = "Couldn’t send your answer. Try again?";
+    note.value = "Couldn’t send your answer. Check your connection and try again.";
   }
   deciding.value = false;
 }
@@ -196,7 +196,7 @@ async function decide(decision: "allow" | "deny") {
                   <template v-if="!mark?.checked">Mahonia can’t confirm who made this app. </template>
                   <template v-if="checked.returnTo.loopback">
                     Any program on this computer could be listening at <code>{{ checked.returnTo.host }}</code>, so only allow
-                    this if you just started it.
+                    this if you just started {{ label }} yourself.
                   </template>
                 </p>
               </div>

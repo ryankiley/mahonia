@@ -254,7 +254,7 @@ describe("the save button, against what My Gear actually holds", () => {
     await vaultBtn(w).trigger("click");
     await vi.waitFor(() => expect(said).toHaveBeenCalled());
     expect(said.mock.calls[0]![0]).toBe(
-      "You removed this from My Gear. Add it again there to bring it back",
+      "You removed this from My Gear. Add it again there to bring it back.",
     );
     // and it does NOT claim the tick
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
@@ -292,7 +292,7 @@ describe("the save button, against what My Gear actually holds", () => {
     const w = mountRow(gear());
     await vaultBtn(w).trigger("click");
     await vi.waitFor(() => expect(said).toHaveBeenCalled());
-    expect(said.mock.calls[0]![0]).toBe("My Gear is full. Remove something there to make room");
+    expect(said.mock.calls[0]![0]).toBe("My Gear is full. Remove something there to make room.");
   });
 
   it("keeps its tick after a press, though banking the row is what covers it", async () => {

@@ -112,7 +112,7 @@ const summary = computed(() => {
         v-model="text"
         class="field well vimport__text"
         rows="5"
-        placeholder="A CSV like Folder,Item Name,Brand,Weight,Unit… or a JSON backup from Download JSON"
+        placeholder="A CSV like Folder,Item Name,Brand,Weight,Unit… or a JSON backup from “Download JSON”"
       />
 
       <p v-if="error" class="t-sm vimport__err">{{ error }}</p>
