@@ -240,7 +240,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
       </p>
     </div>
 
-    <TotalsBar :list="list" :totals="totals" @set-unit="(u) => $emit('set-unit', u)" />
+    <TotalsBar :list="list" :totals="totals" :person-filter="personFilter ?? null" @set-unit="(u) => $emit('set-unit', u)" />
     <!-- The trip, between what it weighs and what's in it: the pack's total is the
          list's headline fact, then the walk it was packed for, then the gear itself. -->
     <section v-if="hasTrip && view === 'trip'" class="view__trip" :aria-labelledby="tripId">

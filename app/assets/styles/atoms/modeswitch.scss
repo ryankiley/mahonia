@@ -186,7 +186,9 @@
 .editor__folders, .totals, .pplbar, .editor__addfolder {
   transition: opacity var(--t-in);
 }
-.editor__body[data-mode="plan"] :is(.editor__folders, .totals, .pplbar),
+/* the gear view's chips only: the plan's own (TrailPlanPanel's people slot) arrive
+   with the plan, inside .planreveal */
+.editor__body[data-mode="plan"] :is(.editor__folders, .totals, .pplbar:not(.planreveal *)),
 .editor__body:not([data-mode="edit"]) .editor__addfolder {
   opacity: 0;
   transition:

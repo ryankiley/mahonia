@@ -21,7 +21,8 @@
 // What stays here is the ratio: arithmetic on numbers the owner actually entered, with
 // the comparison band named as a rule of thumb and nothing more.
 
-import type { ListMeta, Totals } from "./types";
+import { UNASSIGNED, type PersonSelection } from "./people";
+import type { ListMeta, Person, Totals } from "./types";
 import { DAY_MS, utcMidnight } from "./calendar";
 import { formatDistance, resolveDistanceUnit } from "./trailDistance";
 
@@ -56,11 +57,37 @@ export function tripDays(
   return Math.round((end - start) / DAY_MS) + 1;
 }
 
+/**
+ * How many people the food in view is for, or null when the view isn't anyone's meals.
+ * The band above is one person's day, so a figure read against it has to be one
+ * person's too.
+ *
+ * The Everyone view of a list that names two or more people is the whole trip's food,
+ * and it feeds all of them: three people's 9,000 kcal over three days is 1,000 each a
+ * day, not a 3,000 that reads as plenty. It counts everyone named, because the list
+ * can't know who eats what. When someone's food lives on another list, that reads light
+ * rather than plenty, which is the safer way to be wrong. A view narrowed to one person
+ * reads what that person carries, as one. Unassigned is null: it's a to-do list, and the
+ * same rows read against one person's band would call the group's food a feast. A list
+ * with one person or none is one hiker's, as it always was.
+ */
+export function foodHeadcount(
+  people: readonly Person[] | undefined,
+  selection: PersonSelection,
+): number | null {
+  if (selection === UNASSIGNED) return null;
+  const n = people?.length ?? 0;
+  // `!selection`, the test matchesSelection uses for "everyone", so rows and head count agree
+  return !selection && n > 1 ? n : 1;
+}
+
 /** What the food line renders, or null when the list hasn't earned one. */
 export interface FoodPlan {
   /** inclusive calendar days the dates cover */
   days: number;
-  /** kcalTotal spread across those days, rounded — the headline */
+  /** how many people the food is spread across (foodHeadcount); 1 for one hiker */
+  people: number;
+  /** kcalTotal spread across those days and people, rounded — the headline */
   kcalPerDay: number;
   /** how that reads against the band above */
   reading: FoodReading;
@@ -74,16 +101,21 @@ export interface FoodPlan {
  * entered, or no date range to divide by. Both gates matter: kcal with no dates is
  * the number the user already sees in the totals bar, and dates with no kcal is a
  * trip nobody logged food for.
+ *
+ * `people` is foodHeadcount's answer: the calories are split across them as well as
+ * the days, so the figure is always one person's day.
  */
 export function foodPlan(
   totals: Pick<Totals, "kcalTotal" | "hasKcal">,
   meta: Pick<ListMeta, "startDate" | "endDate" | "trailDistanceM" | "trailDistanceUnit">,
+  people = 1,
 ): FoodPlan | null {
   if (!totals.hasKcal || totals.kcalTotal <= 0) return null;
   const days = tripDays(meta.startDate, meta.endDate);
   if (!days) return null;
 
-  const kcalPerDay = Math.round(totals.kcalTotal / days);
+  const eaters = Number.isFinite(people) && people > 1 ? Math.floor(people) : 1;
+  const kcalPerDay = Math.round(totals.kcalTotal / days / eaters);
   const reading: FoodReading =
     kcalPerDay < KCAL_PER_DAY_LIGHT
       ? "light"
@@ -96,5 +128,5 @@ export function foodPlan(
     ? formatDistance(Math.round(distance / days), resolveDistanceUnit(meta.trailDistanceUnit))
     : null;
 
-  return { days, kcalPerDay, reading, perDayDistance };
+  return { days, people: eaters, kcalPerDay, reading, perDayDistance };
 }
