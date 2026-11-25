@@ -173,6 +173,22 @@ describe("community intake — corroborateCatalog", () => {
     expect(await catalogCount(db)).toBe(2);
   });
 
+  // the garment noun is generic, but it is the one word telling pants from a jacket:
+  // garments for different parts of the body are different products
+  it("does not merge typed pants into the catalog's jacket of the same line", async () => {
+    const jacket = await cited(db, { brand: "Montbell", name: "EX Light Down Jacket", weightMg: 210_000 });
+    for (const [i, w] of [150_000, 152_000, 154_000].entries())
+      await stageCandidates(db, i + 1, [{ brand: "Montbell", name: "EX Light Down Pants", weightMg: w }]);
+    const r = await corroborateCatalog(db);
+    expect(r.merged).toBe(0);
+    expect(r.promoted).toBe(1);
+    expect(await catalogCount(db)).toBe(2);
+    const [pants] = (await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.name, "EX Light Down Pants"))) as any[];
+    expect(pants).toMatchObject({ brand: "Montbell", weightSource: "community", weightMg: 152_000 });
+    const [kept] = (await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, jacket.id))) as any[];
+    expect(kept.usageCount).toBe(0);
+  });
+
   it("still merges when the extra word is only a generic noun", async () => {
     await cited(db, { brand: "Zpacks", name: "Duplex", weightMg: 545_000 });
     for (const [i, w] of [540_000, 545_000, 550_000].entries())

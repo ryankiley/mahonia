@@ -154,6 +154,23 @@ export const GENERIC_GEAR_TERMS = new Set<string>([
   "charger", "cable", "first aid kit", "kit", "watch", "phone", "knife", "multitool",
 ]);
 
+/** The part of the body a garment noun is worn on. The duplicate test drops generic
+ *  nouns from a name before it compares, which threw away the one word telling
+ *  "UL Mittens" from "UL Shirt" and "EX Light Down Pants" from "EX Light Down Jacket";
+ *  two names whose garments sit on different parts of the body are two products. Left
+ *  out on purpose: fleece and puffy (materials, as in "fleece pants"), buff, hood, top
+ *  and crew, which are ambiguous or turn up on more than one part. A Map, not an
+ *  object, so a typed word like "constructor" can't land on a prototype key. */
+export const GARMENT_ZONE: ReadonlyMap<string, string> = new Map(
+  Object.entries({
+    torso: ["shirt", "tee", "jacket", "hoodie", "hoody", "parka", "vest", "smock", "anorak", "pullover"],
+    legs: ["pants", "pant", "shorts", "tights", "leggings", "trousers"],
+    hands: ["gloves", "glove", "mittens", "mitten", "mitts"],
+    feet: ["socks", "sock", "shoes", "shoe", "boots", "boot", "sandals"],
+    head: ["hat", "beanie", "cap"],
+  }).flatMap(([zone, words]) => words.map((w) => [w, zone] as const)),
+);
+
 const PROFANITY = /\b(fuck|shit|bitch|cunt|asshole|nigg|faggot|retard)\b/i;
 const PII =
   /(\b\d{3}[-.\s]?\d{3}[-.\s]?\d{4}\b|@[a-z0-9.-]+\.[a-z]{2,}|https?:\/\/|\b\d{7,}\b)/i;

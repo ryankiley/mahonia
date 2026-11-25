@@ -107,7 +107,8 @@ export interface ResearchRow {
 }
 
 /** The research file `npm run catalog:graduate` writes: rows an admin verified in the app
- *  (verify_catalog_item), whose quotes the audit reads in ounces as the tool did. */
+ *  (verify_catalog_item) that no other research file has, whose quotes the audit reads in
+ *  ounces as the tool did. A research row corrected in the app goes back into its own file. */
 export const GRADUATED_FILE_NAME = "verified-in-app.json";
 
 /** A parsed research file, or a parse error for it. Rows are `[]` when `parseError`
