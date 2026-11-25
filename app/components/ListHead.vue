@@ -650,7 +650,7 @@ onClickOutside(trailEl, closeTrail);
               {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
             </label>
             <Tooltip
-              text="GPX, KML, KMZ, TCX, FIT, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb. The file is read here in your browser and never uploaded."
+              text="GPX, KML, KMZ, TCX, FIT, GeoJSON, or GeoRSS. Reads the route's distance and the shape of its climb. The file is read here in your browser and never uploaded."
               preferred-placement="bottom"
             >
               <button type="button" class="head__gpxwhy ink-quiet" aria-label="Which map files can be read">

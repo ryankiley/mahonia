@@ -22,7 +22,7 @@ useHead({
     {
       name: "description",
       content:
-        "How Mahonia's links, weights, imports, trip planning and assistant connector work.",
+        "How Mahonia's links, weights, imports, trip planning, and assistant connector work.",
     },
   ],
 });
@@ -72,7 +72,7 @@ useHead({
           to your account” in the Share tab.
         </p>
 
-        <h3>Undo, history and deleting</h3>
+        <h3>Undo, history, and deleting</h3>
         <p>
           Removing a row or folder can be undone for a few seconds. “Recent changes” in the Share tab
           lists each change with its time and who made it. Mahonia keeps the last few versions of
@@ -94,7 +94,7 @@ useHead({
         <h2 id="weights" class="help__section">Weights and the catalog</h2>
         <p>
           As you type an item’s name, the catalog suggests matching gear, and picking one fills in
-          its brand, type and weight. Nearly every catalog weight is the maker’s published figure, from
+          its brand, type, and weight. Nearly every catalog weight is the maker’s published figure, from
           its own page or a shop’s. A few were weighed by hand, and a few marked “community” were typed by other people and
           haven’t been checked yet.
         </p>
@@ -109,7 +109,7 @@ useHead({
             fuel” is the gas alone.
           </li>
           <li>
-            Trekking poles, shoes, socks and gloves as a pair. A multi-pack says so (“3-pack”), and
+            Trekking poles, shoes, socks, and gloves as a pair. A multi-pack says so (“3-pack”), and
             everything else is one item.
           </li>
         </ul>
@@ -131,7 +131,7 @@ useHead({
           </li>
           <li>
             <strong>Base</strong> is the pack without what gets used up. <strong>Worn</strong> is
-            what’s on your body. <strong>Consumable</strong> is food, water and fuel.
+            what’s on your body. <strong>Consumable</strong> is food, water, and fuel.
             <strong>Carried</strong> is base plus consumable.
           </li>
           <li>A row can be partly worn, like one pair of socks out of three.</li>
@@ -142,7 +142,7 @@ useHead({
         <!-- ================= LighterPack ================= -->
         <h2 id="lighterpack" class="help__section">Moving from LighterPack</h2>
         <p>
-          “Import a list…” in the editor’s ⋯ menu takes a LighterPack share link, a CSV or a Mahonia
+          “Import a list…” in the editor’s ⋯ menu takes a LighterPack share link, a CSV, or a Mahonia
           backup, and makes a new list from it.
         </p>
         <ul>
@@ -150,7 +150,7 @@ useHead({
             Each LighterPack category becomes a folder, and each item keeps its name, description,
             quantity, weight and unit, worn and consumable marks, and link.
           </li>
-          <li>Prices, the list’s name and its unit don’t come across.</li>
+          <li>Prices, the list’s name, and its unit don’t come across.</li>
           <li>Rows that exactly match a catalog product arrive linked to it.</li>
           <li>A list holds up to 1,000 items in 50 folders.</li>
         </ul>
@@ -169,7 +169,7 @@ useHead({
         <ul>
           <li>
             Add the trail in the list’s header. Mahonia doesn’t open a linked page, so with a link you
-            type the distance yourself. A map file (GPX, KML, KMZ, TCX, FIT, GeoJSON or GeoRSS, up to
+            type the distance yourself. A map file (GPX, KML, KMZ, TCX, FIT, GeoJSON, or GeoRSS, up to
             10 MB) gives the distance and climb. The file stays in your browser, and Mahonia keeps
             only the line the trail follows.
           </li>
@@ -178,7 +178,7 @@ useHead({
             map.
           </li>
           <li>
-            Each day shows its distance, climb and descent, walking time, daylight, calories and a
+            Each day shows its distance, climb and descent, walking time, daylight, calories, and a
             link to the forecast. Marking water on the route adds the day’s longest dry carry.
           </li>
           <li>
@@ -207,8 +207,8 @@ useHead({
 
         <h3>What a share link shows</h3>
         <p>
-          A share link shows each day’s name, distance, climb and note, and the elevation profile. It
-          leaves out the map, the route line and your waypoints, because a recorded track can start
+          A share link shows each day’s name, distance, climb, and note, and the elevation profile. It
+          leaves out the map, the route line, and your waypoints, because a recorded track can start
           where you live.
         </p>
 
@@ -225,7 +225,7 @@ useHead({
             as you build. On someone else’s list, it asks first.
           </li>
           <li>
-            A kit is a set you pack together, like a stove, pot and lighter, and goes onto a list as
+            A kit is a set you pack together, like a stove, pot, and lighter, and goes onto a list as
             one group. Make one under Kits in My Gear, or save a list’s group with “Save to My Gear as
             a kit”.
           </li>
@@ -235,7 +235,7 @@ useHead({
           </li>
           <li>“Download everything” on your account page downloads your filed lists and My Gear.</li>
           <li>
-            “Delete account” erases your email, passkeys and My Gear. Your lists stay, with their
+            “Delete account” erases your email, passkeys, and My Gear. Your lists stay, with their
             links, unless you tick “Delete my lists too”.
           </li>
         </ul>
@@ -257,7 +257,7 @@ useHead({
         <h3>Setting it up</h3>
         <ul>
           <li>
-            <strong>Claude</strong>, on the web, desktop or phone:
+            <strong>Claude</strong>, on the web, desktop, or phone:
             <a
               href="https://claude.ai/customize/connectors?modal=add-custom-connector&connectorName=Mahonia&connectorUrl=https%3A%2F%2Fmahonia.app%2Fmcp"
               target="_blank"
