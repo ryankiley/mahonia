@@ -386,6 +386,15 @@ async function exportEverything() {
     exporting.value = false;
   }
 }
+// The confirmation, shown after the account is gone and the panel has flipped back to
+// the sign-in screen (it is still mounted then, on /account and in the dialog alike).
+// Longer-lived than the usual toast (8s, not useToast's two): there is nothing to act
+// on, and it's the only acknowledgement that an irreversible thing succeeded. Its
+// markup went missing when the account became this panel (#174), and for months the
+// account was deleted in silence.
+const gone = ref("");
+let goneTimer: ReturnType<typeof setTimeout> | undefined;
+onBeforeUnmount(() => clearTimeout(goneTimer));
 async function deleteAccount() {
   // ONE dialog, two decisions. It used to ask twice — "delete your account?" then
   // "delete your lists too?" — and a second modal arriving after you'd already
@@ -414,14 +423,22 @@ async function deleteAccount() {
   deleting.value = true;
   deleteNote.value = "";
   try {
-    await $fetch("/api/account/delete", {
+    const res = await $fetch<{ listsDeleted: number }>("/api/account/delete", {
       method: "POST",
       body: { deleteLists: alsoLists },
     });
     forgetAccountMemos();
-    // Stay here rather than navigating away: the page re-renders as the signed-out
-    // screen on its own once the session has gone.
+    // Stay here rather than navigating away. The panel re-renders as the signed-out
+    // screen on its own once the session has gone, so the confirmation lands on the
+    // thing that actually changed — and a toast that outlived a route change would
+    // need app-wide plumbing this is the only caller for.
     await refresh(true);
+    const n = res?.listsDeleted ?? 0;
+    gone.value = n
+      ? `Account deleted, along with ${counted(n, "list")}.`
+      : "Account deleted. Your lists are untouched.";
+    clearTimeout(goneTimer);
+    goneTimer = setTimeout(() => (gone.value = ""), 8000);
   } catch {
     deleteNote.value = "Couldn’t delete the account. Check your connection and try again.";
   }
@@ -738,6 +755,17 @@ async function onSignOut() {
           <p class="t-muted">Loading…</p>
         </template>
       </ClientOnly>
+
+    <!-- "Account deleted", over the sign-in screen the deletion lands on: the app's own
+         toast (atoms/controls.scss), as the read views' menu draws its copy
+         confirmations. The status region is ALWAYS here and only its words come and
+         go: a live region that arrives already holding its text is one a screen reader
+         may not announce. Empty, it is a block of no height. -->
+    <div role="status">
+      <Transition name="toast">
+        <div v-if="gone" class="toast t-sm">{{ gone }}</div>
+      </Transition>
+    </div>
   </div>
 </template>
 

@@ -52,10 +52,11 @@ export default defineEventHandler(async (event) => {
   // Vault maintenance must not be able to fail list maintenance: the vault schema
   // is ensured on first use, so a run that touches it before any vault exists is
   // the one place this can throw, and losing the reap/purge above to it would be a
-  // poor trade for a table that only grows slowly.
-  const vaultsDb = await useVaultDb();
+  // poor trade for a table that only grows slowly. The ensure is inside the try for
+  // that reason: it is the step that throws, and a failure there costs this stage only.
   let vaultMaint = { vaultsReaped: 0, vaultsPurged: 0 };
   try {
+    const vaultsDb = await useVaultDb();
     vaultMaint = { ...(await reapAbandonedVaults(vaultsDb)), ...(await purgeDeletedVaults(vaultsDb)) };
   } catch (e) {
     console.warn("[cron] vault maintenance failed", (e as Error).message);

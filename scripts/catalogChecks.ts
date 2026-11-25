@@ -299,14 +299,17 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // gear type has one category (2026-11-25; it was "5+ rows, 90% agreeing" until a
   // sunscreen sat in `other` beside eight in `consumable`). A thing that is filed
   // differently is a different gear type ("Gas lantern" in cook, "Lantern" in
-  // electronics). A tie names every row, so someone decides.
+  // electronics). A tie names every row, so someone decides. A row with no gear type
+  // takes no part: rows that lack one aren't one kind of thing, and common-name-missing
+  // has already named each.
   const catsByType = new Map<string, Map<string, number>>();
-  for (const r of rows) {
+  const typed = rows.filter((r) => r.commonName?.trim());
+  for (const r of typed) {
     const k = (r.commonName ?? "").toLowerCase();
     const m = catsByType.getOrInsertComputed(k, () => new Map());
     m.set(r.categoryHint ?? "other", (m.get(r.categoryHint ?? "other") ?? 0) + 1);
   }
-  for (const r of rows) {
+  for (const r of typed) {
     const m = catsByType.get((r.commonName ?? "").toLowerCase())!;
     if (m.size < 2) continue;
     const total = [...m.values()].reduce((a, b) => a + b, 0);

@@ -88,6 +88,6 @@ npm run changelog -- --added "Sort folders by weight."
 
 Code is [MIT](LICENSE). The gear catalog data under `seed/` is licensed separately (see
 [`seed/LICENSE.md`](seed/LICENSE.md)), and the interface icons in
-`app/utils/centralIcons.ts` are [central icons](https://iconists.co/central) under the
+`app/icons/central/` are [central icons](https://iconists.co/central) under the
 [iconists license](https://iconists.co/license), not MIT. Notices for the libraries bundled
 into the client are in [`public/licenses.txt`](public/licenses.txt).

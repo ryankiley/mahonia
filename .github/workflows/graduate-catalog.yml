@@ -12,8 +12,9 @@
 #
 # What it does: graduate (reads production, writes seed/_research), build, audit, and if
 # seed/ changed, push the catalog/graduate branch and open a PR whose body is graduate's
-# own report, rows written over in place listed and any whose research changed after the
-# verification marked ⚠. The PR waits for a person: catalog rows are reviewed, never
+# own report: each research row it replaced is listed (the row is replaced and its file
+# written whole, in the house layout), and any whose research changed after the
+# verification is marked ⚠. The PR waits for a person: catalog rows are reviewed, never
 # auto-merged. When it merges, the reseed takes each row over (same id, verifier cleared).
 #
 # One PR at a time. While one is open the run stops: forcing the branch again would throw

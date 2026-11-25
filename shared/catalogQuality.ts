@@ -5,8 +5,10 @@ import { foldForSearch } from "./searchText";
 import { MG_PER_UNIT } from "./weights";
 
 // Plausible weight range per category, grams. Loose — catches gross slips
-// (a 50 g tent, a 5 kg stove), not borderline judgment calls. (Relocated here
-// from scripts/catalogChecks so server intake can validate without a scripts/ import.)
+// (a 50 g tent, a 5 kg stove), not borderline judgment calls. (Relocated here from
+// scripts/catalogChecks when server intake could not import scripts/. The server does
+// now, for verify_catalog_item's house rules, but this file is where intake, the
+// connector and the checks all read the bands.)
 export const RANGE_G: Record<string, [number, number]> = {
   shelter: [120, 3500],
   sleep: [40, 2600],

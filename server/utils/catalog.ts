@@ -402,10 +402,13 @@ function normalizeRows(res: unknown): LocalCatalogRow[] {
 // Manufacturer + retailer domains whose citation lets a correction to a *verified*
 // weight auto-promote. Conservative + extensible; everything else stays proposed
 // (this is what closes the weight-poisoning hole — see the hardening notes).
-const TRUSTED_DOMAINS = new Set([
+// Never a review site: the catalog audit refuses one as the source of a maker's weight
+// (REVIEW_DOMAINS, scripts/catalogChecks.ts), and an applied fix re-anchors the row's
+// source_url to what it cites. Two were listed here as retailers until 2026-11-25;
+// tests/catalog.test.ts holds every domain here to the audit's rule. Exported for that.
+export const TRUSTED_DOMAINS = new Set([
   // retailers
   "rei.com", "backcountry.com", "moosejaw.com", "garagegrowngear.com", "enwild.com",
-  "sectionhiker.com", "outdoorgearlab.com",
   // mainstream brands
   "thermarest.com", "bigagnes.com", "nemoequipment.com", "msrgear.com", "osprey.com",
   "ospreyeurope.com", "patagonia.com", "arcteryx.com", "montbell.com", "montbell.us",
@@ -471,27 +474,35 @@ export async function proposeCorrection(
   const applies = item.verifiedBy == null && (!item.verified || cited);
   const status: "applied" | "proposed" = applies ? "applied" : "proposed";
 
-  await db.insert(catalogEdits).values({
+  const edit = {
     catalogItemId: id,
     oldWeightMg: oldW,
     newWeightMg: newW,
     sourceUrl: safeSource ?? null,
     reason: input.reason?.slice(0, 500) ?? null,
     status,
-  });
-
-  if (applies) {
-    await db
-      .update(catalogItems)
-      .set({
-        weightMg: newW,
-        updatedAt: new Date(),
-        // a cited fix also (re)anchors the citation
-        ...(cited && safeSource ? { sourceUrl: safeSource } : {}),
-      })
-      .where(eq(catalogItems.id, id));
+  };
+  // a fix that waits moves nothing: its line in the history is the only write
+  if (!applies) {
+    await db.insert(catalogEdits).values(edit);
+    return { status, weightMg: oldW, itemName };
   }
-  return { status, weightMg: applies ? newW : oldW, itemName };
+  // The history and the row are written in ONE statement (the edit as a data-modifying
+  // CTE, which Postgres runs whether or not the update reads it), as a verification's are
+  // (catalogVerify.ts): written apart, a weight write that failed left an "applied" edit
+  // for a change that never happened, and its undo would restore a weight the row never left.
+  const logged = db.$with("logged").as(db.insert(catalogEdits).values(edit).returning({ id: catalogEdits.id }));
+  await db
+    .with(logged)
+    .update(catalogItems)
+    .set({
+      weightMg: newW,
+      updatedAt: new Date(),
+      // a cited fix also (re)anchors the citation
+      ...(cited && safeSource ? { sourceUrl: safeSource } : {}),
+    })
+    .where(eq(catalogItems.id, id));
+  return { status, weightMg: newW, itemName };
 }
 
 

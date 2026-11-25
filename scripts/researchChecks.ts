@@ -167,10 +167,11 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
         }
       }
 
-      // the cited weight must convert
+      // the cited weight must convert, its unit read as the build reads it (trimmed): a
+      // row the build takes isn't refused here for a space the build never saw
       let mg: number;
       try {
-        mg = specToMg(Number(r.weight_value), r.weight_unit as Unit, r.weight_secondary);
+        mg = specToMg(Number(r.weight_value), r.weight_unit?.trim() as Unit, r.weight_secondary);
       } catch (e) {
         err("convert", `${where}: ${(e as Error).message}`);
         continue;

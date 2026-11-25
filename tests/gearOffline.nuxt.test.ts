@@ -248,6 +248,46 @@ describe("asking again", () => {
     await flushPromises();
     expect(h.vm.offline).toBe(false);
   });
+
+  // A surface opened when the session's ask has ALREADY failed (the list's pane, opened
+  // offline) starts out offline, and nothing had latched that: the session's own re-ask
+  // read as a question again and took the note and the read-only state down until it
+  // failed.
+  it("stays offline through the session's re-ask when it mounted already offline", async () => {
+    setCookie("mh_signed_in", "1");
+    writeGearCopy(GEAR, OWNER);
+    const h = mount(Harness);
+    await flushPromises();
+    expect(h.vm.offline).toBe(true);
+    expect(h.vm.offlineNote).toContain("Offline · last updated");
+
+    // the session asks again (useSessionReask): the ask is out
+    useState("session-pending").value = true;
+    await nextTick();
+    expect(h.vm.offline).toBe(true);
+    expect(h.vm.readonly).toBe(true);
+    expect(h.vm.offlineNote).toContain("Offline · last updated");
+
+    // and it fails again: still offline
+    useState("session-pending").value = false;
+    await nextTick();
+    expect(h.vm.offline).toBe(true);
+  });
+
+  // The same with no owner marker in the browser (a session from before the marker):
+  // there is no account to load a copy under, so nothing about the load touches the
+  // latch, and offline is simply true from the first moment.
+  it("and stays offline through it with no owner marker to load under", async () => {
+    setCookie("mh_signed_in", "1");
+    setCookie("mh_session_owner", null);
+    const h = mount(Harness);
+    await flushPromises();
+    expect(h.vm.offline).toBe(true);
+
+    useState("session-pending").value = true;
+    await nextTick();
+    expect(h.vm.offline).toBe(true);
+  });
 });
 
 // The pane opens beside a column that is still moving aside, and a server answer that

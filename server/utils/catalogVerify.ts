@@ -484,22 +484,36 @@ export async function undoCatalogEdit(db: Db, editId: unknown): Promise<{ row: C
     const [item] = await db.select().from(catalogItems).where(eq(catalogItems.id, rowId)).limit(1);
     if (item && seedManaged(item)) return `Row ${rowId} now comes from Mahonia's research files; a change to it belongs in seed/_research.`;
   }
-  let row: CatalogRow | undefined;
-  try {
-    [row] = await db
+  // The row and the edit's status are written in ONE statement, both as data-modifying
+  // CTEs, and the row read back from the first: written apart, a status write that failed
+  // left the row put back under an edit still "applied", which could never be undone again
+  // (the row no longer held its weight) and stood in the way of undoing any older one.
+  const restored = db.$with("restored").as(
+    db
       .update(catalogItems)
       .set({ weightMg: Number(edit.oldWeightMg), updatedAt: new Date(), ...(edit.undo ?? {}) })
       // only while the row holds what the edit wrote: a weight set since (the seed's, when
       // the research took the row over) isn't the edit's to put back
       .where(and(eq(catalogItems.id, rowId), eq(catalogItems.weightMg, Number(edit.newWeightMg))))
-      .returning();
+      .returning(),
+  );
+  // marked undone only when the row was put back: no row above, no write here
+  const reverted = db.$with("reverted").as(
+    db
+      .update(catalogEdits)
+      .set({ status: "reverted" })
+      .where(and(eq(catalogEdits.id, editId), sql`exists (select 1 from ${sql.identifier("restored")})`))
+      .returning({ id: catalogEdits.id }),
+  );
+  let row: CatalogRow | undefined;
+  try {
+    [row] = await db.with(restored, reverted).select().from(restored);
   } catch (e) {
     // a verification that renamed its row, undone after another row took the old name
     if (!isUniqueViolation(e)) throw e;
     return `Edit ${editId} renamed its row, and another row now has the old name, so it can't be put back. Rename one of them first.`;
   }
   if (!row) return `Row ${rowId} has changed since edit ${editId}, so there is nothing of it to undo; verify the row again to set its weight.`;
-  await db.update(catalogEdits).set({ status: "reverted" }).where(eq(catalogEdits.id, editId));
   return { row, rejected: false };
 }
 

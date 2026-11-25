@@ -118,7 +118,9 @@ export async function listClaimedLists(db: Db, userId: number): Promise<ClaimedL
     .from(listClaims)
     .innerJoin(lists, eq(lists.id, listClaims.listId))
     .where(claimedLiveBy(userId))
-    .orderBy(desc(lists.updatedAt))
+    // the id settles lists edited in the same instant, so which rows a full account's
+    // cap keeps is the same on every read (the backfill below orders the same way)
+    .orderBy(desc(lists.updatedAt), desc(lists.id))
     .limit(CLAIMED_LIST_CAP);
 
   return rows.map((r) => ({

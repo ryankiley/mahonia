@@ -18,7 +18,7 @@ import {
 } from "../../shared/snapshotDiff";
 import { CLAIMED_LIST_CAP, LIST_META_KEYS, stateData } from "../../shared/types";
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
-import type { ChangeAuthor, Item, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
+import type { ChangeAuthor, Item, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals } from "../../shared/types";
 import { normalizeShareCode } from "../../shared/links";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
 import { normalizeDistanceUnit } from "../../shared/trailDistance";
@@ -137,7 +137,9 @@ function rowMeta(row: ListRow) {
     trailDescentM: row.trailDescentM ?? undefined,
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
-    displayUnit: row.displayUnit as Unit,
+    // through unitOf like every other read of a unit: the column is free text, and a
+    // value that is no unit reads as grams (the fallback normalizeListMeta writes)
+    displayUnit: unitOf(row.displayUnit) ?? "g",
     version: row.version,
   };
 }
@@ -331,9 +333,10 @@ export function isLive(): SQL | undefined {
 }
 const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val: string) =>
   and(eq(col, val), isLive());
-/** This account's claims on lists that are still here: the WHERE every read of an
- *  account's lists takes, after joining list_claims to lists (the lists it shows, its
- *  takeout, the sign-in backfill). */
+/** This account's claims on lists that are still here: the WHERE the three reads of
+ *  ALL an account's lists take, after joining list_claims to lists (the lists it shows,
+ *  its takeout, the sign-in backfill). The read of ONE claimed list by its share code
+ *  (claimRepo.claimedEditHash) spells its own, with the code between the two terms. */
 export const claimedLiveBy = (userId: number): SQL | undefined => and(eq(listClaims.userId, userId), isLive());
 
 // The "is this holder allowed to touch this live, non-deleted list" lookup.
@@ -881,7 +884,8 @@ export async function exportClaimedLists(db: Db, userId: number): Promise<ListSn
     .from(listClaims)
     .innerJoin(lists, eq(lists.id, listClaims.listId))
     .where(claimedLiveBy(userId))
-    .orderBy(desc(lists.updatedAt))
+    // the same order the claim read takes, id tiebreak and all, so the two cap alike
+    .orderBy(desc(lists.updatedAt), desc(lists.id))
     .limit(CLAIMED_LIST_CAP);
   // catalog names only, not hydrateForRead: a backup carries no favicon. One catalog
   // read for every list together, rather than one per list.

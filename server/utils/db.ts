@@ -34,8 +34,9 @@ export function isUniqueViolation(error: unknown): boolean {
 
 /**
  * How many rows of `table` match `where` (all of them when it is left out): one
- * `select count(*)`, as a number. Both drivers hand a count back as text, since it
- * is a bigint, so the conversion is here once rather than at each cap that asks.
+ * `select count(*)`, as a number. A count is a bigint, which Neon's driver hands
+ * back as text and PGlite as a number, so the conversion is here once rather than
+ * at each cap that asks.
  */
 export async function countRows(db: Db, table: PgTable, where?: SQL): Promise<number> {
   const [row] = await db.select({ n: sql<number>`count(*)` }).from(table).where(where);

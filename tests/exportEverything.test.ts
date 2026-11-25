@@ -11,7 +11,7 @@ import { vaultToJson } from "../shared/exporters/vault";
 import { encodePolyline } from "../shared/polyline";
 import type { ListSnapshot } from "../shared/types";
 import type { VaultEntry } from "../shared/vault";
-import { createTestDb, makeList } from "./helpers/db";
+import { createTestDb, makeList, makeLists } from "./helpers/db";
 
 // The account takeout: every claimed list as the OWNER holds it, in the shape a list's
 // own backup has, plus the gear in the shape its own export has.
@@ -52,6 +52,32 @@ describe("exportClaimedLists", () => {
     expect(t.items[0]!.packed).toBe(true);
     // and never an edit token or its hash
     expect(JSON.stringify(out)).not.toMatch(/editToken|editTokenHash|edit_token/);
+  });
+
+  // updated_at alone left lists written in the same instant in whatever order the
+  // planner chose, so two takeouts of one account could disagree
+  it("orders lists edited at the same instant by id, newest first", async () => {
+    const db = await createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL, CATALOG_DDL);
+    const at = new Date("2026-06-01T00:00:00Z");
+    const made = await makeLists(db, ["A", "B", "C", "D", "E", "F"], { updatedAt: at });
+    for (const l of [made[3]!, made[0]!, made[5]!, made[1]!, made[4]!, made[2]!]) await claimLists(db, 1, [l.editToken]);
+
+    const newestFirst = [...made].sort((a, b) => b.id - a.id).map((l) => l.shareCode);
+    expect((await exportClaimedLists(db, 1)).map((l) => l.shareCode)).toEqual(newestFirst);
+  });
+
+  // The column is free text with no CHECK. Every other read of a unit goes through
+  // unitOf; this one cast the column, so a value that is no unit reached the client,
+  // which formats every weight by it.
+  it("reads a display unit the app doesn't have as grams", async () => {
+    const db = await createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL, CATALOG_DDL);
+    const odd = await makeList(db, "Odd unit", { displayUnit: "stone" });
+    const fine = await makeList(db, "Pounds", { displayUnit: "lb" });
+    await claimLists(db, 1, [odd.editToken, fine.editToken]);
+
+    const out = await exportClaimedLists(db, 1);
+    expect(out.find((l) => l.title === "Odd unit")!.displayUnit).toBe("g");
+    expect(out.find((l) => l.title === "Pounds")!.displayUnit).toBe("lb");
   });
 
   it("is empty for an account with no claims", async () => {

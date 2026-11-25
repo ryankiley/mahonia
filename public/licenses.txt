@@ -112,12 +112,12 @@ The interface icons are central icons by iconists (David & Storm GbR), used
 under the iconists license (https://iconists.co/license). They are not covered
 by Mahonia's MIT license, and the license does not allow them to be copied out
 of this site or its source as an icon set. The gear glyphs drawn for Mahonia
-(app/utils/gearGlyphs.ts) are Mahonia's own and fall under its MIT license.
+(app/icons/mahonia/) are Mahonia's own and fall under its MIT license.
 
 ----------------------------------------------------------------------
 Mahonia itself
 ----------------------------------------------------------------------
 
 Source code: MIT, © 2026 Ryan Kiley, except the central icons in
-app/utils/centralIcons.ts (above). See LICENSE in the repository.
+app/icons/central/ (above). See LICENSE in the repository.
 The gear catalog data under seed/ is licensed separately — see seed/LICENSE.md.

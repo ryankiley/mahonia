@@ -60,7 +60,8 @@ describe("catalog:graduate", () => {
 });
 
 describe("catalog:graduate, a research row corrected in the app", () => {
-  // two rows as the hand research writes them, one key a line
+  // two rows one key a line, as a hand-written file may hold them before catalog:format
+  // (the empty variant is what the house layout leaves out)
   const duplex = [
     "    {",
     '      "brand": "Zpacks",',
@@ -185,6 +186,24 @@ describe("catalog:graduate, a research row corrected in the app", () => {
     // no verified-in-app.json yet: the file is started, under its own comment
     const started = JSON.parse(planGraduation([xmid], [files[0]!]).writes.get("verified-in-app.json")!);
     expect([started._comment, started.rows.length]).toEqual(["Rows verified in the app (verify_catalog_item), written out by npm run catalog:graduate.", 1]);
+  });
+
+  it("keeps a file's note when it is under _note, read as the _comment catalog:format writes it as", () => {
+    const note = 'Shelters, "quoted" {braces} and [brackets] in a string.';
+    const noted = pretty.replace('"_comment"', '"_note"');
+    expect(JSON.parse(noted)).toEqual({ _note: note, rows: rowsOf(pretty) });
+    // a research row's own file: the same text whichever key held the note
+    const text = planGraduation([corrected], [{ file: "shelters.json", raw: noted }]).writes.get("shelters.json")!;
+    expect(JSON.parse(text)._comment).toBe(note);
+    expect(text).toBe(planGraduation([corrected], [{ file: "shelters.json", raw: pretty }]).writes.get("shelters.json"));
+    // verified-in-app.json: its own note, not the one a new file is started under
+    const pot: ResearchRow = { brand: "Toaks", name: "Titanium 750 Pot", variant: null, weight_value: 103 };
+    const graduatedRaw = JSON.stringify({ _note: "Kept by hand.", rows: [] });
+    const graduated = JSON.parse(planGraduation([pot], [{ file: "verified-in-app.json", raw: graduatedRaw }]).writes.get("verified-in-app.json")!);
+    expect([graduated._comment, graduated.rows.length]).toEqual(["Kept by hand.", 1]);
+    // the one reading of it, which catalog:format writes through too; _comment wins if a file has both
+    expect(formatResearchFile({ _note: "A note.", rows: [] })).toBe(formatResearchFile({ _comment: "A note.", rows: [] }));
+    expect(formatResearchFile({ _note: "Old.", _comment: "A note.", rows: [] })).toBe(formatResearchFile({ _comment: "A note.", rows: [] }));
   });
 
   it("names each row it writes over, and marks one whose research changed after the verification", () => {

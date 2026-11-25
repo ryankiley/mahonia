@@ -55,6 +55,19 @@ describe("claiming a list onto an account", () => {
     expect(await listClaimedLists(db, USER)).toHaveLength(1);
   });
 
+  // Lists written in one statement share an updated_at to the microsecond, and a read
+  // ordered by that alone left their order, and so which of them a full account's cap
+  // keeps, to the planner. The id settles it, as it does for the sign-in backfill.
+  it("orders lists edited at the same instant by id, newest first", async () => {
+    const at = new Date("2026-06-01T00:00:00Z");
+    const made = await makeLists(db, ["A", "B", "C", "D", "E", "F"], { ...WEIGHED, updatedAt: at });
+    // claimed out of order, so the claims' own order can't stand in for the rule
+    for (const l of [made[3]!, made[0]!, made[5]!, made[1]!, made[4]!, made[2]!]) await claimLists(db, USER, [l.editToken]);
+
+    const newestFirst = [...made].sort((a, b) => b.id - a.id).map((l) => l.shareCode);
+    expect((await listClaimedLists(db, USER)).map((l) => l.shareCode)).toEqual(newestFirst);
+  });
+
   it("claims at most CLAIMED_LIST_CAP lists in one call", async () => {
     const titles = Array.from({ length: CLAIMED_LIST_CAP + 1 }, (_, i) => `L${i}`);
     const tokens = (await makeLists(db, titles, WEIGHED)).map((l) => l.editToken);

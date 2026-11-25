@@ -41,6 +41,7 @@ const SIZE_THEN_REGION = new RegExp(`\\b(\\d{1,2}(?:\\.5)?)\\s*(${SHOE_REGIONS})
 // a pack count as people type it ("pack of 2", "2pk"), to the catalog's "2-pack"
 const PACK_TYPED = /\bpack of (\d+)\b|\b(\d+)\s*-?\s*pk\b/gi;
 const asPack = (_m: string, packOf?: string, pk?: string) => `${packOf ?? pk}-pack`;
+const PACK_COUNT = /\b(\d+)-pack\b/i;
 
 /** What people type, folded toward the forms the reader knows. Idempotent on a
  *  catalog row's own variant. */
@@ -102,7 +103,10 @@ function axesOf(variant: string, row: SizeRow): Record<string, unknown> {
     return best;
   });
   const axes = read(parts);
-  const pack = /\b(\d+)-pack\b/i.exec(variant.replace(PACK_TYPED, asPack));
+  // as typed, then as the catalog would write it: normalizeVariant folds "2 Pack" and
+  // "2pack" to "2-pack" too, and read only as typed those stated no count, so a 2-pack
+  // linked to a 3-pack row. What was read before is read first, and reads the same.
+  const pack = PACK_COUNT.exec(variant.replace(PACK_TYPED, asPack)) ?? PACK_COUNT.exec(foldTyped(variant));
   return pack ? { ...axes, pack: pack[1] } : axes;
 }
 

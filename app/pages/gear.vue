@@ -792,7 +792,7 @@ async function exportGear(kind: string) {
             />
             <!-- a kit is this page's folder, made the way a list makes one: the quiet
                  label at the foot becomes the name field, and the kit opens where it was -->
-            <AddFolder v-if="tab === 'kits' && onTab.length && !query && !draftKit && !readonly" class="vault__addkit" label="New kit" placeholder="Kit name" @add="startDraftKit" />
+            <AddFolder v-if="tab === 'kits' && onTab.length && !query.trim() && !draftKit && !readonly" class="vault__addkit" label="New kit" placeholder="Kit name" @add="startDraftKit" />
 
           </template>
 

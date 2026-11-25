@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { MAX_CATALOG_ID } from "../shared/ops";
@@ -12,8 +12,10 @@ import {
   serializeCsv,
   specToMg,
 } from "../scripts/catalogCsv";
+import { runCatalogChecks } from "../scripts/catalogChecks";
 import {
   CATALOG_DDL,
+  TRUSTED_DOMAINS,
   activeCatalogRows,
   bumpUsage,
   isHttpUrl,
@@ -26,6 +28,15 @@ import { undoCatalogEdit } from "../server/utils/catalogVerify";
 // A fresh in-memory catalog DB (PGlite, no disk) with the catalog DDL applied.
 async function freshCatalogDb() {
   return createTestDb(CATALOG_DDL);
+}
+
+/** Make every UPDATE of `table` fail while `when` (a plpgsql condition on NEW) holds: a
+ *  write lost part-way, as a dropped connection or a timeout loses one. Answers how to
+ *  lift it again. The next createTestDb drops it with the schema. */
+async function failUpdatesOf(db: Awaited<ReturnType<typeof freshCatalogDb>>, table: string, when = "true") {
+  await db.execute(sql.raw(`create function fail_${table}() returns trigger language plpgsql as $$ begin if ${when} then raise exception 'write to ${table} failed'; end if; return new; end $$`));
+  await db.execute(sql.raw(`create trigger fail_${table} before update on ${table} for each row execute function fail_${table}()`));
+  return () => db.execute(sql.raw(`drop trigger fail_${table} on ${table}`));
 }
 
 describe("specToMg — cited spec → integer milligrams", () => {
@@ -229,6 +240,21 @@ describe("isTrustedSource — citation domain allowlist", () => {
     // the scheme guard must stop it counting as a trusted citation.
     expect(isTrustedSource("javascript://zpacks.com/%0aalert(1)")).toBe(false);
   });
+  it("trusts no site the catalog audit refuses as a maker's source (a review site)", () => {
+    expect(isTrustedSource("https://www.outdoorgearlab.com/reviews/camping-and-hiking/x")).toBe(false);
+    expect(isTrustedSource("https://sectionhiker.com/some-review/")).toBe(false);
+    // every trusted domain, held to the audit's own provenance rule: a manufacturer
+    // weight cited to it must not read as laundered through a review
+    const laundered = [...TRUSTED_DOMAINS].filter((domain) =>
+      runCatalogChecks([
+        {
+          brand: "Maker", name: "Thing", commonName: "Tent", variant: null, attributes: null, attributesUnpublished: [],
+          categoryHint: "shelter", weightMg: 500_000, kcal: null, weightSource: "manufacturer", sourceUrl: `https://${domain}/thing`, searchTerms: null,
+        },
+      ]).some((f) => f.code === "provenance"),
+    );
+    expect(laundered).toEqual([]);
+  });
 });
 
 describe("isHttpUrl — only http(s) citations are linkable/storable", () => {
@@ -302,6 +328,32 @@ describe("proposeCorrection — trust-tiered wiki edits", () => {
     expect(await weightOf(db, row.id)).toBe(504_622); // weight untouched
   });
 
+  it("leaves a fix cited to a review site waiting, the row and its source as they were", async () => {
+    const db = await freshCatalogDb();
+    const row = await seedCatalogRow(db, { name: "Zpacks Duplex", weightMg: 504_622, weightSource: "manufacturer", verified: true, sourceUrl: "https://zpacks.com/products/duplex-tent" });
+    const out = await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 540_000, sourceUrl: "https://www.outdoorgearlab.com/reviews/duplex" });
+    expect(out).toMatchObject({ status: "proposed", weightMg: 504_622 });
+    const after = await catalogRow(db, row.id);
+    expect(Number(after.weightMg)).toBe(504_622);
+    expect(after.sourceUrl).toBe("https://zpacks.com/products/duplex-tent");
+  });
+
+  it("writes an applied fix and its weight together or not at all", async () => {
+    const db = await freshCatalogDb();
+    const row = await seedCatalogRow(db);
+    // the write that moves the weight is lost
+    const lift = await failUpdatesOf(db, "catalog_items");
+    await expect(proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 })).rejects.toThrow();
+    // so no edit says it was applied
+    expect(await weightOf(db, row.id)).toBe(12_000);
+    expect(await recentChanges(db, 10)).toEqual([]);
+    await lift();
+    // and the same call again does both
+    expect(await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 })).toMatchObject({ status: "applied", weightMg: 9_000 });
+    expect(await weightOf(db, row.id)).toBe(9_000);
+    expect((await recentChanges(db, 10)).map((c) => [c.status, c.oldWeightMg, c.newWeightMg])).toEqual([["applied", 12_000, 9_000]]);
+  });
+
   it("rejects bad weights / no-ops / missing items", async () => {
     const db = await freshCatalogDb();
     const row = await seedCatalogRow(db, { name: "X", weightMg: 1_000 });
@@ -337,6 +389,25 @@ describe("undoCatalogEdit — one-click undo of an applied edit", () => {
     expect(await weightOf(db, row.id)).toBe(12_000);
     // reverting a non-applied edit is rejected
     expect(await undoCatalogEdit(db, changes[0].id)).toContain("already undone");
+  });
+
+  it("puts the row back and marks its edit undone together or not at all", async () => {
+    const db = await freshCatalogDb();
+    const row = await seedCatalogRow(db, { name: "Stake" });
+    await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 });
+    const [edit] = await recentChanges(db, 10);
+    // the write that marks the edit undone is lost
+    const lift = await failUpdatesOf(db, "catalog_edits", "new.status = 'reverted'");
+    await expect(undoCatalogEdit(db, edit!.id)).rejects.toThrow();
+    // so the row still holds what the edit wrote, and the edit still stands
+    expect(await weightOf(db, row.id)).toBe(9_000);
+    expect((await recentChanges(db, 10))[0]!.status).toBe("applied");
+    await lift();
+    // and the same call again undoes it, where a row put back alone left an edit that
+    // could never be undone ("has changed since") and stood in the way of older ones
+    expect(await undoCatalogEdit(db, edit!.id)).toMatchObject({ rejected: false, row: { id: row.id, name: "Stake" } });
+    expect(await weightOf(db, row.id)).toBe(12_000);
+    expect((await recentChanges(db, 10))[0]!.status).toBe("reverted");
   });
 
   it("refuses to revert a stale (non-latest) applied edit", async () => {
