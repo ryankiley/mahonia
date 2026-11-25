@@ -14,7 +14,7 @@ import { SvgIcon } from "~/utils/icon";
 // it, the page caps it at 32ch), and the field inside fills it.
 //
 // One string names it: `label` is the field's accessible name, and the placeholder is
-// the same words trailing off ("Search my gear…").
+// the same words trailing off ("Search your gear…").
 defineProps<{ label: string }>();
 const query = defineModel<string>({ required: true });
 const inputEl = useTemplateRef<HTMLInputElement>("inputEl");
