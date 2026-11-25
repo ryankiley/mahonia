@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 22 November 2026</p>
+        <p class="t-sm t-muted">Last updated 25 November 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -35,7 +35,7 @@ useHead({
 
         <h3>Where your data lives</h3>
         <p>
-          Your list titles, folders, items, notes and weights are saved in your browser, and synced
+          Your list titles, folders, items, notes, and weights are saved in your browser, and synced
           to the server once a list has real content. An empty draft you never add anything to is
           never sent anywhere.
         </p>
@@ -59,13 +59,13 @@ useHead({
           starts where you parked, which is sometimes where you live. So it is
           <strong>yours alone</strong>: it never appears on a share link, not even in the page’s
           hidden data. Anyone you share with sees the
-          distance, the climb and the shape of the elevation, which carry no coordinates at all.
+          distance, the climb, and the shape of the elevation, which carry no coordinates at all.
           Your own JSON backup does include it, because that file is yours and the route is the one
           thing you couldn’t type again from memory.
         </p>
         <p>
           <strong>My Gear</strong>, your saved gear, is the one part that needs an account. It holds names,
-          brands and weights, and belongs to you rather than to a browser, so signing in on another
+          brands, and weights, and belongs to you rather than to a browser, so signing in on another
           device brings it with you, and clearing this one doesn’t lose it. While you’re signed in,
           gear reaches it when you add something to a list yourself, or import or copy a list. A
           list someone else made asks before any of its gear goes into yours.
@@ -96,7 +96,7 @@ useHead({
 
         <h3>What you type can improve the shared catalog</h3>
         <p>
-          When you type a piece of gear that isn’t already in Mahonia’s catalog, the brand, name
+          When you type a piece of gear that isn’t already in Mahonia’s catalog, the brand, name,
           and weight are noted. If the same item is typed on <strong>three or more different
           lists</strong>, it’s added to the public catalog with the median weight, so everyone
           gets a suggestion instead of typing it again. Only branded products qualify; generic
@@ -146,7 +146,7 @@ useHead({
           </li>
           <li>
             “Delete account” on your account page removes your email, display name, passkeys,
-            assistant connections and saved gear, straight away and without asking me. It asks
+            assistant connections, and saved gear, straight away and without asking me. It asks
             separately whether to delete your lists; by default they stay, because they belong to
             their edit links rather than to your account.
           </li>

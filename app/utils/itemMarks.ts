@@ -9,7 +9,7 @@ import { isFuelRow, type Named } from "~~/shared/fuel";
  * (isFuelRow, shared/fuel), the cookie on everything else. Same class, same chip, same
  * label: water and fuel are consumables and the mark still says so. Only the picture
  * changes, because a cookie is a poor drawing of a litre of water or a canister of gas
- * — and the mark's own gloss is "food, fuel or water", three things that deserved three
+ * — and the mark's own gloss is "food, fuel, or water", three things that deserved three
  * pictures. Water is also the one consumable the app already treats as its own thing
  * (litres instead of a quantity, a fixed class, its own row in the add menu); fuel is
  * the one that is plainly not food, which is exactly what makes it worth telling apart

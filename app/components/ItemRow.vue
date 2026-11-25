@@ -1656,7 +1656,7 @@ function dismissFix() {
                       type="button"
                       role="switch"
                       :aria-checked="isConsumable"
-                      aria-label="Consumable: food, fuel or water"
+                      aria-label="Consumable: food, fuel, or water"
                       :aria-describedby="isWorn ? `${item.id}-kcal-swap` : undefined"
                       @click="setClass('consumable', !isConsumable)"
                     />
