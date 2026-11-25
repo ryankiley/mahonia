@@ -154,20 +154,14 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
           expiration: { maxEntries: 100, maxAgeSeconds: 60 * 60 * 24 * 7 },
         },
       },
-      // queue list edits made offline and replay them on reconnect — even after
-      // the tab closes. Safe because /api/edit/mutate is idempotent (CAS version
-      // + merge-designed ops → a replayed op set no-ops; see server/utils/listRepo).
-      {
-        urlPattern: /\/api\/edit\/mutate$/,
-        method: "POST",
-        handler: "NetworkOnly",
-        options: {
-          backgroundSync: {
-            name: "mahonia-mutate-queue",
-            options: { maxRetentionTime: 60 * 24 },
-          },
-        },
-      },
+      // NO RULE FOR /api/edit/mutate, and no worker-side queue of writes. The editor
+      // already keeps every edit the server hasn't acknowledged in IndexedDB and sends
+      // it again itself, rebased on what the server holds (app/composables/useGearList).
+      // A Workbox background-sync queue sat here as well until 2026-11: it kept a copy
+      // of each send that failed and replayed it whenever the browser next woke the
+      // worker, by which time the editor's own retry and newer edits could have
+      // landed. Ops merge by arrival and carry no version, so the late copy put back
+      // what those edits had changed (tests/pwaConfig.test.ts shows it on the reducer).
     ],
   },
 };

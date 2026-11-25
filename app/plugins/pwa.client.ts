@@ -18,13 +18,21 @@
 // running on them ("/" and "/e" boot from that precache), and every lazy chunk the
 // tab hasn't loaded yet (dialogs, the sharing menu, the exporters) then fails, as
 // does Vercel for old hashes online. Forcing it at launch was tried and dropped: an
-// open page can hold activation off for as long as an event in the old worker runs
-// (a background-sync replay, say), so the reload landed mid-session after all.
+// open page can hold activation off for as long as an event in the old worker runs,
+// so the reload landed mid-session after all.
 export default defineNuxtPlugin(() => {
   if (useOfflineEnabled()) {
     if (!("serviceWorker" in navigator)) return;
     // The editor shell used to be runtime-cached under this name; nothing reads it now.
     if (typeof caches !== "undefined") caches.delete("mahonia-shell").catch(() => {});
+    // The worker used to queue failed edits here for replay (config/pwa.ts says why it
+    // stopped). Each entry is a whole request, edit key included, and nothing reads
+    // them now; the edits themselves are still in the editor's own on-device copy.
+    try {
+      indexedDB.deleteDatabase("workbox-background-sync");
+    } catch {
+      // no IndexedDB here (some private modes): nothing was ever queued either
+    }
     navigator.serviceWorker.register("/sw.js").catch(() => {});
     return;
   }
