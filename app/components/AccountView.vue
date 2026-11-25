@@ -757,8 +757,8 @@ async function onSignOut() {
       </ClientOnly>
 
     <!-- "Account deleted", over the sign-in screen the deletion lands on: the app's own
-         toast (atoms/controls.scss), as the read views' menu draws its copy
-         confirmations. The status region is ALWAYS here and only its words come and
+         toast (atoms/controls.scss), the pill the read views' menu confirms a copy
+         with, drawn here in place. The status region is ALWAYS here and only its words come and
          go: a live region that arrives already holding its text is one a screen reader
          may not announce. Empty, it is a block of no height. -->
     <div role="status">

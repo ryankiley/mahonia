@@ -20,9 +20,10 @@ const label = computed(() => heading.value ?? (presence.value !== "signedOut" ? 
 
 <template>
   <BaseModal :open="state.open" :label="label" @close="close">
-    <!-- `done` is the panel telling us its errand finished — a sign-in landed, or the
-         account was deleted. In this mount that means close; on /account it means go
-         somewhere, which is why the panel takes the mount as a prop. -->
+    <!-- `done` is the panel telling us its errand finished: a sign-in or a sign-out
+         landed. In this mount that means close; on /account it means go somewhere,
+         which is why the panel takes the mount as a prop. A deleted account does not
+         fire it: the dialog stays open as Sign in, under the panel's confirmation. -->
     <!-- The only modal here whose body is a whole surface rather than a form, so it
          has no dlg__actions row and had no visible way out — just Escape and a tap on
          the scrim. The X is the same control the vault pane closes with. -->
