@@ -14,7 +14,7 @@ import { type FunctionalComponent, h, mergeProps } from "vue";
 //
 // STROKE is flat: a fixed width in screen pixels for each step, at every viewport. The
 // <svg> carries it and main.scss gives the glyph's parts non-scaling-stroke, so the line
-// doesn't thicken as the glyph grows past 1920px, or between an 18px glyph and a 20px one.
+// doesn't thicken as the glyph grows past 1920px, or between a 14px glyph and a 20px one.
 // Small steps draw lighter, because Central's strokes sit about four grid units apart and
 // a 1.5px line on a 14px glyph fills those gaps in. A glyph's data carries no width of its
 // own except where a part is meant to differ (Central's filled dots keep their hairline),
@@ -71,12 +71,13 @@ function childrenFor(icon: IconNode): PreparedChild[] {
 
 /** The icon scale: each step's size in px (its --icon-* token in tokens.scss says the
  *  same) and the flat line it draws, in screen px. md is the default: the glyph beside
- *  16px text. sm sits beside 14px text and in small indicators (a menu's chevron and tick). */
+ *  16px text, on every pointer, and the folder chevrons and gear marks too (one size where
+ *  there were 18 and 20). sm sits beside 14px text and in small indicators (a menu's
+ *  chevron and tick). */
 export const ICON_SIZES = {
   xs: { px: 12, stroke: 1 },
   sm: { px: 14, stroke: 1.25 },
-  md: { px: 18, stroke: 1.5 },
-  lg: { px: 20, stroke: 1.5 },
+  md: { px: 20, stroke: 1.5 },
   xl: { px: 24, stroke: 1.5 },
 } as const;
 export type IconSize = keyof typeof ICON_SIZES;

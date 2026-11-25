@@ -48,5 +48,5 @@ function onClick(e: MouseEvent) {
     :aria-label="`${collapsed ? 'Expand' : 'Collapse'} ${label}`"
     :title="`${collapsed ? 'Expand' : 'Collapse'} ${noun}`"
     @click="onClick"
-  ><SvgIcon :icon="IconChevronDownMedium" :class="[folder ? 'folder__chev' : 'item__nestchev', { 'is-collapsed': collapsed }]" :size="folder ? 'lg' : 'md'" /></button>
+  ><SvgIcon :icon="IconChevronDownMedium" :class="[folder ? 'folder__chev' : 'item__nestchev', { 'is-collapsed': collapsed }]" /></button>
 </template>

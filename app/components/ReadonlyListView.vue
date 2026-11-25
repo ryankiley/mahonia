@@ -203,8 +203,8 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
             class="view__trailicon"
             :src="list.trailFaviconDataUrl"
             alt=""
-            width="18"
-            height="18"
+            width="20"
+            height="20"
           />
           <SvgIcon :icon="IconGlobe2" v-else class="view__trailicon view__trailicon--fallback" aria-hidden="true" />
           <span class="t-clip">{{ trail.name }}</span>

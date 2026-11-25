@@ -567,11 +567,11 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   /* THE ICON SCALE: one token per SvgIcon size step (utils/icon.ts's ICON_SIZES says the
      same numbers; tests/icon.nuxt.test.ts holds them in step). --icon is md, THE GLYPH:
      the default, beside 16px text, named plainly so the maths written against it
-     (centring, flush pulls, slots) says what it is measuring. */
+     (centring, flush pulls, slots) says what it is measuring. The same on every
+     pointer: touch grows the button to --tap, not the picture. */
   --icon-xs: calc(12 * var(--tpx));
   --icon-sm: calc(14 * var(--tpx));
-  --icon: calc(18 * var(--tpx));
-  --icon-lg: calc(20 * var(--tpx));
+  --icon: calc(20 * var(--tpx));
   --icon-xl: calc(24 * var(--tpx));
   /* how far that glyph sits in from its --icon-btn box's edge: what a flush pull takes
      back (.btn--flush-end) and what a tooltip shifts by to point at the glyph rather than
@@ -582,10 +582,10 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      three parts (− number +) have to read as one control rather than two buttons
      with a number between them, and the mobile meta line is the tightest line in
      the app. It still clears the 24×24 minimum target (WCAG 2.5.8) in both
-     directions, and the HEIGHT does take --tap on touch — so the thumb gets 26×44.
-     26 wide so the 18px ± glyphs keep the 4px either side the 16px ones had in 24.
+     directions, and the HEIGHT does take --tap on touch — so the thumb gets 28×44.
+     The glyph plus 4px either side, the air the ± has had at every size.
      Named here because the qty track below is derived from it. */
-  --qty-btn: calc(26 * var(--tpx));
+  --qty-btn: calc(var(--icon) + 8 * var(--tpx));
   /* the category colour dot (.swatch, atoms/controls.scss) — the ONE colour mark in
      the app. Named because the category legend hangs its wrapped lines off exactly
      this width (CategoryBar), so the two must move together. */
@@ -593,12 +593,11 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   /* My Gear's gear-type icon column (VaultGearRow) and how far a row's name sits in from
      it. "Add gear" stays flush left with the folder name: indented, it floated under an
      empty folder's title with nothing to line up with. */
-  --gear-type-w: var(--icon-lg); /* the lg glyph's own width: its edge is the folder name's */
+  --gear-type-w: var(--icon); /* the glyph's own width: its edge is the folder name's */
   --gear-type-indent: calc(var(--gear-type-w) + var(--space-2));
-  /* touch targets — the ~44px Apple-HIG minimum box + the enlarged glyph,
-     consumed by every `@media (pointer: coarse)` icon-button override */
+  /* touch target — the ~44px Apple-HIG minimum box, consumed by every
+     `@media (pointer: coarse)` icon-button override */
   --tap: 44px;
-  --icon-touch: calc(18 * var(--tpx));
   /* the negative margin that pulls a --tap-sized touch box back onto the 1.45rem
      text line (so enlarging the hit area doesn't grow row height). Derived from
      --tap — a retune of --tap keeps the rhythm instead of needing every paired
@@ -620,9 +619,9 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      had to find by grep. */
   --grip-pull: calc(9 * var(--tpx));
   /* how far the grip's glyph reaches past its button's right edge (the translateX in
-     .grip svg: a third of the 18px glyph), which is how far a row's paint-contained box
+     .grip svg: a third of the glyph), which is how far a row's paint-contained box
      has to reach into the gutter so the dots aren't shaved (.item-wrap, atoms/item.scss) */
-  --grip-bleed: calc(6 * var(--tpx));
+  --grip-bleed: calc(var(--icon) / 3);
   /* field height — .field's min-height, mirrored by the add affordances and the
      packing-row height calc so toggling modes never jumps the row height */
   --field-h: calc(36 * var(--tpx));

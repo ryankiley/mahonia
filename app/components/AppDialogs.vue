@@ -26,8 +26,8 @@ watch(
       <label v-if="confirmState.checkboxLabel" class="dlg__opt">
         <span class="check">
           <input v-model="confirmState.checked" type="checkbox" class="check__box" />
-          <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" size="lg" aria-hidden="true" />
-          <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" size="lg" aria-hidden="true" />
+          <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" aria-hidden="true" />
+          <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" aria-hidden="true" />
         </span>
         <span class="dlg__opttext">
           {{ confirmState.checkboxLabel }}

@@ -65,6 +65,11 @@ export interface ResearchRow {
   //     "typical" weight, stakes and bags included — never the "trail" or "minimum" figure
   //     (fly, inner, poles), which sits 100–300 g lighter on the same page. A row that could
   //     only be sourced at trail weight says "trail weight" in its variant and is a to-do.
+  //   • A pack (backpack, daypack, fastpack) weighs the pack AS IT SHIPS, every part in the
+  //     box (hip belt, frame or stays, back pad, removable lid), never the maker's "minimum"
+  //     / "stripped" / "base" figure. A part sold separately stays out. Where the belt is
+  //     optional, or sold both ways, the variant says "no hipbelt" / "with hipbelt"; a row that
+  //     could only be sourced at a stripped figure says "minimum" in its variant and is a to-do.
   //   • Servings: a multi-serving pouch says "2 servings"; single-serving is the unmarked default
   //     ("1 serving" is filler). A maker's format name stays ("Pro-Pak").
   //   • Several of a thing read "3-pack" or "sleeve of 10". A number and its unit are one

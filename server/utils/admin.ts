@@ -1,5 +1,5 @@
 /** The accounts that may use the admin tools (verify_catalog_item,
- *  catalog_changes and revert_catalog_edit): ADMIN_USER_IDS,
+ *  get_catalog_edits and revert_catalog_edit): ADMIN_USER_IDS,
  *  comma-separated. Unset or empty is nobody, so a deploy that forgets the variable
  *  opens nothing. Read per call, but Vercel hands a deployment its environment when it
  *  is built: a value set or changed there reaches only the deployments made after it.

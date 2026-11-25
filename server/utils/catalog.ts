@@ -419,7 +419,7 @@ const TRUSTED_DOMAINS = new Set([
 ]);
 
 /** True only for http(s) URLs — keeps non-fetchable schemes (javascript:, data:)
- * out of stored citations, which catalog_changes hands on as links. */
+ * out of stored citations, which get_catalog_edits hands on as links. */
 export function isHttpUrl(url: string | undefined | null): boolean {
   return safeUrl(url) !== null;
 }
@@ -496,7 +496,7 @@ export async function proposeCorrection(
 
 
 /** Recent catalog edits (newest first), all of them or one row's: the admin patrol feed
- *  (catalog_changes) that names the ids revert_catalog_edit takes. */
+ *  (get_catalog_edits) that names the ids revert_catalog_edit takes. */
 export async function recentChanges(db: Db, limit: number, catalogItemId?: number): Promise<RecentChange[]> {
   const rows = await db
     .select({
@@ -518,7 +518,7 @@ export async function recentChanges(db: Db, limit: number, catalogItemId?: numbe
     .where(catalogItemId == null ? undefined : eq(catalogEdits.catalogItemId, catalogItemId))
     // Timestamps are commonly equal for back-to-back edits (including on
     // PGlite), so the serial id is the deterministic second half of "newest".
-    // Without it catalog_changes can hand the stale-revert guard the newer edit
+    // Without it get_catalog_edits can hand the stale-revert guard the newer edit
     // as though it were the older one.
     .orderBy(desc(catalogEdits.createdAt), desc(catalogEdits.id))
     .limit(limit);

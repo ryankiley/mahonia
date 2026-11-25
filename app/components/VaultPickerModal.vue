@@ -83,8 +83,8 @@ const groups = computed(() =>
                 :aria-label="`Add ${itemDisplayName(c.brand, c.name, c.variant)} to My Gear`"
                 @change="toggle(c.normKey)"
               />
-              <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" size="lg" aria-hidden="true" />
-              <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" size="lg" aria-hidden="true" />
+              <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" aria-hidden="true" />
+              <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" aria-hidden="true" />
             </span>
             <span class="vpick__name">{{ itemDisplayName(c.brand, c.name, c.variant) }}</span>
             <span class="t-sm t-muted t-num vpick__weight">{{

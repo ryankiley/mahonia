@@ -390,7 +390,7 @@
     {
       "brand": "Nemo",
       "name": "Resolve 25L",
-      "variant": "Men's",
+      "variant": "Men's, minimum",
       "attributes": {"volume_l": 25},
       "category_hint": "pack",
       "weight_value": 2,

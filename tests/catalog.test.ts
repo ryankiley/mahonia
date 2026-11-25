@@ -1,3 +1,4 @@
+import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { MAX_CATALOG_ID } from "../shared/ops";
@@ -348,6 +349,27 @@ describe("undoCatalogEdit — one-click undo of an applied edit", () => {
     // reverting the older edit A would silently drop B → must be rejected
     expect(await undoCatalogEdit(db, editA)).toContain("newer applied edit");
     expect(await weightOf(db, row.id)).toBe(300_000); // unchanged
+  });
+
+  it("turns down a fix still waiting for review, once, without touching the row", async () => {
+    const db = await freshCatalogDb();
+    // a verified row takes an uncited fix as proposed
+    const row = await seedCatalogRow(db, { name: "Stake", weightSource: "manufacturer", verified: true });
+    expect((await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 })).status).toBe("proposed");
+    const [fix] = await recentChanges(db, 10);
+    expect(await undoCatalogEdit(db, fix!.id)).toMatchObject({ rejected: true, row: { id: row.id } });
+    expect(await weightOf(db, row.id)).toBe(12_000);
+    expect((await recentChanges(db, 10))[0]!.status).toBe("rejected");
+    expect(await undoCatalogEdit(db, fix!.id)).toContain("already turned down");
+  });
+
+  it("turns down a fix whose row is gone, answering no row", async () => {
+    const db = await freshCatalogDb();
+    const row = await seedCatalogRow(db, { name: "Stake", weightSource: "manufacturer", verified: true });
+    await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 });
+    const [fix] = await recentChanges(db, 10);
+    await db.delete(schema.catalogItems).where(eq(schema.catalogItems.id, row.id));
+    expect(await undoCatalogEdit(db, fix!.id)).toEqual({ rejected: true, row: null });
   });
 });
 

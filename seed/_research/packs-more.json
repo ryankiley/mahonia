@@ -174,7 +174,7 @@
     {
       "brand": "Superior Wilderness Designs",
       "name": "Long Haul 50L",
-      "variant": "Ultra 200X",
+      "variant": "Ultra 200X, minimum",
       "attributes": {"volume_l": 50},
       "category_hint": "pack",
       "weight_value": 28.6,
@@ -198,7 +198,7 @@
     {
       "brand": "Superior Wilderness Designs",
       "name": "Big Wild 70L",
-      "variant": "Ultra 400X",
+      "variant": "Ultra 400X, minimum",
       "attributes": {"volume_l": 70},
       "category_hint": "pack",
       "weight_value": 33,

@@ -487,8 +487,8 @@ async function add(p: VaultItemPatch) {
                 :aria-label="`Icon: ${shownLabel ?? 'none'}`"
                 @click="toggle"
               >
-                <SvgIcon v-if="shownIcon" :icon="shownIcon" size="lg" aria-hidden="true" />
-                <SvgIcon v-else :icon="IconSquarePlaceholderDashed" class="vitem__noicon" size="lg" aria-hidden="true" />
+                <SvgIcon v-if="shownIcon" :icon="shownIcon" aria-hidden="true" />
+                <SvgIcon v-else :icon="IconSquarePlaceholderDashed" class="vitem__noicon" aria-hidden="true" />
                 <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
               </button>
             </template>

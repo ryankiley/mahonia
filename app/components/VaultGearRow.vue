@@ -119,9 +119,9 @@ const meta = computed(() => {
           aria-hidden="true"
           @click="toggle"
         >
-          <SvgIcon v-if="typeIcon" :icon="typeIcon" size="lg" />
+          <SvgIcon v-if="typeIcon" :icon="typeIcon" />
           <!-- empty: the dashed square, the shape an icon would fill, quietly -->
-          <SvgIcon v-else :icon="IconSquarePlaceholderDashed" size="lg" />
+          <SvgIcon v-else :icon="IconSquarePlaceholderDashed" />
         </button>
         </Tooltip>
       </template>

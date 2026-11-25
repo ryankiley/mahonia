@@ -1,7 +1,8 @@
 // Idempotent catalog seeder. Reads the curated, cited seed/catalog.csv and
 // upserts each row into catalog_items, matching on (brand, name, variant) so
 // re-running never duplicates — it inserts new rows and updates changed
-// weights/sources in place. A row whose variant was tidied keeps its id (seedRenames.ts:
+// weights/sources in place, except a visitor's cited correction the research hasn't moved
+// past, which stays (seedUpsert.ts). A row whose variant was tidied keeps its id (seedRenames.ts:
 // same product, one orphan and one newcomer, renamed before the upsert), and a row the
 // CSV stops naming is retired with a pointer to its successor, never deleted
 // (seedRetire.ts). Seeded rows are owner-curated + cited, so they're marked verified=true.
@@ -21,6 +22,7 @@ import { refoldVaultIdentities } from "./seedIdentities";
 import { renameMovedVariants } from "./seedRenames";
 import { retireOrphans } from "./seedRetire";
 import { upsertSeedRows } from "./seedUpsert";
+import { itemDisplayName } from "../shared/weights";
 import { useDb } from "../server/utils/db";
 import { csvToCatalogRows } from "./catalogCsv";
 import { CATALOG_CSV } from "./paths";
@@ -40,8 +42,13 @@ async function main() {
   const renamed = await renameMovedVariants(db, rows);
   if (renamed.catalog || renamed.vault) console.log(`Variants tidied: ${renamed.catalog} catalog rows and ${renamed.vault} My Gear rows renamed in place, ids kept.`);
 
-  const { inserted, updated, unchanged, held } = await upsertSeedRows(db, rows);
+  const { inserted, updated, unchanged, held, kept } = await upsertSeedRows(db, rows);
   if (held) console.log(`${held} rows verified in the app differ from the research; npm run catalog:graduate writes them back.`);
+  if (kept.length) {
+    console.log(`Kept ${kept.length} cited corrections visitors made that the research doesn't have; verify or undo each with the connector's admin tools:`);
+    for (const k of kept)
+      console.log(`  #${k.id} ${itemDisplayName(k.brand, k.name, k.variant)}: research ${k.researchMg / 1000} g, live ${k.liveMg / 1000} g (${k.sourceUrl ?? "no citation"})`);
+  }
 
   // Retire stale seed-managed rows: anything verified=true that is no longer in the
   // CSV is an orphan from a rename / variant-change / removal. Retired, not deleted:

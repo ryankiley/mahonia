@@ -84,6 +84,33 @@ function figureAfter(q: string, re: RegExp): number | null {
 }
 const near = (a: number, b: number) => Math.abs(a - b) <= Math.max(8, 0.03 * b);
 
+// Belted packs are the other gear where a maker prints a figure lighter than what ships:
+// a "minimum" / "stripped" / "base" weight, or the pack without its belt. The catalog
+// stores the pack AS IT SHIPS, every part in the box (hip belt, frame or stays, back pad,
+// removable lid), the tent rule applied to packs (decided 2026-11-25). A part the maker
+// sells separately stays out. A pack whose belt is optional, or sold both ways, says
+// "no hipbelt" / "with hipbelt"; a row that could only be sourced at a stripped figure
+// says "minimum" in its variant, and the audit lists it as a to-do.
+const BELTED_PACK = /^(?:back|day|fast)pack$/i;
+const PACK_MINIMUM = /\b(?:min(?:imum)?\.?(?:\s+usable)?\s*weight|stripped\s*weight|base\s*weight|no\s*(?:hip\s*)?belt|without\s*(?:the\s*)?(?:hip\s*)?belt)\b|\(minimum\)/i;
+const PACK_FULL = /\b(?:fully\s*equipped|total\s*weight|total\s+with|packed\s*weight|max(?:imum)?\s*weight|with\s*(?:the\s*)?(?:hip\s*)?belt)\b/i;
+const PACK_MIN_TOKEN = "minimum";
+const PACK_NO_BELT_TOKEN = "no hipbelt";
+
+/** The figure a label in `q` names: the one right after it ("Minimum Weight: 1340 g"),
+ *  else the one right before it ("780g (Minimum Weight)", "1390g without hip belt"),
+ *  else the first one after it. A maker writes both orders, often on one page. */
+function figureBy(q: string, re: RegExp): number | null {
+  const m = re.exec(q);
+  if (!m) return null;
+  if (/^\s*[:=]?\s*\(?\d/.test(q.slice(m.index + m[0].length))) return figureAfter(q, re);
+  const before = q.slice(Math.max(0, m.index - 24), m.index).match(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(g|kg|oz|lbs?)\)?\s*\(?\s*$/i);
+  if (!before) return figureAfter(q, re);
+  const n = parseFloat(before[1]!.replace(/,/g, ""));
+  const u = before[2]!.toLowerCase();
+  return u === "g" ? n : u === "kg" ? n * 1000 : u === "oz" ? n * 28.3495 : n * 453.592;
+}
+
 export function runResearchChecks(files: ResearchFile[], commonNames: Map<string, string> = new Map()): Finding[] {
   const out: Finding[] = [];
   const err = (code: string, message: string) => out.push({ level: "error", code, message });
@@ -231,6 +258,27 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
           err("tent-weight-basis", packed != null
             ? `${where}: ${g.toFixed(0)} g is the trail/minimum weight; the packaged weight on the same page is ${packed.toFixed(0)} g — store that`
             : `${where}: ${g.toFixed(0)} g is the trail/minimum weight — find the packaged weight, or say "trail weight" in the variant`);
+        }
+      }
+
+      // PACK WEIGHT BASIS — a belted pack stores the pack as it ships. Read from the quote
+      // as the tent rule is: the figure a "minimum"/"stripped"/"base"/"no belt" label names
+      // and the one a "total"/"fully equipped"/"with hip belt" label names. Storing the
+      // minimum when the full figure is on the page is an error; so is storing it unlabelled.
+      if (BELTED_PACK.test(gearType)) {
+        const q = r.quote ?? "";
+        const tokens = (r.variant ?? "").split(/,\s*/);
+        const saysMin = tokens.includes(PACK_MIN_TOKEN);
+        const min = figureBy(q, PACK_MINIMUM);
+        const full = figureBy(q, PACK_FULL);
+        const storedIsMin = min != null ? near(g, min) && !(full != null && near(g, full)) : full == null && PACK_MINIMUM.test(q);
+        if (saysMin) {
+          if (full != null) err("pack-weight-basis", `${where}: the quote shows the full pack (${full.toFixed(0)} g) — store it and drop "minimum"`);
+          else warn("pack-minimum-weight", `${where}: stored at a minimum weight — find the weight as it ships (hip belt, frame and lid included) and drop "minimum"`);
+        } else if (storedIsMin && !tokens.includes(PACK_NO_BELT_TOKEN)) {
+          err("pack-weight-basis", full != null
+            ? `${where}: ${g.toFixed(0)} g is the pack's minimum; the full weight on the same page is ${full.toFixed(0)} g — store that`
+            : `${where}: ${g.toFixed(0)} g is the pack's minimum — find the weight as it ships, or say "minimum" (or "no hipbelt", when the belt is optional) in the variant`);
         }
       }
     }
