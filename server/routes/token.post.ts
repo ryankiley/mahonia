@@ -43,7 +43,7 @@ export default defineEventHandler(async (event) => {
   // the code is spent before it is checked, so a code that fails a check below is
   // gone as well: one try is all a code gets
   const code = await redeemAuthCode(db, body.code);
-  if (!code) return oauthError(event, "invalid_grant", "That code is unknown, used or expired.");
+  if (!code) return oauthError(event, "invalid_grant", "That code is unknown, used, or expired.");
   if (code.clientId !== body.client_id || code.redirectUri !== body.redirect_uri) {
     return oauthError(event, "invalid_grant", "That code was issued to a different client or redirect_uri.");
   }

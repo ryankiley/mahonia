@@ -165,7 +165,7 @@ export async function checkAuthorizeRequest(db: Db, origin: string, q: Record<st
   if (!isCodeChallenge(codeChallenge)) return back("invalid_request", "A code_challenge is required (PKCE, S256).");
   if (str("code_challenge_method") !== "S256") return back("invalid_request", "code_challenge_method must be S256.");
   const scope = scopeFromRequest(str("scope"));
-  if (!scope) return back("invalid_scope", "This server grants read, write and offline_access.");
+  if (!scope) return back("invalid_scope", "This server grants read, write, and offline_access.");
   const elsewhere = wrongResource(origin, str("resource"));
   if (elsewhere) return back("invalid_target", elsewhere);
   return { ok: true, client, redirectUri, state, scope, codeChallenge };
