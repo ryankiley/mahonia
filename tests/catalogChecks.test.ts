@@ -208,6 +208,38 @@ describe("research-level tent weight basis", () => {
   });
 });
 
+describe("research-level pack weight basis", () => {
+  const pack = (variant: string, weight_value: number, quote: string, common_name = "backpack"): ResearchFile => ({
+    file: "synthetic.json",
+    rows: [{ brand: "Acme", name: "Ridge 40", variant, common_name, category_hint: "pack", weight_value, weight_unit: "g", weight_source: "manufacturer", source_url: "https://acme.example/ridge-40", quote }],
+  });
+  const codes = (f: ResearchFile, level: "error" | "warning") => runResearchChecks([f]).filter((x) => x.level === level).map((x) => x.code);
+  it("a pack stored at its minimum when the page gives the full figure is an error, either order of label and figure", () => {
+    expect(codes(pack("", 780, "WEIGHT: 780g (Minimum Weight), 1,200g (Fully Equipped)"), "error")).toContain("pack-weight-basis");
+    expect(codes(pack("", 1200, "WEIGHT: 780g (Minimum Weight), 1,200g (Fully Equipped)"), "error")).toEqual([]);
+    expect(codes(pack("", 1390, "3lb 7oz (1560g) with hip belt, 3lb 1oz (1390g) without hip belt"), "error")).toContain("pack-weight-basis");
+    expect(codes(pack("with hipbelt", 1560, "3lb 7oz (1560g) with hip belt, 3lb 1oz (1390g) without hip belt"), "error")).toEqual([]);
+    // a label naming the figure after it, inside a sentence that names the full one first
+    expect(codes(pack("", 571, "weighs in at 1.26 lbs (stripped weight: 1.16 lb)"), "error")).toEqual([]);
+  });
+  it("a pack stored at a minimum-only figure must say so, and saying so is a to-do", () => {
+    expect(codes(pack("", 295, "Weight: 10.4oz | 295g (minimum)"), "error")).toContain("pack-weight-basis");
+    expect(codes(pack("minimum", 295, "Weight: 10.4oz | 295g (minimum)"), "error")).toEqual([]);
+    expect(codes(pack("minimum", 295, "Weight: 10.4oz | 295g (minimum)"), "warning")).toContain("pack-minimum-weight");
+    // "minimum" while the page shows the full pack: store that instead
+    expect(codes(pack("minimum", 780, "WEIGHT: 780g (Minimum Weight), 1,200g (Fully Equipped)"), "error")).toContain("pack-weight-basis");
+  });
+  it("a pack whose belt is optional says no hipbelt, and that is no to-do", () => {
+    expect(codes(pack("", 281, "Weight 9.9 oz / 281 g (30L, Standard Straps, No Belt)"), "error")).toContain("pack-weight-basis");
+    expect(codes(pack("30L, no hipbelt", 281, "Weight 9.9 oz / 281 g (30L, Standard Straps, No Belt)"), "error")).toEqual([]);
+    expect(codes(pack("30L, no hipbelt", 281, "Weight 9.9 oz / 281 g (30L, Standard Straps, No Belt)"), "warning")).not.toContain("pack-minimum-weight");
+  });
+  it("leaves unlabelled figures, and packs without a belt to speak of, alone", () => {
+    expect(codes(pack("", 905, "Total with M Straight belt 31.9 oz / 905 g"), "error")).toEqual([]);
+    expect(codes(pack("", 120, "Minimum weight: 120 g", "running vest"), "error")).toEqual([]);
+  });
+});
+
 describe("research-level kcal cross-check", () => {
   it("reads servings from the variant or the quote", () => {
     expect(servingsOf("2 servings", "")).toBe(2);
