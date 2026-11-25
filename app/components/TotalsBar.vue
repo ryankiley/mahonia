@@ -215,6 +215,18 @@ const planTip = computed(() => {
   flex-direction: column;
   gap: var(--space-4);
 }
+/* The breakdown opens and closes as ONE piece. This box is shorter than its content for
+   as long as its track is moving (the mode switch's fold, atoms/modeswitch.scss), and a
+   flex column hands that shortfall to whichever child may shrink — the figures' row,
+   which clips (.totals__chips) and so has no minimum. It was squeezed from nothing back
+   to its height while the breakdown faded in: the numbers under Base / Consumable /
+   Carried uncovered a line at a time, and the bar and the folder legend slid down 11px
+   beneath them, a second movement inside the first (Ryan, 2026-11-25: they "reveal
+   separately with their own motion vs as a unit"). Nothing in here shrinks: every part
+   stands where it will rest from the first frame, and the track's edge is the only clip. */
+.totals__breakdowninner > * {
+  flex-shrink: 0;
+}
 /* …but only when the figure is actually IN here. In the editor it isn't — it moved out to
    the shared Headline — so this margin was clearance from something one level up that
    already keeps its own distance, and the two stacked put "Base" a row below where

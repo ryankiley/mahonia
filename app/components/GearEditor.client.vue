@@ -166,7 +166,7 @@ const {
 // stands — position:absolute at its own box, out of the flow — for the first slot of
 // the switch while it fades (its CSS: opacity over --mode-slot, display:none at the
 // end of it), so the view that arrives sits on its final pixels from the first frame,
-// transparent, and fades in at --mode-in. Nothing slides and nothing is pushed: the
+// transparent, and fades in on --t-view-in. Nothing slides and nothing is pushed: the
 // plan used to collapse in the flow and the folders under it had to wait 540ms for
 // its tail (Ryan, 2026-10-17: "should the gear page content fade on when navigating
 // back?"). Read in the watcher, before the render that flips data-mode and the
@@ -216,7 +216,7 @@ onBeforeUnmount(() => unpin?.());
 // row with a note used to drop or gain a line in one frame and shove every row below
 // it. Here the row's height is one of the switch's slots: read each on-screen row's
 // height before the render that flips data-mode, read it again after, and ease every
-// one that changed from the old to the new on --t-slot's timing (the step spring, after
+// one that changed from the old to the new on --t-slot's timing (the move spring, after
 // --mode-slot, half the fade's beat; atoms/modeswitch.scss), read off the same tokens
 // as the pin above, with the pack bar and the add rows. The row clips its own overflow
 // already (its content-visibility brings paint containment), so the face that is
@@ -244,7 +244,7 @@ watch(mode, (m, prev) => {
   if (!body || !rows.length) return;
   nextTick(() => {
     const delay = springCss("fade").duration / 2;
-    const { duration, easing } = springCss("step");
+    const { duration, easing } = springCss("move");
     const to = rows.map(({ el }) => el.getBoundingClientRect().height); // every read, then every write
     rows.forEach(({ el, from }, i) => {
       if (!duration || Math.abs(to[i]! - from) < 1) return;

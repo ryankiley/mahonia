@@ -808,9 +808,15 @@ input[type="search"]::-webkit-search-decoration {
 // the row at the transform origin (on a tall menu the top row visibly "hangs"
 // while the rest pulls away) — and the shorter duration cuts expo-out's long
 // low-opacity tail, which read as a lingering ghost.
+// The fade leaves FROM REST, on the lift's own spring and beat. It was on the fade
+// spring, which is launched: 0.42 of the card left after one frame, 0.07 after three,
+// so a menu was gone in 50ms of its 180 — a blink on anything the size of a card, and
+// the plainest where nobody pressed anything: a finger dragging the page takes every
+// menu down (useMenuDismiss), and they "blip out" (Ryan, 2026-11-25). The small flat
+// hint under "Your packs" wore the same exit and got away with it.
 .menu-leave-active {
   transition:
-    opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade),
+    opacity calc(var(--spring-step-dur) * 0.6) var(--spring-step),
     transform calc(var(--spring-step-dur) * 0.6) var(--spring-step);
 }
 .menu-enter-from {
