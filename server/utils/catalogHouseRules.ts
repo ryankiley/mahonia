@@ -51,9 +51,11 @@ const errorsOf = (findings: Finding[]) => findings.filter((f) => f.level === "er
 
 /**
  * What the build would refuse in this row, each in the audit's own words; [] when it
- * would build. `siblings` are the product's other live rows (same brand and name): the
- * rules that compare rows (a filler variant on a one-row product, one variant spelled
- * two ways) read them, and only a finding the new row brings is its own. `file` is where
+ * would build. `siblings` are the rows it is compared with: the product's other live rows
+ * and every verified row the build sees (catalogVerify's comparedRows), because some rules
+ * read one product (a filler variant on a one-row product) and some the whole catalog (one
+ * spelling per brand and variant token, one category per gear type). A finding the catalog
+ * already had is not the new row's; only one the row brings counts. `file` is where
  * the row graduates to: verified-in-app.json, or for a research row its own research file,
  * where the audit reads a quote's metric figures only (researchChecks).
  */

@@ -34,7 +34,7 @@
 // answer's warnings rather than refused: a scale weight that replaced the maker's published
 // one, and a scale weight of gear sold by size that names no size.
 
-import { and, desc, eq, getTableColumns, gt, isNotNull, sql, type SQL } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, gt, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
 import { normalizeGearType } from "../../scripts/gearTypes";
 import { soldByOf } from "../../shared/catalogAxes";
@@ -114,14 +114,19 @@ const asRuleRow = (r: CatalogRow): RuleRow => ({
   sourceQuote: r.sourceQuote,
 });
 
-/** The product's other live rows (same brand and name through the search fold, as the
- *  audit groups them), for the house rules that compare a row with its siblings. */
-async function siblingsOf(db: Db, brand: string | null, name: string, exceptId: number | undefined): Promise<RuleRow[]> {
+/** The rows the house rules compare a row with: every live verified row, as the build
+ *  sees the catalog, and the product's own live rows whatever their standing (same brand
+ *  and name through the search fold, as the audit groups them). Some rules read the whole
+ *  catalog, not one product: one spelling per brand and per variant token, one category
+ *  per gear type. Read against the product's rows alone, a chat's "stainless steel" passed
+ *  here beside a Garmin's "Stainless Steel" and stopped the graduate run (2026-11-25). */
+async function comparedRows(db: Db, brand: string | null, name: string, exceptId: number | undefined): Promise<RuleRow[]> {
   const rows = await db
     .select()
     .from(catalogItems)
-    .where(and(eq(catalogItems.status, "active"), sql`lower(${catalogItems.name}) = lower(${name})`));
-  return rows.filter((r) => r.id !== exceptId && normKey(r.brand) === normKey(brand) && normKey(r.name) === normKey(name)).map(asRuleRow);
+    .where(and(eq(catalogItems.status, "active"), or(eq(catalogItems.verified, true), sql`lower(${catalogItems.name}) = lower(${name})`)));
+  const sameProduct = (r: CatalogRow) => normKey(r.brand) === normKey(brand) && normKey(r.name) === normKey(name);
+  return rows.filter((r) => r.id !== exceptId && (r.verified || sameProduct(r))).map(asRuleRow);
 }
 
 /** The product a verification is about: what the row will be called, and, for a precheck
@@ -344,7 +349,7 @@ export async function verifyCatalogItem(
   // ---- the house style: what the build would refuse in this row ----
   const ruleRow: RuleRow = { ...identity, commonName: label, categoryHint: kind, weightMg, weightSource: source as string, sourceUrl: effectiveUrl, sourceQuote: storedQuote };
   // a research row graduates back into its own research file, not verified-in-app.json
-  const problems = houseRuleProblems(ruleRow, await siblingsOf(db, identity.brand, identity.name, current?.id), research ? "research" : undefined);
+  const problems = houseRuleProblems(ruleRow, await comparedRows(db, identity.brand, identity.name, current?.id), research ? "research" : undefined);
   if (problems.length) {
     const fix = research
       ? "check source_url is the maker's own page and quote its line that states the weight"
