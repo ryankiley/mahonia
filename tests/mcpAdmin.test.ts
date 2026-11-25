@@ -444,6 +444,18 @@ describe("the rules a chat doesn't have to be told", () => {
     expect(edition.text).toContain("an edition isn't a size");
     const repeated = await verify({ brand: "Goldwin", name: "Goldwin 0 3L Jacket", variant: "JP 4", gear_type: "Rain jacket", weight_g: 300, weight_source: "measured" });
     expect(repeated.text).toContain("name starts with the brand");
+    // rules that read the whole catalog, not one product: a variant token spelled as no
+    // other row spells it, and a gear type filed under another kind than every row of it
+    await seedCatalogRow(db, { brand: "Garmin", name: "fēnix 8", variant: "47mm, Stainless Steel", commonName: "GPS watch", categoryHint: "electronics", weightMg: 89_000, weightSource: "manufacturer", verified: true });
+    const steel = await verify({ brand: "MUNIEQ", name: "Tetra Drip", variant: "Small, stainless steel", gear_type: "Coffee maker", weight_g: 23, weight_source: "measured" });
+    expect(steel.refused).toBe(true);
+    expect(steel.text).toContain('"Stainless Steel" / "stainless steel"');
+    const matched = await verify({ brand: "MUNIEQ", name: "Tetra Drip", variant: "Small, Stainless Steel", gear_type: "Coffee maker", weight_g: 23, weight_source: "measured" });
+    expect(matched.refused, matched.text).toBe(false);
+    await seedCatalogRow(db, { brand: "Anessa", name: "Sun Milk", commonName: "Sunscreen", categoryHint: "consumable", weightMg: 60_000, weightSource: "manufacturer", verified: true });
+    const filed = await verify({ brand: "Bioré", name: "UV Essence", gear_type: "Sunscreen", category: "other", weight_g: 70, weight_source: "measured" });
+    expect(filed.refused).toBe(true);
+    expect(filed.text).toContain("one gear type, one category");
     // a size letter is put into the catalog's words, not refused
     const sized = await verify({ brand: "Caudata", name: "NewtFlex Pants", variant: "L", gear_type: "Pants", weight_g: 300, weight_source: "measured" });
     expect(sized.refused, sized.text).toBe(false);
@@ -562,7 +574,7 @@ describe("the rules a chat doesn't have to be told", () => {
   it("names every near match at once, and lets past only the ones the person checked", async () => {
     const shield = await seedCatalogRow(db, { brand: "Montane", name: "Pertex Shield 3L Jacket", commonName: "Rain jacket", categoryHint: "clothing", weightMg: 420_000, verified: true, weightSource: "manufacturer" });
     const pertex = await seedCatalogRow(db, { brand: "Montane", name: "Pertex 3L Jacket", commonName: "Rain jacket", categoryHint: "clothing", weightMg: 400_000, verified: true, weightSource: "manufacturer" });
-    const args = { brand: "Montane", name: "3L Jacket", gear_type: "Rain jacket", weight_g: 400, source_url: "https://montane.example/3l", quote: "Weight: 400 g" };
+    const args = { brand: "Montane", name: "3L Jacket", gear_type: "Rain jacket", weight_g: 410, source_url: "https://montane.example/3l", quote: "Weight: 410 g" };
     const near = await verify(args);
     expect(near.refused).toBe(true);
     expect(near.text).toContain(`${shield.id}, Montane Pertex Shield 3L Jacket`);
@@ -572,6 +584,11 @@ describe("the rules a chat doesn't have to be told", () => {
     expect(one.refused).toBe(true);
     expect(one.text).toContain(`Catalog row ${pertex.id}`);
     expect(one.text).toContain(`distinct_from: [${shield.id}, ${pertex.id}]`);
+    // at the very weight of a row whose name holds its own, the build's duplicate-name
+    // refuses it whatever the person checked, so the tool does too
+    const twin = await verify({ ...args, weight_g: 400, quote: "Weight: 400 g", distinct_from: [shield.id, pertex.id] });
+    expect(twin.refused).toBe(true);
+    expect(twin.text).toContain("one name contains the other");
     const added = await verify({ ...args, distinct_from: [shield.id, pertex.id] });
     expect(added.refused, added.text).toBe(false);
     expect(added.data.created).toBe(true);

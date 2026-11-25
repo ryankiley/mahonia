@@ -88,14 +88,13 @@
     {
       "brand": "Tarptent",
       "name": "Double Rainbow Li",
-      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 26.2,
-      "weight_unit": "oz",
+      "weight_value": 846,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.tarptent.com/product/double-rainbow-li/",
-      "quote": "Minimum Weight: 26.2 oz / 743 g (DCF 0.96 floor, carbon pole set, not including stakes or bags)"
+      "quote": "Typical Weight: 31.15 oz / 883 g (nylon floor, carbon pole set; all stakes, and bags) Double Rainbow Li body (nylon floor): 22.6 oz / 649 g Double Rainbow Li body (DCF 0.96 floor): 21.6 oz / 612 g | DCF floor typical = 883 - 649 + 612 = 846 g"
     },
     {
       "brand": "Tarptent",
@@ -113,14 +112,13 @@
     {
       "brand": "Tarptent",
       "name": "StratoSpire 2",
-      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 38.8,
-      "weight_unit": "oz",
+      "weight_value": 1220,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.tarptent.com/product/stratospire-2/",
-      "quote": "Minimum Weight: 38.8 oz / 1100 g (solid interior; not including bags and stakes)"
+      "quote": "Typical Weight: 43.8 oz / 1242 g (mesh interior; including all bags and stakes) Fly: 23.9 oz / 689 g Interiors: Solid interior: 14.9 oz / 423 g Mesh interior: 15.7 oz / 445 g | solid-interior typical = 1242 - 445 + 423 = 1220 g"
     },
     {
       "brand": "Tarptent",
