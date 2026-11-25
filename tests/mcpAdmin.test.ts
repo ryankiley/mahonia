@@ -484,6 +484,23 @@ describe("the rules a chat doesn't have to be told", () => {
     expect(await catalogRow(db, row.id)).toMatchObject({ name: "Arc'teryx Cormac Hoody", variant: null, verified: false });
   });
 
+  it("won't undo a rename once another row has the old name, and leaves the edit and both rows as they are", async () => {
+    const typed = { brand: "Arc'teryx", name: "Arc'teryx Cormac Crew", commonName: "Sun hoodie", categoryHint: "clothing" };
+    const row = await seedCatalogRow(db, { ...typed, weightMg: 160_000 });
+    const renamed = await verify({ catalog_id: row.id, name: "Cormac Crew", variant: "Men's Large", weight_g: 158, weight_source: "measured" });
+    expect(renamed.refused, renamed.text).toBe(false);
+    // another row takes the name the verification replaced
+    const taker = await seedCatalogRow(db, { ...typed, weightMg: 161_000 });
+    const undo = await adminCall("revert_catalog_edit", { edit_id: renamed.data.edit_id });
+    expect(undo.refused).toBe(true);
+    expect(undo.text).toBe(`Edit ${renamed.data.edit_id} renamed its row, and another row now has the old name, so it can't be put back. Rename one of them first.`);
+    // nothing moved: the edit still stands, and each row keeps what it held
+    const [edit] = await db.select().from(schema.catalogEdits).where(eq(schema.catalogEdits.id, renamed.data.edit_id));
+    expect(edit!.status).toBe("applied");
+    expect(await catalogRow(db, row.id)).toMatchObject({ name: "Cormac Crew", variant: "Men's Large", weightMg: 158_000, verifiedBy: admin });
+    expect(await catalogRow(db, taker.id)).toMatchObject({ name: "Arc'teryx Cormac Crew", variant: null, weightMg: 161_000, verified: false });
+  });
+
   it("writes a scale weight over a maker's weight, warns that it replaced it, and the warning's undo puts it back", async () => {
     const row = await seedCatalogRow(db, { brand: "REI Co-op", name: "Packmod Bungees", variant: "2-pack", commonName: "Bungee cord", categoryHint: "other", weightMg: 85_050, weightSource: "manufacturer", sourceUrl: "https://www.rei.com/product/201969", sourceQuote: "Weight: 3 ounces", verified: true, verifiedBy: admin });
     const done = await verify({ catalog_id: row.id, weight_g: 60, weight_source: "measured" });

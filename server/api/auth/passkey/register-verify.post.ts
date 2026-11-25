@@ -53,7 +53,10 @@ export default defineEventHandler(async (event) => {
     // Any other failure saved nothing, and must not read as a key that was kept: the
     // answer a registration that didn't go through gets, logged as one is
     // (verifyPasskeyRegistration).
-    console.error("[passkey register] the key was not saved", e);
+    // The driver's reason only: the wrapped error carries the insert's values, the
+    // key's label among them.
+    const why = e instanceof Error ? (e.cause instanceof Error ? e.cause.message : e.name) : "unknown";
+    console.error("[passkey register] the key was not saved", why);
     return { ok: false as const, reason: "invalid" as const };
   }
   // And the cap a last time, now the key is in: verifies that arrive together each
