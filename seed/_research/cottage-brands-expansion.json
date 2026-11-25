@@ -26,15 +26,13 @@
     {
       "brand": "3FULGEAR",
       "name": "Lanshan 1 Pro Tent",
-      "variant": "trail weight",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
-      "weight_value": 688,
+      "weight_value": 840,
       "weight_unit": "g",
-      "weight_secondary": "24oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/lanshan-1-pro-tent-by-3fulgear",
-      "quote": "Weight: 24oz | 688g (minimum)"
+      "source_url": "https://3fulgear.com/product/ultralight-tent/lanshan-1-pro/",
+      "quote": "Incredibly low all-in weight of just 840g/1.85lb."
     },
     {
       "brand": "3FULGEAR",
@@ -1176,63 +1174,57 @@
     {
       "brand": "Big Agnes",
       "name": "Copper Spur HV UL4",
-      "variant": "trail weight",
       "attributes": {"persons": 4},
       "category_hint": "shelter",
-      "weight_value": 2381,
-      "weight_unit": "g",
-      "weight_secondary": "84oz",
+      "weight_value": 2.58,
+      "weight_unit": "kg",
       "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/copper-spur-hv-ul2-ul4-by-big-agnes",
-      "quote": "Weight: 84oz | 2381g (minimum)"
+      "source_url": "https://www.evo.com/products/186169-big-agnes-copper-spur-hv-ul-4-tent",
+      "quote": "Trail Weight: 5lb 4oz / 2.38kg Packed Weight: 5lb 11oz / 2.58kg"
     },
     {
       "brand": "Big Agnes",
       "name": "String Ridge VST",
-      "variant": "1.5P, trail weight",
+      "variant": "1.5P",
       "category_hint": "shelter",
-      "weight_value": 539,
-      "weight_unit": "g",
-      "weight_secondary": "19 oz",
+      "weight_value": 23,
+      "weight_unit": "oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/string-ridge-vst-by-big-agnes",
-      "quote": "Weight: 19oz | 539g (trail)"
+      "source_url": "https://www.bigagnes.com/products/string-ridge-vst-1-5",
+      "quote": "Trail Weight: 1lb 3oz Total Weight: 1lb 7oz"
     },
     {
       "brand": "Big Agnes",
       "name": "String Ridge VST",
-      "variant": "2.5P, trail weight",
+      "variant": "2.5P",
       "category_hint": "shelter",
-      "weight_value": 853,
-      "weight_unit": "g",
-      "weight_secondary": "30 oz",
+      "weight_value": 34,
+      "weight_unit": "oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/string-ridge-vst-by-big-agnes",
-      "quote": "Weight: 30oz | 853g (trail)"
+      "source_url": "https://www.bigagnes.com/products/string-ridge-vst-2-5",
+      "quote": "Trail Weight: 1lb 14oz Total Weight: 2lb 2oz"
     },
     {
       "brand": "Big Agnes",
       "name": "Tiger Wall UL Solution Dye",
-      "variant": "UL1, trail weight",
+      "variant": "UL1",
       "category_hint": "shelter",
-      "weight_value": 850,
+      "weight_value": 964,
       "weight_unit": "g",
-      "weight_secondary": "30oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/tiger-wall-ul1-ul3-solution-dye-by-big-agnes",
-      "quote": "Weight: 30oz | 850g (minimum)"
+      "source_url": "https://www.evo.com/products/188667-big-agnes-tiger-wall-ul-1-person-solution-dye-tent",
+      "quote": "Trail Weight: 1lb 14oz / 850g Packed Weight: 2lb 2oz / 964g"
     },
     {
       "brand": "Big Agnes",
       "name": "Tiger Wall UL Solution Dye",
-      "variant": "UL2, trail weight",
+      "variant": "UL2",
       "category_hint": "shelter",
-      "weight_value": 992,
-      "weight_unit": "g",
-      "weight_secondary": "35oz",
+      "weight_value": 1.13,
+      "weight_unit": "kg",
       "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/tiger-wall-ul1-ul3-solution-dye-by-big-agnes",
-      "quote": "Weight: 35oz | 992g (minimum)"
+      "source_url": "https://www.evo.com/products/188669-big-agnes-tiger-wall-ul-2-person-solution-dye-tent",
+      "quote": "Trail Weight: 2lb 3oz / 992g Packed Weight: 2lb 8oz / 1.13kg"
     },
     {
       "brand": "Big Sky International",
@@ -9870,15 +9862,13 @@
     {
       "brand": "Samaya Equipment",
       "name": "RADICAL1 Tent",
-      "variant": "trail weight",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
-      "weight_value": 610,
+      "weight_value": 695,
       "weight_unit": "g",
-      "weight_secondary": "21.5oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/radical1-tent-by-samaya-equipment",
-      "quote": "Weight: 21.5oz | 610g (minimum)"
+      "quote": "Weight: 21.5oz | 610g (minimum) Packed: 24.5oz | 695g"
     },
     {
       "brand": "Samaya Equipment",
@@ -9894,15 +9884,13 @@
     {
       "brand": "Samaya Equipment",
       "name": "Samaya2.0 Tent",
-      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 1305,
+      "weight_value": 1540,
       "weight_unit": "g",
-      "weight_secondary": "2lbs 14oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/samaya2-0-tent-by-samaya",
-      "quote": "Weight: 2lbs 14oz | 1305g (minimum)"
+      "quote": "Weight: 2lbs 14oz | 1305g (minimum) Packed: 3lbs 6.3oz | 1540g"
     },
     {
       "brand": "Samaya Equipment",
@@ -9918,15 +9906,13 @@
     {
       "brand": "Samaya Equipment",
       "name": "Samaya2.5 Tent",
-      "variant": "trail weight",
       "attributes": {"persons": 2.5},
       "category_hint": "shelter",
-      "weight_value": 1570,
+      "weight_value": 1630,
       "weight_unit": "g",
-      "weight_secondary": "55oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/samaya2-5-tent-by-samaya",
-      "quote": "Weight: 55oz | 1570g (minimum)"
+      "source_url": "https://web.archive.org/web/20241204125843/https://www.samaya-equipment.com/products/samaya2-5-rose-2023",
+      "quote": "Poids minimum : 1570 g (3 lb 7 oz) Poids emballé : 1630 g (3 lb 9 oz)"
     },
     {
       "brand": "Samaya Equipment",
@@ -10733,17 +10719,15 @@
     {
       "brand": "SlingFin",
       "name": "SplitWing Shelter Bundle",
-      "variant": "trail weight",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.garagegrowngear.com/products/splitwing-shelter-bundle-by-slingfin",
       "attributes_quote": "Capacity: 1+ (with mesh body, 2 person (tarp only)",
       "category_hint": "shelter",
-      "weight_value": 595,
-      "weight_unit": "g",
-      "weight_secondary": "21 oz",
+      "weight_value": 24,
+      "weight_unit": "oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/splitwing-shelter-bundle-by-slingfin",
-      "quote": "Weight: 21oz | 595g (minimum)"
+      "source_url": "https://slingfin.com/products/splitwing-shelter-bundle",
+      "quote": "Packaged Weight: 24 oz"
     },
     {
       "brand": "Snow Peak",
@@ -11286,17 +11270,15 @@
     {
       "brand": "Tarptent",
       "name": "ProTrek",
-      "variant": "trail weight",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.tarptent.com/product/protrek/",
       "attributes_quote": "Sleeps: 1",
       "category_hint": "shelter",
-      "weight_value": 667,
+      "weight_value": 652,
       "weight_unit": "g",
-      "weight_secondary": "23.5 oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/protrek-by-tarptent",
-      "quote": "Weight: 23.5oz | 667g (Minimum)"
+      "source_url": "https://www.tarptent.com/product/protrek/",
+      "quote": "Minimum Weight: 19.8 oz / 561 g (no bags or stakes) Typical Weight: 23 oz / 652 g (with all bags, extra cord, and 5 stakes)"
     },
     {
       "brand": "Teragon Gear",

@@ -36,14 +36,13 @@
     {
       "brand": "Marmot",
       "name": "Tungsten UL 2P",
-      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 1340,
+      "weight_value": 1546,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://marmotau.com/products/tungsten-ul-2p-2",
-      "quote": "Minimum Weight: 1340g"
+      "source_url": "https://web.archive.org/web/20250912100742/https://marmotau.com/products/tungsten-ul-2p-2",
+      "quote": "Total Weight: 1546g Minimum Weight: 1340g"
     },
     {
       "brand": "Marmot",
@@ -60,14 +59,13 @@
     {
       "brand": "Marmot",
       "name": "Tungsten 2P",
-      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 4.98,
-      "weight_unit": "lb",
+      "weight_value": 2670,
+      "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.rei.com/product/200288/marmot-tungsten-2p-tent-with-footprint",
-      "quote": "Minimum trail weight: 4 lbs. 15.7 oz."
+      "source_url": "https://marmotau.com/products/tungsten-2p-2",
+      "quote": "Total Weight: 2670g"
     },
     {
       "brand": "Kelty",
@@ -179,14 +177,14 @@
     {
       "brand": "Naturehike",
       "name": "Cloud Up 2",
-      "variant": "20D, trail weight",
+      "variant": "20D",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
-      "weight_value": 1.38,
+      "weight_value": 1.8,
       "weight_unit": "kg",
       "weight_source": "manufacturer",
-      "source_url": "https://www.naturehike.com/products/cloud-up-2-person-ultralight-backpacking-tent",
-      "quote": "Minimum Weight: approx. 1.38 kg / 3.04 lbs"
+      "source_url": "https://web.archive.org/web/20260910155626/https://www.naturehike.com/products/cloud-up-2-person-ultralight-backpacking-tent",
+      "quote": "Minimum Weight: approx. 1.38 kg / 3.04 lbs Packed Weight: approx. 1.8 kg / 3.97 lbs"
     },
     {
       "brand": "Naturehike",

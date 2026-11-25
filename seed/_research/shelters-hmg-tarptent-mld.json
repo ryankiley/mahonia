@@ -64,16 +64,15 @@
     {
       "brand": "Tarptent",
       "name": "ProTrail Li",
-      "variant": "trail weight",
       "attributes": {"persons": 1},
       "attributes_source_url": "http://web.archive.org/web/20260420141153/https://www.tarptent.com/product/protrail-li/",
       "attributes_quote": "Sleeps: 1+",
       "category_hint": "shelter",
-      "weight_value": 15.95,
+      "weight_value": 18.45,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
-      "source_url": "https://www.tarptent.com/product/protrail-li/",
-      "quote": "Minimum Weight: 15.95 oz / 453 g (without bags and stakes)"
+      "source_url": "https://web.archive.org/web/20260420141153/https://www.tarptent.com/product/protrail-li/",
+      "quote": "Typical Weight: 18.45 oz / 523 g (with bags and stakes) Minimum Weight: 15.95 oz / 453 g (without bags and stakes)"
     },
     {
       "brand": "Tarptent",
