@@ -127,7 +127,18 @@ export function useListExports(
   // also what tells a copy from a download there, now that the rows carry no trailing
   // mark.
   const exportItems: ExportItem[] = [
-    { key: "text", label: "Copy as plain text", format: "Plain text", hint: "One paragraph to paste, link included", icon: IconFileText, run: copyPlainText },
+    {
+      key: "text",
+      label: "Copy as plain text",
+      format: "Plain text",
+      // a list that isn't saved yet has no link to include (a getter: the list can be
+      // saved while these rows are up)
+      get hint() {
+        return getShareUrl() ? "One paragraph to paste, link included" : "One paragraph to paste";
+      },
+      icon: IconFileText,
+      run: copyPlainText,
+    },
     { key: "markdown", label: "Copy as Markdown", format: "Markdown", hint: "A table to paste", icon: IconHashtag, run: copyMarkdown },
     { key: "csv", label: "Download CSV", format: "CSV", hint: "Spreadsheet file", icon: IconFileExcel, run: downloadCsv },
     { key: "json", label: "Download JSON", format: "JSON", hint: "Full backup file", icon: IconBrackets1, run: downloadJson },

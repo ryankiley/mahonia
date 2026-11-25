@@ -19,6 +19,34 @@ export async function copyText(text: string): Promise<boolean> {
   return legacyCopy(text);
 }
 
+// Copy text that isn't known yet: a link to a list that is being saved by the same
+// click. Awaiting the text and THEN writing spends the gesture (Safari refuses a
+// write that follows a network await), so the write starts now and is handed the
+// text as a promise, which is what ClipboardItem takes for exactly this. Where that
+// isn't on offer or is refused, it waits and copies the plain way, which Chrome and
+// Firefox allow shortly after a click. False when neither lands, and also when the
+// text never arrives (the promise rejects); the caller tells those apart by the
+// promise it still holds.
+export async function copyTextWhen(text: Promise<string>): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.write && window.isSecureContext && typeof ClipboardItem !== "undefined") {
+      const blob = text.then((t) => new Blob([t], { type: "text/plain" }));
+      // a write refused on the spot never reads the blob, and if the text then fails
+      // to arrive its rejection would be nobody's; the path below reports it
+      blob.catch(() => {});
+      await navigator.clipboard.write([new ClipboardItem({ "text/plain": blob })]);
+      return true;
+    }
+  } catch {
+    // refused, or the text never came — the plain path below answers both
+  }
+  try {
+    return await copyText(await text);
+  } catch {
+    return false;
+  }
+}
+
 function legacyCopy(text: string): boolean {
   try {
     const ta = document.createElement("textarea");

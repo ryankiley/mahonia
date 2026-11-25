@@ -174,9 +174,11 @@ const ROTATED_TOKEN = "rotated-edit-token";
 // A draft's first save. Echoes what it was sent, the way the server builds the list from
 // the body; `createGate`, when set, holds the answer until the case settles it.
 let createGate: Promise<void> | null = null;
+let createCalls = 0;
 registerEndpoint("/api/lists/create", {
   method: "POST",
   handler: async (event) => {
+    createCalls++;
     const body = await readBody<{ title?: string; data: Pick<ListSnapshot, "folders" | "items"> }>(event);
     if (createGate) await createGate;
     return {
@@ -256,6 +258,7 @@ beforeEach(() => {
   records.clear();
   rotateGate = null;
   createGate = null;
+  createCalls = 0;
   storage.clear(); // the decision store
   resetVaultCapture(); // the capture memo is module-scoped
   mutateCalls = 0;
@@ -1071,5 +1074,97 @@ describe("useGearList — a draft whose first save fails", () => {
     await vi.waitFor(() => expect(useMyLists().entries.value.some((e) => e.editToken === "created-edit-token")).toBe(true));
     // and the draft that made it is let go, so the next New list doesn't make it twice
     await vi.waitFor(() => expect(records.has(DRAFT_KEY)).toBe(false));
+  });
+});
+
+// ---------------------------------------------------------------------------
+// a draft saved because one of its links was asked for
+// ---------------------------------------------------------------------------
+// The first-real-content rule keeps a visitor who only looked from leaving a row
+// behind. Asking for a link is not looking: saveDraft makes the list whatever it holds.
+describe("useGearList — a draft saved because its link was asked for", () => {
+  beforeEach(() => {
+    useMyLists().forget("created-edit-token"); // an earlier case made one by this token
+  });
+
+  it("saves a list with nothing in it, title and all", async () => {
+    const c = useGearList();
+    c.startDraft();
+    c.setMeta({ title: "Loowit, August" });
+    await new Promise((r) => setTimeout(r, 60)); // a title alone still saves nothing
+    expect(createCalls).toBe(0);
+
+    expect(await c.saveDraft()).toBe(true);
+    expect(c.editToken).toBe("created-edit-token");
+    expect(c.snapshot.value?.shareCode).toBe("CREATED00001");
+    expect(c.snapshot.value?.title).toBe("Loowit, August");
+    expect(c.snapshot.value?.items).toEqual([]);
+    // and it is a list like any other from here: in Your lists, off the draft slot
+    expect(useMyLists().entries.value.some((e) => e.editToken === "created-edit-token")).toBe(true);
+    expect(records.has(DRAFT_KEY)).toBe(false);
+  });
+
+  it("waits on a first save already out instead of making the list twice", async () => {
+    const c = useGearList();
+    c.startDraft();
+    let land!: () => void;
+    createGate = new Promise((resolve) => (land = () => resolve()));
+    c.updateItem(c.addBlankItem(null), { name: "Duplex" }); // real content: the create leaves
+    await vi.waitFor(() => expect(createCalls).toBe(1));
+
+    const asked = c.saveDraft();
+    land();
+    expect(await asked).toBe(true);
+    expect(createCalls).toBe(1);
+  });
+
+  it("is a no-op on a list that is already saved", async () => {
+    const c = useGearList();
+    c.startDraft();
+    expect(await c.saveDraft()).toBe(true);
+    expect(await c.saveDraft()).toBe(true);
+    expect(createCalls).toBe(1);
+  });
+
+  it("answers false when the save fails, and leaves an empty draft as it was", async () => {
+    const c = useGearList();
+    c.startDraft();
+    createGate = Promise.reject(createError({ statusCode: 503 }));
+    createGate.catch(() => {}); // the handler awaits it; this only quiets the unhandled warning
+    expect(await c.saveDraft()).toBe(false);
+    expect(c.editToken).toBe("");
+    // nothing is unsaved by the content rule: no "Not saved", and no retry behind it
+    expect(c.status.value).toBe("synced");
+    await new Promise((r) => setTimeout(r, 400)); // past the 300 ms backoff
+    expect(createCalls).toBe(1);
+
+    // asking again is the retry
+    createGate = null;
+    expect(await c.saveDraft()).toBe(true);
+  });
+
+  it("answers false offline without trying", async () => {
+    const c = useGearList();
+    c.startDraft();
+    window.dispatchEvent(new Event("offline"));
+    try {
+      expect(await c.saveDraft()).toBe(false);
+      expect(createCalls).toBe(0);
+    } finally {
+      window.dispatchEvent(new Event("online"));
+    }
+  });
+
+  it("answers false when the editor moved on before the save landed", async () => {
+    const c = useGearList();
+    c.startDraft();
+    let land!: () => void;
+    createGate = new Promise((resolve) => (land = () => resolve()));
+    const asked = c.saveDraft();
+    await vi.waitFor(() => expect(createCalls).toBe(1));
+    c.startDraft(); // New list, while the create is out
+    land();
+    expect(await asked).toBe(false); // this draft has no link; the one saved is in Your lists
+    expect(c.editToken).toBe("");
   });
 });
