@@ -7,7 +7,7 @@ import { join } from "node:path";
 import { and, eq, isNotNull } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
 import type { Db } from "../server/utils/db";
-import { normalizeVariant } from "../shared/catalogQuality";
+import { normalizeVariant, tidyQuote } from "../shared/catalogQuality";
 import { RESEARCH_DIR } from "./paths";
 import { GRADUATED_FILE_NAME, type ResearchRow } from "./research";
 import { identity } from "./seedUpsert";
@@ -32,7 +32,7 @@ export function asResearchRow(
     weight_unit: "g",
     weight_source: r.weightSource,
     source_url: r.sourceUrl,
-    ...(r.sourceQuote ? { quote: r.sourceQuote } : {}),
+    ...(r.sourceQuote ? { quote: tidyQuote(r.sourceQuote) } : {}),
   };
 }
 

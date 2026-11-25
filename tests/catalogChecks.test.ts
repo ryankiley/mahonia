@@ -7,6 +7,7 @@ import type { CatalogCsvRow } from "../scripts/catalogCsv";
 import { runCatalogChecks } from "../scripts/catalogChecks";
 import type { ResearchFile } from "../scripts/research";
 import { kcalMatchesQuote, runResearchChecks, servingsOf } from "../scripts/researchChecks";
+import { tidyQuote } from "../shared/catalogQuality";
 
 const row = (o: Partial<CatalogCsvRow> & { name: string }): CatalogCsvRow => ({
   brand: "Acme",
@@ -249,6 +250,26 @@ describe("research-level attributes check", () => {
   });
 });
 
+describe("research-level quote hygiene", () => {
+  const withQuote = (quote: string): ResearchFile => ({
+    file: "synthetic.json",
+    rows: [{ brand: "Acme", name: "Echo Hoodie", variant: "Men's Medium", common_name: "rain jacket", category_hint: "clothing", weight_value: 150, weight_unit: "g", weight_source: "manufacturer", source_url: "https://acme.example/echo", quote }],
+  });
+  const codes = (f: ResearchFile) => runResearchChecks([f]).filter((x) => x.level === "error").map((x) => x.code);
+  it("a quote is one line of the page's words, single spaces, no markup", () => {
+    expect(codes(withQuote("Weight: 5.29 oz/ 150 g"))).toEqual([]);
+    expect(codes(withQuote('<div class="specs-title">Weight:</div> 5.29 oz/ 150 g'))).toContain("quote-hygiene");
+    expect(codes(withQuote("Weight: 5.29 oz &amp; 150 g"))).toContain("quote-hygiene");
+    expect(codes(withQuote("Weight:  5.29 oz | 150 g"))).toContain("quote-hygiene");
+    expect(codes(withQuote("Weight: 5.29 oz | 150 g"))).toContain("quote-hygiene");
+    expect(codes(withQuote("Sold as a 4-pack\nWeight: 150 g"))).toContain("quote-hygiene");
+  });
+  it("tidyQuote changes spacing only, never the words", () => {
+    expect(tidyQuote(" Weight:  0.31oz |​ 9g\n")).toBe("Weight: 0.31oz | 9g");
+    expect(tidyQuote("Weight: 5.29 oz/ 150 g")).toBe("Weight: 5.29 oz/ 150 g");
+  });
+});
+
 describe("research-level tent weight basis", () => {
   const tent = (variant: string, weight_value: number, quote: string): ResearchFile => ({
     file: "synthetic.json",
@@ -267,9 +288,9 @@ describe("research-level tent weight basis", () => {
     expect(codes(tent("2P, trail weight", 1190, "Minimum Weight: 1190 g. Packed Weight: 1330 g"), "error")).toContain("tent-weight-basis");
   });
   it("a retailer's label after the figure counts too", () => {
-    expect(codes(tent("1.5P", 539, "Weight:  19oz | 539g (trail)"), "error")).toContain("tent-weight-basis");
+    expect(codes(tent("1.5P", 539, "Weight: 19oz | 539g (trail)"), "error")).toContain("tent-weight-basis");
     expect(codes(tent("", 688, "Weight: 24oz | 688g (minimum)"), "error")).toContain("tent-weight-basis");
-    expect(codes(tent("1.5P, trail weight", 539, "Weight:  19oz | 539g (trail)"), "error")).toEqual([]);
+    expect(codes(tent("1.5P, trail weight", 539, "Weight: 19oz | 539g (trail)"), "error")).toEqual([]);
   });
   it("a tent quoted at one unlabelled figure raises nothing", () => {
     expect(codes(tent("2P", 509, "Tent: 17.9 oz / 509 g (Dyneema floor)"), "error")).toEqual([]);

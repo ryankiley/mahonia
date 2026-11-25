@@ -15,7 +15,7 @@ import { gearLabel } from "./catalogChecks";
 import { identityKey, isCitationUrl, isWeightSource, specToMg } from "./catalogCsv";
 import { GRADUATED_FILE_NAME, researchGearType, type ResearchFile } from "./research";
 import { ATTRIBUTE_KEYS } from "../shared/catalogAxes";
-import { gramsInQuote, quoteTolerance, RANGE_G, weightsInQuote } from "../shared/catalogQuality";
+import { gramsInQuote, quoteTolerance, RANGE_G, tidyQuote, weightsInQuote } from "../shared/catalogQuality";
 import type { Unit } from "../shared/types";
 
 const WORD_NUMBER: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
@@ -102,6 +102,15 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
       if (!isWeightSource(r.weight_source ?? "")) err("source", `${where}: weight_source="${r.weight_source}"`);
       const url = (r.source_url ?? "").trim();
       if (!isCitationUrl(url)) err("url", `${where}: bad source_url "${url}"`);
+
+      // hygiene: a quote is the page's words as a reader sees them — one line, single
+      // spaces, no markup or entities left over from reading the HTML (tidyQuote)
+      for (const field of ["quote", "kcal_quote", "attributes_quote"] as const) {
+        const q = r[field];
+        if (typeof q !== "string") continue;
+        if (/<\/?[a-z][^>]*>|&(?:[a-z]+|#\d+);/i.test(q)) err("quote-hygiene", `${where}: ${field} carries HTML — quote the text a reader sees`);
+        else if (q !== tidyQuote(q)) err("quote-hygiene", `${where}: ${field} has odd or doubled spaces or line breaks — one line, single spaces`);
+      }
 
       // ATTRIBUTES — typed axes, each in one canonical form. A wrong key, a "20°F", a
       // fill power as a string: all errors here; the CSV check then holds what IS

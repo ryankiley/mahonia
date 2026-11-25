@@ -38,7 +38,7 @@ import { and, desc, eq, getTableColumns, gt, isNotNull, sql, type SQL } from "dr
 import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
 import { normalizeGearType } from "../../scripts/gearTypes";
 import { soldByOf } from "../../shared/catalogAxes";
-import { categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged } from "../../shared/catalogQuality";
+import { categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged, tidyQuote } from "../../shared/catalogQuality";
 import { isCatalogId, MAX_BRAND_LEN, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { foldApostrophes, tidyText } from "../../shared/tidyText";
 import { itemDisplayName } from "../../shared/weights";
@@ -158,7 +158,7 @@ export async function verifyCatalogItem(
   const sourceUrl = typeof args.source_url === "string" && args.source_url.trim() ? args.source_url.trim() : null;
   if (sourceUrl && sourceUrl.length > VERIFY_URL_MAX) return `source_url is at most ${VERIFY_URL_MAX} characters; give the page's own address.`;
   if (sourceUrl && !isHttpUrl(sourceUrl)) return "source_url must be an http or https address.";
-  const quote = typeof args.quote === "string" ? args.quote.trim() : "";
+  const quote = typeof args.quote === "string" ? tidyQuote(args.quote) : "";
   if (quote.length > VERIFY_QUOTE_MAX) return `quote is at most ${VERIFY_QUOTE_MAX} characters; quote only the line that states the weight.`;
   if (source === "manufacturer") {
     if (!sourceUrl) return "A manufacturer weight needs source_url, the maker's page that publishes it.";
