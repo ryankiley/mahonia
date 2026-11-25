@@ -69,8 +69,49 @@ async function build(): Promise<Db> {
   // persisted local file so dev data survives restarts (PGlite's mkdir isn't recursive)
   mkdirSync(dir, { recursive: true });
   const db = drizzle(new PGlite(dir), { schema });
-  await runDdl(db, DDL); // local dev only — idempotent
+  try {
+    await runDdl(db, DDL); // local dev only — idempotent
+  } catch (error) {
+    throw (await writtenByAnotherPostgres(dir, () => PGlite.create())) ?? error;
+  }
   return db;
+}
+
+/**
+ * The reason a local database folder won't open, when the reason is its age.
+ *
+ * A PGlite release that moves to a new Postgres major (0.6.0 went 18 → 19) can't
+ * read a folder the previous one wrote, and all it says is "PGlite failed to
+ * initialize properly", wrapped in the first query that ran. The folder records
+ * the major that wrote it in PG_VERSION, so on a failed open that file is compared
+ * with a throwaway in-memory instance's own version. Only on the failure path: a
+ * second instance costs about half a second, and a healthy open never pays it.
+ *
+ * Returns nothing when the folder has no PG_VERSION or the majors agree, so any
+ * other failure reaches the caller as it was thrown. The folder is left alone:
+ * it may hold the only copy of someone's local lists.
+ */
+export async function writtenByAnotherPostgres(
+  dir: string,
+  probe: () => Promise<{ query: (sql: string) => Promise<{ rows: unknown[] }>; close: () => Promise<void> }>,
+): Promise<Error | undefined> {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  let wrote: string;
+  try {
+    wrote = readFileSync(join(dir, "PG_VERSION"), "utf8").trim();
+  } catch {
+    return undefined;
+  }
+  const pg = await probe();
+  const { rows } = await pg.query("show server_version");
+  await pg.close();
+  const runs = String((rows[0] as { server_version?: unknown } | undefined)?.server_version ?? "").split(".")[0];
+  if (!runs || runs === wrote) return undefined;
+  return new Error(
+    `The local database in ${dir} was written by PostgreSQL ${wrote}, and the installed PGlite runs PostgreSQL ${runs}, which can't read it. ` +
+      `Move or delete that folder and start again: the schema is rebuilt on first use, and \`npm run seed\` refills the catalog.`,
+  );
 }
 
 // lists DDL — single-sourced here (mirrors CATALOG_DDL) so tests can build a
