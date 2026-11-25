@@ -12,7 +12,7 @@
 //   • extractAttributes: the MECHANICAL reading of a variant string, keyed on the gear
 //     type where a token is ambiguous ("Regular" is a length on a quilt, a torso on a
 //     pack, an inseam on pants, a size on a pillow; "3L" is litres on a reservoir and a
-//     fabric on a jacket). scripts/build-catalog.ts runs it on every row; the CSV check
+//     fabric on a jacket). scripts/catalogBuild.ts runs it on every row; the CSV check
 //     re-runs it, so a hand-edited CSV that says "20F" without temp_f 20 fails the build.
 //     It never emits a value the validator would refuse ("330mAh", "10, 000mAh" stay in
 //     the variant for research), and it reports a variant that claims one axis twice —

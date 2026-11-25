@@ -82,7 +82,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
 
   // --- ERROR: a row shipped without a gear type ------------------------------
   // It's the label a pick pre-fills onto the user's item, so a blank one silently
-  // costs every future list that adds this row. build-catalog.ts already fails the
+  // costs every future list that adds this row. catalogBuild.ts already fails the
   // build on it; this makes the committed CSV answer for it too.
   for (const r of rows) {
     if (!r.commonName?.trim()) err("common-name-missing", `${gearLabel(r)}: no gear type`);
