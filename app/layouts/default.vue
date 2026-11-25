@@ -27,7 +27,8 @@
 }
 /* A page with nowhere else to send you marks the body `bare` through useHead (the
    /authorize consent: one decision, usually in the popup an app opened) and goes
-   without the footer. CSS here rather than a page-meta flag the layout reads, which
+   without the footer. So does a page that carries the footer's three links in its own
+   ⋯ menu, as the editor does: My Gear. CSS here rather than a page-meta flag the layout reads, which
    would put the flag in the route table on every visitor's first load. Set on the
    server, so the footer is never drawn and then removed.
    The WHOLE selector sits inside :global(): Vue drops whatever follows a :global(),

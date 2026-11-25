@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { IconBubbleQuestion, IconBug, IconCircleInfo, IconCircleMinus, IconFileArrowLeftIn, IconKeyboard, IconLaw, IconSquareDottedBehindSquare, IconTrashCan, IconUserAdd } from "~/icons/central";
+import { IconBug, IconCircleMinus, IconFileArrowLeftIn, IconKeyboard, IconSquareDottedBehindSquare, IconTrashCan, IconUserAdd } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
+import { SITE_LINKS } from "~/utils/siteLinks";
 
 // The editor's ⋯ menu — the list of actions, NOT the button that opens it. The
 // trigger stays in the toolbar (GearEditor), where it is one glyph on the first
@@ -117,16 +118,8 @@ const SITE_ACTIONS: MenuAction[] = [
   { label: "Send feedback…", icon: IconBug, event: "feedback" },
 ];
 // Help, About and Legal sit beside them: links, not events, since they go somewhere
-// rather than do something to the list.
-//
-// Help is a question in a BUBBLE, not in a circle: About's mark is the "i" in a circle,
-// and two ringed glyphs one row apart read as the same icon twice. Neighbouring rows
-// take different outlines so the shape tells them apart before the character inside does.
-const SITE_LINKS = [
-  { to: "/help", label: "Help", icon: IconBubbleQuestion },
-  { to: "/about", label: "About", icon: IconCircleInfo },
-  { to: "/legal", label: "Legal", icon: IconLaw },
-];
+// rather than do something to the list. The table is utils/siteLinks, which My Gear's
+// menu reads too.
 // what the menu renders: the rows a state hides (Duplicate on the first-run screen)
 const menuActions = computed(() => MENU_ACTIONS.filter((a) => !a.hidden?.()));
 const siteActions = computed(() => SITE_ACTIONS.filter((a) => !a.hidden?.()));

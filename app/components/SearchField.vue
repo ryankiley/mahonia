@@ -61,6 +61,13 @@ defineExpose({ focus: () => inputEl.value?.focus() });
   /* room for the clear button (its inset, its glyph, a gap), so a long query
      doesn't run under it */
   padding-right: calc(var(--space-3) + var(--icon) + var(--space-2));
+  /* --radius-2, the corner of the TABS this field sits under on both surfaces (the mode
+     bar on /gear, the pane's .vp__tab), not the well's own concentric 12px: the two
+     grounds stack a few pixels apart on one edge, and the rounder one below read as a
+     different kind of box (Ryan: "search should match too"). Said here, on the one
+     field both surfaces draw, so the page and the pane can't differ. The well's other
+     wearers keep its corner: they sit among menu rows and in dialogs, which are 12. */
+  border-radius: var(--radius-2);
 }
 /* ON the field rather than beside it, so the input doesn't narrow whenever a query
    exists (a field that resizes as you type). Inset by the well's own --space-3, the

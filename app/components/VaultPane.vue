@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconChevronDownMedium, IconCrossMedium, IconExpandSimple, IconFolder1, IconSquarePlaceholderDashed, IconToolbox } from "~/icons/central";
+import { IconChevronDownMedium, IconCrossMedium, IconFolder1, IconSquarePlaceholderDashed, IconToolbox } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 import { gearIcon } from "~/utils/gearIcons";
 import { typeScale } from "~/utils/typeScale";
@@ -473,16 +473,13 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            while building a list; hanging a menu off it to offer this would tax the
            frequent action to reach the rare one. You have already asked for your gear
            by the time you can see this, so "all of it, with room to tidy" is one quiet
-           link away at the moment you'd want it. -->
-      <NuxtLink
-        v-if="hasGear"
-        to="/gear"
-        class="btn btn--icon btn--ghost ink-quiet vp__open"
-        aria-label="Open My Gear as a full page"
-        title="Open My Gear as a full page"
-      >
-        <SvgIcon :icon="IconExpandSimple" aria-hidden="true" />
-      </NuxtLink>
+           link away at the moment you'd want it.
+           A WORD, and the word is the job. It was an expand glyph ("Open My Gear as a
+           full page"), which Ryan found a little hidden: it is the only route to /gear
+           from the editor, and a glyph that says "this, bigger" undersells a page that
+           does what the pane can't (edit a piece, make a kit, import). Same call as
+           "Your packs" (ListMenu): a word is found where an icon is not. -->
+      <NuxtLink v-if="hasGear" to="/gear" class="vp__open" aria-label="Manage My Gear">Manage</NuxtLink>
       <button
         type="button"
         class="btn btn--icon btn--ghost btn--flush-end"
@@ -650,8 +647,9 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            has gear that hasn't been made into a set, an empty Food tab no food packed -->
       <div v-else-if="tab === 'kits'" class="vp__empty">
         <p class="t-sm t-muted">
-          No kits yet. Make one with New kit on My Gear, or save a group on a list to My
-          Gear as one.
+          No kits yet. Make one with New kit on
+          <NuxtLink to="/gear" class="link vp__pagelink">the My Gear page</NuxtLink>, or save a group on a
+          list to My Gear as one.
         </p>
       </div>
       <div v-else-if="tab === 'food'" class="vp__empty">
@@ -852,7 +850,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   display: inline-flex;
   align-items: center;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--popover-item-radius);
+  /* --radius-2, the MODE CHIP's corner (.modebar__opt), as "Your packs" takes it: the
+     editor's Gear / Packing / Trip are in view beside these, and /gear draws these same
+     three tabs with the mode bar itself. It was the card's concentric corner
+     (--popover-item-radius, 12px), which on a chip this short read as nearly a pill
+     against the mode bar's rounded rectangle (Ryan: "tab corner radii mismatch"). The
+     search under these takes the same corner (SearchField). The rows keep the
+     concentric one: they are menu rows, on the card's edge. */
+  border-radius: var(--radius-2);
   color: var(--ink-3);
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
@@ -910,9 +915,44 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
      middle of it, reading as a third heading */
   margin-inline-end: auto;
 }
-/* a glyph beside Close, and a link rather than a button: it navigates to the full page */
+/* A word beside Close, and a link rather than a button: it navigates to the full page.
+   It wears this card's other word control, the "Add to" chip below: the same padding,
+   corner (the tabs' chip corner) and wash, a step under the title's ink until the
+   pointer or focus is on it. At the pane's own text size, as the tabs and "Add to" are:
+   it was a step down (--text-chrome, 14px), and beside them it read as small print
+   (Ryan: "too small compared to neighbors"). */
 .vp__open {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+  transition:
+    background var(--spring-fade-dur) var(--spring-fade),
+    color var(--spring-fade-dur) var(--spring-fade);
+}
+.vp__open:focus-visible {
+  color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .vp__open:hover {
+    background: var(--popover-hover);
+    color: var(--ink);
+  }
+}
+/* the same page, named in the Kits tab's empty sentence: a link in the sentence, drawn
+   as the pane's other one is (VaultElsewhere's .elsewhere__go) */
+.vp__pagelink {
+  text-decoration-line: underline;
+  text-underline-offset: 0.2em;
+}
+/* a finger gets the row's height to land on, as the Close box beside it has */
+@media (pointer: coarse) {
+  .vp__open {
+    min-height: var(--tap);
+  }
 }
 /* the search field, its clear and their touch target are SearchField's own; the class
    lands on its root */
@@ -950,15 +990,15 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    app's other word-and-chevron menu: 4px between its parts, not OptionMenu's bare 8
    (Ryan: "the chevron appears far away"), which is about a word space between "Add to"
    and the name, its padding, and a ground under the pointer and while the menu is
-   open. It had none, only the cursor. Two things are this card's own: the
-   ground is the wash its rows light with, and the corner is the card's concentric one,
-   like the tabs beside it. Pulled out by its padding at the trailing end, so the chevron
+   open. It had none, only the cursor. One thing is this card's own: the
+   ground is the wash its rows light with. The corner is the tabs' beside it, which is
+   the mode chip's (see .vp__tab). Pulled out by its padding at the trailing end, so the chevron
    stays on the column's edge, as Your packs is at its leading one. */
 .vp__select :deep(.optmenu__btn) {
   gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
   margin-inline-end: calc(-1 * var(--space-2));
-  border-radius: var(--popover-item-radius);
+  border-radius: var(--radius-2);
   transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 .vp__select :deep(.optmenu__btn[aria-expanded="true"]) {

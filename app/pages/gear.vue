@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconBackpack, IconBlockSortAscending, IconBlockSortDescending, IconCandy, IconChevronDownMedium, IconClock, IconFilterAscending, IconFire2, IconLightning, IconPlusMedium, IconShapesPlusXSquareCircle, IconStar, IconToolbox } from "~/icons/central";
+import { IconBackpack, IconBlockSortAscending, IconBlockSortDescending, IconChevronDownMedium, IconClock, IconFilterAscending, IconFire2, IconForkKnife, IconLightning, IconPlusMedium, IconSafeSimple, IconShapesPlusXSquareCircle, IconStar, IconToolbox } from "~/icons/central";
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
@@ -40,9 +40,14 @@ import {
 // it touched (see captureVaultItems).
 //
 // noindex: it's one person's possessions and there is nothing here for a crawler.
+//
+// `bare`: no site footer (layouts/default.vue hides it for a body so marked). The page
+// is laid out as the editor is, which has none either, and Help, About and Legal are in
+// its ⋯ menu as they are in the editor's (VaultMenu).
 useHead({
   title: "My Gear — Mahonia",
   meta: [{ name: "robots", content: "noindex" }],
+  bodyAttrs: { class: "bare" },
 });
 
 // ---- the gear ------------------------------------------------------------
@@ -92,9 +97,25 @@ function putRow(row: VaultEntry) {
 // mode.
 const TAB_KEY = "gear.vault.tab.v1";
 // the names and order are shared/vaultView's, which the list's panel and the search's
-// "2 on Food" read too; the icons are this bar's (Food wears its kind's own, as its rows do)
-const TAB_ICON = { gear: IconBackpack, kits: IconToolbox, food: IconCandy };
+// "2 on Food" read too; the icons are this bar's. Food wears the MEAL's fork and knife,
+// one of the two marks its rows carry: it wore the other, the snack's candy, which named
+// the whole tab after its smallest things (Ryan: "I don't know if I like candy being the
+// main food icon").
+const TAB_ICON = { gear: IconBackpack, kits: IconToolbox, food: IconForkKnife };
 const TABS = VAULT_TABS.map((key) => ({ key, label: VAULT_TAB_LABEL[key], icon: TAB_ICON[key] }));
+// What a tab says when it has nothing to draw: what it holds, then how it fills, as ONE
+// paragraph in one voice. It was a line and a quieter line under it, balanced
+// separately, which set a headline over body copy for two short sentences and left
+// their widths to disagree (Ryan: "let's make the text one unit vs. headline and
+// body"). The kit's is Help's own sentence ("My Gear and your account"), so the two
+// can't define a kit differently.
+const EMPTY_COPY: Record<VaultTab, string> = {
+  gear: "The gear you own, ready to pick on any list. Add a piece, or build a list and its gear is saved here.",
+  kits: "A kit is a set you pack together, like a stove, pot, and lighter. It goes onto a list as one group.",
+  food: "Meals and snacks, each with its calories. Add some, or pack a list and its food is saved here.",
+};
+// a kit is made of gear, so with none the way in is a piece of gear, and the line says so
+const KIT_NEEDS_GEAR = "A kit is a set you pack together, like a stove, pot, and lighter. It’s made from your gear, so add some first.";
 const isTab = (v: unknown): v is VaultTab => VAULT_TABS.some((t) => t === v);
 const tab = ref<VaultTab>("gear");
 onMounted(() => {
@@ -242,6 +263,26 @@ const DRAFT_ID = -1;
 function startDraftKit(name: string) {
   draftKit.value = { ...BLANK_PIECE, id: DRAFT_ID, name };
 }
+// The empty block (the template says why it reads as it does). Shown with no gear at
+// all, once that is known and not while offline, or on a tab with none of its own; never
+// over a search, which has its own line, or a kit being named.
+const emptyShown = computed(() => {
+  if (!items.value.length) return !offline.value && !loading.value;
+  return !onTab.value.length && !query.value.trim() && !(tab.value === "kits" && draftKit.value);
+});
+const emptyTab = computed(() => {
+  const t = tab.value;
+  const noGear = !items.value.length;
+  const kit = t === "kits" && !noGear;
+  return {
+    icon: TAB_ICON[t],
+    text: t === "kits" && noGear ? KIT_NEEDS_GEAR : EMPTY_COPY[t],
+    kit: kit && !readonly.value,
+    // gated as the bar's own add is: a change to My Gear needs the server
+    add: kit || offline.value ? "" : t === "food" ? "Add food" : "Add gear",
+    list: noGear,
+  };
+});
 // the Kits tab's sections: the kits, then an unsaved new kit where "New kit" was
 const kitSections = computed(() => (draftKit.value ? [...filtered.value, draftKit.value] : filtered.value));
 // What the gear on screen cost. Follows `filtered` like the weight beside it — both
@@ -538,7 +579,7 @@ async function exportGear(kind: string) {
 </script>
 
 <template>
-  <div>
+  <div class="gearpage">
     <!-- compact: the bar's trailing group is now a glyph row behind one text action
          — the read views' exact shape, which is what the flag is for. Without it the
          looser gaps ran "Create a list" onto two lines at 375px once the ⋯ arrived,
@@ -598,13 +639,14 @@ async function exportGear(kind: string) {
              question asked in two places, and answering it twice in two voices is
              how a product starts sounding like two products. Change one, change
              both. -->
-        <div v-if="!hasGear" class="vault__auth">
+        <div v-if="!hasGear" class="vault__auth vault__mid">
+          <SvgIcon :icon="IconSafeSimple" size="xl" class="vault__midmark" aria-hidden="true" />
           <p class="vault__sentline">{{ VAULT_ASK }}</p>
           <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
         </div>
 
         <!-- the gear -->
-        <div v-else>
+        <div v-else class="vault__body">
           <!-- the tabs, and opposite them on Gear and Food the way to add a piece: the
                dialog it opens files the piece under its own kind, so food added from
                Gear still lands on Food, and the toast says so. A kit is made at the foot
@@ -617,8 +659,12 @@ async function exportGear(kind: string) {
             </button>
           </div>
           <!-- Nothing to search or order until there IS gear — controls over
-               "Nothing here yet" are furniture for a room with no floor. -->
-          <div v-if="items.length" class="vault__bar">
+               "Nothing here yet" are furniture for a room with no floor. The same goes
+               for one TAB with nothing on it: a search field and "0 kits" over "No kits
+               yet" were two controls and a count for an empty room, and they pushed
+               its centred sentence down the page. A query keeps the field up, since
+               the query is the whole page's and this is where it is cleared. -->
+          <div v-if="items.length && (onTab.length || query.trim())" class="vault__bar">
             <!-- the field and its own clear — SearchField, the same control the gear
                  pane draws; only the sizing is this page's -->
             <!-- the tab's own name for what it holds: gear, food, kits -->
@@ -661,10 +707,10 @@ async function exportGear(kind: string) {
           <!-- only while there is nothing to show yet. An add reloads the gear, and
                blanking a page you are working on for the length of a round trip
                reads as the page losing your gear. -->
-          <p v-if="loading && !items.length && !offline" class="t-muted vault__empty">Loading your gear…</p>
+          <p v-if="loading && !items.length && !offline" class="t-muted vault__mid">Loading your gear…</p>
 
           <template v-else-if="items.length">
-            <p class="t-sm t-muted vault__count">
+            <p v-if="onTab.length" class="t-sm t-muted vault__count">
               <template v-if="narrowed">{{ formatCount(filtered.length) }} of {{ formatCount(onTab.length) }}</template>
               <template v-else>{{ formatCount(onTab.length) }}</template>
               {{ pluralNoun(onTab.length, countNoun) }}
@@ -739,38 +785,35 @@ async function exportGear(kind: string) {
               :matches="elsewhere"
               @pick="followElsewhere"
             />
-            <p v-else-if="tab === 'kits' && !onTab.length && !draftKit" class="t-muted vault__none">
-              No kits yet. Make one with New kit.
-            </p>
-            <p v-else-if="tab === 'food' && !onTab.length" class="t-muted vault__none">
-              No food yet. Pack some on a list and it collects here with its calories, or
-              add it with Add food.
-            </p>
-            <!-- all of it food or kits, so far -->
-            <p v-else-if="tab === 'gear' && !onTab.length" class="t-muted vault__none">
-              No gear yet. Add a piece with Add gear, or build a list and it collects here.
-            </p>
             <!-- a kit is this page's folder, made the way a list makes one: the quiet
                  label at the foot becomes the name field, and the kit opens where it was -->
-            <AddFolder v-if="tab === 'kits' && !query && !draftKit && !readonly" class="vault__addkit" label="New kit" placeholder="Kit name" @add="startDraftKit" />
+            <AddFolder v-if="tab === 'kits' && onTab.length && !query && !draftKit && !readonly" class="vault__addkit" label="New kit" placeholder="Kit name" @add="startDraftKit" />
 
           </template>
 
-          <!-- Nothing at all: no gear yet. Adding is offered FIRST — the
-               capture sentence is still true and still the faster path, but it
-               answers "how does gear get here eventually", not "how do I put the
-               pack I bought yesterday in".
-               Not when the gear couldn't be read: "nothing here yet" under "couldn't
-               load your gear" told a signed-in visitor who'd lost signal that their
-               gear was gone. The line above says what is true then. -->
-          <div v-else-if="!offline" class="vault__empty">
-            <p class="t-muted">
-              Nothing here yet. Add a piece of gear, or build a list and it’ll collect
-              itself here.
-            </p>
-            <div class="vault__emptyacts">
-              <button type="button" class="btn btn--primary" @click="openAdd">Add gear</button>
-              <NuxtLink to="/e" class="btn btn--ghost">Create a list</NuxtLink>
+          <!-- NOTHING TO DRAW: no gear at all, or the open tab has none (emptyShown).
+               One block for both, centred in the page (.vault__mid): the tab's own mark,
+               a paragraph saying what the tab holds and how it fills, and the one thing
+               to do about it. What it IS comes first because the word alone
+               doesn't say it (Ryan: "folks may not know what a kit is"), and "No kits
+               yet" told a reader only what they could already see.
+               Adding is the button; "build a list" stays in the sentence, since it
+               answers "how does gear get here eventually", not "how do I put in the pack
+               I bought yesterday".
+               Not when the gear couldn't be read: "nothing here" under "couldn't load
+               your gear" told a signed-in visitor who'd lost signal that their gear was
+               gone. The line above says what is true then. -->
+          <div v-if="emptyShown" class="vault__mid">
+            <SvgIcon :icon="emptyTab.icon" size="xl" class="vault__midmark" aria-hidden="true" />
+            <p class="vault__sentline">{{ emptyTab.text }}</p>
+            <div v-if="emptyTab.kit || emptyTab.add || emptyTab.list" class="vault__emptyacts">
+              <!-- New kit is the page's one action here, so it is drawn as one; pressed,
+                   it is the same name field it is at the foot of a list of kits -->
+              <AddFolder v-if="emptyTab.kit" trigger-class="btn btn--primary" label="New kit" placeholder="Kit name" @add="startDraftKit" />
+              <!-- the bar's own word for it on this tab ("Add food" on Food), so the two
+                   buttons that open the one dialog aren't named differently -->
+              <button v-if="emptyTab.add" type="button" class="btn btn--primary" @click="openAdd">{{ emptyTab.add }}</button>
+              <NuxtLink v-if="emptyTab.list" to="/e" class="btn btn--soft">Create a list</NuxtLink>
             </div>
           </div>
 
@@ -782,7 +825,7 @@ async function exportGear(kind: string) {
              never answers. Only a browser with no hint draws the sign-in prompt, and
              that answer is settled before the first render. #fallback covers SSR. -->
         <template #fallback>
-          <p class="t-muted vault__empty">Loading…</p>
+          <p class="t-muted vault__mid">Loading…</p>
         </template>
       </ClientOnly>
     </main>
@@ -930,16 +973,65 @@ async function exportGear(kind: string) {
   margin-bottom: var(--space-5);
 }
 
-.vault__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-4);
-}
 .vault__emptyacts {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+/* A MESSAGE AND NOTHING ELSE: centred both ways in the space under the bar (and the
+   tabs, when they are up), as the 404 is in its page and the pane's empty notes are in
+   theirs. Worn by every state of this page that has no gear to draw: signed out, loading,
+   no gear at all, and a tab with nothing on it. A sentence and a button at the top-left
+   of an otherwise blank page read as a page that hadn't finished loading (Ryan: "feels
+   weird all at the top, not page center"), and with only some of them centred the
+   message jumped between corner and middle as you signed in or changed tab.
+   The column narrows and balances, since a centred line with a ragged edge reads as a
+   mistake.
+   The height comes down a chain that exists only while one of these is on the page
+   (the :has rules below, and the layout's column in the unscoped block): a page with
+   gear on it keeps the plain block flow it had. */
+.vault__mid {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  max-width: 34rem;
+  margin-inline: auto;
+  text-align: center;
+  text-wrap: balance;
+}
+/* Under the tabs, the tabs' own height again as air below the message: it then sits
+   where the signed-out prompt does, which has no tabs over it, and doesn't step down
+   the page when you sign in. Every one of these lands a little above the middle of the
+   window, where a lone block reads as centred. */
+.vault__body > .vault__mid {
+  padding-bottom: calc(var(--control-compact) + var(--space-1));
+}
+/* The tab's mark over its message, at the lesser ink: it says which tab is speaking,
+   and gives a centred block of text something to hang from. 40px, the height of the
+   button under it and off the icon scale on purpose: the scale's largest step (24) is
+   for a glyph beside text, and alone over a paragraph it read as a stray bullet (Ryan:
+   "icon could be bigger"). The stroke scales with it, untouched: thinned back to the
+   small icons' 1.5px it was a hairline drawing beside them, where the same glyph in the
+   tab above is a solid line (Ryan: "match the weight of the other icons"). Scaled, it
+   is the tab's icon, larger. */
+.vault__midmark {
+  width: calc(40 * var(--tpx));
+  height: calc(40 * var(--tpx));
+  color: var(--ink-3);
+}
+/* the kit's name is typed where its button was, so it is centred as the button was */
+.vault__mid :deep(.addfolder__input) {
+  text-align: center;
+}
+.gearpage:has(.vault__mid),
+.vault__page:has(.vault__mid),
+.vault__body:has(.vault__mid) {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 .vault__none {
   padding-block: var(--space-4);
@@ -986,5 +1078,15 @@ async function exportGear(kind: string) {
   }
   /* the row's own phone stack (name on its own line, the rest beneath) is
      VaultGearRow's */
+}
+</style>
+
+<style>
+/* Unscoped, because it reaches the layout's column, which this page doesn't own: a
+   plain block, with no height for the page to fill. A flex column only while it holds
+   one of My Gear's centred messages (error.vue does the same for the 404). */
+.shell__main:has(.vault__mid) {
+  display: flex;
+  flex-direction: column;
 }
 </style>
