@@ -13,7 +13,7 @@ import { dbState } from "./helpers/dbMock";
 import { makeEvent } from "./helpers/http";
 import { expectResultConforms } from "./helpers/mcpSchema";
 
-// The admin tools (verify_catalog_item, catalog_changes, revert_catalog_edit), driven
+// The admin tools (verify_catalog_item, get_catalog_edits, revert_catalog_edit), driven
 // through the real endpoint against a real (in-memory) database. Held here: only an
 // account named in ADMIN_USER_IDS sees them in tools/list or can call them, and to
 // everyone else they are tools that don't exist; an admin's call verifies a row at once,
@@ -32,7 +32,7 @@ vi.mock("../server/utils/rateLimit", () => ({
 vi.stubEnv("DATABASE_URL", "");
 
 const TOOL = "verify_catalog_item";
-const ADMIN_TOOLS = [TOOL, "catalog_changes", "revert_catalog_edit"];
+const ADMIN_TOOLS = [TOOL, "get_catalog_edits", "revert_catalog_edit"];
 type ToolAnswer = { structuredContent?: Record<string, unknown>; content: { text: string }[]; isError?: boolean };
 type Reply = { result?: ToolAnswer & { tools?: { name: string }[] }; error?: { code: number; message: string } | string };
 
@@ -102,8 +102,8 @@ describe("who sees it and who can call it", () => {
       inputSchema: { properties: Record<string, { type?: string; maxLength?: number; maximum?: number }> };
     }[];
     expect(tools.map((t) => t.name)).toEqual(["get_list", "search_catalog", "create_list", "edit_list", "get_my_gear", "edit_my_gear", ...ADMIN_TOOLS]);
-    const [verifyTool, changesTool, revertTool] = tools.slice(-3) as [(typeof tools)[0], (typeof tools)[0], (typeof tools)[0]];
-    for (const tool of [verifyTool, changesTool, revertTool]) {
+    const [verifyTool, editsTool, revertTool] = tools.slice(-3) as [(typeof tools)[0], (typeof tools)[0], (typeof tools)[0]];
+    for (const tool of [verifyTool, editsTool, revertTool]) {
       expect(tool.outputSchema?.type, tool.name).toBe("object");
       // every free-text argument carries the cap the tool holds it to, as the other tools' do
       const uncapped = Object.entries(tool.inputSchema.properties).filter(([, p]) => p.type === "string" && !("enum" in p) && p.maxLength == null);
@@ -112,7 +112,7 @@ describe("who sees it and who can call it", () => {
     const writesForEveryone = { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: true };
     expect(verifyTool.annotations).toEqual(writesForEveryone);
     expect(revertTool.annotations).toEqual(writesForEveryone);
-    expect(changesTool.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false });
+    expect(editsTool.annotations).toEqual({ readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false });
     expect(verifyTool.inputSchema.properties.weight_g!.maximum).toBe(100_000);
   });
 
@@ -127,7 +127,7 @@ describe("who sees it and who can call it", () => {
   it("answers a signed-in account that isn't an admin as a tool that doesn't exist, and asks anyone else to sign in", async () => {
     const calls: [string, Record<string, unknown>][] = [
       [TOOL, { catalog_id: community, weight_g: 1022, weight_source: "measured" }],
-      ["catalog_changes", {}],
+      ["get_catalog_edits", {}],
       ["revert_catalog_edit", { edit_id: 1 }],
     ];
     for (const [name, args] of calls) {
@@ -153,7 +153,7 @@ describe("who sees it and who can call it", () => {
     expect((await catalogRow(db, community)).verified).toBe(false);
     expect((await call({ catalog_id: community, weight_g: 1022 }, adminRead)).status).toBe(403);
     // a read-only admin connection reads the history but can't undo anything in it
-    expect((await adminCall("catalog_changes", {}, adminRead)).refused).toBe(false);
+    expect((await adminCall("get_catalog_edits", {}, adminRead)).refused).toBe(false);
     expect((await callTool("revert_catalog_edit", { edit_id: 1 }, adminRead)).status).toBe(403);
   });
 
@@ -351,10 +351,30 @@ describe("the edit history, undoing a verification, and corrections after one", 
     // a community correction keeps no snapshot: the research's weight since is what stops it
     const kumo = await seedCatalogRow(db, { brand: "Gossamer Gear", name: "Kumo 36", commonName: "Backpack", categoryHint: "pack", weightMg: 600_000 });
     await proposeCorrection(db, { catalogItemId: kumo.id, newWeightMg: 650_000 });
-    const [fix] = (await adminCall("catalog_changes", { catalog_id: kumo.id })).data.changes;
+    const [fix] = (await adminCall("get_catalog_edits", { catalog_id: kumo.id })).data.edits;
     await db.update(schema.catalogItems).set({ weightMg: 620_000, verified: true, weightSource: "manufacturer" }).where(eq(schema.catalogItems.id, kumo.id));
     expect((await revert(fix.id)).text).toContain("has changed since");
     expect(await catalogRow(db, kumo.id)).toMatchObject({ weightMg: 620_000, verified: true });
+  });
+
+  it("turns down a suggested fix that waits for review, leaving the row as it was", async () => {
+    const row = await seedCatalogRow(db, { brand: "Nemo", name: "Moonlite Elite", commonName: "Camp chair", categoryHint: "other", weightMg: 552_000, weightSource: "manufacturer", verified: true });
+    // a verified row takes an uncited fix as proposed: it waits, and the weight stays
+    expect((await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 656_000 })).status).toBe("proposed");
+    const [fix] = (await adminCall("get_catalog_edits", { catalog_id: row.id })).data.edits;
+    expect(fix.status).toBe("proposed");
+    const done = await revert(fix.id);
+    expect(done.refused, done.text).toBe(false);
+    expect(done.data).toMatchObject({ edit_id: fix.id, rejected: true, retired: false, row: { id: row.id, weight_g: 552 } });
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 552_000, verified: true, weightSource: "manufacturer" });
+    expect((await adminCall("get_catalog_edits", { catalog_id: row.id })).data.edits[0].status).toBe("rejected");
+    expect((await revert(fix.id)).text).toContain("already turned down");
+    // a fix to a row since gone from the catalog is turned down all the same, with no row to show
+    const gone = await seedCatalogRow(db, { brand: "Nemo", name: "Moonlite", commonName: "Camp chair", categoryHint: "other", weightMg: 850_000, weightSource: "manufacturer", verified: true });
+    await proposeCorrection(db, { catalogItemId: gone.id, newWeightMg: 900_000 });
+    const [goneFix] = (await adminCall("get_catalog_edits", { catalog_id: gone.id })).data.edits;
+    await db.delete(schema.catalogItems).where(eq(schema.catalogItems.id, gone.id));
+    expect((await revert(goneFix.id)).data).toEqual({ edit_id: goneFix.id, rejected: true, retired: true, row: null });
   });
 
   it("refuses an edit that isn't there, or is already undone", async () => {
@@ -370,22 +390,22 @@ describe("the edit history, undoing a verification, and corrections after one", 
     // a community row: an uncited fix applies at once
     await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 450_000, reason: "my scale says 450" });
     const done = await verify({ catalog_id: row.id, weight_g: 425, weight_source: "measured" });
-    const history = await adminCall("catalog_changes", { catalog_id: row.id });
-    expect(history.data.changes.map((c: Record<string, unknown>) => [c.kind, c.status, c.old_weight_g, c.new_weight_g, c.catalog_id])).toEqual([
+    const history = await adminCall("get_catalog_edits", { catalog_id: row.id });
+    expect(history.data.edits.map((c: Record<string, unknown>) => [c.kind, c.status, c.old_weight_g, c.new_weight_g, c.catalog_id])).toEqual([
       ["verification", "applied", 450, 425, row.id],
       ["correction", "applied", 500, 450, row.id],
     ]);
-    expect(history.data.changes[0].id).toBe(done.data.edit_id);
-    expect(history.data.changes[1].reason).toBe("my scale says 450");
-    expect((await adminCall("catalog_changes", { limit: 1 })).data.changes).toHaveLength(1);
-    expect((await adminCall("catalog_changes", { limit: 0 })).text).toContain("limit");
+    expect(history.data.edits[0].id).toBe(done.data.edit_id);
+    expect(history.data.edits[1].reason).toBe("my scale says 450");
+    expect((await adminCall("get_catalog_edits", { limit: 1 })).data.edits).toHaveLength(1);
+    expect((await adminCall("get_catalog_edits", { limit: 0 })).text).toContain("limit");
     // the fix sits under the verification; undo that first, then the fix itself
-    const fix = history.data.changes[1].id as number;
+    const fix = history.data.edits[1].id as number;
     expect((await revert(fix)).refused).toBe(true);
     await revert(done.data.edit_id);
     expect((await revert(fix)).data.row).toMatchObject({ id: row.id, weight_g: 500 });
-    const after = await adminCall("catalog_changes", { catalog_id: row.id });
-    expect(after.data.changes.map((c: Record<string, unknown>) => c.status)).toEqual(["reverted", "reverted"]);
+    const after = await adminCall("get_catalog_edits", { catalog_id: row.id });
+    expect(after.data.edits.map((c: Record<string, unknown>) => c.status)).toEqual(["reverted", "reverted"]);
   });
 
   it("writes the row and its edit together or not at all", async () => {

@@ -172,7 +172,7 @@ export default defineEventHandler(async (event) => {
   // the registry): resolved once here and left on the event. The gate is the scope
   // an account tool names; create_list only uses an account when there is one.
   const use = msg.method === "tools/call" && typeof params.name === "string" ? accountUse(params.name, args) : undefined;
-  // An admin tool (verify_catalog_item, catalog_changes, revert_catalog_edit) is listed
+  // An admin tool (verify_catalog_item, get_catalog_edits, revert_catalog_edit) is listed
   // only to an admin, and a live bearer that isn't an admin's gets the answer a name that
   // doesn't exist gets. With no bearer or a dead one it asks for a sign-in like any tool
   // that needs an account: the names are in the public source, so hiding them there

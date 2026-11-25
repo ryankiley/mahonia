@@ -367,7 +367,7 @@ export async function verifyCatalogItem(
     .where(and(isNotNull(catalogEdits.undo), gt(catalogEdits.createdAt, sql`now() - interval '1 hour'`)));
   const recent = Number(counted?.n ?? 0);
   if (recent >= VERIFY_HOURLY_MAX) {
-    return `${recent} catalog verifications in the last hour is the most the tool takes. Look over them with catalog_changes, and carry on in an hour.`;
+    return `${recent} catalog verifications in the last hour is the most the tool takes. Look over them with get_catalog_edits, and carry on in an hour.`;
   }
 
   const verified = { weightMg, weightSource: source as string, sourceUrl, sourceQuote: storedQuote, verified: true, verifiedBy: userId, updatedAt: new Date() };
@@ -473,17 +473,22 @@ async function wasResearchRow(db: Db, id: number): Promise<boolean> {
 
 /**
  * revert_catalog_edit's work: undo one applied edit, an admin's verification or a
- * community correction, and answer the row as it now stands, or a sentence saying why not.
- * The weight goes back, and for a verification everything else it changed (CatalogEditUndo).
+ * community correction, or turn down a suggested fix still waiting for review, and answer
+ * the row as it now stands, or a sentence saying why not. An undo puts the weight back,
+ * and for a verification everything else it changed (CatalogEditUndo). A fix turned down
+ * is marked rejected and nothing else: it never moved the row, so there is nothing to put
+ * back. Its row can be gone by then (a removed product), and is answered as null.
  */
-export async function undoCatalogEdit(db: Db, editId: unknown): Promise<{ row: CatalogRow } | string> {
+export async function undoCatalogEdit(db: Db, editId: unknown): Promise<{ row: CatalogRow | null; rejected: boolean } | string> {
   // catalog_edits.id is the same PostgreSQL serial range as catalog_items.id
-  if (!isCatalogId(editId)) return "edit_id is a catalog edit's id, a whole number from verify_catalog_item or catalog_changes.";
+  if (!isCatalogId(editId)) return "edit_id is a catalog edit's id, a whole number from verify_catalog_item or get_catalog_edits.";
   const [edit] = await db.select().from(catalogEdits).where(eq(catalogEdits.id, editId)).limit(1);
   if (!edit) return `No catalog edit has id ${editId}.`;
   const rowId = Number(edit.catalogItemId);
-  // only applied edits moved a weight
   if (edit.status === "reverted") return `Edit ${editId} is already undone.`;
+  if (edit.status === "rejected") return `Edit ${editId} is already turned down.`;
+  if (edit.status === "proposed") return rejectProposal(db, editId, rowId);
+  // only applied edits moved a weight
   if (edit.status !== "applied") return `Edit ${editId} is ${edit.status} and never moved the weight; there is nothing to undo.`;
   // only the most recent applied edit: undoing an older one would throw the newer away unseen
   const [newer] = await db
@@ -515,7 +520,21 @@ export async function undoCatalogEdit(db: Db, editId: unknown): Promise<{ row: C
   }
   if (!row) return `Row ${rowId} has changed since edit ${editId}, so there is nothing of it to undo; verify the row again to set its weight.`;
   await db.update(catalogEdits).set({ status: "reverted" }).where(eq(catalogEdits.id, editId));
-  return { row };
+  return { row, rejected: false };
+}
+
+/** A suggested fix still waiting for review, turned down: its status is the only write.
+ *  Conditional on it still waiting, so a retry, or a second admin a moment behind, is told
+ *  so rather than turning one fix down twice. */
+async function rejectProposal(db: Db, editId: number, rowId: number): Promise<{ row: CatalogRow | null; rejected: true } | string> {
+  const [done] = await db
+    .update(catalogEdits)
+    .set({ status: "rejected" })
+    .where(and(eq(catalogEdits.id, editId), eq(catalogEdits.status, "proposed")))
+    .returning({ id: catalogEdits.id });
+  if (!done) return `Edit ${editId} was reviewed a moment ago; get_catalog_edits shows what it is now.`;
+  const [row] = await db.select().from(catalogItems).where(eq(catalogItems.id, rowId)).limit(1);
+  return { row: row ?? null, rejected: true };
 }
 
 /** One line of the catalog's edit history (catalog_edits), applied: where a verification's
