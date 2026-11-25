@@ -131,7 +131,7 @@ const { open: openAccount } = useAccountModal();
              reader the letter is decoration, and "R" would be a poor name for a menu.
              Empty for one beat only: before the first /api/auth/me on a browser that
              has never kept the memo (useAccountInitial). -->
-        <span class="avatar" aria-hidden="true">{{ initial }}</span>
+        <span class="avatar" aria-hidden="true"><span class="avatar__letter">{{ initial }}</span></span>
       </button>
       </Tooltip>
       <Transition name="menu">
@@ -184,7 +184,9 @@ const { open: openAccount } = useAccountModal();
    Sized in px like the glyphs beside it, NOT from the type scale: the bar's icons hold
    16px while --text-* grows past the 1920px anchor, and a letter on the scale would
    outgrow a disc that isn't. The letter is 0.64 of the disc — 14px at rest, the tab
-   word's own --text-chrome size — so the two move together on touch. */
+   word's own --text-chrome size — so the two move together on touch.
+   The letter is trimmed to its cap so the cap itself is centred, not its rounded line
+   box (which sat up to 0.4px low at some zooms). */
 .avatar {
   --avatar: 22px;
   display: inline-grid;
@@ -196,8 +198,12 @@ const { open: openAccount } = useAccountModal();
   font-size: calc(var(--avatar) * 0.64);
   font-weight: 500;
   line-height: 1;
+  letter-spacing: 0;
   text-transform: uppercase;
   transition: background var(--spring-fade-dur) var(--spring-fade);
+}
+.avatar__letter {
+  text-box: trim-both cap alphabetic;
 }
 @media (hover: hover) and (pointer: fine) {
   .menu__btn:hover .avatar {
