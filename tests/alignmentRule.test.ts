@@ -50,3 +50,23 @@ describe("the sign-in column under something already set left", () => {
     expect(view).not.toMatch(/\.acct__swap\s*\{[^}]*text-align:\s*center/);
   });
 });
+
+// TWO DISTANCES down the sign-in column: --space-3 inside a group, --space-5 between
+// groups. It ran 22 / 28 / 12 / 16 / 24 down the dialog. The column's gap is --space-4,
+// so each group edge carries the --space-2 that makes it --space-5.
+describe("the sign-in column's spacing", () => {
+  const view = read("app/components/AccountView.vue");
+  const block = (selector: string) => {
+    const at = view.lastIndexOf(`\n${selector} {`);
+    return at < 0 ? "" : view.slice(at, view.indexOf("}", at));
+  };
+
+  it("sets the explanation and the switch line one group apart from the form", () => {
+    expect(block(".acct__why")).toContain("margin-block-end: var(--space-2)");
+    expect(block(".acct__swap")).toContain("margin-block-start: var(--space-2)");
+  });
+
+  it("pulls the dialog's column up to its title", () => {
+    expect(view).toMatch(/\.acct--modal \.acct__empty \{\s*margin-block-start: calc\(-1 \* var\(--space-2\)\);/);
+  });
+});
