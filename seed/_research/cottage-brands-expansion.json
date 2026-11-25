@@ -1757,15 +1757,14 @@
     {
       "brand": "Bonfus",
       "name": "Middus 1P",
-      "variant": "trail weight",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
-      "weight_value": 295,
+      "weight_value": 346,
       "weight_unit": "g",
       "weight_secondary": "10.4oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/middus-1p-by-bonfus",
-      "quote": "Weight: 10.4oz | 295g (minimum)"
+      "quote": "Weight: 10.4oz | 295g (minimum) Packed: 12.2oz | 346g Stuff Sack: 0.4oz | 12g"
     },
     {
       "brand": "Bonfus",
