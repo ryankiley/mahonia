@@ -59,12 +59,24 @@ const emit = defineEmits<{
 // reaches the editor.
 const flash = inject(ROW_FLASH, () => {});
 
-const { plateRef, listRef, on } = useMenuPlate();
+const { plateRef, listRef, rest, on } = useMenuPlate();
 
-// A draft has no share code until its first real item lands, so every link here
-// would be broken and every export empty. Say so once, rather than two tabs of
-// disabled rows.
+// A draft is a list with no server row yet: nothing real in it, or its first save
+// hasn't landed. It has no links, but asking for one is what makes them: the copy
+// rows are the same rows, and the editor saves the list on the click before it
+// copies (GearEditor.copyLink). So a draft's panel is the saved panel less the two
+// things that need a row to exist, what has changed on it and replacing its link.
+//
+// It used to be one sentence, "Add an item and this list gets its links", which
+// made a trip set up with a title, a trail and its people unsendable until someone
+// typed a placeholder row, and told a list that had items but no connection to add
+// an item.
 const isDraft = computed(() => !props.snapshot.shareCode);
+// The one case with no link to offer: a draft, offline. Saving needs the server.
+// Said in a line where the rows would be (inert controls are absent, not disabled);
+// Export still works, since a file is made on the device.
+const online = useOnline();
+const canLink = computed(() => !isDraft.value || online.value);
 // A CLAIMED open is saved and shareable, but this device holds no edit link to copy:
 // the server only ever stored its hash. So there's no edit-link row, and the replace
 // row reads "Get a new edit link" (a rotate hands this device a fresh one).
@@ -102,6 +114,9 @@ const { warmExporters, exportItems } = useListExports(
   () => props.shareUrl,
 );
 watch(tab, (t) => t === "export" && warmExporters());
+// The hover plate goes home with the rows it was lighting: left parked on an Export
+// row, it kept the shorter Share tab scrollable over nothing (useMenuPlate.rest).
+watch(tab, rest);
 
 // ---- the account ----
 // ONE ACTION, and only while pressing it would do something. Not a section, not a
@@ -238,149 +253,147 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   <div ref="listRef" class="popover menu__list share" role="dialog" aria-label="Sharing" v-on="on">
     <span ref="plateRef" class="menu__plate" aria-hidden="true" />
 
-    <p v-if="isDraft" class="t-muted share__note">Add an item and this list gets its links.</p>
+    <div class="share__tabs" role="tablist" aria-label="Sharing" @keydown="onKey">
+      <button
+        v-for="t in TABS"
+        :id="tabId(t.key)"
+        :key="t.key"
+        ref="opts"
+        type="button"
+        role="tab"
+        class="modebar__opt share__tab"
+        :class="{ 'is-active': tab === t.key }"
+        :aria-selected="tab === t.key"
+        :aria-controls="panelId(t.key)"
+        :tabindex="tab === t.key ? 0 : -1"
+        @click="tab = t.key"
+      >
+        {{ t.label }}
+      </button>
+    </div>
 
-    <template v-else>
-      <div class="share__tabs" role="tablist" aria-label="Sharing" @keydown="onKey">
-        <button
-          v-for="t in TABS"
-          :id="tabId(t.key)"
-          :key="t.key"
-          ref="opts"
-          type="button"
-          role="tab"
-          class="modebar__opt share__tab"
-          :class="{ 'is-active': tab === t.key }"
-          :aria-selected="tab === t.key"
-          :aria-controls="panelId(t.key)"
-          :tabindex="tab === t.key ? 0 : -1"
-          @click="tab = t.key"
-        >
-          {{ t.label }}
-        </button>
-      </div>
+    <!-- SHARE: the two links, what's changed, and under the rule the two acts that
+         change who holds the list. -->
+    <div v-if="tab === 'share'" :id="panelId('share')" role="tabpanel" :aria-labelledby="tabId('share')">
+      <p v-if="!canLink" class="t-muted share__note">You’re offline. Links need a connection.</p>
+      <ul v-else class="share__rows">
+        <li>
+          <button
+            type="button"
+            data-row
+            class="menu__item share__row"
+            aria-label="Copy read-only link"
+            :aria-describedby="`${uid}-hint-read`"
+            @click="act(() => emit('copyRead'))"
+          >
+            <SvgIcon :icon="IconEyeOpen" aria-hidden="true" />
+            <span class="share__text">
+              <span class="share__name">Copy read-only link</span>
+              <span :id="`${uid}-hint-read`" class="share__hint">Anyone with it can see this list</span>
+            </span>
+          </button>
+        </li>
+        <!-- A claimed open (opened from the account) holds no edit link: the server only
+             ever stored its hash. No row rather than one that can't copy; the replace row
+             below says "Get a new edit link" instead, which is how this device gets one.
+             A draft holds none either, yet, and gets one from the save this row starts. -->
+        <li v-if="holdsEditLink || isDraft">
+          <button
+            type="button"
+            data-row
+            class="menu__item share__row"
+            aria-label="Copy edit link"
+            :aria-describedby="`${uid}-hint-edit`"
+            @click="act(() => emit('copyEdit'))"
+          >
+            <SvgIcon :icon="IconPencil2" aria-hidden="true" />
+            <span class="share__text">
+              <span class="share__name">Copy edit link</span>
+              <span :id="`${uid}-hint-edit`" class="share__hint">Anyone with it can change this list</span>
+            </span>
+          </button>
+        </li>
 
-      <!-- SHARE: the two links, what's changed, and under the rule the two acts that
-           change who holds the list. -->
-      <div v-if="tab === 'share'" :id="panelId('share')" role="tabpanel" :aria-labelledby="tabId('share')">
-        <ul class="share__rows">
-          <li>
-            <button
-              type="button"
-              data-row
-              class="menu__item share__row"
-              aria-label="Copy read-only link"
-              :aria-describedby="`${uid}-hint-read`"
-              @click="act(() => emit('copyRead'))"
-            >
-              <SvgIcon :icon="IconEyeOpen" aria-hidden="true" />
-              <span class="share__text">
-                <span class="share__name">Copy read-only link</span>
-                <span :id="`${uid}-hint-read`" class="share__hint">Anyone with it can see this list</span>
-              </span>
-            </button>
-          </li>
-          <!-- A claimed open (opened from the account) holds no edit link: the server only
-               ever stored its hash. No row rather than one that can't copy; the replace row
-               below says "Get a new edit link" instead, which is how this device gets one. -->
-          <li v-if="holdsEditLink">
-            <button
-              type="button"
-              data-row
-              class="menu__item share__row"
-              aria-label="Copy edit link"
-              :aria-describedby="`${uid}-hint-edit`"
-              @click="act(() => emit('copyEdit'))"
-            >
-              <SvgIcon :icon="IconPencil2" aria-hidden="true" />
-              <span class="share__text">
-                <span class="share__name">Copy edit link</span>
-                <span :id="`${uid}-hint-edit`" class="share__hint">Anyone with it can change this list</span>
-              </span>
-            </button>
-          </li>
-
-          <!-- RECENT CHANGES folds out: the same MenuSection the read views' ⋯ uses, with
-               entries in place of rows. Collapsed: it's reassurance you go looking for.
-               These are the server's recovery points: WHAT changed, WHEN, and who when
-               anyone can be named ("You", "Assistant", or a name an editor chose). -->
-          <MenuSection v-model:open="activityOpen" label="Recent changes" :icon="IconClock">
-            <div class="share__activity">
-              <p v-if="activityState === 'loading'" class="t-muted">Loading…</p>
-              <p v-else-if="activityState === 'error'" class="t-muted">Couldn’t load recent changes.</p>
-              <p v-else-if="!activity.length" class="t-muted">No changes yet.</p>
-              <ul v-else class="share__log">
-                <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
-                  <span>{{ changeLabel(i) }}</span>
-                  <span class="t-muted share__logwhen"
-                    >{{ timeAgo(new Date(s.createdAt).getTime(), now, { short: true })
-                    }}<template v-if="showWho && whoLabel(s.by)"> · {{ whoLabel(s.by) }}</template></span
-                  >
-                </li>
-              </ul>
-            </div>
-          </MenuSection>
-
-          <!-- THE FOOT, ruled off: the two things that change who holds this list.
-               Keeping it on your account first (rare: it only shows for a list the
-               account doesn't have), replacing the link last, since that cuts off
-               everyone who has the old one. -->
-          <li class="menu__foot">
-            <button
-              v-if="canAddToAccount"
-              type="button"
-              data-row
-              class="menu__item"
-              :disabled="claim === 'claiming'"
-              @click="addToAccount"
-            >
-              <SvgIcon :icon="IconUserAdd" aria-hidden="true" />
-              Add to your account
-            </button>
-            <p v-if="claim === 'failed'" role="alert" class="t-muted share__note">
-              That didn’t save. Check your connection and try again.
-            </p>
-            <button type="button" data-row class="menu__item" @click="act(() => emit('rotate'))">
-              <SvgIcon :icon="IconArrowsRepeatCircle" aria-hidden="true" />
-              {{ holdsEditLink ? "Replace edit link" : "Get a new edit link" }}
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <!-- EXPORT: the link first, then the files. -->
-      <div v-else :id="panelId('export')" role="tabpanel" :aria-labelledby="tabId('export')">
-        <div class="share__nudge">
-          <SvgIcon :icon="IconUserDuo" aria-hidden="true" />
-          <div class="share__nudgebody">
-            <p class="share__name">Sending this to someone?</p>
-            <p class="share__nudgetext">Send the link instead. It always shows the latest version.</p>
-            <button type="button" class="btn btn--primary share__nudgebtn" @click="act(() => emit('copyRead'))">
-              <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" />
-              Copy read-only link
-            </button>
+        <!-- RECENT CHANGES folds out: the same MenuSection the read views' ⋯ uses, with
+             entries in place of rows. Collapsed: it's reassurance you go looking for.
+             These are the server's recovery points: WHAT changed, WHEN, and who when
+             anyone can be named ("You", "Assistant", or a name an editor chose). -->
+        <MenuSection v-if="!isDraft" v-model:open="activityOpen" label="Recent changes" :icon="IconClock">
+          <div class="share__activity">
+            <p v-if="activityState === 'loading'" class="t-muted">Loading…</p>
+            <p v-else-if="activityState === 'error'" class="t-muted">Couldn’t load recent changes.</p>
+            <p v-else-if="!activity.length" class="t-muted">No changes yet.</p>
+            <ul v-else class="share__log">
+              <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
+                <span>{{ changeLabel(i) }}</span>
+                <span class="t-muted share__logwhen"
+                  >{{ timeAgo(new Date(s.createdAt).getTime(), now, { short: true })
+                  }}<template v-if="showWho && whoLabel(s.by)"> · {{ whoLabel(s.by) }}</template></span
+                >
+              </li>
+            </ul>
           </div>
+        </MenuSection>
+
+        <!-- THE FOOT, ruled off: the two things that change who holds this list.
+             Keeping it on your account first (rare: it only shows for a list the
+             account doesn't have), replacing the link last, since that cuts off
+             everyone who has the old one. -->
+        <li v-if="!isDraft" class="menu__foot">
+          <button
+            v-if="canAddToAccount"
+            type="button"
+            data-row
+            class="menu__item"
+            :disabled="claim === 'claiming'"
+            @click="addToAccount"
+          >
+            <SvgIcon :icon="IconUserAdd" aria-hidden="true" />
+            Add to your account
+          </button>
+          <p v-if="claim === 'failed'" role="alert" class="t-muted share__note">
+            That didn’t save. Check your connection and try again.
+          </p>
+          <button type="button" data-row class="menu__item" @click="act(() => emit('rotate'))">
+            <SvgIcon :icon="IconArrowsRepeatCircle" aria-hidden="true" />
+            {{ holdsEditLink ? "Replace edit link" : "Get a new edit link" }}
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <!-- EXPORT: the link first, then the files. -->
+    <div v-else :id="panelId('export')" role="tabpanel" :aria-labelledby="tabId('export')">
+      <div v-if="canLink" class="share__nudge">
+        <SvgIcon :icon="IconUserDuo" aria-hidden="true" />
+        <div class="share__nudgebody">
+          <p class="share__name">Sending this to someone?</p>
+          <p class="share__nudgetext">Send the link instead. It always shows the latest version.</p>
+          <button type="button" class="btn btn--primary share__nudgebtn" @click="act(() => emit('copyRead'))">
+            <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" />
+            Copy read-only link
+          </button>
         </div>
-        <ul class="share__rows">
-          <li v-for="item in exportItems" :key="item.key">
-            <button
-              type="button"
-              data-row
-              class="menu__item share__row"
-              :aria-label="item.label"
-              :aria-describedby="`${uid}-hint-${item.key}`"
-              @click="act(item.run)"
-            >
-              <SvgIcon :icon="item.icon" aria-hidden="true" />
-              <span class="share__text">
-                <span class="share__name">{{ item.format }}</span>
-                <span :id="`${uid}-hint-${item.key}`" class="share__hint">{{ item.hint }}</span>
-              </span>
-            </button>
-          </li>
-        </ul>
       </div>
-    </template>
+      <ul class="share__rows">
+        <li v-for="item in exportItems" :key="item.key">
+          <button
+            type="button"
+            data-row
+            class="menu__item share__row"
+            :aria-label="item.label"
+            :aria-describedby="`${uid}-hint-${item.key}`"
+            @click="act(item.run)"
+          >
+            <SvgIcon :icon="item.icon" aria-hidden="true" />
+            <span class="share__text">
+              <span class="share__name">{{ item.format }}</span>
+              <span :id="`${uid}-hint-${item.key}`" class="share__hint">{{ item.hint }}</span>
+            </span>
+          </button>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -399,13 +412,16 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   overscroll-behavior: contain;
 }
 /* On a phone the editor drops this panel's wrapper out of the positioning chain (see
-   .editor__sharemenu), so `right` measures from the viewport rather than from the
-   trigger. Take the page gutter on both sides instead of a width that might not fit. */
+   .editor__sharemenu), so `right` measures from the bar rather than from the trigger.
+   It sits at the page gutter under the trigger's end of the bar and keeps its own
+   width, giving way only where that doesn't fit. It used to take the gutter on BOTH
+   sides, which is the same thing on a 375px phone and a 688px-wide menu on anything
+   between that and the breakpoint. */
 @media (max-width: $bp-stack) {
   .share {
-    left: var(--space-4);
+    left: auto;
     right: var(--space-4);
-    width: auto;
+    width: min(22.5rem, calc(100% - 2 * var(--space-4)));
   }
 }
 
@@ -471,7 +487,10 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   align-items: start;
   gap: var(--space-3);
   margin-bottom: var(--space-1);
-  padding: var(--space-3);
+  /* a row's inset above as well as beside: the card's first line then sits exactly
+     where the Share tab's first row puts its own, so switching tabs doesn't move the
+     top line of the panel by the 4px the card's roomier padding used to add */
+  padding: var(--space-2) var(--space-3) var(--space-3);
   border-radius: var(--popover-item-radius);
   background: color-mix(in oklab, var(--ink) 7%, transparent);
 }

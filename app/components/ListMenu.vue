@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconChevronDownMedium } from "~/icons/central";
+import { IconChevronDownMedium, IconCrossMedium } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 import { mergeSwitcherRows } from "~~/shared/switcher";
 
@@ -161,7 +161,9 @@ watch(open, (o) => {
           aria-label="Dismiss"
           title="Dismiss"
           @click="emit('dismiss-hint')"
-        >×</button>
+        >
+          <SvgIcon :icon="IconCrossMedium" size="sm" />
+        </button>
       </div>
     </Transition>
 
@@ -271,10 +273,15 @@ watch(open, (o) => {
   width: max-content;
   max-width: min(26rem, calc(100vw - 2 * var(--space-4)));
 }
-/* the inks are .ink-quiet's (atoms/controls.scss), in the markup: the lesser ink at
+/* A drawn mark, not the "×" character it was: a glyph sits on the text baseline,
+   which put it visibly below the sentence's middle, and no line-height centres a
+   character whose ink isn't centred in its own box.
+   The inks are .ink-quiet's (atoms/controls.scss), in the markup: the lesser ink at
    rest, full ink under the pointer and on keyboard focus, on the fade */
 .lm__hintclose {
-  font-size: var(--text-base);
-  line-height: 1;
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

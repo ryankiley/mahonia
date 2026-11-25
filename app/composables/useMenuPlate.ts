@@ -57,6 +57,7 @@ import type { Ref } from "vue";
 export function useMenuPlate(): {
   plateRef: Ref<HTMLElement | null>;
   listRef: Ref<HTMLElement | null>;
+  rest: () => void;
   on: {
     pointerover: (e: PointerEvent) => void;
     pointerleave: () => void;
@@ -82,6 +83,27 @@ export function useMenuPlate(): {
   function hide() {
     plateRef.value?.classList.remove("is-on");
     standOn(null);
+  }
+
+  /**
+   * Hide the plate AND take it back to the top of the card, silently.
+   *
+   * `hide` leaves it where it stood, unseen, which is right while the rows stay put:
+   * the next hover starts from a first placement either way. It is wrong once the
+   * card's content is swapped for something shorter (the sharing panel's tabs). A
+   * card that scrolls counts the parked plate in its scroll height, so the short tab
+   * could be scrolled down over the space the tall one's last row had occupied.
+   */
+  function rest() {
+    hide();
+    const plate = plateRef.value;
+    if (!plate) return;
+    plate.classList.add("is-placing");
+    plate.style.transform = "";
+    plate.style.height = "";
+    plate.style.clipPath = "";
+    void plate.offsetHeight; // flush, so the move home can't be animated
+    plate.classList.remove("is-placing");
   }
 
   /**
@@ -211,6 +233,7 @@ export function useMenuPlate(): {
   return {
     plateRef,
     listRef,
+    rest,
     on: {
       pointerover: (e: PointerEvent) => moveTo(rowFrom(e.target)),
       pointerleave: hide,

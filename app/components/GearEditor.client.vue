@@ -672,8 +672,7 @@ async function copy(text: string, msg: string, linkFallbackTitle: string) {
 // link the plain-text copy appends: the READ-ONLY link — explicitly, not location.href, which here is
 // /e/{code}#{token}. That token is edit access, and this action's whole purpose is
 // pasting the result somewhere public.
-// A draft has no share code yet — no link rather than a broken one (same guard
-// copyShare() makes before offering to copy it).
+// A draft has no share code yet — no link rather than a broken one.
 // The two links a list is handed out by, each spelled once.
 const readUrl = computed(() => (snapshot.value?.shareCode ? `${location.origin}/s/${snapshot.value.shareCode}` : ""));
 // the token stays in the fragment (see shared/links.editLinkPath)
@@ -706,26 +705,44 @@ function toggleShare() {
   shareOpen.value = !shareOpen.value;
 }
 
+// Copy one of the list's two links. A saved list has it already. A list that isn't
+// saved yet (nothing in it, or its first save hasn't landed) is saved by this click,
+// since asking for its link is asking for it to exist (useGearList.saveDraft), and
+// the link is copied when the save answers: the write starts inside the click and is
+// handed the link as a promise, see copyTextWhen. `url` is read late for that reason;
+// both links are built from what the save returns.
+async function copyLink(url: () => string, msg: string, title: string) {
+  if (c.editToken || c.claimCode) {
+    tally("share_link_copied");
+    return copy(url(), msg, title);
+  }
+  const link = c.saveDraft().then((saved) => {
+    if (!saved) throw new Error("not saved");
+    return url();
+  });
+  const copied = await copyTextWhen(link);
+  const text = await link.catch(() => "");
+  if (!text) return flash("Couldn’t make the link. Try again.");
+  tally("share_link_copied"); // after the save: a link that was never made is not a copy
+  if (copied) flash(msg);
+  else showLinkFallback(text, title);
+}
 function copyShare() {
-  // a draft has no shareCode/token yet — nudge instead of copying a broken link
-  if (!snapshot.value?.shareCode) return flash("Add an item first to share");
-  tally("share_link_copied"); // after the guard: a refused copy is not a copy
-  copy(readUrl.value, "Read-only link copied", "Read-only link");
+  void copyLink(() => readUrl.value, "Read-only link copied", "Read-only link");
 }
 async function copyEditLink() {
   // a claimed open holds no edit link to copy — the server only ever stored its
   // hash, so this device can't produce one without rotating (which mints a new one)
   if (!c.editToken && c.claimCode)
     return flash("This device doesn’t hold the edit link. Replace it in Sharing to get one");
-  if (!c.editToken) return flash("Add an item first to get an edit link");
   if (!(await askConfirm({
     title: "Copy the edit link?",
     message: "Anyone with it can edit this list. Only send it to people you trust.",
     confirmLabel: "Copy link",
   }))) return;
-  tally("share_link_copied"); // after the confirm: a cancelled copy is not a copy
+  // after the confirm: a cancelled copy is not a copy, and saves nothing
   // /e/{shareCode}#{token} so link previews (Apple Notes/iMessage) show the name;
-  copy(editUrl.value, "Edit link copied", "Edit link");
+  void copyLink(() => editUrl.value, "Edit link copied", "Edit link");
 }
 async function rotate() {
   if (!(await askConfirm({

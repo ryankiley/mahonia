@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "A list gets its links as soon as you ask for them, even with nothing in it yet."
+  ],
+  "fixed": [
+    "The dismiss mark on the “Pick up where you left off” hint sits level with its text.",
+    "The sharing panel’s first line holds still between Share and Export.",
+    "The sharing panel keeps its width on a large phone or a narrow window."
+  ]
+}

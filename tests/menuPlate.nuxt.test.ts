@@ -22,11 +22,15 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+// the mounted menu's `rest`, for the one case that calls it from outside
+let restPlate: () => void = () => {};
+
 // A menu the way every consumer builds one: the plate as the list's first child, rows
 // marked [data-row], the `on` handlers on the list.
 const Menu = defineComponent({
   setup() {
-    const { plateRef, listRef, on } = useMenuPlate();
+    const { plateRef, listRef, rest, on } = useMenuPlate();
+    restPlate = rest;
     return () =>
       h("ul", { ref: listRef, class: "menu__list", onPointerover: on.pointerover, onPointerleave: on.pointerleave, onFocusin: on.focusin, onFocusout: on.focusout }, [
         h("span", { ref: plateRef, class: "menu__plate" }),
@@ -82,5 +86,25 @@ describe("the menu plate and the keyboard", () => {
     // ...and out of the card altogether: nothing is plated
     await w.find("ul").trigger("pointerleave");
     expect(w.findAll("[data-plated]")).toHaveLength(0);
+  });
+});
+
+// A card whose content is swapped for something shorter (the sharing panel's tabs) can't
+// leave the plate parked where the taller content's row was: the card scrolls, and a
+// parked plate is part of what it scrolls over.
+describe("the menu plate when its rows are replaced", () => {
+  it("goes home unseen and unanimated, and stands on nothing", async () => {
+    const { plate, row, added } = await mountMenu();
+    row("three").dispatchEvent(new PointerEvent("pointerover", { bubbles: true }));
+    expect(plate.style.transform).not.toBe("");
+    added.length = 0;
+
+    restPlate();
+    expect(plate.style.transform).toBe("");
+    expect(plate.style.height).toBe("");
+    expect(plate.classList.contains("is-on")).toBe(false);
+    expect(added).toEqual(["is-placing"]); // moved without its travel...
+    expect(plate.classList.contains("is-placing")).toBe(false); // ...and that comes off again
+    expect(row("three").hasAttribute("data-plated")).toBe(false);
   });
 });

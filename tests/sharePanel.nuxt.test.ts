@@ -46,6 +46,10 @@ mockNuxtImport("useListExports", () => (_snap: unknown, flash: (msg: string) => 
 const signedIn = ref(true);
 mockNuxtImport("useSession", () => () => ({ signedIn }));
 
+// the connection, which only a draft's links depend on
+const online = ref(true);
+mockNuxtImport("useOnline", () => () => online);
+
 const claimedLists = ref<ClaimedList[]>([]);
 const claimedLoaded = ref(true);
 const claimOne = vi.fn(async (_token: string) => true);
@@ -97,6 +101,7 @@ beforeEach(() => {
   flash.mockClear();
   ran.length = 0;
   signedIn.value = true;
+  online.value = true;
   claimedLists.value = [];
   claimedLoaded.value = true;
   claimOne.mockClear();
@@ -269,9 +274,56 @@ describe("SharePanel — the tabs", () => {
     expect(flash).toHaveBeenCalledWith("csv done");
   });
 
-  it("is one line and no tabs on a draft, which has no links and nothing to export", () => {
-    const w = mountPanel({ shareCode: "" });
-    expect(tabs(w)).toHaveLength(0);
-    expect(w.text()).toContain("Add an item");
+});
+
+// A draft has no server row: nothing real in it yet, or its first save hasn't landed.
+// Asking for a link is what saves it (the editor's side, see copyLink), so the panel
+// offers the same two copies and leaves out only what needs the row to exist.
+describe("SharePanel — a list that isn't saved yet", () => {
+  const draft = () => mountPanel({ shareCode: "", editToken: "" });
+  const rowNames = (w: ReturnType<typeof mountPanel>) =>
+    w.findAll('[role="tabpanel"] .menu__item').map((r) => r.attributes("aria-label") ?? r.text().trim());
+  const exportTab = (w: ReturnType<typeof mountPanel>) => w.findAll('[role="tab"]')[1]!;
+
+  it("offers both links, and nothing that needs a saved list", () => {
+    const w = draft();
+    expect(rowNames(w)).toEqual(["Copy read-only link", "Copy edit link"]);
+    expect(w.text()).not.toContain("Add an item");
+  });
+
+  it("asks the editor for the link exactly as a saved list does", async () => {
+    const w = draft();
+    await w.findAll(".share__row")[0]!.trigger("click");
+    await w.findAll(".share__row")[1]!.trigger("click");
+    expect(w.emitted().copyRead).toHaveLength(1);
+    expect(w.emitted().copyEdit).toHaveLength(1);
+  });
+
+  it("doesn't ask the server what changed on a list it has never seen", async () => {
+    let asked = 0;
+    registerEndpoint("/api/edit/snapshots", () => (asked++, { snapshots: [] }));
+    draft();
+    await flushPromises();
+    expect(asked).toBe(0);
+  });
+
+  it("says so in a line when there is no connection to save it over", () => {
+    online.value = false;
+    const w = draft();
+    expect(rowNames(w)).toEqual([]);
+    expect(w.text()).toContain("You’re offline. Links need a connection.");
+  });
+
+  it("still exports offline, without the card that offers the link", async () => {
+    online.value = false;
+    const w = draft();
+    await exportTab(w).trigger("click");
+    expect(w.text()).not.toContain("Sending this to someone?");
+    expect(rowNames(w)).toEqual(["Export text", "Export markdown", "Export csv", "Export json"]);
+  });
+
+  it("keeps a saved list's links offline: they exist already", () => {
+    online.value = false;
+    expect(rowNames(mountPanel())).toContain("Copy read-only link");
   });
 });

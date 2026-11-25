@@ -95,6 +95,9 @@ function create() {
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let flushFailures = 0;
   let inFlight = false;
+  // The draft's create while one is out, so a link asked for mid-create (saveDraft)
+  // waits on that one instead of starting a second.
+  let creating: Promise<void> | undefined;
   let pollTimer: ReturnType<typeof setTimeout> | undefined;
   let polling = false;
   // when the list last showed a sign of life — a local edit, a change adopted from
@@ -538,6 +541,7 @@ function create() {
     stopPoll();
     pending = [];
     inFlight = false;
+    creating = undefined;
     isEditing = false;
     // the vault question is about THIS list — an unanswered one must not ride
     // along to the next list opened (where it would ask about the wrong gear,
@@ -768,11 +772,37 @@ function create() {
     });
   }
 
-  // Persist a draft to the server on its first real content. The created snapshot
+  // Persist a draft to the server: on its first real content, or sooner when its
+  // links are asked for (saveDraft). The created snapshot
   // keeps the client-side folder/item ids (the create path normalizes but preserves
   // ids), so adopting it doesn't disturb focus or references. Ops typed during the
   // round-trip are queued and flushed right after.
-  async function createFromDraft() {
+  function createFromDraft(): Promise<void> {
+    if (creating) return creating;
+    const run: Promise<void> = runCreate().finally(() => {
+      if (creating === run) creating = undefined;
+    });
+    return (creating = run);
+  }
+
+  /**
+   * Save a draft NOW because someone asked for one of its links, whatever it holds.
+   * The first-real-content rule is about not leaving a row behind for a visitor who
+   * only looked; asking for a link is the plainest statement that this list is meant
+   * to exist, and a trip set up with a title, a trail and its people, sent round for
+   * everyone to add their gear to, has no item in it yet. Resolves to whether there
+   * is a list to link to: false offline, and false when the create fails (the caller
+   * says so; nothing here retries an empty draft).
+   */
+  async function saveDraft(): Promise<boolean> {
+    if (holdsList()) return true;
+    if (!snapshot.value || !online.value) return false;
+    const myEpoch = epoch;
+    await createFromDraft();
+    return myEpoch === epoch && holdsList();
+  }
+
+  async function runCreate() {
     // a claimed open is a SAVED list too — letting it fall through here would mint a
     // duplicate of it under a fresh token
     if (inFlight || holdsList() || !snapshot.value) return;
@@ -834,6 +864,13 @@ function create() {
       // the next success replayed it over everything typed since: a weight changed
       // after the failure went back to its mid-create value, a deleted row came back.
       pending = [];
+      // An empty draft was only being saved because its link was asked for, and the
+      // asker is told (saveDraft). By the content rule nothing here is unsaved, so the
+      // sync line has no "Not saved" to show and there is nothing to retry.
+      if (!snapshot.value || !hasRealContent(snapshot.value)) {
+        setStatus("synced");
+        return;
+      }
       setStatus("error");
       // retry while there's still un-persisted content, backing off the way a failing
       // flush does (and on the same timer, so a list switch cancels it)
@@ -1346,7 +1383,7 @@ function create() {
     keylessCode,
     startKeyless,
     authHeaders,
-    load, retryLoad, startDraft, dispose, rotate,
+    load, retryLoad, startDraft, saveDraft, dispose, rotate,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     vaultAuto, vaultDeclined,
