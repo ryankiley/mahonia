@@ -1,5 +1,5 @@
 // Shared reader for the cited research JSON in seed/_research/*.json — used by both
-// build-catalog.ts (emits the CSV) and audit-catalog.ts (accuracy gate). The row
+// catalogBuild.ts (builds the CSV) and audit-catalog.ts (accuracy gate). The row
 // SHAPE and the read-every-file-and-parse loop were duplicated across the two; the
 // per-row VALIDATION is intentionally different and stays in each script.
 
@@ -197,7 +197,7 @@ const RESEARCH_TEXT_FIELDS = [
 /** The reader owns basic JSON shape, so downstream per-row checks can report bad
  * values instead of crashing on an untyped scalar's `.trim()` / `.toLowerCase()`.
  * It deliberately leaves semantic checks (required fields, units, attribute forms)
- * to build-catalog and researchChecks, where their specific diagnostics belong. */
+ * to catalogBuild and researchChecks, where their specific diagnostics belong. */
 function researchRowProblem(raw: unknown, position: number): string | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return `row ${position} must be an object`;
   const row = raw as Record<string, unknown>;
