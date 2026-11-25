@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "Packing no longer prints ×1 beside every single item.",
+    "An item with no weight shows a dash in the editor, as it does everywhere else.",
+    "Folder names on a shared list are headings, so a screen reader can move between them.",
+    "The keyboard focus ring on a unit menu no longer touches the number beside it."
+  ],
+  "fixed": [
+    "An item whose weight already reads the same as the catalog's no longer shows a Catalog note under it.",
+    "On a shared list, a group's name is no longer a web-search link.",
+    "A screen reader now hears which item or folder each row button belongs to."
+  ]
+}

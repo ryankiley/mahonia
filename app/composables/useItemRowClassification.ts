@@ -52,13 +52,15 @@ export function useItemRowClassification({
   const wornTitle = computed(() =>
     activeSplit.value > 0 ? `${activeSplit.value} of ${item.value.qty} worn` : "Worn",
   );
+  // The two toggles' accessible names say WHICH row, as the stepper's and the grip's do:
+  // a list of twenty read "Consumable: no" twenty times. They still open with the word
+  // on the tooltip (WCAG 2.5.3), and the state closes the name.
+  const named = () => item.value.name || "item";
   const wornAria = computed(() =>
     activeSplit.value > 0
-      ? `Worn: ${activeSplit.value} of ${item.value.qty}`
-      : isWorn.value
-        ? "Worn: yes"
-        : "Worn: no",
+      ? `Worn for ${named()}: ${activeSplit.value} of ${item.value.qty}`
+      : `Worn for ${named()}: ${isWorn.value ? "yes" : "no"}`,
   );
-  const consumableAria = computed(() => (isConsumable.value ? "Consumable: yes" : "Consumable: no"));
+  const consumableAria = computed(() => `Consumable for ${named()}: ${isConsumable.value ? "yes" : "no"}`);
   return { activeSplit, consumableAria, isConsumable, isWorn, setClass, setWornCount, splitOffered, wornAria, wornCount, wornTitle };
 }

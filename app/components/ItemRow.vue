@@ -1121,10 +1121,11 @@ const overflowActions = computed(() => {
     acts.push({ label: vaultLabel.value, icon: vaultSaved.value ? IconCheckmark1Medium : IconSafeSimple, run: onSaveToVault });
   // LAST, the way the destructive icon sat last in the desktop cluster — a menu is a
   // list you read top to bottom, so the one irreversible entry belongs at the end of
-  // it rather than under the thumb. "Remove item" here and in the icon's aria-label:
-  // a menu row and a screen reader both arrive without the row in front of them, so
-  // both name the thing. Only the TOOLTIP drops the noun, because it is pinned to the
-  // very row it would remove.
+  // it rather than under the thumb. "Remove item" here, where the icon's tooltip says
+  // "Remove": a menu row arrives without the row in front of it, so it names the thing,
+  // and the tooltip drops the noun because it is pinned to the very row it would remove.
+  // (The icon's aria-label goes one further and names the row itself, as this menu's
+  // trigger does.)
   acts.push({ label: "Remove item", icon: IconTrashCan, run: () => c.removeItem(props.item.id) });
   return acts;
 });
@@ -1134,13 +1135,16 @@ const overflowActions = computed(() => {
 // A plain free-typed override (no catalog link) never nags.
 // (Its old `!packed` term moved to CSS with the rest of the mode gating — packing
 // hides the whole under-row reveal; atoms/item.scss.)
+// "Diverges" is judged as the row READS, in its own unit: grams print no decimals, so
+// a catalog 887,340 mg under an imported 887,000 said "Catalog: 887 g" beneath a row
+// already reading 887 g. Milligrams the row can't show are not a disagreement.
 const correction = useCatalogCorrection();
 const showFix = computed(
   () =>
     props.item.catalogItemId != null &&
     props.item.catalogWeightMgAtLink != null &&
     props.item.unitWeightMg > 0 &&
-    props.item.unitWeightMg !== props.item.catalogWeightMgAtLink,
+    formatWeight(props.item.unitWeightMg, rowUnit.value) !== formatWeight(props.item.catalogWeightMgAtLink, rowUnit.value),
 );
 function openFix() {
   if (props.item.catalogItemId == null || props.item.catalogWeightMgAtLink == null) return;
@@ -1239,8 +1243,11 @@ function dismissFix() {
            there would be multiplying a figure it is already part of. The widening class
            goes with the label — a group CAN carry a split (qty is not a term in
            isBareGroup), and left on an empty cell it would widen the amount track for
-           every row on the page on the strength of a figure nothing prints. -->
-      <span class="t-num t-sm t-muted item__cqty" :class="{ 'item__qty--split': activeSplit && !bareGroup }">{{ itemQtyLabel(item, effClass, { group: bareGroup }) }}</span>
+           every row on the page on the strength of a figure nothing prints.
+           `hideSingle` blanks a plain "×1", as the share row does and for its reason
+           (itemQtyLabel): a column where nearly every cell says the same thing has to
+           be read past to find the rows that carry a count. -->
+      <span class="t-num t-sm t-muted item__cqty" :class="{ 'item__qty--split': activeSplit && !bareGroup }">{{ itemQtyLabel(item, effClass, { hideSingle: true, group: bareGroup }) }}</span>
       <!-- the empty unit slot keeps the zero placeholder in the number's place rather
            than out at the cell's edge — same as the read row's -->
       <span class="t-num item__cweight"><template v-if="rowWeightMg > 0">{{ formatWeight(rowWeightMg, rowUnit, { withUnit: false }) }}<span class="t-muted item__wunit">{{ rowUnit }}</span></template><template v-else>—<span class="item__wunit" /></template></span>
@@ -1524,7 +1531,7 @@ function dismissFix() {
           <input
             class="field field--num"
             :value="isParent ? groupWeight : weightDisplay"
-            placeholder="--"
+            placeholder="—"
             aria-label="Weight"
             autocomplete="off"
             autocorrect="off"
@@ -1556,7 +1563,7 @@ function dismissFix() {
             class="item__unitwrap"
             :options="WEIGHT_UNIT_OPTIONS"
             :current="rowUnit"
-            :label="isParent ? 'Weight unit for this group' : 'Weight unit for this item'"
+            :label="`Weight unit for ${item.name || (isParent ? 'this group' : 'this item')}`"
             :title="`Unit for ${item.name || (isParent ? 'this group' : 'this item')}`"
             @pick="(u) => onRowUnit(u as Unit)"
           >
@@ -1902,13 +1909,16 @@ function dismissFix() {
                  item__nestact: stands down while a person filter is on (atoms/item.scss)
                  — "the item above" is unfiltered order, so indent could target a row the
                  CSS is hiding, and a nested row inherits its parent, so either action
-                 can make the row vanish from the very view it was touched in. -->
+                 can make the row vanish from the very view it was touched in.
+                 The trigger's NAME carries the row, like the grip's; the tooltip and
+                 the list keep the bare word. -->
             <ItemRowMenu
               v-if="nestActions.length"
               class="item__nest item__nestact"
               :row-id="item.id"
               kind="nest"
               label="Group"
+              :trigger-label="`Group for ${item.name || 'item'}`"
               :icon="IconCodeTree"
               trigger-class="item__nest-btn"
               tooltip
@@ -1963,7 +1973,7 @@ function dismissFix() {
               <button
                 class="btn btn--icon btn--ghost item__dup ink-quiet"
                 type="button"
-                aria-label="Duplicate item"
+                :aria-label="`Duplicate ${item.name || 'item'}`"
                 @mousedown.prevent
                 @click="c.duplicateItem(item.id)"
               >
@@ -1971,14 +1981,16 @@ function dismissFix() {
               </button>
             </Tooltip>
             <!-- "Remove", not "Remove item": the tooltip hangs off the row it acts on, so
-                 the noun names something already on screen. The ACCESSIBLE name keeps it
-                 ("Remove item" below) — a screen reader reaches this button with no such
-                 context — and WCAG 2.5.3 is satisfied either way, since the accessible
-                 name contains the visible word. Same split as Duplicate beside it. -->
+                 the noun names something already on screen. The ACCESSIBLE name says
+                 WHICH row ("Remove X-Mid 2" below, "Remove item" on an unnamed one) — a
+                 screen reader reaches this button with no such context, and twenty
+                 buttons named "Remove item" told it nothing — and WCAG 2.5.3 is
+                 satisfied either way, since the accessible name opens with the visible
+                 word. Same split as Duplicate beside it. -->
             <Tooltip text="Remove" preferred-placement="top">
               <button
                 class="btn btn--icon btn--ghost item__del ink-quiet"
-                aria-label="Remove item"
+                :aria-label="`Remove ${item.name || 'item'}`"
                 @mousedown.prevent
                 @click="c.removeItem(item.id)"
               >
@@ -1995,6 +2007,7 @@ function dismissFix() {
               :row-id="item.id"
               kind="menu"
               label="More actions"
+              :trigger-label="`More actions for ${item.name || 'item'}`"
               menu-label="Item actions"
               :icon="IconCircleDotsCenter1"
               trigger-class="menu__btn item__morebtn"
@@ -3286,7 +3299,7 @@ function dismissFix() {
      nothing left to shrink — it just holds its size beside the other controls.
      THE AUTO MARGIN LIVES HERE, not on .item__actions. The weight field is
      field-sizing: content, so anything that simply follows it starts at a different x
-     on every row: "--" vs "12,250" swung these two toggles ~39px down a list while the
+     on every row: "—" vs "12,250" swung these two toggles ~39px down a list while the
      right-anchored actions held still, so the tap targets you reach for most never
      formed a column. Pushing the cell right instead parks it against the actions —
      both clusters then ride the row's right edge, on every row, and the desktop grid's
@@ -3448,7 +3461,7 @@ function dismissFix() {
       padding-inline: 1px;
     }
     /* `field-sizing: content` measures the VALUE, and an empty field has none — so it
-       falls back to min-width while still drawing a two-character "--", which then
+       falls back to min-width while still drawing its "—" placeholder, which then
        clips. Only the empty state needs the room, so only the empty state is given it:
        a filled field keeps sizing to its own digits, which is what stops one-digit
        values sitting in an over-wide box. */

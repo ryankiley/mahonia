@@ -22,6 +22,11 @@ const props = defineProps<{
   kind: string;
   /** the trigger's accessible name, and its tooltip when `tooltip` is on */
   label: string;
+  /** a fuller accessible name for the TRIGGER alone, when a list of rows each carries
+   *  this menu: "Nesting for X-Mid 2" over a tooltip that says "Nesting" (it hangs off
+   *  the row, so the noun is on screen). It opens with `label`, so the name still
+   *  contains the visible word. */
+  triggerLabel?: string;
   /** the list's accessible name, when it reads differently from the trigger's —
    *  "Who carries this" under a trigger named "Carried by Sam" */
   menuLabel?: string;
@@ -75,7 +80,7 @@ function toggle() {
         type="button"
         aria-haspopup="menu"
         :aria-expanded="isOpen"
-        :aria-label="label"
+        :aria-label="triggerLabel ?? label"
         @mousedown.prevent
         @click="toggle"
       >
