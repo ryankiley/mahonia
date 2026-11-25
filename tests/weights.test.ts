@@ -340,7 +340,7 @@ describe("formatWeight", () => {
     expect(formatWeight(2_000, "lb", { raw: true })).toBe("0 lb");
     expect(formatWeight(2_000, "lb", { withUnit: false, raw: true })).toBe("0");
   });
-  // The share views (/l, /s) render weights server-side, so the separators must not
+  // The share view (/s) renders weights server-side, so the separators must not
   // depend on the ambient locale — the render lambda's and the visitor's differ, and
   // the mismatch shows up as a hydration patch after paint. Asserting against an
   // explicitly non-en formatter proves the pin holds regardless of where this runs.

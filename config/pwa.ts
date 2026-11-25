@@ -102,8 +102,8 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
       // a copy of the page itself. Only /e had this at first, so an installed app that
       // reopened on /gear, or a reload there, was the browser's error page while every
       // chunk the page needed sat in the precache (2026-11-09). The static pages'
-      // payloads are precached by the glob, so the shell renders them whole. /l and /s
-      // have their own rules below; /authorize and /auth/callback need the network.
+      // payloads are precached by the glob, so the shell renders them whole. /s has its
+      // own rules below; /authorize and /auth/callback need the network.
       //
       // It used to be a runtime cache of each page (NetworkFirst, 16 entries, a
       // week), and that copy was broken offline after any deploy: its HTML names the
@@ -115,7 +115,7 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
       // so nothing on /e/{shareCode} offline needs that route's own HTML; /gear draws
       // the account's gear from this device's copy (app/utils/gearCopy.ts).
       {
-        // Navigations only, matched on the path: /api/l/e or /e/_payload.json must
+        // Navigations only, matched on the path: /api/s/e or /e/_payload.json must
         // never be answered with app HTML. The pattern is written inline because
         // Workbox copies this function's source into sw.js, where nothing outside it
         // exists.
@@ -127,10 +127,10 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
         // would store the page — the copy this rule exists not to keep.
         options: { precacheFallback: { fallbackURL: "/_shell" } },
       },
-      // public + shared read views — cached so a previously-opened list still
-      // renders offline. /s (the share-code read) is included alongside /l: it's
-      // the most-shared link shape, and its API also feeds the /e/{shareCode}
-      // SSR head. The DATA is stale-while-revalidate (JSON references no hashed
+      // the shared read view (/s) — cached so a previously-opened list still
+      // renders offline; its API also feeds the /e/{shareCode} SSR head. (The
+      // public /l pages these rules also covered were retired with publishing.)
+      // The DATA is stale-while-revalidate (JSON references no hashed
       // assets, so staleness is only content-lag); the page HTML is NetworkFirst
       // like the /e shell — SWR-serving week-old HTML can reference hashed
       // /_nuxt assets that no longer exist after a redeploy (once the SW has
@@ -138,7 +138,7 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
       // page for an ONLINE user. NetworkFirst costs one network round-trip when
       // online and still falls back to cache offline.
       {
-        urlPattern: /\/api\/[ls]\/.*/,
+        urlPattern: /\/api\/s\/.*/,
         handler: "StaleWhileRevalidate",
         options: {
           cacheName: "mahonia-list-data",
@@ -146,7 +146,7 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
         },
       },
       {
-        urlPattern: /\/[ls]\/[^/]+$/,
+        urlPattern: /\/s\/[^/]+$/,
         handler: "NetworkFirst",
         options: {
           cacheName: "mahonia-list-pages",

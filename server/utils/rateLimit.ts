@@ -167,7 +167,7 @@ const RATE_LIMITS = {
   // owner-only, rare: whole-list delete + edit-token rotation
   "delete": 20,
   "rotate": 20,
-  // public read views (/l, /s) — edge-cached, so origin hits are rare; a generous
+  // the public read view (/s) — edge-cached, so origin hits are rare; a generous
   // per-IP cap bounds cache-busted floods
   "public-read": 120,
   // the MCP endpoint (/mcp). Its traffic arrives from a handful of fixed addresses:

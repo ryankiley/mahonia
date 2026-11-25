@@ -81,6 +81,25 @@ describe("the app shell offline", () => {
   });
 });
 
+// A list opened from a share link still opens with no network: its data and its page
+// each have a cache. The retired /l pages had the same pair and are not matched now.
+describe("the shared read view offline", () => {
+  const cacheFor = (path: string) =>
+    rules.find((r) => r.urlPattern instanceof RegExp && r.urlPattern.test(`https://mahonia.app${path}`))?.options
+      ?.cacheName;
+
+  it("keeps a share link's data and its page", () => {
+    expect(cacheFor("/api/s/ABC123")).toBe("mahonia-list-data");
+    expect(cacheFor("/s/ABC123")).toBe("mahonia-list-pages");
+  });
+
+  it("caches nothing else: not the retired /l, not the account's own lists", () => {
+    for (const path of ["/l/trip-a1b2c3", "/api/l/trip-a1b2c3", "/api/lists/mine", "/api/vault/list", "/s/"]) {
+      expect(cacheFor(path), path).toBeUndefined();
+    }
+  });
+});
+
 // The installed app's identity and its long-press menu. The manifest is hand-written
 // JSON (pwa.manifest is false), so nothing else would notice a shortcut pointing at a
 // page the worker can't open offline.
