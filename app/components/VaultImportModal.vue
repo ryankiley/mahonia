@@ -91,7 +91,7 @@ const summary = computed(() => {
 
 <template>
   <BaseModal :open="open" label="Import gear" @close="emit('close')">
-    <h2 class="t-label">Import gear</h2>
+    <h2 class="t-label panel__title">Import gear</h2>
 
     <template v-if="state.step === 'done'">
       <p class="dlg__lede">{{ summary }}</p>
@@ -113,6 +113,7 @@ const summary = computed(() => {
         class="field well vimport__text"
         rows="5"
         placeholder="A CSV like Folder,Item Name,Brand,Weight,Unit… or a JSON backup from “Download JSON”"
+        aria-label="CSV or JSON backup"
       />
 
       <p v-if="error" class="t-sm vimport__err">{{ error }}</p>

@@ -261,21 +261,23 @@ useHead({
             >
             and choose “Sign in when needed”. It works in Claude Code too.
           </li>
+          <!-- each name once, as its own install link: it read "Cursor and VS Code: one
+               click, for Cursor or VS Code." -->
           <li>
-            <strong>Cursor</strong> and <strong>VS Code</strong>: one click, for
             <a
               href="https://cursor.com/install-mcp?name=mahonia&config=eyJ1cmwiOiJodHRwczovL21haG9uaWEuYXBwL21jcCJ9"
               target="_blank"
               rel="noopener noreferrer"
-              >Cursor</a
+              ><strong>Cursor</strong></a
             >
-            or
+            and
             <a
               href="https://insiders.vscode.dev/redirect/mcp/install?name=mahonia&config=%7B%22type%22%3A%22http%22%2C%22url%22%3A%22https%3A%2F%2Fmahonia.app%2Fmcp%22%7D"
               target="_blank"
               rel="noopener noreferrer"
-              >VS Code</a
-            >.
+              ><strong>VS Code</strong></a
+            >
+            each add Mahonia in one click.
           </li>
           <li>
             <strong>ChatGPT</strong>: in Settings, turn on Developer mode and add the address with

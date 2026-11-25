@@ -453,4 +453,31 @@ describe("the /gear page's words and names", () => {
     const w = await openPage();
     expect(w.get(".gear__name").attributes("title")).toBe("Brand Ether Light XT Insulated Air Sleeping Mat Regular Wide");
   });
+
+  it("searches and sorts your gear, and the sort trigger says the order it shows", async () => {
+    listRows = [entry(1, "Tent"), entry(2, "Quilt")];
+    const w = await openPage();
+    const search = w.get(".vault__searchwrap input");
+    expect(search.attributes("placeholder")).toBe("Search your gear…");
+    expect(search.attributes("aria-label")).toBe("Search your gear");
+
+    // an aria-label replaces the trigger's contents, so it has to carry the order too
+    const sort = w.get(".vault__view .optmenu__btn");
+    expect(sort.text()).toBe("By kind");
+    expect(sort.attributes("aria-label")).toBe("By kind, change how your gear is sorted");
+    await sort.trigger("click");
+    expect(w.get(".vault__view [role='menu']").attributes("aria-label")).toBe("Sort your gear");
+    await w.findAll(".menu__item").find((b) => b.text().includes("Heaviest"))!.trigger("click");
+    expect(sort.attributes("aria-label")).toBe("Heaviest, change how your gear is sorted");
+  });
+
+  it("opens the feedback box from the ⋯ menu", async () => {
+    listRows = [entry(1, "Tent")];
+    const w = await openPage();
+    useFeedback().close();
+    await w.get(".menu__btn[aria-label='More actions']").trigger("click");
+    await w.findAll('[role="menuitem"]').find((r) => r.text() === "Send feedback…")!.trigger("click");
+    expect(useFeedback().state.open).toBe(true);
+    useFeedback().close();
+  });
 });

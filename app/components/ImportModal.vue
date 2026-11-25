@@ -29,6 +29,10 @@ const error = ref("");
 // sent, but closing is still an answer: what comes back afterwards must not go on to the
 // next step, write into a form that has moved on, or take you off the list you stayed on.
 let opening = 0;
+// Where a backup comes from, by the words the editor shows: the row is "JSON" on the
+// Sharing panel's Export tab. "Download JSON" is only that row's aria-label here (it is
+// the visible label in the read view's and My Gear's menus), and Help says it this way.
+const BACKUP_FROM = "Make one from the Export tab in Sharing.";
 
 // fresh form each time the dialog is opened
 watch(
@@ -135,7 +139,7 @@ async function importFromText() {
   if (raw.startsWith("{")) {
     const parsed = jsonToListImport(raw);
     if (parsed) return createFrom(parsed);
-    error.value = "That looks like JSON, but not a list backup. Use “Download JSON” to make one.";
+    error.value = `That looks like JSON, but not a list backup. ${BACKUP_FROM}`;
     return;
   }
   // otherwise treat the pasted text as CSV/TSV — parsed client-side
@@ -153,7 +157,7 @@ function importFile(text: string, file: File) {
     const parsed = jsonToListImport(text);
     if (parsed) return void createFrom(parsed);
     if (isJson) {
-      error.value = "Couldn’t read that file as a list backup. Use “Download JSON” to make one.";
+      error.value = `Couldn’t read that file as a list backup. ${BACKUP_FROM}`;
       return;
     }
   }
@@ -163,7 +167,7 @@ function importFile(text: string, file: File) {
 
 <template>
   <BaseModal :open="open" label="Import a list" @close="emit('close')">
-    <h2 class="t-label">Import a list</h2>
+    <h2 class="t-label panel__title">Import a list</h2>
     <!-- Two things nothing else on screen says: that the file picker takes the app's
          own JSON backup (its accept filter is invisible until the picker opens), and
          that an import ARRIVES as a new list rather than merging into the one you're
@@ -187,12 +191,13 @@ function importFile(text: string, file: File) {
       class="field well import__text"
       rows="5"
       placeholder="https://lighterpack.com/r/… or paste a CSV"
+      aria-label="LighterPack link or CSV"
     />
     <!-- the column order stays on screen: as a placeholder it vanished on the first
          keystroke, exactly when someone composing a CSV by hand needs it -->
     <p class="t-sm t-muted import__hint">
       A CSV needs a header row: Category, Item Name, Qty, Weight, Unit, Worn, Consumable.
-      A file can also be a backup from “Download JSON”.
+      A file can also be a JSON backup from the Export tab in Sharing.
     </p>
 
     <p v-if="error" class="t-sm import__err">{{ error }}</p>

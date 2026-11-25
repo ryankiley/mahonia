@@ -240,22 +240,69 @@ function currencyOf(v: unknown): string | undefined {
  * linked capture takes its live successor's id, so the link outlives the row it was
  * picked under. Best effort, like capture itself: if the catalog can't be read, the
  * gear is captured as the list spells it rather than not at all.
+ *
+ * The same read answers what KIND each pick is (`kinds`, by live id), for the upsert
+ * to file a piece that names none of its own (fillKinds).
  */
-async function respellCatalogPicks(db: Db, caps: VaultCapture[]): Promise<VaultCapture[]> {
+async function respellCatalogPicks(db: Db, caps: VaultCapture[]): Promise<{ caps: VaultCapture[]; kinds: CatalogKinds }> {
+  const kinds: CatalogKinds = new Map();
   const ids = caps.flatMap((c) => (c && isSerialId(c.catalogItemId) ? [c.catalogItemId] : []));
-  if (!ids.length) return caps;
+  if (!ids.length) return { caps, kinds };
   let live: Map<number, CatalogSearchResult>;
   try {
     live = await liveCatalogRows(db, ids);
   } catch {
-    return caps;
+    return { caps, kinds };
   }
-  return caps.map((c) => {
+  for (const row of live.values()) {
+    const kind = str(row.commonName, VAULT_SHORT_MAX);
+    if (kind) kinds.set(row.id, kind);
+  }
+  const spelled = caps.map((c) => {
     const row = c && isSerialId(c.catalogItemId) ? live.get(c.catalogItemId) : undefined;
     if (!row) return c;
     if (c.catalogSpelling !== true) return { ...c, catalogItemId: row.id };
     return { ...c, catalogItemId: row.id, brand: row.brand ?? undefined, name: row.name, variant: row.variant ?? undefined };
   });
+  return { caps: spelled, kinds };
+}
+
+/** The gear type the catalog gives each linked pick, by the live catalog row's id. */
+type CatalogKinds = Map<number, string>;
+
+/**
+ * A catalog pick captured with no gear type of its own files under the catalog's.
+ *
+ * A list row nested under a group hands its gear type up to the group (the group is
+ * "Tent", the X-Mid 2 inside it is cleared), so a piece that first reached My Gear from
+ * inside one arrived with no kind and filed under "Other". FILL ONLY, which is why it
+ * is a write of its own and not a value in the upsert: a kind the row already has stands
+ * (the coalesce there would let this one replace it, and two lists would trade kinds on
+ * every capture), and so does one cleared by hand on /gear, which is pinned. A piece
+ * with no catalog link has nothing to fall back on and stays as it is.
+ *
+ * On the server, from the catalog as it is now, so a capture from another device and
+ * the sign-in backfill get the same answer. One statement, and none at all unless a
+ * linked capture came without a kind.
+ */
+async function fillKinds(db: Db, vaultId: number, caps: VaultCapture[], kinds: CatalogKinds): Promise<void> {
+  const fills = caps.flatMap((c) => {
+    const kind = c.commonName == null && c.catalogItemId != null ? kinds.get(c.catalogItemId) : undefined;
+    return kind ? [{ key: c.normKey, kind }] : [];
+  });
+  if (!fills.length) return;
+  const whens = sql.join(fills.map((f) => sql`when ${f.key} then ${f.kind}`), sql` `);
+  await db
+    .update(vaultItems)
+    .set({ commonName: sql`case ${vaultItems.normKey} ${whens} end` })
+    .where(
+      and(
+        eq(vaultItems.vaultId, vaultId),
+        inArray(vaultItems.normKey, fills.map((f) => f.key)),
+        isNull(vaultItems.commonName),
+        eq(vaultItems.commonNamePinned, false),
+      ),
+    );
 }
 
 /** Re-derive the identity server-side rather than trusting the client's normKey —
@@ -324,6 +371,8 @@ function sanitize(caps: VaultCapture[]): VaultCapture[] {
  *  • common name / classification / kcal / catalog link — coalesce: a capture
  *    that carries the field sets it, one that doesn't leaves what's there. These
  *    accumulate rather than flip-flop as the same gear appears in different lists.
+ *    A catalog pick that carries no common name fills a missing one from the
+ *    catalog (fillKinds).
  *  • removed_at — UNTOUCHED. Capture is automatic, so if it cleared the tombstone
  *    every list still holding the item would resurrect it and "remove" would mean
  *    nothing. Only an explicit restore (or re-add from /gear) clears it.
@@ -343,7 +392,8 @@ export async function captureVaultItemsReporting(
   caps: VaultCapture[],
   { overwriteWeight = false }: { overwriteWeight?: boolean } = {},
 ): Promise<{ keys: VaultGearKey[]; full: boolean }> {
-  return upsertCaptures(db, vaultId, sanitize(await respellCatalogPicks(db, caps)), { overwriteWeight });
+  const { caps: spelled, kinds } = await respellCatalogPicks(db, caps);
+  return upsertCaptures(db, vaultId, sanitize(spelled), { overwriteWeight, kinds });
 }
 
 /**
@@ -453,7 +503,7 @@ async function upsertCaptures(
   db: Db,
   vaultId: number,
   clean: VaultCapture[],
-  { overwriteWeight }: { overwriteWeight: boolean },
+  { overwriteWeight, kinds }: { overwriteWeight: boolean; kinds: CatalogKinds },
 ): Promise<{ keys: VaultGearKey[]; full: boolean }> {
   // The ceiling: new keys past it are dropped silently, since capture is an
   // automatic side effect of editing a list and refusing loudly would put an error
@@ -506,6 +556,7 @@ async function upsertCaptures(
     // deleted by one and folded to a gap by the other), and each divergence read
     // as "the vault refused this row" on a row it had stored correctly.
     .returning();
+  await fillKinds(db, vaultId, fit, kinds);
   // LIVE rows only. The upsert deliberately leaves `removed_at` alone, so gear you
   // put away on /gear is written and stays put away — the row comes back here, and
   // the caller must not be told it landed.
@@ -1461,8 +1512,9 @@ export async function captureKit(
   // can disagree (a zero-width space, say). A ref that missed its row would silently
   // drop an item from the kit.
   const parts = partCaps.slice(0, VAULT_CAPTURE_MAX);
-  const [clean, ...cleanParts] = (await respellCatalogPicks(db, [kit, ...parts])).map(sanitizeOne);
-  const landed = await upsertCaptures(db, vaultId, onePerKey(cleanParts), { overwriteWeight });
+  const { caps: spelled, kinds } = await respellCatalogPicks(db, [kit, ...parts]);
+  const [clean, ...cleanParts] = spelled.map(sanitizeOne);
+  const landed = await upsertCaptures(db, vaultId, onePerKey(cleanParts), { overwriteWeight, kinds });
   const serverKey = new Map<string, string>();
   parts.forEach((c, i) => {
     const s = cleanParts[i];

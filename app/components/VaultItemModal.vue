@@ -413,7 +413,7 @@ async function add(p: VaultItemPatch) {
 <template>
   <BaseModal :open="!!entry" :label="adding ? 'Add gear' : 'Edit gear'" @close="emit('close')">
     <template v-if="entry">
-      <h2 class="t-label">{{ adding ? "Add gear" : "Edit gear" }}</h2>
+      <h2 class="t-label panel__title">{{ adding ? "Add gear" : "Edit gear" }}</h2>
       <p v-if="!adding" class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
       <!-- Adding: a catalog search over the form, given by the page (#search; /gear
            passes the list editor's own name field). A pick fills the fields below and the
@@ -454,7 +454,7 @@ async function add(p: VaultItemPatch) {
         <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
              is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
         <span class="t-sm t-muted">Product</span>
-        <input v-model="form.name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+        <input v-model="form.name" class="field" placeholder="Add a product" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
       <!-- The gear type, then the icon beside it, because the type decides the icon until

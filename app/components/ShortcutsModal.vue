@@ -63,22 +63,24 @@ const GROUPS: { title: string; rows: Row[] }[] = [
 
 <template>
   <BaseModal :open="open" label="Keyboard shortcuts" @close="emit('close')">
-    <h2 class="t-label">Keyboard shortcuts</h2>
+    <h2 class="t-label panel__title">Keyboard shortcuts</h2>
 
-    <div v-for="g in GROUPS" :key="g.title" class="keys__group">
-      <p class="t-label t-muted">{{ g.title }}</p>
-      <dl class="keys__list">
-        <template v-for="(r, i) in g.rows" :key="i">
-          <dt class="keys__keys">
-            <template v-if="r.mod">
-              <kbd class="keys__kbd">{{ r.mod }}</kbd>
-              <span class="keys__join" aria-hidden="true">+</span>
-            </template>
-            <kbd v-for="k in r.keys" :key="k" class="keys__kbd">{{ k }}</kbd>
-          </dt>
-          <dd class="t-sm keys__what">{{ r.what }}</dd>
-        </template>
-      </dl>
+    <div class="keys">
+      <div v-for="g in GROUPS" :key="g.title" class="keys__group">
+        <p class="t-label t-muted keys__title">{{ g.title }}</p>
+        <dl class="keys__list">
+          <template v-for="(r, i) in g.rows" :key="i">
+            <dt class="keys__keys">
+              <template v-if="r.mod">
+                <kbd class="keys__kbd">{{ r.mod }}</kbd>
+                <span class="keys__join" aria-hidden="true">+</span>
+              </template>
+              <kbd v-for="k in r.keys" :key="k" class="keys__kbd">{{ k }}</kbd>
+            </dt>
+            <dd class="t-sm keys__what">{{ r.what }}</dd>
+          </template>
+        </dl>
+      </div>
     </div>
 
     <!-- Not a keystroke, but the same kind of thing: true, useful, and invisible
@@ -95,20 +97,36 @@ const GROUPS: { title: string; rows: Row[] }[] = [
 </template>
 
 <style scoped>
-.keys__group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+/* Two columns, keys then meaning, on ONE grid for the whole sheet, so every row's
+   description starts at the same x in every group. Each group had a grid of its own
+   with an auto key column, and the descriptions stepped left and right from one group
+   to the next. The groups and their lists are SUBGRIDS of it: a <dl> whose dt/dd are
+   grid items directly, which is what keeps the pairing in the markup where a screen
+   reader can still hear it. The key column is auto so it takes only what the widest
+   chord on the sheet needs. Without subgrid each group keeps its own two columns, as
+   before. */
+.keys {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  /* the dialog's own gap between its blocks, which the groups were */
+  gap: var(--space-3);
 }
-/* Two columns, keys then meaning, on ONE grid per group so every row's description
-   starts at the same x — a <dl> whose dt/dd are grid items directly, which is what
-   keeps the pairing in the markup where a screen reader can still hear it.
-   The key column is auto so it takes only what the widest chord needs. */
+.keys__group,
 .keys__list {
+  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: auto 1fr;
   align-items: baseline;
   gap: var(--space-2) var(--space-3);
+}
+@supports (grid-template-columns: subgrid) {
+  .keys__group,
+  .keys__list {
+    grid-template-columns: subgrid;
+  }
+}
+.keys__title {
+  grid-column: 1 / -1;
 }
 .keys__keys {
   display: flex;

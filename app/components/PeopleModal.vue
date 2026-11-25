@@ -100,7 +100,7 @@ function remove(p: Person) {
 
 <template>
   <BaseModal :open="true" label="People on this trip" @close="emit('close')">
-    <h2 class="t-label">People</h2>
+    <h2 class="t-label panel__title">People</h2>
     <p class="t-sm t-muted dlg__lede">
       Add who’s coming, then mark who carries what. Removing someone leaves their gear unassigned.
     </p>

@@ -119,6 +119,10 @@ async function sendLink() {
   linkNote.value = "";
   const r = await requestLink(email);
   linkSending.value = false;
+  // The link opens in a new tab, on /auth/callback, which sends you back to the page
+  // this was asked from (useReturnTo). On /account itself that remembers nothing, and
+  // a page this is one step of (/authorize) has remembered its own request already.
+  if (r === "sent" && !asStep) useReturnTo().rememberHere();
   // "sent" is the same answer for a known and an unknown address — the endpoint
   // deliberately can't tell you which, so neither can this.
   linkNote.value =
@@ -160,6 +164,12 @@ async function createWithPasskey() {
           : r === "cancelled"
             ? ""
             : "Couldn’t create the passkey. Try again.";
+}
+// Where this browser can't make a passkey at all, the way that does work: a sign-in
+// link, which makes the account for a new address. The address typed here goes along.
+function switchToLink() {
+  linkEmail.value = signupEmail.value.trim();
+  mode.value = "signin";
 }
 
 // ---- display name --------------------------------------------------------
@@ -527,8 +537,10 @@ async function onSignOut() {
           </p>
         </template>
 
-          <!-- CREATE. Needs an address, and owes a reason for asking. -->
+          <!-- CREATE. Needs an address, and owes a reason for asking: the line above the
+               field, in the words the account page puts under the address. -->
           <template v-else>
+            <p class="t-sm t-muted acct__why">Your email is how you get back in if you lose your devices.</p>
             <form class="acct__signup" @submit.prevent="createWithPasskey">
               <input
                 v-model="signupEmail"
@@ -547,6 +559,12 @@ async function onSignOut() {
                 {{ creating ? "Waiting for your device…" : "Create account with a passkey" }}
               </button>
             </form>
+            <!-- the button above is disabled then, and a disabled button gives no reason -->
+            <p v-if="!canPasskey" class="t-sm acct__note">
+              This browser can’t make a passkey.
+              <button type="button" class="acct__switch" @click="switchToLink">Use a sign-in link</button>
+              instead, which makes an account for a new address.
+            </p>
             <p v-if="createNote" class="t-sm acct__note">{{ createNote }}</p>
 
             <p class="t-sm t-muted acct__swap">

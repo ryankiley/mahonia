@@ -551,11 +551,14 @@ const viewOption = computed(() => viewOptions.value.find((o) => o.key === view.v
 // (useListExports warms for the same reason, with a sharper one behind it: its
 // clipboard writes must stay inside iOS Safari's user-gesture window.)
 const exporter = () => import("~~/shared/exporters/vault");
-// The ⋯'s three rows. Import is a dialog rather than a download, so the menu's one
-// emit forks here instead of the menu knowing which of its rows is which kind.
+// The ⋯'s own rows. Import and feedback are dialogs rather than downloads, so the
+// menu's one emit forks here instead of the menu knowing which of its rows is which
+// kind. The feedback box is the app-wide one the editor's ⋯ opens (useFeedback).
 const importOpen = ref(false);
 const importEverOpened = useLatch(() => importOpen.value);
+const { open: openFeedback } = useFeedback();
 function onMenuPick(action: string) {
+  if (action === "feedback") return openFeedback();
   if (action !== "import") return void exportGear(action);
   importOpen.value = true;
 }
@@ -672,20 +675,23 @@ async function exportGear(kind: string) {
               ref="searchEl"
               v-model="query"
               class="vault__searchwrap"
-              :placeholder="`Search my ${tab}…`"
-              :label="`Search my ${tab}`"
+              :placeholder="`Search your ${tab}…`"
+              :label="`Search your ${tab}`"
             />
 
             <!-- The question a gear of two hundred rows raises, what order, as the
                  app's own picker. It rides the trailing edge, over the rows' own
                  trailing controls. -->
             <!-- Not on Kits: kits are a handful of sections, not a list to order or sort -->
+            <!-- The trigger shows the current order, so its own label says it too
+                 (OptionMenu's triggerLabel): a bare label replaced it for a screen reader. -->
             <OptionMenu
               v-if="tab !== 'kits'"
               class="vault__view"
               :options="viewOptions"
               :current="view"
-              :label="`How to order my ${tab}`"
+              :label="`Sort your ${tab}`"
+              :trigger-label="`${viewOption.label}, change how your ${tab} is sorted`"
               @pick="pickView"
             >
               <template #trigger="{ open }">

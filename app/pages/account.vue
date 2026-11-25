@@ -21,7 +21,19 @@ useHead({
   <div>
     <SiteTopbar />
     <main id="main-content" tabindex="-1" class="wrap page">
-      <AccountView />
+      <AccountView class="account__col" />
     </main>
   </div>
 </template>
+
+<style scoped>
+/* The page's column, centred in the page as About, Help and Legal centre theirs
+   (.prose, main.scss, says why a left-parked column reads as a layout fault). The
+   width is the signed-in column's own (.acct__body), so the heading and the sections
+   keep one left edge; the signed-out column is narrower and already centres inside.
+   Here and not in AccountView, which the account dialog and /authorize also mount. */
+.account__col {
+  max-width: 52ch;
+  margin-inline: auto;
+}
+</style>

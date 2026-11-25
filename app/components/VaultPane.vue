@@ -565,8 +565,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         ref="searchEl"
         v-model="query"
         class="vp__search"
-        :placeholder="`Search my ${tab}…`"
-        :label="`Search my ${tab}`"
+        :placeholder="`Search your ${tab}…`"
+        :label="`Search your ${tab}`"
       />
 
       <!-- offline: how old the copy is, or that there is none (with a failed read's own
@@ -629,7 +629,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
               <!-- food says its calories, the number it's picked by (its weight is beside it) -->
               <span v-else-if="tab === 'food' && entry.kcal" class="t-sm t-muted">{{ formatKcal(entry.kcal) }} kcal</span>
             </span>
-            <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, entry.entryUnit ?? unit, { withUnit: false }) }}<span class="t-muted"> {{ entry.entryUnit ?? unit }}</span></span>
+            <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, entry.entryUnit ?? unit, { withUnit: false }) }}<span class="t-muted vp__unit">{{ entry.entryUnit ?? unit }}</span></span>
           </button>
         </li>
         </template>
@@ -1135,6 +1135,12 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__w {
   flex: none;
   color: var(--ink-2);
+}
+/* The gap between the figure and its unit, the My Gear page row's (VaultGearRow's
+   .vault__unitwrap). A margin, because a space written before the unit in the template
+   is dropped by Vue's whitespace condensing and the row read "10g". */
+.vp__unit {
+  margin-left: 0.25ch;
 }
 /* CENTRED in the pane, both ways. These states have no rows to align to — they're
    a sentence about why the pane is empty — so left-aligning them at the top left
