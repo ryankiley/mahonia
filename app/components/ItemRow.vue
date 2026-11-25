@@ -649,7 +649,7 @@ const {
   fitNote,
 });
 
-const { activeSplit, consumableAria, isConsumable, isWorn, setClass, setSplit, splitOptions, wornAria, wornTitle } =
+const { activeSplit, consumableAria, isConsumable, isWorn, setClass, setWornCount, splitOffered, wornAria, wornCount, wornTitle } =
   useItemRowClassification({
     item: toRef(props, "item"),
     list: toRef(props, "list"),
@@ -768,10 +768,39 @@ const classCellShown = computed(
   () => isWater.value || !bareGroup.value || props.item.classification != null || props.item.needsCooking || isKcalOpen.value || isWornOpen.value,
 );
 
+// A popover GROWS after it is placed: turning Consumable on adds the calorie field, its
+// total and the cooking switch, and a worn switch on a consumable row adds the counts.
+// `place` runs once, on the short card, so a row near the viewport floor opened its card
+// below and then grew it past the bottom of the screen (measured: "Needs cooking" cut off
+// at the window edge). Re-placing would flip the card to the other side of its trigger —
+// the switch you just pressed jumping the card's whole height from under the pointer. So
+// the card stays where it opened and the PAGE gives way, by the least that shows it:
+// `nearest` moves nothing when the card already fits, and html's scroll-padding-top
+// (reset.scss) keeps it clear of the sticky topbar when a card opened above grows upward.
+// Hung on the card's own click and change, not a ResizeObserver: only a press inside the
+// card grows it on purpose, and an observer also fired when another device's edit
+// resized a card the reader had scrolled away from, pulling the page back to it.
+function keepPopInView(e: Event) {
+  const pop = e.currentTarget as HTMLElement;
+  nextTick(() => {
+    if (pop.isConnected) pop.scrollIntoView?.({ block: "nearest", inline: "nearest", behavior: motionIsInstant() ? "auto" : "smooth" });
+  });
+}
+
 // Open or close one of the two; what follows an open (placing the card, the kcal
 // field's focus) is the watchers' above.
 const toggleWorn = () => menu.toggle(`${props.item.id}:worn`, wornRootRef.value);
 const toggleKcal = () => menu.toggle(`${props.item.id}:kcal`, kcalRootRef.value);
+// The typed worn count. Anything that isn't a number leaves the row alone, and the field
+// is put back to what the row holds either way — setWornCount clamps to the line, so
+// "99" on a row of 40 must read 40 afterwards, and a figure that changed nothing would
+// otherwise sit in the box contradicting the line above it.
+function onWornCount(e: Event) {
+  const el = e.target as HTMLInputElement;
+  const n = el.value.trim() === "" ? NaN : Number(el.value);
+  if (Number.isFinite(n)) setWornCount(n);
+  el.value = String(wornCount.value);
+}
 function onKcal(e: Event) {
   const el = e.target as HTMLInputElement;
   // "" (and anything unparseable) clears — the reducer treats a non-number as
@@ -1608,6 +1637,8 @@ function dismissFix() {
                   :style="kcalShift ? { translate: kcalShift + 'px 0' } : undefined"
                   role="dialog"
                   aria-label="Consumable"
+                  @click="keepPopInView"
+                  @change="keepPopInView"
                 >
                   <div class="switch-row">
                     <span class="t-sm">Consumable</span>
@@ -1626,9 +1657,14 @@ function dismissFix() {
                       role="switch"
                       :aria-checked="isConsumable"
                       aria-label="Consumable: food, fuel or water"
+                      :aria-describedby="isWorn ? `${item.id}-kcal-swap` : undefined"
                       @click="setClass('consumable', !isConsumable)"
                     />
                   </div>
+                  <!-- the worn popover's twin: one class per row, so this switch takes
+                       worn (a split included) off with it — said before the click, and
+                       to a screen reader as the switch's description -->
+                  <p v-if="isWorn" :id="`${item.id}-kcal-swap`" class="t-sm t-muted item__popline">Turns Worn off</p>
                   <!-- calories only once the row IS consumable, and not on fuel that has
                        none to show — see kcalOffered -->
                   <template v-if="kcalOffered">
@@ -1659,9 +1695,14 @@ function dismissFix() {
                       <button class="switch" type="button" role="switch" :aria-checked="!!item.needsCooking"
                         aria-label="Needs cooking" @click="c.updateItem(item.id, { needsCooking: !item.needsCooking })" />
                     </div>
-                    <p v-if="item.needsCooking && !bareGroup" class="t-sm t-muted" role="status"
+                    <!-- "for N boils" is the assumption, in the line: one boil an item.
+                         It was a hover title only, which a phone never shows, and the
+                         bare "~30 g fuel" read as a figure from nowhere. Same shape as
+                         the calorie total above ("750 kcal for 3"), same derived mark. -->
+                    <p v-if="item.needsCooking && !bareGroup" class="t-sm t-muted item__popline" role="status"
                       :title="`Assumes one boil per item, at ${ASSUMED_FUEL_PER_BOIL_G} g per boil.`">
-                      ~{{ item.qty * ASSUMED_FUEL_PER_BOIL_G }} g fuel
+                      <SvgIcon :icon="IconCalculator" class="item__poplineicon" size="sm" aria-hidden="true" />
+                      ~{{ item.qty * ASSUMED_FUEL_PER_BOIL_G }} g fuel for {{ item.qty }} {{ item.qty === 1 ? "boil" : "boils" }}
                     </p>
                   </template>
                 </div>
@@ -1709,6 +1750,7 @@ function dismissFix() {
                   :style="wornShift ? { translate: wornShift + 'px 0' } : undefined"
                   role="dialog"
                   aria-label="Worn"
+                  @click="keepPopInView"
                 >
                   <div class="switch-row">
                     <span class="t-sm">Worn</span>
@@ -1718,34 +1760,78 @@ function dismissFix() {
                       role="switch"
                       :aria-checked="isWorn"
                       aria-label="Worn on your body"
+                      :aria-describedby="isConsumable ? `${item.id}-worn-swap` : undefined"
                       @click="setClass('worn', !isWorn)"
                     />
                   </div>
-                  <!-- the split: only offered on a row with multiples, because one of one
-                       is simply "worn". Buttons rather than a number field — the useful
-                       range is 1..qty-1 and it is nearly always 1. The label matches the
-                       consumable popover's ("kcal each"): a field label naming the value
-                       below it, not a sentence. -->
-                  <template v-if="splitOptions.length">
-                    <p class="t-sm t-muted item__poplabel">worn of {{ item.qty }}</p>
+                  <!-- A row holds ONE class, so this switch also clears the other. Said
+                       before the click, on the one row where it is true — the two
+                       toggles sit side by side and read as independent. -->
+                  <p v-if="isConsumable" :id="`${item.id}-worn-swap`" class="t-sm t-muted item__popline">Turns Consumable off</p>
+                  <!-- How many: only on a row of several, because one of one is simply
+                       "worn" (splitOffered).
+                       The line over the control is the ANSWER, not a title: "2 worn ·
+                       1 packed" sits where "worn of 3" did, rather than a title above
+                       and the same figure again below (Ryan, 2026-11-25). It reads
+                       "0 worn · 3 packed" while worn is off, so the card is one height
+                       whatever is set.
+                       A STEPPER, the row's own quantity control on the card's ground:
+                       − n +, with the figure typeable. It replaced count chips
+                       (1 2 3 4 All) whose ceiling was the card's width — "does 4 feel
+                       artificially limited", and it did. One control for every row
+                       rather than chips for short rows and a stepper for long ones.
+                       "All" stays beside it: the one count worth a press of its own,
+                       and without it the switch alone meant "all of them" and said so
+                       nowhere. -->
+                  <template v-if="splitOffered">
+                    <p class="t-sm t-muted item__poplabel">{{ wornCount }} worn · {{ Math.max(0, item.qty - wornCount) }} packed</p>
                     <div class="item__splits">
+                      <div class="item__wornstep">
+                        <button
+                          class="btn btn--icon btn--ghost item__wornbtn ink-quiet"
+                          type="button"
+                          :disabled="wornCount <= 0"
+                          aria-label="One fewer worn"
+                          @click="setWornCount(wornCount - 1)"
+                        >
+                          <SvgIcon :icon="IconMinusMedium" />
+                        </button>
+                        <input
+                          class="field field--num item__wornfield"
+                          type="number"
+                          min="0"
+                          :max="item.qty"
+                          step="1"
+                          :value="wornCount"
+                          aria-label="How many are worn"
+                          @change="onWornCount"
+                          @keydown.enter="($event.target as HTMLInputElement).blur()"
+                        />
+                        <button
+                          class="btn btn--icon btn--ghost item__wornbtn ink-quiet"
+                          type="button"
+                          :disabled="wornCount >= item.qty"
+                          aria-label="One more worn"
+                          @click="setWornCount(wornCount + 1)"
+                        >
+                          <SvgIcon :icon="IconPlusMedium" />
+                        </button>
+                      </div>
+                      <!-- A SHORTCUT, not a state: it never lights. When all are worn the
+                           switch above is already on and the figure and the line both
+                           say so; a second inverted chip beside the switch was two loud
+                           "on"s for one fact. At the top it stands down with the +
+                           beside it, the same way, for the same reason. -->
                       <button
-                        v-for="n in splitOptions"
-                        :key="n"
                         class="btn btn--quiet item__split"
-                        :class="{ 'is-active': activeSplit === n }"
                         type="button"
-                        :title="`${n} worn, ${Math.max(0, item.qty - n)} in the pack`"
-                        @click="setSplit(n)"
+                        :disabled="wornCount >= item.qty"
+                        :title="`All ${item.qty} worn`"
+                        @click="setWornCount(item.qty)"
                       >
-                        {{ n }}
+                        All
                       </button>
                     </div>
-                    <!-- the resolved split, mirroring the calorie popover's line total:
-                         both popovers end by restating what the row now counts as -->
-                    <p v-if="activeSplit > 0" class="t-sm t-muted item__popline">
-                      {{ activeSplit }} worn · {{ Math.max(0, item.qty - activeSplit) }} packed
-                    </p>
                   </template>
                 </div>
               </Transition>
@@ -2464,6 +2550,8 @@ function dismissFix() {
      enough that neither detail label wraps — a wrapped label is what made these look
      like two different components. */
   width: 13rem;
+  /* air under the card when the page scrolls to keep a grown one in view (keepPopInView) — without it the card lands flush on the window's edge */
+  scroll-margin-block: var(--space-2);
 }
 /* flipped when the row sits too close to the viewport floor (measured on open:
    placeWorn / placeKcal) */
@@ -2480,12 +2568,36 @@ function dismissFix() {
   line-height: 1;
   white-space: nowrap;
 }
-/* the split counts — a row of small quiet buttons, the active one lit like the
-   toggles above it, so "which" is answered by the same signal as "whether" */
+/* the worn count's row: the stepper takes what "All" leaves, so the row ends on the
+   card's padding edge like the switch above it (Ryan, 2026-11-25, on the chips this
+   replaced: "make all span wider to fix the internal padding") */
 .item__splits {
   display: flex;
-  flex-wrap: wrap;
   gap: var(--space-1);
+}
+/* The stepper is the row's quantity control (.item__qty--step) on the card's ground:
+   ONE box holding − n +, so the three read as a single control beside "All" rather than
+   as three more chips. Its ground is the chip's and the kcal well's — an amount of ink
+   (see .item__split below). The figure carries no box of its own inside it, for the
+   reason the row's doesn't: bare and centred, it is the stepper's value, not a third
+   control between two. */
+.item__wornstep {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  border-radius: var(--pop-inner-radius);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
+}
+.item__wornbtn {
+  flex: none;
+  border-radius: var(--pop-inner-radius);
+}
+.item__wornfield {
+  flex: 1 1 0;
+  min-width: 0;
+  width: 0;
+  text-align: center;
 }
 /* The chip's ground is AN AMOUNT OF INK, the well's two (.well, atoms/controls.scss): 7%
    at rest, 10% under the pointer — the same pair the kcal field takes in the popover
@@ -2507,13 +2619,6 @@ function dismissFix() {
     background: color-mix(in oklab, var(--ink) 10%, transparent);
     color: var(--ink);
   }
-}
-/* the chosen count is inverted ink: the one chip in the row that is ON, a full step
-   past the grounds the others rest on */
-.item__split.is-active,
-.item__split.is-active:hover {
-  background: var(--ink);
-  color: var(--paper);
 }
 /* .field is deliberately borderless — it lives in the row grid, where a box per cell
    would be pure noise. On a floating surface that reasoning inverts: with nothing

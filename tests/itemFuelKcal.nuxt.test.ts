@@ -105,7 +105,7 @@ describe("the simple cooking estimate", () => {
     expect(pop.find('[role="status"]').exists()).toBe(false);
     await cooking.trigger("click");
     expect(cooking.attributes("aria-checked")).toBe("true");
-    expect(pop.get('[role="status"]').text()).toBe("~60 g fuel");
+    expect(pop.get('[role="status"]').text()).toBe("~60 g fuel for 6 boils");
     expect(pop.get('[role="status"]').attributes("title")).toBe("Assumes one boil per item, at 10 g per boil.");
     expect(pop.findAll("input")).toHaveLength(1); // just the existing kcal field
     expect(w.findAll('[role="dialog"]')).toHaveLength(1);
@@ -128,10 +128,10 @@ describe("the simple cooking estimate", () => {
     const w = mountRow(item({ id: "meal", name: "Pasta", qty, needsCooking: true }));
     await openPop(w);
     const estimate = () => w.get('[role="dialog"][aria-label="Consumable"] [role="status"]').text();
-    expect(estimate()).toBe(`~${qty * 10} g fuel`);
+    expect(estimate()).toBe(`~${qty * 10} g fuel for ${qty} ${qty === 1 ? "boil" : "boils"}`);
     snapshot.value.items[0]!.qty = 2;
     await nextTick();
-    expect(estimate()).toBe("~20 g fuel");
+    expect(estimate()).toBe("~20 g fuel for 2 boils");
   });
 
   it("does not offer cooking on stove fuel or water", async () => {

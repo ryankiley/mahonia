@@ -226,32 +226,35 @@ button svg {
   flex: none;
   position: relative;
   /* drawn at glyph size, so counted in --tpx like the glyphs (tokens.scss) */
-  inline-size: calc(28 * var(--tpx));
-  block-size: calc(16 * var(--tpx));
+  /* 32×18 with a 14px knob, up a hair from 28×16 and 12: beside a 16px label in a
+     popover it read as "tiny tiny" (Ryan, 2026-11-25). Same proportions, same 2px
+     inset; the four numbers below (hit area, knob, travel) follow from this pair. */
+  inline-size: calc(32 * var(--tpx));
+  block-size: calc(18 * var(--tpx));
   border-radius: var(--radius-pill);
   background: var(--well);
   transition: background var(--spring-fade-dur) var(--spring-fade);
 }
-// THE TARGET, which is a different object from the track. 28×16 is what a switch of
-// this weight should LOOK like, and it is also 8px under the 24×24 floor WCAG 2.5.8
+// THE TARGET, which is a different object from the track. 32×18 is what a switch of
+// this weight should LOOK like, and it is also 6px under the 24×24 floor WCAG 2.5.8
 // sets for a pointer target — and a long way under the --tap every other control in
 // the app grows to on a coarse pointer. The two requirements don't conflict once you
 // stop asking one box to serve both.
 //
 // So the hit area is drawn on its own: a transparent ::before, inset by exactly the
-// shortfall on each axis — 28 + 2×8 and 16 + 2×14 both land on 44. Absolutely
+// shortfall on each axis — 32 + 2×6 and 18 + 2×13 both land on 44. Absolutely
 // positioned, so it costs the layout nothing and the popover's rows keep their
 // rhythm; and it changes nothing about the appearance, which is the whole point.
 // ::before because ::after is the knob.
 //
 // NOT gated to @media (pointer: coarse), unlike the icon buttons. 2.5.8 is about
-// pointer targets and not about touch specifically — 28×16 is a small thing to catch
+// pointer targets and not about touch specifically — 32×18 is a small thing to catch
 // with a mouse too — and unlike a --tap-sized icon button this costs no row width to
 // give away, so there is nothing to buy back on a desktop.
 .switch::before {
   content: "";
   position: absolute;
-  inset: -14px -8px;
+  inset: -13px -6px;
 }
 // On, the track fills to full ink — the highest-contrast shape the surface can hold
 // (21:1 on white, 16.5:1 on the dark popover), which is what makes "on" unmistakable
@@ -268,21 +271,21 @@ button svg {
 // a --well track the arithmetic runs the other way — --ink-2 measures 2.2:1 there and
 // the knob would be the part of the control that goes missing. --paper clears whatever
 // track it sits in (3.1:1 off, 21:1 on) and reads as a hole punched through it rather
-// than a second mark laid on top, which is how a 12px dot stays legible at both ends
+// than a second mark laid on top, which is how a 14px dot stays legible at both ends
 // of its travel.
 .switch::after {
   content: "";
   position: absolute;
   inset-block-start: calc(2 * var(--tpx));
   inset-inline-start: calc(2 * var(--tpx));
-  inline-size: calc(12 * var(--tpx));
-  block-size: calc(12 * var(--tpx));
+  inline-size: calc(14 * var(--tpx));
+  block-size: calc(14 * var(--tpx));
   border-radius: 50%;
   background: var(--paper);
   transition: translate var(--spring-track-dur) var(--spring-track); /* chases the pointer: the track spring */
 }
 .switch[aria-checked="true"]::after {
-  translate: calc((28 - 12 - 2 * 2) * var(--tpx)) 0;
+  translate: calc((32 - 14 - 2 * 2) * var(--tpx)) 0;
 }
 // the label + switch pair, so every popover that uses one lines them up identically
 .switch-row {

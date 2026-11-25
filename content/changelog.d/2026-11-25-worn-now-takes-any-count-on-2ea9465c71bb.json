@@ -1,0 +1,13 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "Worn now takes any count on an item you carry several of: step it, type it, or press All.",
+    "Marking an item worn shows how many are worn and how many are packed.",
+    "Worn and Consumable now say when switching one on will switch the other off.",
+    "The cooking fuel estimate now says how many boils it assumes.",
+    "The switches for Worn, Consumable and Needs cooking are slightly larger."
+  ],
+  "fixed": [
+    "Turning Consumable on for an item low in the window no longer leaves its calorie and cooking controls off screen."
+  ]
+}
