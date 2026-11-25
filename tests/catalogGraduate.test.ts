@@ -4,8 +4,19 @@
 // corrected in the app goes back into its own file in place, the rest of it untouched.
 // Run on PGlite.
 import { describe, expect, it } from "vitest";
+import * as schema from "../server/db/schema";
 import { CATALOG_DDL } from "../server/utils/catalog";
-import { asResearchRow, inAppVerified, mergeResearch, planGraduation, rewriteResearchRows, researchIdentity } from "../scripts/graduate";
+import { specToMg } from "../scripts/catalogCsv";
+import {
+  asResearchRow,
+  inAppVerified,
+  mergeResearch,
+  notInResearch,
+  planGraduation,
+  researchIdentity,
+  researchWhenVerified,
+  rewriteResearchRows,
+} from "../scripts/graduate";
 import { formatResearchFile, type ResearchRow } from "../scripts/research";
 import { runResearchChecks } from "../scripts/researchChecks";
 import { seedCatalogRow } from "./helpers/catalog";
@@ -148,6 +159,48 @@ describe("catalog:graduate, a research row corrected in the app", () => {
     expect(graduated.rows.map((r: ResearchRow) => [r.name, r.weight_value])).toEqual([["Titanium 750 Pot", 103], ["X-Mid 2", 1022]]);
     expect(plan.writes.get("verified-in-app.json")!.endsWith("}\n")).toBe(true);
     // nothing to graduate: nothing written
-    expect(planGraduation([], files, graduatedRaw)).toEqual({ writes: new Map(), inPlace: new Map(), toGraduated: 0 });
+    expect(planGraduation([], files, graduatedRaw)).toEqual({ writes: new Map(), inPlace: new Map(), toGraduated: 0, overwrites: [] });
+  });
+
+  it("names each row it writes over, and marks one whose research changed after the verification", () => {
+    const research = { weightMg: specToMg(17.8, "oz", "504 g"), sourceUrl: "https://zpacks.com/products/duplex-tent" };
+    const app = { weightMg: 524_000, sourceUrl: "https://zpacks.com/products/duplex-tent-2026" };
+    const files = [{ file: "shelters.json", raw: pretty }];
+    const key = researchIdentity(corrected);
+    // the maker re-specced it: the research still says what the row held when it was verified
+    expect(planGraduation([corrected], files, null, new Map([[key, research]])).overwrites).toEqual([
+      { file: "shelters.json", key, research, app, whenVerified: research, researchMoved: false },
+    ]);
+    // a research PR changed the row after the verification, and graduating would undo it
+    const then = { weightMg: 500_000, sourceUrl: research.sourceUrl };
+    expect(planGraduation([corrected], files, null, new Map([[key, then]])).overwrites[0]).toMatchObject({ whenVerified: then, researchMoved: true });
+    expect(planGraduation([corrected], files, null, new Map([[key, { ...research, sourceUrl: "https://zpacks.com/old" }]])).overwrites[0]!.researchMoved).toBe(true);
+    // no edit history to go by: listed, not marked
+    expect(planGraduation([corrected], files, null).overwrites[0]).toMatchObject({ whenVerified: null, researchMoved: false });
+  });
+});
+
+describe("catalog:graduate, what the database says about the research", () => {
+  it("reads the research a row's latest verification stamp replaced, and nothing for a product the tool added", async () => {
+    const db = await createTestDb(CATALOG_DDL);
+    const duplex = await seedCatalogRow(db, { brand: "Zpacks", name: "Duplex", weightMg: 524_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/products/duplex-tent-2026", verified: true, verifiedBy: 7 });
+    const pot = await seedCatalogRow(db, { brand: "Toaks", name: "Titanium 750 Pot", weightMg: 103_000, weightSource: "measured", verified: true, verifiedBy: 7 });
+    const edit = (catalogItemId: number, oldWeightMg: number, newWeightMg: number, undo: schema.CatalogEditUndo, status = "applied") =>
+      db.insert(schema.catalogEdits).values({ catalogItemId, oldWeightMg, newWeightMg, status, undo });
+    const was = (sourceUrl: string) => ({ verified: true, verifiedBy: null, sourceUrl });
+    // stamped once, graduated, stamped again; an undone stamp; then a re-verification of the
+    // row while it was already in the app, whose snapshot isn't the research's
+    await edit(duplex.id, 500_000, 504_000, was("https://zpacks.com/products/duplex"));
+    await edit(duplex.id, 504_000, 520_000, was("https://zpacks.com/products/duplex-tent"));
+    await edit(duplex.id, 520_000, 530_000, was("https://zpacks.com/products/duplex-tent"), "reverted");
+    await edit(duplex.id, 520_000, 524_000, { verified: true, verifiedBy: 7, sourceUrl: "https://zpacks.com/products/duplex-tent" });
+    await edit(pot.id, 103_000, 103_000, { status: "removed" });
+
+    const inApp = await inAppVerified(db as never);
+    expect([...(await researchWhenVerified(db as never, inApp))]).toEqual([
+      [researchIdentity(duplex), { weightMg: 504_000, sourceUrl: "https://zpacks.com/products/duplex-tent" }],
+    ]);
+    // the reseed's question: which in-app rows the research doesn't have at all
+    expect(notInResearch(inApp, [{ brand: "Zpacks", name: "Duplex", variant: null }]).map((r) => r.name)).toEqual(["Titanium 750 Pot"]);
   });
 });

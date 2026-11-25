@@ -22,6 +22,7 @@ import { refoldVaultIdentities } from "./seedIdentities";
 import { renameMovedVariants } from "./seedRenames";
 import { retireOrphans } from "./seedRetire";
 import { upsertSeedRows } from "./seedUpsert";
+import { inAppVerified, notInResearch } from "./graduate";
 import { itemDisplayName } from "../shared/weights";
 import { useDb } from "../server/utils/db";
 import { csvToCatalogRows } from "./catalogCsv";
@@ -43,7 +44,13 @@ async function main() {
   if (renamed.catalog || renamed.vault) console.log(`Variants tidied: ${renamed.catalog} catalog rows and ${renamed.vault} My Gear rows renamed in place, ids kept.`);
 
   const { inserted, updated, unchanged, held, kept } = await upsertSeedRows(db, rows);
-  if (held) console.log(`${held} rows verified in the app differ from the research; npm run catalog:graduate writes them back.`);
+  // in-app rows the research doesn't have: the upsert never sees them, so say so here
+  const unresearched = notInResearch(await inAppVerified(db), rows);
+  if (held || unresearched.length)
+    console.log(
+      `${held + unresearched.length} rows verified in the app aren't in the research yet (${held} differ from it, ${unresearched.length} it doesn't have); ` +
+        `the Graduate catalog workflow, or npm run catalog:graduate, writes them out.`,
+    );
   if (kept.length) {
     console.log(`Kept ${kept.length} cited corrections visitors made that the research doesn't have; verify or undo each with the connector's admin tools:`);
     for (const k of kept)
