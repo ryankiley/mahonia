@@ -133,7 +133,7 @@ const MENU_ACTIONS = [
         @opened="warmExporters"
         @pick="close"
       />
-      <!-- moderation, not a read of the list — set off from the rows above by the
+      <!-- a report, not a read of the list — set off from the rows above by the
            shared .menu__foot hairline (controls.scss), on every shared list (the Terms
            say a list can be reported, and now one can). The reader's counterpart to the
            editor's foot: both sit under the rule, both are the row that takes a list off

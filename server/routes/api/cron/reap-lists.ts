@@ -8,8 +8,8 @@ import { setNoIndex } from "../../../utils/http";
 
 // Nightly list-maintenance job (registered in vercel.json). Three stages:
 //   1. REAP  — soft-delete abandoned lists (<= 1 item, untouched for
-//              LIST_REAP_STALE_DAYS; publish status deliberately not a factor —
-//              see reapAbandonedLists in server/utils/listRepo.ts) so the table
+//              LIST_REAP_STALE_DAYS; see reapAbandonedLists in
+//              server/utils/listRepo.ts) so the table
 //              can't be padded indefinitely with contentless rows.
 //   2. PURGE — hard-delete rows soft-deleted past LIST_PURGE_GRACE_DAYS (+ their
 //              snapshots and the claims accounts held on them) to reclaim the

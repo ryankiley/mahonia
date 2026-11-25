@@ -12,7 +12,7 @@ const code = computed(() => String(route.params.code || ""));
 const { data } = await useFetch<{ snapshot: ListSnapshot }>(() => `/api/s/${code.value}`);
 const snapshot = computed<ListSnapshot | null>(() => data.value?.snapshot ?? null);
 
-// edge-cache the HTML for a short window, mirroring /l — collapses the burst when
+// edge-cache the HTML for a short window — collapses the burst when
 // a share link makes the rounds; a read-only view tolerates 30 s of staleness.
 useResponseHeader("Cache-Control").value = READ_EDGE_CACHE_CONTROL;
 

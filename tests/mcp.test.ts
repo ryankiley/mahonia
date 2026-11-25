@@ -368,7 +368,7 @@ describe("the endpoint's transport", () => {
   });
 
   // Some clients JSON-encode a tool's arguments a second time. Read as an object, that
-  // string was no arguments at all, and a get_list for a public list became a sign-in.
+  // string was no arguments at all, and a get_list for a shared list became a sign-in.
   it("reads arguments a client encoded twice, and refuses arguments that aren't an object", async () => {
     repo.getByShareCode.mockResolvedValue(snap());
     const r = await post(rpc("tools/call", { name: "get_list", arguments: JSON.stringify({ share_code: "ABC123DEF456" }) }));

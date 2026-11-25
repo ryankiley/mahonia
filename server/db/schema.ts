@@ -3,7 +3,8 @@
 // Design: a list's CONTENT (folders + items) lives in a single JSONB `data`
 // column, and the same op-reducer (shared/ops.ts) applies mutations on both the
 // client (optimistic) and the server (authoritative) — so they can't drift.
-// Weight rollups are cached as columns for the public-feed leaderboard sort.
+// The weight rollups and the item count are cached as columns, so a query over many
+// lists need not read each one's `data` (see the columns for who reads which).
 // We never query items relationally in v1 (the catalog is a separate Phase-2
 // table), so JSONB is the right fit and keeps sync semantics in one place.
 //
@@ -60,9 +61,11 @@ export const lists = pgTable(
     endDate: text("end_date"),
     // folders + items (the op-reducer's state)
     data: jsonb("data").$type<ListData>().notNull(),
-    // cached rollups, recomputed on every write. Nothing reads them since the feed
-    // indexes went (below); they stay because they're the cheap shape any future
-    // list-of-lists query wants, and computing them is already on the write path.
+    // cached rollups, recomputed on every write. total_weight_mg is the total an
+    // account's lists show (claimRepo) and item_count is the reap's first filter
+    // (reapAbandonedLists). The other three are written and not read: they stay because
+    // they're the cheap shape a list-of-lists query wants, and computing them is
+    // already on the write path.
     baseWeightMg: bigint("base_weight_mg", { mode: "number" }).notNull().default(0),
     wornWeightMg: bigint("worn_weight_mg", { mode: "number" }).notNull().default(0),
     consumableWeightMg: bigint("consumable_weight_mg", { mode: "number" }).notNull().default(0),
@@ -437,7 +440,7 @@ export const users = pgTable(
     // BACK IN when every authenticator is gone — see accountSchema.ts.
     email: text("email").notNull(),
     // OPTIONAL, and the only thing about an account that is ever public. Set it and
-    // your public lists carry a byline; leave it and they stay anonymous, which is
+    // your shared lists carry a byline; leave it and they stay anonymous, which is
     // the default. Deliberately not derived from the email — an address is private
     // and must never be shown to anyone but its owner.
     displayName: text("display_name"),

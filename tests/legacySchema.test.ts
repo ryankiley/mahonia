@@ -1,8 +1,6 @@
 // The retired columns and table as an OLDER database meets them: production still has
-// them when a new build's ensure first runs there. The DDL drops them in place, keeps
-// every row, and leaves publishing's columns and vault_folders for a later deploy (the
-// deploy before this one selects the columns and deletes from the table, so a rollback
-// to it must still find them).
+// them when a new build's ensure first runs there. The DDL drops them in place and keeps
+// every row.
 
 import { sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
@@ -57,6 +55,9 @@ describe("the retired columns on a database that still has them", () => {
     await db.execute(sql`INSERT INTO vault_items (vault_id, norm_key, name, folder_id, description)
       VALUES (1, 'tent', 'Tent', 9, 'Sam carries this')`);
     await db.execute(sql`INSERT INTO vault_folders (vault_id, name) VALUES (1, 'Shelter')`);
+    // the older shape really is there, so the drops below have something to drop
+    expect(await hasTable(db, "vault_folders")).toBe(true);
+    expect(await columns(db, "lists")).toContain("is_public");
     return db;
   }
 
@@ -67,6 +68,7 @@ describe("the retired columns on a database that still has them", () => {
 
     const listCols = await columns(db, "lists");
     for (const c of ["primary_category", "view_count", "claim_phrase_hash"]) expect(listCols).not.toContain(c);
+    for (const c of ["is_public", "published_at", "trip_type", "season", "flagged"]) expect(listCols).not.toContain(c);
     const catalogCols = await columns(db, "catalog_items");
     for (const c of ["description", "image_url", "msrp_cents", "currency"]) expect(catalogCols).not.toContain(c);
     expect(await columns(db, "catalog_edits")).not.toContain("confirmations");
@@ -74,14 +76,7 @@ describe("the retired columns on a database that still has them", () => {
     for (const c of ["folder_id", "description", "description_pinned"]) expect(vaultCols).not.toContain(c);
     // the price's currency is a live column of the same name, on the gear, not the catalog
     expect(vaultCols).toContain("currency");
-  });
-
-  it("keeps publishing's columns and vault_folders, which the deploy before this one still uses", async () => {
-    const db = await olderDb();
-    await runDdl(db, DDL);
-    const listCols = await columns(db, "lists");
-    for (const c of ["is_public", "published_at", "trip_type", "season", "flagged"]) expect(listCols).toContain(c);
-    expect(await hasTable(db, "vault_folders")).toBe(true);
+    expect(await hasTable(db, "vault_folders")).toBe(false);
   });
 
   it("keeps every row, and today's select reads them", async () => {

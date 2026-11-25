@@ -728,7 +728,7 @@ describe("useGearList — whose gear is this?", () => {
     await vi.waitFor(() => expect(captureCalls).toBe(1), { timeout: 8_000, interval: 50 });
   });
 
-  // A list that arrived WHOLE — imported from LighterPack, cloned from a public
+  // A list that arrived WHOLE — imported from LighterPack, cloned from a shared
   // list — captures at the moment it's created, because nothing else would ever
   // offer it. Recording the answer there is what stops the very next keystroke
   // asking whether the gear you just imported is really yours.

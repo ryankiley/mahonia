@@ -769,9 +769,10 @@ export async function getTextByShareCode(code: string): Promise<ListSnapshot | n
  *
  * rowToSnapshot omits the route's geometry and its waypoints, so every read path starts
  * without them and has to ask. That is the wrong way round from how it reads — but it is
- * the only shape that fails CLOSED: /s (getByShareCode), /l (rowToPublicView) and the
- * public feed all build on rowToSnapshot, and any read path added later will too. Opt-in
- * means forgetting leaks nothing; opt-out means forgetting publishes somebody's route.
+ * the only shape that fails CLOSED: every share-code read (the /s page, its card, its
+ * Markdown, the connector's get_list) builds on rowToSnapshot, and any read path added
+ * later will too. Opt-in means forgetting leaks nothing; opt-out means forgetting
+ * publishes somebody's route.
  *
  * This wrapper existed once before, for body weight, and three owner paths forgot to call
  * it — which is why tests/waypointPrivacy.test.ts asserts BOTH halves: that a viewer never
@@ -954,7 +955,7 @@ export async function createList(
 /**
  * Owner-initiated delete: soft-delete the list this edit token holds. Reuses the
  * reaper's `deletedAt` model, so the list drops out of every capability lookup
- * (edit/share/public/feed all go through `liveOnly`) the instant this runs, and
+ * (edit and share both go through `liveOnly`) the instant this runs, and
  * the nightly purge reclaims its storage + snapshots after the same grace window
  * (so a mistaken delete is admin-recoverable for `LIST_PURGE_GRACE_DAYS`). Returns
  * false if the token resolves to nothing (already deleted / never existed) → 404.
@@ -1129,10 +1130,9 @@ export async function applyOpsByEditHash(
 // however old — staleness is NOT grounds to delete a real list (a finished list can
 // sit untouched forever and must survive). Staleness (updated_at) is only a
 // debounce so we don't reap a near-empty list that's being actively built right
-// now. Publish status is deliberately NOT a factor. Soft-delete (deleted_at,
-// mirroring the rest of the schema) drops the row from every live query, frees the
-// slug/share_code/edit_token (the unique indexes are WHERE deleted_at IS NULL), and
-// stays reversible.
+// now. Soft-delete (deleted_at, mirroring the rest of the schema) drops the row from
+// every live query, frees the slug/share_code/edit_token (the unique indexes are WHERE
+// deleted_at IS NULL), and stays reversible.
 const LIST_REAP_STALE_DAYS = Number(process.env.LIST_REAP_STALE_DAYS) || 30;
 
 /**
