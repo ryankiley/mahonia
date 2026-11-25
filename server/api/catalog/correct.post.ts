@@ -1,5 +1,6 @@
 import { createError, defineEventHandler } from "h3";
 import { isCatalogId } from "../../../shared/ops";
+import { MAX_URL_LEN } from "../../../shared/trailLink";
 import { parseWeightInput } from "../../../shared/weights";
 import { proposeCorrection } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
@@ -52,7 +53,7 @@ export default defineEventHandler(async (event) => {
 
   const sourceUrl =
     typeof body?.sourceUrl === "string" && body.sourceUrl.trim()
-      ? body.sourceUrl.trim().slice(0, 2000)
+      ? body.sourceUrl.trim().slice(0, MAX_URL_LEN)
       : undefined;
   // proposeCorrection caps the stored reason
   const reason = typeof body?.reason === "string" && body.reason.trim() ? body.reason.trim() : undefined;

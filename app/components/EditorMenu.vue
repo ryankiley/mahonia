@@ -109,10 +109,11 @@ const MENU_ACTIONS: MenuAction[] = [
 // destructive pair. The editor has no footer; the sticky toolbar keeps them in reach.
 //
 // The shortcuts sheet stands down on a touch device: it lists keys a phone doesn't
-// have, so the row led to a page of things you can't press. `pointer: coarse` is the
-// same test that grows the icon buttons to --tap, so "phone" means one thing here. A
-// tablet with a keyboard attached loses the row and keeps the sheet — `?` still opens it.
-const touch = !!window.matchMedia?.("(pointer: coarse)").matches;
+// have, so the row led to a page of things you can't press. `pointer: coarse`
+// (coarsePointer, utils/platform) is the same test that grows the icon buttons to --tap,
+// so "phone" means one thing here. A tablet with a keyboard attached loses the row and
+// keeps the sheet — `?` still opens it.
+const touch = coarsePointer();
 const SITE_ACTIONS: MenuAction[] = [
   { label: "Keyboard shortcuts", icon: IconKeyboard, event: "shortcuts", hidden: () => touch },
   { label: "Send feedback…", icon: IconBug, event: "feedback" },

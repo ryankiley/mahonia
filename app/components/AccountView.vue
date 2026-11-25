@@ -271,7 +271,7 @@ const SCOPES: readonly { key: AccessScope; label: string; icon: IconNode }[] = [
 const scopeName = (scope: AccessScope) => SCOPES.find((s) => s.key === scope)!.label.toLowerCase();
 const mcpUrl = `${useSiteOrigin()}/mcp`;
 // The buttons: each client's own "install this server" link with our address filled
-// in, the same ones the About page and the README carry; ChatGPT, Gemini and the rest
+// in, the same ones the Help page and the README carry; ChatGPT, Gemini and the rest
 // have no such link and take the address pasted in. Every one of them asks for the
 // sign-in itself the first time it reaches for My Gear, so there is nothing else to
 // hand over.
@@ -376,7 +376,6 @@ async function exportEverything() {
   exportNote.value = "";
   try {
     const data = await $fetch<{ lists: unknown[]; gear: { items: unknown[] } }>("/api/account/export");
-    const { downloadFile } = await import("~/utils/download");
     downloadFile(`mahonia-export-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2), "application/json");
     const n = data.lists.length;
     const g = data.gear.items.length;
@@ -387,11 +386,6 @@ async function exportEverything() {
     exporting.value = false;
   }
 }
-// The confirmation, shown after the account is gone and the page has flipped back
-// to the signed-out screen. Longer-lived than the usual toast (8s, not the undo
-// bar's few): there is nothing to act on, and it's the only acknowledgement that an
-// irreversible thing succeeded.
-const gone = ref("");
 async function deleteAccount() {
   // ONE dialog, two decisions. It used to ask twice — "delete your account?" then
   // "delete your lists too?" — and a second modal arriving after you'd already
@@ -420,21 +414,14 @@ async function deleteAccount() {
   deleting.value = true;
   deleteNote.value = "";
   try {
-    const res = await $fetch<{ listsDeleted: number }>("/api/account/delete", {
+    await $fetch("/api/account/delete", {
       method: "POST",
       body: { deleteLists: alsoLists },
     });
     forgetAccountMemos();
-    // Stay here rather than navigating away. The page re-renders as the signed-out
-    // screen on its own once the session has gone, so the confirmation lands on the
-    // thing that actually changed — and a toast that outlived a route change would
-    // need app-wide plumbing this is the only caller for.
+    // Stay here rather than navigating away: the page re-renders as the signed-out
+    // screen on its own once the session has gone.
     await refresh(true);
-    const n = res?.listsDeleted ?? 0;
-    gone.value = n
-      ? `Account deleted, along with ${counted(n, "list")}.`
-      : "Account deleted. Your lists are untouched.";
-    setTimeout(() => (gone.value = ""), 8000);
   } catch {
     deleteNote.value = "Couldn’t delete the account. Check your connection and try again.";
   }

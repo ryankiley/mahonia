@@ -1,20 +1,15 @@
 // The pieces of catalog:graduate (scripts/catalog-graduate.ts), apart from its run so a
 // test can drive them on PGlite: the in-app verified rows, each as a research row; a
-// research row corrected in the app, written back into its own file in place; and the
-// merge of the rest into the file they graduate to.
+// research row corrected in the app, written back into its own row of its own file; and
+// the merge of the rest into the file they graduate to.
 
-import { join } from "node:path";
-import { and, asc, eq, inArray, isNotNull, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, isNotNull, sql, type SQL } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../server/db/schema";
 import type { Db } from "../server/utils/db";
 import { normalizeVariant, tidyQuote } from "../shared/catalogQuality";
-import { specToMg } from "./catalogCsv";
+import { identity, specToMg } from "./catalogCsv";
 import type { Unit } from "../shared/types";
-import { RESEARCH_DIR } from "./paths";
-import { formatResearchFile, GRADUATED_FILE_NAME, inlineJson, type ResearchRow } from "./research";
-import { identity } from "./seedUpsert";
-
-export const GRADUATE_FILE = join(RESEARCH_DIR, GRADUATED_FILE_NAME);
+import { formatResearchFile, GRADUATED_FILE_NAME, type ResearchRow } from "./research";
 
 type Row = typeof catalogItems.$inferSelect;
 
@@ -60,11 +55,26 @@ export interface Cited {
 }
 
 /**
+ * The stamp a verification leaves on a research row, as conditions on catalog_edits: an
+ * applied edit whose undo snapshot has the row verified with no verifier (seedManaged).
+ * Once a research row is corrected in the app its own fields no longer say where it came
+ * from; its edit history does. The verifier is tested as a JSON null, not a missing key:
+ * the snapshot of a product the tool added has neither field. An array to spread into
+ * and(...), beside whichever rows the caller asks about (here, and wasResearchRow in
+ * server/utils/catalogVerify.ts).
+ */
+export const researchStamp = (): SQL[] => [
+  eq(catalogEdits.status, "applied"),
+  sql`${catalogEdits.undo}->>'verified' = 'true'`,
+  sql`${catalogEdits.undo}->'verifiedBy' = 'null'::jsonb`,
+];
+
+/**
  * For each in-app row that began as a research row, the research's weight and link when a
- * verification first stamped it: the latest applied verification whose undo snapshot has
- * the row seed-managed (verified, no verifier, as wasResearchRow reads it). Keyed by
- * researchIdentity. If the research row differs from this today, the research changed
- * after the verification, and graduating would write over that change.
+ * verification first stamped it: the latest edit carrying the research stamp
+ * (researchStamp). Keyed by researchIdentity. If the research row differs from this
+ * today, the research changed after the verification, and graduating would write over
+ * that change.
  */
 export async function researchWhenVerified(db: Db, rows: readonly Row[]): Promise<Map<string, Cited>> {
   const byId = new Map(rows.map((r) => [r.id, r]));
@@ -73,14 +83,7 @@ export async function researchWhenVerified(db: Db, rows: readonly Row[]): Promis
   const stamps = await db
     .select({ itemId: catalogEdits.catalogItemId, oldWeightMg: catalogEdits.oldWeightMg, sourceUrl: sql<string | null>`${catalogEdits.undo}->>'sourceUrl'` })
     .from(catalogEdits)
-    .where(
-      and(
-        inArray(catalogEdits.catalogItemId, [...byId.keys()]),
-        eq(catalogEdits.status, "applied"),
-        sql`${catalogEdits.undo}->>'verified' = 'true'`,
-        sql`${catalogEdits.undo}->'verifiedBy' = 'null'::jsonb`,
-      ),
-    )
+    .where(and(inArray(catalogEdits.catalogItemId, [...byId.keys()]), ...researchStamp()))
     .orderBy(asc(catalogEdits.id));
   // ascending, so the latest stamp of each row is the one left in the map
   for (const { itemId, oldWeightMg, sourceUrl } of stamps) {
@@ -113,99 +116,47 @@ export function mergeResearch(existing: ResearchRow[], incoming: ResearchRow[]):
  *  row from the database finds the research row it was seeded from. */
 export function researchIdentity(r: { brand?: unknown; name?: unknown; variant?: unknown }): string {
   const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
-  return identity(str(r.brand) || null, str(r.name), normalizeVariant(str(r.variant)) || null);
-}
-
-/** Where each object in a research file's top-level "rows" array sits in its text: read by
- *  bracket matching that steps over strings and their escapes, so a row can be put back in
- *  place and every other byte of the file left as it was. */
-function rowSpans(raw: string): { start: number; end: number }[] {
-  const spans: { start: number; end: number }[] = [];
-  const open: string[] = [];
-  // the root object's last string, which is the key by the time a [ follows it
-  let key: string | null = null;
-  let inRows = false;
-  let start = -1;
-  for (let i = 0; i < raw.length; i++) {
-    const c = raw[i];
-    if (c === '"') {
-      const from = i;
-      for (i++; i < raw.length && raw[i] !== '"'; i++) if (raw[i] === "\\") i++;
-      if (open.length === 1) key = raw.slice(from + 1, i);
-    } else if (c === "{" || c === "[") {
-      if (open.length === 1 && c === "[" && key === "rows") inRows = true;
-      else if (inRows && open.length === 2 && c === "{") start = i;
-      open.push(c);
-    } else if (c === "}" || c === "]") {
-      open.pop();
-      if (inRows && open.length === 2 && c === "}") spans.push({ start, end: i + 1 });
-      else if (inRows && open.length === 1) break;
-    }
-  }
-  return spans;
-}
-
-const spacedJson = inlineJson;
-
-/** A row written as its own slice of the file was: on one line, spaced or tight, or one key
- *  a line at the slice's indent, nested values inline unless the slice opened them on lines
- *  of their own. `indent` is what stood before the row's { on its line. */
-function restyle(row: Record<string, unknown>, slice: string, indent: string): string {
-  if (!slice.includes("\n")) return slice.includes('": ') ? spacedJson(row) : JSON.stringify(row);
-  const lines = slice.split("\n");
-  const second = lines[1]!.match(/^[ \t]*/)![0];
-  const unit = (second.startsWith(indent) ? second.slice(indent.length) : second) || "  ";
-  if (lines.slice(1, -1).some((l) => /[[{]\s*$/.test(l))) return JSON.stringify(row, null, unit).replace(/\n/g, `\n${indent}`);
-  const keys = Object.entries(row).map(([k, v]) => `${indent}${unit}${JSON.stringify(k)}: ${spacedJson(v)}`);
-  return `{\n${keys.join(",\n")}\n${indent}}`;
+  return identity(str(r.brand), str(r.name), normalizeVariant(str(r.variant)));
 }
 
 /**
- * A research file with its rows of these identities (researchIdentity) given the weight and
- * citation an admin verified in the app: the weight in grams, its source, link and quote (no
- * quote if the graduated row has none), and no weight_secondary, which would be stale. Every
- * other key stays, in its order, and every other byte of the file is untouched; the row is
- * written in its own slice's style. Answers the new text, the identities it replaced, and
- * what each replaced row said before.
+ * A research file's rows with those of these identities (researchIdentity) given the weight
+ * and citation an admin verified in the app: the weight in grams, its source, link and quote
+ * (no quote if the graduated row has none), and no weight_secondary, which would be stale.
+ * Every other key of the row stays, and every other row is the one passed in. Answers the
+ * rows, the identities it replaced, and what each replaced row said before.
  */
 export function rewriteResearchRows(
-  raw: string,
+  rows: readonly unknown[],
   incoming: Map<string, ResearchRow>,
-): { text: string; replaced: Set<string>; before: Map<string, Cited> } {
+): { rows: unknown[]; replaced: Set<string>; before: Map<string, Cited> } {
   const replaced = new Set<string>();
   const before = new Map<string, Cited>();
-  let text = raw;
-  // from the end backwards, so the spans still ahead keep their offsets
-  for (const { start, end } of rowSpans(raw).reverse()) {
-    const slice = raw.slice(start, end);
-    let row: unknown;
-    try {
-      row = JSON.parse(slice);
-    } catch {
-      continue;
-    }
+  const out = [...rows];
+  // from the end backwards: the order the run lists what it replaced in, and of two rows
+  // with one identity, the first in the file is the one `before` is left holding
+  for (let i = rows.length - 1; i >= 0; i--) {
+    const row = rows[i];
     if (!row || typeof row !== "object" || Array.isArray(row)) continue;
     const key = researchIdentity(row);
     const graduated = incoming.get(key);
     if (!graduated) continue;
-    const out: Record<string, unknown> = {
+    const next: Record<string, unknown> = {
       ...row,
       weight_value: graduated.weight_value,
       weight_unit: "g",
       weight_source: graduated.weight_source,
       source_url: graduated.source_url,
     };
-    if (graduated.quote) out.quote = graduated.quote;
-    else delete out.quote;
-    delete out.weight_secondary;
-    const lineStart = raw.lastIndexOf("\n", start - 1) + 1;
-    const indent = raw.slice(lineStart, start).match(/^[ \t]*/)![0];
-    text = text.slice(0, start) + restyle(out, slice, indent) + text.slice(end);
+    if (graduated.quote) next.quote = graduated.quote;
+    else delete next.quote;
+    delete next.weight_secondary;
+    out[i] = next;
     replaced.add(key);
     const r = row as Record<string, unknown>;
     before.set(key, { weightMg: researchMg(r), sourceUrl: typeof r.source_url === "string" ? r.source_url.trim() || null : null });
   }
-  return { text, replaced, before };
+  return { rows: out, replaced, before };
 }
 
 /** One research row graduate writes over: what the research said, what the app holds, and
@@ -223,19 +174,20 @@ export interface Overwrite {
 const GRADUATED_COMMENT = "Rows verified in the app (verify_catalog_item), written out by npm run catalog:graduate.";
 
 /**
- * Where each graduated row goes. One the research already has, in any file but
- * verified-in-app.json, is written back into that row in place (rewriteResearchRows): a
- * second row of the same identity there would fail the build. The rest merge into
- * verified-in-app.json as they always have. Answers each file's new text by name, how many
- * rows went back into each research file, how many went to verified-in-app.json, and every
- * in-place write as an Overwrite, so the run can say what it replaced. `whenVerified`
- * (researchWhenVerified) is what lets it tell a maker's re-spec from a research edit made
- * after the verification.
+ * Where each graduated row goes. `files` is every research file, verified-in-app.json
+ * among them when it exists. One the research already has, in any file but
+ * verified-in-app.json, is written back into that row (rewriteResearchRows): a second row
+ * of the same identity there would fail the build. The rest merge into verified-in-app.json
+ * as they always have. Every file written is written whole, in the house layout
+ * (formatResearchFile), which a research file is already in, so only the rows that changed
+ * differ. Answers each file's new text by name, how many rows went back into each research
+ * file, how many went to verified-in-app.json, and every such row as an Overwrite, so the
+ * run can say what it replaced. `whenVerified` (researchWhenVerified) is what lets it tell
+ * a maker's re-spec from a research edit made after the verification.
  */
 export function planGraduation(
   incoming: ResearchRow[],
   files: { file: string; raw: string }[],
-  graduatedRaw: string | null,
   whenVerified: ReadonlyMap<string, Cited> = new Map(),
 ): { writes: Map<string, string>; inPlace: Map<string, number>; toGraduated: number; overwrites: Overwrite[] } {
   const wanted = new Map(incoming.map((r) => [researchIdentity(r), r]));
@@ -245,10 +197,14 @@ export function planGraduation(
   const overwrites: Overwrite[] = [];
   for (const { file, raw } of files) {
     if (file === GRADUATED_FILE_NAME) continue;
-    const { text, replaced, before } = rewriteResearchRows(raw, wanted);
+    // a file that isn't JSON throws here, before anything is written; the build and the
+    // audit refuse such a file too
+    const data = JSON.parse(raw) as { _comment?: unknown; rows?: unknown } | null;
+    const held = data?.rows;
+    if (!Array.isArray(held)) continue;
+    const { rows, replaced, before } = rewriteResearchRows(held, wanted);
     if (!replaced.size) continue;
-    // in the house layout, whatever the row's slice looked like (catalog:format)
-    writes.set(file, formatResearchFile(JSON.parse(text)));
+    writes.set(file, formatResearchFile({ ...data, rows }));
     inPlace.set(file, replaced.size);
     for (const key of replaced) {
       placed.add(key);
@@ -262,6 +218,7 @@ export function planGraduation(
   }
   const rest = incoming.filter((r) => !placed.has(researchIdentity(r)));
   if (rest.length) {
+    const graduatedRaw = files.find((f) => f.file === GRADUATED_FILE_NAME)?.raw;
     const before = graduatedRaw ? (JSON.parse(graduatedRaw) as { _comment?: string; rows?: ResearchRow[] }) : {};
     const rows = mergeResearch(before.rows ?? [], rest);
     writes.set(GRADUATED_FILE_NAME, formatResearchFile({ _comment: before._comment ?? GRADUATED_COMMENT, rows }));

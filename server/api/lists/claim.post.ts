@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   // this the write would throw into the swallowed catch and the backfill would
   // silently never happen on a cold instance.
   await useVaultDb();
-  const claimed = editTokens.length ? await claimLists(db, user.id, editTokens) : 0;
+  const claimed = await claimLists(db, user.id, editTokens);
 
   // Rebuild the vault from every list this account holds, not just the ones that
   // happen to get opened. Without this, signing in on a new device shows your

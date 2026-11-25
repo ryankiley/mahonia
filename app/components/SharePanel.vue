@@ -82,6 +82,21 @@ const canLink = computed(() => !isDraft.value || online.value);
 // row reads "Get a new edit link" (a rotate hands this device a fresh one).
 const holdsEditLink = computed(() => !!props.editToken);
 
+// The link rows, as a table the way the Export rows are (useListExports' exportItems):
+// a row is one entry here, not a hand-written <li>. The label is the whole act and the
+// accessible name; the hint is who that hands the list to.
+//
+// A claimed open (opened from the account) holds no edit link: the server only ever
+// stored its hash. No row rather than one that can't copy; the replace row below them
+// says "Get a new edit link" instead, which is how this device gets one. A draft holds
+// none either, yet, and gets one from the save its row starts.
+const linkRows = computed(() => [
+  { key: "read", label: "Copy read-only link", hint: "Anyone with it can see this list", icon: IconEyeOpen, run: () => emit("copyRead") },
+  ...(holdsEditLink.value || isDraft.value
+    ? [{ key: "edit", label: "Copy edit link", hint: "Anyone with it can edit this list", icon: IconPencil2, run: () => emit("copyEdit") }]
+    : []),
+]);
+
 // ---- the tabs ----
 // Real tabs, unlike the mode bar's radiogroup: two different panels, one shown at a
 // time, so role="tab" with aria-controls is the honest markup. Selection follows
@@ -285,39 +300,21 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
     <div v-if="tab === 'share'" :id="panelId('share')" role="tabpanel" :aria-labelledby="tabId('share')">
       <p v-if="!canLink" class="t-muted share__note">You’re offline. Links need a connection.</p>
       <ul v-else class="share__rows">
-        <li>
+        <!-- the read-only link, and the edit link where there is one to copy or to make
+             (linkRows) -->
+        <li v-for="r in linkRows" :key="r.key">
           <button
             type="button"
             data-row
             class="menu__item share__row"
-            aria-label="Copy read-only link"
-            :aria-describedby="`${uid}-hint-read`"
-            @click="act(() => emit('copyRead'))"
+            :aria-label="r.label"
+            :aria-describedby="`${uid}-hint-${r.key}`"
+            @click="act(r.run)"
           >
-            <SvgIcon :icon="IconEyeOpen" aria-hidden="true" />
+            <SvgIcon :icon="r.icon" aria-hidden="true" />
             <span class="share__text">
-              <span class="share__name">Copy read-only link</span>
-              <span :id="`${uid}-hint-read`" class="share__hint">Anyone with it can see this list</span>
-            </span>
-          </button>
-        </li>
-        <!-- A claimed open (opened from the account) holds no edit link: the server only
-             ever stored its hash. No row rather than one that can't copy; the replace row
-             below says "Get a new edit link" instead, which is how this device gets one.
-             A draft holds none either, yet, and gets one from the save this row starts. -->
-        <li v-if="holdsEditLink || isDraft">
-          <button
-            type="button"
-            data-row
-            class="menu__item share__row"
-            aria-label="Copy edit link"
-            :aria-describedby="`${uid}-hint-edit`"
-            @click="act(() => emit('copyEdit'))"
-          >
-            <SvgIcon :icon="IconPencil2" aria-hidden="true" />
-            <span class="share__text">
-              <span class="share__name">Copy edit link</span>
-              <span :id="`${uid}-hint-edit`" class="share__hint">Anyone with it can edit this list</span>
+              <span class="share__name">{{ r.label }}</span>
+              <span :id="`${uid}-hint-${r.key}`" class="share__hint">{{ r.hint }}</span>
             </span>
           </button>
         </li>

@@ -4,13 +4,8 @@
 import { eq, sql } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../server/db/schema";
 import type { Db } from "../server/utils/db";
-import type { CatalogCsvRow } from "./catalogCsv";
-
-const SEP = "\u0000";
-/** A row's identity, as the table's unique index reads it: an absent brand or variant
- *  is the empty one. */
-export const identity = (brand: string | null, name: string, variant: string | null) =>
-  `${brand ?? ""}${SEP}${name}${SEP}${variant ?? ""}`;
+import { seedManaged } from "../shared/catalogQuality";
+import { identity, type CatalogCsvRow } from "./catalogCsv";
 
 /** Rows per INSERT: eleven columns each, well under the driver's parameter ceiling. */
 const INSERT_BATCH = 500;
@@ -150,8 +145,7 @@ export async function upsertSeedRows(
       cur.categoryHint !== want.categoryHint ||
       cur.searchTerms !== want.searchTerms ||
       cur.commonName !== want.commonName ||
-      cur.verified !== true ||
-      cur.verifiedBy != null ||
+      !seedManaged(cur) ||
       cur.status !== "active";
     if (!changed) {
       unchanged++;

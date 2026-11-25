@@ -5,11 +5,9 @@ import { eq } from "drizzle-orm";
 import { catalogItems, vaultItems } from "../server/db/schema";
 import { vaultNormKey } from "../shared/vault";
 import type { Db } from "../server/utils/db";
-import type { CatalogCsvRow } from "./catalogCsv";
+import { identity, SEP, type CatalogCsvRow } from "./catalogCsv";
 import { seedManaged } from "../shared/catalogQuality";
-import { identity } from "./seedUpsert";
 
-const SEP = "\u0000";
 const product = (brand: string | null, name: string, weightMg: number, sourceUrl: string | null) =>
   `${brand ?? ""}${SEP}${name}${SEP}${weightMg}${SEP}${sourceUrl ?? ""}`;
 

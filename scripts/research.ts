@@ -153,7 +153,7 @@ const OPTIONAL_KEYS = new Set([
 ]);
 
 /** JSON on one line with a space after every colon and comma, nested values too. */
-export function inlineJson(v: unknown): string {
+function inlineJson(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(inlineJson).join(", ")}]`;
   if (v && typeof v === "object") return `{${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${inlineJson(x)}`).join(", ")}}`;
   return JSON.stringify(v);
@@ -284,13 +284,16 @@ export function researchGearType(row: ResearchRow, commonNames: Map<string, stri
   return normalizeGearType(own || mapped || deriveNoun((row.name ?? "").trim()) || "");
 }
 
-/** Read + JSON-parse every `*.json` under `researchDir`, sorted by filename. Never
- *  throws: a file that won't parse comes back with `parseError` set and `rows: []`. */
-export function readResearchFiles(researchDir: string): ResearchFile[] {
-  const files = readdirSync(researchDir)
+/** The research files under `researchDir`: every `*.json`, sorted by filename. */
+export const researchFileNames = (researchDir: string): string[] =>
+  readdirSync(researchDir)
     .filter((f) => f.endsWith(".json"))
     .sort();
-  return files.map((file) => {
+
+/** Read + JSON-parse every research file under `researchDir`. Never throws: a file that
+ *  won't parse comes back with `parseError` set and `rows: []`. */
+export function readResearchFiles(researchDir: string): ResearchFile[] {
+  return researchFileNames(researchDir).map((file) => {
     try {
       let parsed: unknown;
       try {

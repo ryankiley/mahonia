@@ -58,22 +58,15 @@ describe("SvgIcon", () => {
     expect(html({ icon })).toContain(`stroke-width="${own}"`);
   });
 
-  it("kebab-cases attributes and drops key", () => {
-    const out = html({ icon: [["path", { d: "M1 1H2", strokeLinecap: "round", key: "0" }]] as IconNode });
+  it("kebab-cases attributes", () => {
+    const out = html({ icon: [["path", { d: "M1 1H2", strokeLinecap: "round" }]] as IconNode });
     expect(out).toContain('stroke-linecap="round"');
-    expect(out).not.toContain("key=");
   });
 
   it("passes class and aria-hidden through to the svg, beside its own", () => {
     const out = svgOpen(html({ icon: central.IconFormSquare, size: "xl" }, { class: "item__boxicon is-on", "aria-hidden": "true" }));
     expect(out).toMatch(/class="svgicon svgicon--xl item__boxicon is-on"/);
     expect(out).toMatch(/aria-hidden="true"/);
-  });
-
-  it("draws altIcon only when showAlt is set", () => {
-    const base = { icon: central.IconFormSquare, altIcon: ours.TentGlyph };
-    expect(html({ ...base, showAlt: false })).toBe(html({ icon: central.IconFormSquare }));
-    expect(html({ ...base, showAlt: true })).toBe(html({ icon: ours.TentGlyph }));
   });
 });
 

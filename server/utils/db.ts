@@ -3,7 +3,8 @@
 // There is no migration step: the schema is ensured idempotently on first use, by
 // build() in dev and by the use*Db() and ensure*Schema() helpers below on Neon.
 
-import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import { sql, type SQL } from "drizzle-orm";
+import type { PgDatabase, PgQueryResultHKT, PgTable } from "drizzle-orm/pg-core";
 import * as schema from "../db/schema";
 import { CATALOG_DDL, ensureCatalogSchema } from "./catalog";
 import { CANDIDATES_DDL } from "./candidates";
@@ -31,13 +32,21 @@ export function isUniqueViolation(error: unknown): boolean {
   return typeof cause === "object" && cause !== null && (cause as { code?: unknown }).code === "23505";
 }
 
+/**
+ * How many rows of `table` match `where` (all of them when it is left out): one
+ * `select count(*)`, as a number. Both drivers hand a count back as text, since it
+ * is a bigint, so the conversion is here once rather than at each cap that asks.
+ */
+export async function countRows(db: Db, table: PgTable, where?: SQL): Promise<number> {
+  const [row] = await db.select({ n: sql<number>`count(*)` }).from(table).where(where);
+  return Number(row?.n ?? 0);
+}
+
 let _dbPromise: Promise<Db> | undefined;
 
-/** Neon's connection string. Unset means local PGlite: dev, the scripts and the tests. */
-const databaseUrl = (): string | undefined => process.env.DATABASE_URL;
-
 async function build(): Promise<Db> {
-  const url = databaseUrl();
+  // Neon's connection string. Unset means local PGlite: dev, the scripts and the tests.
+  const url = process.env.DATABASE_URL;
   if (url) {
     const { drizzle } = await import("drizzle-orm/neon-http");
     const { neon } = await import("@neondatabase/serverless");
@@ -282,7 +291,7 @@ export async function useDb(): Promise<Db> {
   // Neon has no build-time DDL (dev's PGlite ensured the schema in build()), so
   // ensure the core `lists` table exists on first use. Memoized → one batch per
   // warm instance. Snapshots + catalog self-ensure on their own paths.
-  if (databaseUrl()) await ensureListsSchema(db);
+  if (process.env.DATABASE_URL) await ensureListsSchema(db);
   return db;
 }
 

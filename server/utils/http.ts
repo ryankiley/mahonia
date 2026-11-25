@@ -37,9 +37,9 @@ export function setPrivate(event: H3Event): void {
 /** The read views' shared edge window: collapses the burst when a share link
  *  makes the rounds, at the accepted cost of 30 s of staleness on a read-only
  *  surface. One helper because it's one INVARIANT — the pair a crawler fetches
- *  (a list's HTML via /api/s | /api/l, then its card image via /og) must go
- *  stale together. READ_EDGE_CACHE_CONTROL lives in shared/site.ts, so the two
- *  SSR read pages use this exact window too. */
+ *  (a list's HTML via /api/s, then its card image via /og) must go
+ *  stale together. READ_EDGE_CACHE_CONTROL lives in shared/site.ts, so the
+ *  SSR read page (/s) uses this exact window too. */
 export function setReadEdgeCache(event: H3Event): void {
   setHeader(event, "Cache-Control", READ_EDGE_CACHE_CONTROL);
 }

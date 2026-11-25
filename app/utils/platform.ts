@@ -33,3 +33,17 @@ function isMac(): boolean {
 
 /** The Alt/Option key's name here — "⌥" on a Mac, "Alt" everywhere else. */
 export const altKeyLabel = (): string => (isMac() ? "⌥" : "Alt");
+
+/**
+ * Whether this is a touch-first device: `pointer: coarse`, the same test the stylesheet
+ * grows the icon buttons to --tap on, so "phone" means one thing in script and in CSS.
+ * Asked at call time, never cached: a caller that wants it fixed for its own life reads
+ * it once. False on the server and where there is no matchMedia to ask.
+ *
+ * One spelling for the three places in the editor that had each written the media query
+ * out: the ⋯ menu (no shortcuts row), the focus scroll (wait for the keyboard) and the
+ * route map (one finger scrolls the page). The list switcher keeps its own read: it
+ * also loads without the editor, and this file ships in the editor's chunk.
+ */
+export const coarsePointer = (): boolean =>
+  typeof window !== "undefined" && !!window.matchMedia?.("(pointer: coarse)").matches;

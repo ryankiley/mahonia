@@ -175,11 +175,6 @@ export async function catalogMatches(db: Db, brand: string | null, name: string,
   return scored.sort((a, b) => b.s - a.s).map(({ m }) => m);
 }
 
-/** The likeliest of catalogMatches, or null. */
-export async function closestCatalogMatch(db: Db, brand: string | null, name: string, variant: string | null): Promise<CatalogSearchResult | null> {
-  return (await catalogMatches(db, brand, name, variant))[0] ?? null;
-}
-
 interface CorroborateResult {
   scanned: number; promoted: number; merged: number; rejected: number; skipped: number; purged: number;
 }
@@ -288,8 +283,8 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     if (med / 1000 < lo || med / 1000 > hi) { await reject(key); res.rejected++; continue; }
 
     // dedup against the live catalog (fuzzy) → bump usage instead of duplicating
-    // (closestCatalogMatch says what counts as the same product)
-    const match = await closestCatalogMatch(db, rawBrand, rawName, variant);
+    // (catalogMatches says what counts as the same product; the likeliest is first)
+    const [match] = await catalogMatches(db, rawBrand, rawName, variant);
     if (match) {
       await bumpUsage(db, [match.id]);
       await markPromoted(key, match.id);

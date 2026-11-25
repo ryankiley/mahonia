@@ -113,7 +113,7 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
       // matches them. It boots at the address it was opened for, and the editor takes
       // its list from the #token fragment (or the account) and the copy in IndexedDB,
       // so nothing on /e/{shareCode} offline needs that route's own HTML; /gear draws
-      // the account's gear from this device's copy (app/utils/gearCopy.ts).
+      // the account's gear from this device's copy (app/composables/useVaultList.ts).
       {
         // Navigations only, matched on the path: /api/s/e or /e/_payload.json must
         // never be answered with app HTML. The pattern is written inline because

@@ -98,11 +98,25 @@ export function useMenuPlate(): {
     hide();
     const plate = plateRef.value;
     if (!plate) return;
+    // silently, so the move home can't be animated
+    silently(plate, () => {
+      plate.style.transform = "";
+      plate.style.height = "";
+      plate.style.clipPath = "";
+    });
+  }
+
+  /**
+   * Write the plate's geometry with its transition off: `is-placing` on, the writes, a
+   * forced reflow so they land while it is on, then off again. The one place the dance
+   * the header describes is written (on the element, never through a reactive flag); a
+   * first landing, a keyboard move, a scroll under the pointer and the trip home all
+   * place this way.
+   */
+  function silently(plate: HTMLElement, write: () => void) {
     plate.classList.add("is-placing");
-    plate.style.transform = "";
-    plate.style.height = "";
-    plate.style.clipPath = "";
-    void plate.offsetHeight; // flush, so the move home can't be animated
+    write();
+    void plate.offsetHeight; // flush, so the placement can't be animated
     plate.classList.remove("is-placing");
   }
 
@@ -172,36 +186,35 @@ export function useMenuPlate(): {
     standOn(row);
 
     const first = !plate.classList.contains("is-on");
-    const still = first || place;
-    if (still) plate.classList.add("is-placing");
-    plate.style.transform = `translateY(${offsetIn(row, list)}px)`;
-    plate.style.height = `${row.offsetHeight}px`;
-    clipTo(plate, row, list);
-    // THE PLATE CARRIES THE ROW'S OWN HUE, so a destructive row lights red rather
-    // than in the neutral wash — a grey fill under red text says "a row", and the
-    // point of the colour is that this row isn't one.
-    //
-    // OPT-IN, via [data-row-hue] — the same way [data-row] already says which
-    // elements the plate may land on at all. The design system's ds-menu takes every
-    // row's colour unconditionally, which is right there and wrong here: Mahonia's
-    // rows already vary their ink for HIERARCHY (a section item and the switcher's
-    // "New list" sit at --ink-2), so washing from that would light those rows more
-    // faintly than their neighbours — "less hoverable" rather than "different in
-    // kind". Marking the one row that means it leaves every other menu untouched.
-    //
-    // The COLOUR comes from computed `color`, which is resolved — light-dark()
-    // picked, var() substituted. A custom property would hand over its raw token
-    // stream instead, and the row's own declaration is the honest single source for
-    // "this row's ink" anyway.
-    if (row.hasAttribute("data-row-hue")) {
-      plate.style.setProperty("--hov-ink", getComputedStyle(row).color);
-    } else {
-      plate.style.removeProperty("--hov-ink");
-    }
-    if (still) {
-      void plate.offsetHeight; // flush, so the placement can't be animated
-      plate.classList.remove("is-placing");
-    }
+    const write = () => {
+      plate.style.transform = `translateY(${offsetIn(row, list)}px)`;
+      plate.style.height = `${row.offsetHeight}px`;
+      clipTo(plate, row, list);
+      // THE PLATE CARRIES THE ROW'S OWN HUE, so a destructive row lights red rather
+      // than in the neutral wash — a grey fill under red text says "a row", and the
+      // point of the colour is that this row isn't one.
+      //
+      // OPT-IN, via [data-row-hue] — the same way [data-row] already says which
+      // elements the plate may land on at all. The design system's ds-menu takes every
+      // row's colour unconditionally, which is right there and wrong here: Mahonia's
+      // rows already vary their ink for HIERARCHY (a section item and the switcher's
+      // "New list" sit at --ink-2), so washing from that would light those rows more
+      // faintly than their neighbours — "less hoverable" rather than "different in
+      // kind". Marking the one row that means it leaves every other menu untouched.
+      //
+      // The COLOUR comes from computed `color`, which is resolved — light-dark()
+      // picked, var() substituted. A custom property would hand over its raw token
+      // stream instead, and the row's own declaration is the honest single source for
+      // "this row's ink" anyway.
+      if (row.hasAttribute("data-row-hue")) {
+        plate.style.setProperty("--hov-ink", getComputedStyle(row).color);
+      } else {
+        plate.style.removeProperty("--hov-ink");
+      }
+    };
+    // a first landing and a keyboard move are placed; only the pointer's move travels
+    if (first || place) silently(plate, write);
+    else write();
     plate.classList.add("is-on");
   }
 
@@ -213,12 +226,12 @@ export function useMenuPlate(): {
   function follow() {
     const plate = plateRef.value;
     const list = listRef.value;
-    if (!plate || !list || !at || !plate.classList.contains("is-on")) return;
-    plate.classList.add("is-placing");
-    plate.style.transform = `translateY(${offsetIn(at, list)}px)`;
-    clipTo(plate, at, list);
-    void plate.offsetHeight;
-    plate.classList.remove("is-placing");
+    const row = at;
+    if (!plate || !list || !row || !plate.classList.contains("is-on")) return;
+    silently(plate, () => {
+      plate.style.transform = `translateY(${offsetIn(row, list)}px)`;
+      clipTo(plate, row, list);
+    });
   }
   // capture, because scroll doesn't bubble — the scroller is INSIDE the list, and
   // this is the one listener the `on` object below can't carry

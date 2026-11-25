@@ -17,7 +17,7 @@
 //     people actually carry is small by design, so this stays cheap locally.
 // Engine is detected via DATABASE_URL, the same signal db.ts uses.
 
-import { safeUrl } from "../../shared/trailLink";
+import { MAX_URL_LEN, safeUrl } from "../../shared/trailLink";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
@@ -463,7 +463,7 @@ export async function proposeCorrection(
   // Drop non-http(s) schemes before the value is stored or rendered as a link
   // (javascript:/data: citations are an XSS vector wherever one is shown as a link, and a
   // `javascript://trusted-domain/` URL would otherwise pass isTrustedSource).
-  const safeSource = isHttpUrl(input.sourceUrl) ? input.sourceUrl!.slice(0, 2000) : undefined;
+  const safeSource = isHttpUrl(input.sourceUrl) ? input.sourceUrl!.slice(0, MAX_URL_LEN) : undefined;
   const cited = isTrustedSource(safeSource);
   // uncited/community values are wiki-open; a verified value needs a trusted citation.
   // An admin's in-app verification never moves on its own: applied here, the weight would

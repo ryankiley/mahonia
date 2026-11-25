@@ -19,6 +19,11 @@ export async function copyText(text: string): Promise<boolean> {
   return legacyCopy(text);
 }
 
+/** What a caller says when the copy didn't land and it has nothing better to offer
+ *  (the trail link, the two text exports): one sentence, spelled once. A caller with a
+ *  way round the clipboard says that instead (the editor shows the link to copy by hand). */
+export const COPY_FAILED = "Couldn’t copy. Try again.";
+
 // Copy text that isn't known yet: a link to a list that is being saved by the same
 // click. Awaiting the text and THEN writing spends the gesture (Safari refuses a
 // write that follows a network await), so the write starts now and is handed the

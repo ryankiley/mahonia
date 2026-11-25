@@ -47,6 +47,14 @@ export const isCitationUrl = (s: string): boolean => safeUrl(s) !== null;
 export const identityKey = (brand: string, name: string, variant: string): string =>
   `${brand.toLowerCase()}|${name.toLowerCase()}|${variant.toLowerCase()}`;
 
+/** What joins the three fields of an exact identity: a character no field can hold. */
+export const SEP = "\u0000";
+/** A row's exact identity, as the table's unique index reads it: an absent brand or
+ *  variant is the empty one. Case kept, unlike identityKey: the seeder, the graduate run
+ *  and the case-collision check tell "NEMO" from "Nemo". */
+export const identity = (brand: string | null, name: string, variant: string | null) =>
+  `${brand ?? ""}${SEP}${name}${SEP}${variant ?? ""}`;
+
 /** "" (after trimming) → null, for the CSV's optional columns. */
 const blankToNull = (v: string | undefined) => {
   const t = (v ?? "").trim();

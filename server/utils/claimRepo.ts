@@ -11,7 +11,7 @@ import { toIso } from "./time";
 import { and, desc, eq } from "drizzle-orm";
 import { listClaims, lists } from "../db/schema";
 import type { Db } from "./db";
-import { findLiveByEditHashes, isLive } from "./listRepo";
+import { claimedLiveBy, findLiveByEditHashes, isLive } from "./listRepo";
 import { sha256Hex } from "./tokens";
 import { captureVaultItems, unitOf } from "./vaultRepo";
 import { vaultIdOrMint } from "./vaultAuth";
@@ -117,12 +117,7 @@ export async function listClaimedLists(db: Db, userId: number): Promise<ClaimedL
     })
     .from(listClaims)
     .innerJoin(lists, eq(lists.id, listClaims.listId))
-    .where(
-      and(
-        eq(listClaims.userId, userId),
-        isLive(),
-      ),
-    )
+    .where(claimedLiveBy(userId))
     .orderBy(desc(lists.updatedAt))
     .limit(CLAIMED_LIST_CAP);
 
@@ -160,9 +155,7 @@ export async function backfillVaultFromClaims(db: Db, userId: number): Promise<n
     .select({ data: lists.data })
     .from(listClaims)
     .innerJoin(lists, eq(lists.id, listClaims.listId))
-    .where(
-      and(eq(listClaims.userId, userId), isLive()),
-    )
+    .where(claimedLiveBy(userId))
     .orderBy(desc(lists.updatedAt), desc(lists.id))
     .limit(CLAIMED_LIST_CAP);
 

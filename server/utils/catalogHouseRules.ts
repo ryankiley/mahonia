@@ -15,18 +15,9 @@ import { asResearchRow } from "../../scripts/graduate";
 import { GRADUATED_FILE_NAME } from "../../scripts/research";
 import { runResearchChecks } from "../../scripts/researchChecks";
 
-/** A catalog row in the fields the checks read. */
-export interface RuleRow {
-  brand: string | null;
-  name: string;
-  variant: string | null;
-  commonName: string | null;
-  categoryHint: string | null;
-  weightMg: number;
-  weightSource: string;
-  sourceUrl: string | null;
-  sourceQuote: string | null;
-}
+/** A catalog row in the fields the checks read: the ones a row graduates with
+ *  (asResearchRow), so a row read from catalog_items is one as it stands. */
+export type RuleRow = Parameters<typeof asResearchRow>[0];
 
 /** The row as the build would write it into the CSV: its axes read out of the variant. */
 function asCsvRow(r: RuleRow): CatalogCsvRow {

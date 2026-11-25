@@ -5,9 +5,8 @@ import { eq } from "drizzle-orm";
 import { catalogItems } from "../server/db/schema";
 import { matchSuccessor } from "../shared/catalogLinks";
 import type { Db } from "../server/utils/db";
-import type { CatalogCsvRow } from "./catalogCsv";
+import { identity, type CatalogCsvRow } from "./catalogCsv";
 import { seedManaged } from "../shared/catalogQuality";
-import { identity } from "./seedUpsert";
 
 /**
  * Retire every seed-managed row the CSV no longer names, pointing it at its successor.

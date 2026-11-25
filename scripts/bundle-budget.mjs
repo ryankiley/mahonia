@@ -107,7 +107,6 @@ rows.sort((a, b) => b.br - a.br);
 
 const firstBr = rows.filter((r) => r.first).reduce((n, r) => n + r.br, 0);
 const firstBrKb = firstBr / 1024;
-const totalBrKb = totalBr / 1024;
 const maxChunk = rows[0] ?? { f: "—", br: 0 };
 const maxChunkBrKb = maxChunk.br / 1024;
 

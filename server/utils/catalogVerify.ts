@@ -37,24 +37,25 @@
 import { and, desc, eq, getTableColumns, gt, isNotNull, or, sql, type SQL } from "drizzle-orm";
 import { catalogEdits, catalogItems, type CatalogEditUndo } from "../db/schema";
 import { normalizeGearType } from "../../scripts/gearTypes";
+import { researchStamp } from "../../scripts/graduate";
 import { soldByOf } from "../../shared/catalogAxes";
-import { categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged, tidyQuote } from "../../shared/catalogQuality";
+import { CATALOG_CATEGORIES, categoryForGearType, normalizeVariant, normKey, quoteBacksWeight, RANGE_G, seedManaged, tidyQuote } from "../../shared/catalogQuality";
 import { isCatalogId, MAX_BRAND_LEN, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { foldApostrophes, tidyText } from "../../shared/tidyText";
+import { displayHost, MAX_URL_LEN, safeUrl } from "../../shared/trailLink";
 import { itemDisplayName } from "../../shared/weights";
 import { catalogBrands, catalogGearTypes, isHttpUrl } from "./catalog";
 import { houseRuleProblems, type RuleRow } from "./catalogHouseRules";
 import { catalogMatches } from "./candidates";
 import { namesSize } from "./catalogSizes";
-import { isUniqueViolation, type Db } from "./db";
+import { countRows, isUniqueViolation, type Db } from "./db";
 
 export const VERIFY_SOURCES = ["manufacturer", "measured"] as const;
-export const CATEGORIES = Object.keys(RANGE_G);
 /** The caps the tool's schema declares (mcp.ts). A quote or a link past its cap is
  *  refused, not cut: a cut quote can lose the figure it was sent for, and a cut link
  *  goes nowhere. Notes are only kept, so they are cut like any other note. */
 export const VERIFY_QUOTE_MAX = MAX_ITEM_NOTE_LEN;
-export const VERIFY_URL_MAX = 2000;
+export const VERIFY_URL_MAX = MAX_URL_LEN;
 export const VERIFY_NOTES_MAX = 500;
 /** Verifications across all admins in an hour before the tool stops: a person checking a
  *  shelf of gear stays well under it, a loop that went wrong doesn't get far. */
@@ -102,18 +103,6 @@ function spelledAs(label: string, vocabulary: string[], loose?: (s: string) => s
  *  already in the vocabulary, so it can't invent one. */
 const gearTypeKey = (label: string) => normKey(label).replace(/s$/, "");
 
-const asRuleRow = (r: CatalogRow): RuleRow => ({
-  brand: r.brand,
-  name: r.name,
-  variant: r.variant,
-  commonName: r.commonName,
-  categoryHint: r.categoryHint,
-  weightMg: Number(r.weightMg),
-  weightSource: r.weightSource,
-  sourceUrl: r.sourceUrl,
-  sourceQuote: r.sourceQuote,
-});
-
 /** The rows the house rules compare a row with: every live verified row, as the build
  *  sees the catalog, and the product's own live rows whatever their standing (same brand
  *  and name through the search fold, as the audit groups them). Some rules read the whole
@@ -126,7 +115,7 @@ async function comparedRows(db: Db, brand: string | null, name: string, exceptId
     .from(catalogItems)
     .where(and(eq(catalogItems.status, "active"), or(eq(catalogItems.verified, true), sql`lower(${catalogItems.name}) = lower(${name})`)));
   const sameProduct = (r: CatalogRow) => normKey(r.brand) === normKey(brand) && normKey(r.name) === normKey(name);
-  return rows.filter((r) => r.id !== exceptId && (r.verified || sameProduct(r))).map(asRuleRow);
+  return rows.filter((r) => r.id !== exceptId && (r.verified || sameProduct(r)));
 }
 
 /** The product a verification is about: what the row will be called, and, for a precheck
@@ -184,7 +173,7 @@ export async function verifyCatalogItem(
   const gearTypes = await catalogGearTypes(db);
   const gearType = typedType ? spelledAs(typedType, gearTypes, gearTypeKey) : "";
   const category = args.category == null ? null : String(args.category).trim().toLowerCase();
-  if (category != null && !CATEGORIES.includes(category)) return `category is one of ${CATEGORIES.join(", ")}.`;
+  if (category != null && !CATALOG_CATEGORIES.includes(category)) return `category is one of ${CATALOG_CATEGORIES.join(", ")}.`;
   // the rows the person checked are other products
   const distinct = args.distinct_from ?? [];
   if (!Array.isArray(distinct) || !distinct.every(isCatalogId)) return "distinct_from lists the ids of the catalog rows a refusal named as looking like the same product.";
@@ -245,15 +234,14 @@ export async function verifyCatalogItem(
     }
   }
   const display = itemDisplayName(identity.brand, identity.name, identity.variant);
-  const refused = precheck?.({ ...identity, commonName: gearType || current?.commonName || null, categoryHint: category ?? categoryForGearType(gearType) ?? current?.categoryHint ?? null });
-  if (refused) return refused;
-
   // what the call would make of the row's gear type and kind: the gear type given, or the
   // row's own (either joins the suggestions once verified), and the category given, else
   // the one a given gear type names
   const typedLabel = gearType || current?.commonName?.trim() || "";
   const askedLabel = typedLabel ? spelledAs(typedLabel, gearTypes, gearTypeKey) : null;
   const askedKind = category ?? categoryForGearType(gearType);
+  const refused = precheck?.({ ...identity, commonName: gearType || current?.commonName || null, categoryHint: askedKind ?? current?.categoryHint ?? null });
+  if (refused) return refused;
 
   // A retired row: one merged into a successor is verified there; one removed outright
   // comes back under its old id, as the seed's upsert brings back a row the research names
@@ -305,15 +293,14 @@ export async function verifyCatalogItem(
   // Often the person meant their own piece, which takes its own weight without touching
   // the shared row, so the answer says so, and how to put the maker's back.
   if (source === "measured" && current?.weightSource === "manufacturer") {
-    let from = "";
-    try {
-      from = current.sourceUrl ? `, from ${new URL(current.sourceUrl).hostname.replace(/^www\./, "")}` : "";
-    } catch {}
+    const page = safeUrl(current.sourceUrl);
+    const from = page ? `, from ${displayHost(page)}` : "";
     warnings.push(`Row ${current.id}, ${itemDisplayName(current.brand, current.name, current.variant)}, carried the maker's published weight (${nowG} g${from}), and this scale weight replaced it, and its quote, for everyone who uses the catalog. If the person meant only their own piece, revert_catalog_edit with edit_id puts the maker's back, and edit_my_gear's weight_g records theirs.`);
   }
 
   // the gear type the row will carry: a research row keeps its own as it stands
   const label = research ? current!.commonName : askedLabel;
+  // a scale weight usually comes with no link: the row keeps the one it had
   const effectiveUrl = sourceUrl ?? current?.sourceUrl ?? null;
   // One weighing is one size: on gear sold by size, a scale weight with no size in the
   // variant reads as every size's, unless the product comes in one size. A size the reader
@@ -349,7 +336,7 @@ export async function verifyCatalogItem(
   // ---- the house style: what the build would refuse in this row ----
   const ruleRow: RuleRow = { ...identity, commonName: label, categoryHint: kind, weightMg, weightSource: source as string, sourceUrl: effectiveUrl, sourceQuote: storedQuote };
   // a research row graduates back into its own research file, not verified-in-app.json
-  const problems = houseRuleProblems(ruleRow, await comparedRows(db, identity.brand, identity.name, current?.id), research ? "research" : undefined, current?.status === "active" ? asRuleRow(current) : undefined);
+  const problems = houseRuleProblems(ruleRow, await comparedRows(db, identity.brand, identity.name, current?.id), research ? "research" : undefined, current?.status === "active" ? current : undefined);
   if (problems.length) {
     const fix = research
       ? "check source_url is the maker's own page and quote its line that states the weight"
@@ -366,16 +353,13 @@ export async function verifyCatalogItem(
 
   // ---- volume: a loop that went wrong stops here ----
   // only an admin's verification keeps an undo snapshot, so these are the tool's own writes
-  const [counted] = await db
-    .select({ n: sql<number>`count(*)` })
-    .from(catalogEdits)
-    .where(and(isNotNull(catalogEdits.undo), gt(catalogEdits.createdAt, sql`now() - interval '1 hour'`)));
-  const recent = Number(counted?.n ?? 0);
+  const recent = await countRows(db, catalogEdits, and(isNotNull(catalogEdits.undo), gt(catalogEdits.createdAt, sql`now() - interval '1 hour'`)));
   if (recent >= VERIFY_HOURLY_MAX) {
     return `${recent} catalog verifications in the last hour is the most the tool takes. Look over them with get_catalog_edits, and carry on in an hour.`;
   }
 
-  const verified = { weightMg, weightSource: source as string, sourceUrl, sourceQuote: storedQuote, verified: true, verifiedBy: userId, updatedAt: new Date() };
+  // for a new product there is no row to keep a link from, so effectiveUrl is the one sent
+  const verified = { weightMg, weightSource: source as string, sourceUrl: effectiveUrl, sourceQuote: storedQuote, verified: true, verifiedBy: userId, updatedAt: new Date() };
 
   // The edit history and the row are written in ONE statement (the edit as a data-modifying
   // CTE), so neither lands without the other: an "applied" edit for a change that never
@@ -438,8 +422,6 @@ export async function verifyCatalogItem(
       .set({
         ...verified,
         ...identity,
-        // a scale weight usually comes with no link: the row keeps the one it had
-        sourceUrl: effectiveUrl,
         ...(typedKind ? { categoryHint: typedKind } : {}),
         ...(label && !research ? { commonName: label, searchTerms: normKey(label) || null } : {}),
         ...(revive ? { status: "active", mergedIntoId: null } : {}),
@@ -463,15 +445,8 @@ async function wasResearchRow(db: Db, id: number): Promise<boolean> {
   const [found] = await db
     .select({ id: catalogEdits.id })
     .from(catalogEdits)
-    .where(
-      and(
-        eq(catalogEdits.catalogItemId, id),
-        eq(catalogEdits.status, "applied"),
-        sql`${catalogEdits.undo}->>'verified' = 'true'`,
-        // a JSON null, not a missing key: the snapshot of a product the tool added has neither
-        sql`${catalogEdits.undo}->'verifiedBy' = 'null'::jsonb`,
-      ),
-    )
+    // the stamp's three conditions, and why a JSON null, are researchStamp's (scripts/graduate.ts)
+    .where(and(eq(catalogEdits.catalogItemId, id), ...researchStamp()))
     .limit(1);
   return found != null;
 }

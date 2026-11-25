@@ -3,10 +3,10 @@
 // ceremony plumbing to server/utils/passkeys.ts.
 
 import { toIso } from "./time";
-import { and, desc, eq, getTableColumns, lt, sql } from "drizzle-orm";
+import { and, desc, eq, getTableColumns, lt } from "drizzle-orm";
 import { credentials, users } from "../db/schema";
 import { notRetired } from "./accessTokens";
-import type { Db } from "./db";
+import { countRows, type Db } from "./db";
 import { cleanLine } from "./http";
 import type { PasskeySummary } from "../../shared/types";
 import { isSerialId } from "../../shared/ops";
@@ -94,11 +94,8 @@ export async function savePasskey(
  * then be passed by that key. It errs that way only, never by removing a kept key.)
  */
 export async function removePasskeyBeyondCap(db: Db, userId: number, id: number): Promise<boolean> {
-  const [{ earlier } = { earlier: 0 }] = await db
-    .select({ earlier: sql<number>`count(*)` })
-    .from(credentials)
-    .where(and(eq(credentials.userId, userId), lt(credentials.id, id)));
-  if (Number(earlier) < MAX_PASSKEYS_PER_USER) return false;
+  const earlier = await countRows(db, credentials, and(eq(credentials.userId, userId), lt(credentials.id, id)));
+  if (earlier < MAX_PASSKEYS_PER_USER) return false;
   await deletePasskey(db, userId, id);
   return true;
 }

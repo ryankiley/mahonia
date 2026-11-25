@@ -12,7 +12,10 @@ import { SvgIcon } from "~/utils/icon";
 //
 // Sizing is the caller's: the root takes whatever class it's given (the pane stretches
 // it, the page caps it at 32ch), and the field inside fills it.
-defineProps<{ placeholder: string; label: string }>();
+//
+// One string names it: `label` is the field's accessible name, and the placeholder is
+// the same words trailing off ("Search my gear…").
+defineProps<{ label: string }>();
 const query = defineModel<string>({ required: true });
 const inputEl = useTemplateRef<HTMLInputElement>("inputEl");
 
@@ -32,7 +35,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
       v-model="query"
       class="field well sf__input"
       type="search"
-      :placeholder="placeholder"
+      :placeholder="`${label}…`"
       :aria-label="label"
     />
     <button

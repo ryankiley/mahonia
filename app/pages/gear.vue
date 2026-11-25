@@ -109,13 +109,14 @@ const TABS = VAULT_TABS.map((key) => ({ key, label: VAULT_TAB_LABEL[key], icon: 
 // their widths to disagree (Ryan: "let's make the text one unit vs. headline and
 // body"). The kit's is Help's own sentence ("My Gear and your account"), so the two
 // can't define a kit differently.
+const KIT_IS = "A kit is a set you pack together, like a stove, pot, and lighter.";
 const EMPTY_COPY: Record<VaultTab, string> = {
   gear: "The gear you own, ready to pick on any list. Add a piece, or build a list and its gear is saved here.",
-  kits: "A kit is a set you pack together, like a stove, pot, and lighter. It goes onto a list as one group.",
+  kits: `${KIT_IS} It goes onto a list as one group.`,
   food: "Meals and snacks, each with its calories. Add some, or build a list and its food is saved here.",
 };
 // a kit is made of gear, so with none the way in is a piece of gear, and the line says so
-const KIT_NEEDS_GEAR = "A kit is a set you pack together, like a stove, pot, and lighter. It’s made from your gear, so add some first.";
+const KIT_NEEDS_GEAR = `${KIT_IS} It’s made from your gear, so add some first.`;
 const isTab = (v: unknown): v is VaultTab => VAULT_TABS.some((t) => t === v);
 const tab = ref<VaultTab>("gear");
 onMounted(() => {
@@ -270,6 +271,9 @@ const emptyShown = computed(() => {
   if (!items.value.length) return !offline.value && !loading.value;
   return !onTab.value.length && !query.value.trim() && !(tab.value === "kits" && draftKit.value);
 });
+// What adding is called on the open tab: the bar's button and the empty block's say it
+// alike, since they open the one dialog.
+const addLabel = computed(() => (tab.value === "food" ? "Add food" : "Add gear"));
 const emptyTab = computed(() => {
   const t = tab.value;
   const noGear = !items.value.length;
@@ -279,7 +283,7 @@ const emptyTab = computed(() => {
     text: t === "kits" && noGear ? KIT_NEEDS_GEAR : EMPTY_COPY[t],
     kit: kit && !readonly.value,
     // gated as the bar's own add is: a change to My Gear needs the server
-    add: kit || offline.value ? "" : t === "food" ? "Add food" : "Add gear",
+    add: kit || offline.value ? "" : addLabel.value,
     list: noGear,
   };
 });
@@ -464,10 +468,6 @@ onMounted(() => {
   const recent = [...useMyLists().entries.value].sort((a, b) => b.lastOpened - a.lastOpened)[0];
   unit.value = recent?.displayUnit ?? "g";
 });
-function setUnit(next: Unit) {
-  unit.value = next;
-  remember(UNIT_KEY, next);
-}
 
 // ---- remove + undo -------------------------------------------------------
 // No confirm dialog: removing gear is small, reversible, and something you'd do
@@ -658,7 +658,7 @@ async function exportGear(kind: string) {
             <ModeBar :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
             <button v-if="tab !== 'kits' && !offline" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openAdd">
               <SvgIcon :icon="IconPlusMedium" aria-hidden="true" />
-              {{ tab === "food" ? "Add food" : "Add gear" }}
+              {{ addLabel }}
             </button>
           </div>
           <!-- Nothing to search or order until there IS gear — controls over
@@ -675,7 +675,6 @@ async function exportGear(kind: string) {
               ref="searchEl"
               v-model="query"
               class="vault__searchwrap"
-              :placeholder="`Search your ${tab}…`"
               :label="`Search your ${tab}`"
             />
 

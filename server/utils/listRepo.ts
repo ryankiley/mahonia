@@ -331,6 +331,10 @@ export function isLive(): SQL | undefined {
 }
 const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val: string) =>
   and(eq(col, val), isLive());
+/** This account's claims on lists that are still here: the WHERE every read of an
+ *  account's lists takes, after joining list_claims to lists (the lists it shows, its
+ *  takeout, the sign-in backfill). */
+export const claimedLiveBy = (userId: number): SQL | undefined => and(eq(listClaims.userId, userId), isLive());
 
 // The "is this holder allowed to touch this live, non-deleted list" lookup.
 //
@@ -876,7 +880,7 @@ export async function exportClaimedLists(db: Db, userId: number): Promise<ListSn
     .select({ row: lists })
     .from(listClaims)
     .innerJoin(lists, eq(lists.id, listClaims.listId))
-    .where(and(eq(listClaims.userId, userId), isLive()))
+    .where(claimedLiveBy(userId))
     .orderBy(desc(lists.updatedAt))
     .limit(CLAIMED_LIST_CAP);
   // catalog names only, not hydrateForRead: a backup carries no favicon. One catalog

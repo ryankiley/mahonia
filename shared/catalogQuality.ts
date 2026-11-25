@@ -2,6 +2,7 @@
 // server (community intake), and tests. No DB, no node-only deps.
 
 import { foldForSearch } from "./searchText";
+import { MG_PER_UNIT } from "./weights";
 
 // Plausible weight range per category, grams. Loose — catches gross slips
 // (a 50 g tent, a 5 kg stove), not borderline judgment calls. (Relocated here
@@ -18,6 +19,9 @@ export const RANGE_G: Record<string, [number, number]> = {
   consumable: [0.3, 1600], // purification tablets are legitimately sub-gram
   other: [4, 1600],
 };
+/** The catalog's categories. The order is the CSV's sort order (scripts/catalogBuild.ts)
+ *  and the order verify_catalog_item's schema lists them in. */
+export const CATALOG_CATEGORIES = Object.keys(RANGE_G);
 
 // --- citations and ownership (the audit, the seed, verify_catalog_item) ----
 
@@ -42,8 +46,8 @@ export function gramsInQuote(q: string, spelled = false): number[] {
   return out;
 }
 
-const OZ_G = 28.349523125;
-const LB_G = 453.59237;
+const OZ_G = MG_PER_UNIT.oz / MG_PER_UNIT.g;
+const LB_G = MG_PER_UNIT.lb / MG_PER_UNIT.g;
 /** One imperial figure: "19", "2.1", or ".60" whole, never the "60" of ".60" (which
  *  read as 60 oz, 1.7 kg, and backed a weight the quote doesn't state). */
 const NUM = String.raw`(?<![\d.])(\d*\.\d+|\d+)`;
@@ -325,12 +329,17 @@ export function splitKnownBrand(
 //     → "M's 9, W's 10") — it's a transcription artifact from manufacturer quotes,
 //     never a canonical separator
 
+/** The units a number closes up to ("6 ft" → "6ft"). normalizeVariant folds these and
+ *  scripts/catalogChecks.ts refuses a variant that still spaces one. */
+export const SPACED_UNITS = "ft|in|yd|cm|mm|m|km|g|kg|oz|lb|ml|qt|gal|mAh|gsm";
+const SPACED_UNIT = new RegExp(String.raw`(\d)\s+(${SPACED_UNITS})\b`, "g");
+
 // crude "looks like a measured value": has a digit AND a unit-ish char (letter, ", ')
 const hasNumUnit = (s: string) => /\d/.test(s) && /[a-zA-Z"']/.test(s);
 
 /** The S/M/L family, letter to word and back. The catalog's variant says the word;
  *  the attributes column and the size axis keep the letter. */
-const SIZE_LETTER_WORD: Record<string, string> = {
+export const SIZE_LETTER_WORD: Record<string, string> = {
   XXS: "XX-Small",
   XS: "X-Small",
   S: "Small",
@@ -382,7 +391,7 @@ export function normalizeVariant(input: string | null | undefined): string {
     .replace(/ft(?=\d)/g, "ft "); // 5'6" → "5ft 6in", not "5ft6in"
   // 1d. number + unit are one token: "6 ft" → "6ft", "400 ml" → "400ml", "1 m" → "1m".
   //     Only these units — never a size scale ("Size 9", "JP 3", "US 9", "Ultra 200X").
-  v = v.replace(/(\d)\s+(ft|in|yd|cm|mm|m|km|g|kg|oz|lb|ml|qt|gal|mAh|gsm)\b/g, "$1$2");
+  v = v.replace(SPACED_UNIT, "$1$2");
   // 1e. quantity phrasing: "3 Pack" / "3 pack" → "3-pack"; "Set of 4" → "set of 4"
   v = v.replace(/\b(\d+)[\s-]?[Pp]ack\b/g, "$1-pack").replace(/\b(Set|Sleeve|Bag|Box|Bottle|Package|Roll|Tin|Tube) of\b/g, (m) => m.toLowerCase());
   // 2. temperature: "20°F" / "20 F" / "-6 c" → "20F" / "-6C" (degree dropped, uppercased)

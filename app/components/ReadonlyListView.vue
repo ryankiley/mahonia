@@ -198,7 +198,8 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
           rel="nofollow ugc noopener noreferrer"
         >
           <!-- every link carries a mark: the site's own once cached, a globe otherwise
-               (some hosts block the fetch outright). Same 16px box either way. -->
+               (some hosts block the fetch outright). Same box either way: a glyph's
+               slot (--where-mark, below). -->
           <img
             v-if="list.trailFaviconDataUrl"
             class="view__trailicon"
@@ -231,7 +232,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
              Formatted by the SAME helper the editor's label uses, so a shared list reads
              the dates identically to the list it was shared from. -->
         <span v-if="dateLabel" class="view__dates">
-          <!-- 16, not the 14 of the small icon tier, because this mark shares a COLUMN
+          <!-- A whole glyph, not the small icon tier, because this mark shares a COLUMN
                with the trail's: the row wraps on a narrow screen and the two then stack,
                so a mark that measured differently started its text at a different x. See
                --where-mark below, which is what actually holds the two to one slot. -->
