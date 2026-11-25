@@ -181,7 +181,7 @@ async function decide(decision: "allow" | "deny") {
                 <h1 class="t-title">Allow {{ label }} to:</h1>
                 <ul class="az__scopes">
                   <li v-for="s in scopes" :key="s.text" class="az__scope">
-                    <SvgIcon :icon="s.icon" size="lg" :stroke-width="1.25" class="az__scopeicon" aria-hidden="true" />
+                    <SvgIcon :icon="s.icon" :stroke-width="1.25" class="az__scopeicon" aria-hidden="true" />
                     <span>{{ s.text }}</span>
                   </li>
                 </ul>
@@ -304,8 +304,8 @@ async function decide(decision: "allow" | "deny") {
 }
 .az__scopeicon {
   flex: none;
-  /* centred on the first line of the text beside it: (1.5em line − 20px glyph) / 2 */
-  margin-top: calc((1lh - 20 * var(--tpx)) / 2);
+  /* centred on the first line of the text beside it: (1.5em line − the glyph) / 2 */
+  margin-top: calc((1lh - var(--icon)) / 2);
   color: var(--ink-2);
 }
 

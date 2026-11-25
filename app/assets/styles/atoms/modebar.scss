@@ -41,11 +41,11 @@
   align-items: center;
   gap: var(--space-1);
   // 32px, NOT the design system's 24px --control-1 — the one metric of the port that is
-  // deliberately off. Its menubar is words only; this one puts an 18px icon beside the
-  // word, and 24px leaves 3px of air above and below a mark that needs to sit in its own
-  // space rather than press against the plate's edges. 32 keeps the 7px either side the
-  // 16px icon had in the old 30 (the portfolio found 28 "still snug" around 18px glyphs)
-  // without making the bar read as buttons. That 32px is --control-compact, which the
+  // deliberately off. Its menubar is words only; this one puts a 20px icon beside the
+  // word, and 24px leaves 2px of air above and below a mark that needs to sit in its own
+  // space rather than press against the plate's edges. 32 leaves it 6px either side
+  // (the portfolio found 28 "still snug" around 18px glyphs) without making the bar
+  // read as buttons. That 32px is --control-compact, which the
   // people chips and the map's expand control share for the same row rhythm.
   height: var(--control-compact);
   padding: 0 var(--space-2);

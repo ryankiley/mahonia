@@ -181,10 +181,10 @@ const { open: openAccount } = useAccountModal();
    grey lines.
    Sized like the glyphs beside it, in --tpx: they grow with the type past the 1920px
    anchor now, and a disc left at 22px shrank beside them to a dot (Ryan: "this got too
-   small"). The letter is 0.64 of the disc — 14px at rest, the tab word's own
-   --text-chrome size — so the two move together, on touch and past the anchor. */
+   small"). 24 beside the 20px glyphs on every pointer, the disc a phone already drew.
+   The letter is 0.64 of the disc, so the two move together past the anchor. */
 .avatar {
-  --avatar: calc(22 * var(--tpx));
+  --avatar: calc(24 * var(--tpx));
   display: inline-grid;
   place-items: center;
   width: var(--avatar);
@@ -200,13 +200,6 @@ const { open: openAccount } = useAccountModal();
 @media (hover: hover) and (pointer: fine) {
   .menu__btn:hover .avatar {
     background: var(--lit-hover);
-  }
-}
-/* the glyphs grow 16 → 18 on touch (.btn--icon svg, controls.scss); the disc keeps
-   the same ratio */
-@media (pointer: coarse) {
-  .avatar {
-    --avatar: calc(24 * var(--tpx));
   }
 }
 </style>

@@ -17,9 +17,9 @@ const html = (props: Record<string, unknown>, attrs: Record<string, string> = {}
 const svgOpen = (h: string) => h.slice(0, h.indexOf(">") + 1);
 
 describe("SvgIcon", () => {
-  it("draws md by default: 18px, a 1.5px line on the svg, none on the paths", () => {
+  it("draws md by default: 20px, a 1.5px line on the svg, none on the paths", () => {
     const out = html({ icon: central.IconTrashCan });
-    expect(svgOpen(out)).toContain('width="18"');
+    expect(svgOpen(out)).toContain('width="20"');
     expect(svgOpen(out)).toContain('stroke-width="1.5"');
     expect(svgOpen(out)).toMatch(/class="svgicon svgicon--md"/);
     expect(out.slice(out.indexOf(">") + 1)).not.toContain("stroke-width");
@@ -65,8 +65,8 @@ describe("SvgIcon", () => {
   });
 
   it("passes class and aria-hidden through to the svg, beside its own", () => {
-    const out = svgOpen(html({ icon: central.IconFormSquare, size: "lg" }, { class: "item__boxicon is-on", "aria-hidden": "true" }));
-    expect(out).toMatch(/class="svgicon svgicon--lg item__boxicon is-on"/);
+    const out = svgOpen(html({ icon: central.IconFormSquare, size: "xl" }, { class: "item__boxicon is-on", "aria-hidden": "true" }));
+    expect(out).toMatch(/class="svgicon svgicon--xl item__boxicon is-on"/);
     expect(out).toMatch(/aria-hidden="true"/);
   });
 

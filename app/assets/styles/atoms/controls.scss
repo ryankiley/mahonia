@@ -942,27 +942,28 @@ input[type="search"]::-webkit-search-decoration {
 // that lines the last icon up with the item rows' drag handle.
 //
 // The pull is derived from the two sizes rather than typed as a number, so it stays
-// right on a coarse pointer, where the rule below grows the box to --tap and the mark
-// to --icon-touch and a hardcoded -8px would be 6px short.
+// right on a coarse pointer, where the rule below grows the box to --tap and a
+// hardcoded pull would be 6px short.
 .btn--flush-end {
   margin-inline-end: calc(-1 * var(--icon-inset));
 }
 @media (pointer: coarse) {
   .btn--flush-end {
-    margin-inline-end: calc((var(--icon-touch) - var(--tap)) / 2);
+    margin-inline-end: calc((var(--icon) - var(--tap)) / 2);
   }
 
-  // Touch devices: icon buttons hit the --tap minimum tap target (Apple HIG) and
-  // their glyphs grow to --icon-touch so they don't read as tiny on a phone.
+  // Touch devices: icon buttons hit the --tap minimum tap target (Apple HIG).
   // Desktop keeps the dense --icon-btn chrome — a mouse is precise and doesn't
-  // need the bigger targets.
+  // need the bigger targets. The glyph is the one --icon on every pointer; this
+  // only lifts the few buttons that draw a smaller step on a desktop line (the
+  // kit's ±, the map's ?, the catalog nudge's ×) so a thumb never aims at a 14px mark.
   .btn--icon {
     min-height: var(--tap);
     width: var(--tap);
   }
   .btn--icon svg {
-    width: var(--icon-touch);
-    height: var(--icon-touch);
+    width: var(--icon);
+    height: var(--icon);
   }
 }
 
@@ -1081,9 +1082,9 @@ input[type="search"]::-webkit-search-decoration {
 .check {
   position: relative;
   align-self: center;
-  /* the box of a 20px glyph, so it grows with the glyph (--tpx) */
-  width: calc(20 * var(--tpx));
-  height: calc(20 * var(--tpx));
+  /* the glyph's own box, so it grows with the glyph (--tpx) */
+  width: var(--icon);
+  height: var(--icon);
   flex: none;
   display: grid;
   place-content: center;

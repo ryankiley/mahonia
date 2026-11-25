@@ -489,8 +489,8 @@ onClickOutside(trailEl, closeTrail);
             class="head__icon"
             :src="icon"
             alt=""
-            width="18"
-            height="18"
+            width="20"
+            height="20"
           />
           <SvgIcon :icon="IconGlobe2" v-else class="head__icon head__icon--fallback" aria-hidden="true" />
           <span class="t-clip">{{ link.name }}</span>
@@ -789,7 +789,7 @@ onClickOutside(trailEl, closeTrail);
                             + half-leading (1.2 - 0.969 - 0.219) / 2 = 0.006em
                             + ascent 0.969em
                             - half the cap height 0.352em      = 0.62em to the centre
-                            - half the 18px glyph
+                            - half the glyph
      em can't be used directly (it would resolve against this SVG's inherited 16px,
      not the title's 32px), so the title's own token is multiplied explicitly. */
   margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - var(--icon) / 2);

@@ -23,7 +23,7 @@
 // non-scaling-stroke keeps the parts at it however large the glyph is drawn, so a glyph
 // past 1920px is bigger but no bolder (the portfolio's lesson: a stroke that scaled with
 // its icon read heavy on an ultrawide). The map's pins are drawn by hand, not by SvgIcon.
-@each $step in xs, sm, lg, xl {
+@each $step in xs, sm, xl {
   :where(.svgicon--#{$step}) {
     width: var(--icon-#{$step});
     height: var(--icon-#{$step});
