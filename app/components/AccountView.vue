@@ -489,8 +489,7 @@ async function onSignOut() {
                vault is the whole reason, and a stranger who tapped the person icon has
                not been told. Lists never needing it is the half that keeps the promise. -->
           <p v-if="!asStep" class="t-sm t-muted acct__why">
-            An account keeps My Gear: your own gear and its weights, ready to add to any list
-            on any device. Lists work without one.
+            An account saves your gear across lists and devices. Lists work without one.
           </p>
           <button
             v-if="canPasskey"
@@ -506,8 +505,10 @@ async function onSignOut() {
 
           <!-- These are ALTERNATIVES, not steps — the rule says so where stacked
                buttons alone would read as a sequence. The one place this page
-               draws a line at all; see atoms/controls.scss on borders being rare. -->
-          <p v-if="canPasskey" class="acct__or"><span>or sign in with a link</span></p>
+               draws a line at all; see atoms/controls.scss on borders being rare.
+               Just "or": it read "or sign in with a link" over a button that says
+               "Email me a link", so the rule only has to say there is a choice. -->
+          <p v-if="canPasskey" class="acct__or"><span>or</span></p>
 
           <form class="acct__signup" @submit.prevent="sendLink">
             <input

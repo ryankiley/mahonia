@@ -26,6 +26,13 @@ describe("a page that is one message and one way on", () => {
     expect(main).toContain(".shell__main:has(.page--alone)");
   });
 
+  it("has equal air above and below, the footer's stand-off included", () => {
+    // .page pads 24 over and 96 under, and the footer stands 48 off the content: the
+    // message sat about 70px above the middle of the space between the two rules
+    expect(rule(main, ".page--alone")).toContain("padding-block: var(--space-5)");
+    expect(rule(main, ".shell:has(.page--alone) .foot")).toContain("margin-top: 0");
+  });
+
   it.each([
     ["the 404", "app/error.vue"],
     ["a shared list that isn't there", "app/components/ReadonlyListView.vue"],
