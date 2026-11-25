@@ -25,6 +25,7 @@
     {
       "brand": "Injinji",
       "name": "Trail Midweight Mini-Crew",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 55,
       "weight_unit": "g",

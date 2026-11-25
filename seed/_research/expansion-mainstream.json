@@ -133,6 +133,9 @@
     {
       "brand": "Klymit",
       "name": "Insulated Static V Lite",
+      "attributes": {"r_value": 1.9, "length": "72in"},
+      "attributes_source_url": "http://web.archive.org/web/20230602180826/https://klymit.com/products/insulated-static-v-lite-sleeping-pad",
+      "attributes_quote": "R-Value 4.4/ASTM 1.9 / Dimensions 72 x 23 x 2.5 in / 183 x 58 x 6 cm",
       "category_hint": "sleep",
       "weight_value": 19.9,
       "weight_unit": "oz",

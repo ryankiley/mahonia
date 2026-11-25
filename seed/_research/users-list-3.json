@@ -60,6 +60,7 @@
     {
       "brand": "Patagonia",
       "name": "Wild Trails Sports Bra",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 113,
       "weight_unit": "g",
@@ -71,6 +72,7 @@
       "brand": "Smartwool",
       "name": "Classic Thermal Merino Base Layer Quarter-Zip",
       "variant": "Women's",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 8.32,
       "weight_unit": "oz",
@@ -92,6 +94,7 @@
       "brand": "Montbell",
       "name": "Tempest Jacket",
       "variant": "Men's",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 259,
       "weight_unit": "g",

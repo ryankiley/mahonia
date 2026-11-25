@@ -1511,6 +1511,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Camp 4 Hip Pack",
+      "attributes_unpublished": ["volume_l"],
       "category_hint": "pack",
       "common_name": "hip pack",
       "weight_value": 240,
@@ -1614,6 +1615,9 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Field Day Hip Pack",
+      "attributes": {"volume_l": 4},
+      "attributes_source_url": "https://www.evo.com/fanny-packs/mountain-hardwear-field-day-hip-pack",
+      "attributes_quote": "Bag Volume (L): 4",
       "category_hint": "pack",
       "common_name": "hip pack",
       "weight_value": 123,

@@ -531,6 +531,7 @@
     {
       "brand": "And Wander",
       "name": "Pertex Printed Wind Jacket",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 200,
       "weight_unit": "g",
@@ -541,6 +542,7 @@
     {
       "brand": "And Wander",
       "name": "2.5 Layer Hiker Rain Jacket",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 470,
       "weight_unit": "g",
@@ -551,6 +553,7 @@
     {
       "brand": "And Wander",
       "name": "Stretch Shell Jacket",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 700,
       "weight_unit": "g",
@@ -561,6 +564,7 @@
     {
       "brand": "And Wander",
       "name": "Vent Pants",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 300,
       "weight_unit": "g",
@@ -571,6 +575,7 @@
     {
       "brand": "And Wander",
       "name": "3L UL Rain Jacket",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 200,
       "weight_unit": "g",
@@ -681,7 +686,7 @@
     {
       "brand": "On",
       "name": "Cloudvista 2",
-      "attributes_unpublished": ["size"],
+      "attributes_unpublished": ["size", "fit"],
       "category_hint": "clothing",
       "weight_value": 584,
       "weight_unit": "g",

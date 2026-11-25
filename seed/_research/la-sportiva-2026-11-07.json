@@ -2010,6 +2010,9 @@
     {
       "brand": "La Sportiva",
       "name": "Granite Tour 32 Backpack",
+      "attributes": {"volume_l": 32},
+      "attributes_source_url": "https://www.lasportivausa.com/products/granite-tour-32-backpack",
+      "attributes_quote": "Expandable volume increases from 28 L to 32 L via the roll-top closure for versatile load management",
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1250,
@@ -3863,6 +3866,7 @@
     {
       "brand": "La Sportiva",
       "name": "Racer Vest",
+      "attributes_unpublished": ["volume_l"],
       "category_hint": "pack",
       "common_name": "running vest",
       "weight_value": 200,
@@ -5158,6 +5162,9 @@
     {
       "brand": "La Sportiva",
       "name": "Trail Vest 5L",
+      "attributes": {"volume_l": 5},
+      "attributes_source_url": "https://www.lasportivausa.com/products/trail-vest-5l",
+      "attributes_quote": "Trail Vest 5L",
       "category_hint": "pack",
       "common_name": "running vest",
       "weight_value": 165,
@@ -5749,6 +5756,9 @@
     {
       "brand": "La Sportiva",
       "name": "Ultra Trail Vest 10L",
+      "attributes": {"volume_l": 10},
+      "attributes_source_url": "https://www.lasportivausa.com/products/ultra-trail-vest-10l",
+      "attributes_quote": "Ultra Trail Vest 10L",
       "category_hint": "pack",
       "common_name": "running vest",
       "weight_value": 195,

@@ -25,6 +25,9 @@
     {
       "brand": "Matador",
       "name": "ReFraction Packable Backpack",
+      "attributes": {"volume_l": 16},
+      "attributes_source_url": "http://web.archive.org/web/20260228173552/https://www.matadorequipment.com/products/refraction-packable-backpack",
+      "attributes_quote": "Tech Specs + Materials Volume: 16 liters Weight: 8oz (225g)",
       "category_hint": "pack",
       "weight_value": 225,
       "weight_unit": "g",
@@ -55,6 +58,9 @@
     {
       "brand": "Matador",
       "name": "Freerain Waterproof Packable Hip Pack",
+      "attributes": {"volume_l": 2},
+      "attributes_source_url": "http://web.archive.org/web/20260521033214/https://www.matadorequipment.com/products/freerain-hippack",
+      "attributes_quote": "Tech Specs + Materials Volume: 2 liters Weight: 4.1oz (115g)",
       "category_hint": "pack",
       "weight_value": 115,
       "weight_unit": "g",
@@ -196,6 +202,7 @@
       "brand": "Matador",
       "name": "Global Travel Stash",
       "category_hint": "other",
+      "common_name": "wallet",
       "weight_value": 120,
       "weight_unit": "g",
       "weight_source": "manufacturer",
