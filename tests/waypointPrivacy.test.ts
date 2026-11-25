@@ -19,8 +19,8 @@ import { ROOT } from "./helpers/sources";
 //
 // The protection is architectural: rowToSnapshot omits both, so every read path starts
 // without them and has to ask. That is the wrong way round from how it reads, and it is
-// the only shape that fails CLOSED — /s, /l and the public feed all build on
-// rowToSnapshot, and so will any read path added later.
+// the only shape that fails CLOSED — /s builds on rowToSnapshot, and so will any read
+// path added later.
 //
 // This file asserts BOTH halves, because the last time the app had a wrapper like this
 // only the "doesn't leak" half was tested, and THREE owner paths quietly forgot to call
@@ -107,7 +107,7 @@ describe("a route never rides a read path", () => {
   });
 
   it("stays out of a JSON backup taken from a PUBLIC snapshot", () => {
-    // /s and /l do offer "Download JSON", and it runs on the public snapshot — so the
+    // /s does offer "Download JSON", and it runs on the public snapshot — so the
     // exporter carrying geometry deliberately is safe by construction, not by care
     const publicSnap = rowToSnapshot(row()) as unknown as ListMeta & ListData;
     const json = listToJson(publicSnap);

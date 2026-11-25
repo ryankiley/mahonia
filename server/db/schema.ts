@@ -3,7 +3,8 @@
 // Design: a list's CONTENT (folders + items) lives in a single JSONB `data`
 // column, and the same op-reducer (shared/ops.ts) applies mutations on both the
 // client (optimistic) and the server (authoritative) — so they can't drift.
-// Weight rollups are cached as columns for the public-feed leaderboard sort.
+// Weight rollups are cached as columns, so an account's lists show their totals
+// without each one's `data` being read (claimRepo).
 // We never query items relationally in v1 (the catalog is a separate Phase-2
 // table), so JSONB is the right fit and keeps sync semantics in one place.
 //

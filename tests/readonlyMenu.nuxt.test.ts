@@ -12,7 +12,7 @@
 //   · the exporter chunks warm when the SECTION opens, not when the menu does. The read
 //     views are deliberately decoupled from the editor bundle, so a reader who opens ⋯
 //     for "Copy link" must not fetch four parsers.
-//   · Report is moderation, gated on a PUBLIC list that hasn't been reported yet.
+//   · Report is on every shared list, and opens the feedback box.
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";

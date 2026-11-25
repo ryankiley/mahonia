@@ -338,7 +338,7 @@ export function useVaultCapture() {
 
   /**
    * Capture a list that arrived WHOLE — imported from LighterPack, or cloned from
-   * someone's public list. Its gear reaches the client in one server response
+   * someone's shared list. Its gear reaches the client in one server response
    * rather than through ops, so nothing else would ever offer it to the vault.
    *
    * Called at the moment of creation rather than from the editor's load(), even
