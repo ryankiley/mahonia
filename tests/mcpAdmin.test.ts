@@ -261,8 +261,41 @@ describe("what it refuses", () => {
     expect(await refusal({ name: "Mystery Thing", weight_g: 100, weight_source: "measured" })).toContain("gear_type");
   });
 
-  it("leaves a research row to the research", async () => {
-    expect(await refusal({ catalog_id: duplex, weight_g: 539, weight_source: "measured" })).toContain("seed/_research");
+  it("leaves a research row's name and gear type to the research, and a scale weight to My Gear", async () => {
+    expect(await refusal({ catalog_id: duplex, weight_g: 539, weight_source: "measured" })).toContain("edit_my_gear's weight_g");
+    const cite = { catalog_id: duplex, weight_g: 539, source_url: "https://zpacks.com/duplex", quote: "Weight 19.0 oz / 539 g" };
+    expect(await refusal({ ...cite, name: "Duplex Classic" })).toContain("seed/_research");
+    expect(await refusal({ ...cite, variant: "Olive" })).toContain("seed/_research");
+    expect(await refusal({ ...cite, gear_type: "Tarp" })).toContain("seed/_research");
+    expect(await refusal({ ...cite, category: "other" })).toContain("seed/_research");
+    expect(await catalogRow(db, duplex)).toMatchObject({ verifiedBy: null, sourceQuote: null });
+  });
+
+  it("corrects a research row's weight from the maker's page, keeps it the research's after, and the undo hands it back", async () => {
+    const montbell = "https://www.montbell.com/us/en/products/detail/2301381";
+    const row = await seedCatalogRow(db, { brand: "Montbell", name: "Plasma 1000 Down Jacket", variant: "Men's Medium", commonName: "Down jacket", categoryHint: "clothing", searchTerms: "down jacket clothing puffy", weightMg: 136_078, weightSource: "manufacturer", sourceUrl: montbell, verified: true });
+    // it graduates back into its own research file, where the audit reads the quote's grams
+    // alone: an ounce figure doesn't carry it past a gram figure that disagrees
+    const ounces = await refusal({ catalog_id: row.id, weight_g: 139, source_url: montbell, quote: "Average Weight 4.9 oz, fill weight 50 g" });
+    expect(ounces).toContain("nearest quote figure 50 g");
+    expect(ounces).toContain("quote its line");
+    const first = await verify({ catalog_id: row.id, weight_g: 138, source_url: montbell, quote: "Average Weight 138g" });
+    expect(first.refused, first.text).toBe(false);
+    // stamped like any verification; the gear type, kind and search terms stay the build's
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 138_000, verifiedBy: admin, sourceQuote: "Average Weight 138g", commonName: "Down jacket", categoryHint: "clothing", searchTerms: "down jacket clothing puffy" });
+    // stamped, it's still the research's to rename or retype, and still the maker's figure
+    const cite = { catalog_id: row.id, weight_g: 138, source_url: montbell, quote: "Average Weight 138g" };
+    expect(await refusal({ ...cite, name: "Plasma 1000 Down Parka" })).toContain("seed/_research");
+    expect(await refusal({ ...cite, gear_type: "Insulated jacket" })).toContain("seed/_research");
+    expect(await refusal({ catalog_id: row.id, weight_g: 141, weight_source: "measured" })).toContain("edit_my_gear's weight_g");
+    // a second correction naming the row's own gear type leaves it, and the search terms, be
+    const second = await verify({ ...cite, gear_type: "down jacket", weight_g: 139, quote: "Average Weight 139g" });
+    expect(second.refused, second.text).toBe(false);
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 139_000, commonName: "Down jacket", searchTerms: "down jacket clothing puffy" });
+    // undone, newest first, it is the research's again with the research's weight
+    expect((await adminCall("revert_catalog_edit", { edit_id: second.data.edit_id })).refused).toBe(false);
+    expect((await adminCall("revert_catalog_edit", { edit_id: first.data.edit_id })).refused).toBe(false);
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 136_078, verified: true, verifiedBy: null, sourceQuote: null, sourceUrl: montbell });
   });
 
   it("refuses a weight outside its kind of gear's range until the person confirms it", async () => {
@@ -465,6 +498,13 @@ describe("the rules a chat doesn't have to be told", () => {
     expect(added.data.created).toBe(true);
     // the exact product is still the row it is, distinct_from or not
     expect((await verify({ ...args, distinct_from: [gore.id] })).text).not.toContain("distinct_from:");
+  });
+
+  it("takes mittens for another product than the maker's shirt of the same line and size", async () => {
+    await seedCatalogRow(db, { brand: "Yamatomichi", name: "UL Shirt", variant: "Medium", commonName: "Shirt", categoryHint: "clothing", weightMg: 90_000, verified: true, weightSource: "manufacturer", sourceUrl: "https://www.yamatomichi.com/products/ul-shirt" });
+    const done = await verify({ brand: "Yamatomichi", name: "UL Mittens", variant: "Medium", gear_type: "Mittens", weight_g: 23, source_url: "https://www.yamatomichi.com/products/ul-mittens", quote: "Weight 19g (Size S) 23g (Size M)" });
+    expect(done.refused, done.text).toBe(false);
+    expect(done.data).toMatchObject({ created: true, row: { brand: "Yamatomichi", name: "UL Mittens", variant: "Medium", weight_g: 23 } });
   });
 
   it("holds only the weight for the person, and names the rest in the answer's warnings", async () => {

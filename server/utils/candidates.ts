@@ -10,6 +10,7 @@ import {
   categoryForGearType,
   classificationToCategory,
   emergingBrandTokens,
+  GARMENT_ZONE,
   GENERIC_GEAR_TERMS,
   isAcceptableTypedItem,
   isBrandedTypedItem,
@@ -142,7 +143,11 @@ const mode = <T>(arr: T[]): T | undefined => {
  * name that says MORE than the row is a different product, not a duplicate:
  * trigramScore is coverage of the query's trigrams by the target, so "Zpacks Duplex
  * Zip" scored its parent "Duplex" at about 0.75. A word the row lacks refuses the
- * match; a generic noun ("tent") is not such a word.
+ * match; a generic noun ("tent") is not such a word. But garments worn on different
+ * parts of the body are different products, generic nouns or not: "UL Mittens" is not
+ * "UL Shirt", nor "EX Light Down Pants" "EX Light Down Jacket" (GARMENT_ZONE). A row is
+ * passed over when both names place a garment and no part of the body is in both; when
+ * either places none, or they share one, the words alone decide as before.
  */
 export async function catalogMatches(db: Db, brand: string | null, name: string, variant: string | null): Promise<CatalogSearchResult[]> {
   const full = itemDisplayName(brand, name, variant);
@@ -151,13 +156,19 @@ export async function catalogMatches(db: Db, brand: string | null, name: string,
   const matches = await searchCatalog(db, itemDisplayName(brand, name), 50);
   const sizeKey = normKey(variant);
   const tokensOf = (t: string) => normKey(t).split(" ").filter(Boolean);
-  const said = tokensOf(full).filter((t) => !GENERIC_GEAR_TERMS.has(t));
+  const zonesOf = (tokens: string[]) => new Set(tokens.flatMap((t) => GARMENT_ZONE.get(t) ?? []));
+  const fullTokens = tokensOf(full);
+  const said = fullTokens.filter((t) => !GENERIC_GEAR_TERMS.has(t));
+  const worn = zonesOf(fullTokens);
   const scored: { m: CatalogSearchResult; s: number }[] = [];
   for (const m of matches) {
     if (sizeKey && normKey(m.variant) !== sizeKey) continue;
     const target = itemDisplayName(m.brand, m.name, m.variant);
-    const has = new Set(tokensOf(target));
+    const targetTokens = tokensOf(target);
+    const has = new Set(targetTokens);
     if (said.some((t) => !has.has(t))) continue;
+    const targetWorn = zonesOf(targetTokens);
+    if (worn.size && targetWorn.size && ![...worn].some((z) => targetWorn.has(z))) continue;
     const s = trigramScore(full, target);
     if (s >= DEDUP_THRESHOLD) scored.push({ m, s });
   }

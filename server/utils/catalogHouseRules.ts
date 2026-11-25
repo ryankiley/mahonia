@@ -53,14 +53,16 @@ const errorsOf = (findings: Finding[]) => findings.filter((f) => f.level === "er
  * What the build would refuse in this row, each in the audit's own words; [] when it
  * would build. `siblings` are the product's other live rows (same brand and name): the
  * rules that compare rows (a filler variant on a one-row product, one variant spelled
- * two ways) read them, and only a finding the new row brings is its own.
+ * two ways) read them, and only a finding the new row brings is its own. `file` is where
+ * the row graduates to: verified-in-app.json, or for a research row its own research file,
+ * where the audit reads a quote's metric figures only (researchChecks).
  */
-export function houseRuleProblems(row: RuleRow, siblings: RuleRow[]): string[] {
+export function houseRuleProblems(row: RuleRow, siblings: RuleRow[], file: string = GRADUATED_FILE_NAME): string[] {
   const before = new Set(errorsOf(runCatalogChecks(siblings.map(asCsvRow))));
   const found = errorsOf(runCatalogChecks([...siblings, row].map(asCsvRow))).filter((m) => !before.has(m));
   // the row as catalog:graduate would write it; one with no citation never graduates, so
   // only the CSV rules hold it
   const research = asResearchRow(row);
-  if (research) found.push(...errorsOf(runResearchChecks([{ file: GRADUATED_FILE_NAME, rows: [research] }])));
-  return [...new Set(found)].map((m) => m.replace(`${GRADUATED_FILE_NAME}: `, ""));
+  if (research) found.push(...errorsOf(runResearchChecks([{ file, rows: [research] }])));
+  return [...new Set(found)].map((m) => m.replace(`${file}: `, ""));
 }

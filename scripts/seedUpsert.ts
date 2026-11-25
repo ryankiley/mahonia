@@ -22,7 +22,12 @@ const INSERT_BATCH = 500;
  * never stopped holding that id pick it up where they left off. Seeded rows are
  * owner-curated and cited, so they are written verified. A row an admin verified in the
  * app that the research now names is taken over the same way: id kept, its verifier and
- * quote cleared, the seed's from here on.
+ * quote cleared, the seed's from here on, once the research agrees with it on the weight,
+ * its source and its link, which is what catalog:graduate writes back. Until then the row
+ * is held: left as it is, and counted. It is newer than the research: a research row
+ * whose maker re-specced it, corrected with verify_catalog_item, would otherwise get its
+ * old weight back on the next reseed. A retired row isn't held; the research brings it
+ * back as before.
  *
  * The table is read ONCE and matched in memory. Matching each CSV row with its own
  * SELECT was some four thousand round trips to Neon per reseed, minutes of a run that
@@ -31,8 +36,8 @@ const INSERT_BATCH = 500;
 export async function upsertSeedRows(
   db: Db,
   rows: readonly CatalogCsvRow[],
-): Promise<{ inserted: number; updated: number; unchanged: number }> {
-  const held = new Map(
+): Promise<{ inserted: number; updated: number; unchanged: number; held: number }> {
+  const byIdentity = new Map(
     (await db.select().from(catalogItems)).map((r) => [identity(r.brand, r.name, r.variant), r]),
   );
   const seeded = (row: CatalogCsvRow) => ({
@@ -51,13 +56,22 @@ export async function upsertSeedRows(
   const fresh: (typeof catalogItems.$inferInsert)[] = [];
   let updated = 0;
   let unchanged = 0;
+  let held = 0;
   // keyed first, so a CSV that named one identity twice writes it once (the later row
   // wins, as it did when each row was its own statement)
   const wanted = new Map(rows.map((row) => [identity(row.brand, row.name, row.variant), row]));
   for (const [key, row] of wanted) {
-    const cur = held.get(key);
+    const cur = byIdentity.get(key);
     if (!cur) {
       fresh.push({ brand: row.brand, name: row.name, variant: row.variant, ...seeded(row) });
+      continue;
+    }
+    if (
+      cur.verifiedBy != null &&
+      cur.status === "active" &&
+      (Number(cur.weightMg) !== row.weightMg || cur.weightSource !== row.weightSource || cur.sourceUrl !== row.sourceUrl)
+    ) {
+      held++;
       continue;
     }
     const changed =
@@ -84,5 +98,5 @@ export async function upsertSeedRows(
   for (let i = 0; i < fresh.length; i += INSERT_BATCH) {
     await db.insert(catalogItems).values(fresh.slice(i, i + INSERT_BATCH));
   }
-  return { inserted: fresh.length, updated, unchanged };
+  return { inserted: fresh.length, updated, unchanged, held };
 }

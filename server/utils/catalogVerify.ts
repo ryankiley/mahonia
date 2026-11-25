@@ -3,7 +3,15 @@
 //
 // The row stays the database's, not the seed's: verified_by is set, and the seed renames
 // and retires only rows that are verified with no verifier (seedManaged). If the research
-// later names the same product, the seed's upsert takes the row over under the same id.
+// later names the same product, the seed's upsert takes the row over under the same id,
+// once the research agrees with it on the weight and its citation; until then the reseed
+// leaves it be (upsertSeedRows), and catalog:graduate writes it back into the research.
+//
+// A row from the research files (seedManaged, or one that was before an earlier call here)
+// takes a new maker's weight with its page and quote, so a maker's re-specced figure needs
+// no research PR. Nothing else about it is the tool's to change: a new name or gear type
+// would leave the research naming the old one, which the next reseed would add again
+// beside it, and a scale weight is the person's own piece's, not the maker's figure.
 //
 // A chat writes these rows, so the tool carries the rules a person would otherwise have to
 // repeat to every chat, and refuses in a sentence the model can act on:
@@ -235,21 +243,47 @@ export async function verifyCatalogItem(
   const refused = precheck?.({ ...identity, commonName: gearType || current?.commonName || null, categoryHint: category ?? categoryForGearType(gearType) ?? current?.categoryHint ?? null });
   if (refused) return refused;
 
+  // what the call would make of the row's gear type and kind: the gear type given, or the
+  // row's own (either joins the suggestions once verified), and the category given, else
+  // the one a given gear type names
+  const typedLabel = gearType || current?.commonName?.trim() || "";
+  const askedLabel = typedLabel ? spelledAs(typedLabel, gearTypes, gearTypeKey) : null;
+  const askedKind = category ?? categoryForGearType(gearType);
+
   // A retired row: one merged into a successor is verified there; one removed outright
   // comes back under its old id, as the seed's upsert brings back a row the research names
-  // again, so the lists that kept holding that id pick it up. A live research row is the
-  // research's to change.
+  // again, so the lists that kept holding that id pick it up. A live research row takes a
+  // corrected maker's weight and citation, and nothing else: its name and gear type are the
+  // research's, and so is its weight's being the maker's. That holds after a first
+  // correction too, when the row's verifier is set and only its edit history says where it
+  // came from, which is read only when the call would change something the research owns.
   let revive = false;
+  let research = false;
   if (current && current.status !== "active") {
     if (current.mergedIntoId) return `Row ${current.id} was retired into row ${current.mergedIntoId}; verify that one.`;
     revive = true;
-  } else if (current && seedManaged(current)) {
-    return `Row ${current.id} comes from Mahonia's research files and is already verified; a change to it belongs in seed/_research.`;
+  } else if (current) {
+    const renames = identity.brand !== current.brand || identity.name !== current.name || identity.variant !== current.variant;
+    const retypes = (gearType !== "" && normKey(gearType) !== normKey(current.commonName)) || (category != null && category !== current.categoryHint);
+    const measures = source === "measured";
+    // the write below would respell the gear type, or rewrite the kind or the search terms
+    // the build gave the row: kept as they are on a research row, so its search still works
+    const touches =
+      (askedLabel != null && (askedLabel !== current.commonName || (normKey(askedLabel) || null) !== current.searchTerms)) ||
+      (askedKind != null && askedKind !== current.categoryHint);
+    research = seedManaged(current) || ((renames || retypes || measures || touches) && current.verifiedBy != null && (await wasResearchRow(db, current.id)));
+    if (research && measures) {
+      return `Row ${current.id} comes from Mahonia's research files, which hold the maker's published weight: a weight from the person's own scale belongs on their piece of My Gear (edit_my_gear's weight_g), not on the catalog's row.`;
+    }
+    if (research && (renames || retypes)) {
+      return `Row ${current.id} comes from Mahonia's research files: verify_catalog_item can correct its weight and citation from the maker's page, but a new name or gear type belongs in seed/_research.`;
+    }
   }
 
   // ---- what waits for the person: each concern the call raises, named in one refusal ----
-  // the category given, else the one a given gear type names, else the row's own
-  const typedKind = category ?? categoryForGearType(gearType);
+  // the kind asked for, else the row's own; a research row keeps its own (a different
+  // one was refused above)
+  const typedKind = research ? null : askedKind;
   const kind = typedKind ?? current?.categoryHint ?? "other";
   const [lo, hi] = RANGE_G[kind] ?? RANGE_G.other!;
   const concerns: string[] = [];
@@ -273,9 +307,8 @@ export async function verifyCatalogItem(
     warnings.push(`Row ${current.id}, ${itemDisplayName(current.brand, current.name, current.variant)}, carried the maker's published weight (${nowG} g${from}), and this scale weight replaced it, and its quote, for everyone who uses the catalog. If the person meant only their own piece, revert_catalog_edit with edit_id puts the maker's back, and edit_my_gear's weight_g records theirs.`);
   }
 
-  // the gear type given, or the row's own: either joins the suggestions once verified
-  const typedLabel = gearType || current?.commonName?.trim() || "";
-  const label = typedLabel ? spelledAs(typedLabel, gearTypes, gearTypeKey) : null;
+  // the gear type the row will carry: a research row keeps its own as it stands
+  const label = research ? current!.commonName : askedLabel;
   const effectiveUrl = sourceUrl ?? current?.sourceUrl ?? null;
   // One weighing is one size: on gear sold by size, a scale weight with no size in the
   // variant reads as every size's, unless the product comes in one size. A size the reader
@@ -310,9 +343,14 @@ export async function verifyCatalogItem(
 
   // ---- the house style: what the build would refuse in this row ----
   const ruleRow: RuleRow = { ...identity, commonName: label, categoryHint: kind, weightMg, weightSource: source as string, sourceUrl: effectiveUrl, sourceQuote: storedQuote };
-  const problems = houseRuleProblems(ruleRow, await siblingsOf(db, identity.brand, identity.name, current?.id));
+  // a research row graduates back into its own research file, not verified-in-app.json
+  const problems = houseRuleProblems(ruleRow, await siblingsOf(db, identity.brand, identity.name, current?.id), research ? "research" : undefined);
   if (problems.length) {
-    const fix = args.catalog_id != null ? "pass brand, name, variant or gear_type beside the catalog_id to put the row right" : "change the brand, name, variant or gear type";
+    const fix = research
+      ? "check source_url is the maker's own page and quote its line that states the weight"
+      : args.catalog_id != null
+        ? "pass brand, name, variant or gear_type beside the catalog_id to put the row right"
+        : "change the brand, name, variant or gear type";
     return `The catalog's house style refuses ${display}: ${problems.join(" ")} To fix it, ${fix}, and send it again.`;
   }
 
@@ -398,7 +436,7 @@ export async function verifyCatalogItem(
         // a scale weight usually comes with no link: the row keeps the one it had
         sourceUrl: effectiveUrl,
         ...(typedKind ? { categoryHint: typedKind } : {}),
-        ...(label ? { commonName: label, searchTerms: normKey(label) || null } : {}),
+        ...(label && !research ? { commonName: label, searchTerms: normKey(label) || null } : {}),
         ...(revive ? { status: "active", mergedIntoId: null } : {}),
       })
       .where(eq(catalogItems.id, row.id))
@@ -411,6 +449,26 @@ export async function verifyCatalogItem(
     if (!isUniqueViolation(e)) throw e;
     return `${display} is already another catalog row, maybe a retired one; to verify that one instead, send its brand, name and variant without catalog_id.`;
   }
+}
+
+/** Whether a row was a research row before a verification stamped it: an applied edit
+ *  whose undo snapshot has it verified with no verifier (seedManaged). Once corrected, a
+ *  research row's own fields no longer say so, and the research still names it. */
+async function wasResearchRow(db: Db, id: number): Promise<boolean> {
+  const [found] = await db
+    .select({ id: catalogEdits.id })
+    .from(catalogEdits)
+    .where(
+      and(
+        eq(catalogEdits.catalogItemId, id),
+        eq(catalogEdits.status, "applied"),
+        sql`${catalogEdits.undo}->>'verified' = 'true'`,
+        // a JSON null, not a missing key: the snapshot of a product the tool added has neither
+        sql`${catalogEdits.undo}->'verifiedBy' = 'null'::jsonb`,
+      ),
+    )
+    .limit(1);
+  return found != null;
 }
 
 /**
