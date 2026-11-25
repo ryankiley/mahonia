@@ -795,6 +795,26 @@ describe("water is a volume, never a count", () => {
   });
 });
 
+describe("setMeta trailUrl", () => {
+  const set = (s: ListState, trailUrl: string) => applyOps(s, [{ t: "setMeta", patch: { trailUrl } } as Op]);
+
+  it("stores a bare web address as https", () => {
+    const s = base();
+    set(s, "alltrails.com/trail/us/california/rae-lakes-loop");
+    expect(s.trailUrl).toBe("https://alltrails.com/trail/us/california/rae-lakes-loop");
+  });
+
+  it("keeps the link it has when handed something that isn't one, and clears on empty", () => {
+    const s = base();
+    set(s, "https://example.com/route");
+    set(s, "javascript:alert(1)");
+    set(s, "rae lakes");
+    expect(s.trailUrl).toBe("https://example.com/route");
+    set(s, "  ");
+    expect("trailUrl" in s).toBe(false);
+  });
+});
+
 describe("productUrl — scheme-checked like every other stored link", () => {
   const withUrl = (productUrl: string) =>
     normalizeItem({ id: "i", name: "Tent", unitWeightMg: 1, qty: 1, productUrl } as unknown as Item);

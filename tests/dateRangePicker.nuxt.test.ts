@@ -96,3 +96,26 @@ describe("DateRangePicker keyboard", () => {
     expect(last.start).toBe("2026-07-28");
   });
 });
+
+// A day cell's text is its digit, and the weekday letters above it are hidden from a
+// screen reader, so the cell's name has to carry the whole date.
+describe("DateRangePicker day names", () => {
+  it("names each day in full, and leaves its selection to aria-selected", () => {
+    const w = mountCal({ start: "2026-08-04", end: "2026-08-06" });
+    const day = w.get('[data-iso="2026-08-04"]');
+    expect(day.attributes("aria-label")).toBe("Tuesday, August 4, 2026");
+    expect(day.attributes("aria-selected")).toBe("true");
+    expect(day.text()).toBe("4");
+    expect(w.get('[data-iso="2026-08-31"]').attributes("aria-label")).toBe("Monday, August 31, 2026");
+    expect(w.get('[data-iso="2026-08-31"]').attributes("aria-selected")).toBe("false");
+  });
+
+  it("says which day is today, the one the grid rings", () => {
+    const w = mountCal();
+    const today = w.get(".cal__day.is-today");
+    expect(today.attributes("aria-label")).toMatch(/^Today, \w+day, \w+ \d{1,2}, \d{4}$/);
+    const others = w.findAll(".cal__day:not(.is-today)");
+    expect(others.length).toBeGreaterThan(20);
+    for (const d of others) expect(d.attributes("aria-label")).not.toContain("Today");
+  });
+});

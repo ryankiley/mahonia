@@ -99,16 +99,30 @@ export const MAX_URL_LEN = 2000;
 export const MAX_TRAIL_URL_LEN = MAX_URL_LEN;
 export const MAX_TRAIL_LABEL_LEN = 120;
 
+// A web address typed or pasted without its scheme: dotted host names ending in a
+// lettered TLD, then an optional path, query or fragment. Nothing before the first
+// slash may be a colon, an @ or a space, so a value carrying a scheme of its own
+// (javascript:, data:), a port or a userinfo can't match and is judged as it always was.
+const BARE_WEB_ADDRESS = /^(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?\.)+\p{L}{2,}(?:[/?#]\S*)?$/u;
+
 /**
  * A raw trail URL → its canonical stored form, or null if it isn't a safe http(s) URL.
  * Every write path stores THIS rather than the typed string, so what's persisted is
  * already clamped, already normalized and already known-renderable (client and server
  * agree, and a hostile client can't smuggle a `javascript:` value into a shared list).
+ *
+ * A bare web address ("alltrails.com/trail/…", what a phone's address bar hands to a
+ * copy) is read as https. Here rather than in safeUrl, which also vets citations,
+ * origins and product links that are stored as typed, and rather than in the field, so
+ * the reducer on the server reads the same value the same way.
  */
 export function normalizeTrailUrl(raw: unknown): string | null {
   // `unknown`, like every other meta normalizer: a create body or a hand-edited backup
   // can put anything here, and the callers used to each guard the type themselves
-  return typeof raw === "string" ? (safeUrl(raw.slice(0, MAX_TRAIL_URL_LEN))?.href ?? null) : null;
+  if (typeof raw !== "string") return null;
+  const value = raw.slice(0, MAX_TRAIL_URL_LEN);
+  const url = safeUrl(value) ?? (BARE_WEB_ADDRESS.test(value.trim()) ? safeUrl(`https://${value.trim()}`) : null);
+  return url?.href ?? null;
 }
 
 /**

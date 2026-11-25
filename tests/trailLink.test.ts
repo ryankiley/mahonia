@@ -31,6 +31,41 @@ describe("normalizeTrailUrl", () => {
     expect(normalizeTrailUrl("javascript:alert(1)")).toBeNull();
     expect(normalizeTrailUrl("   ")).toBeNull();
   });
+
+  // What a phone's address bar hands to a copy: the address without its scheme. It was
+  // dropped, in the editor without a word.
+  it("reads a bare web address as https", () => {
+    expect(normalizeTrailUrl("alltrails.com/trail/us/california/rae-lakes-loop")).toBe(
+      "https://alltrails.com/trail/us/california/rae-lakes-loop",
+    );
+    expect(normalizeTrailUrl("www.wta.org")).toBe("https://www.wta.org/");
+    expect(normalizeTrailUrl("  caltopo.com/m/ABC?x=1#map ")).toBe("https://caltopo.com/m/ABC?x=1#map");
+    expect(normalizeTrailUrl("WWW.Example.COM/Trail")).toBe("https://www.example.com/Trail");
+  });
+
+  it("guesses a scheme only for a dotted host, never for words or a number", () => {
+    for (const raw of ["rae lakes", "localhost", "timberline", "12.5", "7.5 mi", "example.com and more", "/trail/x", "//example.com/x", "me@example.com"])
+      expect(normalizeTrailUrl(raw), raw).toBeNull();
+  });
+
+  it("never rescues a value that names a scheme of its own", () => {
+    for (const raw of [
+      "javascript:alert(1).com/x",
+      "javascript://example.com/%0Aalert(1)",
+      "data:text/html,example.com/x",
+      " javascript:alert(1)",
+      "java\tscript:alert(1)",
+      "ftp://example.com/x",
+      "example.com:8080/x",
+      "example.com:javascript/x",
+    ])
+      expect(normalizeTrailUrl(raw), raw).toBeNull();
+  });
+
+  it("leaves a link that already has its scheme exactly as it read before", () => {
+    expect(normalizeTrailUrl("http://example.com/x")).toBe("http://example.com/x");
+    expect(normalizeTrailUrl("  https://example.com/x  ")).toBe("https://example.com/x");
+  });
 });
 
 describe("parseTrailLink — name derivation", () => {
