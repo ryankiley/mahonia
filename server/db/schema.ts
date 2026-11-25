@@ -156,7 +156,8 @@ export const catalogItems = pgTable(
 // catalog_edits — the wiki history (Phase 3). One row per change to a catalog
 // weight. No accounts, so we identify a change by the change itself, not a user.
 // Every weight change is recorded here so any edit is revertible and the history
-// is auditable (catalog_changes lists it, revert_catalog_edit undoes it).
+// is auditable (get_catalog_edits lists it, revert_catalog_edit undoes it, or turns a
+// proposed one down).
 //
 // Trust-tiered: editing an uncited/community value applies instantly; editing a
 // verified value becomes a `proposed` row unless the correction carries a
