@@ -70,8 +70,8 @@
    did (opacity from 0, 0.9 × the fade spring's beat; the leaving face is dropped
    instantly, so the two never stack). An ANIMATION, not a transition — display can't
    transition, but flipping display:none→grid restarts an animation, which is
-   precisely the hook wanted here. Gated on .is-rowswitching (a ~420ms beat GearEditor
-   holds up after each switch) so the fade plays on mode switches only — not on
+   precisely the hook wanted here. Gated on .is-rowswitching (the beat useEditorMode
+   holds up for the length of each switch) so the fade plays on mode switches only — not on
    initial load, not when the latch first mounts a face, not when a new item's row
    appears. The edit face fades on a switch INTO Gear only ([data-mode="edit"], not
    "anything but packing"): on a switch into Trip the rows are inside the view that is

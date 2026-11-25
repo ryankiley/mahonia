@@ -7,8 +7,14 @@
 // ONE SEQUENCE, both directions, in four transition values every rule here reads:
 //   --t-out   what leaves fades at once, over half the fade's beat
 //   --t-slot  every slot that changes size moves together, half a fade after the switch,
-//             so the page reflows once and nothing rides a slot still moving
-//   --t-in    what arrives fades in half a step after that, when the slots have settled
+//             so the page reflows once and nothing rides a slot still moving. On the
+//             MOVE spring: the header's swap carries the whole list 130px or more, which
+//             is travel (tokens.scss names the pack bar under it), and on the step
+//             spring it was at full speed by its third frame
+//   --t-in    what arrives fades in half a move after that, when the slots have all but
+//             settled, and from REST (the step spring): on the fade spring, which is
+//             launched, the breakdown was half there one frame after it began (Ryan,
+//             2026-11-25: "there should be more ease", "a hair too quick")
 //   --mode-end hidden things flip visibility once the slots have settled
 // The destination state's transition list is the one that runs: arriving lands on a
 // rule's base state, leaving on its mode state, which is why each state carries its own.
@@ -19,10 +25,13 @@
 // duration and delay, and useEditorMode raises no beat.
 .editor__body {
   --mode-slot: calc(var(--spring-fade-dur) / 2);
-  --mode-in: calc(var(--spring-fade-dur) / 2 + var(--spring-step-dur) / 2);
-  --mode-end: calc(var(--mode-slot) + var(--spring-step-dur));
-  --t-slot: var(--spring-step-dur) var(--spring-step) var(--mode-slot);
-  --t-in: var(--spring-fade-dur) var(--spring-fade) var(--mode-in);
+  --mode-in: calc(var(--spring-fade-dur) / 2 + var(--spring-move-dur) / 2);
+  --mode-end: calc(var(--mode-slot) + var(--spring-move-dur));
+  --t-slot: var(--spring-move-dur) var(--spring-move) var(--mode-slot);
+  --t-in: var(--spring-step-dur) var(--spring-step) var(--mode-in);
+  /* Gear ↔ Trip has no slot to wait out, so the view that arrives keeps the shorter
+     wait it has always had (half a fade, half a step) and the fade spring */
+  --t-view-in: var(--spring-fade-dur) var(--spring-fade) calc(var(--spring-fade-dur) / 2 + var(--spring-step-dur) / 2);
   --t-out: var(--mode-slot) var(--spring-fade);
   position: relative; /* the Trip crossfade pins the leaving view at its own box */
 }
@@ -68,7 +77,7 @@
 .totals__breakdown {
   /* folds on the mode switch's one sequence (--t-slot / --t-in / --t-out above)
      instead of taking 22–108px out of the page in one frame; the clip exists only
-     while the track moves and when folded, since the chips hold tooltips */
+     when folded and folding, since the chips hold tooltips */
   transition:
     grid-template-rows var(--t-slot),
     margin-top var(--t-slot),
@@ -91,9 +100,17 @@
   opacity: 0;
   transition: opacity var(--spring-fade-dur) var(--spring-fade);
 }
-.editor__body.is-rowswitching .totals__breakdown > *,
 .editor__body[data-mode="pack"] .totals__breakdown > * {
   overflow: hidden;
+}
+/* Opening, nothing clips it. Its parts stand at rest from the first frame (TotalsBar:
+   nothing in the box shrinks), so it hangs below a track that is still opening — unseen
+   until --t-in, and by then by the track's last 6px, which fall in the gap above the
+   list. Clipped to the track, the last line of the legend faded in with its feet cut
+   off. What the clip also did was keep an unseen breakdown from taking the pointer over
+   the list's first rows while it waits, and that is all that is kept. */
+.editor__body.is-rowswitching:not([data-mode="pack"]) .totals__breakdown > * {
+  pointer-events: none;
 }
 
 // ── Gear ↔ Packing: each folder's add row ────────────────────────────────────
@@ -151,7 +168,7 @@
    the gear type and nothing else. So a row's HEIGHT is one of this switch's slots:
    GearEditor's row fold (a script on the mode watch, nothing in this file) reads every
    on-screen row's height before the swap and after it, and eases each one that
-   changed from the old to the new on --t-slot's timing (the step spring, after
+   changed from the old to the new on --t-slot's timing (the move spring, after
    --mode-slot), with the other slots. The rows below it move with it rather than
    jumping a line in one frame. */
 
@@ -165,7 +182,7 @@
 }
 /* THE TRIP SWITCH IS A CROSSFADE (the pin in the script's watch on mode). The view
    that arrives — the plan, or the Gear blocks (v-show) — is in the flow on its final
-   pixels from the first frame and fades in at --mode-in; the view that leaves is
+   pixels from the first frame and fades in on --t-view-in; the view that leaves is
    pinned where it stood, fades over --mode-slot (--t-out) and drops out of the flow
    at the end of it. The display transition rides v-show's inline change. The
    destination state's list is the one a transition runs on: arriving lands on the
@@ -177,14 +194,14 @@
   transition: display var(--mode-slot) allow-discrete;
 }
 .planreveal > * {
-  transition: opacity var(--t-in);
+  transition: opacity var(--t-view-in);
 }
 .editor__body:not([data-mode="plan"]) .planreveal > * {
   opacity: 0;
   transition: opacity var(--t-out);
 }
 .editor__folders, .totals, .pplbar, .editor__addfolder {
-  transition: opacity var(--t-in);
+  transition: opacity var(--t-view-in);
 }
 /* the gear view's chips only: the plan's own (TrailPlanPanel's people slot) arrive
    with the plan, inside .planreveal */
