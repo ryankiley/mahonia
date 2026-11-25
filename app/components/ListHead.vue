@@ -16,7 +16,7 @@ import { counted } from "~~/shared/tidyText";
 // named import is enough to drag the whole module back onto that path, which is the
 // easy way to undo this without noticing.
 import type { ListSnapshot } from "~~/shared/types";
-import { copyText } from "~/utils/clipboard";
+import { COPY_FAILED, copyText } from "~/utils/clipboard";
 import { ROW_FLASH } from "~/components/ItemRow.vue";
 
 // The editor's title block: the list's name as a page title, with an optional link to
@@ -340,7 +340,7 @@ function remove() {
 const flash = inject(ROW_FLASH, () => {});
 async function copyLink() {
   if (!link.value) return;
-  flash((await copyText(link.value.href)) ? "Trail link copied" : "Couldn’t copy. Try again.");
+  flash((await copyText(link.value.href)) ? "Trail link copied" : COPY_FAILED);
 }
 
 // ---- trip dates ----

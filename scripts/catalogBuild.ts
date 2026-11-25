@@ -11,22 +11,12 @@
 import { CATALOG_CSV_HEADERS, identityKey, isCitationUrl, isWeightSource, serializeCsv, specToMg } from "./catalogCsv";
 import { extractAttributes, serializeAttributes, validateAttributes } from "./catalogAttributes";
 import { researchGearType, type ResearchFile } from "./research";
-import { normalizeVariant } from "../shared/catalogQuality";
+import { CATALOG_CATEGORIES, normalizeVariant } from "../shared/catalogQuality";
 import type { Unit } from "../shared/types";
 
-// Canonical category order for a tidy, browsable CSV.
-export const CATEGORY_ORDER = [
-  "shelter",
-  "sleep",
-  "pack",
-  "cook",
-  "water",
-  "clothing",
-  "electronics",
-  "firstaid",
-  "consumable",
-  "other",
-];
+// Canonical category order for a tidy, browsable CSV: the order the categories are
+// declared in (RANGE_G, shared/catalogQuality.ts), so that order is the CSV's.
+export const CATEGORY_ORDER = CATALOG_CATEGORIES;
 
 // A `type`, not an `interface`: serializeCsv takes
 // Record<string, string | number | null | undefined>, and only a type alias gets the
@@ -44,9 +34,6 @@ export type BuiltRow = {
   source_url: string;
   kcal: number | null;
 };
-
-const identity = (r: { brand: string; name: string; variant: string }) =>
-  identityKey(r.brand, r.name, r.variant);
 
 // The default gear types, keyed by identity: the hand-authored seed/common-names.json,
 // loaded by scripts/research.ts (the research checks read the same map). Because the key is
@@ -161,7 +148,7 @@ export function buildCatalog(files: readonly ResearchFile[], commonNames: Map<st
         kcal,
       };
 
-      const key = identity(out);
+      const key = identityKey(out.brand, out.name, out.variant);
       // A gear type is REQUIRED. Resolve it: the research row's own common_name wins, else the
       // hand-authored seed/common-names.json map, else a name-token derivation. normalizeGearType
       // collapses drift (singular/plural, spelling, synonyms) to the canonical label. A row that

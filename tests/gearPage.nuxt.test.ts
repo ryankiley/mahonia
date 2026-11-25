@@ -440,6 +440,24 @@ describe("a kit on /gear", () => {
     await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(2));
     expect(names()).toEqual(before);
   });
+
+  // Spaces alone are no search: the kits all still list, so the way to make another
+  // stays at their foot. It went, where every other gate on the page trims the query.
+  it("keeps New kit under the kits when the search holds only spaces", async () => {
+    listRows = [stove, pot, kit];
+    storage.set("gear.vault.tab.v1", "kits");
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+    expect(w.find(".vault__addkit").exists()).toBe(true);
+
+    await w.get(".sf__input").setValue("   ");
+    expect(w.findAll(".kitsec")).toHaveLength(1);
+    expect(w.find(".vault__addkit").exists()).toBe(true);
+
+    // a real search still takes it away, as before
+    await w.get(".sf__input").setValue("cook");
+    expect(w.find(".vault__addkit").exists()).toBe(false);
+  });
 });
 
 describe("the /gear page's words and names", () => {

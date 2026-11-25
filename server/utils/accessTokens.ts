@@ -29,12 +29,12 @@
 // everywhere" revokes all of them, because a credential minted or granted by whoever
 // got into the account is exactly what ending every session wouldn't reach.
 
-import { and, desc, eq, or, sql } from "drizzle-orm";
+import { and, desc, eq, or } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type { H3Event } from "h3";
 import type { AccessScope, AccessTokenSummary } from "../../shared/types";
 import { accessTokens, oauthCodes, users } from "../db/schema";
-import type { Db } from "./db";
+import { countRows, type Db } from "./db";
 import { bearerToken } from "./http";
 import { toIso } from "./time";
 import { randomSecret, sha256Hex } from "./tokens";
@@ -104,11 +104,8 @@ export async function mintAccessToken(
   userId: number,
   opts: { label?: string | null; scope: AccessScope; unproven: boolean },
 ): Promise<{ id: number; token: string } | null> {
-  const [{ held } = { held: 0 }] = await db
-    .select({ held: sql<number>`count(*)` })
-    .from(accessTokens)
-    .where(and(eq(accessTokens.userId, userId), eq(accessTokens.kind, "token")));
-  if (Number(held) >= ACCESS_TOKENS_MAX) return null;
+  const held = await countRows(db, accessTokens, and(eq(accessTokens.userId, userId), eq(accessTokens.kind, "token")));
+  if (held >= ACCESS_TOKENS_MAX) return null;
   const token = ACCESS_TOKEN_PREFIX + randomSecret();
   const label = (opts.label ?? "").trim().slice(0, LABEL_MAX) || null;
   const [row] = await db

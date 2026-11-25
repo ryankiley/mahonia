@@ -284,6 +284,11 @@ export function forgetAskingBrowser(event: H3Event): void {
   deleteCookie(event, signInNonceCookie(event), { path: "/", secure: isSecureRequest(event) });
 }
 
+/** This token's link while it can still be redeemed: unspent and unexpired. The look
+ *  (redeemMagicLink) and the spend (consumeMagicToken) mean the same thing by it. */
+const redeemable = (rawToken: string, now: Date) =>
+  and(eq(authTokens.tokenHash, sha256Hex(rawToken)), isNull(authTokens.consumedAt), gt(authTokens.expiresAt, now));
+
 type Redemption =
   | { kind: "invalid" }
   /** A good link in a browser that didn't ask for it: nothing is spent, and the
@@ -316,13 +321,7 @@ export async function redeemMagicLink(
     .select({ email: users.email, emailVerified: users.emailVerified, browserHash: authTokens.browserHash })
     .from(authTokens)
     .innerJoin(users, eq(users.id, authTokens.userId))
-    .where(
-      and(
-        eq(authTokens.tokenHash, sha256Hex(rawToken)),
-        isNull(authTokens.consumedAt),
-        gt(authTokens.expiresAt, new Date()),
-      ),
-    )
+    .where(redeemable(rawToken, new Date()))
     .limit(1);
   const row = pending[0];
   if (!row) return { kind: "invalid" };
@@ -351,13 +350,7 @@ export async function consumeMagicToken(db: Db, rawToken: string): Promise<Redee
   const claimed = await db
     .update(authTokens)
     .set({ consumedAt: now })
-    .where(
-      and(
-        eq(authTokens.tokenHash, sha256Hex(rawToken)),
-        isNull(authTokens.consumedAt),
-        gt(authTokens.expiresAt, now),
-      ),
-    )
+    .where(redeemable(rawToken, now))
     .returning();
   const userId = claimed[0]?.userId;
   if (userId == null) return null;

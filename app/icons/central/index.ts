@@ -52,7 +52,6 @@ export { IconDotGrid2x3 } from "./IconDotGrid2x3";
 export { IconDrop } from "./IconDrop";
 export { IconExclamationTriangle } from "./IconExclamationTriangle";
 export { IconExpand45 } from "./IconExpand45";
-export { IconExpandSimple } from "./IconExpandSimple";
 export { IconEyeOpen } from "./IconEyeOpen";
 export { IconFashion } from "./IconFashion";
 export { IconFileArrowLeftIn } from "./IconFileArrowLeftIn";

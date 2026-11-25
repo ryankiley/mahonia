@@ -146,9 +146,17 @@ export function useVaultList(
   const offline = computed(
     () => hasGear.value && (!hasVault.value || loadError.value !== "") && (!asking.value || wasOffline.value),
   );
-  watch(offline, (off) => {
-    if (off) wasOffline.value = true;
-  });
+  // `immediate`: a surface opened when the ask has ALREADY failed (the list's pane,
+  // opened offline) starts out offline, and that never changes for a plain watcher to
+  // see, so the first re-ask blinked it. (clear() below keeps the latch for the same
+  // case: the first load runs it.)
+  watch(
+    offline,
+    (off) => {
+      if (off) wasOffline.value = true;
+    },
+    { immediate: true },
+  );
   /** Nothing on screen may be changed: offline, or still the copy while the server's
    *  answer is on its way. The copy can be behind an edit made on another device, so a
    *  row of it opened for editing could save over that edit, or edit a piece since put
@@ -173,8 +181,12 @@ export function useVaultList(
     source.value = "none";
     items.value = [];
     readAt.value = null;
-    // the next account's first ask is a question, not the last one's offline answer
+    // The next account's first ask is a question, not the last one's offline answer.
+    // With no ask out it is offline already, though, and has to stay latched: nothing
+    // about `offline` changes then for the watcher above to set it again, and the first
+    // load of a surface opened offline comes through here.
     wasOffline.value = false;
+    wasOffline.value = offline.value;
   }
 
   async function load() {

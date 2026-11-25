@@ -14,7 +14,7 @@
 // territory — so what runs here is exactly the endpoint logic around it, driven
 // through real H3 events (body, cookies, headers) the way a request would.
 
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { verifyRegistrationResponse } from "@simplewebauthn/server";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import * as schema from "../server/db/schema";
@@ -223,6 +223,35 @@ describe("register-verify — adding a key to a signed-in account", () => {
     const creds = await db.select().from(schema.credentials);
     expect(creds).toHaveLength(1);
     expect(creds[0]!).toMatchObject({ userId: myId, credentialId: "cred-mine", label: "MacBook" });
+  });
+
+  it("answers a key this account already holds as a duplicate, and keeps the one row", async () => {
+    await savePasskey(db, { userId: myId, credentialId: "cred-held", ...PASSKEY, unproven: false });
+    const flowId = await startChallenge("chal-again", myId);
+    verifyMock.mockResolvedValue(verified("cred-held"));
+
+    expect(await registerVerify(post({ flowId, response: {} }, cookie))).toEqual({ ok: true, duplicate: true });
+    expect(await db.select().from(schema.credentials)).toHaveLength(1);
+  });
+
+  // Only the unique index on credential_id means "you already have this key". Any other
+  // failed save was answered the same way, so a write the database refused told the
+  // person their key was kept when no row held it.
+  it("does not call a save that failed for another reason a duplicate", async () => {
+    // a write the database refuses, and not for the unique index
+    await db.execute(sql`ALTER TABLE credentials ADD CONSTRAINT refuses_one_key CHECK (credential_id <> 'cred-refused')`);
+    const flowId = await startChallenge("chal-fail", myId);
+    verifyMock.mockResolvedValue(verified("cred-refused"));
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      // the endpoint's own answer for a registration that didn't go through
+      expect(await registerVerify(post({ flowId, response: {} }, cookie))).toEqual({ ok: false, reason: "invalid" });
+      expect(await db.select().from(schema.credentials)).toHaveLength(0);
+      // and the failure is in the log, where the duplicate's no-op is not
+      expect(quiet).toHaveBeenCalledWith("[passkey register] the key was not saved", expect.anything());
+    } finally {
+      quiet.mockRestore();
+    }
   });
 
   // register-options refuses an account at the cap, but a ceremony it opened while

@@ -66,17 +66,26 @@ const TRAIL_TOKEN = "trail weight";
 // A retailer that labels the figure after it: "19oz | 539g (trail)", "688g (minimum)".
 const TRAIL_SUFFIX = /(\d+(?:\.\d+)?)\s*(g|kg|oz)\s*\((?:trail|min(?:imum)?)\)/i;
 
+// A figure and its unit as a quote's weight labels are read: "1,340 g", "19oz", "3 lbs".
+const FIGURE = String.raw`(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(g|kg|oz|lbs?)`;
+const FIGURE_AFTER = new RegExp(String.raw`${FIGURE}\b`, "i");
+const FIGURE_BEFORE = new RegExp(String.raw`${FIGURE}\)?\s*\(?\s*$`, "i");
+/** A matched figure in grams; any unit but g, kg and oz is pounds. */
+const inGrams = (figure: string, unit: string) => {
+  const n = parseFloat(figure.replace(/,/g, ""));
+  const u = unit.toLowerCase();
+  return u === "g" ? n : u === "kg" ? n * 1000 : u === "oz" ? n * 28.3495 : n * 453.592;
+};
+
 /** The first gram-equivalent figure after `re` in `q`, or null. */
 function figureAfter(q: string, re: RegExp): number | null {
   const i = q.search(re);
   if (i < 0) return null;
-  const m = q.slice(i).match(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(g|kg|oz|lbs?)\b/i);
+  const m = q.slice(i).match(FIGURE_AFTER);
   if (!m) return null;
-  const n = parseFloat(m[1]!.replace(/,/g, ""));
-  const u = m[2]!.toLowerCase();
-  let g = u === "g" ? n : u === "kg" ? n * 1000 : u === "oz" ? n * 28.3495 : n * 453.592;
+  let g = inGrams(m[1]!, m[2]!);
   // "3 lb 5 oz": add a trailing ounce remainder
-  if (u.startsWith("lb")) {
+  if (m[2]!.toLowerCase().startsWith("lb")) {
     const rest = q.slice(i + m.index! + m[0].length).match(/^[.,]?\s*,?\s*(\d+(?:\.\d+)?)\s*oz\b/i);
     if (rest) g += parseFloat(rest[1]!) * 28.3495;
   }
@@ -104,11 +113,8 @@ function figureBy(q: string, re: RegExp): number | null {
   const m = re.exec(q);
   if (!m) return null;
   if (/^\s*[:=]?\s*\(?\d/.test(q.slice(m.index + m[0].length))) return figureAfter(q, re);
-  const before = q.slice(Math.max(0, m.index - 24), m.index).match(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(g|kg|oz|lbs?)\)?\s*\(?\s*$/i);
-  if (!before) return figureAfter(q, re);
-  const n = parseFloat(before[1]!.replace(/,/g, ""));
-  const u = before[2]!.toLowerCase();
-  return u === "g" ? n : u === "kg" ? n * 1000 : u === "oz" ? n * 28.3495 : n * 453.592;
+  const before = q.slice(Math.max(0, m.index - 24), m.index).match(FIGURE_BEFORE);
+  return before ? inGrams(before[1]!, before[2]!) : figureAfter(q, re);
 }
 
 export function runResearchChecks(files: ResearchFile[], commonNames: Map<string, string> = new Map()): Finding[] {
@@ -161,10 +167,11 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
         }
       }
 
-      // the cited weight must convert
+      // the cited weight must convert, its unit read as the build reads it (trimmed): a
+      // row the build takes isn't refused here for a space the build never saw
       let mg: number;
       try {
-        mg = specToMg(Number(r.weight_value), r.weight_unit as Unit, r.weight_secondary);
+        mg = specToMg(Number(r.weight_value), r.weight_unit?.trim() as Unit, r.weight_secondary);
       } catch (e) {
         err("convert", `${where}: ${(e as Error).message}`);
         continue;
@@ -244,9 +251,7 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
         // the stored figure is the trail one when it matches the figure after a trail label,
         // or when the quote calls its only figure a minimum weight and gives no packed one
         const suffix = TRAIL_SUFFIX.exec(q);
-        const labelledAfter = suffix
-          ? parseFloat(suffix[1]!) * (suffix[2]!.toLowerCase() === "kg" ? 1000 : suffix[2]!.toLowerCase() === "oz" ? 28.3495 : 1)
-          : null;
+        const labelledAfter = suffix ? inGrams(suffix[1]!, suffix[2]!) : null;
         const storedIsTrail = (trail != null
           ? near(g, trail) && !(packed != null && near(g, packed))
           : packed == null && TRAIL_WEIGHT.test(q))

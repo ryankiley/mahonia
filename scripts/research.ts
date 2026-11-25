@@ -153,22 +153,29 @@ const OPTIONAL_KEYS = new Set([
 ]);
 
 /** JSON on one line with a space after every colon and comma, nested values too. */
-export function inlineJson(v: unknown): string {
+function inlineJson(v: unknown): string {
   if (Array.isArray(v)) return `[${v.map(inlineJson).join(", ")}]`;
   if (v && typeof v === "object") return `{${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${inlineJson(x)}`).join(", ")}}`;
   return JSON.stringify(v);
 }
 
-/** A research file's text in the house layout. Only `_comment` and `rows` are written: a
- *  file carrying anything else fails the layout test rather than losing it quietly. */
-export function formatResearchFile(data: { _comment?: unknown; rows: readonly unknown[] }): string {
+/** A research file's note: its `_comment`, or the `_note` a hand-written file may carry
+ *  it under, which always meant the same. The one reading of it, for everything that
+ *  writes a research file back (catalog:format, catalog:graduate). */
+export const researchFileNote = (data: { _comment?: unknown; _note?: unknown }): unknown => data._comment ?? data._note;
+
+/** A research file's text in the house layout. Only its note, as `_comment`
+ *  (researchFileNote), and `rows` are written: a file carrying anything else fails the
+ *  layout test rather than losing it quietly. */
+export function formatResearchFile(data: { _comment?: unknown; _note?: unknown; rows: readonly unknown[] }): string {
   const rows = data.rows.map((raw) => {
     const row = raw as Record<string, unknown>;
     const keys = [...RESEARCH_KEY_ORDER.filter((k) => k in row), ...Object.keys(row).filter((k) => !RESEARCH_KEY_ORDER.includes(k))]
       .filter((k) => !(OPTIONAL_KEYS.has(k) && (row[k] == null || row[k] === "")));
     return `    {\n${keys.map((k) => `      ${JSON.stringify(k)}: ${inlineJson(row[k])}`).join(",\n")}\n    }`;
   });
-  const comment = data._comment != null ? `  "_comment": ${JSON.stringify(data._comment)},\n` : "";
+  const note = researchFileNote(data);
+  const comment = note != null ? `  "_comment": ${JSON.stringify(note)},\n` : "";
   return `{\n${comment}  "rows": [${rows.length ? `\n${rows.join(",\n")}\n  ` : ""}]\n}\n`;
 }
 
@@ -284,13 +291,16 @@ export function researchGearType(row: ResearchRow, commonNames: Map<string, stri
   return normalizeGearType(own || mapped || deriveNoun((row.name ?? "").trim()) || "");
 }
 
-/** Read + JSON-parse every `*.json` under `researchDir`, sorted by filename. Never
- *  throws: a file that won't parse comes back with `parseError` set and `rows: []`. */
-export function readResearchFiles(researchDir: string): ResearchFile[] {
-  const files = readdirSync(researchDir)
+/** The research files under `researchDir`: every `*.json`, sorted by filename. */
+export const researchFileNames = (researchDir: string): string[] =>
+  readdirSync(researchDir)
     .filter((f) => f.endsWith(".json"))
     .sort();
-  return files.map((file) => {
+
+/** Read + JSON-parse every research file under `researchDir`. Never throws: a file that
+ *  won't parse comes back with `parseError` set and `rows: []`. */
+export function readResearchFiles(researchDir: string): ResearchFile[] {
+  return researchFileNames(researchDir).map((file) => {
     try {
       let parsed: unknown;
       try {

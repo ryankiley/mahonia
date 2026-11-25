@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { IconChevronDownMedium, IconSquarePlaceholderDashed } from "~/icons/central";
+import { IconBackpack, IconChevronDownMedium, IconCookies, IconFashion, IconSquarePlaceholderDashed } from "~/icons/central";
 import { SvgIcon } from "~/utils/icon";
 import type { Classification, Unit } from "~~/shared/types";
 import { ownedOf, VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry, type VaultItemOp, type VaultItemPatch } from "~~/shared/vault";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
-import { CLASS_ICONS } from "~/utils/classIcons";
 import { entryUnitFromInput, formatWeight, itemDisplayName, parseKcal, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 import { sameText } from "~~/shared/tidyText";
@@ -71,10 +70,12 @@ const vault = useVaultOps();
 // Three-way, not the editor's two toggles. Those are toggles because each ALSO opens
 // the detail that only exists while it's on, so the row gains no third control; there
 // is no row to protect here, and a vault row has no qty, so it has no worn split.
+// What each class wears here: the pack for base, and the two marks the rows already
+// carry for the other two, the worn shirt and the consumable cookie.
 const CLASS_OPTIONS = [
-  { key: "base", label: "Base", icon: CLASS_ICONS.base },
-  { key: "worn", label: "Worn", icon: CLASS_ICONS.worn },
-  { key: "consumable", label: "Consumable", icon: CLASS_ICONS.consumable },
+  { key: "base", label: "Base", icon: IconBackpack },
+  { key: "worn", label: "Worn", icon: IconFashion },
+  { key: "consumable", label: "Consumable", icon: IconCookies },
 ];
 // the same list without Worn, for a row that can't be (see classOptions) — a constant
 // rather than a filter per recompute, so the picker's options keep one identity

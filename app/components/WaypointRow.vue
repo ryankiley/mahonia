@@ -4,7 +4,7 @@ import { SvgIcon } from "~/utils/icon";
 import { MAX_LABEL_LEN } from "~~/shared/ops";
 import type { Waypoint, WaypointKind } from "~~/shared/types";
 import { formatDistance, formatDistancePadded, type DisplayDistanceUnit } from "~~/shared/trailDistance";
-import { WAYPOINT_KIND_META, WAYPOINT_KIND_OPTIONS, waypointKindMeta } from "~/utils/waypointKinds";
+import { WAYPOINT_KIND_OPTIONS, waypointKindMeta } from "~/utils/waypointKinds";
 
 // One pin, described.
 //
@@ -98,7 +98,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
           :class="{ 'item__mark': waypoint.kind === k.key }"
           :aria-pressed="waypoint.kind === k.key"
           :aria-label="k.label"
-          :style="waypoint.kind === k.key ? { color: WAYPOINT_KIND_META[k.key].color } : undefined"
+          :style="waypoint.kind === k.key ? { color: k.color } : undefined"
           @click="c.updateWaypoint(waypoint.id, { kind: k.key as WaypointKind })"
         >
           <SvgIcon :icon="k.icon" />

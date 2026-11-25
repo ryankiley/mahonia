@@ -61,7 +61,7 @@ function childrenFor(icon: IconNode): PreparedChild[] {
   if (!built) {
     built = icon.map(([tag, attrs]): PreparedChild => {
       const out: Record<string, unknown> = {};
-      for (const key in attrs) if (key !== "key") out[kebab(key)] = attrs[key];
+      for (const key in attrs) out[kebab(key)] = attrs[key];
       return { tag, attrs: out };
     });
     prepared.set(icon, built);
@@ -87,15 +87,11 @@ interface SvgIconProps {
   size?: IconSize;
   /** the drawn line in screen px, when a glyph must differ from its step's */
   strokeWidth?: number;
-  altIcon?: IconNode;
-  showAlt?: boolean;
-  color?: string;
 }
 
 export const SvgIcon: FunctionalComponent<SvgIconProps> = (props, { attrs }) => {
   const step = props.size && props.size in ICON_SIZES ? props.size : "md";
   const { px, stroke } = ICON_SIZES[step];
-  const icon = props.altIcon && props.showAlt ? props.altIcon : props.icon;
 
   return h(
     "svg",
@@ -107,12 +103,12 @@ export const SvgIcon: FunctionalComponent<SvgIconProps> = (props, { attrs }) => 
         viewBox: "0 0 24 24",
         xmlns: "http://www.w3.org/2000/svg",
         fill: "none",
-        color: props.color ?? "currentColor",
+        color: "currentColor",
         "stroke-width": props.strokeWidth ?? stroke,
       },
       attrs,
     ),
-    childrenFor(icon).map((c) => h(c.tag, c.attrs)),
+    childrenFor(props.icon).map((c) => h(c.tag, c.attrs)),
   );
 };
 
@@ -120,9 +116,6 @@ SvgIcon.props = {
   icon: { type: Array, required: true },
   size: { type: String, default: "md" },
   strokeWidth: { type: Number, default: undefined },
-  altIcon: { type: Array, default: undefined },
-  showAlt: { type: Boolean, default: false },
-  color: { type: String, default: "currentColor" },
 } as never;
 SvgIcon.inheritAttrs = false;
 SvgIcon.displayName = "SvgIcon";

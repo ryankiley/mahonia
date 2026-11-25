@@ -79,12 +79,12 @@ export function useListExports(
     withExporter(textExporter, async ({ listToText }, snap) => {
       const shareUrl = getShareUrl();
       const ok = await copyText(listToText(snap, { shareUrl }));
-      flash(ok ? (shareUrl ? "Copied, with the read-only link" : "Copied as plain text") : "Couldn’t copy. Try again.");
+      flash(ok ? (shareUrl ? "Copied, with the read-only link" : "Copied as plain text") : COPY_FAILED);
     });
 
   const copyMarkdown = () =>
     withExporter(mdExporter, async ({ listToMarkdown }, snap) => {
-      flash((await copyText(listToMarkdown(snap))) ? "Copied as Markdown" : "Couldn’t copy. Try again.");
+      flash((await copyText(listToMarkdown(snap))) ? "Copied as Markdown" : COPY_FAILED);
     });
 
   // downloadFile() + listFileBase() (the saved file is named after the list) live

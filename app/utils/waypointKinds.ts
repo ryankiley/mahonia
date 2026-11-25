@@ -62,8 +62,4 @@ export const waypointKindMeta = (kind: string) =>
  */
 export const PLACEABLE_WAYPOINT_KINDS = ["water", "landmark"] as const;
 
-export const WAYPOINT_KIND_OPTIONS = PLACEABLE_WAYPOINT_KINDS.map((k) => ({
-  key: k,
-  label: WAYPOINT_KIND_META[k].label,
-  icon: WAYPOINT_KIND_META[k].icon,
-}));
+export const WAYPOINT_KIND_OPTIONS = PLACEABLE_WAYPOINT_KINDS.map((k) => ({ key: k, ...WAYPOINT_KIND_META[k] }));

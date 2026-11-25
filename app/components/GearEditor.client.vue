@@ -599,7 +599,7 @@ function onFocusIn(ev: FocusEvent) {
   // can't move them — it only dragged the list behind the sheet for nothing — and on a
   // phone the sheet rides above the keyboard by itself (VaultPane's viewport watch).
   if (el.closest("[data-vault-pane]")) return;
-  const coarse = window.matchMedia("(pointer: coarse)").matches;
+  const coarse = coarsePointer();
   const wait = coarse ? 300 : 0;
   clearTimeout(focusScrollTimer);
   focusScrollTimer = setTimeout(() => {
@@ -656,17 +656,6 @@ function onFocusIn(ev: FocusEvent) {
 useWindowEvent("focusin", onFocusIn); // auto-removes on unmount
 onBeforeUnmount(() => clearTimeout(focusScrollTimer));
 
-// Clipboard writes fire from real button clicks (the ⋯ menu items + the share
-// button), so the async Clipboard API has the user gesture iOS Safari demands. The
-// async-first write + synchronous execCommand fallback lives in the shared copyText()
-// util (app/utils/clipboard.ts); flash() just reports the outcome.
-async function copy(text: string, msg: string, linkFallbackTitle: string) {
-  if (await copyText(text)) return flash(msg);
-  // a blocked clipboard write shouldn't dead-end: show the link selectable so it can
-  // be copied by hand
-  showLinkFallback(text, linkFallbackTitle);
-}
-
 // The four export actions and the rows that draw them are the sharing panel's
 // (SharePanel's Export tab, through useListExports). What the editor hands it is the
 // link the plain-text copy appends: the READ-ONLY link — explicitly, not location.href, which here is
@@ -711,19 +700,30 @@ function toggleShare() {
 // the link is copied when the save answers: the write starts inside the click and is
 // handed the link as a promise, see copyTextWhen. `url` is read late for that reason;
 // both links are built from what the save returns.
+//
+// Clipboard writes fire from real button clicks (the sharing panel's rows), so the
+// async Clipboard API has the user gesture iOS Safari demands. The async-first write +
+// synchronous execCommand fallback lives in the shared copyText() util
+// (app/utils/clipboard.ts); flash() just reports the outcome.
 async function copyLink(url: () => string, msg: string, title: string) {
+  let text: string;
+  let copied: boolean;
   if (c.editToken || c.claimCode) {
     tally("share_link_copied");
-    return copy(url(), msg, title);
+    text = url();
+    copied = await copyText(text);
+  } else {
+    const link = c.saveDraft().then((saved) => {
+      if (!saved) throw new Error("not saved");
+      return url();
+    });
+    copied = await copyTextWhen(link);
+    text = await link.catch(() => "");
+    if (!text) return flash("Couldn’t make the link. Try again.");
+    tally("share_link_copied"); // after the save: a link that was never made is not a copy
   }
-  const link = c.saveDraft().then((saved) => {
-    if (!saved) throw new Error("not saved");
-    return url();
-  });
-  const copied = await copyTextWhen(link);
-  const text = await link.catch(() => "");
-  if (!text) return flash("Couldn’t make the link. Try again.");
-  tally("share_link_copied"); // after the save: a link that was never made is not a copy
+  // a blocked clipboard write shouldn't dead-end: show the link selectable so it can
+  // be copied by hand
   if (copied) flash(msg);
   else showLinkFallback(text, title);
 }

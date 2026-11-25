@@ -11,8 +11,8 @@
 //
 // Pure + dependency-light on purpose (no DB import) so the gating test stays fast.
 
-import type { CatalogCsvRow } from "./catalogCsv";
-import { isVariantRedundant, normalizeVariant, normKey, RANGE_G } from "../shared/catalogQuality";
+import { identity, type CatalogCsvRow } from "./catalogCsv";
+import { isVariantRedundant, normalizeVariant, normKey, RANGE_G, SPACED_UNITS } from "../shared/catalogQuality";
 import { soldByOf, traitsOf, type AttributeKey } from "../shared/catalogAxes";
 import { extractAttributes, SHOE_REGIONS } from "./catalogAttributes";
 import { GEAR_TYPE_ALIASES } from "./gearTypes";
@@ -31,13 +31,21 @@ const VARIANT_COMMENTARY =
 // (Checked on VARIANT only — product names like "Silver Shadow" live in `name`.)
 // The second line is colourway words a maker names a colour by ("Stone", "Moss"), none of
 // them a size or a version; words that are also product words (gold, copper, sky) stay out.
-const COLOUR_ATTR =
-  /\b(black|white|grey|gray|blue|navy|red|green|olive|khaki|tan|charcoal|sage|orange|yellow|purple|pink|brown|silver|graphite|slate|teal|maroon|burgundy|cream|beige|ivory|coyote|avalanche|habitat|stone|sand|moss|forest|clay|rust|onyx|midnight|ocean|indigo|cobalt|crimson|scarlet|plum|mocha|espresso|heather|bronze)\b/i;
+const COLOUR_WORDS =
+  /\b(black|white|grey|gray|blue|navy|red|green|olive|khaki|tan|charcoal|sage|orange|yellow|purple|pink|brown|silver|graphite|slate|teal|maroon|burgundy|cream|beige|ivory|coyote|avalanche|habitat|stone|sand|moss|forest|clay|rust|onyx|midnight|ocean|indigo|cobalt|crimson|scarlet|plum|mocha|espresso|heather|bronze)\b/gi;
 
 // Pole-family items (trekking poles + their baskets/paws) — the ONE class of
 // paired gear that keeps a "per pair" unit label, since single-pole use is a real
 // setup. Used to exempt them from the "drop per pair" rule below.
 const POLE_ITEM = /\b(pole|poles|paw|paws|basket|baskets)\b/i;
+
+// A number and its unit split by a space, in the units normalizeVariant closes up: the
+// one list, so the check can't refuse a unit the normalizer leaves spaced, or miss one.
+const SPACED_UNIT = new RegExp(String.raw`\d\s+(?:${SPACED_UNITS})\b`);
+// Vulgar fractions: a unit mark in a name, and in a variant ("5/8in", not "⅝in").
+const FRACTIONS = "¼½¾⅓⅔⅛⅜⅝⅞";
+const NAME_UNIT_MARK = new RegExp(String.raw`\d\s*["″”′]|\d'(?!s\b)|°|[${FRACTIONS}]`);
+const VARIANT_UNIT_MARK = new RegExp(`["'°${FRACTIONS}]`);
 
 // Review/blog hosts — fine as a "measured" source, but a row claiming
 // weight_source="manufacturer" cited to one of these is provenance laundering.
@@ -132,7 +140,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // The variant's unit rule holds in the name too: 8in, not 8"; 7ft x 9ft, not 7' x 9';
   // 15F, not 15°F; 5/8in, not ⅝". A size the maker sells several of is a variant.
   for (const r of rows) {
-    if (/\d\s*["″”′]|\d'(?!s\b)|°|[¼½¾⅓⅔⅛⅜⅝⅞]/.test(r.name)) {
+    if (NAME_UNIT_MARK.test(r.name)) {
       err("name-unit-mark", `${gearLabel(r)}: a unit mark in the name — spell the unit ("8in", "7ft", "15F", "5/8in"), or move a size to the variant`);
     }
   }
@@ -291,14 +299,17 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // gear type has one category (2026-11-25; it was "5+ rows, 90% agreeing" until a
   // sunscreen sat in `other` beside eight in `consumable`). A thing that is filed
   // differently is a different gear type ("Gas lantern" in cook, "Lantern" in
-  // electronics). A tie names every row, so someone decides.
+  // electronics). A tie names every row, so someone decides. A row with no gear type
+  // takes no part: rows that lack one aren't one kind of thing, and common-name-missing
+  // has already named each.
   const catsByType = new Map<string, Map<string, number>>();
-  for (const r of rows) {
+  const typed = rows.filter((r) => r.commonName?.trim());
+  for (const r of typed) {
     const k = (r.commonName ?? "").toLowerCase();
     const m = catsByType.getOrInsertComputed(k, () => new Map());
     m.set(r.categoryHint ?? "other", (m.get(r.categoryHint ?? "other") ?? 0) + 1);
   }
-  for (const r of rows) {
+  for (const r of typed) {
     const m = catsByType.get((r.commonName ?? "").toLowerCase())!;
     if (m.size < 2) continue;
     const total = [...m.values()].reduce((a, b) => a + b, 0);
@@ -315,8 +326,8 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const v = r.variant ?? "";
     if (
-      /\d\s+(?:ft|in|yd|cm|mm|m|km|g|kg|oz|lb|ml|qt|gal|mAh|gsm)\b/.test(v) ||
-      /["'°¼½¾⅓⅔⅛⅜⅝⅞]/.test(v.replace(/\b\w+'s\b/g, "")) ||
+      SPACED_UNIT.test(v) ||
+      VARIANT_UNIT_MARK.test(v.replace(/\b\w+'s\b/g, "")) ||
       /\b\d+\.0(?=[A-Za-z])|\dft 0in\b|\b\d+(?:\.\d+)? x \d+(?:\.\d+)?\b/.test(v)
     ) {
       err("variant-unit-spacing", `${gearLabel(r)}: "${v}" — a number and its unit are one token ("6ft", "400ml", "5/8in"), plainly written ("1L", "6ft", "20x72"), with no unit marks`);
@@ -329,11 +340,10 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const ciNorm = (x: string | null) => (x || "").toLowerCase().replace(/\s+/g, " ").trim();
     // preserve punctuation so "Lone Peak 9" vs "Lone Peak 9+" stay distinct
     const ci = ciNorm(r.brand) + "|" + ciNorm(r.name) + "|" + ciNorm(r.variant);
-    const exact = `${r.brand ?? ""}\u0000${r.name}\u0000${r.variant ?? ""}`;
+    const exact = identity(r.brand, r.name, r.variant);
     const prev = byCI.get(ci);
     if (prev) {
-      const prevExact = `${prev.brand ?? ""}\u0000${prev.name}\u0000${prev.variant ?? ""}`;
-      if (prevExact !== exact) {
+      if (identity(prev.brand, prev.name, prev.variant) !== exact) {
         err("case-collision", `${gearLabel(r)} collides case-insensitively with ${gearLabel(prev)} (normalize casing)`);
       }
     } else {
@@ -354,7 +364,6 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // The word is named, not the whole variant: "Trail Team Edition, Stone" quoted whole
   // read as if every part of it were refused, when only "Stone" was.
   // Every colour word, so "Black/Red" isn't refused for "Black" and then again for "Red".
-  const COLOUR_WORDS = new RegExp(COLOUR_ATTR.source, "gi");
   for (const r of rows) {
     const colours = [...new Set(r.variant?.match(COLOUR_WORDS) ?? [])];
     if (colours.length) {

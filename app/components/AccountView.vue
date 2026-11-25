@@ -271,7 +271,7 @@ const SCOPES: readonly { key: AccessScope; label: string; icon: IconNode }[] = [
 const scopeName = (scope: AccessScope) => SCOPES.find((s) => s.key === scope)!.label.toLowerCase();
 const mcpUrl = `${useSiteOrigin()}/mcp`;
 // The buttons: each client's own "install this server" link with our address filled
-// in, the same ones the About page and the README carry; ChatGPT, Gemini and the rest
+// in, the same ones the Help page and the README carry; ChatGPT, Gemini and the rest
 // have no such link and take the address pasted in. Every one of them asks for the
 // sign-in itself the first time it reaches for My Gear, so there is nothing else to
 // hand over.
@@ -376,7 +376,6 @@ async function exportEverything() {
   exportNote.value = "";
   try {
     const data = await $fetch<{ lists: unknown[]; gear: { items: unknown[] } }>("/api/account/export");
-    const { downloadFile } = await import("~/utils/download");
     downloadFile(`mahonia-export-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(data, null, 2), "application/json");
     const n = data.lists.length;
     const g = data.gear.items.length;
@@ -387,11 +386,15 @@ async function exportEverything() {
     exporting.value = false;
   }
 }
-// The confirmation, shown after the account is gone and the page has flipped back
-// to the signed-out screen. Longer-lived than the usual toast (8s, not the undo
-// bar's few): there is nothing to act on, and it's the only acknowledgement that an
-// irreversible thing succeeded.
+// The confirmation, shown after the account is gone and the panel has flipped back to
+// the sign-in screen (it is still mounted then, on /account and in the dialog alike).
+// Longer-lived than the usual toast (8s, not useToast's two): there is nothing to act
+// on, and it's the only acknowledgement that an irreversible thing succeeded. Its
+// markup went missing when the account became this panel (#174), and for months the
+// account was deleted in silence.
 const gone = ref("");
+let goneTimer: ReturnType<typeof setTimeout> | undefined;
+onBeforeUnmount(() => clearTimeout(goneTimer));
 async function deleteAccount() {
   // ONE dialog, two decisions. It used to ask twice — "delete your account?" then
   // "delete your lists too?" — and a second modal arriving after you'd already
@@ -425,7 +428,7 @@ async function deleteAccount() {
       body: { deleteLists: alsoLists },
     });
     forgetAccountMemos();
-    // Stay here rather than navigating away. The page re-renders as the signed-out
+    // Stay here rather than navigating away. The panel re-renders as the signed-out
     // screen on its own once the session has gone, so the confirmation lands on the
     // thing that actually changed — and a toast that outlived a route change would
     // need app-wide plumbing this is the only caller for.
@@ -434,7 +437,8 @@ async function deleteAccount() {
     gone.value = n
       ? `Account deleted, along with ${counted(n, "list")}.`
       : "Account deleted. Your lists are untouched.";
-    setTimeout(() => (gone.value = ""), 8000);
+    clearTimeout(goneTimer);
+    goneTimer = setTimeout(() => (gone.value = ""), 8000);
   } catch {
     deleteNote.value = "Couldn’t delete the account. Check your connection and try again.";
   }
@@ -751,6 +755,17 @@ async function onSignOut() {
           <p class="t-muted">Loading…</p>
         </template>
       </ClientOnly>
+
+    <!-- "Account deleted", over the sign-in screen the deletion lands on: the app's own
+         toast (atoms/controls.scss), the pill the read views' menu confirms a copy
+         with, drawn here in place. The status region is ALWAYS here and only its words come and
+         go: a live region that arrives already holding its text is one a screen reader
+         may not announce. Empty, it is a block of no height. -->
+    <div role="status">
+      <Transition name="toast">
+        <div v-if="gone" class="toast t-sm">{{ gone }}</div>
+      </Transition>
+    </div>
   </div>
 </template>
 

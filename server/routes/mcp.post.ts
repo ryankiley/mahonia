@@ -177,7 +177,7 @@ export default defineEventHandler(async (event) => {
   // doesn't exist gets. With no bearer or a dead one it asks for a sign-in like any tool
   // that needs an account: the names are in the public source, so hiding them there
   // kept nothing secret, and an admin's lapsed token is refreshed the ordinary way.
-  const adminTool = msg.method === "tools/call" && isAdminTool(params.name);
+  // (Checked below, once the bearer is resolved: every admin tool names an account use.)
   const unknownTool = () => error(id, -32602, `Unknown tool: ${String(params.name ?? "")}`);
   if (use) {
     // Whether a bearer of ours was carried at all is the difference between "sign in"
@@ -204,7 +204,7 @@ export default defineEventHandler(async (event) => {
     if (!identity && (use !== "optional" || refreshable)) {
       return bearerChallenge(event, 401, bearer ? "That token no longer opens an account; sign in to Mahonia again." : "Sign in to Mahonia to reach your lists and My Gear.");
     }
-    if (adminTool && !isAdmin(identity?.userId)) return unknownTool();
+    if (isAdminTool(params.name) && !isAdmin(identity?.userId)) return unknownTool();
     if (use === "write" && identity?.scope !== "write") {
       return bearerChallenge(event, 403, "This connection can only read. To change your gear or your lists, connect Mahonia again and allow read-and-change access.");
     }

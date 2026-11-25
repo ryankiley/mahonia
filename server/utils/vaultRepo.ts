@@ -7,7 +7,7 @@ import { sweepWindow, toIso } from "./time";
 import { and, asc, desc, eq, inArray, isNotNull, isNull, lt, sql, type SQL } from "drizzle-orm";
 import { alias, type PgColumn } from "drizzle-orm/pg-core";
 import { vaultItems, vaultKitParts, vaults } from "../db/schema";
-import type { Db } from "./db";
+import { countRows, type Db } from "./db";
 import { liveCatalogRows } from "./catalog";
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
 import {
@@ -185,6 +185,13 @@ async function withKits(db: Db, vaultId: number, entries: VaultEntry[]): Promise
     const kits = kitsOf.get(e.id);
     return kits ? { ...e, inKits: [...new Set(kits)].sort((a, b) => a - b) } : e;
   });
+}
+
+/** One row as every read shows it: a kit with its items and its derived weight, a
+ *  piece with the kits it is in. withKits answers one entry for each it is given, so
+ *  the one asked about is always there. */
+async function shownRow(db: Db, vaultId: number, row: Row): Promise<VaultEntry> {
+  return (await withKits(db, vaultId, [toEntry(row)]))[0]!;
 }
 
 /** A string field off the wire: typed, capped, tidied — or dropped. The shipped
@@ -620,12 +627,8 @@ function rowValues(c: VaultCapture, vaultId: number, now: Date) {
 /** How many rows (live AND removed — tombstones hold a slot) a vault holds: the
  *  count the ceiling is measured against (underCeiling, and captureKit's one new
  *  row). One cheap indexed count. */
-async function vaultItemCount(db: Db, vaultId: number): Promise<number> {
-  const [{ n } = { n: 0 }] = await db
-    .select({ n: sql<number>`count(*)` })
-    .from(vaultItems)
-    .where(eq(vaultItems.vaultId, vaultId));
-  return Number(n);
+function vaultItemCount(db: Db, vaultId: number): Promise<number> {
+  return countRows(db, vaultItems, eq(vaultItems.vaultId, vaultId));
 }
 
 /** A vault's live rows, most-recently-used first, every one of them — the
@@ -723,8 +726,7 @@ export async function vaultItemById(db: Db, vaultId: number, id: number): Promis
     .from(vaultItems)
     .where(and(eq(vaultItems.id, id), eq(vaultItems.vaultId, vaultId)))
     .limit(1);
-  // a kit with its items and its derived weight, a piece with the kits it is in
-  return rows[0] ? ((await withKits(db, vaultId, [toEntry(rows[0])]))[0] ?? null) : null;
+  return rows[0] ? shownRow(db, vaultId, rows[0]) : null;
 }
 
 /** What a change needs to know of a row before it is made: whether it is a kit, the
@@ -744,8 +746,7 @@ export interface VaultItemFacts {
   classification?: VaultEntry["classification"];
   catalogItemId?: number;
 }
-type FactFields = "kind" | "currency" | "brand" | "name" | "variant" | "commonName" | "weightMg" | "kcal" | "classification" | "catalogItemId";
-export const vaultItemFactsOf = (item: Pick<VaultEntry, FactFields | "ownWeightMg">): VaultItemFacts => ({
+export const vaultItemFactsOf = (item: Pick<VaultEntry, keyof VaultItemFacts | "ownWeightMg">): VaultItemFacts => ({
   kind: item.kind === "kit" ? "kit" : "piece",
   currency: item.currency,
   brand: item.brand,
@@ -786,7 +787,7 @@ export async function vaultItemFacts(db: Db, vaultId: number, ids: readonly numb
 export async function vaultItemByNormKey(db: Db, vaultId: number, normKey: string): Promise<VaultEntry | null> {
   if (!normKey) return null;
   const rows = await db.select().from(vaultItems).where(and(liveIn(vaultId), eq(vaultItems.normKey, normKey))).limit(1);
-  return rows[0] ? ((await withKits(db, vaultId, [toEntry(rows[0])]))[0] ?? null) : null;
+  return rows[0] ? shownRow(db, vaultId, rows[0]) : null;
 }
 
 /** Rank a user's vault against an autocomplete query. Recall is the whole (bounded)
@@ -1061,14 +1062,8 @@ export async function applyVaultItemOp(
 ): Promise<{ item: VaultEntry } | AddRefusal | null> {
   if (op?.t === "kit") return kitVaultItem(db, vaultId, op);
   if (op?.t === "add") return (await addVaultItems(db, vaultId, [op]))[0] ?? null;
-  const done = op?.t === "edit" ? await editVaultItem(db, vaultId, op) : null;
-  // the row as every other read shows it: a kit with its parts and derived weight,
-  // a piece with the kits it is in
-  if (done && "item" in done && done.item) {
-    const [item = done.item] = await withKits(db, vaultId, [done.item]);
-    return { item };
-  }
-  return done;
+  const row = op?.t === "edit" ? await editVaultItem(db, vaultId, op) : null;
+  return row ? { item: await shownRow(db, vaultId, row) } : null;
 }
 
 /** Why an add wrote nothing. A duplicate names the key the server derived for it —
@@ -1199,7 +1194,7 @@ export async function addVaultItems(
  * its old name within seconds, unprompted. Freezing the key fails only if you go and
  * edit the list too, which is a second deliberate act.
  */
-async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { t: "edit" }>) {
+async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { t: "edit" }>): Promise<Row | null> {
   if (!isSerialId(op.id)) return null;
   const set = cleanVaultPatch(op.patch);
   if (!set) return null;
@@ -1236,7 +1231,7 @@ async function editVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, {
       .set({ qty: owned })
       .where(and(eq(vaultKitParts.partId, done[0].id), sql`${vaultKitParts.qty} > ${owned}`));
   }
-  return { item: toEntry(done[0]) };
+  return done[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -1385,11 +1380,8 @@ async function kitVaultItem(db: Db, vaultId: number, op: Extract<VaultItemOp, { 
   const row = op.parts.length
     ? await setKitParts(db, vaultId, op.id, op.parts, { ownWeightMg: op.ownWeightMg ?? 0 })
     : await clearKit(db, vaultId, op.id);
-  if (!row) return null;
-  // the written row, decorated once (a kit with its parts and derived weight, a piece
-  // with the kits it is in): no read back
-  const [item] = await withKits(db, vaultId, [toEntry(row)]);
-  return item ? { item } : null;
+  // the written row, shown as every read shows it: no read back
+  return row ? { item: await shownRow(db, vaultId, row) } : null;
 }
 
 /** The parts a kit capture names, cleaned: real keys, counts the editor could step,

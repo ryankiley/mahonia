@@ -554,6 +554,21 @@ describe("the gear tools", () => {
     for (const [piece, catalog, type] of links) expect(sizeConflict(piece, row(catalog, type, kindOf(type))), `${piece} / ${catalog}`).toBe(false);
   });
 
+  it("reads a pack count however it is typed, so a 2-pack never links to a 3-pack row", () => {
+    const row = (variant: string) => ({ brand: null, name: "x", variant, commonName: "Bungee cord", categoryHint: "other" });
+    // every spelling normalizeVariant folds to "2-pack", beside the ones already read
+    const typed = ["2 Pack", "2 pack", "2pack", "2Pack", "2-Pack", "(2 Pack)", "Black, 2 pack", "2-pack", "pack of 2", "2pk", "2 pk"];
+    for (const piece of typed) {
+      expect(sizeConflict(piece, row("3-pack")), `${piece} / 3-pack`).toBe(true);
+      expect(sizeConflict(piece, row("3-pack, Black")), `${piece} / 3-pack, Black`).toBe(true);
+      // its own count links, whatever else the row says
+      expect(sizeConflict(piece, row("2-pack")), `${piece} / 2-pack`).toBe(false);
+      expect(sizeConflict(piece, row("2-pack, 10in")), `${piece} / 2-pack, 10in`).toBe(false);
+    }
+    // a piece that states no count still links, as before
+    expect(sizeConflict("Black", row("3-pack"))).toBe(false);
+  });
+
   it("say what a kit holds, list its items as pieces of their own, and refuse a weight on one", async () => {
     const added = await tool("edit_my_gear", { add: [{ name: "Pocket stove", weight_g: 73, owned: 2 }, { name: "Cook kit" }] }, aliceWrite);
     const [stoveId, kitId] = (added.data.results as { item: { id: number } }[]).map((r) => r.item.id);

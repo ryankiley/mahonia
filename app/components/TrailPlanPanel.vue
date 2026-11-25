@@ -11,7 +11,6 @@ import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/sh
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS, MAX_LABEL_LEN, MAX_NOTE_LEN } from "~~/shared/ops";
 import { shiftIsoDate } from "~~/shared/calendar";
-import { formatCount } from "~~/shared/tidyText";
 import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
 import { DAYLIGHT_MARGIN_H, daylightHours, formatDaylight, lightIsShort } from "~~/shared/daylight";
@@ -25,6 +24,8 @@ import {
   formatDistance,
   formatDistancePadded,
   heightFieldValue,
+  heightStepFor,
+  heightValue,
   heightWithUnit,
   parseDistanceM,
 } from "~~/shared/trailDistance";
@@ -567,11 +568,10 @@ const vFit: Directive<HTMLTextAreaElement> = { mounted: (el) => fitTextarea(el),
 // reasoning for both lives beside them there.
 const ascentValue = (m: number | undefined) => heightFieldValue(m, distanceUnit.value);
 // The same figure where it is read, not typed: grouped ("2,000"), like every other number
-// on the panel. The field keeps the bare form so what it shows parses back.
-const ascentReadout = (m: number | undefined) => {
-  const v = ascentValue(m);
-  return v ? formatCount(Number(v)) : v;
-};
+// on the panel. The field keeps the bare form so what it shows parses back. Same
+// conversion and the same stated step as the field's (heightValue at heightStepFor).
+const ascentReadout = (m: number | undefined) =>
+  m == null ? "" : heightValue(m, distanceUnit.value, heightStepFor(distanceUnit.value));
 const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceUnit.value, { pad: true });
 </script>
 

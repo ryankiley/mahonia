@@ -255,8 +255,6 @@ function iconSvg(icon: IconNode): string {
   const body = icon
     .map(([tag, attrs]) => {
       const a = Object.entries(attrs)
-        // `key` is Vue's list hint, not SVG
-        .filter(([k]) => k !== "key")
         .map(([k, v]) => `${kebab(k)}="${String(v).replace(/[<>&"]/g, "")}"`)
         .join(" ");
       return `<${tag} ${a}/>`;
@@ -785,10 +783,8 @@ const parkedH = ref(0);
  *
  * Every place that turns dragging on goes through syncDragging, so nothing hands an
  * inline phone map its drag back by accident (a pin's lift turns it off and on again).
+ * (coarsePointer is utils/platform's, the one test for a touch-first device.)
  */
-function coarsePointer(): boolean {
-  return window.matchMedia("(pointer: coarse)").matches;
-}
 function panByDrag(): boolean {
   return expanded.value || !coarsePointer();
 }

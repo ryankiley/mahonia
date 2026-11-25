@@ -2,6 +2,7 @@ import { defineEventHandler } from "h3";
 import { requireAccount } from "../../../utils/authSession";
 import { cleanPasskeyLabel, existingCredentialIds, removePasskeyBeyondCap, savePasskey } from "../../../utils/credentialRepo";
 import { canSendEmail, sendPasskeyAddedNotice } from "../../../utils/email";
+import { isUniqueViolation } from "../../../utils/db";
 import { readJsonBodyCapped } from "../../../utils/http";
 import { requirePasskeyRoom, takeChallenge, tooManyPasskeys, verifyPasskeyRegistration } from "../../../utils/passkeys";
 
@@ -45,10 +46,18 @@ export default defineEventHandler(async (event) => {
     // stamped from the session as it was checked above, so a claim landing during the
     // ceremony leaves this key worthless (claimUnverifiedAccount)
     saved = await savePasskey(db, { userId: user.id, ...credential, discoverable: syncable, label, unproven: user.unproven });
-  } catch {
+  } catch (e) {
     // the unique index on credential_id — this key is already registered, which is
     // a no-op rather than an error worth showing
-    return { ok: true as const, duplicate: true };
+    if (isUniqueViolation(e)) return { ok: true as const, duplicate: true };
+    // Any other failure saved nothing, and must not read as a key that was kept: the
+    // answer a registration that didn't go through gets, logged as one is
+    // (verifyPasskeyRegistration).
+    // The driver's reason only: the wrapped error carries the insert's values, the
+    // key's label among them.
+    const why = e instanceof Error ? (e.cause instanceof Error ? e.cause.message : e.name) : "unknown";
+    console.error("[passkey register] the key was not saved", why);
+    return { ok: false as const, reason: "invalid" as const };
   }
   // And the cap a last time, now the key is in: verifies that arrive together each
   // counted before any of them saved, so the count above let them all through. A key

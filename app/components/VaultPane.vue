@@ -565,7 +565,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         ref="searchEl"
         v-model="query"
         class="vp__search"
-        :placeholder="`Search your ${tab}…`"
         :label="`Search your ${tab}`"
       />
 

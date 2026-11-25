@@ -16,8 +16,8 @@
 // holes in, to guard a link that changes little: a piece keeps its own name, variant and
 // weight when it is linked.
 
-import { extractAttributes } from "../../scripts/catalogAttributes";
-import { normalizeVariant, normKey } from "../../shared/catalogQuality";
+import { extractAttributes, SHOE_REGIONS } from "../../scripts/catalogAttributes";
+import { normalizeVariant, normKey, SIZE_LETTER_WORD } from "../../shared/catalogQuality";
 
 /** A catalog row as the size check reads it: its variant, and the gear type and kind
  *  the variant's tokens are read by ("Regular" is a length on a quilt, a torso on a pack). */
@@ -31,8 +31,17 @@ export interface SizeRow {
 // a hyphen may be typed as a space or left out ("x large", "xlarge")
 const SIZE_WORDS = ["XXX-Large", "XX-Large", "X-Large", "XX-Small", "X-Small", "Small", "Medium", "Large", "Regular", "Short", "Long", "Tall", "Wide", "Slim", "Petite", "Standard", "Jumbo", "Mini", "Nano", "Big", "Person", "Mummy"];
 const SIZE_WORD_RE = SIZE_WORDS.map((w) => [new RegExp(`\\b${w.replace("-", "[- ]?")}\\b`, "gi"), w] as const);
-const WORD_LETTER: Record<string, string> = { "XX-Small": "XXS", "X-Small": "XS", Small: "S", Medium: "M", Large: "L", "X-Large": "XL", "XX-Large": "XXL" };
-const RANGE_WORD = "XX-Small|X-Small|XX-Large|X-Large|Small|Medium|Large";
+// the S/M/L family's words back to the catalog's letters (SIZE_LETTER_WORD); no word is the
+// start of another, so the order they are tried in can't matter
+const WORD_LETTER: Record<string, string> = Object.fromEntries(Object.entries(SIZE_LETTER_WORD).map(([letter, word]) => [word, letter]));
+const RANGE_WORD = Object.keys(WORD_LETTER).join("|");
+// a shoe size with its region on either side, in the regions the catalog writes one in
+const REGION_THEN_SIZE = new RegExp(`\\b(${SHOE_REGIONS})\\s*(\\d{1,2}(?:\\.5)?)\\b`, "gi");
+const SIZE_THEN_REGION = new RegExp(`\\b(\\d{1,2}(?:\\.5)?)\\s*(${SHOE_REGIONS})\\b`, "gi");
+// a pack count as people type it ("pack of 2", "2pk"), to the catalog's "2-pack"
+const PACK_TYPED = /\bpack of (\d+)\b|\b(\d+)\s*-?\s*pk\b/gi;
+const asPack = (_m: string, packOf?: string, pk?: string) => `${packOf ?? pk}-pack`;
+const PACK_COUNT = /\b(\d+)-pack\b/i;
 
 /** What people type, folded toward the forms the reader knows. Idempotent on a
  *  catalog row's own variant. */
@@ -57,10 +66,9 @@ function foldTyped(variant: string): string {
     // a bare size letter in any case, but not the m of "2 m" or the l of "1 l"
     .replace(/(?<![\w'])(?<!\d\s*)(xxxl|3xl|2xl|xxl|xxs|xl|xs|s|m|l)(?![\w'])/gi, (s) => s.toUpperCase())
     .replace(/(\d{3})(\+?)\s*(?:fp|fill(?: power)?)\b/gi, "$1$2FP")
-    .replace(/\b(us|uk|eu|jp)\s*(\d{1,2}(?:\.5)?)\b/gi, (_m, r: string, n: string) => `${r.toUpperCase()} ${n}`)
-    .replace(/\b(\d{1,2}(?:\.5)?)\s*(us|uk|eu|jp)\b/gi, (_m, n: string, r: string) => `${r.toUpperCase()} ${n}`)
-    .replace(/\bpack of (\d+)\b/gi, "$1-pack")
-    .replace(/\b(\d+)\s*-?\s*pk\b/gi, "$1-pack")
+    .replace(REGION_THEN_SIZE, (_m, r: string, n: string) => `${r.toUpperCase()} ${n}`)
+    .replace(SIZE_THEN_REGION, (_m, n: string, r: string) => `${r.toUpperCase()} ${n}`)
+    .replace(PACK_TYPED, asPack)
     .replace(/(\d+(?:\.\d+)?)\s*(?:liters?|litres?|ltr)\b/gi, "$1L")
     .replace(/(-?\d+)\s*(?:deg(?:ree)?s?\s*|°\s*)(c)\b/gi, "$1C")
     .replace(/(-?\d+)\s*(?:deg(?:ree)?s?|°)(?:\s*f\b)?(?!\s*[cC]\b)/gi, "$1F")
@@ -95,7 +103,10 @@ function axesOf(variant: string, row: SizeRow): Record<string, unknown> {
     return best;
   });
   const axes = read(parts);
-  const pack = /\b(\d+)-pack\b/i.exec(variant.replace(/\bpack of (\d+)\b|\b(\d+)\s*-?\s*pk\b/gi, (_m, a, b) => `${a ?? b}-pack`));
+  // as typed, then as the catalog would write it: normalizeVariant folds "2 Pack" and
+  // "2pack" to "2-pack" too, and read only as typed those stated no count, so a 2-pack
+  // linked to a 3-pack row. What was read before is read first, and reads the same.
+  const pack = PACK_COUNT.exec(variant.replace(PACK_TYPED, asPack)) ?? PACK_COUNT.exec(foldTyped(variant));
   return pack ? { ...axes, pack: pack[1] } : axes;
 }
 

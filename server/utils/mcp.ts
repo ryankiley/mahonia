@@ -37,7 +37,7 @@ import { editLinkPath, normalizeShareCode } from "../../shared/links";
 import { applyOps, isCatalogId, isSerialId, type ItemPatch, KCAL_MAX, MAX_BRAND_LEN, MAX_CATALOG_ID, MAX_FOLDER_NAME_LEN, MAX_FOLDERS, MAX_GEAR_TYPE_LEN, MAX_ITEM_NAME_LEN, MAX_ITEM_NOTE_LEN, MAX_ITEMS, MAX_PERSON_NAME_LEN, MAX_QTY, MAX_TITLE_LEN, MAX_VARIANT_LEN, normalizeCalendarDate, type Op, UNIT_WEIGHT_MAX_MG } from "../../shared/ops";
 import { PRICE_MAX_CENTS } from "../../shared/money";
 import { carrierName } from "../../shared/people";
-import { normKey } from "../../shared/catalogQuality";
+import { CATALOG_CATEGORIES, normKey } from "../../shared/catalogQuality";
 import { dayClimbs, parseProfile } from "../../shared/profile";
 import { MAX_DISTANCE_M } from "../../shared/trailDistance";
 import { enoughToSearch, SEARCH_QUERY_MAX } from "../../shared/searchText";
@@ -55,7 +55,7 @@ import type { ConnectorIdentity } from "./accessTokens";
 import { isAdmin } from "./admin";
 import { catalogRowsById, productVariants, recentChanges, searchCatalog } from "./catalog";
 import { sizeConflict } from "./catalogSizes";
-import { CATEGORIES, undoCatalogEdit, VERIFY_NOTES_MAX, VERIFY_QUOTE_MAX, VERIFY_SOURCES, VERIFY_URL_MAX, verifyCatalogItem, type VerifyIdentity } from "./catalogVerify";
+import { undoCatalogEdit, VERIFY_NOTES_MAX, VERIFY_QUOTE_MAX, VERIFY_SOURCES, VERIFY_URL_MAX, verifyCatalogItem, type VerifyIdentity } from "./catalogVerify";
 import { claimLists, claimedEditHash, listClaimedLists } from "./claimRepo";
 import { useAccountDb, useCatalogDb, useVaultDb, type Db } from "./db";
 import { applyOpsByEditHash, createList, getByEditHash, getByShareCode, getTextByShareCode } from "./listRepo";
@@ -930,8 +930,8 @@ const MCP_TOOL_REGISTRY: RegisteredMcpTool[] = [
         name: { type: "string", maxLength: MAX_ITEM_NAME_LEN, description: "The name without brand or variant. For a new product, or beside a catalog_id to rename the row." },
         variant: { type: "string", maxLength: MAX_VARIANT_LEN, description: "Only the size or configuration that changes the weight, in the catalog's form, never a colour or an edition; left out when one weight covers every size. Beside a catalog_id, \"\" clears the row's." },
         gear_type: { type: "string", maxLength: MAX_GEAR_TYPE_LEN, description: "What it is (\"Tent\", \"Rain jacket\"). Needed for a new product; on a row, replaces its gear type and the category it names." },
-        category: { type: "string", enum: CATEGORIES, description: "The kind of gear, for the weight range. Read from gear_type, then the row, when not given. pack is packs themselves; their accessories (pouches, pockets, covers, straps, cords) are other." },
-        weight_g: { type: "number", exclusiveMinimum: 0, maximum: UNIT_WEIGHT_MAX_MG / 1000, description: "Weight of one unit as sold, in grams; a pair as the pair, a pack sold only as a pack as the pack. Decimals are kept: send the exact conversion (3 oz is 85.05), not a rounded one." },
+        category: { type: "string", enum: CATALOG_CATEGORIES, description: "The kind of gear, for the weight range. Read from gear_type, then the row, when not given. pack is packs themselves; their accessories (pouches, pockets, covers, straps, cords) are other." },
+        weight_g: { type: "number", exclusiveMinimum: 0, maximum: UNIT_WEIGHT_MAX_G, description: "Weight of one unit as sold, in grams; a pair as the pair, a pack sold only as a pack as the pack. Decimals are kept: send the exact conversion (3 oz is 85.05), not a rounded one." },
         weight_source: { type: "string", enum: [...VERIFY_SOURCES], description: "manufacturer (default) or measured. measured over a row with the maker's weight replaces that figure and its quote for everyone (warnings says so); the person's own piece can take their weight instead. A measured weight of gear sold by size names the size weighed." },
         source_url: { type: "string", maxLength: VERIFY_URL_MAX, description: "The maker's page with the weight (its own answer in the page's Q&A counts), or a stockist's spec table restating it; never a review, or a number only in the page's code. Needed for manufacturer; kept from the row when a measured weight leaves it out." },
         quote: { type: "string", maxLength: VERIFY_QUOTE_MAX, description: "The line that states the weight, word for word, with its label (\"Weight: 3 ounces\"). Needed for manufacturer." },
@@ -1030,6 +1030,10 @@ const fail = (text: string): ToolResult => ({ content: [{ type: "text", text }],
 export { fail as toolFailure };
 /** the sentence for a classification argument that isn't one of the three */
 const notClassification = (v: unknown) => `"${String(v)}" isn't a classification; use base, worn, or consumable.`;
+/** the sentences for a catalog_id on a list row that can't be an id, and for an id that
+ *  names no live catalog row (a list row's or a piece's) */
+const notCatalogId = (label: string) => `catalog_id on ${label} must be a catalog id, a whole number from search_catalog.`;
+const notInCatalog = (id: number) => `catalog_id ${id} isn't in the catalog; take an id from search_catalog.`;
 /** Every string in a result with the hidden characters taken out (shared/tidyText's
  *  dropHidden). The reader here is a model, the one reader that would see them. A list
  *  is re-tidied as it loads; this covers the text that isn't, a community catalog row
@@ -1566,7 +1570,7 @@ function toItem(raw: object, folderId: string | null, sortOrder: number): Item |
   if (typeof r.kcal === "number") item.kcal = clampInt(r.kcal, 0, KCAL_MAX, 0);
   if (typeof r.needs_cooking === "boolean") item.needsCooking = r.needs_cooking;
   if (r.catalog_id != null) {
-    if (!isCatalogId(r.catalog_id)) return `catalog_id on "${name}" must be a catalog id, a whole number from search_catalog.`;
+    if (!isCatalogId(r.catalog_id)) return notCatalogId(`"${name}"`);
     item.catalogItemId = r.catalog_id;
     // whether the caller gave a figure of their own, decided before the catalog's
     // arrives (linkCatalog); the reducer keeps the flag either way
@@ -1590,7 +1594,7 @@ async function linkCatalog(items: Item[]): Promise<string | null> {
   for (const item of items) {
     if (!isCatalogId(item.catalogItemId)) continue;
     const row = rows.get(item.catalogItemId);
-    if (!row) return `catalog_id ${item.catalogItemId} isn't in the catalog; take an id from search_catalog.`;
+    if (!row) return notInCatalog(item.catalogItemId);
     item.catalogWeightMgAtLink = row.weightMg;
     if (!item.weightOverridden) item.unitWeightMg = row.weightMg;
     if (!item.brand && row.brand) item.brand = row.brand;
@@ -2220,9 +2224,9 @@ function rowPatch(r: Record<string, unknown>, it: Item, people: ListState["peopl
   if (r.catalog_id !== undefined) {
     if (r.catalog_id === null) patch.catalogItemId = null;
     else {
-      if (!isCatalogId(r.catalog_id)) return `catalog_id on ${label} must be a catalog id, a whole number from search_catalog.`;
+      if (!isCatalogId(r.catalog_id)) return notCatalogId(label);
       const row = catalogRows.get(r.catalog_id);
-      if (!row) return `catalog_id ${r.catalog_id} isn't in the catalog; take an id from search_catalog.`;
+      if (!row) return notInCatalog(r.catalog_id);
       patch.catalogItemId = row.id;
       patch.catalogWeightMgAtLink = row.weightMg;
       if (!patch.unitWeightMg) {
@@ -2600,7 +2604,7 @@ async function verifyCatalog(event: H3Event, args: Record<string, unknown>): Pro
     if (typeof handle === "string") return fail(handle);
     const piece = handle.vaultId == null ? null : await vaultItemById(handle.db, handle.vaultId, args.gear_id);
     if (!piece) return fail(`No piece of your My Gear has id ${args.gear_id}.`);
-    if (piece.kind === "kit") return fail(`${itemDisplayName(piece.brand ?? null, piece.name, piece.variant ?? null)} is a kit, which weighs its items; link the items instead.`);
+    if (piece.kind === "kit") return fail(`${itemDisplayName(piece.brand, piece.name, piece.variant)} is a kit, which weighs its items; link the items instead.`);
     gear = { handle, piece };
   }
   // the piece has to be the product being verified, checked before the catalog is touched
@@ -2634,8 +2638,8 @@ type PieceIdentity = { brand?: string | null; name: string; variant?: string | n
  *  on purpose, as people type their gear, but it stops the id of the wrong piece or the
  *  wrong row. Both tools that link a piece hold it to this (verify_catalog_item's
  *  gear_id, edit_my_gear's catalog_id). */
-function productMismatch(piece: PieceIdentity, row: LinkRow): string | undefined {
-  const name = itemDisplayName(piece.brand ?? null, piece.name, piece.variant ?? null);
+function productMismatch(piece: PieceIdentity, row: VerifyIdentity): string | undefined {
+  const name = itemDisplayName(piece.brand, piece.name, piece.variant);
   const rowName = itemDisplayName(row.brand, row.name, row.variant);
   if (piece.brand && row.brand && normKey(piece.brand) !== normKey(row.brand)) return `${name} is by ${piece.brand}, and the row is ${rowName}.`;
   const words = (s: string) => new Set(normKey(s).split(" ").filter((w) => w.length > 1));
@@ -2646,10 +2650,10 @@ function productMismatch(piece: PieceIdentity, row: LinkRow): string | undefined
 
 /** productMismatch, then the size (sizeConflict): what verify_catalog_item's gear_id
  *  holds a piece to before anything is written. */
-function gearMismatch(piece: PieceIdentity, row: LinkRow): string | undefined {
+function gearMismatch(piece: PieceIdentity, row: VerifyIdentity): string | undefined {
   const product = productMismatch(piece, row);
   if (product) return product;
-  if (sizeConflict(piece.variant, row)) return `${itemDisplayName(piece.brand ?? null, piece.name, piece.variant ?? null)} is ${piece.variant}, and the row is ${row.variant}.`;
+  if (sizeConflict(piece.variant, row)) return `${itemDisplayName(piece.brand, piece.name, piece.variant)} is ${piece.variant}, and the row is ${row.variant}.`;
   return undefined;
 }
 
@@ -2717,7 +2721,7 @@ function gearAsRow(piece: VaultEntry): Record<string, unknown> {
   // lists read as used 320 times, and an assistant asked what you use most said so
   return withoutEmpty({
     id: piece.id,
-    display_name: itemDisplayName(piece.brand ?? null, piece.name, piece.variant ?? null),
+    display_name: itemDisplayName(piece.brand, piece.name, piece.variant),
     name: piece.name,
     brand: piece.brand,
     variant: piece.variant,
@@ -2740,7 +2744,7 @@ function gearAsRow(piece: VaultEntry): Record<string, unknown> {
           own_weight_g: grams(piece.ownWeightMg ?? 0),
           items: (piece.parts ?? []).map((p) => ({
             id: p.id,
-            display_name: itemDisplayName(p.brand ?? null, p.name, p.variant ?? null),
+            display_name: itemDisplayName(p.brand, p.name, p.variant),
             count: p.qty,
             weight_g: grams(p.weightMg),
             ...(p.weightMg === 0 && !p.removed ? { unweighed: true } : {}),
@@ -2876,7 +2880,7 @@ function fromCatalog<P extends { patch: Record<string, unknown>; problem?: strin
   const id = piece.patch.catalogItemId;
   const row = isCatalogId(id) ? catalogRows.get(id) : undefined;
   if (!row) {
-    if (isCatalogId(id)) return { ...piece, problem: `catalog_id ${id} isn't in the catalog; take an id from search_catalog.` };
+    if (isCatalogId(id)) return { ...piece, problem: notInCatalog(id) };
     const typed = piece.patch.variant;
     if (was && id === undefined && typeof typed === "string" && typed.trim() && sizeConflict(typed, was)) {
       return {
@@ -2888,11 +2892,13 @@ function fromCatalog<P extends { patch: Record<string, unknown>; problem?: strin
     return piece;
   }
   const patch = { ...piece.patch };
+  // the two refusals said at two points each below: another product, and another size
+  const otherProduct = (why: string) => ({ ...piece, problem: `${why} Check the catalog_id; if it is that product, send its brand and name with the link.` });
+  const oneSize = (variant: string | null | undefined) => `It is ${variant}, and catalog row ${row.id} is ${row.variant}; a link is to one size.`;
   // what the piece holds that the row it was linked to gave it
   const gave = (mine: unknown, theirs: unknown) => was != null && mine != null && mine === theirs;
-  const fold = (s: string | null | undefined) => normKey(s ?? "");
   const spelledByLink =
-    !!was && !!held && fold(held.name) === fold(was.name) && fold(held.brand) === fold(was.brand) && fold(held.variant) === fold(was.variant);
+    !!was && !!held && normKey(held.name) === normKey(was.name) && normKey(held.brand) === normKey(was.brand) && normKey(held.variant) === normKey(was.variant);
   // food and fuel are never base weight, as a list row picked from the catalog knows; a
   // piece its owner filed as worn or consumable stays so, as the site's pick leaves it,
   // but one an earlier link to food made consumable is base again on a row that isn't food
@@ -2909,11 +2915,11 @@ function fromCatalog<P extends { patch: Record<string, unknown>; problem?: strin
     variant: p.variant === undefined ? (held?.variant ?? null) : (p.variant as string | null),
   });
   const product = held ? productMismatch(as(patch), row) : undefined;
-  if (product) return { ...piece, problem: `${product} Check the catalog_id; if it is that product, send its brand and name with the link.` };
+  if (product) return otherProduct(product);
   const sentVariant = patch.variant !== undefined;
   // a piece spelled by its earlier link moves to another size only when the call says so
   if (spelledByLink && !sentVariant && sizeConflict(held!.variant, row)) {
-    return { ...piece, problem: `It is ${held!.variant}, and catalog row ${row.id} is ${row.variant}; a link is to one size. To move the piece to that size, send its variant with the link; otherwise link the row for its size.` };
+    return { ...piece, problem: `${oneSize(held!.variant)} To move the piece to that size, send its variant with the link; otherwise link the row for its size.` };
   }
   // the spelling is one decision (the vault pins the three together): a piece held keeps
   // its own unless the call names part of it, and a new one is spelled as the catalog is,
@@ -2926,10 +2932,10 @@ function fromCatalog<P extends { patch: Record<string, unknown>; problem?: strin
   const identity = as(patch);
   // a new piece is checked as it will be called, the row's words filling what it leaves out
   const named = held ? undefined : productMismatch(identity, row);
-  if (named) return { ...piece, problem: `${named} Check the catalog_id; if it is that product, send its brand and name with the link.` };
+  if (named) return otherProduct(named);
   if (sizeConflict(identity.variant, row)) {
     const advice = sentVariant ? "Link the row for that size, or leave variant out." : "Link the row for its size, or send variant to change the piece's.";
-    return { ...piece, problem: `It is ${identity.variant}, and catalog row ${row.id} is ${row.variant}; a link is to one size. ${advice}` };
+    return { ...piece, problem: `${oneSize(identity.variant)} ${advice}` };
   }
   // a gear type, weight or calories of the piece's own stay; the earlier link's are
   // replaced by the row's, or cleared where the row has none
@@ -2947,16 +2953,6 @@ function fromCatalog<P extends { patch: Record<string, unknown>; problem?: strin
     else if (held?.kcal != null) patch.kcal = null;
   }
   return { ...piece, patch, ...(catalogWeight ? { catalogWeight: true as const } : {}) };
-}
-
-/** A catalog row as the link checks read it: what it is called, and the gear type and
- *  kind its variant is read by. */
-interface LinkRow {
-  brand: string | null;
-  name: string;
-  variant: string | null;
-  commonName?: string | null;
-  categoryHint?: string | null;
 }
 
 /** A kit as an edit_my_gear entry sends it, checked: undefined when the entry names

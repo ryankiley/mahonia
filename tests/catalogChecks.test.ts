@@ -3,6 +3,7 @@
 // each rule still fires, so a check can't be quietly loosened into a no-op.
 
 import { describe, expect, it } from "vitest";
+import { buildCatalog } from "../scripts/catalogBuild";
 import type { CatalogCsvRow } from "../scripts/catalogCsv";
 import { runCatalogChecks } from "../scripts/catalogChecks";
 import type { ResearchFile } from "../scripts/research";
@@ -135,6 +136,13 @@ describe("catalog conventions are errors, not warnings", () => {
     expect(codes([sunscreen("Bioré", "other"), sunscreen("Anessa", "consumable")], "error").filter((c) => c === "category-outlier")).toHaveLength(2);
   });
 
+  it("category-outlier: rows with no gear type aren't one gear type, and common-name-missing already names them", () => {
+    const untyped = (brand: string, categoryHint: string, commonName: string | null = null) => row({ brand, name: "Thing", categoryHint, weightMg: 20_000, commonName });
+    const found = codes([untyped("Acme", "other"), untyped("Bolt", "cook"), untyped("Core", "cook", "  ")], "error");
+    expect(found.filter((c) => c === "common-name-missing")).toHaveLength(3);
+    expect(found).not.toContain("category-outlier");
+  });
+
   it("variant-unit-spacing: one token, plainly written, no unit marks", () => {
     const v = (variant: string) => codes([row({ name: "Flash", variant, categoryHint: "cook", weightMg: 371_000, commonName: "Stove system" })], "error");
     for (const bad of ["6 ft", '17" torso', "1.0L", "6ft 0in", "20 x 72", "Titanium ⅝in", "20°F"]) expect(v(bad)).toContain("variant-unit-spacing");
@@ -247,6 +255,24 @@ describe("research-level attributes check", () => {
     expect(withUnpub(undefined, ["colour"])).toContain("attr-unpublished");
     expect(withUnpub(undefined, [])).toContain("attr-unpublished");
     expect(withUnpub({ persons: 2 }, ["persons"])).toContain("attr-unpublished");
+  });
+});
+
+describe("research-level weight conversion", () => {
+  const withUnit = (weight_unit: string): ResearchFile => ({
+    file: "synthetic.json",
+    rows: [{ brand: "Acme", name: "Ridge 2", variant: "2P", common_name: "tent", category_hint: "shelter", weight_value: 900, weight_unit, weight_source: "manufacturer", source_url: "https://acme.example/ridge", quote: "900 g" }],
+  });
+  const errors = (f: ResearchFile) => runResearchChecks([f]).filter((x) => x.level === "error").map((x) => x.code);
+  const skipped = (f: ResearchFile) => buildCatalog([f], new Map()).skipped;
+  it("reads the unit as the build does: a row that builds isn't refused for convert", () => {
+    for (const unit of ["g", " g", "g\n"]) {
+      expect(skipped(withUnit(unit))).toEqual([]);
+      expect(errors(withUnit(unit))).toEqual([]);
+    }
+    // and a unit the build can't read is refused by both
+    expect(skipped(withUnit("grams"))).toHaveLength(1);
+    expect(errors(withUnit("grams"))).toContain("convert");
   });
 });
 
