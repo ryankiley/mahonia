@@ -3,7 +3,8 @@ import { IconArrowUpRight, IconChevronDownMedium, IconDrop, IconFire2, IconFoots
 import { MountainGlyph, StairsGlyph, TentGlyph } from "~/icons/mahonia";
 import { SvgIcon, type IconChild, type IconNode } from "~/utils/icon";
 import type { Directive } from "vue";
-import type { ListSnapshot, Totals } from "~~/shared/types";
+import type { ListSnapshot } from "~~/shared/types";
+import type { PersonSelection } from "~~/shared/people";
 import { estimateDay, heightIsDerived, shownHeightM } from "~~/shared/tripPlan";
 import { coolerByC, dayFactsForRanges, type DayFacts } from "~~/shared/dayFacts";
 import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/shared/dryCarry";
@@ -39,7 +40,11 @@ import { useTripLoadModel } from "~/composables/useTripLoadModel";
 // a long scroll between you and the answer. What stays put is the identity of what you're
 // looking at: title, trail, distance, dates and the pack's weight are all above this and
 // never move when you switch view.
-const props = defineProps<{ snapshot: ListSnapshot; totals: Totals }>();
+const props = defineProps<{
+  snapshot: ListSnapshot;
+  /** the person chip picked: the walker carries that person's pack (shared/tripLoad.ts) */
+  personFilter: PersonSelection;
+}>();
 
 const c = useGearList();
 const uid = useId();
@@ -133,6 +138,7 @@ const {
   commitBody,
   distanceUnit,
   headlineM,
+  load,
   packMg,
   routeDescentDiffers,
   routeHeight,
@@ -140,8 +146,15 @@ const {
   totalAscentM,
 } = useTripLoadModel({
   snapshot: toRef(props, "snapshot"),
-  totals: toRef(props, "totals"),
+  selection: toRef(props, "personFilter"),
   days,
+});
+// On a group list's Everyone view the pack is an average, and the chip says whose.
+const carriedTip = computed(() => {
+  const l = load.value;
+  if (l.people < 2) return "";
+  const all = formatWeight(l.carriedMg * l.people, props.snapshot.displayUnit);
+  return `${all} across the ${l.people} people on this list, shared evenly. Pick a name to plan with one person’s pack.`;
 });
 
 // ---- per-day estimates ----
@@ -552,12 +565,13 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
            unit as its own element, the way the totals bar does it: baked into the
            formatted string it can't take the lesser ink, so "lb" sat at full weight
            beside every other unit on the panel stepping back -->
-      <FigureChip
-        v-if="totals.carriedMg > 0"
-        label="Carried"
-        :value="formatWeight(totals.carriedMg, snapshot.displayUnit, { withUnit: false })"
-        :unit="snapshot.displayUnit"
-      />
+      <Tooltip v-if="load.carriedMg > 0" :text="carriedTip" :disabled="!carriedTip" preferred-placement="bottom">
+        <FigureChip
+          label="Carried"
+          :value="formatWeight(load.carriedMg, snapshot.displayUnit, { withUnit: false })"
+          :unit="load.people > 1 ? `${snapshot.displayUnit} a person` : snapshot.displayUnit"
+        />
+      </Tooltip>
       <!-- The trip's own estimates, up here with the facts they're derived from rather
            than in a sentence at the foot. They step back in colour: the chips to their
            left are measured, these are worked out.
@@ -576,6 +590,10 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
            are rendered in, where a bare toLocaleString() took the browser's -->
       <FigureChip v-if="tripHours > 0" class="chip--est" label="Estimated burn" :value="formatKcal(roundKcal(tripKcal))" unit="kcal" />
     </div>
+    <!-- Whose walk: the person chips, under the figures they choose, where the gear
+         view has them under its own. The editor fills it; a list naming nobody leaves
+         it empty. -->
+    <slot name="people" />
 
     <!-- The route's shape, cut into days. Directly under the figure it belongs to. -->
     <TrailProfile

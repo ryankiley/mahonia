@@ -34,6 +34,7 @@ import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeHere } from "~/composables/useResumed";
 import type { Item } from "~~/shared/types";
+import { UNASSIGNED } from "~~/shared/people";
 import type { EditorMode } from "~/composables/useEditorMode";
 import { CHILDREN_BY_PARENT, PEOPLE_CTX, ROW_FLASH, VARIANT_SHOWN } from "~/components/ItemRow.vue";
 import { useGearEditorView } from "~/composables/useGearEditorView";
@@ -1229,6 +1230,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
         :headline="false"
         :list="view.list ?? snapshot"
         :totals="view.totals ?? totals"
+        :person-filter="pf.selected.value"
       />
       <!-- Whose gear is this? An edit link you hold is either your own list on a
            second device or one a friend shared, and nothing in the link says which
@@ -1265,8 +1267,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
       />
 
       <!-- WHO. The chips narrow the list to one person's load — in the gear view
-           and the packing view alike, so it sits above the packbar and stands down
-           only for planning. Rendered only once the list names anyone (ListHead's
+           and the packing view alike, so it sits above the packbar. Planning has its
+           own, under the plan's figures, sharing this selection (the panel's people
+           slot below). Rendered only once the list names anyone (ListHead's
            "Add people" affordance is the way in before that). -->
       <PeopleBar
         v-if="people.length"
@@ -1320,7 +1323,19 @@ function onCorrected(res: { status: string; itemName?: string }) {
            the elevation chart's hover readout is positioned above the chart's own box, so
            a standing clip cut the reading off. This one clips only while it moves. -->
       <div v-if="everPlan" :key="listKey" class="planreveal" data-view="plan">
-        <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
+        <!-- Whose walk it plans: the same chips as the gear view, sharing its selection.
+             No Unassigned here (nobody walks with only the unclaimed rows; it plans as
+             Everyone, shared/tripLoad.ts), so that selection lights Everyone. -->
+        <LazyTrailPlanPanel :snapshot="snapshot" :person-filter="pf.selected.value">
+          <template v-if="people.length" #people>
+            <PeopleBar
+              :people="people"
+              :selected="pf.selected.value === UNASSIGNED ? null : pf.selected.value"
+              :weights="chipWeights"
+              @pick="(id) => (pf.selected.value = id)"
+            />
+          </template>
+        </LazyTrailPlanPanel>
       </div>
 
       <!-- The gear stands down while you plan. Planning asks a different question of the

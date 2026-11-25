@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-25",
+  "fixed": [
+    "On a list with two or more people, food per day now reads per person; Unassigned shows none, since that food isn't anyone's yet.",
+    "On a group list, the Trip view plans one person's walk: pick a name for their own pack, or Everyone for the average pack."
+  ]
+}

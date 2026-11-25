@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it } from "vitest";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import TrailPlanPanel from "~/components/TrailPlanPanel.vue";
-import { computeTotals } from "~~/shared/weights";
 import type { ListSnapshot } from "~~/shared/types";
 import { blankList } from "./helpers/list";
 
@@ -24,7 +23,7 @@ describe("the plan's day chevrons", () => {
       endDate: "2026-07-02",
       days: [{ id: "d1", sortOrder: 0, distanceM: 8000 }],
     });
-    const w = mount(TrailPlanPanel, { props: { snapshot, totals: computeTotals(snapshot) } });
+    const w = mount(TrailPlanPanel, { props: { snapshot, personFilter: null } });
     const days = w.findAll(".plan__day");
     expect(days).toHaveLength(2);
     expect(days[0]!.find(".folder__collapse").exists()).toBe(true);

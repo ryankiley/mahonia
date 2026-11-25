@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan, tripDays } from "../shared/foodPlan";
+import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodHeadcount, foodPlan, tripDays } from "../shared/foodPlan";
+import { UNASSIGNED } from "../shared/people";
 import type { Unit } from "../shared/types";
 
 const totals = (kcalTotal: number) => ({ kcalTotal, hasKcal: kcalTotal > 0 });
@@ -104,5 +105,42 @@ describe("foodPlan", () => {
   it("has no per-day distance when no distance was entered", () => {
     const plan = foodPlan(totals(9000), meta({ startDate: "2026-08-04", endDate: "2026-08-06" }));
     expect(plan?.perDayDistance).toBeNull();
+  });
+});
+
+describe("food for a group", () => {
+  const crew = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `p${i}`, name: `P${i}`, sortOrder: i }));
+  const trip = meta({ startDate: "2026-08-04", endDate: "2026-08-06" });
+
+  it("splits the whole trip's food across everyone on it", () => {
+    // three people's normal food: the bug read this as 9,000 a day, "generous"
+    const plan = foodPlan(totals(27_000), trip, foodHeadcount(crew(3), null) ?? 1);
+    expect(plan).toMatchObject({ days: 3, people: 3, kcalPerDay: 3000, reading: "typical" });
+  });
+
+  it("catches a group short of food that one person's band would have passed", () => {
+    expect(foodPlan(totals(9000), trip, 3)).toMatchObject({ kcalPerDay: 1000, reading: "light" });
+  });
+
+  it("counts everyone only in the Everyone view of a list with two or more people", () => {
+    expect(foodHeadcount(crew(3), null)).toBe(3);
+    expect(foodHeadcount(crew(3), "")).toBe(3); // "everyone" by the same test the rows use
+    expect(foodHeadcount(crew(3), "p1")).toBe(1); // what that person carries
+    expect(foodHeadcount(crew(1), null)).toBe(1);
+    expect(foodHeadcount([], null)).toBe(1);
+    expect(foodHeadcount(undefined, null)).toBe(1);
+  });
+
+  it("gives Unassigned no reading, so the same rows can't read two ways", () => {
+    // 27,000 kcal of unclaimed group food: 3,000 a person in the Everyone view; read as
+    // one person's under Unassigned it would be 9,000 a day, "generous"
+    expect(foodHeadcount(crew(3), UNASSIGNED)).toBeNull();
+    expect(foodHeadcount(crew(1), UNASSIGNED)).toBeNull();
+  });
+
+  it("reads a nonsense headcount as one hiker", () => {
+    for (const n of [0, -2, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(foodPlan(totals(9000), trip, n)).toMatchObject({ people: 1, kcalPerDay: 3000 });
+    }
   });
 });

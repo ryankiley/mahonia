@@ -2,7 +2,8 @@
 import { counted } from "~~/shared/tidyText";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight, totalsChips } from "~~/shared/weights";
-import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
+import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodHeadcount, foodPlan } from "~~/shared/foodPlan";
+import type { PersonSelection } from "~~/shared/people";
 
 const props = withDefaults(
   defineProps<{
@@ -20,6 +21,14 @@ const props = withDefaults(
      * knows what else is on screen.
      */
     headline?: boolean;
+    /**
+     * The person chip the reader picked, null for everyone. `list` and `totals` arrive
+     * already narrowed to it, but food per day also needs to know whether they're the
+     * whole trip's (split across everyone on it) or one person's: foodHeadcount says
+     * which. Required, so a new caller can't forget it and divide one person's food by
+     * the whole group.
+     */
+    personFilter: PersonSelection;
   }>(),
   { headline: true },
 );
@@ -62,11 +71,20 @@ const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
 // the raw total can't: 9,000 kcal is a feast for a weekend and starvation for a week.
 // Null (and silent) unless the list carries both calories and a date range; see
 // shared/foodPlan.ts for why the arithmetic stops here rather than modelling burn.
-const plan = computed(() => foodPlan(props.totals, props.list));
+const plan = computed(() => {
+  const eaters = foodHeadcount(props.list.people, props.personFilter);
+  return eaters == null ? null : foodPlan(props.totals, props.list, eaters);
+});
 const planTip = computed(() => {
   const p = plan.value;
   if (!p) return "";
-  const span = `${kcalDisplay.value} kcal across ${counted(p.days, "day")}.`;
+  const across = `${kcalDisplay.value} kcal across ${counted(p.days, "day")}`;
+  // A group's figure is an average: say so, and say it's one person's, so the band
+  // after it reads as one person's too.
+  const span =
+    p.people > 1
+      ? `${across}, shared evenly by the ${p.people} people on this list: ${formatKcal(p.kcalPerDay)} kcal a person a day.`
+      : `${across}.`;
   // Named as a rule of thumb, and phrased as a range rather than a target — the band
   // is a sanity check on the arithmetic, not a recommendation for a body.
   //
@@ -161,7 +179,7 @@ const planTip = computed(() => {
                the scale that makes it mean something. Needs both halves (kcal and a date
                range), so it stays absent on the lists that have only one. -->
           <Tooltip v-if="plan" preferred-placement="bottom" :text="planTip">
-            <FigureChip label="Per day" :value="formatKcal(plan.kcalPerDay)" unit="kcal" />
+            <FigureChip label="Per day" :value="formatKcal(plan.kcalPerDay)" :unit="plan.people > 1 ? 'kcal a person' : 'kcal'" />
           </Tooltip>
           </span>
       </div>
