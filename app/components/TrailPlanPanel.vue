@@ -11,6 +11,7 @@ import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/sh
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { MAX_DAYS, MAX_LABEL_LEN, MAX_NOTE_LEN } from "~~/shared/ops";
 import { shiftIsoDate } from "~~/shared/calendar";
+import { formatCount } from "~~/shared/tidyText";
 import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
 import { DAYLIGHT_MARGIN_H, daylightHours, formatDaylight, lightIsShort } from "~~/shared/daylight";
@@ -363,7 +364,7 @@ const dayDaylight = computed<(number | null)[]>(() => {
 /** the walk above runs past the day's light, less the margin (shared/daylight) */
 const lightShort = (i: number) => lightIsShort(estimates.value[i]?.hours, dayDaylight.value[i]);
 function lightTip(i: number): string {
-  const base = "Sunrise to sunset at the middle of the day's route, from its coordinates and the date. Not a forecast, and no allowance for the terrain.";
+  const base = "Sunrise to sunset at the middle of the day’s route. It doesn’t allow for hills or weather.";
   return lightShort(i)
     ? `${base} The walking time leaves under ${DAYLIGHT_MARGIN_H} hours of it to spare, so the day may end in the dark.`
     : base;
@@ -527,6 +528,12 @@ const vFit: Directive<HTMLTextAreaElement> = { mounted: (el) => fitTextarea(el),
 // least one decimal so the column holds its width (distanceFieldValue's `pad`). The
 // reasoning for both lives beside them there.
 const ascentValue = (m: number | undefined) => heightFieldValue(m, distanceUnit.value);
+// The same figure where it is read, not typed: grouped ("2,000"), like every other number
+// on the panel. The field keeps the bare form so what it shows parses back.
+const ascentReadout = (m: number | undefined) => {
+  const v = ascentValue(m);
+  return v ? formatCount(Number(v)) : v;
+};
 const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceUnit.value, { pad: true });
 </script>
 
@@ -557,10 +564,10 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
       <!-- The ROUTE's climb, beside the estimates derived from it. Not the sum of the
            days' typed ascents, which is a different and usually smaller number — this is
            what the whole walk climbs. -->
-      <FigureChip v-if="snapshot.trailAscentM" label="Elevation gain" :value="routeHeight(snapshot.trailAscentM)" :unit="ascentUnit" />
+      <FigureChip v-if="snapshot.trailAscentM" label="Route climb" :value="routeHeight(snapshot.trailAscentM)" :unit="ascentUnit" />
       <!-- only when it is a DIFFERENT fact — on a loop it equals the climb by definition -->
-      <FigureChip v-if="routeDescentDiffers" label="Elevation loss" :value="routeHeight(snapshot.trailDescentM)" :unit="ascentUnit" />
-      <FigureChip v-if="totalAscentM > 0" label="Climb" :value="ascentValue(totalAscentM)" :unit="ascentUnit" />
+      <FigureChip v-if="routeDescentDiffers" label="Route descent" :value="routeHeight(snapshot.trailDescentM)" :unit="ascentUnit" />
+      <FigureChip v-if="totalAscentM > 0" :label="snapshot.trailAscentM ? 'Climb in days' : 'Climb'" :value="ascentReadout(totalAscentM)" :unit="ascentUnit" />
       <!-- the pack, kept in view because the totals bar stands down in this mode. The
            unit as its own element, the way the totals bar does it: baked into the
            formatted string it can't take the lesser ink, so "lb" sat at full weight
@@ -693,8 +700,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
       Mark water on the route and each day shows its longest dry carry.
     </p>
     <p v-if="!days.length" class="plan__note t-sm">
-      Break the trip into days to see what each one asks of you, and what the pack weighs
-      when you shoulder it that morning.
+      Add days to see each day’s distance, climb, walking time, and daylight.
     </p>
 
     <!-- A day arrives and leaves the way a gear row does: its box unfolds on the step
@@ -798,7 +804,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
               class="field field--num plan__num"
               inputmode="decimal"
               :value="ascentValue(climbFor(i))"
-              :aria-label="`Elevation gain on day ${i + 1}, in ${ascentUnit}`"
+              :aria-label="`Climb on day ${i + 1}, in ${ascentUnit}`"
               placeholder="—"
               @change="commitDayMetres(d?.id ?? ensureDay(i), 'ascentM', $event)"
             />
@@ -810,7 +816,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                  matched set in a way two different arrows never did. -->
             <span v-if="descentFor(i) != null" class="plan__drop">
               <SvgIcon :icon="StairsGlyph" class="plan__gl plan__gl--down" aria-hidden="true" />
-              <span class="t-num">{{ ascentValue(descentFor(i)) }} <span class="t-muted">{{ ascentUnit }}</span></span>
+              <span class="t-num">{{ ascentReadout(descentFor(i)) }} <span class="t-muted">{{ ascentUnit }}</span></span>
             </span>
           </span>
 
@@ -823,7 +829,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                  The calories beside it keep theirs, being a single figure. -->
             <span class="t-num">{{ estimates[i] ? formatHours(estimates[i]!.hours) : "—" }}</span>
             <Tooltip v-if="estimates[i]" text="Walking time only, no breaks. Pace follows the gradient and the weight of your pack." preferred-placement="top">
-              <button type="button" class="plan__why ink-quiet" aria-label="How the moving time is worked out">
+              <button type="button" class="plan__why ink-quiet" aria-label="How the walking time is worked out">
                 <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
@@ -1055,7 +1061,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
          same sentence twice. But the tilde still has to be explained somewhere you can't
          miss: a tooltip is discovered, not read, and an unexplained character stuck to a
          number is worse than no mark at all. -->
-    <p v-if="tripHours > 0" class="plan__accuracy t-sm">~ is worked out, not measured.</p>
+    <p v-if="tripHours > 0" class="plan__accuracy t-sm">~ means estimated.</p>
 
     <!-- Adds a day to the CALENDAR, not a loose row beside it. The date range is the one
          place a trip's length is set, so this pushes the end date out by one rather than

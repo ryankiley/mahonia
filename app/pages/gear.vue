@@ -112,7 +112,7 @@ const TABS = VAULT_TABS.map((key) => ({ key, label: VAULT_TAB_LABEL[key], icon: 
 const EMPTY_COPY: Record<VaultTab, string> = {
   gear: "The gear you own, ready to pick on any list. Add a piece, or build a list and its gear is saved here.",
   kits: "A kit is a set you pack together, like a stove, pot, and lighter. It goes onto a list as one group.",
-  food: "Meals and snacks, each with its calories. Add some, or pack a list and its food is saved here.",
+  food: "Meals and snacks, each with its calories. Add some, or build a list and its food is saved here.",
 };
 // a kit is made of gear, so with none the way in is a piece of gear, and the line says so
 const KIT_NEEDS_GEAR = "A kit is a set you pack together, like a stove, pot, and lighter. It’s made from your gear, so add some first.";
@@ -178,7 +178,7 @@ const sections = computed(() => vaultSections(filtered.value, flat.value));
 const narrowed = computed(() => filtered.value.length !== onTab.value.length);
 
 // The count line counts what the tab holds: pieces on Gear, kits on Kits.
-const countNoun = computed(() => (tab.value === "kits" ? "kit" : "item"));
+const countNoun = computed(() => (tab.value === "kits" ? "kit" : tab.value === "food" ? "item" : "piece"));
 
 // ---- kits ----------------------------------------------------------------
 // id → "Cook kit, Fire kit" for a piece's "In …" line, read off the kits as they now

@@ -216,7 +216,7 @@ export function useGpxImport(c: GpxTarget) {
       const offered = pins.slice(0, room);
       pending.value = geometry && offered.length ? { geometry, pins: offered, kindOf: pinKind, epoch } : null;
     } catch {
-      if (current()) gpxError.value = "Couldn't read a route out of that file.";
+      if (current()) gpxError.value = "Couldn’t read a route out of that file.";
     } finally {
       if (mine === reads) gpxBusy.value = false;
     }

@@ -83,7 +83,7 @@ async function createFrom(list: Partial<ListMeta> & { data: ListData }) {
     // set before the navigation, so the editor finds it the moment the list lands; a
     // list where nothing matched gets no note — "0 of 25" reads as a failure it isn't
     importNote.value = linked.matched
-      ? `${linked.matched} of ${data.items.length} rows matched the catalog.`
+      ? `${linked.matched} of ${data.items.length} items linked to the catalog.`
       : null;
     router.push(editLinkPath(snapshot.shareCode, token));
   } catch {
@@ -192,7 +192,7 @@ function importFile(text: string, file: File) {
          keystroke, exactly when someone composing a CSV by hand needs it -->
     <p class="t-sm t-muted import__hint">
       A CSV needs a header row: Category, Item Name, Qty, Weight, Unit, Worn, Consumable.
-      A file can also be a backup from Download JSON.
+      A file can also be a backup from “Download JSON”.
     </p>
 
     <p v-if="error" class="t-sm import__err">{{ error }}</p>

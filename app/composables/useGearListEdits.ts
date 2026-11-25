@@ -3,7 +3,7 @@ import { MAX_ITEMS, seedRouteEnds } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
 import { splitWeightTail } from "~~/shared/pasteList";
-import { counted, tidyText } from "~~/shared/tidyText";
+import { counted, formatCount, tidyText } from "~~/shared/tidyText";
 import { isWaterName, waterMgFromMl, waterPhrase } from "~~/shared/water";
 import { colorKeyForName, nextFolderColor, usedColorKeys } from "~~/shared/categories";
 import { sortedPeople } from "~~/shared/people";
@@ -352,8 +352,8 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
     const ids = items.map((i) => i.id);
     const made = items.length;
     if (!made) return "";
-    const rows = counted(made, "row");
-    const label = capped ? `${rows} (a list holds ${MAX_ITEMS} items; ${capped} did not fit)` : rows;
+    const rows = counted(made, "item");
+    const label = capped ? `${rows} (a list holds ${formatCount(MAX_ITEMS)} items; ${capped} didn’t fit)` : rows;
     offerUndo(label, () => {
       // quiet: undoing the paste means the rows were never there, so the history
       // shouldn't read "Removed" twelve times over. A row nested under a pasted row

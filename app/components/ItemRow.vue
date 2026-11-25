@@ -823,10 +823,10 @@ const nestActions = computed(() => {
   const acts: { label: string; icon: IconNode; run: () => void }[] = [];
   // a nested row can't nest further, and a row that already HAS children uses its
   // own ever-present "Add an item" instead
-  if (!props.nested && !isParent.value) acts.push({ label: "Add a nested item", icon: IconListAdd, run: () => c.addChild(props.item.id) });
+  if (!props.nested && !isParent.value) acts.push({ label: "Add an item under this one", icon: IconListAdd, run: () => c.addChild(props.item.id) });
   if (props.nested) acts.push({ label: "Move out of the group", icon: IconTextIndentLeft, run: () => c.unnest(props.item.id) });
   else if (canIndent.value)
-    acts.push({ label: "Nest under the item above", icon: IconTextIndentRight, run: () => c.nestItem(props.item.id, props.prevId!) });
+    acts.push({ label: "Move under the item above", icon: IconTextIndentRight, run: () => c.nestItem(props.item.id, props.prevId!) });
   return acts;
 });
 
@@ -1057,8 +1057,8 @@ async function onSaveToVault() {
   flash(
     result === "unworthy"
       ? isParent.value
-        ? "Name the group and weigh the rows under it first"
-        : "Give the row a name and a weight first"
+        ? "Name the group and weigh the items under it first"
+        : "Give the item a name and a weight first"
       // One level deep: a piece that is already some kit's part can't hold parts of
       // its own, and the group would have made it one.
       : result === "nested"
@@ -1068,15 +1068,15 @@ async function onSaveToVault() {
       // back is: adding the piece again there lifts the tombstone (addVaultItems).
       // (It named a removed-gear list /gear no longer has.)
       : result === "removed"
-        ? "You removed this from My Gear. Add it again there to bring it back"
+        ? "You removed this from My Gear. Add it again there to bring it back."
         // ...and a vault with no room is NOT that: there is nothing removed to bring
         // back, so the message above would send you looking forever.
         : result === "full"
-        ? "My Gear is full. Remove something there to make room"
+        ? "My Gear is full. Remove something there to make room."
         // the vault belongs to an account, so signed out there is nowhere to put it.
         // Naming that is the difference between a dead button and a next step.
         : hasVault.value
-          ? "Couldn’t reach My Gear. Try again in a moment"
+          ? "Couldn’t reach My Gear. Check your connection and try again."
           : "Sign in to keep your gear",
   );
 }
@@ -1459,7 +1459,7 @@ function dismissFix() {
             <input
               class="field field--num"
               :value="litersDisplay"
-              aria-label="Litres of water"
+              aria-label="Liters of water"
               autocomplete="off"
               autocorrect="off"
               autocapitalize="off"
@@ -1908,7 +1908,7 @@ function dismissFix() {
               class="item__nest item__nestact"
               :row-id="item.id"
               kind="nest"
-              label="Nesting"
+              label="Group"
               :icon="IconCodeTree"
               trigger-class="item__nest-btn"
               tooltip
@@ -2039,7 +2039,7 @@ function dismissFix() {
                  its label promises (a drag needs a pointer) -->
             <button
               class="btn btn--icon btn--ghost grip item__grip ink-quiet"
-              :title="`Drag to reorder · ${altLabel}-drag to copy`"
+              :title="`Drag to reorder · ${altLabel}-drag to duplicate`"
               :aria-label="`Reorder ${item.name || 'item'}`"
               @pointerdown="dnd.start(item.id, $event)"
               @keydown="onGripKey"

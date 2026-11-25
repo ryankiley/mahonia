@@ -22,7 +22,7 @@ useHead({
     {
       name: "description",
       content:
-        "How Mahonia's links, weights, imports, trip planning, and assistant connector work.",
+        "How Mahonia’s links, weights, imports, trip planning, and assistant connector work.",
     },
   ],
 });
@@ -47,7 +47,7 @@ useHead({
             and save it somewhere safe.
           </li>
           <li>
-            <strong>The share link</strong> is read-only and always shows the latest version. It
+            <strong>The read-only link</strong> lets anyone who has it see the list, always at its latest version. It
             isn’t listed or indexed anywhere.
           </li>
         </ul>
@@ -56,7 +56,7 @@ useHead({
         <h3>If a link gets out</h3>
         <p>
           “Replace edit link” in the Share tab makes a new edit link, and the old one stops working.
-          The share link can’t be replaced, so if it reaches the wrong person, use “Duplicate this
+          The read-only link can’t be replaced, so if it reaches the wrong person, use “Duplicate this
           list”, which gives the copy new links, and delete the original.
         </p>
 
@@ -74,7 +74,7 @@ useHead({
 
         <h3>Undo, history, and deleting</h3>
         <p>
-          Removing a row or folder can be undone for a few seconds. “Recent changes” in the Share tab
+          Removing an item or folder can be undone for a few seconds. “Recent changes” in the Share tab
           lists each change with its time and who made it. Mahonia keeps the last few versions of
           every list, so if something is lost past undo, email me.
         </p>
@@ -86,8 +86,7 @@ useHead({
 
         <h3>Packing</h3>
         <p>
-          Packing turns the list into a checklist. Ticks are saved for everyone with the edit link,
-          and the share link doesn’t show them. “Clear checks” resets them.
+          Packing turns the list into a checklist. Checks are saved for everyone with the edit link, and the read-only link doesn’t show them. “Clear checks” resets them.
         </p>
 
         <!-- ================= Weights ================= -->
@@ -105,7 +104,7 @@ useHead({
             minimum figure. A tent found only at trail weight says “trail weight”.
           </li>
           <li>
-            Food with its pouch. A row found only at net weight says “net”, and a canister’s “net
+            Food with its pouch. An item found only at net weight says “net”, and a canister’s “net
             fuel” is the gas alone.
           </li>
           <li>
@@ -116,8 +115,7 @@ useHead({
 
         <h3>When a weight is wrong</h3>
         <p>
-          Type your own weight over it. Your list uses your number, and the row stays linked to the
-          catalog. If the catalog is wrong, use “suggest a fix” on the row, ideally with a link to the
+          Type your own weight over it. Your list uses your number, and the item stays linked to the catalog. If the catalog is wrong, use “suggest a fix” on the item, ideally with a link to the
           maker’s or a shop’s page. A fix with a link from a known maker or shop updates the catalog
           for everyone at once, and any other fix to a checked weight waits for a source.
         </p>
@@ -125,8 +123,7 @@ useHead({
         <h3>Units and totals</h3>
         <ul>
           <li>
-            Type a weight with its unit, like <code>820 g</code> or <code>3.8 oz</code>. The row
-            keeps that unit while totals stay in the list’s unit, which you change by tapping the big
+            Type a weight with its unit, like <code>820 g</code> or <code>3.8 oz</code>. The item keeps that unit while totals stay in the list’s unit, which you change by tapping the big
             total.
           </li>
           <li>
@@ -134,8 +131,8 @@ useHead({
             what’s on your body. <strong>Consumable</strong> is food, water, and fuel.
             <strong>Carried</strong> is base plus consumable.
           </li>
-          <li>A row can be partly worn, like one pair of socks out of three.</li>
-          <li>Food rows take calories, totalled for the list and per day once the trip has dates.</li>
+          <li>An item can be partly worn, like one pair of socks out of three.</li>
+          <li>Food items take calories, totalled for the list and per day once the trip has dates.</li>
           <li>“Keyboard shortcuts” in the editor’s ⋯ menu lists the rest.</li>
         </ul>
 
@@ -151,7 +148,7 @@ useHead({
             quantity, weight and unit, worn and consumable marks, and link.
           </li>
           <li>Prices, the list’s name, and its unit don’t come across.</li>
-          <li>Rows that exactly match a catalog product arrive linked to it.</li>
+          <li>Items that exactly match a catalog product arrive linked to it.</li>
           <li>A list holds up to 1,000 items in 50 folders.</li>
         </ul>
 
@@ -159,8 +156,7 @@ useHead({
         <p>
           The Export tab in Sharing copies the list as plain text or Markdown, or downloads it as a
           CSV or a JSON backup. The backup has everything except your body weight, and importing it
-          restores the whole list. A share link offers the same exports in its ⋯ menu, without the
-          route or ticks, and adding <code>.md</code> to its address gives you Markdown.
+          restores the whole list. A read-only link offers the same exports in its ⋯ menu, without the route or checks, and adding <code>.md</code> to its address gives you Markdown.
         </p>
 
         <!-- ================= Trips ================= -->
@@ -168,8 +164,7 @@ useHead({
         <p>The Trip tab works from the list’s dates and trail.</p>
         <ul>
           <li>
-            Add the trail in the list’s header. Mahonia doesn’t open a linked page, so with a link you
-            type the distance yourself. A map file (GPX, KML, KMZ, TCX, FIT, GeoJSON, or GeoRSS, up to
+            Add the trail in the list’s header. With a link, you type the distance yourself. A map file (GPX, KML, KMZ, TCX, FIT, GeoJSON, or GeoRSS, up to
             10 MB) gives the distance and climb. The file stays in your browser, and Mahonia keeps
             only the line the trail follows.
           </li>
@@ -196,18 +191,18 @@ useHead({
           </li>
           <li>
             Daylight is sunrise to sunset at the middle of the day’s route, without allowing for
-            hills. It changes colour when the walk leaves less than two hours spare.
+            hills. It changes color when the walk leaves less than two hours spare.
           </li>
           <li>
             Calories use your body weight if you give it, and are good to about 20%. Your weight stays
             on this device.
           </li>
-          <li>Distance is in miles unless you pick kilometres. Climb is in feet or metres to match.</li>
+          <li>Distance is in miles unless you pick kilometers. Climb is in feet or meters to match.</li>
         </ul>
 
-        <h3>What a share link shows</h3>
+        <h3>What a read-only link shows</h3>
         <p>
-          A share link shows each day’s name, distance, climb, and note, and the elevation profile. It
+          A read-only link shows each day’s name, distance, climb, and note, and the elevation profile. It
           leaves out the map, the route line, and your waypoints, because a recorded track can start
           where you live.
         </p>
@@ -221,7 +216,7 @@ useHead({
         </p>
         <ul>
           <li>
-            While you’re signed in, My Gear saves each named row that has a weight or a catalog link
+            While you’re signed in, My Gear saves each named item that has a weight or a catalog link
             as you build. On someone else’s list, it asks first.
           </li>
           <li>
@@ -230,22 +225,22 @@ useHead({
             a kit”.
           </li>
           <li>
-            “Remove” puts a piece away, and lists that still carry it won’t bring it back. Adding it
-            again in My Gear does.
+            “Remove” takes a piece out of My Gear and keeps it out, even if a list still has it. To
+            bring it back, add it again in My Gear.
           </li>
           <li>“Download everything” on your account page downloads your filed lists and My Gear.</li>
           <li>
             “Delete account” erases your email, passkeys, and My Gear. Your lists stay, with their
-            links, unless you tick “Delete my lists too”.
+            links, unless you check “Delete my lists too”.
           </li>
         </ul>
 
         <!-- ================= Assistants ================= -->
         <h2 id="assistants" class="help__section">From an assistant</h2>
         <p>
-          Mahonia is also a connector. Add <code>https://mahonia.app/mcp</code> to an AI assistant
-          that speaks MCP, and you can ask it to work on your lists. Without signing in, it can read a
-          list from its share link, search the catalog, make a list, and change one given its edit
+          You can connect Mahonia to an AI assistant, such as Claude or ChatGPT, and ask it to work
+          on your lists. The address to add is <code>https://mahonia.app/mcp</code>. Without signing
+          in, it can read a list from its read-only link, search the catalog, make a list, and change one given its edit
           link, with the same permissions those links give a person.
         </p>
         <p>

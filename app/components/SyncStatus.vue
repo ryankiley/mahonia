@@ -35,7 +35,7 @@ const stateWord = computed(() => {
       // and only once the wait is long enough to need saying.
       return "";
     case "saving":
-      return "Syncing…";
+      return "Saving…";
     case "offline":
       // with nothing on the device the second half would be a lie; the page body
       // says what that state means (see GearEditor's `unloaded`)
@@ -60,7 +60,7 @@ const stateWord = computed(() => {
     case "missing":
       // the server no longer knows this list (deleted or reaped) but the local
       // copy is intact — say so honestly instead of claiming a sync state
-      return "No longer online · saved on device";
+      return "Link no longer works · saved on device";
     default:
       return ""; // idle
   }
@@ -69,7 +69,7 @@ const stateWord = computed(() => {
 // stood down (above), so there is never a state word for it to join.
 const timeSuffix = computed(() =>
   status.value === "synced" && editedAt.value != null
-    ? `edited ${timeAgo(editedAt.value, now.value.getTime())}`
+    ? `Edited ${timeAgo(editedAt.value, now.value.getTime())}`
     : "",
 );
 

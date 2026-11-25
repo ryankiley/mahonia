@@ -24,7 +24,7 @@ enableAutoUnmount(afterEach);
 const water = (over: Partial<Item> = {}) =>
   item({ id: "w", name: "Water", unitWeightMg: 3_000_000, classification: "consumable", ...over });
 const mountRow = (row: Item) => mountRowOver(snapshot, [{ ...row }], rowProvides());
-const litres = (w: ReturnType<typeof mountRow>) => w.find('input[aria-label="Litres of water"]');
+const litres = (w: ReturnType<typeof mountRow>) => w.find('input[aria-label="Liters of water"]');
 const weight = (w: ReturnType<typeof mountRow>) => (w.find('input[aria-label="Weight"]').element as HTMLInputElement).value;
 // setValue fires the field's change itself; a second trigger would re-read the litres
 // the handler just wrote back ("0.95"), which no person's single commit does

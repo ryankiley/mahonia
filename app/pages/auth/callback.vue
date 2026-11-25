@@ -15,19 +15,20 @@
 // otherwise sign this browser in as them and hand their account its lists (see
 // redeemMagicLink in server/utils/authSession.ts). The lists are then a question
 // of their own, after the sign-in and not part of it.
-//
-// noindex + no SSR data: the token lives in the query string and must not reach a
-// crawler, a cache, or a server-rendered payload.
-useHead({
-  title: "Signing you in — Mahonia",
-  meta: [{ name: "robots", content: "noindex" }],
-});
-
 const route = useRoute();
 const { refresh, allowListSweep } = useSession();
 
 type State = "working" | "confirm" | "lists" | "done" | "invalid" | "error";
 const state = ref<State>("working");
+
+// noindex + no SSR data: the token lives in the query string and must not reach a
+// crawler, a cache, or a server-rendered payload.
+// The tab says what the page is doing: it is only "signing you in" while it is.
+useHead({
+  title: () => (state.value === "working" || state.value === "done" ? "Signing you in — Mahonia" : "Sign in — Mahonia"),
+  meta: [{ name: "robots", content: "noindex" }],
+});
+
 /** what the server said when it wanted a yes: whose account, whether any browser
  *  asked for this link, and whether signing in clears out whoever was there first */
 const asking = ref({ email: "", asked: true, evicts: false });
@@ -169,10 +170,8 @@ async function finish() {
       <template v-else-if="state === 'lists'">
         <h1 class="t-title">Add this browser’s {{ deviceLists === 1 ? "list" : "lists" }} to your account?</h1>
         <p class="t-muted cb__line cb__account">
-          You’re signed in as {{ asking.email }}.
-          {{ deviceLists === 1 ? "The list" : `The ${deviceLists} lists` }} made in this browser
-          {{ deviceLists === 1 ? "isn’t" : "aren’t" }} in that account yet. Adding
-          {{ deviceLists === 1 ? "it puts it" : "them puts them" }} wherever you sign in.
+          You’re signed in as {{ asking.email }}. Add
+          {{ deviceLists === 1 ? "it and it opens" : "them and they open" }} on any device you sign in on.
         </p>
         <p v-if="addFailed" class="t-muted cb__line">That didn’t go through. Try again, or carry on without.</p>
         <div class="cb__actions">
@@ -186,8 +185,7 @@ async function finish() {
       <template v-else-if="state === 'invalid'">
         <h1 class="t-title">That link has expired</h1>
         <p class="t-muted cb__line">
-          Sign-in links work once and last 15 minutes. Ask for a fresh one and it’ll be along
-          in a moment.
+          Sign-in links work once and last 15 minutes.
         </p>
         <NuxtLink to="/account" class="btn btn--primary cb__action">Get a new link</NuxtLink>
       </template>

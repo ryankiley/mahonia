@@ -55,7 +55,7 @@ describe("the read views' ⋯ menu", () => {
   it("reads in the editor's order, with Export last of the body", async () => {
     const w = await openMenu();
     // Report is the foot: under the hairline, after Export, on every shared list
-    expect(rows(w)).toEqual(["Duplicate this list", "Copy link", "Send feedback…", "Report list"]);
+    expect(rows(w)).toEqual(["Duplicate this list", "Copy link", "Send feedback…", "Report this list"]);
     // the header opens a group rather than doing anything, so it is not a menuitem
     const head = w.get(".menu__secthead");
     expect(head.text()).toContain("Export");
@@ -97,17 +97,17 @@ describe("the read views' ⋯ menu", () => {
     // It used to be gated on isPublic, which no list ever was, so nobody ever saw it.
     // A report is feedback about one list now: the row opens the feedback box with the
     // list's address in the message.
-    expect(rows(await openMenu())).toContain("Report list");
+    expect(rows(await openMenu())).toContain("Report this list");
   });
 
   it("opens the feedback box from Report, naming the list and not its link", async () => {
     const w = await openMenu({ title: "Wonderland", shareCode: "ABCD2345EFGH" });
-    const report = w.findAll('[role="menuitem"]').find((b) => b.text().trim() === "Report list")!;
+    const report = w.findAll('[role="menuitem"]').find((b) => b.text().trim() === "Report this list")!;
     await report.trigger("click");
     const { state } = useFeedback();
     expect(state.open).toBe(true);
     expect(state.title).toBe("Report this list");
-    expect(state.preset).toContain('"Wonderland"');
+    expect(state.preset).toContain("“Wonderland”");
     expect(state.preset).toContain("ABCD");
     // feedback is filed where anyone can read it, so the whole code must not travel
     expect(state.preset).not.toContain("ABCD2345EFGH");

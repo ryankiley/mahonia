@@ -71,14 +71,14 @@ function reportThis() {
     // NOT the share link: feedback is filed as a public issue, and a private list's
     // unguessable link would be published with it. The title and the code's first
     // characters are enough to find the list, and useless to anyone else.
-    preset: `Reporting the shared list "${props.snapshot.title}" (share code starting ${props.snapshot.shareCode.slice(0, 4)}). What's wrong with it: `,
+    preset: `Reporting the shared list “${props.snapshot.title}” (share code starting ${props.snapshot.shareCode.slice(0, 4)}). What’s wrong with it: `,
   });
 }
 
 async function copyThis() {
   // success navigates to the new copy's editor, so only a failure needs a word here
   const ok = await copyList(props.snapshot, props.totals?.totalMg ?? 0);
-  if (!ok) flash("Couldn’t copy. Try again.");
+  if (!ok) flash("Couldn’t duplicate. Try again.");
 }
 async function copyLink() {
   const url = pageUrl();
@@ -147,7 +147,7 @@ const MENU_ACTIONS = [
              mistake reaching for the row above. -->
         <button type="button" data-row role="menuitem" class="menu__item" @click="close(); reportThis()">
           <SvgIcon :icon="IconFlag1" aria-hidden="true" />
-          Report list
+          Report this list
         </button>
       </li>
     </template>

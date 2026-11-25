@@ -50,7 +50,7 @@ const mountRow = (row: Item, children: Item[] = []) =>
 // every control under test, and would have made all of this pass for the wrong reason.
 const own = (w: ReturnType<typeof mountRow>) => w.find(".item-row");
 const hasQty = (w: ReturnType<typeof mountRow>) => own(w).find('input[aria-label="Quantity"]').exists();
-const hasLitres = (w: ReturnType<typeof mountRow>) => own(w).find('input[aria-label="Litres of water"]').exists();
+const hasLitres = (w: ReturnType<typeof mountRow>) => own(w).find('input[aria-label="Liters of water"]').exists();
 const hasClassMarks = (w: ReturnType<typeof mountRow>) => own(w).find(".item__classcell").exists();
 const suggests = (w: ReturnType<typeof mountRow>) => w.findComponent(ItemInput).props("suggest");
 

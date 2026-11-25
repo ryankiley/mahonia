@@ -102,8 +102,7 @@ function remove(p: Person) {
   <BaseModal :open="true" label="People on this trip" @close="emit('close')">
     <h2 class="t-label">People</h2>
     <p class="t-sm t-muted dlg__lede">
-      Add who’s coming, then mark who carries what. Removing someone puts their gear
-      back up for grabs.
+      Add who’s coming, then mark who carries what. Removing someone leaves their gear unassigned.
     </p>
 
     <ul v-if="people.length" class="ppl__list">
@@ -132,7 +131,7 @@ function remove(p: Person) {
             type="button"
             class="btn btn--quiet ppl__remove"
             :class="{ 'is-arming': arming === p.id }"
-            :aria-label="arming === p.id ? `Really remove ${p.name}? ${counted(carriedCount(p.id), 'item')} go back up for grabs` : `Remove ${p.name}`"
+            :aria-label="arming === p.id ? `Really remove ${p.name}? ${counted(carriedCount(p.id), 'item')} become unassigned` : `Remove ${p.name}`"
             @click="remove(p)"
           >
             <template v-if="arming === p.id">Remove?{{ carriedCount(p.id) ? ` · ${counted(carriedCount(p.id), "item")}` : "" }}</template>

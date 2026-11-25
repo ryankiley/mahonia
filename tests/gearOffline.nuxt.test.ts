@@ -113,7 +113,7 @@ describe("the My Gear pane offline", () => {
     setCookie("mh_signed_in", "1");
     const pane = await openPane();
     expect(pane.find(".vp__offline").text()).toBe("You’re offline, and this device hasn’t kept a copy of your gear yet.");
-    expect(pane.text()).not.toContain("No gear saved yet");
+    expect(pane.text()).not.toContain("No gear yet");
     expect(pane.text()).not.toContain("Sign in");
   });
 

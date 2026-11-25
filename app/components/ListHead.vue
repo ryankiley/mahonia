@@ -301,7 +301,7 @@ function remove() {
 const flash = inject(ROW_FLASH, () => {});
 async function copyLink() {
   if (!link.value) return;
-  flash((await copyText(link.value.href)) ? "Trail link copied" : "Copy failed");
+  flash((await copyText(link.value.href)) ? "Trail link copied" : "Couldn’t copy. Try again.");
 }
 
 // ---- trip dates ----
@@ -650,7 +650,7 @@ onClickOutside(trailEl, closeTrail);
               {{ gpxBusy ? "Reading…" : snapshot.trailProfile ? "Replace map file" : "Import map file" }}
             </label>
             <Tooltip
-              text="GPX, KML, KMZ, TCX, FIT, GeoJSON, or GeoRSS. Reads the route's distance and the shape of its climb. The file is read here in your browser and never uploaded."
+              text="GPX, KML, KMZ, TCX, FIT, GeoJSON, or GeoRSS. Gives the route’s distance and climb. The file stays in your browser."
               preferred-placement="bottom"
             >
               <button type="button" class="head__gpxwhy ink-quiet" aria-label="Which map files can be read">
@@ -665,7 +665,7 @@ onClickOutside(trailEl, closeTrail);
                one tap each. Phrased with the count so the answer is informed: "add 11" is a
                different question from "add 98" — and 98 is what a yes will do, not a guess. -->
           <p v-if="pending" class="head__gpxerr t-sm">
-            This route can add {{ counted(pending.pins.length, "marked place") }}.
+            This route can add {{ counted(pending.pins.length, "waypoint") }}.
             <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
             <button type="button" class="head__gpxno ink-quiet" @click="pending = null">No thanks</button>
           </p>

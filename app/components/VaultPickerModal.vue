@@ -55,13 +55,13 @@ const groups = computed(() =>
     <template v-if="caps">
       <h2 class="t-label">Add to My Gear</h2>
       <p class="t-sm t-muted dlg__lede">
-        You didn’t start this list, so some of it may not be yours. Untick anything that
+        You didn’t start this list, so some of it may not be yours. Uncheck anything that
         isn’t.
       </p>
 
       <div class="vpick__bar">
         <button type="button" class="btn btn--quiet" @click="toggleAll">
-          {{ allOn ? "Untick all" : "Tick all" }}
+          {{ allOn ? "Uncheck all" : "Check all" }}
         </button>
         <span class="t-sm t-muted">{{ keep.size }} of {{ caps.length }}</span>
       </div>

@@ -94,7 +94,7 @@ const planTip = computed(() => {
   // it doesn't have. The number beside the range is the whole signal.
   const band =
     p.reading === "typical"
-      ? `That's inside the ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day people commonly plan for walking with a pack.`
+      ? `That’s inside the ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day people commonly plan for walking with a pack.`
       : `People commonly plan ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day for walking with a pack.`;
   return p.perDayDistance ? `${span} ${p.perDayDistance} a day. ${band}` : `${span} ${band}`;
 });
@@ -170,7 +170,7 @@ const planTip = computed(() => {
           <Tooltip
             v-if="totals.hasKcal"
             preferred-placement="bottom"
-            text="Food energy across everything classed as consumable."
+            text="Calories in everything marked Consumable."
           >
             <FigureChip class="chip--alt" label="Calories" :value="kcalDisplay" unit="kcal" />
           </Tooltip>

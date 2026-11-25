@@ -156,7 +156,7 @@ describe("pasting a list into an item's name", () => {
     expect(w.find<HTMLInputElement>('input[aria-label="Name of item"]').element.value).toBe("Quilt");
 
     // the count, said through the undo toast
-    expect(c.pendingUndo.value).toMatchObject({ verb: "Added", label: "3 rows" });
+    expect(c.pendingUndo.value).toMatchObject({ verb: "Added", label: "3 items" });
   });
 
   it("says one row in the singular, and does not blame the cap for a line that named nothing", async () => {
@@ -165,14 +165,14 @@ describe("pasting a list into an item's name", () => {
     pasteInto(w, "Tent\n: 540 g\nQuilt");
     await flushPromises();
     // ": 540 g" is a name (a weight with nothing in front of it), so two rows
-    expect(c.pendingUndo.value?.label).toBe("2 rows");
+    expect(c.pendingUndo.value?.label).toBe("2 items");
     w.unmount();
 
     const c2 = await open([item({ id: "blank", sortOrder: 0 })]);
     const w2 = mountRow(c2, "blank");
     pasteInto(w2, "Tent\nQuilt");
     await flushPromises();
-    expect(c2.pendingUndo.value?.label).toBe("1 row");
+    expect(c2.pendingUndo.value?.label).toBe("1 item");
   });
 
   it("reads a water line as the water row at its volume", async () => {
@@ -445,6 +445,6 @@ describe("pasting a list into an item's name", () => {
     expect(byId(c, "blank")!.name).toBe("One");
     expect(itemsOf(c)).toHaveLength(MAX_ITEMS);
     expect(itemsOf(c).slice(-3).map((i) => i.name)).toEqual(["One", "Two", "Three"]);
-    expect(c.pendingUndo.value?.label).toBe(`2 rows (a list holds ${MAX_ITEMS} items; 2 did not fit)`);
+    expect(c.pendingUndo.value?.label).toBe("2 items (a list holds 1,000 items; 2 didn’t fit)");
   });
 });
