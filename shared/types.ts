@@ -489,7 +489,7 @@ export interface AccessTokenSummary {
   lastUsedAt: string | null;
 }
 
-/** One line of the catalog's edit history, as the admin tool catalog_changes lists it. */
+/** One line of the catalog's edit history, as the admin tool get_catalog_edits lists it. */
 export interface RecentChange {
   id: number;
   catalogItemId: number;
