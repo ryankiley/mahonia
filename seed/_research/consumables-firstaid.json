@@ -144,7 +144,10 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.target.com/p/starbucks-via-instant-coffee-medium-roast-packets-pike-place-roast-packets-8ct-0-11oz/-/A-15251130",
-      "quote": "8ct/0.11oz (per packet); box of 8 packets net wt 0.93 oz"
+      "quote": "8ct/0.11oz (per packet); box of 8 packets net wt 0.93 oz",
+      "kcal": 10,
+      "kcal_source_url": "https://www.starbucksathome.com/ca/en-ca/products/starbucks-pike-place-via",
+      "kcal_quote": "Calories Per serve 10 cal"
     },
     {
       "brand": "Honey Stinger",

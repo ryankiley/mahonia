@@ -36,6 +36,9 @@ export const GEAR_TYPE_ALIASES: Record<string, string> = {
   "hip belt pouch": "hip belt pocket",
   "hipbelt pocket": "hip belt pocket",
   "hydration system": "hydration pack",
+  // a jacket filled with synthetic insulation, shells included (2026-11-25: the two
+  // labels held one kind of jacket; a down one is a down jacket, an unfilled one a shell)
+  "insulated jacket": "synthetic jacket",
   "liner gloves": "glove liners",
   "lumbar pack": "hip pack",
   "mess kit": "cookset",

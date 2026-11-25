@@ -335,8 +335,7 @@ export const EXTRA_TERMS: Record<string, readonly string[]> = {
   "softshell hoodie": ["softshell jacket", "soft shell", "softshell", "soft-shell jacket", "softshell hoody"],
   jacket: ["coat"],
   "down jacket": ["puffy", "puffer", "puffer jacket", "puffy jacket", "down coat", "down parka", "down puffy", "down hoody", "down hoodie", "insulated jacket", "feather jacket", "belay jacket"],
-  "insulated jacket": ["puffy", "puffer", "puffer jacket", "puffy jacket", "synthetic puffy", "insulated coat", "insulation jacket", "synthetic jacket", "active insulation", "belay jacket"],
-  "synthetic jacket": ["puffy", "puffer", "puffer jacket", "puffy jacket", "synthetic puffy", "synthetic insulated jacket", "insulated jacket", "active insulation"],
+  "synthetic jacket": ["puffy", "puffer", "puffer jacket", "puffy jacket", "synthetic puffy", "synthetic insulated jacket", "insulated jacket", "active insulation", "insulated coat", "insulation jacket", "belay jacket"],
   vest: ["gilet", "bodywarmer", "body warmer", "sleeveless jacket", "insulated vest", "down vest", "puffy vest", "puffer vest", "jerkin"],
   "down pants": ["insulated pants", "puffy pants", "down trousers", "insulated trousers", "puffer pants"],
   // — clothing: mid and base —
