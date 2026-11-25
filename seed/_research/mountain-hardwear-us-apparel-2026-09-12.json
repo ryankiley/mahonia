@@ -5,9 +5,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretchdown Light Hooded Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 410,
@@ -20,9 +18,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretchdown Light Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 373,
@@ -35,9 +31,7 @@
       "brand": "Mountain Hardwear",
       "name": "Ghost Whisperer Hooded Down Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 302,
@@ -50,9 +44,7 @@
       "brand": "Mountain Hardwear",
       "name": "Summit Grid Big Grid Hoody",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 446,
@@ -65,9 +57,7 @@
       "brand": "Mountain Hardwear",
       "name": "Crater Lake Long Sleeve Crew Shirt",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sun shirt",
       "weight_value": 147,
@@ -80,9 +70,7 @@
       "brand": "Mountain Hardwear",
       "name": "Crater Lake Heavyweight Half Zip Hoody",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sun hoodie",
       "weight_value": 273.5,
@@ -95,9 +83,7 @@
       "brand": "Mountain Hardwear",
       "name": "Hardwear Supply Hoody",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hoodie",
       "weight_value": 926,
@@ -110,9 +96,7 @@
       "brand": "Mountain Hardwear",
       "name": "Hardwear Supply Pullover Crew",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hoodie",
       "weight_value": 848,
@@ -125,9 +109,7 @@
       "brand": "Mountain Hardwear",
       "name": "Après Pro Insulated Hooded Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "insulated jacket",
       "weight_value": 590,
@@ -140,9 +122,7 @@
       "brand": "Mountain Hardwear",
       "name": "Cloud Bank GORE-TEX Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain jacket",
       "weight_value": 982,
@@ -155,9 +135,7 @@
       "brand": "Mountain Hardwear",
       "name": "Sky Ridge GORE-TEX Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain jacket",
       "weight_value": 897,
@@ -170,9 +148,7 @@
       "brand": "Mountain Hardwear",
       "name": "Mythogen GORE-TEX PRO Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain jacket",
       "weight_value": 617,
@@ -185,9 +161,7 @@
       "brand": "Mountain Hardwear",
       "name": "Warp Factor 3L Hooded Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "insulated jacket",
       "weight_value": 744,
@@ -200,9 +174,7 @@
       "brand": "Mountain Hardwear",
       "name": "Warp Factor Anorak",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "insulated jacket",
       "weight_value": 848,
@@ -215,9 +187,7 @@
       "brand": "Mountain Hardwear",
       "name": "Microchill Quarter Zip",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 243,
@@ -230,9 +200,7 @@
       "brand": "Mountain Hardwear",
       "name": "Deep Drift Fleece Hoody",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 859.5,
@@ -245,9 +213,7 @@
       "brand": "Mountain Hardwear",
       "name": "Après Pro Fleece Hoody",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 549,
@@ -260,9 +226,7 @@
       "brand": "Mountain Hardwear",
       "name": "Up First Tech Fleece Hoody",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 283,
@@ -275,9 +239,7 @@
       "brand": "Mountain Hardwear",
       "name": "Firefall Trifecta Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "jacket",
       "weight_value": 1301,
@@ -290,9 +252,7 @@
       "brand": "Mountain Hardwear",
       "name": "Firefall Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "jacket",
       "weight_value": 790,
@@ -305,9 +265,7 @@
       "brand": "Mountain Hardwear",
       "name": "Firefall Insulated Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "insulated jacket",
       "weight_value": 920,
@@ -320,9 +278,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretch Ozonic Insulated Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "insulated jacket",
       "weight_value": 605.5,
@@ -335,9 +291,7 @@
       "brand": "Mountain Hardwear",
       "name": "Dry Times Hooded Rain Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain jacket",
       "weight_value": 570,
@@ -350,9 +304,7 @@
       "brand": "Mountain Hardwear",
       "name": "Threshold Rain Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain jacket",
       "weight_value": 366,
@@ -365,9 +317,7 @@
       "brand": "Mountain Hardwear",
       "name": "Phantom Belay Down Parka",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 692,
@@ -380,9 +330,7 @@
       "brand": "Mountain Hardwear",
       "name": "Send'r Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 570,
@@ -395,9 +343,7 @@
       "brand": "Mountain Hardwear",
       "name": "Up First Tech Fleece Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 245,
@@ -410,9 +356,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stryder Lined Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 544.5,
@@ -425,9 +369,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretchdown Light Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 374,
@@ -440,9 +382,7 @@
       "brand": "Mountain Hardwear",
       "name": "Compressor Alpine Insulated Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 606,
@@ -455,9 +395,7 @@
       "brand": "Mountain Hardwear",
       "name": "Threshold Rain Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain pants",
       "weight_value": 313,
@@ -470,9 +408,7 @@
       "brand": "Mountain Hardwear",
       "name": "Boundary Ridge GORE-TEX Bib",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain pants",
       "weight_value": 792,
@@ -485,9 +421,7 @@
       "brand": "Mountain Hardwear",
       "name": "Cloud Bank GORE-TEX Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain pants",
       "weight_value": 665,
@@ -500,9 +434,7 @@
       "brand": "Mountain Hardwear",
       "name": "Sky Ridge GORE-TEX Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain pants",
       "weight_value": 669,
@@ -515,9 +447,7 @@
       "brand": "Mountain Hardwear",
       "name": "Mythogen GORE-TEX PRO Bib",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain pants",
       "weight_value": 618,
@@ -530,9 +460,7 @@
       "brand": "Mountain Hardwear",
       "name": "Warp Factor 3L Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 637,
@@ -545,9 +473,7 @@
       "brand": "Mountain Hardwear",
       "name": "Warp Factor Bib",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 890,
@@ -560,9 +486,7 @@
       "brand": "Mountain Hardwear",
       "name": "Firefall Insulated Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 580,
@@ -575,9 +499,7 @@
       "brand": "Mountain Hardwear",
       "name": "Firefall Insulated Bib",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 821,
@@ -590,9 +512,7 @@
       "brand": "Mountain Hardwear",
       "name": "Firefall Pant",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 651,
@@ -605,9 +525,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stryder Short",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "shorts",
       "weight_value": 157.5,
@@ -620,9 +538,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stryder Belted Short",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "shorts",
       "weight_value": 202,
@@ -635,9 +551,7 @@
       "brand": "Mountain Hardwear",
       "name": "Summit Grid Big Grid Half Zip",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 406.5,
@@ -650,9 +564,7 @@
       "brand": "Mountain Hardwear",
       "name": "Dynama Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 236.5,
@@ -665,9 +577,7 @@
       "brand": "Mountain Hardwear",
       "name": "Dynama Convertible Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 269.5,
@@ -680,9 +590,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stryder Lined Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 528,
@@ -695,9 +603,7 @@
       "brand": "Mountain Hardwear",
       "name": "Up First Tech Fleece Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 229,
@@ -710,9 +616,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretchdown Light Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 353,
@@ -725,9 +629,7 @@
       "brand": "Mountain Hardwear",
       "name": "Compressor Alpine Insulated Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 604,
@@ -740,9 +642,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretch Ozonic Rain Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain pants",
       "weight_value": 254,
@@ -755,9 +655,7 @@
       "brand": "Mountain Hardwear",
       "name": "Threshold Rain Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain pants",
       "weight_value": 303,
@@ -770,9 +668,7 @@
       "brand": "Mountain Hardwear",
       "name": "Boundary Ridge GORE-TEX Bib",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain pants",
       "weight_value": 746,
@@ -785,9 +681,7 @@
       "brand": "Mountain Hardwear",
       "name": "Cloud Bank GORE-TEX Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain pants",
       "weight_value": 617,
@@ -800,9 +694,7 @@
       "brand": "Mountain Hardwear",
       "name": "Firefall Insulated Bib",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 670,
@@ -815,9 +707,7 @@
       "brand": "Mountain Hardwear",
       "name": "Firefall Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 613,
@@ -830,9 +720,7 @@
       "brand": "Mountain Hardwear",
       "name": "Warp Factor 3L Pant",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 600,
@@ -845,9 +733,7 @@
       "brand": "Mountain Hardwear",
       "name": "Mythogen GORE-TEX PRO Bib",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain pants",
       "weight_value": 563.5,
@@ -860,9 +746,7 @@
       "brand": "Mountain Hardwear",
       "name": "Shade Lite Short",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "shorts",
       "weight_value": 133.5,
@@ -875,9 +759,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stryder Belted Short",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "shorts",
       "weight_value": 163.5,
@@ -890,12 +772,10 @@
       "brand": "Mountain Hardwear",
       "name": "Powabunga 32 Pack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 32
-      },
+      "attributes": {"volume_l": 32},
       "category_hint": "pack",
       "common_name": "backpack",
-      "weight_value": 1401.0,
+      "weight_value": 1401,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/powabunga-32-pack-2097361.html",
@@ -905,12 +785,10 @@
       "brand": "Mountain Hardwear",
       "name": "Powabunga 32 Pack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 32
-      },
+      "attributes": {"volume_l": 32},
       "category_hint": "pack",
       "common_name": "backpack",
-      "weight_value": 1457.0,
+      "weight_value": 1457,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/powabunga-32-pack-2097361.html",
@@ -920,12 +798,10 @@
       "brand": "Mountain Hardwear",
       "name": "Snoskiwoski 30L Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 30
-      },
+      "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "common_name": "backpack",
-      "weight_value": 1007.0,
+      "weight_value": 1007,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/snoskiwoski-30l-backpack-2077871.html",
@@ -935,12 +811,10 @@
       "brand": "Mountain Hardwear",
       "name": "Snoskiwoski 30L Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 30
-      },
+      "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "common_name": "backpack",
-      "weight_value": 1037.0,
+      "weight_value": 1037,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/snoskiwoski-30l-backpack-2077871.html",
@@ -950,12 +824,10 @@
       "brand": "Mountain Hardwear",
       "name": "Snoskiwoski 40 Pack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 40
-      },
+      "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "common_name": "backpack",
-      "weight_value": 1052.0,
+      "weight_value": 1052,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/snoskiwoski-40-pack-2097371.html",
@@ -965,12 +837,10 @@
       "brand": "Mountain Hardwear",
       "name": "Snoskiwoski 40 Pack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 40
-      },
+      "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "common_name": "backpack",
-      "weight_value": 1193.0,
+      "weight_value": 1193,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/snoskiwoski-40-pack-2097371.html",
@@ -980,9 +850,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretchdown Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 395,
@@ -995,9 +863,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretchdown Light Hooded Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 405,
@@ -1010,9 +876,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretchdown Light Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 370,
@@ -1025,9 +889,7 @@
       "brand": "Mountain Hardwear",
       "name": "Free Element Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "insulated jacket",
       "weight_value": 315,
@@ -1040,9 +902,7 @@
       "brand": "Mountain Hardwear",
       "name": "Free Element Vest",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "vest",
       "weight_value": 205,
@@ -1055,9 +915,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretchdown Parka",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 735,
@@ -1070,9 +928,7 @@
       "brand": "Mountain Hardwear",
       "name": "Ghost Whisperer Vest",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "vest",
       "weight_value": 129,
@@ -1085,9 +941,7 @@
       "brand": "Mountain Hardwear",
       "name": "Ghost Whisperer Parka",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 261,
@@ -1100,9 +954,7 @@
       "brand": "Mountain Hardwear",
       "name": "Après Pro Insulated Hooded Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "insulated jacket",
       "weight_value": 453,
@@ -1115,9 +967,7 @@
       "brand": "Mountain Hardwear",
       "name": "Seek Out Snap Neck Vest",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "vest",
       "weight_value": 229.5,
@@ -1130,9 +980,7 @@
       "brand": "Mountain Hardwear",
       "name": "Phantom Alpine Hooded Down Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 464,
@@ -1145,9 +993,7 @@
       "brand": "Mountain Hardwear",
       "name": "Phantom Belay Down Parka",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "down jacket",
       "weight_value": 730,
@@ -1160,9 +1006,7 @@
       "brand": "Mountain Hardwear",
       "name": "Compressor Alpine Insulated Hooded Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "insulated jacket",
       "weight_value": 707,
@@ -1175,9 +1019,7 @@
       "brand": "Mountain Hardwear",
       "name": "Wind Veil Hooded Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "wind jacket",
       "weight_value": 142,
@@ -1190,9 +1032,7 @@
       "brand": "Mountain Hardwear",
       "name": "Summit Grid Big Grid Hoody",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 401.5,
@@ -1205,9 +1045,7 @@
       "brand": "Mountain Hardwear",
       "name": "Hardwear Supply Hoody",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hoodie",
       "weight_value": 841,
@@ -1220,9 +1058,7 @@
       "brand": "Mountain Hardwear",
       "name": "Microchill Quarter Zip",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 210,
@@ -1235,9 +1071,7 @@
       "brand": "Mountain Hardwear",
       "name": "Après Pro Fleece Hoody",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 515,
@@ -1250,9 +1084,7 @@
       "brand": "Mountain Hardwear",
       "name": "Après Pro Fleece Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 500,
@@ -1265,9 +1097,7 @@
       "brand": "Mountain Hardwear",
       "name": "Deep Drift Fleece Hoody",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 762.5,
@@ -1280,9 +1110,7 @@
       "brand": "Mountain Hardwear",
       "name": "Up First Tech Fleece Hoody",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 226,
@@ -1295,9 +1123,7 @@
       "brand": "Mountain Hardwear",
       "name": "Stretch Ozonic Insulated Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "insulated jacket",
       "weight_value": 562.5,
@@ -1310,9 +1136,7 @@
       "brand": "Mountain Hardwear",
       "name": "Threshold Rain Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain jacket",
       "weight_value": 368,
@@ -1325,9 +1149,7 @@
       "brand": "Mountain Hardwear",
       "name": "Threshold Rain Parka",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "rain jacket",
       "weight_value": 379,
@@ -1340,9 +1162,7 @@
       "brand": "Mountain Hardwear",
       "name": "Crater Lake Crop Zip Shirt",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sun shirt",
       "weight_value": 138.5,
@@ -1355,9 +1175,7 @@
       "brand": "Mountain Hardwear",
       "name": "Crater Lake Heavyweight Half Zip Hoody",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sun hoodie",
       "weight_value": 232,
@@ -1370,9 +1188,7 @@
       "brand": "Mountain Hardwear",
       "name": "Canyon Long Sleeve Shirt",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sun shirt",
       "weight_value": 166.5,
@@ -1385,9 +1201,7 @@
       "brand": "Mountain Hardwear",
       "name": "Sun Drift Cooling Long Sleeve Shirt",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sun shirt",
       "weight_value": 166.5,
@@ -1400,9 +1214,7 @@
       "brand": "Mountain Hardwear",
       "name": "Sunshield Hoody",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sun hoodie",
       "weight_value": 145.5,
@@ -1415,9 +1227,7 @@
       "brand": "Mountain Hardwear",
       "name": "Sunshield 1/2 Zip Shirt",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sun shirt",
       "weight_value": 124.5,
@@ -1430,9 +1240,7 @@
       "brand": "Mountain Hardwear",
       "name": "Hardwear Supply Long Sleeve Shirt",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "shirt",
       "weight_value": 372,
@@ -1445,9 +1253,7 @@
       "brand": "Mountain Hardwear",
       "name": "Deep Drift Fleece Full Zip",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 773.5,
@@ -1460,9 +1266,7 @@
       "brand": "Mountain Hardwear",
       "name": "Deep Drift Fleece Full Zip",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 659,
@@ -1475,9 +1279,7 @@
       "brand": "Mountain Hardwear",
       "name": "Up First Tech Fleece Quarter Zip",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 225.5,
@@ -1490,9 +1292,7 @@
       "brand": "Mountain Hardwear",
       "name": "Up First Tech Fleece Quarter Zip",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 208.5,
@@ -1504,7 +1304,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Micro Dome",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "beanie",
       "weight_value": 68,
@@ -1517,9 +1316,7 @@
       "brand": "Mountain Hardwear",
       "name": "Seek Out Snap Neck Pullover",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 290.5,
@@ -1532,9 +1329,7 @@
       "brand": "Mountain Hardwear",
       "name": "Hardwear Supply Quarter Zip",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "hoodie",
       "weight_value": 663.5,

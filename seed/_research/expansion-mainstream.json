@@ -3,7 +3,6 @@
     {
       "brand": "Mammut",
       "name": "Trion 35",
-      "variant": "",
       "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "weight_value": 1480,
@@ -15,7 +14,6 @@
     {
       "brand": "Mammut",
       "name": "Lithium 30",
-      "variant": "",
       "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "weight_value": 930,
@@ -27,7 +25,6 @@
     {
       "brand": "Mammut",
       "name": "Ducan 30",
-      "variant": "",
       "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "weight_value": 920,
@@ -87,7 +84,6 @@
     {
       "brand": "Kelty",
       "name": "Redwing 50",
-      "variant": "",
       "attributes": {"volume_l": 50},
       "category_hint": "pack",
       "weight_value": 3.25,
@@ -111,7 +107,6 @@
     {
       "brand": "Klymit",
       "name": "Static V",
-      "variant": "",
       "attributes": {"r_value": 1.3, "length": "72in", "width": "23in"},
       "attributes_source_url": "https://klymit.com/products/static-v-sleeping-pad",
       "attributes_quote": "ASTM R-Value: 1.3; Dimensions: 72 x 23 x 2.5 in / 183 x 58 x 6.4 cm",
@@ -125,7 +120,6 @@
     {
       "brand": "Klymit",
       "name": "Static V Base",
-      "variant": "",
       "attributes": {"r_value": 1.3, "length": "72in", "width": "23in"},
       "attributes_source_url": "https://klymit.com/products/static-v-base-sleeping-pad",
       "attributes_quote": "ASTM R-Value: 1.3; Dimensions: 72 x 23 x 2.5 in / 183 x 58 x 6.4 cm",
@@ -139,7 +133,6 @@
     {
       "brand": "Klymit",
       "name": "Insulated Static V Lite",
-      "variant": "",
       "category_hint": "sleep",
       "weight_value": 19.9,
       "weight_unit": "oz",

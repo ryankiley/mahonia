@@ -4,7 +4,6 @@
     {
       "brand": "District Vision",
       "name": "Koharu Eclipse",
-      "variant": "",
       "category_hint": "other",
       "common_name": "sunglasses",
       "weight_value": 21,
@@ -16,7 +15,6 @@
     {
       "brand": "District Vision",
       "name": "Momoka Pacer",
-      "variant": "",
       "category_hint": "other",
       "common_name": "sunglasses",
       "weight_value": 21,
@@ -28,7 +26,6 @@
     {
       "brand": "District Vision",
       "name": "Takeyoshi Altitude Master",
-      "variant": "",
       "category_hint": "other",
       "common_name": "sunglasses",
       "weight_value": 24,
@@ -40,7 +37,6 @@
     {
       "brand": "Sealson",
       "name": "M1 ECOYA Crossbody Bag",
-      "variant": "",
       "category_hint": "pack",
       "common_name": "sling bag",
       "weight_value": 198.9,
@@ -64,7 +60,6 @@
     {
       "brand": "Sealson",
       "name": "RVxSE P1 Mesh Wallet",
-      "variant": "",
       "category_hint": "other",
       "common_name": "wallet",
       "weight_value": 25.8,
@@ -76,7 +71,6 @@
     {
       "brand": "Sealson",
       "name": "UNUS52 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 52},
       "category_hint": "pack",
       "common_name": "backpack",
@@ -101,7 +95,6 @@
     {
       "brand": "Soar",
       "name": "Cirrus Titanium Sunglasses 01",
-      "variant": "",
       "category_hint": "other",
       "common_name": "sunglasses",
       "weight_value": 20,
@@ -113,7 +106,6 @@
     {
       "brand": "Soar",
       "name": "Cirrus Titanium Sunglasses 02",
-      "variant": "",
       "category_hint": "other",
       "common_name": "sunglasses",
       "weight_value": 20,
@@ -137,7 +129,6 @@
     {
       "brand": "Houdini",
       "name": "Desoli Thermal Hat",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "beanie",
       "weight_value": 32,
@@ -149,7 +140,6 @@
     {
       "brand": "Houdini",
       "name": "Lykan Balaclava",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "balaclava",
       "weight_value": 70,
@@ -161,7 +151,6 @@
     {
       "brand": "Houdini",
       "name": "Power Hat",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "beanie",
       "weight_value": 35,
@@ -197,7 +186,6 @@
     {
       "brand": "Snow Peak",
       "name": "GigaPower Lantern Auto",
-      "variant": "",
       "category_hint": "cook",
       "common_name": "gas lantern",
       "weight_value": 128,
@@ -233,7 +221,6 @@
     {
       "brand": "Snow Peak",
       "name": "Titanium Chopsticks",
-      "variant": "",
       "category_hint": "cook",
       "common_name": "chopsticks",
       "weight_value": 22,
@@ -269,7 +256,6 @@
     {
       "brand": "Satisfy",
       "name": "Rippy Air Trail Cap",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 24,
@@ -293,7 +279,6 @@
     {
       "brand": "Klättermusen",
       "name": "Allvis Scarf",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "scarf",
       "weight_value": 30,
@@ -318,7 +303,6 @@
     {
       "brand": "Klättermusen",
       "name": "Gebo Bag 23L",
-      "variant": "",
       "category_hint": "pack",
       "common_name": "tote bag",
       "weight_value": 127,
@@ -343,7 +327,6 @@
     {
       "brand": "Klättermusen",
       "name": "Hrid WP Accessory Bag 3L",
-      "variant": "",
       "attributes": {"volume_l": 3},
       "category_hint": "other",
       "common_name": "dry bag",
@@ -369,7 +352,6 @@
     {
       "brand": "CAYL",
       "name": "Alpha Blanket",
-      "variant": "",
       "category_hint": "sleep",
       "common_name": "blanket",
       "weight_value": 190,
@@ -405,7 +387,6 @@
     {
       "brand": "CAYL",
       "name": "Light Pointed Cap",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 41,
@@ -417,7 +398,6 @@
     {
       "brand": "CAYL",
       "name": "Race Bag",
-      "variant": "",
       "category_hint": "pack",
       "common_name": "duffel",
       "weight_value": 716,
@@ -477,7 +457,6 @@
     {
       "brand": "Portal",
       "name": "Borders Cargo Belt",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "belt",
       "weight_value": 100,
@@ -513,7 +492,6 @@
     {
       "brand": "Portal",
       "name": "Drift Merino Glove",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "gloves",
       "weight_value": 15,
@@ -633,7 +611,6 @@
     {
       "brand": "Portal",
       "name": "Planar Lightweight Cap",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 35,
@@ -645,7 +622,6 @@
     {
       "brand": "Portal",
       "name": "Radius Cap",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 40,
@@ -729,7 +705,6 @@
     {
       "brand": "Nocs Provisions",
       "name": "Standard Issue 8x25 Waterproof Binoculars",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "binoculars",
       "weight_value": 336,
@@ -741,7 +716,6 @@
     {
       "brand": "Nocs Provisions",
       "name": "Zoom Tube 8x32 Monocular",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "monocular",
       "weight_value": 215,
@@ -753,7 +727,6 @@
     {
       "brand": "Parapack",
       "name": "6P",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 33.5,
@@ -765,7 +738,6 @@
     {
       "brand": "Parapack",
       "name": "6P Lite",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 31,

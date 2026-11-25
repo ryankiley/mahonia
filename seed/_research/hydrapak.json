@@ -604,7 +604,6 @@
     {
       "brand": "HydraPak",
       "name": "42mm Filter Cap",
-      "variant": "",
       "category_hint": "water",
       "common_name": "filter cap",
       "weight_value": 57,
@@ -616,7 +615,6 @@
     {
       "brand": "HydraPak",
       "name": "UltraFlask+ Filter Cap",
-      "variant": "",
       "category_hint": "water",
       "common_name": "filter cap",
       "weight_value": 36,
@@ -628,7 +626,6 @@
     {
       "brand": "HydraPak",
       "name": "Camp Tap",
-      "variant": "",
       "category_hint": "water",
       "common_name": "bottle cap",
       "weight_value": 29,
@@ -640,7 +637,6 @@
     {
       "brand": "HydraPak",
       "name": "ArcticFusion Tube",
-      "variant": "",
       "category_hint": "water",
       "common_name": "hose",
       "weight_value": 99,
@@ -652,7 +648,6 @@
     {
       "brand": "HydraPak",
       "name": "HydraFlex Tube",
-      "variant": "",
       "category_hint": "water",
       "common_name": "hose",
       "weight_value": 51,
@@ -664,7 +659,6 @@
     {
       "brand": "HydraPak",
       "name": "HydraFusion Tube",
-      "variant": "",
       "category_hint": "water",
       "common_name": "hose",
       "weight_value": 66,
@@ -676,7 +670,6 @@
     {
       "brand": "HydraPak",
       "name": "Rover Dog Bowl",
-      "variant": "",
       "category_hint": "other",
       "common_name": "dog bowl",
       "weight_value": 22.5,

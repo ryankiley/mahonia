@@ -894,7 +894,7 @@
       "name": "Original Universal Sandals",
       "variant": "Women's US 6.5",
       "category_hint": "clothing",
-      "weight_value": 10.0,
+      "weight_value": 10,
       "weight_unit": "oz",
       "weight_source": "measured",
       "source_url": "https://www.outdoorgearlab.com/reviews/shoes-and-boots/sandals-womens/teva-original-universal-womens",
@@ -1047,25 +1047,25 @@
       "brand": "Feathered Friends",
       "name": "Egret UL 20",
       "variant": "Regular",
+      "attributes": {"temp_f": 20},
       "category_hint": "sleep",
       "weight_value": 723,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://featheredfriends.com/products/egret-ul-ultralight-20-30-degree-womens-down-sleeping-bag",
-      "quote": "Average Weight: 1 lb 9.5 oz / 723 g",
-      "attributes": {"temp_f": 20}
+      "quote": "Average Weight: 1 lb 9.5 oz / 723 g"
     },
     {
       "brand": "Feathered Friends",
       "name": "Egret UL 30",
       "variant": "Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 634,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://featheredfriends.com/products/egret-ul-ultralight-20-30-degree-womens-down-sleeping-bag",
-      "quote": "Average Weight: 1 lb 6.4 oz / 634 g",
-      "attributes": {"temp_f": 30}
+      "quote": "Average Weight: 1 lb 6.4 oz / 634 g"
     },
     {
       "brand": "Kelty",
@@ -1095,38 +1095,38 @@
       "brand": "REI Co-op",
       "name": "Magma 30",
       "variant": "Women's, Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
       "weight_secondary": "6.5 oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.rei.com/product/148250/rei-co-op-magma-30-sleeping-bag-womens?redirect-pup=false",
-      "quote": "Weight: Regular - Right Zip: 1 lb. 6.5 oz.",
-      "attributes": {"temp_f": 30}
+      "quote": "Weight: Regular - Right Zip: 1 lb. 6.5 oz."
     },
     {
       "brand": "Sea to Summit",
       "name": "Spark 15F",
       "variant": "Women's, Regular",
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "weight_value": 930,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://seatosummit.com/products/spark-womens-down-sleeping-bag",
-      "quote": "Weight: 930 g | 32.8 oz",
-      "attributes": {"temp_f": 15}
+      "quote": "Weight: 930 g | 32.8 oz"
     },
     {
       "brand": "Sea to Summit",
       "name": "Spark 30F",
       "variant": "Women's, Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 584,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://seatosummit.com/products/spark-womens-down-sleeping-bag",
-      "quote": "Weight: 584 g | 20.6 oz",
-      "attributes": {"temp_f": 30}
+      "quote": "Weight: 584 g | 20.6 oz"
     }
   ]
 }

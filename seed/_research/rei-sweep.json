@@ -32,7 +32,6 @@
       "category_hint": "shelter",
       "weight_value": 1625,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://seatosummit.com/products/telos-evo-tent",
       "quote": "Minimum Trail Weight 1577 g 55.63 oz. Packed Weight 1625 g 57.3 oz"
@@ -44,7 +43,6 @@
       "category_hint": "shelter",
       "weight_value": 1.72,
       "weight_unit": "kg",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://backpackersshop.com/products/dragonfly-3p-osmo",
       "quote": "Minimum Weight: 3 lb 5 oz / 1.49 kg. Packed Weight: 3 lb 13 oz / 1.72 kg"
@@ -81,7 +79,6 @@
       "category_hint": "sleep",
       "weight_value": 0.06,
       "weight_unit": "kg",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://cascadedesigns.com/products/air-head-lite-pillow",
       "quote": "Weight (Metric) 0.06 kg"
@@ -94,7 +91,6 @@
       "category_hint": "sleep",
       "weight_value": 1550,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.alpinetrek.co.uk/nemo-forte-endless-promise-mens-20-synthetic-sleeping-bag/",
       "quote": "Weight: 1,550 g"
@@ -130,7 +126,6 @@
       "category_hint": "pack",
       "weight_value": 2230,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.alpinetrek.co.uk/osprey-aether-65-walking-backpack/",
       "quote": "Weight: 2,230 g; Reference size: size S/M"
@@ -142,7 +137,6 @@
       "category_hint": "pack",
       "weight_value": 2220,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.alpinetrek.co.uk/osprey-womens-ariel-65-walking-backpack/",
       "quote": "Weight: 2,220 g"
@@ -154,7 +148,6 @@
       "category_hint": "pack",
       "weight_value": 2090,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.alpinetrek.co.uk/osprey-kestrel-48-walking-backpack/",
       "quote": "Weight: 2,090 g; L/XL: 48L, 79 x 40 x 30 cm, 2.09 kg"
@@ -162,12 +155,10 @@
     {
       "brand": "Gregory",
       "name": "Baltoro 65",
-      "variant": "",
       "attributes": {"volume_l": 65},
       "category_hint": "pack",
       "weight_value": 2230,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.alpinetrek.co.uk/gregory-baltoro-65-walking-backpack/",
       "quote": "Weight: 2,230 g"
@@ -175,12 +166,10 @@
     {
       "brand": "Gregory",
       "name": "Deva 60",
-      "variant": "",
       "attributes": {"volume_l": 60},
       "category_hint": "pack",
       "weight_value": 2100,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.alpinetrek.co.uk/gregory-womens-deva-60-walking-backpack/",
       "quote": "Weight: 2,100 g"
@@ -212,7 +201,6 @@
     {
       "brand": "MSR",
       "name": "WindBurner Personal Stove System",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 433,
       "weight_unit": "g",
@@ -224,7 +212,6 @@
     {
       "brand": "MSR",
       "name": "WhisperLite International Stove",
-      "variant": "",
       "attributes": {"fuel": "white gas"},
       "attributes_source_url": "https://cascadedesigns.com/products/whisperlite-international-stove",
       "attributes_quote": "Burns white gas, kerosene, and unleaded auto fuel.",
@@ -263,7 +250,6 @@
     {
       "brand": "LifeStraw",
       "name": "Personal Water Filter",
-      "variant": "",
       "category_hint": "water",
       "weight_value": 46,
       "weight_unit": "g",
@@ -287,11 +273,9 @@
     {
       "brand": "Petzl",
       "name": "TIKKA CORE Headlamp",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 84,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.petzl.com/US/en/Sport/Headlamps/TIKKA-CORE",
       "quote": "Weight: 84 g"
@@ -299,11 +283,9 @@
     {
       "brand": "Petzl",
       "name": "TIKKINA Headlamp",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 92,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.petzl.com/US/en/Sport/Headlamps/TIKKINA",
       "quote": "Weight: 92 g"
@@ -311,11 +293,9 @@
     {
       "brand": "Black Diamond",
       "name": "Spot 400-R Headlamp",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 86,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.blackdiamondequipment.com/en_US/product/spot-400-r/",
       "quote": "Weight: 86 g"

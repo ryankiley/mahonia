@@ -7,7 +7,6 @@
       "category_hint": "consumable",
       "weight_value": 220,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://ec.snowpeak.co.jp/item/SNP0117A0073",
       "quote": "LPG（液化イソブタン・液化プロパン）NET：220g"
@@ -19,7 +18,6 @@
       "category_hint": "consumable",
       "weight_value": 100,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://primusequipment.ca/products/power-gas",
       "quote": "size: 100g | dims: 89 x 89 x 66 mm | weight: 7 oz | case pack of 24"
@@ -31,7 +29,6 @@
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://primusequipment.ca/products/power-gas",
       "quote": "size: 230g | dims: 108 x 108 x 85 mm | weight: 13.7 oz | case pack of 12"
@@ -43,7 +40,6 @@
       "category_hint": "consumable",
       "weight_value": 450,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://primusequipment.ca/products/power-gas",
       "quote": "size: 450g | dims: 108 x 108 x 137 mm | weight: 22.7 oz | case pack of 12"
@@ -55,7 +51,6 @@
       "category_hint": "consumable",
       "weight_value": 105,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://soto.shinfuji.co.jp/products/sod-710t/",
       "quote": "容量: 105g"
@@ -67,7 +62,6 @@
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://soto.shinfuji.co.jp/products/sod-725t/",
       "quote": "容量: 230g"
@@ -79,7 +73,6 @@
       "category_hint": "consumable",
       "weight_value": 460,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://soto.shinfuji.co.jp/products/sod-750t/",
       "quote": "容量: 460g"
@@ -91,7 +84,6 @@
       "category_hint": "consumable",
       "weight_value": 450,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://jetboil.johnsonoutdoors.com/ca/en-ca/shop/parts-accessories/fuel-related/jetpower-fuel/jf450",
       "quote": "450 g (approx. 48 liters of boiled water)"
@@ -139,7 +131,6 @@
       "category_hint": "consumable",
       "weight_value": 110,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.kitterytradingpost.com/camping-travel/camp-stoves-grills-heaters/fuel-canisters/gsi-outdoors-isobutane-110g.-fuel-cartridge-95913.html",
       "quote": "110g. IsoButane fuel cartridge"
@@ -151,7 +142,6 @@
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.kitterytradingpost.com/camping-travel/camp-stoves-grills-heaters/fuel-canisters/gsi-outdoors-isobutane-230g.-fuel-cartridge-95915.html",
       "quote": "230g. IsoButane fuel cartridge and cap"
@@ -163,7 +153,6 @@
       "category_hint": "consumable",
       "weight_value": 97,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.outdooraction.co.uk/coleman-c100-xtreme-gas-cartridge-p9688",
       "quote": "Weight gas: 97g"
@@ -175,7 +164,6 @@
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://towsure.com/products/coleman-c300-xtreme-gas-cartridge",
       "quote": "Gas Content Weight: 230g"
@@ -187,7 +175,6 @@
       "category_hint": "consumable",
       "weight_value": 240,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://sunny-outdoors.com/products/coleman-c300-performance-v2-gas-cartridge",
       "quote": "Gas in g: 240 g"
@@ -199,7 +186,6 @@
       "category_hint": "consumable",
       "weight_value": 440,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://enlightenedoutfitters.com/coleman-performance-c500-gas-cartridge/",
       "quote": "Weight gas: 440 g"
@@ -211,7 +197,6 @@
       "category_hint": "consumable",
       "weight_value": 230,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.climbers-shop.com/camping/fuel/optimus-universal-gas-230g__11104611",
       "quote": "Optimus Universal Gas 230g"

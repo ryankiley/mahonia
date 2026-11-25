@@ -3,12 +3,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Aerios 18 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 18},
       "category_hint": "pack",
       "weight_value": 567,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://arcteryx.com/us/en/shop/aerios-18-backpack-9581",
       "quote": "567g / 1 lb 4 oz"
@@ -16,12 +14,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Aerios 35 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "weight_value": 1.16,
       "weight_unit": "kg",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://arcteryx.com/us/en/shop/aerios-35-backpack-9588",
       "quote": "1.16kg / 2 lb 8.9 oz"
@@ -29,12 +25,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Alpha FL 20 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 20},
       "category_hint": "pack",
       "weight_value": 635,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://arcteryx.com/us/en/shop/alpha-fl-20-backpack-8984",
       "quote": "Weight: 635g / 1 lb 6.4 oz"
@@ -42,12 +36,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Alpha FL 30 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "weight_value": 665,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://arcteryx.com/us/en/shop/alpha-fl-30-backpack-0349",
       "quote": "Weight: 665g / 1 lb 7.5 oz"
@@ -55,12 +47,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Konseal 15 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 15},
       "category_hint": "pack",
       "weight_value": 310,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://arcteryx.com/us/en/shop/konseal-15-backpack-9832",
       "quote": "Weight: 310g / 10.9 oz / 15L"
@@ -68,12 +58,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Mantis 16 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 16},
       "category_hint": "pack",
       "weight_value": 700,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://footprintusa.co/products/arcteryx-mantis-16-backpack",
       "quote": "Weight: 700g / 1 lb 8.7 oz"
@@ -81,12 +69,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Mantis 20 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 20},
       "category_hint": "pack",
       "weight_value": 930,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.everestgear.com/arma20babl.html",
       "quote": "Weight: 930g / 2 lb 0.8 oz"
@@ -94,12 +80,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Mantis 26 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 26},
       "category_hint": "pack",
       "weight_value": 840,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://footprintusa.co/products/arcteryx-mantis-26-backpack",
       "quote": "Weight: 840g / 1 lb 13.6 oz"
@@ -107,12 +91,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Mantis 30 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "weight_value": 1200,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://footprintusa.co/products/arcteryx-mantis-30-backpack",
       "quote": "Weight: 1.2kg / 2 lb 10.3 oz"
@@ -120,14 +102,12 @@
     {
       "brand": "Arc'teryx",
       "name": "Mantis 1 Waistpack",
-      "variant": "",
       "attributes": {"volume_l": 1.5},
       "attributes_source_url": "https://footprintusa.co/products/arcteryx-mantis-1-waist-pack",
       "attributes_quote": "Smart organization in a 1.5L bag that carries on the waist or over the shoulder.",
       "category_hint": "pack",
       "weight_value": 165,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://footprintusa.co/products/arcteryx-mantis-1-waist-pack",
       "quote": "Weight: 165g / 5.8 oz"
@@ -135,14 +115,12 @@
     {
       "brand": "Arc'teryx",
       "name": "Mantis 2 Waistpack",
-      "variant": "",
       "attributes": {"volume_l": 2.5},
       "attributes_source_url": "https://footprintusa.co/products/arcteryx-mantis-2-waist-pack",
       "attributes_quote": "Smart organization in a 2.5L bag that carries on the waist or over the shoulder.",
       "category_hint": "pack",
       "weight_value": 190,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://footprintusa.co/products/arcteryx-mantis-2-waist-pack",
       "quote": "Weight: 190g / 6.7 oz"
@@ -150,12 +128,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Granville 16 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 16},
       "category_hint": "pack",
       "weight_value": 760,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://footprintusa.co/products/arcteryx-granville-16-backpack",
       "quote": "Weight 760g / 1 lb 10.8 oz"
@@ -163,12 +139,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Granville 25 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 25},
       "category_hint": "pack",
       "weight_value": 865,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://footprintusa.co/products/arcteryx-granville-25-backpack",
       "quote": "Weight 865g / 1 lb 14.5 oz"
@@ -176,12 +150,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Brize 25 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 25},
       "category_hint": "pack",
       "weight_value": 905,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.tradeinn.com/trekkinn/en/arc-teryx-brize-25l-backpack/136959939/p",
       "quote": "0.905 kg / 32 oz / 25 L"
@@ -189,12 +161,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Brize 32 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 32},
       "category_hint": "pack",
       "weight_value": 1190,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.tradeinn.com/trekkinn/en/arc-teryx-brize-32l-backpack/136959941/p",
       "quote": "one size 1.19 kg / 42 oz / 32 L"
@@ -202,12 +172,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Index 15 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 15},
       "category_hint": "pack",
       "weight_value": 220,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.altitude-sports.com/p/arcteryx-index-15-backpack-arc-18283",
       "quote": "Pack Weight: 0.22 kg / 8 oz"
@@ -215,12 +183,10 @@
     {
       "brand": "Arc'teryx",
       "name": "Heliad 15 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 15},
       "category_hint": "pack",
       "weight_value": 200,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://footprintusa.co/products/arcteryx-heliad-15-backpack",
       "quote": "Weight 200g / 7.1 oz"
@@ -228,11 +194,9 @@
     {
       "brand": "Arc'teryx",
       "name": "Heliad 6 Crossbody",
-      "variant": "",
       "category_hint": "pack",
       "weight_value": 125,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://footprintusa.co/products/arcteryx-heliad-crossbody-bag",
       "quote": "125g / 4.4 oz"

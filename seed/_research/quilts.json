@@ -26,37 +26,37 @@
       "brand": "Katabatic Gear",
       "name": "Flex 22",
       "variant": "850FP, Regular",
+      "attributes": {"temp_f": 22},
       "category_hint": "sleep",
       "weight_value": 23.9,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://katabaticgear.com/products/flex-22-ultralight-quilt",
-      "quote": "Specs Small Regular Long Small Wide Regular Wide Long Wide Fits To 5'6\" 6' 6'6\" ... Fill Weight (ounces) 850fp 900fp ... Total Weight (ounces) 22.3 21.3 23.9 22.8 25.7 24.5 24.1 23.0 25.7 24.5 27.6 26.3 (Regular column, 850fp = 23.9)",
-      "attributes": {"temp_f": 22}
+      "quote": "Specs Small Regular Long Small Wide Regular Wide Long Wide Fits To 5'6\" 6' 6'6\" ... Fill Weight (ounces) 850fp 900fp ... Total Weight (ounces) 22.3 21.3 23.9 22.8 25.7 24.5 24.1 23.0 25.7 24.5 27.6 26.3 (Regular column, 850fp = 23.9)"
     },
     {
       "brand": "Katabatic Gear",
       "name": "Alsek 22",
       "variant": "850FP, Regular",
+      "attributes": {"temp_f": 22},
       "category_hint": "sleep",
       "weight_value": 23.3,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://katabaticgear.com/products/alsek-ultralight-quilt",
-      "quote": "Specs Small Regular Long Small Wide Regular Wide Long Wide Fits To 5'6\" 6' 6'6\" ... Fill Weight (ounces) 850fp 900fp ... Total Weight (ounces) 21.9 20.9 23.3 22.2 24.8 23.6 23.7 22.6 25.4 24.2 27.0 25.7 (Regular column, 850fp = 23.3)",
-      "attributes": {"temp_f": 22}
+      "quote": "Specs Small Regular Long Small Wide Regular Wide Long Wide Fits To 5'6\" 6' 6'6\" ... Fill Weight (ounces) 850fp 900fp ... Total Weight (ounces) 21.9 20.9 23.3 22.2 24.8 23.6 23.7 22.6 25.4 24.2 27.0 25.7 (Regular column, 850fp = 23.3)"
     },
     {
       "brand": "Katabatic Gear",
       "name": "Palisade 30",
       "variant": "850FP, Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 19.8,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://katabaticgear.com/products/palisade-ultralight-quilt",
-      "quote": "Specs Small Regular Long Small Wide Regular Wide Long Wide Fits To 5'6\" 6' 6'6\" ... Fill Weight (ounces) 850fp 900fp ... Total Weight (ounces) 18.6 17.8 19.8 18.9 21.2 20.3 20.1 19.2 21.6 20.7 23.1 22.1 (Regular column, 850fp = 19.8)",
-      "attributes": {"temp_f": 30}
+      "quote": "Specs Small Regular Long Small Wide Regular Wide Long Wide Fits To 5'6\" 6' 6'6\" ... Fill Weight (ounces) 850fp 900fp ... Total Weight (ounces) 18.6 17.8 19.8 18.9 21.2 20.3 20.1 19.2 21.6 20.7 23.1 22.1 (Regular column, 850fp = 19.8)"
     },
     {
       "brand": "Hammock Gear",

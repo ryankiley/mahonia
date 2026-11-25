@@ -3,7 +3,6 @@
     {
       "brand": "MSR",
       "name": "PocketRocket 2 Stove",
-      "variant": "",
       "attributes": {"fuel": "isobutane"},
       "attributes_source_url": "https://cascadedesigns.com/products/pocketrocket-2-stove",
       "attributes_quote": "For best results with canister fuel, always burn MSR® IsoPro™ fuel.",
@@ -17,7 +16,6 @@
     {
       "brand": "MSR",
       "name": "PocketRocket Deluxe Stove",
-      "variant": "",
       "attributes": {"fuel": "isobutane"},
       "attributes_source_url": "https://cascadedesigns.com/products/pocketrocket-deluxe-stove",
       "attributes_quote": "PocketRocket Deluxe Canister Fuel Backpacking Stove",
@@ -59,7 +57,6 @@
     {
       "brand": "Soto",
       "name": "Amicus Stove with Igniter",
-      "variant": "",
       "attributes": {"fuel": "isobutane"},
       "attributes_source_url": "https://sotooutdoors.com/product/amicus-stove-with-igniter/",
       "attributes_quote": "the Amicus is compatible with standard isobutane canisters such as Primus, Snow Peak, MSR and Jetboil.",
@@ -95,7 +92,6 @@
     {
       "brand": "Jetboil",
       "name": "MiniMo Cooking System",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 14.608,
       "weight_unit": "oz",
@@ -130,7 +126,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium 750ml Pot",
-      "variant": "",
       "attributes": {"volume_l": 0.75},
       "category_hint": "cook",
       "weight_value": 3.6,
@@ -142,7 +137,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium 900ml D115mm Pot",
-      "variant": "",
       "attributes": {"volume_l": 0.9},
       "category_hint": "cook",
       "weight_value": 4.1,
@@ -154,7 +148,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium 1100ml Pot",
-      "variant": "",
       "attributes": {"volume_l": 1.1},
       "category_hint": "cook",
       "weight_value": 4.4,
@@ -166,7 +159,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium Long Handle Spoon",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 0.65,
       "weight_unit": "oz",
@@ -188,7 +180,6 @@
     {
       "brand": "Snow Peak",
       "name": "LiteMax Titanium Stove",
-      "variant": "",
       "attributes_unpublished": ["fuel"],
       "category_hint": "cook",
       "weight_value": 1.9,
@@ -200,7 +191,6 @@
     {
       "brand": "Sea to Summit",
       "name": "X-Mug",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 2.5,
       "weight_unit": "oz",
@@ -222,7 +212,6 @@
     {
       "brand": "Sea to Summit",
       "name": "Alpha Light Spoon",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 9,
       "weight_unit": "g",

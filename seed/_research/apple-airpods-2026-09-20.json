@@ -4,12 +4,10 @@
     {
       "brand": "Apple",
       "name": "AirPods 5",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Earbuds",
       "weight_value": 40.9,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/148759",
       "quote": "AirPods 5 (Each) Weight: 0.15 ounce (4.3 grams); Charging Case (USB-C) Weight: 1.14 ounces (32.3 grams) — case + both buds = 40.9 g (AirPods 5 Tech Specs)."
@@ -22,7 +20,6 @@
       "common_name": "Earbuds",
       "weight_value": 43.3,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.apple.com/airpods-5/specs/",
       "quote": "Weight: 0.15 ounce (4.3 grams) each; Weight (AirPods 5 with Wireless Charging Case): 1.22 ounces (34.7 grams) — case + both buds = 43.3 g (AirPods 5 Technical Specifications)."
@@ -30,12 +27,10 @@
     {
       "brand": "Apple",
       "name": "AirPods 4",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Earbuds",
       "weight_value": 40.9,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/121203",
       "quote": "AirPods 4 (Each) Weight: 0.15 ounce (4.3 grams); Charging Case (USB-C) Weight: 1.14 ounces (32.3 grams) — case + both buds = 40.9 g (AirPods 4 Tech Specs)."
@@ -48,7 +43,6 @@
       "common_name": "Earbuds",
       "weight_value": 43.3,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/121204",
       "quote": "AirPods 4 with Active Noise Cancellation (Each) Weight: 0.15 ounce (4.3 grams); Charging Case (USB-C) with speaker Weight: 1.22 ounces (34.7 grams) — case + both buds = 43.3 g (AirPods 4 with Active Noise Cancellation Tech Specs)."
@@ -56,12 +50,10 @@
     {
       "brand": "Apple",
       "name": "AirPods Pro 3",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Earbuds",
       "weight_value": 55.09,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/125135",
       "quote": "AirPods Pro 3 (Each) Weight: 0.20 ounce (5.55 grams); MagSafe Charging Case (USB-C) with speaker and lanyard loop Weight: 1.55 ounces (43.99 grams) — case + both buds = 55.09 g (AirPods Pro 3 Tech Specs)."
@@ -69,12 +61,10 @@
     {
       "brand": "Apple",
       "name": "AirPods Pro 2",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Earbuds",
       "weight_value": 61.4,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/111851",
       "quote": "AirPods Pro (Each) Weight: 0.19 ounce (5.3 grams); MagSafe Charging Case with speaker and lanyard loop Weight: 1.79 ounces (50.8 grams) — case + both buds = 61.4 g (AirPods Pro 2 Tech Specs). The 2023 MagSafe Charging Case (USB-C) edition publishes the same two figures, so it is this row."
@@ -82,12 +72,10 @@
     {
       "brand": "Apple",
       "name": "AirPods 3",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Earbuds",
       "weight_value": 46.47,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/111863",
       "quote": "AirPods (each) Weight: 0.15 ounce (4.28 grams); Lightning Charging Case or MagSafe Charging Case Weight: 1.34 ounces (37.91 grams) — case + both buds = 46.47 g (AirPods 3 Tech Specs)."
@@ -95,12 +83,10 @@
     {
       "brand": "Apple",
       "name": "AirPods 2",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Earbuds",
       "weight_value": 46.2,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/111856",
       "quote": "AirPods (each) Weight: 0.14 ounce (4 grams); Lightning Charging Case or Wireless Charging Case Weight: 1.35 ounces (38.2 grams) — case + both buds = 46.2 g (AirPods 2 Tech Specs)."
@@ -108,12 +94,10 @@
     {
       "brand": "Apple",
       "name": "AirPods 1",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Earbuds",
       "weight_value": 46,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/111855",
       "quote": "Weight — AirPods (each): 0.14 ounce (4 g); Charging Case: 1.34 ounces (38 g) — case + both buds = 46 g (AirPods 1 Tech Specs)."
@@ -121,12 +105,10 @@
     {
       "brand": "Apple",
       "name": "AirPods Pro 1",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Earbuds",
       "weight_value": 56.4,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/111861",
       "quote": "AirPods Pro (each) Weight: 0.19 ounce (5.4 grams); Wireless Charging Case Weight: 1.61 ounces (45.6 grams) — case + both buds = 56.4 g (AirPods Pro 1 with Wireless Charging Case Tech Specs). The 2021 MagSafe Charging Case edition publishes the same two figures, so it is this row."
@@ -134,12 +116,10 @@
     {
       "brand": "Apple",
       "name": "AirPods Max 2",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "Headphones",
       "weight_value": 386.2,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/126620",
       "quote": "Weight: 13.6 ounces (386.2 grams) — the headphones, cushions included, 386.2 g; the Smart Case is a separate 4.74 ounces (134.5 grams) (AirPods Max 2 Tech Specs)."
@@ -152,7 +132,6 @@
       "common_name": "Headphones",
       "weight_value": 386.2,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/121205",
       "quote": "Weight: 13.6 ounces (386.2 grams) — the headphones, cushions included, 386.2 g; the Smart Case is a separate 4.74 ounces (134.5 grams) (AirPods Max 1 (USB-C) Tech Specs)."
@@ -165,7 +144,6 @@
       "common_name": "Headphones",
       "weight_value": 384.8,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://support.apple.com/en-us/111858",
       "quote": "AirPods Max 1, including cushions — Weight: 13.6 ounces (384.8 grams), 384.8 g; the Smart Case is a separate 4.74 ounces (134.5 grams) (AirPods Max 1 Tech Specs)."

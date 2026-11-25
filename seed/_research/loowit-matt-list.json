@@ -3,7 +3,6 @@
     {
       "brand": "Nemo",
       "name": "Dagger OSMO 3P",
-      "variant": "",
       "attributes": {"persons": 3},
       "category_hint": "shelter",
       "weight_value": 4,
@@ -23,7 +22,6 @@
       "category_hint": "sleep",
       "weight_value": 605,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://seatosummit.com/products/ether-light-xr-insulated-air-sleeping-pad",
       "quote": "Regular Rectangular Wide: 605 g / 21.3 oz (pad weight)"
@@ -32,23 +30,20 @@
       "brand": "Hyperlite Mountain Gear",
       "name": "20-Degree Quilt",
       "variant": "Regular",
+      "attributes": {"temp_f": 20},
       "category_hint": "sleep",
       "weight_value": 570,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://hyperlitemountaingear.com/products/20-degree-quilt",
-      "quote": "Regular: 20.1 oz / 570 g",
-      "attributes": {"temp_f": 20}
+      "quote": "Regular: 20.1 oz / 570 g"
     },
     {
       "brand": "Gossamer Gear",
       "name": "Nylofume Pack Liner Bag",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 0.91,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.litesmith.com/nylofume-pack-liner-bags/",
       "quote": "Weight: 0.91 oz (25.9 g)"
@@ -56,12 +51,10 @@
     {
       "brand": "Toaks",
       "name": "Titanium 450ml Cup",
-      "variant": "",
       "attributes": {"volume_l": 0.45},
       "category_hint": "cook",
       "weight_value": 76,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.toaksoutdoor.com/products/cup-450",
       "quote": "Weight: 2.7 oz (76 g)"
@@ -73,7 +66,6 @@
       "category_hint": "water",
       "weight_value": 6.25,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://nalgene.com/product/32oz-wide-mouth-bottle/",
       "quote": "Weight: 6.25 oz (177.25 g)"
@@ -85,7 +77,6 @@
       "category_hint": "clothing",
       "weight_value": 5.7,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.backcountry.com/montbell-ex-light-down-jacket-mens",
       "quote": "Claimed Weight: 5.7 oz (Men's M)"
@@ -98,7 +89,6 @@
       "category_hint": "clothing",
       "weight_value": 2.1,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://darntough.com/products/mens-merino-wool-light-hiker-quarter-cushioned-lightweight-hiking-socks",
       "quote": "Weight: 2.1 oz (per pair)"
@@ -111,7 +101,6 @@
       "category_hint": "clothing",
       "weight_value": 5.9,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/mens-crater-lake-hoody-1982411.html",
       "quote": "Avg. Weight: 5.9 oz"
@@ -124,7 +113,6 @@
       "category_hint": "clothing",
       "weight_value": 11.2,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.cleverhiker.com/footwear/crocs-classic-clog-review/",
       "quote": "Weight (Pair): 11.2 oz"
@@ -136,7 +124,6 @@
       "category_hint": "electronics",
       "weight_value": 257,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.ricoh-imaging.co.jp/english/products/gr-3/spec/",
       "quote": "Approx. 257g (Included dedicated battery and SD memory card)"
@@ -148,7 +135,6 @@
       "category_hint": "electronics",
       "weight_value": 262,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.ricoh-imaging.co.jp/english/products/gr-4/spec/",
       "quote": "Approx. 262g (Included dedicated battery and SD memory card)"
@@ -160,7 +146,6 @@
       "category_hint": "electronics",
       "weight_value": 190.5,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.cliftoncameras.co.uk/uploads/specifications/cliftoncameras-dji-osmo-pocket-4-specs.pdf",
       "quote": "Weight: 190.5 g"
@@ -168,11 +153,9 @@
     {
       "brand": "Apple",
       "name": "iPhone 17 Pro Max",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 233,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.apple.com/iphone-17-pro/specs/",
       "quote": "Weight: 233 grams (8.22 ounces)"
@@ -184,7 +167,6 @@
       "category_hint": "electronics",
       "weight_value": 388,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.chargerlab.com/elecjet-powerpie-45w-power-bank-in-depth-review/",
       "quote": "Weight: 388 g (13.7 oz)"
@@ -196,7 +178,6 @@
       "category_hint": "other",
       "weight_value": 16.2,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://cascademountaintech.com/products/carbon-fiber-hiking-trekking-pole-cork-grip",
       "quote": "Single Pole Weight (without rubber tips): 8.1 oz = 16.2 oz / 459 g per pair (2× single)."

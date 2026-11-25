@@ -26,7 +26,6 @@
     {
       "brand": "BearVault",
       "name": "BV ONE Adjustable Bear Canister",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 895,
@@ -61,7 +60,6 @@
     {
       "brand": "Patagonia",
       "name": "Wild Trails Sports Bra",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 113,
       "weight_unit": "g",
@@ -83,7 +81,6 @@
     {
       "brand": "Arc'teryx",
       "name": "Sinsola Cinch Cap",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 36,
       "weight_unit": "g",
@@ -105,7 +102,6 @@
     {
       "brand": "Nemo",
       "name": "Fillo Elite",
-      "variant": null,
       "category_hint": "sleep",
       "weight_value": 3,
       "weight_unit": "oz",
@@ -139,7 +135,6 @@
     {
       "brand": "Big Agnes",
       "name": "Tiger Wall UL2 Footprint",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 5,
       "weight_unit": "oz",
@@ -161,7 +156,6 @@
     {
       "brand": "Sunski",
       "name": "Tera",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 26.1,
       "weight_unit": "g",
@@ -172,7 +166,6 @@
     {
       "brand": "Alpenglow Gear",
       "name": "Alpenblow Classic Micro Inflator",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 8.6,
       "weight_unit": "g",

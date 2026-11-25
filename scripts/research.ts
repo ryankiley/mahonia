@@ -130,6 +130,43 @@ export interface ResearchRow {
  *  ounces as the tool did. A research row corrected in the app goes back into its own file. */
 export const GRADUATED_FILE_NAME = "verified-in-app.json";
 
+// The one layout every research file is written in (2026-11-25; until then a file was
+// pretty, compact one-row-a-line, or something between, and a script editing rows had to
+// learn each). `npm run catalog:format` writes it; tests/catalog-research.test.ts holds
+// every file to it; catalog:graduate writes through it.
+//   • A row a key a line, nested values inline: "attributes": {"temp_f": 20}.
+//   • Keys in ResearchRow's own order; a key the reader doesn't know goes last.
+//   • An optional field with nothing to say is left out, never null or "".
+const RESEARCH_KEY_ORDER = [
+  "brand", "name", "variant", "attributes", "attributes_source_url", "attributes_quote",
+  "attributes_unpublished", "category_hint", "common_name", "weight_value", "weight_unit",
+  "weight_secondary", "weight_source", "source_url", "quote", "kcal", "kcal_source_url", "kcal_quote",
+];
+const OPTIONAL_KEYS = new Set([
+  "variant", "attributes", "attributes_source_url", "attributes_quote", "attributes_unpublished",
+  "common_name", "weight_secondary", "kcal", "kcal_source_url", "kcal_quote",
+]);
+
+/** JSON on one line with a space after every colon and comma, nested values too. */
+export function inlineJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(inlineJson).join(", ")}]`;
+  if (v && typeof v === "object") return `{${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${inlineJson(x)}`).join(", ")}}`;
+  return JSON.stringify(v);
+}
+
+/** A research file's text in the house layout. Only `_comment` and `rows` are written: a
+ *  file carrying anything else fails the layout test rather than losing it quietly. */
+export function formatResearchFile(data: { _comment?: unknown; rows: readonly unknown[] }): string {
+  const rows = data.rows.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    const keys = [...RESEARCH_KEY_ORDER.filter((k) => k in row), ...Object.keys(row).filter((k) => !RESEARCH_KEY_ORDER.includes(k))]
+      .filter((k) => !(OPTIONAL_KEYS.has(k) && (row[k] == null || row[k] === "")));
+    return `    {\n${keys.map((k) => `      ${JSON.stringify(k)}: ${inlineJson(row[k])}`).join(",\n")}\n    }`;
+  });
+  const comment = data._comment != null ? `  "_comment": ${JSON.stringify(data._comment)},\n` : "";
+  return `{\n${comment}  "rows": [${rows.length ? `\n${rows.join(",\n")}\n  ` : ""}]\n}\n`;
+}
+
 /** A parsed research file, or a parse error for it. Rows are `[]` when `parseError`
  *  is set — the CALLER decides how to bucket it (build → skipped/exit 0; audit →
  *  errors/exit 1), so the reader never swallows or logs the failure itself. */

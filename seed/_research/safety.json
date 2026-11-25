@@ -47,7 +47,6 @@
     {
       "brand": "Kahtoola",
       "name": "MICROspikes",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 11.9,
       "weight_unit": "oz",
@@ -71,7 +70,6 @@
     {
       "brand": "Black Diamond",
       "name": "Distance Spike Traction Device",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 200,
       "weight_unit": "g",
@@ -82,7 +80,6 @@
     {
       "brand": "Hillsound",
       "name": "Trail Crampon",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 16.3,
       "weight_unit": "oz",
@@ -94,7 +91,6 @@
     {
       "brand": "Garmin",
       "name": "inReach Mini 3",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 122.2,
       "weight_unit": "g",
@@ -105,7 +101,6 @@
     {
       "brand": "Garmin",
       "name": "inReach Messenger",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 4,
       "weight_unit": "oz",
@@ -116,7 +111,6 @@
     {
       "brand": "Garmin",
       "name": "inReach Mini",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 3.5,
       "weight_unit": "oz",
@@ -128,7 +122,6 @@
     {
       "brand": "ZOLEO",
       "name": "Satellite Communicator",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 150,
       "weight_unit": "g",
@@ -140,7 +133,6 @@
     {
       "brand": "ACR",
       "name": "ResQLink 400 PLB",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 0.317,
       "weight_unit": "lb",

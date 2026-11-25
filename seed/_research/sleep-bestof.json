@@ -4,26 +4,26 @@
       "brand": "Katabatic Gear",
       "name": "Sawatch 15",
       "variant": "900FP, Regular",
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "weight_value": 24.7,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://katabaticgear.com/products/sawatch-ultralight-quilt",
-      "quote": "Total Weight (ounces) -- 850fp Duck Down: 24.4, 26.0, 27.7, 26.6, 28.2, 30.2; 900fp Goose Down: 23.3, 24.7, 26.3, 25.3, 26.9, 28.7 (Regular column at 900fp = 24.7)",
-      "attributes": {"temp_f": 15}
+      "quote": "Total Weight (ounces) -- 850fp Duck Down: 24.4, 26.0, 27.7, 26.6, 28.2, 30.2; 900fp Goose Down: 23.3, 24.7, 26.3, 25.3, 26.9, 28.7 (Regular column at 900fp = 24.7)"
     },
     {
       "brand": "Sea to Summit",
       "name": "Spark 15F",
       "variant": "Regular",
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "weight_value": 25.7,
       "weight_unit": "oz",
       "weight_secondary": "730 g",
       "weight_source": "manufacturer",
       "source_url": "https://seatosummit.com/products/spark-down-sleeping-bag",
-      "quote": "15°F (-9°C): Weight 730 g | 25.7 oz (Regular)",
-      "attributes": {"temp_f": 15}
+      "quote": "15°F (-9°C): Weight 730 g | 25.7 oz (Regular)"
     },
     {
       "brand": "Zpacks",
@@ -70,14 +70,14 @@
       "brand": "Therm-a-Rest",
       "name": "Corus 20F",
       "variant": "650FP, Regular",
+      "attributes": {"temp_f": 20},
       "category_hint": "sleep",
       "weight_value": 1.62,
       "weight_unit": "lb",
       "weight_secondary": "735 g",
       "weight_source": "manufacturer",
       "source_url": "https://cascadedesigns.com/products/corus-20f-6c-down-quilt",
-      "quote": "Regular Size: 1 lbs 10 oz (735 g); Long Size: 1 lbs 13 oz (815 g)",
-      "attributes": {"temp_f": 20}
+      "quote": "Regular Size: 1 lbs 10 oz (735 g); Long Size: 1 lbs 13 oz (815 g)"
     },
     {
       "brand": "Big Agnes",

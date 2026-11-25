@@ -41,7 +41,6 @@
     {
       "brand": "Snow Peak",
       "name": "Titanium Trek Combo",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 370,
       "weight_unit": "g",
@@ -53,7 +52,6 @@
     {
       "brand": "Snow Peak",
       "name": "Ti-Single 450 Cup",
-      "variant": "",
       "attributes": {"volume_l": 0.45},
       "category_hint": "cook",
       "weight_value": 70,
@@ -66,7 +64,6 @@
     {
       "brand": "Snow Peak",
       "name": "Ti-Single 600 Cup",
-      "variant": "",
       "attributes": {"volume_l": 0.6},
       "category_hint": "cook",
       "weight_value": 88,
@@ -79,7 +76,6 @@
     {
       "brand": "Snow Peak",
       "name": "Ti-Double 450 Mug",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 104,
       "weight_unit": "g",
@@ -91,7 +87,6 @@
     {
       "brand": "Snow Peak",
       "name": "Mini Hozuki",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 54,
       "weight_unit": "g",
@@ -103,7 +98,6 @@
     {
       "brand": "Snow Peak",
       "name": "Hozuki Lantern",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 164,
       "weight_unit": "g",
@@ -115,7 +109,6 @@
     {
       "brand": "Snow Peak",
       "name": "Kettle No.1",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 290,
       "weight_unit": "g",
@@ -127,7 +120,6 @@
     {
       "brand": "Snow Peak",
       "name": "Ti-Mini Solo Combo 2.0",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 190,
       "weight_unit": "g",
@@ -139,7 +131,6 @@
     {
       "brand": "Snow Peak",
       "name": "3 Piece Titanium Cookset",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 200,
       "weight_unit": "g",

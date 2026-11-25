@@ -59,65 +59,65 @@
       "brand": "Nemo",
       "name": "Disco 30",
       "variant": "650FP, Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
       "weight_secondary": "15 oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.rei.com/product/162950/nemo-disco-30-sleeping-bag-mens",
-      "quote": "NEMO's stated weight for the Disco 30 men's Regular is 1 lb. 15 oz, listed in the comparison table labeled \"SOURCE: Manufacturers.\"",
-      "attributes": {"temp_f": 30}
+      "quote": "NEMO's stated weight for the Disco 30 men's Regular is 1 lb. 15 oz, listed in the comparison table labeled \"SOURCE: Manufacturers.\""
     },
     {
       "brand": "REI Co-op",
       "name": "Magma 30",
       "variant": "850FP, Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
       "weight_secondary": "3.8 oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20200311095059id_/https://www.rei.com/product/148246/rei-co-op-magma-30-sleeping-bag-mens",
-      "quote": "specs JSON: {\"name\":\"Weight\", ... \"sizeValueMap\":{\"Regular - Left Zip\":[\"1 lb. 3.8 oz.\"],\"Long - Left Zip\":[\"1 lb. 6 oz.\"]}} (REI Co-op product page, Regular = 1 lb. 3.8 oz.)",
-      "attributes": {"temp_f": 30}
+      "quote": "specs JSON: {\"name\":\"Weight\", ... \"sizeValueMap\":{\"Regular - Left Zip\":[\"1 lb. 3.8 oz.\"],\"Long - Left Zip\":[\"1 lb. 6 oz.\"]}} (REI Co-op product page, Regular = 1 lb. 3.8 oz.)"
     },
     {
       "brand": "Sea to Summit",
       "name": "Spark 30F",
       "variant": "Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 493,
       "weight_unit": "g",
       "weight_secondary": "17.4 oz",
       "weight_source": "manufacturer",
       "source_url": "https://seatosummit.com/products/spark-down-sleeping-bag",
-      "quote": "Tech specs table, 30F / -1C Regular: Weight \"493 g / 17.4 oz\"; Fill Weight \"265 g / 9.35 oz\"",
-      "attributes": {"temp_f": 30}
+      "quote": "Tech specs table, 30F / -1C Regular: Weight \"493 g / 17.4 oz\"; Fill Weight \"265 g / 9.35 oz\""
     },
     {
       "brand": "Therm-a-Rest",
       "name": "Vesper 20F",
       "variant": "Regular",
+      "attributes": {"temp_f": 20},
       "category_hint": "sleep",
       "weight_value": 550,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://cascadedesigns.com/products/vesper-20f-6c-down-quilt",
-      "quote": "Vesper 20F/-6C Down Quilt, Regular, stated total weight \"1 lb 3 oz (550 g)\" (Therm-a-Rest / Cascade Designs product page)",
-      "attributes": {"temp_f": 20}
+      "quote": "Vesper 20F/-6C Down Quilt, Regular, stated total weight \"1 lb 3 oz (550 g)\" (Therm-a-Rest / Cascade Designs product page)"
     },
     {
       "brand": "Sea to Summit",
       "name": "Ember 30F",
       "variant": "Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 544,
       "weight_unit": "g",
       "weight_secondary": "19.2 oz",
       "weight_source": "manufacturer",
       "source_url": "https://seatosummit.com/products/the-ember-down-quilt",
-      "quote": "Tech specs table, 30F Regular: Total Weight \"544 g / 19.2 oz\"",
-      "attributes": {"temp_f": 30}
+      "quote": "Tech specs table, 30F Regular: Total Weight \"544 g / 19.2 oz\""
     }
   ]
 }

@@ -7,7 +7,6 @@
       "category_hint": "clothing",
       "weight_value": 185,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://featheredfriends.com/products/arcteryx-atom-vest-womens",
       "quote": "Extremely Lightweight - 6.5 oz (185 g)"
@@ -19,7 +18,6 @@
       "category_hint": "clothing",
       "weight_value": 480,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.t3.com/active/outerwear/arcteryx-beta-sv-2026-severe-weather-jacket",
       "quote": "weighing only 480g in a men's medium"
@@ -31,7 +29,6 @@
       "category_hint": "clothing",
       "weight_value": 429,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://featheredfriends.com/products/arcteryx-beta-sv-jacket-womens",
       "quote": "15.1 oz (429 g)"
@@ -43,7 +40,6 @@
       "category_hint": "clothing",
       "weight_value": 154,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.montbell.com/us/en/products/detail/2301379",
       "quote": "Weight: 5.4 oz / 154 g"
@@ -55,7 +51,6 @@
       "category_hint": "clothing",
       "weight_value": 174,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.montbell.com/us/en/products/detail/2301378",
       "quote": "Superior Down Jacket Women's — Weight: 6.1 oz / 174 g"
@@ -67,7 +62,6 @@
       "category_hint": "clothing",
       "weight_value": 109,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.montbell.com/us/en/products/detail/2301421",
       "quote": "Superior Down Round Neck Vest Women's — Weight: 3.8 oz / 109 g"
@@ -80,7 +74,6 @@
       "category_hint": "clothing",
       "weight_value": 195,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://beringia.world/products/octa-anorak",
       "quote": "Lightweight and packable, size medium weighs 7oz / 195g."
@@ -93,7 +86,6 @@
       "category_hint": "clothing",
       "weight_value": 345,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://beringia.world/products/lightstream-insulated-fullzip-hoody",
       "quote": "Size Medium weighs 345g / 12oz."
@@ -106,7 +98,6 @@
       "category_hint": "clothing",
       "weight_value": 7,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.backcountry.com/columbia-midweight-stretch-long-sleeve-baselayer-top-womens",
       "quote": "Claimed Weight [x-small] 7oz"
@@ -119,7 +110,6 @@
       "category_hint": "clothing",
       "weight_value": 101,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.mountainhardwear.com/p/womens-crater-lake-long-sleeve-crop-shirt-1986771.html",
       "quote": "Approx. Weight*: 3.6 oz / 101 g (the maker's page calls it the Crater Lake Long Sleeve Crop Shirt; Backcountry's listing claimed 6 oz)"
@@ -127,11 +117,9 @@
     {
       "brand": "Icebreaker",
       "name": "Merino 200 Waffle Pocket Hat",
-      "variant": "",
       "category_hint": "clothing",
       "weight_value": 50,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://na.icebreaker.com/en-us/products/merino-200-pocket-hat-ibibm200a04",
       "quote": "Product weight One Size = 50 g / 1.76 oz"
@@ -139,11 +127,9 @@
     {
       "brand": "The North Face",
       "name": "Reversible Highline Beanie",
-      "variant": "",
       "category_hint": "clothing",
       "weight_value": 2.5,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.backcountry.com/the-north-face-reversible-highline-beanie",
       "quote": "Claimed Weight 2.5oz"
@@ -158,7 +144,6 @@
       "category_hint": "clothing",
       "weight_value": 12.5,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.outdoorgearlab.com/reviews/clothing-mens/down-jacket-men/rei-co-op-magma-850-hoodie",
       "quote": "I weighed the Magma 850 in a men's medium at 12.5 ounces."
@@ -171,7 +156,6 @@
       "category_hint": "clothing",
       "weight_value": 10.8,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://manmakesfire.com/rei-magma-850-down-jacket-review/",
       "quote": "REI says the jacket comes in at 10.8 ounces"
@@ -184,7 +168,6 @@
       "category_hint": "clothing",
       "weight_value": 656,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.lasportivausa.com/products/wildcat",
       "quote": "WEIGHT: 12.37 oz / 328 g (per shoe; pair = 656 g)"
@@ -197,7 +180,6 @@
       "category_hint": "clothing",
       "weight_value": 716,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.keenfootwear.com/products/mens-jasper-zionic-black-alloy",
       "quote": "WEIGHT PER SHOE 12.63oz / 358g (per shoe; pair = 716 g)"
@@ -210,7 +192,6 @@
       "category_hint": "clothing",
       "weight_value": 544,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.keenfootwear.com/products/womens-jasper-zionic-birch-cork",
       "quote": "WEIGHT PER SHOE 9.59oz / 272g (per shoe; pair = 544 g)"
@@ -222,7 +203,6 @@
       "category_hint": "pack",
       "weight_value": 111,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.patagonia.com/product/terravia-mini-hip-pack-1-liter/49448.html",
       "quote": "111 g (3.9 oz)"
@@ -234,7 +214,6 @@
       "category_hint": "pack",
       "weight_value": 13.05,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://wornwear.patagonia.com/products/ultralight-black-hole-tote-pack-27l_48809_huta",
       "quote": "Weight 13.05 ounces (370 g)"
@@ -246,7 +225,6 @@
       "category_hint": "pack",
       "weight_value": 9.5,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.rei.com/product/227900/rei-co-op-flash-18-pack",
       "quote": "Weight 9.5 ounces (269 g)"
@@ -258,7 +236,6 @@
       "category_hint": "water",
       "weight_value": 570,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://grayl.com/products/24oz-geopress-ti-purifier-black-edition",
       "quote": "Weight: 20.125 oz (570 g)"
@@ -266,14 +243,12 @@
     {
       "brand": "Fire Maple",
       "name": "Sunflower X",
-      "variant": "",
       "attributes": {"fuel": "isobutane"},
       "attributes_source_url": "https://firemaplegear.com/products/sunflower-x-gas-camping-stove",
       "attributes_quote": "EN417 threaded isobutane-propane canisters",
       "category_hint": "cook",
       "weight_value": 1000,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://firemaplegear.com/products/sunflower-x-gas-camping-stove",
       "quote": "Weight: 2.2 lb (1.0 kg)"
@@ -281,11 +256,9 @@
     {
       "brand": "Fire Maple",
       "name": "Sunflower Grill Plate",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 221,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://firemaplegear.com/products/sunflower-grill-plate",
       "quote": "Total Weight (including tongs): 7.8 oz (221 g)"
@@ -297,7 +270,6 @@
       "category_hint": "cook",
       "weight_value": 162,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://firemaplegear.com/products/petrel-ultralight-pot-600ml",
       "quote": "Weight: 5.7 oz (162 g)"
@@ -305,11 +277,9 @@
     {
       "brand": "Soto",
       "name": "Butane Gas Filling Adaptor",
-      "variant": "",
       "category_hint": "cook",
       "weight_value": 25,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://sotooutdoors.com/product/fill-adapter/",
       "quote": "Weight: 25 g (.88 oz)"
@@ -317,14 +287,12 @@
     {
       "brand": "CampingMoon",
       "name": "XD-2F",
-      "variant": "",
       "attributes": {"fuel": "isobutane"},
       "attributes_source_url": "https://www.campingmoon.com/products/portable-camping-gas-stove-with-ignitor-flow-regulator-campingmoon-xd-2f-lightweight-foldable-for-outdoor-adventures",
       "attributes_quote": "Fuel Type: Isobutane",
       "category_hint": "cook",
       "weight_value": 100,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.campingmoon.com/products/portable-camping-gas-stove-with-ignitor-flow-regulator-campingmoon-xd-2f-lightweight-foldable-for-outdoor-adventures",
       "quote": "Weight | 100 Grams"
@@ -336,7 +304,6 @@
       "category_hint": "sleep",
       "weight_value": 41,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://zpacks.com/products/medium-pillow",
       "quote": "1.4 oz / 41 g"
@@ -344,11 +311,9 @@
     {
       "brand": "K&F Concept",
       "name": "Magnetic Lens Filter Mount Adapter with 67mm Variable ND2-32 Filter",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 135,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.amazon.com/Concept-Magnetic-Adapter-Variable-Compatible/dp/B0FBRG2T5T",
       "quote": "Item Weight 135 Grams"
@@ -360,7 +325,6 @@
       "category_hint": "consumable",
       "weight_value": 127,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://aletenutrition.com/products/saltstick-fastchews-lemon-lime",
       "quote": "FastChews 60ct bottle: 127 g (0.28 lb)",
@@ -375,7 +339,6 @@
       "category_hint": "other",
       "weight_value": 4.46,
       "weight_unit": "kg",
-      "weight_secondary": null,
       "weight_source": "measured",
       "source_url": "https://www.outdoorsleepgear.com/product/igloo-ecocool-latitude-52-qt-cooler/",
       "quote": "Holds 85 cans, Capacity: 49 litres, Weight: 4.46kgs"
@@ -387,7 +350,6 @@
       "category_hint": "other",
       "weight_value": 95,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://coghlans.com/products/egg-holder-6-count",
       "quote": "Egg Holder (6-count): 95 g (0.21 lb)"
@@ -395,11 +357,9 @@
     {
       "brand": "REI Co-op",
       "name": "Merino Wool Liner Crew Socks",
-      "variant": "",
       "category_hint": "clothing",
       "weight_value": 45,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "community",
       "source_url": "https://www.rei.com/product/165397/rei-co-op-merino-wool-liner-crew-socks",
       "quote": "REI publishes no sock weight; community-reported ~1.6 oz / 45 g per pair (REI customer Q&A)."
@@ -407,11 +367,9 @@
     {
       "brand": "REI Co-op",
       "name": "Merino Wool Lightweight Hiking Crew Socks",
-      "variant": "",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "community",
       "source_url": "https://www.rei.com/product/165398/rei-co-op-merino-wool-lightweight-hiking-crew-socks",
       "quote": "REI publishes no sock weight; community estimate ~62 g/pair, benchmarked to comparable lightweight merino hiking crew socks."

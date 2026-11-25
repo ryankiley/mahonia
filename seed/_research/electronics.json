@@ -14,7 +14,6 @@
     {
       "brand": "Black Diamond",
       "name": "Spot 400 Headlamp",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 86,
       "weight_unit": "g",
@@ -25,7 +24,6 @@
     {
       "brand": "Black Diamond",
       "name": "Storm 500-R Headlamp",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 120,
       "weight_unit": "g",
@@ -36,7 +34,6 @@
     {
       "brand": "Petzl",
       "name": "BINDI Headlamp",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 1.23,
       "weight_unit": "oz",
@@ -47,7 +44,6 @@
     {
       "brand": "Petzl",
       "name": "ACTIK CORE Headlamp",
-      "variant": "",
       "category_hint": "electronics",
       "weight_value": 88,
       "weight_unit": "g",
@@ -58,7 +54,6 @@
     {
       "brand": "Nitecore",
       "name": "NB10000 Gen 2",
-      "variant": null,
       "attributes": {"capacity_mah": 10000},
       "category_hint": "electronics",
       "weight_value": 150,

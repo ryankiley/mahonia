@@ -27,7 +27,6 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Mid 1",
-      "variant": "",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 16,
@@ -39,7 +38,6 @@
     {
       "brand": "Tarptent",
       "name": "Notch",
-      "variant": "",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.tarptent.com/product/notch/",
       "attributes_quote": "Sleeps: 1",
@@ -53,7 +51,6 @@
     {
       "brand": "Tarptent",
       "name": "Notch Li",
-      "variant": "",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.tarptent.com/product/notch-li/",
       "attributes_quote": "Sleeps: 1",
@@ -78,7 +75,6 @@
     {
       "brand": "Tarptent",
       "name": "Double Rainbow",
-      "variant": "",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 1118,
@@ -102,7 +98,6 @@
     {
       "brand": "Tarptent",
       "name": "Aeon Li",
-      "variant": "",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.tarptent.com/product/aeon-li/",
       "attributes_quote": "Sleeps: 1",
@@ -128,7 +123,6 @@
     {
       "brand": "Tarptent",
       "name": "StratoSpire Li",
-      "variant": "",
       "attributes": {"persons": 2},
       "attributes_source_url": "https://www.tarptent.com/product/stratospire-li/",
       "attributes_quote": "Sleeps: 2",

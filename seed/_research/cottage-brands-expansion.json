@@ -3,7 +3,6 @@
     {
       "brand": "3FULGEAR",
       "name": "Footbox Bivy",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 43,
       "weight_unit": "g",
@@ -15,7 +14,6 @@
     {
       "brand": "3FULGEAR",
       "name": "Insulated Food Bag",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 18,
@@ -139,7 +137,6 @@
     {
       "brand": "Aardwolf Gear Company",
       "name": "Gram Splitter Wallet",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 2,
       "weight_unit": "g",
@@ -151,7 +148,6 @@
     {
       "brand": "Aardwolf Gear Company",
       "name": "Mini Ditty/Spoon Cover",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 1.2,
@@ -164,7 +160,6 @@
     {
       "brand": "Aardwolf Gear Company",
       "name": "Roll Top Ditty Bag",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 12,
@@ -203,7 +198,6 @@
     {
       "brand": "Aardwolf Gear Company",
       "name": "Toothbrush Sleeve",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 2,
       "weight_unit": "g",
@@ -265,7 +259,6 @@
     {
       "brand": "Aarn Packs",
       "name": "Pace Magic 40",
-      "variant": null,
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 850,
@@ -278,7 +271,6 @@
     {
       "brand": "Aarn Packs",
       "name": "Shoulder Strap Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 52,
       "weight_unit": "g",
@@ -290,7 +282,6 @@
     {
       "brand": "Aarn Packs",
       "name": "Water Bottle Holder",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 42,
       "weight_unit": "g",
@@ -302,7 +293,6 @@
     {
       "brand": "Adotec",
       "name": "Caveman TV Smartphone Holder",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 25,
       "weight_unit": "g",
@@ -314,7 +304,6 @@
     {
       "brand": "Adotec",
       "name": "Packaway Ultralight Saw",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 48,
       "weight_unit": "g",
@@ -326,7 +315,6 @@
     {
       "brand": "Adotec",
       "name": "Rain Mitt Stuff Sacks",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 35,
       "weight_unit": "g",
@@ -374,7 +362,6 @@
     {
       "brand": "Adotec",
       "name": "Ultralight Fold-Flat Funnel",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 5,
       "weight_unit": "g",
@@ -386,7 +373,6 @@
     {
       "brand": "Adventure Medical Kits",
       "name": ".3 Medical Kit",
-      "variant": null,
       "category_hint": "firstaid",
       "weight_value": 73,
       "weight_unit": "g",
@@ -398,7 +384,6 @@
     {
       "brand": "Adventure Medical Kits",
       "name": ".9 Medical Kit",
-      "variant": null,
       "category_hint": "firstaid",
       "weight_value": 204,
       "weight_unit": "g",
@@ -410,7 +395,6 @@
     {
       "brand": "Adventure Medical Kits",
       "name": "Moleskin",
-      "variant": null,
       "category_hint": "firstaid",
       "weight_value": 5,
       "weight_unit": "g",
@@ -422,7 +406,6 @@
     {
       "brand": "After Bite",
       "name": "Advanced",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 32,
       "weight_unit": "g",
@@ -434,7 +417,6 @@
     {
       "brand": "allmansright",
       "name": "Björn Food Bag",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 36,
@@ -447,7 +429,6 @@
     {
       "brand": "allmansright",
       "name": "Hölster Stake Sack",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -498,7 +479,6 @@
     {
       "brand": "Aloe Up",
       "name": "Aloe Kote SPF 25",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 7,
       "weight_unit": "g",
@@ -510,7 +490,6 @@
     {
       "brand": "Aloe Up",
       "name": "Mineral Lip Balm SPF 15",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 4.25,
       "weight_unit": "g",
@@ -522,7 +501,6 @@
     {
       "brand": "Aloe Up",
       "name": "Sport SPF 15 Lip Balm",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 4.25,
       "weight_unit": "g",
@@ -534,7 +512,6 @@
     {
       "brand": "Alpenglow Gear",
       "name": "Alpenblow Nozzle Expansion Pack",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 4,
       "weight_unit": "g",
@@ -546,7 +523,6 @@
     {
       "brand": "Alpenglow Gear",
       "name": "Alpenflow Fuel Transfer Valve",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 2.4,
       "weight_unit": "g",
@@ -594,7 +570,6 @@
     {
       "brand": "Alpine Fit",
       "name": "Merino Wool Balaclava",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 40,
       "weight_unit": "g",
@@ -606,7 +581,6 @@
     {
       "brand": "Alpine Fit",
       "name": "Merino Wool Lined Headband",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 23,
       "weight_unit": "g",
@@ -618,7 +592,6 @@
     {
       "brand": "Alpine Fit",
       "name": "Nordic Anywhere Merino Wool Hat",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 40,
       "weight_unit": "g",
@@ -690,7 +663,6 @@
     {
       "brand": "ANDA Ultralight",
       "name": "Uno Tarp",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 278,
       "weight_unit": "g",
@@ -834,7 +806,6 @@
     {
       "brand": "Arms of Andes",
       "name": "Alpaca Wool Beanie",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 36,
       "weight_unit": "g",
@@ -870,7 +841,6 @@
     {
       "brand": "Arms of Andes",
       "name": "Alpaca Wool Neck Gaiter",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 53,
       "weight_unit": "g",
@@ -943,10 +913,10 @@
       "brand": "Astral Designs",
       "name": "Nosobo Hiking Shoe",
       "variant": "Men's US 9 / Women's US 10",
-      "attributes_unpublished": ["size"],
       "attributes": {"fit": "Unisex"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/nosobo-trail-shoe-by-astral-designs",
       "attributes_quote": "Weight: 11oz | 312g (M’s 9 | W’s 10 US); sizes 5M | 6W … 10.5M | 11.5W",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 312,
       "weight_unit": "g",
@@ -959,10 +929,10 @@
       "brand": "Astral Designs",
       "name": "TR1 Mesh 2.0 Hiking Shoe",
       "variant": "Men's US 9 / Women's US 10",
-      "attributes_unpublished": ["size"],
       "attributes": {"fit": "Unisex"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/tr1-mesh-2-0-hiking-shoe-by-astral-designs",
       "attributes_quote": "Weight: 10.7oz | 304g (M’s 9 | W’s 10 US); sizes 5M | 6W … 9.5M | 10.5W",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 304,
       "weight_unit": "g",
@@ -1010,7 +980,6 @@
     {
       "brand": "Backcountry Exposure",
       "name": "Aven Rock Sack",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 5,
       "weight_unit": "g",
@@ -1138,7 +1107,6 @@
     {
       "brand": "Beaver Tail Outdoors",
       "name": "BuzzTek Laces",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 26,
       "weight_unit": "g",
@@ -1162,7 +1130,6 @@
     {
       "brand": "Ben's",
       "name": "Insect Repellent Adventure Formula",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 134,
       "weight_unit": "g",
@@ -1174,7 +1141,6 @@
     {
       "brand": "Ben's",
       "name": "Tick & Insect Repellent Wipes",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 80,
       "weight_unit": "g",
@@ -1210,6 +1176,7 @@
     {
       "brand": "Big Agnes",
       "name": "Copper Spur HV UL4",
+      "variant": "trail weight",
       "attributes": {"persons": 4},
       "category_hint": "shelter",
       "weight_value": 2381,
@@ -1217,8 +1184,7 @@
       "weight_secondary": "84oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/copper-spur-hv-ul2-ul4-by-big-agnes",
-      "quote": "Weight: 84oz | 2381g (minimum)",
-      "variant": "trail weight"
+      "quote": "Weight: 84oz | 2381g (minimum)"
     },
     {
       "brand": "Big Agnes",
@@ -1343,7 +1309,6 @@
     {
       "brand": "Big Sky International",
       "name": "Ultralight Deluxe Pillow",
-      "variant": null,
       "category_hint": "sleep",
       "weight_value": 124,
       "weight_unit": "g",
@@ -1355,7 +1320,6 @@
     {
       "brand": "Big Sky International",
       "name": "Ultralight Pillow",
-      "variant": null,
       "category_hint": "sleep",
       "weight_value": 45,
       "weight_unit": "g",
@@ -1379,7 +1343,6 @@
     {
       "brand": "Black Diamond",
       "name": "Astro 300 Headlamp",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 75,
       "weight_unit": "g",
@@ -1391,7 +1354,6 @@
     {
       "brand": "Black Diamond",
       "name": "Beta Light 30",
-      "variant": null,
       "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "weight_value": 698,
@@ -1404,7 +1366,6 @@
     {
       "brand": "Black Diamond",
       "name": "Beta Light 45",
-      "variant": null,
       "attributes": {"volume_l": 45},
       "category_hint": "pack",
       "weight_value": 936,
@@ -1513,7 +1474,6 @@
     {
       "brand": "Black Diamond",
       "name": "Gridtech Storm Hood Gloves",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 60,
       "weight_unit": "g",
@@ -1525,7 +1485,6 @@
     {
       "brand": "Black Diamond",
       "name": "Moji Lantern",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 107,
       "weight_unit": "g",
@@ -1549,7 +1508,6 @@
     {
       "brand": "Black Diamond",
       "name": "Venom LT Classic Ice Axe",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 240,
       "weight_unit": "g",
@@ -1561,7 +1519,6 @@
     {
       "brand": "Body Glide",
       "name": "Anti-Chafe Stick For Her",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 10,
       "weight_unit": "g",
@@ -1573,7 +1530,6 @@
     {
       "brand": "Body Glide",
       "name": "Body Anti-Chafe Stick",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 10,
       "weight_unit": "g",
@@ -1585,7 +1541,6 @@
     {
       "brand": "Body Glide",
       "name": "Foot Glide Anti-Blister Stick",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 10,
       "weight_unit": "g",
@@ -1597,7 +1552,6 @@
     {
       "brand": "BoglerCo",
       "name": "Ultralight Trowel",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 13.5,
       "weight_unit": "g",
@@ -1622,7 +1576,6 @@
     {
       "brand": "Bonfus",
       "name": "DCF Ditty Bag",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 5,
@@ -1739,7 +1692,6 @@
     {
       "brand": "Bonfus",
       "name": "DCF Tent Stake Sack",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 3.5,
       "weight_unit": "g",
@@ -1751,7 +1703,6 @@
     {
       "brand": "Bonfus",
       "name": "Duos 2P",
-      "variant": null,
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 675,
@@ -1764,7 +1715,6 @@
     {
       "brand": "Bonfus",
       "name": "Fastus 23L",
-      "variant": null,
       "attributes": {"volume_l": 23},
       "category_hint": "pack",
       "weight_value": 360,
@@ -1777,7 +1727,6 @@
     {
       "brand": "Bonfus",
       "name": "Hip Belt Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 20,
       "weight_unit": "g",
@@ -1828,7 +1777,6 @@
     {
       "brand": "Bonfus",
       "name": "Middus Innernet 1P",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 235,
       "weight_unit": "g",
@@ -1840,7 +1788,6 @@
     {
       "brand": "Bonfus",
       "name": "Middus Innernet 2P",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 335,
       "weight_unit": "g",
@@ -1962,7 +1909,6 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "Dirt Dart Titanium Tent Stake",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 11,
       "weight_unit": "g",
@@ -1998,7 +1944,6 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "Long Titanium Spoon",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 17,
       "weight_unit": "g",
@@ -2010,7 +1955,6 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "Long Titanium Spork",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 17,
       "weight_unit": "g",
@@ -2022,7 +1966,6 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "Mini Titanium Spatula",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 16,
       "weight_unit": "g",
@@ -2034,7 +1977,6 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "Ptarmigan Titanium Snow Anchors",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 21,
       "weight_unit": "g",
@@ -2046,7 +1988,6 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "Stubby Titanium Spoon",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 9,
       "weight_unit": "g",
@@ -2058,7 +1999,6 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "Stubby Titanium Spork",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 9,
       "weight_unit": "g",
@@ -2070,7 +2010,6 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "Tiny Titanium Tweezers",
-      "variant": null,
       "category_hint": "firstaid",
       "weight_value": 3,
       "weight_unit": "g",
@@ -2082,7 +2021,6 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "Titanium SporkSpat",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 22,
       "weight_unit": "g",
@@ -2094,7 +2032,6 @@
     {
       "brand": "BRS",
       "name": "3000T Ultralight Burner",
-      "variant": null,
       "attributes": {"fuel": "isobutane"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/brs-3000-t-stove-by-brs-outdoor",
       "attributes_quote": "Gas consumption: ~140g per hour for 1L of water",
@@ -2109,7 +2046,6 @@
     {
       "brand": "Brunton",
       "name": "ECHO Zoom Pocket Monocular 10x30",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 77,
       "weight_unit": "g",
@@ -2121,7 +2057,6 @@
     {
       "brand": "Brunton",
       "name": "Scout Glow Compass",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 36,
       "weight_unit": "g",
@@ -2133,7 +2068,6 @@
     {
       "brand": "Brunton",
       "name": "TruArc 3 Compass",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 31,
       "weight_unit": "g",
@@ -2301,7 +2235,6 @@
     {
       "brand": "BullMoose Softgoods Co.",
       "name": "L.T.F.P.",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "pack",
       "weight_value": 99,
@@ -2314,7 +2247,6 @@
     {
       "brand": "BullMoose Softgoods Co.",
       "name": "Mini Sling Bag",
-      "variant": null,
       "category_hint": "pack",
       "weight_value": 71,
       "weight_unit": "g",
@@ -2326,7 +2258,6 @@
     {
       "brand": "BullMoose Softgoods Co.",
       "name": "Triangle Sling Bag",
-      "variant": null,
       "category_hint": "pack",
       "weight_value": 50,
       "weight_unit": "g",
@@ -2386,7 +2317,6 @@
     {
       "brand": "Cam's Backpacking Gear",
       "name": "Pot Knob for Toaks Pots",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 2.5,
       "weight_unit": "g",
@@ -2398,7 +2328,6 @@
     {
       "brand": "Cam's Backpacking Gear",
       "name": "Tent Stake Pusher",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 5,
       "weight_unit": "g",
@@ -2410,7 +2339,6 @@
     {
       "brand": "CAMP",
       "name": "Corsa Ice Axe",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 232,
       "weight_unit": "g",
@@ -2422,7 +2350,6 @@
     {
       "brand": "CAMP",
       "name": "Corsa Race Ice Axe",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 185,
       "weight_unit": "g",
@@ -2434,7 +2361,6 @@
     {
       "brand": "CAMP",
       "name": "EKTO Lock Carabiner",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 11,
       "weight_unit": "g",
@@ -2446,7 +2372,6 @@
     {
       "brand": "Cascade Wild",
       "name": "Ultralight Folding Table",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 65,
       "weight_unit": "g",
@@ -2458,7 +2383,6 @@
     {
       "brand": "Chicken Tramper Gear",
       "name": "Bear Can Key",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -2470,7 +2394,6 @@
     {
       "brand": "Chicken Tramper Gear",
       "name": "Hiker Hairbrush",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 28.3,
       "weight_unit": "g",
@@ -2482,7 +2405,6 @@
     {
       "brand": "Chicken Tramper Gear",
       "name": "Phone Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 43,
       "weight_unit": "g",
@@ -2494,7 +2416,6 @@
     {
       "brand": "Chicken Tramper Gear",
       "name": "Stitch-All Ultralight Sewing Awl",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 10,
       "weight_unit": "g",
@@ -2506,7 +2427,6 @@
     {
       "brand": "Chicken Tramper Gear",
       "name": "Ultra Dog Bowl",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 45,
       "weight_unit": "g",
@@ -2578,7 +2498,6 @@
     {
       "brand": "Chicken Tramper Gear",
       "name": "Zippered Shoulder Strap Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 48,
       "weight_unit": "g",
@@ -2590,7 +2509,6 @@
     {
       "brand": "éclipse Sun Products",
       "name": "Sun Gloves",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 10,
       "weight_unit": "g",
@@ -2686,7 +2604,6 @@
     {
       "brand": "CNOC",
       "name": "QuickHose 40",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 61,
       "weight_unit": "g",
@@ -2822,7 +2739,6 @@
     {
       "brand": "COROS",
       "name": "PACE 4 GPS Sport Watch",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 40,
       "weight_unit": "g",
@@ -2894,7 +2810,6 @@
     {
       "brand": "Cowboy Camping",
       "name": "Cowpoke Caddy",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 22,
       "weight_unit": "g",
@@ -2942,7 +2857,6 @@
     {
       "brand": "Cowboy Camping",
       "name": "Range Rider",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 12,
       "weight_unit": "g",
@@ -2978,7 +2892,6 @@
     {
       "brand": "Cowboy Camping",
       "name": "Saloon Slimfold Wallet",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 10,
       "weight_unit": "g",
@@ -2990,7 +2903,6 @@
     {
       "brand": "Cowboy Camping",
       "name": "The Dust Buster",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 36,
       "weight_unit": "g",
@@ -3002,7 +2914,6 @@
     {
       "brand": "Crest",
       "name": "Travel Size Toothpaste",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 24,
       "weight_unit": "g",
@@ -3014,7 +2925,6 @@
     {
       "brand": "Crystal Creek Gear",
       "name": "GoReel Hand Reel",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 30,
       "weight_unit": "g",
@@ -3026,7 +2936,6 @@
     {
       "brand": "Crystal Creek Gear",
       "name": "GoReel Pro Hand Reel",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 65,
       "weight_unit": "g",
@@ -3038,7 +2947,6 @@
     {
       "brand": "Crystal Creek Gear",
       "name": "LineLock",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -3050,7 +2958,6 @@
     {
       "brand": "CuloClean",
       "name": "Portable Bidet",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 12,
       "weight_unit": "g",
@@ -3062,11 +2969,10 @@
     {
       "brand": "Cumulus",
       "name": "Aerial 180 Sleeping Bag",
-      "variant": null,
-      "attributes_unpublished": ["length"],
       "attributes": {"temp_f": 39},
       "attributes_source_url": "https://www.garagegrowngear.com/products/aerial-180-sleeping-bag-by-cumulus",
       "attributes_quote": "Comfort rating: 39.2°F | 4°C Temperature Limit: 32°F | 0°C",
+      "attributes_unpublished": ["length"],
       "category_hint": "sleep",
       "weight_value": 301,
       "weight_unit": "g",
@@ -3078,11 +2984,10 @@
     {
       "brand": "Cumulus",
       "name": "Aerial 250 Sleeping Bag",
-      "variant": null,
-      "attributes_unpublished": ["length"],
       "attributes": {"temp_f": 35},
       "attributes_source_url": "https://www.garagegrowngear.com/products/aerial-250-sleeping-bag-by-cumulus",
       "attributes_quote": "Comfort rating: 35°F | 1.7°C Temperature Limit: 24.8°F | -4°C",
+      "attributes_unpublished": ["length"],
       "category_hint": "sleep",
       "weight_value": 383,
       "weight_unit": "g",
@@ -3094,11 +2999,10 @@
     {
       "brand": "Cumulus",
       "name": "Aerial 330 Sleeping Bag",
-      "variant": null,
-      "attributes_unpublished": ["length"],
       "attributes": {"temp_f": 30},
       "attributes_source_url": "https://www.garagegrowngear.com/products/aerial-sleeping-bag-by-cumulus",
       "attributes_quote": "Comfort rating: 30°F | -1°C Temperature Limit: 19.4°F | -7°C",
+      "attributes_unpublished": ["length"],
       "category_hint": "sleep",
       "weight_value": 482,
       "weight_unit": "g",
@@ -3110,11 +3014,10 @@
     {
       "brand": "Cumulus",
       "name": "Magic 100 Sleeping Bag",
-      "variant": null,
-      "attributes_unpublished": ["length"],
       "attributes": {"temp_f": 55},
       "attributes_source_url": "https://www.garagegrowngear.com/products/magic-125-by-cumulus",
       "attributes_quote": "Comfort Rating: 55°F | 13°C Temperature Limit: 50°F | 10°C",
+      "attributes_unpublished": ["length"],
       "category_hint": "sleep",
       "weight_value": 240,
       "weight_unit": "g",
@@ -3126,11 +3029,10 @@
     {
       "brand": "Cumulus",
       "name": "Neo Quilt 150",
-      "variant": null,
-      "attributes_unpublished": ["length"],
       "attributes": {"temp_f": 46},
       "attributes_source_url": "https://www.garagegrowngear.com/products/neo-quilt-150-by-cumulus",
       "attributes_quote": "Comfort rating: 46°F | 9°C Temperature Limit: 37°F | 4°C",
+      "attributes_unpublished": ["length"],
       "category_hint": "sleep",
       "weight_value": 269,
       "weight_unit": "g",
@@ -3142,11 +3044,10 @@
     {
       "brand": "Cumulus",
       "name": "Panyam 600 Sleeping Bag",
-      "variant": null,
-      "attributes_unpublished": ["length"],
       "attributes": {"temp_f": 21},
       "attributes_source_url": "https://www.garagegrowngear.com/products/panyam-600-sleeping-bag-by-cumulus",
       "attributes_quote": "Comfort rating: 21°F | -6°C Temperature Limit: 9°F | -13°C",
+      "attributes_unpublished": ["length"],
       "category_hint": "sleep",
       "weight_value": 970,
       "weight_unit": "g",
@@ -3158,11 +3059,10 @@
     {
       "brand": "Cumulus",
       "name": "Spotter 600",
-      "variant": null,
-      "attributes_unpublished": ["length"],
       "attributes": {"temp_f": 18},
       "attributes_source_url": "https://www.garagegrowngear.com/products/spotter-600-by-cumulus",
       "attributes_quote": "Comfort rating: 18°F | -7°C Temperature Limit: 5°F | -15°C",
+      "attributes_unpublished": ["length"],
       "category_hint": "sleep",
       "weight_value": 989,
       "weight_unit": "g",
@@ -3174,11 +3074,10 @@
     {
       "brand": "Cumulus",
       "name": "The Quilt 150",
-      "variant": null,
-      "attributes_unpublished": ["length"],
       "attributes": {"temp_f": 48},
       "attributes_source_url": "https://www.garagegrowngear.com/products/the-quilt-by-cumulus",
       "attributes_quote": "Comfort rating: 48°F | 9°C Temperature Limit: 39°F | 4°C",
+      "attributes_unpublished": ["length"],
       "category_hint": "sleep",
       "weight_value": 300,
       "weight_unit": "g",
@@ -3190,11 +3089,10 @@
     {
       "brand": "Cumulus",
       "name": "Vencer 100 Sleeping Bag",
-      "variant": null,
-      "attributes_unpublished": ["length"],
       "attributes": {"temp_f": 48},
       "attributes_source_url": "https://www.garagegrowngear.com/products/vencer-100-sleeping-bag-by-cumulus",
       "attributes_quote": "Comfort rating: 48°F | 9°C Temperature Limit: 42°F | 6°C",
+      "attributes_unpublished": ["length"],
       "category_hint": "sleep",
       "weight_value": 180,
       "weight_unit": "g",
@@ -3206,11 +3104,10 @@
     {
       "brand": "Cumulus",
       "name": "Vencer 200 Sleeping Bag",
-      "variant": null,
-      "attributes_unpublished": ["length"],
       "attributes": {"temp_f": 35},
       "attributes_source_url": "https://www.garagegrowngear.com/products/vencer-200-sleeping-bag-by-cumulus",
       "attributes_quote": "Comfort rating: 35°F | 2°C Temperature Limit: 25°F | -4°C",
+      "attributes_unpublished": ["length"],
       "category_hint": "sleep",
       "weight_value": 375,
       "weight_unit": "g",
@@ -3222,7 +3119,6 @@
     {
       "brand": "Dangle Supply",
       "name": "Lil Slugger Titanium One Hitter",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 8.5,
       "weight_unit": "g",
@@ -3234,7 +3130,6 @@
     {
       "brand": "Deadwood Gear Co.",
       "name": "Beehive Pot Lid",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 9,
       "weight_unit": "g",
@@ -3246,7 +3141,6 @@
     {
       "brand": "Derma-Safe",
       "name": "Folding Knife",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 8,
       "weight_unit": "g",
@@ -3262,7 +3156,6 @@
       "category_hint": "consumable",
       "weight_value": 4,
       "weight_unit": "g",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/lip-balm-spf-30-by-dermatone",
       "quote": "Weight: 0.55oz | 4g"
@@ -3270,7 +3163,6 @@
     {
       "brand": "Dermatone",
       "name": "Lips and Face Stick SPF 30",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 14,
       "weight_unit": "g",
@@ -3282,7 +3174,6 @@
     {
       "brand": "Dermatone",
       "name": "Mineral Sunscreen Stick SPF 50",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 14,
       "weight_unit": "g",
@@ -3294,7 +3185,6 @@
     {
       "brand": "Dermatone",
       "name": "Skin Protector Balm with Zinc SPF 30",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 14,
       "weight_unit": "g",
@@ -3562,7 +3452,6 @@
       "category_hint": "other",
       "weight_value": 2.2,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/silnylon-pack-cover-by-etowah-outfitters",
       "quote": "Small: 2.2oz | 62oz"
@@ -3852,7 +3741,6 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Alpha Camp Socks",
-      "variant": null,
       "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 25,
@@ -4045,7 +3933,6 @@
     {
       "brand": "Fisher Space Pen",
       "name": "Backpacker Pen",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 15,
       "weight_unit": "g",
@@ -4057,7 +3944,6 @@
     {
       "brand": "Fisher Space Pen",
       "name": "Stowaway Space Pen",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 6,
       "weight_unit": "g",
@@ -4069,7 +3955,6 @@
     {
       "brand": "FKT Gear",
       "name": "Convoluted Bliss Sunglasses",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 29.4,
       "weight_unit": "g",
@@ -4081,7 +3966,6 @@
     {
       "brand": "FKT Gear",
       "name": "Easy Does It Sunglasses",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 26.7,
       "weight_unit": "g",
@@ -4093,7 +3977,6 @@
     {
       "brand": "FKT Gear",
       "name": "High Lonesome Sunglasses",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 29.1,
       "weight_unit": "g",
@@ -4105,7 +3988,6 @@
     {
       "brand": "FKT Gear",
       "name": "Lickskillet Sunglasses",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 26.5,
       "weight_unit": "g",
@@ -4117,7 +3999,6 @@
     {
       "brand": "FKT Gear",
       "name": "Mineral King Sunglasses",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 29.2,
       "weight_unit": "g",
@@ -4129,7 +4010,6 @@
     {
       "brand": "FKT Gear",
       "name": "The Beaten Path Sunglasses",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 26.8,
       "weight_unit": "g",
@@ -4165,7 +4045,6 @@
     {
       "brand": "Flat Cat Gear",
       "name": "Ocelot Windscreen 4.2",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 34,
       "weight_unit": "g",
@@ -4177,7 +4056,6 @@
     {
       "brand": "Flextail",
       "name": "Tiny Helio 600Z Lightweight Headlamp",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 60,
       "weight_unit": "g",
@@ -4201,7 +4079,6 @@
     {
       "brand": "Flextail",
       "name": "Zero Pump 2",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 48,
       "weight_unit": "g",
@@ -4213,7 +4090,6 @@
     {
       "brand": "FlipFuel",
       "name": "Fuel Transfer Device",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 43,
       "weight_unit": "g",
@@ -4225,7 +4101,6 @@
     {
       "brand": "Flowfold",
       "name": "Minimalist Card Holder",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 14,
       "weight_unit": "g",
@@ -4237,7 +4112,6 @@
     {
       "brand": "Flowfold",
       "name": "Vanguard Wallet",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 20,
       "weight_unit": "g",
@@ -4249,7 +4123,6 @@
     {
       "brand": "Fozzils",
       "name": "Snapfold Solo Pack",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 113,
       "weight_unit": "g",
@@ -4261,7 +4134,6 @@
     {
       "brand": "FRACTEL",
       "name": "L-Series Winter Legionnaire Hat",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 150,
       "weight_unit": "g",
@@ -4273,7 +4145,6 @@
     {
       "brand": "FRACTEL",
       "name": "M-Series Cap",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 68,
       "weight_unit": "g",
@@ -4285,7 +4156,6 @@
     {
       "brand": "Frogg Toggs",
       "name": "Chilly Pro Cooling Neck Gaiter",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 44,
       "weight_unit": "g",
@@ -4321,7 +4191,6 @@
     {
       "brand": "Garage Grown Gear",
       "name": "Bamboo Toothbrush",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 9,
       "weight_unit": "g",
@@ -4333,7 +4202,6 @@
     {
       "brand": "Garage Grown Gear",
       "name": "Beeswax Mini Lip Balm",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 2.8,
       "weight_unit": "g",
@@ -4369,7 +4237,6 @@
     {
       "brand": "Garage Grown Gear",
       "name": "Golf Pencil",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 2.8,
       "weight_unit": "g",
@@ -4381,7 +4248,6 @@
     {
       "brand": "Garage Grown Gear",
       "name": "Nail Clipper",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 11,
       "weight_unit": "g",
@@ -4393,7 +4259,6 @@
     {
       "brand": "Garage Grown Gear",
       "name": "Plastic Flask with Funnel",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 7,
       "weight_unit": "g",
@@ -4429,7 +4294,6 @@
     {
       "brand": "Garage Grown Gear",
       "name": "Sit Pad",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 28,
       "weight_unit": "g",
@@ -4453,7 +4317,6 @@
     {
       "brand": "Garage Grown Gear",
       "name": "Water Bottle Sport Cap",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 5,
       "weight_unit": "g",
@@ -4465,7 +4328,6 @@
     {
       "brand": "Gear Aid",
       "name": "Ni Glo Gear Marker",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 7,
       "weight_unit": "g",
@@ -4549,7 +4411,6 @@
     {
       "brand": "Glacial Gear",
       "name": "Trail Rag Elite",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 17,
       "weight_unit": "g",
@@ -4621,7 +4482,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Alchemy Hipbelt Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 20,
       "weight_unit": "g",
@@ -4633,7 +4493,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Alchemy Shoulder Strap Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 25.5,
       "weight_unit": "g",
@@ -4645,7 +4504,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Bottle Rocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 48,
       "weight_unit": "g",
@@ -4657,7 +4515,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Cima 15",
-      "variant": null,
       "attributes": {"volume_l": 15},
       "category_hint": "pack",
       "weight_value": 505,
@@ -4670,7 +4527,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Clear Waterproof Pack Liners",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 40,
       "weight_unit": "g",
@@ -4682,7 +4538,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "DCF Whisper Shelter",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 278,
       "weight_unit": "g",
@@ -4720,7 +4575,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Elixir 20 Daypack",
-      "variant": null,
       "attributes": {"volume_l": 20},
       "category_hint": "pack",
       "weight_value": 178,
@@ -4733,7 +4587,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Fast Belt",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 94,
       "weight_unit": "g",
@@ -4745,7 +4598,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Feedbag",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 37,
       "weight_unit": "g",
@@ -4787,7 +4639,6 @@
       "category_hint": "pack",
       "weight_value": 21.7,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/g4-20-ultralight-42-by-gossamer-gear",
       "quote": "Medium: 21.7oz"
@@ -4808,7 +4659,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Grit 28",
-      "variant": null,
       "attributes": {"volume_l": 28},
       "category_hint": "pack",
       "weight_value": 459,
@@ -4821,7 +4671,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Handsfree Umbrella Clamp",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -4833,7 +4682,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Little Sit Pad",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 49,
       "weight_unit": "g",
@@ -4845,7 +4693,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Loris 25 Daypack",
-      "variant": null,
       "attributes": {"volume_l": 25},
       "category_hint": "pack",
       "weight_value": 553,
@@ -4858,7 +4705,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Minimalist 19 Daypack",
-      "variant": null,
       "attributes": {"volume_l": 19},
       "attributes_source_url": "https://www.gossamergear.com/products/minimalist-19-daypack",
       "attributes_quote": "Main Pack Body 19 L",
@@ -4873,7 +4719,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Mirage 40",
-      "variant": null,
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 530,
@@ -4886,7 +4731,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Oasis Ditty",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 14,
@@ -4899,7 +4743,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Pack Bungee Attachment",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -4911,7 +4754,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Pack Jacket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 82.2,
       "weight_unit": "g",
@@ -4923,7 +4765,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Piku Fanny Pack",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "pack",
       "weight_value": 252,
@@ -4936,7 +4777,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Polycro Tent Ground Cloth",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 168,
       "weight_unit": "g",
@@ -4972,7 +4812,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Sidequest",
-      "variant": null,
       "attributes": {"volume_l": 4},
       "attributes_source_url": "https://www.gossamergear.com/products/sidequest",
       "attributes_quote": "Capacity: Total 4L",
@@ -4987,7 +4826,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Skala 38",
-      "variant": null,
       "attributes": {"volume_l": 38},
       "category_hint": "pack",
       "weight_value": 578,
@@ -5000,7 +4838,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Snack Sack",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 37,
       "weight_unit": "g",
@@ -5012,7 +4849,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Solo Tarp",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 202,
       "weight_unit": "g",
@@ -5024,7 +4860,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Stake Bag",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 8,
       "weight_unit": "g",
@@ -5036,7 +4871,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "The Crotch Pot",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 16,
       "weight_unit": "g",
@@ -5048,7 +4882,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Top Shelf",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 8.5,
       "weight_unit": "g",
@@ -5060,7 +4893,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Twinn Tarp",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 332,
       "weight_unit": "g",
@@ -5072,7 +4904,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Vetta 20L Daypack",
-      "variant": null,
       "attributes": {"volume_l": 20},
       "category_hint": "pack",
       "weight_value": 411,
@@ -5085,7 +4916,6 @@
     {
       "brand": "Gossamer Gear",
       "name": "Whisper Pole Set",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 142,
       "weight_unit": "g",
@@ -5292,7 +5122,6 @@
     {
       "brand": "Hammock Gear",
       "name": "Journey Tarp",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 464,
       "weight_unit": "g",
@@ -5304,7 +5133,6 @@
     {
       "brand": "Hammock Gear",
       "name": "Quest Tarp",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 351,
       "weight_unit": "g",
@@ -5316,7 +5144,6 @@
     {
       "brand": "Hammock Gear",
       "name": "Standard Hammock",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 383,
       "weight_unit": "g",
@@ -5328,7 +5155,6 @@
     {
       "brand": "Hartford Gear Co.",
       "name": "Pack Pod Case",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 23,
       "weight_unit": "g",
@@ -5436,7 +5262,6 @@
     {
       "brand": "Hawbuck",
       "name": "Lean Wallet Solid",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 5,
       "weight_unit": "g",
@@ -5448,7 +5273,6 @@
     {
       "brand": "Hawbuck",
       "name": "Lean Wallet Topo",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 5,
       "weight_unit": "g",
@@ -5460,7 +5284,6 @@
     {
       "brand": "Helinox",
       "name": "Speed Stool",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 454,
       "weight_unit": "g",
@@ -5472,7 +5295,6 @@
     {
       "brand": "High Tail Designs",
       "name": "Hiking Gaiter",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 35,
       "weight_unit": "g",
@@ -5484,7 +5306,6 @@
     {
       "brand": "High Tail Designs",
       "name": "Printed Dyneema Drawstring Stuff Sack",
-      "variant": null,
       "attributes": {"volume_l": 1},
       "attributes_source_url": "https://www.garagegrowngear.com/products/ultralight-drawstring-stuff-sack-by-high-tail-designs",
       "attributes_quote": "Volume: ~1 Liter",
@@ -5547,7 +5368,6 @@
     {
       "brand": "High Tail Designs",
       "name": "Printed Tyvek Ground Cloth",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 137,
       "weight_unit": "g",
@@ -5559,7 +5379,6 @@
     {
       "brand": "High Tail Designs",
       "name": "Ultralight Fanny Pack",
-      "variant": null,
       "attributes": {"volume_l": 1},
       "attributes_source_url": "https://www.garagegrowngear.com/products/ultralight-fanny-pack-by-high-tail-designs",
       "attributes_quote": "Volume: 1L",
@@ -5636,7 +5455,6 @@
     {
       "brand": "HikeLight",
       "name": "Dyneema Tent Vestibule Mat",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 20,
       "weight_unit": "g",
@@ -5672,7 +5490,6 @@
     {
       "brand": "Hilltop Packs",
       "name": "Cord Winder",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 12,
       "weight_unit": "g",
@@ -5919,7 +5736,6 @@
     {
       "brand": "Holey Hiker",
       "name": "Bidet",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -5955,7 +5771,6 @@
     {
       "brand": "humangear",
       "name": "GoBite Spin Spoon & Fork",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 14,
       "weight_unit": "g",
@@ -5991,7 +5806,6 @@
     {
       "brand": "humangear",
       "name": "GoPee Personal Urination Device",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 30,
       "weight_unit": "g",
@@ -6027,7 +5841,6 @@
     {
       "brand": "HydraPak",
       "name": "Bottle Bright Gear Cleaning Tablets",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 18,
       "weight_unit": "g",
@@ -6039,7 +5852,6 @@
     {
       "brand": "HydroBlu",
       "name": "Versa Flow Water Filter",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 57,
       "weight_unit": "g",
@@ -6051,7 +5863,6 @@
     {
       "brand": "HYKLYF",
       "name": "E-Z Key Bear Can Tool",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -6063,7 +5874,6 @@
     {
       "brand": "HYKLYF",
       "name": "Genius Sticker",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 1,
       "weight_unit": "g",
@@ -6075,7 +5885,6 @@
     {
       "brand": "HYKLYF",
       "name": "Pika Bowl",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 7,
       "weight_unit": "g",
@@ -6139,7 +5948,6 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Bottle Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 34,
       "weight_unit": "g",
@@ -6188,7 +5996,6 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "CrossPeak 2",
-      "variant": null,
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 964,
@@ -6362,7 +6169,6 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "REpack Freezer Bag",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 43,
       "weight_unit": "g",
@@ -6422,7 +6228,6 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Shoulder Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 40,
       "weight_unit": "g",
@@ -6508,7 +6313,6 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "The Minimalist Wallet",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 20,
       "weight_unit": "g",
@@ -6524,7 +6328,6 @@
       "category_hint": "shelter",
       "weight_value": 22,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/ultamid-insert-with-cuben-floor-by-hyperlite-mountain-gear",
       "quote": "Weight: 22oz | 624cm"
@@ -6568,7 +6371,6 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Unbound 2P",
-      "variant": null,
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 624,
@@ -6594,7 +6396,6 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "Vice Versa Fanny Pack",
-      "variant": null,
       "attributes": {"volume_l": 1.3},
       "attributes_source_url": "https://www.garagegrowngear.com/products/vice-versa-fanny-pack-by-hyperlite-mountain-gear",
       "attributes_quote": "Volume (internal): 1.3L",
@@ -6671,7 +6472,6 @@
     {
       "brand": "Igneous",
       "name": "Airlock Patch",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 0.39,
       "weight_unit": "g",
@@ -6683,7 +6483,6 @@
     {
       "brand": "Igneous",
       "name": "Bottle Cap Bidet",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -6695,7 +6494,6 @@
     {
       "brand": "Igneous",
       "name": "Bottle Cap & Tether",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 7,
       "weight_unit": "g",
@@ -6707,7 +6505,6 @@
     {
       "brand": "Igneous",
       "name": "Carbon Fiber Cord Spool",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4.5,
       "weight_unit": "g",
@@ -6719,7 +6516,6 @@
     {
       "brand": "Igneous",
       "name": "First Aid & Repair Kit",
-      "variant": null,
       "category_hint": "firstaid",
       "weight_value": 70,
       "weight_unit": "g",
@@ -6731,7 +6527,6 @@
     {
       "brand": "Igneous",
       "name": "Hang System",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 7,
       "weight_unit": "g",
@@ -6743,7 +6538,6 @@
     {
       "brand": "Igneous",
       "name": "Pot Hopper",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 4.5,
       "weight_unit": "g",
@@ -6755,7 +6549,6 @@
     {
       "brand": "Igneous",
       "name": "Reflective Cord",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 30,
       "weight_unit": "g",
@@ -6767,7 +6560,6 @@
     {
       "brand": "Igneous",
       "name": "Repair Spool",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 32,
       "weight_unit": "g",
@@ -6779,7 +6571,6 @@
     {
       "brand": "Igneous",
       "name": "Tent Tool",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 10,
       "weight_unit": "g",
@@ -6791,7 +6582,6 @@
     {
       "brand": "Igneous",
       "name": "Threadlock Patch",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 0.28,
       "weight_unit": "g",
@@ -6803,7 +6593,6 @@
     {
       "brand": "Igneous",
       "name": "Ultralight Leukotape Spool",
-      "variant": null,
       "category_hint": "firstaid",
       "weight_value": 14,
       "weight_unit": "g",
@@ -6815,7 +6604,6 @@
     {
       "brand": "Igneous",
       "name": "Universal Fuel Stand",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 7,
       "weight_unit": "g",
@@ -6827,7 +6615,6 @@
     {
       "brand": "Jereko Gear",
       "name": "Dragon's Head Fuel Stand",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 10,
       "weight_unit": "g",
@@ -6839,7 +6626,6 @@
     {
       "brand": "Jereko Gear",
       "name": "Driver",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 16,
       "weight_unit": "g",
@@ -6875,7 +6661,6 @@
     {
       "brand": "Jereko Gear",
       "name": "Ultralight Carabiner",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4,
       "weight_unit": "g",
@@ -6887,7 +6672,6 @@
     {
       "brand": "Jereko Gear",
       "name": "Zipper Pulls",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 6,
       "weight_unit": "g",
@@ -6899,7 +6683,6 @@
     {
       "brand": "JoGo",
       "name": "Brew Straw",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 28,
       "weight_unit": "g",
@@ -6971,7 +6754,6 @@
     {
       "brand": "Joshua Tree Skin Care",
       "name": "Organic SPF Lip Balm",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 11.3,
       "weight_unit": "g",
@@ -6983,7 +6765,6 @@
     {
       "brand": "Joshua Tree Skin Care",
       "name": "Sunscreen Face Stick",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 28.3,
       "weight_unit": "g",
@@ -7139,7 +6920,6 @@
     {
       "brand": "Katabatic Gear",
       "name": "Crestone Hood",
-      "variant": null,
       "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 74,
@@ -7576,7 +7356,6 @@
     {
       "brand": "Katadyn",
       "name": "BeFree Activated Carbon Flip Cap",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 14,
       "weight_unit": "g",
@@ -7588,7 +7367,6 @@
     {
       "brand": "Katadyn",
       "name": "BeFree Replacement Filter",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 34,
       "weight_unit": "g",
@@ -7600,7 +7378,6 @@
     {
       "brand": "Kinich Sun Hoods",
       "name": "UV Protective Sun Hood",
-      "variant": null,
       "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 55,
@@ -7613,7 +7390,6 @@
     {
       "brand": "Klymit",
       "name": "Insulated V Ultralite SL",
-      "variant": null,
       "attributes": {"r_value": 1.9, "length": "72in", "width": "20in"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/insulated-v-ultralite-sl-by-klymit",
       "attributes_quote": "R-value: 4.4 ASTM 1.9 Dimensions: 72\" x 20\" x 2.5\"",
@@ -7628,7 +7404,6 @@
     {
       "brand": "Kula Cloth",
       "name": "Pee Cloth",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 14,
       "weight_unit": "g",
@@ -7688,7 +7463,6 @@
     {
       "brand": "LD Mods",
       "name": "Silicone Handle Pot Modification Kit",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 4,
       "weight_unit": "g",
@@ -7712,7 +7486,6 @@
     {
       "brand": "LightHeart Gear",
       "name": "Duo Silnylon Tent",
-      "variant": null,
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 1091,
@@ -7725,7 +7498,6 @@
     {
       "brand": "LightHeart Gear",
       "name": "FireFly 1P Silnylon Tent",
-      "variant": null,
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 895,
@@ -7942,7 +7714,6 @@
     {
       "brand": "LightHeart Gear",
       "name": "SoLong 6 1P Tent",
-      "variant": null,
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 964,
@@ -8003,7 +7774,6 @@
     {
       "brand": "Lightload",
       "name": "Camp Towel",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 7,
       "weight_unit": "g",
@@ -8015,7 +7785,6 @@
     {
       "brand": "LITE WERKS",
       "name": "Hip Belt Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 71,
       "weight_unit": "g",
@@ -8027,7 +7796,6 @@
     {
       "brand": "LITE WERKS",
       "name": "Shoulder Strap Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 57,
       "weight_unit": "g",
@@ -8052,7 +7820,6 @@
     {
       "brand": "LITE WERKS",
       "name": "Water Bottle Carrier",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 28,
       "weight_unit": "g",
@@ -8064,7 +7831,6 @@
     {
       "brand": "LiteAF",
       "name": "Feather Weight Fanny Pack",
-      "variant": null,
       "attributes": {"volume_l": 1.5},
       "attributes_source_url": "https://www.garagegrowngear.com/products/feather-weight-fanny-pack-by-liteaf",
       "attributes_quote": "Volume: 1.5 L",
@@ -8196,7 +7962,6 @@
     {
       "brand": "LiteAF",
       "name": "Ultralight First Aid Zipper Pouch",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 10.8,
       "weight_unit": "g",
@@ -8268,7 +8033,6 @@
     {
       "brand": "Matador",
       "name": "FlatPak Waterproof Toiletry Case",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 33,
       "weight_unit": "g",
@@ -8304,7 +8068,6 @@
     {
       "brand": "MooseTrack Packs",
       "name": "ClipIt Lighter Lanyard",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 3,
       "weight_unit": "g",
@@ -8316,7 +8079,6 @@
     {
       "brand": "MooseTrack Packs",
       "name": "Dyneema Hooded Half-Poncho",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 82,
       "weight_unit": "g",
@@ -8328,7 +8090,6 @@
     {
       "brand": "MooseTrack Packs",
       "name": "MTP 35L Backpacking Rucksack",
-      "variant": null,
       "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "weight_value": 567,
@@ -8377,7 +8138,6 @@
     {
       "brand": "Mountainsmith",
       "name": "Zerk 40L Backpack",
-      "variant": null,
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 822,
@@ -8438,7 +8198,6 @@
     {
       "brand": "Nashville Pack",
       "name": "Tiempo 15 Pack",
-      "variant": null,
       "attributes": {"volume_l": 15},
       "category_hint": "pack",
       "weight_value": 165,
@@ -8451,7 +8210,6 @@
     {
       "brand": "Nemo",
       "name": "Moonlite Elite Reclining Chair",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 552,
       "weight_unit": "g",
@@ -8493,7 +8251,6 @@
     {
       "brand": "Nemo",
       "name": "Sweepstake Lightweight Tent Stakes",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 20,
       "weight_unit": "g",
@@ -8760,7 +8517,6 @@
     {
       "brand": "Nitecore",
       "name": "Carbo 10000 Power Bank Gen 2",
-      "variant": null,
       "attributes": {"capacity_mah": 10000},
       "category_hint": "electronics",
       "weight_value": 170,
@@ -8773,7 +8529,6 @@
     {
       "brand": "Nitecore",
       "name": "Carbo 20 Power Bank",
-      "variant": null,
       "attributes": {"capacity_mah": 20000},
       "attributes_source_url": "https://www.garagegrowngear.com/products/carbo-20000-power-bank-by-nitecore",
       "attributes_quote": "carbo-20000-power-bank-by-nitecore",
@@ -8788,7 +8543,6 @@
     {
       "brand": "Nitecore",
       "name": "Carbon Battery 6k Power Bank",
-      "variant": null,
       "attributes": {"capacity_mah": 6000},
       "category_hint": "electronics",
       "weight_value": 88,
@@ -8801,7 +8555,6 @@
     {
       "brand": "Nitecore",
       "name": "NB Air 5000mAh Power Bank",
-      "variant": null,
       "attributes": {"capacity_mah": 5000},
       "category_hint": "electronics",
       "weight_value": 89,
@@ -8814,7 +8567,6 @@
     {
       "brand": "Nitecore",
       "name": "NB20000 Power Bank Gen 3",
-      "variant": null,
       "attributes": {"capacity_mah": 20000},
       "category_hint": "electronics",
       "weight_value": 291,
@@ -8827,7 +8579,6 @@
     {
       "brand": "Nitecore",
       "name": "NLink10 USB-C Charging Cable",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 11,
       "weight_unit": "g",
@@ -8839,7 +8590,6 @@
     {
       "brand": "Nitecore",
       "name": "NU20 Classic Headlamp",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 38,
       "weight_unit": "g",
@@ -8851,7 +8601,6 @@
     {
       "brand": "Nitecore",
       "name": "NU27 600 Lumen Rechargeable Headlamp",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 56,
       "weight_unit": "g",
@@ -8863,7 +8612,6 @@
     {
       "brand": "Nitecore",
       "name": "TINI 3 Keychain Flashlight",
-      "variant": null,
       "category_hint": "electronics",
       "weight_value": 20,
       "weight_unit": "g",
@@ -8876,10 +8624,10 @@
       "brand": "Nnormal",
       "name": "Tomir 2.0 NN",
       "variant": "Men's US 9 / Women's US 10",
-      "attributes_unpublished": ["size"],
       "attributes": {"fit": "Unisex"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/tomir-2-0-trail-runners-by-nnormal",
       "attributes_quote": "Weight: 9.3oz | 264g (M’s 9 | W’s 10 US per shoe); sizes 5M | 6W … 9.5M | 10.5W",
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 264,
       "weight_unit": "g",
@@ -8891,7 +8639,6 @@
     {
       "brand": "No Matter Products",
       "name": "Antimatter Chair",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 189,
       "weight_unit": "g",
@@ -8927,7 +8674,6 @@
     {
       "brand": "Nylofume",
       "name": "Pack Liner",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 29,
       "weight_unit": "g",
@@ -8939,7 +8685,6 @@
     {
       "brand": "Ombraz",
       "name": "Classic Armless Sunglasses",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 23,
       "weight_unit": "g",
@@ -8951,7 +8696,6 @@
     {
       "brand": "Ombraz",
       "name": "Dolomite Armless Sunglasses",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 23,
       "weight_unit": "g",
@@ -8963,7 +8707,6 @@
     {
       "brand": "Ombraz",
       "name": "Teton Armless Sunglasses",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 23,
       "weight_unit": "g",
@@ -8975,7 +8718,6 @@
     {
       "brand": "Ombraz",
       "name": "Viale Armless Sunglasses",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 23,
       "weight_unit": "g",
@@ -8999,7 +8741,6 @@
     {
       "brand": "One Bottle Hydration",
       "name": "Insulating Tube Cover",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 14,
       "weight_unit": "g",
@@ -9011,7 +8752,6 @@
     {
       "brand": "One Bottle Hydration",
       "name": "Magnetic Tube Clip",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 14,
       "weight_unit": "g",
@@ -9023,7 +8763,6 @@
     {
       "brand": "One Bottle Hydration",
       "name": "Wide Mouth Flip-Top Lid",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 32,
       "weight_unit": "g",
@@ -9119,7 +8858,6 @@
     {
       "brand": "Outdoor Element",
       "name": "Firebiner",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 31,
       "weight_unit": "g",
@@ -9232,7 +8970,6 @@
     {
       "brand": "Pa'lante",
       "name": "Sidebag",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 91,
       "weight_unit": "g",
@@ -9244,7 +8981,6 @@
     {
       "brand": "Pachallama",
       "name": "2g Tent Stake",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 2,
       "weight_unit": "g",
@@ -9379,7 +9115,6 @@
     {
       "brand": "PACT Outdoors",
       "name": "Bathroom Wipes",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 2,
       "weight_unit": "g",
@@ -9391,7 +9126,6 @@
     {
       "brand": "PACT Outdoors",
       "name": "Body Wipes",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 9,
       "weight_unit": "g",
@@ -9415,20 +9149,18 @@
     {
       "brand": "PACT Outdoors",
       "name": "Pack Out Bathroom Kit",
-      "variant": null,
       "category_hint": "consumable",
+      "common_name": "waste bags",
       "weight_value": 40,
       "weight_unit": "g",
       "weight_secondary": "1.4oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/pack-out-kit-by-pact-outdoors",
-      "quote": "Weight: 1.4oz | 40g",
-      "common_name": "waste bags"
+      "quote": "Weight: 1.4oz | 40g"
     },
     {
       "brand": "Parapack",
       "name": "B-CAP Bucket Hat",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 58,
       "weight_unit": "g",
@@ -9440,7 +9172,6 @@
     {
       "brand": "Parapack",
       "name": "L-CAP",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 58,
       "weight_unit": "g",
@@ -9452,7 +9183,6 @@
     {
       "brand": "Parapack",
       "name": "P-CAP",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 28,
       "weight_unit": "g",
@@ -9464,7 +9194,6 @@
     {
       "brand": "Parapack",
       "name": "P-CAP Lite",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 23,
       "weight_unit": "g",
@@ -9476,7 +9205,6 @@
     {
       "brand": "Peak First Aid",
       "name": "First Aid Kit",
-      "variant": null,
       "category_hint": "firstaid",
       "weight_value": 184,
       "weight_unit": "g",
@@ -9488,7 +9216,6 @@
     {
       "brand": "Peak First Aid",
       "name": "Peak Tape",
-      "variant": null,
       "category_hint": "firstaid",
       "weight_value": 38,
       "weight_unit": "g",
@@ -9500,7 +9227,6 @@
     {
       "brand": "PEPPERWOOL",
       "name": "MERINO MM Knife",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 45,
       "weight_unit": "g",
@@ -9512,7 +9238,6 @@
     {
       "brand": "Pika Outdoors",
       "name": "Pika Lid",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 27,
       "weight_unit": "g",
@@ -9572,7 +9297,6 @@
     {
       "brand": "Platypus",
       "name": "Platy 2L Collapsible Bottle",
-      "variant": null,
       "attributes": {"volume_l": 2},
       "category_hint": "water",
       "weight_value": 37,
@@ -9585,7 +9309,6 @@
     {
       "brand": "Platypus",
       "name": "PlatyPreserve Collapsible Wine Bottle",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 23,
       "weight_unit": "g",
@@ -9597,7 +9320,6 @@
     {
       "brand": "Platypus",
       "name": "QuickDraw Filter",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 82,
       "weight_unit": "g",
@@ -9609,7 +9331,6 @@
     {
       "brand": "PlayLark",
       "name": "Lark",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 258,
       "weight_unit": "g",
@@ -9621,7 +9342,6 @@
     {
       "brand": "Pond's Edge",
       "name": "Pot Sack",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 2.8,
@@ -9634,7 +9354,6 @@
     {
       "brand": "Pond's Edge",
       "name": "Sleeping Pad Stuff Sack",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 8.5,
@@ -9647,7 +9366,6 @@
     {
       "brand": "Pond's Edge",
       "name": "Umbrella Stuff Sack",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 5.7,
@@ -9660,7 +9378,6 @@
     {
       "brand": "Pond's Edge",
       "name": "Zippered Stake Bag",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 9,
       "weight_unit": "g",
@@ -9685,7 +9402,6 @@
     {
       "brand": "Pond's Edge",
       "name": "Hip Belt Pouch",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 8.5,
       "weight_unit": "g",
@@ -9697,7 +9413,6 @@
     {
       "brand": "Pond's Edge",
       "name": "Stuff Sack",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "other",
       "weight_value": 2.8,
@@ -9710,7 +9425,6 @@
     {
       "brand": "Preservation Dogs",
       "name": "Arctic Fox Trekking Paws",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 24,
       "weight_unit": "g",
@@ -9722,7 +9436,6 @@
     {
       "brand": "pStyle",
       "name": "pCase Carrying Case",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 28,
       "weight_unit": "g",
@@ -9734,7 +9447,6 @@
     {
       "brand": "pStyle",
       "name": "Personal Urination Device",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 23,
       "weight_unit": "g",
@@ -9794,7 +9506,6 @@
     {
       "brand": "QiWiz UL Gear",
       "name": "Adjustable Titanium Windscreen",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 30.5,
       "weight_unit": "g",
@@ -9842,7 +9553,6 @@
     {
       "brand": "Rawlogy",
       "name": "Micro Cork Massage Ball",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 1,
       "weight_unit": "g",
@@ -9854,7 +9564,6 @@
     {
       "brand": "Recaps",
       "name": "Adventurer Shade Shifter Sun Hat",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 91,
       "weight_unit": "g",
@@ -9866,7 +9575,6 @@
     {
       "brand": "Recaps",
       "name": "Lounger Shade Shifter Sun Hat",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 71,
       "weight_unit": "g",
@@ -9878,7 +9586,6 @@
     {
       "brand": "Red Paw Packs",
       "name": "Flex Fanny Pack",
-      "variant": null,
       "attributes_unpublished": ["volume_l"],
       "category_hint": "pack",
       "weight_value": 102,
@@ -10035,7 +9742,6 @@
     {
       "brand": "Rite in the Rain",
       "name": "Top Spiral All-Weather Notebook",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 57,
       "weight_unit": "g",
@@ -10059,7 +9765,6 @@
     {
       "brand": "SÜLgear",
       "name": "Adventure Wallet",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 9,
       "weight_unit": "g",
@@ -10095,7 +9800,6 @@
     {
       "brand": "Samaya Equipment",
       "name": "TARP_001",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 165,
       "weight_unit": "g",
@@ -10107,7 +9811,6 @@
     {
       "brand": "Samaya Equipment",
       "name": "INSPIRE2 Tent",
-      "variant": null,
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 1230,
@@ -10120,7 +9823,6 @@
     {
       "brand": "Samaya Equipment",
       "name": "INSTANT2 Footprint",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 152,
       "weight_unit": "g",
@@ -10132,7 +9834,6 @@
     {
       "brand": "Samaya Equipment",
       "name": "INSTANT2 Tent",
-      "variant": null,
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 995,
@@ -10145,7 +9846,6 @@
     {
       "brand": "Samaya Equipment",
       "name": "OPTI1.5 Tent",
-      "variant": null,
       "attributes": {"persons": 1.5},
       "category_hint": "shelter",
       "weight_value": 700,
@@ -10158,7 +9858,6 @@
     {
       "brand": "Samaya Equipment",
       "name": "RADICAL1 Footprint",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 90,
       "weight_unit": "g",
@@ -10183,7 +9882,6 @@
     {
       "brand": "Samaya Equipment",
       "name": "Samaya2.0 Footprint",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 155,
       "weight_unit": "g",
@@ -10208,7 +9906,6 @@
     {
       "brand": "Samaya Equipment",
       "name": "Samaya2.0 Vestibule",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 550,
       "weight_unit": "g",
@@ -10233,7 +9930,6 @@
     {
       "brand": "Samaya Equipment",
       "name": "Samaya2.5 Vestibule",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 630,
       "weight_unit": "g",
@@ -10305,7 +10001,6 @@
     {
       "brand": "Sawyer",
       "name": "Cleaning Coupling",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 5.7,
       "weight_unit": "g",
@@ -10317,7 +10012,6 @@
     {
       "brand": "Sawyer",
       "name": "Micro Squeeze Water Filtration System with CNOC Premium 750ml Pouch",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 96,
       "weight_unit": "g",
@@ -10377,7 +10071,6 @@
     {
       "brand": "Sawyer",
       "name": "Squeeze Water Filtration System with CNOC Premium 1L Bottle",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 139,
       "weight_unit": "g",
@@ -10389,7 +10082,6 @@
     {
       "brand": "Sawyer",
       "name": "Squeeze Water Filtration System with CNOC Premium 2L Bladder",
-      "variant": null,
       "category_hint": "water",
       "weight_value": 167,
       "weight_unit": "g",
@@ -10557,7 +10249,6 @@
     {
       "brand": "Sea to Summit",
       "name": "Travel Eye Shades",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 23,
       "weight_unit": "g",
@@ -10569,7 +10260,6 @@
     {
       "brand": "Sea to Summit",
       "name": "Ultra-Fine Mesh Mosquito Head Net",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 23,
       "weight_unit": "g",
@@ -10656,7 +10346,6 @@
     {
       "brand": "SilverAnt",
       "name": "Titanium 3 Piece Cookset",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 312,
       "weight_unit": "g",
@@ -10668,7 +10357,6 @@
     {
       "brand": "SilverAnt",
       "name": "Titanium 3 Piece Cutlery Set",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 43,
       "weight_unit": "g",
@@ -10680,7 +10368,6 @@
     {
       "brand": "SilverAnt",
       "name": "Titanium 800ml Screw Top Clip Bottle",
-      "variant": null,
       "attributes": {"volume_l": 0.8},
       "category_hint": "water",
       "weight_value": 167,
@@ -10693,7 +10380,6 @@
     {
       "brand": "SilverAnt",
       "name": "Titanium Funnel",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 6,
       "weight_unit": "g",
@@ -10705,7 +10391,6 @@
     {
       "brand": "Six Moon Designs",
       "name": "Hands Free Umbrella Kit",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 10,
       "weight_unit": "g",
@@ -10717,7 +10402,6 @@
     {
       "brand": "Six Moon Designs",
       "name": "Haven Two Person Tent",
-      "variant": null,
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 963,
@@ -10730,7 +10414,6 @@
     {
       "brand": "Six Moon Designs",
       "name": "Lunar Duo Explorer",
-      "variant": null,
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 1276,
@@ -10743,7 +10426,6 @@
     {
       "brand": "Six Moon Designs",
       "name": "Lunar Duo Outfitter",
-      "variant": null,
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 1600,
@@ -10756,7 +10438,6 @@
     {
       "brand": "Six Moon Designs",
       "name": "Pack Liner",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 85,
       "weight_unit": "g",
@@ -10804,7 +10485,6 @@
     {
       "brand": "Six Moon Designs",
       "name": "Rain Walker SUL Umbrella",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 156,
       "weight_unit": "g",
@@ -10816,7 +10496,6 @@
     {
       "brand": "Six Moon Designs",
       "name": "Silver Shadow Mini",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 193,
       "weight_unit": "g",
@@ -10828,7 +10507,6 @@
     {
       "brand": "Six Moon Designs",
       "name": "Skyscape Scout",
-      "variant": null,
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.sixmoondesigns.com/products/skyscape-scout",
       "attributes_quote": "Sleeps: 1",
@@ -10879,7 +10557,6 @@
     {
       "brand": "SKS Bottles",
       "name": "Hinged Box Container",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 6,
       "weight_unit": "g",
@@ -10903,7 +10580,6 @@
     {
       "brand": "SKS Bottles",
       "name": "Toiletry Bottle",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 8.5,
       "weight_unit": "g",
@@ -11023,7 +10699,6 @@
     {
       "brand": "SlingFin",
       "name": "NFT Tarp",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 349,
       "weight_unit": "g",
@@ -11035,7 +10710,6 @@
     {
       "brand": "SlingFin",
       "name": "SplitWing Floor",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 96,
       "weight_unit": "g",
@@ -11047,7 +10721,6 @@
     {
       "brand": "SlingFin",
       "name": "SplitWing Mesh Body",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 318,
       "weight_unit": "g",
@@ -11074,7 +10747,6 @@
     {
       "brand": "Snow Peak",
       "name": "Hot Lips 2 Piece Set",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 8,
       "weight_unit": "g",
@@ -11086,7 +10758,6 @@
     {
       "brand": "Snow Peak",
       "name": "Ti-Single 450 Anodized Cup",
-      "variant": null,
       "attributes": {"volume_l": 0.45},
       "category_hint": "cook",
       "weight_value": 70,
@@ -11099,7 +10770,6 @@
     {
       "brand": "Snow Peak",
       "name": "Titanium French Press",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 200,
       "weight_unit": "g",
@@ -11111,7 +10781,6 @@
     {
       "brand": "Snow Peak",
       "name": "Titanium Spork",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 16,
       "weight_unit": "g",
@@ -11123,7 +10792,6 @@
     {
       "brand": "Snow Peak",
       "name": "Trek 900 Titanium Cookset",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 175,
       "weight_unit": "g",
@@ -11135,7 +10803,6 @@
     {
       "brand": "SnoWander",
       "name": "PoleClinometer Version 2.0",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 1.5,
       "weight_unit": "g",
@@ -11147,7 +10814,6 @@
     {
       "brand": "SOL",
       "name": "All-Weather Matches",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 90.7,
       "weight_unit": "g",
@@ -11171,7 +10837,6 @@
     {
       "brand": "SOL",
       "name": "Emergency Blanket",
-      "variant": null,
       "category_hint": "firstaid",
       "weight_value": 82,
       "weight_unit": "g",
@@ -11183,7 +10848,6 @@
     {
       "brand": "Soto",
       "name": "Field Hopper Table",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 395,
       "weight_unit": "g",
@@ -11195,7 +10859,6 @@
     {
       "brand": "Soto",
       "name": "Helix Coffee Maker",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 51,
       "weight_unit": "g",
@@ -11207,7 +10870,6 @@
     {
       "brand": "Soto",
       "name": "Micro Lifter",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 13,
       "weight_unit": "g",
@@ -11219,7 +10881,6 @@
     {
       "brand": "Soto",
       "name": "Pocket Torch with Refillable Lighter",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 51,
       "weight_unit": "g",
@@ -11231,7 +10892,6 @@
     {
       "brand": "Soto",
       "name": "Pocket Torch XT",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 51,
       "weight_unit": "g",
@@ -11243,7 +10903,6 @@
     {
       "brand": "Soto",
       "name": "ThermoLite Cook Set",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 161,
       "weight_unit": "g",
@@ -11255,7 +10914,6 @@
     {
       "brand": "Soto",
       "name": "Titanium Pot 1100ml",
-      "variant": null,
       "attributes": {"volume_l": 1.1},
       "category_hint": "cook",
       "weight_value": 110,
@@ -11268,7 +10926,6 @@
     {
       "brand": "Soto",
       "name": "Titanium Pot 750ml",
-      "variant": null,
       "attributes": {"volume_l": 0.75},
       "category_hint": "cook",
       "weight_value": 90,
@@ -11281,7 +10938,6 @@
     {
       "brand": "Soto",
       "name": "Ultralight Mug Lid",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 17,
       "weight_unit": "g",
@@ -11293,7 +10949,6 @@
     {
       "brand": "Space Bear Bags",
       "name": "First Aid Pouch",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 9,
       "weight_unit": "g",
@@ -11341,7 +10996,6 @@
     {
       "brand": "Spuds Adventure Gear",
       "name": "Stick Stashers 2.0",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 43,
       "weight_unit": "g",
@@ -11425,7 +11079,6 @@
     {
       "brand": "Suluk 46",
       "name": "Olik Titanium Snow Stake",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 14,
       "weight_unit": "g",
@@ -11437,7 +11090,6 @@
     {
       "brand": "Supai Adventure Gear",
       "name": "Canyon Flatwater Lightweight Packraft",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 680,
       "weight_unit": "g",
@@ -11449,7 +11101,6 @@
     {
       "brand": "Supai Adventure Gear",
       "name": "Inflation Sack",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 40,
       "weight_unit": "g",
@@ -11461,7 +11112,6 @@
     {
       "brand": "Supai Adventure Gear",
       "name": "Matkat Flatwater Lightweight Packraft",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 794,
       "weight_unit": "g",
@@ -11473,7 +11123,6 @@
     {
       "brand": "Supai Adventure Gear",
       "name": "Olo Packraft Paddle",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 411,
       "weight_unit": "g",
@@ -11569,7 +11218,6 @@
     {
       "brand": "Superior Gear",
       "name": "Superior Hammock Suspension System",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 198,
       "weight_unit": "g",
@@ -11626,7 +11274,6 @@
     {
       "brand": "Symbiosis Gear",
       "name": "Universal Sternum Strap",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 20,
       "weight_unit": "g",
@@ -11677,7 +11324,6 @@
     {
       "brand": "Teragon Gear",
       "name": "Pioneer Torque Tent Stake",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 9,
       "weight_unit": "g",
@@ -11701,7 +11347,6 @@
     {
       "brand": "Territory Run Co.",
       "name": "The Long Haul Cap",
-      "variant": null,
       "category_hint": "clothing",
       "weight_value": 60,
       "weight_unit": "g",
@@ -11718,7 +11363,6 @@
       "category_hint": "clothing",
       "weight_value": 4,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/womens-all-day-run-shorts-by-territory-run-co",
       "quote": "Weight: ~4.0oz"
@@ -11726,7 +11370,6 @@
     {
       "brand": "The Prairie Dog",
       "name": "Shovel",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 18,
       "weight_unit": "g",
@@ -11783,7 +11426,6 @@
     {
       "brand": "ThermoWorks",
       "name": "Zipper-Pull Hiking Thermometer",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 14.3,
       "weight_unit": "g",
@@ -11795,7 +11437,6 @@
     {
       "brand": "TheTentLab",
       "name": "DirtSaw Deuce #2 Trowel",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 17,
       "weight_unit": "g",
@@ -11807,7 +11448,6 @@
     {
       "brand": "TheTentLab",
       "name": "DirtSaw Deuce #3 Trowel",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 27,
       "weight_unit": "g",
@@ -11891,7 +11531,6 @@
     {
       "brand": "Toaks",
       "name": "Alcohol Stove Combo Set",
-      "variant": null,
       "attributes": {"fuel": "alcohol"},
       "category_hint": "cook",
       "weight_value": 151,
@@ -11928,7 +11567,6 @@
     {
       "brand": "Toaks",
       "name": "Stove Frame",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 23,
       "weight_unit": "g",
@@ -11940,7 +11578,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium 1300ml Pot",
-      "variant": null,
       "attributes": {"volume_l": 1.3},
       "category_hint": "cook",
       "weight_value": 130,
@@ -11953,7 +11590,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium 1350ml Pot",
-      "variant": null,
       "attributes": {"volume_l": 1.35},
       "category_hint": "cook",
       "weight_value": 147,
@@ -11966,7 +11602,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium 1600ml Pot",
-      "variant": null,
       "attributes": {"volume_l": 1.6},
       "category_hint": "cook",
       "weight_value": 196,
@@ -11979,7 +11614,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium 375ml Cup",
-      "variant": null,
       "attributes": {"volume_l": 0.375},
       "category_hint": "cook",
       "weight_value": 62,
@@ -12005,7 +11639,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium 900ml D130mm Pot",
-      "variant": null,
       "attributes": {"volume_l": 0.9},
       "category_hint": "cook",
       "weight_value": 105,
@@ -12048,7 +11681,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium Folding Fork",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 14,
       "weight_unit": "g",
@@ -12060,7 +11692,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium Folding Knife",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 14,
       "weight_unit": "g",
@@ -12072,7 +11703,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium Folding Spoon",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 18,
       "weight_unit": "g",
@@ -12084,7 +11714,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium Folding Spork",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 18,
       "weight_unit": "g",
@@ -12132,7 +11761,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium Long Handle Spork with Polished Bowl",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 19,
       "weight_unit": "g",
@@ -12144,7 +11772,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium Plate",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 65,
       "weight_unit": "g",
@@ -12156,7 +11783,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium Siphon Alcohol Stove",
-      "variant": null,
       "attributes": {"fuel": "alcohol"},
       "attributes_source_url": "https://www.toaksoutdoor.com/products/stv-01",
       "attributes_quote": "We recommend using Denatured alcohol (C2H6O) for a clean, efficient burn.",
@@ -12171,7 +11797,6 @@
     {
       "brand": "Toaks",
       "name": "Titanium Windscreen",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 14,
       "weight_unit": "g",
@@ -12183,7 +11808,6 @@
     {
       "brand": "Toaks",
       "name": "TITONGS Set",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 34,
       "weight_unit": "g",
@@ -12243,7 +11867,6 @@
     {
       "brand": "Trail Stuff",
       "name": "Trailbrush",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 4.4,
       "weight_unit": "g",
@@ -12255,7 +11878,6 @@
     {
       "brand": "Trekker Joe's",
       "name": "Diver Mesh Water Bottle Sleeve",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 28,
       "weight_unit": "g",
@@ -12267,7 +11889,6 @@
     {
       "brand": "Trekker Joe's",
       "name": "Shoulder Strap Pocket",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 31,
       "weight_unit": "g",
@@ -12439,7 +12060,6 @@
       "category_hint": "clothing",
       "weight_value": 2.4,
       "weight_unit": "oz",
-      "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/calf-gaiters-by-ultragam",
       "quote": "Weight: 2.4oz | 68oz (per pair in medium)"
@@ -12447,7 +12067,6 @@
     {
       "brand": "UltraliteSacks",
       "name": "Recyclops Ultralight 35L Backpack",
-      "variant": null,
       "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "weight_value": 440,
@@ -12558,7 +12177,6 @@
     {
       "brand": "Uncle Bill's",
       "name": "Sliver Gripper Tweezers",
-      "variant": null,
       "category_hint": "firstaid",
       "weight_value": 3.7,
       "weight_unit": "g",
@@ -12582,7 +12200,6 @@
     {
       "brand": "Ursack",
       "name": "Major 2XL",
-      "variant": null,
       "attributes": {"volume_l": 30},
       "attributes_source_url": "https://ursack.com/products/ursack-major-2xl",
       "attributes_quote": "Capacity: about 30 liters (approx. 14 days of food for 1 person)",
@@ -12597,7 +12214,6 @@
     {
       "brand": "Ursack",
       "name": "Major XL",
-      "variant": null,
       "attributes": {"volume_l": 15},
       "attributes_source_url": "https://www.garagegrowngear.com/products/ursack-major-by-ursack",
       "attributes_quote": "Volume: ~15L Capacity: ~7+ days of food for 1 person",
@@ -12612,7 +12228,6 @@
     {
       "brand": "Vargo",
       "name": "Alcohol Fuel Bottle",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 28,
       "weight_unit": "g",
@@ -12624,7 +12239,6 @@
     {
       "brand": "Vargo",
       "name": "Aluminum Windscreen",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 37,
       "weight_unit": "g",
@@ -12636,7 +12250,6 @@
     {
       "brand": "Vargo",
       "name": "BOT 1L",
-      "variant": null,
       "attributes": {"volume_l": 1},
       "category_hint": "cook",
       "weight_value": 147,
@@ -12649,7 +12262,6 @@
     {
       "brand": "Vargo",
       "name": "BOT HD",
-      "variant": null,
       "attributes": {"volume_l": 1},
       "attributes_source_url": "https://vargooutdoors.com/products/bot-hd",
       "attributes_quote": "Capacity: 1.0 liter (34 oz)",
@@ -12664,7 +12276,6 @@
     {
       "brand": "Vargo",
       "name": "BOT XL",
-      "variant": null,
       "attributes": {"volume_l": 1.1},
       "attributes_source_url": "https://vargooutdoors.com/products/bot-xl",
       "attributes_quote": "Capacity: 1.1 liter (37.2oz)",
@@ -12679,7 +12290,6 @@
     {
       "brand": "Vargo",
       "name": "Dig Dig Tool",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 34,
       "weight_unit": "g",
@@ -12691,7 +12301,6 @@
     {
       "brand": "Vargo",
       "name": "Hexagon Stove Baseplate",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 43,
       "weight_unit": "g",
@@ -12703,7 +12312,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Ascent Tent Stake",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 10,
       "weight_unit": "g",
@@ -12715,7 +12323,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Chopsticks",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 20,
       "weight_unit": "g",
@@ -12727,7 +12334,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Converter Stove",
-      "variant": null,
       "attributes_unpublished": ["fuel"],
       "category_hint": "cook",
       "weight_value": 37,
@@ -12740,7 +12346,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Fork-N-Spoon",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 23,
       "weight_unit": "g",
@@ -12752,7 +12357,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Hexagon Wood Stove",
-      "variant": null,
       "attributes": {"fuel": "wood"},
       "category_hint": "cook",
       "weight_value": 116,
@@ -12765,7 +12369,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Long-Handle Spoon",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 14,
       "weight_unit": "g",
@@ -12789,7 +12392,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Shepherd's Hook Tent Stake",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 8,
       "weight_unit": "g",
@@ -12801,7 +12403,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Sierra Cup 300ml",
-      "variant": null,
       "attributes": {"volume_l": 0.3},
       "category_hint": "cook",
       "weight_value": 43,
@@ -12814,7 +12415,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Sierra Cup 450ml",
-      "variant": null,
       "attributes": {"volume_l": 0.45},
       "category_hint": "cook",
       "weight_value": 55,
@@ -12827,7 +12427,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Spork ULV",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 11,
       "weight_unit": "g",
@@ -12839,7 +12438,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Travel Coffee Filter",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 36,
       "weight_unit": "g",
@@ -12851,7 +12449,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Triad Multi-Fuel Stove",
-      "variant": null,
       "attributes": {"fuel": "alcohol"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/triad-multi-fuel-stove",
       "attributes_quote": "Only use denatured, ethyl, or methyl alcohol, solid stove fuel tabs, or fuel gels as fuel!",
@@ -12866,7 +12463,6 @@
     {
       "brand": "Vargo",
       "name": "Titanium Whistle",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 3,
       "weight_unit": "g",
@@ -12878,7 +12474,6 @@
     {
       "brand": "Vaucluse Backpack Ventilation Gear",
       "name": "Mesh Sleeve for Ultralight Ventilation Frame",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 59.5,
       "weight_unit": "g",
@@ -12890,7 +12485,6 @@
     {
       "brand": "Vaucluse Backpack Ventilation Gear",
       "name": "Ultralight Backpack Ventilation Frame",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 94,
       "weight_unit": "g",
@@ -12902,7 +12496,6 @@
     {
       "brand": "Venture Wipes",
       "name": "Body Wipes",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 28,
       "weight_unit": "g",
@@ -12914,7 +12507,6 @@
     {
       "brand": "Virginia Foothill Designs",
       "name": "Ultralight 25L Pack",
-      "variant": null,
       "attributes": {"volume_l": 25},
       "category_hint": "pack",
       "weight_value": 346,
@@ -12927,7 +12519,6 @@
     {
       "brand": "Virginia Foothill Designs",
       "name": "Ultralight 40L Pack",
-      "variant": null,
       "attributes": {"volume_l": 40},
       "category_hint": "pack",
       "weight_value": 390,
@@ -13036,7 +12627,6 @@
     {
       "brand": "WEBO Gear",
       "name": "Thru Hip-Pack",
-      "variant": null,
       "attributes": {"volume_l": 1},
       "attributes_source_url": "https://www.garagegrowngear.com/products/thru-hip-pack-by-webo-gear",
       "attributes_quote": "Capacity: 1L",
@@ -13243,7 +12833,6 @@
     {
       "brand": "WYSI Wipes",
       "name": "Multi-Purpose Expandable Wipes",
-      "variant": null,
       "category_hint": "consumable",
       "weight_value": 27,
       "weight_unit": "g",
@@ -13328,7 +12917,6 @@
     {
       "brand": "Yama Mountain Gear",
       "name": "1P Bug Shelter",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 278,
       "weight_unit": "g",
@@ -13340,7 +12928,6 @@
     {
       "brand": "Yama Mountain Gear",
       "name": "1P Cirriform Tarp",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 381,
       "weight_unit": "g",
@@ -13376,7 +12963,6 @@
     {
       "brand": "Yama Mountain Gear",
       "name": "Y-Zip Bug Bivy",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 239,
       "weight_unit": "g",
@@ -13388,7 +12974,6 @@
     {
       "brand": "YAR.gear",
       "name": "Apex 28L Pack",
-      "variant": null,
       "attributes": {"volume_l": 28},
       "category_hint": "pack",
       "weight_value": 295,
@@ -13773,7 +13358,6 @@
     {
       "brand": "Zpacks",
       "name": "Hexamid Pocket Tarp",
-      "variant": null,
       "category_hint": "shelter",
       "weight_value": 157,
       "weight_unit": "g",
@@ -13785,7 +13369,6 @@
     {
       "brand": "Zpacks",
       "name": "Hip Belt Pouch",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 24,
       "weight_unit": "g",
@@ -13797,7 +13380,6 @@
     {
       "brand": "Zpacks",
       "name": "Lotus UL Umbrella",
-      "variant": null,
       "category_hint": "other",
       "weight_value": 193,
       "weight_unit": "g",
@@ -13809,7 +13391,6 @@
     {
       "brand": "Zpacks",
       "name": "Plex Solo Lite Tent",
-      "variant": null,
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 335,
@@ -13822,7 +13403,6 @@
     {
       "brand": "Zpacks",
       "name": "Plex Solo Tent",
-      "variant": null,
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 437,

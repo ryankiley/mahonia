@@ -58,7 +58,6 @@
     {
       "brand": "Clif",
       "name": "Energy Bar (Chocolate Chip)",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 68,
       "weight_unit": "g",
@@ -72,7 +71,6 @@
     {
       "brand": "PROBAR",
       "name": "MEAL Bar (Peanut Butter Chocolate Chip)",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 3,
       "weight_unit": "oz",
@@ -86,7 +84,6 @@
     {
       "brand": "Snickers",
       "name": "Singles Size Bar",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 1.86,
       "weight_unit": "oz",
@@ -142,7 +139,6 @@
     {
       "brand": "Starbucks",
       "name": "VIA Instant Coffee",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 0.11,
       "weight_unit": "oz",
@@ -153,7 +149,6 @@
     {
       "brand": "Honey Stinger",
       "name": "Organic Honey Waffle",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 1.06,
       "weight_unit": "oz",
@@ -181,7 +176,6 @@
     {
       "brand": "Clif",
       "name": "Energy Bar (Crunchy Peanut Butter)",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 68,
       "weight_unit": "g",
@@ -195,7 +189,6 @@
     {
       "brand": "Clif",
       "name": "Nut Butter Bar (Peanut Butter)",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 50,
       "weight_unit": "g",
@@ -209,7 +202,6 @@
     {
       "brand": "Clif",
       "name": "Builders Protein Bar (Chocolate Peanut Butter)",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 68,
       "weight_unit": "g",
@@ -223,7 +215,6 @@
     {
       "brand": "Skratch Labs",
       "name": "Sport Energy Chews (Raspberry)",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 50,
       "weight_unit": "g",
@@ -237,7 +228,6 @@
     {
       "brand": "Peter Rabbit Organics",
       "name": "Organic Fruit Snack (Strawberry & Banana)",
-      "variant": "",
       "category_hint": "consumable",
       "weight_value": 4,
       "weight_unit": "oz",
@@ -262,7 +252,6 @@
     {
       "brand": "BIC",
       "name": "J25 Mini Lighter",
-      "variant": null,
       "category_hint": "cook",
       "weight_value": 13,
       "weight_unit": "g",
@@ -273,7 +262,6 @@
     {
       "brand": "TheTentLab",
       "name": "The Deuce of Spades #2 Trowel",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 0.6,
       "weight_unit": "oz",
@@ -330,12 +318,12 @@
       "name": "Cica Cooling Sun Stick SPF50+",
       "variant": "18 g",
       "category_hint": "consumable",
+      "common_name": "sunscreen",
       "weight_value": 18,
       "weight_unit": "g",
       "weight_source": "manufacturer",
       "source_url": "https://tocobo.us/products/cica-cooling-sun-stick",
-      "quote": "Cica Cooling Sun Stick SPF50+ PA++++ — 18 g (net contents)",
-      "common_name": "sunscreen"
+      "quote": "Cica Cooling Sun Stick SPF50+ PA++++ — 18 g (net contents)"
     },
     {
       "brand": "Beauty of Joseon",
@@ -362,7 +350,6 @@
     {
       "brand": "Revlon",
       "name": "Expert Slant Tweezer",
-      "variant": "",
       "category_hint": "firstaid",
       "weight_value": 16.3,
       "weight_unit": "g",
@@ -384,7 +371,6 @@
     {
       "brand": "Tick Key",
       "name": "Original Tick Key",
-      "variant": "",
       "category_hint": "firstaid",
       "weight_value": 0.2,
       "weight_unit": "oz",
