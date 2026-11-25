@@ -47,7 +47,7 @@ useMenuDismiss(open, toRef(props, "root"));
       :aria-label="label"
     >
       <button type="button" class="iconpick__auto" :aria-pressed="modelValue === null" @click="emit('pick', null)">
-        <SvgIcon v-if="auto" :icon="auto" size="lg" aria-hidden="true" />
+        <SvgIcon v-if="auto" :icon="auto" aria-hidden="true" />
         <span>{{ auto ? "Match the gear type" : "No icon" }}</span>
       </button>
       <div class="iconpick__grid" role="group" aria-label="Icons">
@@ -61,7 +61,7 @@ useMenuDismiss(open, toRef(props, "root"));
           :title="c.label"
           @click="emit('pick', c.glyph)"
         >
-          <SvgIcon :icon="c.icon" size="lg" aria-hidden="true" />
+          <SvgIcon :icon="c.icon" aria-hidden="true" />
         </button>
       </div>
     </div>

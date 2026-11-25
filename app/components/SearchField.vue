@@ -58,7 +58,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
    rule: search is the one control you reach for on either surface, and an underline
    reads as a caption with a line under it rather than a box you can type in. */
 .sf__input {
-  /* room for the clear button (its inset, its 18px glyph, a gap), so a long query
+  /* room for the clear button (its inset, its glyph, a gap), so a long query
      doesn't run under it */
   padding-right: calc(var(--space-3) + var(--icon) + var(--space-2));
 }

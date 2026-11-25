@@ -1181,15 +1181,14 @@ function dismissFix() {
           :aria-label="`Packed: ${editableName || 'item'}`"
           @change="onTick($event)"
         />
-        <!-- lg, a step up from the row's md glyphs, drawing the same flat 1.5px line,
-             so the bigger box doesn't read bolder than its row -->
-        <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" size="lg" aria-hidden="true" />
+        <!-- the row's own glyph size, drawing the same flat 1.5px line -->
+        <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" aria-hidden="true" />
         <!-- the dash, on GROUP rows only: a leaf's box stands for exactly one row and
              can never be mixed, and this is a third inline SVG on every row of a long
              checklist. It is also what the atom's own :indeterminate rule keys on to
              know this .check has a mixed face to swap in (controls.scss). -->
-        <SvgIcon v-if="isParent" :icon="IconSquareMinus" class="check__icon check__icon--mixed" size="lg" aria-hidden="true" />
-        <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" size="lg" aria-hidden="true" />
+        <SvgIcon v-if="isParent" :icon="IconSquareMinus" class="check__icon check__icon--mixed" aria-hidden="true" />
+        <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" aria-hidden="true" />
       </span>
       <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
           the carrier, riding the name cell (display-only — this face is a <label>
@@ -2151,10 +2150,8 @@ function dismissFix() {
 }
 /* checkbox — the shared .check atom (controls.scss): Square (empty) under
    SquareCheck (checked), the same glyph as the header's packing toggle, stacked in
-   one grid cell with the native control stretched invisibly over them. 20px — a
-   step up from the old 18px drawn box; every step draws the same flat 1.5px line
-   (utils/icon.ts), so the bigger box keeps the line weight of the surrounding
-   md icons. The row's only addition: the whole box is the tap
+   one grid cell with the native control stretched invisibly over them, at the
+   row's own glyph size and line. The row's only addition: the whole box is the tap
    target, so pointing at it darkens the glyph like the row's other quiet marks.
    Pointer-gated — it paints (see the note on .btn:hover, controls.scss): a tap on a
    phone would leave the glyph inked after the finger had gone. */
@@ -2310,18 +2307,10 @@ function dismissFix() {
    only case.) It's the one icon button that doesn't widen to --tap there, because
    --item-col-qty is derived from --qty-btn: at 44px the track would want 132px, and
    it would take that from the name column on the widest rows in the app.
-   The HEIGHT still grows, so the target is 24×44 — past the 24×24 floor (WCAG 2.5.8)
+   The HEIGHT still grows, so the target is 28×44 — past the 24×24 floor (WCAG 2.5.8)
    in both directions, and full height under the finger. Neither needs saying here:
    the width rule above is scoped, so it already outranks .btn--icon's coarse --tap
-   width, and that same coarse rule's min-height is what grows the height. The glyph
-   holds at 16px too: .btn--icon grows it to --icon-touch on touch, which in a 24px
-   box leaves the plus with no air around it. */
-@media (pointer: coarse) {
-  .item__qtybtn svg {
-    width: var(--icon);
-    height: var(--icon);
-  }
-}
+   width, and that same coarse rule's min-height is what grows the height. */
 /* the pop when the stepper moves the number — the shared `num-pop` keyframe
    (main.scss), the one the big total takes when it changes. blur(0) at rest, never
    `none`: the filter context has to persist between runs or WebKit drops it. */
@@ -2573,8 +2562,8 @@ function dismissFix() {
 .item__actions :deep(.btn--icon) {
   justify-content: flex-end;
 }
-/* …and the tooltips move with the glyphs. The rule above puts an 18px picture at the
-   RIGHT edge of a 32px button, so a tooltip centred on the button lands 7px left of
+/* …and the tooltips move with the glyphs. The rule above puts a 20px picture at the
+   RIGHT edge of a 32px button, so a tooltip centred on the button lands 6px left of
    the thing it names — half the difference, on every control in this cluster.
    Derived from the two sizes, so it holds past 1920px where both grow (--tpx). Tooltip
    reads it back in JS, which works because main.scss REGISTERS --tip-shift as a
