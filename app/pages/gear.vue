@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { IconBackpack, IconBlockSortAscending, IconBlockSortDescending, IconCandy, IconChevronDownMedium, IconClock, IconFilterAscending, IconFire2, IconLightning, IconPlusMedium, IconShapesPlusXSquareCircle, IconStar, IconToolbox } from "~/icons/central";
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Backpack03Icon, ChevronDownIcon, ChocolateIcon, PlusSignIcon, Clock01Icon, FireIcon, FlashIcon, ToolCaseIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon } from "@hugeicons/core-free-icons";
+import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -93,7 +93,7 @@ function putRow(row: VaultEntry) {
 const TAB_KEY = "gear.vault.tab.v1";
 // the names and order are shared/vaultView's, which the list's panel and the search's
 // "2 on Food" read too; the icons are this bar's (Food wears its kind's own, as its rows do)
-const TAB_ICON = { gear: Backpack03Icon, kits: ToolCaseIcon, food: ChocolateIcon };
+const TAB_ICON = { gear: IconBackpack, kits: IconToolbox, food: IconCandy };
 const TABS = VAULT_TABS.map((key) => ({ key, label: VAULT_TAB_LABEL[key], icon: TAB_ICON[key] }));
 const isTab = (v: unknown): v is VaultTab => VAULT_TABS.some((t) => t === v);
 const tab = ref<VaultTab>("gear");
@@ -295,17 +295,11 @@ function followElsewhere(to: VaultTab) {
 // search over the form: one form for adding and correcting, so a piece goes in with
 // everything it can hold. It replaced an inline name-and-weight row, which hid the
 // rest and read as broken. A piece lands under its kind by itself.
-const adding = ref(false);
 const BLANK_PIECE: VaultEntry = { id: 0, normKey: "", name: "", weightMg: 0, timesSeen: 0, lastUsedAt: "", createdAt: "" };
 function openAdd() {
   if (offline.value) return;
   query.value = "";
-  adding.value = true;
   editing.value = { ...BLANK_PIECE };
-}
-function closeDialog() {
-  editing.value = null;
-  adding.value = false;
 }
 // in place, first in its kind (the page orders by last use), rather than a reload
 // (the dialog closes itself, with `close`, only when the add was made in the opening
@@ -334,6 +328,8 @@ function offerAdded(item: VaultEntry) {
 // someone who only came to look — the LazyCatalogCorrectionModal idiom.
 const editing = ref<VaultEntry | null>(null);
 const editorEverOpened = useLatch(() => editing.value);
+// Adding is the dialog open on the blank piece (openAdd): no stored piece has its id.
+const adding = computed(() => editing.value?.id === BLANK_PIECE.id);
 // The brands and gear types your gear already uses, most used first: the dialog suggests
 // them ahead of the catalog's under Brand and Gear type.
 const knownVocab = computed(() => {
@@ -414,23 +410,11 @@ function onItemSaved(item: VaultEntry) {
 // made on this page before its unit picker went (it sat on the weight total, which
 // went for answering no question). Each row picks its own unit as well.
 const UNIT_KEY = "gear.gear.unit.v1";
-// The key before it stored a SYSTEM ("metric" | "imperial") rather than a unit,
-// because the page formatted with formatWeightAuto and a system was all that took.
-// It reads a column now — formatWeight, strict, like every other inventory column in
-// the app — because auto-promotion put a 12 g stake and a 1.2 kg tent in different
-// units in the same column, which cannot be read by eye and makes "Heaviest first"
-// look broken. Mapped once on read so an ounces user still opens in ounces.
-const LEGACY_SYSTEM_KEY = "gear.gear.system.v1";
 const unit = ref<Unit>("g");
 onMounted(() => {
   const saved = recall(UNIT_KEY);
   if (saved && (UNITS as string[]).includes(saved)) {
     unit.value = saved as Unit;
-    return;
-  }
-  const legacy = recall(LEGACY_SYSTEM_KEY);
-  if (legacy === "imperial" || legacy === "metric") {
-    setUnit(legacy === "imperial" ? "oz" : "g");
     return;
   }
   // No stored choice: inherit the most recent list on this device — and inherit its
@@ -487,19 +471,19 @@ const { open: openAccount } = useAccountModal();
 // gear in a pack-weight app: what to cut), then use, and A–Z last, since the search
 // already finds a thing by its name.
 const VIEW_OPTIONS = [
-  { key: "kinds", label: "By kind", icon: Shapes01Icon },
-  { key: "heaviest", label: "Heaviest", icon: SortingNineOneIcon },
-  { key: "lightest", label: "Lightest", icon: SortingOneNineIcon },
-  { key: "recent", label: "Recently used", icon: Clock01Icon },
-  { key: "most", label: "Most used", icon: StarIcon },
-  { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
+  { key: "kinds", label: "By kind", icon: IconShapesPlusXSquareCircle },
+  { key: "heaviest", label: "Heaviest", icon: IconBlockSortDescending },
+  { key: "lightest", label: "Lightest", icon: IconBlockSortAscending },
+  { key: "recent", label: "Recently used", icon: IconClock },
+  { key: "most", label: "Most used", icon: IconStar },
+  { key: "az", label: "A–Z", icon: IconFilterAscending },
 ];
 // Food's: calories for the weight first (what a bar and a dinner are compared by),
 // then calories outright, then the Gear tab's orders without By kind, since food is
 // one kind.
 const FOOD_VIEW_OPTIONS = [
-  { key: "dense", label: "Calorie dense", icon: FlashIcon },
-  { key: "kcal", label: "Most calories", icon: FireIcon },
+  { key: "dense", label: "Calorie dense", icon: IconLightning },
+  { key: "kcal", label: "Most calories", icon: IconFire2 },
   ...VIEW_OPTIONS.filter((o) => o.key !== "kinds"),
 ];
 const viewOptions = computed(() => (tab.value === "food" ? FOOD_VIEW_OPTIONS : VIEW_OPTIONS));
@@ -526,9 +510,6 @@ const viewOption = computed(() => viewOptions.value.find((o) => o.key === view.v
 // (useListExports warms for the same reason, with a sharper one behind it: its
 // clipboard writes must stay inside iOS Safari's user-gesture window.)
 const exporter = () => import("~~/shared/exporters/vault");
-function warmExport() {
-  void exporter();
-}
 // The ⋯'s three rows. Import is a dialog rather than a download, so the menu's one
 // emit forks here instead of the menu knowing which of its rows is which kind.
 const importOpen = ref(false);
@@ -593,7 +574,7 @@ async function exportGear(kind: string) {
           <VaultMenu
             :signed-in="hasVault && !offline"
             :can-export="hasGear && items.length > 0"
-            @open="warmExport"
+            @open="exporter"
             @pick="onMenuPick"
           />
         </ClientOnly>
@@ -631,7 +612,7 @@ async function exportGear(kind: string) {
           <div class="vault__tabbar">
             <ModeBar :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
             <button v-if="tab !== 'kits' && !offline" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openAdd">
-              <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconPlusMedium" aria-hidden="true" />
               {{ tab === "food" ? "Add food" : "Add gear" }}
             </button>
           </div>
@@ -662,9 +643,9 @@ async function exportGear(kind: string) {
               @pick="pickView"
             >
               <template #trigger="{ open }">
-                <HugeiconsIcon :icon="viewOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="viewOption.icon" class="vault__viewmark" aria-hidden="true" />
                 {{ viewOption.label }}
-                <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
+                <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
               </template>
             </OptionMenu>
           </div>
@@ -816,7 +797,7 @@ async function exportGear(kind: string) {
       :unit="unit"
       :default-currency="vaultCurrency"
       :known="knownVocab"
-      @close="closeDialog"
+      @close="editing = null"
       @saved="onItemSaved"
       @added="onItemAdded"
     >
@@ -867,7 +848,7 @@ async function exportGear(kind: string) {
 /* the switcher's width before it hydrates: its word and chevron, unseen */
 .gear__leadhold {
   visibility: hidden;
-  padding-inline-end: calc(14px + var(--space-1));
+  padding-inline-end: calc(14 * var(--tpx) + var(--space-1));
 }
 /* Signed out there is one thing to do, so the column centres and narrows — the
    same shape /account uses for the same reason. Signed in the page is a wide,
@@ -908,16 +889,15 @@ async function exportGear(kind: string) {
    sizes it — it takes the slack up to a cap, so it never becomes a bar */
 .vault__searchwrap {
   flex: 1 1 20ch;
-  min-width: 0;
   max-width: 32ch;
 }
 /* mark + value + chevron, on the trailing edge over the rows' own trailing controls;
-   the value says which question it answers, so no "View" word */
+   the value says which question it answers, so no "View" word. The class is on an
+   OptionMenu's root, which is already a centred inline-flex box (.optmenu), and the
+   three parts are spaced inside its trigger; only where it sits and its ink are set
+   here. */
 .vault__view {
   margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
   white-space: nowrap;
   color: var(--ink-2);
   transition: color var(--spring-fade-dur) var(--spring-fade);

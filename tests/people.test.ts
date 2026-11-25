@@ -14,7 +14,7 @@ import { cloneListData } from "../shared/clone";
 import { csvToListData, listToCsv } from "../shared/exporters/csv";
 import { jsonToListImport, listToJson } from "../shared/exporters/json";
 import { listToMarkdown } from "../shared/exporters/markdown";
-import { applyOps, MAX_PEOPLE, normalizePerson, tidyListText, type Op } from "../shared/ops";
+import { applyOps, MAX_PEOPLE, MAX_PERSON_NAME_LEN, normalizePerson, tidyListText, type Op } from "../shared/ops";
 import {
   carriedTotalsMg,
   effectivePersonId,
@@ -399,6 +399,17 @@ describe("round-trips", () => {
     // a licence to restyle how someone wrote their name
     expect(uniquifyPersonNames(crew).map((p) => p.name)).toEqual(["Sam", "sam 2", "Sam 3", "Ana"]);
     expect(crew.map((p) => p.id)).toEqual(["a", "b", "c", "d"]); // nobody lost
+  });
+
+  it("keeps a numbered name inside the cap, so it is still distinct once it is read back", () => {
+    // The suffix used to be appended past the 60-character cap; the next read clamped
+    // both names to the same 60 characters and the pair was a duplicate again.
+    const long = "N".repeat(MAX_PERSON_NAME_LEN);
+    const crew = uniquifyPersonNames([person({ id: "a", name: long }), person({ id: "b", name: long }), person({ id: "c", name: long })]);
+    const names = crew.map((p) => p.name);
+    expect(names.every((n) => n.length <= MAX_PERSON_NAME_LEN)).toBe(true);
+    expect(new Set(names.map((n) => n.toLowerCase())).size).toBe(3);
+    expect(names[1]!.endsWith(" 2")).toBe(true);
   });
 
   it("a JSON backup holding two same-named people imports as two people", () => {

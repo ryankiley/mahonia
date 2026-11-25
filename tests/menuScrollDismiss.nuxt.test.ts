@@ -1,5 +1,5 @@
-// onScrollOutside (composables/dom.ts) — the mobile dismissal every anchored menu wires
-// up beside onClickOutside. A menu hangs off a trigger that is usually STICKY, so
+// useMenuDismiss's touchmove listener (composables/dom.ts) — the mobile dismissal every
+// anchored menu gets beside its outside click. A menu hangs off a trigger that is usually STICKY, so
 // scrolling neither carries it away nor takes it down; on a phone that leaves a card
 // parked over the content you were trying to read, dismissable only by finding dead
 // space and tapping it.
@@ -33,7 +33,7 @@ function mountMenu() {
 
 const open = () => wrapper!.find(".optmenu__btn").trigger("click");
 const isOpen = () => wrapper!.find(".menu__list").exists();
-// touchmove is the gesture itself — see onScrollOutside for why it watches that and not
+// touchmove is the gesture itself — see useMenuDismiss for why it watches that and not
 // `scroll`, which fires for keyboard-avoidance scrolls nobody performed
 const drag = async (target: Element | Window) => {
   target.dispatchEvent(new Event("touchmove", { bubbles: true, cancelable: false }));

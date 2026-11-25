@@ -1,11 +1,11 @@
-// Shared pointer-drag scaffolding for the site's drag-to-reorder gestures (the
-// editor's item rows + folders, the vault pane, /vault). createPointerDrag owns
-// a drag's LIFECYCLE — listener attach/detach, explicit pointer capture, the
-// text-selection lock, Escape/pointercancel aborts, and the outside-the-surface
-// release-to-cancel — while each caller keeps only its own drop-target math and
-// commit. createPressArm (utils/pressArm.ts) owns the step BEFORE that: deciding
-// whether a press on a row is a drag at all. One copy of each, so the gesture
-// plumbing can't drift between surfaces.
+// Shared pointer-drag scaffolding for the editor's drag gestures (its item rows and
+// folders, and a piece of My Gear dragged in from the pane, which rides the item
+// drag). createPointerDrag owns a drag's LIFECYCLE — listener attach/detach, explicit
+// pointer capture, the text-selection lock, Escape/pointercancel aborts, and the
+// outside-the-surface release-to-cancel — while each caller keeps only its own
+// drop-target math and commit. createPressArm (utils/pressArm.ts) owns the step BEFORE
+// that: deciding whether a press on a row is a drag at all. One copy of each, so the
+// gesture plumbing can't drift between surfaces.
 
 interface PointerDragHooks<T> {
   /** Update the caller's drop target from the pointer. `el` is the current
@@ -26,15 +26,6 @@ interface PointerDragHooks<T> {
    *  the editor's insert-drags (bringing a row in from the vault pane) are already
    *  creating a row, so a modifier has nothing to be an alternative to. Default: true. */
   copyable?: (dragId: string) => boolean;
-  /** CSS selector for the surface the gesture belongs to — a release outside its
-   *  vertical band cancels instead of committing (the touch-reachable abort, since
-   *  there's no Escape key on a phone). Defaults to the editor's body.
-   *
-   *  It has to be a parameter rather than a constant: this scaffold started as the
-   *  editor's alone, and a second surface (/vault's folders) inherited a hardcoded
-   *  `.editor__body` that isn't on its page — so `outside` computed true on every
-   *  move and EVERY drag silently cancelled at the drop. */
-  within?: string;
 }
 
 /**
@@ -134,8 +125,7 @@ export function createPointerDrag<T>(hooks: PointerDragHooks<T>) {
     // past the footer. A sideways drag into the horizontal page margin is still a
     // valid drop: nesting a row means dragging it rightward off the row's right edge
     // (where the grip sits) into the gutter, so the margin must NOT read as "outside".
-    const within = hooks.within ?? ".editor__body";
-    const surface = document.querySelector(within);
+    const surface = document.querySelector(".editor__body");
     if (surface) {
       const b = surface.getBoundingClientRect();
       outside = ev.clientY < b.top || ev.clientY > b.bottom;

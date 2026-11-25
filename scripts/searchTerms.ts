@@ -3,7 +3,7 @@
 //
 // BUILD-TIME ONLY, which is why it lives here and not in shared/. Everything it
 // produces is materialized into catalog_items.search_terms at seed time, so the
-// only callers are build-catalog and catalogCsv — nothing under app/ or server/
+// only callers are research.ts and catalogCsv — nothing under app/ or server/
 // imports it at request time. It sat in shared/ (which means "the browser and the
 // server both need this, identically, while serving a request") for long enough to
 // imply a runtime role it never had. Its sibling scripts/gearTypes.ts is the same

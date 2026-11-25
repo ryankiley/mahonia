@@ -25,7 +25,7 @@ export default defineEventHandler(async (event) => {
   const message = (typeof body?.message === "string" ? body.message : "").trim();
   if (!message) throw createError({ statusCode: 400, statusMessage: "Say something first" });
   if (message.length > MAX_FEEDBACK_LEN)
-    throw createError({ statusCode: 413, statusMessage: "That's longer than 500 characters" });
+    throw createError({ statusCode: 413, statusMessage: `That's longer than ${MAX_FEEDBACK_LEN} characters` });
 
   const token = process.env.GITHUB_FEEDBACK_TOKEN;
   const repo = process.env.GITHUB_FEEDBACK_REPO;
@@ -55,12 +55,10 @@ export default defineEventHandler(async (event) => {
   // there) — it is the part of this endpoint most worth pinning down
   const payload = buildFeedbackIssue(message);
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10_000);
   try {
     const res = await fetch(`${GITHUB_API}/repos/${repo}/issues`, {
       method: "POST",
-      signal: controller.signal,
+      signal: AbortSignal.timeout(10_000),
       redirect: "error",
       headers: {
         authorization: `Bearer ${token}`,
@@ -77,8 +75,6 @@ export default defineEventHandler(async (event) => {
     if (!res.ok) throw new Error(String(res.status));
   } catch {
     throw createError({ statusCode: 502, statusMessage: "Couldn't send that just now" });
-  } finally {
-    clearTimeout(timer);
   }
 
   return { ok: true, filed: true };

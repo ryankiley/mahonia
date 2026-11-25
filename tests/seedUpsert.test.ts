@@ -34,14 +34,51 @@ describe("upsertSeedRows", () => {
 
   it("inserts what the table doesn't hold, verified, and is a no-op the second time", async () => {
     const rows = [csv({}), csv({ variant: "Olive" }), csv({ brand: null, name: "Bandana", sourceUrl: null })];
-    expect(await upsertSeedRows(db, rows)).toEqual({ inserted: 3, updated: 0, unchanged: 0 });
+    expect(await upsertSeedRows(db, rows)).toEqual({ inserted: 3, updated: 0, unchanged: 0, held: 0 });
     expect((await all()).map((r) => [r.brand, r.name, r.variant, r.verified])).toEqual([
       ["Zpacks", "Duplex", null, true],
       ["Zpacks", "Duplex", "Olive", true],
       [null, "Bandana", null, true],
     ]);
-    expect(await upsertSeedRows(db, rows)).toEqual({ inserted: 0, updated: 0, unchanged: 3 });
+    expect(await upsertSeedRows(db, rows)).toEqual({ inserted: 0, updated: 0, unchanged: 3, held: 0 });
     expect(await all()).toHaveLength(3);
+  });
+
+  it("takes over a row an admin verified in the app when the research names it, id kept", async () => {
+    const [inApp] = await db
+      .insert(schema.catalogItems)
+      .values({ brand: "Zpacks", name: "Duplex", weightMg: 539_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/products/duplex-tent", sourceQuote: "19.0 oz / 539 g", verified: true, verifiedBy: 7, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter" })
+      .returning();
+    // every seeded field already agrees: the verifier alone makes it a change
+    expect(await upsertSeedRows(db, [csv({})])).toEqual({ inserted: 0, updated: 1, unchanged: 0, held: 0 });
+    const [after] = await all();
+    expect(after).toMatchObject({ id: inApp!.id, verified: true, verifiedBy: null, sourceQuote: null });
+    expect(await upsertSeedRows(db, [csv({})])).toEqual({ inserted: 0, updated: 0, unchanged: 1, held: 0 });
+  });
+
+  it("holds a row verified in the app that the research disagrees with, until the research agrees", async () => {
+    // a research row the maker re-specced, corrected in the app: newer than the CSV
+    const [inApp] = await db
+      .insert(schema.catalogItems)
+      .values({ brand: "Zpacks", name: "Duplex", weightMg: 524_000, weightSource: "manufacturer", sourceUrl: "https://zpacks.com/products/duplex-tent-2026", sourceQuote: "18.5 oz / 524 g", verified: true, verifiedBy: 7, commonName: "Tent", categoryHint: "shelter", searchTerms: "tent shelter" })
+      .returning();
+    for (const stale of [csv({}), csv({ weightMg: 524_000 }), csv({ sourceUrl: "https://zpacks.com/products/duplex-tent-2026", weightSource: "measured", weightMg: 524_000 })]) {
+      expect(await upsertSeedRows(db, [stale])).toEqual({ inserted: 0, updated: 0, unchanged: 0, held: 1 });
+      expect(await all()).toEqual([inApp]);
+    }
+    // what catalog:graduate writes back: the research agrees, and takes the row over
+    const graduated = csv({ weightMg: 524_000, sourceUrl: "https://zpacks.com/products/duplex-tent-2026" });
+    expect(await upsertSeedRows(db, [graduated])).toEqual({ inserted: 0, updated: 1, unchanged: 0, held: 0 });
+    expect(await all()).toEqual([expect.objectContaining({ id: inApp!.id, weightMg: 524_000, verified: true, verifiedBy: null, sourceQuote: null })]);
+  });
+
+  it("doesn't hold a retired row verified in the app: the research brings it back", async () => {
+    const [gone] = await db
+      .insert(schema.catalogItems)
+      .values({ brand: "Zpacks", name: "Duplex", weightMg: 600_000, weightSource: "measured", verified: true, verifiedBy: 7, status: "removed" })
+      .returning();
+    expect(await upsertSeedRows(db, [csv({})])).toEqual({ inserted: 0, updated: 1, unchanged: 0, held: 0 });
+    expect(await all()).toEqual([expect.objectContaining({ id: gone!.id, status: "active", weightMg: 539_000, verifiedBy: null })]);
   });
 
   it("updates a changed row in place, id kept, and leaves the others alone", async () => {
@@ -52,6 +89,7 @@ describe("upsertSeedRows", () => {
       inserted: 0,
       updated: 1,
       unchanged: 1,
+      held: 0,
     });
     const [after, olive] = await all();
     expect([after!.id, Number(after!.weightMg)]).toEqual([plain!.id, 524_000]);
@@ -66,20 +104,20 @@ describe("upsertSeedRows", () => {
     await db.insert(schema.catalogItems).values({ brand: "MSR", name: "PocketRocket 2", weightMg: 73_000, weightSource: "community", verified: false });
 
     const stove = csv({ brand: "MSR", name: "PocketRocket 2", commonName: "Stove", categoryHint: "cook", weightMg: 73_000, weightSource: "community", sourceUrl: null, searchTerms: null });
-    expect(await upsertSeedRows(db, [csv({}), stove])).toEqual({ inserted: 0, updated: 2, unchanged: 0 });
+    expect(await upsertSeedRows(db, [csv({}), stove])).toEqual({ inserted: 0, updated: 2, unchanged: 0, held: 0 });
     const [revived, claimed] = await all();
     expect([revived!.id, revived!.status, revived!.mergedIntoId]).toEqual([row!.id, "active", null]);
     expect([claimed!.verified, claimed!.commonName]).toEqual([true, "Stove"]);
   });
 
   it("writes an identity the CSV names twice once, the later row winning", async () => {
-    expect(await upsertSeedRows(db, [csv({}), csv({ weightMg: 500_000 })])).toEqual({ inserted: 1, updated: 0, unchanged: 0 });
+    expect(await upsertSeedRows(db, [csv({}), csv({ weightMg: 500_000 })])).toEqual({ inserted: 1, updated: 0, unchanged: 0, held: 0 });
     expect((await all()).map((r) => Number(r.weightMg))).toEqual([500_000]);
   });
 
   it("inserts past one batch", async () => {
     const many = Array.from({ length: 1203 }, (_, i) => csv({ name: `Stake ${i}` }));
-    expect(await upsertSeedRows(db, many)).toEqual({ inserted: 1203, updated: 0, unchanged: 0 });
+    expect(await upsertSeedRows(db, many)).toEqual({ inserted: 1203, updated: 0, unchanged: 0, held: 0 });
     expect(await all()).toHaveLength(1203);
   });
 });

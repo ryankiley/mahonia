@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CheckmarkSquare02Icon, SquareIcon } from "@hugeicons/core-free-icons";
+import { IconFormSquare, IconSquareCheck } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
 import type { VaultCapture } from "~~/shared/vault";
-import { formatWeightAuto, itemDisplayName, unitSystem } from "~~/shared/weights";
+import { formatWeightAuto, groupBy, itemDisplayName, unitSystem } from "~~/shared/weights";
 
 // "Which of these is yours?" — shown when you answer Add on a list you didn't
 // start. The only lists that ever ask are shared ones, and on a trip planned
@@ -45,16 +45,9 @@ function toggleAll() {
 // Grouped by the list folder each row came from, because that's the shape the
 // person is looking at on the page behind the dialog — scanning "is this mine?"
 // down a flat list of forty rows is much harder than down the folder you packed.
-const groups = computed(() => {
-  const by = new Map<string, VaultCapture[]>();
-  for (const c of caps ?? []) {
-    const key = c.folder ?? "";
-    const list = by.get(key);
-    if (list) list.push(c);
-    else by.set(key, [c]);
-  }
-  return [...by.entries()].map(([folder, rows]) => ({ folder, rows }));
-});
+const groups = computed(() =>
+  [...groupBy(caps ?? [], (c) => c.folder ?? "")].map(([folder, rows]) => ({ folder, rows })),
+);
 </script>
 
 <template>
@@ -90,8 +83,8 @@ const groups = computed(() => {
                 :aria-label="`Add ${itemDisplayName(c.brand, c.name, c.variant)} to My Gear`"
                 @change="toggle(c.normKey)"
               />
-              <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-              <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+              <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" size="lg" aria-hidden="true" />
+              <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" size="lg" aria-hidden="true" />
             </span>
             <span class="vpick__name">{{ itemDisplayName(c.brand, c.name, c.variant) }}</span>
             <span class="t-sm t-muted t-num vpick__weight">{{
@@ -149,15 +142,15 @@ const groups = computed(() => {
 /* checkbox — the ItemRow recipe (atoms would be better, but the two are far enough
    apart in markup that hoisting them isn't a clean win yet): invisible native input
    over a Square/SquareCheck pair */
-.vpick__row:hover .check__icon {
-  color: var(--ink);
+@media (hover: hover) and (pointer: fine) {
+  .vpick__row:hover .check__icon {
+    color: var(--ink);
+  }
 }
 .vpick__name {
-  min-width: 0;
   overflow-wrap: anywhere;
 }
 .vpick__weight {
-  font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
 </style>

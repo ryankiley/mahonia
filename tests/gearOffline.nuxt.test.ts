@@ -6,22 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import VaultPane from "~/components/VaultPane.vue";
-import { forgetGearCopy, gearCopyKey } from "~/utils/gearCopy";
+import { OWNED, ownedKey } from "~/utils/sessionOwner";
 import { readGearCopy, useVaultList, useVaultOps, writeGearCopy } from "~/composables/useVaultList";
 import type { VaultEntry } from "~~/shared/vault";
+import { vaultRow } from "./helpers/vault";
 
 const OWNER = "a1b2c3d4e5f60718";
 const OTHER = "ffffffffffffffff";
-const piece = (id: number, name: string, commonName = "Tent"): VaultEntry => ({
-  id,
-  name,
-  commonName,
-  weightMg: 500_000,
-  normKey: `|${name.toLowerCase()}|`,
-  timesSeen: 1,
-  lastUsedAt: "2026-11-01T00:00:00Z",
-  createdAt: "2026-11-01T00:00:00Z",
-});
+const piece = (id: number, name: string, commonName = "Tent"): VaultEntry =>
+  vaultRow({ id, name, commonName, weightMg: 500_000, normKey: `|${name.toLowerCase()}|` });
 const GEAR = [piece(1, "Duplex"), piece(2, "Pocket Rocket", "Stove")];
 
 // what the server would say, per test
@@ -81,7 +74,7 @@ describe("the device's copy of My Gear", () => {
   it("goes with the account: forgotten, it's gone", () => {
     writeGearCopy(GEAR, OWNER);
     writeGearCopy(GEAR, OTHER);
-    forgetGearCopy(OWNER);
+    forgetOwned(OWNER);
     expect(readGearCopy(OWNER)).toBeNull();
     expect(readGearCopy(OTHER)).not.toBeNull();
   });
@@ -188,7 +181,7 @@ describe("the copy and the account it belongs to", () => {
 
   it("drops entries that would break the page rather than painting them", () => {
     localStorage.setItem(
-      gearCopyKey(OWNER)!,
+      ownedKey(OWNED.gearCopy, OWNER)!,
       JSON.stringify({ items: [GEAR[0], null, { id: "x", name: "Bad" }, { ...GEAR[1], parts: [{ id: 1 }] }], savedAt: 5 }),
     );
     expect(readGearCopy(OWNER)).toEqual({ items: [GEAR[0]], savedAt: 5 });

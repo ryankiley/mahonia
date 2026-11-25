@@ -55,7 +55,7 @@ function main() {
     // grouped by code, so the 800-row attribute to-do list sits under one heading
     // instead of burying the dozen plausibility calls a human actually re-reads
     const byCode = new Map<string, Finding[]>();
-    for (const w of warns) (byCode.get(w.code) ?? byCode.set(w.code, []).get(w.code)!).push(w);
+    for (const w of warns) byCode.getOrInsertComputed(w.code, () => []).push(w);
     for (const [code, list] of [...byCode.entries()].sort((a, b) => a[1].length - b[1].length)) {
       console.log(`\n  [${code}] × ${list.length}`);
       for (const w of list) console.log("  ! " + line(w));

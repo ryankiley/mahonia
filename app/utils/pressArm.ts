@@ -2,13 +2,12 @@
 // drags put that module on the first load, and this half has one caller, the My Gear
 // pane, which loads when it is opened.
 //
-// A press that BECOMES a drag. Both vault surfaces let you grab a row anywhere —
-// the row is the whole target, so there's no grip to hang the gesture on — which
-// means every press needs the same scaffold to decide what it was: a record of
-// where it started, window-level move/up/cancel listeners, and a travel
-// threshold before the drag is armed and handed off. This owns that arming;
-// what the drag then IS (createPointerDrag on /vault, the editor's insert
-// gesture in the pane) stays with the caller, in onDrag.
+// A press that BECOMES a drag. The pane lets you grab a row anywhere — the row is
+// the whole target, so there's no grip to hang the gesture on — which means every
+// press needs the same scaffold to decide what it was: a record of where it
+// started, window-level move/up/cancel listeners, and a travel threshold before
+// the drag is armed and handed off. This owns that arming; what the drag then IS
+// (the editor's insert gesture) stays with the caller, in onDrag.
 
 interface PressArmOptions<T> {
   /** px of pointer travel that separates a drag from a stray press */
@@ -19,9 +18,6 @@ interface PressArmOptions<T> {
    *  swipe that starts before it elapses is left to the browser as a scroll.
    *  Omit where distance alone is the right reading for every pointer. */
   touchHoldMs?: number;
-  /** CSS selector — a press starting inside a match is left alone, because that
-   *  element owns its own press (a select, a button). */
-  exclude?: string;
   /** The press travelled far enough: start the actual drag. Called with the
    *  arming move event, after the press record and listeners are already torn
    *  down — so a re-entrant press inside the handler starts clean. */
@@ -75,11 +71,9 @@ export function createPressArm<T>(opts: PressArmOptions<T>) {
     opts.onDrag(payload, ev);
   }
 
-  /** The caller's pointerdown handler. A non-primary button, or a press on an
-   *  excluded control, never arms. */
+  /** The caller's pointerdown handler. A non-primary button never arms. */
   function start(payload: T, ev: PointerEvent) {
     if (ev.button !== 0) return;
-    if (opts.exclude && (ev.target as HTMLElement).closest(opts.exclude)) return;
     end();
     const hold = opts.touchHoldMs && ev.pointerType === "touch" ? opts.touchHoldMs : 0;
     press = {

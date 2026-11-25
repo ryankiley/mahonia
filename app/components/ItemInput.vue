@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { DropletIcon, SafeBoxIcon } from "@hugeicons/core-free-icons";
+import { IconDrop, IconSafeSimple } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
+import { typeScale } from "~/utils/typeScale";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
 import { nameRepeatsBrand, formatWeight, itemDisplayName } from "~~/shared/weights";
-import { highlightParts } from "~~/shared/searchText";
+import { foldKeepingPlus, highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
-import { catalogNameKeys, foldName } from "~~/shared/catalogMatch";
+import { catalogNameKeys } from "~~/shared/catalogMatch";
 import { pasteRows, splitWeightTail } from "~~/shared/pasteList";
-import { formatVolume, isWaterName, parseVolumeMl, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
+import { formatVolume, isWaterName, waterMenu, waterMgFromMl, waterPhrase } from "~~/shared/water";
 import type { CatalogResult, NameCommit } from "~/composables/useCatalogSearch";
 import type { VaultEntry } from "~~/shared/vault";
 import { menuRoom, visibleBand } from "~/utils/viewportRoom";
@@ -128,7 +129,7 @@ onMounted(() => {
 watch(
   () => props.initial,
   (v, old) => {
-    if (!focused.value || foldName(draft.value) === foldName(old)) setDraftQuiet(v);
+    if (!focused.value || foldKeepingPlus(draft.value) === foldKeepingPlus(old)) setDraftQuiet(v);
   },
 );
 
@@ -194,24 +195,16 @@ onScopeDispose(() => openScope?.stop());
 // Water folds into THIS input (no separate "add water"): typing a bare volume
 // ("1 L", "500 ml", "32 fl oz") or "water [volume]" surfaces a water option that
 // adds a consumable with the derived weight. "water" alone defaults to 1 L.
-type WaterSug = { ml: number; label: string; weightMg: number };
+type WaterSug = { ml: number; name: string; label: string; weightMg: number };
 const waterSuggestion = computed<WaterSug | null>(() => {
   if (props.sources === "catalog") return null;
-  const low = draft.value.trim().toLowerCase();
-  if (!low) return null;
-  let volStr: string | null = null;
-  if (/^water\b/.test(low)) {
-    const rest = low.replace(/^water\b/, "").trim();
-    volStr = rest === "" ? "1l" : rest;
-  } else if (/\bwater$/.test(low)) {
-    volStr = low.replace(/\bwater$/, "").trim();
-  } else if (parseVolumeMl(low) != null) {
-    volStr = low;
-  }
-  if (volStr == null) return null;
-  const ml = parseVolumeMl(volStr);
-  if (ml == null || ml <= 0) return null;
-  return { ml, label: `Water · ${formatVolume(ml)}`, weightMg: waterMgFromMl(ml) };
+  // read by shared/water, the way the Enter and paste paths read the same text, so
+  // the menu can't offer less than Enter would make ("Water - 2 L" once did)
+  // the name is the one the line keeps ("Drinking water"), or Water for a bare volume
+  const water = waterMenu(draft.value);
+  if (!water) return null;
+  const { ml, name } = water;
+  return { ml, name, label: `${name} · ${formatVolume(ml)}`, weightMg: waterMgFromMl(ml) };
 });
 
 // The menu, in one flat nav model: an optional water row, then YOUR gear, then the
@@ -291,7 +284,7 @@ const sizeRuns = computed(() => {
   const members = new Set<number>();
   const opts = options.value;
   const productKey = (o: AcOption | undefined) =>
-    o && "result" in o && o.result.variant ? `${foldName(o.result.brand ?? "")}|${foldName(o.result.name)}` : null;
+    o && "result" in o && o.result.variant ? `${foldKeepingPlus(o.result.brand ?? "")}|${foldKeepingPlus(o.result.name)}` : null;
   for (let i = 0; i < opts.length; ) {
     const key = productKey(opts[i]);
     let end = i + 1;
@@ -304,7 +297,9 @@ const sizeRuns = computed(() => {
   }
   return { heads, members };
 });
-// What the template walks: each option with its index and whatever heads it.
+// What the template walks: each option with its index and whatever heads it. `named`
+// is the piece of gear behind a My Gear or catalog row (null for the water row): the
+// two draw their brand, model and variant the same way, from this one handle.
 const rows = computed(() =>
   options.value.map((opt, i) => ({
     opt,
@@ -312,6 +307,7 @@ const rows = computed(() =>
     section: sectionAt.value.get(i),
     product: sizeRuns.value.heads.get(i),
     sized: sizeRuns.value.members.has(i),
+    named: "water" in opt ? null : "vault" in opt ? opt.vault : opt.result,
   })),
 );
 
@@ -352,11 +348,13 @@ function placeMenu() {
   if (!root) return;
   const anchor = getComputedStyle(root).position === "static" ? root.offsetParent : root;
   if (!anchor) return;
+  // px at the base type size, growing with it past 1920px like the rows they measure
+  const scale = typeScale();
   const r = menuRoom(anchor.getBoundingClientRect(), visibleBand(), {
-    gap: MENU_GAP,
-    edge: MENU_EDGE,
-    min: MENU_MIN,
-    floor: MENU_FLOOR,
+    gap: MENU_GAP * scale,
+    edge: MENU_EDGE * scale,
+    min: MENU_MIN * scale,
+    floor: MENU_FLOOR * scale,
   });
   menuAbove.value = r.above;
   menuRoomPx.value = r.room;
@@ -432,8 +430,8 @@ function selectResult(r: CatalogResult) {
 function selectWater(w: WaterSug) {
   // named just "Water" — the volume shows in the qty (litres) field, so "Water · 1 L"
   // in the name plus "1 L" in qty was redundant/confusing
-  emit("commit", { name: "Water", weightMg: w.weightMg, classification: "consumable" });
-  setDraftQuiet(props.clearOnCommit ? "" : "Water");
+  emit("commit", { name: w.name, weightMg: w.weightMg, classification: "consumable" });
+  setDraftQuiet(props.clearOnCommit ? "" : w.name);
   close();
 }
 // Pulling a piece of your own gear into the list. It carries YOUR weight, not the
@@ -488,7 +486,7 @@ function selectOption(opt: AcOption) {
 // Your own gear first, as the menu ranks it: a vault row carries your weight.
 function exactMatch(typed: string): AcOption | null {
   if (!props.suggest) return null;
-  const key = foldName(typed);
+  const key = foldKeepingPlus(typed);
   if (!key) return null;
   const keysOf = (r: { brand?: string | null; name: string; variant?: string | null }) =>
     catalogNameKeys({ brand: r.brand ?? null, name: r.name, variant: r.variant ?? null });
@@ -517,20 +515,18 @@ watch(options, (opts, prev) => {
   }
   const hit = exactMatch(splitWeightTail(draft.value).name);
   if (!hit) return;
-  const at = opts.findIndex((o) =>
-    "vault" in hit ? "vault" in o && o.vault === hit.vault : "result" in hit && "result" in o && o.result === hit.result,
-  );
+  const at = opts.findIndex((o) => sameOption(o, hit));
   if (at >= 0) active.value = at;
 });
 // Free text, read as a commit: the trailing weight ("Tent 540 g") rides along
 // (shared/pasteList, the one rule for where a name ends, shared with the multi-line
 // paste); "water 2 L" is the water row at that volume, as the menu's water option
-// makes it (shared/water.waterPhraseMl), and a row named exactly "water" IS the water
+// makes it (shared/water.waterPhrase), and a name that reads as water IS the water
 // row wherever it came from: the litres field takes over on the name alone (see
 // ItemRow), so the classification follows. Null when the text names nothing.
 function freeCommit(raw: string): NameCommit | null {
-  const ml = waterPhraseMl(raw);
-  if (ml != null) return { name: "Water", weightMg: waterMgFromMl(ml), classification: "consumable" };
+  const water = waterPhrase(raw);
+  if (water) return { name: water.name, weightMg: waterMgFromMl(water.ml), classification: "consumable" };
   const split = splitWeightTail(raw);
   const name = tidyText(split.name);
   if (!name) return null;
@@ -711,7 +707,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
     >
     <ul :id="`${acId}-listbox`" class="ac__list" role="listbox">
       <template
-        v-for="{ opt, i, section, product, sized } in rows"
+        v-for="{ opt, i, section, product, sized, named } in rows"
         :key="'water' in opt ? 'water' : 'vault' in opt ? `v${opt.vault.id}` : `c${opt.result.id}`"
       >
       <!-- a source heading, not an option: role="presentation" keeps it out of the
@@ -747,40 +743,14 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
       >
         <template v-if="'water' in opt">
           <span class="ac__name">
-            <HugeiconsIcon :icon="DropletIcon" class="ac__watericon" :size="14" :stroke-width="2" aria-hidden="true" />{{ opt.water.label }}
-          </span>
-        </template>
-        <!-- your own gear: the same row shape as a catalog hit, marked "yours" the
-             way an unverified catalog row is marked "community" — a quiet italic
-             qualifier, not a section header, so the menu stays one flat list -->
-        <template v-else-if="'vault' in opt">
-          <span class="ac__name">
-            <!-- the same glyph as the editor toolbar's vault button, so one mark
-                 means one thing across both surfaces and reads before the text does -->
-            <HugeiconsIcon :icon="SafeBoxIcon" class="ac__mineicon" :size="14" :stroke-width="2" aria-hidden="true" />
-            <span class="visually-hidden">From My Gear: </span>
-            <span v-if="opt.vault.brand && !nameRepeatsBrand(opt.vault.brand, opt.vault.name)" class="ac__brand t-clip">
-              <span
-                v-for="(p, pi) in hl(opt.vault.brand)"
-                :key="pi"
-                :class="{ 'ac__hl': p.on }"
-              >{{ p.t }}</span>
-            </span>
-            <span class="ac__model t-clip">
-              <span
-                v-for="(p, pi) in hl(opt.vault.name)"
-                :key="pi"
-                :class="{ 'ac__hl': p.on }"
-              >{{ p.t }}</span>
-            </span>
-            <span v-if="opt.vault.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ opt.vault.variant }}</span>
+            <SvgIcon :icon="IconDrop" class="ac__watericon" size="sm" aria-hidden="true" />{{ opt.water.label }}
           </span>
         </template>
         <!-- one size of the product named in the heading above it: the size leads, with
              the row's width to itself. The product's name is still in the row, hidden,
              so the option reads "El Coyote AlphaLite 900 Quilt · 20F, Long" and not
-             just "20F, Long" -->
-        <template v-else-if="sized">
+             just "20F, Long". Only a catalog row is ever sized (see sizeRuns). -->
+        <template v-else-if="sized && 'result' in opt">
           <span class="ac__name">
             <span class="visually-hidden">{{ tidyText(itemDisplayName(opt.result.brand, opt.result.name)) }} · </span>
             <span class="ac__size t-clip">
@@ -789,32 +759,41 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
             <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
         </template>
-        <template v-else>
+        <!-- a piece of gear, yours or the catalog's: one row shape for both. Your own
+             is marked "yours" the way an unverified catalog row is marked "community"
+             — a quiet qualifier, not a section header, so the menu stays one flat list -->
+        <template v-else-if="named">
           <!-- brand shrinks first (its matched prefix + an ellipsis survive), so the
                distinguishing model name + variant stay readable on a narrow phone menu -->
           <span class="ac__name">
-            <span v-if="opt.result.brand && !nameRepeatsBrand(opt.result.brand, opt.result.name)" class="ac__brand t-clip">
+            <template v-if="'vault' in opt">
+              <!-- the same glyph as the editor toolbar's vault button, so one mark
+                   means one thing across both surfaces and reads before the text does -->
+              <SvgIcon :icon="IconSafeSimple" class="ac__mineicon" size="sm" aria-hidden="true" />
+              <span class="visually-hidden">From My Gear: </span>
+            </template>
+            <span v-if="named.brand && !nameRepeatsBrand(named.brand, named.name)" class="ac__brand t-clip">
               <span
-                v-for="(p, pi) in hl(opt.result.brand)"
+                v-for="(p, pi) in hl(named.brand)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
             <span class="ac__model t-clip">
               <span
-                v-for="(p, pi) in hl(opt.result.name)"
+                v-for="(p, pi) in hl(named.name)"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
-            <span v-if="opt.result.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ tidyText(opt.result.variant) }}</span>
-            <span v-if="!opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
+            <!-- a catalog variant is tidied here, as the row it creates will spell it
+                 (see hl); a My Gear variant is shown as stored -->
+            <span v-if="named.variant" class="ac__variant t-clip"><span class="sep">·</span> {{ "vault" in opt ? named.variant : tidyText(named.variant) }}</span>
+            <span v-if="'result' in opt && !opt.result.verified" class="ac__community" title="community-contributed, unverified">· community</span>
           </span>
         </template>
         <!-- the weight cell, shared by all three row kinds (it was three copies) -->
-        <span class="ac__metaright">
-          <span class="t-num ac__w">{{ formatWeight(optWeightMg(opt), optUnit(opt), { withUnit: false }) }} <span class="t-muted">{{ optUnit(opt) }}</span></span>
-        </span>
+        <span class="t-num ac__w">{{ formatWeight(optWeightMg(opt), optUnit(opt), { withUnit: false }) }} <span class="t-muted">{{ optUnit(opt) }}</span></span>
       </li>
       </template>
     </ul>
@@ -824,9 +803,10 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
 </template>
 
 <style scoped lang="scss">
+/* the name cell can shrink, so long names ellipsize: the reset floors every
+   element's min-width at 0 (reset.scss) */
 .ac {
   position: relative;
-  min-width: 0; /* allow the name cell to shrink so long names ellipsize */
 }
 .ac__input {
   width: 100%;
@@ -855,6 +835,8 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   overflow: hidden;
   /* the pop-in scales from where the menu hangs off the input (kebab: top right) */
   transform-origin: top left;
+  /* the rest state of the exit's wipe, below */
+  clip-path: inset(-2px round var(--radius-4));
 }
 /* The EXIT folds. The card wipes upward into the field (a clip-path inset from the
    bottom) while it fades, so the list reads as retracting into the input it grew from
@@ -864,9 +846,6 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
    this tall, and longer would lag a fast typist's next row. The rest state's clip sits 2px outside the box so the
    .popover outline, painted outside it, keeps drawing. (Ryan, 2026-09-05: "a nicer exit
    animation for the predictive menu".) */
-.ac__menu {
-  clip-path: inset(-2px round var(--radius-4));
-}
 .ac__menu.menu-leave-active {
   transition:
     opacity var(--spring-step-dur) var(--spring-step),
@@ -947,15 +926,15 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   gap: var(--space-3);
   padding: var(--space-2) var(--space-2);
   cursor: pointer;
-  font-size: var(--text-base);
-  /* concentric radius + hover tint are pinned on the shared .popover surface */
+  /* both track the shared .popover surface rather than being guessed: the concentric
+     radius is the token derived from its corner (tokens.scss), the hover tint below is
+     declared on .popover itself (atoms/controls.scss) */
   border-radius: var(--popover-item-radius);
 }
 .ac__opt.is-active {
   background: var(--popover-hover);
 }
 .ac__name {
-  min-width: 0;
   display: flex;
   align-items: baseline;
   gap: 0.4ch;
@@ -990,7 +969,6 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
    width before the weight to itself. */
 .ac__product {
   padding: var(--space-2);
-  font-size: var(--text-base);
   cursor: default;
 }
 .ac__opt--size .ac__name {
@@ -1026,25 +1004,16 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   font-style: italic;
   color: var(--ink-3);
 }
-/* the characters that overlap what you've typed read bold — best-practice
-   typeahead emphasis; the rest of the name stays normal weight */
-.ac__hl {
-  font-weight: 700;
-  color: var(--ink);
-}
+/* (the characters that overlap what you've typed read bold, .ac__hl — the emphasis is
+   shared with the My Gear pane's rows: atoms/gear.scss) */
 .ac__watericon {
   vertical-align: -2px;
   margin-right: var(--space-1);
   color: var(--ink-2);
 }
-.ac__metaright {
-  display: inline-flex;
-  align-items: baseline;
-  gap: var(--space-2);
-  flex: none;
-}
+/* the weight never gives way to a long name (the name's own parts clip instead) */
 .ac__w {
-  font-size: var(--text-base);
+  flex: none;
   color: var(--ink-2);
 }
 </style>

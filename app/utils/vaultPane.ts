@@ -15,10 +15,14 @@
  */
 export const VAULT_ASK = "Your gear is one pick away on every list, but it needs an account.";
 
-/** Starting width, in px. 368 = 23rem. */
+/** Starting width, in px at 16px type (23rem). The pane grows with the type past a
+ *  1920px window, so on a wider screen each of these is drawn larger — see .editor's
+ *  --vault-w in GearEditor. */
 const VAULT_W_DEFAULT = 368;
-const VAULT_W_MIN = 288;
-const VAULT_W_MAX = 720;
+/** The range the divider can drag to, in px. The pane states the same two as its
+ *  separator's aria-valuemin and aria-valuemax. */
+export const VAULT_W_MIN = 288;
+export const VAULT_W_MAX = 720;
 
 /**
  * Hold a width inside the pane's usable range. Applied on the way IN as well as on

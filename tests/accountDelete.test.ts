@@ -15,7 +15,7 @@
 import { sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
-import { LISTS_DDL } from "../server/utils/db";
+import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { VAULT_DDL } from "../server/utils/vaultSchema";
 import { deleteAccount } from "../server/utils/accountRepo";
@@ -27,11 +27,10 @@ async function makeUser(db: TestDb, email: string): Promise<number> {
   return rows[0]!.id;
 }
 
-/** A vault with one folder, one piece of gear and a kit holding it. */
+/** A vault with one piece of gear and a kit holding it. */
 async function makeVault(db: TestDb, userId: number): Promise<number> {
   const v = await db.insert(schema.vaults).values({ userId }).returning();
   const vaultId = v[0]!.id;
-  await db.insert(schema.vaultFolders).values({ vaultId, name: "Shelter" });
   const [tent] = await db
     .insert(schema.vaultItems)
     .values({
@@ -56,7 +55,7 @@ describe("closing an account", () => {
   let db: TestDb;
   let user: number;
   beforeEach(async () => {
-    db = await createTestDb(LISTS_DDL, ACCOUNT_DDL, VAULT_DDL);
+    db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL, VAULT_DDL);
     user = await makeUser(db, "ryan@example.com");
   });
 
@@ -89,7 +88,6 @@ describe("closing an account", () => {
     // nothing can reach
     expect(await count(db, "vaults", `id = ${vaultId}`)).toBe(0);
     expect(await count(db, "vault_items", `vault_id = ${vaultId}`)).toBe(0);
-    expect(await count(db, "vault_folders", `vault_id = ${vaultId}`)).toBe(0);
     expect(await count(db, "vault_kit_parts", "true")).toBe(0);
   });
 
@@ -133,6 +131,20 @@ describe("closing an account", () => {
     // `users.id` is a serial, so a later account could inherit this id — a stale
     // byline would put a stranger's name on someone else's list
     expect(await count(db, "lists", `id = ${list.id} and author_user_id is null`)).toBe(1);
+  });
+
+  it("clears who-made-this-change on a list's recovery points, and nobody else's", async () => {
+    const other = await makeUser(db, "someone@example.com");
+    const list = await makeList(db);
+    const point = (editorUserId: number) => ({ listId: list.id, kind: "base", snapshot: {} as never, itemCount: 0, version: 1, editorUserId });
+    await db.insert(schema.listSnapshots).values([point(user), point(other)]);
+
+    await deleteAccount(db, user);
+    // the points stay (they are the list's history, and the list outlives the account);
+    // what goes is the pointer at an account that no longer exists
+    expect(await count(db, "list_snapshots", `list_id = ${list.id}`)).toBe(2);
+    expect(await count(db, "list_snapshots", `editor_user_id = ${user}`)).toBe(0);
+    expect(await count(db, "list_snapshots", `editor_user_id = ${other}`)).toBe(1);
   });
 
   it("leaves another account's vault and claims entirely alone", async () => {

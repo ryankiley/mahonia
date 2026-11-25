@@ -6,9 +6,10 @@ import {
   formatDistancePadded,
   heightUnitFor,
   heightValue,
+  routeLengthM,
   type DisplayDistanceUnit,
 } from "~~/shared/trailDistance";
-import { dayRanges, descentIsDistinct, routeLengthM } from "~~/shared/tripPlan";
+import { dayRanges, descentIsDistinct } from "~~/shared/tripPlan";
 // gradeBandFor is the function the SHADING bands by, not a second copy of its two
 // thresholds — so the number under the cursor and the colour under the cursor can never
 // disagree about what "steep" means. There used to be a STEEP_PCT in this file saying 10
@@ -33,7 +34,7 @@ import { type GradeBand, gradeBandFor, gradeRuns, gradeSeries, gradeSpread } fro
 // And one policy: M/L only, no bezier smoothing. A smoothed profile invents terrain
 // between samples, which is the same refusal the burn-down makes by not drawing a line
 // between two days.
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   /** elevations in metres, evenly spaced BY DISTANCE (see shared/gpx.ts) */
   profile: number[];
   /** each day's distance in metres, in order — the cuts along the x axis */
@@ -51,9 +52,12 @@ const props = defineProps<{
    * planning view turns this off and carries them among its own figures; the shared view
    * has no such row and lets the chart do it. The chart draws the shape either way — this
    * file's header has always said the numbers beside it are the page's job.
+   *
+   * ON by default, and the default has to be stated: Vue casts an absent Boolean prop
+   * to false, so "leave it off to get the figures" printed none.
    */
   facts?: boolean;
-}>();
+}>(), { facts: true });
 
 /**
  * WHERE ON THE ROUTE THE CURSOR IS, for anything drawing that same route alongside.
@@ -412,7 +416,7 @@ const hover = computed(() => {
   const grade = grades.value[Math.min(i, grades.value.length - 1)] ?? 0;
   return {
     extreme,
-    x: (i / (props.profile.length - 1)) * VB_W,
+    x: x(i),
     distanceM: Math.round((i / (props.profile.length - 1)) * props.totalDistanceM),
     ele,
     grade,
@@ -560,7 +564,7 @@ const id = useId();
          container is, so no height is measurable from the picture — these carry it in
          figures instead, which is the same division of labour the numbers above the chart
          already make. aria-hidden: <desc> says all of it, and better. -->
-    <p v-if="facts !== false" class="tprofile__facts">
+    <p v-if="facts && (ascentM || descentDiffers)" class="tprofile__facts">
       <FigureChip v-if="ascentM" label="Elevation gain" :value="asHeight(ascentM)" :unit="heightUnit" />
       <!-- The descent only when it is a DIFFERENT fact. On a loop it equals the climb by
            definition, and two figures carrying one fact is one figure too many; where they
@@ -587,7 +591,13 @@ const id = useId();
 .tprofile {
   display: block;
   width: 100%;
-  height: clamp(56px, 9vw, 96px);
+  height: clamp(56px, 9vw, calc(96 * var(--tpx)));
+  /* An SVG root clips to its viewBox by default, and a stroke is centred on its path — so
+     at x=0 and at the far right, half of every dot of the cursor (.tprofile__cursor,
+     below) fell outside the box and was cut away. The line looked like it came apart
+     exactly at the two ends you can scrub to. Nothing here is drawn beyond the box on
+     purpose, so letting strokes finish is all this does. */
+  overflow: visible;
 }
 /* the ends sit hard against the mark's own edges, so each figure lines up with the
    point of the route it names rather than floating near it */
@@ -661,13 +671,6 @@ const id = useId();
   stroke-linecap: round;
   stroke-dasharray: 0 5;
 }
-/* An SVG root clips to its viewBox by default, and a stroke is centred on its path — so at
-   x=0 and at the far right, half of every dot fell outside the box and was cut away. The
-   line looked like it came apart exactly at the two ends you can scrub to. Nothing here is
-   drawn beyond the box on purpose, so letting strokes finish is all this does. */
-.tprofile {
-  overflow: visible;
-}
 .tprofile-wrap {
   position: relative;
   cursor: crosshair;
@@ -678,7 +681,7 @@ const id = useId();
      which is the part of the chart you most want to interrogate. Padding is inside the
      box, so the same space reserves the room and answers the pointer.
      The readout reads this back (below), so the two can't drift apart. */
-  --tprofile-head: 24px;
+  --tprofile-head: calc(24 * var(--tpx));
   padding-top: var(--tprofile-head);
   /* Horizontal movement belongs to the chart, vertical still scrolls the page. Without
      this the browser holds every touch-drag open as a possible scroll and then cancels the

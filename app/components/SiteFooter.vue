@@ -50,14 +50,11 @@ const here = (p: string) => route.path === p;
 }
 /* The rule is on the INNER column, not the outer block: it marks where the page's
    content ends, so it should measure the content — not run the width of whatever
-   shell the page happens to sit in. */
+   shell the page happens to sit in. A plain block: it holds the nav and nothing
+   else, and the nav lays out its own links. */
 .foot__inner {
   border-top: 1px solid var(--line);
   padding-block: var(--space-5);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-3) var(--space-5);
 }
 .foot__nav {
   display: flex;

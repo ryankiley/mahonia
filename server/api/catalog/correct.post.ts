@@ -54,10 +54,8 @@ export default defineEventHandler(async (event) => {
     typeof body?.sourceUrl === "string" && body.sourceUrl.trim()
       ? body.sourceUrl.trim().slice(0, 2000)
       : undefined;
-  const reason =
-    typeof body?.reason === "string" && body.reason.trim()
-      ? body.reason.trim().slice(0, 500)
-      : undefined;
+  // proposeCorrection caps the stored reason
+  const reason = typeof body?.reason === "string" && body.reason.trim() ? body.reason.trim() : undefined;
 
   const db = await useCatalogDb();
   return proposeCorrection(db, { catalogItemId, newWeightMg: weightMg, sourceUrl, reason });

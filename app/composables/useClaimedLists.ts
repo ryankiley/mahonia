@@ -14,14 +14,14 @@ import { isRecord } from "~~/shared/record";
 import type { ClaimedOpen } from "~~/shared/switcher";
 import { CLAIMED_LIST_CAP, type ClaimedList } from "~~/shared/types";
 import { forget, recall, recallJson, remember } from "../utils/remember";
-import { ownedKey, sessionCacheOwner } from "../utils/sessionOwner";
-import { deleteListOnServer } from "./useMyLists";
+import { OWNED, ownedKey, sessionCacheOwner } from "../utils/sessionOwner";
+import { deleteListOnServer, madeHere, useMyLists } from "./useMyLists";
 
 
 // Which set of device tokens we've already claimed, so a signed-in visitor doesn't
 // re-POST the same registry on every page load. Persisted per-device rather than
 // held in memory: the claim call would otherwise repeat on every cold navigation.
-const CLAIMED_MARK_KEY = "gear.claimed.v2";
+const CLAIMED_MARK_KEY = OWNED.claimedMark;
 
 // The account's rows as this browser last saw them. A cache, not a source: the
 // server owns the truth and every successful read below replaces this wholesale.
@@ -32,14 +32,16 @@ const CLAIMED_MARK_KEY = "gear.claimed.v2";
 // browser holds edit links for. The lists made on another device would vanish from
 // it exactly when there's no network to ask for them back, which is the moment the
 // app is least able to explain itself.
-const CLAIMED_ROWS_KEY = "gear.claimed.rows.v2";
+const CLAIMED_ROWS_KEY = OWNED.claimedRows;
 
 // When this browser last had each claimed list OPEN. The device registry keeps this
 // per row (MyListEntry.lastOpened); a claimed open has no registry row — the point
 // of it is that this device holds no edit token — so it's kept here instead, and
 // the bare address ranks the two together (shared/switcher resumeTarget).
-const CLAIMED_OPENS_KEY = "gear.claimed.opens.v2";
+const CLAIMED_OPENS_KEY = OWNED.claimedOpens;
 
+// Unscoped keys from before the cache was kept per account (#406). They can hold the
+// last account's list titles and share codes, so they're cleared on the way through.
 const LEGACY_KEYS = ["gear.claimed.v1", "gear.claimed.rows.v1", "gear.claimed.opens.v1"];
 
 /** The cookie is current even while an old /api/auth/me response is still on screen. */
@@ -130,7 +132,7 @@ export function forgetClaimedOpen(shareCode: string): void {
  *  this device asks about it until the bare address resumes into it), so without
  *  this the launch after such a change went straight to a list the account no
  *  longer held — offline, into its stale copy as "offline", with no way to notice. */
-function pruneClaimedOpens(keep: Iterable<string>, owner = cacheOwner()): void {
+function pruneClaimedOpens(keep: Iterable<string>, owner: string | null): void {
   if (!import.meta.client) return;
   const live = new Set([...keep].map(normalizeShareCode));
   const opens = readOpens(owner);
@@ -139,20 +141,22 @@ function pruneClaimedOpens(keep: Iterable<string>, owner = cacheOwner()): void {
   writeOpens(owner, kept);
 }
 
-const isClaimedRow = (r: unknown): r is ClaimedList =>
-  !!r && typeof r === "object" && typeof (r as ClaimedList).shareCode === "string";
+const isClaimedRow = (r: unknown): r is ClaimedList => isRecord(r) && typeof r.shareCode === "string";
 
-function readCachedRows(owner = cacheOwner()): ClaimedList[] {
+function readCachedRows(): ClaimedList[] {
   // Element by element, not just "is it an array": a null or a number in here would
   // reach mergeSwitcherRows and registryStale as `l.shareCode` and throw — in the
   // switcher's render, and on every keystroke of a claimed open.
-  const key = ownedKey(CLAIMED_ROWS_KEY, owner);
+  const key = ownedKey(CLAIMED_ROWS_KEY, cacheOwner());
   return key ? recallJson(key, Array.isArray, []).filter(isClaimedRow) : [];
 }
 
-/** The registry as one comparable string. Exported so the session plugin, which
- *  watches for the registry to change, computes the same value it then passes in
- *  here — one fingerprint per change, not one per watcher and one per claim. */
+/** The edit tokens the sign-in sweep sends: the lists this browser made. */
+export const sweptTokens = (): string[] => useMyLists().entries.value.filter(madeHere).map((e) => e.editToken);
+
+/** The swept set as one comparable string. Exported so the session plugin, which
+ *  watches for it to change, computes the same value it then passes in here — one
+ *  fingerprint per change, not one per watcher and one per claim. */
 export function deviceFingerprint(tokens: string[]): string {
   return [...tokens].sort().join("|");
 }
@@ -170,7 +174,7 @@ export function useClaimedLists() {
    *  have no network — starts from what this browser last knew. The ONE owner of the
    *  cache: no rows means no key, never a stored "[]", so the many visitors with no
    *  account leave nothing behind and "empty" reads the same either way. */
-  function adopt(rows: ClaimedList[], owner = cacheOwner()): void {
+  function adopt(rows: ClaimedList[], owner: string | null): void {
     lists.value = rows;
     const key = ownedKey(CLAIMED_ROWS_KEY, owner);
     if (!key) return;
@@ -179,29 +183,20 @@ export function useClaimedLists() {
     else forget(key);
   }
 
-  /** The server's answer, adopted whole — and held against the opens ledger (see
-   *  pruneClaimedOpens), unless it hit the server's cap, when the rows in hand are
-   *  not the whole account and nothing outside them can be called gone. */
   /** The server's answer, adopted — unless the account changed while the request was
    *  out, in which case the rows belong to nobody on this device now. Three fetches
-   *  each wrote the check, the adopt and the flag; one place. */
+   *  each wrote the check, the adopt and the flag; one place.
+   *
+   *  Adopted whole, and held against the opens ledger (see pruneClaimedOpens), unless
+   *  it hit the server's cap, when the rows in hand are not the whole account and
+   *  nothing outside them can be called gone. */
   function adoptAnswer(res: { lists?: ClaimedList[] }, owner: string | null): boolean {
     if (owner !== cacheOwner()) return false;
-    adoptFromServer(res.lists || [], owner);
-    loaded.value = true;
-    return true;
-  }
-
-  /** Take one list out of the rows and out of the opens ledger — deleted, or the claim
-   *  released; the bare address must stop offering to resume it. */
-  function dropRow(shareCode: string, owner: string | null): void {
-    adopt(lists.value.filter((l) => l.shareCode !== shareCode), owner);
-    forgetClaimedOpen(shareCode);
-  }
-
-  function adoptFromServer(rows: ClaimedList[], owner = cacheOwner()): void {
+    const rows = res.lists || [];
     adopt(rows, owner);
     if (rows.length < CLAIMED_LIST_CAP) pruneClaimedOpens(rows.map((r) => r.shareCode), owner);
+    loaded.value = true;
+    return true;
   }
 
   /**
@@ -283,28 +278,26 @@ export function useClaimedLists() {
     const owner = cacheOwner();
     const markKey = ownedKey(CLAIMED_MARK_KEY, owner);
     if (!markKey) return;
-    // The registry, split by what this browser knows about each row. Lists it made
-    // are claimed outright. Lists that arrived through someone else's edit link go
-    // in the second bucket and are NOT claimed for being there — quietly attaching
-    // a shared list to your account is a surprise, and a claim is meant to be a
-    // private bookmark rather than a second, invisible way in.
-    //
-    // They're sent at all because that mark is unreliable in one direction: a list
-    // from before `origin` existed gets stamped "opened" merely by being reopened
-    // through its own link, which used to strand it on this device forever. Only
-    // the server can tell that era apart (it has the list's creation date), so the
-    // decision belongs to it — see server/utils/claimRepo.
-    const entries = useMyLists().entries.value;
-    const editTokens = entries.filter((e) => e.origin !== "opened").map((e) => e.editToken);
-    const openedTokens = entries.filter((e) => e.origin === "opened").map((e) => e.editToken);
-    // Both buckets, so a registry that changes only in its opened rows still
-    // re-runs the sweep. (It also retires every mark written by the version that
-    // fingerprinted one bucket — which is what re-sweeps the lists this bug had
-    // already stranded, without anything to migrate.)
-    const mark = fingerprint ?? deviceFingerprint([...editTokens, ...openedTokens]);
-    // storage blocked reads as "" — fall through and claim; it's idempotent
-    const seen = recall(markKey) ?? "";
-    if ((editTokens.length || openedTokens.length) && mark === seen) {
+    // Only for a session whose sign-in this browser made itself, or whose person
+    // has since said yes to the lists (`sweep`, kept on the session row: see
+    // startSession in server/utils/authSession.ts). The lists carry edit rights,
+    // and a session that got here any other way must not walk off with them. It
+    // still reads the account's own lists; it just sends the account nothing.
+    if (!useSession().user.value?.sweep) {
+      if (!loaded.value) await refresh();
+      return;
+    }
+    // The lists this browser made. One that arrived through someone else's edit link
+    // is never swept in: quietly attaching a shared list to your account is a
+    // surprise, and a claim is meant to be a private bookmark rather than a second,
+    // invisible way in (claimOne below adds one by choice).
+    const editTokens = sweptTokens();
+    const mark = fingerprint ?? deviceFingerprint(editTokens);
+    // Skip once this exact set has been sent, an empty one included: a claim also
+    // rebuilds My Gear from the account's lists, which bumps every row's use count.
+    // Storage blocked reads as null — fall through and claim; it's idempotent.
+    const seen = recall(markKey);
+    if (seen !== null && mark === seen) {
       // nothing new to attach, but we still want the account's own list
       if (!loaded.value) await refresh();
       return;
@@ -312,7 +305,7 @@ export function useClaimedLists() {
     try {
       const res = await $fetch<{ claimed: number; lists: ClaimedList[] }>("/api/lists/claim", {
         method: "POST",
-        body: { editTokens, openedTokens },
+        body: { editTokens },
       });
       if (!adoptAnswer(res, owner)) return;
       remember(markKey, mark); // a blocked write just means claiming again next time
@@ -362,7 +355,10 @@ export function useClaimedLists() {
     if (!owner) return false;
     if (!(await deleteListOnServer({ [LIST_CODE_HEADER]: shareCode }))) return false;
     if (owner !== cacheOwner()) return false;
-    dropRow(shareCode, owner);
+    // out of the rows and out of the opens ledger: the bare address must stop
+    // offering to resume it
+    adopt(lists.value.filter((l) => l.shareCode !== shareCode), owner);
+    forgetClaimedOpen(shareCode);
     // drop the claimed open's on-device copy too — the list is gone for good
     useLocalListStore().del(claimedLocalKey(shareCode));
     return true;

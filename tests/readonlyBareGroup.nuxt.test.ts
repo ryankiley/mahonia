@@ -8,7 +8,8 @@
 // promise that they "can't drift". A promise no test holds is a comment.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
-import ReadonlyItemRow from "~/components/ReadonlyItemRow.vue";
+import { ref } from "vue";
+import ReadonlyItemRow, { READ_ROWS } from "~/components/ReadonlyItemRow.vue";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { blankList, item } from "./helpers/list";
 
@@ -20,8 +21,16 @@ let list: ListSnapshot;
 
 function mountRow(row: Item, children: Item[] = []) {
   list = blankList({ items: [row, ...children] });
+  // what the view provides its rows (READ_ROWS): the list and its one-pass tables
+  const rows = {
+    list: ref(list),
+    childrenByParent: ref(new Map([[row.id, children]])),
+    contextOnlyIds: ref(undefined),
+    variantShownIds: ref(new Set<string>()),
+  };
   return mount(ReadonlyItemRow, {
-    props: { list, item: row, childrenByParent: new Map([[row.id, children]]) },
+    props: { item: row },
+    global: { provide: { [READ_ROWS as symbol]: rows } },
   });
 }
 

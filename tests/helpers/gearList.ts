@@ -12,7 +12,7 @@
 // that renders a live button — itemVaultButton wants that one and populates
 // `vaultGearAsked` itself, which is exactly why it has to.
 import { ref, type Ref } from "vue";
-import type { LocalListRecord } from "../../shared/localList";
+import { CLAIMED_KEY_PREFIX, type LocalListRecord } from "../../shared/localList";
 import { applyOps, type ItemPatch } from "../../shared/ops";
 import type { ListSnapshot } from "../../shared/types";
 
@@ -96,13 +96,25 @@ export const vaultWithHits = (results: unknown[]) => ({
  * so a test can never accidentally assert against a live reference to the controller's
  * own state. Without one it is a sink — for suites about the optimistic snapshot the
  * reducer builds, where what reaches the device is nobody's business.
+ * It never reads ahead: take() has nothing, so every load reads through get(), as
+ * one does when the page didn't ask first (tests/listReadAhead.nuxt.test.ts runs the
+ * real slot).
  */
-export const memoryListStore = (records?: Map<string, LocalListRecord>) => ({
+export const memoryListStore = (records?: Map<string, LocalListRecord>, deleted?: string[]) => ({
   get: async (key: string) => records?.get(key),
   set: async (key: string, record: LocalListRecord) => {
     records?.set(key, JSON.parse(JSON.stringify(record)));
   },
   del: async (key: string) => {
+    // `deleted` records WHICH copies were dropped, for the suites about the
+    // registry: there a delete is the thing under test and the copy is not
+    deleted?.push(key);
     records?.delete(key);
   },
+  delClaimed: async () => {
+    for (const [key, record] of [...(records ?? [])])
+      if (key.startsWith(CLAIMED_KEY_PREFIX) && !record.pending.length) records?.delete(key);
+  },
+  prefetch: async () => {},
+  take: () => undefined,
 });

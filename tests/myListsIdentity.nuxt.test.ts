@@ -6,21 +6,19 @@
 // contents across a sequence of writes. Extracting a pure helper would be testing a
 // shape that isn't the one shipping.
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { memoryListStore } from "./helpers/gearList";
 import { listEntry } from "./helpers/myLists";
 import { snapshotFor as baseSnapshot } from "./helpers/list";
 import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import type { ListSnapshot, MyListEntry } from "~~/shared/types";
+import { madeHere } from "~/composables/useMyLists";
 
 // The real store is IndexedDB and there isn't one. Deletes are RECORDED rather than
 // swallowed: "the row goes, the on-device copy stays" is the whole distinction
 // between forget() and forgetSuperseded(), and it's only visible here.
 const deleted: string[] = [];
-mockNuxtImport("useLocalListStore", () => () => ({
-  get: async () => undefined,
-  set: async () => {},
-  del: async (key: string) => void deleted.push(key),
-}));
+mockNuxtImport("useLocalListStore", () => () => memoryListStore(undefined, deleted));
 
 const storage = stubLocalStorage();
 
@@ -107,8 +105,8 @@ describe("useMyLists — a list is its share code, not its edit token", () => {
     expect(my.entries.value).toHaveLength(1);
     const row = my.entries.value[0]!;
     expect(row.origin).toBeUndefined();
-    // the exact filter the claim sweep applies — the row must still pass it
-    expect([row].filter((e) => e.origin !== "opened")).toHaveLength(1);
+    // the filter the claim sweep applies — the row must still pass it
+    expect(madeHere(row)).toBe(true);
   });
 
   it("doesn't duplicate when a rotated list is reopened through registerCreated", () => {

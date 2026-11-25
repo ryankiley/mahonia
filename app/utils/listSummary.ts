@@ -11,6 +11,5 @@
 
 /** An untitled list still needs a name in a list of names. */
 export function savedListTitle(title: string): string {
-  const n = title?.trim();
-  return n && n !== "Untitled list" ? n : "Untitled list";
+  return title?.trim() || "Untitled list";
 }

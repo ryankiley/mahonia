@@ -1,24 +1,15 @@
 <script setup lang="ts">
-import type { Folder, Item, ListSnapshot } from "~~/shared/types";
+import type { Folder, Item } from "~~/shared/types";
 
-// The share views' folder (/s + /l): static name + collapse + readonly rows.
+// The share view's folder (/s): static name + collapse + readonly rows.
 // Deliberately its OWN component, not FolderSection with a flag — the read pages
 // must not pull the editor graph (useGearList, both drag composables, ItemRow's
 // autocomplete) into their bundle just to render a static list.
 //
 // `items` is this folder's items, pre-grouped + sorted by the parent (one
-// groupItemsByFolder pass per snapshot); `childrenByParent` is the same idea for
-// nested rows (one groupItemsByParent pass), threaded through to each row.
-defineProps<{
-  list: ListSnapshot;
-  folder: Folder;
-  items: Item[];
-  childrenByParent: Map<string, Item[]>;
-  /** rows kept only as a label for a matching child — see useReadonlyList */
-  contextOnlyIds?: ReadonlySet<string>;
-  /** rows whose variant shows beside the name — see ReadonlyListView */
-  variantShownIds?: ReadonlySet<string>;
-}>();
+// groupItemsByFolder pass per snapshot). What a row needs beyond its item it injects
+// (READ_ROWS, ReadonlyItemRow).
+defineProps<{ folder: Folder; items: Item[] }>();
 
 // Collapse is local-only here: shared views always START expanded, and a viewer's
 // toggle is never persisted — so the owner's collapse state can't bleed into a
@@ -42,7 +33,7 @@ const collapsed = ref(false);
     <div class="folder__body">
       <div class="folder__bodyinner">
         <div class="folder__items">
-          <ReadonlyItemRow v-for="it in items" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" :variant-shown-ids="variantShownIds" />
+          <ReadonlyItemRow v-for="it in items" :key="it.id" :item="it" />
           <p v-if="!items.length" class="t-sm t-muted folder__empty">—</p>
         </div>
       </div>

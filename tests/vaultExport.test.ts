@@ -133,3 +133,23 @@ describe("vaultToJson", () => {
     expect(json.items[0].timesSeen).toBe(1);
   });
 });
+
+describe("vaultToCsv weights survive the round trip", () => {
+  // Grams once went out at zero decimals, so a 0.4 g piece exported as 0 and came back
+  // unweighed. The list exporter's decimals, per unit, are what toMg() reads back exactly.
+  it.each([
+    ["g", 400],
+    ["g", 12_345],
+    ["kg", 12_345],
+    ["oz", 9_071],
+    ["lb", 453_592],
+  ] as const)("in %s a %d mg piece re-imports at the same milligrams", (unit, weightMg) => {
+    const csv = vaultToCsv({ items: [row({ name: "Tab", weightMg })] }, unit);
+    expect(csvToListData(csv).items[0]!.unitWeightMg).toBe(weightMg);
+  });
+
+  it("still writes a whole-gram weight with no trailing zeros", () => {
+    const csv = vaultToCsv({ items: [row({ name: "Duplex", weightMg: 539_000 })] }, "g");
+    expect(cells(csv, 1)).toContain("539");
+  });
+});

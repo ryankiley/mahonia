@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CheckmarkSquare02Icon, SquareIcon } from "@hugeicons/core-free-icons";
+import { IconFormSquare, IconSquareCheck } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 // The single mount point for the app-wide confirm + copy-link-fallback dialogs
 // (state in useDialogs). Rendered once in app.vue so every page — including the
 // layout-less editor — shares one instance. Both reuse BaseModal (scrim, rise,
@@ -26,8 +26,8 @@ watch(
       <label v-if="confirmState.checkboxLabel" class="dlg__opt">
         <span class="check">
           <input v-model="confirmState.checked" type="checkbox" class="check__box" />
-          <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-          <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+          <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" size="lg" aria-hidden="true" />
+          <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" size="lg" aria-hidden="true" />
         </span>
         <span class="dlg__opttext">
           {{ confirmState.checkboxLabel }}
@@ -35,7 +35,7 @@ watch(
         </span>
       </label>
       <div class="dlg__actions">
-        <button class="btn btn--ghost" @click="settleConfirm(false)">{{ confirmState.cancelLabel }}</button>
+        <button class="btn btn--ghost" @click="settleConfirm(false)">Cancel</button>
         <button class="btn btn--primary" @click="settleConfirm(true)">{{ confirmState.confirmLabel }}</button>
       </div>
     </BaseModal>
@@ -43,7 +43,7 @@ watch(
     <BaseModal :open="linkState.open" :label="linkState.title" @close="closeLinkFallback">
       <h2 class="t-label">{{ linkState.title }}</h2>
       <p class="t-sm t-muted dlg__lede">Copying isn’t available here. Select the link below and copy it.</p>
-      <input ref="linkInput" class="field dlg__linkfield" :value="linkState.url" readonly @focus="linkInput?.select()" />
+      <input ref="linkInput" class="field well dlg__linkfield" :value="linkState.url" readonly @focus="linkInput?.select()" />
       <div class="dlg__actions">
         <button class="btn btn--primary" @click="closeLinkFallback">Done</button>
       </div>
@@ -54,13 +54,11 @@ watch(
 <style scoped>
 /* the action row (.dlg__actions) is shared shell — it lives in atoms/dialog.scss */
 .dlg__linkfield {
-  width: 100%;
-  /* the import textarea's language — quiet tinted well, rounded a concentric
-     step inside the card (radius-4 − space-2), not a hairline box. No focus
-     deepen: the field is readonly and arrives preselected. */
-  background: var(--paper-2);
-  border-radius: calc(var(--radius-4) - var(--space-2));
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-base);
+  /* the import textarea's language: the .well atom's tinted ground and concentric
+     corner, not a hairline box. The atom's ground and not --paper-2, which sat at
+     1.10:1 on this card's float surface: a box you could not see around the one thing
+     the dialog asks you to copy. Only the height is this field's; the type size is
+     .field's own static 16px. */
+  padding-block: var(--space-2);
 }
 </style>

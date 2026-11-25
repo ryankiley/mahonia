@@ -5,9 +5,8 @@
 // editor's first load. See shared/vault for what a kit is.
 
 import {
-  gearFromItem,
+  captureOf,
   isVaultWorthy,
-  isWaterRow,
   type VaultCapture,
   type VaultEntry,
   type VaultKitCapture,
@@ -15,6 +14,7 @@ import {
   type VaultKitPartRef,
 } from "./vault";
 import type { Item } from "./types";
+import { isWaterName } from "./water";
 
 /** Most parts one kit holds. A kit is a handful of rows; this bounds a hand-rolled
  *  write, not a use. */
@@ -86,20 +86,15 @@ export function kitFromGroup(
   children: readonly Item[],
   folderName?: string,
 ): { kit: VaultKitCapture; parts: VaultCapture[] } | null {
-  if (isWaterRow(parent)) return null;
-  // marked the way captureFromList marks a row: a catalog pick nobody renamed is kept
-  // under the catalog's current spelling (the server's respell), like any capture
-  const spelled = (item: Item) => item.catalogItemId != null && !item.nameOverridden;
-  const base = gearFromItem(parent, folderName);
-  if (!base) return null;
-  const own = { ...base, catalogSpelling: spelled(parent) };
+  if (isWaterName(parent.name)) return null;
+  const own = captureOf(parent, folderName);
+  if (!own) return null;
   const parts = new Map<string, VaultKitPartRef>();
   const captures = new Map<string, VaultCapture>();
   for (const child of children) {
     if (child.parentId !== parent.id || !isVaultWorthy(child, false)) continue;
-    const found = gearFromItem(child, folderName);
-    if (!found || found.normKey === own.normKey) continue;
-    const cap = { ...found, catalogSpelling: spelled(child) };
+    const cap = captureOf(child, folderName);
+    if (!cap || cap.normKey === own.normKey) continue;
     captures.set(cap.normKey, cap);
     const qty = Math.max(1, Math.round(child.qty) || 1);
     const have = parts.get(cap.normKey);

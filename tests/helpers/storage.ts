@@ -15,6 +15,11 @@ export function stubLocalStorage(): Map<string, string> {
     setItem: (k: string, v: string) => void storage.set(k, String(v)),
     removeItem: (k: string) => void storage.delete(k),
     clear: () => storage.clear(),
+    // the two a walk over every key needs (sweepOwned)
+    key: (i: number) => [...storage.keys()][i] ?? null,
+    get length() {
+      return storage.size;
+    },
   });
   return storage;
 }

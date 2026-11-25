@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "\"Add folder\" sits the same distance below the last folder as the folders sit from each other.",
+    "In the trail link panel, \"Link title\" keeps its spacing when a file error is showing.",
+    "The body-weight unit's arrow turns when its menu opens.",
+    "On touch screens, three hover highlights no longer stay lit after a tap.",
+    "The link in the copy fallback dialog sits in a box you can see.",
+    "On phones, the account dialog's header is as short as it is on a desktop."
+  ]
+}

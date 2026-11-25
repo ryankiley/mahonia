@@ -18,7 +18,7 @@ useHead({
     <main id="main-content" tabindex="-1" class="wrap page">
       <div class="prose">
         <h1 class="t-title">Legal</h1>
-        <p class="t-sm t-muted">Last updated 9 November 2026</p>
+        <p class="t-sm t-muted">Last updated 25 November 2026</p>
         <p>
           How Mahonia handles your data, and the terms for using it. Jump to
           <a href="#privacy">Privacy</a> or <a href="#terms">Terms</a>.
@@ -115,7 +115,7 @@ useHead({
           database), <strong>Upstash</strong> (rate limiting, and the short-lived challenge a
           passkey needs), <strong>Resend</strong> (sending sign-in links, so it handles
           your email address), and <strong>GitHub</strong>, where feedback you send from the app
-          becomes a public issue carrying only what you typed in the box.
+          becomes a public issue carrying only what was in the box when you sent it.
         </p>
         <p>
           One more, and only on one screen. When a list has a route, the planning view draws it on
@@ -157,12 +157,10 @@ useHead({
         </ul>
         <p>
           Some things are also cleaned up automatically, and the timings are exact rather than
-          vague. A list that never got past a single item and hasn’t been edited for
-          <strong>30 days</strong> is removed; a list with two items or more never expires. Saved
-          gear untouched for <strong>180 days</strong> is set aside, and signing in within the next
-          <strong>90 days</strong> brings it back. A list you delete, or one that’s cleaned
-          up, is held for those same 90 days before it’s deleted for good, so if you’ve lost one,
-          email me and I’ll see what can be recovered.
+          vague. A list with one item or none that hasn’t been edited for
+          <strong>30 days</strong> is removed; a list with two items or more never expires. A list
+          you delete, or one that’s cleaned up, is held for <strong>90 days</strong> before it’s
+          deleted for good, so if you’ve lost one, email me and I’ll see what can be recovered.
         </p>
         <p>
           No system is perfectly secure. Please don’t put sensitive personal information into a
@@ -225,10 +223,12 @@ useHead({
         <h3>Fair use of Mahonia</h3>
         <p>
           Please don’t use Mahonia to break the law, infringe others’ rights, post abusive or
-          deceptive content, impersonate people, or attack, overload, or scrape the service. A
-          shared list can be flagged with “Report list” in its ⋯ menu; to report a problem or
-          request a takedown, email <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a>
-          with enough detail to find the content. I may remove content or limit access.
+          deceptive content, impersonate people, or attack, overload, or scrape the service.
+          “Report list” in a shared list’s ⋯ menu opens the feedback box with the list’s title
+          already in it, and like any feedback it becomes a public issue. To report something
+          privately or request a takedown, email
+          <a :href="`mailto:${CONTACT_EMAIL}`">{{ CONTACT_EMAIL }}</a> with enough detail to find
+          the content. I may remove content or limit access.
         </p>
 
         <h3>It’s free and provided “as is”</h3>

@@ -30,9 +30,10 @@
 // got into the account is exactly what ending every session wouldn't reach.
 
 import { and, desc, eq, or, sql } from "drizzle-orm";
+import type { PgColumn } from "drizzle-orm/pg-core";
 import type { H3Event } from "h3";
 import type { AccessScope, AccessTokenSummary } from "../../shared/types";
-import { accessTokens, oauthCodes } from "../db/schema";
+import { accessTokens, oauthCodes, users } from "../db/schema";
 import type { Db } from "./db";
 import { bearerToken } from "./http";
 import { toIso } from "./time";
@@ -83,7 +84,7 @@ export interface ConnectorIdentity {
 }
 
 /** The token endpoint's answer (RFC 6749 §5.1): the pair, and what it may do. */
-export interface IssuedTokens {
+interface IssuedTokens {
   access_token: string;
   token_type: "Bearer";
   expires_in: number;
@@ -101,7 +102,7 @@ export interface IssuedTokens {
 export async function mintAccessToken(
   db: Db,
   userId: number,
-  opts: { label?: string | null; scope: AccessScope },
+  opts: { label?: string | null; scope: AccessScope; unproven: boolean },
 ): Promise<{ id: number; token: string } | null> {
   const [{ held } = { held: 0 }] = await db
     .select({ held: sql<number>`count(*)` })
@@ -112,7 +113,7 @@ export async function mintAccessToken(
   const label = (opts.label ?? "").trim().slice(0, LABEL_MAX) || null;
   const [row] = await db
     .insert(accessTokens)
-    .values({ tokenHash: sha256Hex(token), userId, kind: "token", label, scope: opts.scope })
+    .values({ tokenHash: sha256Hex(token), userId, kind: "token", label, scope: opts.scope, unproven: opts.unproven })
     .returning();
   return { id: row!.id, token };
 }
@@ -130,12 +131,20 @@ function freshPair(scope: AccessScope) {
 /** A new grant for an app that was just allowed: the row, and its first pair. */
 export async function issueAppTokens(
   db: Db,
-  grant: { userId: number; clientId: string; label: string; scope: AccessScope },
+  grant: { userId: number; clientId: string; label: string; scope: AccessScope; unproven: boolean },
 ): Promise<IssuedTokens> {
   const pair = freshPair(grant.scope);
-  await db.insert(accessTokens).values({ ...pair.set, userId: grant.userId, kind: "app", clientId: grant.clientId, label: grant.label, scope: grant.scope });
+  await db.insert(accessTokens).values({ ...pair.set, userId: grant.userId, kind: "app", clientId: grant.clientId, label: grant.label, scope: grant.scope, unproven: grant.unproven });
   return pair.issued;
 }
+
+/**
+ * A row made while its account's address was unproven opens nothing once the address
+ * is proven, even one written after the claim swept the table: see sessions.unproven
+ * in server/db/schema.ts. The one predicate for every such row (a session, a passkey,
+ * a token), each naming its own `unproven` column, read with `users` joined in.
+ */
+export const notRetired = (unproven: PgColumn) => or(eq(unproven, false), eq(users.emailVerified, false));
 
 /**
  * Trade a refresh token for the next pair, rotating both hashes in one UPDATE keyed
@@ -162,7 +171,8 @@ export async function refreshAppTokens(db: Db, rawRefresh: unknown, clientId: un
   const [row] = await db
     .select({ id: accessTokens.id, scope: accessTokens.scope, refreshHash: accessTokens.refreshHash, expiresAt: accessTokens.expiresAt })
     .from(accessTokens)
-    .where(and(or(eq(accessTokens.refreshHash, hash), eq(accessTokens.refreshPrevHash, hash)), eq(accessTokens.clientId, clientId)))
+    .innerJoin(users, eq(users.id, accessTokens.userId))
+    .where(and(or(eq(accessTokens.refreshHash, hash), eq(accessTokens.refreshPrevHash, hash)), eq(accessTokens.clientId, clientId), notRetired(accessTokens.unproven)))
     .limit(1);
   if (!row || !isAccessScope(row.scope)) return null;
   if (row.refreshHash !== hash) {
@@ -185,12 +195,10 @@ export async function refreshAppTokens(db: Db, rawRefresh: unknown, clientId: un
 /** RFC 7009: a token presented for revocation ends the whole grant, whichever of the
  *  pair it was. A hand-minted token revokes itself the same way. Idempotent: a value
  *  that matches nothing was revoked already, as far as the caller can tell. */
-export async function revokeByToken(db: Db, raw: unknown): Promise<boolean> {
-  if (typeof raw !== "string" || !raw.startsWith(ACCESS_TOKEN_PREFIX) || raw.length > RAW_TOKEN_MAX) return false;
-  const hash = sha256Hex(raw);
+export async function revokeByToken(db: Db, raw: unknown): Promise<void> {
+  if (typeof raw !== "string" || !raw.startsWith(ACCESS_TOKEN_PREFIX) || raw.length > RAW_TOKEN_MAX) return;
   const column = raw.startsWith(APP_REFRESH_PREFIX) ? accessTokens.refreshHash : accessTokens.tokenHash;
-  const gone = await db.delete(accessTokens).where(eq(column, hash)).returning();
-  return gone.length > 0;
+  await db.delete(accessTokens).where(eq(column, sha256Hex(raw)));
 }
 
 /** The account's credentials as the account page shows them: newest first, metadata
@@ -258,7 +266,8 @@ export async function resolveBearer(db: Db, raw: string): Promise<ConnectorIdent
   const [row] = await db
     .select({ id: accessTokens.id, userId: accessTokens.userId, scope: accessTokens.scope, expiresAt: accessTokens.expiresAt, lastUsedAt: accessTokens.lastUsedAt })
     .from(accessTokens)
-    .where(eq(accessTokens.tokenHash, sha256Hex(raw)))
+    .innerJoin(users, eq(users.id, accessTokens.userId))
+    .where(and(eq(accessTokens.tokenHash, sha256Hex(raw)), notRetired(accessTokens.unproven)))
     .limit(1);
   if (!row || !isAccessScope(row.scope)) return null;
   const now = Date.now();

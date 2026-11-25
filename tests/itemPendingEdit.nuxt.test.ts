@@ -19,6 +19,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount } from "@vue/test-utils";
+import { typeInto } from "./helpers/dom";
 import { mountRowOver } from "./helpers/itemRow";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import { blankList } from "./helpers/list";
@@ -56,13 +57,6 @@ const item: Item = {
 } as unknown as Item;
 
 const mountRow = () => mountRowOver(snapshot, [{ ...item }]);
-
-/** Type into a field the way a person does: focus it, change its value, commit nothing. */
-function typeInto(el: HTMLInputElement, value: string) {
-  el.focus();
-  el.value = value;
-  el.dispatchEvent(new Event("input", { bubbles: true }));
-}
 
 const row = () => snapshot.value.items[0]!;
 

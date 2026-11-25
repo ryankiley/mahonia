@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatVolume, itemQtyLabel, parseVolumeMl, waterMgFromMl, waterPhraseMl } from "../shared/water";
+import { formatVolume, isWaterName, itemQtyLabel, parseVolumeMl, waterMenu, waterMgFromMl, waterPhrase, waterVolumeLabel } from "../shared/water";
+import { listToMarkdown } from "../shared/exporters/markdown";
+import { listToText } from "../shared/exporters/text";
+import { blankList, folder, item } from "./helpers/list";
+
+const waterPhraseMl = (text: string) => waterPhrase(text)?.ml ?? null;
+const waterMenuMl = (text: string) => waterMenu(text)?.ml ?? null;
 
 describe("parseVolumeMl — human volume → millilitres", () => {
   it("reads litres (the default for a bare number) and millilitres", () => {
@@ -103,7 +109,7 @@ describe("itemQtyLabel — amount labels incl. the worn split", () => {
   });
 });
 
-describe("waterPhraseMl", () => {
+describe("waterPhrase — the volume", () => {
   it("reads water with a volume, either way round", () => {
     expect(waterPhraseMl("Water 2 L")).toBe(2000);
     expect(waterPhraseMl("water 500 ml")).toBe(500);
@@ -119,5 +125,91 @@ describe("waterPhraseMl", () => {
     expect(waterPhraseMl("500 ml")).toBeNull();
     expect(waterPhraseMl("Watermelon 2 kg")).toBeNull();
     expect(waterPhraseMl("Water bottle")).toBeNull();
+  });
+});
+
+describe("waterMenu — what the name field's menu offers as water", () => {
+  it("offers a litre for a bare \"water\" and the volume for a bare volume", () => {
+    expect(waterMenuMl("water")).toBe(1000);
+    expect(waterMenuMl(" Water ")).toBe(1000);
+    expect(waterMenuMl("500 ml")).toBe(500);
+    expect(waterMenuMl("1.5L")).toBe(1500);
+  });
+
+  it("reads every water phrase the Enter path reads, set-off volumes included", () => {
+    for (const text of ["water 2 L", "2 L water", "Water - 2 L", "Water: 750 ml", "Water (2 L)"]) {
+      expect(waterMenuMl(text)).toBe(waterPhraseMl(text));
+      expect(waterMenuMl(text)).not.toBeNull();
+    }
+  });
+
+  it("offers nothing for gear that only starts with the word", () => {
+    expect(waterMenuMl("water filter")).toBeNull();
+    expect(waterMenuMl("Tent")).toBeNull();
+    expect(waterMenuMl("")).toBeNull();
+  });
+});
+
+describe("waterVolumeLabel — water's amount wherever a count would stand", () => {
+  it("is the row's whole volume, never a count", () => {
+    expect(waterVolumeLabel({ qty: 1, unitWeightMg: 3_000_000 })).toBe("3 L");
+    // a row stored before the reducer folded its count still says what it weighs
+    expect(waterVolumeLabel({ qty: 3, unitWeightMg: 3_000_000 })).toBe("9 L");
+    expect(waterVolumeLabel({ qty: 1, unitWeightMg: 0 })).toBe("0 L");
+  });
+
+  it("is what the Markdown and text exports print for water", () => {
+    const list = blankList({
+      folders: [folder({ name: "Food & water", defaultClassification: "consumable" })],
+      items: [item({ id: "w", name: "Water", unitWeightMg: 3_000_000 })],
+    });
+    expect(listToMarkdown(list)).toContain("| Water | 3 L |");
+    expect(listToText(list)).toContain("Water 3 L");
+  });
+});
+
+describe("isWaterName — water as the last word, never gear", () => {
+  it("reads water with a word before it, and a volume or a bracket after it", () => {
+    for (const n of ["Water", "water", "  WATER ", "Drinking water", "Spare water", "Day 2 water", "Fresh-water", "2 L water", "Water 2 L", "Water - 750 ml", "Water: 1.5l", "Water (2 L)", "Water (filtered)", "Water 32 oz"]) {
+      expect(isWaterName(n), n).toBe(true);
+    }
+  });
+
+  it("keeps gear with its noun after the word, and words that only contain it", () => {
+    for (const n of ["Water filter", "Water bottle", "Water Treatment Drops", "Water Bottle Sleeve", "Water bottle 1L", "Smartwater", "Smartwater 1L", "Waterproof bag", "Watermelon", "Bag for dirty water", "Water x3", "Tent", ""]) {
+      expect(isWaterName(n), n).toBe(false);
+    }
+  });
+
+  // "İ" lower-cases to an i and a combining dot, which is a mark and not a letter, so
+  // a plain toLowerCase() made the letter in front of "water" stop counting as one
+  it("still sees the letter in front of the word when it is a dotted capital I", () => {
+    expect(isWaterName("İwater")).toBe(false);
+    expect(isWaterName("İ water")).toBe(true);
+  });
+});
+
+describe("waterPhrase — the name a water line keeps, and its volume", () => {
+  it("keeps a word before water and puts the volume aside", () => {
+    expect(waterPhrase("Drinking water 2 L")).toEqual({ name: "Drinking water", ml: 2000 });
+    expect(waterPhrase("Spare water (500 ml)")).toEqual({ name: "Spare water", ml: 500 });
+    expect(waterPhrase("water 2 L")).toEqual({ name: "Water", ml: 2000 });
+    expect(waterPhrase("2 L water")).toEqual({ name: "Water", ml: 2000 });
+  });
+
+  it("is null for water without a volume, a bare volume, and gear with a size", () => {
+    for (const t of ["Drinking water", "water", "500 ml", "Water bottle 1L", "Smartwater 1L", "Bag for dirty water 2L"]) {
+      expect(waterPhrase(t), t).toBeNull();
+    }
+  });
+
+  // The name is cut out of the text AS TYPED at the place "water" was found in its
+  // lower-cased copy. "İ" lower-cases to two characters, so each one before the word
+  // moved the cut one place right: the name took the volume's first digit, or the
+  // bracket that opens it (and was then refused as not water at all).
+  it("cuts the name where the word ends, whatever is in front of it", () => {
+    expect(waterPhrase("İİ water 2 L")).toEqual({ name: "İİ water", ml: 2000 });
+    expect(waterPhrase("DİİL water (2 L)")).toEqual({ name: "DİİL water", ml: 2000 });
+    expect(waterPhrase("İİwater 2 L")).toBeNull();
   });
 });

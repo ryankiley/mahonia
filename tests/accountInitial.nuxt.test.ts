@@ -13,6 +13,7 @@ import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import { flushPromises, mount } from "@vue/test-utils";
 import { stubLocalStorage } from "./helpers/storage";
 import { accountInitial, forgetAccountInitial, useAccountInitial } from "~/composables/useAccountInitial";
+import type { Presence } from "~/composables/useSession";
 import AccountMenu from "~/components/AccountMenu.vue";
 
 const KEY = "gear.account.initial.v1";
@@ -21,7 +22,7 @@ const storage = stubLocalStorage();
 // the session as AccountMenu and the composable read it: a user that starts
 // unresolved and a presence that says an account is behind this browser
 const user = ref<{ email: string | null; displayName: string | null } | null>(null);
-const presence = ref<"signedIn" | "signedOut" | "presumed">("presumed");
+const presence = ref<Presence>("presumed");
 mockNuxtImport("useSession", () => () => ({ user, presence, signOut: async () => {} }));
 
 beforeEach(() => {

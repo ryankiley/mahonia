@@ -1,19 +1,21 @@
-import type { ListSnapshot, Totals, TripDay } from "~~/shared/types";
-import { burnDownMg, descentIsDistinct, routeLengthM } from "~~/shared/tripPlan";
-import { isWaterName } from "~~/shared/water";
-import { effectiveClassification, lineMg } from "~~/shared/weights";
+import type { PersonSelection } from "~~/shared/people";
+import type { ListSnapshot, TripDay } from "~~/shared/types";
+import { walkerLoad } from "~~/shared/tripLoad";
+import { burnDownMg, descentIsDistinct } from "~~/shared/tripPlan";
 import {
   bodyWeightFieldValue,
   heightUnitFor,
   heightValue,
   parseBodyWeightG,
   resolveDistanceUnit,
+  routeLengthM,
 } from "~~/shared/trailDistance";
 import type { ComputedRef, Ref } from "vue";
 
 interface TripLoadModelInput {
   snapshot: Readonly<Ref<ListSnapshot>>;
-  totals: Readonly<Ref<Totals>>;
+  /** the person chip picked; the walker carries that person's pack (shared/tripLoad.ts) */
+  selection: Readonly<Ref<PersonSelection>>;
   days: Readonly<ComputedRef<(TripDay | null)[]>>;
 }
 
@@ -24,7 +26,7 @@ interface TripLoadModelInput {
  * walker carries and which units the panel speaks, without knowing about a route,
  * waypoint, map, or piece of panel markup.
  */
-export function useTripLoadModel({ snapshot, totals, days }: TripLoadModelInput) {
+export function useTripLoadModel({ snapshot, selection, days }: TripLoadModelInput) {
   const distanceUnit = computed(() => resolveDistanceUnit(snapshot.value.trailDistanceUnit));
   const ascentUnit = computed(() => heightUnitFor(distanceUnit.value));
   const totalDistanceM = computed(() => days.value.reduce((sum, day) => sum + (day?.distanceM ?? 0), 0));
@@ -34,15 +36,9 @@ export function useTripLoadModel({ snapshot, totals, days }: TripLoadModelInput)
   );
   const totalAscentM = computed(() => days.value.reduce((sum, day) => sum + (day?.ascentM ?? 0), 0));
 
-  // Water refills. It belongs in carried weight but never in consumables burned down.
-  const burnableMg = computed(() => {
-    const waterMg = snapshot.value.items
-      .filter((item) => isWaterName(item.name))
-      .filter((item) => effectiveClassification(item, snapshot.value.folders) === "consumable")
-      .reduce((sum, item) => sum + lineMg(item), 0);
-    return Math.max(0, totals.value.consumableMg - waterMg);
-  });
-  const packMg = computed(() => burnDownMg(totals.value.carriedMg, burnableMg.value, days.value.length));
+  // One walker's pack, not every pack on a group list; water stays carried but uneaten.
+  const load = computed(() => walkerLoad(snapshot.value, selection.value));
+  const packMg = computed(() => burnDownMg(load.value.carriedMg, load.value.burnableMg, days.value.length));
 
   // The walker is device-local rather than part of a shared/exportable list snapshot.
   const body = useBodyWeight(snapshot.value.displayUnit);
@@ -69,6 +65,7 @@ export function useTripLoadModel({ snapshot, totals, days }: TripLoadModelInput)
     commitBody,
     distanceUnit,
     headlineM,
+    load,
     packMg,
     routeDescentDiffers,
     routeHeight,

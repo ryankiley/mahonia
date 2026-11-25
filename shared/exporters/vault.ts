@@ -20,8 +20,8 @@ import type { Unit } from "../types";
 import type { VaultEntry } from "../vault";
 import { countedWeightMg } from "../vaultKit";
 import { groupVaultByKind } from "../vaultView";
-import { fromMg, itemDisplayName } from "../weights";
-import { csvCell } from "./csvCell";
+import { itemDisplayName } from "../weights";
+import { csvCell, csvPrice, csvWeight } from "./csvCell";
 
 /** What both exporters are handed: the page's live rows. */
 export interface VaultExport {
@@ -57,7 +57,7 @@ export function vaultToCsv({ items }: VaultExport, unit: Unit): string {
   for (const section of groupVaultByKind(items)) {
     for (const e of section.entries) {
       const mg = countedWeightMg(e);
-      const w = mg > 0 ? +fromMg(mg, unit).toFixed(unit === "g" ? 0 : 3) : "";
+      const w = csvWeight(mg, unit);
       out.push(
         [
           csvCell(section.label),
@@ -72,7 +72,7 @@ export function vaultToCsv({ items }: VaultExport, unit: Unit): string {
           e.classification === "consumable" ? "1" : "",
           // the bare number, like the list's Price column: a spreadsheet wants to
           // add these up, and "$399.00" is text. The currency has its own column.
-          e.priceCents != null ? (e.priceCents / 100).toFixed(2) : "",
+          csvPrice(e.priceCents),
           csvCell(e.productUrl ?? ""),
           // Note: My Gear keeps none (a note is a list row's); the column stays so the
           // file still lines up with a list's CSV and re-imports as one

@@ -1,18 +1,20 @@
 <script setup lang="ts">
-import { HugeiconsIcon, type IconChild, type IconNode } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, ChevronDownIcon, Delete02Icon, DropletIcon, Fire02Icon, HelpCircleIcon, MountainIcon, RacingFlagIcon, RouteIcon, Stairs01Icon, Sun03Icon, TentIcon } from "@hugeicons/core-free-icons";
+import { IconArrowUpRight, IconChevronDownMedium, IconDrop, IconFire2, IconFootsteps, IconQuestionmarkCircle, IconRacingFlag, IconSun, IconTrashCan } from "~/icons/central";
+import { MountainGlyph, StairsGlyph, TentGlyph } from "~/icons/mahonia";
+import { SvgIcon, type IconChild, type IconNode } from "~/utils/icon";
 import type { Directive } from "vue";
-import type { ListSnapshot, Totals } from "~~/shared/types";
+import type { ListSnapshot } from "~~/shared/types";
+import type { PersonSelection } from "~~/shared/people";
 import { estimateDay, heightIsDerived, shownHeightM } from "~~/shared/tripPlan";
 import { coolerByC, dayFactsForRanges, type DayFacts } from "~~/shared/dayFacts";
 import { carryHours, dryCarries, longestCarryForDay, type DryCarry } from "~~/shared/dryCarry";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
-import { MAX_DAYS, MAX_NOTE_LEN } from "~~/shared/ops";
+import { MAX_DAYS, MAX_LABEL_LEN, MAX_NOTE_LEN } from "~~/shared/ops";
 import { shiftIsoDate } from "~~/shared/calendar";
 import { cumulativeM, decodePolyline, formatLatLon, pointAlong } from "~~/shared/polyline";
 import { dayLabel } from "~~/shared/tripDay";
 import { DAYLIGHT_MARGIN_H, daylightHours, formatDaylight, lightIsShort } from "~~/shared/daylight";
-import { formatKcal, formatWeight } from "~~/shared/weights";
+import { bySortOrder, formatKcal, formatWeight } from "~~/shared/weights";
 import type { BodyWeightUnit } from "~~/shared/trailDistance";
 import {
   DEFAULT_BODY_G,
@@ -38,12 +40,16 @@ import { useTripLoadModel } from "~/composables/useTripLoadModel";
 // a long scroll between you and the answer. What stays put is the identity of what you're
 // looking at: title, trail, distance, dates and the pack's weight are all above this and
 // never move when you switch view.
-const props = defineProps<{ snapshot: ListSnapshot; totals: Totals }>();
+const props = defineProps<{
+  snapshot: ListSnapshot;
+  /** the person chip picked: the walker carries that person's pack (shared/tripLoad.ts) */
+  personFilter: PersonSelection;
+}>();
 
 const c = useGearList();
 const uid = useId();
 
-const stored = computed(() => [...(props.snapshot.days ?? [])].sort((a, b) => a.sortOrder - b.sortOrder));
+const stored = computed(() => [...(props.snapshot.days ?? [])].sort(bySortOrder));
 
 /**
  * The days of the trip. The DATES already say how many there are, so the itinerary takes
@@ -113,14 +119,12 @@ function removeDay(i: number) {
   c.setMeta(iso < start ? { startDate: "", endDate: "" } : { endDate: iso });
 }
 
-/** A ghost row becoming real. Returns the id to patch. */
+/** A ghost row becoming real. Returns the id to patch. Only ever asked for a row the
+ *  list shows, and `days` is clamped to the reducer's ceiling, so every add here is
+ *  one the reducer takes. */
 function ensureDay(i: number): string | null {
   const existing = stored.value[i];
   if (existing) return existing.id;
-  // belt and braces with the clamp above: never ask for a day the reducer will refuse,
-  // because the caller's fallback is "patch the last stored day" and that would write the
-  // value onto the wrong day entirely
-  if (i >= MAX_DAYS) return null;
   // fill any gap before it too, so sortOrder stays the position in the trip
   for (let k = stored.value.length; k <= i; k++) c.addDay();
   return null; // the patch lands on the next tick, once the op has applied
@@ -134,6 +138,7 @@ const {
   commitBody,
   distanceUnit,
   headlineM,
+  load,
   packMg,
   routeDescentDiffers,
   routeHeight,
@@ -141,8 +146,15 @@ const {
   totalAscentM,
 } = useTripLoadModel({
   snapshot: toRef(props, "snapshot"),
-  totals: toRef(props, "totals"),
+  selection: toRef(props, "personFilter"),
   days,
+});
+// On a group list's Everyone view the pack is an average, and the chip says whose.
+const carriedTip = computed(() => {
+  const l = load.value;
+  if (l.people < 2) return "";
+  const all = formatWeight(l.carriedMg * l.people, props.snapshot.displayUnit);
+  return `${all} across the ${l.people} people on this list, shared evenly. Pick a name to plan with one person’s pack.`;
 });
 
 // ---- per-day estimates ----
@@ -344,7 +356,7 @@ const dayDaylight = computed<(number | null)[]>(() => {
   if (!start || !routePoints.value.length) return days.value.map(() => null);
   return ranges.value.map((r, i) => {
     if (!(r.toM > r.fromM)) return null;
-    const at = pointAlong(routePoints.value, (r.fromM + r.toM) / 2, routeCum.value);
+    const at = pointAt((r.fromM + r.toM) / 2);
     return at ? daylightHours(at, shiftIsoDate(start, i)) : null;
   });
 });
@@ -361,9 +373,10 @@ function lightTip(i: number): string {
 // the two views must agree on what a day is called.
 const dayOrdinal = (i: number) => dayLabel(i, props.snapshot.startDate);
 
-/** Hand lengths in the icon set's 24-unit box; the minute hand reads longer, as on a face. */
-const MINUTE_HAND = 5;
-const HOUR_HAND = 3.4;
+/** Hand lengths in the icon set's 24-unit box, inside Central's dial (radius 9); the
+ *  minute hand reads longer, as on a face. */
+const MINUTE_HAND = 4.5;
+const HOUR_HAND = 3.1;
 
 /** A point on the dial, clockwise from twelve, as an SVG coordinate pair. */
 function polar(angle: number, length: number): string {
@@ -373,10 +386,10 @@ function polar(angle: number, length: number): string {
 /**
  * A clock face whose hands read the estimate beside it.
  *
- * Hugeicons' free set has no hour family — Clock01…05 all carry the identical hand path
- * (`M12 8V12L14 14`, ten past twelve) and differ only in the dial, so none of them can be
- * picked to match a duration. The icon prop takes a plain array though, so the hand is
- * computed here against the same 24-unit box the rest of the set draws in.
+ * The icon set's clock shows one time (`M12 8V12L14.5 14.5`, ten past twelve), so it can't
+ * be picked to match a duration. The icon prop takes a plain array though, so the hands
+ * are computed here, on Central's own dial in the same 24-unit box the set draws in. Like
+ * the set's glyphs, the parts carry no stroke width and take the <svg>'s.
  *
  * Rounded to the nearest hour, and 12 rather than 0 for anything under half an hour,
  * because a face with both hands straight up reads as no time at all.
@@ -392,7 +405,7 @@ function clockIcon(hours: number | undefined): IconNode {
   // An empty dial rather than no icon: the cell still shows "—", and dropping the glyph
   // would pull the column out of line with every other row. A face with no hands states
   // no time, which is exactly the claim.
-  const dial: IconChild = ["circle", { cx: "12", cy: "12", r: "10", stroke: "currentColor", strokeWidth: "1.5", key: "0" }];
+  const dial: IconChild = ["circle", { cx: "12", cy: "12", r: "9", stroke: "currentColor" }];
   if (hours == null) return [dial];
   // Nearest HALF hour, so a 4 h 39 day reads half past four rather than rounding to five
   // and losing the difference between it and a 4 h 05 one. Never fewer than one half —
@@ -413,8 +426,6 @@ function clockIcon(hours: number | undefined): IconNode {
       stroke: "currentColor",
       strokeLinecap: "round",
       strokeLinejoin: "round",
-      strokeWidth: "1.5",
-      key: "1",
     }],
   ];
 }
@@ -477,7 +488,7 @@ async function commitDayMetres(maybeId: string | null, field: "distanceM" | "asc
   const id = await realDayId(maybeId);
   if (!id) return;
   const raw = (e.target as HTMLInputElement).value.trim();
-  const unit = field === "distanceM" ? distanceUnit.value : distanceUnit.value === "mi" ? "ft" : "m";
+  const unit = field === "distanceM" ? distanceUnit.value : ascentUnit.value;
   // "" and NOT undefined, spelled out per field. The patch is JSON on its way to
   // the server and JSON.stringify drops undefined keys, so clearing a day's figure
   // changed it locally and was overwritten by the very next echo — it looked like
@@ -554,12 +565,13 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
            unit as its own element, the way the totals bar does it: baked into the
            formatted string it can't take the lesser ink, so "lb" sat at full weight
            beside every other unit on the panel stepping back -->
-      <FigureChip
-        v-if="totals.carriedMg > 0"
-        label="Carried"
-        :value="formatWeight(totals.carriedMg, snapshot.displayUnit, { withUnit: false })"
-        :unit="snapshot.displayUnit"
-      />
+      <Tooltip v-if="load.carriedMg > 0" :text="carriedTip" :disabled="!carriedTip" preferred-placement="bottom">
+        <FigureChip
+          label="Carried"
+          :value="formatWeight(load.carriedMg, snapshot.displayUnit, { withUnit: false })"
+          :unit="load.people > 1 ? `${snapshot.displayUnit} a person` : snapshot.displayUnit"
+        />
+      </Tooltip>
       <!-- The trip's own estimates, up here with the facts they're derived from rather
            than in a sentence at the foot. They step back in colour: the chips to their
            left are measured, these are worked out.
@@ -578,6 +590,10 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
            are rendered in, where a bare toLocaleString() took the browser's -->
       <FigureChip v-if="tripHours > 0" class="chip--est" label="Estimated burn" :value="formatKcal(roundKcal(tripKcal))" unit="kcal" />
     </div>
+    <!-- Whose walk: the person chips, under the figures they choose, where the gear
+         view has them under its own. The editor fills it; a list naming nobody leaves
+         it empty. -->
+    <slot name="people" />
 
     <!-- The route's shape, cut into days. Directly under the figure it belongs to. -->
     <TrailProfile
@@ -702,22 +718,28 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
           <!-- the folder header's chevron (NestChevron), on the folder atom's own box —
                this had a private restatement of its rotate recipe, minus the atom's
                44px touch target -->
+          <!-- Only on a day that EXISTS. A fold is remembered against the day's id, and a
+               ghost (a day the dates imply that nothing has been typed into) has none: its
+               chevron took the press and did nothing. It arrives with the day's first
+               figure or note. The header needs no stand-in for it: the name leads and
+               the delete goes to the far edge on its own margin. -->
           <NestChevron
+            v-if="d"
             folder
             noun="day"
             class="plan__collapse--tight"
-            :collapsed="!!collapsed[d?.id ?? '']"
+            :collapsed="!!collapsed[d.id]"
             :label="dayOrdinal(i)"
-            @toggle="d && toggleDay(d.id)"
+            @toggle="toggleDay(d.id)"
           />
           <button
             type="button"
-            class="btn btn--icon btn--ghost plan__del plan__del--end"
+            class="btn btn--icon btn--ghost ink-quiet plan__del"
             :title="`Remove day ${i + 1}`"
             :aria-label="`Remove day ${i + 1}`"
             @click="removeDay(i)"
           >
-            <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" />
+            <SvgIcon :icon="IconTrashCan" />
           </button>
         </header>
 
@@ -748,7 +770,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              does: what you TYPE first, then what follows from it. -->
         <div class="plan__data">
           <span class="plan__cell">
-            <HugeiconsIcon :icon="RouteIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconFootsteps" class="plan__gl" aria-hidden="true" />
             <input
               class="field field--num plan__num"
               inputmode="decimal"
@@ -771,7 +793,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                the column back to the figures after them, which the drop's own variable
                width had been shunting around anyway. -->
           <span class="plan__cell plan__cell--climb" :class="{ 'is-derived': climbIsDerived(i) }">
-            <HugeiconsIcon :icon="Stairs01Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="StairsGlyph" class="plan__gl" aria-hidden="true" />
             <input
               class="field field--num plan__num"
               inputmode="decimal"
@@ -787,7 +809,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                  reflection descends. One glyph for one idea, and the pair reads as a
                  matched set in a way two different arrows never did. -->
             <span v-if="descentFor(i) != null" class="plan__drop">
-              <HugeiconsIcon :icon="Stairs01Icon" class="plan__gl plan__gl--down" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="StairsGlyph" class="plan__gl plan__gl--down" aria-hidden="true" />
               <span class="t-num">{{ ascentValue(descentFor(i)) }} <span class="t-muted">{{ ascentUnit }}</span></span>
             </span>
           </span>
@@ -796,13 +818,13 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                a (?) you can actually reach. A bare title= is invisible to a phone and to
                a keyboard; Tooltip is the app's own affordance and answers both. -->
           <span class="plan__cell plan__cell--est">
-            <HugeiconsIcon :icon="clockIcon(estimates[i]?.hours)" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="clockIcon(estimates[i]?.hours)" class="plan__gl" aria-hidden="true" />
             <!-- no `~` on this one: the RANGE is the hedge, and "~4–4.5" says it twice.
                  The calories beside it keep theirs, being a single figure. -->
             <span class="t-num">{{ estimates[i] ? formatHours(estimates[i]!.hours) : "—" }}</span>
             <Tooltip v-if="estimates[i]" text="Walking time only, no breaks. Pace follows the gradient and the weight of your pack." preferred-placement="top">
               <button type="button" class="plan__why ink-quiet" aria-label="How the moving time is worked out">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
           </span>
@@ -818,22 +840,22 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             class="plan__cell plan__cell--est plan__cell--light"
             :class="{ 'is-short': lightShort(i) }"
           >
-            <HugeiconsIcon :icon="Sun03Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconSun" class="plan__gl" aria-hidden="true" />
             <span class="t-num">{{ formatDaylight(dayDaylight[i]!) }}</span>
             <span class="visually-hidden"> of daylight</span>
             <Tooltip :text="lightTip(i)" preferred-placement="top">
               <button type="button" class="plan__why ink-quiet" aria-label="How the daylight is worked out">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
           </span>
 
           <span class="plan__cell plan__cell--est">
-            <HugeiconsIcon :icon="Fire02Icon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconFire2" class="plan__gl" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${formatKcal(roundKcal(estimates[i]!.totalKcal))}` : "—" }}</span>
             <Tooltip v-if="estimates[i]" :text="`Walking and resting, at ${formatBodyWeight(bodyG, bodyUnit)}${bodyIsDefault ? ' (assumed)' : ''}. Good to about ±20%.`" preferred-placement="top">
               <button type="button" class="plan__why ink-quiet" aria-label="How the calories are worked out">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
           </span>
@@ -849,7 +871,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             target="_blank"
             rel="noopener noreferrer"
             :aria-label="`Forecast where day ${i + 1} ends, on ${dayForecasts[i]!.site}`"
-          >Forecast<HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" /></a>
+          >Forecast<SvgIcon :icon="IconArrowUpRight" size="sm" aria-hidden="true" /></a>
 
         </div>
 
@@ -859,11 +881,11 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              is nothing to say (flat ground, a day with no distance). -->
         <template v-if="dayDistancesM[i] && facts[i]">
           <p class="t-sm plan__fact">
-            <HugeiconsIcon :icon="i === finishDayIndex ? RacingFlagIcon : TentIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="i === finishDayIndex ? IconRacingFlag : TentGlyph" class="plan__gl" aria-hidden="true" />
             <span>{{ campSentence(i, facts[i]!) }}</span>
           </p>
           <p v-if="groundSentence(facts[i]!)" class="t-sm plan__fact">
-            <HugeiconsIcon :icon="MountainIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="MountainGlyph" class="plan__gl" aria-hidden="true" />
             <span>{{ groundSentence(facts[i]!) }}</span>
           </p>
         </template>
@@ -873,7 +895,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
              hours follow each day's own pace, and are left out when part of the carry
              falls on ground with no estimate. -->
         <p v-if="dayDistancesM[i] && dayCarries[i]" class="t-sm plan__fact">
-          <HugeiconsIcon :icon="DropletIcon" class="plan__gl" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconDrop" class="plan__gl" aria-hidden="true" />
           <span>
             Longest carry
             <span class="t-num">{{ formatDistance(dayCarries[i]!.carry.toM - dayCarries[i]!.carry.fromM, distanceUnit) }}</span><template v-if="dayCarries[i]!.hours != null">, <span class="t-num">{{ formatHours(dayCarries[i]!.hours!) }}</span></template>,
@@ -927,7 +949,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                 class="field wprow__name"
                 :value="d?.label ?? ''"
                 :placeholder="dayEnds[i]!.kind === 'camp' ? 'Where you sleep' : 'Where you end up'"
-                maxlength="120"
+                :maxlength="MAX_LABEL_LEN"
                 :aria-label="`Name for the ${dayEnds[i]!.kind === 'camp' ? 'camp' : 'finish'} at the end of day ${i + 1}`"
                 @change="(e) => d && c.updateDay(d.id, { label: (e.target as HTMLInputElement).value.trim() })"
               />
@@ -941,7 +963,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                 role="img"
                 :aria-label="dayEnds[i]!.kind === 'camp' ? `Camp at the end of day ${i + 1}` : 'The end of the route'"
               >
-                <HugeiconsIcon :icon="dayEnds[i]!.kind === 'camp' ? TentIcon : RacingFlagIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="dayEnds[i]!.kind === 'camp' ? TentGlyph : IconRacingFlag" aria-hidden="true" />
               </span>
               <span class="t-sm wprow__coord">{{ coordOf(dayEnds[i]!.alongM) }}</span>
               <span class="t-sm wprow__dist">{{ formatDistancePadded(dayEnds[i]!.alongM, distanceUnit) }}</span>
@@ -1022,7 +1044,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
         >
           <template #trigger="{ open }">
             <span class="t-muted">{{ bodyUnit }}</span>
-            <HugeiconsIcon :icon="ChevronDownIcon" :size="12" :stroke-width="2" />
+            <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="xs" aria-hidden="true" />
           </template>
         </OptionMenu>
       </span>
@@ -1121,50 +1143,39 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
    the column's far edge — the same reason the folder title does it. */
 .plan__name {
   flex: 0 1 auto;
-  min-width: 0;
-  /* A folder's name is an <input>, which builds a 41px box out of a 33px line and 4px
-     of padding. This is a heading and would otherwise sit at 26px, putting every day
-     header 15px shorter than every folder header in the same column. Matching the box
-     is what makes the two modes feel like one page. */
+  color: var(--ink);
+}
+/* A day's heading, and the heading over the ground no day claims, at one size.
+   A folder's name is an <input>, which builds a 41px box out of a 33px line and 4px
+   of padding. These are headings and would otherwise sit at 26px, putting every day
+   header 15px shorter than every folder header in the same column. Matching the box
+   is what makes the two modes feel like one page. */
+.plan__name,
+.plan__restname {
   padding-block: var(--space-1);
   line-height: 1.5;
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--track-tight);
-  color: var(--ink);
 }
 /* the chevron rides with the NAME, as a folder's does — it belongs to the thing it
    folds, not to the row's trailing actions */
 .plan__collapse--tight {
   margin-left: calc(var(--space-2) * -1 + 2px);
 }
+/* …and only the delete goes to the far edge. Its inks are .ink-quiet's (controls.scss):
+   a resting colour stated here tied the ghost button's hover on specificity and won on
+   order, so the glyph never answered the pointer. */
 .plan__del {
   flex: none;
-  color: var(--ink-3);
-}
-/* …and only the delete goes to the far edge */
-.plan__del--end {
   margin-left: auto;
 }
-/* The day's note: the item note's caption voice (ItemRow's .item__note), at day scale —
-   the lightest ink, italic, no box and no handle, one line until the text wraps. 16px,
-   static, so focusing it on a phone never zooms the page. */
+/* The day's note: the item note's caption voice, at day scale — the lightest ink,
+   italic, no box and no handle, one line until the text wraps. 16px, static, so focusing
+   it on a phone never zooms the page. That is the shared caption field (atoms/item.scss,
+   one rule with ItemRow's .item__note); only its box in this column is set here. */
 .plan__daynote {
   display: block;
-  width: 100%;
-  min-height: 0;
-  color: var(--ink-3);
-  font-size: var(--text-input);
-  font-style: italic;
-  field-sizing: content;
-  resize: none;
-  overflow: hidden;
-}
-.plan__daynote::placeholder {
-  color: var(--ink-3);
-}
-.plan__daynote:focus {
-  outline: none;
 }
 /* the row's data, as glyph-and-figure pairs — an item row's grammar at day scale */
 /* EACH CELL AS WIDE AS WHAT IT HOLDS, and one even gap between them.
@@ -1378,13 +1389,12 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: 26px;
+  height: calc(26 * var(--tpx));
   padding: 0 var(--space-2);
   border-radius: var(--radius-1);
   font-size: var(--text-chrome);
   color: var(--map-ink-3);
   white-space: nowrap;
-  cursor: pointer;
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss). The armed
    state below is the only thing on screen naming the day the next tap lands in, so a
@@ -1403,8 +1413,8 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   font-weight: 600;
 }
 .plan__armdot {
-  width: 8px;
-  height: 8px;
+  width: calc(8 * var(--tpx));
+  height: calc(8 * var(--tpx));
   border-radius: 50%;
 }
 /* the unclaimed stretch has no day colour, because it is nobody's */
@@ -1573,11 +1583,6 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   margin-top: var(--folder-gap, var(--space-6));
 }
 .plan__restname {
-  padding-block: var(--space-1);
-  line-height: 1.5;
-  font-size: var(--text-title);
-  font-weight: 600;
-  letter-spacing: var(--track-tight);
   /* a step back from a day's heading: this names the ground left over, not a plan */
   color: var(--ink-3);
 }

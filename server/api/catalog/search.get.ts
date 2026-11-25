@@ -3,6 +3,7 @@ import { searchCatalog } from "../../utils/catalog";
 import { useCatalogDb } from "../../utils/db";
 import { rateLimit } from "../../utils/rateLimit";
 import { SEARCH_LIMIT } from "../../../shared/catalogSearch";
+import { SEARCH_QUERY_MAX } from "../../../shared/searchText";
 import { queryString, setNoIndex } from "../../utils/http";
 
 // Maps-grade autocomplete for the gear catalog. `?q=` returns up to SEARCH_LIMIT
@@ -38,7 +39,7 @@ export default defineEventHandler(async (event) => {
   setNoIndex(event);
   setHeader(event, "Cache-Control", "public, max-age=2, s-maxage=10");
 
-  const q = queryString(event, "q", 100);
+  const q = queryString(event, "q", SEARCH_QUERY_MAX);
 
   const db = await useCatalogDb();
   const results = await searchCatalog(db, q, SEARCH_LIMIT);

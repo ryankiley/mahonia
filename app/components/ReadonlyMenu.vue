@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Bug02Icon, Copy01Icon, CopyPlusIcon, FileExportIcon, Flag02Icon } from "@hugeicons/core-free-icons";
+import { IconBug, IconFileArrowRightOut, IconFlag1, IconSquareBehindSquare1, IconSquareDottedBehindSquare } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import type { ListSnapshot, Totals } from "~~/shared/types";
 
 // The read-only share views' ⋯ actions menu — the quiet counterpart to the editor's
@@ -42,8 +42,8 @@ const { toast, flash } = useToast();
 // the read view's initial payload).
 //
 // The link the plain-text copy appends is THIS PAGE — the same URL "Copy link" below
-// hands out, whether that's /s/{code} or a public /l/{slug}. A read view never holds an
-// edit token, so unlike the editor there's nothing here to leak.
+// hands out, the /s/{code} share link. A read view never holds an edit token, so unlike
+// the editor there's nothing here to leak.
 const pageUrl = () => (typeof location !== "undefined" ? location.href : "");
 const { warmExporters, exportItems } = useListExports(() => props.snapshot, flash, pageUrl);
 
@@ -101,11 +101,11 @@ const MENU_ACTIONS = [
   // The MARK carries the same argument one step earlier: CopyPlus rather than the
   // clipboard sheets the genuine copies wear, because a glyph is read before its label
   // and a clipboard here would spend the word before you got to it.
-  { label: "Duplicate this list", icon: CopyPlusIcon, run: copyThis, busy: copying },
+  { label: "Duplicate this list", icon: IconSquareDottedBehindSquare, run: copyThis, busy: copying },
   // …and THIS one is the clipboard, so it wears the app's clipboard mark — the same
   // Copy01 pair of sheets ListHead puts on the button that copies this very link.
-  { label: "Copy link", icon: Copy01Icon, run: copyLink },
-  { label: "Send feedback…", icon: Bug02Icon, run: () => feedback.open() },
+  { label: "Copy link", icon: IconSquareBehindSquare1, run: copyLink },
+  { label: "Send feedback…", icon: IconBug, run: () => feedback.open() },
 ];
 </script>
 
@@ -117,7 +117,7 @@ const MENU_ACTIONS = [
            would mint a second list. -->
       <li v-for="a in MENU_ACTIONS" :key="a.label" role="none">
         <button type="button" data-row role="menuitem" class="menu__item" :disabled="a.busy?.value" @click="close(); a.run()">
-          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="a.icon" aria-hidden="true" />
           {{ a.label }}
         </button>
       </li>
@@ -128,7 +128,7 @@ const MENU_ACTIONS = [
       <MenuSection
         v-model:open="exportOpen"
         label="Export"
-        :icon="FileExportIcon"
+        :icon="IconFileArrowRightOut"
         :items="exportItems"
         @opened="warmExporters"
         @pick="close"
@@ -146,7 +146,7 @@ const MENU_ACTIONS = [
              should recognise without reading, and the one they should never hit by
              mistake reaching for the row above. -->
         <button type="button" data-row role="menuitem" class="menu__item" @click="close(); reportThis()">
-          <HugeiconsIcon :icon="Flag02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconFlag1" aria-hidden="true" />
           Report list
         </button>
       </li>

@@ -1,18 +1,21 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { IconCrossMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 // The account, centred over whatever you were doing.
 //
 // Body and shell are both borrowed, deliberately: BaseModal owns the scrim, the rise,
 // click-outside, Escape, the focus trap and focus restore, and AccountView is the same
 // component /account renders. This file is the wiring between them and nothing else.
 const { state, close } = useAccountModal();
-// The dialog's accessible name tracks the same state its heading does — a screen
-// reader announcing "Your account" over a sign-in form is the same mismatch. Same
-// rule as AccountView's heading: a presumed account (offline, hint present) is
-// still "your account", loading, rather than a sign-in you don't need.
+// The title, and the dialog's accessible name with it, are the panel's own heading
+// (v-model:heading): it knows whether it is a sign-in, the create form or the account,
+// and a screen reader announcing one over another is the same mismatch as the title
+// showing it. Until the panel has said, the half of its rule that needs no panel: a
+// presumed account (offline, hint present) is still "your account", loading, rather
+// than a sign-in you don't need.
 const { presence } = useSession();
-const label = computed(() => (presence.value !== "signedOut" ? "Your account" : "Sign in"));
+const heading = ref<string>();
+const label = computed(() => heading.value ?? (presence.value !== "signedOut" ? "Your account" : "Sign in"));
 </script>
 
 <template>
@@ -38,10 +41,10 @@ const label = computed(() => (presence.value !== "signedOut" ? "Your account" : 
         aria-label="Close your account"
         @click="close"
       >
-        <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconCrossMedium" />
       </button>
     </header>
-    <AccountView in-modal hide-heading @done="close" />
+    <AccountView v-model:heading="heading" in-modal @done="close" />
   </BaseModal>
 </template>
 
@@ -64,9 +67,17 @@ const label = computed(() => (presence.value !== "signedOut" ? "Your account" : 
    what made the top read as more padded than the sides even though .dlg insets both by
    --space-5. Pull the box back onto the text line so the title sits on the card's
    padding edge and the row is as tall as its type.
-   Same shape as --tap-pull (tokens.scss), derived from the box size rather than typed,
-   so a retune of --icon-btn keeps the rhythm. */
+   --icon-pull is that pull (tokens.scss, beside --tap-pull): derived from the box size
+   rather than typed, so a retune of --icon-btn keeps the rhythm. */
 .acctmodal__head .btn--icon {
-  margin-block: calc((1.45rem - var(--icon-btn)) / 2);
+  margin-block: var(--icon-pull);
+}
+/* touch: the button grows to --tap (atoms/controls.scss), so the pull that keeps the
+   row as tall as its type is the --tap one. With the 32px pull on a 44px box the header
+   stood 12px taller on a phone than the same header does under a mouse. */
+@media (pointer: coarse) {
+  .acctmodal__head .btn--icon {
+    margin-block: var(--tap-pull);
+  }
 }
 </style>

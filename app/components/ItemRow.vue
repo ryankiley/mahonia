@@ -1,4 +1,5 @@
 <script lang="ts">
+import { IconCodeTree, IconCalculator, IconCheckmark1Medium, IconChevronDownMedium, IconCircleDotsCenter1, IconCrossMedium, IconDotGrid2x3, IconFashion, IconFormSquare, IconSlideAdd, IconListAdd, IconMinusMedium, IconPlusMedium, IconSquareCheck, IconSquareMinus, IconTextIndentLeft, IconTextIndentRight, IconTrashCan, IconUser, IconSafeSimple } from "~/icons/central";
 import type { InjectionKey, Ref } from "vue";
 import type { Item as ItemT, Person, Unit } from "~~/shared/types";
 
@@ -37,26 +38,19 @@ const NO_ITEMS: ItemT[] = [];
 // gear.nest.<id> — one blocking storage read per row per remount was the cost this
 // cache retired (its header carries the reasoning and the cross-tab invalidation).
 const nestCollapse = usePersistedCollapse("gear.nest.");
-// The count's own bounds — at least one of something, and no more than the reducer
-// will store (cleanItemPatch caps at 9999, shared/ops). Both ways in go through the
-// same clamp, so the stepper and the typed field can't disagree about the ceiling,
-// and neither can hand the store a number it would silently rewrite underneath them.
-// the four units as OptionMenu rows — WEIGHT_UNIT_OPTIONS (app/utils/unitOptions),
-// the same list the totals' unit picker draws from
 </script>
 
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { CalculateIcon, Cancel01Icon, CheckIcon, CheckmarkSquare02Icon, ChevronDownIcon, CircleEllipsisIcon, Delete02Icon, GripVerticalIcon, LayerAddIcon, ListIndentDecreaseIcon, ListIndentIncreaseIcon, ListPlusIcon, MinusSignIcon, MinusSignSquareIcon, NodeAddIcon, PlusSignIcon, SafeBoxIcon, ShirtIcon, SquareIcon, UserIcon } from "@hugeicons/core-free-icons";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 import type { Item, ListSnapshot } from "~~/shared/types";
 import type { ItemPatch } from "~~/shared/ops";
-import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_VARIANT_LEN } from "~~/shared/ops";
+import { MAX_GEAR_TYPE_LEN, MAX_ITEM_NOTE_LEN, MAX_QTY, MAX_VARIANT_LEN } from "~~/shared/ops";
 import { effectivePersonId, personColor } from "~~/shared/people";
 import { tickRows, tickState } from "~~/shared/packing";
 import type { NameCommit } from "~/composables/useCatalogSearch";
-import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseWeightInput, groupLineMg, siblingItems, storedClassification } from "~~/shared/weights";
-import { itemQtyLabel } from "~~/shared/water";
-import { QTY_MAX, useItemRowFields } from "~/composables/useItemRowFields";
+import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup, parseKcal, parseWeightInput, groupLineMg, siblingItems, storedClassification } from "~~/shared/weights";
+import { isWaterName, itemQtyLabel } from "~~/shared/water";
+import { useItemRowFields } from "~/composables/useItemRowFields";
 import { useItemRowClassification } from "~/composables/useItemRowClassification";
 import { consumableIcon } from "~/utils/itemMarks";
 import { ASSUMED_FUEL_PER_BOIL_G, isFuelRow, offersKcal, offersWorn } from "~~/shared/fuel";
@@ -67,8 +61,8 @@ import { isKitWorthy, isVaultWorthy, vaultNormKey, vaultRowFields } from "~~/sha
 import { motionIsInstant } from "~/plugins/inputModality.client";
 
 // The editor's row — editable by default, a checklist row in packing mode. A nested item
-// renders the SAME row with `nested` set (indented, one level only). The share views
-// (/s + /l) render ReadonlyItemRow instead, so this component (and the editor graph it
+// renders the SAME row with `nested` set (indented, one level only). The share view
+// (/s) renders ReadonlyItemRow instead, so this component (and the editor graph it
 // pulls in) never ships to a read-only page.
 const props = withDefaults(
   defineProps<{
@@ -95,9 +89,7 @@ const props = withDefaults(
   }>(),
   { prevId: null, nested: false },
 );
-// forwarded up to FolderSection so it can lift its collapse clip while this row has a
-// floating overlay open — the name autocomplete, or the mobile ⋯ menu (otherwise an
-// overlay at the folder's bottom is cropped)
+// the editor's toast (ROW_FLASH, above); silent where nothing provides one
 const flash = inject(ROW_FLASH, () => {});
 const c = useGearList();
 // two jobs for the vault button: telling "your vault is unreachable" from "you
@@ -353,6 +345,9 @@ function onRowFocusIn() {
   );
 }
 onBeforeUnmount(() => {
+  // A row that goes mid-fold (a link followed, a filter that hides it) never reaches the
+  // fold's finish, which is what discards it: do that here, or the blank row stays saved.
+  if (leaving.value && c.isEmptyRow(props.item.id)) c.discardEmpty(props.item.id);
   for (const a of leaveAnims) a.cancel();
 });
 
@@ -525,6 +520,9 @@ function onNameCommit(p: NameCommit) {
       // a resolved weight with no catalog link (e.g. a water volume → fixed grams)
       patch.unitWeightMg = p.weightMg;
       patch.weightOverridden = true;
+      // a water volume is the row's whole amount (foldWaterQty, shared/ops): picking
+      // "Water · 1 L" on a row stepped to 3 is 1 L, not a count multiplying it to 3
+      if (isWaterName(p.name)) patch.qty = 1;
     } else if (p.weight != null) {
       // parse against the unit the row already reads in (rowUnit), same rule as
       // setItemWeight — a trailing "4.2" on an oz row is 4.2 ounces
@@ -565,7 +563,6 @@ function onNameCommit(p: NameCommit) {
 // empty fields appear while the product name is being edited, so a row typed by hand
 // has a visible place to put either — there is no separate "add a note" control. Each
 // is cleared by emptying its own input.
-const cnameRef = useTemplateRef<HTMLInputElement>("cnameRef");
 const noteRef = useTemplateRef<HTMLTextAreaElement>("noteRef");
 // Set by focus landing anywhere in the name cell; held until focus leaves the ROW (so
 // tabbing on to the fields themselves, or to qty/weight, doesn't yank them away
@@ -708,6 +705,11 @@ const isWornOpen = computed(() => menu.openId.value === `${props.item.id}:worn`)
 // popover does.
 const wornOffered = computed(() => offersWorn(props.item, isWorn.value) || isWornOpen.value);
 const { above: wornAbove, shift: wornShift, place: placeWorn } = useMenuPlacement(wornPopRef, { fit: "shift" });
+// Placed on the tick the card mounts (it has no size to measure before that), and for a
+// row that mounts with it already open. No focus move: its controls are a switch and a
+// set of buttons, and pulling focus to the first of those would look like a selection
+// had been made.
+watch(isWornOpen, (open) => open && nextTick(placeWorn), { immediate: true });
 
 // ---- calories (consumable rows only) ----
 // Served in a popover hung off the classification control rather than given a
@@ -717,6 +719,7 @@ const { above: wornAbove, shift: wornShift, place: placeWorn } = useMenuPlacemen
 const kcalRootRef = useTemplateRef<HTMLElement>("kcalRootRef");
 const kcalPopRef = useTemplateRef<HTMLElement>("kcalPopRef");
 const isKcalOpen = computed(() => menu.openId.value === `${props.item.id}:kcal`);
+const { above: kcalAbove, shift: kcalShift, place: placeKcal } = useMenuPlacement(kcalPopRef, { fit: "shift" });
 // The field itself is offered only once the row IS consumable — the only state in which
 // the number is counted, so offering it sooner would collect a value the totals ignore
 // — and not on stove fuel holding no number, whose "calories" are the wrong kind and
@@ -732,12 +735,21 @@ const isKcalOpen = computed(() => menu.openId.value === `${props.item.id}:kcal`)
 // hand. So an open popover keeps the controls it opened with; the next open reads the
 // row afresh. (The same principle wornOffered follows for its toggle.)
 const kcalHeld = ref(false);
-// immediate: the menu singleton outlives a row (a mode switch rebuilds every row), so a
-// row can mount with its popover already open, and must decide then too
+// immediate: the menu singleton outlives a row, so a row can mount with its popover
+// already open, and must decide (and place the card) then too
 watch(
   isKcalOpen,
-  (open) => {
-    if (open) kcalHeld.value = offersKcal(props.item);
+  (open, was) => {
+    if (!open) return;
+    kcalHeld.value = offersKcal(props.item);
+    // on the tick the card mounts — it has no size to measure before that
+    nextTick(() => {
+      placeKcal();
+      // focus the field on open — the popover exists to take one number, so landing
+      // anywhere else would make every use a click plus a tab. On an open only: a row
+      // that mounts under an open popover takes no focus it didn't have.
+      if (was === false) kcalRootRef.value?.querySelector<HTMLInputElement>("input")?.focus();
+    });
   },
   { immediate: true },
 );
@@ -755,44 +767,19 @@ const kcalOffered = computed(() => isConsumable.value && (isKcalOpen.value ? kca
 const classCellShown = computed(
   () => isWater.value || !bareGroup.value || props.item.classification != null || props.item.needsCooking || isKcalOpen.value || isWornOpen.value,
 );
-const { above: kcalAbove, shift: kcalShift, place: placeKcal } = useMenuPlacement(kcalPopRef, { fit: "shift" });
 
-/** Open (or close) one of the row's classification popovers, placing it once the
- *  card exists to measure. `focusField` is false for the worn popover, whose
- *  controls are a switch and a set of buttons — pulling focus to the first of
- *  those would look like a selection had been made. */
-async function togglePop(
-  kind: "worn" | "kcal",
-  rootRef: HTMLElement | null,
-  isOpen: boolean,
-  place: () => void,
-  focusField: boolean,
-) {
-  const opening = !isOpen;
-  menu.toggle(`${props.item.id}:${kind}`, rootRef);
-  if (!opening) return;
-  // on the tick the card mounts — it has no size to measure before that
-  await nextTick();
-  place();
-  if (focusField) {
-    // focus the field on open — the popover exists to take one number, so landing
-    // anywhere else would make every use a click plus a tab
-    rootRef?.querySelector<HTMLInputElement>("input")?.focus();
-  }
-}
-
-const toggleWorn = () => togglePop("worn", wornRootRef.value, isWornOpen.value, placeWorn, false);
-const toggleKcal = () => togglePop("kcal", kcalRootRef.value, isKcalOpen.value, placeKcal, true);
+// Open or close one of the two; what follows an open (placing the card, the kcal
+// field's focus) is the watchers' above.
+const toggleWorn = () => menu.toggle(`${props.item.id}:worn`, wornRootRef.value);
+const toggleKcal = () => menu.toggle(`${props.item.id}:kcal`, kcalRootRef.value);
 function onKcal(e: Event) {
   const el = e.target as HTMLInputElement;
-  const raw = el.value.trim();
   // "" (and anything unparseable) clears — the reducer treats a non-number as
   // absent rather than 0, so an emptied field means "not filled in", not "zero
   // calories". Resync afterwards so a rejected entry doesn't linger in the box.
-  // A thousands separator is not unparseable: the line below this field prints
-  // "2,700 kcal", and a number typed back the way the app wrote it must not clear.
-  const n = raw === "" ? null : Number(raw.replace(/[,\s]/g, ""));
-  c.updateItem(props.item.id, { kcal: n != null && isFinite(n) ? n : null });
+  // parseKcal reads a thousands separator, as My Gear's field does: the line below
+  // this field prints "2,700 kcal", and a number typed back that way must not clear.
+  c.updateItem(props.item.id, { kcal: parseKcal(el.value) });
   el.value = props.item.kcal ? String(props.item.kcal) : "";
 }
 // ---- nesting ----
@@ -807,10 +794,10 @@ const nestActions = computed(() => {
   const acts: { label: string; icon: IconNode; run: () => void }[] = [];
   // a nested row can't nest further, and a row that already HAS children uses its
   // own ever-present "Add an item" instead
-  if (!props.nested && !isParent.value) acts.push({ label: "Add a nested item", icon: ListPlusIcon, run: () => c.addChild(props.item.id) });
-  if (props.nested) acts.push({ label: "Move out of the group", icon: ListIndentDecreaseIcon, run: () => c.unnest(props.item.id) });
+  if (!props.nested && !isParent.value) acts.push({ label: "Add a nested item", icon: IconListAdd, run: () => c.addChild(props.item.id) });
+  if (props.nested) acts.push({ label: "Move out of the group", icon: IconTextIndentLeft, run: () => c.unnest(props.item.id) });
   else if (canIndent.value)
-    acts.push({ label: "Nest under the item above", icon: ListIndentIncreaseIcon, run: () => c.nestItem(props.item.id, props.prevId!) });
+    acts.push({ label: "Nest under the item above", icon: IconTextIndentRight, run: () => c.nestItem(props.item.id, props.prevId!) });
   return acts;
 });
 
@@ -821,7 +808,7 @@ const nestActions = computed(() => {
 // name anyone. The trigger only exists once the list has people; assigned, it
 // swaps its glyph for the carrier's own .swatch dot (the vault button's
 // state-swap move) — colour stays in a dot, chrome stays ink, and the dot
-// carries the state at a contrast a tinted 16px glyph never met.
+// carries the state at a contrast a tinted glyph never met.
 // The people in display order and their slots come from GearEditor (PEOPLE_CTX):
 // sorted once per snapshot for every row, not once per row.
 const { sorted: peopleSorted, slotById } = inject(PEOPLE_CTX)!;
@@ -997,7 +984,7 @@ const vaultLabel = computed(() =>
  *  banks lands in vaultKeys immediately). Without this the button answered a
  *  click by vanishing, which reads as the click having gone nowhere. */
 const vaultOffered = computed(
-  () => !isWater.value && vaultWorthy.value && (vaultSaved.value || !vaultCovered.value),
+  () => vaultWorthy.value && (vaultSaved.value || !vaultCovered.value),
 );
 /**
  * Whether the reveal below is allowed to PLAY.
@@ -1092,7 +1079,7 @@ const overflowActions = computed(() => {
   // Each entry wears the glyph its own inline button wears, the vault's state swap
   // included — the row and the menu should not name one action two ways.
   const acts: { label: string; icon: IconNode; run: () => void; nest?: true }[] = [
-    { label: "Duplicate", icon: LayerAddIcon, run: () => c.duplicateItem(props.item.id) },
+    { label: "Duplicate", icon: IconSlideAdd, run: () => c.duplicateItem(props.item.id) },
     ...nestActions.value.map((a) => ({ ...a, nest: true as const })),
   ];
   // Reads its own state, like the inline button's tooltip does — "Saved" is the
@@ -1102,14 +1089,14 @@ const overflowActions = computed(() => {
   // to stay as a disabled "Already in My Gear" line) — a menu row that can only
   // say "nothing to do" is an action list advertising a non-action.
   if (vaultOffered.value)
-    acts.push({ label: vaultLabel.value, icon: vaultSaved.value ? CheckIcon : SafeBoxIcon, run: onSaveToVault });
+    acts.push({ label: vaultLabel.value, icon: vaultSaved.value ? IconCheckmark1Medium : IconSafeSimple, run: onSaveToVault });
   // LAST, the way the destructive icon sat last in the desktop cluster — a menu is a
   // list you read top to bottom, so the one irreversible entry belongs at the end of
   // it rather than under the thumb. "Remove item" here and in the icon's aria-label:
   // a menu row and a screen reader both arrive without the row in front of them, so
   // both name the thing. Only the TOOLTIP drops the noun, because it is pinned to the
   // very row it would remove.
-  acts.push({ label: "Remove item", icon: Delete02Icon, run: () => c.removeItem(props.item.id) });
+  acts.push({ label: "Remove item", icon: IconTrashCan, run: () => c.removeItem(props.item.id) });
   return acts;
 });
 
@@ -1194,16 +1181,15 @@ function dismissFix() {
           :aria-label="`Packed: ${editableName || 'item'}`"
           @change="onTick($event)"
         />
-        <!-- absolute-stroke-width pins the drawn line at ~1.33px — what the surrounding
-             16px icons render (2 nominal × 16/24) — so the bigger box doesn't read bolder
-             than its row -->
-        <HugeiconsIcon :icon="SquareIcon" class="check__icon check__icon--empty" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <!-- lg, a step up from the row's md glyphs, drawing the same flat 1.5px line,
+             so the bigger box doesn't read bolder than its row -->
+        <SvgIcon :icon="IconFormSquare" class="check__icon check__icon--empty" size="lg" aria-hidden="true" />
         <!-- the dash, on GROUP rows only: a leaf's box stands for exactly one row and
              can never be mixed, and this is a third inline SVG on every row of a long
              checklist. It is also what the atom's own :indeterminate rule keys on to
              know this .check has a mixed face to swap in (controls.scss). -->
-        <HugeiconsIcon v-if="isParent" :icon="MinusSignSquareIcon" class="check__icon check__icon--mixed" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
-        <HugeiconsIcon :icon="CheckmarkSquare02Icon" class="check__icon check__icon--check" :size="20" :stroke-width="1.33" absolute-stroke-width aria-hidden="true" />
+        <SvgIcon v-if="isParent" :icon="IconSquareMinus" class="check__icon check__icon--mixed" size="lg" aria-hidden="true" />
+        <SvgIcon :icon="IconSquareCheck" class="check__icon check__icon--check" size="lg" aria-hidden="true" />
       </span>
       <span class="item__cname" :class="{ 'item__cname--group': isParent }"><ItemName :item="item" :group="isParent" /><span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline"> · {{ formatKcal(rowKcal) }} kcal</span><!--
           the carrier, riding the name cell (display-only — this face is a <label>
@@ -1322,7 +1308,6 @@ function dismissFix() {
                 <Transition name="reveal-field">
                   <input
                     v-if="cnameShown"
-                    ref="cnameRef"
                     class="item__note item__gtype-input"
                     :maxlength="MAX_GEAR_TYPE_LEN"
                     :value="item.commonName ?? ''"
@@ -1441,13 +1426,16 @@ function dismissFix() {
              line starts at its own left edge, like every other row's. -->
         <div v-if="isWater || !bareGroup" class="item__qty" :class="{ 'item__qty--step': !isWater }">
           <template v-if="isWater">
+            <!-- text, not type="number", the way the weight field beside it is: it takes
+                 "32 oz" and "500 ml" as well as bare litres (onWaterLiters) -->
             <input
               class="field field--num"
-              type="number"
-              min="0"
-              step="any"
               :value="litersDisplay"
               aria-label="Litres of water"
+              autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
               @change="onWaterLiters"
             />
             <span class="t-sm t-muted item__unit">L</span>
@@ -1469,7 +1457,7 @@ function dismissFix() {
               @mousedown.prevent
               @click="stepQty(-1)"
             >
-              <HugeiconsIcon :icon="MinusSignIcon" :size="16" :stroke-width="2" />
+              <SvgIcon :icon="IconMinusMedium" />
             </button>
             <!-- is-popping only ever comes from the STEPPER (popQty). Typing a
                  number already shows you the number; popping the field on a commit
@@ -1480,7 +1468,7 @@ function dismissFix() {
               :class="{ 'is-popping': qtyPopping }"
               type="number"
               min="1"
-              :max="QTY_MAX"
+              :max="MAX_QTY"
               step="1"
               :value="item.qty"
               aria-label="Quantity"
@@ -1494,12 +1482,12 @@ function dismissFix() {
             <button
               class="btn btn--icon btn--ghost item__qtybtn ink-quiet"
               type="button"
-              :disabled="item.qty >= QTY_MAX"
+              :disabled="item.qty >= MAX_QTY"
               :aria-label="`One more ${item.name || 'item'}`"
               @mousedown.prevent
               @click="stepQty(1)"
             >
-              <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" />
+              <SvgIcon :icon="IconPlusMedium" />
             </button>
           </template>
         </div>
@@ -1551,12 +1539,11 @@ function dismissFix() {
                    by accident. Same chevron the total's unit carries, at row scale —
                    one vocabulary for one gesture. 12/2 renders an exact 1px stroke
                    (12 ÷ 24 × 2), the small-size counterpart to the total's 16/2.25. -->
-              <HugeiconsIcon
-                :icon="ChevronDownIcon"
+              <SvgIcon
+                :icon="IconChevronDownMedium"
                 class="chev item__unitchev"
                 :class="{ 'is-open': open }"
-                :size="12"
-                :stroke-width="2"
+                size="xs"
                 aria-hidden="true"
               />
             </template>
@@ -1610,7 +1597,7 @@ function dismissFix() {
                   @mousedown.prevent
                   @click="toggleKcal"
                 >
-                  <HugeiconsIcon :icon="consumableGlyph" :size="16" :stroke-width="2" />
+                  <SvgIcon :icon="consumableGlyph" />
                 </button>
               </Tooltip>
               <Transition name="menu">
@@ -1649,7 +1636,7 @@ function dismissFix() {
                     <label class="t-sm t-muted item__poplabel" :for="`${item.id}-kcal`">kcal each</label>
                     <input
                       :id="`${item.id}-kcal`"
-                      class="field field--num item__popinput"
+                      class="field field--num well item__popinput"
                       :value="item.kcal ?? ''"
                       placeholder="0"
                       inputmode="numeric"
@@ -1663,7 +1650,7 @@ function dismissFix() {
                          popover is something you typed, this is the one line the app
                          worked out. -->
                     <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
-                      <HugeiconsIcon :icon="CalculateIcon" class="item__poplineicon" :size="14" aria-hidden="true" :stroke-width="2" />
+                      <SvgIcon :icon="IconCalculator" class="item__poplineicon" size="sm" aria-hidden="true" />
                       {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
                     </p>
                   </template>
@@ -1689,7 +1676,7 @@ function dismissFix() {
             <div v-else class="item__cls">
               <Tooltip text="Consumable" preferred-placement="top">
                 <span class="item__clsfixed item__mark" role="img" aria-label="Consumable">
-                  <HugeiconsIcon :icon="consumableGlyph" :size="16" :stroke-width="2" />
+                  <SvgIcon :icon="consumableGlyph" />
                 </span>
               </Tooltip>
             </div>
@@ -1711,7 +1698,7 @@ function dismissFix() {
                   @mousedown.prevent
                   @click="toggleWorn"
                 >
-                  <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" />
+                  <SvgIcon :icon="IconFashion" />
                 </button>
               </Tooltip>
               <Transition name="menu">
@@ -1771,7 +1758,7 @@ function dismissFix() {
                  column it exists to sit in. -->
             <div v-else class="item__cls" aria-hidden="true">
               <span class="item__clsfixed item__clsghost">
-                <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconFashion" />
               </span>
             </div>
           </div>
@@ -1810,7 +1797,7 @@ function dismissFix() {
                   @mousedown.prevent
                   @click="onSaveToVault"
                 >
-                  <HugeiconsIcon :icon="vaultSaved ? CheckIcon : SafeBoxIcon" :size="16" :stroke-width="2" />
+                  <SvgIcon :icon="vaultSaved ? IconCheckmark1Medium : IconSafeSimple" />
                 </button>
               </Tooltip>
             </Transition>
@@ -1837,13 +1824,13 @@ function dismissFix() {
               :row-id="item.id"
               kind="nest"
               label="Nesting"
-              :icon="NodeAddIcon"
+              :icon="IconCodeTree"
               trigger-class="item__nest-btn"
               tooltip
             >
               <li v-for="a in nestActions" :key="a.label" role="none">
                 <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
-                  <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+                  <SvgIcon :icon="a.icon" aria-hidden="true" />
                   {{ a.label }}
                 </button>
               </li>
@@ -1865,7 +1852,7 @@ function dismissFix() {
             >
               <template #trigger>
                 <span v-if="rowPerson" class="swatch" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />
-                <HugeiconsIcon v-else :icon="UserIcon" :size="16" :stroke-width="2" />
+                <SvgIcon v-else :icon="IconUser" />
               </template>
               <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
                 <button
@@ -1895,7 +1882,7 @@ function dismissFix() {
                 @mousedown.prevent
                 @click="c.duplicateItem(item.id)"
               >
-                <HugeiconsIcon :icon="LayerAddIcon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconSlideAdd" />
               </button>
             </Tooltip>
             <!-- "Remove", not "Remove item": the tooltip hangs off the row it acts on, so
@@ -1910,7 +1897,7 @@ function dismissFix() {
                 @mousedown.prevent
                 @click="c.removeItem(item.id)"
               >
-                <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconTrashCan" />
               </button>
             </Tooltip>
             <!-- mobile overflow: on a phone the trailing icons crowd the two-line row, so
@@ -1924,7 +1911,7 @@ function dismissFix() {
               kind="menu"
               label="More actions"
               menu-label="Item actions"
-              :icon="CircleEllipsisIcon"
+              :icon="IconCircleDotsCenter1"
               trigger-class="menu__btn item__morebtn"
             >
               <!-- the person picker's mobile seat — the desktop trigger is
@@ -1936,7 +1923,7 @@ function dismissFix() {
                    A real role=group with a visible name, so the radio run reads
                    as one setting to assistive tech instead of loose siblings. -->
               <li v-if="peopleSorted.length" role="none">
-                <ul role="group" aria-label="Who carries this" class="item__moregroup">
+                <ul role="group" aria-label="Who carries this">
                   <!-- aria-hidden: the group's aria-label already names it — role=none
                        strips the li's semantics but not its TEXT, so without this a
                        screen reader heard the label twice -->
@@ -1958,7 +1945,7 @@ function dismissFix() {
               </li>
               <li v-for="a in overflowActions" :key="a.label" role="none" :class="{ item__nestact: a.nest }">
                 <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
-                  <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+                  <SvgIcon :icon="a.icon" aria-hidden="true" />
                   {{ a.label }}
                 </button>
               </li>
@@ -1972,7 +1959,7 @@ function dismissFix() {
               @pointerdown="dnd.start(item.id, $event)"
               @keydown="onGripKey"
             >
-              <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
+              <SvgIcon :icon="IconDotGrid2x3" />
             </button>
           </div>
         </div>
@@ -1982,7 +1969,7 @@ function dismissFix() {
     <Transition name="reveal">
       <div v-if="showFix" class="reveal">
         <div class="item__fixrow">
-          <button type="button" class="item__under-link t-sm" @click="openFix">
+          <button type="button" class="item__under-link ink-quiet t-sm" @click="openFix">
             Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, rowUnit) }} · suggest a fix
           </button>
           <button
@@ -1992,7 +1979,7 @@ function dismissFix() {
             aria-label="Dismiss suggestion"
             @click="dismissFix"
           >
-            <HugeiconsIcon :icon="Cancel01Icon" :size="14" :stroke-width="2" />
+            <SvgIcon :icon="IconCrossMedium" size="sm" />
           </button>
         </div>
       </div>
@@ -2041,7 +2028,6 @@ function dismissFix() {
 }
 .item__name {
   grid-area: name;
-  min-width: 0;
 }
 /* position:relative makes the name BOX the autocomplete dropdown's anchor, so the
    menu opens flush with the row's left edge, directly under the name field (not under
@@ -2049,7 +2035,6 @@ function dismissFix() {
    .ac__menu) — the .ac root inside defers via position:static. */
 .item__namebox {
   position: relative;
-  min-width: 0;
 }
 .item__namebox :deep(.ac) {
   position: static;
@@ -2060,11 +2045,9 @@ function dismissFix() {
   display: flex;
   align-items: baseline;
   gap: var(--space-1);
-  min-width: 0;
 }
 .item__namebox--group :deep(.ac) {
   flex: 0 1 auto;
-  min-width: 0;
 }
 .item__namebox--group :deep(.ac__input) {
   width: auto;
@@ -2108,7 +2091,6 @@ function dismissFix() {
   height: var(--field-h);
   align-items: center;
   gap: var(--space-1);
-  min-width: 0;
 }
 /* same box for the trailing cluster — it carried the same 2px lift, and the same
    sink once the name cell could grow; fixing only the middle one would leave two
@@ -2131,11 +2113,8 @@ function dismissFix() {
   display: contents;
 }
 
-/* the qty/amount label lives in the narrow 44px column; keep it on one line so a
-   water row's volume ("1.75 L") never breaks between the number and its "L" unit. */
-.item__cqty {
-  white-space: nowrap;
-}
+/* the checklist's amount and weight cells (.item__cqty / .item__cweight) take their
+   nowrap and their right-aligned figure from atoms/item.scss, shared with the read rows */
 
 /* packing / checklist — a big tap target */
 .item--check {
@@ -2173,9 +2152,9 @@ function dismissFix() {
 /* checkbox — the shared .check atom (controls.scss): Square (empty) under
    SquareCheck (checked), the same glyph as the header's packing toggle, stacked in
    one grid cell with the native control stretched invisibly over them. 20px — a
-   step up from the old 18px drawn box; the icons pin their stroke at ~1.33px
-   (absolute-stroke-width) so the bigger box keeps the same line weight the
-   surrounding 16px icons render. The row's only addition: the whole box is the tap
+   step up from the old 18px drawn box; every step draws the same flat 1.5px line
+   (utils/icon.ts), so the bigger box keeps the line weight of the surrounding
+   md icons. The row's only addition: the whole box is the tap
    target, so pointing at it darkens the glyph like the row's other quiet marks.
    Pointer-gated — it paints (see the note on .btn:hover, controls.scss): a tap on a
    phone would leave the glyph inked after the finger had gone. */
@@ -2184,18 +2163,12 @@ function dismissFix() {
     color: var(--ink);
   }
 }
-.item__cname {
-  min-width: 0;
-}
 /* a group (parent) in packing mode: name + trailing collapse chevron, like the
    editor row + folder header */
 .item__cname--group {
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-1);
-}
-.item__cweight {
-  text-align: right;
 }
 /* the common name in packing mode — a quiet upright sub-line under the product name,
    spanning from the name column (2) to the row end so it aligns under the name, not the
@@ -2227,12 +2200,9 @@ function dismissFix() {
   align-items: baseline;
   gap: var(--space-1);
 }
-/* let the number input shrink so its unit suffix (L / lb) stays on the same line
-   in the narrow columns instead of wrapping below */
-.item__qty .field,
-.item__weight .field {
-  min-width: 0;
-}
+/* the number input can shrink, so its unit suffix (L / lb) stays on the same line in
+   the narrow columns instead of wrapping below: no rule here, because the reset floors
+   every element's min-width at 0 (reset.scss) */
 /* A DERIVED weight — a group's total, water's litres-to-grams — is read, not typed
    (the input is readonly, and onWeight refuses it). It kept every affordance of a
    field all the same, so the parent of a nested group read as editable (Ryan,
@@ -2341,17 +2311,15 @@ function dismissFix() {
    --item-col-qty is derived from --qty-btn: at 44px the track would want 132px, and
    it would take that from the name column on the widest rows in the app.
    The HEIGHT still grows, so the target is 24×44 — past the 24×24 floor (WCAG 2.5.8)
-   in both directions, and full height under the finger. The glyph holds at 16px too:
-   .btn--icon grows it to --icon-touch on touch, which in a 24px box leaves the plus
-   with no air around it. */
+   in both directions, and full height under the finger. Neither needs saying here:
+   the width rule above is scoped, so it already outranks .btn--icon's coarse --tap
+   width, and that same coarse rule's min-height is what grows the height. The glyph
+   holds at 16px too: .btn--icon grows it to --icon-touch on touch, which in a 24px
+   box leaves the plus with no air around it. */
 @media (pointer: coarse) {
-  .item__qtybtn {
-    width: var(--qty-btn);
-    min-height: var(--tap);
-  }
   .item__qtybtn svg {
-    width: 16px;
-    height: 16px;
+    width: var(--icon);
+    height: var(--icon);
   }
 }
 /* the pop when the stepper moves the number — the shared `num-pop` keyframe
@@ -2364,11 +2332,11 @@ function dismissFix() {
 .item__qtyfield.is-popping {
   animation: num-pop var(--spring-pop-dur) var(--spring-pop) both;
 }
-.item__unitwrap {
-  position: relative;
-  flex: none;
-  display: inline-flex;
-  /* centres the chevron ON the unit's text rather than letting it stretch.
+/* The unit picker's wrap (.item__unitwrap) is an OptionMenu's root, and that root is
+   already what the pair needs — positioned (.menu), and a rigid inline-flex box that
+   centres its contents (.optmenu, OptionMenu.vue) — so no box is declared for it here.
+   That centring is load-bearing in this cell:
+     it centres the chevron ON the unit's text rather than letting it stretch.
      What it CANNOT do is hand a baseline up: a flex box that centres its own contents
      has none to offer, so a baseline-aligned parent gets a SYNTHESIZED one — a value the
      spec leaves the engine to derive. Where the engines disagree about it, that is what
@@ -2384,24 +2352,11 @@ function dismissFix() {
      that. Re-measure from INK, never from the box model, if this is ever revisited: the
      box formula reports a phantom error here because WebKit sizes the field 24px against
      a 20.8px line box. */
-  align-items: center;
-}
 .item__unit {
   flex: none;
 }
-/* The unit trigger's hit area. The bare glyph-and-caption is ~29×24, well under the
-   44px target, and it was that small before too — the transparent <select> it replaced
-   filled this same content-sized wrapper, so the small target predates the picker.
-   --tap-pull is the row's own idiom (see .item__fixdismiss): grow the box to --tap on
-   touch, then pull the overshoot back out of layout so the line keeps its rhythm.
-   :deep() because the button lives inside OptionMenu — a class passed through a prop
-   carries no scope id, which is the trap that dropped the total off its baseline. */
-@media (pointer: coarse) {
-  .item__unitwrap :deep(.optmenu__btn) {
-    min-height: var(--tap);
-    margin-block: var(--tap-pull);
-  }
-}
+/* (The unit trigger's touch hit area — --tap, pulled back onto the line — is drawn with
+   My Gear's row picker: atoms/item.scss.) */
 /* Quiet by default — one of these sits on every row, and a column of hard chevrons
    would shout louder than the weights they belong to. That resting step (--ink-3, and
    the pin that keeps it from shrinking) is the shared .chev now, atoms/controls.scss.
@@ -2409,16 +2364,12 @@ function dismissFix() {
    takes, because this one lifts on the ROW being hovered, not on its own trigger — a
    column of full-ink marks following the pointer down the list would read as the loud
    thing the quiet default exists to avoid. */
-/* :has(), not a sibling combinator — the select is rendered AFTER the chevron, so
-   `~` from it reaches nothing. Keyboard focus has to light the mark too, or the
-   affordance exists for pointers only. */
+/* Keyboard focus has to light the mark too, or the affordance exists for pointers only:
+   that half is the shared rule (atoms/item.scss), on the wrap's :focus-within. */
 @media (hover: hover) and (pointer: fine) {
   .item:hover .item__unitchev {
     color: var(--ink-2);
   }
-}
-.item__unitwrap:focus-within .item__unitchev {
-  color: var(--ink-2);
 }
 /* transparent native select over the unit text — the same construction the total's
    unit picker uses. The label stays the only thing drawn; this just makes it a
@@ -2525,7 +2476,8 @@ function dismissFix() {
      like two different components. */
   width: 13rem;
 }
-/* flipped when the row sits too close to the viewport floor (see togglePop) */
+/* flipped when the row sits too close to the viewport floor (measured on open:
+   placeWorn / placeKcal) */
 .item__pop.is-above {
   top: auto;
   bottom: calc(100% + var(--space-1));
@@ -2546,25 +2498,29 @@ function dismissFix() {
   flex-wrap: wrap;
   gap: var(--space-1);
 }
+/* The chip's ground is AN AMOUNT OF INK, the well's two (.well, atoms/controls.scss): 7%
+   at rest, 10% under the pointer — the same pair the kcal field takes in the popover
+   beside this one, so the two cards' grounds agree. It drew them in --paper-2 and
+   --paper-3, page tones on a floating card: 1.10:1 at rest on the light popover, and in
+   dark --paper-3 IS --surface-float, so pointing at a count erased its chip. Not --lit:
+   that is the tone for ON, and here on is the inverted chip below. */
 .item__split {
   min-width: var(--icon-btn);
   min-height: var(--icon-btn);
   padding-inline: var(--space-2);
-  justify-content: center;
   border-radius: var(--pop-inner-radius);
-  background: var(--paper-2);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
   color: var(--ink-2);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .item__split:hover {
-    background: var(--paper-3);
+    background: color-mix(in oklab, var(--ink) 10%, transparent);
     color: var(--ink);
   }
 }
-/* the chosen count takes the same quiet-grey chip as an active row toggle, one step
-   deeper — the popover's own ground is already --paper-2, so the resting chip has to
-   sit above it to read as a button at all */
+/* the chosen count is inverted ink: the one chip in the row that is ON, a full step
+   past the grounds the others rest on */
 .item__split.is-active,
 .item__split.is-active:hover {
   background: var(--ink);
@@ -2576,20 +2532,21 @@ function dismissFix() {
    So the field declares itself here, and only here.
    A FILL rather than a border does it: --surface-float is the brightest tone on the
    page, so a well sunk into it reads as "type here" at a glance, where a hairline
-   rectangle has to be looked at to be seen. */
+   rectangle has to be looked at to be seen.
+   That fill is the .well atom (atoms/controls.scss), worn in the markup: an amount of
+   ink, which composites over the card, where the --paper-2 this used sat at 1.10:1 on
+   it. Focus is the atom's too, the ground deepening a step and nothing drawn round it —
+   the one focus every contained field on a floating surface takes (the trail panel's
+   fields, the searches, the paste boxes). This one used to swap to --paper-3 and add a
+   hairline ring; the ring was standing in for a deepening that couldn't show, since
+   --paper-3 is the card's own colour in dark. Only the geometry is this field's — the
+   transparent edge included: it is part of the box's size, and under forced colours,
+   where fills are stripped, it is repainted and is all the field has. */
 .item__popinput {
-  width: 100%;
   min-height: var(--icon-btn);
   padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--pop-inner-radius);
-  background: var(--paper-2);
-}
-/* focus deepens the well and rings it — the caret alone is too quiet once the field
-   has a ground of its own to sit on */
-.item__popinput:focus {
-  background: var(--paper-3);
-  border-color: var(--line-2);
 }
 .item__popline {
   display: flex;
@@ -2616,17 +2573,17 @@ function dismissFix() {
 .item__actions :deep(.btn--icon) {
   justify-content: flex-end;
 }
-/* …and the tooltips move with the glyphs. The rule above puts a 16px picture at the
-   RIGHT edge of a 32px button, so a tooltip centred on the button lands 8px left of
+/* …and the tooltips move with the glyphs. The rule above puts an 18px picture at the
+   RIGHT edge of a 32px button, so a tooltip centred on the button lands 7px left of
    the thing it names — half the difference, on every control in this cluster.
-   A literal length rather than calc((var(--icon-btn) - 16px) / 2): a custom property
-   is read back as its token stream, so an unregistered calc() would reach Tooltip as
-   text and parse to NaN. If --icon-btn (32px) or the 16px glyph size changes, this
-   changes with them.
+   Derived from the two sizes, so it holds past 1920px where both grow (--tpx). Tooltip
+   reads it back in JS, which works because main.scss REGISTERS --tip-shift as a
+   <length>: unregistered, a calc() came back as its token stream and parsed to NaN,
+   which is why this used to be a literal 8px.
    Declared on the CLUSTER, not the controls: custom properties inherit, so this one
    line reaches the triggers ItemRowMenu renders too — which a scoped rule can't. */
 .item__actions {
-  --tip-shift: 8px;
+  --tip-shift: var(--icon-inset);
 }
 /* the grip, the vault tick, duplicate, remove and the qty ± (which sit mid-row but are
    the same kind of thing) rest at the lesser ink and lift under the pointer — the
@@ -2742,7 +2699,6 @@ function dismissFix() {
    pointer-events:none so the drop detection (elementFromPoint) sees the rows
    underneath, not the floating row. */
 .item-wrap.is-dragging {
-  position: relative;
   z-index: var(--z-lifted);
   pointer-events: none;
   transform: translateY(var(--drag-dy, 0)) scale(1.01);
@@ -2835,8 +2791,8 @@ function dismissFix() {
 }
 /* the common-name field is an upright quiet LABEL (--ink-2), distinct from the note's
    italic aside voice below it — mirrors the read-only sub-line's two voices. .item__note
-   also matches this element and sets italic, so pin the override at higher specificity to
-   win regardless of source order. */
+   (atoms/item.scss) also matches this element and sets italic; the two classes together
+   outweigh it. */
 .item__note.item__gtype-input {
   color: var(--ink-2);
   font-style: normal;
@@ -2869,52 +2825,25 @@ function dismissFix() {
   color: var(--ink-3);
 }
 /* note — a single-line live-text field under the item (no box, no resize handle).
-   reads as a caption: the lightest ink (matching the "Add an item" placeholder) and
-   italic, to sit quietly beneath the item name. */
-.item__note {
-  width: 100%;
-  min-height: 0;
-  /* the upward tuck under the name now lives on the .reveal--note wrapper (so the
-     grid track sizing stays clean); this element just fills its cell */
-  color: var(--ink-3);
-  font-size: var(--text-input); /* static 16px — avoid iOS focus-zoom (see .field in controls.scss) */
-  font-style: italic;
-}
-.item__note::placeholder {
-  color: var(--ink-3);
-}
-/* the note keeps its quiet entered colour (--ink-3) while you type it too — no
-   contrast jump between editing and resting (stays italic) */
-.item__note:focus {
-  outline: none;
-}
-/* …and only the NOTE is a textarea (the gear type beside it is still a one-value
-   field). `field-sizing: content` is what makes it read as a caption that happens to
-   be editable rather than as a box: one line when it holds one, as many as the text
-   takes, never a scrollbar and never a drag handle — the two defaults .head__title
-   drops for the same reason. fitNote() covers the engines without it.
-   `rows="1"` is the floor, so an empty note costs exactly the line the <input> did
-   and the row's height is unchanged until there is something to wrap. */
-textarea.item__note {
-  field-sizing: content;
-  resize: none;
-  overflow: hidden;
-}
-/* quiet "suggest a fix" link under a row */
+   Reads as a caption: the lightest ink (matching the "Add an item" placeholder) and
+   italic, to sit quietly beneath the item name. The recipe (.item__note) is the shared
+   caption field, atoms/item.scss, which the trip plan's day note wears too. Its upward
+   tuck under the name lives on the .reveal--note wrapper (so the grid track sizing
+   stays clean); the element just fills its cell.
+   Only the NOTE is a textarea (the gear type beside it is still a one-value field):
+   one line when it holds one, as many as the text takes, never a scrollbar and never a
+   drag handle — the two defaults .head__title drops for the same reason. fitNote()
+   covers the engines without field-sizing. `rows="1"` is the floor, so an empty note
+   costs exactly the line the <input> did and the row's height is unchanged until there
+   is something to wrap. */
+/* quiet "suggest a fix" link under a row (a <button>: the pointer is the reset's). Its
+   inks are .ink-quiet's (atoms/controls.scss), in the markup: the lesser ink at rest,
+   full ink under the pointer and on keyboard focus, on the fade. */
 .item__under-link {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  margin-top: var(--space-1);
-  color: var(--ink-3);
   text-align: left;
-  cursor: pointer;
-}
-/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
-@media (hover: hover) and (pointer: fine) {
-  .item__under-link:hover {
-    color: var(--ink);
-  }
 }
 /* the suggest-a-fix nudge + an × to dismiss it from the page */
 .item__fixrow {
@@ -2922,9 +2851,6 @@ textarea.item__note {
   align-items: center;
   gap: var(--space-1);
   margin-top: var(--space-1);
-}
-.item__fixrow .item__under-link {
-  margin-top: 0;
 }
 /* composes .btn--icon for the real tap target (--icon-btn box, --tap on touch) —
    without it the bare 14px glyph was the whole hit area. This rule keeps the quiet
@@ -2947,13 +2873,9 @@ textarea.item__note {
 .nestcollapse:not([data-collapsed]) > .nest-block:has(.popover) {
   overflow: visible;
 }
-/* drag-to-reorder: insertion line when a nested sibling drops at the end of this
-   group (the folder's tail line stands down for it — see FolderSection) */
-.item-nest__droptail {
-  height: var(--space-px);
-  background: var(--ink);
-  margin: var(--space-1) 0;
-}
+/* drag-to-reorder: the insertion line when a nested sibling drops at the end of this
+   group (.item-nest__droptail; the folder's tail line stands down for it — see
+   FolderSection) is drawn with the folder's own — atoms/item.scss */
 /* ever-present "Add an item" at the bottom of a group, so growing a group needs no hover.
    It sits inside the thread line with the rest of the nested block; no horizontal rule.
    Its look IS the folder add row's — one shared add-affordance atom (atoms/item.scss),
@@ -2975,12 +2897,12 @@ textarea.item__note {
    User glyph — which is the whole reason this button swaps glyph for swatch; a grey
    disc behind it was the redundant half, and the loud one in a dense list.
    The dot then rides the glyph column like everything else: half the difference
-   between a 16px glyph's footprint and the swatch, taken off the right, puts its
+   between the glyph's footprint (--icon) and the swatch, taken off the right, puts its
    centre at 24 instead of 3px past it. */
 /* (still reaches: the swatch is this component's slot content into ItemRowMenu, so
    it carries this scope id even though the button around it doesn't) */
 .item__person-btn .swatch {
-  margin-right: calc((16px - var(--swatch)) / 2);
+  margin-right: calc((var(--icon) - var(--swatch)) / 2);
 }
 /* the carrier tag itself is the shared .item__carrier atom (atoms/item.scss) —
    drawn once for this face, the checklist face and the read rows */
@@ -3193,13 +3115,19 @@ textarea.item__note {
      queries — is already drawing exactly this. What this adds is the narrow DESKTOP
      window, which until now got the height without the width. */
   .item__classcell .btn--icon,
-  .item__classcell .item__clsfixed {
+  .item__classcell .item__clsfixed,
+  .item__trail :deep(.item__morebtn) {
     width: var(--tap);
     padding: calc((var(--tap) - var(--icon-btn)) / 2);
   }
+  /* …and the grip's box, the same width, so all four sit at one pitch on a fine pointer
+     as on a coarse one. No padding: its dots sit flush at the box's right edge (.grip). */
+  .item__trail .item__grip {
+    width: var(--tap);
+  }
   /* mobile trailing cluster = ⋯ · grip. Everything else the row can do — the note, the
      nesting actions, the vault save and the removal — moves into the ⋯ menu, which
-     names each one in words rather than asking a 16px glyph to.
+     names each one in words rather than asking a glyph to.
      It is width that decides how many stay: on a coarse pointer every .btn--icon grows
      to --tap, so each inline icon costs 48px of a line that also has to carry the qty,
      the weight and the two classification toggles. Delete was the last one held back —
@@ -3245,19 +3173,18 @@ textarea.item__note {
   }
   .item__namebox:has(.item__ecarrier) :deep(.ac) {
     flex: 1 1 auto;
-    min-width: 0;
   }
   .item__namebox:has(.item__ecarrier) .item__ecarrier {
     margin-left: 0; /* the flex gap is the spacing here — the atom's margin doubled it */
     /* …and the TAG is what gives way, not the name. Both are flex items on a 343px
-       line, and a flex item won't shrink below its min-content width unless told to,
-       so a long carrier simply took the row: the field above holds `min-width: 0` and
-       collapsed to 37px around it, leaving the item's own name as "Hy…". The floor
-       here lets the tag shrink, and the cap keeps it from taking most of the line
-       before it starts to — the item's name is the row, the carrier is a note on it.
+       line, and a flex item won't shrink below its min-content width unless its
+       min-width lets it: a long carrier that cannot shrink takes the row, and the
+       field collapses to 37px around it, leaving the item's own name as "Hy…". The
+       reset's `min-width: 0` on every element (reset.scss) is what lets the tag
+       shrink, and the cap keeps it from taking most of the line before it starts
+       to — the item's name is the row, the carrier is a note on it.
        The tail is dropped with an ellipsis by .item__carrier-name (atoms/item.scss);
-       neither rule binds on a tag that already fits. */
-    min-width: 0;
+       neither binds on a tag that already fits. */
     max-width: 45%;
   }
   /* the classification cell used to hold a text label that had to ellipsize to keep
@@ -3312,21 +3239,18 @@ textarea.item__note {
      left a wider hole before the grip (Ryan, 2026-09-12: "still don't look evenly
      spaced"). So the grip's box comes back by half a box and a little more, which
      puts the dots' left edge the same 32px past the ⋯'s ink as each glyph sits past
-     the last. The box is --tap on a coarse pointer and --icon-btn on a fine one
-     (.btn--icon's own rule), hence the token, set both ways. Replaces .grip's
+     the last. The box is --tap at every pointer down here (above). The 1px is
+     Central's geometry at 18px: the ⋯'s ink is 13.5px wide and the dots' 6px, which
+     puts the dots' ink 30px past the ⋯'s, as the marks sit apart. Replaces .grip's
      --grip-pull here: that pull evens the desktop cluster, where the ⋯ is
-     right-aligned; this is the same idea for a centred one. */
+     right-aligned; this is the same idea for a centred one. The folder header below
+     $bp-stack wears the same rule (atoms/folder.scss), so its trash stays in the ⋯'s
+     column. */
   .item__trail :deep(.item__morebtn) {
     justify-content: center;
   }
   .item__trail .item__grip {
-    --trail-box: var(--icon-btn);
-    margin-left: calc(-1 * (var(--trail-box) / 2 + 2px));
-  }
-  @media (pointer: coarse) {
-    .item__trail .item__grip {
-      --trail-box: var(--tap);
-    }
+    margin-left: calc(-1 * (var(--tap) / 2 + var(--tpx)));
   }
   .item__classcell {
     flex: none;
@@ -3491,7 +3415,6 @@ textarea.item__note {
      aligned to the name column. The row-gap gives the spacing so drop the desktop
      upward tuck. */
   .item__csub {
-    grid-column: 2 / -1;
     grid-row: 2;
     margin-top: 0;
   }

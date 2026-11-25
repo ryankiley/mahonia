@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowUpRight01Icon, Backpack03Icon, Calendar03Icon, GlobeIcon, Route02Icon, RouteIcon } from "@hugeicons/core-free-icons";
+import { IconArrowUpRight, IconBackpack, IconCalendarDays, IconFootsteps, IconMap, IconMapPin, IconGlobe2 } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { parseTrailLink } from "~~/shared/trailLink";
 import { dayClimbs, parseProfile } from "~~/shared/profile";
 import { dayLabel } from "~~/shared/tripDay";
-import { routeLengthM, shownHeightM } from "~~/shared/tripPlan";
-import { formatDistance, heightWithUnit, resolveDistanceUnit } from "~~/shared/trailDistance";
+import { shownHeightM } from "~~/shared/tripPlan";
+import { formatDistance, heightWithUnit, resolveDistanceUnit, routeLengthM } from "~~/shared/trailDistance";
 import type { PersonSelection } from "~~/shared/people";
 import type { Item, ListSnapshot, Person, Totals, Unit } from "~~/shared/types";
 import { variantShownIds } from "~~/shared/variantShown";
 import { groupItemsByFolder, groupItemsByParent } from "~~/shared/weights";
+import { READ_ROWS } from "./ReadonlyItemRow.vue";
 
-// The shared body for the two read-only pages (/s/[code] + /l/[slug]). Both render
-// the same totals + folder/ungrouped block over the same useReadonlyList view-model
-// (kept in the page); only the head, footer, and missing-state copy differ, so those
-// are slots. This is purely the shared template + .view CSS — no data shaping
-// (beyond the per-folder grouping every ReadonlyFolderSection consumes; the person
-// filter is already applied to `list.items` by the view-model).
+// The body of the read-only page (/s/[code]): the heading, the totals and the
+// folder/ungrouped block, over the useReadonlyList view-model (kept in the page).
+// This is purely the template + .view CSS — no data shaping (beyond the per-folder
+// grouping every ReadonlyFolderSection consumes; the person filter is already applied
+// to `list.items` by the view-model).
 const props = defineProps<{
   list: ListSnapshot | null;
   totals: Totals | null;
@@ -44,9 +44,6 @@ const filteredEmptyName = computed(() => {
   return props.people?.find((p) => p.id === props.personFilter)?.name ?? null;
 });
 
-// The view-model resolves these with the strict and visible sets from one shared pass.
-const contextOnlyIds = computed(() => props.contextOnlyIds ?? new Set<string>());
-
 // one grouping pass for all folders (ReadonlyFolderSection takes its items pre-grouped),
 // each folder in the owner's drag order so a shared list reads exactly as theirs
 const itemsByFolder = computed(() => groupItemsByFolder(props.list?.items ?? []));
@@ -58,21 +55,34 @@ const childrenByParent = computed(() => groupItemsByParent(props.list?.items ?? 
 // carrying which, and a filtered view that dropped the size would read as a
 // different row than the unfiltered one.
 const variantShown = computed(() => variantShownIds(props.list?.items ?? []));
+// ...and those tables, with the list itself, as the rows reach them (READ_ROWS)
+provide(READ_ROWS, {
+  list: toRef(props, "list"),
+  childrenByParent,
+  contextOnlyIds: toRef(props, "contextOnlyIds"),
+  variantShownIds: variantShown,
+});
 const NO_ITEMS: Item[] = [];
 
-// Quiet meta line under the title — the maker's name, the page's status where it has
-// one (a #status slot: /l's "Public list"), and the list's last-edit time, as one text
-// object. The time is the read-only twin of the editor's SyncStatus suffix: no sync
+// Quiet meta line under the title — the maker's name and the list's last-edit time,
+// as one text object. The time is the read-only twin of the editor's SyncStatus suffix: no sync
 // words (the viewer isn't writing), just the last server write via the shared
 // timeAgo(), so a share link tells the reader how fresh the list is. Ticks silently.
-const now = useNow({ interval: 30_000 });
+const now = useNow();
 const editedAt = computed(() => parseIsoTime(props.list?.updatedAt));
 
-// The route this list was packed for. Lives here rather than in either page's #head
-// slot so /s and /l both get it — /l overrides only the heading block.
+// The route this list was packed for.
 const trail = computed(() => parseTrailLink(props.list?.trailUrl, props.list?.trailLabel));
-// empty string when the list has no dates, which the v-if reads as absent
-const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.list?.endDate));
+// empty string when the list has no dates, which the v-if reads as absent.
+// A trip in the coming week reads "Tomorrow" / "Friday" — but only once this is running
+// in the reader's browser: /s is server-rendered, and the server's clock is in the wrong
+// timezone for "Tomorrow". So the server and the hydrating render print the dates, and
+// the browser re-words them on mount.
+const hydrated = ref(false);
+onMounted(() => (hydrated.value = true));
+const dateLabel = computed(() =>
+  formatDateRange(props.list?.startDate, props.list?.endDate, now.value, { relative: hydrated.value }),
+);
 
 // ---- the trip, as the owner planned it ----
 //
@@ -91,15 +101,15 @@ const dateLabel = computed(() => formatDateRange(props.list?.startDate, props.li
 // may never have set. The route's shape is a fact about the route; an estimate is a fact
 // about a person, and this page is about neither of the two people involved.
 // Which half of the list is on screen: the gear, or the trip. The component's own, so
-// it starts on the gear for every list (also what the server renders, which matters
-// because /l is indexable and a crawler runs no JavaScript). Deliberately not
+// it starts on the gear for every list (also what the server renders, which is all a
+// link-preview bot or a reader without JavaScript ever sees). Deliberately not
 // persisted, following the unit picker on these same pages: a share link is usually
 // opened once, by somebody who did not make the list, and a preference remembered
 // from a different list would decide what they see before they have looked.
 const view = ref<"gear" | "trip">("gear");
 const VIEW_MODES = [
-  { key: "gear", label: "Gear", icon: Backpack03Icon },
-  { key: "trip", label: "Trip", icon: Route02Icon },
+  { key: "gear", label: "Gear", icon: IconBackpack },
+  { key: "trip", label: "Trip", icon: IconMap },
 ] as const;
 
 const days = computed(() => props.list?.days ?? []);
@@ -151,25 +161,18 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
       @pick="(k) => (view = k as 'gear' | 'trip')"
     />
     <div class="view__header">
-      <slot name="head">
-        <h1 class="t-title view__title">{{ list.title }}</h1>
-      </slot>
-      <!-- Who, what, how fresh — one quiet line. The byline leads (shown ONLY when the
+      <h1 class="t-title view__title">{{ list.title }}</h1>
+      <!-- Who and how fresh — one quiet line. The byline leads (shown ONLY when the
            maker set a display name: an account is anonymous by default and nothing
-           derives a name from an email), then the page's status (a #status slot, which
-           only /l fills — "Public list"), then the last edit. It lives here rather than
-           in either page's #head slot so /s and /l both get it — /l overrides only the
-           heading block, the same reason the trail link sits here. Dots only ever
-           appear BETWEEN two pieces that are present. -->
-      <p v-if="list.authorName || $slots.status || editedAt != null" class="view__meta">
+           derives a name from an email), then the last edit. The dot only ever
+           appears BETWEEN two pieces that are present. -->
+      <p v-if="list.authorName || editedAt != null" class="view__meta">
         <span v-if="list.authorName" class="view__byline">by {{ list.authorName }}</span>
-        <span v-if="list.authorName && $slots.status" class="view__dot" aria-hidden="true">•</span>
-        <span v-if="$slots.status" class="view__status"><slot name="status" /></span>
         <!-- the relative time is a client concern (avoids an SSR/hydration time
-             mismatch on the indexable /l page); the dot only shows once it does -->
+             mismatch on the server-rendered page); the dot only shows once it does -->
         <ClientOnly>
           <template v-if="editedAt != null">
-            <span v-if="list.authorName || $slots.status" class="view__dot" aria-hidden="true">•</span>
+            <span v-if="list.authorName" class="view__dot" aria-hidden="true">•</span>
             <span>Edited {{ timeAgo(editedAt, now.getTime()) }}</span>
           </template>
         </ClientOnly>
@@ -179,9 +182,10 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
            line wherever there's room — each is icon-led, so they read as two facts side
            by side without a separator between them. A narrow phone wraps them onto two
            lines rather than squeezing the trail name down to an ellipsis. -->
-      <p v-if="trail || dateLabel" class="view__where">
-        <!-- nofollow ugc: /l is indexable and this is a viewer-submitted outbound link,
-             so without it the public feed reads as a link farm. The favicon is a data:
+      <p v-if="trail || distanceLabel || dateLabel" class="view__where">
+        <!-- nofollow ugc: a viewer-submitted outbound link, on a page that is already
+             noindex (pages/s/[code].vue); the rel says so to anything that reads the
+             page anyway. The favicon is a data:
              URL (fetched server-side, cached per host), so no third-party request leaves
              the viewer's browser and img-src stays 'self' data:. -->
         <a
@@ -199,11 +203,11 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
             class="view__trailicon"
             :src="list.trailFaviconDataUrl"
             alt=""
-            width="16"
-            height="16"
+            width="18"
+            height="18"
           />
-          <HugeiconsIcon :icon="GlobeIcon" v-else class="view__trailicon view__trailicon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="t-clip view__trailname">{{ trail.name }}</span>
+          <SvgIcon :icon="IconGlobe2" v-else class="view__trailicon view__trailicon--fallback" aria-hidden="true" />
+          <span class="t-clip">{{ trail.name }}</span>
           <!-- How far it goes — the one fact about the route that isn't in its name,
                and the second thing anybody asks after it. The editor's own head row
                carries it (ListHead's .head__dist, same helper, same muted step after
@@ -213,6 +217,13 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
                of squeezing out four characters that are useless truncated. -->
           <span v-if="distanceLabel" class="view__dist">{{ distanceLabel }}</span>
         </a>
+        <!-- A distance with no link: the trip's length is a fact of its own (the editor
+             takes it without one), so it stands where the trail would, with the pin the
+             editor's row wears, and reads like the dates beside it. -->
+        <span v-else-if="distanceLabel" class="view__dates">
+          <SvgIcon :icon="IconMapPin" aria-hidden="true" />
+          <span>{{ distanceLabel }}</span>
+        </span>
 
         <!-- the trip's dates, when it has them. Read-only by nature — there is nothing
              to add here, so unlike the editor there is no affordance, only the fact.
@@ -223,13 +234,13 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
                with the trail's: the row wraps on a narrow screen and the two then stack,
                so a mark that measured differently started its text at a different x. See
                --where-mark below, which is what actually holds the two to one slot. -->
-          <HugeiconsIcon :icon="Calendar03Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconCalendarDays" aria-hidden="true" />
           <span>{{ dateLabel }}</span>
         </span>
       </p>
     </div>
 
-    <TotalsBar :list="list" :totals="totals" @set-unit="(u) => $emit('set-unit', u)" />
+    <TotalsBar :list="list" :totals="totals" :person-filter="personFilter ?? null" @set-unit="(u) => $emit('set-unit', u)" />
     <!-- The trip, between what it weighs and what's in it: the pack's total is the
          list's headline fact, then the walk it was packed for, then the gear itself. -->
     <section v-if="hasTrip && view === 'trip'" class="view__trip" :aria-labelledby="tripId">
@@ -247,14 +258,14 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
         <li v-for="(d, i) in days" :key="d.id" class="view__day">
           <span class="view__dayname">{{ dayLabel(i, list.startDate) }}</span>
           <span v-if="d.distanceM" class="view__dayfig">
-            <HugeiconsIcon :icon="RouteIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconFootsteps" size="sm" aria-hidden="true" />
             {{ formatDistance(d.distanceM, distanceUnit) }}
           </span>
           <!-- `!= null`, not truthiness: a day that genuinely climbs nothing still has a
                climb to report, and hiding it made a flat or downhill day look like a day
                whose data was missing. The editor shows the 0; so does this. -->
           <span v-if="climbFor(i) != null" class="view__dayfig">
-            <HugeiconsIcon :icon="ArrowUpRight01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconArrowUpRight" size="sm" aria-hidden="true" />
             {{ asHeight(climbFor(i)!) }}
           </span>
           <!-- the owner's note on the day, on its own line under the figures, in the
@@ -270,7 +281,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
          The heading names the block for a first-time viewer — every other block on
          this page has one, and an unlabelled row of names doesn't say it filters. -->
     <section v-if="view === 'gear' && people?.length" class="view__people">
-      <p class="t-label view__peopleh">People</p>
+      <p class="t-label">People</p>
       <PeopleBar
         :people="people"
         :selected="personFilter ?? null"
@@ -284,10 +295,10 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
     <FilterEmpty v-if="view === 'gear' && filteredEmptyName" :name="filteredEmptyName" @clear="$emit('pick-person', null)" />
 
     <div v-if="view === 'gear'" class="view__folders">
-      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :list="list" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" :variant-shown-ids="variantShown" />
+      <ReadonlyFolderSection v-for="f in shownFolders" :key="f.id" :folder="f" :items="itemsByFolder.get(f.id) ?? NO_ITEMS" />
       <section v-if="ungrouped.length">
         <p class="t-label view__ungrouped">Unfiled</p>
-        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :list="list" :item="it" :children-by-parent="childrenByParent" :context-only-ids="contextOnlyIds" :variant-shown-ids="variantShown" />
+        <ReadonlyItemRow v-for="it in ungrouped" :key="it.id" :item="it" />
       </section>
     </div>
   </main>
@@ -300,7 +311,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
        reading column gives it a left edge shared with the rest of the site. -->
   <main v-else id="main-content" tabindex="-1" class="wrap page">
     <div class="prose">
-      <p><slot name="missing">This list doesn’t exist (or was removed).</slot></p>
+      <p>This list doesn’t exist (or was removed).</p>
       <p><NuxtLink to="/e" class="btn btn--primary">Create a list</NuxtLink></p>
     </div>
   </main>
@@ -315,7 +326,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   flex-direction: column;
   gap: var(--space-6);
 }
-/* the title/head block and the two quiet lines under it (who + status + edited, then
+/* the title/head block and the two quiet lines under it (who + edited, then
    route + dates), kept tight (--space-1) so the name and everything about it read as
    one unit, one --space-6 step off TotalsBar */
 .view__header {
@@ -324,32 +335,24 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   gap: var(--space-1);
 }
 /* the h1's page-title step (.view__title) is global — main.scss */
-/* by · status · edited — one quiet line. flex so a #status icon (the /l globe) sits on
-   the text baseline, with a drawn middle-dot between the pieces, wrapping only once a
-   phone runs out of room (a desktop holds all three easily). */
+/* by · edited — one quiet line, with a drawn middle-dot between the pieces, wrapping
+   only once a phone runs out of room. */
 .view__meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   color: var(--ink-3);
-  font-size: var(--text-base);
 }
 /* One step up from the rest of the line's ink: a name is content, where "edited 3m ago"
    is status. Still quiet enough to sit under the title without competing with it. */
 .view__byline {
   color: var(--ink-2);
 }
-.view__status {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-}
 /* the separator is its own flex child (aria-hidden) so it isn't announced/copied. A
    bullet (•) reads bigger than a middle-dot at the same size; a small negative inline
-   margin pulls the status + time a touch closer than the meta's flex gap. */
+   margin pulls the time a touch closer than the meta's flex gap. */
 .view__dot {
-  color: var(--ink-3);
   line-height: 1;
   margin-inline: -2px;
 }
@@ -371,12 +374,11 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
      16px because line one's mark is 16 either way, favicon or fallback globe (see the
      markup). Declared here, on the row that owns the alignment, so the two marks are
      held to one column by a rule rather than by two size props that happen to agree. */
-  --where-mark: 16px;
+  --where-mark: var(--icon); /* a glyph's slot (tokens.scss) */
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: var(--space-1) var(--space-4);
-  font-size: var(--text-base);
 }
 /* the trail link. The mark identifies the site and the full destination rides on the
    anchor's title attribute, so the hostname isn't repeated in the text. It's the piece
@@ -386,7 +388,6 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   align-items: baseline;
   /* the mark and the name are one object — --space-2 let the icon drift off the text */
   gap: var(--space-1);
-  min-width: 0;
 }
 .view__dates {
   display: inline-flex;
@@ -396,12 +397,9 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   flex: none;
   color: var(--ink-3);
 }
-/* the distance rides after the name as a detail OF it, never truncated — ListHead's
-   .head__dist, one step quieter than the link it trails */
-.view__dist {
-  flex: none;
-  color: var(--ink-3);
-}
+/* (the distance after the name, .view__dist, and the stand-in globe,
+   .view__trailicon--fallback, are drawn with the editor's own — beside .link in
+   atoms/controls.scss) */
 /* The mark never gives way — a shrinking row eats the name, never the icon — and it
    steps OUT of the baseline group its box sits in. Both halves matter: an icon centres
    optically on the line rather than perching on the baseline (an <svg>'s own baseline
@@ -414,18 +412,13 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   align-self: center;
   /* pinned to the shared slot (--where-mark), so neither mark can drift off the other
      and pull its text out of the column when the row wraps. Square by both axes: a
-     favicon is served at 16×16, and holding the height too keeps a non-square source
+     favicon can be any size, and holding the height too keeps a non-square source
      from stretching the slot it shares. */
   inline-size: var(--where-mark);
   block-size: var(--where-mark);
 }
 .view__trailicon {
   border-radius: var(--radius-icon);
-}
-/* a stand-in, not the site's mark — a step lighter than the link text beside it */
-.view__trailicon--fallback {
-  color: var(--ink-3);
-  opacity: 0.6;
 }
 /* read views are denser than the editor (no add-item row or controls per folder),
    so the inter-folder gap is a step tighter here (space-6, vs the editor's space-7)
@@ -464,7 +457,6 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 }
 .view__dayname {
   flex: 1 1 auto;
-  min-width: 0;
 }
 /* baseline, with the icon stepping out of it — the day's figures were landing 1px
    above the day NAME they sit beside (.view__day is a baseline row, and a centred
@@ -485,7 +477,6 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 /* a whole line of the wrapping row, so it always lands under the name and figures */
 .view__daynote {
   flex: 1 0 100%;
-  margin: 0;
   color: var(--ink-3);
   font-style: italic;
 }

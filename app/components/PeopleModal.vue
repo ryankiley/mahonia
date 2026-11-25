@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { IconTrashCan } from "~/icons/central";
 import { counted } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Delete02Icon } from "@hugeicons/core-free-icons";
+import { SvgIcon } from "~/utils/icon";
 import { categoryColor, FOLDER_PALETTE } from "~~/shared/categories";
 import { MAX_PEOPLE, MAX_PERSON_NAME_LEN } from "~~/shared/ops";
 import { filterItemsForPerson, personColor, personNameTaken, sortedPeople } from "~~/shared/people";
@@ -136,7 +136,7 @@ function remove(p: Person) {
             @click="remove(p)"
           >
             <template v-if="arming === p.id">Remove?{{ carriedCount(p.id) ? ` · ${counted(carriedCount(p.id), "item")}` : "" }}</template>
-            <HugeiconsIcon v-else :icon="Delete02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon v-else :icon="IconTrashCan" size="sm" aria-hidden="true" />
           </button>
         </div>
         <div v-if="recoloring === p.id" class="ppl__swatches" role="group" :aria-label="`${p.name}’s color`">
@@ -230,7 +230,6 @@ function remove(p: Person) {
 }
 .ppl__name {
   flex: 1;
-  min-width: 0;
 }
 .ppl__remove {
   flex: none;
@@ -279,8 +278,8 @@ function remove(p: Person) {
     background: var(--lit-hover); /* the chosen swatch answers the pointer too */
   }
 }
+/* the reset's ring, drawn inward over the plate */
 .ppl__swatchbtn:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
   outline-offset: var(--focus-offset-inset);
 }
 /* Standing ALONE — nobody named yet, so the list above it doesn't render — this is
@@ -308,7 +307,6 @@ function remove(p: Person) {
 }
 .ppl__addfield {
   flex: 1;
-  min-width: 0;
 }
 /* the refusal — the row's one moment of colour, like .ppl__remove.is-arming, and
    for the same reason: it reports something that did NOT happen, so it has to be

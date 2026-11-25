@@ -173,16 +173,10 @@ function readRecords(view: DataView, bytes: Uint8Array, start: number, end: numb
   while (at < end) {
     const header = bytes[at]!;
     at += 1;
-    if (header & 0x80) {
-      // compressed timestamp: the local type is bits 5–6, the offset (bits 0–4) is time
-      const def = defs[(header >> 5) & 0x03];
-      if (!def || at + def.size > end) return;
-      readData(view, bytes, at, def, out);
-      at += def.size;
-      continue;
-    }
-    const local = header & 0x0f;
-    if (header & 0x40) {
+    // compressed timestamp: the local type is bits 5–6, the offset (bits 0–4) is time
+    const compressed = header & 0x80;
+    const local = compressed ? (header >> 5) & 0x03 : header & 0x0f;
+    if (!compressed && header & 0x40) {
       // a definition: reserved byte, architecture, global number, field count, fields
       if (at + 5 > end) return;
       const littleEndian = bytes[at + 1] === 0;

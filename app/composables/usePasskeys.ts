@@ -32,6 +32,10 @@ export function passkeysSupported(): boolean {
   );
 }
 
+/** A credential list as the browser API wants it: each id as bytes. */
+const withBinaryIds = (list: unknown[]) =>
+  (list as { id: string }[]).map((c) => ({ ...c, id: b64urlToBytes(c.id) }));
+
 /** The server sends WebAuthn options as JSON; the browser API wants real binary
  *  in three of the fields. This is the entire reason a "WebAuthn browser library"
  *  usually exists. */
@@ -39,24 +43,14 @@ function toCreateOptions(o: Record<string, unknown>): PublicKeyCredentialCreatio
   const opts = { ...o } as Record<string, unknown>;
   opts.challenge = b64urlToBytes(o.challenge as string);
   opts.user = { ...(o.user as Record<string, unknown>), id: b64urlToBytes((o.user as { id: string }).id) };
-  if (Array.isArray(o.excludeCredentials)) {
-    opts.excludeCredentials = (o.excludeCredentials as { id: string }[]).map((c) => ({
-      ...c,
-      id: b64urlToBytes(c.id),
-    }));
-  }
+  if (Array.isArray(o.excludeCredentials)) opts.excludeCredentials = withBinaryIds(o.excludeCredentials);
   return opts as unknown as PublicKeyCredentialCreationOptions;
 }
 
 function toRequestOptions(o: Record<string, unknown>): PublicKeyCredentialRequestOptions {
   const opts = { ...o } as Record<string, unknown>;
   opts.challenge = b64urlToBytes(o.challenge as string);
-  if (Array.isArray(o.allowCredentials)) {
-    opts.allowCredentials = (o.allowCredentials as { id: string }[]).map((c) => ({
-      ...c,
-      id: b64urlToBytes(c.id),
-    }));
-  }
+  if (Array.isArray(o.allowCredentials)) opts.allowCredentials = withBinaryIds(o.allowCredentials);
   return opts as unknown as PublicKeyCredentialRequestOptions;
 }
 
@@ -142,6 +136,8 @@ async function ceremony(flow: {
   if (!cred) return { at: "authenticator" };
 
   try {
+    // the verify is what starts a session: after any session check, never beside it
+    await sessionSettled();
     const res = await $fetch<{ ok: boolean; reason?: string }>(flow.verify, {
       method: "POST",
       body: { flowId, response: fromCredential(cred), ...flow.extra },

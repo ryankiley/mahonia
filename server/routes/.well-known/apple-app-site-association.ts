@@ -6,7 +6,7 @@ import { setDailyEdgeCache } from "../../utils/http";
 //
 // Two grants, one file:
 //
-//   applinks — universal links. /e, /s and /l open in the app when it's
+//   applinks — universal links. /e and /s open in the app when it's
 //   installed. The EDIT capability rides the URL fragment (/e/{code}#{token}),
 //   and iOS hands the app the full URL including the fragment via
 //   NSUserActivity.webpageURL — the fragment never reaches this server, same

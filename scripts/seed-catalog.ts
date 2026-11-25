@@ -6,7 +6,7 @@
 // CSV stops naming is retired with a pointer to its successor, never deleted
 // (seedRetire.ts). Seeded rows are owner-curated + cited, so they're marked verified=true.
 //
-// Run under Node 24 (the repo's pinned toolchain) via the `seed` npm script,
+// Run under Node 26 (the repo's pinned toolchain) via the `seed` npm script,
 // which uses jiti (ships with Nuxt) to resolve the project's TS imports:
 //   npm run seed
 //
@@ -40,7 +40,8 @@ async function main() {
   const renamed = await renameMovedVariants(db, rows);
   if (renamed.catalog || renamed.vault) console.log(`Variants tidied: ${renamed.catalog} catalog rows and ${renamed.vault} My Gear rows renamed in place, ids kept.`);
 
-  const { inserted, updated, unchanged } = await upsertSeedRows(db, rows);
+  const { inserted, updated, unchanged, held } = await upsertSeedRows(db, rows);
+  if (held) console.log(`${held} rows verified in the app differ from the research; npm run catalog:graduate writes them back.`);
 
   // Retire stale seed-managed rows: anything verified=true that is no longer in the
   // CSV is an orphan from a rename / variant-change / removal. Retired, not deleted:

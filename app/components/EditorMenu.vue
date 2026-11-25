@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Bug02Icon, CopyPlusIcon, Delete02Icon, FileImportIcon, HelpCircleIcon, InformationCircleIcon, KeyboardIcon, LegalDocument01Icon, RemoveCircleIcon, UserAddIcon } from "@hugeicons/core-free-icons";
+import { IconBug, IconCircleInfo, IconCircleMinus, IconFileArrowLeftIn, IconKeyboard, IconLaw, IconQuestionmarkCircle, IconSquareDottedBehindSquare, IconTrashCan, IconUserAdd } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // The editor's ⋯ menu — the list of actions, NOT the button that opens it. The
 // trigger stays in the toolbar (GearEditor), where it is one glyph on the first
@@ -64,7 +64,7 @@ const emit = defineEmits<{
 // empty copy is worse than no row (inert controls are absent, not dimmed).
 interface MenuAction {
   label: string;
-  icon: typeof UserAddIcon;
+  icon: typeof IconUserAdd;
   event: MenuEvent;
   hidden?: () => boolean;
 }
@@ -76,7 +76,7 @@ const MENU_ACTIONS: MenuAction[] = [
   // .menu__item's icon has nothing pinning its size, so a long one squeezed the
   // glyph to sub-pixel while the text took the room. No ellipsis either — it opens
   // a dialog like "Import a list…", but it reads as the plain act it is.
-  { label: "Add people", icon: UserAddIcon, event: "people" },
+  { label: "Add people", icon: IconUserAdd, event: "people" },
   // …and everything below it makes ANOTHER list: a copy of this one, or one read out
   // of a file. Duplicate/Import are one run for that reason — People leads the menu
   // instead because it is the only entry here that acts on the list you are looking
@@ -97,20 +97,25 @@ const MENU_ACTIONS: MenuAction[] = [
   // argument ReadonlyMenu.vue already makes for calling it "Duplicate" and not
   // "Copy"; the glyph is read first, so it has to agree or it spends the label.
   // The plus is what carries it: "another one of these", still legible at 14.
-  { label: "Duplicate this list", icon: CopyPlusIcon, event: "duplicate", hidden: () => props.firstRun },
+  { label: "Duplicate this list", icon: IconSquareDottedBehindSquare, event: "duplicate", hidden: () => props.firstRun },
   // Import stays a plain row. It has exactly ONE entry point — the modal, which
   // offers the file and the LighterPack link side by side — and a disclosure holding
   // a single item is a click that reveals nothing you couldn't have been shown. It
   // also forced a label long enough to set the whole menu's width.
-  { label: "Import a list…", icon: FileImportIcon, event: "import" },
+  { label: "Import a list…", icon: IconFileArrowLeftIn, event: "import" },
 ];
 // Help and site destinations live together, away from list operations and the
 // destructive pair. The editor has no footer; the sticky toolbar keeps them in reach.
-// About and Legal sit beside them in the template — links, not events, since they
-// go somewhere rather than do something to the list.
 const SITE_ACTIONS: MenuAction[] = [
-  { label: "Keyboard shortcuts", icon: KeyboardIcon, event: "shortcuts" },
-  { label: "Send feedback…", icon: Bug02Icon, event: "feedback" },
+  { label: "Keyboard shortcuts", icon: IconKeyboard, event: "shortcuts" },
+  { label: "Send feedback…", icon: IconBug, event: "feedback" },
+];
+// Help, About and Legal sit beside them: links, not events, since they go somewhere
+// rather than do something to the list.
+const SITE_LINKS = [
+  { to: "/help", label: "Help", icon: IconQuestionmarkCircle },
+  { to: "/about", label: "About", icon: IconCircleInfo },
+  { to: "/legal", label: "Legal", icon: IconLaw },
 ];
 // what the menu renders: the rows a state hides (Duplicate on the first-run screen)
 const menuActions = computed(() => MENU_ACTIONS.filter((a) => !a.hidden?.()));
@@ -131,7 +136,7 @@ function act(event: MenuEvent | FootEvent) {
       <!-- Close BEFORE the action runs, matching the old dispatch order. -->
       <li v-for="a in menuActions" :key="a.label" role="none">
         <button type="button" data-row role="menuitem" class="menu__item" @click="act(a.event)">
-          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="a.icon" aria-hidden="true" />
           {{ a.label }}
         </button>
       </li>
@@ -148,20 +153,12 @@ function act(event: MenuEvent | FootEvent) {
           class="menu__item"
           @click="act(a.event)"
         >
-          <HugeiconsIcon :icon="a.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="a.icon" aria-hidden="true" />
           {{ a.label }}
         </button>
-        <NuxtLink to="/help" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="HelpCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-          Help
-        </NuxtLink>
-        <NuxtLink to="/about" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="InformationCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-          About
-        </NuxtLink>
-        <NuxtLink to="/legal" data-row role="menuitem" class="menu__item" @click="emit('close')">
-          <HugeiconsIcon :icon="LegalDocument01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-          Legal
+        <NuxtLink v-for="l in SITE_LINKS" :key="l.to" :to="l.to" data-row role="menuitem" class="menu__item" @click="emit('close')">
+          <SvgIcon :icon="l.icon" aria-hidden="true" />
+          {{ l.label }}
         </NuxtLink>
       </li>
       <!-- Deleting this list, last and under a hairline. Not one of the rows
@@ -185,10 +182,10 @@ function act(event: MenuEvent | FootEvent) {
           type="button"
           data-row
           role="menuitem"
-          class="menu__item editor__footact"
+          class="menu__item"
           @click="act('forget')"
         >
-          <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconCircleMinus" aria-hidden="true" />
           Forget this list
         </button>
         <button
@@ -196,10 +193,10 @@ function act(event: MenuEvent | FootEvent) {
           data-row
           data-row-hue
           role="menuitem"
-          class="menu__item editor__footact editor__delete"
+          class="menu__item editor__delete"
           @click="act('delete')"
         >
-          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconTrashCan" aria-hidden="true" />
           Delete this list
         </button>
       </li>

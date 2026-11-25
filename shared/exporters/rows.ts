@@ -36,7 +36,7 @@ export function exportSections(list: Pick<ListData, "folders" | "items">): Expor
 }
 
 /** Every row in export order, flattened: a nested child follows its parent, as the
- *  CSV and the plain-text copy both lay it out. */
+ *  plain-text copy lays it out. */
 export function exportOrderedItems(list: Pick<ListData, "folders" | "items">): Item[] {
   return exportSections(list).flatMap((s) => s.rows.flatMap((r) => [r.item, ...r.children]));
 }

@@ -1,6 +1,6 @@
 import { defineEventHandler } from "h3";
-import { arrayOf, readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
-import { rateLimit } from "../../utils/rateLimit";
+import { openPrivate } from "../../utils/authSession";
+import { arrayOf, readJsonBodyCapped } from "../../utils/http";
 import { resolveVaultForRead } from "../../utils/vaultAuth";
 import { vaultGearAmong } from "../../utils/vaultRepo";
 import { VAULT_CAPTURE_MAX } from "../../../shared/vault";
@@ -24,9 +24,7 @@ import { VAULT_CAPTURE_MAX } from "../../../shared/vault";
 // anyway — it is one person's gear, and nothing between us and them may keep a
 // copy.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "vault-read");
+  await openPrivate(event, "vault-read");
 
   // The same bound a capture takes, for the same reason: a list past it is
   // pathological, and the cap keeps one request's IN (...) bounded regardless.

@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import llms from "../server/routes/llms.txt";
 import robots from "../server/routes/robots.txt";
 import { makeEvent } from "./helpers/http";
+import { ROOT } from "./helpers/sources";
 
 // The two plain-text files a fetcher reads before it reads anything else, and the
 // one thing about them that is easy to get wrong in either direction.
@@ -15,8 +16,6 @@ import { makeEvent } from "./helpers/http";
 // noticed. So robots.txt leaves /s open, and that is safe only for as long as the
 // page keeps its tag. This file holds both halves together, so a future edit that
 // drops the meta tag (or re-adds the block) fails here rather than in the wild.
-
-const ROOT = new URL("..", import.meta.url).pathname;
 
 describe("robots.txt", () => {
   it("keeps the capability, redirect and API paths out, and lets a share link be fetched", async () => {

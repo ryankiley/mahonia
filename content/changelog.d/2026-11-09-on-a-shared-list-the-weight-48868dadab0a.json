@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-09",
+  "fixed": [
+    "On a shared list, the weight total's unit picker now reads the weight to screen readers, not just \"Weight unit\"."
+  ]
+}

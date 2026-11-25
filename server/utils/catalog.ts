@@ -18,13 +18,14 @@
 // Engine is detected via DATABASE_URL, the same signal db.ts uses.
 
 import { safeUrl } from "../../shared/trailLink";
-import { and, desc, eq, gt, inArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { catalogEdits, catalogItems } from "../db/schema";
 import { itemDisplayName } from "../../shared/weights";
 import { enoughToSearch, foldForSearch, foldWidth } from "../../shared/searchText";
 import { UNIT_WEIGHT_MAX_MG, isCatalogId } from "../../shared/ops";
 import { memoized } from "./memoize";
 import { runDdl } from "./ddl";
+import { toIso } from "./time";
 import type { Db } from "./db";
 import {
   SEARCH_LIMIT,
@@ -34,6 +35,20 @@ import {
 toCatalogResult } from "../../shared/catalogSearch";
 import { WEIGHT_SOURCES, type RecentChange } from "../../shared/types";
 
+/** One label column of the VERIFIED active rows, distinct and sorted, blanks dropped:
+ *  the read behind both vocabularies below. Labels only, never a product row. */
+async function verifiedLabels(
+  db: Db,
+  col: typeof catalogItems.commonName | typeof catalogItems.brand,
+): Promise<string[]> {
+  await ensureCatalogSchema(db);
+  const rows = await db.selectDistinct({ label: col })
+    .from(catalogItems)
+    .where(and(eq(catalogItems.status, "active"), eq(catalogItems.verified, true)))
+    .orderBy(col);
+  return rows.flatMap(({ label }) => label?.trim() ? [label] : []);
+}
+
 /**
  * The gear-type vocabulary the editor's datalist suggests (#382), without downloading a
  * product row: the distinct gear types of the VERIFIED active rows — the seeded ones,
@@ -42,26 +57,12 @@ import { WEIGHT_SOURCES, type RecentChange } from "../../shared/types";
  * so reading those here would offer "tent", "Tents" and "shelter" back as suggestions:
  * the drift the suggestions exist to stop.
  */
-export async function catalogGearTypes(db: Db): Promise<string[]> {
-  await ensureCatalogSchema(db);
-  const rows = await db.selectDistinct({ name: catalogItems.commonName })
-    .from(catalogItems)
-    .where(and(eq(catalogItems.status, "active"), eq(catalogItems.verified, true)))
-    .orderBy(catalogItems.commonName);
-  return rows.flatMap(({ name }) => name?.trim() ? [name] : []);
-}
+export const catalogGearTypes = (db: Db): Promise<string[]> => verifiedLabels(db, catalogItems.commonName);
 
 /** Every maker the verified catalog names, distinct and sorted: the vocabulary My Gear's
  *  edit dialog offers under its Brand field, the way catalogGearTypes feeds Gear type.
  *  Labels only, the same verified-and-active rows. */
-export async function catalogBrands(db: Db): Promise<string[]> {
-  await ensureCatalogSchema(db);
-  const rows = await db.selectDistinct({ brand: catalogItems.brand })
-    .from(catalogItems)
-    .where(and(eq(catalogItems.status, "active"), eq(catalogItems.verified, true)))
-    .orderBy(catalogItems.brand);
-  return rows.flatMap(({ brand }) => brand?.trim() ? [brand] : []);
-}
+export const catalogBrands = (db: Db): Promise<string[]> => verifiedLabels(db, catalogItems.brand);
 
 const isNeon = () => Boolean(process.env.DATABASE_URL);
 
@@ -73,15 +74,11 @@ export const CATALOG_DDL: string[] = [
     brand text,
     name text NOT NULL,
     variant text,
-    description text,
     category_hint text,
     weight_mg bigint NOT NULL,
     weight_source text NOT NULL CHECK (weight_source IN (${WEIGHT_SOURCES.map((s) => `'${s}'`).join(",")})),
     source_url text,
     product_url text,
-    image_url text,
-    msrp_cents integer,
-    currency text,
     verified boolean NOT NULL DEFAULT false,
     usage_count integer NOT NULL DEFAULT 0,
     status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','merged','removed')),
@@ -99,6 +96,14 @@ export const CATALOG_DDL: string[] = [
   // kcal — cited per-unit food energy (food rows only; null elsewhere). ALTER so
   // existing tables self-migrate, same as search_terms/common_name.
   `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS kcal integer`,
+  // verified_by + source_quote — an in-app verification (verify_catalog_item): the
+  // admin account behind it, and the maker's words for the weight. Null on every
+  // seeded and community row; see schema.ts for what verified_by means to the seed.
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS verified_by integer`,
+  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS source_quote text`,
+  // Columns from the first version that nothing ever read or wrote, dropped where an
+  // older database still has them.
+  `ALTER TABLE catalog_items DROP COLUMN IF EXISTS description, DROP COLUMN IF EXISTS image_url, DROP COLUMN IF EXISTS msrp_cents, DROP COLUMN IF EXISTS currency`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used
@@ -112,11 +117,14 @@ export const CATALOG_DDL: string[] = [
     source_url text,
     reason text,
     status text NOT NULL DEFAULT 'applied' CHECK (status IN ('applied','proposed','reverted','rejected')),
-    confirmations integer NOT NULL DEFAULT 0,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
+  // a first-version column nothing ever read, dropped where it still exists
+  `ALTER TABLE catalog_edits DROP COLUMN IF EXISTS confirmations`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_item ON catalog_edits (catalog_item_id, created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_recent ON catalog_edits (created_at DESC)`,
+  // undo — an in-app verification's prior row fields, for revert_catalog_edit (schema.ts)
+  `ALTER TABLE catalog_edits ADD COLUMN IF NOT EXISTS undo jsonb`,
 ];
 
 // Neon ships pg_trgm and unaccent; PGlite doesn't (see the file header), so the
@@ -201,11 +209,6 @@ export async function searchCatalog(
 }
 
 /**
- * Increment usage_count for catalog rows that were just added to a list. This is
- * what makes autocomplete self-improve: the gear people actually carry floats to
- * the top of the ranking. Best-effort + bounded; works on PGlite + Neon.
- */
-/**
  * Every active row, in the autocomplete's result shape — the pool the import matcher
  * indexes by exact name (shared/catalogMatch.ts). The same whole-table read the PGlite
  * search path makes: the catalog is small and bounded, and an import is rare.
@@ -216,7 +219,7 @@ export async function activeCatalogRows(db: Db): Promise<CatalogSearchResult[]> 
 }
 
 /** One variant of a product, with its citation: what the MCP product tool hands back. */
-export interface ProductVariant {
+interface ProductVariant {
   id: number;
   variant: string | null;
   weightMg: number;
@@ -225,7 +228,7 @@ export interface ProductVariant {
   verified: boolean;
   kcal: number | null;
 }
-export interface CatalogProduct {
+interface CatalogProduct {
   brand: string | null;
   name: string;
   commonName: string | null;
@@ -298,14 +301,15 @@ export async function productVariants(
  * Active catalog rows by id, in the search result's shape: what a row LINKED to the
  * catalog takes from it (the cited weight, the brand, the variant, the gear type),
  * the way a pick in the editor does. Ids that name nothing are simply absent.
+ * `anyStatus` reads retired rows too: a piece linked to one still holds what it gave.
  */
-export async function catalogRowsById(db: Db, ids: readonly number[]): Promise<Map<number, CatalogSearchResult>> {
+export async function catalogRowsById(db: Db, ids: readonly number[], anyStatus = false): Promise<Map<number, CatalogSearchResult>> {
   const wanted = [...new Set(ids.filter(isCatalogId))];
   if (!wanted.length) return new Map();
   const rows = await db
     .select()
     .from(catalogItems)
-    .where(and(inArray(catalogItems.id, wanted), eq(catalogItems.status, "active")));
+    .where(anyStatus ? inArray(catalogItems.id, wanted) : and(inArray(catalogItems.id, wanted), eq(catalogItems.status, "active")));
   return new Map(rows.map((r) => [r.id, toCatalogResult(r)]));
 }
 
@@ -349,6 +353,11 @@ export async function liveCatalogRows(db: Db, ids: readonly number[]): Promise<M
   return out;
 }
 
+/**
+ * Increment usage_count for catalog rows that were just added to a list. This is
+ * what makes autocomplete self-improve: the gear people actually carry floats to
+ * the top of the ranking. Best-effort + bounded; works on PGlite + Neon.
+ */
 export async function bumpUsage(db: Db, ids: number[]): Promise<void> {
   const clean = [...new Set(ids.filter(isCatalogId))].slice(0, 50);
   if (!clean.length) return;
@@ -410,7 +419,7 @@ const TRUSTED_DOMAINS = new Set([
 ]);
 
 /** True only for http(s) URLs — keeps non-fetchable schemes (javascript:, data:)
- * out of stored citations, which are rendered as links in the changes feed. */
+ * out of stored citations, which catalog_changes hands on as links. */
 export function isHttpUrl(url: string | undefined | null): boolean {
   return safeUrl(url) !== null;
 }
@@ -452,12 +461,14 @@ export async function proposeCorrection(
   if (newW === oldW) return { status: "noop", weightMg: oldW, itemName };
 
   // Drop non-http(s) schemes before the value is stored or rendered as a link
-  // (javascript:/data: citations are an XSS vector in the changes feed, and a
+  // (javascript:/data: citations are an XSS vector wherever one is shown as a link, and a
   // `javascript://trusted-domain/` URL would otherwise pass isTrustedSource).
   const safeSource = isHttpUrl(input.sourceUrl) ? input.sourceUrl!.slice(0, 2000) : undefined;
   const cited = isTrustedSource(safeSource);
-  // uncited/community values are wiki-open; a verified value needs a trusted citation
-  const applies = !item.verified || cited;
+  // uncited/community values are wiki-open; a verified value needs a trusted citation.
+  // An admin's in-app verification never moves on its own: applied here, the weight would
+  // leave its quote and weight_source behind, describing a figure the row no longer holds.
+  const applies = item.verifiedBy == null && (!item.verified || cited);
   const status: "applied" | "proposed" = applies ? "applied" : "proposed";
 
   await db.insert(catalogEdits).values({
@@ -484,71 +495,44 @@ export async function proposeCorrection(
 }
 
 
-/** Recent catalog weight changes (newest first): the admin patrol feed that revert reads. */
-export async function recentChanges(db: Db, limit = 50): Promise<RecentChange[]> {
+/** Recent catalog edits (newest first), all of them or one row's: the admin patrol feed
+ *  (catalog_changes) that names the ids revert_catalog_edit takes. */
+export async function recentChanges(db: Db, limit: number, catalogItemId?: number): Promise<RecentChange[]> {
   const rows = await db
     .select({
       id: catalogEdits.id,
+      catalogItemId: catalogEdits.catalogItemId,
       brand: catalogItems.brand,
       name: catalogItems.name,
       variant: catalogItems.variant,
       oldWeightMg: catalogEdits.oldWeightMg,
       newWeightMg: catalogEdits.newWeightMg,
       status: catalogEdits.status,
+      verification: sql<boolean>`${catalogEdits.undo} is not null`,
       sourceUrl: catalogEdits.sourceUrl,
+      reason: catalogEdits.reason,
       createdAt: catalogEdits.createdAt,
     })
     .from(catalogEdits)
     .leftJoin(catalogItems, eq(catalogEdits.catalogItemId, catalogItems.id))
+    .where(catalogItemId == null ? undefined : eq(catalogEdits.catalogItemId, catalogItemId))
     // Timestamps are commonly equal for back-to-back edits (including on
     // PGlite), so the serial id is the deterministic second half of "newest".
-    // Without it the admin feed can hand the stale-revert guard the newer edit
+    // Without it catalog_changes can hand the stale-revert guard the newer edit
     // as though it were the older one.
     .orderBy(desc(catalogEdits.createdAt), desc(catalogEdits.id))
-    // Whole, not merely clamped: Drizzle hands LIMIT to Postgres as given, and the
-    // route's `?limit=2.5` reached here as 2.5 and failed the query (a 500 for a
-    // hand-edited URL). NaN would fail the same way, so it takes the default.
-    .limit(Math.min(100, Math.max(1, Math.trunc(Number.isFinite(limit) ? limit : 50))));
+    .limit(limit);
   return rows.map((r) => ({
     id: r.id,
+    catalogItemId: Number(r.catalogItemId),
     // the left join leaves brand/name/variant null for an edit whose item is gone
     itemName: itemDisplayName(r.brand, r.name ?? "", r.variant) || "(removed item)",
     oldWeightMg: Number(r.oldWeightMg),
     newWeightMg: Number(r.newWeightMg),
     status: r.status,
+    verification: Boolean(r.verification),
     sourceUrl: r.sourceUrl ?? null,
-    createdAt:
-      r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt ?? ""),
+    reason: r.reason ?? null,
+    createdAt: toIso(r.createdAt),
   }));
-}
-
-/** One-click revert (admin): restore an applied edit's prior weight + mark it reverted. */
-export async function revertEdit(db: Db, editId: number): Promise<CorrectionOutcome> {
-  const id = Number(editId);
-  // catalog_edits.id is the same PostgreSQL serial range as catalog_items.id.
-  if (!isCatalogId(id)) return { status: "rejected" };
-  const rows = await db.select().from(catalogEdits).where(eq(catalogEdits.id, id)).limit(1);
-  const edit = rows[0];
-  if (!edit) return { status: "notfound" };
-  if (edit.status !== "applied") return { status: "rejected" }; // only applied edits moved a weight
-  // only the MOST RECENT applied edit can be reverted — reverting an older one
-  // would silently discard newer changes and desync the weight from the feed
-  const newer = await db
-    .select({ id: catalogEdits.id })
-    .from(catalogEdits)
-    .where(
-      and(
-        eq(catalogEdits.catalogItemId, Number(edit.catalogItemId)),
-        eq(catalogEdits.status, "applied"),
-        gt(catalogEdits.id, id),
-      ),
-    )
-    .limit(1);
-  if (newer.length) return { status: "rejected" };
-  await db
-    .update(catalogItems)
-    .set({ weightMg: Number(edit.oldWeightMg), updatedAt: new Date() })
-    .where(eq(catalogItems.id, Number(edit.catalogItemId)));
-  await db.update(catalogEdits).set({ status: "reverted" }).where(eq(catalogEdits.id, id));
-  return { status: "applied", weightMg: Number(edit.oldWeightMg) };
 }

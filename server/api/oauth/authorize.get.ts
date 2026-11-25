@@ -1,10 +1,9 @@
 import { defineEventHandler, getQuery } from "h3";
+import { openPrivate } from "../../utils/authSession";
 import { useAccountDb } from "../../utils/db";
-import { setNoIndex, setPrivate } from "../../utils/http";
 import { checkAuthorizeRequest } from "../../utils/oauth";
-import { isLoopbackHost } from "../../utils/oauthClients";
+import { isLoopbackHttp } from "../../utils/oauthClients";
 import { trustedOrigin } from "../../utils/origin";
-import { rateLimit } from "../../utils/rateLimit";
 
 // What the /authorize page needs to render: the request checked, the client named,
 // and the scope. No session is needed to ask — the page shows the sign-in first when
@@ -16,11 +15,9 @@ import { rateLimit } from "../../utils/rateLimit";
 // their own site, so no request proves its redirect is safe to bounce to unasked: a
 // page that did would be an open redirector on this origin (RFC 9700 §4.11.2).
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "oauth-authorize");
+  await openPrivate(event, "oauth-authorize");
   const check = await checkAuthorizeRequest(await useAccountDb(), trustedOrigin(event), getQuery(event));
-  if (!check.ok) return { ok: false as const, error: check.error, description: check.description, redirect: check.redirect };
+  if (!check.ok) return check;
   const back = new URL(check.redirectUri);
   return {
     ok: true as const,
@@ -29,6 +26,6 @@ export default defineEventHandler(async (event) => {
     // what the person is told about where they will be sent, hostname only; a
     // loopback address gets the spec's warning, since any program on the machine
     // could be listening there
-    returnTo: { host: back.host, loopback: back.protocol === "http:" && isLoopbackHost(back.hostname) },
+    returnTo: { host: back.host, loopback: isLoopbackHttp(back) },
   };
 });

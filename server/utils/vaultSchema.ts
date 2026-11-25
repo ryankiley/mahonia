@@ -28,27 +28,24 @@ export const VAULT_DDL: string[] = [
   // one vault per account — also the conflict target that makes lazy minting safe
   // against two concurrent captures (see mintVault in vaultAuth.ts)
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vaults_user ON vaults (user_id)`,
-  // soft-delete for the nightly reaper; cleared on use, so a late return revives
-  // the vault instead of finding it gone (see server/db/schema.ts)
+  // Soft-delete, for the nightly sweep of the vaults NO account owns (user_id IS
+  // NULL, from before My Gear moved into an account): an account's vault is never
+  // reaped or purged (vaultRepo). Cleared whenever a vault is used, so a mark on an
+  // account's vault doesn't outlive its next request (see server/db/schema.ts).
   `ALTER TABLE vaults ADD COLUMN IF NOT EXISTS deleted_at timestamptz`,
-  // the reaper's scan: live vaults, oldest-seen first
+  // the reap's scan (reapAbandonedVaults): vaults not yet soft-deleted, oldest-seen
+  // first. It serves the last_seen_at range; the sweep's `user_id IS NULL` is a
+  // recheck on the rows it yields, not part of the index.
   `CREATE INDEX IF NOT EXISTS idx_vaults_stale ON vaults (last_seen_at) WHERE deleted_at IS NULL`,
   // the purge's scan (purgeDeletedVaults) walks the OPPOSITE condition — vaults
   // already soft-deleted, past the grace window — which the index above cannot
-  // serve, being scoped to exactly the rows the purge ignores.
+  // serve, being scoped to exactly the rows the purge ignores. The same recheck on
+  // `user_id IS NULL` applies.
   `CREATE INDEX IF NOT EXISTS idx_vaults_purge ON vaults (deleted_at) WHERE deleted_at IS NOT NULL`,
-
-  // The folders My Gear had before it grouped by kind: unread and unwritten now, but
-  // still deleted with a vault (see vaultFolders in server/db/schema.ts).
-  `CREATE TABLE IF NOT EXISTS vault_folders (
-    id serial PRIMARY KEY,
-    vault_id integer NOT NULL,
-    name text NOT NULL,
-    sort_order integer NOT NULL DEFAULT 0,
-    sort_by text, -- legacy per-folder sort, no longer read or written (schema.ts)
-    created_at timestamptz NOT NULL DEFAULT now()
-  )`,
-  `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_folder_name ON vault_folders (vault_id, name)`,
+  // vault_folders, the folders My Gear had before it grouped by kind, is no longer
+  // created, read or deleted from, and goes in a deploy after this one: the deploy
+  // before it still deletes from it when a vault goes, and a warm instance of it would
+  // fail partway through closing an account if the table were already gone.
 
   `CREATE TABLE IF NOT EXISTS vault_items (
     id serial PRIMARY KEY,
@@ -63,17 +60,14 @@ export const VAULT_DDL: string[] = [
     kcal integer,
     catalog_item_id integer,
     product_url text,
-    description text,
     price_cents integer,
     currency text,
-    folder_id integer,
     name_pinned boolean NOT NULL DEFAULT false,
     weight_pinned boolean NOT NULL DEFAULT false,
     common_name_pinned boolean NOT NULL DEFAULT false,
     classification_pinned boolean NOT NULL DEFAULT false,
     kcal_pinned boolean NOT NULL DEFAULT false,
     product_url_pinned boolean NOT NULL DEFAULT false,
-    description_pinned boolean NOT NULL DEFAULT false,
     price_pinned boolean NOT NULL DEFAULT false,
     times_seen integer NOT NULL DEFAULT 1,
     last_used_at timestamptz NOT NULL DEFAULT now(),
@@ -81,34 +75,34 @@ export const VAULT_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   )`,
-  // the upsert target — one row per piece of gear per vault
-  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS folder_id integer`,
   // kcal — food energy per unit. ALTER so existing vaults gain it (the CREATE
-  // above is a no-op once the table exists), the same way folder_id arrived.
+  // above is a no-op once the table exists).
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS kcal integer`,
+  // Retired, dropped where they still exist: the row's folder (folder_id, from
+  // vault_folders above), and the note My Gear kept until 2026-11-08 with its pin. The
+  // note was mostly list notes that capture had copied in (a trip's "Sam carries this"
+  // showing on the gear); a note belongs to a list row, and My Gear keeps none.
+  `ALTER TABLE vault_items DROP COLUMN IF EXISTS folder_id, DROP COLUMN IF EXISTS description, DROP COLUMN IF EXISTS description_pinned`,
   // The pins. A gear EDIT wins over capture: once you correct a field on /gear it
   // is pinned, and the merge coalesces around it instead of talking over it — the
   // gear's half of the rule Item.weightOverridden / nameOverridden already give a
   // list against the catalog. One flag per independent decision, which is why
   // brand/name/variant share name_pinned: they are one spelling of one identity, and
   // a capture rewrites all three together or none. ALTERs so existing vaults gain
-  // them, the same way folder_id and kcal arrived. No index — nothing queries a pin.
+  // them, the same way kcal arrived. No index — nothing queries a pin.
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS name_pinned boolean NOT NULL DEFAULT false`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS weight_pinned boolean NOT NULL DEFAULT false`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS common_name_pinned boolean NOT NULL DEFAULT false`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS classification_pinned boolean NOT NULL DEFAULT false`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS kcal_pinned boolean NOT NULL DEFAULT false`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS product_url_pinned boolean NOT NULL DEFAULT false`,
-  // The two fields capture used to drop: your note, and what it cost. ALTERs so
-  // existing vaults gain them, the same way
-  // folder_id, kcal and the pins arrived — there is no migration step (see the
+  // What it cost, which capture used to drop. ALTERs so existing vaults gain them,
+  // the same way kcal and the pins arrived — there is no migration step (see the
   // module comment), so the CREATE above only ever runs for a brand-new database.
   // price_cents and currency share ONE pin: an amount and the money it's in are one
   // decision, and a capture able to revert half of it would invent a price.
-  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS description text`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS price_cents integer`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS currency text`,
-  `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS description_pinned boolean NOT NULL DEFAULT false`,
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS price_pinned boolean NOT NULL DEFAULT false`,
   // The icon you picked by hand for a piece (a name from shared/gearGlyph's set); null
   // means the gear type decides it. Nothing but the edit dialog writes it, so it has
@@ -120,6 +114,7 @@ export const VAULT_DDL: string[] = [
   // How many of a piece you own; null is one. Set only on /gear (and by the connector
   // and an import, on your behalf), so it has no pin: no capture writes it.
   `ALTER TABLE vault_items ADD COLUMN IF NOT EXISTS owned integer`,
+  // the upsert target — one row per piece of gear per vault
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_vault_identity ON vault_items (vault_id, norm_key)`,
   // /vault's browse order and the autocomplete's candidate pool: live rows,
   // most-recently-used first

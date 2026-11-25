@@ -20,10 +20,10 @@
 // cookie every few seconds while signed out — a cookie read, nothing more, until the
 // other tab has set it — so it moves on to the consent the moment that happens. The
 // window Claude is watching is this one.
-import { AddCircleIcon, Alert02Icon, Edit02Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import type { IconNode } from "~/utils/hugeicon";
-import { clientMark } from "~/utils/clientMark";
+import { IconCirclePlus, IconExclamationTriangle, IconEyeOpen, IconPencil2 } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
+import type { IconNode } from "~/utils/icon";
+import { clientMark, type AskingClient, type ReturnTo } from "~/utils/clientMark";
 import type { AccessScope } from "~~/shared/types";
 
 useHead({
@@ -40,7 +40,7 @@ const route = useRoute();
 const { signedIn, presence, hasSessionHint, refresh } = useSession();
 
 type Checked =
-  | { ok: true; client: { label: string; kind: "document" | "registered" }; level: AccessScope; returnTo: { host: string; loopback: boolean } }
+  | { ok: true; client: AskingClient; level: AccessScope; returnTo: ReturnTo }
   | { ok: false; error: string; description: string; redirect: string | null };
 const { data: checked } = await useFetch<Checked>("/api/oauth/authorize", { query: route.query, key: `authorize:${route.fullPath}` });
 
@@ -64,15 +64,15 @@ const wants = computed(() =>
 const scopes = computed<{ icon: IconNode; text: string }[]>(() =>
   writes.value
     ? [
-        { icon: ViewIcon, text: "See what’s in My Gear" },
-        { icon: Edit02Icon, text: "Change what’s in My Gear" },
-        { icon: ViewIcon, text: "See your lists" },
-        { icon: Edit02Icon, text: "Change your lists" },
-        { icon: AddCircleIcon, text: "Add new lists to your account" },
+        { icon: IconEyeOpen, text: "See what’s in My Gear" },
+        { icon: IconPencil2, text: "Change what’s in My Gear" },
+        { icon: IconEyeOpen, text: "See your lists" },
+        { icon: IconPencil2, text: "Change your lists" },
+        { icon: IconCirclePlus, text: "Add new lists to your account" },
       ]
     : [
-        { icon: ViewIcon, text: "See what’s in My Gear" },
-        { icon: ViewIcon, text: "See your lists" },
+        { icon: IconEyeOpen, text: "See what’s in My Gear" },
+        { icon: IconEyeOpen, text: "See your lists" },
       ],
 );
 // Who is asking, as the page names and draws them: a logo and our own name for it only
@@ -147,7 +147,7 @@ async function decide(decision: "allow" | "deny") {
           <!-- the two parties, side by side: the app asking, and Mahonia -->
           <div class="az__marks" aria-hidden="true">
             <span class="az__tile">
-              <HugeiconsIcon v-if="mark?.icon" :icon="mark.icon" :size="24" :stroke-width="1.5" />
+              <SvgIcon v-if="mark?.icon" :icon="mark.icon" size="xl" />
               <span v-else class="az__initial">{{ mark?.initial }}</span>
             </span>
             <span class="az__tie" />
@@ -171,7 +171,7 @@ async function decide(decision: "allow" | "deny") {
               <h1 class="t-title">Connect {{ label }} to Mahonia</h1>
               <p class="t-muted">Sign in to your Mahonia account first. {{ label }} will then ask to {{ wants }}.</p>
               <div class="az__signin">
-                <AccountView in-modal hide-heading as-step />
+                <AccountView in-modal as-step />
               </div>
             </template>
 
@@ -181,7 +181,7 @@ async function decide(decision: "allow" | "deny") {
                 <h1 class="t-title">Allow {{ label }} to:</h1>
                 <ul class="az__scopes">
                   <li v-for="s in scopes" :key="s.text" class="az__scope">
-                    <HugeiconsIcon :icon="s.icon" :size="20" :stroke-width="1.5" class="az__scopeicon" aria-hidden="true" />
+                    <SvgIcon :icon="s.icon" size="lg" :stroke-width="1.25" class="az__scopeicon" aria-hidden="true" />
                     <span>{{ s.text }}</span>
                   </li>
                 </ul>
@@ -190,7 +190,7 @@ async function decide(decision: "allow" | "deny") {
 
               <!-- what Mahonia couldn't check, said before the buttons rather than under them -->
               <div v-if="checked.returnTo.loopback || !mark?.checked" class="az__caution">
-                <HugeiconsIcon :icon="Alert02Icon" :size="16" :stroke-width="2" class="az__cautionicon" aria-hidden="true" />
+                <SvgIcon :icon="IconExclamationTriangle" class="az__cautionicon" aria-hidden="true" />
                 <!-- one short paragraph, whichever of the two applies -->
                 <p>
                   <template v-if="!mark?.checked">Mahonia can’t confirm who made this app. </template>
@@ -258,8 +258,8 @@ async function decide(decision: "allow" | "deny") {
 .az__tile {
   display: grid;
   place-items: center;
-  width: 48px;
-  height: 48px;
+  width: calc(48 * var(--tpx));
+  height: calc(48 * var(--tpx));
   border-radius: var(--radius-3);
   background: var(--paper-2);
   color: var(--ink);
@@ -270,8 +270,8 @@ async function decide(decision: "allow" | "deny") {
   line-height: 1;
 }
 .az__home {
-  width: 22px;
-  height: 22px;
+  width: calc(22 * var(--tpx));
+  height: calc(22 * var(--tpx));
   fill: currentColor;
 }
 /* the tie between them: three dots of the quietest ink, drawn as one dotted rule so
@@ -305,7 +305,7 @@ async function decide(decision: "allow" | "deny") {
 .az__scopeicon {
   flex: none;
   /* centred on the first line of the text beside it: (1.5em line − 20px glyph) / 2 */
-  margin-top: calc((1lh - 20px) / 2);
+  margin-top: calc((1lh - 20 * var(--tpx)) / 2);
   color: var(--ink-2);
 }
 
@@ -319,7 +319,7 @@ async function decide(decision: "allow" | "deny") {
 }
 .az__cautionicon {
   flex: none;
-  margin-top: calc((1lh - 16px) / 2);
+  margin-top: calc((1lh - var(--icon)) / 2);
 }
 
 /* ---- the decision ---- */

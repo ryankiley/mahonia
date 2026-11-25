@@ -19,6 +19,63 @@ export const RANGE_G: Record<string, [number, number]> = {
   other: [4, 1600],
 };
 
+// --- citations and ownership (the audit, the seed, verify_catalog_item) ----
+
+/** After a unit: a rate or a weight per area, never what the thing weighs. A fabric's
+ *  "36 g/m²" or "1.0 oz/yd²", a stove's "12 g/hr", a "per square metre" figure. A slash
+ *  before a number stays a weight: "539 g / 19 oz" is one weight in two units. */
+const NOT_A_RATE = String.raw`(?!\s*\/\s*[a-z²]|\s*per\s+(?:sq|square|m\b|metre|meter|yd|yard|ft|foot|hour|hr|day|litre|liter|l\b))`;
+
+/** All gram-equivalent figures mentioned in a quote (kg converted to g). Handles thousands
+ *  separators ("1,790 g" is 1790, not 790), and never reads a decimal comma's last digits
+ *  ("1,2 kg" isn't 2 kg). `spelled` reads "169 grams" and "1.2 kilograms" too, as
+ *  verify_catalog_item does; the hand research's spelled-out quotes are lists and tables
+ *  ("368/538 Grams", "Kilograms 1.29 1.33") that a single-figure read would flag. */
+export function gramsInQuote(q: string, spelled = false): number[] {
+  const out: number[] = [];
+  const num = (s: string) => parseFloat(s.replace(/,/g, ""));
+  const figure = String.raw`(?<![\d.,])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*`;
+  const kg = spelled ? String.raw`(?:kg|kilo(?:gram)?s?(?![a-z]))` : "kg";
+  const g = spelled ? "g(?:rams?|r)?" : "g";
+  for (const m of q.matchAll(new RegExp(`${figure}${kg}${NOT_A_RATE}`, "gi"))) out.push(num(m[1]!) * 1000);
+  for (const m of q.matchAll(new RegExp(`${figure}${g}(?![a-z])${NOT_A_RATE}`, "gi"))) out.push(num(m[1]!));
+  return out;
+}
+
+const OZ_G = 28.349523125;
+const LB_G = 453.59237;
+/** One imperial figure: "19", "2.1", or ".60" whole, never the "60" of ".60" (which
+ *  read as 60 oz, 1.7 kg, and backed a weight the quote doesn't state). */
+const NUM = String.raw`(?<![\d.])(\d*\.\d+|\d+)`;
+
+/** Every weight a quote states, in grams: its metric figures (gramsInQuote) and its
+ *  imperial ones, "1 lb 3 oz" read as one figure and a lone "19 oz" or "2.1 lbs" as
+ *  their own. What verify_catalog_item holds a quote to, since a US maker's page often
+ *  gives ounces alone. */
+export function weightsInQuote(q: string): number[] {
+  const out = gramsInQuote(q, true);
+  const rest = q.replace(new RegExp(`${NUM}\\s*(?:lbs?|pounds?)\\.?,?\\s*${NUM}\\s*(?:oz|ounces?)\\b`, "gi"), (_, lb: string, oz: string) => {
+    out.push(parseFloat(lb) * LB_G + parseFloat(oz) * OZ_G);
+    return " ";
+  });
+  for (const m of rest.matchAll(new RegExp(`${NUM}\\s*(?:oz|ounces?)\\b${NOT_A_RATE}`, "gi"))) out.push(parseFloat(m[1]!) * OZ_G);
+  for (const m of rest.matchAll(new RegExp(`${NUM}\\s*(?:lbs?|pounds?)\\b${NOT_A_RATE}`, "gi"))) out.push(parseFloat(m[1]!) * LB_G);
+  return out;
+}
+
+/** How far a quoted figure may sit from the weight it backs: 8 g or 5%, whichever is
+ *  more. The research audit's tolerance, so a rounded ounce figure still agrees. */
+export const quoteTolerance = (grams: number) => Math.max(8, 0.05 * grams);
+
+/** Whether a quote states this weight: some figure in it within quoteTolerance. */
+export const quoteBacksWeight = (quote: string, grams: number) =>
+  weightsInQuote(quote).some((f) => Math.abs(f - grams) <= quoteTolerance(f));
+
+/** A row the seed owns: verified, and not by an admin in the app. Only these may be
+ *  renamed or retired for the CSV not naming them; a community row and an in-app
+ *  verified one (verified_by set) belong to the database. */
+export const seedManaged = (r: { verified: boolean; verifiedBy: number | null }) => r.verified && r.verifiedBy == null;
+
 // --- community intake (Phase 3) -------------------------------------------
 
 /** Normalize a string to a comparison key — the ONE search fold (shared/searchText),
@@ -36,13 +93,9 @@ export function isVariantRedundant(name: string, variant: string | null | undefi
   // Fold possessives before tokenizing: normKey would split "Women's" into "women s",
   // and a letter size "S" would then read as already-in-the-name.
   const fold = (s: string | null | undefined) => normKey((s ?? "").replace(/'/g, ""));
-  const v = fold(variant).split(" ").filter(Boolean);
-  if (!v.length) return false;
-  const n = fold(name).split(" ").filter(Boolean);
-  for (let i = 0; i + v.length <= n.length; i++) {
-    if (n.slice(i, i + v.length).join(" ") === v.join(" ")) return true;
-  }
-  return false;
+  const v = fold(variant);
+  // the fold leaves words single-spaced, so a run of whole words is a padded substring
+  return v !== "" && ` ${fold(name)} `.includes(` ${v} `);
 }
 
 /** Median of a numeric list (avg of the two middles for even length). */
@@ -100,6 +153,23 @@ export const GENERIC_GEAR_TERMS = new Set<string>([
   "towel", "umbrella", "trekking poles", "poles", "headlamp", "battery", "power bank",
   "charger", "cable", "first aid kit", "kit", "watch", "phone", "knife", "multitool",
 ]);
+
+/** The part of the body a garment noun is worn on. The duplicate test drops generic
+ *  nouns from a name before it compares, which threw away the one word telling
+ *  "UL Mittens" from "UL Shirt" and "EX Light Down Pants" from "EX Light Down Jacket";
+ *  two names whose garments sit on different parts of the body are two products. Left
+ *  out on purpose: fleece and puffy (materials, as in "fleece pants"), buff, hood, top
+ *  and crew, which are ambiguous or turn up on more than one part. A Map, not an
+ *  object, so a typed word like "constructor" can't land on a prototype key. */
+export const GARMENT_ZONE: ReadonlyMap<string, string> = new Map(
+  Object.entries({
+    torso: ["shirt", "tee", "jacket", "hoodie", "hoody", "parka", "vest", "smock", "anorak", "pullover"],
+    legs: ["pants", "pant", "shorts", "tights", "leggings", "trousers"],
+    hands: ["gloves", "glove", "mittens", "mitten", "mitts"],
+    feet: ["socks", "sock", "shoes", "shoe", "boots", "boot", "sandals"],
+    head: ["hat", "beanie", "cap"],
+  }).flatMap(([zone, words]) => words.map((w) => [w, zone] as const)),
+);
 
 const PROFANITY = /\b(fuck|shit|bitch|cunt|asshole|nigg|faggot|retard)\b/i;
 const PII =

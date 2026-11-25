@@ -1,18 +1,15 @@
 import { defineEventHandler } from "h3";
 import { rotateEditHash } from "../../utils/listRepo";
-import { requireEditHash } from "../../utils/editAuth";
+import { requireEdit } from "../../utils/editAuth";
 import { resolveSession } from "../../utils/authSession";
-import { rateLimit } from "../../utils/rateLimit";
-import { notFound, setNoIndex } from "../../utils/http";
+import { notFound } from "../../utils/http";
 
 // Revoke + reissue the edit token (e.g. after a leak). The old token 404s after.
 // The response hands the caller the NEW raw token either way in — including a
 // session-authorised rotate of a claimed list, which is how a device that never
 // held the edit link mints itself a fresh one.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  await rateLimit(event, "rotate");
-  const hash = await requireEditHash(event);
+  const hash = await requireEdit(event, "rotate");
   // The rotator's own claim survives the rotation's claim-clearing (see
   // rotateEditHash: keepUserId is "whoever is doing the rotating"). Resolved here
   // for BOTH paths — a signed-in owner rotating via their bearer token deserves

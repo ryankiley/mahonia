@@ -178,9 +178,10 @@ const RATE_LIMITS = {
   // costs a parse and nothing more), and what is fair is counted per LIST, by the
   // capability the call carries: reads by the share code (rateLimitSubject), the
   // roomy one; adds and trip changes by the edit hash, the create + mutate budgets'
-  // order of magnitude. create_list carries no capability yet, so it alone spends the
-  // write budget per address. The My Gear tools spend the same two budgets per
-  // ACCOUNT, by the access token's owner, and a create_list that files its list under
+  // order of magnitude. create_list carries no capability yet: it spends the write
+  // budget per ACCOUNT when the call carries a bearer, and per address only when it
+  // doesn't, where every claude.ai user shares it. The My Gear tools spend the same two
+  // budgets per ACCOUNT, by the access token's owner, and a create_list that files its list under
   // an account spends that account's "list-claim" as the browser's claim does.
   "mcp": 600,
   "mcp-read": 120,
@@ -236,8 +237,8 @@ const RATE_LIMITS = {
   "oauth-token": 60,
   "oauth-revoke": 30,
   "oauth-register": 5,
-  // the admin gate itself (see requireAdmin) — throttled against brute force
-  "admin": 30,
+  // the cron routes' gate (see requireCron) — throttled against brute force
+  "cron": 30,
 } as const satisfies Record<string, number>;
 
 export type RateLimitAction = keyof typeof RATE_LIMITS;

@@ -7,7 +7,7 @@ dist
 # deps
 node_modules
 
-# local pinned toolchain (Node 24.15.0) — not committed
+# local pinned toolchain (the version in .nvmrc) — not committed
 .tooling
 
 # env / secrets

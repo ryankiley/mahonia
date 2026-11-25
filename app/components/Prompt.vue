@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { IconCrossMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // A prompt carrying ONE decision, in the column after the figure it concerns.
 //
@@ -36,7 +36,7 @@ const emit = defineEmits<{ dismiss: [] }>();
         <span class="prompt__text"><slot /></span>
         <slot name="action" />
         <button type="button" class="prompt__close" :aria-label="dismissLabel" :title="dismissLabel" @click="emit('dismiss')">
-          <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
+          <SvgIcon :icon="IconCrossMedium" />
         </button>
       </div>
     </div>
@@ -67,7 +67,6 @@ const emit = defineEmits<{ dismiss: [] }>();
      At one line 20px is within 2px of a true pill anyway; at two it stays a card. */
   border-radius: var(--radius-4);
   color: var(--ink-2);
-  font-size: var(--text-base);
 }
 .prompt__text {
   display: flex;
@@ -91,9 +90,13 @@ const emit = defineEmits<{ dismiss: [] }>();
   padding: var(--space-1);
   opacity: 0.72;
 }
-.prompt__close:hover,
 .prompt__close:focus-visible {
   opacity: 1;
+}
+@media (hover: hover) and (pointer: fine) {
+  .prompt__close:hover {
+    opacity: 1;
+  }
 }
 /* touch: the dismiss meets the --tap minimum (the house rule, controls.scss)
    without growing the prompt — the extra hit area overhangs the box via negative
@@ -102,8 +105,8 @@ const emit = defineEmits<{ dismiss: [] }>();
   .prompt__close {
     min-width: var(--tap);
     min-height: var(--tap);
-    margin-block: calc((var(--tap) - 24px) / -2);
-    margin-inline-end: calc((var(--tap) - 24px) / -2);
+    margin-block: calc((var(--tap) - 24 * var(--tpx)) / -2);
+    margin-inline-end: calc((var(--tap) - 24 * var(--tpx)) / -2);
   }
 }
 </style>

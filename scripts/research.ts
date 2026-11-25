@@ -5,7 +5,7 @@
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { AttributeKey, RowAttributes } from "./catalogAttributes";
+import type { AttributeKey, RowAttributes } from "../shared/catalogAxes";
 import { identityKey } from "./catalogCsv";
 import { normalizeGearType } from "./gearTypes";
 import { deriveNoun } from "./searchTerms";
@@ -105,6 +105,11 @@ export interface ResearchRow {
   kcal_source_url?: string | null;
   kcal_quote?: string | null;
 }
+
+/** The research file `npm run catalog:graduate` writes: rows an admin verified in the app
+ *  (verify_catalog_item) that no other research file has, whose quotes the audit reads in
+ *  ounces as the tool did. A research row corrected in the app goes back into its own file. */
+export const GRADUATED_FILE_NAME = "verified-in-app.json";
 
 /** A parsed research file, or a parse error for it. Rows are `[]` when `parseError`
  *  is set — the CALLER decides how to bucket it (build → skipped/exit 0; audit →

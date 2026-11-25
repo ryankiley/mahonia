@@ -1,6 +1,7 @@
 // Database access. Local dev uses PGlite (in-process Postgres, zero setup);
 // production uses Neon when DATABASE_URL is set. Same Drizzle API either way.
-// Schema is ensured idempotently on first use (dev); prod would run migrations.
+// There is no migration step: the schema is ensured idempotently on first use, by
+// build() in dev and by the use*Db() and ensure*Schema() helpers below on Neon.
 
 import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
 import * as schema from "../db/schema";
@@ -84,7 +85,7 @@ async function build(): Promise<Db> {
   // persisted local file so dev data survives restarts (PGlite's mkdir isn't recursive)
   mkdirSync(dir, { recursive: true });
   const db = drizzle(new PGlite(dir), { schema });
-  await ensureSchema(db); // local dev only — idempotent
+  await runDdl(db, DDL); // local dev only — idempotent
   return db;
 }
 
@@ -109,14 +110,6 @@ export const LISTS_DDL: string[] = [
     consumable_weight_mg bigint NOT NULL DEFAULT 0,
     total_weight_mg bigint NOT NULL DEFAULT 0,
     item_count integer NOT NULL DEFAULT 0,
-    is_public boolean NOT NULL DEFAULT false,
-    published_at timestamptz,
-    trip_type text,
-    season text,
-    primary_category text,
-    view_count integer NOT NULL DEFAULT 0,
-    flagged boolean NOT NULL DEFAULT false,
-    claim_phrase_hash text,
     last_snapshot_at timestamptz,
     version integer NOT NULL DEFAULT 1,
     status text NOT NULL DEFAULT 'active',
@@ -124,9 +117,6 @@ export const LISTS_DDL: string[] = [
     updated_at timestamptz NOT NULL DEFAULT now(),
     deleted_at timestamptz
   )`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trip_type text`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS view_count integer NOT NULL DEFAULT 0`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS flagged boolean NOT NULL DEFAULT false`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS last_snapshot_at timestamptz`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_url text`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_label text`,
@@ -141,6 +131,12 @@ export const LISTS_DDL: string[] = [
   // the byline on the read views — who MADE the list (set once at creation, never
   // re-pointed by a claim); resolves to that account's optional display name
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS author_user_id integer`,
+  // Columns from the first version that nothing ever read, dropped where an older
+  // database still has them. Publishing's (is_public, published_at, trip_type, season,
+  // flagged) are still in production and go in a deploy after this one, with
+  // vault_folders: the deploy before it selects them, and a rollback to it must still
+  // find them.
+  `ALTER TABLE lists DROP COLUMN IF EXISTS primary_category, DROP COLUMN IF EXISTS view_count, DROP COLUMN IF EXISTS claim_phrase_hash`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,
@@ -212,17 +208,21 @@ export const ensureSnapshotSchema = ensureOf(SNAPSHOTS_DDL);
 const ensureVaultSchema = ensureOf(VAULT_DDL);
 
 /**
- * The shared DB with the vault schema ensured — the vault's counterpart to
- * useCatalogDb(), and for the same reason: on Neon the tables are created on first
- * use, so every vault endpoint must ensure before it queries. Folding the two calls
- * together makes that impossible to forget. Both memoized, so this costs no extra
- * round-trips on a warm instance.
+ * The shared DB with one more schema ensured on it: the shape of useVaultDb,
+ * useAccountDb and useCatalogDb. On Neon the tables are created on first use, so an
+ * endpoint must ensure before it queries; folding the two calls together makes that
+ * impossible to forget. Both are memoized, so this costs no extra round-trips on a
+ * warm instance.
  */
-export async function useVaultDb(): Promise<Db> {
+const withSchema = (ensure: (db: Db) => Promise<void>) => async (): Promise<Db> => {
   const db = await useDb();
-  await ensureVaultSchema(db);
+  await ensure(db);
   return db;
-}
+};
+
+/** The shared DB with the vault schema ensured — the vault's counterpart to
+ *  useCatalogDb(), and for the same reason (withSchema). */
+export const useVaultDb = withSchema(ensureVaultSchema);
 
 /** Idempotently create the OPTIONAL account tables (memoized). Separate from the
  *  vault's ensure on purpose: the vault works with no account at all, so a visitor
@@ -232,11 +232,7 @@ const ensureAccountSchema = ensureOf(ACCOUNT_DDL);
 
 /** The shared DB with the account schema ensured — the account layer's
  *  counterpart to useVaultDb(), for the same reason and with the same memoization. */
-export async function useAccountDb(): Promise<Db> {
-  const db = await useDb();
-  await ensureAccountSchema(db);
-  return db;
-}
+export const useAccountDb = withSchema(ensureAccountSchema);
 
 const DDL = [
   ...LISTS_DDL,
@@ -250,8 +246,6 @@ const DDL = [
   ...VAULT_DDL,
   ...ACCOUNT_DDL,
 ];
-
-const ensureSchema = (db: Db) => runDdl(db, DDL);
 
 export async function useDb(): Promise<Db> {
   if (!_dbPromise) _dbPromise = build();
@@ -269,8 +263,4 @@ export async function useDb(): Promise<Db> {
  * where build() ran the full DDL, but throws in prod). Folding them into one call
  * makes that impossible to forget. Both are memoized, so this adds no round-trips.
  */
-export async function useCatalogDb(): Promise<Db> {
-  const db = await useDb();
-  await ensureCatalogSchema(db);
-  return db;
-}
+export const useCatalogDb = withSchema(ensureCatalogSchema);

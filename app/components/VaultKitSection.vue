@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Delete02Icon, MinusSignIcon, PlusSignIcon, RemoveCircleIcon } from "@hugeicons/core-free-icons";
+import { IconCircleMinus, IconMinusMedium, IconPlusMedium, IconTrashCan } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
 import { VAULT_NAME_MAX, type VaultEntry, type VaultKitPart } from "~~/shared/vault";
 import type { GearGlyph } from "~~/shared/gearGlyph";
@@ -154,14 +154,14 @@ watch(
       <span class="t-num t-muted kitsec__total">{{ formatWeight(kit.weightMg, unit) }}</span>
       <!-- the site's tooltip on every icon-only button here, as on a list row: the verb
            shown, the whole name on aria-label -->
-      <Tooltip v-if="isKit && !readonly" text="Remove" preferred-placement="top">
+      <Tooltip v-if="isKit && !readonly" text="Remove">
         <button
           type="button"
           class="btn btn--icon btn--ghost ink-quiet"
           :aria-label="`Remove ${name} from My Gear`"
           @click="emit('remove')"
         >
-          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconTrashCan" aria-hidden="true" />
         </button>
       </Tooltip>
     </template>
@@ -181,7 +181,7 @@ watch(
             <!-- how many the kit holds: held out of sight, not dropped, on a row
                  that can't change, so the columns stay put down the kit -->
             <span v-if="counts" class="kitsec__step" :class="{ 'is-idle': part.qty <= 1 && partMax(part.id) <= 1 }">
-              <Tooltip text="One fewer" preferred-placement="top">
+              <Tooltip text="One fewer">
                 <button
                   type="button"
                   class="btn btn--icon btn--ghost ink-quiet"
@@ -189,15 +189,12 @@ watch(
                   :aria-label="`One fewer ${part.name} in ${name}`"
                   @click="step(part.id, -1)"
                 >
-                  <HugeiconsIcon :icon="MinusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                  <SvgIcon :icon="IconMinusMedium" size="sm" aria-hidden="true" />
                 </button>
               </Tooltip>
               <span class="t-sm t-num kitsec__count" :aria-label="`${part.qty} in the kit`">{{ part.qty }}</span>
               <!-- at the cap it says why: a kit holds no more than you own -->
-              <Tooltip
-                :text="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. Change Number owned in its Edit.` : 'One more'"
-                preferred-placement="top"
-              >
+              <Tooltip :text="part.qty >= ownedOf(part.id) ? `You own ${ownedOf(part.id)}. Change Number owned in its Edit.` : 'One more'">
                 <button
                   type="button"
                   class="btn btn--icon btn--ghost ink-quiet"
@@ -205,13 +202,13 @@ watch(
                   :aria-label="`One more ${part.name} in ${name}`"
                   @click="step(part.id, 1)"
                 >
-                  <HugeiconsIcon :icon="PlusSignIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+                  <SvgIcon :icon="IconPlusMedium" size="sm" aria-hidden="true" />
                 </button>
               </Tooltip>
             </span>
           </template>
           <template #remove>
-            <Tooltip :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'" preferred-placement="top">
+            <Tooltip :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'">
               <button
                 type="button"
                 class="btn btn--icon btn--ghost ink-quiet"
@@ -219,7 +216,7 @@ watch(
                 :aria-label="`Take ${part.name} out of ${name}`"
                 @click="drop(part.id)"
               >
-                <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="IconCircleMinus" aria-hidden="true" />
               </button>
             </Tooltip>
           </template>
@@ -227,7 +224,7 @@ watch(
         <!-- put away from My Gear: listed by name, it stops counting and can only come out -->
         <li v-else class="kitsec__line kitsec__line--gone">
           <span class="kitsec__name t-clip">{{ itemDisplayName(part.brand, part.name, part.variant) }} <span class="kitsec__gone">· removed</span></span>
-          <Tooltip v-if="!readonly" :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'" preferred-placement="top">
+          <Tooltip v-if="!readonly" :text="canDrop(part) ? 'Take out of kit' : 'A kit holds at least one item'">
             <button
               type="button"
               class="btn btn--icon btn--ghost ink-quiet"
@@ -235,7 +232,7 @@ watch(
               :aria-label="`Take ${part.name} out of ${name}`"
               @click="drop(part.id)"
             >
-              <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconCircleMinus" aria-hidden="true" />
             </button>
           </Tooltip>
         </li>
@@ -243,8 +240,8 @@ watch(
       <!-- a weight of the kit's own (a group saved off a list whose heading had one) -->
       <li v-if="kit.ownWeightMg" class="kitsec__line">
         <span class="kitsec__name">Its own weight</span>
-        <span class="t-num kitsec__weight">{{ formatWeight(kit.ownWeightMg, unit) }}</span>
-        <Tooltip v-if="!readonly" text="Remove its own weight" preferred-placement="top">
+        <span class="t-num">{{ formatWeight(kit.ownWeightMg, unit) }}</span>
+        <Tooltip v-if="!readonly" text="Remove its own weight">
           <button
             type="button"
             class="btn btn--icon btn--ghost ink-quiet"
@@ -252,7 +249,7 @@ watch(
             :aria-label="`Remove ${name}'s own weight`"
             @click="send(kitPartRefs(parts), 0)"
           >
-            <HugeiconsIcon :icon="RemoveCircleIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconCircleMinus" aria-hidden="true" />
           </button>
         </Tooltip>
       </li>
@@ -308,7 +305,6 @@ watch(
 }
 .kitsec__name {
   flex: 1;
-  min-width: 0;
 }
 .kitsec__line--gone {
   color: var(--ink-3);
@@ -338,8 +334,6 @@ watch(
 }
 .kitsec__choices {
   margin: var(--space-1) 0 0;
-  padding: 0;
-  list-style: none;
   border: 1px solid var(--line);
   border-radius: var(--radius-2);
   overflow: hidden;
@@ -354,15 +348,15 @@ watch(
   justify-content: space-between;
   gap: var(--space-3);
   padding: var(--space-2) var(--space-3);
-  border: 0;
-  background: none;
   color: var(--ink);
-  font: inherit;
   text-align: left;
-  cursor: pointer;
 }
-.kitsec__choice:hover,
 .kitsec__choice:focus-visible {
   background: var(--popover-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .kitsec__choice:hover {
+    background: var(--popover-hover);
+  }
 }
 </style>

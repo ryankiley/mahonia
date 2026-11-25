@@ -41,7 +41,7 @@ useSeoMeta({
     :open="feedback.open"
     :preset="feedback.preset"
     :title="feedback.title"
-    @close="feedback.open = false"
+    @close="closeFeedback"
   />
   <!-- LAST, and that's load-bearing. Every overlay shares one --z-float, so paint
        order decides which is on top — and a confirm can be raised from inside another

@@ -1,9 +1,9 @@
 import { defineEventHandler } from "h3";
 import { requireAccount } from "../../../utils/authSession";
-import { savePasskey } from "../../../utils/credentialRepo";
+import { cleanPasskeyLabel, existingCredentialIds, removePasskeyBeyondCap, savePasskey } from "../../../utils/credentialRepo";
 import { canSendEmail, sendPasskeyAddedNotice } from "../../../utils/email";
 import { readJsonBodyCapped } from "../../../utils/http";
-import { takeChallenge, verifyPasskeyRegistration } from "../../../utils/passkeys";
+import { requirePasskeyRoom, takeChallenge, tooManyPasskeys, verifyPasskeyRegistration } from "../../../utils/passkeys";
 
 // Step 2 of adding a passkey: verify what the authenticator produced and store
 // the public key.
@@ -31,20 +31,37 @@ export default defineEventHandler(async (event) => {
   );
   if (!verified) return { ok: false as const, reason: "invalid" as const };
 
-  const label = typeof body?.label === "string" ? body.label : null;
+  // The cap again, counted now: register-options checked it when this ceremony was
+  // opened, and others opened beside it may have been saved since.
+  requirePasskeyRoom((await existingCredentialIds(db, user.id)).length);
+
+  // Cleaned HERE, once, for both readers. The stored copy was always cut to 60,
+  // but the notice below mailed the label as it arrived: up to the whole 32 KB
+  // body, line breaks and all, to an address nobody need have proved they hold.
+  const label = typeof body?.label === "string" ? cleanPasskeyLabel(body.label) || null : null;
+  let saved: number;
   try {
     const { syncable, ...credential } = verified;
-    await savePasskey(db, { userId: user.id, ...credential, discoverable: syncable, label });
+    // stamped from the session as it was checked above, so a claim landing during the
+    // ceremony leaves this key worthless (claimUnverifiedAccount)
+    saved = await savePasskey(db, { userId: user.id, ...credential, discoverable: syncable, label, unproven: user.unproven });
   } catch {
     // the unique index on credential_id — this key is already registered, which is
     // a no-op rather than an error worth showing
     return { ok: true as const, duplicate: true };
   }
+  // And the cap a last time, now the key is in: verifies that arrive together each
+  // counted before any of them saved, so the count above let them all through. A key
+  // saved past the cap comes back out, and its ceremony gets the refusal it would
+  // have had a moment later.
+  // The check failing is not the save failing: the key is in, so the owner still hears
+  // of it below. The cap is housekeeping; the notice is the security signal.
+  if (await removePasskeyBeyondCap(db, user.id, saved).catch(() => false)) throw tooManyPasskeys();
 
   // Tell the owner. Best-effort and never allowed to fail the registration it rode
   // in on: a passkey that saved but whose notice didn't send is a strictly better
   // outcome than the reverse.
-  if (user.email && canSendEmail()) {
+  if (canSendEmail()) {
     await sendPasskeyAddedNotice(user.email, label).catch((e) => console.error("[passkey notice]", e));
   }
 

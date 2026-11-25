@@ -5,6 +5,7 @@ import { listToJson } from "../shared/exporters/json";
 import { encodePolyline } from "../shared/polyline";
 import type { ListRow } from "../server/db/schema";
 import type { ListData, ListMeta } from "../shared/types";
+import { ROOT } from "./helpers/sources";
 
 // The route's shape is the app's only stored geography, and it is not public.
 //
@@ -25,7 +26,6 @@ import type { ListData, ListMeta } from "../shared/types";
 // only the "doesn't leak" half was tested, and THREE owner paths quietly forgot to call
 // it — including the autosave echo, which emptied the field on every save.
 
-const ROOT = new URL("..", import.meta.url).pathname;
 const GEOMETRY = encodePolyline([
   { lat: 45.33, lon: -121.71 },
   { lat: 45.34, lon: -121.7 },

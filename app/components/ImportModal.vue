@@ -216,7 +216,6 @@ function importFile(text: string, file: File) {
 /* the name sits above the paste box: what the list will be called, shown as its
    placeholder so an untouched field still says what happens */
 .import__name {
-  width: 100%;
   margin-bottom: var(--space-2);
 }
 .import__hint {
@@ -227,7 +226,6 @@ function importFile(text: string, file: File) {
    overrode it with the fluid max(), which iOS mis-reads and zooms on anyway
    (controls.scss, .field). */
 .import__text {
-  width: 100%;
   padding: var(--space-3);
   /* no resize: the native grip drew a square notch over the rounded corner, and
      the box scrolls anyway (the dialog is fixed-width, rows are fixed) */

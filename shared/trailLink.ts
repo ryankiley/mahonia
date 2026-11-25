@@ -94,8 +94,10 @@ export function displayUrl(url: URL): string {
 // The stored bounds. They live here, applied INSIDE the normalizers, because the DB
 // columns are bare `text` — these are the only limit there is, and a caller that
 // remembered to normalize but forgot to clamp would be an unbounded write.
-const MAX_TRAIL_URL_LEN = 2000; // matches an item's productUrl
-const MAX_TRAIL_LABEL_LEN = 120;
+/** The longest link a list or My Gear stores: a trail's, an item's product page. */
+export const MAX_URL_LEN = 2000;
+export const MAX_TRAIL_URL_LEN = MAX_URL_LEN;
+export const MAX_TRAIL_LABEL_LEN = 120;
 
 /**
  * A raw trail URL → its canonical stored form, or null if it isn't a safe http(s) URL.
@@ -111,15 +113,17 @@ export function normalizeTrailUrl(raw: unknown): string | null {
 
 /**
  * Everything that describes the route a link pointed AT, as the setMeta patch that
- * clears it. A label with no link is unreachable state, and so is a distance, a
- * profile or a line with no route to be the shape of. One object, because two copies
- * of this list is how the next field added here gets cleared on one path and left
- * behind on the other; ListHead spreads it when the link is emptied and the MCP
- * edit_list tool does the same.
+ * clears it. A label with no link is unreachable state, and so is a profile, a climb or
+ * a line with no route to be the shape of. One object, because two copies of this list
+ * is how the next field added here gets cleared on one path and left behind on the
+ * other; ListHead spreads it when the link is emptied and the MCP edit_list tool does
+ * the same.
+ * NOT the distance. It's the trip's length, typed whether or not there's a link (Ryan,
+ * 2026-11-10: "we shouldn't hide distance entry behind needing a link"), so removing a
+ * link leaves it, and it's cleared by emptying its own field.
  */
 export const CLEARS_WITH_LINK = {
   trailLabel: "",
-  trailDistanceM: "",
   trailProfile: "",
   trailAscentM: "",
   trailDescentM: "",

@@ -75,20 +75,13 @@ const { collapsed, toggle } = usePersistedCollapse("gear.vkind.").useFor(() => p
      these glyphs sit centred over the rows' (VaultKitSection), so their tips do too */
   --tip-shift: 0px;
 }
-/* a heading, not a field: the field's type and its LINE (the reset gives an h2 the
-   tight heading leading, which is what stood it 5px shorter than a kit's name) */
+/* a heading, not a field: the field's type, its ink and its LINE (the reset gives an h2
+   the tight heading leading, which is what stood it 5px shorter than a kit's name) */
 .vsec__kind {
-  margin: 0;
-  color: var(--ink);
   line-height: var(--leading-normal);
   cursor: default;
 }
-/* the rows are VaultGearRow's own; the list stacks them, and their rhythm and the
-   hairlines between are the list folder's (.folder__items, atoms/folder.scss) for every
-   line, a kit's extra lines included */
-.vsec__list {
-  display: flex;
-  flex-direction: column;
-  list-style: none;
-}
+/* the rows are VaultGearRow's own; the list (.vsec__list) only stacks them, as a list
+   does, and their rhythm and the hairlines between are the list folder's
+   (.folder__items, atoms/folder.scss) for every line, a kit's extra lines included */
 </style>

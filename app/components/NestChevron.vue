@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { IconChevronDownMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // The collapse chevron — the one a GROUP row trails its name with, and with `folder`
 // the same gesture at the folder header's scale: the editor's folder, the share views'
@@ -42,10 +42,11 @@ function onClick(e: MouseEvent) {
 
 <template>
   <button
+    class="ink-quiet"
     :class="folder ? 'folder__collapse' : 'item__nestcollapse'"
     :aria-expanded="!collapsed"
     :aria-label="`${collapsed ? 'Expand' : 'Collapse'} ${label}`"
     :title="`${collapsed ? 'Expand' : 'Collapse'} ${noun}`"
     @click="onClick"
-  ><HugeiconsIcon :icon="ChevronDownIcon" :class="[folder ? 'folder__chev' : 'item__nestchev', { 'is-collapsed': collapsed }]" :size="folder ? 20 : 16" :stroke-width="2" /></button>
+  ><SvgIcon :icon="IconChevronDownMedium" :class="[folder ? 'folder__chev' : 'item__nestchev', { 'is-collapsed': collapsed }]" :size="folder ? 'lg' : 'md'" /></button>
 </template>

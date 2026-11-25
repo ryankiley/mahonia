@@ -31,15 +31,22 @@ useHead({
 
 <template>
   <div>
-    <!-- fullTotals, not totals: the topbar's figure (and the weight a Duplicate
-         registers in "Your lists") describes the list, not the viewer's filter -->
-    <ReadTopbar :snapshot="snapshot" :totals="fullTotals" />
+    <!-- The top bar: the site bar, packed compact, carrying the one thing a reader is
+         most likely to want (a list of their own) and the ⋯ of everything else. -->
+    <SiteTopbar compact>
+      <NuxtLink to="/e" class="btn btn--link">Make a list</NuxtLink>
+      <!-- ⋯ goes in #end so it lands after the account glyph, matching the editor's
+           bar (vault, account, share, ⋯). The reader's one text action keeps the
+           lead; the two glyphs close the row. -->
+      <template #end>
+        <!-- fullTotals, not totals: the weight a Duplicate registers in "Your lists"
+             describes the list, not the viewer's filter -->
+        <ReadonlyMenu v-if="snapshot" :snapshot="snapshot" :totals="fullTotals" />
+      </template>
+    </SiteTopbar>
 
-    <!-- No #status here: a share link carries nothing to edit with, so "Read-only" only
-         ever told the reader what the page already shows. /l keeps its status, because
-         "Public list" says something the page doesn't — that this list is listed. -->
-    <!-- the view-model's props as one object (useReadonlyList.viewProps) — /l binds
-         the same one, so the two pages can't hand the view different lists -->
+    <!-- the view-model's props as one object (useReadonlyList.viewProps), so the page
+         can't spell out a prop list that drifts from the view's own -->
     <ReadonlyListView
       v-bind="viewProps"
       @set-unit="(u) => (unit = u)"

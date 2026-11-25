@@ -45,7 +45,7 @@
 
 import { safeUrl } from "../../shared/trailLink";
 import type { H3Event } from "h3";
-import { getRequestURL } from "h3";
+import { createError, getHeader, getRequestURL } from "h3";
 import { CANONICAL_ORIGIN } from "../../shared/site";
 
 /** Whether this process is serving real users. Vercel's own VERCEL_ENV is
@@ -82,8 +82,37 @@ export function trustedOrigin(event: H3Event): string {
   return CANONICAL_ORIGIN;
 }
 
-/** The trusted origin's host, port and all — what a browser reports as the
- *  authority half of its origin. */
-export function trustedHost(event: H3Event): string {
-  return new URL(trustedOrigin(event)).host;
+/**
+ * Refuse a request that another site's page made. Run for every write to /api by
+ * server/middleware/sameOrigin.ts, which says why it is one rule for all of them.
+ *
+ * A browser states the page's origin on every POST and scripts cannot change
+ * either header, so a request that names another origin is another site's. A
+ * request that names none is not a browser's page at all (curl, a native client)
+ * and has no visitor's browser to act in.
+ *
+ * "Ours" is the trusted origin or the host this request itself arrived at. The
+ * second is not a way round the first: the visitor's browser is the one sending
+ * Host here, and it sends the truth, so a page on evil.example matches neither.
+ * It is what keeps the app working on a host that serves it without being the
+ * canonical one (a www or deployment alias, a local production build).
+ */
+export function refuseCrossSite(event: H3Event): void {
+  const refuse = () => {
+    throw createError({ statusCode: 403, statusMessage: "Origin not allowed" });
+  };
+  // THE BROWSER'S OWN LABEL DECIDES, WHERE THERE IS ONE. Sec-Fetch-Site is set by
+  // the browser and no page can change it, and it accounts for redirects on the
+  // way. Origin alone is not enough to go by for our own requests: under this
+  // site's `Referrer-Policy: no-referrer` a same-origin POST that isn't a CORS
+  // fetch names its origin as "null" (a form post, and in Firefox the page-hide
+  // beacon that saves gear to My Gear), which matches nothing and was refused.
+  const site = getHeader(event, "sec-fetch-site");
+  if (site !== undefined) {
+    if (site !== "same-origin") refuse();
+    return;
+  }
+  // No label: an older browser, or not a browser. Then Origin, if it names one.
+  const origin = getHeader(event, "origin");
+  if (origin !== undefined && origin !== trustedOrigin(event) && origin !== getRequestURL(event).origin) refuse();
 }

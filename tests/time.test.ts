@@ -131,4 +131,45 @@ describe("formatDateRange", () => {
       expect(formatDateRange(`${y}-09-06`, `${y}-09-09`)).toBe("September 6–9");
     });
   });
+
+  describe("relative: a trip in the coming week reads the way people say it", () => {
+    const now = new Date(2026, 10, 10, 15); // Tue 2026-11-10, local 3pm
+    const rel = (start?: string, end?: string, at: Date = now) =>
+      formatDateRange(start, end, at, { relative: true });
+
+    it("is off unless asked for — a server render isn't on the reader's clock", () => {
+      expect(formatDateRange("2026-11-13", "2026-11-15", now)).toBe("November 13–15");
+    });
+    it("names today, tomorrow, then the weekday, through six days out", () => {
+      expect(rel("2026-11-10")).toBe("Today");
+      expect(rel("2026-11-11")).toBe("Tomorrow");
+      expect(rel("2026-11-13")).toBe("Friday");
+      expect(rel("2026-11-16")).toBe("Monday");
+    });
+    it("goes back to the date a week out, where 'Tuesday' stops saying which one", () => {
+      expect(rel("2026-11-17")).toBe("November 17");
+      expect(rel("2026-11-17", "2026-11-19")).toBe("November 17–19");
+    });
+    it("words both ends when both are this week, the far one as a date when it isn't", () => {
+      expect(rel("2026-11-13", "2026-11-15")).toBe("Friday – Sunday");
+      expect(rel("2026-11-11", "2026-11-20")).toBe("Tomorrow – November 20");
+      expect(rel("2026-11-13", "2026-11-13")).toBe("Friday");
+      expect(rel("2026-11-13", undefined)).toBe("Friday");
+    });
+    it("leaves a trip underway or over on its dates", () => {
+      expect(rel("2026-11-08", "2026-11-12")).toBe("November 8–12");
+      expect(rel("2026-11-09")).toBe("November 9");
+    });
+    it("counts calendar days, not 24-hour spans, at either end of the day", () => {
+      expect(rel("2026-11-11", undefined, new Date(2026, 10, 10, 23, 59))).toBe("Tomorrow");
+      expect(rel("2026-11-11", undefined, new Date(2026, 10, 10, 0, 1))).toBe("Tomorrow");
+      // across the end of daylight saving (Nov 1 in the US) a day can be 25 hours
+      expect(rel("2026-11-06", undefined, new Date(2026, 9, 31, 12))).toBe("Friday");
+    });
+    it("keeps the year on an end that falls in the next one", () => {
+      const dec28 = new Date(2026, 11, 28); // Mon
+      expect(rel("2026-12-30", "2027-01-05", dec28)).toBe("Wednesday – January 5, 2027");
+      expect(rel("2026-12-30", "2027-01-02", dec28)).toBe("Wednesday – Saturday");
+    });
+  });
 });

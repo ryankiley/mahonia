@@ -59,7 +59,7 @@ async function send() {
 <template>
   <BaseModal :open="open" :label="title ?? 'Send feedback'" @close="emit('close')">
     <div class="fb">
-      <h2 class="t-label fb__title">{{ title ?? "Send feedback" }}</h2>
+      <h2 class="t-label panel__title">{{ title ?? "Send feedback" }}</h2>
 
       <template v-if="state === 'sent'">
         <p class="t-sm">Thanks. That’s been sent.</p>
@@ -69,7 +69,7 @@ async function send() {
       </template>
 
       <template v-else>
-        <p class="t-sm t-muted fb__lede">Bugs, missing gear, ideas. Anything.</p>
+        <p class="t-sm t-muted">Bugs, missing gear, ideas. Anything.</p>
 
         <textarea
           ref="boxRef"
@@ -91,7 +91,7 @@ async function send() {
           <p class="t-sm t-muted t-num fb__count" :class="{ 'is-low': remaining <= 50 }">
             {{ remaining }}
           </p>
-          <p class="t-sm t-muted fb__notice">
+          <p class="t-sm t-muted">
             This is posted publicly, so leave out anything private.
           </p>
         </div>
@@ -114,9 +114,7 @@ async function send() {
   display: grid;
   gap: var(--space-3);
 }
-.fb__title {
-  color: var(--ink);
-}
+/* the title's full ink is .panel__title (atoms/controls.scss), as on the other panels */
 /* .field is borderless in the row grid it was written for; in a dialog the shared
    .well tint (controls.scss) gives it ground to read as something you type into —
    a fill, not a hairline box, same as the import dialog's paste box beside it. */

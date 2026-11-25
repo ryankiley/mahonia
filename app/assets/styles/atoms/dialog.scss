@@ -5,6 +5,9 @@
 // The 1px transparent OUTLINE (not a border — a border insets any overflow
 // clipping by 1px; see .popover) keeps an edge under forced-colors, where
 // shadows are stripped and backgrounds forced to Canvas.
+// That recipe is one rule, `.popover, .dlg` in atoms/controls.scss: the surface, the
+// corner, the shadow and the outline are declared there, and .dlg below adds only
+// what makes it a dialog.
 
 .ovl {
   position: fixed;
@@ -25,10 +28,6 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-3);
-  background: var(--surface-float);
-  border-radius: var(--radius-4);
-  box-shadow: var(--shadow-soft);
-  outline: 1px solid transparent;
   /* A tall dialog scrolls ITSELF rather than running off the viewport. .ovl is
      inset:0 with its own padding, so 100% here is the screen minus that gutter.
      Short dialogs are untouched — a max-height only binds once the content passes
@@ -83,13 +82,12 @@
   gap: var(--space-3);
   cursor: pointer;
 }
+/* the hint (.dlg__opthint) needs no rule to take its own line: it is a flex item of
+   this column, which makes it a block already */
 .dlg__opttext {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
-}
-.dlg__opthint {
-  display: block;
 }
 .dlg__actions {
   display: flex;

@@ -1,32 +1,30 @@
 <script setup lang="ts">
 // The account surface itself — sign-in when signed out, settings when signed in.
 //
-// Mount-agnostic, like ReadonlyListView (which /s and /l both render): the account
-// modal shows this over whatever you were doing, and /account renders the same thing
-// for a bookmark, a typed URL, or the "Get a new link" button on a dead magic link.
+// Mount-agnostic: the account modal shows this over whatever you were doing, and
+// /account renders the same thing for a bookmark, a typed URL, or the "Get a new link" button on a dead magic link.
 // One implementation, so the two can't drift.
 //
 // That last part is the whole point of the extraction. The vault went the other way
 // and has two — VaultPane and /gear, ~470 lines of template between them, with a
 // comment in the page admitting its prompt is copied "WORD FOR WORD" from the pane.
 // Signing in and deleting an account are worse things to keep in sync by hand.
+import { IconChevronDownMedium, IconClaudeai, IconCursor, IconEyeOpen, IconKey1, IconOpenai, IconPencil2, IconSquareBehindSquare1 } from "~/icons/central";
 import { counted } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChatGptIcon, ChevronDownIcon, ClaudeIcon, Copy01Icon, CubeIcon, Edit02Icon, Key01Icon, ViewIcon } from "@hugeicons/core-free-icons";
-import type { IconNode } from "~/utils/hugeicon";
+import { SvgIcon } from "~/utils/icon";
+import type { IconNode } from "~/utils/icon";
 import type { AccessScope, AccessTokenSummary, PasskeySummary } from "~~/shared/types";
 
 // In the MODAL you are already where you want to be, so finishing means closing and
 // nothing else. On the PAGE there is no context behind it, so finishing has to take
 // you somewhere — back where you came from, or the vault. Same component, one prop,
 // rather than two copies that answer this differently.
-// `hideHeading`: the modal draws the title itself, in a header row that also carries
-// the close button — so the panel must not draw a second one. On the page there is no
-// such row and this stays false.
+// The heading is the page's alone: a modal mount draws the title itself, in a header
+// row that also carries the close button, so the panel must not draw a second one.
 // `asStep`: mounted as one step of another page (the /authorize consent), which has
 // already said what the sign-in is for and sets its own left edge. So the why-line is
 // dropped and the signed-out column stops centring itself under a left-aligned heading.
-const { inModal = false, hideHeading = false, asStep = false } = defineProps<{ inModal?: boolean; hideHeading?: boolean; asStep?: boolean }>();
+const { inModal = false, asStep = false } = defineProps<{ inModal?: boolean; asStep?: boolean }>();
 const emit = defineEmits<{ done: [] }>();
 // Say what this surface is FOR right now. Signed out it is a sign-in dialog, and
 // titling it "Your account" describes something you don't have yet — the one thing
@@ -80,6 +78,12 @@ onMounted(() => {
 // address and owes you a reason. So the surface has a mode, and defaults to
 // signing in — after launch that's the overwhelmingly common reason to be here.
 const mode = ref<"signin" | "create">("signin");
+// The heading, handed up as well as drawn (v-model:heading). The dialog mount draws its
+// own title row and names itself by it, and the switch above lives here: with its own
+// copy of the rule, and no way to see `mode`, the dialog said "Sign in" over the create
+// form. Down here because it reads `mode` at once.
+const headingOut = defineModel<string>("heading");
+watchEffect(() => (headingOut.value = heading.value));
 
 // ---- signing in ----------------------------------------------------------
 const signingIn = ref(false);
@@ -251,8 +255,8 @@ const freshToken = ref("");
 // the picker's rows; the key is the word the endpoint takes, the label is ours, and the
 // marks are the share panel's for a read-only and an edit link
 const SCOPES: readonly { key: AccessScope; label: string; icon: IconNode }[] = [
-  { key: "read", label: "Read only", icon: ViewIcon },
-  { key: "write", label: "Read and change", icon: Edit02Icon },
+  { key: "read", label: "Read only", icon: IconEyeOpen },
+  { key: "write", label: "Read and change", icon: IconPencil2 },
 ];
 const scopeName = (scope: AccessScope) => SCOPES.find((s) => s.key === scope)!.label.toLowerCase();
 const mcpUrl = `${useSiteOrigin()}/mcp`;
@@ -266,14 +270,18 @@ const addToCursor = `https://cursor.com/install-mcp?name=mahonia&config=${btoa(J
 // ChatGPT has no install link: its button copies the address and opens the settings
 // page where a connector is made, so the paste is the only step left
 const chatGptConnectors = "https://chatgpt.com/#settings/Connectors";
-async function copyAddress() {
-  tokenNote.value = (await copyText(mcpUrl)) ? "Address copied." : "Couldn’t copy. Select it and copy it by hand.";
+// Every copy in this section, and the line it leaves under it: the address, a fresh
+// token, the command that carries one. Through the shared copyText(), awaited straight
+// from the click so iOS Safari still counts it as the user's own gesture.
+async function copy(text: string, done = "Copied.", failed = "Couldn’t copy. Select it and copy it by hand.") {
+  tokenNote.value = (await copyText(text)) ? done : failed;
 }
-async function copyForChatGpt() {
-  tokenNote.value = (await copyText(mcpUrl))
-    ? "Address copied. In ChatGPT, turn on developer mode under Apps & Connectors and paste it into a new connector."
-    : "Couldn’t copy. Select the address and copy it by hand.";
-}
+const copyForChatGpt = () =>
+  copy(
+    mcpUrl,
+    "Address copied. In ChatGPT, turn on developer mode under Apps & Connectors and paste it into a new connector.",
+    "Couldn’t copy. Select the address and copy it by hand.",
+  );
 // the hand-minted token is the second way in, for a client that can't open a
 // sign-in, and stays folded until asked for: the button above is the ordinary path
 const tokenForm = ref(false);
@@ -315,13 +323,6 @@ async function makeToken() {
     tokenNote.value = "Couldn’t make a token. Try again?";
   }
   tokenBusy.value = false;
-}
-
-// through the shared copyText(), awaited straight from the click so iOS Safari still
-// counts it as the user's own gesture
-async function copyFresh(what: "token" | "command") {
-  const ok = await copyText(what === "token" ? freshToken.value : claudeCommand.value);
-  tokenNote.value = ok ? "Copied." : "Couldn’t copy. Select it and copy it by hand.";
 }
 
 // the same action for both kinds, in each one's words: a token is revoked, an app
@@ -462,7 +463,7 @@ async function onSignOut() {
 
 <template>
   <div class="acct" :class="{ 'acct--modal': inModal, 'acct--step': asStep }">
-    <h1 v-if="!hideHeading" class="t-title acct__head">{{ heading }}</h1>
+    <h1 v-if="!inModal" class="t-title acct__head">{{ heading }}</h1>
 
     <ClientOnly>
       <!-- Centred and narrow: signed out there is exactly one thing to do here,
@@ -485,7 +486,7 @@ async function onSignOut() {
             :disabled="signingIn"
             @click="signInWithPasskey"
           >
-            <HugeiconsIcon :icon="Key01Icon" :size="16" :stroke-width="2" />
+            <SvgIcon :icon="IconKey1" />
             {{ signingIn ? "Waiting for your device…" : "Sign in with a passkey" }}
           </button>
           <p v-if="signinNote" class="t-sm acct__note">{{ signinNote }}</p>
@@ -539,7 +540,7 @@ async function onSignOut() {
                 class="btn btn--primary"
                 :disabled="creating || !signupEmail.trim() || !canPasskey"
               >
-                <HugeiconsIcon :icon="Key01Icon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconKey1" />
                 {{ creating ? "Waiting for your device…" : "Create account with a passkey" }}
               </button>
             </form>
@@ -586,7 +587,7 @@ async function onSignOut() {
             <div class="acct__sectionhead">
               <h2 class="t-label acct__label">Passkeys</h2>
               <button type="button" class="btn btn--quiet acct__add" :disabled="pkBusy" @click="addPasskey">
-                <HugeiconsIcon :icon="Key01Icon" :size="14" aria-hidden="true" :stroke-width="2" /> Add
+                <SvgIcon :icon="IconKey1" size="sm" aria-hidden="true" /> Add
               </button>
             </div>
             <ul v-if="passkeys.length" class="acct__list">
@@ -610,17 +611,17 @@ async function onSignOut() {
             <!-- each client's own mark on its button; Cursor's is the cube its logo is drawn as -->
             <div class="acct__clients">
               <a :href="addToClaude" target="_blank" rel="noopener noreferrer" class="btn btn--primary">
-                <HugeiconsIcon :icon="ClaudeIcon" :size="16" :stroke-width="2" aria-hidden="true" /> Add to Claude
+                <SvgIcon :icon="IconClaudeai" aria-hidden="true" /> Add to Claude
               </a>
               <!-- the copy runs inside the click, before the link opens the settings page -->
               <a :href="chatGptConnectors" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn" @click="copyForChatGpt">
-                <HugeiconsIcon :icon="ChatGptIcon" :size="16" :stroke-width="2" aria-hidden="true" /> ChatGPT
+                <SvgIcon :icon="IconOpenai" aria-hidden="true" /> ChatGPT
               </a>
               <a :href="addToCursor" target="_blank" rel="noopener noreferrer" class="btn btn--ghost acct__btn">
-                <HugeiconsIcon :icon="CubeIcon" :size="16" :stroke-width="2" aria-hidden="true" /> Cursor
+                <SvgIcon :icon="IconCursor" aria-hidden="true" /> Cursor
               </a>
-              <button type="button" class="btn btn--ghost acct__btn" @click="copyAddress">
-                <HugeiconsIcon :icon="Copy01Icon" :size="16" :stroke-width="2" aria-hidden="true" /> Copy address
+              <button type="button" class="btn btn--ghost acct__btn" @click="copy(mcpUrl, 'Address copied.')">
+                <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" /> Copy address
               </button>
             </div>
             <p class="t-sm t-muted">Any other MCP client takes the address. Each one asks you to sign in here the first time.</p>
@@ -656,7 +657,7 @@ async function onSignOut() {
               >
                 <template #trigger="{ active, open }">
                   <span>{{ active?.label }}</span>
-                  <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+                  <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
                 </template>
               </OptionMenu>
               <button type="submit" class="btn btn--ghost acct__btn" :disabled="tokenBusy">
@@ -669,8 +670,8 @@ async function onSignOut() {
               <p class="t-sm t-muted">For Claude Code, this one line adds the connector with the token:</p>
               <code class="acct__secret">{{ claudeCommand }}</code>
               <div class="acct__copies">
-                <button type="button" class="btn btn--ghost acct__btn" @click="copyFresh('token')">Copy token</button>
-                <button type="button" class="btn btn--ghost acct__btn" @click="copyFresh('command')">Copy command</button>
+                <button type="button" class="btn btn--ghost acct__btn" @click="copy(freshToken)">Copy token</button>
+                <button type="button" class="btn btn--ghost acct__btn" @click="copy(claudeCommand)">Copy command</button>
               </div>
             </div>
             <p v-if="tokenNote" class="t-sm acct__note">{{ tokenNote }}</p>
@@ -692,10 +693,10 @@ async function onSignOut() {
                it sat mid-dialog between two settings, as if it were one. One row, the
                everyday action first. -->
           <section class="acct__section acct__signouts">
-            <button type="button" class="btn btn--ghost acct__btn acct__signout" @click="onSignOut">Sign out</button>
+            <button type="button" class="btn btn--ghost acct__btn" @click="onSignOut">Sign out</button>
             <button
               type="button"
-              class="btn btn--ghost acct__btn acct__signout"
+              class="btn btn--ghost acct__btn"
               :disabled="signingOutAll"
               @click="onSignOutEverywhere"
             >
@@ -752,18 +753,6 @@ async function onSignOut() {
   text-align: center;
   margin-bottom: var(--space-5);
 }
-/* CONTAINED on the signed-out screen only. The underline treatment above suits a
-   field sitting in a row of other content; here the field is stacked between two
-   full-width pill buttons, and a bare underline reads as a gap in that stack
-   rather than a control in it. Same height, radius and padding as the buttons, so
-   the three stack as one object — and the text starts on the left like any other
-   input, rather than centred with the prose. */
-.acct__empty .acct__input {
-  width: 100%;
-}
-.acct__input::placeholder {
-  color: var(--ink-3);
-}
 .acct__input:focus {
   border-color: var(--ink-2);
 }
@@ -780,10 +769,6 @@ async function onSignOut() {
 .acct--modal .acct__empty {
   padding-bottom: 0;
 }
-/* the page wants air under a page title; a dialog heading sits closer to its body */
-.acct--modal .acct__head {
-  margin-bottom: var(--space-4);
-}
 
 /* Signed out there is exactly one thing to do, so the column centres and narrows
    rather than sitting left in a full-width page beside empty space. */
@@ -797,9 +782,6 @@ async function onSignOut() {
   padding-block: 0 var(--space-6);
   text-align: center;
 }
-/* The secondary action. The system is deliberately de-outlined (see
-   atoms/controls.scss), so this gets a quiet FILL rather than a border — it reads
-   as a button at rest without introducing the one device that file rules out. */
 .acct__empty .acct__wide {
   width: 100%;
 }
@@ -827,7 +809,6 @@ async function onSignOut() {
   gap: var(--space-3);
   width: 100%;
   color: var(--ink-3);
-  font-size: var(--text-base);
 }
 .acct__or::before,
 .acct__or::after {
@@ -858,15 +839,24 @@ async function onSignOut() {
     text-decoration-color: var(--ink-2);
   }
 }
+/* The secondary action. The system is deliberately de-outlined (see
+   atoms/controls.scss), so this gets a quiet FILL rather than a border — it reads
+   as a button at rest without introducing the one device that file rules out.
+   The fill is an AMOUNT OF INK, not a paper tone: this column sits on the page and in
+   the account dialog alike, and a named tone is only right on one ground. In dark,
+   --paper-3 is the dialog card's exact surface, so the hover fill vanished into it and
+   the --paper-2 rest sat darker than the card it was meant to lift off. --lit and
+   --lit-hover (tokens.scss) are a plate and its step up under the pointer, mixed from
+   ink so they composite over whichever ground this lands on. */
 .acct__empty .acct__alt {
   width: 100%;
-  background: var(--paper-2);
+  background: var(--lit);
   color: var(--ink-2);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .acct__empty .acct__alt:hover {
-    background: var(--paper-3);
+    background: var(--lit-hover);
     color: var(--ink);
   }
 }
@@ -918,8 +908,6 @@ async function onSignOut() {
   gap: var(--space-3);
 }
 .acct__add {
-  display: inline-flex;
-  align-items: center;
   gap: var(--space-1);
 }
 .acct__row {
@@ -932,19 +920,20 @@ async function onSignOut() {
    where the field is. Here there is no such structure, and in the modal there is even
    less: a floating panel has nothing around a control to imply its edges, so the
    container IS the affordance. (The signed-out email field already looked like this;
-   the display name was a bottom rule, so the same surface had two kinds of input.) */
+   the display name was a bottom rule, so the same surface had two kinds of input.)
+   On the signed-out screen the field is stacked between two full-width pill buttons,
+   where a bare underline reads as a gap in that stack rather than a control in it:
+   the same height, radius and padding as the buttons, so the three stack as one
+   object, and the text starts on the left like any other input, rather than centred
+   with the prose. Its full width and placeholder ink are .field's (controls.scss). */
 .acct__input {
   flex: 1 1 auto;
-  min-width: 0;
   min-height: var(--control-h);
   padding: 0 var(--space-4);
   border: 1px solid var(--line);
   border-radius: var(--radius-pill);
   background: var(--paper);
   text-align: left;
-}
-.acct__input:focus {
-  border-bottom-color: var(--ink-2);
 }
 .acct__row .btn {
   flex: none;
@@ -980,11 +969,10 @@ async function onSignOut() {
    than the surface is the only fill that reads here, and the hairline carries light
    mode, where --surface-float and --paper are both #fff.
    flex-start because the section is a flex column: a stretched button centres its
-   label away from the line every other row starts on. */
+   label away from the line every other row starts on. The pill corner is .btn's own. */
 .acct__btn {
   align-self: flex-start;
   border: 1px solid var(--line);
-  border-radius: var(--radius-pill);
   background: var(--paper);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
@@ -1049,10 +1037,28 @@ async function onSignOut() {
 .acct__tokenrow .acct__input {
   flex: 1 1 12rem;
 }
-/* the picker's trigger wears the row's button recipe through triggerClass; the only
-   thing to add is that its longer label never breaks inside the pill */
-.acct__scope {
+/* The picker's trigger, as the bordered pill the field and the button beside it are.
+   Its classes arrive through triggerClass, so the global .btn and .btn--ghost land on
+   it, but nothing scoped here did: the trigger is OptionMenu's own inner button, not its
+   root, and that component's bare-trigger rule (no padding, inherited ink) outranks
+   .btn. It drew as a bare word between two pills. So the row's recipe is carried across
+   by hand: .btn's inline padding and .btn--ghost's ink put back, and .acct__btn's
+   hairline, ground and hover, which "Make token" takes from that class. And its longer
+   label never breaks inside the pill. */
+.acct__tokenrow :deep(.acct__scope) {
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line);
+  background: var(--paper);
+  color: var(--ink-2);
   white-space: nowrap;
+}
+/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
+@media (hover: hover) and (pointer: fine) {
+  .acct__tokenrow :deep(.acct__scope:hover) {
+    background: var(--paper-2);
+    border-color: var(--line-2);
+    color: var(--ink);
+  }
 }
 .acct__fresh {
   display: flex;
@@ -1073,13 +1079,10 @@ async function onSignOut() {
   overflow-wrap: anywhere;
   user-select: all;
 }
-.acct__copies {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-/* the client buttons: the row gap every other row on this surface keeps, and the
-   .btn atom's own icon-to-label gap, so a pill with a mark reads like the sign-in's */
+/* the copy buttons under a fresh token, and the client buttons: one wrapping row each.
+   The clients take the row gap every other row on this surface keeps, and the .btn
+   atom's own icon-to-label gap, so a pill with a mark reads like the sign-in's. */
+.acct__copies,
 .acct__clients {
   display: flex;
   flex-wrap: wrap;
@@ -1090,10 +1093,5 @@ async function onSignOut() {
 .acct__signouts {
   flex-direction: row;
   flex-wrap: wrap;
-}
-/* a link wearing .btn: the atom's reset is written for <button>, so the one thing an
-   anchor brings of its own is taken off here */
-.acct__clients a {
-  text-decoration: none;
 }
 </style>

@@ -69,7 +69,7 @@ describe("extracted models under sustained edits", () => {
     snapshot.value = largeList();
     const editor = scope.run(() => useGearEditorView({ flash: vi.fn(), askConfirm: async () => true }))!;
     const load = scope.run(() => useTripLoadModel({
-      snapshot, totals: computed(() => computeTotals(snapshot.value)), days: computed(() => snapshot.value.days ?? []),
+      snapshot, selection: editor.personFilter.selected, days: computed(() => snapshot.value.days ?? []),
     }))!;
     expect(editor.sortedFolders.value).toHaveLength(MAX_FOLDERS);
     expect(editor.childrenByParent.value.size).toBe(50);
@@ -93,11 +93,16 @@ describe("extracted models under sustained edits", () => {
       const countable = rows.filter((row) => row.unitWeightMg > 0);
       expect(editor.packProgress.value).toEqual({ total: countable.length, done: countable.filter((row) => row.packed).length });
       expect(editor.packed.value).toBe(n % 3 === 1);
-      const carried = snapshot.value.items.filter((row) => row.classification !== "worn");
+      // the walker: a picked person's own rows, else every pack shared across everyone
+      const own = selection && selection !== UNASSIGNED;
+      const share = own ? 1 : snapshot.value.people!.length;
+      const carried = (own ? rows : snapshot.value.items).filter((row) => row.classification !== "worn");
       const food = carried.filter((row) => row.classification === "consumable" && row.name !== "Water");
+      const carriedMg = Math.round(totalMg(carried) / share);
+      const foodMg = Math.round(totalMg(food) / share);
       expect(load.packMg.value).toHaveLength(MAX_DAYS);
-      expect(load.packMg.value[0]).toBe(Math.round(totalMg(carried) - totalMg(food) / MAX_DAYS * 0.5));
-      expect(load.packMg.value.at(-1)).toBe(Math.round(totalMg(carried) - totalMg(food) / MAX_DAYS * (MAX_DAYS - 0.5)));
+      expect(load.packMg.value[0]).toBe(Math.round(carriedMg - Math.min(foodMg, carriedMg) / MAX_DAYS * 0.5));
+      expect(load.packMg.value.at(-1)).toBe(Math.round(carriedMg - Math.min(foodMg, carriedMg) / MAX_DAYS * (MAX_DAYS - 0.5)));
     }
 
     editor.personFilter.selected.value = "p0";

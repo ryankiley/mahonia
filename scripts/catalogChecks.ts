@@ -29,8 +29,10 @@ const VARIANT_COMMENTARY =
 
 // Colour words that are weight-irrelevant and shouldn't fragment identity.
 // (Checked on VARIANT only — product names like "Silver Shadow" live in `name`.)
+// The second line is colourway words a maker names a colour by ("Stone", "Moss"), none of
+// them a size or a version; words that are also product words (gold, copper, sky) stay out.
 const COLOUR_ATTR =
-  /\b(black|white|grey|gray|blue|navy|red|green|olive|khaki|tan|charcoal|sage|orange|yellow|purple|pink|brown|silver|graphite|slate|teal|maroon|burgundy|cream|beige|ivory|coyote|avalanche|habitat)\b/i;
+  /\b(black|white|grey|gray|blue|navy|red|green|olive|khaki|tan|charcoal|sage|orange|yellow|purple|pink|brown|silver|graphite|slate|teal|maroon|burgundy|cream|beige|ivory|coyote|avalanche|habitat|stone|sand|moss|forest|clay|rust|onyx|midnight|ocean|indigo|cobalt|crimson|scarlet|plum|mocha|espresso|heather|bronze)\b/i;
 
 // Pole-family items (trekking poles + their baskets/paws) — the ONE class of
 // paired gear that keeps a "per pair" unit label, since single-pole use is a real
@@ -137,15 +139,15 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   const byProduct = new Map<string, CatalogCsvRow[]>();
   for (const r of rows) {
     const k = `${normKey(r.brand)}|${normKey(r.name)}`;
-    (byProduct.get(k) ?? byProduct.set(k, []).get(k)!).push(r);
+    byProduct.getOrInsertComputed(k, () => []).push(r);
   }
   for (const group of byProduct.values()) {
     for (let a = 0; a < group.length; a++) {
       for (let b = a + 1; b < group.length; b++) {
-        const wa = group[a].weightMg;
-        const wb = group[b].weightMg;
-        const va = normKey(group[a].variant);
-        const vb = normKey(group[b].variant);
+        const wa = group[a]!.weightMg;
+        const wb = group[b]!.weightMg;
+        const va = normKey(group[a]!.variant);
+        const vb = normKey(group[b]!.variant);
         const oneBlank = va === "" || vb === "";
         const sameWeight = oneBlank ? Math.abs(wa - wb) <= 0.01 * Math.max(wa, wb) : wa === wb;
         if (!sameWeight) continue;
@@ -153,7 +155,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
         if (subset) {
           err(
             "duplicate-row",
-            `${group[a].brand} ${group[a].name}: same weight (${wa} mg vs ${wb} mg) for variants "${group[a].variant ?? ""}" and "${group[b].variant ?? ""}" — likely the same product twice`,
+            `${group[a]!.brand} ${group[a]!.name}: same weight (${wa} mg vs ${wb} mg) for variants "${group[a]!.variant ?? ""}" and "${group[b]!.variant ?? ""}" — likely the same product twice`,
           );
         }
       }
@@ -166,14 +168,14 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   const byBrand = new Map<string, CatalogCsvRow[]>();
   for (const r of rows) {
     const k = normKey(r.brand);
-    (byBrand.get(k) ?? byBrand.set(k, []).get(k)!).push(r);
+    byBrand.getOrInsertComputed(k, () => []).push(r);
   }
   for (const group of byBrand.values()) {
     for (let a = 0; a < group.length; a++) {
       for (let b = a + 1; b < group.length; b++) {
-        if (group[a].weightMg !== group[b].weightMg) continue;
-        const ta = normKey(group[a].name).split(" ").filter(Boolean);
-        const tb = normKey(group[b].name).split(" ").filter(Boolean);
+        if (group[a]!.weightMg !== group[b]!.weightMg) continue;
+        const ta = normKey(group[a]!.name).split(" ").filter(Boolean);
+        const tb = normKey(group[b]!.name).split(" ").filter(Boolean);
         if (ta.join(" ") === tb.join(" ")) continue; // same-name case handled above
         const [sh, lo] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
         if (sh.join("").length < 4 || !tokenRunIncludes(lo, sh)) continue;
@@ -187,7 +189,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
         if (extra.length > 0 && extra.every((t) => VERSION.test(t))) continue;
         err(
           "duplicate-name",
-          `${group[a].brand}: "${group[a].name}" and "${group[b].name}" — same weight (${group[a].weightMg} mg), one name contains the other; likely the same product`,
+          `${group[a]!.brand}: "${group[a]!.name}" and "${group[b]!.name}" — same weight (${group[a]!.weightMg} mg), one name contains the other; likely the same product`,
         );
       }
     }
@@ -224,7 +226,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const b = (r.brand ?? "").trim();
     if (!b) continue;
-    (brandSpellings.get(normKey(b)) ?? brandSpellings.set(normKey(b), new Set()).get(normKey(b))!).add(b);
+    brandSpellings.getOrInsertComputed(normKey(b), () => new Set()).add(b);
   }
   for (const spellings of brandSpellings.values()) {
     if (spellings.size > 1) err("brand-case-split", `one brand, ${spellings.size} spellings: ${[...spellings].map((s) => `"${s}"`).join(" / ")} — pick one`);
@@ -235,7 +237,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     for (const d of (r.variant ?? "").split(/,\s*/)) {
       if (!d) continue;
-      (tokenSpellings.get(d.toLowerCase()) ?? tokenSpellings.set(d.toLowerCase(), new Set()).get(d.toLowerCase())!).add(d);
+      tokenSpellings.getOrInsertComputed(d.toLowerCase(), () => new Set()).add(d);
     }
   }
   for (const spellings of tokenSpellings.values()) {
@@ -271,13 +273,13 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   const catsByType = new Map<string, Map<string, number>>();
   for (const r of rows) {
     const k = (r.commonName ?? "").toLowerCase();
-    const m = catsByType.get(k) ?? catsByType.set(k, new Map()).get(k)!;
+    const m = catsByType.getOrInsertComputed(k, () => new Map());
     m.set(r.categoryHint ?? "other", (m.get(r.categoryHint ?? "other") ?? 0) + 1);
   }
   for (const r of rows) {
     const m = catsByType.get((r.commonName ?? "").toLowerCase())!;
     const total = [...m.values()].reduce((a, b) => a + b, 0);
-    const [home, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
+    const [home, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0]!;
     if (total >= 5 && n / total >= 0.9 && (r.categoryHint ?? "other") !== home) {
       err("category-outlier", `${gearLabel(r)}: filed under ${r.categoryHint} while ${n} of ${total} "${r.commonName}" rows are ${home} — move it (or fix the gear type)`);
     }
@@ -321,15 +323,33 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   }
 
   // --- ERROR: colour-as-attribute in variant ------------------------------
+  // The word is named, not the whole variant: "Trail Team Edition, Stone" quoted whole
+  // read as if every part of it were refused, when only "Stone" was.
+  // Every colour word, so "Black/Red" isn't refused for "Black" and then again for "Red".
+  const COLOUR_WORDS = new RegExp(COLOUR_ATTR.source, "gi");
   for (const r of rows) {
-    if (r.variant && COLOUR_ATTR.test(r.variant)) {
-      err("colour-variant", `${gearLabel(r)}: variant contains a colour ("${r.variant}") — colour rarely affects weight`);
+    const colours = [...new Set(r.variant?.match(COLOUR_WORDS) ?? [])];
+    if (colours.length) {
+      const named = colours.map((c) => `"${c}"`).join(", ");
+      err("colour-variant", `${gearLabel(r)}: ${named} in variant "${r.variant}" ${colours.length > 1 ? "are colours" : "is a colour"} — colour rarely affects weight, so drop ${colours.length > 1 ? "them" : "it"}`);
+    }
+  }
+
+  // --- ERROR: an edition in variant ------------------------------------------
+  // An edition, collaboration release or colourway special is not a size or a config.
+  // One that weighs what the base product weighs IS the base product (no variant); one
+  // sold as its own build, with its own weight, is a product of its own and names the
+  // edition in `name` ("Kindle Paperwhite Signature Edition"), as every research row
+  // that has one already does.
+  for (const r of rows) {
+    if (/\beditions?\b/i.test(r.variant ?? "")) {
+      err("variant-edition", `${gearLabel(r)}: "${r.variant}" — an edition isn't a size; one that weighs the same is the base product (no variant), one sold as its own build names the edition in the name`);
     }
   }
 
   // --- WARNING: weight outside the category's plausible range ----------------
   for (const r of rows) {
-    const range = RANGE_G[r.categoryHint ?? "other"] ?? RANGE_G.other;
+    const range = RANGE_G[r.categoryHint ?? "other"] ?? RANGE_G.other!;
     const g = r.weightMg / 1000;
     if (g < range[0] || g > range[1]) {
       warn("plausibility", `${gearLabel(r)}: ${g.toFixed(1)} g outside ${r.categoryHint} range ${range[0]}–${range[1]} g`);
@@ -405,19 +425,15 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // a product with one row is filler; "per bar" on the only row of "Energy Bar"
   // restates the name (a unit label earns its place only beside a multi-pack
   // sibling, or on trekking poles).
-  const rowsPerProduct = new Map<string, number>();
-  for (const r of rows) {
-    const k = `${normKey(r.brand)}|${normKey(r.name)}`;
-    rowsPerProduct.set(k, (rowsPerProduct.get(k) ?? 0) + 1);
-  }
+  const siblings = (r: CatalogCsvRow) => byProduct.get(`${normKey(r.brand)}|${normKey(r.name)}`)!;
   // a unit label is earned when a sibling row is counted differently: "sleeve of 10"
   // beside "per tablet", or "per pair" beside "per pole"
   const hasPackSibling = (r: CatalogCsvRow) =>
-    rows.some((o) => o !== r && normKey(o.brand) === normKey(r.brand) && normKey(o.name) === normKey(r.name) && /\b(\d+-pack|of \d+|per \w+)\b/i.test(o.variant ?? ""));
+    siblings(r).some((o) => o !== r && /\b(\d+-pack|of \d+|per \w+)\b/i.test(o.variant ?? ""));
   for (const r of rows) {
     const v = r.variant ?? "";
     if (!v) continue;
-    const single = rowsPerProduct.get(`${normKey(r.brand)}|${normKey(r.name)}`) === 1;
+    const single = siblings(r).length === 1;
     const dims = v.split(/,\s*/);
     if (dims.some((d) => /^(one size|unisex|1 serving)$/i.test(d))) {
       err("variant-filler", `${gearLabel(r)}: "${v}" — "One size" / "Unisex" / "1 serving" distinguish nothing (single-serving is the unmarked default); drop`);

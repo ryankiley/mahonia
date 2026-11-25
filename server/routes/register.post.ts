@@ -18,15 +18,16 @@ export default defineEventHandler(async (event) => {
   await rateLimit(event, "oauth-register");
   const body = await readJsonBodyCapped<Record<string, unknown>>(event, 8_192);
   const redirectUris = cleanRedirectUris(body?.redirect_uris);
-  if (!redirectUris) return oauthError(event, 400, "invalid_redirect_uri", "redirect_uris must list up to twenty URIs, at least one of them https or loopback http.");
+  if (!redirectUris) return oauthError(event, "invalid_redirect_uri", "redirect_uris must list up to twenty URIs, at least one of them https or loopback http.");
   const method = body?.token_endpoint_auth_method;
-  if (method !== undefined && method !== "none") return oauthError(event, 400, "invalid_client_metadata", "Only public clients register here: token_endpoint_auth_method must be none.");
-  const made = await registerOAuthClient(await useAccountDb(), { clientName: cleanClientName(body?.client_name), redirectUris });
+  if (method !== undefined && method !== "none") return oauthError(event, "invalid_client_metadata", "Only public clients register here: token_endpoint_auth_method must be none.");
+  const clientName = cleanClientName(body?.client_name);
+  const made = await registerOAuthClient(await useAccountDb(), { clientName, redirectUris });
   setResponseStatus(event, 201);
   return {
     client_id: made.clientId,
     client_id_issued_at: Math.floor(made.createdAt.getTime() / 1000),
-    client_name: cleanClientName(body?.client_name) ?? undefined,
+    client_name: clientName ?? undefined,
     // what was kept, which may be fewer than were asked for (cleanRedirectUris)
     redirect_uris: redirectUris,
     token_endpoint_auth_method: "none",

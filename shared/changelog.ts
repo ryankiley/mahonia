@@ -35,6 +35,11 @@ export interface ChangelogRelease {
   fixed?: string[];
 }
 
+/** The entry groups, in the order a release lists them. The writer, the validator,
+ *  the merge and the release body all walk this one list. */
+export const CHANGELOG_GROUPS = ["added", "changed", "fixed"] as const;
+export type ChangelogGroup = (typeof CHANGELOG_GROUPS)[number];
+
 // Newest first. localeCompare on ISO dates sorts chronologically; Array.sort is
 // stable, so same-day batches keep their authored order. Sorts a copy — never
 // mutates the input.
@@ -66,19 +71,19 @@ export function sortReleases(releases: ChangelogRelease[]): ChangelogRelease[] {
 //
 // Pure: sorts and copies, never mutates the input or the releases inside it.
 export function mergeReleases(releases: ChangelogRelease[]): ChangelogRelease[] {
-  const byDate = new Map<string, { title?: string; groups: Record<string, string[]> }>();
+  const byDate = new Map<string, { title?: string; groups: Record<ChangelogGroup, string[]> }>();
 
   for (const rel of releases) {
     let entry = byDate.get(rel.date);
     if (!entry) {
-      entry = { groups: { added: [], changed: [], fixed: [] } };
+      entry = { groups: { added: [], changed: [], fixed: [] } satisfies Record<ChangelogGroup, string[]> };
       byDate.set(rel.date, entry);
     }
     // First title on a date wins — see above.
     if (rel.title && !entry.title) entry.title = rel.title;
-    for (const key of ["added", "changed", "fixed"] as const) {
+    for (const key of CHANGELOG_GROUPS) {
       for (const item of rel[key] ?? []) {
-        if (!entry.groups[key]!.includes(item)) entry.groups[key]!.push(item);
+        if (!entry.groups[key].includes(item)) entry.groups[key].push(item);
       }
     }
   }
@@ -91,9 +96,7 @@ export function mergeReleases(releases: ChangelogRelease[]): ChangelogRelease[] 
   const out: ChangelogRelease[] = [...byDate.entries()].map(([date, { title, groups }]) => ({
     date,
     ...(title ? { title } : {}),
-    ...(groups.added!.length ? { added: groups.added! } : {}),
-    ...(groups.changed!.length ? { changed: groups.changed! } : {}),
-    ...(groups.fixed!.length ? { fixed: groups.fixed! } : {}),
+    ...Object.fromEntries(CHANGELOG_GROUPS.filter((key) => groups[key].length).map((key) => [key, groups[key]])),
   }));
 
   return sortReleases(out);

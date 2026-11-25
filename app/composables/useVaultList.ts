@@ -6,10 +6,10 @@
 // useGearList ask it whether there is a vault at all); this module is imported by the
 // pane, the page and the dialog, which are all chunks of their own.
 
+import { isRecord } from "~~/shared/record";
 import type { VaultEntry, VaultItemOp } from "~~/shared/vault";
-import { gearCopyKey } from "../utils/gearCopy";
 import { recallJson, remember, forget } from "../utils/remember";
-import { sessionCacheOwner } from "../utils/sessionOwner";
+import { OWNED, ownedKey, sessionCacheOwner } from "../utils/sessionOwner";
 
 /** What a change answers. Never thrown: a failed request answers `{ ok: false }`, as a
  *  refusal does, and each caller says what failed. */
@@ -43,15 +43,21 @@ export function useVaultOps(
 // ---------------------------------------------------------------------------
 // the device's copy
 // ---------------------------------------------------------------------------
-// My Gear as this device last read it, per account (utils/gearCopy.ts has the key and
-// why it is per account). Read and written only here, off every page's first load.
+// My Gear as this device last read it: what /gear and the list's My Gear pane show when
+// the server can't be asked. Read and written only here, off every page's first load,
+// and dropped with the account's other memos by forgetOwned (sessionOwner.ts), which
+// knows it by OWNED.gearCopy.
+//
+// Keyed per account (ownedKey), never one shared key, and NOT the service worker's
+// cache: a cache keyed by URL would hand account A's gear to account B on a shared
+// browser offline, where nothing can check who is asking.
 
 /** A copy past this many characters is dropped rather than kept stale: localStorage is
  *  shared with every other memo on the origin. A piece is a few hundred bytes, so this
  *  is thousands of pieces. */
 const COPY_MAX_CHARS = 1_500_000;
 
-export interface GearCopy {
+interface GearCopy {
   items: VaultEntry[];
   /** when it was read from the server, epoch ms */
   savedAt: number;
@@ -61,28 +67,20 @@ export interface GearCopy {
 // search). A copy is read when there is no server to fall back to, so an entry missing
 // one (an older shape, a hand-edited value) is dropped rather than left to throw in the
 // render and take the whole page down offline.
-const isPart = (p: unknown): boolean =>
-  typeof p === "object" && p !== null && typeof (p as { id: unknown }).id === "number" && typeof (p as { qty: unknown }).qty === "number";
-const isEntry = (v: unknown): v is VaultEntry => {
-  if (typeof v !== "object" || v === null) return false;
-  const e = v as Record<string, unknown>;
-  return (
-    typeof e.id === "number" &&
-    typeof e.name === "string" &&
-    typeof e.normKey === "string" &&
-    typeof e.weightMg === "number" &&
-    (e.parts === undefined || (Array.isArray(e.parts) && e.parts.every(isPart)))
-  );
-};
+const isPart = (p: unknown): boolean => isRecord(p) && typeof p.id === "number" && typeof p.qty === "number";
+const isEntry = (v: unknown): v is VaultEntry =>
+  isRecord(v) &&
+  typeof v.id === "number" &&
+  typeof v.name === "string" &&
+  typeof v.normKey === "string" &&
+  typeof v.weightMg === "number" &&
+  (v.parts === undefined || (Array.isArray(v.parts) && v.parts.every(isPart)));
 const isCopy = (v: unknown): v is { items: unknown[]; savedAt: number } =>
-  typeof v === "object" &&
-  v !== null &&
-  Array.isArray((v as { items: unknown }).items) &&
-  typeof (v as { savedAt: unknown }).savedAt === "number";
+  isRecord(v) && Array.isArray(v.items) && typeof v.savedAt === "number";
 
 /** This account's copy, or null: none kept, no owner to key it by, or unreadable. */
 export function readGearCopy(owner: string | null): GearCopy | null {
-  const key = gearCopyKey(owner);
+  const key = ownedKey(OWNED.gearCopy, owner);
   const raw = key ? recallJson(key, isCopy, null) : null;
   return raw ? { items: raw.items.filter(isEntry), savedAt: raw.savedAt } : null;
 }
@@ -91,15 +89,12 @@ export function readGearCopy(owner: string | null): GearCopy | null {
  *  is a fact about the read that produced it, never about whoever is signed in by the
  *  time it's written. Too big to keep is the same as none. */
 export function writeGearCopy(items: VaultEntry[], owner: string | null, now = Date.now()): void {
-  const key = gearCopyKey(owner);
+  const key = ownedKey(OWNED.gearCopy, owner);
   if (!key) return;
   const json = JSON.stringify({ items, savedAt: now } satisfies GearCopy);
   if (json.length > COPY_MAX_CHARS) forget(key);
   else remember(key, json);
 }
-
-/** How often /gear re-asks while it can't reach the server. */
-const RETRY_MS = 30_000;
 
 /**
  * The account's gear, loaded once there is a vault to load and again when that flips
@@ -107,7 +102,7 @@ const RETRY_MS = 30_000;
  * emptied when there isn't one. `loadError` is the load's alone: a change that fails
  * says so in its caller's own words, and a reload after it must not wipe them.
  *
- * Offline it is this device's copy (utils/gearCopy.ts). The copy paints first whenever
+ * Offline it is this device's copy (above). The copy paints first whenever
  * nothing is on screen yet, so a signed-in load shows the gear before the server
  * answers, and it stands in when the server can't answer: the session ask failed
  * (offline with an account reads "presumed", never signed in) or the gear's own read
@@ -165,8 +160,8 @@ export function useVaultList(
 
   // What the gear surfaces say over the gear while it can't be read fresh, in one place
   // so the page and the pane say it alike. A failed read with no copy keeps the load's
-  // own words. `now` moves only while offline (the retry below ticks it), which is the
-  // only time this is shown.
+  // own words. `now` moves only while offline (it is set as offline begins, and the
+  // retry below ticks it), which is the only time this is shown.
   const now = ref(Date.now());
   const offlineNote = computed(() => {
     if (!offline.value) return "";
@@ -242,56 +237,24 @@ export function useVaultList(
   // and not at all once the browser's cookie names someone else.
   watch(
     items,
-    (now) => {
+    (list) => {
       if (source.value !== "server" || !hasVault.value || loadedFor === null) return;
-      if (sessionCacheOwner() === loadedFor) writeGearCopy(now, loadedFor);
+      if (sessionCacheOwner() === loadedFor) writeGearCopy(list, loadedFor);
     },
     { deep: true },
   );
 
-  // Reading the gear again after a failed read. Three triggers, because the browser's
-  // own "online" event is the least reliable of them: navigator.onLine stays true
-  // through a dead trailhead connection, a captive portal or a server blip, so it may
-  // never fire. Coming back to the tab or app asks too, and so does a slow clock while
-  // offline (which also moves "last updated"), never from a hidden tab: a phone with
-  // Mahonia in the background on no signal would wake its radio every 30 s for nothing,
-  // and coming back is a trigger of its own.
+  // Reading the gear again after a failed read, on useRetryWhile's triggers; each one
+  // also moves "last updated".
   //
   // Only the gear's own read. The SESSION'S re-ask, the presumed case, is the session
   // plugin's, once for every surface that waits on it (useSessionReask); its answer
   // flips hasVault, and the watcher above loads.
-  function retry() {
-    if (offline.value && hasVault.value && document.visibilityState === "visible") void load();
-  }
-  const online = useOnline();
-  watch(online, (up) => {
-    if (up) retry();
+  if (import.meta.client) watch(offline, (off) => off && (now.value = Date.now()), { immediate: true });
+  useRetryWhile(offline, () => {
+    now.value = Date.now();
+    if (hasVault.value) void load();
   });
-  if (import.meta.client) {
-    const onVisible = () => {
-      if (document.visibilityState === "visible") retry();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    let tick: ReturnType<typeof setInterval> | undefined;
-    watch(
-      offline,
-      (off) => {
-        clearInterval(tick);
-        tick = undefined;
-        if (!off) return;
-        now.value = Date.now();
-        tick = setInterval(() => {
-          now.value = Date.now();
-          retry();
-        }, RETRY_MS);
-      },
-      { immediate: true },
-    );
-    onScopeDispose(() => {
-      document.removeEventListener("visibilitychange", onVisible);
-      clearInterval(tick);
-    });
-  }
 
   return { hasVault, hasGear, items, loading, loadError, offline, readonly, offlineNote, load };
 }

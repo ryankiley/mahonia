@@ -10,7 +10,7 @@ export const kb = (n) => (n / 1024).toFixed(1);
 
 /** Every key a report carries. `firstLoad` is null when /e wasn't in the build;
  *  the two `*Sources` maps are null when the build carried no hidden sourcemaps. */
-export const REPORT_KEYS = ["firstLoad", "total", "maxChunk", "budgets", "files", "firstLoadSources", "totalSources"];
+const REPORT_KEYS = ["firstLoad", "total", "maxChunk", "budgets", "files", "firstLoadSources", "totalSources"];
 
 /**
  * Read a report and refuse one that isn't — a missing file, a file that isn't JSON,

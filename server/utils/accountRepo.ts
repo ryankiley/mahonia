@@ -5,20 +5,18 @@
 
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import {
-  accessTokens,
   authTokens,
   credentials,
   listClaims,
+  listSnapshots,
   lists,
-  oauthCodes,
   sessions,
   users,
-  vaultFolders,
-  vaultItems,
-  vaultKitParts,
   vaults,
 } from "../db/schema";
-import type { Db } from "./db";
+import { revokeAllAccessTokens } from "./accessTokens";
+import { ensureSnapshotSchema, type Db } from "./db";
+import { deleteVaultContents } from "./vaultRepo";
 
 interface AccountDeletion {
   /** lists soft-deleted — 0 unless `deleteLists` was asked for */
@@ -32,7 +30,7 @@ interface AccountDeletion {
  *
  * GOES, ALWAYS: the account row, its sessions and pending sign-in links, its
  * passkeys, the access tokens its connectors hold and the apps that signed in
- * through the connector, its claims, and its vault with every item and folder in it. A vault has exactly one owner, so none of that is
+ * through the connector, its claims, and its vault with every item in it. A vault has exactly one owner, so none of that is
  * shared — it's gone in the strong sense rather than soft-deleted, because no link
  * remains that could bring it back and nobody else could miss it.
  *
@@ -77,12 +75,7 @@ export async function deleteAccount(
   const owned = await db.select({ id: vaults.id }).from(vaults).where(eq(vaults.userId, userId));
   const vaultId = owned[0]?.id;
   if (vaultId != null) {
-    // a kit's links before the rows they join, as the nightly purge does
-    await db
-      .delete(vaultKitParts)
-      .where(inArray(vaultKitParts.kitId, db.select({ id: vaultItems.id }).from(vaultItems).where(eq(vaultItems.vaultId, vaultId))));
-    await db.delete(vaultItems).where(eq(vaultItems.vaultId, vaultId));
-    await db.delete(vaultFolders).where(eq(vaultFolders.vaultId, vaultId));
+    await deleteVaultContents(db, [vaultId]);
     await db.delete(vaults).where(eq(vaults.id, vaultId));
   }
 
@@ -91,13 +84,24 @@ export async function deleteAccount(
   // serial, so a later account could inherit the id and find its name on a
   // stranger's list.
   await db.update(lists).set({ authorUserId: null }).where(eq(lists.authorUserId, userId));
+  // The same for the changes it made to lists: a recovery point remembers which
+  // account made it, and the point outlives the account, as the list does. Nothing
+  // reads a name off a pointer at an account that is gone, so this is tidying and
+  // must not be able to stop an account from closing: a database that has never
+  // taken a recovery point has no such table until the ensure makes it.
+  try {
+    await ensureSnapshotSchema(db);
+    await db.update(listSnapshots).set({ editorUserId: null }).where(eq(listSnapshots.editorUserId, userId));
+  } catch (e) {
+    console.warn("[delete account] recovery points still name the account", (e as Error).message);
+  }
 
   // everything keyed on the account at once; the account row itself goes last
   await Promise.all([
     db.delete(listClaims).where(eq(listClaims.userId, userId)),
     db.delete(credentials).where(eq(credentials.userId, userId)),
-    db.delete(accessTokens).where(eq(accessTokens.userId, userId)),
-    db.delete(oauthCodes).where(eq(oauthCodes.userId, userId)),
+    // every token and connected app, and the codes not yet traded for one
+    revokeAllAccessTokens(db, userId),
     db.delete(authTokens).where(eq(authTokens.userId, userId)),
     db.delete(sessions).where(eq(sessions.userId, userId)),
   ]);

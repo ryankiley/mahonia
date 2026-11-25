@@ -9,22 +9,14 @@
 // ERRORS gate the build. WARNINGS (weight-range plausibility) are for a human.
 // Pure and fs-free: the caller reads the files (scripts/research.ts) and passes them in.
 
-import { ATTRIBUTE_KEYS, validateAttributes } from "./catalogAttributes";
+import { isAttributeKey, validateAttributes } from "./catalogAttributes";
 import type { Finding } from "./catalogChecks";
 import { gearLabel } from "./catalogChecks";
-import { identityKey, isCitationUrl, isWeightSource, specToMg, type SpecUnit } from "./catalogCsv";
-import { researchGearType, type ResearchFile } from "./research";
-import { RANGE_G } from "../shared/catalogQuality";
-
-/** All gram-equivalent figures mentioned in a quote (kg converted to g).
- *  Handles thousands separators ("1,790 g" is 1790, not 790). */
-export function gramsInQuote(q: string): number[] {
-  const out: number[] = [];
-  const num = (s: string) => parseFloat(s.replace(/,/g, ""));
-  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*kg/gi)) out.push(num(m[1]) * 1000);
-  for (const m of q.matchAll(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*g(?![a-z])/gi)) out.push(num(m[1]));
-  return out;
-}
+import { identityKey, isCitationUrl, isWeightSource, specToMg } from "./catalogCsv";
+import { GRADUATED_FILE_NAME, researchGearType, type ResearchFile } from "./research";
+import { ATTRIBUTE_KEYS } from "../shared/catalogAxes";
+import { gramsInQuote, quoteTolerance, RANGE_G, weightsInQuote } from "../shared/catalogQuality";
+import type { Unit } from "../shared/types";
 
 const WORD_NUMBER: Record<string, number> = { one: 1, two: 2, three: 3, four: 4 };
 
@@ -42,7 +34,7 @@ export function servingsOf(variant: string | null | undefined, kcalQuote: string
   const contains = q.match(/contains\s+(\d+)\b[^.]{0,20}?servings?/i);
   if (contains) return Number(contains[1]);
   const inline = q.match(/\b(\d+(?:\.\d+)?|one|two|three|four)\s+servings?\b/i);
-  if (inline) return WORD_NUMBER[inline[1].toLowerCase()] ?? Number(inline[1]);
+  if (inline) return WORD_NUMBER[inline[1]!.toLowerCase()] ?? Number(inline[1]);
   const count = v.match(/\b(?:of|bottle of|bag of|package of|sleeve of)\s*(\d+)\b/i) ?? v.match(/\b(\d+)[- ]?(?:ct|count|pack)\b/i);
   const perServing = q.match(/serving size[:\s]*(\d+)\s+(?:tablets?|pieces?|chews?|bars?|pastries|wafers?|cookies?|packets?)/i);
   if (count && perServing && Number(count[1]) % Number(perServing[1]) === 0) return Number(count[1]) / Number(perServing[1]);
@@ -53,7 +45,7 @@ export function servingsOf(variant: string | null | undefined, kcalQuote: string
  *  the quote, or a number in the quote times the row's serving count (a panel gives
  *  per-serving calories; the row stores the whole pouch). */
 export function kcalMatchesQuote(kcal: number, kcalQuote: string, servings: number): boolean {
-  const nums = [...kcalQuote.matchAll(/(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g)].map((m) => Number(m[1].replace(/,/g, "")));
+  const nums = [...kcalQuote.matchAll(/(\d{1,3}(?:,\d{3})+|\d+)(?:\.\d+)?/g)].map((m) => Number(m[1]!.replace(/,/g, "")));
   return nums.some((n) => n === kcal || n * servings === kcal);
 }
 
@@ -78,13 +70,13 @@ function figureAfter(q: string, re: RegExp): number | null {
   if (i < 0) return null;
   const m = q.slice(i).match(/(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(g|kg|oz|lbs?)\b/i);
   if (!m) return null;
-  const n = parseFloat(m[1].replace(/,/g, ""));
-  const u = m[2].toLowerCase();
+  const n = parseFloat(m[1]!.replace(/,/g, ""));
+  const u = m[2]!.toLowerCase();
   let g = u === "g" ? n : u === "kg" ? n * 1000 : u === "oz" ? n * 28.3495 : n * 453.592;
   // "3 lb 5 oz": add a trailing ounce remainder
   if (u.startsWith("lb")) {
     const rest = q.slice(i + m.index! + m[0].length).match(/^[.,]?\s*,?\s*(\d+(?:\.\d+)?)\s*oz\b/i);
-    if (rest) g += parseFloat(rest[1]) * 28.3495;
+    if (rest) g += parseFloat(rest[1]!) * 28.3495;
   }
   return g;
 }
@@ -125,7 +117,7 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
         if (!Array.isArray(r.attributes_unpublished) || !r.attributes_unpublished.length) err("attr-unpublished", `${where}: attributes_unpublished must be a non-empty list of axes`);
         else {
           for (const k of r.attributes_unpublished) {
-            if (!(ATTRIBUTE_KEYS as readonly string[]).includes(k)) err("attr-unpublished", `${where}: "${k}" is not an axis (one of ${ATTRIBUTE_KEYS.join(", ")})`);
+            if (!isAttributeKey(k)) err("attr-unpublished", `${where}: "${k}" is not an axis (one of ${ATTRIBUTE_KEYS.join(", ")})`);
             else if (r.attributes && (r.attributes as Record<string, unknown>)[k] != null) err("attr-unpublished", `${where}: ${k} is both stated in attributes and listed as unpublished`);
           }
         }
@@ -134,7 +126,7 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
       // the cited weight must convert
       let mg: number;
       try {
-        mg = specToMg(Number(r.weight_value), r.weight_unit as SpecUnit, r.weight_secondary);
+        mg = specToMg(Number(r.weight_value), r.weight_unit as Unit, r.weight_secondary);
       } catch (e) {
         err("convert", `${where}: ${(e as Error).message}`);
         continue;
@@ -142,20 +134,24 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
       const g = mg / 1000;
 
       // plausibility (a human's list — heavy boots and per-pair poles are legit)
-      const range = RANGE_G[r.category_hint ?? "other"] ?? RANGE_G.other;
+      const range = RANGE_G[r.category_hint ?? "other"] ?? RANGE_G.other!;
       if (g < range[0] || g > range[1]) {
         warn("range", `${where}: ${g.toFixed(0)} g outside ${r.category_hint} range ${range[0]}–${range[1]} g | ${r.weight_value}${r.weight_unit}`);
       }
 
       // QUOTE CROSS-CHECK against the gram figure CLOSEST to the computed value, so
       // a legit secondary figure (packed weight, another size) doesn't false-positive
-      // while a real transcription error (no nearby figure) still trips.
-      const grams = gramsInQuote(r.quote ?? "");
+      // while a real transcription error (no nearby figure) still trips. A row graduated
+      // from the app is read as verify_catalog_item read it, ounces and pounds too, so it
+      // is held to the rule it was taken on. The hand research keeps the metric read:
+      // its ounce-only quotes include lists and ranges ("13/19 oz", "36 to 39 oz") that
+      // a single-figure read would flag.
+      const grams = (file === GRADUATED_FILE_NAME ? weightsInQuote : gramsInQuote)(r.quote ?? "");
       if (grams.length) {
         const nearest = grams.reduce((a, b) => (Math.abs(b - g) < Math.abs(a - g) ? b : a));
         const diff = Math.abs(g - nearest);
-        if (diff > Math.max(8, 0.05 * nearest)) {
-          err("quote", `${where}: computed ${g.toFixed(0)} g, nearest quote figure ${nearest} g (Δ${diff.toFixed(0)} g) | grams in quote: ${grams.join(", ")} | "${(r.quote ?? "").slice(0, 90)}"`);
+        if (diff > quoteTolerance(nearest)) {
+          err("quote", `${where}: computed ${g.toFixed(0)} g, nearest quote figure ${nearest.toFixed(0)} g (Δ${diff.toFixed(0)} g) | grams in quote: ${grams.map((n) => n.toFixed(0)).join(", ")} | "${(r.quote ?? "").slice(0, 90)}"`);
         }
       }
 

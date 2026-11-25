@@ -15,6 +15,8 @@ export default defineEventHandler(async (event) => {
   const minted = await mintAccessToken(db, user.id, {
     label: typeof body?.label === "string" ? body.label : null,
     scope,
+    // as unproven as the session that asked, checked above (claimUnverifiedAccount)
+    unproven: user.unproven,
   });
   if (!minted) return { ok: false as const, reason: "limit" as const };
   return { ok: true as const, id: minted.id, token: minted.token, scope };

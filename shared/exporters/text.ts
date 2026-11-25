@@ -14,6 +14,7 @@
 import type { Item, ListSnapshot } from "../types";
 import { computeTotals, formatWeightAuto, itemDisplayName, unitSystem } from "../weights";
 import { exportOrderedItems } from "./rows";
+import { isWaterName, waterVolumeLabel } from "../water";
 
 /**
  * A gear type reads as a common noun mid-sentence ("Altra Lone Peak 9+ trail runners")
@@ -44,6 +45,8 @@ function itemPhrase(it: Item): string {
     common && !name.toLowerCase().includes(common.toLowerCase())
       ? `${name} ${asCommonNoun(common)}`
       : name;
+  // Water says its volume ("Water 3 L"): it has no count (waterVolumeLabel).
+  if (isWaterName(it.name)) return `${phrase} ${waterVolumeLabel(it)}`;
   // Quantity rides along only when there's more than one. Nearly every row is one of a
   // thing, and "×1" on all of them is exactly the clutter this format exists to avoid.
   return it.qty > 1 ? `${phrase} ×${it.qty}` : phrase;

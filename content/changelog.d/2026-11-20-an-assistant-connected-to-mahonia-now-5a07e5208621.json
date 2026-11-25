@@ -1,0 +1,10 @@
+{
+  "date": "2026-11-20",
+  "changed": [
+    "An assistant connected to Mahonia now knows which items haven't been weighed yet, and reads a large My Gear a page at a time."
+  ],
+  "fixed": [
+    "A list an assistant makes for your account is no longer made twice when its first request times out and is retried.",
+    "An assistant asked to put a row in Unfiled no longer makes a folder called Unfiled."
+  ]
+}

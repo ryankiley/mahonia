@@ -764,6 +764,37 @@ describe("normalizeItem — a quantity of zero is a quantity", () => {
   });
 });
 
+describe("water is a volume, never a count", () => {
+  const water = (over: Record<string, unknown> = {}) => ({ name: "Water", unitWeightMg: 1_000_000, classification: "consumable", ...over });
+
+  it("folds a count into the volume as a row arrives, weighing what it did", () => {
+    const [it] = withItem(water({ qty: 3 })).items;
+    expect(it).toMatchObject({ qty: 1, unitWeightMg: 3_000_000 });
+    expect(normalizeItem(item(water({ qty: 2, unitWeightMg: 750_000 })))).toMatchObject({ qty: 1, unitWeightMg: 1_500_000 });
+  });
+
+  it("folds a count set on water, and a row renamed to water", () => {
+    const s = withItem(water());
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { qty: 3 } }]);
+    expect(s.items[0]).toMatchObject({ qty: 1, unitWeightMg: 3_000_000 });
+
+    const bottles = withItem({ name: "Bottle", qty: 2, unitWeightMg: 500_000 });
+    applyOps(bottles, [{ t: "updateItem", id: "i1", patch: { name: "Water" } }]);
+    expect(bottles.items[0]).toMatchObject({ qty: 1, unitWeightMg: 1_000_000 });
+  });
+
+  it("leaves every other row's count, and water's zero, alone", () => {
+    expect(withItem({ name: "Water filter", qty: 2, unitWeightMg: 85_000 }).items[0]).toMatchObject({ qty: 2, unitWeightMg: 85_000 });
+    expect(withItem(water({ qty: 0 })).items[0]).toMatchObject({ qty: 0, unitWeightMg: 1_000_000 });
+  });
+
+  it("clamps a fold past one item's cap rather than storing it", () => {
+    const [it] = withItem(water({ qty: 9999, unitWeightMg: 900_000_000 })).items;
+    expect(it!.qty).toBe(1);
+    expect(it!.unitWeightMg).toBe(clampUnitWeightMg(Number.MAX_SAFE_INTEGER));
+  });
+});
+
 describe("productUrl — scheme-checked like every other stored link", () => {
   const withUrl = (productUrl: string) =>
     normalizeItem({ id: "i", name: "Tent", unitWeightMg: 1, qty: 1, productUrl } as unknown as Item);

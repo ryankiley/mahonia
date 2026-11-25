@@ -5,7 +5,7 @@
   "type": "module",
   "description": "A no-login ultralight gear-list / pack-weight tracker — a better LighterPack.",
   "engines": {
-    "node": "24.x"
+    "node": "26.x"
   },
   "scripts": {
     "dev": "nuxt dev --host 0.0.0.0",
@@ -24,12 +24,12 @@
     "og:site": "jiti scripts/render-og-site.ts",
     "catalog:build": "jiti scripts/build-catalog.ts",
     "catalog:audit": "jiti scripts/audit-catalog.ts",
+    "catalog:graduate": "jiti scripts/catalog-graduate.ts",
     "seed": "jiti scripts/seed-catalog.ts",
     "mirror": "jiti scripts/mirror-account.ts",
     "ios:fixtures": "jiti scripts/emit-ios-fixtures.ts"
   },
   "dependencies": {
-    "@hugeicons/core-free-icons": "^4.2.3",
     "@neondatabase/serverless": "^1.1.0",
     "@resvg/resvg-js": "^2.6.2",
     "@simplewebauthn/server": "^14.0.1",
@@ -43,10 +43,9 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.3",
-    "@hugeicons/vue": "^1.0.7",
     "@nuxt/test-utils": "^4.0.3",
     "@types/leaflet": "^1.9.22",
-    "@types/node": "^24",
+    "@types/node": "^26",
     "@vite-pwa/nuxt": "^1.1.1",
     "@vue/test-utils": "^2.4.11",
     "ajv": "^8.20.0",
@@ -57,9 +56,13 @@
     "vitest": "^5.0.2",
     "vue-tsc": "^3.3.5"
   },
+  "//": "overrides → @vercel/analytics: v2 declares an optional peer of vue-router@^4, but Nuxt 4 ships vue-router 5, and a strict install (Vercel, CI, no legacy-peer-deps) refuses the pair. The module runs on 5; its range is only stale. Drop this override once a release accepts ^5 (2.1.0-canary already does).",
   "overrides": {
     "satori": {
       "fflate": "0.7.5"
+    },
+    "@vercel/analytics": {
+      "vue-router": "^5.4.0"
     }
   }
 }

@@ -26,7 +26,8 @@ import { LIST_CODE_HEADER } from "../../shared/links";
 import { resolveSession } from "./authSession";
 import { claimedEditHash } from "./claimRepo";
 import { useVaultDb } from "./db";
-import { bearerToken } from "./http";
+import { bearerToken, setNoIndex } from "./http";
+import { rateLimit, type RateLimitAction } from "./rateLimit";
 import { sha256Hex } from "./tokens";
 
 // The header naming which claimed list a session-authorised request means lives in
@@ -61,3 +62,25 @@ export async function requireEditHash(event: H3Event): Promise<string> {
 
   throw createError({ statusCode: 401, statusMessage: "Missing edit capability" });
 }
+
+/**
+ * What every edit endpoint opens with: keep the answer out of search results,
+ * throttle on `action`, then resolve the capability.
+ *
+ * The throttle comes BEFORE the capability on purpose. requireEditHash only proves
+ * one was PRESENTED, so an unresolvable bearer string would otherwise drive an
+ * unthrottled database lookup (and, on the reads, a catalog hydrate) per request.
+ */
+export async function requireEdit(event: H3Event, action: RateLimitAction): Promise<string> {
+  setNoIndex(event);
+  await rateLimit(event, action);
+  return requireEditHash(event);
+}
+
+/**
+ * Who is making an edit, for the list's recent changes: the signed-in account's id,
+ * or null. A lookup rather than a value, because the repo asks only when a recovery
+ * point is actually taken, which keeps the session read off the autosave's path. It
+ * names an editor and gates nothing: the capability is requireEdit's.
+ */
+export const editorOf = (event: H3Event) => async (): Promise<number | null> => (await resolveSession(event))?.id ?? null;

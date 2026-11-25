@@ -1,10 +1,12 @@
 <script setup lang="ts">
+import { IconExpand45, IconMinimize45, IconQuestionmarkCircle } from "~/icons/central";
+import { MAX_LABEL_LEN } from "~~/shared/ops";
 import { formatLatLon, nearestAlongM, pointAlong, sliceAlong } from "~~/shared/polyline";
-import { HugeiconsIcon, kebab, type IconNode } from "~/utils/hugeicon";
-import { ArrowExpand02Icon, ArrowShrink02Icon, HelpCircleIcon } from "@hugeicons/core-free-icons";
+import { SvgIcon, kebab, type IconNode } from "~/utils/icon";
 import { formatDistance, type DisplayDistanceUnit } from "~~/shared/trailDistance";
 import { waypointKindMeta } from "~/utils/waypointKinds";
 import { useRouteMapGeometry } from "~/composables/useRouteMapGeometry";
+import { motionIsInstant } from "~/plugins/inputModality.client";
 
 // Where the route actually goes — the other half of the elevation profile's answer.
 //
@@ -188,19 +190,6 @@ function resize() {
 }
 
 /**
- * A Hugeicon as an SVG STRING.
- *
- * Leaflet's divIcon takes HTML, not a component, so the glyph can't be rendered by
- * <HugeiconsIcon> the way it is everywhere else in the app — it has to be serialised. The
- * icon data is a plain `[tag, attrs][]` array from the bundled package, which is why this
- * is a dozen lines rather than a dependency.
- *
- * The per-path `stroke-width` is DROPPED and set once on the <svg>. The set draws in a
- * 24-unit box at 1.5, which scales to a 0.7px hairline at pin size — invisible against
- * contour lines. Setting it here lets the paths inherit a weight chosen for the size
- * they're actually drawn at.
- */
-/**
  * The drop. Big enough to hold a legible glyph, small enough not to bury the terrain.
  *
  * 22px was sized for a coloured disc, where the fill did the finding and the glyph was a
@@ -250,18 +239,54 @@ const TRACE_PX = 12;
 const PIN_TIP_PX = PIN_PX / 2 + (PIN_PX * Math.SQRT2) / 2;
 const PIN_GLYPH_PX = 17;
 const PIN_GLYPH_STROKE = 2;
+/**
+ * A glyph as an SVG STRING.
+ *
+ * Leaflet's divIcon takes HTML, not a component, so the glyph can't be rendered by
+ * <SvgIcon> the way it is everywhere else in the app — it has to be serialised. The
+ * icon data is a plain `[tag, attrs][]` array (app/utils/icon.ts), which is why this is a
+ * dozen lines rather than a dependency.
+ *
+ * The stroke width is set once on the <svg>, as <SvgIcon> does, and the paths inherit a
+ * weight chosen for the size they're actually drawn at; a part that carries its own (a
+ * filled dot's hairline) keeps it.
+ */
 function iconSvg(icon: IconNode): string {
   const body = icon
     .map(([tag, attrs]) => {
       const a = Object.entries(attrs)
-        // `key` is Vue's list hint and strokeWidth is set on the parent; neither is SVG
-        .filter(([k]) => k !== "key" && k !== "strokeWidth")
+        // `key` is Vue's list hint, not SVG
+        .filter(([k]) => k !== "key")
         .map(([k, v]) => `${kebab(k)}="${String(v).replace(/[<>&"]/g, "")}"`)
         .join(" ");
       return `<${tag} ${a}/>`;
     })
     .join("");
   return `<svg viewBox="0 0 24 24" width="${PIN_GLYPH_PX}" height="${PIN_GLYPH_PX}" fill="none" stroke-width="${PIN_GLYPH_STROKE}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${body}</svg>`;
+}
+
+/**
+ * The drop every pin on the map wears: a waypoint, a day boundary and the finish alike,
+ * so the three can't be cut to different sizes or anchored at different points.
+ *
+ * The GLYPH inside the disc, not a bare dot. Colours alone asked the reader to hold a
+ * legend in their head that the map has nowhere to print; a droplet says "water" without
+ * one, and it still says it to somebody who can't separate the blue from the violet. The
+ * kind's hue rides in as --pin, which the inverted pins (the CSS's --dark) ignore.
+ *
+ * Anchored at THE TIP, not the centre and not the box's bottom edge. The drop's point is
+ * the claim: it lands on the metre of route the pin stores, and the body of the mark sits
+ * above it out of the way of the line it is pointing at. See PIN_TIP_PX for why the tip
+ * is not simply the bottom of the icon box.
+ */
+function pinIcon(kind: string, variant = "") {
+  const meta = waypointKindMeta(kind);
+  return L!.divIcon({
+    className: `routemap__pin${variant}`,
+    html: `<i style="--pin:${meta.color}">${iconSvg(meta.icon)}</i>`,
+    iconSize: [PIN_PX, PIN_PX],
+    iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
+  });
 }
 
 /**
@@ -418,39 +443,23 @@ function endLift() {
   resetLift(true);
 }
 
-/**
- * Draw the pins.
- *
- * A waypoint stores only a DISTANCE, so its position is walked out of the polyline here —
- * which is the whole reason no coordinate is ever stored for one.
- *
- * The label goes on with textContent, never into the divIcon's html. That html is set as
- * innerHTML, and a label is text somebody typed on a list anyone with the link can open.
- */
 /** The day-boundary handles. Same lift gesture as a pin, a different thing to commit. */
 function renderBounds() {
   if (!map || !L) return;
   for (const m of bounds) m.remove();
   bounds = [];
   const line = points.value;
-  const camp = waypointKindMeta("camp");
   for (const b of boundaries.value) {
     const at = pointAlong(line, b.alongM, cum.value);
     if (!at) continue;
     const marker = L.marker([at.lat, at.lon], {
       keyboard: false,
-      icon: L.divIcon({
-        // THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is
-        // a camp, and a reader shouldn't have to know which of these the itinerary drew
-        // and which somebody placed. It takes the inverted pin's recipe wholesale (see
-        // the CSS) — the itinerary talking, in ink rather than a category's hue — and
-        // keeps its own name only as a hook.
-        className: "routemap__pin routemap__pin--dark routemap__bound",
-        html: `<i>${iconSvg(camp.icon)}</i>`,
-        iconSize: [PIN_PX, PIN_PX],
-        // the tip, as a waypoint's is — the point is the metre of route it marks
-        iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
-      }),
+      // THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is
+      // a camp, and a reader shouldn't have to know which of these the itinerary drew
+      // and which somebody placed. It takes the inverted pin's recipe wholesale (see
+      // the CSS) — the itinerary talking, in ink rather than a category's hue — and
+      // keeps its own name only as a hook.
+      icon: pinIcon("camp", " routemap__pin--dark routemap__bound"),
     }).addTo(map);
     // No tooltip, for the same reason the waypoints lost theirs: it named what the tent
     // already says and covered the ground around the thing being pointed at. Which day it
@@ -529,19 +538,22 @@ function renderFinish() {
   // thresholds eventually disagree.
   const wps = props.waypoints ?? [];
   if (wps.some((w) => w.kind === "trailhead") && !wps.some((w) => w.kind === "end")) return;
-  const meta = waypointKindMeta("end");
   finish = L.marker([at.lat, at.lon], {
     keyboard: false,
     interactive: false,
-    icon: L.divIcon({
-      className: "routemap__pin routemap__pin--dark",
-      html: `<i style="--pin:${meta.color}">${iconSvg(meta.icon)}</i>`,
-      iconSize: [PIN_PX, PIN_PX],
-      iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
-    }),
+    icon: pinIcon("end", " routemap__pin--dark"),
   }).addTo(map);
 }
 
+/**
+ * Draw the pins.
+ *
+ * A waypoint stores only a DISTANCE, so its position is walked out of the polyline here —
+ * which is the whole reason no coordinate is ever stored for one.
+ *
+ * The label goes on with textContent, never into the divIcon's html. That html is set as
+ * innerHTML, and a label is text somebody typed on a list anyone with the link can open.
+ */
 function renderPins() {
   if (!map || !L) return;
   for (const m of pins) m.remove();
@@ -549,26 +561,12 @@ function renderPins() {
   pins = (props.waypoints ?? []).flatMap((w) => {
     const at = pointAlong(line, w.alongM, cum.value);
     if (!at) return [];
-    const meta = waypointKindMeta(w.kind);
     const marker = L!.marker([at.lat, at.lon], {
       keyboard: false,
-      icon: L!.divIcon({
-        // The route's own two ends invert — see the CSS. They are not a category of thing
-        // found along the walk, they are where it starts and stops, and a solid mark says
-        // that without needing a fifth hue.
-        className: `routemap__pin${w.kind === "trailhead" || w.kind === "end" ? " routemap__pin--dark" : ""}`,
-        // The GLYPH inside the disc, not a bare dot. Five colours alone asked the reader
-        // to hold a legend in their head that the map has nowhere to print — a droplet
-        // says "water" without one, and it still says it to somebody who can't separate
-        // the blue from the violet.
-        html: `<i style="--pin:${meta.color}">${iconSvg(meta.icon)}</i>`,
-        iconSize: [PIN_PX, PIN_PX],
-        // THE TIP, not the centre and not the box's bottom edge. The drop's point is the
-        // claim — it lands on the metre of route the pin stores, and the body of the mark
-        // sits above it out of the way of the line it is pointing at. See PIN_TIP_PX for
-        // why the tip is not simply the bottom of the icon box.
-        iconAnchor: [PIN_PX / 2, PIN_TIP_PX],
-      }),
+      // The route's own two ends invert — see the CSS. They are not a category of thing
+      // found along the walk, they are where it starts and stops, and a solid mark says
+      // that without needing a fifth hue.
+      icon: pinIcon(w.kind, w.kind === "trailhead" || w.kind === "end" ? " routemap__pin--dark" : ""),
     }).addTo(map!);
     // NO TOOLTIP. It said what the pin's own glyph already says and what its row says
     // again, and it did so by covering the terrain around the thing you were pointing at —
@@ -648,16 +646,12 @@ function renderLegs() {
       opacity: groundOpacity,
       color: casingFor(GROUND),
       interactive: false,
-      lineCap: "round",
-      lineJoin: "round",
       className: "routemap__casing",
     }).addTo(map);
     const ground = L.polyline(track, {
       weight: 4,
       opacity: groundOpacity,
       interactive: false,
-      lineCap: "round",
-      lineJoin: "round",
       className: "routemap__ground",
     }).addTo(map);
     // inline style, as the legs' own fill is set below — the one place a colour function
@@ -693,8 +687,6 @@ function renderLegs() {
           opacity: isDimmed(leg.fromM, leg.toM) ? DIM : 1,
           color: casingFor(leg.color),
           interactive: false,
-          lineCap: "round",
-          lineJoin: "round",
           className: "routemap__casing",
         },
       ).addTo(map!),
@@ -706,8 +698,6 @@ function renderLegs() {
       {
         weight: 4,
         opacity: isDimmed(leg.fromM, leg.toM) ? DIM : 1,
-        lineCap: "round",
-        lineJoin: "round",
         className: "routemap__leg",
       },
     ).addTo(map!);
@@ -900,9 +890,7 @@ async function setExpanded(on: boolean) {
  *  page for 630ms after you asked it to go. A transitionend would have missed the first
  *  case, where the transition never runs and so never ends. */
 function closeMs(): number {
-  if (document.documentElement.dataset.input === "keyboard") return 0;
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return 0;
-  return springCss("move").duration;
+  return motionIsInstant() ? 0 : springCss("move").duration;
 }
 const parkedEl = ref<HTMLElement | null>(null);
 
@@ -944,7 +932,7 @@ function pinPopup(w: { id: string; kind: string; alongM: number; label?: string 
   const input = document.createElement("input");
   input.className = "routemap__wpname";
   input.type = "text";
-  input.maxLength = 120;
+  input.maxLength = MAX_LABEL_LEN;
   input.value = w.label ?? "";
   input.placeholder = meta.label;
   input.setAttribute("aria-label", `Name for the ${meta.label.toLowerCase()}`);
@@ -1198,10 +1186,8 @@ onBeforeUnmount(() => {
         :title="expanded ? 'Shrink the map' : 'Expand the map'"
         @click="setExpanded(!expanded)"
       >
-        <HugeiconsIcon
-          :icon="expanded ? ArrowShrink02Icon : ArrowExpand02Icon"
-          :size="16"
-          :stroke-width="2"
+        <SvgIcon
+          :icon="expanded ? IconMinimize45 : IconExpand45"
           aria-hidden="true"
         />
       </button>
@@ -1218,8 +1204,8 @@ onBeforeUnmount(() => {
            than it does for the estimates, because one of the gestures it explains is the
            press-and-hold, and touch is exactly where that one is worth knowing. -->
       <Tooltip v-else :text="gestures" preferred-placement="top">
-        <button type="button" class="btn btn--icon btn--ghost routemap__help" aria-label="How to use this map">
-          <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" />
+        <button type="button" class="btn btn--icon btn--ghost ink-quiet routemap__help" aria-label="How to use this map">
+          <SvgIcon :icon="IconQuestionmarkCircle" size="sm" />
         </button>
       </Tooltip>
     </figcaption>
@@ -1248,7 +1234,7 @@ onBeforeUnmount(() => {
 }
 
 .routemap__canvas {
-  height: 320px;
+  height: calc(320 * var(--tpx));
   width: 100%;
   // --radius-2, the same softening the app's other large surfaces take. Leaflet's own
   // container needs it too (below): the tile pane is transformed, and a transformed
@@ -1261,12 +1247,18 @@ onBeforeUnmount(() => {
   // popovers and dialogs rather than letting a tile pane sit over a menu.
   z-index: 0;
   isolation: isolate;
+  // the frame is a flex row (below) and the map is the whole of it
+  flex: 1;
 }
 
 // the anchor for anything drawn OVER the map — never the figure, which is taller
 .routemap__frame {
   position: relative;
   display: flex;
+  // The clip is what animates. See setExpanded: the frame is full size from the first
+  // frame, so Leaflet is measured once and only the window onto it moves.
+  // (reduced-motion is handled by the global duration kill-switch, main.scss)
+  transition: clip-path var(--spring-move-dur) var(--spring-move);
 }
 
 /* EXPANDED: the FRAME takes the window, and the figure stays exactly where it was.
@@ -1283,17 +1275,6 @@ onBeforeUnmount(() => {
 }
 .routemap.is-expanded .routemap__canvas {
   height: auto;
-}
-
-/* The clip is what animates. See setExpanded: the frame is full size from the first frame,
-   so Leaflet is measured once and only the window onto it moves. */
-.routemap__frame {
-  // reduced-motion is handled by the global duration kill-switch (main.scss)
-  transition: clip-path var(--spring-move-dur) var(--spring-move);
-}
-.routemap__canvas {
-  flex: 1;
-  min-width: 0;
 }
 /* the caption is a footnote at strip size and a distraction at window size — the gesture
    it names still works, and by now you have used it */
@@ -1356,7 +1337,6 @@ onBeforeUnmount(() => {
   justify-content: center;
   width: var(--control-compact);
   height: var(--control-compact);
-  padding: 0;
   border: 1px solid var(--line-2);
   border-radius: var(--radius-1);
   // Leaflet's own controls are white-on-map in both themes because the basemap stays
@@ -1373,7 +1353,7 @@ onBeforeUnmount(() => {
     background: var(--map-paper-muted);
   }
 }
-// A finger's size on touch, as every icon button is (--tap): at 30px the one control that
+// A finger's size on touch, as every icon button is (--tap): at 32px the one control that
 // gets you to a map you can pan was the smallest target on it. Zoom's +/− are Leaflet's
 // own and stay its size.
 @media (pointer: coarse) {
@@ -1402,10 +1382,9 @@ onBeforeUnmount(() => {
   font-size: var(--text-chrome);
   color: var(--ink-3);
 }
-/* The (?) sits where the sentence did, and quietly — it is an offer, not a notice. */
-.routemap__help {
-  color: var(--ink-3);
-}
+/* The (?) sits where the sentence did, and quietly — it is an offer, not a notice. Its
+   inks are .ink-quiet's (controls.scss), so it lifts under keyboard focus as well as
+   under the pointer. */
 
 // ARMED: one stretch of the route is the only thing worth aiming at, so the cursor says
 // so and everything else on the line stands down (see DIM). A deliberate mode rather than
@@ -1500,6 +1479,10 @@ onBeforeUnmount(() => {
   box-shadow: var(--map-pin-shadow-lifted);
 }
 .routemap__pin {
+  // Leaflet's divIcon ships a white box with a border; both are cleared or every pin
+  // renders inside a little card.
+  background: none;
+  border: 0;
   cursor: grab;
   // BROWSER scrolling only — Leaflet pans with its own JS handlers, so a drag that starts
   // on a pin still moves the map. What this stops is the page scrolling out from under a
@@ -1529,12 +1512,6 @@ onBeforeUnmount(() => {
 }
 .routemap__pin--dark i::before {
   background: var(--map-pin-seat-dark);
-}
-// Leaflet's divIcon ships a white box with a border; both are cleared or every pin
-// renders inside a little card.
-.routemap__pin {
-  background: none;
-  border: 0;
 }
 
 /* THE CHART'S CURSOR, ON THE GROUND.
@@ -1579,7 +1556,7 @@ onBeforeUnmount(() => {
 }
 
 .routemap .leaflet-control-attribution {
-  font-size: 10px;
+  font-size: calc(10 * var(--tpx));
   background: var(--map-paper-translucent);
 
   a {

@@ -127,9 +127,10 @@ describe("community intake — corroborateCatalog", () => {
 
   // and the dedup reads the size too: a typed "Revelation" in Long is the catalog's
   // Revelation in Long, not its Regular beside it
-  it("merges a typed size into the catalog's row of that size", async () => {
+  it("merges a typed size into the catalog's row of that size, however many sizes it has", async () => {
+    for (const variant of ["Regular", "Short", "Regular Wide", "Long Wide", "X-Long"])
+      await cited(db, { brand: "Enlightened Equipment", name: "Revelation", variant, weightMg: 500_000 });
     const long = await cited(db, { brand: "Enlightened Equipment", name: "Revelation", variant: "Long", weightMg: 560_000 });
-    await cited(db, { brand: "Enlightened Equipment", name: "Revelation", variant: "Regular", weightMg: 500_000 });
     for (const i of [1, 2, 3])
       await stageCandidates(db, i, [{ brand: "Enlightened Equipment", name: "Revelation", variant: "Long", weightMg: 565_000 }]);
     const r = await corroborateCatalog(db);
@@ -137,7 +138,7 @@ describe("community intake — corroborateCatalog", () => {
     expect(r.promoted).toBe(0);
     const [row] = (await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, long.id))) as any[];
     expect(row.usageCount).toBeGreaterThan(0);
-    expect(await catalogCount(db)).toBe(2);
+    expect(await catalogCount(db)).toBe(6);
   });
 
   // "other" tops out at 1.6 kg; a typed "Tent" says which band applies, and the
@@ -170,6 +171,22 @@ describe("community intake — corroborateCatalog", () => {
     expect(r.merged).toBe(0);
     expect(r.promoted).toBe(1);
     expect(await catalogCount(db)).toBe(2);
+  });
+
+  // the garment noun is generic, but it is the one word telling pants from a jacket:
+  // garments for different parts of the body are different products
+  it("does not merge typed pants into the catalog's jacket of the same line", async () => {
+    const jacket = await cited(db, { brand: "Montbell", name: "EX Light Down Jacket", weightMg: 210_000 });
+    for (const [i, w] of [150_000, 152_000, 154_000].entries())
+      await stageCandidates(db, i + 1, [{ brand: "Montbell", name: "EX Light Down Pants", weightMg: w }]);
+    const r = await corroborateCatalog(db);
+    expect(r.merged).toBe(0);
+    expect(r.promoted).toBe(1);
+    expect(await catalogCount(db)).toBe(2);
+    const [pants] = (await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.name, "EX Light Down Pants"))) as any[];
+    expect(pants).toMatchObject({ brand: "Montbell", weightSource: "community", weightMg: 152_000 });
+    const [kept] = (await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, jacket.id))) as any[];
+    expect(kept.usageCount).toBe(0);
   });
 
   it("still merges when the extra word is only a generic noun", async () => {

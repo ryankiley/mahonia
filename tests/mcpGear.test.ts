@@ -16,6 +16,8 @@ import { deleteAccount } from "../server/utils/accountRepo";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { listClaimedLists } from "../server/utils/claimRepo";
+import { REPLAY_WAIT } from "../server/utils/mcp";
+import { sizeConflict } from "../server/utils/catalogSizes";
 import { LISTS_DDL } from "../server/utils/db";
 import { rateLimitSubject } from "../server/utils/rateLimit";
 import { sha256Hex } from "../server/utils/tokens";
@@ -35,11 +37,25 @@ import { expectResultConforms } from "./helpers/mcpSchema";
 // revoked token is dead on the next call. The sign-in itself is tests/oauth.test.ts.
 
 vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
+// the shared KV the replay windows live in, as a Map, emptied after every test so a
+// call in one can't be taken for a retry of another's
+const kv = vi.hoisted(() => new Map<string, unknown>());
+const ttls = vi.hoisted(() => new Map<string, number | undefined>());
 vi.mock("../server/utils/rateLimit", () => ({
   rateLimit: async () => {},
   rateLimitSubject: vi.fn(async () => {}),
-  useKv: () => ({ getItem: async () => null, setItem: async () => {} }),
+  useKv: () => ({
+    getItem: async <T,>(key: string) => (kv.get(key) as T | undefined) ?? null,
+    setItem: async <T,>(key: string, value: T, opts?: { ttl?: number }) => {
+      kv.set(key, value);
+      ttls.set(key, opts?.ttl);
+    },
+  }),
 }));
+afterEach(() => {
+  kv.clear();
+  ttls.clear();
+});
 // the catalog reads pick their SQL by DATABASE_URL at call time; a shell with it
 // exported must not turn this suite red for a reason that has nothing to do with the code
 vi.stubEnv("DATABASE_URL", "");
@@ -90,9 +106,9 @@ beforeAll(async () => {
     { brand: "Clif", name: "Builders Bar", variant: null, weightMg: 68_000, weightSource: "manufacturer", sourceUrl: "https://clifbar.com/builders", verified: true, commonName: "Energy bar", categoryHint: "consumable", kcal: 290, searchTerms: "snack food" },
   ]);
   [alice, bob] = (await db.insert(schema.users).values([{ email: "alice@example.com" }, { email: "bob@example.com" }]).returning()).map((u) => u.id);
-  aliceRead = (await mintAccessToken(db, alice, { label: "Reader", scope: "read" }))!.token;
-  aliceWrite = (await mintAccessToken(db, alice, { label: "Claude Code", scope: "write" }))!.token;
-  bobWrite = (await mintAccessToken(db, bob, { scope: "write" }))!.token;
+  aliceRead = (await mintAccessToken(db, alice, { label: "Reader", scope: "read", unproven: false }))!.token;
+  aliceWrite = (await mintAccessToken(db, alice, { label: "Claude Code", scope: "write", unproven: false }))!.token;
+  bobWrite = (await mintAccessToken(db, bob, { scope: "write", unproven: false }))!.token;
 });
 
 describe("minting and revoking", () => {
@@ -116,7 +132,7 @@ describe("minting and revoking", () => {
   });
 
   it("lets an account revoke only its own", async () => {
-    const spare = (await mintAccessToken(db, alice, { scope: "read" }))!;
+    const spare = (await mintAccessToken(db, alice, { scope: "read", unproven: false }))!;
     expect(await revokeAccessToken(db, bob, spare.id)).toBe(false);
     expect(await resolveBearer(db, spare.token)).not.toBeNull();
     expect(await revokeAccessToken(db, alice, spare.id)).toBe(true);
@@ -126,7 +142,7 @@ describe("minting and revoking", () => {
   it("refuses the token past the ceiling", async () => {
     // bob holds one already, so the ceiling is reached one mint early
     const minted = [];
-    for (let i = 0; i < ACCESS_TOKENS_MAX; i++) minted.push(await mintAccessToken(db, bob, { scope: "read" }));
+    for (let i = 0; i < ACCESS_TOKENS_MAX; i++) minted.push(await mintAccessToken(db, bob, { scope: "read", unproven: false }));
     expect(minted.filter(Boolean)).toHaveLength(ACCESS_TOKENS_MAX - 1);
     expect(minted[ACCESS_TOKENS_MAX - 1]).toBeNull();
     for (const t of await listAccessTokens(db, bob)) if (t.scope === "read") await revokeAccessToken(db, bob, t.id);
@@ -218,6 +234,9 @@ describe("the gear tools", () => {
     const page = await tool("get_my_gear", { limit: 1, offset: 1 }, aliceRead);
     expect(page.data).toMatchObject({ total: 2, offset: 1 });
     expect(page.data.gear).toHaveLength(1);
+    // the last page says nothing more; an earlier one says where the next begins
+    expect(page.data).not.toHaveProperty("next_offset");
+    expect((await tool("get_my_gear", { limit: 1 }, aliceRead)).data).toMatchObject({ offset: 0, next_offset: 1 });
     expect((await tool("get_my_gear", { query: "x" }, aliceRead)).refused).toBe(true);
   });
 
@@ -243,7 +262,11 @@ describe("the gear tools", () => {
     const r = await tool("edit_my_gear", { update: [{ id: tentId, weight_g: 1010, price: null }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);
     const [done] = r.data.updated as { id: number; status: string; item: Record<string, unknown> }[];
-    expect(done).toMatchObject({ id: tentId, status: "updated", item: { id: tentId, weight_g: 1010, price: null, currency: null } });
+    expect(done).toMatchObject({ id: tentId, status: "updated", item: { id: tentId, weight_g: 1010 } });
+    // a cleared field is gone from the echo, as every field with nothing in it is
+    expect(done!.item).not.toHaveProperty("price");
+    expect(done!.item).not.toHaveProperty("currency");
+    expect(done!.item).not.toHaveProperty("times_used");
     // a piece keeps a name, and an entry with nothing to change is said so, piece by piece
     const bad = (await tool("edit_my_gear", { update: [{ id: tentId, name: null }, { id: tentId }] }, aliceWrite)).data.updated as { status: string }[];
     expect(bad.map((u) => u.status)).toEqual(["invalid", "invalid"]);
@@ -265,11 +288,12 @@ describe("the gear tools", () => {
     expect((await tool("edit_my_gear", { remove: [tentId] }, aliceWrite)).data.removed).toEqual([{ id: tentId, status: "removed" }]);
     expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(1);
     expect((await tool("edit_my_gear", { remove: [tentId] }, aliceWrite)).data.removed).toEqual([{ id: tentId, status: "not_found" }]);
-    expect((await tool("edit_my_gear", { restore: [tentId] }, aliceWrite)).data.removed).toEqual([{ id: tentId, status: "restored" }]);
+    // an id named twice reads as remove reads it: a miss the second time
+    expect((await tool("edit_my_gear", { restore: [tentId, tentId] }, aliceWrite)).data.removed).toEqual([{ id: tentId, status: "restored" }, { id: tentId, status: "not_found" }]);
     expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(2);
   });
 
-  it("link a piece to the catalog as it is added or later, taking the catalog's fields where none were given, and unlink", async () => {
+  it("link a piece to the catalog as it is added, taking the catalog's fields where none were given, or later, keeping its own, and unlink", async () => {
     const r = await tool("edit_my_gear", { add: [{ catalog_id: 1 }, { name: "Spare Duplex", catalog_id: 1, weight_g: 90 }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);
     const results = r.data.results as { status: string; item?: Record<string, unknown> }[];
@@ -280,20 +304,254 @@ describe("the gear tools", () => {
     expect(results[1]!.item).toMatchObject({ name: "Spare Duplex", brand: "Zpacks", weight_g: 90, catalog_id: 1 });
     const duplexId = results[0]!.item!.id as number;
     expect((await tool("get_my_gear", { query: "duplex" }, aliceRead)).data.gear).toHaveLength(2);
-    // relinked later: the catalog's name and brand, the owner's weight
-    const linked = (await tool("edit_my_gear", { update: [{ id: tentId, catalog_id: 1, weight_g: 1200 }] }, aliceWrite)).data.updated as { status: string; item: Record<string, unknown> }[];
-    expect(linked[0]!.status).toBe("updated");
-    expect(linked[0]!.item).toMatchObject({ id: tentId, name: "Duplex", brand: "Zpacks", weight_g: 1200, catalog_id: 1 });
+    // linked later to another maker's product: refused, the piece left as it was (it
+    // used to be renamed to the row, which at least showed the mistake; now it keeps its
+    // own name, so a wrong row is refused instead of taken quietly)
+    const wrong = (await tool("edit_my_gear", { update: [{ id: tentId, catalog_id: 1, weight_g: 1200 }] }, aliceWrite)).data.updated as { status: string; reason?: string }[];
+    expect(wrong[0]).toMatchObject({ status: "invalid" });
+    expect(wrong[0]!.reason).toContain("is by Durston");
     // unlinked: the piece as it reads, with no link
     const unlinked = (await tool("edit_my_gear", { update: [{ id: duplexId, catalog_id: null }] }, aliceWrite)).data.updated as { item: Record<string, unknown> }[];
-    expect(unlinked[0]!.item).toMatchObject({ name: "Duplex", weight_g: 538, catalog_id: null });
-    // an id that names no catalog row refuses the call before anything is written
+    expect(unlinked[0]!.item).toMatchObject({ name: "Duplex", weight_g: 538 });
+    expect(unlinked[0]!.item).not.toHaveProperty("catalog_id");
+    // an id that names no live catalog row refuses its own piece, as a piece answers for
+    // itself; a value that can't be an id refuses the call before anything is written
     const before = (await tool("get_my_gear", {}, aliceRead)).data.total;
-    const refused = await tool("edit_my_gear", { add: [{ name: "x", catalog_id: 404 }], remove: [duplexId] }, aliceWrite);
-    expect(refused.refused).toBe(true);
-    expect(refused.text).toContain("isn't in the catalog");
+    const dead = await tool("edit_my_gear", { add: [{ name: "x", catalog_id: 404 }] }, aliceWrite);
+    expect(dead.refused).toBe(false);
+    expect((dead.data.results as unknown[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("isn't in the catalog") });
     expect((await tool("edit_my_gear", { update: [{ id: duplexId, catalog_id: 1.5 }] }, aliceWrite)).refused).toBe(true);
     expect((await tool("get_my_gear", {}, aliceRead)).data.total).toBe(before);
+  });
+
+  // A connector chat linked a cap typed "L/XL" to a catalog row with no size (one weight
+  // for every size), and the link wrote the row's empty variant over the owner's.
+  it("links a piece already held without writing over what is its own, and refuses another product or size", async () => {
+    const cited = { weightSource: "manufacturer", sourceUrl: "https://maker.example/p", verified: true, categoryHint: "clothing" };
+    const [capRow, large, medium] = await db
+      .insert(schema.catalogItems)
+      .values([
+        { ...cited, brand: "Norda", name: "Luster Cap", variant: null, weightMg: 36_000, commonName: "Hat" },
+        { ...cited, brand: "Patagonia", name: "Quandary Pants", variant: "Large", weightMg: 300_000, commonName: "Hiking pants" },
+        { ...cited, brand: "Patagonia", name: "Quandary Pants", variant: "Medium", weightMg: 290_000, commonName: "Hiking pants" },
+      ])
+      .returning();
+    const add = await tool(
+      "edit_my_gear",
+      {
+        add: [
+          { brand: "Norda", name: "Luster Cap", variant: "L/XL" },
+          { brand: "Zpacks", name: "My Duplex", gear_type: "Shelter", weight_g: 560 },
+          { brand: "Patagonia", name: "Quandary Pants", variant: "Medium", weight_g: 280 },
+          { brand: "Patagonia", name: "Quandary Pants", variant: "Men's L" },
+          { brand: "Clif", name: "Builders Bar Trail Ration", classification: "worn" },
+        ],
+      },
+      aliceWrite,
+    );
+    expect(add.refused, add.text).toBe(false);
+    const [cap, duplex, mediumPiece, largePiece, bar] = (add.data.results as { item: { id: number } }[]).map((x) => x.item.id);
+    type Updated = { status: string; item?: Record<string, unknown>; reason?: string };
+    const update = async (...entries: Record<string, unknown>[]) => (await tool("edit_my_gear", { update: entries }, aliceWrite)).data.updated as Updated[];
+
+    const [capped, own, refused, sized, food] = await update(
+      { id: cap, catalog_id: capRow!.id },
+      { id: duplex, catalog_id: 1 },
+      { id: mediumPiece, catalog_id: large!.id },
+      { id: largePiece, catalog_id: large!.id },
+      { id: bar, catalog_id: 2 },
+    );
+    // its size and name kept; the weight and gear type it lacked, from the row
+    expect(capped).toMatchObject({ status: "updated", item: { name: "Luster Cap", brand: "Norda", variant: "L/XL", weight_g: 36, gear_type: "Hat", catalog_id: capRow!.id } });
+    // a weight and gear type of its own stand over the row's
+    expect(own).toMatchObject({ status: "updated", item: { name: "My Duplex", weight_g: 560, gear_type: "Shelter", catalog_id: 1 } });
+    // a link is to one size: the Medium isn't linked to the Large, and is left as it was
+    expect(refused).toMatchObject({ status: "invalid" });
+    expect(refused!.reason).toContain("a link is to one size");
+    // the same size typed with its cut and a letter is the row's size
+    expect(sized).toMatchObject({ status: "updated", item: { variant: "Men’s L", weight_g: 300, gear_type: "Hiking pants", catalog_id: large!.id } });
+    // food is consumable, but a piece its owner filed as worn stays worn, as on the site
+    expect(food).toMatchObject({ status: "updated", item: { classification: "worn", weight_g: 68, kcal: 290, catalog_id: 2 } });
+
+    // a relink replaces what the earlier link gave (the Large's 300 g), not what is the owner's
+    const [moved] = await update({ id: largePiece, variant: "Medium", catalog_id: medium!.id });
+    expect(moved).toMatchObject({ status: "updated", item: { variant: "Medium", weight_g: 290, catalog_id: medium!.id } });
+    // and the owner's own weight survives a relink to its size
+    const [ownSize] = await update({ id: mediumPiece, catalog_id: medium!.id });
+    expect(ownSize).toMatchObject({ status: "updated", item: { variant: "Medium", weight_g: 280, catalog_id: medium!.id } });
+
+    // another size typed onto a linked piece unlinks it, as the site does; the weight stays
+    const [retyped] = await update({ id: largePiece, variant: "Large" });
+    expect(retyped).toMatchObject({ status: "updated", item: { variant: "Large", weight_g: 290 } });
+    expect(retyped!.item).not.toHaveProperty("catalog_id");
+    expect(retyped!.reason).toContain(`Unlinked from catalog row ${medium!.id}`);
+    // a size typed onto a piece linked to a row that names none keeps the link
+    const [resized] = await update({ id: cap, variant: "S/M" });
+    expect(resized).toMatchObject({ status: "updated", item: { variant: "S/M", catalog_id: capRow!.id } });
+
+    // another product is refused, and the piece is left as it was
+    const [wrong] = await update({ id: duplex, catalog_id: capRow!.id });
+    expect(wrong).toMatchObject({ status: "invalid" });
+    expect(wrong!.reason).toContain("is by Zpacks");
+    // a piece spelled wholly by an earlier link is judged as it stands, not as the new row
+    // would spell it: a cap relinked to a pair of pants is refused
+    const spelled = (await tool("edit_my_gear", { add: [{ catalog_id: capRow!.id }] }, aliceWrite)).data.results as { item: { id: number } }[];
+    const [relinked] = await update({ id: spelled[0]!.item.id, catalog_id: large!.id });
+    expect(relinked).toMatchObject({ status: "invalid" });
+    expect(relinked!.reason).toContain("is by Norda");
+  });
+
+  it("relinks without moving a piece's size unasked, and replaces what the old row gave even once it was retired", async () => {
+    const cited = { weightSource: "manufacturer", sourceUrl: "https://maker.example/k", verified: true, categoryHint: "clothing", commonName: "Rain pants" };
+    const [kLarge, kMedium, kNext, borealis, nutBar, bag] = await db
+      .insert(schema.catalogItems)
+      .values([
+        { ...cited, brand: "Rab", name: "Kinetic Pants", variant: "Large", weightMg: 320_000 },
+        { ...cited, brand: "Rab", name: "Kinetic Pants", variant: "Medium", weightMg: 310_000 },
+        { ...cited, brand: "Rab", name: "Kinetic 2.0 Pants", variant: "Medium", weightMg: 300_000 },
+        { ...cited, brand: "Rab", name: "Borealis Jacket", variant: "Women's", weightMg: 250_000, commonName: "Softshell jacket" },
+        { ...cited, brand: "Clif", name: "Nut Butter Bar", variant: null, weightMg: 50_000, commonName: "Energy bar", categoryHint: "consumable", kcal: 230 },
+        { ...cited, brand: "Clif", name: "Nut Butter Bar Tote", variant: null, weightMg: 40_000, commonName: null, categoryHint: "other" },
+      ])
+      .returning();
+    type Updated = { status: string; item?: Record<string, unknown>; reason?: string };
+    const update = async (...entries: Record<string, unknown>[]) => (await tool("edit_my_gear", { update: entries }, aliceWrite)).data.updated as Updated[];
+    const add = async (...pieces: Record<string, unknown>[]) =>
+      ((await tool("edit_my_gear", { add: pieces }, aliceWrite)).data.results as Updated[]);
+
+    // a piece added from the catalog, relinked to another size: refused unless the call says the size
+    const [fromRow] = await add({ catalog_id: kLarge!.id });
+    const pieceId = fromRow!.item!.id as number;
+    const [unasked] = await update({ id: pieceId, catalog_id: kMedium!.id });
+    expect(unasked).toMatchObject({ status: "invalid" });
+    expect(unasked!.reason).toContain("send its variant with the link");
+    const [asked] = await update({ id: pieceId, catalog_id: kMedium!.id, variant: "Medium" });
+    expect(asked).toMatchObject({ status: "updated", item: { variant: "Medium", weight_g: 310, catalog_id: kMedium!.id } });
+
+    // the Medium's 310 g is the link's, so a relink back replaces it
+    const [back] = await update({ id: pieceId, catalog_id: kLarge!.id, variant: "Large" });
+    expect(back).toMatchObject({ status: "updated", item: { variant: "Large", weight_g: 320, catalog_id: kLarge!.id } });
+
+    // a piece linked to a row since retired still unlinks when another size is typed onto it
+    await db.update(schema.catalogItems).set({ status: "removed" }).where(eq(schema.catalogItems.id, kLarge!.id));
+    const [retyped] = await update({ id: pieceId, variant: "Medium" });
+    expect(retyped).toMatchObject({ status: "updated", item: { variant: "Medium" } });
+    expect(retyped!.item).not.toHaveProperty("catalog_id");
+    expect(retyped!.reason).toContain(`Unlinked from catalog row ${kLarge!.id}`);
+    // and a retired row's weight is still the link's on a relink
+    const [second] = await add({ catalog_id: kMedium!.id });
+    await db.update(schema.catalogItems).set({ status: "removed" }).where(eq(schema.catalogItems.id, kMedium!.id));
+    const [onward] = await update({ id: second!.item!.id, catalog_id: kNext!.id });
+    expect(onward).toMatchObject({ status: "updated", item: { name: "Kinetic 2.0 Pants", variant: "Medium", weight_g: 300, catalog_id: kNext!.id } });
+
+    // food the link made consumable, its calories and gear type go with a relink to a row that has none
+    const [bar] = await add({ catalog_id: nutBar!.id });
+    expect(bar).toMatchObject({ status: "added", item: { classification: "consumable", kcal: 230, gear_type: "Energy bar" } });
+    const [tote] = await update({ id: bar!.item!.id, catalog_id: bag!.id });
+    expect(tote).toMatchObject({ status: "updated", item: { name: "Nut Butter Bar Tote", weight_g: 40, catalog_id: bag!.id } });
+    expect(tote!.item).not.toHaveProperty("kcal");
+    expect(tote!.item).not.toHaveProperty("gear_type");
+    expect(tote!.item!.classification).not.toBe("consumable");
+
+    // a row that names only its cut takes a piece of that cut in any size, and refuses the other cut
+    const [hers, his] = await add({ brand: "Rab", name: "Borealis Jacket", variant: "Women's Large" }, { brand: "Rab", name: "Borealis Jacket", variant: "Men's Large", owned: 2 });
+    const [cutLinked, otherCut] = await update({ id: hers!.item!.id, catalog_id: borealis!.id }, { id: his!.item!.id, catalog_id: borealis!.id });
+    expect(cutLinked).toMatchObject({ status: "updated", item: { variant: "Women’s Large", weight_g: 250, catalog_id: borealis!.id } });
+    expect(otherCut).toMatchObject({ status: "invalid" });
+    expect(otherCut!.reason).toContain("a link is to one size");
+
+    // a colour run on without a comma is the owner's own word, not another size
+    const [coloured] = await add({ brand: "Rab", name: "Kinetic 2.0 Pants", variant: "Medium Black" });
+    const [colourLinked] = await update({ id: coloured!.item!.id, catalog_id: kNext!.id });
+    expect(colourLinked).toMatchObject({ status: "updated", item: { variant: "Medium Black", catalog_id: kNext!.id } });
+
+    // names that share no word are another product, held or added
+    const [bivy] = await add({ brand: "Rab", name: "Alpine Bivi" });
+    const [heldOther] = await update({ id: bivy!.item!.id, catalog_id: kNext!.id });
+    expect(heldOther).toMatchObject({ status: "invalid" });
+    expect(heldOther!.reason).toContain("doesn't look like");
+    const [addedOther] = await add({ brand: "Rab", name: "Neutrino Bag", catalog_id: kNext!.id });
+    expect(addedOther).toMatchObject({ status: "invalid" });
+    expect(addedOther!.reason).toContain("doesn't look like");
+
+    // an update that neither links nor retypes a size reads nothing of the catalog
+    const reads = vi.spyOn(db, "select");
+    try {
+      await update({ id: colourLinked!.item!.id as number, weight_g: 305 });
+      const linkedReads = reads.mock.calls.length;
+      reads.mockClear();
+      await update({ id: bivy!.item!.id as number, weight_g: 900 });
+      expect(linkedReads).toBe(reads.mock.calls.length);
+    } finally {
+      reads.mockRestore();
+    }
+  });
+
+  it("refuses a size only where the piece's contradicts the row's", () => {
+    const row = (variant: string | null, commonName = "Hiking pants", categoryHint = "clothing") => ({ brand: null, name: "x", variant, commonName, categoryHint });
+    const kindOf = (type?: string) =>
+      ({ Quilt: "sleep", "Sleeping pad": "sleep", Bivy: "shelter", Backpack: "pack", "Bungee cord": "other", Tent: "shelter", "Charging cable": "electronics", Watch: "electronics", "Food bag": "other" })[type ?? ""];
+    const contradicts: [string, string, string?][] = [
+      ["X-Large", "Large"],
+      ["Large", "X-Large"],
+      ["Medium", "Large"],
+      ["m", "Large"],
+      ["Women's US 8", "Men's US 8.5", "Trail runners"],
+      ["US 9", "US 9.5", "Trail runners"],
+      ["Men's", "Women's", "Trail runners"],
+      ["Men's Large", "Women's", "Fleece"],
+      ["25F, Large", "25F, X-Large", "Quilt"],
+      ["6ft", "6ft 6in", "Quilt"],
+      ["2-pack", "3-pack", "Bungee cord"],
+      ["pack of 2", "3-pack", "Bungee cord"],
+      ["2 m", "1m", "Charging cable"],
+      // typed loosely, or with a colour run on, a size is still read
+      ["Mens Medium", "Men's Small", "Rain jacket"],
+      ["men's large", "Men's Small", "Rain jacket"],
+      ["Medium Black", "Large", "Rain jacket"],
+      ["Men's Medium Black", "Men's Large", "Rain jacket"],
+      ["6ft 6in Black", "6ft", "Bivy"],
+    ];
+    for (const [piece, catalog, type] of contradicts) expect(sizeConflict(piece, row(catalog, type, kindOf(type))), `${piece} / ${catalog}`).toBe(true);
+    const links: [string | null, string | null, string?][] = [
+      ["Men's L", "Large"],
+      ["l", "Large"],
+      ["Large", "Men’s Large"],
+      ["Black, Large", "Large"],
+      ["Trail Team Edition", "Large"],
+      ["Trail Team Edition, L/XL", null, "Hat"],
+      [null, "Large"],
+      ["Men's US 9", "US 9", "Trail runners"],
+      ["Women's Large", "Women's", "Fleece"],
+      // the ways people type the row's own size
+      ["Men's Medium Black", "Men's Medium", "Rain jacket"],
+      ["mens medium", "Men's Medium", "Rain jacket"],
+      ["Men's 9", "Men's US 9", "Trail runners"],
+      ["Men's 8.5", "Men's US 8.5", "Trail runners"],
+      ["Men's US9", "Men's US 9", "Trail runners"],
+      ["20F Regular Wide", "20F, Regular Wide", "Quilt"],
+      ["regular wide", "Regular Wide", "Sleeping pad"],
+      ["850fp, 20F", "20F, 850FP", "Quilt"],
+      ["Regular, Short, 10F", "10F, Short, Regular", "Quilt"],
+      ["pack of 2", "2-pack", "Bungee cord"],
+      ["Large/X-Large", "L/XL", "Hat"],
+      ["30 liter", "30L", "Backpack"],
+      ["Extra Large", "X-Large"],
+      ["Solid inner, carbon short poles Black", "Solid inner, carbon short poles", "Tent"],
+      ["1 m", "1m", "Charging cable"],
+      // one shoe sold under two labels matches either
+      ["Men's US 9", "Men's US 9 / Women's US 10", "Trail runners"],
+      ["Women's US 10", "Men's US 9 / Women's US 10", "Trail runners"],
+      // on purpose: a piece that says less than its row, or says it in words no axis reads,
+      // contradicts nothing, and links (it keeps its own variant and weight)
+      ["Regular", "Regular Wide", "Sleeping pad"],
+      ["Regular", "20F, Regular", "Quilt"],
+      ["Large", "Women's", "Fleece"],
+      ["47mm", "47mm, Solar", "Watch"],
+      ["Regular", "Regular Mummy", "Sleeping pad"],
+      ["Standard", "X-Large", "Food bag"],
+    ];
+    for (const [piece, catalog, type] of links) expect(sizeConflict(piece, row(catalog, type, kindOf(type))), `${piece} / ${catalog}`).toBe(false);
   });
 
   it("say what a kit holds, list its items as pieces of their own, and refuse a weight on one", async () => {
@@ -304,9 +562,15 @@ describe("the gear tools", () => {
     expect(await applyVaultItemOp(db, row!.vaultId, { t: "kit", id: kitId!, parts: [{ id: stoveId!, qty: 2 }], ownWeightMg: 20_000 })).not.toBeNull();
     const found = await tool("get_my_gear", { query: "cook kit" }, aliceRead);
     const kit = (found.data.gear as { id: number }[]).find((g) => g.id === kitId);
-    expect(kit).toMatchObject({ weight_g: 166, kit: { own_weight_g: 20, items: [{ id: stoveId, count: 2, weight_g: 73, put_away: false }] }, in_kits: [] });
+    expect(kit).toMatchObject({ weight_g: 166, kit: { own_weight_g: 20, items: [{ id: stoveId, count: 2, weight_g: 73, put_away: false }] } });
+    expect(kit).not.toHaveProperty("in_kits");
     const stove = ((await tool("get_my_gear", {}, aliceRead)).data.gear as { id: number }[]).find((g) => g.id === stoveId);
-    expect(stove).toMatchObject({ kit: null, in_kits: [kitId] });
+    expect(stove).toMatchObject({ in_kits: [kitId] });
+    expect(stove).not.toHaveProperty("kit");
+    expect(stove).not.toHaveProperty("unweighed");
+    // the kit itself is never flagged (its weight is its items'), and nor is a weighed item
+    expect(kit).not.toHaveProperty("unweighed");
+    expect((kit as unknown as { kit: { items: Record<string, unknown>[] } }).kit.items[0]).not.toHaveProperty("unweighed");
     const refused = await tool("edit_my_gear", { update: [{ id: kitId, weight_g: 500 }] }, aliceWrite);
     expect(refused.refused, refused.text).toBe(false);
     const [answer] = refused.data.updated as { status: string; reason?: string }[];
@@ -330,18 +594,20 @@ describe("the gear tools", () => {
     const over = await tool("edit_my_gear", { update: [{ id: kitId, kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 9 }], own_weight_g: 12 } }] }, aliceWrite);
     expect((over.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ weight_g: 159, kit: { items: [{ id: potId }, { id: sporkId }, { id: lighterId, count: 2 }] } });
 
-    // items REPLACE what it held
+    // items REPLACE what it held; its own weight, left out, stays what it was
     const changed = await tool("edit_my_gear", { update: [{ id: kitId, kit: { items: [{ id: potId }, { id: lighterId, count: 1 }] } }] }, aliceWrite);
     const [up] = changed.data.updated as { status: string; item: Record<string, unknown> }[];
-    expect(up).toMatchObject({ status: "updated", item: { weight_g: 121, kit: { own_weight_g: 0, items: [{ id: potId }, { id: lighterId, count: 1 }] } } });
+    expect(up).toMatchObject({ status: "updated", item: { weight_g: 133, kit: { own_weight_g: 12, items: [{ id: potId }, { id: lighterId, count: 1 }] } } });
     const spork = ((await tool("get_my_gear", { query: "spork" }, aliceRead)).data.gear as { id: number; in_kits: number[] }[]).find((g) => g.id === sporkId);
-    expect(spork!.in_kits).toEqual([]);
+    expect(spork).not.toHaveProperty("in_kits");
 
     // one level deep: a piece already in a kit can't hold items, and a kit can't be an item
     const nested = await tool("edit_my_gear", { update: [{ id: potId, kit: { items: [{ id: sporkId }] } }] }, aliceWrite);
     expect((nested.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("already in a kit") });
     const kitAsItem = await tool("edit_my_gear", { add: [{ name: "Everything kit", kit: { items: [{ id: kitId }] } }] }, aliceWrite);
-    expect((kitAsItem.data.results as { status: string; reason: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "added", reason: expect.stringContaining("Added as a single piece"), item: { kit: null } });
+    const single = (kitAsItem.data.results as { status: string; reason: string; item: Record<string, unknown> }[])[0];
+    expect(single).toMatchObject({ status: "added", reason: expect.stringContaining("Added as a single piece") });
+    expect(single!.item).not.toHaveProperty("kit");
 
     // a malformed kit refuses the whole call before anything is written
     const both = await tool("edit_my_gear", { update: [{ id: kitId, weight_g: 300, kit: { items: [{ id: potId }] } }] }, aliceWrite);
@@ -351,11 +617,14 @@ describe("the gear tools", () => {
 
     // null turns it back into a piece weighing what the kit did; its items stay pieces
     const undone = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
-    expect((undone.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { weight_g: 121, kit: null } });
+    const piece = (undone.data.updated as { status: string; item: Record<string, unknown> }[])[0];
+    expect(piece).toMatchObject({ status: "updated", item: { weight_g: 133 } });
+    expect(piece!.item).not.toHaveProperty("kit");
     const notAKit = await tool("edit_my_gear", { update: [{ id: kitId, kit: null }] }, aliceWrite);
     expect((notAKit.data.updated as { status: string; reason: string }[])[0]).toMatchObject({ status: "invalid", reason: expect.stringContaining("isn't a kit") });
     const pot = ((await tool("get_my_gear", { query: "titanium pot" }, aliceRead)).data.gear as { id: number; in_kits: number[]; weight_g: number }[]).find((g) => g.id === potId);
-    expect(pot).toMatchObject({ in_kits: [], weight_g: 110 });
+    expect(pot).toMatchObject({ weight_g: 110 });
+    expect(pot).not.toHaveProperty("in_kits");
   });
 
   // The add that started this: a piece with no catalog row, priced, not weighed yet.
@@ -363,13 +632,20 @@ describe("the gear tools", () => {
     const r = await tool("edit_my_gear", { add: [{ name: "Foray Pants", brand: "Outdoor Research", variant: "Men's Large", gear_type: "Pants", classification: "worn", price: 149.19, currency: "USD", weight_g: 0 }] }, aliceWrite);
     expect(r.refused, r.text).toBe(false);
     const [res] = r.data.results as { status: string; item: Record<string, unknown> }[];
-    expect(res).toMatchObject({ status: "added", item: { name: "Foray Pants", weight_g: 0, classification: "worn", price: 149.19, currency: "USD" } });
+    expect(res).toMatchObject({ status: "added", item: { name: "Foray Pants", weight_g: 0, unweighed: true, classification: "worn", price: 149.19, currency: "USD" } });
     const id = res!.item.id as number;
+    // in a kit, the unweighed item says so, since the kit's weight is short by it
+    const bag = await tool("edit_my_gear", { add: [{ name: "Clothes bag", kit: { items: [{ id }] } }] }, aliceWrite);
+    const bagged = (bag.data.results as { item: { kit: { items: Record<string, unknown>[] } } }[])[0]!.item;
+    expect(bagged.kit.items[0]).toMatchObject({ id, weight_g: 0, unweighed: true });
+    expect(bagged).not.toHaveProperty("unweighed");
     const repriced = await tool("edit_my_gear", { update: [{ id, price: 120 }] }, aliceWrite);
     expect((repriced.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ price: 120, currency: "USD" });
     // null still clears the price and its currency together
     const cleared = await tool("edit_my_gear", { update: [{ id, price: null }] }, aliceWrite);
-    expect((cleared.data.updated as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ price: null, currency: null });
+    const unpriced = (cleared.data.updated as { item: Record<string, unknown> }[])[0]!.item;
+    expect(unpriced).not.toHaveProperty("price");
+    expect(unpriced).not.toHaveProperty("currency");
 
     // a value outside its set is named, and nothing of that piece is written
     const bad = await tool("edit_my_gear", { add: [{ name: "Wind shirt", classification: "Worn" }], update: [{ id, weight_g: "410" }] }, aliceWrite);
@@ -380,18 +656,103 @@ describe("the gear tools", () => {
     expect((await tool("edit_my_gear", { add: [{ brand: "Nameless" }] }, aliceWrite)).data.results).toMatchObject([{ status: "invalid", reason: expect.stringContaining("needs a name") }]);
   });
 
+  // One call can name a piece more than once, and each entry is judged against what
+  // the one before it left, not against how the piece stood when the call arrived:
+  // the currency a price keeps, whether there is a kit to turn back, whether a weight
+  // is a kit's to take.
+  it("judge a piece named twice in one update by what the earlier entry left", async () => {
+    // names no other case here uses: an add of a piece the account holds answers with that piece
+    const added = await tool("edit_my_gear", { add: [{ name: "Twice-named can", weight_g: 200 }, { name: "Twice-named burner", weight_g: 80 }, { name: "Twice-named screen", weight_g: 30 }] }, aliceWrite);
+    expect((added.data.results as { status: string }[]).map((r) => r.status)).toEqual(["added", "added", "added"]);
+    const [canId, stoveId, screenId] = (added.data.results as { item: { id: number } }[]).map((r) => r.item.id);
+
+    const r = await tool(
+      "edit_my_gear",
+      {
+        update: [
+          // priced in euros, then repriced with no currency named: the first entry's stands
+          { id: canId, price: 10, currency: "EUR" },
+          { id: canId, price: 12 },
+          // made a kit; then a weight, which a kit can't take; then turned back, twice
+          { id: stoveId, kit: { items: [{ id: screenId }] } },
+          { id: stoveId, weight_g: 500 },
+          { id: stoveId, kit: null },
+          { id: stoveId, kit: null },
+          // an id that is nobody's, and the first piece once more
+          { id: 999_999, weight_g: 1 },
+          { id: canId, price: null },
+          { id: canId, price: 3 },
+        ],
+      },
+      aliceWrite,
+    );
+    expect(r.refused, r.text).toBe(false);
+    const updated = r.data.updated as { id: number; status: string; reason?: string; item?: Record<string, unknown> }[];
+    expect(updated.map((u) => [u.id, u.status, u.reason])).toEqual([
+      [canId, "updated", undefined],
+      [canId, "updated", undefined],
+      [stoveId, "updated", undefined],
+      [stoveId, "invalid", "That is a kit, and a kit weighs what its items weigh: give kit.own_weight_g for what it weighs by itself, or change an item's weight. Nothing was changed on it."],
+      [stoveId, "updated", undefined],
+      [stoveId, "invalid", "That piece isn't a kit, so there is nothing to turn back. Nothing was changed on it."],
+      [999_999, "not_found", undefined],
+      [canId, "updated", undefined],
+      [canId, "updated", undefined],
+    ]);
+    expect(updated[0]!.item).toMatchObject({ price: 10, currency: "EUR" });
+    expect(updated[1]!.item).toMatchObject({ price: 12, currency: "EUR" });
+    expect(updated[2]!.item).toMatchObject({ weight_g: 30, kit: { own_weight_g: 0, items: [{ id: screenId, count: 1 }] } });
+    expect(updated[4]!.item).toMatchObject({ weight_g: 30 });
+    expect(updated[4]!.item).not.toHaveProperty("kit");
+    // cleared, then priced again: no currency is left for the new price to keep
+    expect(updated[7]!.item).not.toHaveProperty("price");
+    expect(updated[8]!.item).toMatchObject({ price: 3 });
+    expect(updated[8]!.item).not.toHaveProperty("currency");
+    // the answer is the same JSON twice, as every tool's is
+    expect(r.text).toBe(JSON.stringify(r.data));
+  });
+
+  // What an update asks of its pieces beforehand (is it there, is it a kit, what currency
+  // is its price in) is ONE read for the call. Asked piece by piece it was two round
+  // trips each, on a driver that sends every statement as its own request, and the tool
+  // takes fifty pieces. Counted here as what each further piece adds to a call: the one
+  // read that hands its changed row back with its kits, and nothing before it.
+  it("read what an update needs of its pieces once for the call, not once for each", async () => {
+    const added = await tool("edit_my_gear", { add: [1, 2, 3, 4].map((n) => ({ name: `Counted piece ${n}`, weight_g: 10 })) }, aliceWrite);
+    const ids = (added.data.results as { status: string; item: { id: number } }[]).map((r) => r.item.id);
+    expect(new Set(ids).size).toBe(4);
+
+    /** how many reads one edit_my_gear call makes, every entry of it landing */
+    const readsFor = async (update: { id: number; weight_g: number }[]) => {
+      const reads = vi.spyOn(db, "select");
+      try {
+        const r = await tool("edit_my_gear", { update }, aliceWrite);
+        expect((r.data.updated as { status: string }[]).map((u) => u.status)).toEqual(update.map(() => "updated"));
+        return reads.mock.calls.length;
+      } finally {
+        reads.mockRestore();
+      }
+    };
+    const one = await readsFor([{ id: ids[0]!, weight_g: 11 }]);
+    const four = await readsFor(ids.map((id) => ({ id, weight_g: 12 })));
+    // three more pieces, three more reads
+    expect(four - one).toBe(3);
+  });
+
   it("file catalog food as consumable, and link a kit to the catalog without taking the product's weight", async () => {
     const food = await tool("edit_my_gear", { add: [{ catalog_id: 2 }] }, aliceWrite);
     expect((food.data.results as { item: Record<string, unknown> }[])[0]!.item).toMatchObject({ name: "Builders Bar", classification: "consumable", weight_g: 68, kcal: 290 });
 
-    const parts = await tool("edit_my_gear", { add: [{ name: "Tent stakes", weight_g: 60 }, { name: "Tent kit" }] }, aliceWrite);
+    const parts = await tool("edit_my_gear", { add: [{ name: "Tent stakes", weight_g: 60 }, { name: "Duplex kit" }] }, aliceWrite);
     const [stakesId, kitId] = (parts.data.results as { item: { id: number } }[]).map((r) => r.item.id);
-    const linked = await tool("edit_my_gear", { update: [{ id: kitId, name: "Tent kit", kit: { items: [{ id: stakesId }] }, catalog_id: 1 }] }, aliceWrite);
+    const linked = await tool("edit_my_gear", { update: [{ id: kitId, name: "Duplex kit", kit: { items: [{ id: stakesId }] }, catalog_id: 1 }] }, aliceWrite);
     const [up] = linked.data.updated as { status: string; item: Record<string, unknown>; reason?: string }[];
-    expect(up, up?.reason).toMatchObject({ status: "updated", item: { name: "Tent kit", catalog_id: 1, weight_g: 60, kit: { items: [{ id: stakesId }] } } });
+    expect(up, up?.reason).toMatchObject({ status: "updated", item: { name: "Duplex kit", catalog_id: 1, weight_g: 60, kit: { items: [{ id: stakesId }] } } });
     // and a kit that already is one takes a link alone, still weighing its items
     const relinked = await tool("edit_my_gear", { update: [{ id: kitId, catalog_id: null }] }, aliceWrite);
-    expect((relinked.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { catalog_id: null, weight_g: 60 } });
+    const unlinkedKit = (relinked.data.updated as { status: string; item: Record<string, unknown> }[])[0];
+    expect(unlinkedKit).toMatchObject({ status: "updated", item: { weight_g: 60 } });
+    expect(unlinkedKit!.item).not.toHaveProperty("catalog_id");
     const again = await tool("edit_my_gear", { update: [{ id: kitId, catalog_id: 1 }] }, aliceWrite);
     expect((again.data.updated as { status: string; item: Record<string, unknown> }[])[0]).toMatchObject({ status: "updated", item: { catalog_id: 1, weight_g: 60 } });
   });
@@ -427,8 +788,8 @@ describe("create_list filing under the token's account", () => {
   let carolRead = "";
   beforeAll(async () => {
     [carol] = (await db.insert(schema.users).values([{ email: "carol@example.com" }]).returning()).map((u) => u.id);
-    carolWrite = (await mintAccessToken(db, carol, { scope: "write" }))!.token;
-    carolRead = (await mintAccessToken(db, carol, { scope: "read" }))!.token;
+    carolWrite = (await mintAccessToken(db, carol, { scope: "write", unproven: false }))!.token;
+    carolRead = (await mintAccessToken(db, carol, { scope: "read", unproven: false }))!.token;
   });
   afterEach(() => vi.restoreAllMocks());
 
@@ -468,7 +829,7 @@ describe("create_list filing under the token's account", () => {
   });
 
   it("asks an app whose access token has aged out to refresh, rather than making the list unfiled", async () => {
-    const app = await issueAppTokens(db, { userId: carol, clientId: "https://claude.ai/oauth/claude-code-client-metadata", label: "Claude", scope: "write" });
+    const app = await issueAppTokens(db, { userId: carol, clientId: "https://claude.ai/oauth/claude-code-client-metadata", label: "Claude", scope: "write", unproven: false });
     await db.update(schema.accessTokens).set({ expiresAt: new Date(Date.now() - 1) }).where(eq(schema.accessTokens.refreshHash, sha256Hex(app.refresh_token)));
     const r = await door("create_list", LIST, app.access_token);
     expect(r.status).toBe(401);
@@ -486,7 +847,8 @@ describe("create_list filing under the token's account", () => {
 
   it("hands back the edit link even when filing fails outright", async () => {
     const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
-    vi.mocked(rateLimitSubject).mockRejectedValueOnce(new Error("Too many requests"));
+    // the account's create budget is spent first, then the claim's, which fails
+    vi.mocked(rateLimitSubject).mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("Too many requests"));
     const r = await tool("create_list", LIST, carolWrite);
     expect(r.refused, r.text).toBe(false);
     expect(r.data.edit_link).toContain("/e/");
@@ -515,7 +877,7 @@ describe("create_list filing under the token's account", () => {
     expect((await tool("get_list", { share_code: lists[0]!.share_code })).data.title).toBe("Wonderland");
 
     const [dave] = (await db.insert(schema.users).values([{ email: "dave@example.com" }]).returning()).map((u) => u.id);
-    const daveRead = (await mintAccessToken(db, dave!, { scope: "read" }))!.token;
+    const daveRead = (await mintAccessToken(db, dave!, { scope: "read", unproven: false }))!.token;
     expect((await tool("get_list", {}, daveRead)).data).toEqual({ lists: [] });
   });
 
@@ -558,5 +920,174 @@ describe("create_list filing under the token's account", () => {
     expect((await tool("edit_list", { edit_link: strayEditLink, share_code: code, list: { title: "Stray" } })).refused).toBe(false);
     expect((await tool("get_list", { share_code: strayCode })).data.title).toBe("Stray");
     expect((await tool("get_list", { share_code: code })).data.title).toBe("Wonderland Trail");
+  });
+});
+
+// A create_list that timed out is retried by the client with the same arguments, and
+// nothing in the protocol marks it. From an account with read-and-change access the
+// retry is answered with the list the first call made, which that account can change by
+// share code, and never with an edit link the server would have had to keep a copy of.
+// Anonymous and read-only callers still get a second list: see REPLAY_WINDOW_S.
+describe("create_list retried by the same account", () => {
+  let erin = 0;
+  let erinWrite = "";
+  let erinRead = "";
+  beforeAll(async () => {
+    [erin] = (await db.insert(schema.users).values([{ email: "erin@example.com" }]).returning()).map((u) => u.id);
+    erinWrite = (await mintAccessToken(db, erin, { scope: "write", unproven: false }))!.token;
+    erinRead = (await mintAccessToken(db, erin, { scope: "read", unproven: false }))!.token;
+  });
+  const LIST = { title: "Enchantments", items: [{ name: "Quilt", weight_g: 600 }] };
+  const filed = async () => (await listClaimedLists(db, erin)).map((l) => l.shareCode);
+
+  const replayKeys = () => [...kv.keys()].filter((k) => k.startsWith("mcp:replay:"));
+
+  it("answers the repeat with the list already made, no second list and no edit link", async () => {
+    const first = await tool("create_list", LIST, erinWrite);
+    expect(first.refused, first.text).toBe(false);
+    expect(first.data).toMatchObject({ saved_to_account: true, repeated: false });
+    expect(first.data.edit_link).toContain("/e/");
+    // kept ten minutes in the store, and nothing in it is the edit link
+    const [key] = replayKeys();
+    expect(ttls.get(key!)).toBe(600);
+    expect(JSON.stringify(kv.get(key!))).not.toContain("/e/");
+    const retry = await tool("create_list", LIST, erinWrite);
+    expect(retry.refused, retry.text).toBe(false);
+    expect(retry.data).toMatchObject({ share_code: first.data.share_code, saved_to_account: true, repeated: true, items: 1 });
+    expect(retry.data).not.toHaveProperty("edit_link");
+    expect(JSON.stringify(retry.data)).not.toContain("/e/");
+    expect(retry.text).toContain("no second list");
+    expect(await filed()).toEqual([first.data.share_code]);
+    // what the repeat names, the account changes by share code, and a later repeat reads
+    // the list as it now is
+    const renamed = await tool("edit_list", { share_code: retry.data.share_code, list: { title: "Enchantments loop" } }, erinWrite);
+    expect(renamed.refused, renamed.text).toBe(false);
+    expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, title: "Enchantments loop" });
+  });
+
+  it("keeps one account's window from another's", async () => {
+    const [frank] = (await db.insert(schema.users).values([{ email: "frank@example.com" }]).returning()).map((u) => u.id);
+    const frankWrite = (await mintAccessToken(db, frank!, { scope: "write", unproven: false }))!.token;
+    const mine = await tool("create_list", LIST, erinWrite);
+    const theirs = await tool("create_list", LIST, frankWrite);
+    expect(theirs.data).toMatchObject({ repeated: false, saved_to_account: true });
+    expect(theirs.data.share_code).not.toBe(mine.data.share_code);
+  });
+
+  it("makes a new list when the one the window names was deleted or taken off the account", async () => {
+    const first = await tool("create_list", LIST, erinWrite);
+    // off the account (as rotating its link does), the list itself untouched
+    const [{ id: firstId }] = await db.select({ id: schema.lists.id }).from(schema.lists).where(eq(schema.lists.shareCode, first.data.share_code as string));
+    await db.delete(schema.listClaims).where(eq(schema.listClaims.listId, firstId!));
+    const second = await tool("create_list", LIST, erinWrite);
+    expect(second.data).toMatchObject({ repeated: false, saved_to_account: true });
+    expect(second.data.share_code).not.toBe(first.data.share_code);
+    await db.update(schema.lists).set({ deletedAt: new Date() }).where(eq(schema.lists.shareCode, second.data.share_code as string));
+    const third = await tool("create_list", LIST, erinWrite);
+    expect(third.data).toMatchObject({ repeated: false });
+    expect(third.data.share_code).not.toBe(second.data.share_code);
+    // and the window now names the newest, which a retry gets
+    expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, share_code: third.data.share_code });
+  });
+
+  it("remembers nothing from a create whose list couldn't be filed", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.mocked(rateLimitSubject).mockResolvedValueOnce(undefined).mockRejectedValueOnce(new Error("Too many requests"));
+    const unfiled = await tool("create_list", LIST, erinWrite);
+    expect(unfiled.data).toMatchObject({ saved_to_account: false, repeated: false });
+    quiet.mockRestore();
+    const retry = await tool("create_list", LIST, erinWrite);
+    expect(retry.data).toMatchObject({ saved_to_account: true, repeated: false });
+    expect(retry.data.share_code).not.toBe(unfiled.data.share_code);
+  });
+
+  // A retry that lands while the first call is still running waits for its answer,
+  // and says the list is on its way when that takes longer than the wait.
+  it("waits on an identical create still running, and says so when it runs long", async () => {
+    const was = { ...REPLAY_WAIT };
+    Object.assign(REPLAY_WAIT, { totalMs: 2_000, stepMs: 5 });
+    try {
+      const first = await tool("create_list", LIST, erinWrite);
+      const [key] = replayKeys();
+      const done = kv.get(key!);
+      // as the first call's claim reads while its write is under way
+      kv.set(key!, { at: Date.now(), pending: true });
+      setTimeout(() => kv.set(key!, done), 30);
+      expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, share_code: first.data.share_code });
+      Object.assign(REPLAY_WAIT, { totalMs: 20 });
+      kv.set(key!, { at: Date.now(), pending: true });
+      const busy = await tool("create_list", LIST, erinWrite);
+      expect(busy.refused).toBe(true);
+      expect(busy.text).toContain("still being made");
+      // a claim whose call died lapses after a minute, and the next call makes the list
+      kv.set(key!, { at: Date.now() - 61_000, pending: true });
+      expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: false });
+    } finally {
+      Object.assign(REPLAY_WAIT, was);
+    }
+  });
+
+  it("makes the same list twice when asked to with again, and keys on the whole call", async () => {
+    const first = await tool("create_list", LIST, erinWrite);
+    const twice = await tool("create_list", { ...LIST, again: true }, erinWrite);
+    expect(twice.data).toMatchObject({ repeated: false });
+    expect(twice.data.share_code).not.toBe(first.data.share_code);
+    expect(twice.data.edit_link).toContain("/e/");
+    // again neither reads nor writes the window: a plain retry still gets the first
+    expect((await tool("create_list", LIST, erinWrite)).data).toMatchObject({ repeated: true, share_code: first.data.share_code });
+    // a different call is a different list
+    const other = await tool("create_list", { ...LIST, title: "Enchantments, day 2" }, erinWrite);
+    expect(other.data.repeated).toBe(false);
+    expect(other.data.share_code).not.toBe(first.data.share_code);
+    expect((await tool("create_list", { ...LIST, again: "yes" }, erinWrite)).text).toContain("again must be true or false");
+  });
+
+  it("holds no window for a list with no rows, which two conversations often ask for alike", async () => {
+    const a = await tool("create_list", { title: "PCT" }, erinWrite);
+    const b = await tool("create_list", { title: "PCT" }, erinWrite);
+    expect(b.data).toMatchObject({ repeated: false, saved_to_account: true });
+    expect(b.data.share_code).not.toBe(a.data.share_code);
+    expect(replayKeys()).toEqual([]);
+  });
+
+  it("holds no window for an anonymous or a read-only caller, whose lists aren't filed", async () => {
+    for (const token of [undefined, erinRead]) {
+      const a = await tool("create_list", LIST, token);
+      const b = await tool("create_list", LIST, token);
+      expect(b.refused, b.text).toBe(false);
+      expect(b.data).toMatchObject({ repeated: false, saved_to_account: false });
+      expect(b.data.share_code).not.toBe(a.data.share_code);
+      expect(b.data.edit_link).toContain("/e/");
+    }
+  });
+});
+
+// What the third review found an assistant would be told wrong, or refused for nothing.
+describe("My Gear answers that say what happened", () => {
+  type Result = { status: string; item?: Record<string, unknown>; reason?: string };
+  // a token of its own: the suites above revoke the shared ones on their way
+  let write = "";
+  beforeAll(async () => {
+    write = (await mintAccessToken(db, alice, { label: "Third review", scope: "write", unproven: false }))!.token;
+  });
+  const add = async (...pieces: Record<string, unknown>[]) => (await tool("edit_my_gear", { add: pieces }, write)).data.results as Result[];
+
+  it("sums a kit item named twice, answers a re-added kit with its items, says why a name is refused, and takes the catalog's weight for 0 g", async () => {
+    const [lighter, pot] = await add({ name: "R3 lighter", weight_g: 10, owned: 3 }, { name: "R3 pot", weight_g: 50 });
+    const [lighterId, potId] = [lighter!.item!.id, pot!.item!.id];
+    const [kit] = await add({ name: "R3 kit", kit: { items: [{ id: lighterId, count: 2 }, { id: lighterId }, { id: potId }] } });
+    expect(kit!.item).toMatchObject({ weight_g: 80, kit: { items: [{ id: lighterId, count: 3 }, { id: potId, count: 1 }] } });
+    // put away and added again by name: the kit comes back with what it holds
+    expect((await tool("edit_my_gear", { remove: [kit!.item!.id] }, write)).refused).toBe(false);
+    const [back] = await add({ name: "R3 kit", weight_g: 900 });
+    expect(back).toMatchObject({ status: "added", item: { weight_g: 80, kit: { items: [{ id: lighterId, count: 3 }, { id: potId }] } } });
+    // a name that tidies to nothing is invalid, and says so
+    const [blank] = await add({ name: "​" });
+    expect(blank).toMatchObject({ status: "invalid", reason: expect.stringContaining("needs a name") });
+    // 0 g beside a catalog_id is "not weighed": the catalog's figure fills it
+    const [bar] = await add({ name: "R3 bar", catalog_id: 2, weight_g: 0 });
+    expect(bar!.item).toMatchObject({ weight_g: 68, catalog_id: 2 });
+    // a page offset sent as text is refused, not read as the first page again
+    expect((await tool("get_my_gear", { offset: "300" }, write)).refused).toBe(true);
   });
 });

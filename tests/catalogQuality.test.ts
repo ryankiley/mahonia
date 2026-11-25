@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { emergingBrandTokens, isBrandedTypedItem, isVariantRedundant, normKey, normalizeVariant, splitKnownBrand } from "../shared/catalogQuality";
+import { emergingBrandTokens, isBrandedTypedItem, isVariantRedundant, normKey, normalizeVariant, quoteBacksWeight, splitKnownBrand, weightsInQuote } from "../shared/catalogQuality";
 
 describe("normKey — a candidate's identity is the search fold", () => {
   it("keeps a name in any script, and folds an accent as the search does", () => {
@@ -144,5 +144,45 @@ describe("catalog-intake brands", () => {
     expect(isBrandedTypedItem({ name: "Solitary Maker", knownBrands: new Set(), emergingBrands: emerging })).toBe(false);
     expect(splitKnownBrand("Timmermade Alpha Cruiser", new Map(), emerging))
       .toEqual({ brand: "Timmermade", name: "Alpha Cruiser" });
+  });
+});
+
+describe("weightsInQuote — the figures verify_catalog_item holds a quote to", () => {
+  const read = (q: string) => weightsInQuote(q).map(Math.round);
+  it("reads grams, ounces, pounds, and a pound-and-ounce figure as one", () => {
+    expect(read("Total Weight: 36 oz / 1022 g")).toEqual([1022, 1021]);
+    expect(read("Weight: 1 lb 4 oz")).toEqual([567]);
+    expect(read("1 lb, 3.5 oz")).toEqual([553]);
+    expect(read("2.1 lbs")).toEqual([953]);
+  });
+
+  it("reads grams and kilograms spelled out, and no decimal comma's last digits", () => {
+    expect(read("This product weighs 169 grams in size M.")).toEqual([169]);
+    expect(read("Weight | 100 Grams")).toEqual([100]);
+    expect(read("100 gr")).toEqual([100]);
+    expect(read("1.2 kilograms")).toEqual([1200]);
+    expect(read("2 kilos")).toEqual([2000]);
+    expect(read("Range: 5 kilometres")).toEqual([]);
+    expect(quoteBacksWeight("Gewicht: 1,2 kg", 2000)).toBe(false);
+  });
+
+  it("reads a figure with no leading digit whole", () => {
+    // once read as "60 oz", 1.7 kg, which backed a weight the quote never stated
+    expect(read("The Deuce #2 - .60 oz")).toEqual([17]);
+    expect(quoteBacksWeight(".5 oz", 14)).toBe(true);
+    expect(quoteBacksWeight(".5 oz", 142)).toBe(false);
+  });
+
+  it("leaves out a weight per area and a rate, which are not what a thing weighs", () => {
+    // a fabric spec read as the item's weight would back a number the page never gave
+    expect(read("Fabric: DCF 1.0 oz/yd²")).toEqual([]);
+    expect(read("Shell: 36 g/m2 ripstop")).toEqual([]);
+    expect(read("40 gsm nylon")).toEqual([]);
+    expect(read("Burns 12 g/hr on low")).toEqual([]);
+    expect(read("2.5 oz per square yard")).toEqual([]);
+    // a slash before a number is the same weight in another unit
+    expect(read("Weight: 539 g / 19 oz")).toEqual([539, 539]);
+    expect(read("36 oz/1022 g")).toEqual([1022, 1021]);
+    expect(quoteBacksWeight("Fabric: DCF 1.0 oz/yd²", 28)).toBe(false);
   });
 });

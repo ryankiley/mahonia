@@ -1,12 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import {
-  ChevronDownIcon,
-  DashedLine02Icon,
-  Delete02Icon,
-  Edit02Icon,
-  ShirtIcon,
-} from "@hugeicons/core-free-icons";
+import { IconChevronDownMedium, IconFashion, IconPencil2, IconSquarePlaceholderDashed, IconTrashCan } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { WEIGHT_UNIT_OPTIONS } from "~/utils/unitOptions";
 import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -24,21 +18,26 @@ import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
 // kit's items (VaultKitSection), and a row copied three times is a row that drifts. A
 // kit's section swaps the trailing controls (the `actions` slot) for its own: how many
 // it holds, and taking the piece out of the kit.
-const props = defineProps<{
-  entry: VaultEntry;
-  unit: Unit;
-  /** the row's own remove is in flight */
-  busy?: boolean;
-  /** the kits a piece is in, by name ("Cook kit, Fire kit"): a string, so it compares
-   *  by value and a page render doesn't re-render every row */
-  inKits?: string;
-  /** false drops the worn/consumable column: on the Food tab every row would wear the
-   *  same consumable mark, a column that says nothing */
-  marks?: boolean;
-  /** offline, showing this device's copy: nothing on the row can change (a change to My
-   *  Gear needs the server). The controls keep their room, so nothing shifts. */
-  readonly?: boolean;
-}>();
+const props = withDefaults(
+  defineProps<{
+    entry: VaultEntry;
+    unit: Unit;
+    /** the row's own remove is in flight */
+    busy?: boolean;
+    /** the kits a piece is in, by name ("Cook kit, Fire kit"): a string, so it compares
+     *  by value and a page render doesn't re-render every row */
+    inKits?: string;
+    /** false drops the worn/consumable column: on the Food tab every row would wear the
+     *  same consumable mark, a column that says nothing. Shown unless a caller says
+     *  otherwise, which takes the default below: left out, a Boolean prop reads false,
+     *  and the column went from a kit's rows, whose section doesn't pass it. */
+    marks?: boolean;
+    /** offline, showing this device's copy: nothing on the row can change (a change to My
+     *  Gear needs the server). The controls keep their room, so nothing shifts. */
+    readonly?: boolean;
+  }>(),
+  { marks: true },
+);
 const emit = defineEmits<{
   edit: [];
   /** an icon picked from the row's own icon (null: back to the gear type's) */
@@ -110,7 +109,7 @@ const meta = computed(() => {
       <template #trigger="{ open, toggle, attrs }">
         <!-- the site's tooltip, as on the list row's icon buttons, not a native title:
              it shows at once and in the app's type -->
-        <Tooltip :text="typeLabel ? `${typeLabel} · Change icon` : 'Pick an icon'" :disabled="open" preferred-placement="top">
+        <Tooltip :text="typeLabel ? `${typeLabel} · Change icon` : 'Pick an icon'" :disabled="open">
         <button
           type="button"
           class="vault__typebtn"
@@ -120,9 +119,9 @@ const meta = computed(() => {
           aria-hidden="true"
           @click="toggle"
         >
-          <HugeiconsIcon v-if="typeIcon" :icon="typeIcon" :size="20" :stroke-width="2" />
-          <!-- empty: Hugeicons' dashed square, the shape an icon would fill, quietly -->
-          <HugeiconsIcon v-else :icon="DashedLine02Icon" :size="20" :stroke-width="2" />
+          <SvgIcon v-if="typeIcon" :icon="typeIcon" size="lg" />
+          <!-- empty: the dashed square, the shape an icon would fill, quietly -->
+          <SvgIcon v-else :icon="IconSquarePlaceholderDashed" size="lg" />
         </button>
         </Tooltip>
       </template>
@@ -139,7 +138,7 @@ const meta = computed(() => {
       </p>
       <!-- the sub-line: the gear type, the calories and calories for the weight on
            food, then what it cost (see `meta`) -->
-      <p v-if="meta.length" class="t-sm t-muted vault__meta">
+      <p v-if="meta.length" class="t-sm t-muted">
         <template v-for="(part, i) in meta" :key="i"
           ><span v-if="i" class="sep"> · </span>{{ part }}</template
         >
@@ -170,12 +169,11 @@ const meta = computed(() => {
       >
         <template #trigger="{ open }">
           <span class="t-sm t-muted">{{ rowUnit }}</span>
-          <HugeiconsIcon
-            :icon="ChevronDownIcon"
+          <SvgIcon
+            :icon="IconChevronDownMedium"
             class="chev vault__unitchev"
             :class="{ 'is-open': open }"
-            :size="12"
-            :stroke-width="2"
+            size="xs"
             aria-hidden="true"
           />
         </template>
@@ -184,13 +182,13 @@ const meta = computed(() => {
     <!-- the editor's own marks, in a fixed column whether or not the row carries
          one — an auto column would size to the count and steal a different amount
          from the name on every row (the reason --item-col-actions is fixed too) -->
-    <span v-if="marks !== false" class="vault__cls">
+    <span v-if="marks" class="vault__cls">
       <span v-if="entry.classification === 'worn'" class="item__mark item__mark--static" title="Worn">
-        <HugeiconsIcon :icon="ShirtIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+        <SvgIcon :icon="IconFashion" aria-hidden="true" />
         <span class="visually-hidden">Worn</span>
       </span>
       <span v-else-if="entry.classification === 'consumable'" class="item__mark item__mark--static" title="Consumable">
-        <HugeiconsIcon :icon="consumableIcon(entry)" :size="16" :stroke-width="2" aria-hidden="true" />
+        <SvgIcon :icon="consumableIcon(entry)" aria-hidden="true" />
         <span class="visually-hidden">Consumable</span>
       </span>
     </span>
@@ -204,21 +202,21 @@ const meta = computed(() => {
            arrival. -->
       <!-- the tooltip says the verb, the accessible name the whole thing: the row it
            hangs off already names the piece (ItemRow's split, WCAG 2.5.3 either way) -->
-      <Tooltip text="Edit" preferred-placement="top">
+      <Tooltip text="Edit">
         <button
           type="button"
           class="btn btn--icon btn--ghost vault__act ink-quiet"
           :aria-label="`Edit ${displayName}`"
           @click="emit('edit')"
         >
-          <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconPencil2" aria-hidden="true" />
         </button>
       </Tooltip>
       <!-- glyph only, like every other row action on the site: the word was the
            widest thing in the row and said what the bin already says. The label
            lives on aria-label + title. -->
       <slot name="remove">
-        <Tooltip text="Remove" preferred-placement="top">
+        <Tooltip text="Remove">
           <button
             type="button"
             class="btn btn--icon btn--ghost vault__act ink-quiet"
@@ -226,7 +224,7 @@ const meta = computed(() => {
             :aria-label="`Remove ${displayName} from My Gear`"
             @click="emit('remove')"
           >
-            <HugeiconsIcon :icon="Delete02Icon" :size="16" aria-hidden="true" :stroke-width="2" />
+            <SvgIcon :icon="IconTrashCan" aria-hidden="true" />
           </button>
         </Tooltip>
       </slot>
@@ -269,14 +267,8 @@ const meta = computed(() => {
   justify-content: center;
   width: 100%;
   height: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  cursor: pointer;
 }
-/* An empty slot wears Hugeicons' dashed square in the faintest ink, where an icon
+/* An empty slot wears the dashed square in the faintest ink, where an icon
    would sit. It used to be a 14px dashed border drawn in CSS, whose dashes rendered
    unevenly at that size and read on a real page as an image that failed to load. */
 .vault__typebtn.is-blank {
@@ -286,9 +278,6 @@ const meta = computed(() => {
   .vault__typebtn:hover {
     color: var(--ink);
   }
-}
-.vault__typebtn:active {
-  opacity: 0.7;
 }
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with the gear pane, which used to hand-mirror
@@ -300,26 +289,17 @@ const meta = computed(() => {
   color: var(--ink-3);
 }
 /* the unit picker beside the figure: content-sized, centred on its own text like the
-   list row's .item__unitwrap, and as quiet at rest — a chevron on every row */
+   list row's .item__unitwrap, and as quiet at rest — a chevron on every row. The box is
+   the OptionMenu root's own (.menu, .optmenu), and its touch hit area and focus lift
+   are shared with the list row's (atoms/item.scss); only the gap and the row's hover
+   are this row's. */
 .vault__unitwrap {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
   margin-left: 0.25ch;
-}
-@media (pointer: coarse) {
-  .vault__unitwrap :deep(.optmenu__btn) {
-    min-height: var(--tap);
-    margin-block: var(--tap-pull);
-  }
 }
 @media (hover: hover) and (pointer: fine) {
   .vault__row:hover .vault__unitchev {
     color: var(--ink-2);
   }
-}
-.vault__unitwrap:focus-within .vault__unitchev {
-  color: var(--ink-2);
 }
 .vault__weight {
   flex: none;

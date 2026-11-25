@@ -64,10 +64,10 @@ export function rankVaultRows<T extends RankableVaultRow>(
  * with your most-used gloves. A typo that misses here finds nothing, and the dialog
  * says so.
  */
-export function strongVaultRows<T extends RankableVaultRow>(rows: T[], rawQuery: string, limit = VAULT_SEARCH_LIMIT): T[] {
+export function strongVaultRows<T extends RankableVaultRow>(rows: T[], rawQuery: string): T[] {
   return scoreVaultRows(rows, rawQuery)
     .filter((r) => r.tier === 0 || r.score >= PICK_THRESHOLD)
-    .slice(0, limit)
+    .slice(0, VAULT_SEARCH_LIMIT)
     .map(({ row }) => row);
 }
 

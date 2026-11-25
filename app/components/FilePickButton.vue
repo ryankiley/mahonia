@@ -9,12 +9,9 @@
 //
 // Both dialogs read the file as text, so that read lives here too; each gets the text
 // and the File, for the name and type the list import sniffs a JSON backup by.
-const {
-  /** the two formats the import dialogs take — a CSV (LighterPack's export among them)
-   *  or the app's own JSON backup */
-  accept = ".csv,.tsv,.json,text/csv,text/plain,application/json",
-  label = "Choose a file…",
-} = defineProps<{ accept?: string; label?: string }>();
+/** the two formats the import dialogs take — a CSV (LighterPack's export among them)
+ *  or the app's own JSON backup */
+const ACCEPT = ".csv,.tsv,.json,text/csv,text/plain,application/json";
 const emit = defineEmits<{ text: [text: string, file: File] }>();
 
 const inputRef = useTemplateRef<HTMLInputElement>("inputRef");
@@ -33,13 +30,13 @@ function onChange(e: Event) {
   <input
     ref="inputRef"
     type="file"
-    :accept="accept"
+    :accept="ACCEPT"
     class="visually-hidden"
     tabindex="-1"
     aria-hidden="true"
     @change="onChange"
   />
-  <button class="btn btn--ghost filepick" type="button" @click="inputRef?.click()">{{ label }}</button>
+  <button class="btn btn--ghost filepick" type="button" @click="inputRef?.click()">Choose a file…</button>
 </template>
 
 <style scoped>

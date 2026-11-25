@@ -28,7 +28,7 @@ const files = walkSources(["app"], ["scss", "vue", "ts"]);
 
 // A custom property is DEFINED by a `--name:` declaration anywhere — :root, a scoped
 // component rule, inside a media query — or by a component handing an element one at
-// runtime. Both runtime forms count, and both are in use: style.setProperty (--vault-w,
+// runtime. Both runtime forms count, and both are in use: style.setProperty (--vault-span,
 // --drag-dy, --hov-ink) and a Vue :style binding, whose key is QUOTED — the elevation
 // profile positions its hover marker with `:style="{ '--at': ... }"`, and a rule that
 // only understood the bare form would call that live token dead.

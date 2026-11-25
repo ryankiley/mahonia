@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Calendar03Icon, ChevronDownIcon, Copy01Icon, Delete02Icon, Edit02Icon, InternetIcon, HelpCircleIcon, Location01Icon } from "@hugeicons/core-free-icons";
+import { IconCalendarDays, IconChevronDownMedium, IconGlobe2, IconMapPin, IconPencil2, IconQuestionmarkCircle, IconSquareBehindSquare1, IconTrashCan } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
 import {
   distanceFieldValue,
@@ -9,6 +9,7 @@ import {
   resolveDistanceUnit,
 } from "~~/shared/trailDistance";
 import { displayUrl, parseTrailLink, safeUrl, CLEARS_WITH_LINK } from "~~/shared/trailLink";
+import { counted } from "~~/shared/tidyText";
 // shared/gpx is deliberately absent here AND in useGpxImport, which now owns the
 // reading — it is reached through `await import()` inside onGpx, so the file reader
 // isn't on the first load of a list nobody imports into. Not even MAX_GPX_BYTES: one
@@ -16,6 +17,7 @@ import { displayUrl, parseTrailLink, safeUrl, CLEARS_WITH_LINK } from "~~/shared
 // easy way to undo this without noticing.
 import type { ListSnapshot } from "~~/shared/types";
 import { copyText } from "~/utils/clipboard";
+import { ROW_FLASH } from "~/components/ItemRow.vue";
 
 // The editor's title block: the list's name as a page title, with an optional link to
 // the route it was packed for.
@@ -234,7 +236,7 @@ async function loadGpx(): Promise<GpxImpl> {
   try {
     const { useGpxImport } = await import("~/composables/useGpxImport");
     // a second change event during the fetch lands here too; the first build wins
-    return (gpxImpl.value ??= gpxScope.run(() => useGpxImport(computed(() => props.snapshot), c))!);
+    return (gpxImpl.value ??= gpxScope.run(() => useGpxImport(c))!);
   } finally {
     gpxLoading.value = false;
   }
@@ -285,7 +287,8 @@ function commitDistance(e: Event) {
 }
 
 function remove() {
-  // the distance describes the ROUTE, so it goes with the link rather than outliving it
+  // what describes the ROUTE goes with the link; the trip's distance stays (see
+  // CLEARS_WITH_LINK), and the row falls back to showing it
   c.setMeta({ trailUrl: "", ...CLEARS_WITH_LINK });
   surface.value = null;
 }
@@ -293,11 +296,12 @@ function remove() {
 // Copy the destination — that URL, not the list's own share link (the toolbar handles
 // that one). Goes through the shared copyText(), which carries the async-write +
 // execCommand fallback iOS Safari needs, and reports via the editor's toast rather than
-// a local icon swap, so every copy in the app confirms the same way.
-const emit = defineEmits<{ toast: [message: string] }>();
+// a local icon swap, so every copy in the app confirms the same way. The toast is
+// reached by inject, the way a row reaches it (ROW_FLASH, ItemRow).
+const flash = inject(ROW_FLASH, () => {});
 async function copyLink() {
   if (!link.value) return;
-  emit("toast", (await copyText(link.value.href)) ? "Trail link copied" : "Copy failed");
+  flash((await copyText(link.value.href)) ? "Trail link copied" : "Copy failed");
 }
 
 // ---- trip dates ----
@@ -308,7 +312,13 @@ async function copyLink() {
 // waypoints and the estimates (see TrailPlanPanel). This row stays the two ends of the
 // range, which is the one fact about a trip that belongs beside its title.
 const datesEl = useTemplateRef<HTMLElement>("datesEl");
-const dateLabel = computed(() => formatDateRange(props.snapshot.startDate, props.snapshot.endDate));
+// A trip in the coming week reads "Tomorrow" / "Friday" (formatDateRange says why), and
+// the editor only ever renders in the browser, so it is on the reader's clock from the
+// first frame. The tick is what carries "Tomorrow" over midnight in a tab left open.
+const now = useNow();
+const dateLabel = computed(() =>
+  formatDateRange(props.snapshot.startDate, props.snapshot.endDate, now.value, { relative: true }),
+);
 
 // Opening a surface replaces whatever was up, so no opener has anything to remember.
 // Dismissing is the opposite: each one is about its own side. closeDates hears every
@@ -413,11 +423,9 @@ onClickOutside(trailEl, closeTrail);
         @keydown.enter.prevent="($event.target as HTMLTextAreaElement).blur()"
         @change="commitTitle"
       />
-      <HugeiconsIcon
-        :icon="Edit02Icon"
+      <SvgIcon
+        :icon="IconPencil2"
         class="head__pencil"
-        :size="16"
-        :stroke-width="2"
         aria-hidden="true"
       />
     </div>
@@ -450,8 +458,11 @@ onClickOutside(trailEl, closeTrail);
         <!-- a PIN, not the globe: this affordance is about the place you're going.
              The two globes below are different — they're the fallback mark for a site
              with no favicon, standing in for "a website", which a pin would misstate. -->
-        <HugeiconsIcon :icon="Location01Icon" :size="14" :stroke-width="2" aria-hidden="true" />
-        Add a trail
+        <SvgIcon :icon="IconMapPin" aria-hidden="true" />
+        <!-- A distance with no link reads in the slot, as a set date does beside it: a
+             fact rather than an invitation, and still the way into the panel (where the
+             link can be added and the distance changed or cleared). -->
+        {{ distanceLabel ?? "Add a trail" }}
       </button>
 
       <!-- the resolved link: the site's mark + the trail's name. No hostname — the mark
@@ -478,11 +489,11 @@ onClickOutside(trailEl, closeTrail);
             class="head__icon"
             :src="icon"
             alt=""
-            width="16"
-            height="16"
+            width="18"
+            height="18"
           />
-          <HugeiconsIcon :icon="InternetIcon" v-else class="head__icon head__icon--fallback" :size="16" :stroke-width="2" aria-hidden="true" />
-          <span class="head__name t-clip">{{ link.name }}</span>
+          <SvgIcon :icon="IconGlobe2" v-else class="head__icon head__icon--fallback" aria-hidden="true" />
+          <span class="t-clip">{{ link.name }}</span>
           <!-- The one fact about the route that isn't in its name. Muted and after the
                name, so it reads as a detail OF the trail rather than a second link;
                absent entirely until it's set, like every other optional field here. -->
@@ -503,9 +514,9 @@ onClickOutside(trailEl, closeTrail);
             width="14"
             height="14"
           />
-          <HugeiconsIcon :icon="InternetIcon" v-else class="head__cardicon head__icon--fallback" :size="14" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconGlobe2" v-else class="head__cardicon head__icon--fallback" size="sm" aria-hidden="true" />
           <a
-            class="head__cardurl t-clip"
+            class="head__cardurl t-clip ink-quiet"
             :href="link.href"
             target="_blank"
             rel="nofollow ugc noopener noreferrer"
@@ -516,13 +527,12 @@ onClickOutside(trailEl, closeTrail);
             aria-label="Copy link"
             @click="copyLink"
           >
-            <!-- 14, tracking the card's own type: a glyph sits at the size of the text
-                 beside it, 1:1. 16 is the size for marks beside 16px text (the link row)
-                 and reads oversized in here. The stroke drops below the house's 2 as
-                 well — at 14 a 2-weight outline carries more ink than the words it sits
-                 among, so it stops reading as their equal. 1.75 and not 1.5: the lighter
-                 stroke went spindly, and this is the smallest step back that matches. -->
-            <HugeiconsIcon :icon="Copy01Icon" :size="14" :stroke-width="1.75" aria-hidden="true" />
+            <!-- sm, tracking the card's own 14px type; md is for marks beside 16px text (the
+                 link row) and reads oversized in here. The line drops a step below sm's
+                 1.25px as well: among these words a fuller outline carries more ink than
+                 they do and stops reading as their equal. 1px is what the old tuning drew
+                 (1.75 on the 24 grid at 14px); lighter still went spindly. -->
+            <SvgIcon :icon="IconSquareBehindSquare1" size="sm" :stroke-width="1" aria-hidden="true" />
           </button>
           <!-- no Remove here: removal lives one level in, behind Edit (the fields row
                below carries it). Keeping a destructive action out of a surface that
@@ -553,7 +563,7 @@ onClickOutside(trailEl, closeTrail);
           :aria-expanded="datesOpen"
           @click="datesOpen ? closeDates() : openDates()"
         >
-          <HugeiconsIcon :icon="Calendar03Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconCalendarDays" aria-hidden="true" />
           {{ dateLabel || "Add dates" }}
         </button>
         <Transition name="menu">
@@ -584,7 +594,7 @@ onClickOutside(trailEl, closeTrail);
            other field in the editor, so a confirm button would only be confirming
            something already saved. Focus leaving the panel closes it. -->
       <!-- tabindex="-1", so the panel can HOLD focus. A press on anything in here that
-           can't take focus itself — the map-file label, the lede, a strip of padding —
+           can't take focus itself — the map-file label, a field's label, a strip of padding —
            makes the browser focus the nearest ancestor that can, and without this
            that was the editor's <main tabindex="-1"> (the skip link's target). Focus
            arriving there is, to onFocusOut, focus leaving the panel: it closed on the
@@ -609,13 +619,9 @@ onClickOutside(trailEl, closeTrail);
           @focusout="onFocusOut"
           @keyup.escape="closeTrail"
         >
-          <!-- one line before the two fields, because they were two fields and no words:
-               what a link does and what a file does. A span, not a p — the panel is
-               phrasing content — set to block below. -->
-          <span class="t-sm t-muted head__panellede">
-            A link keeps the route with the list. A map file adds its distance and climb; it's
-            read here in your browser and never uploaded.
-          </span>
+          <!-- No lede. Two sentences sat here saying what a link does and what a file
+               does, and how the file is read; Ryan: "too complex". The labels say the
+               first, and the (?) beside the file row says the rest. -->
           <!-- TWO ways in now, which is why the affordance above says "Add a trail" rather
                than naming either of them. A LINK is the common one, so it stays first and
                unadorned. A GPX is the richer one — it carries the distance and the shape of
@@ -627,7 +633,7 @@ onClickOutside(trailEl, closeTrail);
           <label class="head__panellabel" :for="`${fieldsId}-url`">Link</label>
           <input
             :id="`${fieldsId}-url`"
-            class="head__panelinput"
+            class="well head__panelinput"
             type="url"
             inputmode="url"
             placeholder="https://"
@@ -647,8 +653,8 @@ onClickOutside(trailEl, closeTrail);
               text="GPX, KML, KMZ, TCX, FIT, GeoJSON or GeoRSS. Reads the route's distance and the shape of its climb. The file is read here in your browser and never uploaded."
               preferred-placement="bottom"
             >
-              <button type="button" class="head__gpxwhy" aria-label="Which map files can be read">
-                <HugeiconsIcon :icon="HelpCircleIcon" :size="14" :stroke-width="2" aria-hidden="true" />
+              <button type="button" class="head__gpxwhy ink-quiet" aria-label="Which map files can be read">
+                <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
           </p>
@@ -659,10 +665,9 @@ onClickOutside(trailEl, closeTrail);
                one tap each. Phrased with the count so the answer is informed: "add 11" is a
                different question from "add 98" — and 98 is what a yes will do, not a guess. -->
           <p v-if="pending" class="head__gpxerr t-sm">
-            This route can add {{ pending.pins.length }}
-            {{ pending.pins.length === 1 ? "marked place" : "marked places" }}.
+            This route can add {{ counted(pending.pins.length, "marked place") }}.
             <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
-            <button type="button" class="head__gpxno" @click="pending = null">No thanks</button>
+            <button type="button" class="head__gpxno ink-quiet" @click="pending = null">No thanks</button>
           </p>
 
           <!-- edit only. On the way IN the single job is pasting a URL; a title box there
@@ -672,66 +677,69 @@ onClickOutside(trailEl, closeTrail);
             <label class="head__panellabel" :for="`${fieldsId}-title`">Link title</label>
             <input
               :id="`${fieldsId}-title`"
-              class="head__panelinput"
+              class="well head__panelinput"
               :placeholder="link?.name ?? ''"
               :value="snapshot.trailLabel ?? ''"
               @change="commitLabel"
               @keydown.enter="commitAndClose"
             />
 
-            <!-- Typed, because it cannot be fetched: the linked page answers a
-                 server-side GET with 403 and there's no API to ask instead. Anyone
-                 pasting a trail link is looking at the number on that page.
-                 A bare number is read in the unit the picker beside it shows; typing
-                 "7.5 mi" into a list set to km still works, because the parser reads a
-                 unit off the value and prefers it to the picker's. -->
-            <!-- "optional" rides in the LABEL, not the placeholder: a placeholder is gone
-                 the moment you type, which is exactly when you'd want to know you could
-                 have left it empty. The other two fields are optional too, but this is
-                 the one that reads as a thing the app needs — it's the only number in
-                 here, and a number in a form looks required. -->
-            <label class="head__panellabel" :for="`${fieldsId}-dist`">Distance (optional)</label>
-            <!-- The unit sits INSIDE the field's row rather than in the label, because
-                 it's a control and the label isn't. Same chevron-beside-an-abbreviation
-                 the totals bar and each item row use — one vocabulary for one gesture. -->
-            <span class="head__distrow">
-              <input
-                :id="`${fieldsId}-dist`"
-                class="head__panelinput head__distinput"
-                inputmode="decimal"
-                autocorrect="off"
-                spellcheck="false"
-                :placeholder="distanceUnit === 'mi' ? '7.5' : '12'"
-                :value="distanceValue"
-                @change="commitDistance"
-                @keydown.enter="commitAndClose"
-              />
-              <OptionMenu
-                class="head__distunit"
-                :options="DISTANCE_UNIT_OPTIONS"
-                :current="distanceUnit"
-                label="Distance unit"
-                title="Change distance unit"
-                @pick="pickDistanceUnit"
-              >
-                <template #trigger="{ open }">
-                  <span class="t-sm t-muted">{{ distanceUnit }}</span>
-                  <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
-                       total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
-                  <HugeiconsIcon
-                    :icon="ChevronDownIcon"
-                    class="chev"
-                    :class="{ 'is-open': open }"
-                    :size="12"
-                    :stroke-width="2"
-                    aria-hidden="true"
-                  />
-                </template>
-              </OptionMenu>
-            </span>
+          </template>
+          <!-- The distance is in BOTH modes: it's the trip's length, and a trip has one
+               whether or not it has a link (Ryan, 2026-11-10: "we shouldn't hide distance
+               entry behind needing a link"). Typed, because it cannot be fetched: the
+               linked page answers a server-side GET with 403 and there's no API to ask
+               instead. Anyone pasting a trail link is looking at the number on that page.
+               A bare number is read in the unit the picker beside it shows; typing
+               "7.5 mi" into a list set to km still works, because the parser reads a
+               unit off the value and prefers it to the picker's. -->
+          <!-- "optional" rides in the LABEL, not the placeholder: a placeholder is gone
+               the moment you type, which is exactly when you'd want to know you could
+               have left it empty. The other two fields are optional too, but this is
+               the one that reads as a thing the app needs — it's the only number in
+               here, and a number in a form looks required. -->
+          <label class="head__panellabel" :for="`${fieldsId}-dist`">Distance (optional)</label>
+          <!-- The unit sits INSIDE the field's row rather than in the label, because
+               it's a control and the label isn't. Same chevron-beside-an-abbreviation
+               the totals bar and each item row use — one vocabulary for one gesture. -->
+          <span class="head__distrow">
+            <input
+              :id="`${fieldsId}-dist`"
+              class="well head__panelinput head__distinput"
+              inputmode="decimal"
+              autocorrect="off"
+              spellcheck="false"
+              :placeholder="distanceUnit === 'mi' ? '7.5' : '12'"
+              :value="distanceValue"
+              @change="commitDistance"
+              @keydown.enter="commitAndClose"
+            />
+            <OptionMenu
+              class="head__distunit"
+              :options="DISTANCE_UNIT_OPTIONS"
+              :current="distanceUnit"
+              label="Distance unit"
+              title="Change distance unit"
+              @pick="pickDistanceUnit"
+            >
+              <template #trigger="{ open }">
+                <span class="t-sm t-muted">{{ distanceUnit }}</span>
+                <!-- 12/2 = an exact 1px stroke, the small-size counterpart to the
+                     total's 16/2.25 — matching ItemRow's per-row unit chevron. -->
+                <SvgIcon
+                  :icon="IconChevronDownMedium"
+                  class="chev"
+                  :class="{ 'is-open': open }"
+                  size="xs"
+                  aria-hidden="true"
+                />
+              </template>
+            </OptionMenu>
+          </span>
+          <template v-if="mode === 'edit'">
             <hr class="head__paneldiv" />
             <button type="button" class="menu__item head__panelremove" @click="remove">
-              <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="1.5" aria-hidden="true" />
+              <SvgIcon :icon="IconTrashCan" aria-hidden="true" />
               Remove link
             </button>
           </template>
@@ -781,11 +789,10 @@ onClickOutside(trailEl, closeTrail);
                             + half-leading (1.2 - 0.969 - 0.219) / 2 = 0.006em
                             + ascent 0.969em
                             - half the cap height 0.352em      = 0.62em to the centre
-                            - half the 16px glyph
+                            - half the 18px glyph
      em can't be used directly (it would resolve against this SVG's inherited 16px,
      not the title's 32px), so the title's own token is multiplied explicitly. */
-  margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - 8px);
-  align-self: flex-start;
+  margin-top: calc(var(--space-1) + 0.62 * var(--text-page-title) - var(--icon) / 2);
   color: var(--ink-3);
   opacity: 0;
   visibility: hidden;
@@ -800,15 +807,13 @@ onClickOutside(trailEl, closeTrail);
 .head__titlewrap:focus-within .head__pencil {
   opacity: 1;
   visibility: visible;
+  color: var(--ink-2);
 }
 @media (hover: hover) and (pointer: fine) {
   .head__titlewrap:hover .head__pencil {
     opacity: 1;
     visibility: visible;
   }
-}
-.head__titlewrap:focus-within .head__pencil {
-  color: var(--ink-2);
 }
 /* a coarse pointer has no hover to reveal it with, and a permanently-visible hint
    next to every title is clutter — so on touch the field simply stays as it was */
@@ -817,11 +822,11 @@ onClickOutside(trailEl, closeTrail);
     display: none;
   }
 }
-/* width:100% is the FALLBACK. Where field-sizing works the box shrinks to its text
-   (see the rule at the end of this block), which is what puts the hover pencil beside
-   the title instead of stranded at the far edge of the column. */
+/* The full width (.field's own width: 100%, atoms/controls.scss) is the FALLBACK. Where
+   field-sizing works the box shrinks to its text (see the rule at the end of this
+   block), which is what puts the hover pencil beside the title instead of stranded at
+   the far edge of the column. */
 .head__title {
-  width: 100%;
   /* the page-title step — a document title, not a section heading. Well above the 16px
      threshold that triggers iOS Safari's focus-zoom, so .field's literal-1rem
      workaround (controls.scss) doesn't apply here. */
@@ -875,14 +880,12 @@ onClickOutside(trailEl, closeTrail);
      from it than the other. A wrap is a line break in one stack of meta, not a gap
      between two things standing side by side. */
   gap: var(--space-1) var(--space-4);
-  min-width: 0;
   min-height: 1.5em;
 }
 .head__link {
   display: inline-flex;
   align-items: baseline;
   gap: var(--space-2);
-  min-width: 0;
   /* it's a <button> (see the template note) — the reset already strips the UA's chrome
      so it reads as the line of text it looks like; only the tracking needs saying */
   letter-spacing: inherit;
@@ -893,22 +896,17 @@ onClickOutside(trailEl, closeTrail);
 .head__icon {
   flex: none;
   align-self: center;
+  /* In type pixels like the globe that stands in for it (main.scss sizes glyphs, not
+     images), so past 1920px the site's mark grows with the name beside it. The server
+     takes a site's apple-touch-icon first, 180-192px, so there is resolution to grow
+     into; a site with only a 16px .ico softens there, on a 3000px window. */
+  width: var(--icon);
+  height: var(--icon);
   border-radius: var(--radius-icon);
 }
-/* the globe stands in for a real mark, so it should read as a placeholder rather than
-   as the site's own icon — a step lighter than the link text it sits beside */
-.head__icon--fallback {
-  color: var(--ink-3);
-  opacity: 0.6;
-}
-/* The distance rides after the name as a detail of it. `flex: none` so a long trail
-   name ellipses (.t-clip on the name) instead of squeezing the number out — the name is
-   the thing you can afford to lose characters from, since the card carries the URL
-   in full and this is four characters that are useless truncated. */
-.head__dist {
-  flex: none;
-  color: var(--ink-3);
-}
+/* The globe that stands in for a real mark (.head__icon--fallback) and the distance that
+   rides after the name (.head__dist) are drawn with the read view's own, beside .link
+   in atoms/controls.scss: the trail link reads the same on both. */
 .head__anchor {
   /* deliberately NOT a positioning context: the floating card below is absolute, and
      anchoring it here made .head__anchor its containing block — so `max-width: 100%`
@@ -918,7 +916,6 @@ onClickOutside(trailEl, closeTrail);
      item, so inset-inline-start: 0 lands in the same place. */
   display: inline-flex;
   align-items: baseline;
-  min-width: 0;
   /* content-sized: the card floats out of flow at every pointer, so the anchor is only
      ever as wide as the name it holds and never claims the whole row */
   flex: 0 1 auto;
@@ -944,14 +941,11 @@ onClickOutside(trailEl, closeTrail);
   /* wider than the icon-to-its-own-text step: the glyph belongs to the URL it acts on,
      "Edit" is a separate control */
   gap: var(--space-2);
-  min-width: 0;
   /* out of flow, so it sizes to its CONTENT, bounded by `max-width: 100%` — which is
      the page column, since .head__trail is the containing block. Content-sized but
      never past the screen edge. The URL inside carries the shrinking (see below). */
-  flex: 0 0 auto;
   width: max-content;
   max-width: 100%;
-  margin-inline-start: 0;
   /* --radius-3 is the small-card step; inner surfaces derive from it with calc() so a
      nested curve can never end up rounder than the box holding it. */
   padding: var(--space-2) var(--space-3);
@@ -960,8 +954,8 @@ onClickOutside(trailEl, closeTrail);
      and tight drop were there because --shadow-soft had a 48px spread that read mushy
      at this size, and it hasn't since the token became one value for every surface. */
   border-radius: var(--radius-3);
-  /* the item radius still repins, because the corner still differs from the atom's */
-  --popover-item-radius: calc(var(--radius-3) - var(--space-1));
+  /* (no --popover-item-radius of its own: nothing in this card takes the menus' row
+     corner — a mark, a link and two bare text buttons) */
   font-size: var(--text-chrome);
   /* tight leading, not the inherited 1.5 — the card's height is content + padding, and
      1.5 alone pushed it past the 32px that squares it with the row's icon buttons */
@@ -990,6 +984,9 @@ onClickOutside(trailEl, closeTrail);
 .head__cardicon {
   flex: none;
   display: block;
+  /* type pixels, as .head__icon above */
+  width: calc(14 * var(--tpx));
+  height: calc(14 * var(--tpx));
   border-radius: var(--radius-icon);
 }
 /* The URL FLEXES between a floor and a ceiling rather than being sized by its content.
@@ -1004,28 +1001,19 @@ onClickOutside(trailEl, closeTrail);
   flex: 1 1 auto;
   min-width: 12ch;
   max-width: 32ch;
-  /* the one thing here that navigates, so it deepens on hover — quiet at rest, because
-     the card is a place you land on the way to Edit as often as to the trail itself */
-  color: var(--ink-3);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
+  /* the one thing here that navigates, so it deepens under the pointer and on focus —
+     quiet at rest, because the card is a place you land on the way to Edit as often as
+     to the trail itself. The inks are .ink-quiet's (atoms/controls.scss), worn in the
+     markup. */
 }
-.head__cardurl:focus-visible {
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .head__cardurl:hover {
-    color: var(--ink);
-  }
-}
-/* the actions are the emphasis in this card: full ink, regular weight. The explicit
-   font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
+/* the actions are the emphasis in this card: full ink, at .btn--quiet's regular
+   weight. The explicit font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
    leave "Edit" at 16px beside a 12px URL and push the card to 40px tall against the
    reference's 32px. */
 .head__cardbtn {
   flex: none;
   color: var(--ink);
   font-size: var(--text-chrome);
-  font-weight: 400;
 }
 /* opens the row's 8px gap out to 12 before the word (see the template note) */
 .head__cardedit {
@@ -1082,36 +1070,40 @@ onClickOutside(trailEl, closeTrail);
   z-index: var(--z-menu);
   display: flex;
   flex-direction: column;
-  /* no flex gap — every gap here is set explicitly below, because the rhythm ISN'T
-     uniform: a label belongs to the field under it, so those two sit tight while the
-     gap between one field and the next label opens up to separate the pairs */
-  gap: 0;
+  /* no flex gap, declared or otherwise — every gap here is set explicitly below, because
+     the rhythm ISN'T uniform: a label belongs to the field under it, so those two sit
+     tight while the gap between one field and the next label opens up to separate the
+     pairs */
   /* 330px: wide enough that an ordinary URL reads without wrapping, narrow enough that
      the panel still sits over the row as a popover rather than becoming a column */
   width: min(20.625rem, 100%);
-  /* Uniform. The Remove row pulls ITSELF into this padding (below) rather than the panel
-     thinning its floor — in "add" mode there is no Remove row, and a thinned floor left
-     the lone URL field crammed against the bottom edge with a full step above it. */
+  /* Uniform, and the grounds' edge: fields, the rule and the Remove row sit on it, the
+     words a step further in (.head__panellabel). A thinned floor once left the lone URL
+     field in "add" mode crammed against the bottom edge with a full step above it. */
   padding: var(--space-3);
-  /* The atom's corner and shadow, unmodified. This used to take --radius-3 and a local
-     ring-plus-drop, on the reasoning that --shadow-soft was "built for big anchored
-     menus" with a 48px spread. That stopped being true when the token was rewritten to
-     one value for every size — it is a 28px layer now — so the override was carrying a
-     divergence for a reason that no longer existed, and this panel sat visibly apart
-     from the date picker beside it, which is the same kind of surface at the same size.
-     Dropping the corner override also retires the --popover-item-radius repin that
-     existed only to keep rows from curving more than the box holding them. */
-  border-radius: var(--radius-4);
+  /* The corner and the shadow are the .popover atom's, unmodified and so not declared
+     here: --shadow-soft is one value for every size of surface, and with a corner or a
+     shadow of its own this panel sat visibly apart from the date picker beside it,
+     which is the same kind of surface at the same size. Rows inside take the atom's
+     --popover-item-radius for the same reason, so they never curve more than the box
+     holding them. */
   text-align: start;
+}
+/* TWO EDGES, as in every card here (the My Gear pane's rows and search well): the
+   GROUNDS (the fields, the Remove row, the rule) sit on the panel's 12px padding, and the
+   WORDS sit a step further in, on the edge a field's own text already starts on (its 8px
+   inline padding). The labels and the file row used to start on the grounds' edge, so
+   the panel's text had two left edges and the URL in the field missed the label above it.
+   That step is this one rule. */
+.head__panellabel,
+.head__gpx,
+.head__gpxerr {
+  padding-inline: var(--space-2);
 }
 /* 12px + medium weight — the smaller of the two chrome steps, so the labels stay
    subordinate to the fields and row beneath them. A label
    belongs to the field UNDER it, so it sits closer to that field (8) than the field above
    sits to it (16, set on the adjacent-sibling rule below). */
-.head__panellede {
-  display: block;
-  margin-block-end: var(--space-3);
-}
 .head__panellabel {
   margin-block-end: var(--space-2);
   color: var(--ink-3);
@@ -1122,7 +1114,12 @@ onClickOutside(trailEl, closeTrail);
 /* filled, unlike the borderless .field used everywhere else: inside a floating panel
    there's no surrounding structure to imply where the input begins, so the fill IS the
    boundary. Each label sits above its own field, so a placeholder never has to stand in
-   for one. */
+   for one.
+   The fill is the .well atom (atoms/controls.scss), worn in the markup: its ground (an
+   amount of ink, so it shows on this card in both themes, where the --paper-2 this used
+   sat at 1.10:1 on it), its ink, its placeholder, and its focus — the ground deepens a
+   step and nothing is drawn round it, the one focus every contained field on a floating
+   surface takes. Only the geometry below is this panel's. */
 .head__panelinput {
   width: 100%;
   /* 2em — a field twice the height of its own type, which is the proportion a compact
@@ -1140,29 +1137,16 @@ onClickOutside(trailEl, closeTrail);
      own inputs carry no border at all — the caret carries focus. */
   /* smaller than the panel's own corner — derived, so it tracks --radius-3 */
   border-radius: calc(var(--radius-3) - var(--space-1));
-  background: var(--paper-2);
-  color: var(--ink);
   /* stays at 16px while the labels above drop to 12px: 14 would sit better with them,
      but anything under 16px makes iOS Safari zoom the page on focus (atoms/controls.scss) */
   font-size: var(--text-input);
 }
-.head__panelinput:focus {
-  outline: none;
-}
-.head__panelinput + .head__panellabel {
-  margin-block-start: var(--space-4);
-}
-/* The distance field wraps its input, so the sibling rule above can't reach the label
-   that follows it. Same spacing, stated for the wrapper. */
-.head__distrow + .head__panellabel {
-  margin-block-start: var(--space-4);
-}
-/* And the same again for the file row, which sits BETWEEN the URL field and the title's
-   label and so breaks the adjacency the rule above depends on — the label was arriving
-   with no space above it at all. Third statement of one spacing; if a fourth thing ever
-   lands between a field and a label, this wants to become a rule about the panel's
-   children rather than another pair. */
-.head__gpx + .head__panellabel {
+/* Every label after the first starts a new field and takes the step that separates one
+   pair from the next. A rule about the panel's labels, not about what happens to sit
+   before each one: written as "a label after a field" and again as "a label after the
+   file row", it missed the file's error line and the marked-places offer, which render
+   between that row and the title's label and left it with no space above it at all. */
+.head__panellabel ~ .head__panellabel {
   margin-block-start: var(--space-4);
 }
 /* Number and unit on one line, the unit taking only what it needs. NOT absolutely
@@ -1178,7 +1162,6 @@ onClickOutside(trailEl, closeTrail);
 }
 .head__distinput {
   flex: 1;
-  min-width: 0;
 }
 .head__distunit {
   flex: none;
@@ -1208,21 +1191,12 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxbtn input {
   display: none;
 }
-/* the (?) that replaced a line of caveats — same quiet treatment the planning rows use */
+/* the (?) that replaced a line of caveats — the same quiet treatment the planning rows
+   use, and the same class for it: .ink-quiet (atoms/controls.scss), in the markup */
 .head__gpxwhy {
   display: inline-flex;
   margin-left: var(--space-1);
-  color: var(--ink-3);
   cursor: help;
-  transition: color var(--spring-fade-dur) var(--spring-fade);
-}
-.head__gpxwhy:focus-visible {
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .head__gpxwhy:hover {
-    color: var(--ink);
-  }
 }
 .head__gpxerr {
   color: var(--ink-2);
@@ -1235,56 +1209,34 @@ onClickOutside(trailEl, closeTrail);
 .head__gpxno {
   text-decoration: underline;
   text-underline-offset: var(--underline-offset);
-  transition: color var(--spring-fade-dur) var(--spring-fade);
 }
+/* the yes stands at full ink, so it has nowhere to lift to; the no rests a step back and
+   lifts to meet it — .ink-quiet (atoms/controls.scss), in the markup */
 .head__gpxyes {
   margin-left: var(--space-1);
   color: var(--ink);
 }
 .head__gpxno {
   margin-left: var(--space-2);
-  color: var(--ink-3);
-}
-.head__gpxyes:focus-visible,
-.head__gpxno:focus-visible {
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .head__gpxyes:hover,
-  .head__gpxno:hover {
-    color: var(--ink);
-  }
 }
 .head__paneldiv {
   width: 100%;
-  /* 4 below, not 8: the row underneath already carries 8px of its own padding, and a
-     full step here stacked the two into a 16px gap. 4 matches the panel's block-end
-     padding so the hover box has the SAME breathing room above and below it. */
-  margin: var(--space-2) 0 var(--space-1);
+  /* 12 either side, the panel's own padding: the Remove row's hover ground sits 12 off
+     the panel's sides and floor (the grounds' edge), so 12 off the rule too frames it
+     evenly. It was 4 below, to match a pull into the floor the row no longer makes. */
+  margin: var(--space-3) 0;
   border: 0;
   border-block-start: 1px solid var(--line);
 }
-/* The .menu__item atom's treatment, with this panel's own geometry: the negative inline
-   margin lets the highlight breathe past the text while the icon still starts on the
-   panel's 12px content edge, in line with the rule and the fields above it. */
+/* The .menu__item atom's treatment, with this panel's own geometry: its ground on the
+   grounds' edge with the fields and the rule above it, its icon on the words' edge. */
 .head__panelremove {
   /* .menu__item (atoms/controls.scss) supplies the row: background, ink, hover tint,
-     concentric radius, transition, cursor, and the centred flex row itself. Only this
-     panel's own geometry lives here. The radius comes out right because .head__panel
-     repins --popover-item-radius to its own corner — see there. */
-  /* 12px — a 16px glyph on the panel's 12px content edge leaves the label starting at
-     x40, which is where every other label in the panel starts */
-  gap: var(--space-3);
-  /* The highlight bleeds a full step past the content on each side, leaving it inset
-     just 4px from the panel's edge rather than 8 — a menu row should read as spanning
-     the panel, not as a chip floating inside it. Padding matches the bleed, so the icon
-     still starts on the 12px content edge shared with the rule and the fields. */
-  width: calc(100% + var(--space-2) * 2);
-  margin-inline: calc(var(--space-2) * -1);
-  /* pulls into the panel's floor so the highlight ends 4px off the bottom edge — the
-     same 4px it has above it, without the panel itself thinning its padding (which
-     would strand the lone field in "add" mode) */
-  margin-block-end: calc(var(--space-2) * -1);
+     concentric radius, transition, and the centred flex row itself with its
+     12px gap. Only this panel's own geometry lives here. The radius comes out right
+     because .head__panel keeps the .popover atom's corner — see there. */
+  /* It bled out to 4px off the panel's edge, a third left edge beside the fields' 12 and
+     the words' 20. Now on the two the rest of the panel keeps (see .head__panellabel). */
   padding: var(--space-2);
   font-size: var(--text-chrome);
   line-height: 1.2;
@@ -1296,12 +1248,8 @@ onClickOutside(trailEl, closeTrail);
   position: relative;
   display: inline-flex;
 }
-/* the affordance itself borrows .head__add wholesale (hover reveal, colour, ease);
-   only the resolved state differs — a set date is content, not an invitation, so it
-   holds full-time at the same weight the trail link's name does */
-.head__datesbtn {
-  gap: var(--space-1);
-}
+/* the dates affordance borrows .head__add wholesale (gap, colour, ease); its own
+   .head__datesbtn class carries no rule and is only a hook for the tests */
 .head__datespanel {
   position: absolute;
   top: calc(100% + var(--space-1));

@@ -30,7 +30,7 @@ unguessable link. The **gear vault** is the one part that asks for an account, b
 
 ## Run locally
 
-Requires **Node 24** (the pinned version — see `.nvmrc`).
+Requires **Node 26** (the pinned version — see `.nvmrc`).
 
 ```bash
 npm install
@@ -133,7 +133,11 @@ Add it to a client:
 
 The server is listed in the [official MCP registry](https://registry.modelcontextprotocol.io)
 as `app.mahonia/mahonia`; [`server.json`](server.json) is the listing, published with
-`mcp-publisher` under the domain's DNS proof.
+`mcp-publisher` under the domain's DNS proof. The registry never reads this repo, so a
+change to the listing reaches it only when it is published again (`mcp-publisher login dns`
+then `mcp-publisher publish`) once the change is on `main`; directories such as mcptry copy
+the registry, not the repo. Its version moves with `MCP_SERVER_INFO` in
+`server/utils/mcp.ts`, and a test holds the two in step.
 
 ## Changelog
 
@@ -164,7 +168,9 @@ prefix the PR title (`refactor:`, `chore:`, `ci:`, `test:`, `docs:`, `build:`) o
 ## License
 
 Code is [MIT](LICENSE). The gear catalog data under `seed/` is licensed separately — see
-[`seed/LICENSE.md`](seed/LICENSE.md).
+[`seed/LICENSE.md`](seed/LICENSE.md). The interface icons in `app/utils/centralIcons.ts` are
+[central icons](https://iconists.co/central), licensed to this project under the
+[iconists license](https://iconists.co/license) and not covered by the MIT license.
 
 Third-party notices for the libraries bundled into the client are in
 [`public/licenses.txt`](public/licenses.txt), served at `/licenses.txt`. The file exists

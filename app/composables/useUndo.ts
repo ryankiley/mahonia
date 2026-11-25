@@ -23,12 +23,12 @@ export interface UndoOffer {
  * No lifecycle hooks, so the list's controller (not a component) can own one: a page
  * that does calls `clear` on unmount.
  */
-export function useUndo<T extends UndoOffer = UndoOffer>(ms = 10_000) {
+export function useUndo<T extends UndoOffer = UndoOffer>() {
   const pending = ref(null) as Ref<T | null>;
   let timer: ReturnType<typeof setTimeout> | undefined;
   function arm() {
     clearTimeout(timer);
-    timer = setTimeout(() => (pending.value = null), ms);
+    timer = setTimeout(() => (pending.value = null), 10_000);
   }
   function offer(u: T) {
     pending.value = u;

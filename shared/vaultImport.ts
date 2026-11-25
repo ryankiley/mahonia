@@ -140,17 +140,15 @@ export function vaultImportFromCsv(text: string): VaultImport {
   // `MAX_FOLDERS` and `MAX_ITEMS` are packing-list limits, not properties of a vault.
   // Keep a category for every importable row, and read every row: the ceiling that
   // applies here is VAULT_IMPORT_MAX, taken below over the rows that ARE gear — a cap
-  // on list items would count the nameless and the container rows gearFromItem drops,
-  // and stop short of gear the server would have accepted. The category only groups
-  // the preview: My Gear files nothing by it.
+  // on list items would count the nameless rows gearFromItem drops, and stop short of
+  // gear the server would have accepted. The category only groups the preview: My Gear
+  // files nothing by it.
   const list = csvToListData(text, { maxFolders: VAULT_IMPORT_MAX, maxItems: Number.POSITIVE_INFINITY });
   const name = new Map(list.folders.map((f) => [f.id, f.name]));
-  // parents are containers, not gear — the one capture exclusion that still holds
-  // for a deliberate import ("Cook kit" is a heading; its children are the gear)
-  const parents = new Set(list.items.map((i) => i.parentId).filter(Boolean));
+  // Every named row is a piece. A CSV has no nesting column, so a list's group row
+  // ("Cook kit") arrives as flat as its children and is read like any other row.
   const rows: VaultImportRow[] = [];
   for (const item of list.items as Item[]) {
-    if (parents.has(item.id)) continue;
     const gear = gearFromItem(item, item.folderId ? name.get(item.folderId) : undefined);
     // the Qty column the gear CSV writes is how many you own (vaultToCsv); a list's
     // CSV means how many it carries, which is at least as many as you have

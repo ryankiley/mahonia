@@ -24,19 +24,21 @@ export function playOnce(el: HTMLElement, cls: string, ms: number): () => void {
 </script>
 
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
+import { IconBackpack, IconDotGrid1x3Horizontal, IconMap, IconShareAndroid, IconSquareCheck, IconSafeSimple } from "~/icons/central";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 import type { Spring } from "~/utils/spring";
 import { motionIsInstant } from "~/plugins/inputModality.client";
 // The ⋯ menu's own glyphs are NOT here — they ride its lazy chunk (EditorMenu);
 // the toolbar keeps only the one that opens it.
-import { Backpack03Icon, CheckmarkSquare02Icon, EllipsisIcon, Route02Icon, SafeBoxIcon, Share08Icon } from "@hugeicons/core-free-icons";
 import { editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { forgetClaimedOpen } from "~/composables/useClaimedLists";
 import { resumeHere } from "~/composables/useResumed";
 import type { Item } from "~~/shared/types";
+import { UNASSIGNED } from "~~/shared/people";
 import type { EditorMode } from "~/composables/useEditorMode";
 import { CHILDREN_BY_PARENT, PEOPLE_CTX, ROW_FLASH, VARIANT_SHOWN } from "~/components/ItemRow.vue";
 import { useGearEditorView } from "~/composables/useGearEditorView";
+import { editorCapability } from "~/utils/editorRoute";
 
 // The whole editor surface (its own sticky topbar + flex shell). Rendered by
 // the page routes: /e (bare, prerendered) and /e/[code]
@@ -133,11 +135,7 @@ useHead({
         ? `${seo.value.name} — Mahonia`
         : "Untitled list — Mahonia",
 });
-useSeoMeta({
-  description: () => seo.value.desc,
-  ogTitle: () => seo.value.name || GENERIC_TITLE,
-  ogDescription: () => seo.value.desc,
-});
+useEditorSeoMeta(seo);
 const {
   anyPacked,
   childrenByParent,
@@ -257,7 +255,7 @@ watch(mode, (m, prev) => {
 onBeforeUnmount(() => rowFolds.forEach((a) => a.cancel()));
 
 // THE FOLDERS' ENTRANCE, once per list opened. The container mounts fresh for every list
-// (the body is v-if'd on the snapshot, which a load clears), so its mount IS the list
+// (keyed on listKey, and the body is v-if'd on the snapshot), so its mount IS the list
 // opening: .is-opening goes on before the first paint and comes off when the cascade
 // has landed (playOnce, above; the motion itself is in the styles below). Nothing
 // re-adds it — a reorder, a filter, a return from Trip and a new folder all show their
@@ -300,9 +298,9 @@ const NO_ITEMS: Item[] = [];
 // is that it is a noun beside two gerunds, which was the trade taken deliberately —
 // matching the read view beats matching the suffix.
 const MODES = [
-  { key: "edit", label: "Gear", icon: Backpack03Icon },
-  { key: "pack", label: "Packing", icon: CheckmarkSquare02Icon },
-  { key: "plan", label: "Trip", icon: Route02Icon },
+  { key: "edit", label: "Gear", icon: IconBackpack },
+  { key: "pack", label: "Packing", icon: IconSquareCheck },
+  { key: "plan", label: "Trip", icon: IconMap },
 ] as const satisfies readonly { key: EditorMode; label: string; icon: IconNode }[];
 
 // The vault palette. Closed by default and only ever opened deliberately, so the
@@ -319,17 +317,19 @@ watch(vaultWidth, (w) => remember(VAULT_W_KEY, String(w)));
 // binding made every change re-render this whole component for a style write. During a
 // divider drag VaultPane writes the SAME property on the same element per frame (see
 // startResize there) and commits the ref once on release, so a resize renders nothing.
+// It goes in as a bare number, not px: CSS turns it into the pane's width against the
+// type (--vault-w, in the styles below).
 const editorRef = ref<HTMLElement | null>(null);
 watchPostEffect(() => {
-  editorRef.value?.style.setProperty("--vault-w", `${vaultWidth.value}px`);
+  editorRef.value?.style.setProperty("--vault-span", String(vaultWidth.value));
 });
 // THE COLUMN MOVES ON A WEB ANIMATION, not a CSS transition, for one reason: a click
 // that catches it mid-move. A transition retargets from the frame it is drawn at but
 // sets off again from rest, and handing it a curve that starts at speed meant
 // out-guessing the browser's reversal shortening. An animation we start ourselves has
 // no such rule: read where the column is and how fast from the spring we gave it,
-// cancel it, start the next from that state. The topbar's break-out margin rides the
-// same keyframes, so the two stay on one clock. The CSS states (.editor--split, below)
+// cancel it, start the next from that state. The topbar's break-out margin and its
+// leading half's inset (--split-p) ride the same keyframes, so all three stay on one clock. The CSS states (.editor--split, below)
 // are the rest positions; with no fill they take over when the animation ends, and
 // a phone, where the inset never changes, animates nothing. Nor does the keyboard: the
 // toolbar button pressed with Enter, or Escape in the pane, moves it in one frame.
@@ -352,11 +352,16 @@ function warmVault() {
 // what the last press asked for, which the wait above can trail by a moment
 let vaultWanted = false;
 async function setVault(open: boolean) {
+  // nothing to add gear to until the list is here (the button stays up through a load
+  // so the bar doesn't change under you — see the topbar's v-if)
+  if (open && !snapshot.value) return;
   vaultWanted = open;
   if (open && !vaultOpen.value) {
     await Promise.race([warmVault(), new Promise((r) => setTimeout(r, PANE_WAIT_MS))]);
-    // closed again, or opened by an earlier press, while this one waited
-    if (!vaultWanted || vaultOpen.value) return;
+    // closed again, or opened by an earlier press, while this one waited; or a load
+    // began in the wait and there's no list to open onto any more (the guard above ran
+    // before it)
+    if (!vaultWanted || vaultOpen.value || !snapshot.value) return;
   }
   const el = editorRef.value;
   vaultOpen.value = open;
@@ -386,10 +391,13 @@ async function setVault(open: boolean) {
     const sp = spring("move");
     const { duration, easing, v0 } = springTiming(sp, velocity / (to - from), Math.abs(to - from));
     const bar = el.querySelector<HTMLElement>(":scope > .topbar");
+    const inner = bar?.querySelector<HTMLElement>(":scope > .topbar__inner");
     const opts: KeyframeAnimationOptions = { duration, easing };
     const lead = el.animate([{ paddingRight: `${from}px` }, { paddingRight: `${to}px` }], opts);
     const anims = [lead];
     if (bar) anims.push(bar.animate([{ marginRight: `${-from}px` }, { marginRight: `${-to}px` }], opts));
+    // the bar's leading half rides the same inset, so "Your packs" moves with the list
+    if (inner) anims.push(inner.animate([{ "--split-p": `${from}px` }, { "--split-p": `${to}px` }], opts));
     const mine = (column = { anims, sp, v0, from, to });
     // An opening from rest waits out the pane's first paint. The frame that first draws
     // the pane lays out and paints every row of your gear, and with the move's clock
@@ -474,8 +482,9 @@ watch(status, (s) => {
   if (s !== "missing" || !resumed.value || editedHere) return;
   const code = normalizeShareCode(typeof route.params.code === "string" ? route.params.code : "");
   if (!code || code !== resumed.value) return;
-  const token = decodeURIComponent(route.hash.replace(/^#/, ""));
-  if (token) my.forget(token);
+  // the token load() just tried is the controller's (missingEntry reads it the same
+  // way); a claimed open holds none
+  if (c.editToken) my.forget(c.editToken);
   else if (openedByCode.value) forgetClaimedOpen(code);
   const next = resumeHere(code);
   resumed.value = next?.shareCode ?? null;
@@ -491,48 +500,69 @@ let ownedEpoch: number | undefined;
 // fresh draft when it names none), re-capturing the epoch. The ordering is the whole
 // point — see the note above — so it lives in ONE place, called by the route watcher
 // and by newList's in-place reset alike.
+// listKey names the session on screen, for the template: the page now outlives a
+// switch from one list to the next (/e/[code]'s key), so everything that holds one
+// list's state is keyed on it and remounts per list, while the bar, the view switcher
+// and the weight figure stay. An epoch, not the share code: a draft that gains a code
+// as it saves is still the same list on screen.
+const listKey = ref(0);
 function startSession(cap?: { token?: string; code?: string; keyless?: string }) {
   c.dispose(ownedEpoch);
   if (cap?.keyless) c.startKeyless(cap.keyless);
   else if (cap?.token || cap?.code) c.load(cap);
   else c.startDraft();
   ownedEpoch = c.epoch; // load()/startKeyless()/startDraft() mint their epoch synchronously
+  listKey.value = ownedEpoch;
 }
+// What belonged to the list you left doesn't follow you to the next one.
+watch(listKey, () => {
+  menuOpen.value = false;
+  shareOpen.value = false;
+  peopleOpen.value = false;
+  pf.clear();
+  unpin?.();
+  editedHere = false;
+});
 // Drive load off the reactive hash so back/forward + same-route nav between two
 // of your lists dispose+reload correctly (the editor singleton holds one list).
 // The route's CODE param joins the source: a claimed list opened from the switcher
 // is /e/{code} with no fragment at all, so switching between two claimed lists
 // moves only the param.
+// A run after the first is a switch inside this same instance (A → B on /e/[code]):
+// it reads B's on-device copy ahead first, as the page's setup does for a list reached
+// from elsewhere in the app (not on a reload: there's nothing on screen to keep), so A
+// stays on screen until B can paint in the same tick — and the weight
+// figure counts from one to the other instead of blanking. A newer route change
+// during that wait wins (routeRun).
+let routeRun = 0;
 watch(
   () => [route.hash, route.params.code] as const,
-  ([h, codeParam]) => {
-    // decode HERE, not inside startSession: a malformed hash ("#%") throws, and that
-    // throw must land before the dispose, exactly as it always has.
+  async ([h, codeParam], prev) => {
+    // Read HERE, not inside startSession: a malformed hash ("#%") throws, and that throw
+    // must land before the dispose, exactly as it always has. What each kind means, and
+    // why, is editorCapability's (app/utils/editorRoute.ts), shared with readAhead.
     // first run: ownedEpoch is undefined → dispose is unconditional, clearing (and
     // flushing) whatever session a previous page instance left behind
-    const token = decodeURIComponent((h || "").replace(/^#/, ""));
-    if (token) return startSession({ token });
-    // No token, but a code in the path: a claimed list — IF a session plausibly
-    // exists (the hint cookie; the fetch itself is what proves it). For everyone
-    // else /e/{code} without a fragment is a truncated link, handled below without
-    // a doomed request per visit.
-    // Normalized HERE as well as in load(): a path segment that can't be a share
-    // code at all (/e/garbage) falls through to the draft for the signed-in too,
-    // instead of spending a request to be told 401.
-    const code = normalizeShareCode(typeof codeParam === "string" ? codeParam : "");
-    if (code && session.hasSessionHint()) return startSession({ code });
-    // A well-formed code, no key, no session: a truncated edit link. Say so, and
-    // offer the read-only view the same code opens, rather than landing a fresh
-    // draft under the dead address (which read as "the list is empty"). No request
-    // is made: nothing could succeed without a key or a session.
-    // ...unless this browser holds the key itself. A list made or opened here is in
-    // the registry with its token, so a truncated link to your OWN list opens it for
-    // editing (the fragment is restored and this watcher runs again) rather than
-    // offering you the read-only view of it.
-    const mine = code ? my.entries.value.find((e) => e.shareCode === code)?.editToken : undefined;
-    if (mine) return navigateTo({ path: route.path, hash: `#${mine}` }, { replace: true });
-    // keyless on the code; else a fresh, unsaved draft (persists on first real content)
-    startSession(code ? { keyless: code } : undefined);
+    const cap = editorCapability(
+      { hash: h, params: { code: codeParam } },
+      { hasSessionHint: () => session.hasSessionHint(), heldToken: my.tokenFor },
+    );
+    // every run supersedes one still waiting on its read, the key's restore included:
+    // a list picked during that wait must not be overtaken by the one picked before it
+    const run = ++routeRun;
+    // the restore reads nothing ahead itself: the run it triggers does
+    if (cap.kind === "held") return navigateTo({ path: route.path, hash: `#${cap.token}` }, { replace: true });
+    if (prev) {
+      await readAhead(route);
+      if (run !== routeRun) return;
+    }
+    // a fresh, unsaved draft when there's nothing to open (persists on first real content)
+    startSession(
+      cap.kind === "token" ? { token: cap.token }
+        : cap.kind === "claimed" ? { code: cap.code }
+          : cap.kind === "keyless" ? { keyless: cap.code }
+            : undefined,
+    );
   },
   { immediate: true },
 );
@@ -585,6 +615,7 @@ function onFocusIn(ev: FocusEvent) {
     // getBoundingClientRect() answers in layout coordinates, so it needs offsetTop
     // taken off it to say where the field sits on the part of the screen you can see.
     const vv = window.visualViewport;
+    const margin = FOCUS_MARGIN * typeScale(); // grows with the type past 1920px
     const vvH = vv?.height ?? window.innerHeight;
     const vvTop = vv?.offsetTop ?? 0;
     const r = el.getBoundingClientRect();
@@ -602,7 +633,7 @@ function onFocusIn(ev: FocusEvent) {
     // scroll to give (ItemInput's placeMenu; the arithmetic is app/utils/viewportRoom).
     // A fine pointer has no keyboard eating the screen, so it keeps the minimum move.
     if (coarse && el.getAttribute("aria-autocomplete") === "list") {
-      const lift = liftForSuggestions(r, { top: vvTop, bottom: vvTop + vvH }, visibleBand().top, FOCUS_MARGIN);
+      const lift = liftForSuggestions(r, { top: vvTop, bottom: vvTop + vvH }, visibleBand().top, margin);
       if (lift) return void window.scrollBy({ top: lift, behavior: motionIsInstant() ? "auto" : "smooth" });
     }
 
@@ -614,10 +645,10 @@ function onFocusIn(ev: FocusEvent) {
     // it, which is the thing a big jump costs you: after centring, the row you were
     // working on is somewhere you have to find again.
     const delta =
-      bottom > vvH - FOCUS_MARGIN
-        ? bottom - (vvH - FOCUS_MARGIN)
-        : top < FOCUS_MARGIN
-          ? top - FOCUS_MARGIN
+      bottom > vvH - margin
+        ? bottom - (vvH - margin)
+        : top < margin
+          ? top - margin
           : 0;
     if (delta) window.scrollBy({ top: delta, behavior: motionIsInstant() ? "auto" : "smooth" });
   }, wait);
@@ -629,14 +660,12 @@ onBeforeUnmount(() => clearTimeout(focusScrollTimer));
 // button), so the async Clipboard API has the user gesture iOS Safari demands. The
 // async-first write + synchronous execCommand fallback lives in the shared copyText()
 // util (app/utils/clipboard.ts); flash() just reports the outcome.
-async function copy(text: string, msg: string, linkFallbackTitle?: string) {
+async function copy(text: string, msg: string, linkFallbackTitle: string) {
   if (await copyText(text)) return flash(msg);
-  // a blocked clipboard write shouldn't dead-end: for a link, show it selectable
-  // so it can be copied by hand; other copies (markdown) fall back to a brief toast
-  if (linkFallbackTitle) return showLinkFallback(text, linkFallbackTitle);
-  flash("Copy failed");
+  // a blocked clipboard write shouldn't dead-end: show the link selectable so it can
+  // be copied by hand
+  showLinkFallback(text, linkFallbackTitle);
 }
-const origin = () => (typeof location !== "undefined" ? location.origin : "");
 
 // The four export actions and the rows that draw them are the sharing panel's
 // (SharePanel's Export tab, through useListExports). What the editor hands it is the
@@ -646,9 +675,9 @@ const origin = () => (typeof location !== "undefined" ? location.origin : "");
 // A draft has no share code yet — no link rather than a broken one (same guard
 // copyShare() makes before offering to copy it).
 // The two links a list is handed out by, each spelled once.
-const readUrl = computed(() => (snapshot.value?.shareCode ? `${origin()}/s/${snapshot.value.shareCode}` : ""));
+const readUrl = computed(() => (snapshot.value?.shareCode ? `${location.origin}/s/${snapshot.value.shareCode}` : ""));
 // the token stays in the fragment (see shared/links.editLinkPath)
-const editUrl = computed(() => (c.editToken ? `${origin()}${editLinkPath(snapshot.value?.shareCode, c.editToken)}` : ""));
+const editUrl = computed(() => (c.editToken ? `${location.origin}${editLinkPath(snapshot.value?.shareCode, c.editToken)}` : ""));
 
 // the ⋯ actions menu is a custom popover of real <button>s (was a native <select>).
 // Each item dispatches from a CLICK — the clipboard actions (markdown, edit link)
@@ -665,9 +694,16 @@ const shareOpen = ref(false);
 useMenuDismiss(shareOpen, shareRef);
 watch(shareOpen, (open) => open && (menuOpen.value = false));
 watch(menuOpen, (open) => open && (shareOpen.value = false));
+// Both open only onto a list; closing is never refused (see the topbar's v-if for why
+// the buttons are there before one is).
 function toggleMenu() {
+  if (!menuOpen.value && !snapshot.value) return;
   menuEverOpened.value = true;
   menuOpen.value = !menuOpen.value;
+}
+function toggleShare() {
+  if (!shareOpen.value && !snapshot.value) return;
+  shareOpen.value = !shareOpen.value;
 }
 
 function copyShare() {
@@ -856,6 +892,24 @@ const missingMessage = computed(() =>
 const unloaded = computed(
   () => !snapshot.value && (status.value === "offline" || status.value === "error"),
 );
+// "Loading…" keeps quiet for its first LOADING_QUIET_MS, so a list that answers in that
+// time — most of them — opens under a bar that never changed and a page that never said
+// anything. A TIMER, not a CSS animation-delay: the keyboard and reduced-motion
+// kill-switches zero every animation-delay, and there it should still wait, losing only
+// the fade (the styles).
+const LOADING_QUIET_MS = 300;
+const loadingSaid = ref(false);
+let loadingTimer: ReturnType<typeof setTimeout> | undefined;
+watch(
+  () => !snapshot.value && status.value !== "missing" && !unloaded.value,
+  (waiting) => {
+    clearTimeout(loadingTimer);
+    loadingSaid.value = false;
+    if (waiting) loadingTimer = setTimeout(() => (loadingSaid.value = true), LOADING_QUIET_MS);
+  },
+  { immediate: true },
+);
+onBeforeUnmount(() => clearTimeout(loadingTimer));
 async function forgetMissingList() {
   // capture before dispose() blanks c.editToken (which empties missingEntry too)
   const entry = missingEntry.value;
@@ -874,16 +928,6 @@ async function forgetMissingList() {
   my.forget(entry.editToken);
   newList({ replace: true });
 }
-
-// The ⋯ menu, now grouped rather than flat.
-//
-// It used to be eight peers in one column: making a list, moving data in and out,
-// and handing out edit access all read as the same kind of thing. The two sharing
-// items moved to the sharing panel, and the export formats followed them onto its
-// Export tab; what's left is the plain actions, the site foot and the destructive one.
-//
-// One table drives the markup AND the dispatch, so an action can't exist in one
-// without the other (a string-keyed lookup would let a typo no-op).
 
 // ---- the shortcuts sheet ----
 // Lazy + mounted on first use, like the other dialogs: a reference nobody has opened
@@ -981,14 +1025,24 @@ function onCorrected(res: { status: string; itemName?: string }) {
              before you open it. Outside the v-if, because it's a way OUT of a list
              that failed to load. Hides itself below two lists (see ListMenu). -->
         <ListMenu
-          class="editor__lists"
           :current-share-code="snapshot?.shareCode ?? null"
           :hint="showIntro"
           :resumed="resumedHere"
           @new-list="newList()"
           @dismiss-hint="dismissIntro"
         />
-        <template v-if="snapshot">
+        <!-- Up while a list LOADS, too, not only once it's here: the bar used to drop to
+             the switcher alone for the length of the load and pop back when the list
+             landed — on a phone, a flash on every list opened from the network. So the
+             controls stand through it, unchanged to look at, and the three that act on
+             a list wait for one (their handlers, plus aria-disabled for a screen
+             reader; `disabled` would dim them, and the dimming is the same flash).
+             A load that ENDS with no list — missing, error, offline with nothing on
+             the device — is a real state, and the bar still stands down for it.
+             "idle" is no verdict either: it's the beat between one session and the
+             next, as when a truncated link to your own list has its key put back
+             before the load starts (editorCapability's "held"). -->
+        <template v-if="snapshot || status === 'loading' || status === 'idle'">
           <!-- sync state + last-edit time, on the bar's leading edge — the space the
                title vacated when it became a page title. It takes the free width, which
                is what pins the icon cluster to the trailing edge. -->
@@ -1018,11 +1072,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
               :class="{ 'is-on': vaultOpen }"
               aria-label="My Gear"
               :aria-expanded="vaultOpen"
+              :aria-disabled="!snapshot || undefined"
               @pointerenter="warmVault"
               @focus="warmVault"
               @click="toggleVault"
             >
-              <HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" />
+              <SvgIcon :icon="IconSafeSimple" />
             </button>
           </Tooltip>
           <!-- The account affordance. The editor has its own topbar and never renders
@@ -1041,9 +1096,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 aria-label="Sharing"
                 aria-haspopup="dialog"
                 :aria-expanded="shareOpen"
-                @click="shareOpen = !shareOpen"
+                :aria-disabled="!snapshot || undefined"
+                @click="toggleShare"
               >
-                <HugeiconsIcon :icon="Share08Icon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconShareAndroid" />
               </button>
             </Tooltip>
             <Transition name="menu">
@@ -1053,7 +1109,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 :edit-token="c.editToken"
                 :auth-headers="c.authHeaders()"
                 :share-url="readUrl"
-                :flash="flash"
                 @close="shareOpen = false"
                 @copy-read="copyShare"
                 @copy-edit="copyEditLink"
@@ -1077,11 +1132,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
                 aria-label="More actions"
                 aria-haspopup="true"
                 :aria-expanded="menuOpen"
+                :aria-disabled="!snapshot || undefined"
                 @pointerenter="warmMenu"
                 @focus="warmMenu"
                 @click="toggleMenu"
               >
-                <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
+                <SvgIcon :icon="IconDotGrid1x3Horizontal" />
               </button>
             </Tooltip>
             <!-- The menu itself — rows and feet — is EditorMenu, Lazy
@@ -1142,7 +1198,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- The list name is a page title, not a toolbar field: large, borderless, with a
            ghosted placeholder, at the top of the content — matching what the two read
            views have always done (ReadonlyListView's h1). -->
-      <ListHead :snapshot="snapshot" :distance-is-headline="mode === 'plan'" @toast="flash" />
+      <ListHead :key="listKey" :snapshot="snapshot" :distance-is-headline="mode === 'plan'" />
       <!-- The totals bar stands down while planning: that view has its own headline (the
            route's distance), and two display-size figures on one screen would make you
            choose which one the page is about. The pack's weight isn't lost — it rides in
@@ -1153,14 +1209,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
            jumped and re-counted every time. Here it stays put and only the value under it
            changes, which is also what lets the count tween between modes. -->
       <Headline
-        class="editor__headline"
         :value="headline.value"
         :unit="headline.unit"
         :options="headline.options"
         :label="headline.label"
         :trigger-label="headline.triggerLabel"
         :caption="filterCaption"
-        title="Change unit"
         @pick="headline.pick"
       />
       <!-- v-show, not v-if: presence is constant, visibility follows the mode — so
@@ -1171,11 +1225,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
            legend all describe that person's pack. The `??` never runs — see the
            `view` computed — it only narrows the type for the template. -->
       <TotalsBar
+        :key="listKey"
         v-show="mode !== 'plan'" data-view="gear"
         :headline="false"
         :list="view.list ?? snapshot"
         :totals="view.totals ?? totals"
-        @set-unit="(u) => c.setUnit(u)"
+        :person-filter="pf.selected.value"
       />
       <!-- Whose gear is this? An edit link you hold is either your own list on a
            second device or one a friend shared, and nothing in the link says which
@@ -1187,11 +1242,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
            — the reason we're asking is our problem, not something to make you read. -->
       <LazyPrompt
         v-if="vaultPromptEverShown"
+        :key="listKey"
         :show="!!vaultPrompt"
         dismiss-label="Don’t add this list’s gear to My Gear"
         @dismiss="c.answerVaultPrompt(false)"
       >
-        <template #icon><HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" /></template>
+        <template #icon><SvgIcon :icon="IconSafeSimple" /></template>
         Add this list’s gear to My Gear?
         <template #action>
           <button class="btn btn--quiet editor__vaultadd" @click="c.answerVaultPrompt(true)">Add</button>
@@ -1211,11 +1267,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
       />
 
       <!-- WHO. The chips narrow the list to one person's load — in the gear view
-           and the packing view alike, so it sits above the packbar and stands down
-           only for planning. Rendered only once the list names anyone (ListHead's
+           and the packing view alike, so it sits above the packbar. Planning has its
+           own, under the plan's figures, sharing this selection (the panel's people
+           slot below). Rendered only once the list names anyone (ListHead's
            "Add people" affordance is the way in before that). -->
       <PeopleBar
         v-if="people.length"
+        :key="listKey"
         v-show="mode !== 'plan'" data-view="gear"
         :people="people"
         :selected="pf.selected.value"
@@ -1225,7 +1283,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       />
       <!-- a filter that matches nothing says so, instead of standing every folder
            down into a silent blank page — the ListMenu empty-state voice -->
-      <FilterEmpty v-if="emptyFilterName" v-show="mode !== 'plan'" data-view="gear" :name="emptyFilterName" @clear="pf.clear()" />
+      <FilterEmpty v-if="emptyFilterName" :key="listKey" v-show="mode !== 'plan'" data-view="gear" :name="emptyFilterName" @clear="pf.clear()" />
       <!-- Lazy like the vault picker: most lists never name anyone, and the manager
            has no business in their first paint. v-if — state resets per open. -->
       <LazyPeopleModal v-if="peopleOpen" @close="peopleOpen = false" />
@@ -1239,7 +1297,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            (~45ms on a 150-row list) after the rows and folder chrome stopped
            re-rendering. The browser now runs the same slide at frame time for free.
            v-if only on the DATA condition (an empty list has no bar in any mode). -->
-      <div v-if="packProgress.total" class="packbar-reveal">
+      <div v-if="packProgress.total" :key="listKey" class="packbar-reveal">
         <div class="packbar t-sm">
           <span class="t-num" aria-live="polite">{{ packProgress.done }} of {{ packProgress.total }} packed</span>
           <button
@@ -1264,8 +1322,20 @@ function onCorrected(res: { status: string; itemName?: string }) {
            clips its child permanently, which is right for a one-line bar and wrong here:
            the elevation chart's hover readout is positioned above the chart's own box, so
            a standing clip cut the reading off. This one clips only while it moves. -->
-      <div v-if="everPlan && snapshot && totals" class="planreveal" data-view="plan">
-        <LazyTrailPlanPanel :snapshot="snapshot" :totals="totals" />
+      <div v-if="everPlan" :key="listKey" class="planreveal" data-view="plan">
+        <!-- Whose walk it plans: the same chips as the gear view, sharing its selection.
+             No Unassigned here (nobody walks with only the unclaimed rows; it plans as
+             Everyone, shared/tripLoad.ts), so that selection lights Everyone. -->
+        <LazyTrailPlanPanel :snapshot="snapshot" :person-filter="pf.selected.value">
+          <template v-if="people.length" #people>
+            <PeopleBar
+              :people="people"
+              :selected="pf.selected.value === UNASSIGNED ? null : pf.selected.value"
+              :weights="chipWeights"
+              @pick="(id) => (pf.selected.value = id)"
+            />
+          </template>
+        </LazyTrailPlanPanel>
       </div>
 
       <!-- The gear stands down while you plan. Planning asks a different question of the
@@ -1280,7 +1350,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            and the accessibility tree exactly as absence did. -->
       <!-- foldersRef: the folders' entrance plays once, when this mounts — a list opened
            (the cascade, script + styles below) -->
-      <div v-show="mode !== 'plan'" ref="foldersRef" data-view="gear" class="editor__folders">
+      <div v-show="mode !== 'plan'" :key="listKey" ref="foldersRef" data-view="gear" class="editor__folders">
         <FolderSection
           v-for="f in sortedFolders"
           :key="f.id"
@@ -1293,7 +1363,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- same split as the folders above: presence follows the DATA (v-if — most lists
            have no ungrouped rows and shouldn't carry the section), visibility follows
            the MODE (v-show — so leaving planning doesn't rebuild these rows either) -->
-      <section v-if="ungrouped.length" v-show="mode !== 'plan'" data-view="gear" class="panel editor__ungrouped">
+      <section v-if="ungrouped.length" :key="listKey" v-show="mode !== 'plan'" data-view="gear" class="panel editor__ungrouped">
         <p class="t-label">Unfiled</p>
         <!-- prev-id follows this section's render order, so the indent affordance
              points at the row actually shown above -->
@@ -1312,7 +1382,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
            the mode, and a switch mounts nothing. (A half-typed folder name can't leak
            across modes — any pointer or Tab out of the input commits it via blur
            before the mode can change.) -->
-      <AddFolder v-show="mode === 'edit'" data-view="gear" class="editor__addfolder" @add="(name) => c.addFolder(name)" />
+      <AddFolder :key="listKey" v-show="mode === 'edit'" data-view="gear" class="editor__addfolder" @add="(name) => c.addFolder(name)" />
     </main>
 
     <main v-else-if="status === 'missing'" id="main-content" tabindex="-1" class="wrap editor__missing">
@@ -1337,7 +1407,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     </main>
 
     <main v-else id="main-content" tabindex="-1" class="wrap editor__missing">
-      <p class="t-muted">Loading…</p>
+      <p class="t-muted editor__loading" :class="{ 'is-said': loadingSaid }">Loading…</p>
     </main>
 
     <Transition name="toast">
@@ -1370,6 +1440,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: flex;
   flex-direction: column;
   min-height: 100svh;
+  /* The My Gear pane's width, in type pixels (--tpx) rather than pixels. The remembered
+     figure (--vault-span, 368 to start) is px at 16px type, so nothing moves up to a
+     1920px window; past it the type keeps growing and so does the list column
+     (--measure), and a pane frozen in px got proportionally narrower until its rows
+     were a dozen characters of 25px type, every name cut off. This way a row holds the
+     same words at 3000px that it does at 1920. */
+  --vault-w: calc(var(--vault-span) * var(--tpx));
 }
 /* Split view: the vault occupies the right of the screen, so the editor's CONTENT
    gives up that width rather than sitting underneath it. Padding on the content
@@ -1395,6 +1472,27 @@ function onCorrected(res: { status: string; itemName?: string }) {
   .editor--split > .topbar {
     margin-right: calc(-1 * var(--split-pad));
   }
+  /* ...but the row inside it is the list's at its LEADING edge. The bar's own .wrap
+     stayed centred on the whole window while the column re-centred beside the pane, so
+     "Your packs" and the edited line sat right of the list's left edge (200px at 1920,
+     300 at 3008; Ryan: "does this fixed span feel odd now"). Its left edge now tracks
+     the column's and its right edge stays where it always was, so the icon cluster
+     doesn't move: the My Gear toggle is pressed again and again, and must not slide out
+     from under the pointer that just pressed it.
+     All in terms of --split-p, the column's inset (registered, main.scss): at 0 these
+     reduce to the plain centred .wrap, so outside the split nothing moves. 100% is the
+     bar's width, the window's, since it breaks back out above.
+       left  = where the column's .wrap starts: centred in what the pane leaves
+       width = from there to where the centred bar's .wrap always ended */
+  .topbar__inner {
+    max-width: none;
+    margin-left: calc((100% - var(--split-p) - min(100% - var(--split-p), var(--measure))) / 2);
+    margin-right: 0;
+    width: calc((var(--split-p) + min(100% - var(--split-p), var(--measure)) + min(100%, var(--measure))) / 2);
+  }
+  .editor--split > .topbar > .topbar__inner {
+    --split-p: var(--split-pad);
+  }
   /* the inset's MOTION between the two is setVault's Web Animation (script above);
      these are its two rest states */
 }
@@ -1407,6 +1505,16 @@ function onCorrected(res: { status: string; itemName?: string }) {
   align-items: center;
   gap: var(--space-2);
   padding-block: var(--space-3);
+  /* NEVER SHORTER THAN ITS ICON BUTTONS. They are what gave the bar its height, so
+     whenever the cluster stood down — a list still loading, a list that won't open —
+     the bar shrank to the switcher's height and everything under it rode up, then
+     dropped back when the buttons returned (Ryan, on iOS and desktop Safari: "the
+     header seems to move position"). The height is the bar's own now, whatever is in
+     it: the button's size per pointer (controls.scss) plus this row's padding. */
+  min-height: calc(var(--icon-btn) + 2 * var(--space-3));
+  @media (pointer: coarse) {
+    min-height: calc(var(--tap) + 2 * var(--space-3));
+  }
   /* On a phone the cluster is six controls at the 44px touch floor plus the switcher,
      and it did not fit 375px even with two mode segments — it was ~17px over before a
      third was added, which clipped the ⋯ menu off the trailing edge entirely.
@@ -1446,7 +1554,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
      back against the switcher. The bar's own layout can't be a child's to opt out of. */
   margin-right: auto;
   flex: 0 1 auto;
-  min-width: 0;
 }
 /* Directly under the toolbar and above the list's title. Not sticky: it belongs to the
    page, not the chrome.
@@ -1458,14 +1565,11 @@ function onCorrected(res: { status: string; itemName?: string }) {
 }
 /* The big figure sits between the switcher and whatever that switcher chose. Its own
    space, because it belongs to neither — it is the page's headline in all three views. */
-/* NO margin of its own. The body is a flex column with a --space-4 gap, so a margin here
-   is a SECOND gap stacked on the first — which is how the number ended up 32px clear of
+/* NO margin of its own. The body is a flex column with its own gap (--body-gap), so a margin on
+   the figure is a SECOND gap stacked on the first — which is how the number ended up 32px clear of
    the totals and 48 clear of the elevation chart, two different distances from two
    different stacks. One gap, the body's, and both views sit the same distance below the
    figure they belong to. (.totals and .plan drop their own top padding to match.) */
-.editor__headline {
-  margin-bottom: 0;
-}
 
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */
@@ -1492,11 +1596,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink);
 }
 
-/* on = the pane is open: the icon takes full ink and a soft ground, so the button
-   reads as a held state rather than a hover */
-.editor__vault.is-on {
+/* on = the pane (or the sharing panel) is open: the icon takes full ink and a soft
+   ground, so the button reads as a held state rather than a hover. One rule for both,
+   so the two topbar popovers signal their state identically — and --lit for the ground,
+   the one tone the app uses for "on" (the mode tabs, the person filter, the row
+   toggles), where this used a second one, --paper-2. */
+.editor__vault.is-on,
+.editor__share.is-on {
   color: var(--ink);
-  background: var(--paper-2);
+  background: var(--lit);
 }
 /* The sharing panel hangs off a 32px button near the right end of the bar. `.menu`
    makes that button the containing block, so `right: 0` puts the panel's right edge at
@@ -1511,12 +1619,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
     position: static;
   }
 }
-/* the sharing panel is open — same held-state treatment the vault toggle uses, so
-   the two topbar popovers signal their state identically */
-.editor__share.is-on {
-  color: var(--ink);
-  background: var(--paper-2);
-}
 /* the ⋯ menu's ruled-off feet, its short-phone scroller
    (.editor__actions) and the one coloured row in the chrome (.editor__delete) are
    EditorMenu's now, styled there — a scoped rule here can't reach a child's rows */
@@ -1530,7 +1632,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
    — which closed the gap to the kebab and opened a matching one before it. Only the
    element that actually sits in the gutter should reach into it. */
 .menu:last-child {
-  margin-right: -13px;
+  margin-right: calc(-13 * var(--tpx)); /* glyph optics, so in type pixels with the glyphs */
 }
 .editor__body {
   /* The folder-to-folder rhythm, named once and read twice: .editor__folders uses it
@@ -1540,6 +1642,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
      sideways, so declaring it there left the other reading an invalid value and
      collapsing its margin to 0. */
   --folder-gap: var(--space-7);
+  /* The column's own gap, named for the same reason: .editor__addfolder subtracts it to
+     land a folder-gap below the last folder, and a retune here that it did not follow
+     left "Add folder" 8px too low. */
+  --body-gap: var(--space-5);
   /* With ModeBar's 4px padding, the first tab sits 8px from both top and left. */
   padding-block: var(--space-1) var(--space-7);
   display: flex;
@@ -1548,7 +1654,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
      row ListHead owns), and it was reading tight against the page title above it now
      that the sync line no longer sits in this column. Moves the editor toward the air
      the read views already give the same seam (.view is a --space-6 column). */
-  gap: var(--space-5);
+  gap: var(--body-gap);
 }
 /* the first-run pointer moved out of the column and onto the list switcher it
    points at — it lives in ListMenu now, tethered to that control */
@@ -1568,7 +1674,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .packbar-reveal {
   display: grid;
   grid-template-rows: 1fr;
-  /* the body's --space-4 gap reads roomier before a bare text line than before
+  /* the body's gap reads roomier before a bare text line than before
      the folder blocks — tuck it up toward the totals it annotates */
   margin-top: calc(-1 * var(--space-2));
   /* its slide on a mode switch, and the bar's own fade: atoms/modeswitch.scss */
@@ -1641,10 +1747,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor__addfolder {
   align-self: flex-start;
   /* sit a full folder-gap below the last folder. This element is a SIBLING of
-     .editor__folders, not a child, so it already carries the body's --space-4 gap and
-     only needs the remainder — but the target is --folder-gap, read from the one
-     declaration above rather than restated. */
-  margin-top: calc(var(--folder-gap) - var(--space-4));
+     .editor__folders, not a child, so it already carries the body's gap and only needs
+     the remainder. Both lengths are read from their one declaration on .editor__body
+     rather than restated. */
+  margin-top: calc(var(--folder-gap) - var(--body-gap));
 }
 .editor__missing {
   padding-block: var(--space-9);
@@ -1654,6 +1760,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
   justify-content: center;
   text-align: center;
   gap: var(--space-4);
+}
+/* "Loading…" holds its line from the start, hidden (to a screen reader too), and fades
+   up on the fade token once the script says the wait has gone on long enough
+   (loadingSaid). Hidden rather than absent, so saying it moves nothing. */
+.editor__loading:not(.is-said) {
+  visibility: hidden;
+}
+.editor__loading.is-said {
+  animation: fade-in var(--spring-fade-dur) var(--spring-fade) backwards; /* main.scss */
 }
 /* the toast base + its enter/leave motion now live in the shared .toast atom
    (controls.scss), used by the read views' menu too; the undo bar just adds its

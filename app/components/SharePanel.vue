@@ -1,16 +1,8 @@
 <script setup lang="ts">
+import { IconArrowsRepeatCircle, IconClock, IconEyeOpen, IconPencil2, IconSquareBehindSquare1, IconUserAdd, IconUserDuo } from "~/icons/central";
 import { counted } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import {
-  Clock01Icon,
-  Copy01Icon,
-  Edit02Icon,
-  Exchange01Icon,
-  UserAdd01Icon,
-  UserMultiple02Icon,
-  ViewIcon,
-} from "@hugeicons/core-free-icons";
-import type { ExportItem } from "~/composables/useListExports";
+import { SvgIcon } from "~/utils/icon";
+import { ROW_FLASH } from "~/components/ItemRow.vue";
 import type { ChangeAuthor, ListSnapshot, SnapshotMeta } from "~~/shared/types";
 
 // Everything about getting this list to someone else, in ONE place, as two tabs.
@@ -27,7 +19,7 @@ import type { ChangeAuthor, ListSnapshot, SnapshotMeta } from "~~/shared/types";
 // they are one panel.
 //
 // Both tabs draw their rows the menu's way: `.menu__item`, `[data-row]`, the
-// travelling plate, the 16px glyph in the menu's one glyph column, plus a second line.
+// travelling plate, the glyph in the menu's one glyph column, plus a second line.
 // On Share the label is the whole act ("Copy edit link") and the line is who that
 // hands the list to. Read one at a time that looks like it restates the name; read
 // as the pair it is, "see" against "change" is the plainest statement of how the two
@@ -52,11 +44,6 @@ const props = defineProps<{
   authHeaders: Record<string, string>;
   /** the READ-ONLY link the plain-text export appends — see the note in GearEditor */
   shareUrl: string;
-  /** The editor's toast, as a function rather than an event: an export closes the
-   *  panel and THEN finishes (the exporter chunk loads, the clipboard answers), and
-   *  by then this component is unmounted, and an unmounted component's emits go
-   *  nowhere. A function prop is just a reference and still reaches the editor. */
-  flash: (msg: string) => void;
 }>();
 const emit = defineEmits<{
   close: [];
@@ -64,6 +51,13 @@ const emit = defineEmits<{
   copyEdit: [];
   rotate: [];
 }>();
+
+// The editor's toast, by inject (ROW_FLASH, the way a row reaches it) rather than an
+// event: an export closes the panel and THEN finishes (the exporter chunk loads, the
+// clipboard answers), and by then this component is unmounted, and an unmounted
+// component's emits go nowhere. The injected function is just a reference and still
+// reaches the editor.
+const flash = inject(ROW_FLASH, () => {});
 
 const { plateRef, listRef, on } = useMenuPlate();
 
@@ -104,7 +98,7 @@ const { onKey } = useRovingRadio(
 // inside iOS Safari's gesture window, which a cold chunk fetch would spend.
 const { warmExporters, exportItems } = useListExports(
   () => props.snapshot,
-  (msg) => props.flash(msg),
+  flash,
   () => props.shareUrl,
 );
 watch(tab, (t) => t === "export" && warmExporters());
@@ -122,9 +116,10 @@ watch(tab, (t) => t === "export" && warmExporters());
 //
 // What's left is the rare case that IS actionable: a list this device holds a
 // link for that the account doesn't have. Sign-in sweeps up the lists this
-// browser made, and the server adds anything old enough to predate origin
-// tracking (see claimRepo), so what reaches this row is essentially a list
-// someone shared with you that you want to keep. Unlike the other rows it keeps
+// browser made, so what reaches this row is mostly a list someone shared with
+// you that you want to keep. (And, one at a time, your own, where
+// the sign-in was one you only confirmed here and you said "Not now" to the
+// lists: see startSession in server/utils/authSession.ts.) Unlike the other rows it keeps
 // the panel open: the claim is a request, and a failure has to be said here.
 const { signedIn } = useSession();
 const claimed = useClaimedLists();
@@ -146,7 +141,7 @@ async function addToAccount() {
   // success flips canAddToAccount and the button simply leaves. Nothing takes its
   // place: the list is on the account, which is what you asked for and what the
   // absence now means.
-  const ok = await useClaimedLists().claimOne(props.editToken);
+  const ok = await claimed.claimOne(props.editToken);
   claim.value = ok ? "idle" : "failed";
 }
 
@@ -157,7 +152,6 @@ function act(run: () => unknown) {
   emit("close");
   void run();
 }
-const runExport = (item: ExportItem) => act(item.run);
 
 // ---- recent changes ----
 // The recovery points the server already keeps: the closest thing to an activity log
@@ -255,7 +249,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
           ref="opts"
           type="button"
           role="tab"
-          class="share__tab"
+          class="modebar__opt share__tab"
           :class="{ 'is-active': tab === t.key }"
           :aria-selected="tab === t.key"
           :aria-controls="panelId(t.key)"
@@ -279,7 +273,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
               :aria-describedby="`${uid}-hint-read`"
               @click="act(() => emit('copyRead'))"
             >
-              <HugeiconsIcon :icon="ViewIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconEyeOpen" aria-hidden="true" />
               <span class="share__text">
                 <span class="share__name">Copy read-only link</span>
                 <span :id="`${uid}-hint-read`" class="share__hint">Anyone with it can see this list</span>
@@ -298,7 +292,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
               :aria-describedby="`${uid}-hint-edit`"
               @click="act(() => emit('copyEdit'))"
             >
-              <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconPencil2" aria-hidden="true" />
               <span class="share__text">
                 <span class="share__name">Copy edit link</span>
                 <span :id="`${uid}-hint-edit`" class="share__hint">Anyone with it can change this list</span>
@@ -310,7 +304,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
                entries in place of rows. Collapsed: it's reassurance you go looking for.
                These are the server's recovery points: WHAT changed, WHEN, and who when
                anyone can be named ("You", "Assistant", or a name an editor chose). -->
-          <MenuSection v-model:open="activityOpen" label="Recent changes" :icon="Clock01Icon">
+          <MenuSection v-model:open="activityOpen" label="Recent changes" :icon="IconClock">
             <div class="share__activity">
               <p v-if="activityState === 'loading'" class="t-muted">Loading…</p>
               <p v-else-if="activityState === 'error'" class="t-muted">Couldn’t load recent changes.</p>
@@ -340,14 +334,14 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
               :disabled="claim === 'claiming'"
               @click="addToAccount"
             >
-              <HugeiconsIcon :icon="UserAdd01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconUserAdd" aria-hidden="true" />
               Add to your account
             </button>
             <p v-if="claim === 'failed'" role="alert" class="t-muted share__note">
               That didn’t save. Check your connection and try again.
             </p>
             <button type="button" data-row class="menu__item" @click="act(() => emit('rotate'))">
-              <HugeiconsIcon :icon="Exchange01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconArrowsRepeatCircle" aria-hidden="true" />
               {{ holdsEditLink ? "Replace edit link" : "Get a new edit link" }}
             </button>
           </li>
@@ -357,12 +351,12 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
       <!-- EXPORT: the link first, then the files. -->
       <div v-else :id="panelId('export')" role="tabpanel" :aria-labelledby="tabId('export')">
         <div class="share__nudge">
-          <HugeiconsIcon :icon="UserMultiple02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconUserDuo" aria-hidden="true" />
           <div class="share__nudgebody">
             <p class="share__name">Sending this to someone?</p>
             <p class="share__nudgetext">Send the link instead. It always shows the latest version.</p>
             <button type="button" class="btn btn--primary share__nudgebtn" @click="act(() => emit('copyRead'))">
-              <HugeiconsIcon :icon="Copy01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" />
               Copy read-only link
             </button>
           </div>
@@ -375,9 +369,9 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
               class="menu__item share__row"
               :aria-label="item.label"
               :aria-describedby="`${uid}-hint-${item.key}`"
-              @click="runExport(item)"
+              @click="act(item.run)"
             >
-              <HugeiconsIcon :icon="item.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="item.icon" aria-hidden="true" />
               <span class="share__text">
                 <span class="share__name">{{ item.format }}</span>
                 <span :id="`${uid}-hint-${item.key}`" class="share__hint">{{ item.hint }}</span>
@@ -415,11 +409,14 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   }
 }
 
-/* ---- the tabs: the mode bar's look (ModeBar.vue), not a segmented track ----
+/* ---- the tabs: the mode bar's own chip (.modebar__opt, atoms/modebar.scss), not a
+   segmented track ----
    No track and no outline: the selected tab wears --lit, the one tone the app uses for
    "this is the one that's on" (the mode bar, the person filter, the chips), and the
    other answers the pointer with the mode bar's wash. A raised white pill in an outlined
-   track was the reference's control, and the only one of its kind in this app. */
+   track was the reference's control, and the only one of its kind in this app.
+   The chip brings its height, its inks, the wash, the plate, the inward focus ring and
+   the touch hit area; what's below is where a tab here differs from one in the bar. */
 .share__tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -427,56 +424,15 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   margin-bottom: var(--space-2);
 }
 .share__tab {
-  height: var(--control-compact);
+  /* each tab fills half the panel, so the word centres in it (in the bar a chip hugs
+     its label and there is nothing to centre) */
+  justify-content: center;
+  /* the panel's concentric corner, like the rows under it, and the strong weight */
   border-radius: var(--popover-item-radius);
-  color: var(--ink-3);
-  font-size: var(--text-chrome);
   font-weight: 600;
-  transition:
-    background-color var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade);
-}
-/* the mode bar's two amounts, for its reason (sRGB isn't symmetric) */
-@media (hover: hover) and (pointer: fine) {
-  .share__tab:hover {
-    background: light-dark(
-      color-mix(in oklab, var(--ink) 3.5%, transparent),
-      color-mix(in oklab, var(--ink) 5%, transparent)
-    );
-    color: var(--ink);
-  }
-}
-.share__tab:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
-  outline-offset: var(--focus-offset-inset);
-}
-.share__tab.is-active {
-  background: var(--lit);
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .share__tab.is-active:hover {
-    background: var(--lit-hover);
-  }
-}
-/* the 30px tab grows a hit area to the --tap floor on a phone, the mode bar's way */
-@media (pointer: coarse) {
-  .share__tab {
-    position: relative;
-  }
-  .share__tab::before {
-    content: "";
-    position: absolute;
-    inset: calc((var(--control-compact) - var(--tap)) / 2) 0;
-  }
 }
 
 /* ---- rows ---- */
-.share__rows {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 /* A menu row with a second line, glyph · label over hint. Its inset,
    gap and glyph are .menu__item's; it only wraps (a menu row doesn't, but the hint is
    prose in a panel of fixed width) and hangs its glyph on the LABEL's line rather than
@@ -486,17 +442,14 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   white-space: normal;
 }
 .share__row > svg {
-  margin-block: calc((1lh - 16px) / 2);
+  margin-block: calc((1lh - var(--icon)) / 2);
 }
 .share__text {
   display: grid;
   flex: 1 1 auto;
-  min-width: 0;
 }
 .share__name {
-  margin: 0;
   color: var(--ink);
-  font-size: var(--text-base);
 }
 .share__hint {
   color: var(--ink-2);
@@ -507,7 +460,12 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 /* Laid out on the rows' columns: its mark in the glyph column (the card's inset is a
    row's), its text where a row's label starts, so it reads as part of the same list
    rather than a box dropped on top of it. Shaped like the plate (the item radius),
-   since it sits where a row would. */
+   since it sits where a row would.
+   Its ground is AN AMOUNT OF INK — the well's 7% (.well, atoms/controls.scss, which has
+   the measurements: 1.17:1 on the light popover, 1.23 on the dark) — because the panel
+   is a floating surface. It was --paper-2, a page tone, which sat at 1.10:1 on this card
+   in either theme: a box you had to look for around the one piece of advice the tab
+   gives. */
 .share__nudge {
   display: flex;
   align-items: start;
@@ -515,11 +473,11 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   margin-bottom: var(--space-1);
   padding: var(--space-3);
   border-radius: var(--popover-item-radius);
-  background: var(--paper-2);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
 }
 .share__nudge > svg {
   flex: none;
-  margin-block: calc((1lh - 16px) / 2);
+  margin-block: calc((1lh - var(--icon)) / 2);
   color: var(--ink-2);
 }
 .share__nudgebody {
@@ -528,7 +486,6 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   gap: var(--space-1);
 }
 .share__nudgetext {
-  margin: 0;
   color: var(--ink-2);
   font-size: var(--text-chrome);
 }
@@ -541,23 +498,16 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 
 /* Prose where a row would be, inset like a row. */
 .share__note {
-  margin: 0;
   padding: var(--space-2) var(--space-3);
 }
-/* The entries start where the rows' labels do: past a row's inset, its 16px glyph and
+/* The entries start where the rows' labels do: past a row's inset, its glyph (--icon) and
    the gap, so they read as the section's contents. */
 .share__activity {
-  padding: var(--space-1) var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-4) + var(--space-3));
-}
-.share__activity p {
-  margin: 0;
+  padding: var(--space-1) var(--space-3) var(--space-2) calc(var(--space-3) + var(--icon) + var(--space-3));
 }
 .share__log {
   display: grid;
   gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
   /* a long-lived list can hold many recovery points; the panel stays a panel */
   max-height: 11rem;
   overflow-y: auto;
