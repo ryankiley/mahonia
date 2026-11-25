@@ -1,186 +1,41 @@
 #!/usr/bin/env node
 // Brotli bundle-budget gate. The product shaves grams; the site shaves bytes.
 //
-// THE NUMBER THAT MATTERS IS FIRST LOAD — the JS/CSS a visitor to the editor actually
-// downloads, read from the assets the prerendered /e references. Everything else in
-// _nuxt (the /gear, /account, /about, /legal route chunks, the lazy modals, menus and
-// panes) is counted only against a deliberately loose TOTAL backstop.
+// Two lines, and neither is meant to move in a feature PR:
 //
-// It used to gate on the sum of every built file, and that measured the wrong thing
-// by a wide margin: route-splitting a page and dynamically importing a pane bought
-// nothing against the gate, so the guardrail actively taxed the optimisation the
-// codebase is built around. Splitting the two numbers puts the incentive back the
-// right way up: move code off the hot path and the first-load number falls.
+//   FIRST LOAD    the JS/CSS a visitor to the editor downloads before it is
+//                 interactive, read from the assets the prerendered /e references.
+//                 One cap, with room under it. Crossing it is a product conversation:
+//                 shave, or decide the editor may be heavier and move the cap.
+//   LARGEST CHUNK what a heavy dependency fails, wherever it lands. A lazy chunk
+//                 never touches first load, so this is the only line that sees one.
 //
-// FIRST LOAD HAS TWO LINES, because one number was being asked to do two jobs and
-// could only do one of them:
+// What a PR costs is not this script's job to argue. CI posts every PR's delta against
+// main, by source (scripts/bundle-delta.mjs), and that comment is the record. The
+// tripwire and the total backstop that used to sit beside the cap were re-anchored by
+// almost every feature PR that touched them; their history, and the cap's, is in
+// scripts/bundle-budget-ledger.md.
 //
-//   the CEILING  — a product decision. What the editor may cost every visitor, full
-//                  stop. It is NOT re-anchored when a feature lands over it: the
-//                  feature shaves in the same PR, or makes the product case for a
-//                  heavier editor and moves the ceiling with that case written down.
-//                  Moves for a framework major, or a decision — never for "the row
-//                  grew a button".
-//   the TRIPWIRE — an accident detector, ~2 KB above the last measurement. A heavy
-//                  dependency, a stray static import of something meant to be lazy,
-//                  a checked-in JSON riding a page: all trip it before they reach the
-//                  ceiling. Re-anchor it freely, in the PR that spends it, to current
-//                  + ~2 — no essay: CI posts every PR's delta against main, by source,
-//                  and that comment is the record.
-//
-// For eleven weeks the tripwire was the only line, and it was raised twenty-one times
-// with a paragraph each and lowered twice — scripts/bundle-budget-ledger.md keeps every
-// one of those paragraphs. They are good history and they were never a "no"; the
-// ceiling is.
+// It also checks that the framework chunk is still a leaf (see nuxt.config's vendor
+// group for why a vendor chunk that imports app code is a boot crash).
 //
 // Run after `nuxt build`: `npm run build && npm run bundle-budget`. With
-// `--report=<path>` it also writes the measurement as JSON — per file, and per source
-// when the build carried hidden sourcemaps (CI's does: BUNDLE_MAPS=1, see nuxt.config)
-// — which is what scripts/bundle-delta.mjs diffs against main's.
+// `--report=<path>` it also writes the measurement as JSON, per file, and per source
+// when the build carried hidden sourcemaps (CI's does: BUNDLE_MAPS=1, see nuxt.config).
 
 import { readdirSync, readFileSync, existsSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { brotliCompressSync, gzipSync, constants } from "node:zlib";
 import { kb } from "./bundleReport.mjs";
 
-// THE CEILING. 150 KB brotli for the editor's first load, set 2026-09-12 at 146.6
-// measured, after a menu left the hot path and the icon set lost its fourth decimal.
-// Of that 146.6: 66 KB is the framework (vue, nuxt, vue-router, unhead, ofetch —
-// the floor, movable only by a framework change), 14 KB is CSS, 8 KB is glyphs,
-// 54 KB is the product, and the rest is chunk glue. The product's share had grown
-// from ~48 to ~80 KB in the seven weeks before this line was drawn (118.6 → 151.1
-// on this number, net of a 10 KB delivery pass), which is the growth the line
-// exists to price.
-//
-// When it bites, the levers in order: a surface that only opens on a click goes
-// Lazy (the shape every modal, the ⋯ menu and the panes already have); an icon
-// sprite as a static asset (~8 KB off this number, cached across deploys, and a
-// third of the row's DOM with it); the account and vault machinery behind a
-// signed-in check (~4 KB an anonymous visitor never needs). Beyond those it is a
-// product conversation, and this is the number that starts it.
-//
-// MOVED 2026-10-17, 150 → 155, by decision. The first thing to cross 150 was not a
-// feature but the routine dependency sweep: vue 3.5.44 and unhead 3.4.3 together
-// added 0.5 KB to the framework floor, main sat at 149.8, and the sweep (#450) went
-// out with both held back. Ryan's call, offered the sprite lever above: "we don't
-// need to do all this — just make the site a little bigger." So the line moves the
-// way the header says it may, for a decision with the case written down: the
-// framework's own patches are not the growth this line exists to price, and 5 KB
-// is room for a few of them without a shave each time. The levers still stand for
-// when the product spends it.
-//
-// MOVED 2026-10-31, 155 → 160, by decision. Main sat at 155.0, exactly on the line,
-// when My Gear over MCP (#473) put it at 155.4: +0.2 of chunk glue for the new
-// /authorize route that every page's router carries, +0.2 for the scope picker's
-// component and stylesheet moving onto the first load now the account panel uses it
-// too. Product spending it, this time, and a sliver of it. Offered the levers,
-// Ryan's call: "you can increase the size." Another 5 KB, the same room as last time.
-//
-// MOVED 2026-11-09, 160 → 165, by decision. Main sat at 160.0, on the line, after the
-// Food tab (#522), when the connector's consent page redesign (#520) put it at 160.1 on
-// CI: the page's lists row wore the editor's pack glyph, and sharing it split that
-// glyph out of the editor's first-load chunk into one of its own (+0.16 of glue and
-// lost compression). Offered a different glyph that stays under, Ryan's call: "just
-// increase the size." Another 5 KB, the same room as the last two moves.
-// Later the same day the page's rows moved to action marks (eye, pencil, plus), the
-// pack left the page, and the split went with it: #520 measured back at main's figure.
-// Asked whether the line should go back to 160 with its reason gone, Ryan kept it:
-// "Keep 165." So the room stands for what main does next, with nothing spent from it
-// yet, main itself sitting at 160.0.
-const FIRST_LOAD_CEILING_KB = 165;
-// THE TRIPWIRE, ~2 KB over the last measurement. Re-anchor to current + ~2 in the
-// PR that spends it; keep it under the ceiling.
-//
-// Re-anchored 2026-10-17 at 150.3 measured (vue 3.5.44 and unhead 3.4.3 in), when
-// the ceiling moved to 155. From the evening of 2026-09-12 until then the two lines
-// had coincided at 150: main measured 149.0, then 149.8, the margin above the 146.6
-// the ceiling was drawn at spent by a dozen PRs at 0.1 to 0.3 KB each — none an
-// accident, so none tripped it, which is the drift a tripwire cannot see.
-//
-// Re-anchored 2026-10-17 at 153.0 measured (the spring motion system: ~1 KB of curves,
-// the spring util, the row fold). 154 is one under the ceiling: the next growth is a
-// conversation about the ceiling.
-//
-// Re-anchored 2026-10-22 at 154.0 measured (nuxt 4.6.2: its own runtime +1.5 KB,
-// unctx off the client −0.5). 155 IS the ceiling, so the two lines coincide again, as
-// they did from 2026-09-12 to 10-17. The ceiling stays: the room it was given on
-// 10-17 was for the framework's own moves, and this is one, with 1.0 KB of it left.
-// The next growth of any size meets the ceiling's message — that conversation.
-//
-// Re-anchored 2026-10-31 at 155.4 measured (#473, My Gear over MCP; see the ceiling's
-// note for what it spent), when the ceiling moved to 160. 157 is the rule's ~2 over.
-//
-// Re-anchored 2026-11-07 at 157.7 measured (#488: the keyboard-stillness plugin, the
-// suggestion menu's room and size grouping, the rows' height fold on a mode switch, and
-// the CSS for the tap areas and hover gates). 159.5 keeps it under the ceiling, so the
-// next growth of any size is the ceiling's conversation.
-//
-// Re-anchored 2026-11-07 at 159.6 measured (#497: catalog suggestions in My Gear's Add
-// gear row reuse the editor's name field, which moved it into a chunk shared with /gear,
-// with its own stylesheet). The rule's ~2 over would cross the ceiling, so it sits ON it:
-// the two lines coincide at 160 again, and the next growth of any size meets the
-// ceiling's message.
-//
-// Re-anchored 2026-11-09 at 160.0 measured (main after #522; #520, the consent page
-// redesign, lands at the same figure once its rows dropped the pack glyph — see the
-// ceiling's note), when the ceiling moved to 165. 162 is the rule's ~2 over.
-const FIRST_LOAD_BUDGET_KB = 162;
-// TOTAL of every built file, the backstop. Deliberately slack: its job is to catch
-// a route chunk ballooning or a heavy dep landing somewhere unnoticed, NOT to price
-// ordinary feature work. Set ~6 KB clear of the current total so it only speaks up
-// when something has genuinely gone wrong. If you find yourself bumping this one
-// often, something is being shipped to every page that shouldn't be.
-//
-// Re-set 2026-09-13 at 288.1 measured (was 288, drawn at 281.9): the 6 KB went to
-// feature work spread across lazy chunks — the trip tab's day facts, the fuel rules,
-// the account cache split — and the last 0.2 to the map-file reader becoming a chunk
-// of its own, which is the first-load lever working as intended. No chunk grew.
-//
-// Re-set 2026-10-17 at 294.3 measured (was 294): the spring motion system. No chunk grew.
-//
-// Re-set 2026-10-31 at 300.2 measured (was 300): #473, My Gear over MCP. The 4.6 KB
-// is a new lazy route (the /authorize consent page, 1.3), the account panel's
-// assistant section (1.2), four product marks on its buttons (0.7) and the glue
-// between them. All of it behind a click or on its own route; no chunk grew.
-//
-// Re-set 2026-11-07 at 306.4 measured (was 306): #495, notes on trip days and a forecast
-// link per day (1.4, of it 0.7 for shared/forecast.ts's border table, all on the Trip
-// tab's own chunk), landing on #496's Share and Export panel at 305.0 on main. Each fit on
-// its own; the sum crossed. First load untouched at 158.1, no chunk grew.
-//
-// Re-set 2026-11-07 at 315.6 measured (was 312; main at d6b9a18 is 306.4): #494, an icon
-// beside each piece of gear on My Gear, all of it in /gear's own route chunk; FIRST LOAD
-// unmoved. The first cut used 85 icons and measured 16 KB over main (the Hugeicons
-// glyphs' soft corners make long paths), and the set in shared/gearGlyph.ts was trimmed
-// and tuned from there. Grow that set and this is the number that will say so.
-//
-// Re-set 2026-11-07 at 321.3 measured (was 322): #497, catalog suggestions in My Gear's
-// Add gear row, landing on main after #498, #500, #501 and #502 (menu icons, Create a list
-// in the menu, the placeholder and ice axe, the Most used shelf) took it to ~320. The
-// row reuses the editor's name field, which moved that field into a chunk shared with
-// /gear; the rest is /gear's own route chunk.
-//
-// Re-set 2026-11-08 at 329.2 measured (was 327): #478, kits in My Gear and the kinds that
-// replace its folders. The kit section and the icon picker are /gear's; the list
-// switcher's card became a chunk of its own, loaded on a click, to take it off the
-// editor's first load (160.0); the kinds' glyph rules and the kit capture are lazy too.
-// No first-load chunk grew.
-//
-// Re-set 2026-11-09 at 335.4 measured (was 335; main at 96dfbbc is 334.6): My Gear offline.
-// The device copy and the offline state are in useVaultList (/gear's and the pane's
-// chunks); the 0.2 that reached first load (160.1) is the copy's forget in useSession,
-// which every way out of an account runs.
-const TOTAL_BUDGET_KB = 341;
-// Largest single chunk, brotli. LOAD-BEARING, and the one number here that should not move
-// to accommodate a dependency: it is what a heavy map library fails. MapLibre GL ships as a
-// single ~200 KB brotli chunk and was ruled out on this line alone — a dep that needs the
-// budget tripled is precisely what the budget is for. Leaflet lands at 36.5 KB, half of it,
-// which is why it was the one that could be taken. Unchanged by the map work.
-// Since the boot-graph merge the largest chunk is the framework runtime (`vendor`,
-// 52.9 KB, vue + vue-router + unhead + ofetch and friends), not Leaflet — a 52.9 KB
-// chunk that every page needs before it can render anything, which is exactly what the
-// cap is NOT for. Unchanged at 72: a heavy map library still fails it, and the vendor
-// chunk only moves on a dependency bump.
+// 175 KB brotli, set 2026-11-25 at 161.6 measured. Of that, about 66 KB is the
+// framework (vue, nuxt, vue-router, unhead, ofetch), which only a framework change
+// moves. When it bites, the levers in order: a surface that only opens on a click goes
+// Lazy; the account and My Gear machinery goes behind a signed-in check; an icon
+// sprite as a static asset.
+const FIRST_LOAD_CAP_KB = 175;
+// Leaflet is 36 KB and the framework chunk 54. MapLibre GL ships as one ~200 KB chunk
+// and was ruled out on this line. It has never moved, and shouldn't for a dependency.
 const MAX_CHUNK_BUDGET_KB = 72;
 
 // First build output that exists: node-server / static generate, or the Vercel
@@ -392,7 +247,7 @@ if (reportPath) {
         firstLoad: firstLoad ? firstBr : null,
         total: totalBr,
         maxChunk: { file: maxChunk.f, br: maxChunk.br },
-        budgets: { ceiling: FIRST_LOAD_CEILING_KB, firstLoad: FIRST_LOAD_BUDGET_KB, total: TOTAL_BUDGET_KB, maxChunk: MAX_CHUNK_BUDGET_KB },
+        budgets: { firstLoad: FIRST_LOAD_CAP_KB, maxChunk: MAX_CHUNK_BUDGET_KB },
         files: rows.map((r) => ({ file: r.f, br: r.br, first: r.first })),
         // bytes by source on the first load, and across every chunk — both brotli
         ...attribute(),
@@ -414,13 +269,11 @@ console.log("");
 console.log(`  (▸ = on the editor's first load)`);
 console.log("");
 if (firstLoad) {
-  console.log(
-    `  FIRST LOAD   : ${kb(firstBr)} KB brotli  (tripwire ${FIRST_LOAD_BUDGET_KB} KB · ceiling ${FIRST_LOAD_CEILING_KB} KB)  ← what every visitor downloads`,
-  );
+  console.log(`  FIRST LOAD   : ${kb(firstBr)} KB brotli  (cap ${FIRST_LOAD_CAP_KB} KB)  ← what every visitor downloads`);
 }
 console.log(`  total raw    : ${kb(totalRaw)} KB`);
 console.log(`  total gzip   : ${kb(totalGz)} KB`);
-console.log(`  total brotli : ${kb(totalBr)} KB  (budget ${TOTAL_BUDGET_KB} KB)  ← backstop`);
+console.log(`  total brotli : ${kb(totalBr)} KB`);
 console.log(
   `  largest chunk: ${kb(maxChunk.br)} KB brotli — ${maxChunk.f}  (budget ${MAX_CHUNK_BUDGET_KB} KB)`,
 );
@@ -443,22 +296,12 @@ else {
   if (vendorImports.length)
     failures.push(`vendor chunk ${vendor} imports ${vendorImports.join(", ")} — it must be a leaf (see nuxt.config's vendor group)`);
 }
-// the tripwire can't sit above the ceiling — a re-anchor that crosses it is the
-// ceiling being moved without saying so
-if (FIRST_LOAD_BUDGET_KB > FIRST_LOAD_CEILING_KB)
-  failures.push(`the tripwire (${FIRST_LOAD_BUDGET_KB} KB) is above the ceiling (${FIRST_LOAD_CEILING_KB} KB) — move the ceiling deliberately or lower the tripwire`);
-if (firstLoad && firstBrKb > FIRST_LOAD_CEILING_KB)
+if (firstLoad && firstBrKb > FIRST_LOAD_CAP_KB)
   failures.push(
-    `first load ${kb(firstBr)} KB is over the ${FIRST_LOAD_CEILING_KB} KB CEILING — shave in this PR (a surface that only opens on a click goes Lazy; see the levers in scripts/bundle-budget.mjs), or make the product case and move the ceiling with it`,
-  );
-else if (firstLoad && firstBrKb > FIRST_LOAD_BUDGET_KB)
-  failures.push(
-    `first load ${kb(firstBr)} KB tripped the ${FIRST_LOAD_BUDGET_KB} KB tripwire — check the PR's bundle comment for what grew; if it's the feature, re-anchor FIRST_LOAD_BUDGET_KB to current + ~2 (under the ${FIRST_LOAD_CEILING_KB} KB ceiling); if it's an accident, shave it`,
+    `first load ${kb(firstBr)} KB is over the ${FIRST_LOAD_CAP_KB} KB cap. The PR's bundle comment says what grew. Shave it here (the levers are beside the constant), or decide the editor may be heavier and move the cap`,
   );
 if (!firstLoad)
-  console.warn("  ! /e not in the build output — first-load gate skipped, total only.\n");
-if (totalBrKb > TOTAL_BUDGET_KB)
-  failures.push(`total brotli ${kb(totalBr)} KB > ${TOTAL_BUDGET_KB} KB budget`);
+  console.warn("  ! /e not in the build output — first-load gate skipped.\n");
 if (maxChunkBrKb > MAX_CHUNK_BUDGET_KB)
   failures.push(
     `largest chunk ${kb(maxChunk.br)} KB > ${MAX_CHUNK_BUDGET_KB} KB budget (${maxChunk.f})`,
@@ -471,5 +314,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  `✓ Within budget — first load ${kb(firstBr)}/${FIRST_LOAD_BUDGET_KB} KB (ceiling ${FIRST_LOAD_CEILING_KB}), total ${kb(totalBr)}/${TOTAL_BUDGET_KB} KB, largest ${kb(maxChunk.br)}/${MAX_CHUNK_BUDGET_KB} KB; ${vendor} is a leaf.`,
+  `✓ Within budget: first load ${firstLoad ? kb(firstBr) : "—"}/${FIRST_LOAD_CAP_KB} KB, largest chunk ${kb(maxChunk.br)}/${MAX_CHUNK_BUDGET_KB} KB, total ${kb(totalBr)} KB; ${vendor} is a leaf.`,
 );

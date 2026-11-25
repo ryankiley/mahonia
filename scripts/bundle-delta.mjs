@@ -2,7 +2,7 @@
 // What a PR costs, in bytes, against main — the paragraph every budget bump used to
 // be written by hand, produced by CI instead and posted on the PR whether the gate
 // is green or red. That last part is the point: a PR that adds 1.8 KB under the
-// tripwire used to say nothing at all, and ten of those were the whole summer.
+// cap says nothing at the gate, and ten of those were a whole summer.
 //
 // Usage: node scripts/bundle-delta.mjs <main.json> <pr.json> [--sha=<baseline sha>] [--base=<the PR's base sha>]
 // Both files come from `bundle-budget.mjs --report=…` (scripts/bundleReport.mjs is
@@ -32,7 +32,7 @@ const delta = (a, b) => {
   return `${d > 0 ? "+" : "−"}${(Math.abs(d) / 10).toFixed(1)} KB`;
 };
 const measured = (v) => typeof v === "number";
-const { ceiling, firstLoad: tripwire, total: totalBudget, maxChunk: maxBudget } = head.budgets;
+const { firstLoad: cap, maxChunk: maxBudget } = head.budgets;
 
 const lines = [];
 // "not measured" is not zero: a build whose /e prerender is missing has no first
@@ -50,13 +50,13 @@ lines.push("");
 lines.push("| | main | this PR | Δ |");
 lines.push("|---|---:|---:|---:|");
 lines.push(`| **First load** — what every visitor to the editor downloads | ${firstCell(firstBase)} | **${firstCell(first)}** | **${bothFirst ? delta(firstBase, first) : "—"}** |`);
-const room = measured(first) ? ceiling * 1024 - first : null;
+const room = measured(first) ? cap * 1024 - first : null;
 lines.push(
-  `| ceiling ${ceiling} KB · tripwire ${tripwire} KB | | ${
-    room === null ? "—" : room >= 0 ? `${kb(room)} KB under the ceiling` : `**${kb(-room)} KB OVER the ceiling**`
+  `| cap ${cap} KB | | ${
+    room === null ? "—" : room >= 0 ? `${kb(room)} KB under the cap` : `**${kb(-room)} KB OVER the cap**`
   } | |`,
 );
-lines.push(`| Total, every chunk (backstop ${totalBudget} KB) | ${kb(base.total)} KB | ${kb(head.total)} KB | ${delta(base.total, head.total)} |`);
+lines.push(`| Total, every chunk | ${kb(base.total)} KB | ${kb(head.total)} KB | ${delta(base.total, head.total)} |`);
 lines.push(`| Largest chunk (cap ${maxBudget} KB) | ${kb(base.maxChunk.br)} KB | ${kb(head.maxChunk.br)} KB | ${delta(base.maxChunk.br, head.maxChunk.br)} |`);
 lines.push("");
 
@@ -112,6 +112,6 @@ const stale = sha && baseSha && sha !== baseSha;
 lines.push(
   `<sub>Brotli, measured by \`scripts/bundle-budget.mjs\` on both builds${sha ? ` (main at ${sha.slice(0, 7)}` : ""}${
     stale ? `; this PR's merge was built on ${baseSha.slice(0, 7)} — main moved since this baseline, so some of the delta may be another PR's` : ""
-  }${sha ? ")" : ""}. The ceiling is a product line; the tripwire re-anchors to current + ~2 in the PR that spends it.</sub>`,
+  }${sha ? ")" : ""}. The cap is a product line; this comment is the record of what a PR costs.</sub>`,
 );
 console.log(lines.join("\n"));
