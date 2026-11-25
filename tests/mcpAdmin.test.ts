@@ -456,6 +456,15 @@ describe("the rules a chat doesn't have to be told", () => {
     const filed = await verify({ brand: "Bioré", name: "UV Essence", gear_type: "Sunscreen", category: "other", weight_g: 70, weight_source: "measured" });
     expect(filed.refused).toBe(true);
     expect(filed.text).toContain("one gear type, one category");
+    // a row already part of a split isn't refused for it: its weight can still be put right,
+    // and a write that leaves the split as it was is not the one that made it
+    const small = await seedCatalogRow(db, { brand: "Evernew", name: "Ti Mug", variant: "Small, double wall", commonName: "Mug", categoryHint: "cook", weightMg: 90_000 });
+    await seedCatalogRow(db, { brand: "Evernew", name: "Ti Mug", variant: "Large, Double Wall", commonName: "Mug", categoryHint: "cook", weightMg: 120_000 });
+    const weighed = await verify({ catalog_id: small.id, weight_g: 92, weight_source: "measured" });
+    expect(weighed.refused, weighed.text).toBe(false);
+    // a third spelling is the write's own, and still refused
+    const third = await verify({ catalog_id: small.id, variant: "Small, DOUBLE WALL", weight_g: 92, weight_source: "measured" });
+    expect(third.refused).toBe(true);
     // a size letter is put into the catalog's words, not refused
     const sized = await verify({ brand: "Caudata", name: "NewtFlex Pants", variant: "L", gear_type: "Pants", weight_g: 300, weight_source: "measured" });
     expect(sized.refused, sized.text).toBe(false);
