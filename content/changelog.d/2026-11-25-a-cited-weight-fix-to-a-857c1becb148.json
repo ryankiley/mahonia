@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-25",
+  "fixed": [
+    "A cited weight fix to a catalog item now stays put when the catalog is next updated, instead of quietly going back to the old weight."
+  ]
+}
