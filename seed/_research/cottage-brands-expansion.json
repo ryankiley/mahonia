@@ -1763,7 +1763,7 @@
     {
       "brand": "Bonfus",
       "name": "Fastus 23L",
-      "variant": null,
+      "variant": "no hipbelt",
       "attributes": {"volume_l": 23},
       "category_hint": "pack",
       "weight_value": 360,
@@ -13473,7 +13473,7 @@
     {
       "brand": "YAR.gear",
       "name": "Apex 28L Pack",
-      "variant": null,
+      "variant": "minimum",
       "attributes": {"volume_l": 28},
       "category_hint": "pack",
       "weight_value": 295,
