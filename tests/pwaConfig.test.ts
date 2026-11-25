@@ -2,6 +2,8 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PWA_OPTIONS, pwaPrecacheRevision } from "../config/pwa";
+import { applyOps, type Op } from "../shared/ops";
+import { blankState, folder, item } from "./helpers/list";
 
 describe("pwaPrecacheRevision", () => {
   it("uses a unique Vercel deployment ID ahead of the commit SHA", () => {
@@ -108,5 +110,24 @@ describe("service worker updates", () => {
     expect(PWA_OPTIONS.injectRegister).toBe(false);
     expect(PWA_OPTIONS.workbox?.skipWaiting).toBe(false);
     expect(PWA_OPTIONS.workbox?.clientsClaim).toBe(true);
+  });
+});
+
+// The editor keeps what the server hasn't acknowledged and sends it again itself
+// (useGearList). The worker held a second copy of each failed send until 2026-11 and
+// replayed it whenever the browser next woke it, which could be after the editor's own
+// retry and after newer edits.
+describe("unsent edits have one queue, the editor's", () => {
+  it("no rule has the worker queue a write and replay it later", () => {
+    expect(rules.filter((r) => r.options?.backgroundSync).map((r) => String(r.urlPattern))).toEqual([]);
+  });
+
+  it("because a batch that arrives a second time, late, undoes the edits made since", () => {
+    const failedSend: Op[] = [{ t: "updateItem", id: "i1", patch: { unitWeightMg: 500_000 } }];
+    const s = blankState({ folders: [folder()], items: [item({ id: "i1", name: "Tent" })] });
+    applyOps(s, failedSend); // the editor's own retry lands
+    applyOps(s, [{ t: "updateItem", id: "i1", patch: { unitWeightMg: 538_000 } }]); // then a correction
+    applyOps(s, failedSend); // then the worker's copy of the first send
+    expect(s.items[0]?.unitWeightMg).toBe(500_000);
   });
 });
