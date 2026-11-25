@@ -63,6 +63,8 @@ const AS_CARRIED_EVIDENCE = /total weight|package weight|packaged weight|pouch i
 const TRAIL_WEIGHT = /\b(?:min(?:imum)?\.?\s*(?:\(?trail\)?\s*)?weight|trail\s*weight|fly\s*\+\s*inner|fly and inner|without stakes|no stakes)\b/i;
 const PACKED_WEIGHT = /\b(?:pack(?:ed|aged)?\s*weight|package\s*weight|total\s*weight|typical\s*weight|full\s*weight|with stakes|including (?:all )?stakes|all[- ]in)\b/i;
 const TRAIL_TOKEN = "trail weight";
+// A retailer that labels the figure after it: "19oz | 539g (trail)", "688g (minimum)".
+const TRAIL_SUFFIX = /(\d+(?:\.\d+)?)\s*(g|kg|oz)\s*\((?:trail|min(?:imum)?)\)/i;
 
 /** The first gram-equivalent figure after `re` in `q`, or null. */
 function figureAfter(q: string, re: RegExp): number | null {
@@ -205,9 +207,14 @@ export function runResearchChecks(files: ResearchFile[], commonNames: Map<string
         const packed = figureAfter(q, PACKED_WEIGHT);
         // the stored figure is the trail one when it matches the figure after a trail label,
         // or when the quote calls its only figure a minimum weight and gives no packed one
-        const storedIsTrail = trail != null
+        const suffix = TRAIL_SUFFIX.exec(q);
+        const labelledAfter = suffix
+          ? parseFloat(suffix[1]!) * (suffix[2]!.toLowerCase() === "kg" ? 1000 : suffix[2]!.toLowerCase() === "oz" ? 28.3495 : 1)
+          : null;
+        const storedIsTrail = (trail != null
           ? near(g, trail) && !(packed != null && near(g, packed))
-          : packed == null && TRAIL_WEIGHT.test(q);
+          : packed == null && TRAIL_WEIGHT.test(q))
+          || (labelledAfter != null && near(g, labelledAfter) && !(packed != null && near(g, packed)));
         if (saysTrail) {
           if (packed != null) err("tent-weight-basis", `${where}: the quote shows a packaged figure (${packed.toFixed(0)} g) — store it and drop "trail weight"`);
           else warn("tent-trail-weight", `${where}: stored at trail weight — find the packaged weight (maker "packed" / "total" / "typical" weight) and drop "trail weight"`);

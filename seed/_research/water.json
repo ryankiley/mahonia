@@ -47,7 +47,7 @@
     {
       "brand": "Katadyn",
       "name": "BeFree Water Filter",
-      "variant": "1.0L",
+      "variant": "1L",
       "category_hint": "water",
       "weight_value": 2.2,
       "weight_unit": "oz",
@@ -58,7 +58,7 @@
     {
       "brand": "Katadyn",
       "name": "BeFree Gravity Water Filter",
-      "variant": "3.0L",
+      "variant": "3L",
       "category_hint": "water",
       "weight_value": 6.8,
       "weight_unit": "oz",

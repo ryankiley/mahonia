@@ -94,7 +94,7 @@
     {
       "brand": "BioLite",
       "name": "Charge 80 PD",
-      "variant": "20000mAh power bank",
+      "variant": "20000mAh",
       "category_hint": "electronics",
       "weight_value": 465,
       "weight_unit": "g",
@@ -105,7 +105,7 @@
     {
       "brand": "Trangia",
       "name": "Stove 27-2 UL",
-      "variant": "27-2 UL with kettle",
+      "variant": "with kettle",
       "attributes": {"fuel": "alcohol"},
       "attributes_source_url": "https://trangia.se/en/shop/trangia-stove-27-2-ul/",
       "attributes_quote": "Fuel: Spirit",

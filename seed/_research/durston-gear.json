@@ -2,7 +2,7 @@
   "rows": [
     {
       "brand": "Nemo",
-      "name": "Tensor Elite Ultralight Sleeping Pad",
+      "name": "Tensor Elite Ultralight",
       "variant": "Short Mummy",
       "attributes": {"r_value": 2.4},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-elite-ultralight-sleeping-pad.json",
@@ -17,7 +17,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor Elite Ultralight Sleeping Pad",
+      "name": "Tensor Elite Ultralight",
       "variant": "Regular Mummy",
       "attributes": {"r_value": 2.4},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-elite-ultralight-sleeping-pad.json",
@@ -32,7 +32,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor Elite Ultralight Sleeping Pad",
+      "name": "Tensor Elite Ultralight",
       "variant": "Regular Wide Mummy",
       "attributes": {"r_value": 2.4},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-elite-ultralight-sleeping-pad.json",
@@ -135,7 +135,7 @@
       "brand": "Aquatabs",
       "name": "Water Purification Tablets",
       "variant": "per tablet",
-      "category_hint": "consumable",
+      "category_hint": "water",
       "weight_value": 0.397,
       "weight_unit": "g",
       "weight_secondary": null,

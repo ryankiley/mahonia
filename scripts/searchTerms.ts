@@ -464,8 +464,7 @@ export const EXTRA_TERMS: Record<string, readonly string[]> = {
   carabiner: ["karabiner", "krab", "clip", "mini carabiner", "wire gate", "wiregate", "snap hook", "biner"],
   "gear hooks": ["gear hook", "hanger", "hangers", "pack hooks", "hooks", "s hook", "s-hook", "gear hanger"],
   // — hygiene —
-  sunscreen: ["sunblock", "sun cream", "suncream", "sun screen", "spf", "sun lotion", "sunscreen lotion", "sun block", "sun protection", "sunscreen cream", "zinc", "zinc cream"],
-  "sunscreen stick": ["sun stick", "sunblock stick", "spf stick", "sunscreen balm", "face stick", "zinc stick", "zinc"],
+  sunscreen: ["sunblock", "sun cream", "suncream", "sun screen", "spf", "sun lotion", "sunscreen lotion", "sun block", "sun protection", "sunscreen cream", "zinc", "zinc cream", "sun stick", "sunblock stick", "spf stick", "sunscreen balm", "face stick", "zinc stick"],
   "lip balm": ["lip salve", "chapstick", "lipbalm", "lip protection", "spf lip balm", "lip sunscreen", "lipsalve", "lip cream", "lip chap"],
   "insect repellent": ["bug spray", "insect spray", "mosquito repellent", "deet", "picaridin", "bug repellent", "mozzie spray", "mozzie repellent", "midge repellent", "sandfly repellent", "sandfly", "sandflies", "bug dope", "repellant", "insect repellant", "bug repellant", "mosquito spray", "insect repellent spray", "tick repellent", "bug juice"],
   "anti-chafe balm": ["anti chafe", "anti-chafe", "chafe balm", "chafing cream", "chamois cream", "anti chafing", "chafe stick", "anti-chafing", "body glide", "chafing balm", "chafe cream"],

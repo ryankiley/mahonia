@@ -3,7 +3,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "UltraLite",
-      "variant": "6 ft, 20F",
+      "variant": "20F, 6ft",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -15,7 +15,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "MegaLite",
-      "variant": "6 ft, 30F",
+      "variant": "30F, 6ft",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -27,7 +27,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "VersaLite",
-      "variant": "6 ft, 10F",
+      "variant": "10F, 6ft",
       "category_hint": "sleep",
       "weight_value": 2,
       "weight_unit": "lb",
@@ -39,7 +39,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "AlpinLite",
-      "variant": "6 ft, 20F",
+      "variant": "20F, 6ft",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -51,7 +51,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "SummerLite",
-      "variant": "6 ft, 32F",
+      "variant": "32F, 6ft",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -63,7 +63,7 @@
     {
       "brand": "Western Mountaineering",
       "name": "HighLite",
-      "variant": "6 ft, 35F",
+      "variant": "35F, 6ft",
       "category_hint": "sleep",
       "weight_value": 16,
       "weight_unit": "oz",
@@ -74,62 +74,67 @@
     {
       "brand": "Feathered Friends",
       "name": "Hummingbird UL 20",
-      "variant": "Regular, 20F",
+      "variant": "Regular",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
       "weight_secondary": "7.9 oz",
       "weight_source": "manufacturer",
       "source_url": "https://featheredfriends.com/products/hummingbird-ul-ultralight-20-30-degree-down-sleeping-bag",
-      "quote": "Average Weight: Reg 1 lb 7.9 oz / 677 g (20ºF / -6.67ºC model)"
+      "quote": "Average Weight: Reg 1 lb 7.9 oz / 677 g (20ºF / -6.67ºC model)",
+      "attributes": {"temp_f": 20}
     },
     {
       "brand": "Feathered Friends",
       "name": "Hummingbird UL 30",
-      "variant": "Regular, 30F",
+      "variant": "Regular",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
       "weight_secondary": "5.2 oz",
       "weight_source": "manufacturer",
       "source_url": "https://featheredfriends.com/products/hummingbird-ul-ultralight-20-30-degree-down-sleeping-bag",
-      "quote": "Average Weight: Reg 1 lb 5.2 oz / 601 g (30ºF / -1.1ºC model)"
+      "quote": "Average Weight: Reg 1 lb 5.2 oz / 601 g (30ºF / -1.1ºC model)",
+      "attributes": {"temp_f": 30}
     },
     {
       "brand": "Feathered Friends",
       "name": "Swallow UL 20",
-      "variant": "Regular, 20F",
+      "variant": "Regular",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
       "weight_secondary": "10.6 oz",
       "weight_source": "manufacturer",
       "source_url": "https://featheredfriends.com/products/swallow-ul-ultralight-20-30-degree-down-sleeping-bag-c0",
-      "quote": "Average Weight: Reg 1 lb 10.6 oz / 754 g (20ºF / -6.67ºC model)"
+      "quote": "Average Weight: Reg 1 lb 10.6 oz / 754 g (20ºF / -6.67ºC model)",
+      "attributes": {"temp_f": 20}
     },
     {
       "brand": "Feathered Friends",
       "name": "Swallow UL 30",
-      "variant": "Regular, 30F",
+      "variant": "Regular",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
       "weight_secondary": "7.4 oz",
       "weight_source": "manufacturer",
       "source_url": "https://featheredfriends.com/products/swallow-ul-ultralight-20-30-degree-down-sleeping-bag-c0",
-      "quote": "Average Weight: Reg 1 lb 7.4 oz / 633 g (30ºF / -1.1ºC model)"
+      "quote": "Average Weight: Reg 1 lb 7.4 oz / 633 g (30ºF / -1.1ºC model)",
+      "attributes": {"temp_f": 30}
     },
     {
       "brand": "Feathered Friends",
       "name": "Flicker UL Wide 20",
-      "variant": "Regular Wide, 20F",
+      "variant": "Regular Wide",
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
       "weight_secondary": "11.5 oz",
       "weight_source": "manufacturer",
       "source_url": "https://featheredfriends.com/products/flicker-ul-wide-ultralight-down-quilt-sleeping-bag",
-      "quote": "Average Weight: Reg 1 lb 11.5 oz / 779 g (20ºF / -6.67ºC model)"
+      "quote": "Average Weight: Reg 1 lb 11.5 oz / 779 g (20ºF / -6.67ºC model)",
+      "attributes": {"temp_f": 20}
     }
   ]
 }

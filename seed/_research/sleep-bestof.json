@@ -3,25 +3,27 @@
     {
       "brand": "Katabatic Gear",
       "name": "Sawatch 15",
-      "variant": "15F, 900FP, Regular",
+      "variant": "900FP, Regular",
       "category_hint": "sleep",
       "weight_value": 24.7,
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://katabaticgear.com/products/sawatch-ultralight-quilt",
-      "quote": "Total Weight (ounces) -- 850fp Duck Down: 24.4, 26.0, 27.7, 26.6, 28.2, 30.2; 900fp Goose Down: 23.3, 24.7, 26.3, 25.3, 26.9, 28.7 (Regular column at 900fp = 24.7)"
+      "quote": "Total Weight (ounces) -- 850fp Duck Down: 24.4, 26.0, 27.7, 26.6, 28.2, 30.2; 900fp Goose Down: 23.3, 24.7, 26.3, 25.3, 26.9, 28.7 (Regular column at 900fp = 24.7)",
+      "attributes": {"temp_f": 15}
     },
     {
       "brand": "Sea to Summit",
       "name": "Spark 15F",
-      "variant": "15F, Regular",
+      "variant": "Regular",
       "category_hint": "sleep",
       "weight_value": 25.7,
       "weight_unit": "oz",
       "weight_secondary": "730 g",
       "weight_source": "manufacturer",
       "source_url": "https://seatosummit.com/products/spark-down-sleeping-bag",
-      "quote": "15°F (-9°C): Weight 730 g | 25.7 oz (Regular)"
+      "quote": "15°F (-9°C): Weight 730 g | 25.7 oz (Regular)",
+      "attributes": {"temp_f": 15}
     },
     {
       "brand": "Zpacks",
@@ -41,7 +43,7 @@
     {
       "brand": "Feathered Friends",
       "name": "Flicker UL Quilt",
-      "variant": "20F, Regular, 950+FP",
+      "variant": "20F, 950+FP, Regular",
       "category_hint": "sleep",
       "weight_value": 1.59,
       "weight_unit": "lb",
@@ -49,21 +51,6 @@
       "weight_source": "manufacturer",
       "source_url": "https://featheredfriends.com/products/flicker-ul-ultralight-down-quilt-sleeping-bag",
       "quote": "20 Degree / Regular -- Average Weight: Reg 1 lb 9.5 oz / 723 g (Fill Weight: Reg 14.7 oz / 417 g)"
-    },
-    {
-      "brand": "Nemo",
-      "name": "Tensor Extreme Conditions Ultralight Insulated",
-      "variant": "Regular Mummy",
-      "attributes": {"r_value": 8.5},
-      "attributes_source_url": "https://www.nemoequipment.com/products/tensor-extreme-ultralight-sleeping-pad.json",
-      "attributes_quote": "achieving an 8.5 R-value and a mind-bending warmth-to-weight ratio",
-      "category_hint": "sleep",
-      "weight_value": 17,
-      "weight_unit": "oz",
-      "weight_secondary": "472 g",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.campman.com/camp-hike/nemo-tensor-extreme-conditions-sleeping-pad/",
-      "quote": "Regular Mummy size weight: 17 oz (472 g)"
     },
     {
       "brand": "Sea to Summit",
@@ -82,14 +69,15 @@
     {
       "brand": "Therm-a-Rest",
       "name": "Corus 20F",
-      "variant": "20F / -6C, Regular, 650FP down",
+      "variant": "650FP, Regular",
       "category_hint": "sleep",
       "weight_value": 1.62,
       "weight_unit": "lb",
       "weight_secondary": "735 g",
       "weight_source": "manufacturer",
       "source_url": "https://cascadedesigns.com/products/corus-20f-6c-down-quilt",
-      "quote": "Regular Size: 1 lbs 10 oz (735 g); Long Size: 1 lbs 13 oz (815 g)"
+      "quote": "Regular Size: 1 lbs 10 oz (735 g); Long Size: 1 lbs 13 oz (815 g)",
+      "attributes": {"temp_f": 20}
     },
     {
       "brand": "Big Agnes",

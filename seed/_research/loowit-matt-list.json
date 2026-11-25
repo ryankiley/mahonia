@@ -31,14 +31,15 @@
     {
       "brand": "Hyperlite Mountain Gear",
       "name": "20-Degree Quilt",
-      "variant": "Regular, 20F",
+      "variant": "Regular",
       "category_hint": "sleep",
       "weight_value": 570,
       "weight_unit": "g",
       "weight_secondary": null,
       "weight_source": "manufacturer",
       "source_url": "https://hyperlitemountaingear.com/products/20-degree-quilt",
-      "quote": "Regular: 20.1 oz / 570 g"
+      "quote": "Regular: 20.1 oz / 570 g",
+      "attributes": {"temp_f": 20}
     },
     {
       "brand": "Gossamer Gear",
@@ -80,7 +81,7 @@
     {
       "brand": "Montbell",
       "name": "EX Light Down Jacket",
-      "variant": "Men's Medium, full-zip",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 5.7,
       "weight_unit": "oz",

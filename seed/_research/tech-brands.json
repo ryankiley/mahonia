@@ -243,7 +243,7 @@
     },
     {
       "brand": "Satisfy",
-      "name": "TechSilk 8\" Shorts",
+      "name": "TechSilk 8in Shorts",
       "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 130,
@@ -255,7 +255,7 @@
     },
     {
       "brand": "Satisfy",
-      "name": "Space-O 2.5\" Shorts",
+      "name": "Space-O 2.5in Shorts",
       "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 124,
@@ -267,19 +267,19 @@
     },
     {
       "brand": "Satisfy",
-      "name": "PeaceShell 5\" Unlined Shorts",
+      "name": "AmbientWarp 5in Unlined Shorts",
       "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 86,
       "weight_unit": "g",
       "weight_secondary": null,
       "weight_source": "manufacturer",
-      "source_url": "https://satisfyrunning.com/products/peaceshell-5-unlined-shorts",
+      "source_url": "https://satisfyrunning.com/products/ambientwarp-5unlined-shorts",
       "quote": "This product weighs 86 grams in size M."
     },
     {
       "brand": "Satisfy",
-      "name": "Justice Cordura 9\" Half Tights",
+      "name": "Justice Cordura 9in Half Tights",
       "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 93,
@@ -315,15 +315,15 @@
     },
     {
       "brand": "Satisfy",
-      "name": "PeaceShell Running Cap",
+      "name": "AmbientWarp Running Cap",
       "variant": null,
       "category_hint": "clothing",
       "weight_value": 30,
       "weight_unit": "g",
       "weight_secondary": null,
       "weight_source": "manufacturer",
-      "source_url": "https://satisfyrunning.com/products/peaceshell-running-cap-5",
-      "quote": "30 grams"
+      "source_url": "https://satisfyrunning.com/products/ambientwarp-running-cap-5",
+      "quote": "This product weighs 30 grams."
     },
     {
       "brand": "Satisfy",

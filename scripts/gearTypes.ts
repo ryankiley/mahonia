@@ -52,6 +52,7 @@ export const GEAR_TYPE_ALIASES: Record<string, string> = {
   "stake sack": "stake bag",
   "stash bag": "stuff sack",
   "sun sleeves": "arm sleeves",
+  "sunscreen stick": "sunscreen",
   "tent pole": "tent poles",
   "tent stake": "tent stakes",
   "torch lighter": "lighter",

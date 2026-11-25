@@ -3,7 +3,7 @@
     {
       "brand": "Sea to Summit",
       "name": "Trek TkII Down Sleeping Bag",
-      "variant": "Long, 18F",
+      "variant": "18F, Long",
       "category_hint": "sleep",
       "weight_value": 2,
       "weight_unit": "lb",
@@ -96,7 +96,7 @@
     },
     {
       "brand": "Petzl",
-      "name": "Cordex Plus belay/rappel gloves",
+      "name": "Cordex Plus Belay/Rappel Gloves",
       "variant": "Small",
       "category_hint": "clothing",
       "weight_value": 136,
@@ -107,7 +107,7 @@
     },
     {
       "brand": "Petzl",
-      "name": "Cordex Plus belay/rappel gloves",
+      "name": "Cordex Plus Belay/Rappel Gloves",
       "variant": "Medium",
       "category_hint": "clothing",
       "weight_value": 140,
@@ -118,7 +118,7 @@
     },
     {
       "brand": "Petzl",
-      "name": "Cordex Plus belay/rappel gloves",
+      "name": "Cordex Plus Belay/Rappel Gloves",
       "variant": "Large",
       "category_hint": "clothing",
       "weight_value": 146,
@@ -129,7 +129,7 @@
     },
     {
       "brand": "Petzl",
-      "name": "Cordex Plus belay/rappel gloves",
+      "name": "Cordex Plus Belay/Rappel Gloves",
       "variant": "X-Large",
       "category_hint": "clothing",
       "weight_value": 152,

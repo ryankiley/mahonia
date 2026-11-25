@@ -28,7 +28,7 @@
     {
       "brand": "3FULGEAR",
       "name": "Lanshan 1 Pro Tent",
-      "variant": null,
+      "variant": "trail weight",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 688,
@@ -629,8 +629,8 @@
     },
     {
       "brand": "Alpine Fit",
-      "name": "Women's Fastpacker Alpha 90 Fleece",
-      "variant": "Medium",
+      "name": "Fastpacker Alpha 90 Fleece",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 112,
       "weight_unit": "g",
@@ -641,8 +641,8 @@
     },
     {
       "brand": "Alpine Fit",
-      "name": "Women's Rendezvous Ridge Long Sleeve",
-      "variant": "Medium",
+      "name": "Rendezvous Ridge Long Sleeve",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 184,
       "weight_unit": "g",
@@ -881,8 +881,8 @@
     },
     {
       "brand": "Arms of Andes",
-      "name": "Men's Alpaca Wool Boxer Briefs",
-      "variant": "Medium",
+      "name": "Alpaca Wool Boxer Briefs",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 62,
       "weight_unit": "g",
@@ -893,8 +893,8 @@
     },
     {
       "brand": "ExOfficio",
-      "name": "Men's Give-N-Go 2.0 Boxer Brief",
-      "variant": "Medium",
+      "name": "Give-N-Go 2.0 Boxer Brief",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 89.9,
       "weight_unit": "g",
@@ -905,8 +905,8 @@
     },
     {
       "brand": "Arms of Andes",
-      "name": "Women's Alpaca Boyshort Panties",
-      "variant": "Small",
+      "name": "Alpaca Boyshort Panties",
+      "variant": "Women's Small",
       "category_hint": "clothing",
       "weight_value": 46,
       "weight_unit": "g",
@@ -917,8 +917,8 @@
     },
     {
       "brand": "Arms of Andes",
-      "name": "Women's Alpaca Wool Pullover Hoodie",
-      "variant": "Medium",
+      "name": "Alpaca Wool Pullover Hoodie",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 326,
       "weight_unit": "g",
@@ -929,8 +929,8 @@
     },
     {
       "brand": "Arms of Andes",
-      "name": "Women's Alpaca Wool Sports Bra",
-      "variant": "Small",
+      "name": "Alpaca Wool Sports Bra",
+      "variant": "Women's Small",
       "category_hint": "clothing",
       "weight_value": 67,
       "weight_unit": "g",
@@ -1160,7 +1160,7 @@
       "quote": "Weight per pair: 544 g | 19.2 oz (2× single sandal; single = 272 g / 9.6 oz, men's size 9)"
     },
     {
-      "brand": "Ben's Tick and Insect Repellent",
+      "brand": "Ben's",
       "name": "Insect Repellent Adventure Formula",
       "variant": null,
       "category_hint": "consumable",
@@ -1172,7 +1172,7 @@
       "quote": "Packaged weight: 4.7 oz | 134 g"
     },
     {
-      "brand": "Ben's Tick and Insect Repellent",
+      "brand": "Ben's",
       "name": "Tick & Insect Repellent Wipes",
       "variant": null,
       "category_hint": "consumable",
@@ -1217,12 +1217,13 @@
       "weight_secondary": "84oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/copper-spur-hv-ul2-ul4-by-big-agnes",
-      "quote": "Weight: 84oz | 2381g (minimum)"
+      "quote": "Weight: 84oz | 2381g (minimum)",
+      "variant": "trail weight"
     },
     {
       "brand": "Big Agnes",
       "name": "String Ridge VST",
-      "variant": "1.5P",
+      "variant": "1.5P, trail weight",
       "category_hint": "shelter",
       "weight_value": 539,
       "weight_unit": "g",
@@ -1234,7 +1235,7 @@
     {
       "brand": "Big Agnes",
       "name": "String Ridge VST",
-      "variant": "2.5p",
+      "variant": "2.5P, trail weight",
       "category_hint": "shelter",
       "weight_value": 853,
       "weight_unit": "g",
@@ -1246,7 +1247,7 @@
     {
       "brand": "Big Agnes",
       "name": "Tiger Wall UL Solution Dye",
-      "variant": "UL1",
+      "variant": "UL1, trail weight",
       "category_hint": "shelter",
       "weight_value": 850,
       "weight_unit": "g",
@@ -1258,7 +1259,7 @@
     {
       "brand": "Big Agnes",
       "name": "Tiger Wall UL Solution Dye",
-      "variant": "UL2",
+      "variant": "UL2, trail weight",
       "category_hint": "shelter",
       "weight_value": 992,
       "weight_unit": "g",
@@ -1814,7 +1815,7 @@
     {
       "brand": "Bonfus",
       "name": "Middus 1P",
-      "variant": null,
+      "variant": "trail weight",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 295,
@@ -1973,7 +1974,7 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "G-Hook Quick-Release Buckle",
-      "variant": "Titanium ⅝\"",
+      "variant": "Titanium 5/8in",
       "category_hint": "other",
       "weight_value": 3,
       "weight_unit": "g",
@@ -1985,7 +1986,7 @@
     {
       "brand": "Brautigam Expedition Works",
       "name": "G-Hook Quick-Release Buckle",
-      "variant": "Titanium 1½\"",
+      "variant": "Titanium 1.5in",
       "category_hint": "other",
       "weight_value": 33,
       "weight_unit": "g",
@@ -2143,8 +2144,8 @@
     },
     {
       "brand": "Brynje",
-      "name": "Men's Super Thermo Boxer with Windcover",
-      "variant": "Medium",
+      "name": "Super Thermo Boxer with Windcover",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 80,
       "weight_unit": "g",
@@ -2155,8 +2156,8 @@
     },
     {
       "brand": "Brynje",
-      "name": "Men's Super Thermo Mesh Baselayer Pants",
-      "variant": "Medium",
+      "name": "Super Thermo Mesh Baselayer Pants",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 159,
       "weight_unit": "g",
@@ -2191,8 +2192,8 @@
     },
     {
       "brand": "Brynje",
-      "name": "Women's Super Thermo Long Sleeve Shirt Baselayer with Inlay",
-      "variant": "Medium",
+      "name": "Super Thermo Long Sleeve Shirt Baselayer with Inlay",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 141.7,
       "weight_unit": "g",
@@ -2203,8 +2204,8 @@
     },
     {
       "brand": "Brynje",
-      "name": "Women's Super Thermo Mesh Baselayer Pants",
-      "variant": "Medium",
+      "name": "Super Thermo Mesh Baselayer Pants",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 156,
       "weight_unit": "g",
@@ -2215,8 +2216,8 @@
     },
     {
       "brand": "Brynje",
-      "name": "Women's Super Thermo T-Shirt Baselayer with Inlay",
-      "variant": "Medium",
+      "name": "Super Thermo T-Shirt Baselayer with Inlay",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 113.4,
       "weight_unit": "g",
@@ -2227,8 +2228,8 @@
     },
     {
       "brand": "Brynje",
-      "name": "Women's Wool Thermo Long Sleeve Baselayer with Inlay",
-      "variant": "Medium",
+      "name": "Wool Thermo Long Sleeve Baselayer with Inlay",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 130,
       "weight_unit": "g",
@@ -2239,8 +2240,8 @@
     },
     {
       "brand": "Brynje",
-      "name": "Women's Wool Thermo Mesh Baselayer Pants",
-      "variant": "Medium",
+      "name": "Wool Thermo Mesh Baselayer Pants",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 140,
       "weight_unit": "g",
@@ -2251,8 +2252,8 @@
     },
     {
       "brand": "Brynje",
-      "name": "Women's Wool Thermo Zip Polo",
-      "variant": "Medium",
+      "name": "Wool Thermo Zip Polo",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 140,
       "weight_unit": "g",
@@ -2360,8 +2361,8 @@
     },
     {
       "brand": "Burgeon Outdoor",
-      "name": "Men's Sunseeker Hoodie",
-      "variant": "Medium",
+      "name": "Sunseeker Hoodie",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 184,
       "weight_unit": "g",
@@ -2372,8 +2373,8 @@
     },
     {
       "brand": "Burgeon Outdoor",
-      "name": "Women's Sunseeker Hoodie",
-      "variant": "Medium",
+      "name": "Sunseeker Hoodie",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 167,
       "weight_unit": "g",
@@ -3305,7 +3306,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "10F, Regular, Regular",
+      "variant": "10F, Regular",
       "category_hint": "sleep",
       "weight_value": 720,
       "weight_unit": "g",
@@ -3317,7 +3318,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "10F, Regular, Wide",
+      "variant": "10F, Regular Wide",
       "category_hint": "sleep",
       "weight_value": 774,
       "weight_unit": "g",
@@ -3329,7 +3330,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "10F, Short, Regular",
+      "variant": "10F, Short",
       "category_hint": "sleep",
       "weight_value": 666,
       "weight_unit": "g",
@@ -3341,7 +3342,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "10F, Tall, Wide",
+      "variant": "10F, Tall Wide",
       "category_hint": "sleep",
       "weight_value": 825,
       "weight_unit": "g",
@@ -3353,7 +3354,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "20F, Regular, Regular",
+      "variant": "20F, Regular",
       "category_hint": "sleep",
       "weight_value": 629,
       "weight_unit": "g",
@@ -3365,7 +3366,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "20F, Regular, Wide",
+      "variant": "20F, Regular Wide",
       "category_hint": "sleep",
       "weight_value": 675,
       "weight_unit": "g",
@@ -3377,7 +3378,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "20F, Short, Regular",
+      "variant": "20F, Short",
       "category_hint": "sleep",
       "weight_value": 581,
       "weight_unit": "g",
@@ -3389,7 +3390,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "20F, Tall, Wide",
+      "variant": "20F, Tall Wide",
       "category_hint": "sleep",
       "weight_value": 720,
       "weight_unit": "g",
@@ -3401,7 +3402,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "30F, Regular, Regular",
+      "variant": "30F, Regular",
       "category_hint": "sleep",
       "weight_value": 536,
       "weight_unit": "g",
@@ -3413,7 +3414,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "30F, Regular, Wide",
+      "variant": "30F, Regular Wide",
       "category_hint": "sleep",
       "weight_value": 575,
       "weight_unit": "g",
@@ -3425,7 +3426,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "30F, Short, Regular",
+      "variant": "30F, Short",
       "category_hint": "sleep",
       "weight_value": 496,
       "weight_unit": "g",
@@ -3437,7 +3438,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "30F, Tall, Wide",
+      "variant": "30F, Tall Wide",
       "category_hint": "sleep",
       "weight_value": 615,
       "weight_unit": "g",
@@ -3449,7 +3450,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "40F, Regular, Regular",
+      "variant": "40F, Regular",
       "category_hint": "sleep",
       "weight_value": 445,
       "weight_unit": "g",
@@ -3461,7 +3462,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "40F, Regular, Wide",
+      "variant": "40F, Regular Wide",
       "category_hint": "sleep",
       "weight_value": 476,
       "weight_unit": "g",
@@ -3473,7 +3474,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "40F, Short, Regular",
+      "variant": "40F, Short",
       "category_hint": "sleep",
       "weight_value": 411,
       "weight_unit": "g",
@@ -3485,7 +3486,7 @@
     {
       "brand": "El Coyote",
       "name": "AlphaLite 900 Quilt",
-      "variant": "40F, Tall, Wide",
+      "variant": "40F, Tall Wide",
       "category_hint": "sleep",
       "weight_value": 507,
       "weight_unit": "g",
@@ -3710,7 +3711,7 @@
     {
       "brand": "Exped",
       "name": "Ultra 3R Sleeping Mat",
-      "variant": "Rectangular LW",
+      "variant": "LW Rectangular",
       "attributes": {"r_value": 2.9, "length": "77.6in", "width": "25.6in"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/ultra-sleeping-mat-by-exped",
       "attributes_quote": "R-Value: 2.9 … LW Rectangular 19.7oz | 558g 77.6\"L x 25.6\"W x 3\"",
@@ -3725,7 +3726,7 @@
     {
       "brand": "Exped",
       "name": "Ultra 3R Sleeping Mat",
-      "variant": "Rectangular Medium",
+      "variant": "Medium Rectangular",
       "attributes": {"r_value": 2.9, "length": "72in", "width": "20.5in"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/ultra-sleeping-mat-by-exped",
       "attributes_quote": "R-Value: 2.9 … M Rectangular 16.4ozoz | 465g 72\" x 20.5\" x 3\"",
@@ -3740,7 +3741,7 @@
     {
       "brand": "Exped",
       "name": "Ultra 3R Sleeping Mat",
-      "variant": "Rectangular MW",
+      "variant": "MW Rectangular",
       "attributes": {"r_value": 2.9, "length": "72in", "width": "25.6in"},
       "attributes_source_url": "https://www.garagegrowngear.com/products/ultra-sleeping-mat-by-exped",
       "attributes_quote": "R-Value: 2.9 … MW Rectangular 18.3oz | 519g 72\"L x 25.6\"W x 3\"T",
@@ -3960,7 +3961,7 @@
     {
       "brand": "FarPointe Outdoor Gear",
       "name": "Alpha Drifter Cap",
-      "variant": "Alpha, Wool 150gsm",
+      "variant": "Alpha/Wool 150gsm",
       "category_hint": "clothing",
       "weight_value": 21,
       "weight_unit": "g",
@@ -4187,9 +4188,8 @@
     },
     {
       "brand": "Flextail",
-      "name": "Zero Power Bank 10,000",
-      "variant": null,
-      "attributes": {"capacity_mah": 10000},
+      "name": "Zero Power 10000",
+      "variant": "10000mAh",
       "category_hint": "electronics",
       "weight_value": 145,
       "weight_unit": "g",
@@ -6567,30 +6567,6 @@
     },
     {
       "brand": "Hyperlite Mountain Gear",
-      "name": "UltaMid Pyramid Tent",
-      "variant": "2 Person",
-      "category_hint": "shelter",
-      "weight_value": 541,
-      "weight_unit": "g",
-      "weight_secondary": "19.1oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/ultamid-shelter-by-hyperlite-mountain-gear",
-      "quote": "Weight: 19.1oz | 541g"
-    },
-    {
-      "brand": "Hyperlite Mountain Gear",
-      "name": "UltaMid Pyramid Tent",
-      "variant": "4 Person",
-      "category_hint": "shelter",
-      "weight_value": 635,
-      "weight_unit": "g",
-      "weight_secondary": "22.4oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/ultamid-shelter-by-hyperlite-mountain-gear",
-      "quote": "Weight: 22.4oz | 635g"
-    },
-    {
-      "brand": "Hyperlite Mountain Gear",
       "name": "Unbound 2P",
       "variant": null,
       "attributes": {"persons": 2},
@@ -6934,8 +6910,8 @@
     },
     {
       "brand": "Jolly Gear",
-      "name": "Men's Triple Crown Button Down",
-      "variant": "Medium",
+      "name": "Triple Crown Button Down",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 241,
       "weight_unit": "g",
@@ -6958,8 +6934,8 @@
     },
     {
       "brand": "Jolly Gear",
-      "name": "Women's Triple Crown Button Down",
-      "variant": "Medium",
+      "name": "Triple Crown Button Down",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 205,
       "weight_unit": "g",
@@ -7175,7 +7151,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 15°F Quilt",
+      "name": "Flex 15",
       "variant": "Long",
       "attributes": {"temp_f": 15},
       "category_hint": "sleep",
@@ -7188,7 +7164,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 15°F Quilt",
+      "name": "Flex 15",
       "variant": "Long Wide",
       "attributes": {"temp_f": 15},
       "category_hint": "sleep",
@@ -7201,7 +7177,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 15°F Quilt",
+      "name": "Flex 15",
       "variant": "Regular",
       "attributes": {"temp_f": 15},
       "category_hint": "sleep",
@@ -7214,7 +7190,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 15°F Quilt",
+      "name": "Flex 15",
       "variant": "Regular Wide",
       "attributes": {"temp_f": 15},
       "category_hint": "sleep",
@@ -7227,7 +7203,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 15°F Quilt",
+      "name": "Flex 15",
       "variant": "Small",
       "attributes": {"temp_f": 15},
       "category_hint": "sleep",
@@ -7240,7 +7216,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 30°F Quilt",
+      "name": "Flex 30",
       "variant": "Long",
       "attributes": {"temp_f": 30},
       "category_hint": "sleep",
@@ -7253,7 +7229,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 30°F Quilt",
+      "name": "Flex 30",
       "variant": "Long Wide",
       "attributes": {"temp_f": 30},
       "category_hint": "sleep",
@@ -7266,7 +7242,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 30°F Quilt",
+      "name": "Flex 30",
       "variant": "Regular",
       "attributes": {"temp_f": 30},
       "category_hint": "sleep",
@@ -7279,7 +7255,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 30°F Quilt",
+      "name": "Flex 30",
       "variant": "Regular Wide",
       "attributes": {"temp_f": 30},
       "category_hint": "sleep",
@@ -7292,7 +7268,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 30°F Quilt",
+      "name": "Flex 30",
       "variant": "Small",
       "attributes": {"temp_f": 30},
       "category_hint": "sleep",
@@ -7305,7 +7281,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 40°F Quilt",
+      "name": "Flex 40",
       "variant": "Long",
       "attributes": {"temp_f": 40},
       "category_hint": "sleep",
@@ -7318,7 +7294,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 40°F Quilt",
+      "name": "Flex 40",
       "variant": "Long Wide",
       "attributes": {"temp_f": 40},
       "category_hint": "sleep",
@@ -7331,7 +7307,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 40°F Quilt",
+      "name": "Flex 40",
       "variant": "Regular",
       "attributes": {"temp_f": 40},
       "category_hint": "sleep",
@@ -7344,7 +7320,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 40°F Quilt",
+      "name": "Flex 40",
       "variant": "Regular Wide",
       "attributes": {"temp_f": 40},
       "category_hint": "sleep",
@@ -7357,7 +7333,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 40°F Quilt",
+      "name": "Flex 40",
       "variant": "Small",
       "attributes": {"temp_f": 40},
       "category_hint": "sleep",
@@ -7370,7 +7346,7 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Flex 40°F Quilt",
+      "name": "Flex 40",
       "variant": "Small Wide",
       "attributes": {"temp_f": 40},
       "category_hint": "sleep",
@@ -7383,8 +7359,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Men's Crest Windshell",
-      "variant": "Medium",
+      "name": "Crest Windshell",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 51,
       "weight_unit": "g",
@@ -7395,8 +7371,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Men's Tarn Down Jacket",
-      "variant": "Medium",
+      "name": "Tarn Down Jacket",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 264,
       "weight_unit": "g",
@@ -7407,8 +7383,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Men's Tincup Down Jacket",
-      "variant": "Medium",
+      "name": "Tincup Down Jacket",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 360,
       "weight_unit": "g",
@@ -7503,8 +7479,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Women's Tarn Down Jacket",
-      "variant": "Large",
+      "name": "Tarn Down Jacket",
+      "variant": "Women's Large",
       "category_hint": "clothing",
       "weight_value": 292,
       "weight_unit": "g",
@@ -7515,8 +7491,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Women's Tarn Down Jacket",
-      "variant": "Medium",
+      "name": "Tarn Down Jacket",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 275,
       "weight_unit": "g",
@@ -7527,8 +7503,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Women's Tarn Down Jacket",
-      "variant": "Small",
+      "name": "Tarn Down Jacket",
+      "variant": "Women's Small",
       "category_hint": "clothing",
       "weight_value": 258,
       "weight_unit": "g",
@@ -7539,8 +7515,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Women's Tarn Down Jacket",
-      "variant": "X-Large",
+      "name": "Tarn Down Jacket",
+      "variant": "Women's X-Large",
       "category_hint": "clothing",
       "weight_value": 318,
       "weight_unit": "g",
@@ -7551,8 +7527,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Women's Tincup Down Jacket",
-      "variant": "Large",
+      "name": "Tincup Down Jacket",
+      "variant": "Women's Large",
       "category_hint": "clothing",
       "weight_value": 354,
       "weight_unit": "g",
@@ -7563,8 +7539,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Women's Tincup Down Jacket",
-      "variant": "Medium",
+      "name": "Tincup Down Jacket",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 332,
       "weight_unit": "g",
@@ -7575,8 +7551,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Women's Tincup Down Jacket",
-      "variant": "Small",
+      "name": "Tincup Down Jacket",
+      "variant": "Women's Small",
       "category_hint": "clothing",
       "weight_value": 312,
       "weight_unit": "g",
@@ -7587,8 +7563,8 @@
     },
     {
       "brand": "Katabatic Gear",
-      "name": "Women's Tincup Down Jacket",
-      "variant": "X-Large",
+      "name": "Tincup Down Jacket",
+      "variant": "Women's X-Large",
       "category_hint": "clothing",
       "weight_value": 386,
       "weight_unit": "g",
@@ -8528,7 +8504,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor All-Season Insulated Sleeping Pad",
+      "name": "Tensor All-Season Ultralight Insulated",
       "variant": "Long Wide",
       "attributes": {"r_value": 5.4},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-all-season-insulated-sleeping-pad.json",
@@ -8543,22 +8519,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor All-Season Insulated Sleeping Pad",
-      "variant": "Regular",
-      "attributes": {"r_value": 5.4},
-      "attributes_source_url": "https://www.nemoequipment.com/products/tensor-all-season-insulated-sleeping-pad.json",
-      "attributes_quote": "Inside each baffle are two suspended layers of ultra-thin, metallized Thermal Mirror™ film, which efficiently reflect body heat and contribute to the pad's overall 5.4 R-value.",
-      "category_hint": "sleep",
-      "weight_value": 420,
-      "weight_unit": "g",
-      "weight_secondary": "14.8 oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/tensor-all-season-sleeping-pad-by-nemo",
-      "quote": "Regular Rectangular: 14.8oz | 420g"
-    },
-    {
-      "brand": "Nemo",
-      "name": "Tensor All-Season Insulated Sleeping Pad",
+      "name": "Tensor All-Season Ultralight Insulated",
       "variant": "Regular Mummy",
       "attributes": {"r_value": 5.4},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-all-season-insulated-sleeping-pad.json",
@@ -8573,22 +8534,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor All-Season Insulated Sleeping Pad",
-      "variant": "Regular Wide",
-      "attributes": {"r_value": 5.4},
-      "attributes_source_url": "https://www.nemoequipment.com/products/tensor-all-season-insulated-sleeping-pad.json",
-      "attributes_quote": "Inside each baffle are two suspended layers of ultra-thin, metallized Thermal Mirror™ film, which efficiently reflect body heat and contribute to the pad's overall 5.4 R-value.",
-      "category_hint": "sleep",
-      "weight_value": 539,
-      "weight_unit": "g",
-      "weight_secondary": "19 oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/tensor-all-season-sleeping-pad-by-nemo",
-      "quote": "Regular Rectangular Wide: 19oz | 539g"
-    },
-    {
-      "brand": "Nemo",
-      "name": "Tensor Extreme Insulated Sleeping Pad",
+      "name": "Tensor Extreme Conditions Ultralight Insulated",
       "variant": "Long Wide",
       "attributes": {"r_value": 8.5},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-extreme-ultralight-sleeping-pad.json",
@@ -8603,7 +8549,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor Extreme Insulated Sleeping Pad",
+      "name": "Tensor Extreme Conditions Ultralight Insulated",
       "variant": "Regular",
       "attributes": {"r_value": 8.5},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-extreme-ultralight-sleeping-pad.json",
@@ -8618,7 +8564,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor Extreme Insulated Sleeping Pad",
+      "name": "Tensor Extreme Conditions Ultralight Insulated",
       "variant": "Regular Mummy",
       "attributes": {"r_value": 8.5},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-extreme-ultralight-sleeping-pad.json",
@@ -8633,7 +8579,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor Extreme Insulated Sleeping Pad",
+      "name": "Tensor Extreme Conditions Ultralight Insulated",
       "variant": "Regular Wide",
       "attributes": {"r_value": 8.5},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-extreme-ultralight-sleeping-pad.json",
@@ -8648,7 +8594,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor Trail Sleeping Pad",
+      "name": "Tensor Trail Ultralight Insulated",
       "variant": "Long Wide",
       "attributes": {"r_value": 2.8},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-trail-insulated-ultralight-sleeping-pad.json",
@@ -8663,22 +8609,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor Trail Sleeping Pad",
-      "variant": "Regular",
-      "attributes": {"r_value": 2.8},
-      "attributes_source_url": "https://www.nemoequipment.com/products/tensor-trail-insulated-ultralight-sleeping-pad.json",
-      "attributes_quote": "Inside each baffle is a suspended layer of ultra-thin, metallized Thermal Mirror™ film, which efficiently reflects body heat and contributes to the pad's overall 2.8 R-value.",
-      "category_hint": "sleep",
-      "weight_value": 380,
-      "weight_unit": "g",
-      "weight_secondary": "13.4 oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/tensor-trail-sleeping-pad-by-nemo",
-      "quote": "Regular: 13.4oz | 380g (minimum)"
-    },
-    {
-      "brand": "Nemo",
-      "name": "Tensor Trail Sleeping Pad",
+      "name": "Tensor Trail Ultralight Insulated",
       "variant": "Regular Mummy",
       "attributes": {"r_value": 2.8},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-trail-insulated-ultralight-sleeping-pad.json",
@@ -8693,7 +8624,7 @@
     },
     {
       "brand": "Nemo",
-      "name": "Tensor Trail Sleeping Pad",
+      "name": "Tensor Trail Ultralight Insulated",
       "variant": "Regular Wide",
       "attributes": {"r_value": 2.8},
       "attributes_source_url": "https://www.nemoequipment.com/products/tensor-trail-insulated-ultralight-sleeping-pad.json",
@@ -9484,14 +9415,15 @@
     {
       "brand": "PACT Outdoors",
       "name": "Pack Out Bathroom Kit",
-      "variant": "1 Bag",
+      "variant": null,
       "category_hint": "consumable",
       "weight_value": 40,
       "weight_unit": "g",
       "weight_secondary": "1.4oz",
       "weight_source": "manufacturer",
       "source_url": "https://www.garagegrowngear.com/products/pack-out-kit-by-pact-outdoors",
-      "quote": "Weight: 1.4oz | 40g"
+      "quote": "Weight: 1.4oz | 40g",
+      "common_name": "waste bags"
     },
     {
       "brand": "Parapack",
@@ -9592,7 +9524,7 @@
     {
       "brand": "Pika Outdoors",
       "name": "Summit Suds Powdered Soap",
-      "variant": "1oz Bottle",
+      "variant": "1oz bottle",
       "category_hint": "consumable",
       "weight_value": 40,
       "weight_unit": "g",
@@ -9604,7 +9536,7 @@
     {
       "brand": "Pika Outdoors",
       "name": "Summit Suds Powdered Soap",
-      "variant": "3oz Packet",
+      "variant": "3oz packet",
       "category_hint": "consumable",
       "weight_value": 91,
       "weight_unit": "g",
@@ -9994,8 +9926,8 @@
     },
     {
       "brand": "Ridge Merino",
-      "name": "Men's Ridge Boxer Briefs",
-      "variant": "Medium",
+      "name": "Ridge Boxer Briefs",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 85,
       "weight_unit": "g",
@@ -10006,8 +9938,8 @@
     },
     {
       "brand": "Ridge Merino",
-      "name": "Men's Solstice Lightweight Wool Hoodie",
-      "variant": "Medium",
+      "name": "Solstice Lightweight Wool Hoodie",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 247,
       "weight_unit": "g",
@@ -10042,8 +9974,8 @@
     },
     {
       "brand": "Ridge Merino",
-      "name": "Women's Ridge Boy Short Underwear",
-      "variant": "Medium",
+      "name": "Ridge Boy Short Underwear",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 57,
       "weight_unit": "g",
@@ -10054,8 +9986,8 @@
     },
     {
       "brand": "Ridge Merino",
-      "name": "Women's Send-it Seamless Sports Bra",
-      "variant": "Medium",
+      "name": "Send-it Seamless Sports Bra",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 102,
       "weight_unit": "g",
@@ -10066,8 +9998,8 @@
     },
     {
       "brand": "Ridge Merino",
-      "name": "Women's Solstice Lightweight Wool Hoodie",
-      "variant": "Medium",
+      "name": "Solstice Lightweight Wool Hoodie",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 227,
       "weight_unit": "g",
@@ -10238,7 +10170,7 @@
     {
       "brand": "Samaya Equipment",
       "name": "RADICAL1 Tent",
-      "variant": null,
+      "variant": "trail weight",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 610,
@@ -10263,7 +10195,7 @@
     {
       "brand": "Samaya Equipment",
       "name": "Samaya2.0 Tent",
-      "variant": null,
+      "variant": "trail weight",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 1305,
@@ -10288,7 +10220,7 @@
     {
       "brand": "Samaya Equipment",
       "name": "Samaya2.5 Tent",
-      "variant": null,
+      "variant": "trail weight",
       "attributes": {"persons": 2.5},
       "category_hint": "shelter",
       "weight_value": 1570,
@@ -10420,8 +10352,8 @@
     },
     {
       "brand": "Sawyer",
-      "name": "Picaridin Insect Repellant",
-      "variant": "3oz Spray",
+      "name": "Picaridin Insect Repellent",
+      "variant": "3oz spray",
       "category_hint": "consumable",
       "weight_value": 111,
       "weight_unit": "g",
@@ -10432,8 +10364,8 @@
     },
     {
       "brand": "Sawyer",
-      "name": "Picaridin Insect Repellant",
-      "variant": "4oz Lotion",
+      "name": "Picaridin Insect Repellent",
+      "variant": "4oz lotion",
       "category_hint": "consumable",
       "weight_value": 136,
       "weight_unit": "g",
@@ -11006,8 +10938,8 @@
     },
     {
       "brand": "SkyGOAT",
-      "name": "Men's CAMP Hoodie",
-      "variant": "Medium",
+      "name": "CAMP Hoodie",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 287,
       "weight_unit": "g",
@@ -11018,8 +10950,8 @@
     },
     {
       "brand": "SkyGOAT",
-      "name": "Men's Full Zip Fleece Jacket",
-      "variant": "Medium",
+      "name": "Full Zip Fleece Jacket",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 301,
       "weight_unit": "g",
@@ -11030,8 +10962,8 @@
     },
     {
       "brand": "SkyGOAT",
-      "name": "Men's Half Zip AIR 70 Pullover",
-      "variant": "Medium",
+      "name": "Half Zip AIR 70 Pullover",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 148,
       "weight_unit": "g",
@@ -11042,8 +10974,8 @@
     },
     {
       "brand": "SkyGOAT",
-      "name": "Men's Half Zip Fleece Ultralight Pullover",
-      "variant": "Medium",
+      "name": "Half Zip Fleece Ultralight Pullover",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 222,
       "weight_unit": "g",
@@ -11054,8 +10986,8 @@
     },
     {
       "brand": "SkyGOAT",
-      "name": "Women's CAMP Hoodie",
-      "variant": "Medium",
+      "name": "CAMP Hoodie",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 245,
       "weight_unit": "g",
@@ -11066,8 +10998,8 @@
     },
     {
       "brand": "SkyGOAT",
-      "name": "Women's Half Zip AIR 70 Pullover",
-      "variant": "Medium",
+      "name": "Half Zip AIR 70 Pullover",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 130,
       "weight_unit": "g",
@@ -11078,8 +11010,8 @@
     },
     {
       "brand": "SkyGOAT",
-      "name": "Women's Half Zip Fleece Ultralight Pullover",
-      "variant": "Medium",
+      "name": "Half Zip Fleece Ultralight Pullover",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 200,
       "weight_unit": "g",
@@ -11127,7 +11059,7 @@
     {
       "brand": "SlingFin",
       "name": "SplitWing Shelter Bundle",
-      "variant": null,
+      "variant": "trail weight",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.garagegrowngear.com/products/splitwing-shelter-bundle-by-slingfin",
       "attributes_quote": "Capacity: 1+ (with mesh body, 2 person (tarp only)",
@@ -11611,18 +11543,6 @@
       "quote": "Weight: 3.7oz | 104g (size D)"
     },
     {
-      "brand": "Superfeet",
-      "name": "Hike Women's Support Insole",
-      "variant": "Size D",
-      "category_hint": "clothing",
-      "weight_value": 104,
-      "weight_unit": "g",
-      "weight_secondary": "3.7oz",
-      "weight_source": "manufacturer",
-      "source_url": "https://www.garagegrowngear.com/products/hike-womens-support-insole-by-superfeet",
-      "quote": "Weight: 3.7oz | 104g (size D)"
-    },
-    {
       "brand": "Superior Gear",
       "name": "Insulated Superior Hammock Elite",
       "variant": "15F",
@@ -11690,8 +11610,8 @@
     },
     {
       "brand": "Symbiosis Gear",
-      "name": "The Aspen Women's Backpack",
-      "variant": null,
+      "name": "The Aspen Backpack",
+      "variant": "Women's",
       "attributes": {"volume_l": 38},
       "attributes_source_url": "https://www.garagegrowngear.com/products/the-aspen-by-symbiosis-gear",
       "attributes_quote": "Volume: 38L (main body)",
@@ -11718,7 +11638,7 @@
     {
       "brand": "Tarptent",
       "name": "ProTrek",
-      "variant": null,
+      "variant": "trail weight",
       "attributes": {"persons": 1},
       "attributes_source_url": "https://www.tarptent.com/product/protrek/",
       "attributes_quote": "Sleeps: 1",
@@ -11768,8 +11688,8 @@
     },
     {
       "brand": "Territory Run Co.",
-      "name": "Men's Long Haul Short",
-      "variant": "Medium",
+      "name": "Long Haul Short",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 150,
       "weight_unit": "g",
@@ -11792,8 +11712,8 @@
     },
     {
       "brand": "Territory Run Co.",
-      "name": "Women's All Day Run Shorts",
-      "variant": null,
+      "name": "All Day Run Shorts",
+      "variant": "Women's",
       "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 4,
@@ -13055,8 +12975,8 @@
     },
     {
       "brand": "Voormi",
-      "name": "Women's River Run Hoodie",
-      "variant": "Medium",
+      "name": "River Run Hoodie",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 142,
       "weight_unit": "g",
@@ -13067,8 +12987,8 @@
     },
     {
       "brand": "Wūru Wool",
-      "name": "Men's 100% Merino Lightweight Hoodie",
-      "variant": "Medium",
+      "name": "100% Merino Lightweight Hoodie",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 215,
       "weight_unit": "g",
@@ -13079,8 +12999,8 @@
     },
     {
       "brand": "Wūru Wool",
-      "name": "Men's 100% Merino Short Sleeve Shirt",
-      "variant": "Medium",
+      "name": "100% Merino Short Sleeve Shirt",
+      "variant": "Men's Medium",
       "category_hint": "clothing",
       "weight_value": 198,
       "weight_unit": "g",
@@ -13091,8 +13011,8 @@
     },
     {
       "brand": "Wūru Wool",
-      "name": "Women's 100% Merino Lightweight Hoodie",
-      "variant": "Medium",
+      "name": "100% Merino Lightweight Hoodie",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 210,
       "weight_unit": "g",
@@ -13103,8 +13023,8 @@
     },
     {
       "brand": "Wūru Wool",
-      "name": "Women's 100% Merino Relaxed Crew Short Sleeve",
-      "variant": "Medium",
+      "name": "100% Merino Relaxed Crew Short Sleeve",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 198,
       "weight_unit": "g",
@@ -13130,8 +13050,8 @@
     },
     {
       "brand": "Westcott",
-      "name": "Titanium Scissors, 2.5\"",
-      "variant": null,
+      "name": "Titanium Scissors",
+      "variant": "2.5in",
       "category_hint": "firstaid",
       "weight_value": 10,
       "weight_unit": "g",
@@ -13142,9 +13062,8 @@
     },
     {
       "brand": "Western Mountaineering",
-      "name": "FlyLite 36°F Sleeping Bag",
-      "variant": "5'6\"",
-      "attributes": {"temp_f": 36},
+      "name": "FlyLite",
+      "variant": "36F, 5ft 6in",
       "category_hint": "sleep",
       "weight_value": 383,
       "weight_unit": "g",
@@ -13155,9 +13074,8 @@
     },
     {
       "brand": "Western Mountaineering",
-      "name": "FlyLite 36°F Sleeping Bag",
-      "variant": "6'0\"",
-      "attributes": {"temp_f": 36},
+      "name": "FlyLite",
+      "variant": "36F, 6ft",
       "category_hint": "sleep",
       "weight_value": 404,
       "weight_unit": "g",
@@ -13168,9 +13086,8 @@
     },
     {
       "brand": "Western Mountaineering",
-      "name": "FlyLite 36°F Sleeping Bag",
-      "variant": "6'6\"",
-      "attributes": {"temp_f": 36},
+      "name": "FlyLite",
+      "variant": "36F, 6ft 6in",
       "category_hint": "sleep",
       "weight_value": 418,
       "weight_unit": "g",
@@ -13181,9 +13098,8 @@
     },
     {
       "brand": "Western Mountaineering",
-      "name": "NanoLite 38°F Quilt",
-      "variant": "5'8\"",
-      "attributes": {"temp_f": 38},
+      "name": "NanoLite",
+      "variant": "38F, 5ft 8in",
       "category_hint": "sleep",
       "weight_value": 370,
       "weight_unit": "g",
@@ -13194,9 +13110,8 @@
     },
     {
       "brand": "Western Mountaineering",
-      "name": "NanoLite 38°F Quilt",
-      "variant": "6'4\"",
-      "attributes": {"temp_f": 38},
+      "name": "NanoLite",
+      "variant": "38F, 6ft 4in",
       "category_hint": "sleep",
       "weight_value": 402,
       "weight_unit": "g",
@@ -13267,8 +13182,8 @@
     },
     {
       "brand": "WIDE OPEN Socks",
-      "name": "Men's Multi Stripe Cushioned Micro Crew Socks",
-      "variant": "Large",
+      "name": "Multi Stripe Cushioned Micro Crew Socks",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 60,
       "weight_unit": "g",
@@ -13279,8 +13194,8 @@
     },
     {
       "brand": "WIDE OPEN Socks",
-      "name": "Men's Solid Cushioned Quarter Crew Socks",
-      "variant": "Large",
+      "name": "Solid Cushioned Quarter Crew Socks",
+      "variant": "Men's Large",
       "category_hint": "clothing",
       "weight_value": 56,
       "weight_unit": "g",
@@ -13291,8 +13206,8 @@
     },
     {
       "brand": "WIDE OPEN Socks",
-      "name": "Women's Multi Stripe Cushioned Micro Crew Socks",
-      "variant": "Medium",
+      "name": "Multi Stripe Cushioned Micro Crew Socks",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 52,
       "weight_unit": "g",
@@ -13303,8 +13218,8 @@
     },
     {
       "brand": "WIDE OPEN Socks",
-      "name": "Women's Stripe Cushioned Quarter Crew Socks",
-      "variant": "Medium",
+      "name": "Stripe Cushioned Quarter Crew Socks",
+      "variant": "Women's Medium",
       "category_hint": "clothing",
       "weight_value": 56,
       "weight_unit": "g",
@@ -13339,8 +13254,8 @@
     },
     {
       "brand": "XOSKIN",
-      "name": "Men's XOUNDERWEAR Seamless Liner Shorts",
-      "variant": null,
+      "name": "XOUNDERWEAR Seamless Liner Shorts",
+      "variant": "Men's",
       "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "weight_value": 156,
@@ -13437,7 +13352,7 @@
     {
       "brand": "Yama Mountain Gear",
       "name": "Stand Alone Rigging Kit",
-      "variant": "For Bivy",
+      "variant": "for bivy",
       "category_hint": "other",
       "weight_value": 17,
       "weight_unit": "g",
@@ -13449,7 +13364,7 @@
     {
       "brand": "Yama Mountain Gear",
       "name": "Stand Alone Rigging Kit",
-      "variant": "For Bug Shelter",
+      "variant": "for bug shelter",
       "category_hint": "other",
       "weight_value": 19,
       "weight_unit": "g",
@@ -13511,11 +13426,8 @@
     },
     {
       "brand": "Yonderwear",
-      "name": "The Yonderpair Women's Underwear",
-      "variant": "Medium Mid-Rise",
-      "attributes": {"size": "M"},
-      "attributes_source_url": "https://www.garagegrowngear.com/products/the-yonderpair-womens-underwear-by-yonderwear",
-      "attributes_quote": "Weight: 1.4oz | 39g (medium mid-rise)",
+      "name": "The Yonderpair Underwear",
+      "variant": "Women's Medium, Mid-Rise",
       "category_hint": "clothing",
       "weight_value": 39,
       "weight_unit": "g",
