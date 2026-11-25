@@ -19,7 +19,8 @@ import { snapshotFor } from "./helpers/list";
 // route rather than a $fetch stub: under the Nuxt environment $fetch is already
 // test-utils' own mock, which answers an unregistered path with a 404.
 let snapshotsData: SnapshotMeta[] = [];
-registerEndpoint("/api/edit/snapshots", () => ({ snapshots: snapshotsData }));
+let snapshotsAsked = 0;
+registerEndpoint("/api/edit/snapshots", () => (snapshotsAsked++, { snapshots: snapshotsData }));
 
 // The exporters themselves are useListExports' (and tests/exportEverything's); what is
 // under test here is the panel around them. Each fake row reports through the toast
@@ -76,10 +77,10 @@ const claimedRow = (shareCode: string): ClaimedList => ({
 
 const flash = vi.fn();
 
-function mountPanel(over: { editToken?: string; shareCode?: string } = {}) {
+function mountPanel(over: { editToken?: string; shareCode?: string; version?: number } = {}) {
   return mount(SharePanel, {
     props: {
-      snapshot: over.shareCode === undefined ? snapshot : { ...snapshot, shareCode: over.shareCode },
+      snapshot: { ...snapshot, shareCode: over.shareCode ?? snapshot.shareCode, version: over.version ?? snapshot.version },
       editToken: over.editToken ?? "held-token",
       authHeaders: { Authorization: "Bearer held-token" },
       shareUrl: `https://mahonia.app/s/${SHARE}`,
@@ -238,6 +239,20 @@ describe("SharePanel — the tabs", () => {
     expect(rowNames(w)).toEqual(["Copy read-only link", "Recent changes", "Get a new edit link"]);
   });
 
+  // A list is made at version 1 and its first edit takes the first recovery point, so
+  // the version says whether the section has anything in it before any request does.
+  it("has no Recent changes row on a list nobody has edited, and doesn't ask for any", async () => {
+    snapshotsAsked = 0;
+    const w = mountPanel({ version: 1 });
+    await flushPromises();
+    expect(rowNames(w)).toEqual(["Copy read-only link", "Copy edit link", "Add to your account", "Replace edit link"]);
+    expect(snapshotsAsked).toBe(0);
+
+    mountPanel({ version: 2 });
+    await flushPromises();
+    expect(snapshotsAsked).toBe(1);
+  });
+
   it("puts the link before the files on Export, and warms the exporters", async () => {
     const w = mountPanel();
     expect(warmExporters).not.toHaveBeenCalled();
@@ -300,11 +315,10 @@ describe("SharePanel — a list that isn't saved yet", () => {
   });
 
   it("doesn't ask the server what changed on a list it has never seen", async () => {
-    let asked = 0;
-    registerEndpoint("/api/edit/snapshots", () => (asked++, { snapshots: [] }));
+    snapshotsAsked = 0;
     draft();
     await flushPromises();
-    expect(asked).toBe(0);
+    expect(snapshotsAsked).toBe(0);
   });
 
   it("says so in a line when there is no connection to save it over", () => {

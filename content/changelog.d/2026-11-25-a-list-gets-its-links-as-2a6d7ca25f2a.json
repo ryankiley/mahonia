@@ -1,7 +1,8 @@
 {
   "date": "2026-11-25",
   "changed": [
-    "A list gets its links as soon as you ask for them, even with nothing in it yet."
+    "A list gets its links as soon as you ask for them, even with nothing in it yet.",
+    "Sharing shows Recent changes only once a list has been changed."
   ],
   "fixed": [
     "The dismiss mark on the “Pick up where you left off” hint sits level with its text.",

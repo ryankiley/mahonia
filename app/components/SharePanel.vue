@@ -174,6 +174,14 @@ function act(run: () => unknown) {
 // window, a time, and who made it when anyone can be named; not a per-field diff.
 // Fetched when the panel mounts, which is when it opens (the editor renders it
 // lazily), so the editor never pays for it.
+// Whether there is anything to list, known without asking: a list is made at
+// version 1, every edit moves the version on, and the first edit after that takes a
+// recovery point (listRepo's throttle starts open), which the cap of five never prunes
+// to none. So an unedited list has no Recent changes row at all, where it used to have
+// one that folded out to "No changes yet": an inert control, and those are absent here.
+// Read off the snapshot rather than the fetch below, so the row never arrives late or
+// leaves again once the answer lands.
+const hasChanges = computed(() => !isDraft.value && props.snapshot.version > 1);
 const activity = ref<SnapshotMeta[]>([]);
 const activityState = ref<"idle" | "loading" | "error">("idle");
 // re-rendered against a ticking clock would be churn for no gain: the panel is open
@@ -183,7 +191,7 @@ const now = ref(Date.now());
 const activityOpen = ref(false);
 
 async function loadActivity() {
-  if (isDraft.value) return; // no server row yet — nothing to list
+  if (!hasChanges.value) return; // no server row yet, or nothing done to it: nothing to list
   activityState.value = "loading";
   try {
     const res = await $fetch<{ snapshots: SnapshotMeta[] }>("/api/edit/snapshots", {
@@ -318,7 +326,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
              entries in place of rows. Collapsed: it's reassurance you go looking for.
              These are the server's recovery points: WHAT changed, WHEN, and who when
              anyone can be named ("You", "Assistant", or a name an editor chose). -->
-        <MenuSection v-if="!isDraft" v-model:open="activityOpen" label="Recent changes" :icon="IconClock">
+        <MenuSection v-if="hasChanges" v-model:open="activityOpen" label="Recent changes" :icon="IconClock">
           <div class="share__activity">
             <p v-if="activityState === 'loading'" class="t-muted">Loading…</p>
             <p v-else-if="activityState === 'error'" class="t-muted">Couldn’t load recent changes.</p>
