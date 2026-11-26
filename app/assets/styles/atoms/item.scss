@@ -601,8 +601,14 @@ textarea.plan__daynote {
    keyed on the state the row re-contained 20 ms into the close and cut the card off
    at the row's edge while it faded (measured, 2026-09-05). And every row while a drag
    is live, so the held row's shadow paints and the drop targets measure true rather
-   than at a remembered size. */
+   than at a remembered size.
+   And a row with a BUTTON under keyboard focus: its ring is drawn round a --tap box
+   that overhangs the row's text line by design, and came out cut flat along the bottom
+   and, for the grip, down the right (Ryan, 2026-11-25: "still clipping at bottom").
+   button, not any :focus-visible: a text field matches that whenever it has focus, and
+   the row being typed in is the one this containment was put here for. */
 .item-wrap:has(.popover),
+.item-wrap:has(button:focus-visible),
 .item-wrap.is-dragging,
 .folder__bodyinner.is-dragpass .item-wrap,
 .nestcollapse.is-lifted .item-wrap {
