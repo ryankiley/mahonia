@@ -3227,11 +3227,8 @@ function dismissFix() {
     width: var(--tap);
     padding: calc((var(--tap) - var(--icon-btn)) / 2);
   }
-  /* …and the grip's box, the same width, so all four sit at one pitch on a fine pointer
-     as on a coarse one. No padding: its dots sit flush at the box's right edge (.grip). */
-  .item__trail .item__grip {
-    width: var(--tap);
-  }
+  /* (The grip's box is sized with its place in the cluster, further down: it is the
+     one box here that isn't --tap wide.) */
   /* mobile trailing cluster = ⋯ · grip. Everything else the row can do — the note, the
      nesting actions, the vault save and the removal — moves into the ⋯ menu, which
      names each one in words rather than asking a glyph to.
@@ -3344,9 +3341,9 @@ function dismissFix() {
      centre is half a box in. Even to the EYE is even gaps between ink, not between
      centres: the dots are a third the width of the round glyphs, so equal centres
      left a wider hole before the grip (Ryan, 2026-09-12: "still don't look evenly
-     spaced"). So the grip's box comes back by half a box and a little more, which
-     puts the dots' left edge the same 32px past the ⋯'s ink as each glyph sits past
-     the last. The box is --tap at every pointer down here (above). The 1px is
+     spaced"). So the dots come back by half a box and a little more, which
+     puts their left edge the same 32px past the ⋯'s ink as each glyph sits past
+     the last. The 1px is
      Central's geometry at 18px: the ⋯'s ink is 13.5px wide and the dots' 6px, which
      puts the dots' ink 30px past the ⋯'s, as the marks sit apart. Replaces .grip's
      --grip-pull here: that pull evens the desktop cluster, where the ⋯ is
@@ -3356,8 +3353,24 @@ function dismissFix() {
   .item__trail :deep(.item__morebtn) {
     justify-content: center;
   }
+  /* THE GRIP'S BOX STARTS WHERE THE ⋯'S ENDS. To put the dots there it used to be a
+     whole --tap box brought back by a negative margin of half a box and a pixel, which
+     laid it over the right half of the ⋯, and on top of it, being later in the row:
+     a tap on the ⋯'s centre or anywhere right of it landed on the grip, which does
+     nothing on a tap, and only the left half of the glyph opened the menu (Ryan,
+     2026-11-25: "sometimes this icon is a little hard to press on mobile"). Now the
+     box is only what was left showing, so the dots have not moved, and what it gave
+     up on the left it takes back on the right, out of the page gutter, where nothing
+     else is: padding and a cancelling margin, so the line is laid out as before.
+     --grip-bleed because that is as far as a row can reach: its wrapper is paint-
+     contained and stops there (.item-wrap, atoms/item.scss), and a box that claimed
+     more would be claiming taps it never gets. margin-left: 0 is against .grip's own
+     pull. */
   .item__trail .item__grip {
-    margin-left: calc(-1 * (var(--tap) / 2 + var(--tpx)));
+    width: calc(var(--tap) / 2 - var(--tpx) + var(--grip-bleed));
+    margin-left: 0;
+    margin-right: calc(-1 * var(--grip-bleed));
+    padding-right: var(--grip-bleed);
   }
   .item__classcell {
     flex: none;
