@@ -51,22 +51,34 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
-# Reads the code, says nothing back — no comments, no deploys, no secrets. The
-# job that checks out PR code and runs `npm ci`, the tests and the build holds a
+# Reads the code, says nothing back — no comments, no deploys, no secrets. Every
+# job that checks out PR code and runs `npm ci`, the tests or the build holds a
 # READ-ONLY token, and that matters: actions/checkout persists the job's token in
 # .git/config, where every install script, test and build plugin can read it. The
 # one thing this workflow does write — the bundle-delta comment on a PR — is a
-# second job below with no checkout at all, the same shape as changelog-reminder.
+# separate job below with no checkout at all, the same shape as changelog-reminder.
 # `actions: read` here is what lets a PR run download the report main's last run
 # uploaded; on a public repo it grants nothing else.
 permissions:
   contents: read
   actions: read
 
+# FOUR MACHINES, NOT ONE. This used to be a single job — typecheck, the suite, the
+# build, the budget, in a row — and it took 2:35 to 4:00, of which the suite alone
+# was 1:36 to 2:31 (30 runs, 2026-11-25). The suite was already as parallel as one
+# runner allows (vitest.config.ts caps it at the runner's four cores), so the only
+# way left to shorten the wait was more runners: `test` is three of them, each
+# running a third of the files, and `build` is a fourth doing everything that isn't
+# the suite, all at the same time. Each one pays its own checkout and `npm ci`
+# (15–25 s), so the run costs more machine-minutes than it did and takes about
+# half as long; on a public repo those minutes are free.
+#
+# `check`, at the bottom, is the one name branch protection knows. It runs nothing;
+# it is green only when both of these are.
 jobs:
-  check:
+  build:
     runs-on: ubuntu-24.04
-    # A full run is ~4 minutes. Anything past 20 is wedged, and a hung job holds
+    # About a minute and a half. Anything past 20 is wedged, and a hung job holds
     # the concurrency slot for six hours by default.
     timeout-minutes: 20
     steps:
@@ -79,17 +91,14 @@ jobs:
 
       - run: npm ci
 
-      # Ordered cheapest-first so an obvious break reports in a minute rather than
-      # five — but every step runs regardless (`!cancelled()`), because a red
-      # typecheck shouldn't hide whether the tests also fail. One PR, one full
-      # picture, rather than a queue of one-fix-at-a-time pushes.
+      # Cheapest first, so an obvious break reports early — but every step runs
+      # regardless (`!cancelled()`), because a red typecheck shouldn't hide whether
+      # the build also fails. The suite is in its own jobs for the same reason, and
+      # those don't stop for each other either (`fail-fast: false`). One PR, one
+      # full picture, rather than a queue of one-fix-at-a-time pushes.
       - name: Typecheck
         if: '!cancelled()'
         run: npm run typecheck
-
-      - name: Test
-        if: '!cancelled()'
-        run: npm test
 
       # BUNDLE_MAPS: hidden client sourcemaps beside the chunks (nuxt.config), so the
       # budget script can say which SOURCE files a chunk's bytes belong to. The JS is
@@ -199,17 +208,73 @@ jobs:
         if: '!cancelled()'
         run: node scripts/probe-server-bundle.mjs
 
+  # The suite, a third of its files per machine. `--shard=N/3` is vitest's own
+  # split: it orders the test files by a hash of their path and deals them out, so
+  # every file lands in exactly one shard, the same one on every run, and a file
+  # added tomorrow needs nothing here. The count comes from the matrix
+  # (`strategy.job-total`), so changing the list below is the whole change.
+  #
+  # `fail-fast: false`: a red shard doesn't cancel the others. Which tests fail is
+  # the answer a PR is waiting for, and two thirds of it is not the answer.
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Test
+        run: npm test -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+
+  # THE GATE. `main`'s ruleset requires a check named `check`, and that name used to
+  # be the single job; now it is this one, which only reads how the others ended.
+  # Keeping the name means the ruleset, and every open PR, needed no change.
+  #
+  # Written to fail closed, because the thing it could get wrong is saying yes:
+  #  - `always()`, or a failed `needs` would SKIP this job — and GitHub counts a
+  #    skipped required check as passed. With it, the job runs after a failure, a
+  #    timeout or a cancelled run, and says no to each. (A run cancelled by a newer
+  #    push therefore leaves a red `check` on the commit that push replaced, which
+  #    nothing reads.)
+  #  - it asks for the word `success`, not for the absence of `failure`. A job
+  #    renamed above and not here reads as an empty string, which is not `success`.
+  # `needs.test.result` is the whole matrix: `success` only if every shard was.
+  check:
+    needs: [build, test]
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Every job passed
+        env:
+          BUILD: ${{ needs.build.result }}
+          TEST: ${{ needs.test.result }}
+        run: |
+          echo "build: ${BUILD:-missing}"
+          echo "test:  ${TEST:-missing}"
+          [ "$BUILD" = success ] && [ "$TEST" = success ]
 
   # The one write: the bundle-delta comment, from a job with `pull-requests: write`
   # and NO checkout — nothing of the PR's code runs here, so the token it holds is
   # never in a working tree beside `npm ci`. Same-repo PRs only: a fork's PR gets a
   # read-only token regardless, and its delta stays in the job summary. `always()`
-  # so a red check still gets its receipt; the download is what decides whether
-  # there is one (the delta step uploads only when it succeeded).
+  # so a red build still gets its receipt; the download is what decides whether
+  # there is one (the delta step uploads only when it succeeded). It waits on
+  # `build` alone — the receipt is ready a minute in, whatever the suite says.
   comment:
-    needs: check
+    needs: build
     # Fork and Dependabot PRs have a read-only GITHUB_TOKEN, so neither can post
-    # this optional receipt. The check job still runs for them; only the
+    # this optional receipt. The other jobs still run for them; only the
     # write-only follow-up is skipped.
     if: always() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-24.04
