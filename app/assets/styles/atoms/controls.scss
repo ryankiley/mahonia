@@ -163,11 +163,14 @@
 // read views (ReadonlyListView's .view__*) — the link's own look is shared above, and
 // these had stayed behind as a copy in each.
 // The globe that stands in for a site's own mark reads as a placeholder rather than as
-// that site's icon: a step lighter than the link text it sits beside.
+// that site's icon: a step lighter than the link text it sits beside, which is --ink-3
+// against the link's --ink-2. It was that AND 60% opaque, two steps down, which nothing
+// was there to show until the dates beside it got an icon of their own (#620): the same
+// glyph size, one line apart, at --ink-3 whole, and the globe read as a different grey
+// for no reason (Ryan, 2026-11-25: "why are these different tones").
 .head__icon--fallback,
 .view__trailicon--fallback {
   color: var(--ink-3);
-  opacity: 0.6;
 }
 // The distance rides after the name as a detail OF it, one step quieter, and never gives
 // way: a long trail name ellipsizes (.t-clip) before the number is squeezed — the name
