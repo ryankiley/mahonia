@@ -34,6 +34,21 @@ const delta = (a, b) => {
 const measured = (v) => typeof v === "number";
 const { firstLoad: cap, maxChunk: maxBudget } = head.budgets;
 
+// THE COMPRESSOR'S OWN NOISE. Brotli at quality 11 is not monotonic: a stylesheet that
+// lost a declaration came out 34 B larger, and a chunk whose only change was the eight
+// characters of that stylesheet's new hash in its import list came out 69 B larger, with
+// its uncompressed size and its gzip both unchanged. Together 104 B, which the rounding
+// below showed as "+0.2 KB" on a PR that ships 15 fewer bytes (#632). The uncompressed
+// size is the figure brotli can't move, so when the first load's did not grow, whatever
+// its brotli figure gained is the compressor placing its blocks differently and the
+// receipt says so, in bytes, where it would otherwise send someone looking for a cost.
+// Null when either report predates `raw` (bundle-budget.mjs): then nothing is claimed.
+const rawFirstLoad = (rep) => {
+  const first = rep.files.filter((f) => f.first);
+  return first.length && first.every((f) => typeof f.raw === "number") ? first.reduce((n, f) => n + f.raw, 0) : null;
+};
+const signedBytes = (n) => `${n > 0 ? "+" : n < 0 ? "−" : ""}${Math.abs(n).toLocaleString("en-US")} B`;
+
 const lines = [];
 // "not measured" is not zero: a build whose /e prerender is missing has no first
 // load to report, and rendering it as 0.0 KB would celebrate a 146 KB saving
@@ -41,8 +56,15 @@ const first = head.firstLoad;
 const firstBase = base.firstLoad;
 const bothFirst = measured(first) && measured(firstBase);
 const firstCell = (v) => (measured(v) ? `${kb(v)} KB` : "not measured");
+const rawWas = rawFirstLoad(base);
+const rawNow = rawFirstLoad(head);
+// only where the table shows growth: a wobble that rounds to "—" needs no explaining
+const noise =
+  bothFirst && rawWas !== null && rawNow !== null && rawNow <= rawWas && first > firstBase && delta(firstBase, first) !== "—";
 if (measured(first)) {
-  lines.push(`### Bundle — first load ${kb(first)} KB (${bothFirst ? delta(firstBase, first) : "main not measured"} vs main)`);
+  lines.push(
+    `### Bundle — first load ${kb(first)} KB (${bothFirst ? delta(firstBase, first) : "main not measured"} vs main${noise ? ", compression noise" : ""})`,
+  );
 } else {
   lines.push("### Bundle — first load not measured (`/e/index.html` is not in this build)");
 }
@@ -59,6 +81,15 @@ lines.push(
 lines.push(`| Total, every chunk | ${kb(base.total)} KB | ${kb(head.total)} KB | ${delta(base.total, head.total)} |`);
 lines.push(`| Largest chunk (cap ${maxBudget} KB) | ${kb(base.maxChunk.br)} KB | ${kb(head.maxChunk.br)} KB | ${delta(base.maxChunk.br, head.maxChunk.br)} |`);
 lines.push("");
+if (noise) {
+  const rawMove = rawNow - rawWas;
+  lines.push(
+    `**Compression noise, not a cost.** Uncompressed, the first load ${
+      rawMove === 0 ? "is the same size" : `is ${signedBytes(-rawMove).replace("+", "")} smaller`
+    } (${rawWas.toLocaleString("en-US")} → ${rawNow.toLocaleString("en-US")} B). The ${signedBytes(first - firstBase)} above is brotli packing nearly the same bytes differently; there is nothing in this PR to shave.`,
+  );
+  lines.push("");
+}
 
 // by source: the union of both sides, sorted by the size of the move
 function movers(a, b, threshold) {
