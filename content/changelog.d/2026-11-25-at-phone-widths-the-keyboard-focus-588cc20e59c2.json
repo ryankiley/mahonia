@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-25",
+  "fixed": [
+    "At phone widths, the keyboard focus ring around a row's buttons is no longer cut off along the bottom and right."
+  ]
+}

@@ -2977,7 +2977,8 @@ function dismissFix() {
    keyed on the element for the reason the folder's is; an open group only, since a
    collapsed one's children can't open anything. */
 .nestcollapse.is-lifted > .nest-block,
-.nestcollapse:not([data-collapsed]) > .nest-block:has(.popover) {
+.nestcollapse:not([data-collapsed]) > .nest-block:has(.popover),
+.nestcollapse:not([data-collapsed]) > .nest-block:has(button:focus-visible) {
   overflow: visible;
 }
 /* drag-to-reorder: the insertion line when a nested sibling drops at the end of this
@@ -3364,8 +3365,10 @@ function dismissFix() {
      else is: padding and a cancelling margin, so the line is laid out as before.
      --grip-bleed because that is as far as a row can reach: its wrapper is paint-
      contained and stops there (.item-wrap, atoms/item.scss), and a box that claimed
-     more would be claiming taps it never gets. margin-left: 0 is against .grip's own
-     pull. */
+     more would be claiming taps it never gets. The box IS the target, so the focus
+     ring drawn round it shows how far a press reaches; the ring itself lands past the
+     containment, which stands down for a row with a focused button (item.scss).
+     margin-left: 0 is against .grip's own pull. */
   .item__trail .item__grip {
     width: calc(var(--tap) / 2 - var(--tpx) + var(--grip-bleed));
     margin-left: 0;
