@@ -134,7 +134,7 @@ describe("the bar's account control, offline", () => {
     expect(w.find("button.acct__signinbtn").exists()).toBe(true);
   });
 
-  it("replaces the lettered disc the same way, with the account's rows under the note", async () => {
+  it("replaces the lettered disc the same way, and offers nothing that needs the server", async () => {
     presence.value = "signedIn";
     user.value = { email: "ryan@example.com", displayName: null };
     goOffline();
@@ -148,6 +148,21 @@ describe("the bar's account control, offline", () => {
     expect(w.get(".acct__offline-line").text()).toBe(
       "This list is saved on this device. It syncs when you’re back online.",
     );
+    // no connection: the account dialog could only say so, and a sign-out could not
+    // reach the server, so neither row is offered
+    const rows = w.findAll('[role="menuitem"]').map((r) => r.text());
+    expect(rows).not.toContain("Your account");
+    expect(rows).not.toContain("Sign out");
+  });
+
+  it("keeps the account's rows when it is only Mahonia that can't be reached", async () => {
+    presence.value = "signedIn";
+    user.value = { email: "ryan@example.com", displayName: null };
+    const w = await bar();
+    useSyncOffline().value = "saved";
+    await nextTick();
+    await w.get("button.menu__btn").trigger("click");
+    expect(w.get(".acct__offhead").text()).toBe("Can’t reach Mahonia");
     expect(w.findAll('[role="menuitem"]').map((r) => r.text())).toEqual(
       expect.arrayContaining(["Your account", "Sign out"]),
     );

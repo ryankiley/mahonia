@@ -369,11 +369,11 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 
     <!-- EXPORT: the link first, then the files. -->
     <div v-else :id="panelId('export')" role="tabpanel" :aria-labelledby="tabId('export')">
-      <div v-if="canLink" class="share__nudge">
+      <div v-if="canLink" class="menu__callout">
         <SvgIcon :icon="IconUserDuo" aria-hidden="true" />
-        <div class="share__nudgebody">
-          <p class="share__name">Sending this to someone?</p>
-          <p class="share__nudgetext">Send the link instead. It always shows the latest version.</p>
+        <div class="menu__callout-body">
+          <p class="menu__callout-title">Sending this to someone?</p>
+          <p class="menu__callout-text">Send the link instead. It always shows the latest version.</p>
           <button type="button" class="btn btn--primary share__nudgebtn" @click="act(() => emit('copyRead'))">
             <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" />
             Copy read-only link
@@ -477,42 +477,9 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   font-size: var(--text-chrome);
 }
 
-/* ---- the Export tab's card: should this be a link instead? ---- */
-/* Laid out on the rows' columns: its mark in the glyph column (the card's inset is a
-   row's), its text where a row's label starts, so it reads as part of the same list
-   rather than a box dropped on top of it. Shaped like the plate (the item radius),
-   since it sits where a row would.
-   Its ground is AN AMOUNT OF INK — the well's 7% (.well, atoms/controls.scss, which has
-   the measurements: 1.17:1 on the light popover, 1.23 on the dark) — because the panel
-   is a floating surface. It was --paper-2, a page tone, which sat at 1.10:1 on this card
-   in either theme: a box you had to look for around the one piece of advice the tab
-   gives. */
-.share__nudge {
-  display: flex;
-  align-items: start;
-  gap: var(--space-3);
-  margin-bottom: var(--space-1);
-  /* a row's inset above as well as beside: the card's first line then sits exactly
-     where the Share tab's first row puts its own, so switching tabs doesn't move the
-     top line of the panel by the 4px the card's roomier padding used to add */
-  padding: var(--space-2) var(--space-3) var(--space-3);
-  border-radius: var(--popover-item-radius);
-  background: color-mix(in oklab, var(--ink) 7%, transparent);
-}
-.share__nudge > svg {
-  flex: none;
-  margin-block: calc((1lh - var(--icon)) / 2);
-  color: var(--ink-2);
-}
-.share__nudgebody {
-  display: grid;
-  justify-items: start;
-  gap: var(--space-1);
-}
-.share__nudgetext {
-  color: var(--ink-2);
-  font-size: var(--text-chrome);
-}
+/* ---- the Export tab's card: should this be a link instead? ----
+   The card itself is the shared .menu__callout (atoms/controls.scss); only its button
+   is this panel's. */
 .share__nudgebtn {
   min-height: var(--icon-btn);
   margin-top: var(--space-2);
