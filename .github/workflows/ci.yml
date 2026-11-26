@@ -217,6 +217,10 @@ jobs:
   # `fail-fast: false`: a red shard doesn't cancel the others. Which tests fail is
   # the answer a PR is waiting for, and two thirds of it is not the answer.
   test:
+    # `test (2/3)` on the PR, not GitHub's default `test (2)`: the bare number
+    # doesn't say it is one shard of several. Free to rename — the ruleset
+    # requires only `check`, below.
+    name: test (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
