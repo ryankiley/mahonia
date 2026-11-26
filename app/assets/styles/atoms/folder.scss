@@ -264,9 +264,15 @@
     padding: calc((var(--tap) - var(--icon-btn)) / 2);
     justify-content: center;
   }
+  /* The grip's box is what is left of a --tap one after the trash's, plus a reach into
+     the page gutter, and not a whole box laid back over the trash's right half: see
+     .item__trail .item__grip, whose rule this is. The reach is longer here (--space-3,
+     most of the gutter) because nothing contains the header's paint as a row's is. */
   .folder__actions .grip {
-    padding: 0;
+    width: calc(var(--tap) / 2 - var(--tpx) + var(--space-3));
+    padding: 0 var(--space-3) 0 0;
     justify-content: flex-end;
-    margin-left: calc(-1 * (var(--tap) / 2 + var(--tpx)));
+    margin-left: 0;
+    margin-right: calc(-1 * var(--space-3));
   }
 }
