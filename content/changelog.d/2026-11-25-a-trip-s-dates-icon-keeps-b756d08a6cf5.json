@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "A trip's dates icon keeps the rings on top of its calendar once dates are set, instead of becoming a plain page."
+  ]
+}
