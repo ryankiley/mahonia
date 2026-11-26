@@ -212,7 +212,8 @@ const RULES: readonly (readonly [RegExp, GearGlyph])[] = [
   [/\b(smartwatch|gps watch|watch)\b/, "watch"],
   [/\b(phone|smartphone|iphone|gps handheld|gps|satellite messenger|satellite communicator|personal locator beacon|plb|inreach|e-reader|kindle)\b/, "phone"],
   [/\b(earbuds|airpods|earphones|headphones)\b/, "earbuds"],
-  [/\bcamera\b/, "camera"],
+  // a lens goes with the camera it mounts on; the ones worn in an eye are not gear for one
+  [/\bcamera\b|(?<!contact )\blens(es)?\b/, "camera"],
   [/\b(power bank|battery|battery pack|wall charger|charger|solar|solar panel|charging cable|cable|air pump|inflator|pump)\b/, "electronics"],
 
   // body

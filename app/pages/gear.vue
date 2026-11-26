@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { IconBackpack, IconBlockSortAscending, IconBlockSortDescending, IconChevronDownMedium, IconClock, IconFilterAscending, IconFire2, IconForkKnife, IconLightning, IconPlusMedium, IconSafeSimple, IconShapesPlusXSquareCircle, IconStar, IconToolbox } from "~/icons/central";
+import { IconBackpack, IconBlockSortAscending, IconBlockSortDescending, IconChevronDownMedium, IconClock, IconFilterAscending, IconFire2, IconForkKnife, IconLightningBolt, IconPlusMedium, IconSafeSimple, IconShapesPlusXSquareCircle, IconStar, IconToolbox } from "~/icons/central";
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
 import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
@@ -523,7 +523,7 @@ const VIEW_OPTIONS = [
 // then calories outright, then the Gear tab's orders without By kind, since food is
 // one kind.
 const FOOD_VIEW_OPTIONS = [
-  { key: "dense", label: "Calorie dense", icon: IconLightning },
+  { key: "dense", label: "Calorie dense", icon: IconLightningBolt },
   { key: "kcal", label: "Most calories", icon: IconFire2 },
   ...VIEW_OPTIONS.filter((o) => o.key !== "kinds"),
 ];

@@ -82,6 +82,9 @@ describe("which icon a gear type wears", () => {
     ["Water bag", "hydration"],
     ["Shelter pole", "tent"],
     ["Lens cap", "camera"],
+    ["Lens", "camera"],
+    ["Lenses", "camera"],
+    ["Camera lens", "camera"],
     ["Sport cap", "bottle"],
     // and common types that matched nothing
     ["Batteries", "electronics"],
@@ -201,7 +204,7 @@ describe("which icon a gear type wears", () => {
 
   // the long tail goes without: a one-off icon is a picture to decode
   it("answers null for the long tail rather than giving it a one-off icon", () => {
-    for (const type of ["Compass", "Umbrella", "Whistle", "Packraft"]) {
+    for (const type of ["Compass", "Umbrella", "Whistle", "Packraft", "Contact lenses"]) {
       expect(gearGlyphFor(type)).toBeNull();
     }
     expect(gearGlyphFor("")).toBeNull();
