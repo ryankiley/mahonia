@@ -16,6 +16,7 @@
 // is also set off by a key more often than not, since an address is typed and then sent
 // with Enter, or with Go on a phone's keyboard, where this rule left it silent on the
 // commonest path there is. Reduced motion still flattens it (main.scss).
+// And the weight bar, which says why where it is made (CategoryBar.vue).
 :root[data-input="keyboard"] {
   *,
   *::before,
