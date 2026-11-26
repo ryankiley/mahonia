@@ -247,7 +247,10 @@ if (reportPath) {
         total: totalBr,
         maxChunk: { file: maxChunk.f, br: maxChunk.br },
         budgets: { firstLoad: FIRST_LOAD_CAP_KB, maxChunk: MAX_CHUNK_BUDGET_KB },
-        files: rows.map((r) => ({ file: r.f, br: r.br, first: r.first })),
+        // `raw` beside `br`: the uncompressed size is the one figure the compressor
+        // can't move, and the receipt reads it to tell a PR's bytes from brotli's own
+        // variance (bundle-delta.mjs, "compression noise")
+        files: rows.map((r) => ({ file: r.f, br: r.br, raw: r.raw, first: r.first })),
         // bytes by source on the first load, and across every chunk — both brotli
         ...attribute(),
       },
