@@ -2387,16 +2387,18 @@ function dismissFix() {
 }
 /* Water's fixed consumable mark: the control's exact box — .btn--icon's size — minus
    the button and minus the lit plate, because there is nothing to press. Sized like
-   the button so the droplet sits in the column every other row's mark is in, and
-   drawn one ink step down from the figures, as the share row draws a mark that is a
-   fact. */
+   the button so the droplet sits in the column every other row's mark is in.
+   --ink-3, the resting ink of every glyph beside it (.ink-quiet, controls.scss). It
+   was --ink-2, a step up to say "a fact, not a control" — but one step of grey
+   between neighbours reads as a mismatch, not as a state, and the row already says
+   water three other ways. The ink only: no hover lift, since nothing here presses. */
 .item__clsfixed {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: var(--icon-btn);
   min-height: var(--icon-btn);
-  color: var(--ink-2);
+  color: var(--ink-3);
 }
 /* ON is a FILLED GROUND, not just darker ink — the shared `.item__mark` chip
    (atoms/item.scss), which the share views' rows draw as a static mark, so the two
