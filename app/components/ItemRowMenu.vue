@@ -4,7 +4,7 @@ import { SvgIcon, type IconNode } from "~/utils/icon";
 // One of a row's popover menus. The carrier picker, the nesting actions and the
 // mobile ⋯ overflow were this exact shape written three times in ItemRow: a .menu
 // root, a quiet icon trigger (aria-haspopup / aria-expanded, mousedown-prevented),
-// and a <ul role=menu> popover hung off it, measured on the tick it opens for which
+// and a <MenuList> popover hung off it, measured on the tick it opens for which
 // sides it fits on. The ENTRIES are the caller's — the default slot — so this owns
 // only the chrome and the open/close contract, and the three menus can't drift on
 // either.
@@ -42,7 +42,13 @@ const props = defineProps<{
 }>();
 const menu = useItemMenu();
 const rootRef = useTemplateRef<HTMLElement>("rootRef");
-const listRef = useTemplateRef<HTMLElement>("listRef");
+// The card is <MenuList>'s element, handed out through its exposed `el`. MenuList and
+// not a <ul> of this component's own, as it was: that is what carries the travelling
+// plate, and without it these three were the only menus in the app whose rows lit one
+// at a time instead of the wash sliding between them (Ryan, 2026-11-25). It mounts
+// with the open menu, so a list pays for one plate, not three per row.
+const menuList = useTemplateRef<{ el: HTMLElement | null }>("menuList");
+const listRef = computed(() => menuList.value?.el ?? null);
 // Which sides to hang from, measured per open (useMenuPlacement). Rows are the one
 // place the atom's default was reliably wrong: a list is long, so its LAST rows sit
 // at the viewport floor, and a menu anchored below them opened off the bottom of
@@ -90,16 +96,14 @@ function toggle() {
       </button>
     </Tooltip>
     <Transition name="menu">
-      <ul
+      <MenuList
         v-if="isOpen"
-        ref="listRef"
-        class="popover menu__list"
+        ref="menuList"
         :class="{ 'menu__list--start': atStart, 'menu__list--above': above }"
-        role="menu"
         :aria-label="menuLabel ?? label"
       >
         <slot />
-      </ul>
+      </MenuList>
     </Transition>
   </div>
 </template>

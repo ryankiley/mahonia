@@ -1928,7 +1928,7 @@ function dismissFix() {
               tooltip
             >
               <li v-for="a in nestActions" :key="a.label" role="none">
-                <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
+                <button type="button" data-row role="menuitem" class="menu__item" @click="menu.close(); a.run()">
                   <SvgIcon :icon="a.icon" aria-hidden="true" />
                   {{ a.label }}
                 </button>
@@ -1957,6 +1957,7 @@ function dismissFix() {
                 <button
                   type="button"
                   role="menuitemradio"
+                  data-row
                   class="menu__item item__personpick"
                   :class="{ 'is-active': e.active }"
                   :aria-checked="e.active"
@@ -2034,6 +2035,7 @@ function dismissFix() {
                     <button
                       type="button"
                       role="menuitemradio"
+                      data-row
                       class="menu__item item__personpick"
                       :class="{ 'is-active': e.active }"
                       :aria-checked="e.active"
@@ -2058,7 +2060,7 @@ function dismissFix() {
                 role="none"
                 :class="{ item__nestact: a.nest, menu__foot: i === 0 && peopleSorted.length > 0 }"
               >
-                <button type="button" role="menuitem" class="menu__item" @click="menu.close(); a.run()">
+                <button type="button" data-row role="menuitem" class="menu__item" @click="menu.close(); a.run()">
                   <SvgIcon :icon="a.icon" aria-hidden="true" />
                   {{ a.label }}
                 </button>
