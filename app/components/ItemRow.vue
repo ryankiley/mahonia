@@ -2053,12 +2053,16 @@ function dismissFix() {
                    first, so the chosen carrier's lit row sat flush on "Duplicate". The
                    same hairline the toolbar's ⋯ rules its groups off with (Ryan,
                    2026-11-25). Duplicate always leads and is never a nest entry
-                   (overflowActions), so the rule can't be hidden with one. -->
+                   (overflowActions), so the rule can't be hidden with one.
+                   And again on the LAST action, "Remove item", for the reason the
+                   toolbar's menu rules off "Delete this list": everything above it
+                   copies, moves or saves the item, and this one ends it. Ink, not red:
+                   it can be undone, and red is the list's own delete's alone. -->
               <li
                 v-for="(a, i) in overflowActions"
                 :key="a.label"
                 role="none"
-                :class="{ item__nestact: a.nest, menu__foot: i === 0 && peopleSorted.length > 0 }"
+                :class="{ item__nestact: a.nest, menu__foot: (i === 0 && peopleSorted.length > 0) || i === overflowActions.length - 1 }"
               >
                 <button type="button" data-row role="menuitem" class="menu__item" @click="menu.close(); a.run()">
                   <SvgIcon :icon="a.icon" aria-hidden="true" />
