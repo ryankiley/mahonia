@@ -441,7 +441,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   .share__tab:hover {
     background: light-dark(
       color-mix(in oklab, var(--ink) 3.5%, transparent),
-      color-mix(in oklab, var(--ink) 5%, transparent)
+      color-mix(in oklab, var(--ink) 7.5%, transparent)
     );
     color: var(--ink);
   }

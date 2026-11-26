@@ -123,7 +123,11 @@ const { onKey } = useRovingRadio(
   gap: var(--space-2);
   height: var(--control-compact); /* the modebar's option height — same row rhythm */
   padding: 0 var(--space-3);
-  border: 1px solid var(--line);
+  /* The outline IS the unselected chip — there is no fill under it — so in dark it takes
+     the stronger hairline. --line there is 8% white, #141414 on a black page: enough
+     for a rule between two rows of text, not for a shape drawn in nothing else (Ryan,
+     2026-11-25: "outline states are a little dim"). Light keeps --line. */
+  border: 1px solid light-dark(var(--line), var(--line-2));
   /* --radius-2, the corner the mode chips and the list picker wear, not the pill.
      These chips are read WITH that bar — the same kind of thing, a small labelled
      chip you press to change what the page shows, a few rows apart — and a pill
@@ -170,7 +174,7 @@ const { onKey } = useRovingRadio(
   .pplbar__chip:hover {
     background: light-dark(
       color-mix(in oklab, var(--ink) 3.5%, transparent),
-      color-mix(in oklab, var(--ink) 5%, transparent)
+      color-mix(in oklab, var(--ink) 7.5%, transparent)
     );
     color: var(--ink);
   }

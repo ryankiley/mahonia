@@ -831,9 +831,18 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     translate: 0 -50%;
   }
 }
+/* --lit, the app's one on-plate, as the mode tabs and the sharing tabs wear it. It was
+   --paper-3, which is --surface-float's exact value in dark — the panel this tab sits
+   on — so the selected tab had no plate at all there (1.00:1), only its darker word. */
 .vp__tab.is-active {
-  background: var(--paper-3);
+  background: var(--lit);
   color: var(--ink);
+}
+/* …and it still answers the pointer, like every other selected control */
+@media (hover: hover) and (pointer: fine) {
+  .vp__tab.is-active:hover {
+    background: var(--lit-hover);
+  }
 }
 /* THE PANEL HEADER is the .panel__head atom (controls.scss); only the offset onto
    this card's edge is its own. */
@@ -969,12 +978,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   -webkit-touch-callout: none;
 }
 /* HELD: the touch hold has armed (see liftedId), so the row is picked up and the next
-   move carries it. The --paper-3 ground the active tab wears, a step past the hover
+   move carries it. One step of ink past the active tab's plate and past the hover
    tint, because this has to read as a different state from "under your finger" — it is
-   the moment a scroll became a drag. No transition: it lands with the vibration tick,
-   and feedback that a hold registered is instant or it isn't feedback. */
+   the moment a scroll became a drag. An amount of ink, not --paper-3, which it was:
+   that is this panel's own colour in dark, so the hold landed with a vibration and no
+   picture. No transition: it lands with the vibration tick, and feedback that a hold
+   registered is instant or it isn't feedback. */
 .vp__add.is-lifted {
-  background: var(--paper-3);
+  background: var(--lit-hover);
 }
 /* Split from :hover, not merged with it: focus is not a pointer state and a keyboard
    driving a touch device still needs the highlight, while the hover twin paints only

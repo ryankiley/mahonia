@@ -1492,11 +1492,12 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--ink);
 }
 
-/* on = the pane is open: the icon takes full ink and a soft ground, so the button
-   reads as a held state rather than a hover */
+/* on = the pane is open: the icon takes full ink and the on-plate (--lit, the tone the
+   account disc beside it and the mode tabs below wear), so the button reads as a held
+   state rather than a hover. It was --paper-2: #151515 on a black bar. */
 .editor__vault.is-on {
   color: var(--ink);
-  background: var(--paper-2);
+  background: var(--lit);
 }
 /* The sharing panel hangs off a 32px button near the right end of the bar. `.menu`
    makes that button the containing block, so `right: 0` puts the panel's right edge at
@@ -1515,7 +1516,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
    the two topbar popovers signal their state identically */
 .editor__share.is-on {
   color: var(--ink);
-  background: var(--paper-2);
+  background: var(--lit);
 }
 /* the ⋯ menu's ruled-off feet, its short-phone scroller
    (.editor__actions) and the one coloured row in the chrome (.editor__delete) are

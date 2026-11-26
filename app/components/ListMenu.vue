@@ -220,13 +220,17 @@ watch(open, (o) => {
    (see the note on .btn:hover, controls.scss) — otherwise tapping the trigger left
    the fill sitting there after the menu had already closed. */
 .lm__trigger.is-on {
-  background: var(--paper-2);
+  background: var(--lit);
   color: var(--ink);
 }
 @media (hover: hover) and (pointer: fine) {
   .lm__trigger:hover {
     background: var(--paper-2);
     color: var(--ink);
+  }
+  /* open and pointed at: a step up from the plate, not back down to the hover ground */
+  .lm__trigger.is-on:hover {
+    background: var(--lit-hover);
   }
 }
 /* the app's dropdown mark, and it turns over when the menu is open — it IS the ⋯
