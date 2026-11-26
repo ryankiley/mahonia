@@ -175,8 +175,15 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      on body-size placeholders, where it would be unreadable and unlabelled. */
   --ink-ghost: light-dark(#dedede, #333333);
 
-  /* ---- hairlines: faint + rare. Whitespace + type do the separating, not boxes ---- */
-  --line: light-dark(#00000014, #ffffff14);
+  /* ---- hairlines: faint + rare. Whitespace + type do the separating, not boxes ----
+     The two modes are tuned apart here as the plates are (--lit, below), and for the same
+     reason: 8% of white on black is #141414, which a ratio calls the twin of 8% of black
+     on white and a screen in a lit room crushes to nothing. The gear list's row rules,
+     the only track the eye has down a long list, all but went (Ryan, 2026-11-25: "dark
+     mode hairlines are a little faint too"). Dark carries half as much again, 12%, the
+     step the plates took. --line-2 is left where it was: it is the outline on controls,
+     and nobody said those were faint. */
+  --line: light-dark(#00000014, #ffffff1f);
   --line-2: light-dark(#00000026, #ffffff26);
 
   /* ---- underline: ONE soft colour for text underlines (links). Legible but never
