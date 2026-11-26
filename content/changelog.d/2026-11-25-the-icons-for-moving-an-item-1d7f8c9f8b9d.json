@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "The icons for moving an item into and out of a group now point the way the item moves."
+  ],
+  "fixed": [
+    "In a narrow window, a row's ⋯ menu keeps its move entry when the pointer leaves the row."
+  ]
+}

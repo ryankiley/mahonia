@@ -824,9 +824,13 @@ const nestActions = computed(() => {
   // a nested row can't nest further, and a row that already HAS children uses its
   // own ever-present "Add an item" instead
   if (!props.nested && !isParent.value) acts.push({ label: "Add an item under this one", icon: IconListAdd, run: () => c.addChild(props.item.id) });
-  if (props.nested) acts.push({ label: "Move out of the group", icon: IconTextIndentLeft, run: () => c.unnest(props.item.id) });
+  // The glyphs go by the way the ARROW points, which is the way the row travels, and
+  // not by their names, which say only which side the arrow sits on: IndentLeft's is on
+  // the left pointing right, the push into an indent; IndentRight's is on the right
+  // pointing left. Picked by name they were crossed, "Move out" wearing the arrow in.
+  if (props.nested) acts.push({ label: "Move out of the group", icon: IconTextIndentRight, run: () => c.unnest(props.item.id) });
   else if (canIndent.value)
-    acts.push({ label: "Move under the item above", icon: IconTextIndentRight, run: () => c.nestItem(props.item.id, props.prevId!) });
+    acts.push({ label: "Move under the item above", icon: IconTextIndentLeft, run: () => c.nestItem(props.item.id, props.prevId!) });
   return acts;
 });
 
@@ -2716,19 +2720,24 @@ function dismissFix() {
   /* :not(.is-active) — a SAVED row's tick is state, not a control waiting to be used,
      and hiding it with the rest left nothing on a desktop row to say the item was in
      the vault until the mouse found it (the #302 review, 2026-09-05). */
+  /* .item__nest, the inline nest TRIGGER, and not .item__nestact, which the ⋯ menu's
+     nest entry wears too (for the person filter, atoms/item.scss). A narrow window on a
+     fine pointer shows that menu, and its entry was hidden with the trigger: there
+     while the pointer was over the row or the menu, a blank line in an open menu the
+     moment it wasn't (Ryan, 2026-11-25: "move disappeared?"). */
   .item-row .item__vault-btn:not(.is-active),
-  .item-row .item__nestact,
+  .item-row .item__nest,
   .item-row .item__dup,
   .item-row .item__del {
     opacity: 0;
     transition: opacity var(--spring-fade-dur) var(--spring-fade);
   }
   .item-row:hover .item__vault-btn,
-  .item-row:hover .item__nestact,
+  .item-row:hover .item__nest,
   .item-row:hover .item__dup,
   .item-row:hover .item__del,
   .item-row:focus-within .item__vault-btn,
-  .item-row:focus-within .item__nestact,
+  .item-row:focus-within .item__nest,
   .item-row:focus-within .item__dup,
   .item-row:focus-within .item__del {
     opacity: 1;
