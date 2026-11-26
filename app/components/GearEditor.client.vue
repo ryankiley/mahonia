@@ -1520,7 +1520,6 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .topbar__inner {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
   padding-block: var(--space-3);
   /* NEVER SHORTER THAN ITS ICON BUTTONS. They are what gave the bar its height, so
      whenever the cluster stood down — a list still loading, a list that won't open —
@@ -1532,14 +1531,18 @@ function onCorrected(res: { status: string; itemName?: string }) {
   @media (pointer: coarse) {
     min-height: calc(var(--tap) + 2 * var(--space-3));
   }
-  /* On a phone the cluster is six controls at the 44px touch floor plus the switcher,
-     and it did not fit 375px even with two mode segments — it was ~17px over before a
-     third was added, which clipped the ⋯ menu off the trailing edge entirely.
-     The gap is the only slack that costs nothing: --tap is the HIG minimum and every
-     other candidate is a control's hit area. Halving it here buys 20px without shrinking
-     a single target. */
-  @media (max-width: $bp-stack) {
-    gap: var(--space-1);
+  /* ONE RHYTHM FOR THE ICONS, mouse or touch: a touch target (--tap) from the centre
+     of one to the centre of the next. The buttons are 32px under a mouse and grow to
+     --tap under a finger (controls.scss), and with one gap for both the cluster ran 40px
+     apart on a desktop, 36 in a narrow window and 48 on a phone. So the gap is what is
+     left of --tap after the button: 12px beside a 32px button, nothing beside a 44px
+     one. The second is also the most room this bar has ever had on a phone, where the
+     cluster and the switcher once ran 17px past a 375px screen and the gap was halved
+     to make them fit. */
+  --cluster-gap: calc(var(--tap) - var(--icon-btn));
+  gap: var(--cluster-gap);
+  @media (pointer: coarse) {
+    --cluster-gap: 0px;
   }
   /* Leading edge, and the TOOL CLUSTER pushes itself right (see .topbar__status below).
      This used to be justify-content: flex-end, holding the icons trailing by
@@ -1571,6 +1574,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
      back against the switcher. The bar's own layout can't be a child's to opt out of. */
   margin-right: auto;
   flex: 0 1 auto;
+  /* its distance from the switcher is its own, --space-2 whatever the icons' gap is */
+  margin-left: calc(var(--space-2) - var(--cluster-gap));
 }
 /* Directly under the toolbar and above the list's title. Not sticky: it belongs to the
    page, not the chrome.
