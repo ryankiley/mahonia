@@ -6,15 +6,13 @@
 // entry is a file rather than a line in a shared one.
 
 import { existsSync, readdirSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
-import type { ChangelogRelease } from "../shared/changelog";
+import { join } from "node:path";
+import { CHANGELOG_GROUPS, type ChangelogRelease } from "../shared/changelog";
 import { isCalendarDate } from "../shared/calendar";
+import { ROOT } from "./paths";
 
-const root = dirname(dirname(fileURLToPath(import.meta.url)));
-
-export const ARCHIVE_FILE = join(root, "content", "changelog.json");
-export const FRAGMENT_DIR = join(root, "content", "changelog.d");
+export const ARCHIVE_FILE = join(ROOT, "content", "changelog.json");
+export const FRAGMENT_DIR = join(ROOT, "content", "changelog.d");
 
 /**
  * Validate one checked-in release before it reaches the merge/release path. It is
@@ -35,7 +33,7 @@ export function parseChangelogRelease(value: unknown, source: string): Changelog
   }
 
   let entries = 0;
-  for (const group of ["added", "changed", "fixed"] as const) {
+  for (const group of CHANGELOG_GROUPS) {
     const values = release[group];
     if (values == null) continue;
     if (!Array.isArray(values) || values.some((entry) => typeof entry !== "string" || !entry.trim())) {
@@ -62,7 +60,7 @@ export function readArchive(): ChangelogRelease[] {
   return parsed.map((release, index) => parseChangelogRelease(release, `${source} entry ${index + 1}`));
 }
 
-export interface Fragment {
+interface Fragment {
   /** Bare filename, e.g. `2026-08-10-sort-folders-a1b2.json`. */
   name: string;
   release: ChangelogRelease;

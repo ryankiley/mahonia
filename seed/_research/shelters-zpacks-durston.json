@@ -3,7 +3,6 @@
     {
       "brand": "Zpacks",
       "name": "Duplex",
-      "variant": "",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 17.8,
@@ -15,7 +14,6 @@
     {
       "brand": "Zpacks",
       "name": "Duplex Zip",
-      "variant": "",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 20.4,
@@ -27,7 +25,6 @@
     {
       "brand": "Zpacks",
       "name": "Triplex",
-      "variant": "",
       "attributes": {"persons": 3},
       "category_hint": "shelter",
       "weight_value": 21.6,
@@ -51,7 +48,6 @@
     {
       "brand": "Zpacks",
       "name": "Offset Solo",
-      "variant": "",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 17.5,
@@ -115,7 +111,6 @@
     {
       "brand": "Durston",
       "name": "X-Mid 1",
-      "variant": "",
       "attributes": {"persons": 1},
       "category_hint": "shelter",
       "weight_value": 26.2,
@@ -127,7 +122,6 @@
     {
       "brand": "Durston",
       "name": "X-Mid 2",
-      "variant": "",
       "attributes": {"persons": 2},
       "category_hint": "shelter",
       "weight_value": 31.3,

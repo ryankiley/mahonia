@@ -16,8 +16,14 @@
 // usually comes back in a NEW TAB, which starts with empty sessionStorage. This is also
 // not a new exposure — the device's edit tokens already live in localStorage (the
 // "my lists" registry is where they're kept).
+//
+// THE SIGN-IN DIALOG STORES NO TOKEN AT ALL (rememberHere). The registry already holds
+// the key to any list this browser can edit, so the path is kept without its fragment
+// and the key is read back from the registry on the way out (withHeldKey), the way
+// "Your packs" opens a list. A second copy here would outlive "Forget this list".
 
-import { isSafeReturnPath } from "~~/shared/links";
+import { editLinkPath, isSafeReturnPath, normalizeShareCode } from "~~/shared/links";
+import { isRecord } from "~~/shared/record";
 import { forget, recallJson, remember as store } from "../utils/remember";
 
 const KEY = "gear.returnto.v1";
@@ -38,26 +44,47 @@ export function useReturnTo() {
   }
 
   /**
+   * Remember the address in the bar, for the dialog that asks for a sign-in link
+   * over whatever page you were on. Read from `location`, not the route: a list made
+   * this visit has its address rewritten without routing (GearEditor), so the route
+   * still says /e. The fragment is left out, see the top of this file. (The one
+   * address that loses by it is /e#token with no code, which the editor only shows
+   * until the list has loaded: that comes back to a blank /e.)
+   */
+  function rememberHere(): void {
+    if (!import.meta.client) return;
+    remember(location.pathname + location.search);
+  }
+
+  /** An editor path, with the key this browser holds for that list put back. Signed
+   *  in, /e/{code} with no fragment opens through the account, which a list only
+   *  opened here (never made here) isn't in. */
+  function withHeldKey(path: string): string {
+    const code = normalizeShareCode(/^\/e\/([^/?#]+)$/.exec(path)?.[1]);
+    const token = code ? useMyLists().tokenFor(code) : undefined;
+    return token ? editLinkPath(code, token) : path;
+  }
+
+  /**
    * Take the stored path, if there is a fresh and valid one. ONE SHOT: the entry is
    * cleared whether or not it's used, so a stale path can never redirect a later,
    * unrelated sign-in.
    */
   function take(): string | null {
     if (!import.meta.client) return null;
-    const stored = recallJson(
-      KEY,
-      (v): v is { path?: unknown; at?: unknown } => !!v && typeof v === "object",
-      null,
-    );
+    const stored = recallJson(KEY, isRecord, null);
     forget(KEY);
     if (!stored || typeof stored.at !== "number" || Date.now() - stored.at > TTL_MS) return null;
     return isSafeReturnPath(stored.path) ? stored.path : null;
   }
 
-  /** Go back where they came from, or to `fallback` if there's nowhere to go. */
-  async function resume(fallback: string): Promise<void> {
-    await navigateTo(take() ?? fallback, { replace: true });
+  /** Go back where they came from, or to `fallback` if there's nowhere to go. Says
+   *  which it was: true when there was a page to go back to. */
+  async function resume(fallback: string): Promise<boolean> {
+    const path = take();
+    await navigateTo(path ? withHeldKey(path) : fallback, { replace: true });
+    return path !== null;
   }
 
-  return { remember, take, resume };
+  return { remember, rememberHere, resume };
 }

@@ -123,3 +123,21 @@ describe("importing gear", () => {
     expect(w.text()).not.toContain("Added 1 piece of gear.");
   });
 });
+
+describe("the Import gear paste box", () => {
+  it("has a name of its own, not only a placeholder", () => {
+    expect(openDialog().get("textarea").attributes("aria-label")).toBe("CSV or JSON backup");
+  });
+});
+
+describe("the gear import dialog's buttons", () => {
+  it("keeps the action row to Cancel and Import, with Choose a file under the paste box", () => {
+    const w = openDialog();
+    expect(w.findAll(".dlg__actions button").map((b) => b.text())).toEqual(["Cancel", "Import"]);
+    const pick = w.get("button.filepick");
+    expect(pick.classes()).toContain("btn--soft");
+    expect(pick.element.closest(".dlg__actions")).toBeNull();
+    expect(w.get("textarea").element.compareDocumentPosition(pick.element) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+});
+

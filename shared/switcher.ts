@@ -9,7 +9,7 @@
 // row is only as good as the session behind it.
 
 import { claimedEditPath, editLinkPath } from "./links";
-import type { MyListEntry } from "./types";
+import type { ClaimedList, MyListEntry } from "./types";
 
 /** What the switcher needs to render one list, whichever side it came from. */
 export interface SwitcherRow {
@@ -21,14 +21,6 @@ export interface SwitcherRow {
   to: string;
   /** "" on legacy device entries that predate share codes. */
   shareCode: string;
-}
-
-/** The slice of a claimed list the merge needs — structural, so the client
- *  composable's shape and the server repo's shape both satisfy it. */
-export interface ClaimedRowSource {
-  shareCode: string;
-  slug: string;
-  title: string;
 }
 
 /**
@@ -45,7 +37,7 @@ export interface ClaimedRowSource {
  */
 export function mergeSwitcherRows(
   device: Pick<MyListEntry, "editToken" | "shareCode" | "slug" | "title">[],
-  claimed: ClaimedRowSource[],
+  claimed: Pick<ClaimedList, "shareCode" | "slug" | "title">[],
 ): SwitcherRow[] {
   const heldCodes = new Set(device.map((e) => e.shareCode).filter(Boolean));
   const heldSlugs = new Set(device.map((e) => e.slug).filter(Boolean));

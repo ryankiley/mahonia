@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-// UserRoundKey is a lucide name with no hugeicons twin; UserLock01 is the nearest
-// person-plus-credentials glyph.
-// SafeBox is the editor toolbar's own My Gear glyph — the same thing named the same
+import { IconArrowBoxLeft, IconCloudOff, IconUser, IconUserKey, IconSafeSimple } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
+// UserKey: a person with credentials, for the private account.
+// Vault is the editor toolbar's own My Gear glyph — the same thing named the same
 // way, so the row and the button can't read as two different destinations.
-import { Logout01Icon, SafeBoxIcon, UserIcon, UserLock01Icon } from "@hugeicons/core-free-icons";
 
 // The account affordance in the top bar. Two shapes, because signed in and signed
 // out are different jobs:
@@ -53,11 +52,10 @@ const route = useRoute();
 // The hint alone decides the shape — it carries no capability, and being wrong
 // costs one 401 on a page the person asked for anyway. Waiting for the session to
 // resolve would make the control change under the cursor on every load. "Presumed"
-// is that reading, defined once in useSession; set on mount rather than computed so
-// the server-rendered (hint-less) shape hydrates without a mismatch.
-const known = ref(false);
-onMounted(() => (known.value = presence.value !== "signedOut"));
-watch(presence, (p) => (known.value = p !== "signedOut"));
+// is that reading, defined once in useSession. Read straight off it: the template is
+// all inside <ClientOnly>, so nothing here is drawn on the server (which has no hint)
+// for the browser's answer to mismatch.
+const known = computed(() => presence.value !== "signedOut");
 
 const open = ref(false);
 const menuRef = useTemplateRef<HTMLElement>("menuRef");
@@ -72,17 +70,49 @@ async function onSignOut() {
 }
 
 // Never link to the page you're already on — it reads as an action and does
-// nothing. Applies to both shapes.
-const onAccount = computed(() => route.path === "/account");
+// nothing. (The account had a page once and was hidden from its own menu there; it is
+// a dialog now, opened over any page, so only My Gear has this to mind.)
 const onVault = computed(() => route.path === "/gear");
 // The row earns its place only where this menu is the way to /gear: not on /gear
 // itself, and not in a bar that already has the button.
 const showGear = computed(() => !onVault.value && !hasGearButton);
 
-// The account opens OVER the page now, so there's nowhere to come back from and
-// nothing to remember. useReturnTo still earns its keep for the magic link, which
-// leaves the browser entirely and returns in a new tab — see /auth/callback.
+// The account opens OVER the page now, so a passkey sign-in has nowhere to come back
+// from and this control remembers nothing. The emailed link is the exception: it
+// leaves the browser and returns in a new tab, so the dialog remembers the page when
+// the link is asked for (AccountView's sendLink, useReturnTo) and /auth/callback
+// returns to it.
 const { open: openAccount } = useAccountModal();
+
+// OFFLINE, THE CONTROL SAYS SO. Its glyph becomes a cloud with a line through it, in
+// both shapes, and pressing it opens a small card that says the rest: you're offline,
+// the open list is saved on this device, and signing in will have to wait. For someone
+// signed in the account's rows follow under it, as ever.
+// This is where the bar says "offline" at all. The status line beside it used to
+// ("Offline · saved on device"), and a phone cut that off mid-word.
+const offline = useOffline();
+const sync = useSyncOffline();
+// TWO KINDS OF OFFLINE, and only one of them rules out signing in. With no network at
+// all the card says so and offers nothing: the sign-in form could only say no. But the
+// list's sync also says "offline" when the browser has a connection and the server did
+// not answer for the list (a server error, a dead hotel wifi), and then signing in may
+// well work. So that card says what is actually known, that Mahonia can't be reached,
+// and keeps the way in.
+const online = useOnline();
+const unreachable = computed(() => offline.value && online.value);
+const offlineHead = computed(() => (unreachable.value ? "Can’t reach Mahonia" : "You’re offline"));
+/** what the card says under that */
+const offlineLine = computed(() => {
+  const saved = sync.value === "saved" ? "This list is saved on this device." : "";
+  const next = known.value
+    ? saved && "It syncs when you’re back online."
+    : !unreachable.value && "Sign in when you’re back online.";
+  return [saved, next].filter(Boolean).join(" ");
+});
+// the card belongs to being offline: back online, a signed-out control is a button again
+watch(offline, (off) => {
+  if (!off && !known.value) open.value = false;
+});
 </script>
 
 <template>
@@ -93,20 +123,18 @@ const { open: openAccount } = useAccountModal();
          (It was a NuxtLink to /account, and @click.prevent does NOT stop NuxtLink's own
          navigation — it opened the modal AND left the page.) The classes stay, since
          print.scss hides both shapes by name. -->
-    <Tooltip v-if="!known && compact" text="Sign in" preferred-placement="bottom">
+    <Tooltip v-if="!known && !offline && compact" text="Sign in" preferred-placement="bottom">
       <button
-        v-show="!onAccount"
         type="button"
         class="btn btn--icon btn--ghost acct__signinbtn"
         aria-label="Sign in"
         @click="openAccount"
       >
-        <HugeiconsIcon :icon="UserLock01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconUserKey" />
       </button>
     </Tooltip>
     <button
-      v-else-if="!known"
-      v-show="!onAccount"
+      v-else-if="!known && !offline"
       type="button"
       class="btn btn--link acct__signin"
       @click="openAccount"
@@ -114,12 +142,13 @@ const { open: openAccount } = useAccountModal();
       Sign in
     </button>
 
-    <div v-else ref="menuRef" class="menu">
-      <Tooltip text="Your account" preferred-placement="bottom" :disabled="open">
+    <!-- signed in, or offline in either shape: a trigger and the card it opens -->
+    <div v-else ref="menuRef" class="menu" :class="{ 'acct--offline': offline }">
+      <Tooltip :text="offline ? 'Offline' : 'Your account'" preferred-placement="bottom" :disabled="open">
       <button
         type="button"
         class="btn btn--icon btn--ghost menu__btn"
-        aria-label="Your account"
+        :aria-label="offline ? (known ? `Your account. ${offlineHead}.` : offlineHead) : 'Your account'"
         aria-haspopup="true"
         :aria-expanded="open"
         @click="open = !open"
@@ -131,26 +160,39 @@ const { open: openAccount } = useAccountModal();
              reader the letter is decoration, and "R" would be a poor name for a menu.
              Empty for one beat only: before the first /api/auth/me on a browser that
              has never kept the memo (useAccountInitial). -->
-        <span class="avatar" aria-hidden="true">{{ initial }}</span>
+        <SvgIcon v-if="offline" :icon="IconCloudOff" aria-hidden="true" />
+        <span v-else class="avatar" aria-hidden="true"><span class="avatar__letter">{{ initial }}</span></span>
       </button>
       </Tooltip>
       <Transition name="menu">
-        <MenuList v-if="open" aria-label="Your account">
-          <li v-if="showGear" role="none">
+        <MenuList v-if="open" :aria-label="offline ? offlineHead : 'Your account'">
+          <!-- what the struck cloud means, said in full where it was pressed. Not a row:
+               nothing here is pressed, so the travelling plate passes it by. -->
+          <li v-if="offline" role="none" class="acct__offline">
+            <p class="acct__offhead">{{ offlineHead }}</p>
+            <p v-if="offlineLine" class="acct__offline-line t-muted">{{ offlineLine }}</p>
+          </li>
+          <li v-if="!known && unreachable" role="none">
+            <button type="button" data-row role="menuitem" class="menu__item" @click="open = false; openAccount()">
+              <SvgIcon :icon="IconUserKey" aria-hidden="true" />
+              Sign in
+            </button>
+          </li>
+          <li v-if="known && showGear" role="none">
             <NuxtLink to="/gear" data-row role="menuitem" class="menu__item" @click="open = false">
-              <HugeiconsIcon :icon="SafeBoxIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconSafeSimple" aria-hidden="true" />
               My Gear
             </NuxtLink>
           </li>
-          <li v-if="!onAccount" role="none">
+          <li v-if="known" role="none">
             <button type="button" data-row role="menuitem" class="menu__item" @click="open = false; openAccount()">
-              <HugeiconsIcon :icon="UserIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconUser" aria-hidden="true" />
               Your account
             </button>
           </li>
-          <li role="none">
+          <li v-if="known" role="none">
             <button type="button" data-row role="menuitem" class="menu__item" @click="onSignOut">
-              <HugeiconsIcon :icon="Logout01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconArrowBoxLeft" aria-hidden="true" />
               Sign out
             </button>
           </li>
@@ -166,6 +208,46 @@ const { open: openAccount } = useAccountModal();
 .acct__signin {
   white-space: nowrap;
 }
+/* The offline card's words: a title in the menu rows' ink and a line under it in the
+   quieter one, inset like a row so it sits on the rows' left edge when they follow. A
+   measure of its own, since the card is otherwise as wide as its longest row and with
+   no rows that is nothing to go by. */
+.acct__offline {
+  width: 15rem;
+  max-width: calc(100vw - var(--space-6));
+  padding: var(--space-2) var(--space-3);
+  font-size: var(--text-chrome);
+  white-space: normal;
+}
+.acct__offhead {
+  font-weight: 600;
+  color: var(--ink);
+}
+/* ON A PHONE THE OFFLINE CARD RUNS THE BAR'S WIDTH. A menu's card hangs from the right
+   edge of the control that opened it and grows leftward (.menu__list, controls.scss),
+   which suits a control at the end of the bar. This one is two icons in, so its card
+   hung off to the left of the cloud, over the list's switcher, with nothing lining it
+   up. So here the card is placed against the bar and not the button: the .menu stops
+   being its containing block, the sticky bar is the next one up, and the card sits a
+   gutter in from each side, directly under the bar. */
+@media (max-width: 480px) {
+  .acct--offline {
+    position: static;
+  }
+  .acct--offline .menu__list {
+    inset-inline: var(--space-2);
+    width: auto;
+    /* as close to its control as any menu is to its own: measured from the bar now, so
+       the bar's bottom padding (--space-3, both bars) is taken back off the usual gap.
+       Left at the bar's foot it hung a full padding lower than the menus beside it. */
+    top: calc(100% - var(--space-3) + var(--space-1));
+  }
+  .acct--offline .acct__offline {
+    width: auto;
+    max-width: none;
+  }
+}
+
 
 /* The disc wears --lit — the app's ONE plate meaning "this control is on", the same
    tone the selected mode tab and the classification chips sit on. So the bar says
@@ -178,15 +260,17 @@ const { open: openAccount } = useAccountModal();
    like the icon weight"). No colour of its own: it inherits the button's, so it rests
    at the same ink as the glyphs beside it — --ink-2 in the site bar, the editor's
    quieter --ink-3 — and darkens with them on hover, focus and open. Medium, not
-   semibold: the icons are 2px strokes on a 24 grid drawn at 16px, ~1.33px of ink,
+   semibold: the icons draw a flat 1.5px line,
    which is a 14px medium stem; semibold read as a bold black mark in a row of thin
    grey lines.
-   Sized in px like the glyphs beside it, NOT from the type scale: the bar's icons hold
-   16px while --text-* grows past the 1920px anchor, and a letter on the scale would
-   outgrow a disc that isn't. The letter is 0.64 of the disc — 14px at rest, the tab
-   word's own --text-chrome size — so the two move together on touch. */
+   Sized like the glyphs beside it, in --tpx: they grow with the type past the 1920px
+   anchor now, and a disc left at 22px shrank beside them to a dot (Ryan: "this got too
+   small"). 24 beside the 20px glyphs on every pointer, the disc a phone already drew.
+   The letter is 0.64 of the disc, so the two move together past the anchor.
+   The letter is trimmed to its cap so the cap itself is centred, not its rounded line
+   box (which sat up to 0.4px low at some zooms). */
 .avatar {
-  --avatar: 22px;
+  --avatar: calc(24 * var(--tpx));
   display: inline-grid;
   place-items: center;
   width: var(--avatar);
@@ -196,19 +280,16 @@ const { open: openAccount } = useAccountModal();
   font-size: calc(var(--avatar) * 0.64);
   font-weight: 500;
   line-height: 1;
+  letter-spacing: 0;
   text-transform: uppercase;
   transition: background var(--spring-fade-dur) var(--spring-fade);
+}
+.avatar__letter {
+  text-box: trim-both cap alphabetic;
 }
 @media (hover: hover) and (pointer: fine) {
   .menu__btn:hover .avatar {
     background: var(--lit-hover);
-  }
-}
-/* the glyphs grow 16 → 18 on touch (.btn--icon svg, controls.scss); the disc keeps
-   the same ratio */
-@media (pointer: coarse) {
-  .avatar {
-    --avatar: 24px;
   }
 }
 </style>

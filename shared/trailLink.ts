@@ -7,7 +7,7 @@
 //   1. Decide whether a stored URL is safe to render. Vue does NOT sanitize attribute
 //      bindings, so a `javascript:`/`data:` value bound to :href executes on click.
 //      The retired /changes page carried this guard first; it lives here so every
-//      render site shares it (the same reason SLUG_RE moved into discovery.ts).
+//      render site shares it.
 //
 //   2. Derive a readable NAME from the URL. The obvious alternative — fetch the page
 //      and read its <title>/og:title — does not work: alltrails.com answers a
@@ -94,32 +94,50 @@ export function displayUrl(url: URL): string {
 // The stored bounds. They live here, applied INSIDE the normalizers, because the DB
 // columns are bare `text` — these are the only limit there is, and a caller that
 // remembered to normalize but forgot to clamp would be an unbounded write.
-const MAX_TRAIL_URL_LEN = 2000; // matches an item's productUrl
-const MAX_TRAIL_LABEL_LEN = 120;
+/** The longest link a list or My Gear stores: a trail's, an item's product page. */
+export const MAX_URL_LEN = 2000;
+export const MAX_TRAIL_URL_LEN = MAX_URL_LEN;
+export const MAX_TRAIL_LABEL_LEN = 120;
+
+// A web address typed or pasted without its scheme: dotted host names ending in a
+// lettered TLD, then an optional path, query or fragment. Nothing before the first
+// slash may be a colon, an @ or a space, so a value carrying a scheme of its own
+// (javascript:, data:), a port or a userinfo can't match and is judged as it always was.
+const BARE_WEB_ADDRESS = /^(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]*[\p{L}\p{N}])?\.)+\p{L}{2,}(?:[/?#]\S*)?$/u;
 
 /**
  * A raw trail URL → its canonical stored form, or null if it isn't a safe http(s) URL.
  * Every write path stores THIS rather than the typed string, so what's persisted is
  * already clamped, already normalized and already known-renderable (client and server
  * agree, and a hostile client can't smuggle a `javascript:` value into a shared list).
+ *
+ * A bare web address ("alltrails.com/trail/…", what a phone's address bar hands to a
+ * copy) is read as https. Here rather than in safeUrl, which also vets citations,
+ * origins and product links that are stored as typed, and rather than in the field, so
+ * the reducer on the server reads the same value the same way.
  */
 export function normalizeTrailUrl(raw: unknown): string | null {
   // `unknown`, like every other meta normalizer: a create body or a hand-edited backup
   // can put anything here, and the callers used to each guard the type themselves
-  return typeof raw === "string" ? (safeUrl(raw.slice(0, MAX_TRAIL_URL_LEN))?.href ?? null) : null;
+  if (typeof raw !== "string") return null;
+  const value = raw.slice(0, MAX_TRAIL_URL_LEN);
+  const url = safeUrl(value) ?? (BARE_WEB_ADDRESS.test(value.trim()) ? safeUrl(`https://${value.trim()}`) : null);
+  return url?.href ?? null;
 }
 
 /**
  * Everything that describes the route a link pointed AT, as the setMeta patch that
- * clears it. A label with no link is unreachable state, and so is a distance, a
- * profile or a line with no route to be the shape of. One object, because two copies
- * of this list is how the next field added here gets cleared on one path and left
- * behind on the other; ListHead spreads it when the link is emptied and the MCP
- * edit_list tool does the same.
+ * clears it. A label with no link is unreachable state, and so is a profile, a climb or
+ * a line with no route to be the shape of. One object, because two copies of this list
+ * is how the next field added here gets cleared on one path and left behind on the
+ * other; ListHead spreads it when the link is emptied and the MCP edit_list tool does
+ * the same.
+ * NOT the distance. It's the trip's length, typed whether or not there's a link (Ryan,
+ * 2026-11-10: "we shouldn't hide distance entry behind needing a link"), so removing a
+ * link leaves it, and it's cleared by emptying its own field.
  */
 export const CLEARS_WITH_LINK = {
   trailLabel: "",
-  trailDistanceM: "",
   trailProfile: "",
   trailAscentM: "",
   trailDescentM: "",

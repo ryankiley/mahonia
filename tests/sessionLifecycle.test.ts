@@ -16,15 +16,20 @@ import * as schema from "../server/db/schema";
 import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import {
   SESSION_COOKIE,
-  SESSION_HINT_COOKIE,
+  accountMarker,
+  allowSessionSweep,
+  askingBrowserHash,
   endAllSessions,
   endSession,
   findOrCreateUser,
+  issueMagicToken,
+  markAskingBrowser,
+  redeemMagicLink,
   resolveSession,
   sessionOwnerMarker,
   startSession,
 } from "../server/utils/authSession";
-import { SESSION_OWNER_COOKIE, SESSION_OWNER_PATTERN } from "../shared/session";
+import { SESSION_HINT_COOKIE, SESSION_OWNER_COOKIE, SESSION_OWNER_PATTERN } from "../shared/session";
 import { sha256Hex } from "../server/utils/tokens";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
@@ -46,18 +51,18 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Sign a user in and hand back the raw cookie value a browser would replay. */
 const signIn = async (db: TestDb, userId: number) => (await signInCookie(db, userId)).token;
 
-describe("startSession → resolveSession", () => {
-  let db: TestDb;
-  let userId: number;
-  beforeEach(async () => {
-    db = await createTestDb(ACCOUNT_DDL);
-    dbState.db = db;
-    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
-  });
+let db: TestDb;
+let userId: number;
+beforeEach(async () => {
+  db = await createTestDb(ACCOUNT_DDL);
+  dbState.db = db;
+  userId = (await findOrCreateUser(db, "ryan@example.com")).id;
+});
 
+describe("startSession → resolveSession", () => {
   it("round-trips: the cookie a sign-in sets is the credential resolve accepts", async () => {
     const start = visit();
-    await startSession(start, db, userId);
+    await startSession(start, db, userId, { sweep: true, unproven: false });
     const token = setCookieValue(start, SESSION_COOKIE)!;
     // the readable hint rides along, carrying no capability
     expect(setCookieValue(start, SESSION_HINT_COOKIE)).toBe("1");
@@ -74,7 +79,8 @@ describe("startSession → resolveSession", () => {
 
     const resolved = visit(`${SESSION_COOKIE}=${token}`);
     const user = await resolveSession(resolved);
-    expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null, owner });
+    const account = accountMarker({ id: userId, email: "ryan@example.com" });
+    expect(user).toEqual({ id: userId, email: "ryan@example.com", displayName: null, owner, sweep: true, unproven: false, account });
     // Sessions from before the marker existed acquire it without reissuing their
     // credential or writing the database.
     expect(setCookieValue(resolved, SESSION_OWNER_COOKIE)).toBe(owner);
@@ -82,9 +88,57 @@ describe("startSession → resolveSession", () => {
     // per SESSION, by design: signing in again mints a different marker, which the
     // browser reads as a change of owner and starts its caches over
     const again = visit();
-    await startSession(again, db, userId);
+    await startSession(again, db, userId, { sweep: true, unproven: false });
     expect(setCookieValue(again, SESSION_OWNER_COOKIE)).toMatch(/^[0-9a-f]{16}$/);
     expect(setCookieValue(again, SESSION_OWNER_COOKIE)).not.toBe(owner);
+    // ...while the ACCOUNT marker is the same on every session it has: what a
+    // browser files unsent edits under has to still be there after a sign-in
+    const second = await resolveSession(visit(`${SESSION_COOKIE}=${setCookieValue(again, SESSION_COOKIE)}`));
+    expect(second!.account).toBe(account);
+    expect(account).toMatch(/^[0-9a-f]{16}$/);
+    const other = await findOrCreateUser(db, "someone-else@example.com");
+    expect(accountMarker(other)).not.toBe(account);
+  });
+
+  // Whether this browser's lists may follow it into the account unasked. Kept on
+  // the session row because the browser's own storage is cleared under sessions
+  // that live on, and a say-so that vanished with it stopped the sweep for good.
+  it("carries whether the browser's lists may follow, and takes a later yes", async () => {
+    const start = visit();
+    await startSession(start, db, userId, { sweep: false, unproven: false });
+    const cookie = `${SESSION_COOKIE}=${setCookieValue(start, SESSION_COOKIE)}`;
+    expect((await resolveSession(visit(cookie)))!.sweep).toBe(false);
+
+    // a yes with no session behind it changes nothing, and nobody else's session
+    const bystander = await signIn(db, (await findOrCreateUser(db, "b@example.com")).id);
+    await db.update(schema.sessions).set({ sweepOk: false }).where(eq(schema.sessions.tokenHash, sha256Hex(bystander)));
+    await allowSessionSweep(visit(), db);
+    await allowSessionSweep(visit(cookie), db);
+
+    expect((await resolveSession(visit(cookie)))!.sweep).toBe(true);
+    expect((await resolveSession(visit(`${SESSION_COOKIE}=${bystander}`)))!.sweep).toBe(false);
+  });
+
+  it("knows the browser that asked for a link by the cookie it left there", async () => {
+    const ask = visit();
+    const hash = markAskingBrowser(ask);
+    const name = "mh_signin";
+    const nonce = setCookieValue(ask, name)!;
+    // the row keeps a hash; the raw value exists only in that browser
+    expect(hash).toBe(sha256Hex(nonce));
+    expect(askingBrowserHash(visit(`${name}=${nonce}`))).toBe(hash);
+    expect(askingBrowserHash(visit())).toBeNull();
+    expect(askingBrowserHash(visit(`${name}=somebody-else`))).not.toBe(hash);
+
+    // the whole loop: only the asking browser's link redeems without a question
+    const token = await issueMagicToken(db, userId, hash);
+    const elsewhere = await redeemMagicLink(db, token, { browserHash: askingBrowserHash(visit()), confirmed: false });
+    expect(elsewhere.kind).toBe("confirm");
+    const here = await redeemMagicLink(db, token, {
+      browserHash: askingBrowserHash(visit(`${name}=${nonce}`)),
+      confirmed: false,
+    });
+    expect(here).toMatchObject({ kind: "ok", sameBrowser: true });
   });
 
   it("resolves nothing for no cookie, a made-up cookie, or an expired session", async () => {
@@ -141,14 +195,6 @@ describe("startSession → resolveSession", () => {
 });
 
 describe("endSession — sign out THIS device", () => {
-  let db: TestDb;
-  let userId: number;
-  beforeEach(async () => {
-    db = await createTestDb(ACCOUNT_DDL);
-    dbState.db = db;
-    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
-  });
-
   it("deletes only the caller's row — other devices and other people stay signed in", async () => {
     const mine = await signIn(db, userId);
     const myOtherDevice = await signIn(db, userId);
@@ -177,14 +223,6 @@ describe("endSession — sign out THIS device", () => {
 });
 
 describe("endAllSessions — sign out EVERYWHERE", () => {
-  let db: TestDb;
-  let userId: number;
-  beforeEach(async () => {
-    db = await createTestDb(ACCOUNT_DDL);
-    dbState.db = db;
-    userId = (await findOrCreateUser(db, "ryan@example.com")).id;
-  });
-
   it("takes every session for the account — the caller's own included — and counts them", async () => {
     const mine = await signIn(db, userId);
     await signIn(db, userId);

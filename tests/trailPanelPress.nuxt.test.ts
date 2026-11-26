@@ -2,7 +2,7 @@
 //
 // The panel closes when focus leaves it — that is how tabbing past its last control
 // puts the row back to rest. But a mouse press moves focus too, and on a node that
-// can't take focus itself (the "Import map file" label, the lede, a strip of padding)
+// can't take focus itself (the "Import map file" label, a field's label, a strip of padding)
 // every engine hands it to the nearest ancestor that CAN. In the editor that ancestor
 // was <main tabindex="-1">, the skip link's target, which is outside the panel: the
 // panel read the press as a departure and closed on the mousedown, so the mouseup
@@ -93,10 +93,10 @@ describe("the trail panel under a mouse press", () => {
     expect(picker).toHaveBeenCalledTimes(1);
   });
 
-  // The same walk from anything else in the panel that isn't a control: the lede is
-  // the widest such target and the easiest to land a stray press on.
+  // The same walk from anything else in the panel that isn't a control: the field's
+  // label, now that the panel has no lede, is the text a stray press lands on.
   it("stays open when its own text is pressed", async () => {
-    press(wrapper.find(".head__panellede").element);
+    press(wrapper.find(".head__panellabel").element);
     await nextTick();
     expect(wrapper.find(".head__panel").exists()).toBe(true);
     // focus went to the panel, not past it to the editor's <main>

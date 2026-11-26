@@ -61,6 +61,9 @@ export const ACCOUNT_DDL: string[] = [
     consumed_at timestamptz,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
+  // Which browser asked for the link (redeemMagicLink): only that browser is
+  // signed in without being asked first.
+  `ALTER TABLE auth_tokens ADD COLUMN IF NOT EXISTS browser_hash text`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_tokens_hash ON auth_tokens (token_hash)`,
   `CREATE INDEX IF NOT EXISTS idx_auth_tokens_expiry ON auth_tokens (expires_at)`,
 
@@ -72,6 +75,12 @@ export const ACCOUNT_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now(),
     last_used_at timestamptz NOT NULL DEFAULT now()
   )`,
+  // Whether this session's browser may sweep its lists into the account unasked
+  // (startSession). Added true, then defaulted false, the way email_verified was:
+  // a session from before the column had already swept, and stopping it would
+  // strand the lists its browser makes next. Every session since says which it is.
+  `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS sweep_ok boolean NOT NULL DEFAULT true`,
+  `ALTER TABLE sessions ALTER COLUMN sweep_ok SET DEFAULT false`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_hash ON sessions (token_hash)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions (expires_at)`,
@@ -96,7 +105,7 @@ export const ACCOUNT_DDL: string[] = [
   )`,
   // the app columns, for a table made by an earlier build of this feature (a preview
   // branch's database): the same idempotent shape every other column change here takes
-  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'token'`,
+  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'token' CHECK (kind IN ('token', 'app'))`,
   `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS client_id text`,
   `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS expires_at timestamptz`,
   `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS refresh_hash text`,
@@ -148,6 +157,15 @@ export const ACCOUNT_DDL: string[] = [
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_credential_id ON credentials (credential_id)`,
   `CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials (user_id)`,
+
+  // Made while the account's address was unproven: such a row opens nothing once it
+  // is proven (see sessions.unproven in server/db/schema.ts). Defaulted false, which
+  // leaves rows from before the column as they were: the claim deletes those anyway,
+  // and only a request in flight at the moment of a claim could write a straggler.
+  `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE credentials ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
+  `ALTER TABLE oauth_codes ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
 
   // list_claims — "this account holds this list". See server/db/schema.ts for why
   // it's a join table and not an owner column, and why it stores no secret.

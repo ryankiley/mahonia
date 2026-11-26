@@ -6,7 +6,7 @@ import type { EffectScope, Ref } from "vue";
 // shapes with ~3 KB brotli of the entry chunk; these cover exactly the
 // signatures the app uses. Note the window-less API: @vueuse/nuxt compiled a
 // bare `window` argument to `undefined` in the server build, and without that
-// module an SSR-rendered component (the /s and /l read views) would throw on
+// module an SSR-rendered component (the /s read view) would throw on
 // it — so the window reference lives HERE, behind import.meta.client, and
 // callers never touch it.
 //
@@ -75,12 +75,80 @@ export function onClickOutside(
   );
 }
 
-// Dismiss an anchored surface when a touch drag scrolls the page under it — the
-// mobile companion to onClickOutside above. Menus hang off triggers that are often
-// STICKY (the topbar's ⋯ and account controls, the editor toolbar's), so scrolling
-// neither carries them away nor takes them down: the card just sits over the content
-// you were trying to read, and the only way out is to find dead space and tap it. On
-// a phone a menu is a good fraction of the screen, so scrolling past it is the
+// navigator.onLine as a ref, tracked via the online/offline events. Lives in
+// the editor's sync controller (client-only); a server render reads as online.
+export function useOnline(): Ref<boolean> {
+  const online = ref(import.meta.client ? navigator.onLine : true);
+  useWindowEvent("online", () => (online.value = true));
+  useWindowEvent("offline", () => (online.value = false));
+  return online;
+}
+
+// A Date that re-renders consumers every 30 s (drives the ticking "x minutes ago"
+// labels; finer than their smallest step, a minute, without a per-second churn). On
+// the server it's a frozen SSR-time Date, same as vueuse's — the client re-labels
+// from its own clock after hydration.
+export function useNow(): Ref<Date> {
+  const now = ref(new Date());
+  if (import.meta.client) {
+    const id = setInterval(() => (now.value = new Date()), 30_000);
+    onScopeDispose(() => clearInterval(id));
+  }
+  return now;
+}
+
+/**
+ * Call `retry` for as long as `when` holds: something couldn't be asked of the server
+ * (the session, My Gear) and is asked again until it answers.
+ *
+ * Three triggers, because the browser's "online" event is the least reliable of them:
+ * navigator.onLine stays true through a dead trailhead connection, a captive portal or
+ * a server blip, so it may never fire. Coming back to the tab or app asks too, and so
+ * does a slow clock while the answer is missing. Never from a hidden tab: a phone with
+ * Mahonia in the background on no signal would wake its radio every 30 s for nothing,
+ * and coming back is a trigger of its own.
+ */
+export function useRetryWhile(when: Readonly<Ref<boolean>>, retry: () => void, everyMs = 30_000): void {
+  if (!import.meta.client) return;
+  const run = () => {
+    if (when.value && document.visibilityState === "visible") retry();
+  };
+  window.addEventListener("online", run);
+  // a DOCUMENT event, so it doesn't fit useWindowEvent's WindowEventMap signature
+  document.addEventListener("visibilitychange", run);
+  let tick: ReturnType<typeof setInterval> | undefined;
+  watch(
+    when,
+    (on) => {
+      clearInterval(tick);
+      tick = on ? setInterval(run, everyMs) : undefined;
+    },
+    { immediate: true },
+  );
+  // a plugin's lives as long as the app; a component's (or a test's) goes with it
+  if (getCurrentScope()) {
+    onScopeDispose(() => {
+      window.removeEventListener("online", run);
+      document.removeEventListener("visibilitychange", run);
+      clearInterval(tick);
+    });
+  }
+}
+
+// The three ways an open popover gets dismissed, wired in one call.
+//
+// Every menu in the app wants exactly the same set — an outside click, a scroll
+// gesture, Escape — and each was writing all three out by hand, identically, in
+// six places. The primitives above were always used correctly; it was the
+// COMBINATION that had no home, so "how does a menu close" was six copies of an
+// answer instead of one.
+//
+// THE SCROLL LISTENER is mobile's, and is the one most easily forgotten: a touch drag
+// that scrolls the page under the menu dismisses it. Menus hang off triggers that are
+// often STICKY (the topbar's ⋯ and account controls, the editor toolbar's), so
+// scrolling neither carries them away nor takes them down: the card just sits over the
+// content you were trying to read, and the only way out is to find dead space and tap
+// it. On a phone a menu is a good fraction of the screen, so scrolling past it is the
 // natural gesture and it should mean what it plainly looks like it means.
 //
 // TOUCHMOVE, not scroll. Two reasons, and the second is the one that decided it:
@@ -92,73 +160,18 @@ export function onClickOutside(
 //     switcher focuses its filter input the moment it opens — so it would have closed
 //     itself, every time, on the exact device this exists for.
 //
-// Bound only WHILE open, like Tooltip's own scroll dismissal and for the same reason:
-// this fires many times per gesture, and a menu nobody opened shouldn't pay for it.
 // A drag INSIDE the surface is ignored — the switcher's list of lists is its own
-// scroller, and scrolling it is the opposite of leaving.
-export function onScrollOutside(
-  open: Ref<boolean>,
-  // same structural ref shape as onClickOutside, so template refs fit
-  target: { readonly value: HTMLElement | null | undefined },
-  handler: () => void,
-): void {
-  if (!import.meta.client) return;
-  // capture, so a drag over any nested scroller is heard too
-  const opts = { passive: true, capture: true } as const;
-  const onTouchMove = (e: TouchEvent) => {
-    const el = target.value;
-    if (el && e.composedPath().includes(el)) return;
-    handler();
-  };
-  const bind = (on: boolean) => {
-    if (on) window.addEventListener("touchmove", onTouchMove, opts);
-    else window.removeEventListener("touchmove", onTouchMove, opts);
-  };
-  watch(open, bind);
-  onScopeDispose(() => bind(false));
-}
-
-// navigator.onLine as a ref, tracked via the online/offline events. Lives in
-// the editor's sync controller (client-only); a server render reads as online.
-export function useOnline(): Ref<boolean> {
-  const online = ref(import.meta.client ? navigator.onLine : true);
-  useWindowEvent("online", () => (online.value = true));
-  useWindowEvent("offline", () => (online.value = false));
-  return online;
-}
-
-// A Date that re-renders consumers every `interval` ms (drives the ticking
-// "x minutes ago" labels). On the server it's a frozen SSR-time Date, same as
-// vueuse's — the client re-labels from its own clock after hydration.
-export function useNow(opts: { interval: number }): Ref<Date> {
-  const now = ref(new Date());
-  if (import.meta.client) {
-    const id = setInterval(() => (now.value = new Date()), opts.interval);
-    onScopeDispose(() => clearInterval(id));
-  }
-  return now;
-}
-
-// The three ways an open popover gets dismissed, wired in one call.
+// scroller, and scrolling it is the opposite of leaving. Bound only WHILE open, like
+// Tooltip's own scroll dismissal and for the same reason: this fires many times per
+// gesture, and a menu nobody opened shouldn't pay for it.
 //
-// Every menu in the app wants exactly the same set — an outside click, a scroll
-// gesture, Escape — and each was writing all three out by hand, identically, in
-// six places. The primitives above were always used correctly; it was the
-// COMBINATION that had no home, so "how does a menu close" was six copies of an
-// answer instead of one.
-//
-// The scroll listener is mobile's, and is the one most easily forgotten: these
-// menus hang off sticky chrome, so on a touchscreen nothing about scrolling
-// would otherwise take them down — the menu just rides along, parked over the
-// list. It binds only while open (see onScrollOutside).
-//
-// The click-outside pair and Escape bind only while open too, in an effect scope
-// started on open and stopped on close (ItemInput's own outside-click wiring is
-// the model). They used to be bound for the instance's whole life, with the guard
-// on `open` inside the handler — fine for the five toolbar menus this was written
-// for, and wrong once every editable row mounted an OptionMenu for its unit: a
-// 150-row list carried ~450 always-on window listeners, each walking
-// composedPath() on every tap and keystroke to close a menu that wasn't open.
+// All three bind only while open, in one effect scope started on open and stopped
+// on close (ItemInput's own outside-click wiring is the model). Bound for the
+// instance's whole life, with the guard on `open` inside the handler, the
+// click-outside pair and Escape are fine for five toolbar menus and wrong where
+// every editable row mounts an OptionMenu for its unit: a 150-row list carries ~450
+// always-on window listeners, each walking composedPath() on every tap and
+// keystroke to close a menu that isn't open.
 // The scope attaches after the opening click has fully dispatched (the watch runs
 // on the microtask), so the press that opened the menu can never be the press
 // that closes it.
@@ -174,27 +187,41 @@ export function useMenuDismiss(
   onDismiss?: () => void,
 ): void {
   const close = onDismiss ?? (() => (open.value = false));
-  onScrollOutside(open, target, close);
+  // Focus that is in the menu as it closes goes back to its trigger, the first button
+  // in it, rather than falling to the page when the row it was on is removed. For
+  // Escape, and for a row that closes the menu itself: the dialog such a row opens
+  // returns focus to whatever held it then (BaseModal).
+  const focusTrigger = () => {
+    const root = target.value;
+    if (root?.contains(document.activeElement)) root.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
+  };
   let scope: EffectScope | null = null;
   const bind = (on: boolean) => {
     if (on && !scope) {
       scope = effectScope(true);
       scope.run(() => {
         onClickOutside(target, () => close());
+        useWindowEvent(
+          "touchmove",
+          (e) => {
+            const el = target.value;
+            if (el && e.composedPath().includes(el)) return;
+            close();
+          },
+          // capture, so a drag over any nested scroller is heard too
+          { passive: true, capture: true },
+        );
         // Escape closes the menu and nothing else: caught on the way DOWN (capture),
         // ahead of a dialog's own window listener, and marked handled so a menu inside
         // a dialog doesn't take the dialog with it (onKeyStroke skips a handled key).
-        // Focus that was in the menu goes back to its trigger, the first button in it,
-        // rather than falling to the page.
+        // Focus that was in the menu goes back to its trigger (focusTrigger).
         useWindowEvent(
           "keydown",
           (e) => {
             if (e.key !== "Escape") return;
-            const root = target.value;
-            const inside = !!root?.contains(document.activeElement);
             e.preventDefault();
+            focusTrigger();
             close();
-            if (inside) root?.querySelector<HTMLElement>("button")?.focus({ preventScroll: true });
           },
           { capture: true },
         );
@@ -204,7 +231,11 @@ export function useMenuDismiss(
       scope = null;
     }
   };
-  watch(open, bind);
+  // the watch runs before the closed menu's rows leave the page, so focus is still on one
+  watch(open, (on) => {
+    if (!on) focusTrigger();
+    bind(on);
+  });
   onScopeDispose(() => bind(false));
 }
 

@@ -1,0 +1,4 @@
+// Generated: a central icons glyph, outside this repo's MIT licence (see ./index.ts).
+import type { IconNode } from "../../utils/icon";
+
+export const IconSafeSimple: IconNode = [["path",{d:"M17 4H7C5.34 4 4 5.34 4 7V17C4 18.66 5.34 20 7 20H17C18.66 20 20 18.66 20 17V7C20 5.34 18.66 4 17 4Z",stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round"}],["path",{d:"M3 8H5",stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round"}],["path",{d:"M3 16H5",stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round"}],["circle",{cx:"12.25",cy:"12",r:"2.5",stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round"}],["path",{d:"M10.25 10L8.75 8.5M14.25 10L15.75 8.5M14.25 14L15.75 15.5M10.25 14L8.75 15.5",stroke:"currentColor",strokeLinecap:"round",strokeLinejoin:"round"}]];

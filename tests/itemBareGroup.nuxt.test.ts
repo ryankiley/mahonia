@@ -36,6 +36,9 @@ const snapshot = ref<ListSnapshot>(blankList());
 mockNuxtImport("useGearList", () => () => gearListStub({ snapshot }));
 
 enableAutoUnmount(afterEach);
+beforeEach(() => {
+  snapshot.value = blankList();
+});
 
 const CHILD = item({ id: "chili", name: "Chili", parentId: "dinners", unitWeightMg: 180_000 });
 
@@ -47,15 +50,11 @@ const mountRow = (row: Item, children: Item[] = []) =>
 // every control under test, and would have made all of this pass for the wrong reason.
 const own = (w: ReturnType<typeof mountRow>) => w.find(".item-row");
 const hasQty = (w: ReturnType<typeof mountRow>) => own(w).find('input[aria-label="Quantity"]').exists();
-const hasLitres = (w: ReturnType<typeof mountRow>) => own(w).find('input[aria-label="Litres of water"]').exists();
+const hasLitres = (w: ReturnType<typeof mountRow>) => own(w).find('input[aria-label="Liters of water"]').exists();
 const hasClassMarks = (w: ReturnType<typeof mountRow>) => own(w).find(".item__classcell").exists();
 const suggests = (w: ReturnType<typeof mountRow>) => w.findComponent(ItemInput).props("suggest");
 
 describe("the cells a bare group stands down", () => {
-  beforeEach(() => {
-    snapshot.value = blankList();
-  });
-
   it("keeps all of them on a leaf", () => {
     const w = mountRow(item({ id: "chili", name: "Chili", unitWeightMg: 180_000 }));
     expect(hasQty(w)).toBe(true);
@@ -137,10 +136,6 @@ describe("the cells a bare group stands down", () => {
 // affordance), and onNameCommit refuses the NUMBER (the invariant). Turning off the menu
 // alone left free text and the keyboard water path wide open, which is what these cover.
 describe("a group's name box", () => {
-  beforeEach(() => {
-    snapshot.value = blankList();
-  });
-
   const nameField = (w: ReturnType<typeof mountRow>) => w.find<HTMLInputElement>(".item__namebox input");
 
   async function renameTo(w: ReturnType<typeof mountRow>, text: string) {

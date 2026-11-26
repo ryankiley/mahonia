@@ -46,7 +46,7 @@ describe("a route file read that outlives its list", () => {
     let epoch = 1;
     const current = ref<ListSnapshot | null>(snapshot("First list"));
     const setMeta = vi.fn();
-    const importer = useGpxImport(current, {
+    const importer = useGpxImport({
       get epoch() { return epoch; },
       snapshot: current,
       setMeta,
@@ -74,7 +74,7 @@ describe("a route file read that outlives its list", () => {
     const epochRef = shallowRef(1);
     const current = ref<ListSnapshot | null>(snapshot("A list"));
     const addWaypoint = vi.fn();
-    const importer = useGpxImport(current, {
+    const importer = useGpxImport({
       epochRef,
       snapshot: current,
       setMeta: vi.fn(),
@@ -104,7 +104,7 @@ describe("the pin offer is bounded by the room the list has", () => {
 
   it("offers only as many pins as fit after the route's own ends", async () => {
     const current = ref<ListSnapshot | null>(snapshot("Empty list"));
-    const importer = useGpxImport(current, {
+    const importer = useGpxImport({
       epoch: 1,
       snapshot: current,
       // the reducer seeds the ends when the geometry lands; the offer must count them
@@ -119,7 +119,7 @@ describe("the pin offer is bounded by the room the list has", () => {
   it("stops at the cap if the list filled while the offer stood", async () => {
     const current = ref<ListSnapshot | null>(snapshot("Empty list"));
     const addWaypoint = vi.fn();
-    const importer = useGpxImport(current, {
+    const importer = useGpxImport({
       epoch: 1,
       snapshot: current,
       setMeta: vi.fn(() => { current.value!.waypoints = routeEnds; }),

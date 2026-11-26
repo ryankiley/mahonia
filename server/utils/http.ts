@@ -9,17 +9,19 @@ import { READ_EDGE_CACHE_CONTROL } from "../../shared/site";
  *
  * A helper rather than a wrapper that sets it for you. The obvious next step —
  * defineApiHandler(action, handler), headers and rate limit together — is a trap
- * this codebase would spring immediately: requireAdmin (the cron routes' gate
- * too) already calls rateLimit("admin") itself, so a wrapper that also called it
- * would charge the same budget twice on every admin and cron request; two catalog
+ * this codebase would spring immediately: requireCron (the cron routes' gate)
+ * already calls rateLimit("cron") itself, so a wrapper that also called it
+ * would charge the same budget twice on every cron request; two catalog
  * endpoints deliberately rate-limit BEFORE setting their cache headers, so a 429
  * is never cached at the edge, which a fixed order would undo; and auth/request
  * rate-limits twice, on two different subjects, at two points in its body. Three
  * separate one-line calls can express all of that. One wrapper can't.
  *
- * The one bundle that IS safe is requireAccount (authSession.ts): the
- * session-gated account endpoints all set both headers and rate-limit before
- * resolving the session, and none of them go near requireAdmin.
+ * The bundles that ARE safe are narrow ones, each over endpoints that share one
+ * fixed order and never go near requireCron: openPrivate and requireAccount
+ * (authSession.ts) for the endpoints answering with one person's own data, which
+ * all set both headers and then rate-limit, and requireEdit (editAuth.ts) for the
+ * edit endpoints, which all rate-limit before resolving the capability.
  */
 export function setNoIndex(event: H3Event): void {
   setHeader(event, "X-Robots-Tag", "noindex");
@@ -35,9 +37,9 @@ export function setPrivate(event: H3Event): void {
 /** The read views' shared edge window: collapses the burst when a share link
  *  makes the rounds, at the accepted cost of 30 s of staleness on a read-only
  *  surface. One helper because it's one INVARIANT — the pair a crawler fetches
- *  (a list's HTML via /api/s | /api/l, then its card image via /og) must go
- *  stale together. READ_EDGE_CACHE_CONTROL lives in shared/site.ts, so the two
- *  SSR read pages use this exact window too. */
+ *  (a list's HTML via /api/s, then its card image via /og) must go
+ *  stale together. READ_EDGE_CACHE_CONTROL lives in shared/site.ts, so the
+ *  SSR read page (/s) uses this exact window too. */
 export function setReadEdgeCache(event: H3Event): void {
   setHeader(event, "Cache-Control", READ_EDGE_CACHE_CONTROL);
 }
@@ -62,10 +64,13 @@ export function setDailyEdgeCache(event: H3Event): void {
 }
 
 /** The Bearer token on the request, "" when absent — the one reading of the
- *  Authorization header, shared by the edit-capability and cron gates. */
+ *  Authorization header, shared by the edit-capability and cron gates. The scheme is
+ *  matched without regard to case, as RFC 7235 has it: a hand-configured client that
+ *  sends "bearer" was read as sending no token at all. */
 export function bearerToken(event: H3Event): string {
   const header = getHeader(event, "authorization") || "";
-  return header.startsWith("Bearer ") ? header.slice(7).trim() : "";
+  const m = /^bearer[ \t]+(.*)$/is.exec(header);
+  return m ? m[1]!.trim() : "";
 }
 
 /**
@@ -152,7 +157,7 @@ export async function readResponseCapped(
     total += value.byteLength;
     chunks.push(value);
   }
-  return { ok: true, body: total ? Buffer.concat(chunks.map((c) => Buffer.from(c))) : null };
+  return { ok: true, body: total ? Buffer.concat(chunks) : null };
 }
 
 /** A body field that should be an array: the elements `guard` admits, capped.
@@ -183,4 +188,28 @@ export async function readJsonBodyCapped<T>(event: H3Event, maxBytes: number): P
   } catch {
     return {} as T;
   }
+}
+
+/**
+ * One line of someone's text, safe to show or mail: control characters and the
+ * invisible formatting ranges (zero-width, bidi overrides, the ideographic space)
+ * collapse to ordinary spaces, runs of whitespace fold to one, and the result is
+ * trimmed and capped. Line breaks are controls, so what comes back cannot start a
+ * paragraph of its own wherever it lands.
+ */
+export function cleanLine(raw: string, max: number): string {
+  return (
+    raw
+      // C0/C1 controls, zero-width + word joiner, bidi embedding/overrides and
+      // isolates, the ideographic space and BOM. Written as escapes on purpose:
+      // the literal characters are invisible in source, and several are outright
+      // invalid inside a regex literal.
+      .replace(
+        /[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028\u2029\u202A-\u202E\u2060\u2066-\u2069\u3000\uFEFF]/g,
+        " ",
+      )
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, max)
+  );
 }

@@ -24,7 +24,6 @@ const DB_NAME = "mahonia-catalog";
 const STORE = "snapshot";
 const KEY = "catalog";
 const DB_VERSION = 1;
-const MAX_ITEMS = 2000; // bounded; far above what one person realistically searches
 
 // best-effort both ways: a cache that can't be read is an empty one, and one that
 // can't be written is still the in-memory index for this page
@@ -66,7 +65,7 @@ export function useCatalogCache() {
   function remember(results: CatalogSearchResult[]) {
     if (!enabled || !results.length) return;
     const incoming: LocalCatalogRow[] = results.map((r) => ({ ...r, usageCount: 0 }));
-    memItems = mergeCatalogRows(memItems, incoming, MAX_ITEMS);
+    memItems = mergeCatalogRows(memItems, incoming);
     persistSoon();
   }
 

@@ -8,13 +8,17 @@
 // has it — the person who just read it off the page they linked.
 //
 // Stored in METRES, the way weight is stored in milligrams: one canonical unit, the
-// entry unit is a display concern. Distance is a property of the ROUTE, so it lives
-// on the trail link rather than on the list — clearing the link clears it too.
+// entry unit is a display concern. It is the trip's length, typed with or without a
+// link, so removing the link leaves it (CLEARS_WITH_LINK, shared/trailLink.ts).
 //
 // This file is only the LENGTH. Elevation, gradient, the per-day itinerary and the burn
 // model all exist now and all live elsewhere — shared/gpx.ts reads the route's shape,
 // shared/tripPlan.ts turns it into time and calories. What stays out of here is anything
 // that needs more than a number and a unit.
+
+// The one import: tidyText.ts pins the locale numbers are grouped in (heights render on
+// the server-rendered share views too) and imports nothing itself, so nothing can cycle.
+import { formatCount } from "./tidyText";
 
 /** Metres per distance unit: the one place each conversion factor is written. */
 const M_PER_UNIT = {
@@ -40,17 +44,17 @@ export type DisplayDistanceUnit = (typeof DISPLAY_DISTANCE_UNITS)[number];
 // The stored bound, applied INSIDE the parser for the same reason trailLink.ts
 // clamps there: this is the only limit there is. 10,000 km is longer than the
 // longest thru-hike on earth and still nowhere near a float that misbehaves.
-const MAX_DISTANCE_M = 10_000_000;
+export const MAX_DISTANCE_M = 10_000_000;
 
-/** One unit word → its metres, or null when the word isn't a unit we know. */
-function unitFromToken(token: string): number | null {
+/** One unit word → the unit it names, or null when the word isn't a unit we know. */
+function unitFromToken(token: string): DistanceUnit | null {
   const u = token.replace(/[. ]/g, "");
-  if (u === "km" || u === "kms" || u.startsWith("kilomet")) return M_PER_UNIT.km;
-  if (u === "m" || u === "mtr" || u.startsWith("met")) return M_PER_UNIT.m;
+  if (u === "km" || u === "kms" || u.startsWith("kilomet")) return "km";
+  if (u === "m" || u === "mtr" || u.startsWith("met")) return "m";
   // "mi"/"mile"/"miles" only — a bare "m" is metres, and guessing miles from it
   // would silently multiply a route by 1609.
-  if (u === "mi" || u.startsWith("mile")) return M_PER_UNIT.mi;
-  if (u === "ft" || u === "feet" || u === "foot") return M_PER_UNIT.ft;
+  if (u === "mi" || u.startsWith("mile")) return "mi";
+  if (u === "ft" || u === "feet" || u === "foot") return "ft";
   return null;
 }
 
@@ -118,14 +122,11 @@ export function parseDistanceM(raw: string, fallbackUnit: DistanceUnit): number 
       candidates.push({ metres: value * M_PER_UNIT[fallbackUnit], unit: null });
       continue;
     }
-    const perM = unitFromToken(word);
+    const unit = unitFromToken(word);
     // qualified by something we don't understand — decline this candidate rather than
     // pretend the qualifier wasn't there
-    if (perM == null) continue;
-    candidates.push({
-      metres: value * perM,
-      unit: perM === M_PER_UNIT.km ? "km" : perM === M_PER_UNIT.mi ? "mi" : perM === M_PER_UNIT.ft ? "ft" : "m",
-    });
+    if (unit == null) continue;
+    candidates.push({ metres: value * M_PER_UNIT[unit], unit });
   }
   if (!candidates.length) return null;
 
@@ -216,31 +217,24 @@ export function heightUnitFor(unit: DisplayDistanceUnit): "ft" | "m" {
  * the conversion, which is why that part lives here.
  */
 export function heightValue(metres: number, unit: DisplayDistanceUnit, step = 1): string {
-  return heightNumber(metres, unit, step).toLocaleString(NUM_LOCALE);
+  return formatCount(heightNumber(metres, unit, step));
 }
 
 /** The one conversion under every height readout: metres into the display unit, held
  *  to `step` (in that unit). heightValue groups it for reading, heightFieldValue keeps
  *  it parseable; neither may convert differently. */
 function heightNumber(metres: number, unit: DisplayDistanceUnit, step: number): number {
-  const v = unit === "mi" ? metres / M_PER_UNIT.ft : metres;
-  return Math.round(v / step) * step;
+  return Math.round(metres / M_PER_UNIT[heightUnitFor(unit)] / step) * step;
 }
 
-/** Pinned, as weights.ts pins its own: heights render on the server-rendered share
- *  views too, and an ambient locale would group "7,316" one way in the HTML and another
- *  on hydration. Restated rather than imported — this module imports nothing, because
- *  types.ts imports it. */
-const NUM_LOCALE = "en-US";
-
 /**
- * A height with its unit word — "7,316 ft" — at the STATED step (heightStepFor) unless
- * the caller names another. The plan's day facts and the shared view's itinerary each
- * composed this themselves, and one had retyped the step. (The profile's readouts keep
- * their own, coarser step — see heightStepFor.)
+ * A height with its unit word — "7,316 ft" — at the STATED step (heightStepFor). The
+ * plan's day facts and the shared view's itinerary each composed this themselves, and
+ * one had retyped the step. (The profile's readouts keep their own, coarser step — see
+ * heightStepFor.)
  */
-export function heightWithUnit(metres: number, unit: DisplayDistanceUnit, step = heightStepFor(unit)): string {
-  return `${heightValue(metres, unit, step)} ${heightUnitFor(unit)}`;
+export function heightWithUnit(metres: number, unit: DisplayDistanceUnit): string {
+  return `${heightValue(metres, unit, heightStepFor(unit))} ${heightUnitFor(unit)}`;
 }
 
 /**
@@ -366,8 +360,8 @@ export function normalizeBodyWeightUnit(raw: unknown): BodyWeightUnit | undefine
  * comes back lower-case with its dots and spaces gone ("fl. oz" → "floz"), "" when there
  * is none. The one rule for reading an amount someone typed — a body weight below and a
  * water volume (shared/water.ts) both start here, so what counts as a number can't
- * drift between them. (It lives in this file because this file imports nothing, and
- * types.ts relies on that.)
+ * drift between them. (It lives in this file because this file imports no domain module,
+ * so both can reach it without a cycle.)
  */
 export function splitAmount(raw: unknown): { n: number; unit: string } | null {
   if (raw == null) return null;
@@ -410,6 +404,18 @@ export function bodyWeightFieldValue(grams: number | undefined, unit: BodyWeight
 }
 
 /**
+ * The route's length as a denominator: the stated distance, or the days' sum where
+ * they have been given more than it. The plan's headline, the shared view's itinerary
+ * and the profile's day cuts all size against this same figure.
+ */
+export function routeLengthM(
+  trailDistanceM: number | null | undefined,
+  dayDistancesM: readonly (number | null | undefined)[],
+): number {
+  return Math.max(trailDistanceM ?? 0, dayDistancesM.reduce<number>((sum, d) => sum + (d ?? 0), 0));
+}
+
+/**
  * The trip's headline distance and the unit it reads in — the figure planning mode puts
  * at the top of the page.
  *
@@ -426,12 +432,11 @@ export function tripHeadline(list: {
   trailDistanceM?: number;
   trailDistanceUnit?: string;
   days?: { distanceM?: number }[];
-}): { value: string; unit: DisplayDistanceUnit; metres: number } {
+}): { value: string; unit: DisplayDistanceUnit } {
   const unit = resolveDistanceUnit(list.trailDistanceUnit);
-  const typed = (list.days ?? []).reduce((s, d) => s + (d?.distanceM ?? 0), 0);
-  const metres = Math.max(list.trailDistanceM ?? 0, typed);
+  const metres = routeLengthM(list.trailDistanceM, (list.days ?? []).map((d) => d?.distanceM));
   // Bare number to one decimal, never a unit switch: formatDistance drops below a
   // kilometre to metres, which is right in prose and wrong beside the headline's
   // own unit control still saying "km".
-  return { value: String(Number((metres / M_PER_UNIT[unit]).toFixed(1))), unit, metres };
+  return { value: String(Number((metres / M_PER_UNIT[unit]).toFixed(1))), unit };
 }

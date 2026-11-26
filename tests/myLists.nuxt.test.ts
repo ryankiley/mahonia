@@ -15,6 +15,7 @@
 // now, which is the scope that owns the watcher — but the fix below is what makes
 // that safe rather than incidental.
 import { beforeEach, describe, expect, it } from "vitest";
+import { memoryListStore } from "./helpers/gearList";
 import { listEntry } from "./helpers/myLists";
 import { stubLocalStorage } from "./helpers/storage";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
@@ -23,11 +24,7 @@ import type { MyListEntry } from "~~/shared/types";
 // forget() also drops the list's on-device record; there's no IndexedDB here and
 // this suite is about localStorage, so the store is a no-op that records nothing.
 const deleted: string[] = [];
-mockNuxtImport("useLocalListStore", () => () => ({
-  get: async () => undefined,
-  set: async () => {},
-  del: async (key: string) => void deleted.push(key),
-}));
+mockNuxtImport("useLocalListStore", () => () => memoryListStore(undefined, deleted));
 
 const storage = stubLocalStorage();
 

@@ -46,6 +46,7 @@ function isHoverless(): boolean {
 </script>
 
 <script setup lang="ts">
+import { typeScale } from "~/utils/typeScale";
 // The simple hover tooltip, ported from the portfolio's <Tooltip> with its
 // positioning logic intact: a fixed-position popup teleported to <body>, flipped
 // top↔bottom by the viewport space actually available, and clamped horizontally to
@@ -88,11 +89,11 @@ const EDGE_PADDING = 12;
 // the trigger, so the tooltip clamps to the actual rendered page column rather than
 // the viewport. If there's no `.wrap` ancestor (a tooltip floating outside the page
 // column), fall back to a viewport clamp with a small buffer.
-function getHorizontalBounds(): { min: number; max: number } {
+function getHorizontalBounds(pad: number): { min: number; max: number } {
   // clientWidth, not innerWidth: the popup is position: fixed, so its edge is the layout
   // viewport's, and innerWidth also counts a classic scrollbar's column (Windows,
   // Linux) — 15px the popup would be clamped into and then clipped out of.
-  const win = { min: EDGE_PADDING, max: document.documentElement.clientWidth - EDGE_PADDING };
+  const win = { min: pad, max: document.documentElement.clientWidth - pad };
   const t = triggerRef.value;
   const wrap = t?.closest<HTMLElement>(".wrap");
   if (!wrap) return win;
@@ -114,10 +115,14 @@ function positionTooltip() {
   // small, so a 280px tooltip clamped to 11px past the column's right edge. The
   // offset dimensions are the untransformed layout box, which is what we want.
   const { offsetWidth: width, offsetHeight: height } = tooltipRef.value;
-  const bounds = getHorizontalBounds();
+  // the offset and edge room grow with the type past 1920px (utils/typeScale)
+  const scale = typeScale();
+  const offset = OFFSET * scale;
+  const pad = EDGE_PADDING * scale;
+  const bounds = getHorizontalBounds(pad);
 
   // Flip to the other side only when the preferred one can't hold the popup.
-  const needed = height + OFFSET + EDGE_PADDING;
+  const needed = height + offset + pad;
   const room = preferredPlacement === "top" ? trigger.top : window.innerHeight - trigger.bottom;
   placement.value = room < needed
     ? (preferredPlacement === "top" ? "bottom" : "top")
@@ -139,7 +144,7 @@ function positionTooltip() {
   const left = Math.min(trigger.left + trigger.width / 2 + shift - width / 2, bounds.max - width);
   tooltipStyle.value = {
     left: `${Math.max(bounds.min, left)}px`,
-    top: `${placement.value === "top" ? trigger.top - height - OFFSET : trigger.bottom + OFFSET}px`,
+    top: `${placement.value === "top" ? trigger.top - height - offset : trigger.bottom + offset}px`,
   };
 }
 

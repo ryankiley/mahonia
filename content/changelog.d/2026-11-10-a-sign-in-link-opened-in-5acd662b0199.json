@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-10",
+  "changed": [
+    "A sign-in link opened in a browser that didn't ask for it names the account and asks first, then asks before adding that browser's lists."
+  ],
+  "fixed": [
+    "A sign-in link someone else sent you can no longer sign your browser in to their account, or add your lists to it, without asking.",
+    "Signing out removes the on-device copies of lists you opened through your account, keeping any edits not yet sent.",
+    "A passkey's name is kept to one short line in the email that says it was added."
+  ]
+}

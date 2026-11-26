@@ -2,7 +2,7 @@
   // Type coverage for tests/, which `nuxt typecheck` never reaches: Nuxt's own
   // include is `tests/nuxt/**`, a directory this repo doesn't have, so a test could
   // import an export that no longer existed and only fail when it ran. `npm run
-  // typecheck:tests` runs this project on its own; `npm run typecheck` runs it
+  // typecheck -- tests` runs this project on its own; `npm run typecheck` runs it
   // alongside the app and scripts projects (scripts/typecheck.mjs).
   "extends": "./.nuxt/tsconfig.json",
   "compilerOptions": {

@@ -1,9 +1,13 @@
-// One CSV cell, escaped and de-fanged — the two rules every exporter here shares.
+// One CSV cell, escaped and de-fanged — the two rules every exporter here shares — and
+// the weight and price cells the list's export and My Gear's both write.
 //
 // Its own module because both exporters need them and neither should own them: the
 // formula guard is a security rule (below), and a second hand-written copy is a
 // second thing to forget when the rule changes. The list exporter had them
 // module-private until the gear exporter needed the same two.
+
+import type { Unit } from "../types";
+import { fromMg } from "../weights";
 
 // A leading =, +, -, @, or a control char (tab/CR) makes a spreadsheet treat the
 // cell as a formula/command (CSV injection / DDE) when the export is opened in
@@ -24,3 +28,18 @@ export function csvCell(v: unknown): string {
   const s = guardFormula(String(v ?? ""));
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
+
+// Decimals each unit's weight is written with, in the list's CSV and in My Gear's.
+// Enough that toMg() rounds the value back to the milligrams it came from, so an
+// export/import round trip is lossless in every unit. Zero decimals for grams claims
+// a 499 mg row weighs nothing, while formatWeight goes out of its way to render "<1 g"
+// on the same data, on the stated reasoning that a real weight rounding to zero "must
+// NOT read as 0". Trailing zeros never survive the unary `+` below, so a whole-gram
+// weight still exports "1247", not "1247.000".
+const CSV_DECIMALS: Record<Unit, number> = { g: 3, kg: 6, oz: 6, lb: 6 };
+
+/** A weight cell in `unit`: the bare number, or blank for no weight. */
+export const csvWeight = (mg: number, unit: Unit): number | "" => (mg > 0 ? +fromMg(mg, unit).toFixed(CSV_DECIMALS[unit]) : "");
+
+/** A price cell: the amount to the cent, or blank for none. */
+export const csvPrice = (cents: number | null | undefined): string => (cents != null ? (cents / 100).toFixed(2) : "");

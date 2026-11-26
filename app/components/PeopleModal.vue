@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { IconTrashCan } from "~/icons/central";
 import { counted } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Delete02Icon } from "@hugeicons/core-free-icons";
+import { SvgIcon } from "~/utils/icon";
 import { categoryColor, FOLDER_PALETTE } from "~~/shared/categories";
 import { MAX_PEOPLE, MAX_PERSON_NAME_LEN } from "~~/shared/ops";
 import { filterItemsForPerson, personColor, personNameTaken, sortedPeople } from "~~/shared/people";
@@ -100,10 +100,9 @@ function remove(p: Person) {
 
 <template>
   <BaseModal :open="true" label="People on this trip" @close="emit('close')">
-    <h2 class="t-label">People</h2>
+    <h2 class="t-label panel__title">People</h2>
     <p class="t-sm t-muted dlg__lede">
-      Add who’s coming, then mark who carries what. Removing someone puts their gear
-      back up for grabs.
+      Add who’s coming, then mark who carries what. Removing someone leaves their gear unassigned.
     </p>
 
     <ul v-if="people.length" class="ppl__list">
@@ -132,11 +131,11 @@ function remove(p: Person) {
             type="button"
             class="btn btn--quiet ppl__remove"
             :class="{ 'is-arming': arming === p.id }"
-            :aria-label="arming === p.id ? `Really remove ${p.name}? ${counted(carriedCount(p.id), 'item')} go back up for grabs` : `Remove ${p.name}`"
+            :aria-label="arming === p.id ? `Really remove ${p.name}? ${counted(carriedCount(p.id), 'item')} become unassigned` : `Remove ${p.name}`"
             @click="remove(p)"
           >
             <template v-if="arming === p.id">Remove?{{ carriedCount(p.id) ? ` · ${counted(carriedCount(p.id), "item")}` : "" }}</template>
-            <HugeiconsIcon v-else :icon="Delete02Icon" :size="14" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon v-else :icon="IconTrashCan" size="sm" aria-hidden="true" />
           </button>
         </div>
         <div v-if="recoloring === p.id" class="ppl__swatches" role="group" :aria-label="`${p.name}’s color`">
@@ -230,7 +229,6 @@ function remove(p: Person) {
 }
 .ppl__name {
   flex: 1;
-  min-width: 0;
 }
 .ppl__remove {
   flex: none;
@@ -279,8 +277,8 @@ function remove(p: Person) {
     background: var(--lit-hover); /* the chosen swatch answers the pointer too */
   }
 }
+/* the reset's ring, drawn inward over the plate */
 .ppl__swatchbtn:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
   outline-offset: var(--focus-offset-inset);
 }
 /* Standing ALONE — nobody named yet, so the list above it doesn't render — this is
@@ -308,7 +306,6 @@ function remove(p: Person) {
 }
 .ppl__addfield {
   flex: 1;
-  min-width: 0;
 }
 /* the refusal — the row's one moment of colour, like .ppl__remove.is-arming, and
    for the same reason: it reports something that did NOT happen, so it has to be

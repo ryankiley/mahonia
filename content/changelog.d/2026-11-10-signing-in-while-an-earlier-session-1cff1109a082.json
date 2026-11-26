@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-10",
+  "fixed": [
+    "Signing in while an earlier session check is still loading no longer leaves the browser looking signed out."
+  ]
+}

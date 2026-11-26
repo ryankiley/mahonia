@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { CircleXIcon } from "@hugeicons/core-free-icons";
+import { IconCircleX } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // A search box with its own clear — the one /gear and the gear pane both draw.
 //
@@ -12,7 +12,10 @@ import { CircleXIcon } from "@hugeicons/core-free-icons";
 //
 // Sizing is the caller's: the root takes whatever class it's given (the pane stretches
 // it, the page caps it at 32ch), and the field inside fills it.
-defineProps<{ placeholder: string; label: string }>();
+//
+// One string names it: `label` is the field's accessible name, and the placeholder is
+// the same words trailing off ("Search your gear…").
+defineProps<{ label: string }>();
 const query = defineModel<string>({ required: true });
 const inputEl = useTemplateRef<HTMLInputElement>("inputEl");
 
@@ -32,7 +35,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
       v-model="query"
       class="field well sf__input"
       type="search"
-      :placeholder="placeholder"
+      :placeholder="`${label}…`"
       :aria-label="label"
     />
     <button
@@ -43,7 +46,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
       title="Clear search"
       @click="clear"
     >
-      <HugeiconsIcon :icon="CircleXIcon" :size="16" :stroke-width="2" />
+      <SvgIcon :icon="IconCircleX" />
     </button>
   </div>
 </template>
@@ -58,10 +61,16 @@ defineExpose({ focus: () => inputEl.value?.focus() });
    rule: search is the one control you reach for on either surface, and an underline
    reads as a caption with a line under it rather than a box you can type in. */
 .sf__input {
-  width: 100%;
-  /* room for the clear button (its inset, its 16px glyph, a gap), so a long query
+  /* room for the clear button (its inset, its glyph, a gap), so a long query
      doesn't run under it */
-  padding-right: calc(var(--space-3) + 16px + var(--space-2));
+  padding-right: calc(var(--space-3) + var(--icon) + var(--space-2));
+  /* --radius-2, the corner of the TABS this field sits under on both surfaces (the mode
+     bar on /gear, the pane's .vp__tab), not the well's own concentric 12px: the two
+     grounds stack a few pixels apart on one edge, and the rounder one below read as a
+     different kind of box (Ryan: "search should match too"). Said here, on the one
+     field both surfaces draw, so the page and the pane can't differ. The well's other
+     wearers keep its corner: they sit among menu rows and in dialogs, which are 12. */
+  border-radius: var(--radius-2);
 }
 /* ON the field rather than beside it, so the input doesn't narrow whenever a query
    exists (a field that resizes as you type). Inset by the well's own --space-3, the
@@ -80,7 +89,7 @@ defineExpose({ focus: () => inputEl.value?.focus() });
     justify-content: center;
     min-width: var(--tap);
     min-height: var(--tap);
-    right: calc(var(--space-3) + 8px - var(--tap) / 2);
+    right: calc(var(--space-3) + var(--icon) / 2 - var(--tap) / 2);
   }
 }
 </style>

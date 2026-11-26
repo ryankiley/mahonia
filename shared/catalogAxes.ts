@@ -2,8 +2,11 @@
 // type is sold by. Lives in shared/ rather than scripts/ because three things key on it and
 // only one of them is build-time: the variant reader and the checks (scripts/), and later
 // the products-with-axes search (#335) and the gear-type pages (#334), which run in
-// server/ and cannot import scripts/. Nothing in app/ imports it today, so it costs the
-// bundle nothing. Keep it data: no fs, no regex over rows, no imports.
+// server/. Server code does import scripts/ today (verify_catalog_item runs the build's
+// own reader and checks: server/utils/catalogHouseRules.ts, catalogSizes.ts,
+// catalogVerify.ts), but a vocabulary that pages and search read is the app's, not the
+// build's. Nothing in app/ imports it today, so it costs the bundle nothing. Keep it data:
+// no fs, no regex over rows, no imports.
 
 /** Column order in the CSV cell and the canonical key order in research JSON. */
 export const ATTRIBUTE_KEYS = [

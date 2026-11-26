@@ -1,29 +1,39 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Cancel01Icon } from "@hugeicons/core-free-icons";
+import { IconCrossMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 // The account, centred over whatever you were doing.
 //
 // Body and shell are both borrowed, deliberately: BaseModal owns the scrim, the rise,
 // click-outside, Escape, the focus trap and focus restore, and AccountView is the same
-// component /account renders. This file is the wiring between them and nothing else.
+// panel /authorize sets inline as a step. This file is the wiring between them and
+// nothing else.
 const { state, close } = useAccountModal();
-// The dialog's accessible name tracks the same state its heading does — a screen
-// reader announcing "Your account" over a sign-in form is the same mismatch. Same
-// rule as AccountView's heading: a presumed account (offline, hint present) is
-// still "your account", loading, rather than a sign-in you don't need.
+// The title, and the dialog's accessible name with it, are the panel's own heading
+// (v-model:heading): it knows whether it is a sign-in, a link just sent or the account,
+// and a screen reader announcing one over another is the same mismatch as the title
+// showing it. Until the panel has said, the half of its rule that needs no panel: a
+// presumed account (offline, hint present) is still "your account", loading, rather
+// than a sign-in you don't need.
 const { presence } = useSession();
-const label = computed(() => (presence.value !== "signedOut" ? "Your account" : "Sign in"));
+const heading = ref<string>();
+const label = computed(() => heading.value ?? (presence.value !== "signedOut" ? "Your account" : "Sign in or sign up"));
+// SIGNED OUT it is the sign-in card (SignInHead.vue): the mark, a centred
+// title, and no close button to see. Signed in it is the account, a tall surface of
+// sections that reads from the left under a title bar with its X: on a phone it leaves
+// too little scrim to count on a press outside.
+const card = computed(() => presence.value === "signedOut");
 </script>
 
 <template>
   <BaseModal :open="state.open" :label="label" @close="close">
-    <!-- `done` is the panel telling us its errand finished — a sign-in landed, or the
-         account was deleted. In this mount that means close; on /account it means go
-         somewhere, which is why the panel takes the mount as a prop. -->
+    <!-- `done` is the panel telling us its errand finished: a sign-in or a sign-out
+         landed. In this mount that means close. A deleted account does not
+         fire it: the dialog stays open as Sign in, under the panel's confirmation. -->
     <!-- The only modal here whose body is a whole surface rather than a form, so it
          has no dlg__actions row and had no visible way out — just Escape and a tap on
          the scrim. The X is the same control the vault pane closes with. -->
-    <header class="panel__head acctmodal__head">
+    <SignInHead v-if="card">{{ label }}</SignInHead>
+    <header v-else class="panel__head acctmodal__head">
       <!-- .t-label is --ink-2 by design; a panel TITLE steps up to full ink, which is
            what the sharing and vault headers already do. -->
       <h2 class="t-label panel__title">{{ label }}</h2>
@@ -38,10 +48,21 @@ const label = computed(() => (presence.value !== "signedOut" ? "Your account" : 
         aria-label="Close your account"
         @click="close"
       >
-        <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconCrossMedium" />
       </button>
     </header>
-    <AccountView in-modal hide-heading @done="close" />
+    <AccountView v-model:heading="heading" :notice="state.notice" @done="close" />
+    <!-- After the form, so Tab reaches the field and Continue first; drawn only while it
+         has keyboard focus, and always there for a screen reader. -->
+    <button
+      v-if="card"
+      type="button"
+      class="btn btn--icon btn--ghost signin__close"
+      aria-label="Close"
+      @click="close"
+    >
+      <SvgIcon :icon="IconCrossMedium" />
+    </button>
   </BaseModal>
 </template>
 
@@ -64,9 +85,17 @@ const label = computed(() => (presence.value !== "signedOut" ? "Your account" : 
    what made the top read as more padded than the sides even though .dlg insets both by
    --space-5. Pull the box back onto the text line so the title sits on the card's
    padding edge and the row is as tall as its type.
-   Same shape as --tap-pull (tokens.scss), derived from the box size rather than typed,
-   so a retune of --icon-btn keeps the rhythm. */
+   --icon-pull is that pull (tokens.scss, beside --tap-pull): derived from the box size
+   rather than typed, so a retune of --icon-btn keeps the rhythm. */
 .acctmodal__head .btn--icon {
-  margin-block: calc((1.45rem - var(--icon-btn)) / 2);
+  margin-block: var(--icon-pull);
+}
+/* touch: the button grows to --tap (atoms/controls.scss), so the pull that keeps the
+   row as tall as its type is the --tap one. With the 32px pull on a 44px box the header
+   stood 12px taller on a phone than the same header does under a mouse. */
+@media (pointer: coarse) {
+  .acctmodal__head .btn--icon {
+    margin-block: var(--tap-pull);
+  }
 }
 </style>

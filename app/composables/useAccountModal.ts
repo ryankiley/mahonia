@@ -19,18 +19,28 @@ import { reactive } from "vue";
 // in) and one visitor's modal state lands in another visitor's SSR'd HTML. If that
 // ever needs to happen, this moves to useState first.
 //
-// /account still exists and is not a redirect: a bookmark, a typed URL and the dead
-// magic link's "Get a new link" all arrive with nothing underneath to sit on top of.
-// Both mounts render AccountView, so there is one implementation of the thing itself.
+// /account is still an address, for a bookmark, a typed URL and the links that name it,
+// but it draws no account of its own: it opens this dialog over the bare address's page
+// (pages/account.vue, from onMounted, which keeps the rule above). A sign-in link that
+// is dead, or that failed twice, opens it too, told why (useSignInLink).
 
 // `everOpened` gates the <LazyAccountModal> mount so the account's chunk — the panel,
 // the passkey ceremony, the delete flow — is fetched on the first open and never on a
 // load that doesn't need it. `open` drives the transition once it's mounted. Same two-
 // flag shape as the editor's Lazy modals.
-const state = reactive({ open: false, everOpened: false });
+//
+// `notice` is why it was opened, when that changes what the sign-in form says: "expired"
+// for a sign-in link that was spent or timed out, "failed" for one that would not sign
+// in after a second try. Either way the form that gets a new link is titled for what
+// just happened. Set on every open, so it never outlives its visit.
+export type AccountNotice = "expired" | "failed";
+const state = reactive({ open: false, everOpened: false, notice: null as AccountNotice | null });
 
 export function useAccountModal() {
-  function open(): void {
+  /** `notice` is compared, not trusted: most callers are click handlers, and a click
+   *  passes its event here. */
+  function open(notice?: unknown): void {
+    state.notice = notice === "expired" || notice === "failed" ? notice : null;
     state.everOpened = true;
     state.open = true;
   }

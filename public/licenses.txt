@@ -67,7 +67,6 @@ reproduced once below. Their copyright lines:
   Vue Router                   Copyright (c) 2019-present Eduardo San Martin Morote
   Nuxt                         Copyright (c) 2016-present - Nuxt Team
   @vercel/analytics            Copyright (c) 2026 Vercel, Inc.
-  @hugeicons/core-free-icons   Copyright (c) Hugeicons
 
 Nuxt's client runtime pulls in a number of small MIT- and ISC-licensed helper
 packages from the same ecosystem (h3, unhead, ufo, defu, hookable, and others).
@@ -105,8 +104,20 @@ which is where that license requires it; this entry records it here too.
   © OpenTopoMap — https://opentopomap.org
 
 ----------------------------------------------------------------------
+central icons — iconists license
+https://iconists.co/central
+----------------------------------------------------------------------
+
+The interface icons are central icons by iconists (David & Storm GbR), used
+under the iconists license (https://iconists.co/license). They are not covered
+by Mahonia's MIT license, and the license does not allow them to be copied out
+of this site or its source as an icon set. The gear glyphs drawn for Mahonia
+(app/icons/mahonia/) are Mahonia's own and fall under its MIT license.
+
+----------------------------------------------------------------------
 Mahonia itself
 ----------------------------------------------------------------------
 
-Source code: MIT, © 2026 Ryan Kiley. See LICENSE in the repository.
+Source code: MIT, © 2026 Ryan Kiley, except the central icons in
+app/icons/central/ (above). See LICENSE in the repository.
 The gear catalog data under seed/ is licensed separately — see seed/LICENSE.md.

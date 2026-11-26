@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { GEAR_ICON_CHOICES } from "~/utils/gearIcons";
 
@@ -47,7 +47,7 @@ useMenuDismiss(open, toRef(props, "root"));
       :aria-label="label"
     >
       <button type="button" class="iconpick__auto" :aria-pressed="modelValue === null" @click="emit('pick', null)">
-        <HugeiconsIcon v-if="auto" :icon="auto" :size="20" :stroke-width="2" aria-hidden="true" />
+        <SvgIcon v-if="auto" :icon="auto" aria-hidden="true" />
         <span>{{ auto ? "Match the gear type" : "No icon" }}</span>
       </button>
       <div class="iconpick__grid" role="group" aria-label="Icons">
@@ -61,7 +61,7 @@ useMenuDismiss(open, toRef(props, "root"));
           :title="c.label"
           @click="emit('pick', c.glyph)"
         >
-          <HugeiconsIcon :icon="c.icon" :size="20" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="c.icon" aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -69,12 +69,13 @@ useMenuDismiss(open, toRef(props, "root"));
 </template>
 
 <style scoped>
-/* eight cells a line (six on a phone), so forty-odd icons are six short rows */
+/* eight cells a line (six on a phone), so forty-odd icons are six short rows. The
+   2 x --space-2 in the width is the card's padding, which is .menu__list's own
+   (atoms/controls.scss). */
 .iconpick__card {
   --iconpick-cell: 2.5rem;
   width: calc(8 * var(--iconpick-cell) + 7 * var(--space-1) + 2 * var(--space-2));
   max-width: calc(100vw - 2 * var(--space-4));
-  padding: var(--space-2);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -92,13 +93,8 @@ useMenuDismiss(open, toRef(props, "root"));
 .iconpick__cell,
 .iconpick__auto {
   min-height: var(--iconpick-cell);
-  padding: 0;
-  border: 0;
   border-radius: var(--popover-item-radius);
-  background: none;
   color: var(--ink-2);
-  font: inherit;
-  cursor: pointer;
 }
 .iconpick__cell {
   display: inline-flex;
@@ -112,7 +108,7 @@ useMenuDismiss(open, toRef(props, "root"));
   align-items: center;
   gap: var(--space-2);
   margin-bottom: var(--space-1);
-  padding-inline: calc((var(--iconpick-cell) - 20px) / 2);
+  padding-inline: calc((var(--iconpick-cell) - 20 * var(--tpx)) / 2);
   text-align: start;
 }
 /* the one you have: the menus' wash under full-strength ink */
@@ -127,9 +123,5 @@ useMenuDismiss(open, toRef(props, "root"));
     background: var(--popover-hover);
     color: var(--ink);
   }
-}
-.iconpick__cell:active,
-.iconpick__auto:active {
-  opacity: 0.7;
 }
 </style>

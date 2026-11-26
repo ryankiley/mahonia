@@ -28,7 +28,6 @@
     {
       "brand": "Montbell",
       "name": "Round Trekking Bell with Silencer",
-      "variant": "",
       "category_hint": "other",
       "common_name": "bear bell",
       "weight_value": 90,
@@ -53,9 +52,7 @@
       "brand": "Montbell",
       "name": "U.L. Thermawrap Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 241,
@@ -68,9 +65,7 @@
       "brand": "Montbell",
       "name": "U.L. Thermawrap Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 203,
@@ -83,9 +78,7 @@
       "brand": "Montbell",
       "name": "U.L. Thermawrap Parka",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 217,
@@ -98,9 +91,7 @@
       "brand": "Montbell",
       "name": "EX Light Thermawrap Jacket",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 174,
@@ -113,9 +104,7 @@
       "brand": "Montbell",
       "name": "EX Light Thermawrap Jacket",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 159,
@@ -128,9 +117,7 @@
       "brand": "Montbell",
       "name": "EX Light Thermawrap Parka",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 200,
@@ -143,9 +130,7 @@
       "brand": "Montbell",
       "name": "EX Light Thermawrap Parka",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 173,
@@ -158,9 +143,7 @@
       "brand": "Montbell",
       "name": "Thermawrap Parka",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 322,
@@ -173,9 +156,7 @@
       "brand": "Montbell",
       "name": "Thermawrap Parka",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 296,
@@ -188,9 +169,7 @@
       "brand": "Montbell",
       "name": "Thermawrap Pro",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 428,
@@ -203,9 +182,7 @@
       "brand": "Montbell",
       "name": "Thermawrap Pro",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 365,
@@ -217,10 +194,7 @@
     {
       "brand": "Montbell",
       "name": "Thermawrap Classic Jacket",
-      "variant": "",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "synthetic jacket",
       "weight_value": 272,
@@ -233,9 +207,7 @@
       "brand": "Montbell",
       "name": "Zeo-Line Middle Weight Round Neck Shirt",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "base layer top",
       "weight_value": 159,
@@ -248,9 +220,7 @@
       "brand": "Montbell",
       "name": "Zeo-Line Middle Weight Round Neck Shirt",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "base layer top",
       "weight_value": 122,
@@ -262,10 +232,7 @@
     {
       "brand": "Alpkit",
       "name": "Koro Mountaineering Stove",
-      "variant": "",
-      "attributes": {
-        "fuel": "isobutane"
-      },
+      "attributes": {"fuel": "isobutane"},
       "attributes_source_url": "https://alpkit.com/products/go-gas",
       "attributes_quote": "Threaded cartridge of premium mix butane, propane and iso-butane for use at low temperatures.",
       "category_hint": "cook",
@@ -280,9 +247,7 @@
       "brand": "Ortovox",
       "name": "185 Rock'N'Wool Sport Top",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sports bra",
       "weight_value": 64,
@@ -295,9 +260,7 @@
       "brand": "Ortovox",
       "name": "185 Rock'N'Wool Hot Pants",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "underwear",
       "weight_value": 62,
@@ -333,7 +296,6 @@
     {
       "brand": "Peak Design",
       "name": "Capture Camera Clip",
-      "variant": "",
       "category_hint": "other",
       "common_name": "camera clip",
       "weight_value": 84,
@@ -346,9 +308,7 @@
       "brand": "NRS",
       "name": "Silkweight Varial Hoodie",
       "variant": "Men's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sun hoodie",
       "weight_value": 11.15,
@@ -361,9 +321,7 @@
       "brand": "NRS",
       "name": "Silkweight Varial Hoodie",
       "variant": "Women's",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "sun hoodie",
       "weight_value": 8.8,
@@ -375,10 +333,7 @@
     {
       "brand": "Sambob",
       "name": "Alpha 60 Crewneck",
-      "variant": "",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 2.5,
@@ -390,10 +345,7 @@
     {
       "brand": "Sambob",
       "name": "Alpha 90 Crewneck",
-      "variant": "",
-      "attributes_unpublished": [
-        "size"
-      ],
+      "attributes_unpublished": ["size"],
       "category_hint": "clothing",
       "common_name": "fleece",
       "weight_value": 3.5,
@@ -406,7 +358,7 @@
       "brand": "Bioré",
       "name": "UV Athlizm Skin Protect Essence SPF50+",
       "variant": "70g",
-      "category_hint": "other",
+      "category_hint": "consumable",
       "common_name": "sunscreen",
       "weight_value": 70,
       "weight_unit": "g",
@@ -432,7 +384,6 @@
     {
       "brand": "Olyra",
       "name": "Crème Breakfast Biscuit (Dark Chocolate)",
-      "variant": "",
       "category_hint": "consumable",
       "common_name": "snack",
       "weight_value": 37.5,
@@ -447,7 +398,6 @@
     {
       "brand": "Trader Joe's",
       "name": "Energy Bar (Peanut Butter)",
-      "variant": "",
       "category_hint": "consumable",
       "common_name": "energy bar",
       "weight_value": 68,
@@ -462,7 +412,6 @@
     {
       "brand": "Trader Joe's",
       "name": "Energy Bar (Chocolate Chip)",
-      "variant": "",
       "category_hint": "consumable",
       "common_name": "energy bar",
       "weight_value": 68,

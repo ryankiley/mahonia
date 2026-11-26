@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { CheckIcon } from "@hugeicons/core-free-icons";
+import { IconCheckmark1Medium } from "~/icons/central";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 
 // Pick one of a few things — the app's answer to a native <select>.
 //
@@ -115,17 +115,16 @@ function pick(key: string) {
             :aria-current="o.key === current ? 'true' : undefined"
             @click="pick(o.key)"
           >
-            <!-- :icon, NOT <component :is>. A hugeicons icon is PATH DATA rather than
+            <!-- :icon, NOT <component :is>. An icon is PATH DATA rather than
                  a component, so :is would try to render an array and fail. -->
-            <HugeiconsIcon v-if="o.icon" :icon="o.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon v-if="o.icon" :icon="o.icon" aria-hidden="true" />
             <span>{{ o.label }}</span>
             <!-- rendered on EVERY row and hidden rather than dropped — see the style -->
-            <HugeiconsIcon
-              :icon="CheckIcon"
+            <SvgIcon
+              :icon="IconCheckmark1Medium"
               class="menu__check"
               :class="{ 'is-on': o.key === current }"
-              :size="14"
-              :stroke-width="2"
+              size="sm"
               aria-hidden="true"
             />
           </button>
@@ -162,10 +161,20 @@ function pick(key: string) {
   padding: 0; /* over .btn's, for the callers that pass it through triggerClass */
   color: inherit;
   text-align: start;
-  cursor: pointer;
 }
 .optmenu__btn--baseline {
   align-items: baseline;
+}
+/* A bare trigger's keyboard ring. The box hugs its text, so the reset's ring drew a
+   hard square whose outer edge (offset + width, 4px out) landed exactly on a neighbour
+   one --space-1 away: a row's unit against its weight. Half the offset leaves a pixel
+   clear on both sides of the ring, and a small corner softens it. Same width and ink,
+   so it is still the app's ring. On focus only, so nothing moves at rest; :where()
+   adds no weight, so a caller's own corner still wins, and a .btn trigger keeps the
+   button's ring whole. */
+.optmenu__btn:where(:not(.btn):focus-visible) {
+  border-radius: var(--radius-1);
+  outline-offset: calc(var(--focus-offset) / 2);
 }
 .optmenu__list {
   min-width: 7rem;

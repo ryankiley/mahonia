@@ -29,58 +29,63 @@ type VaultAccessRefs = { hasVault: ComputedRef<boolean>; vaultKnown: ComputedRef
 let shared: VaultAccessRefs | undefined;
 function accessRefs(): VaultAccessRefs {
   if (import.meta.client && shared) return shared;
-  const { signedIn, loaded } = useSession();
-  const build = (): VaultAccessRefs => ({
-    /** Is there a vault to talk to at all? Signed out, the answer is simply no. */
-    hasVault: computed(() => signedIn.value),
-    /**
-     * Whether `hasVault` is an ANSWER yet, or still the `false` it holds by default
-     * while /api/auth/me is in flight.
-     *
-     * The two are worlds apart for anything that reasons about what the vault
-     * ALREADY contains. "Signed out" means nothing was ever captured; "not yet
-     * known" means the page is a few hundred milliseconds early, and treating it as
-     * signed out makes a signed-in visitor's first paint wrong on every load — see
-     * the save button in ItemRow, which offered to save gear that was already saved.
-     *
-     * Costs nothing to wait for: with no session hint cookie, refresh() resolves to
-     * "signed out" synchronously and without a request, so a visitor without an
-     * account is settled before the first row renders. Only someone who plausibly
-     * HAS a vault waits, and only for the round trip that decides it.
-     */
-    vaultKnown: computed(() => loaded.value),
-  });
+  // useSession's own two computeds, under the names the vault's callers ask by
+  const build = (): VaultAccessRefs => {
+    const { signedIn, loaded } = useSession();
+    return {
+      /** Is there a vault to talk to at all? Signed out, the answer is simply no. */
+      hasVault: signedIn,
+      /**
+       * Whether `hasVault` is an ANSWER yet, or still the `false` it holds by default
+       * while /api/auth/me is in flight.
+       *
+       * The two are worlds apart for anything that reasons about what the vault
+       * ALREADY contains. "Signed out" means nothing was ever captured; "not yet
+       * known" means the page is a few hundred milliseconds early, and treating it as
+       * signed out makes a signed-in visitor's first paint wrong on every load — see
+       * the save button in ItemRow, which offered to save gear that was already saved.
+       *
+       * Costs nothing to wait for: with no session hint cookie, refresh() resolves to
+       * "signed out" synchronously and without a request, so a visitor without an
+       * account is settled before the first row renders. Only someone who plausibly
+       * HAS a vault waits, and only for the round trip that decides it.
+       */
+      vaultKnown: loaded,
+    };
+  };
   if (!import.meta.client) return build();
   return (shared = effectScope(true).run(build)!);
 }
 
+/**
+ * Call a vault endpoint. Same-origin, so the session cookie rides along; the
+ * explicit `credentials` keeps that true if a call is ever made cross-origin by
+ * accident rather than failing silently as an anonymous request.
+ *
+ * The options are spelled out rather than borrowed as `Parameters<typeof
+ * $fetch>[1]`. That looked tidier and cost the whole file: taking Parameters of
+ * a GENERIC function instantiates it at its constraint, which drags in Nuxt's
+ * typed-route matcher — a recursive conditional type over every route in the
+ * app — for a call that infers nothing from the route anyway (the return is
+ * cast to `T`). It sat just under TypeScript's depth limit until a routes change
+ * pushed it over, and then reported five TS2321s on this one line, in a file
+ * nothing had touched. Casting the call itself keeps the matcher out of it.
+ *
+ * One function for the app, not one per caller: it holds nothing of its own, and
+ * every row asks for it.
+ */
+type VaultFetchOptions = {
+  method?: "GET" | "POST";
+  body?: unknown;
+  query?: Record<string, unknown>;
+  signal?: AbortSignal;
+};
+async function vaultFetch<T>(url: string, opts: VaultFetchOptions = {}): Promise<T> {
+  const call = $fetch as unknown as (u: string, o: unknown) => Promise<unknown>;
+  return (await call(url, { ...opts, credentials: "same-origin" })) as T;
+}
+
 export function useVaultAccess() {
   const { hasVault, vaultKnown } = accessRefs();
-
-  /**
-   * Call a vault endpoint. Same-origin, so the session cookie rides along; the
-   * explicit `credentials` keeps that true if a call is ever made cross-origin by
-   * accident rather than failing silently as an anonymous request.
-   *
-   * The options are spelled out rather than borrowed as `Parameters<typeof
-   * $fetch>[1]`. That looked tidier and cost the whole file: taking Parameters of
-   * a GENERIC function instantiates it at its constraint, which drags in Nuxt's
-   * typed-route matcher — a recursive conditional type over every route in the
-   * app — for a call that infers nothing from the route anyway (the return is
-   * cast to `T`). It sat just under TypeScript's depth limit until a routes change
-   * pushed it over, and then reported five TS2321s on this one line, in a file
-   * nothing had touched. Casting the call itself keeps the matcher out of it.
-   */
-  type VaultFetchOptions = {
-    method?: "GET" | "POST";
-    body?: unknown;
-    query?: Record<string, unknown>;
-    signal?: AbortSignal;
-  };
-  async function vaultFetch<T>(url: string, opts: VaultFetchOptions = {}): Promise<T> {
-    const call = $fetch as unknown as (u: string, o: unknown) => Promise<unknown>;
-    return (await call(url, { ...opts, credentials: "same-origin" })) as T;
-  }
-
   return { hasVault, vaultKnown, vaultFetch };
 }

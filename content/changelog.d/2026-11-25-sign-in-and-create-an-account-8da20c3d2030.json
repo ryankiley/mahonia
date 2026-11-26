@@ -1,0 +1,7 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "Sign in and Create an account read from the left in their dialog, like its title.",
+    "A shared list that doesn't exist, and a sign-in link that fails, sit mid-page like the 404."
+  ]
+}

@@ -4,10 +4,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Nimbus Ultralight 1 Person Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 1
-      },
+      "attributes": {"persons": 1},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 872,
@@ -19,10 +16,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Nimbus Ultralight 2 Person Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 2
-      },
+      "attributes": {"persons": 2},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 1037,
@@ -34,10 +28,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Aspect 2 Person Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 2
-      },
+      "attributes": {"persons": 2},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 1530,
@@ -49,10 +40,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Aspect 3 Person Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 3
-      },
+      "attributes": {"persons": 3},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 1874,
@@ -64,10 +52,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Mineral King 2 Person Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 2
-      },
+      "attributes": {"persons": 2},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 2947,
@@ -79,10 +64,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Mineral King 3 Person Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 3
-      },
+      "attributes": {"persons": 3},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 3564,
@@ -94,10 +76,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Mineral King 2 Person All Season Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 2
-      },
+      "attributes": {"persons": 2},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 2977,
@@ -109,10 +88,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Mineral King 3 Person All Season Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 3
-      },
+      "attributes": {"persons": 3},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 3555,
@@ -124,10 +100,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "AC 2 Person Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 2
-      },
+      "attributes": {"persons": 2},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 1811,
@@ -139,10 +112,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Trango 2 Person Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 2
-      },
+      "attributes": {"persons": 2},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 4280,
@@ -154,10 +124,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Trango 3 Person Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 3
-      },
+      "attributes": {"persons": 3},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 5043,
@@ -169,10 +136,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Trango 4 Person Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 4
-      },
+      "attributes": {"persons": 4},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 5533,
@@ -184,10 +148,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Stronghold Dome Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 6
-      },
+      "attributes": {"persons": 6},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 22136,
@@ -199,10 +160,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Space Station Dome Tent",
-      "variant": "",
-      "attributes": {
-        "persons": 8
-      },
+      "attributes": {"persons": 8},
       "category_hint": "shelter",
       "common_name": "tent",
       "weight_value": 38938,
@@ -214,7 +172,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Aspect 3 Footprint",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 263,
@@ -226,7 +183,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "AC 2 Footprint",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 239,
@@ -238,7 +194,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Trango 2 Footprint",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 415,
@@ -250,7 +205,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Trango 3 Footprint",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 465,
@@ -262,7 +216,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Trango 4 Footprint",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 566,
@@ -274,7 +227,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Stronghold Footprint",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 2305,
@@ -286,7 +238,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "SpaceStation Footprint",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 4131,
@@ -298,7 +249,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "AC 2 Tent Accessory Vestibule",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "vestibule",
       "weight_value": 771,
@@ -311,9 +261,7 @@
       "brand": "Mountain Hardwear",
       "name": "Phantom Windstopper -40F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": -40
-      },
+      "attributes": {"temp_f": -40},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 2052,
@@ -326,9 +274,7 @@
       "brand": "Mountain Hardwear",
       "name": "Bishop Pass Windstopper -15F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": -15
-      },
+      "attributes": {"temp_f": -15},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1788,
@@ -341,9 +287,7 @@
       "brand": "Mountain Hardwear",
       "name": "Lamina -20F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": -20
-      },
+      "attributes": {"temp_f": -20},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 2300,
@@ -356,9 +300,7 @@
       "brand": "Mountain Hardwear",
       "name": "Phantom 0F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 0
-      },
+      "attributes": {"temp_f": 0},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1201,
@@ -371,9 +313,7 @@
       "brand": "Mountain Hardwear",
       "name": "Phantom Windstopper 0F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 0
-      },
+      "attributes": {"temp_f": 0},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1652,
@@ -386,9 +326,7 @@
       "brand": "Mountain Hardwear",
       "name": "Specter 15F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 15
-      },
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1031,
@@ -401,9 +339,7 @@
       "brand": "Mountain Hardwear",
       "name": "Bishop Pass 15F",
       "variant": "Women's, Regular",
-      "attributes": {
-        "temp_f": 15
-      },
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1141,
@@ -416,9 +352,7 @@
       "brand": "Mountain Hardwear",
       "name": "Bishop Pass 0F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 0
-      },
+      "attributes": {"temp_f": 0},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1420,
@@ -431,9 +365,7 @@
       "brand": "Mountain Hardwear",
       "name": "Bishop Pass 0F",
       "variant": "Women's, Regular",
-      "attributes": {
-        "temp_f": 0
-      },
+      "attributes": {"temp_f": 0},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1440,
@@ -446,9 +378,7 @@
       "brand": "Mountain Hardwear",
       "name": "Lamina 15F",
       "variant": "Women's, Regular",
-      "attributes": {
-        "temp_f": 15
-      },
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1715,
@@ -461,9 +391,7 @@
       "brand": "Mountain Hardwear",
       "name": "Lamina 0F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 0
-      },
+      "attributes": {"temp_f": 0},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1875,
@@ -476,9 +404,7 @@
       "brand": "Mountain Hardwear",
       "name": "Lamina 0F",
       "variant": "Women's, Regular",
-      "attributes": {
-        "temp_f": 0
-      },
+      "attributes": {"temp_f": 0},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 2076,
@@ -491,9 +417,7 @@
       "brand": "Mountain Hardwear",
       "name": "Bishop Pass Windstopper 15F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 15
-      },
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1164,
@@ -506,9 +430,7 @@
       "brand": "Mountain Hardwear",
       "name": "Bishop Pass Windstopper 0F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 0
-      },
+      "attributes": {"temp_f": 0},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1495,
@@ -521,9 +443,7 @@
       "brand": "Mountain Hardwear",
       "name": "Phantom 30F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 30
-      },
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 626,
@@ -536,9 +456,7 @@
       "brand": "Mountain Hardwear",
       "name": "Bishop Pass 30F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 30
-      },
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 810,
@@ -551,9 +469,7 @@
       "brand": "Mountain Hardwear",
       "name": "Bishop Pass 30F",
       "variant": "Women's, Regular",
-      "attributes": {
-        "temp_f": 30
-      },
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 870,
@@ -566,9 +482,7 @@
       "brand": "Mountain Hardwear",
       "name": "Lamina 30F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 30
-      },
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 990,
@@ -581,9 +495,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alamere 20F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 20
-      },
+      "attributes": {"temp_f": 20},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1318,
@@ -596,9 +508,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alakazam 45L Ultralight Backpack",
       "variant": "XS/S",
-      "attributes": {
-        "volume_l": 45
-      },
+      "attributes": {"volume_l": 45},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 800,
@@ -611,9 +521,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alakazam 60L Ultralight Backpack",
       "variant": "XS/S",
-      "attributes": {
-        "volume_l": 60
-      },
+      "attributes": {"volume_l": 60},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 840,
@@ -626,9 +534,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alakazam 60L Ultralight Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 60
-      },
+      "attributes": {"volume_l": 60},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 860,
@@ -641,9 +547,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alakazam 60L Ultralight Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 60
-      },
+      "attributes": {"volume_l": 60},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 900,
@@ -656,9 +560,7 @@
       "brand": "Mountain Hardwear",
       "name": "Kazam 60L Backpack",
       "variant": "XS/S",
-      "attributes": {
-        "volume_l": 60
-      },
+      "attributes": {"volume_l": 60},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1160,
@@ -671,9 +573,7 @@
       "brand": "Mountain Hardwear",
       "name": "Kazam 60L Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 60
-      },
+      "attributes": {"volume_l": 60},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1180,
@@ -686,9 +586,7 @@
       "brand": "Mountain Hardwear",
       "name": "Kazam 60L Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 60
-      },
+      "attributes": {"volume_l": 60},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1200,
@@ -701,9 +599,7 @@
       "brand": "Mountain Hardwear",
       "name": "Kazam 45L Backpack",
       "variant": "XS/S",
-      "attributes": {
-        "volume_l": 45
-      },
+      "attributes": {"volume_l": 45},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1120,
@@ -716,9 +612,7 @@
       "brand": "Mountain Hardwear",
       "name": "Kazam 45L Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 45
-      },
+      "attributes": {"volume_l": 45},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1140,
@@ -731,9 +625,7 @@
       "brand": "Mountain Hardwear",
       "name": "Kazam 45L Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 45
-      },
+      "attributes": {"volume_l": 45},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1160,
@@ -746,9 +638,7 @@
       "brand": "Mountain Hardwear",
       "name": "Scrambler 35L Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 35
-      },
+      "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1180,
@@ -761,9 +651,7 @@
       "brand": "Mountain Hardwear",
       "name": "Scrambler 35L Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 35
-      },
+      "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1202,
@@ -776,9 +664,7 @@
       "brand": "Mountain Hardwear",
       "name": "AMG 105 Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 105
-      },
+      "attributes": {"volume_l": 105},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 2327,
@@ -791,9 +677,7 @@
       "brand": "Mountain Hardwear",
       "name": "AMG 105 Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 105
-      },
+      "attributes": {"volume_l": 105},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 2378,
@@ -806,9 +690,7 @@
       "brand": "Mountain Hardwear",
       "name": "AMG 75L Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 75
-      },
+      "attributes": {"volume_l": 75},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 2186,
@@ -821,9 +703,7 @@
       "brand": "Mountain Hardwear",
       "name": "AMG 75L Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 75
-      },
+      "attributes": {"volume_l": 75},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 2250,
@@ -836,9 +716,7 @@
       "brand": "Mountain Hardwear",
       "name": "Direttissima 55L Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 55
-      },
+      "attributes": {"volume_l": 55},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 2134,
@@ -851,9 +729,7 @@
       "brand": "Mountain Hardwear",
       "name": "Direttissima 55L Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 55
-      },
+      "attributes": {"volume_l": 55},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 2197,
@@ -866,9 +742,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alpine Light 50 Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 50
-      },
+      "attributes": {"volume_l": 50},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1153,
@@ -881,9 +755,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alpine Light 50 Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 50
-      },
+      "attributes": {"volume_l": 50},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1168,
@@ -896,9 +768,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alpine Light Roll Top 45L Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 45
-      },
+      "attributes": {"volume_l": 45},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1085,
@@ -911,9 +781,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alpine Light Roll Top 45L Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 45
-      },
+      "attributes": {"volume_l": 45},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1100,
@@ -926,9 +794,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alpine Light 35L Backpack",
       "variant": "S/M",
-      "attributes": {
-        "volume_l": 35
-      },
+      "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 963,
@@ -941,9 +807,7 @@
       "brand": "Mountain Hardwear",
       "name": "Alpine Light 35L Backpack",
       "variant": "M/L",
-      "attributes": {
-        "volume_l": 35
-      },
+      "attributes": {"volume_l": 35},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 973,

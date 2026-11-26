@@ -6,12 +6,19 @@
 // instead of regexing them out of this file.
 import { SECURITY_HEADERS, TILE_ORIGIN } from "./config/security";
 import { PWA_OPTIONS } from "./config/pwa";
-import { hugeiconsPrecision } from "./config/icons";
 import { parseDevAllowedHosts } from "./config/devHosts";
 // The canonical origin, single-sourced — the server reads the same constant to
 // decide what host a sign-in link may point at (server/utils/origin.ts), so the
 // social card and that decision can't drift onto different domains.
 import { CANONICAL_ORIGIN } from "./shared/site";
+
+// The page title and description, each also the social card's. KEEP IN STEP WITH
+// public/manifest.webmanifest, which repeats the title as `name` and the description
+// as `description`. That file is strict JSON and hand-written (pwa.manifest is false),
+// so it can carry no comment of its own and nothing checks the two agree; an installed
+// app whose name disagrees with its page title is the failure mode. See config/pwa.ts.
+const SITE_TITLE = "Mahonia — pack lists, weighed";
+const SITE_DESCRIPTION = "Make a packing list, see what it weighs, share it. No login needed.";
 
 export default defineNuxtConfig({
   // Pin date-gated Nuxt/Nitro defaults so builds are reproducible across CI/Vercel
@@ -23,8 +30,8 @@ export default defineNuxtConfig({
   // so registering "@vercel/analytics" silently injected nothing.
   modules: ["@vercel/analytics/nuxt", "@vite-pwa/nuxt"],
 
-  // Master switch for the offline plumbing (service worker + background sync, and
-  // the offline catalog search). ON by default — the site is a full PWA out of the
+  // Master switch for the offline plumbing (the service worker and the offline
+  // catalog search). ON by default — the site is a full PWA out of the
   // box (installable, boots from cache, offline edits queue + replay). Setting
   // NUXT_PUBLIC_OFFLINE=false (that exact string) is the kill switch: the gated
   // plugin then unregisters any SW + drops its caches, a clean rollback (see
@@ -85,20 +92,6 @@ export default defineNuxtConfig({
             : { driver: "memory" },
       },
     },
-    vite: {
-      // The icon package bundled INTO the SSR build, so config/icons.ts's rounding
-      // reaches the server side too. Vite's SSR build externalises node_modules and
-      // Nitro bundles them afterwards, past every Vite transform, so without this the
-      // share views would render a glyph's full-precision `d` on the server and
-      // hydrate the rounded one on the client.
-      //
-      // PRODUCTION ONLY, like the plugin it exists for. Under `nuxt dev` the same
-      // line makes vite-node inline the package's 6,025-re-export barrel — every
-      // re-export a sequential awaited `__vite_ssr_import__` — which was measured at
-      // 7–25 s on the first render of every dev start and ~+800 MB RSS. Dev leaves
-      // both sides at full precision, which agree with each other regardless.
-      ssr: { noExternal: ["@hugeicons/core-free-icons"] },
-    },
   },
 
   nitro: {
@@ -117,16 +110,6 @@ export default defineNuxtConfig({
     // up from .output to the workspace's node_modules, so `nuxt preview` and the
     // seed/audit scripts keep working unchanged.
     externals: {
-      // Bundle the icon package INTO the server build rather than shipping it as
-      // an external: it is sideEffects-free and only a handful of icons are used,
-      // so inlining tree-shakes it to those, where the external copy was the whole
-      // package (24 MB / 6,000 files, 65% of the server output) plus a 673 KB
-      // barrel loaded on every cold start. Since the production Vite SSR build
-      // bundles the package itself (`$production.vite.ssr.noExternal`, for the
-      // rounding), Nitro no longer meets a bare import of it and this entry is a
-      // belt to that brace — keep both: dropping the other reintroduces a
-      // server/client mismatch on every share view's glyphs.
-      inline: ["@hugeicons/core-free-icons"],
       traceOptions: {
         // function form: node-file-trace matches string globs against paths
         // relative to its base ("/"), which proved brittle — predicate it instead
@@ -150,27 +133,10 @@ export default defineNuxtConfig({
   sourcemap: process.env.BUNDLE_MAPS === "1" ? { client: "hidden" } : undefined,
 
   vite: {
-    // the icon set's path data rounded to two decimals at build time — see
-    // config/icons.ts for the measurement and the proof that nothing moves
-    plugins: [hugeiconsPrecision()],
-    // (…and bundled into the SSR build so the server side rounds too — but only in
-    // production; see `$production.vite.ssr` above for why not in dev.)
-    build: {
-      rolldownOptions: {
-        // Skip loading the 6,000 re-exports of @hugeicons/core-free-icons' barrel
-        // that nothing imports. Rolldown otherwise loads and transforms every one of
-        // them on both build sides to keep the ~70 the app draws (measured: 6,026
-        // modules → 3, ~890 → ~220 ms, output byte-identical). The package is
-        // `sideEffects: false` and its index is pure re-exports, which is the shape
-        // the optimisation is for; rolldown plans to make it the default. Here, not
-        // under $client, so the SSR build gets it too.
-        experimental: { lazyBarrel: true },
-      },
-    },
     // Compile out Vue's Options-API runtime (data()/mixins/computed-object
     // components). Every component here is <script setup>, and the client's Vue
     // dependencies are too (vue-router's views, Nuxt's own components; the icon
-    // component is app/utils/hugeicon.ts, functional). The flag is Vue's own
+    // component is app/utils/icon.ts, functional). The flag is Vue's own
     // documented tree-shaking switch — a few KB off every page for code nothing
     // calls. TRIPWIRE: a future dependency that ships an Options-API component
     // will break loudly at runtime with this off; if one ever must be adopted,
@@ -187,15 +153,16 @@ export default defineNuxtConfig({
     // not the minify pass that drops it. The notice requirement is met by
     // public/licenses.txt instead, which is deterministic and covers every
     // bundled library rather than only the ones that happen to carry a banner.
-    // Shared SCSS breakpoint vars, prepended to every SFC `lang="scss"` style
+    // The shared SCSS breakpoint vars, prepended to every SFC `lang="scss"` style
     // block so plain `@media (max-width: $bp-stack)` queries share the tokens'
-    // anchors. Sass module scoping keeps this injection out of @use'd files, so
-    // foundations/tokens.scss carries the same declarations (`!default`) for its
-    // own math — a retune must change both places.
+    // anchors. A `@use` of the one file that declares them, not a second copy of
+    // the values: Sass module scoping keeps this injection out of @use'd files, so
+    // foundations/tokens.scss forwards the same module for the atoms and for its
+    // own math. A retune changes foundations/_breakpoints.scss and nothing else.
     css: {
       preprocessorOptions: {
         scss: {
-          additionalData: "$bp-stack: 720px; $bp-full: 1024px;",
+          additionalData: '@use "~/assets/styles/foundations/_breakpoints.scss" as *;',
         },
       },
     },
@@ -308,12 +275,7 @@ export default defineNuxtConfig({
   app: {
     head: {
       htmlAttrs: { lang: "en" },
-      // KEEP IN STEP WITH public/manifest.webmanifest, which repeats this title as
-      // `name` and the description below as `description`. That file is strict JSON
-      // and hand-written (pwa.manifest is false), so it can carry no comment of its
-      // own and nothing checks the two agree — an installed app whose name disagrees
-      // with its page title is the failure mode. See config/pwa.ts.
-      title: "Mahonia — pack lists, weighed",
+      title: SITE_TITLE,
       // no charset entry: Nuxt prepends { charset: "utf-8" } itself when none is set
       meta: [
         {
@@ -335,25 +297,18 @@ export default defineNuxtConfig({
         // the page's --paper in each mode.
         { name: "theme-color", media: "(prefers-color-scheme: light)", content: "#ffffff" },
         { name: "theme-color", media: "(prefers-color-scheme: dark)", content: "#000000" },
-        {
-          name: "description",
-          content:
-            "Make a packing list, see what it weighs, share it. No login needed.",
-        },
+        { name: "description", content: SITE_DESCRIPTION },
         // Social card. The editor (the landing page) is prerendered, and this static
         // set is what unfurls the bare domain for a crawler that reads no further.
         // og:image MUST be absolute and the prerendered shell has no request
         // context, so the canonical prod host is used here (from shared/site.ts, which
         // is now the one place that host is written down; sitemap/robots still derive
         // theirs from the request, since a forged host there answers only itself). SSR
-        // routes (/s, /l) override og:title/description per-list via their own useSeoMeta.
+        // routes (/s, /e/{code}) override og:title/description per-list via their own useSeoMeta.
         { property: "og:type", content: "website" },
         { property: "og:site_name", content: "Mahonia" },
-        { property: "og:title", content: "Mahonia — pack lists, weighed" },
-        {
-          property: "og:description",
-          content: "Make a packing list, see what it weighs, share it. No login needed.",
-        },
+        { property: "og:title", content: SITE_TITLE },
+        { property: "og:description", content: SITE_DESCRIPTION },
         { property: "og:image", content: `${CANONICAL_ORIGIN}/og.png` },
         { property: "og:image:width", content: "1200" },
         { property: "og:image:height", content: "630" },
@@ -376,8 +331,8 @@ export default defineNuxtConfig({
 
   // Per-route rendering. "/" is a tiny client-decided page (app/pages/index.vue: the
   // list you opened last, else a fresh draft); the editor stays a pure client island (edit token in
-  // the URL fragment, no SSR value). Everything else (legal pages, the public /l
-  // read view) is SSR by default.
+  // the URL fragment, no SSR value). Everything else (the /s read view, the legal
+  // pages) is SSR by default.
   routeRules: {
     // Security headers on EVERY route — including prerendered/static ones. A
     // server middleware would only run for dynamic responses, leaving prerendered
@@ -414,8 +369,8 @@ export default defineNuxtConfig({
     // the one surface you can't scroll away from.
     //
     // The cost of dropping it is one invocation per open of a capability link, which
-    // is the cheapest traffic on the site: /s/{code} and /l/{slug} carry the PUBLIC
-    // share traffic and are already uncached SSR, so this can't be the expensive
+    // is the cheapest traffic on the site: /s/{code} carries the PUBLIC share traffic
+    // and is already uncached SSR, so this can't be the expensive
     // route. Freshness on your own list's name is worth more than collapsing a
     // burst that, on an edit link, is one bot deep.
     //

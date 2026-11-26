@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-20",
+  "fixed": [
+    "A list can no longer carry hidden text that only an AI assistant reading it would see."
+  ]
+}

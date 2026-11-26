@@ -17,10 +17,8 @@
 // has no key, not a blank). Pure and framework-free: `target` is whatever the caller
 // hands over, and when that is the reactive proxy, every write here goes through it.
 
-import type { ListSnapshot } from "./types";
+import { ENTITY_KEYS, type EntityKey, type ListSnapshot } from "./types";
 
-const ENTITY_KEYS = ["folders", "items", "days", "waypoints", "people"] as const;
-type EntityKey = (typeof ENTITY_KEYS)[number];
 const isEntityKey = (key: string): key is EntityKey => (ENTITY_KEYS as readonly string[]).includes(key);
 
 type Row = { id: string };

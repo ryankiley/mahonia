@@ -12,7 +12,9 @@ import { itemDisplayName } from "~~/shared/weights";
 //
 // With `search` (the read-only share views), the product name becomes a web-search
 // link. Water / unnamed rows resolve to no link (itemSearchUrl → null), so they render
-// as plain text. `group` is the caller's own isParent (it has childrenByParent to hand)
+// as plain text. So does a GROUP: its name is a heading the person wrote over the rows
+// inside it ("Tent", "Day 2"), not a product to look up, and the rows under it carry
+// their own links. `group` is the caller's own isParent (it has childrenByParent to hand)
 // — the FACT, not a guess. A nameless group gets a stand-in label rather than
 // rendering an empty line with a weight beside it; a nameless leaf renders as the
 // blank it is.
@@ -21,7 +23,7 @@ const main = computed(() => itemDisplayName(props.item.brand, props.item.name));
 // A group reaches these views unnamed when nesting wrapped a weighed row that had no
 // gear type to take (useGearList.containerFor) — it starts empty, awaiting a name.
 const unnamed = computed(() => props.group && !main.value);
-const href = computed(() => (props.search ? itemSearchUrl(props.item) : null));
+const href = computed(() => (props.search && !props.group ? itemSearchUrl(props.item) : null));
 const searchLabel = computed(() => `Search the web for ${itemSearchName(props.item)}`);
 </script>
 
@@ -41,11 +43,10 @@ const searchLabel = computed(() => `Search the web for ${itemSearchName(props.it
    flex item's automatic minimum is its MIN-CONTENT width — so a name with no space or
    hyphen in it grew this span to the whole word and ran it off the side of the phone,
    past a parent that was itself correctly bounded. `min-width: 0` lets it shrink to the
-   cell, which is what lets the inherited overflow-wrap break the word. Inert in the
-   read row, where this span is inline and min-width doesn't apply. */
-.iname {
-  min-width: 0;
-}
+   cell, which is what lets the inherited overflow-wrap break the word. The span
+   (.iname) has no rule for it: the reset sets that floor on every element (reset.scss),
+   and this is one of the places it is load-bearing. Inert in the read row, where the
+   span is inline and min-width doesn't apply. */
 /* the stand-in label for a group the user never named: a quiet aside in the name's
    place, so it reads as "not the name itself" ("Group" must not look like a product
    actually called that) */

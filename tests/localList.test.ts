@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { DRAFT_KEY, localKey } from "../shared/localList";
+import { DRAFT_KEY, claimedLocalKey, copyReadableBy, localKey } from "../shared/localList";
 import { rebaseOnto } from "../shared/ops";
 import type { ListSnapshot } from "../shared/types";
 
@@ -75,5 +75,28 @@ describe("shared/localList.ts stays off the reducer", () => {
     const opsImports = [...src.matchAll(/^import\b[^;]*from\s+["']\.\/ops["'];?$/gm)].map((m) => m[0]);
     expect(opsImports.length).toBeGreaterThan(0);
     for (const line of opsImports) expect(line).toMatch(/^import type\b/);
+  });
+});
+
+// A claimed open's copy holds what the share link withholds (the route, the
+// waypoints, edits not yet sent), so it is the account's and not the device's:
+// the next person to sign in at this browser must not be shown it.
+describe("copyReadableBy — whose on-device copy this is", () => {
+  const claimed = claimedLocalKey("C0DE00000001");
+
+  it("reads a claimed open's copy back only to the account that wrote it", () => {
+    expect(copyReadableBy(claimed, { account: "aaaa" }, "aaaa")).toBe(true);
+    expect(copyReadableBy(claimed, { account: "aaaa" }, "bbbb")).toBe(false);
+    // nobody signed in, or the session not yet answered: not theirs to read
+    expect(copyReadableBy(claimed, { account: "aaaa" }, null)).toBe(false);
+  });
+
+  it("still reads a copy from before copies were stamped", () => {
+    expect(copyReadableBy(claimed, {}, "bbbb")).toBe(true);
+  });
+
+  it("leaves a list held by its edit link to whoever holds the device", () => {
+    expect(copyReadableBy(localKey("some-edit-token"), {}, null)).toBe(true);
+    expect(copyReadableBy(DRAFT_KEY, { account: "aaaa" }, "bbbb")).toBe(true);
   });
 });

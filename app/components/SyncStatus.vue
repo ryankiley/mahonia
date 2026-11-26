@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import type { SyncOffline } from "~/composables/useOffline";
 import { hasRealContent } from "~~/shared/localList";
 
 // The list's live sync state + last-edit time, in one quiet text line on the
-// leading edge of the editor's top bar. The words carry the state — "Syncing…",
-// "Synced · edited 1 hour ago", "Offline · saved on device" — and the state word
+// leading edge of the editor's top bar. The words carry the state — "Saving…",
+// "Edited 1 hour ago", "Not saved" — and the state word
 // swaps in place on change. No animation here: a save
 // cycle flips the word Synced→Syncing…→Synced in ~15ms, so animating a word that
 // changes faster than the motion runs looked like it was racing itself. A subtler
@@ -15,7 +16,7 @@ const snapshot = c.snapshot;
 
 // tick the relative time as it ages (30s is finer than the smallest "N minutes"
 // step, so "just now" → "1 minute ago" flips promptly without a per-second churn)
-const now = useNow({ interval: 30_000 });
+const now = useNow();
 
 // authoritative last write, from the server snapshot — so a collaborator's edit the
 // poll pulls in moves it too. Absent on a never-server-saved draft.
@@ -30,13 +31,20 @@ const hasContent = computed(() => !!snapshot.value && hasRealContent(snapshot.va
 const stateWord = computed(() => {
   switch (status.value) {
     case "loading":
-      return "Loading…";
+      // NOTHING. The bar stands through a load now (GearEditor's topbar), and a
+      // "Loading…" here would be the bar changing after all; the page body says it,
+      // and only once the wait is long enough to need saying.
+      return "";
     case "saving":
-      return "Syncing…";
+      return "Saving…";
     case "offline":
-      // with nothing on the device the second half would be a lie; the page body
-      // says what that state means (see GearEditor's `unloaded`)
-      return snapshot.value ? "Offline · saved on device" : "Offline";
+      // NOTHING TO THE EYE. The account control beside this line is a cloud with a line
+      // through it while offline, and pressing it says the rest: you're offline, and the
+      // list is saved on this device (AccountMenu, useOffline). The line read "Offline ·
+      // saved on device", which a phone cut off at "Offline · save…", and its shorter
+      // forms were cut off too: a phone's bar has about fifty pixels here. A screen
+      // reader still hears it from this line (`spoken`, below).
+      return "";
     case "error":
       return snapshot.value ? "Not saved" : "Couldn’t load";
     case "synced":
@@ -57,21 +65,34 @@ const stateWord = computed(() => {
     case "missing":
       // the server no longer knows this list (deleted or reaped) but the local
       // copy is intact — say so honestly instead of claiming a sync state
-      return "No longer online · saved on device";
+      return "Link no longer works · saved on device";
     default:
       return ""; // idle
   }
 });
-// No leading "·" when the state word has stood down — it would open the line with a
-// dangling separator. The dot only joins two things when there are two.
+// Stands alone: the only state that shows a time is the resting one, whose word has
+// stood down (above), so there is never a state word for it to join.
 const timeSuffix = computed(() =>
   status.value === "synced" && editedAt.value != null
-    ? `${stateWord.value ? " · " : ""}edited ${timeAgo(editedAt.value, now.value.getTime())}`
+    ? `Edited ${timeAgo(editedAt.value, now.value.getTime())}`
     : "",
 );
 
+// What this list's sync knows about being offline, said once: the account control reads
+// it to draw "offline" in this bar (useOffline), and a screen reader hears it from here.
+const offline = computed<SyncOffline>(() =>
+  status.value !== "offline" ? null : snapshot.value ? "saved" : "unsaved",
+);
+const syncOffline = useSyncOffline();
+watch(offline, (word) => (syncOffline.value = word), { immediate: true });
+onScopeDispose(() => (syncOffline.value = null));
+/** said to a screen reader, who has no glyph to go by; drawn for nobody */
+const spoken = computed(() =>
+  offline.value === "saved" ? "Offline. Saved on this device." : offline.value ? "Offline." : "",
+);
+
 // Either half can carry the line now that the resting state drops its word.
-const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "");
+const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "" || spoken.value !== "");
 </script>
 
 <template>
@@ -79,9 +100,8 @@ const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "");
     <!-- polite live region: the state word swaps in place and re-announces on
          change, while the time suffix updates silently outside it (so the 30s tick
          never re-announces) --><span
-      class="syncstatus__state"
       aria-live="polite"
-    >{{ stateWord }}</span><span v-if="timeSuffix" class="syncstatus__time">{{ timeSuffix }}</span>
+    ><span v-if="spoken" class="visually-hidden">{{ spoken }}</span>{{ stateWord }}</span><span v-if="timeSuffix" class="syncstatus__time">{{ timeSuffix }}</span>
   </p>
 </template>
 
@@ -97,11 +117,11 @@ const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "");
   font-size: var(--text-chrome);
   /* one line; a long "edited Jul 8" clips rather than wraps — .t-clip, on the element */
 }
-/* Below the stack point the bar is genuinely tight — the mode toggle, share and kebab
-   leave ~130px, and the full string wants ~180. Drop the TIME rather than ellipsis the
-   line: "Synced · edi…" is worse than "Synced", and the state word is the part that's
-   load-bearing. This is the same mobile-crowding concern that used to keep the whole
-   line out of the bar; it's answered here instead of by relocating the component. */
+/* Below the stack point the bar is genuinely tight, so the TIME goes rather than
+   ellipsising: "edited 4 min…" says less than nothing, and a state word, when there
+   is one, is the part that's load-bearing. This is the same mobile-crowding concern
+   that used to keep the whole line out of the bar; it's answered here instead of by
+   relocating the component. */
 @media (max-width: $bp-stack) {
   .syncstatus__time {
     display: none;

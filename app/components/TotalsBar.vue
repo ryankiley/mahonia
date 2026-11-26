@@ -1,10 +1,9 @@
 <script setup lang="ts">
 import { counted } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon } from "@hugeicons/core-free-icons";
 import type { ListSnapshot, Totals, Unit } from "~~/shared/types";
 import { carriedIsDistinct, formatKcal, formatWeight, totalsChips } from "~~/shared/weights";
-import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodPlan } from "~~/shared/foodPlan";
+import { KCAL_PER_DAY_GENEROUS, KCAL_PER_DAY_LIGHT, foodHeadcount, foodPlan } from "~~/shared/foodPlan";
+import type { PersonSelection } from "~~/shared/people";
 
 const props = withDefaults(
   defineProps<{
@@ -22,6 +21,14 @@ const props = withDefaults(
      * knows what else is on screen.
      */
     headline?: boolean;
+    /**
+     * The person chip the reader picked, null for everyone. `list` and `totals` arrive
+     * already narrowed to it, but food per day also needs to know whether they're the
+     * whole trip's (split across everyone on it) or one person's: foodHeadcount says
+     * which. Required, so a new caller can't forget it and divide one person's food by
+     * the whole group.
+     */
+    personFilter: PersonSelection;
   }>(),
   { headline: true },
 );
@@ -29,6 +36,11 @@ const props = withDefaults(
 const emit = defineEmits<{
   "set-unit": [Unit];
 }>();
+
+// The big figure, formatted once for the headline and for its trigger's accessible
+// name: the name carries the weight, because a label on a button replaces its contents
+// and "Weight unit" alone would leave the page's largest number unspoken.
+const totalDisplay = computed(() => formatWeight(props.totals.totalMg, props.list.displayUnit, { withUnit: false }));
 
 // the classification breakdown chips — which show (and when a lone "Base" is
 // noise) is a judgment about the data, shared with the social-card image via
@@ -59,11 +71,20 @@ const kcalDisplay = computed(() => formatKcal(props.totals.kcalTotal));
 // the raw total can't: 9,000 kcal is a feast for a weekend and starvation for a week.
 // Null (and silent) unless the list carries both calories and a date range; see
 // shared/foodPlan.ts for why the arithmetic stops here rather than modelling burn.
-const plan = computed(() => foodPlan(props.totals, props.list));
+const plan = computed(() => {
+  const eaters = foodHeadcount(props.list.people, props.personFilter);
+  return eaters == null ? null : foodPlan(props.totals, props.list, eaters);
+});
 const planTip = computed(() => {
   const p = plan.value;
   if (!p) return "";
-  const span = `${kcalDisplay.value} kcal across ${counted(p.days, "day")}.`;
+  const across = `${kcalDisplay.value} kcal across ${counted(p.days, "day")}`;
+  // A group's figure is an average: say so, and say it's one person's, so the band
+  // after it reads as one person's too.
+  const span =
+    p.people > 1
+      ? `${across}, shared evenly by the ${p.people} people on this list: ${formatKcal(p.kcalPerDay)} kcal a person a day.`
+      : `${across}.`;
   // Named as a rule of thumb, and phrased as a range rather than a target — the band
   // is a sanity check on the arithmetic, not a recommendation for a body.
   //
@@ -73,7 +94,7 @@ const planTip = computed(() => {
   // it doesn't have. The number beside the range is the whole signal.
   const band =
     p.reading === "typical"
-      ? `That's inside the ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day people commonly plan for walking with a pack.`
+      ? `That’s inside the ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day people commonly plan for walking with a pack.`
       : `People commonly plan ${formatKcal(KCAL_PER_DAY_LIGHT)}–${formatKcal(KCAL_PER_DAY_GENEROUS)} kcal a day for walking with a pack.`;
   return p.perDayDistance ? `${span} ${p.perDayDistance} a day. ${band}` : `${span} ${band}`;
 });
@@ -81,36 +102,23 @@ const planTip = computed(() => {
 
 <template>
   <div class="totals">
-    <div class="totals__main">
-      <div v-if="props.headline" class="totals__headline">
-        <!-- no "Total" label: the big figure makes it implicit. the figure starts
-             zeroed (not a placeholder line) so nothing reflows when the first
-             weighted item lands — the number just counts up. -->
-        <!-- The whole total is the trigger — tapping the number to change units is the
-             affordance, and it survives the swap. What changes is what opens: OUR
-             picker instead of a transparent native <select> laid over the figure. -->
-        <OptionMenu
-          class="totals__amount"
-          align="baseline"
-          :options="WEIGHT_UNIT_OPTIONS"
-          :current="list.displayUnit"
-          label="Weight unit"
-          title="Change unit"
-          @pick="(u) => emit('set-unit', u as Unit)"
-        >
-          <template #trigger="{ open }">
-            <AnimatedCount class="t-num t-display totals__big" :value="formatWeight(totals.totalMg, list.displayUnit, { withUnit: false })" />
-            <span class="totals__uc" aria-hidden="true">
-              <span class="totals__unit">{{ list.displayUnit }}</span>
-              <!-- stroke 2.25, not the app-wide 2: at size 16 it renders an exact
-                   1.5px stroke (crisp 3 device px at 2x), so the chevron holds its
-                   weight beside the display-size figure -->
-              <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="16" :stroke-width="2.25" />
-            </span>
-          </template>
-        </OptionMenu>
-      </div>
-    </div>
+    <!-- no "Total" label: the big figure makes it implicit. the figure starts
+         zeroed (not a placeholder line) so nothing reflows when the first
+         weighted item lands — the number just counts up. -->
+    <!-- The figure, its unit and the picker behind them are Headline: the one the
+         editor draws above all three of its views, so the two can't drift. It stands
+         directly in .totals, with no row of its own: the breakdown below reads whether
+         it is the FIRST thing in here (its :first-child rule) to know whether a figure
+         sits above it. -->
+    <Headline
+      v-if="props.headline"
+      :value="totalDisplay"
+      :unit="list.displayUnit"
+      :options="WEIGHT_UNIT_OPTIONS"
+      label="Weight unit"
+      :trigger-label="`${totalDisplay} ${list.displayUnit}, change unit`"
+      @pick="(u) => emit('set-unit', u as Unit)"
+    />
 
     <!-- always rendered: the bar holds a blank rail at zero so it never reflows in.
          the chips stay per-category — they pop in as each class first gains weight -->
@@ -162,7 +170,7 @@ const planTip = computed(() => {
           <Tooltip
             v-if="totals.hasKcal"
             preferred-placement="bottom"
-            text="Food energy across everything classed as consumable."
+            text="Calories in everything marked Consumable."
           >
             <FigureChip class="chip--alt" label="Calories" :value="kcalDisplay" unit="kcal" />
           </Tooltip>
@@ -171,7 +179,7 @@ const planTip = computed(() => {
                the scale that makes it mean something. Needs both halves (kcal and a date
                range), so it stays absent on the lists that have only one. -->
           <Tooltip v-if="plan" preferred-placement="bottom" :text="planTip">
-            <FigureChip label="Per day" :value="formatKcal(plan.kcalPerDay)" unit="kcal" />
+            <FigureChip label="Per day" :value="formatKcal(plan.kcalPerDay)" :unit="plan.people > 1 ? 'kcal a person' : 'kcal'" />
           </Tooltip>
           </span>
       </div>
@@ -189,60 +197,10 @@ const planTip = computed(() => {
      number, two spacings. */
   padding-block: 0 var(--space-4);
 }
-/* An empty row still costs a row GAP, and this one is empty in the editor: the big figure
-   moved out to GearEditor's shared Headline, so `props.headline` is false there and this
-   wrapper renders with nothing in it. The 24px it was still charging is what put "Base"
-   and "Worn" a row lower than planning's figures — the two views' small print sitting at
-   different heights under the same number. It still holds the headline where one is
-   passed, so this hides it only when there is genuinely nothing to show. */
-.totals__main:empty {
-  display: none;
-}
-.totals__main {
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: var(--space-4);
-  flex-wrap: wrap;
-}
-.totals__headline {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-/* OptionMenu supplies the trigger button (bare — this is a display figure that happens
-   to be pressable, not a control that looks like one) and .menu supplies the
-   positioning. The unit and chevron sit on the big figure's BASELINE, asked for with
-   the `align` prop: a class here could not reach that button, since scoped styles stop
-   at the component boundary. */
-.totals__big {
-  /* the size and its phone-width clamp are .t-display's (foundations/typography.scss);
-     the accent is this figure's alone — /gear's headline sits in plain ink */
-  color: var(--accent);
-}
-/* unit + its dropdown chevron travel together, centered to each other, and the
-   group baseline-aligns with the big figure */
-.totals__uc {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-px);
-}
-.totals__unit {
-  font-size: var(--text-title);
-  font-weight: 400;
-  color: var(--ink-2);
-  /* half-step between the type system's two trackings: the full --track-tight
-     visibly pinches a bare two-letter unit ("oz"), while normal tracking reads
-     loose beside the tightly-tracked display figure */
-  letter-spacing: var(--track-unit);
-}
-/* the mark and its turn are the shared .chev (atoms/controls.scss); pointing at the
-   figure lights it. The copy that lived here transitioned `color` only while still
-   setting the 180deg — so this one chevron snapped round where every other one eased. */
-.totals__amount:hover .chev,
-.totals__amount:focus-within .chev {
-  color: var(--ink);
-}
+/* the figure, its unit and its chevron are Headline's own (Headline.vue), and it is
+   drawn here only where one is passed: in the editor the big figure moved out to
+   GearEditor's shared Headline, so `props.headline` is false there and nothing stands
+   above the breakdown */
 .totals__breakdown {
   /* one step up from --space-4 — the display-size figure above has a lot of optical
      mass, so the breakdown needs more clearance than a body-copy gap to stop reading
@@ -257,11 +215,24 @@ const planTip = computed(() => {
   flex-direction: column;
   gap: var(--space-4);
 }
+/* The breakdown opens and closes as ONE piece. This box is shorter than its content for
+   as long as its track is moving (the mode switch's fold, atoms/modeswitch.scss), and a
+   flex column hands that shortfall to whichever child may shrink — the figures' row,
+   which clips (.totals__chips) and so has no minimum. It was squeezed from nothing back
+   to its height while the breakdown faded in: the numbers under Base / Consumable /
+   Carried uncovered a line at a time, and the bar and the folder legend slid down 11px
+   beneath them, a second movement inside the first (Ryan, 2026-11-25: they "reveal
+   separately with their own motion vs as a unit"). Nothing in here shrinks: every part
+   stands where it will rest from the first frame, and the track's edge is the only clip. */
+.totals__breakdowninner > * {
+  flex-shrink: 0;
+}
 /* …but only when the figure is actually IN here. In the editor it isn't — it moved out to
    the shared Headline — so this margin was clearance from something one level up that
    already keeps its own distance, and the two stacked put "Base" a row below where
-   planning's figures sit under the identical number. */
-.totals__main:empty + .totals__breakdown {
+   planning's figures sit under the identical number. With no figure the breakdown is
+   the first element in .totals, which is the test. */
+.totals__breakdown:first-child {
   margin-top: 0;
 }
 
@@ -298,7 +269,6 @@ const planTip = computed(() => {
    end of a line is invisible, so both halves of the trench simply vanish at the wrap
    and the chip starts flush. */
 .totals__chips > *:has(+ .chip--apart),
-.totals__chips > *:has(+ * > .chip--apart),
 .totals__chips > *:has(+ .totals__food) {
   margin-inline-end: var(--space-5);
 }
@@ -323,16 +293,9 @@ const planTip = computed(() => {
   border-inline-start: 1px solid var(--line);
 }
 
-/* Its fold on a mode switch: atoms/modeswitch.scss. */
-/* Packing's header is the list's name, the tabs and the total. The Base/Worn/
-   Consumable line and the category bar are the weighing view's instruments, and on a
-   phone they held the first checkbox at the bottom edge of the screen (measured:
-   763px of 844). Keyed on the editor body's data-mode like everything else the mode
-   changes (folder.scss, item.scss), so the swap rides the same one CSS pass as the
-   rows. display, not a reveal grid: nothing here animates on a mode switch, and a
-   250px slide would read as the page flinching. Lives HERE rather than in the editor
-   because this component owns the class; the editor's scoped sheet can't see it.
-   The WHOLE selector sits inside :global(): in Vue 3 scoped CSS a leading
-   :global(ancestor) swallows the descendant after it, and the rule silently became
-   `.editor__body[data-mode="pack"] {}` — matched nothing it was meant to. */
+/* The breakdown stands down in packing: that mode's header is the list's name, the
+   tabs and the total, and on a phone the Base/Worn/Consumable line and the category
+   bar held the first checkbox at the bottom edge of the screen (measured: 763px of
+   844). Its fold on the mode switch is keyed on the editor body's data-mode with
+   everything else the mode changes, in atoms/modeswitch.scss. */
 </style>

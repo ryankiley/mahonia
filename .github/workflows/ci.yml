@@ -33,6 +33,12 @@ on:
   # test the code as it was proposed, never as it landed.
   push:
     branches: [main]
+  # ...and when another workflow asks. A PR that graduate-catalog.yml opens with its own
+  # token raises no pull_request event, so that workflow starts this one on the PR's
+  # branch, and the `check` it reports on the head commit is the one main requires. The
+  # PR-only and main-only steps below are gated on their events, so a dispatched run is
+  # the check job alone.
+  workflow_dispatch: {}
 
 # One run per ref: a push mid-run makes the older answer irrelevant, and these are
 # minutes of compute. PR runs and main runs land in different groups
@@ -68,8 +74,7 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # matches .nvmrc + package.json engines
-          node-version: 24
+          node-version-file: .nvmrc
           cache: npm
 
       - run: npm ci

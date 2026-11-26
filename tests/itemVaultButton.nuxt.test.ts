@@ -254,7 +254,7 @@ describe("the save button, against what My Gear actually holds", () => {
     await vaultBtn(w).trigger("click");
     await vi.waitFor(() => expect(said).toHaveBeenCalled());
     expect(said.mock.calls[0]![0]).toBe(
-      "You removed this from My Gear. Add it again there to bring it back",
+      "You removed this from My Gear. Add it again there to bring it back.",
     );
     // and it does NOT claim the tick
     expect(vaultBtn(w).attributes("aria-label")).toBe("Save to My Gear");
@@ -292,7 +292,7 @@ describe("the save button, against what My Gear actually holds", () => {
     const w = mountRow(gear());
     await vaultBtn(w).trigger("click");
     await vi.waitFor(() => expect(said).toHaveBeenCalled());
-    expect(said.mock.calls[0]![0]).toBe("My Gear is full. Remove something there to make room");
+    expect(said.mock.calls[0]![0]).toBe("My Gear is full. Remove something there to make room.");
   });
 
   it("keeps its tick after a press, though banking the row is what covers it", async () => {
@@ -398,7 +398,7 @@ describe("the save button on a list the automatic capture already covers", () =>
   });
 
   it("does not render at all on a water row — inline or in the ⋯ menu", async () => {
-    // water is never vault-worthy (isVaultWorthy → isWaterRow), so before this
+    // water is never vault-worthy (isVaultWorthy → isWaterName), so before this
     // rule the inline button's only possible outcome was the "give it a name and
     // a weight" toast — on a row that has both. The ⋯ menu already ruled water
     // out; the inline button now follows the same rule.

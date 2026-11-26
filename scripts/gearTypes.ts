@@ -8,11 +8,15 @@
 // reads worse ("neck gaiter", not "buff"); search matches via a row's search_terms, never
 // its common name, so the two need only be consistent, not identical.
 //
-// BUILD-TIME ONLY, which is why this lives in scripts/ beside catalogChecks + catalogCsv
-// rather than in shared/: the one production caller is build-catalog.ts (the tests import
-// it too). A gear type the USER types is deliberately left alone — canonicalizing someone's
-// own label for their own list would be us overruling them, and the vocabulary exists to
-// keep the CATALOG's generated defaults consistent, not to police what people write.
+// It lives in scripts/ beside catalogChecks + catalogCsv because the build is where it began:
+// research.ts's researchGearType, which the build and the research checks both resolve a
+// row's type through (the tests import it too). It also runs on the server now:
+// verify_catalog_item (server/utils/catalogVerify.ts) normalizes the gear type an admin
+// sends, so a row written from a chat joins the same vocabulary. Both are the CATALOG's
+// labels. A gear type the USER types on a list or on My Gear is deliberately left alone —
+// canonicalizing someone's own label for their own list would be us overruling them, and
+// the vocabulary exists to keep the catalog's rows consistent, not to police what people
+// write.
 
 /**
  * Drift map: a raw/legacy label → its canonical common name. Only entries that CHANGE live
@@ -35,6 +39,9 @@ export const GEAR_TYPE_ALIASES: Record<string, string> = {
   "hip belt pouch": "hip belt pocket",
   "hipbelt pocket": "hip belt pocket",
   "hydration system": "hydration pack",
+  // a jacket filled with synthetic insulation, shells included (2026-11-25: the two
+  // labels held one kind of jacket; a down one is a down jacket, an unfilled one a shell)
+  "insulated jacket": "synthetic jacket",
   "liner gloves": "glove liners",
   "lumbar pack": "hip pack",
   "mess kit": "cookset",
@@ -51,6 +58,7 @@ export const GEAR_TYPE_ALIASES: Record<string, string> = {
   "stake sack": "stake bag",
   "stash bag": "stuff sack",
   "sun sleeves": "arm sleeves",
+  "sunscreen stick": "sunscreen",
   "tent pole": "tent poles",
   "tent stake": "tent stakes",
   "torch lighter": "lighter",

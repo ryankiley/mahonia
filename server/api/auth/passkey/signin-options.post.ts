@@ -1,8 +1,7 @@
 import { defineEventHandler } from "h3";
 import { generateAuthenticationOptions } from "@simplewebauthn/server";
+import { openPrivate } from "../../../utils/authSession";
 import { requirePasskeysConfigured, rpIdFor, startChallenge } from "../../../utils/passkeys";
-import { rateLimit } from "../../../utils/rateLimit";
-import { setNoIndex, setPrivate } from "../../../utils/http";
 
 // Step 1 of signing in with a passkey: issue a challenge.
 //
@@ -13,9 +12,7 @@ import { setNoIndex, setPrivate } from "../../../utils/http";
 // It also means this endpoint reveals nothing: it takes no input and its response
 // is the same for a visitor with fifty passkeys and one with none.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "passkey");
+  await openPrivate(event, "passkey");
   requirePasskeysConfigured();
 
   const options = await generateAuthenticationOptions({

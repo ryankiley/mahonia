@@ -9,7 +9,7 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20220125080410id_/https://enlightenedequipment.com/revelation-850-10-f-12-c-regular-regular-forest-10d-graphite-7d-171121/",
-      "quote": "<span data-product-weight>25.50 Ounces</span> ; product_attributes JSON: \"weight\":{\"formatted\":\"25.50 Ounces\",\"value\":25.5},\"base\":true (EE's own Revelation 850 10F Regular/Regular SKU page)"
+      "quote": "25.50 Ounces"
     },
     {
       "brand": "Enlightened Equipment",
@@ -20,7 +20,7 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20211016111200id_/https://enlightenedequipment.com/revelation-850-30-f-1-c-regular-regular-burnt-orange-10d-charcoal-10d-5815-38/",
-      "quote": "<span data-product-weight>19.45 Ounces</span> ; product_attributes JSON: \"weight\":{\"formatted\":\"19.45 Ounces\",\"value\":19.45},\"base\":true (EE's own Revelation 850 30F Regular/Regular SKU page)"
+      "quote": "19.45 Ounces"
     },
     {
       "brand": "Enlightened Equipment",
@@ -31,7 +31,7 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20220524032618id_/https://enlightenedequipment.com/revelation-850-40-f-5-c-regular-regular-forest-10d-charcoal-10d-5763-28/",
-      "quote": "<span data-product-weight>15.81 Ounces</span> ; product_attributes JSON: \"weight\":{\"formatted\":\"15.81 Ounces\",\"value\":15.81},\"base\":true (EE's own Revelation 850 40F Regular/Regular SKU page; independently matches outdoorline.eu table Regular/Regular 850 = 448 g / 15.81 oz)"
+      "quote": "15.81 Ounces"
     },
     {
       "brand": "Enlightened Equipment",
@@ -42,7 +42,7 @@
       "weight_unit": "oz",
       "weight_source": "manufacturer",
       "source_url": "https://web.archive.org/web/20211201053529id_/https://enlightenedequipment.com/enigma-850-10-f-12-c-regular-regular-navy-10d-charcoal-10d-5900-23/",
-      "quote": "<span data-product-weight>24.68 Ounces</span> ; product_attributes JSON: \"weight\":{\"formatted\":\"24.68 Ounces\",\"value\":24.68},\"base\":true (EE's own Enigma 850 10F Regular/Regular SKU page)"
+      "quote": "24.68 Ounces"
     },
     {
       "brand": "Enlightened Equipment",
@@ -58,7 +58,8 @@
     {
       "brand": "Nemo",
       "name": "Disco 30",
-      "variant": "30F, Regular, 650FP",
+      "variant": "650FP, Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -70,7 +71,8 @@
     {
       "brand": "REI Co-op",
       "name": "Magma 30",
-      "variant": "30F, Regular, 850FP",
+      "variant": "850FP, Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 1,
       "weight_unit": "lb",
@@ -82,7 +84,8 @@
     {
       "brand": "Sea to Summit",
       "name": "Spark 30F",
-      "variant": "30F, Regular",
+      "variant": "Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 493,
       "weight_unit": "g",
@@ -94,7 +97,8 @@
     {
       "brand": "Therm-a-Rest",
       "name": "Vesper 20F",
-      "variant": "20F, Regular",
+      "variant": "Regular",
+      "attributes": {"temp_f": 20},
       "category_hint": "sleep",
       "weight_value": 550,
       "weight_unit": "g",
@@ -105,7 +109,8 @@
     {
       "brand": "Sea to Summit",
       "name": "Ember 30F",
-      "variant": "30F, Regular",
+      "variant": "Regular",
+      "attributes": {"temp_f": 30},
       "category_hint": "sleep",
       "weight_value": 544,
       "weight_unit": "g",

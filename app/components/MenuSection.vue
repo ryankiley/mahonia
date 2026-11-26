@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
-import { ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { IconChevronDownMedium } from "~/icons/central";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 
 // A GROUP OF ROWS INSIDE A ⋯ MENU, folded behind a header that turns over.
 //
@@ -86,16 +86,15 @@ function run(item: SectionItem) {
       :aria-expanded="open"
       @click="toggle"
     >
-      <HugeiconsIcon :icon="icon" :size="16" :stroke-width="2" aria-hidden="true" />
+      <SvgIcon :icon="icon" aria-hidden="true" />
       <!-- the label takes the slack, so the chevron keeps the trailing edge now that a
            glyph holds the leading one -->
       <span class="menu__sectlabel">{{ label }}</span>
-      <HugeiconsIcon
-        :icon="ChevronDownIcon"
+      <SvgIcon
+        :icon="IconChevronDownMedium"
         class="chev"
         :class="{ 'is-open': open }"
-        :size="14"
-        :stroke-width="2"
+        size="sm"
         aria-hidden="true"
       />
     </button>
@@ -116,7 +115,7 @@ function run(item: SectionItem) {
                 class="menu__item menu__sectitem"
                 @click="run(item)"
               >
-                <HugeiconsIcon :icon="item.icon" :size="16" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="item.icon" aria-hidden="true" />
                 {{ item.label }}
               </button>
             </li>

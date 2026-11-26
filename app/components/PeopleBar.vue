@@ -69,8 +69,8 @@ const { onKey } = useRovingRadio(
         :key="c.key ?? 'everyone'"
         type="button"
         ref="opts"
-        class="pplbar__chip"
-        :class="{ 'is-on': selected === c.key }"
+        class="modebar__opt pplbar__chip"
+        :class="{ 'is-active': selected === c.key }"
         role="radio"
         :aria-checked="selected === c.key"
         :tabindex="selected === c.key ? 0 : -1"
@@ -79,7 +79,7 @@ const { onKey } = useRovingRadio(
       >
         <span
           v-if="c.color || c.hollow"
-          class="swatch pplbar__dot"
+          class="swatch"
           :class="{ 'swatch--hollow': c.hollow }"
           :style="c.color ? { background: c.color } : undefined"
           aria-hidden="true"
@@ -87,7 +87,7 @@ const { onKey } = useRovingRadio(
         <!-- the name in its own box so it can clip: a person's name runs to 60
              characters, and the chip used to run out past the screen's edge with it.
              The chip's title carries the whole name for a pointer. -->
-        <span class="pplbar__name">{{ c.label }}</span><!--
+        <span class="pplbar__name t-clip">{{ c.label }}</span><!--
         the chip's carry, riding a step off the name in the chip's OWN ink — the
         bordered chip shape is what keeps it reading as a control, not a readout chip
         --><span v-if="c.weight" class="t-num pplbar__wt">{{ c.weight }}</span>
@@ -110,91 +110,43 @@ const { onKey } = useRovingRadio(
   flex-wrap: wrap; /* six named people on a phone still all reachable */
   align-items: center;
   gap: var(--space-1);
-  min-width: 0;
 }
-/* The armchip's shape (TrailPlanPanel's day chips) in the page's own tokens —
-   that one takes its fixed-light values from map tokens because it floats over a map;
-   this row sits on paper and speaks paper's language. Hairline so an OFF chip still has an edge
-   to find, unlike the modebar's flat words which live inside one plate. */
+/* THE MODE BAR'S CHIP (.modebar__opt, atoms/modebar.scss), with an edge. These chips
+   are read WITH that bar — the same kind of thing, a small labelled chip you press to
+   change what the page shows, a few rows apart — so they wear its class rather than a
+   copy of it: the option height and its row rhythm, --radius-2 (not the pill: that is
+   for a button standing on its own, and a row of options never does), the chrome type
+   and the quiet ink, the wash under a pointer, the inward focus ring, the --lit plate
+   when chosen (the app's one on-plate, and it answers the pointer a step up), and on a
+   coarse pointer the transparent ::before that makes a 32px chip a 44px target — top and
+   bottom only, since the chips sit --space-1 apart and an overhang sideways would hand
+   a neighbour's edge to the wrong chip. Where chips wrap onto a second row the two
+   rows' overhangs overlap across the 4px between them and 2px into each face; the
+   lower chip, later in the tree, takes that strip. A small cost against a target that
+   was 14px short.
+   What a chip here adds: a HAIRLINE, so an OFF chip still has an edge to find, unlike
+   the bar's flat words which live inside one plate; and room for a dot and a carry
+   beside the name. */
 .pplbar__chip {
-  appearance: none;
-  display: inline-flex;
-  align-items: center;
   gap: var(--space-2);
-  height: var(--control-compact); /* the modebar's option height — same row rhythm */
   padding: 0 var(--space-3);
   /* The outline IS the unselected chip — there is no fill under it — so in dark it takes
      the stronger hairline. --line there is 8% white, #141414 on a black page: enough
      for a rule between two rows of text, not for a shape drawn in nothing else (Ryan,
      2026-11-25: "outline states are a little dim"). Light keeps --line. */
   border: 1px solid light-dark(var(--line), var(--line-2));
-  /* --radius-2, the corner the mode chips and the list picker wear, not the pill.
-     These chips are read WITH that bar — the same kind of thing, a small labelled
-     chip you press to change what the page shows, a few rows apart — and a pill
-     here against rounded rectangles there read as two different controls. The
-     pill is for a button standing on its own; a row of options never does. */
-  border-radius: var(--radius-2);
-  font-size: var(--text-chrome);
-  color: var(--ink-3);
-  white-space: nowrap;
   /* Never wider than the row. Uncapped, a name near the 60-character limit drew a
      chip wider than a 320px screen and ran off it; capped, the chip stops at the
      row's edge and the name inside it clips (.pplbar__name). */
   max-width: 100%;
-  /* the containing block for the touch hit area below */
-  position: relative;
-  transition:
-    background-color var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade);
 }
-/* The one part of the chip that gives way. The dot and the carry are flex: none (the
-   dot by .swatch, the carry below) so a long name can never squeeze them out. */
-.pplbar__name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-/* THE TARGET, drawn apart from the chip — the .switch recipe (controls.scss). The chip
-   is --control-compact (30px) tall because it is read with the mode bar's options; a
-   thumb needs --tap. A transparent ::before overhangs the chip by the shortfall top
-   and bottom, so the target is 44px tall and the chip still looks and lays out as it
-   did. Not sideways: the chips sit --space-1 apart and are wide enough already, and an
-   overhang there would hand a neighbour's edge to the wrong chip. Coarse pointers only,
-   unlike the switch: a 30px chip is no small thing to catch with a mouse. Where chips
-   wrap onto a second row the two rows' overhangs overlap across the 4px between them
-   and 3px into each face; the lower chip, later in the tree, takes that strip. A small
-   cost against a target that was 14px short. */
-@media (pointer: coarse) {
-  .pplbar__chip::before {
-    content: "";
-    position: absolute;
-    inset: calc((var(--control-compact) - var(--tap)) / 2) 0;
-  }
-}
-@media (hover: hover) and (pointer: fine) {
-  .pplbar__chip:hover {
-    background: light-dark(
-      color-mix(in oklab, var(--ink) 3.5%, transparent),
-      color-mix(in oklab, var(--ink) 7.5%, transparent)
-    );
-    color: var(--ink);
-  }
-}
-.pplbar__chip:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
-  outline-offset: var(--focus-offset-inset);
-}
-/* ON is the app's one on-plate (--lit), same as the mode switcher and the
-   classification marks — and the hairline steps aside so the plate reads as the
-   edge, not a border around a border. */
-@media (hover: hover) and (pointer: fine) {
-  .pplbar__chip.is-on:hover {
-    background: var(--lit-hover); /* the selected chip answers the pointer too */
-  }
-}
-.pplbar__chip.is-on {
-  background: var(--lit);
+/* The name is the one part of the chip that gives way: it wears .t-clip in the markup.
+   The dot and the carry are flex: none (the dot by .swatch, the carry below) so a long
+   name can never squeeze them out. */
+/* ON: the hairline steps aside so the plate reads as the edge, not a border around a
+   border. */
+.pplbar__chip.is-active {
   border-color: transparent;
-  color: var(--ink);
 }
 /* (the hollow "no colour yet" dot is the shared .swatch--hollow atom — controls.scss) */
 /* The carry takes the chip's OWN ink: t-muted is --ink-2, a step DARKER than a

@@ -1,12 +1,13 @@
 // Idempotent catalog seeder. Reads the curated, cited seed/catalog.csv and
 // upserts each row into catalog_items, matching on (brand, name, variant) so
 // re-running never duplicates — it inserts new rows and updates changed
-// weights/sources in place. A row whose variant was tidied keeps its id (seedRenames.ts:
+// weights/sources in place, except a visitor's cited correction the research hasn't moved
+// past, which stays (seedUpsert.ts). A row whose variant was tidied keeps its id (seedRenames.ts:
 // same product, one orphan and one newcomer, renamed before the upsert), and a row the
 // CSV stops naming is retired with a pointer to its successor, never deleted
 // (seedRetire.ts). Seeded rows are owner-curated + cited, so they're marked verified=true.
 //
-// Run under Node 24 (the repo's pinned toolchain) via the `seed` npm script,
+// Run under Node 26 (the repo's pinned toolchain) via the `seed` npm script,
 // which uses jiti (ships with Nuxt) to resolve the project's TS imports:
 //   npm run seed
 //
@@ -21,6 +22,8 @@ import { refoldVaultIdentities } from "./seedIdentities";
 import { renameMovedVariants } from "./seedRenames";
 import { retireOrphans } from "./seedRetire";
 import { upsertSeedRows } from "./seedUpsert";
+import { inAppVerified, notInResearch } from "./graduate";
+import { itemDisplayName } from "../shared/weights";
 import { useDb } from "../server/utils/db";
 import { csvToCatalogRows } from "./catalogCsv";
 import { CATALOG_CSV } from "./paths";
@@ -40,7 +43,19 @@ async function main() {
   const renamed = await renameMovedVariants(db, rows);
   if (renamed.catalog || renamed.vault) console.log(`Variants tidied: ${renamed.catalog} catalog rows and ${renamed.vault} My Gear rows renamed in place, ids kept.`);
 
-  const { inserted, updated, unchanged } = await upsertSeedRows(db, rows);
+  const { inserted, updated, unchanged, held, kept } = await upsertSeedRows(db, rows);
+  // in-app rows the research doesn't have: the upsert never sees them, so say so here
+  const unresearched = notInResearch(await inAppVerified(db), rows);
+  if (held || unresearched.length)
+    console.log(
+      `${held + unresearched.length} rows verified in the app aren't in the research yet (${held} differ from it, ${unresearched.length} it doesn't have); ` +
+        `the Graduate catalog workflow, or npm run catalog:graduate, writes them out.`,
+    );
+  if (kept.length) {
+    console.log(`Kept ${kept.length} cited corrections visitors made that the research doesn't have; verify or undo each with the connector's admin tools:`);
+    for (const k of kept)
+      console.log(`  #${k.id} ${itemDisplayName(k.brand, k.name, k.variant)}: research ${k.researchMg / 1000} g, live ${k.liveMg / 1000} g (${k.sourceUrl ?? "no citation"})`);
+  }
 
   // Retire stale seed-managed rows: anything verified=true that is no longer in the
   // CSV is an orphan from a rename / variant-change / removal. Retired, not deleted:

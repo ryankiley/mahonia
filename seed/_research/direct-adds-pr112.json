@@ -1,10 +1,9 @@
 {
-  "_note": "Backfill of 14 rows that were added directly to seed/catalog.csv in PR #112 (0276772) without a corresponding research source, which left `npm run catalog:build` lossy (a rebuild silently dropped them). Each row's weight has been re-verified against the manufacturer's spec page and matches the value committed in #112.",
+  "_comment": "Backfill of 14 rows that were added directly to seed/catalog.csv in PR #112 (0276772) without a corresponding research source, which left `npm run catalog:build` lossy (a rebuild silently dropped them). Each row's weight has been re-verified against the manufacturer's spec page and matches the value committed in #112.",
   "rows": [
     {
       "brand": "Arc'teryx",
       "name": "Sinsolo Bandana",
-      "variant": "",
       "category_hint": "clothing",
       "weight_value": 28,
       "weight_unit": "g",
@@ -38,7 +37,6 @@
     {
       "brand": "Black Diamond",
       "name": "Gridlock Triple Lock Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 90,
       "weight_unit": "g",
@@ -49,7 +47,6 @@
     {
       "brand": "Black Diamond",
       "name": "HotForge Screwgate Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 50,
       "weight_unit": "g",
@@ -60,7 +57,6 @@
     {
       "brand": "Black Diamond",
       "name": "HotForge Straight Gate Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 45,
       "weight_unit": "g",
@@ -71,7 +67,6 @@
     {
       "brand": "Black Diamond",
       "name": "HotWire Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 40,
       "weight_unit": "g",
@@ -82,7 +77,6 @@
     {
       "brand": "Black Diamond",
       "name": "LiteForge Screwgate Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 45,
       "weight_unit": "g",
@@ -93,7 +87,6 @@
     {
       "brand": "Black Diamond",
       "name": "LiteWire Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 32,
       "weight_unit": "g",
@@ -104,7 +97,6 @@
     {
       "brand": "Black Diamond",
       "name": "MiniWire Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 23,
       "weight_unit": "g",
@@ -115,7 +107,6 @@
     {
       "brand": "Black Diamond",
       "name": "Oval Triple Lock Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 70,
       "weight_unit": "g",
@@ -126,7 +117,6 @@
     {
       "brand": "Black Diamond",
       "name": "Pearlock Twistlock Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 84,
       "weight_unit": "g",
@@ -137,7 +127,6 @@
     {
       "brand": "Black Diamond",
       "name": "RockLock Screwgate Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 85,
       "weight_unit": "g",
@@ -148,7 +137,6 @@
     {
       "brand": "Black Diamond",
       "name": "RockLock Twistlock Carabiner",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 89,
       "weight_unit": "g",

@@ -3,7 +3,8 @@
 // Design: a list's CONTENT (folders + items) lives in a single JSONB `data`
 // column, and the same op-reducer (shared/ops.ts) applies mutations on both the
 // client (optimistic) and the server (authoritative) — so they can't drift.
-// Weight rollups are cached as columns for the public-feed leaderboard sort.
+// The weight rollups and the item count are cached as columns, so a query over many
+// lists need not read each one's `data` (see the columns for who reads which).
 // We never query items relationally in v1 (the catalog is a separate Phase-2
 // table), so JSONB is the right fit and keeps sync semantics in one place.
 //
@@ -11,9 +12,11 @@
 // CREATE ... IF NOT EXISTS strings (db.ts, catalog.ts, candidates.ts,
 // vaultSchema.ts, accountSchema.ts), ensured idempotently on first use — there is
 // no drizzle-kit and no migration step — so the indexes and CHECKs live there,
-// with their reasoning. Two consequences: a table declared here may carry legacy
-// columns the database still has (nullable or defaulted, so harmless — nothing
-// drops them), and a column added here must ALSO be added to the DDL.
+// with their reasoning. Two consequences: a column added here must ALSO be added to
+// the DDL, and one taken out of here stays in the database until a `DROP COLUMN IF
+// EXISTS` in the DDL retires it. That drop never ships in the same deploy that stops
+// declaring the column: the deploy before it selects every column declared here, so
+// rolling back to it would fail on the missing one.
 
 import { bigint, boolean, integer, jsonb, pgTable, primaryKey, serial, text, timestamp } from "drizzle-orm/pg-core";
 import type { ListData } from "../../shared/types";
@@ -22,8 +25,6 @@ import type { FullSnap, ListDiff } from "../../shared/snapshotDiff";
 // A snapshot row's JSONB: a full payload (`kind:'base'`) or a reverse-delta (`kind:'diff'`).
 type SnapshotPayload = FullSnap | ListDiff;
 
-// legacy columns still in the database, undeclared: primary_category,
-// view_count, claim_phrase_hash (see the header)
 export const lists = pgTable(
   "lists",
   {
@@ -60,24 +61,16 @@ export const lists = pgTable(
     endDate: text("end_date"),
     // folders + items (the op-reducer's state)
     data: jsonb("data").$type<ListData>().notNull(),
-    // cached rollups, recomputed on every write. Nothing reads them since the feed
-    // indexes went (below); they stay because they're the cheap shape any future
-    // list-of-lists query wants, and computing them is already on the write path.
+    // cached rollups, recomputed on every write. total_weight_mg is the total an
+    // account's lists show (claimRepo) and item_count is the reap's first filter
+    // (reapAbandonedLists). The other three are written and not read: they stay because
+    // they're the cheap shape a list-of-lists query wants, and computing them is
+    // already on the write path.
     baseWeightMg: bigint("base_weight_mg", { mode: "number" }).notNull().default(0),
     wornWeightMg: bigint("worn_weight_mg", { mode: "number" }).notNull().default(0),
     consumableWeightMg: bigint("consumable_weight_mg", { mode: "number" }).notNull().default(0),
     totalWeightMg: bigint("total_weight_mg", { mode: "number" }).notNull().default(0),
     itemCount: integer("item_count").notNull().default(0),
-    // Publishing's columns, unread since it was retired (2026-11-09): a list was made
-    // public at /l/{slug} with a trip type and season, and withheld (`flagged`) on a
-    // spam heuristic or reports. No list was ever made public, and nothing reads or
-    // writes these now; they stay only because this app has no migration step to drop
-    // a column with (see db.ts).
-    isPublic: boolean("is_public").notNull().default(false),
-    publishedAt: timestamp("published_at", { withTimezone: true }),
-    tripType: text("trip_type"),
-    season: text("season"),
-    flagged: boolean("flagged").notNull().default(false),
     // The byline on the read views — who MADE the list.
     //
     // Set ONCE at creation and never re-pointed by claiming: an edit link is
@@ -118,8 +111,6 @@ export type ListRow = typeof lists.$inferSelect;
 // forgoing gin_trgm_ops (the catalog is small + bounded, so the seq scan is
 // cheap).
 // ---------------------------------------------------------------------------
-// legacy columns still in the database, undeclared: description, image_url,
-// msrp_cents, currency (see the header)
 export const catalogItems = pgTable(
   "catalog_items",
   {
@@ -145,6 +136,14 @@ export const catalogItems = pgTable(
     sourceUrl: text("source_url"), // the citation (manufacturer spec page preferred)
     productUrl: text("product_url"), // optional buy/official link, distinct from the citation
     verified: boolean("verified").notNull().default(false), // owner-curated trust
+    // The admin account that verified this row in the app (verify_catalog_item), or null.
+    // A verified row with no verifier is the seed's: the research names it, and the seed
+    // retires it when the research stops. A row with one belongs to the database, and the
+    // seed leaves it alone until the research names it and takes it over (seedUpsert.ts).
+    verifiedBy: integer("verified_by"),
+    // The maker's own words for the weight, kept from an in-app verification so
+    // `catalog:graduate` can write the row back out as research with its quote.
+    sourceQuote: text("source_quote"),
     usageCount: integer("usage_count").notNull().default(0), // ranks autocomplete
     status: text("status").notNull().default("active"), // active|merged|removed
     // Where a retired row's links now point: the row the research replaced it with
@@ -160,13 +159,37 @@ export const catalogItems = pgTable(
 // catalog_edits — the wiki history (Phase 3). One row per change to a catalog
 // weight. No accounts, so we identify a change by the change itself, not a user.
 // Every weight change is recorded here so any edit is revertible and the history
-// is auditable (powers the recent-changes feed + one-click revert).
+// is auditable (get_catalog_edits lists it, revert_catalog_edit undoes it, or turns a
+// proposed one down).
 //
 // Trust-tiered: editing an uncited/community value applies instantly; editing a
 // verified value becomes a `proposed` row unless the correction carries a
 // citation from a trusted manufacturer/retailer domain (then it auto-applies).
+// A row an admin verified in the app (verified_by set) takes corrections as
+// `proposed` only: its weight stands on the evidence the admin gave.
 // ---------------------------------------------------------------------------
-// legacy column still in the database, undeclared: confirmations (see the header)
+/** What an in-app verification (verify_catalog_item) changed on its row besides the
+ *  weight, as it stood before: revert_catalog_edit puts it back with the old weight. A
+ *  product the verification added has `{ status: "removed" }`, so reverting retires it. */
+export type CatalogEditUndo = Partial<
+  Pick<
+    typeof catalogItems.$inferSelect,
+    | "brand"
+    | "name"
+    | "variant"
+    | "weightSource"
+    | "sourceUrl"
+    | "sourceQuote"
+    | "verified"
+    | "verifiedBy"
+    | "commonName"
+    | "searchTerms"
+    | "categoryHint"
+    | "status"
+    | "mergedIntoId"
+  >
+>;
+
 export const catalogEdits = pgTable(
   "catalog_edits",
   {
@@ -177,6 +200,8 @@ export const catalogEdits = pgTable(
     sourceUrl: text("source_url"), // citation; validated against a domain allowlist for auto-promote
     reason: text("reason"),
     status: text("status").notNull().default("applied"), // applied|proposed|reverted|rejected
+    // set on an in-app verification only: the row's fields before it (CatalogEditUndo)
+    undo: jsonb("undo").$type<CatalogEditUndo>(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   }
 );
@@ -283,39 +308,15 @@ export const vaults = pgTable(
     // link-owned era and is unreachable by design.
     userId: integer("user_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-    // bumped on use, so an abandoned vault can be reaped on the same schedule as
-    // an abandoned list rather than accumulating forever
+    // stamped on use (touchVaultByUser). The nightly sweep reads it only for a vault
+    // no account owns: an account's vault is never reaped (vaultRepo)
     lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
-    // Soft-delete, set by the reaper and cleared by requireVault — so a vault whose
-    // owner comes back after the stale window is REVIVED by being used rather than
-    // being already gone.
+    // Soft-delete, set by the nightly sweep on a vault no account owns and purged
+    // after a grace window. Cleared whenever a vault is used (touchVaultByUser), so a
+    // mark on an account's vault never outlives its next request.
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
   }
 );
-
-/**
- * LEGACY: the folders My Gear had before it grouped by kind (shared/vaultView).
- * Nothing reads or writes them now, and vault_items no longer declares the folder_id
- * that filed a row into one. The table stays declared because whatever deletes a
- * vault's rows — the purge, closing an account, scripts/mirror-account.ts — deletes
- * its old folders too.
- */
-export const vaultFolders = pgTable(
-  "vault_folders",
-  {
-    id: serial("id").primaryKey(),
-    vaultId: integer("vault_id").notNull(),
-    name: text("name").notNull(),
-    // drag order on /vault; ties break on id so the order is always total
-    sortOrder: integer("sort_order").notNull().default(0),
-    // LEGACY, unread: the per-folder sort (manual|name|heaviest|lightest) that My
-    // Gear used to offer. The feature is gone; the column stays until a migration
-    // drops it, and nothing writes or reads it.
-    sortBy: text("sort_by"),
-    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  }
-);
-
 
 // Relational, not JSONB (unlike a list's content): the vault is QUERIED — fuzzy
 // autocomplete while building a list, sorted browsing on /vault — which is the
@@ -360,11 +361,6 @@ export const vaultItems = pgTable(
     kcal: integer("kcal"),
     catalogItemId: integer("catalog_item_id"), // set when the row came from a catalog pick
     productUrl: text("product_url"),
-    // legacy columns still in the database, undeclared: description and
-    // description_pinned. My Gear kept a note until 2026-11-08, mostly list notes that
-    // capture had copied in (a trip's "Sam carries this" showing on the gear), so the
-    // two were cut apart: a note belongs to a list row, and My Gear keeps none. Also
-    // folder_id, the row's folder from when My Gear had folders (vaultFolders).
     // What it cost, in whole cents of `currency`. The gear is where a price belongs:
     // a list row's price is the same purchase counted again in every list it's in.
     priceCents: integer("price_cents"),
@@ -444,7 +440,7 @@ export const users = pgTable(
     // BACK IN when every authenticator is gone — see accountSchema.ts.
     email: text("email").notNull(),
     // OPTIONAL, and the only thing about an account that is ever public. Set it and
-    // your public lists carry a byline; leave it and they stay anonymous, which is
+    // your shared lists carry a byline; leave it and they stay anonymous, which is
     // the default. Deliberately not derived from the email — an address is private
     // and must never be shown to anyone but its owner.
     displayName: text("display_name"),
@@ -472,6 +468,9 @@ export const authTokens = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // sha256 of the nonce cookie left in the browser that asked for this link, or
+    // null where no browser did (the welcome mail). See redeemMagicLink.
+    browserHash: text("browser_hash"),
   }
 );
 
@@ -487,6 +486,18 @@ export const sessions = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }).notNull().defaultNow(),
+    // Whether the lists this browser made may be attached to the account without
+    // asking (the claim sweep). True for a sign-in the browser made itself, false
+    // for one a person only confirmed there. See startSession.
+    sweepOk: boolean("sweep_ok").notNull().default(false),
+    // Made on the say-so of an account whose address nobody had proved yet: true from
+    // passkey signup until a link sent to the address comes back. Once one does
+    // (claimUnverifiedAccount), a row marked here opens nothing. The claim deletes
+    // these rows too, but a sign-in already in flight can write one just after it, and
+    // this is what makes that straggler worthless. Sessions, passkeys, access tokens
+    // and authorization codes all carry it, each stamped from the credential that
+    // authorized making it, never read fresh at insert time.
+    unproven: boolean("unproven").notNull().default(false),
   }
 );
 
@@ -525,6 +536,8 @@ export const accessTokens = pgTable(
     refreshPrevHash: text("refresh_prev_hash"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    // see sessions.unproven
+    unproven: boolean("unproven").notNull().default(false),
   }
 );
 
@@ -572,6 +585,8 @@ export const oauthCodes = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // see sessions.unproven; carried to the grant the code is traded for
+    unproven: boolean("unproven").notNull().default(false),
   }
 );
 
@@ -608,6 +623,8 @@ export const credentials = pgTable(
     label: text("label"), // human-set name, so a list of keys is meaningful
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    // see sessions.unproven
+    unproven: boolean("unproven").notNull().default(false),
   }
 );
 

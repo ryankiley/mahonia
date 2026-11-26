@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-22",
+  "fixed": [
+    "An AI assistant linking a piece of My Gear to the catalog no longer overwrites its name, size or weight, and fills in only what's missing."
+  ]
+}

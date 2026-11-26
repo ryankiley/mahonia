@@ -6,22 +6,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { enableAutoUnmount, flushPromises, mount } from "@vue/test-utils";
 import { mockNuxtImport } from "@nuxt/test-utils/runtime";
 import VaultPane from "~/components/VaultPane.vue";
-import { forgetGearCopy, gearCopyKey } from "~/utils/gearCopy";
+import { OWNED, ownedKey } from "~/utils/sessionOwner";
 import { readGearCopy, useVaultList, useVaultOps, writeGearCopy } from "~/composables/useVaultList";
 import type { VaultEntry } from "~~/shared/vault";
+import { vaultRow } from "./helpers/vault";
 
 const OWNER = "a1b2c3d4e5f60718";
 const OTHER = "ffffffffffffffff";
-const piece = (id: number, name: string, commonName = "Tent"): VaultEntry => ({
-  id,
-  name,
-  commonName,
-  weightMg: 500_000,
-  normKey: `|${name.toLowerCase()}|`,
-  timesSeen: 1,
-  lastUsedAt: "2026-11-01T00:00:00Z",
-  createdAt: "2026-11-01T00:00:00Z",
-});
+const piece = (id: number, name: string, commonName = "Tent"): VaultEntry =>
+  vaultRow({ id, name, commonName, weightMg: 500_000, normKey: `|${name.toLowerCase()}|` });
 const GEAR = [piece(1, "Duplex"), piece(2, "Pocket Rocket", "Stove")];
 
 // what the server would say, per test
@@ -81,7 +74,7 @@ describe("the device's copy of My Gear", () => {
   it("goes with the account: forgotten, it's gone", () => {
     writeGearCopy(GEAR, OWNER);
     writeGearCopy(GEAR, OTHER);
-    forgetGearCopy(OWNER);
+    forgetOwned(OWNER);
     expect(readGearCopy(OWNER)).toBeNull();
     expect(readGearCopy(OTHER)).not.toBeNull();
   });
@@ -120,7 +113,7 @@ describe("the My Gear pane offline", () => {
     setCookie("mh_signed_in", "1");
     const pane = await openPane();
     expect(pane.find(".vp__offline").text()).toBe("You’re offline, and this device hasn’t kept a copy of your gear yet.");
-    expect(pane.text()).not.toContain("No gear saved yet");
+    expect(pane.text()).not.toContain("No gear yet");
     expect(pane.text()).not.toContain("Sign in");
   });
 
@@ -188,7 +181,7 @@ describe("the copy and the account it belongs to", () => {
 
   it("drops entries that would break the page rather than painting them", () => {
     localStorage.setItem(
-      gearCopyKey(OWNER)!,
+      ownedKey(OWNED.gearCopy, OWNER)!,
       JSON.stringify({ items: [GEAR[0], null, { id: "x", name: "Bad" }, { ...GEAR[1], parts: [{ id: 1 }] }], savedAt: 5 }),
     );
     expect(readGearCopy(OWNER)).toEqual({ items: [GEAR[0]], savedAt: 5 });
@@ -254,6 +247,46 @@ describe("asking again", () => {
     answer.resolve({ items: GEAR });
     await flushPromises();
     expect(h.vm.offline).toBe(false);
+  });
+
+  // A surface opened when the session's ask has ALREADY failed (the list's pane, opened
+  // offline) starts out offline, and nothing had latched that: the session's own re-ask
+  // read as a question again and took the note and the read-only state down until it
+  // failed.
+  it("stays offline through the session's re-ask when it mounted already offline", async () => {
+    setCookie("mh_signed_in", "1");
+    writeGearCopy(GEAR, OWNER);
+    const h = mount(Harness);
+    await flushPromises();
+    expect(h.vm.offline).toBe(true);
+    expect(h.vm.offlineNote).toContain("Offline · last updated");
+
+    // the session asks again (useSessionReask): the ask is out
+    useState("session-pending").value = true;
+    await nextTick();
+    expect(h.vm.offline).toBe(true);
+    expect(h.vm.readonly).toBe(true);
+    expect(h.vm.offlineNote).toContain("Offline · last updated");
+
+    // and it fails again: still offline
+    useState("session-pending").value = false;
+    await nextTick();
+    expect(h.vm.offline).toBe(true);
+  });
+
+  // The same with no owner marker in the browser (a session from before the marker):
+  // there is no account to load a copy under, so nothing about the load touches the
+  // latch, and offline is simply true from the first moment.
+  it("and stays offline through it with no owner marker to load under", async () => {
+    setCookie("mh_signed_in", "1");
+    setCookie("mh_session_owner", null);
+    const h = mount(Harness);
+    await flushPromises();
+    expect(h.vm.offline).toBe(true);
+
+    useState("session-pending").value = true;
+    await nextTick();
+    expect(h.vm.offline).toBe(true);
   });
 });
 

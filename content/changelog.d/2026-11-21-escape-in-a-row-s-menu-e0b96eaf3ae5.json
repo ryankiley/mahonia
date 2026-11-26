@@ -1,0 +1,11 @@
+{
+  "date": "2026-11-21",
+  "fixed": [
+    "Escape in a row's menu, or its worn or calories card, closes only that, not My Gear or a dialog open beside it.",
+    "My Gear keeps a piece's calories when they're typed with a comma, like 2,700.",
+    "An account's My Gear is never cleared for going unopened.",
+    "A water line with a dotted capital İ before the word water keeps the right name and volume.",
+    "An account can't go past 20 passkeys by starting several additions at once.",
+    "The connector says when a new row's quantity, worn count, calories or cooking flag is the wrong kind of value, instead of using a default."
+  ]
+}

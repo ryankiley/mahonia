@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Cancel01Icon, ChevronDownIcon, ExpandIcon, FolderIcon, ToolCaseIcon } from "@hugeicons/core-free-icons";
+import { IconChevronDownMedium, IconCrossMedium, IconFolder1, IconSquarePlaceholderDashed, IconToolbox } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { gearIcon } from "~/utils/gearIcons";
+import { typeScale } from "~/utils/typeScale";
 import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { matchesElsewhere, searchVaultRows, VAULT_TAB_LABEL, VAULT_TABS, vaultSections, vaultTabOf, type VaultTab } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
-import { formatKcal, formatWeight, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
+import { formatKcal, formatWeight, groupBy, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
 import { counted } from "~~/shared/tidyText";
 import { addVaultKit } from "~/composables/useVaultUnfold";
 import { kitItemCount } from "~~/shared/vaultKit";
@@ -56,13 +57,21 @@ function startResize(ev: PointerEvent) {
   } catch {
     /* pointer already gone (or synthetic) — plain window listeners still track it */
   }
-  // the pane lives inside the editor root that owns --vault-w
+  // the pane lives inside the editor root that owns --vault-span
   const editorEl = divider.closest(".editor") as HTMLElement | null;
-  // the viewport can't change mid-drag, so read it once rather than forcing layout
-  // on every move. clientWidth, not innerWidth: the pane's right edge sits in the
-  // LAYOUT viewport, and innerWidth also counts a classic scrollbar's column (Windows,
-  // Linux), which put the divider 15px right of the pointer there.
-  const vw = document.documentElement.clientWidth;
+  // held: on the element, not a ref, so it paints on this frame (see the grip's CSS)
+  divider.classList.add("is-dragging");
+  // The pane can't move or rescale mid-drag, so it's measured once rather than forcing
+  // layout on every move. From its OWN right edge: it sits a gutter in from the
+  // viewport's, and measuring from the viewport put the divider 16px left of the pointer.
+  // And per unit: the stored width is px at 16px type and the pane grows with the type
+  // past a 1920px window (.editor's --vault-w), so a unit there is a type pixel.
+  const box = paneEl.value!.getBoundingClientRect();
+  const perUnit = typeScale();
+  // and from where it was taken hold of: the grip hangs clear of the card's edge, so the
+  // edge keeps that distance from the pointer rather than jumping to it on the first move
+  const grab = box.left - ev.clientX;
+  const widthAt = (x: number) => clampVaultWidth((box.right - x - grab) / perUnit);
   let frame = 0;
   let pendingX = ev.clientX;
   let moved = false;
@@ -71,8 +80,8 @@ function startResize(ev: PointerEvent) {
     moved = true;
     frame ||= requestAnimationFrame(() => {
       frame = 0;
-      const w = clampVaultWidth(vw - pendingX);
-      editorEl?.style.setProperty("--vault-w", `${w}px`);
+      const w = widthAt(pendingX);
+      editorEl?.style.setProperty("--vault-span", String(w));
       divider.setAttribute("aria-valuenow", String(w));
     });
   };
@@ -83,10 +92,11 @@ function startResize(ev: PointerEvent) {
     window.removeEventListener("pointerup", stop);
     window.removeEventListener("pointercancel", stop);
     lockTextSelection(false);
+    divider.classList.remove("is-dragging");
     endResize = () => {};
-    // commit once — a press that never moved must not nudge the width by the
-    // divider-center offset (the old per-frame flow only wrote after a move too)
-    if (moved) width.value = clampVaultWidth(vw - pendingX);
+    // commit once, and only after a move: a press alone has nothing to say about width,
+    // and writing it anyway would persist the same figure for nothing
+    if (moved) width.value = widthAt(pendingX);
   };
   endResize = stop;
   // both spellings — Safari only reads the prefixed one (see lockTextSelection)
@@ -178,13 +188,9 @@ onMounted(() => {
 // (Ryan: "keep kits out of items tab here since it has its own").
 const isKit = (entry: VaultEntry) => entry.kind === "kit";
 // each tab's rows, in one pass over the gear
-const byTab = computed(() => {
-  const out: Record<VaultTab, VaultEntry[]> = { gear: [], kits: [], food: [] };
-  for (const i of items.value) out[vaultTabOf(i)].push(i);
-  return out;
-});
+const byTab = computed(() => groupBy(items.value, vaultTabOf));
 // the open tab's rows, ranked when a search is typed
-const filtered = computed(() => searchVaultRows(byTab.value[tab.value], query.value));
+const filtered = computed(() => searchVaultRows(byTab.value.get(tab.value) ?? [], query.value));
 // With nothing typed, the gear reads by kind — shelter, clothing and so on — the way
 // /gear groups it, so the pane and the page read alike. A search ranks across all of
 // it instead: the best match first matters more than where it lives. Kits and food are
@@ -195,7 +201,7 @@ const sections = computed(() => {
 });
 // each row's mark, once per load rather than twice per row per render: a kit's tool
 // case, a piece's own icon (the one its row on /gear wears)
-const iconById = computed(() => new Map(items.value.map((e) => [e.id, isKit(e) ? ToolCaseIcon : gearIcon(e.commonName, e.name, e.icon)])));
+const iconById = computed(() => new Map(items.value.map((e) => [e.id, isKit(e) ? IconToolbox : gearIcon(e.commonName, e.name, e.icon)])));
 // bold the characters that overlap what's been typed — the same helper, and so the
 // same emphasis, as the autocomplete's rows
 const hl = (text: string) => highlightParts(text, query.value);
@@ -428,20 +434,16 @@ onKeyStroke("Escape", () => emit("close"));
 // Sign in without losing the vault behind it — the account opens over this page.
 const { open: openAccount } = useAccountModal();
 // folder ids are STRINGS in the editor (the vault page's are numeric rows) — no cast
-const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, label: f.name, icon: FolderIcon })));
+const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, label: f.name, icon: IconFolder1 })));
 </script>
 
 <template>
-  <!-- vp--sized once there's a vault to browse: that's the state whose height has
-       to hold still while you filter it. The signed-out explainer is a short block
-       of prose and sizes to itself. -->
   <!-- touchmove takes NO .passive modifier: preventDefault is the whole point of it
        (see onSheetTouchMove), and the passive-by-default intervention covers only
        window/document/body, so a bare listener here can still cancel. -->
   <aside
     ref="paneEl"
     class="popover vp"
-    :class="{ 'vp--sized': hasGear }"
     data-vault-pane
     role="dialog"
     aria-label="My Gear"
@@ -458,8 +460,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
       tabindex="0"
       aria-label="Resize the My Gear panel"
       :aria-valuenow="width"
-      :aria-valuemin="288"
-      :aria-valuemax="720"
+      :aria-valuemin="VAULT_W_MIN"
+      :aria-valuemax="VAULT_W_MAX"
       title="Drag to resize"
       @pointerdown="startResize"
       @keydown="onResizeKey"
@@ -471,16 +473,13 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            while building a list; hanging a menu off it to offer this would tax the
            frequent action to reach the rare one. You have already asked for your gear
            by the time you can see this, so "all of it, with room to tidy" is one quiet
-           link away at the moment you'd want it. -->
-      <NuxtLink
-        v-if="hasGear"
-        to="/gear"
-        class="btn btn--icon btn--ghost ink-quiet vp__open"
-        aria-label="Open My Gear as a full page"
-        title="Open My Gear as a full page"
-      >
-        <HugeiconsIcon :icon="ExpandIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-      </NuxtLink>
+           link away at the moment you'd want it.
+           A WORD, and the word is the job. It was an expand glyph ("Open My Gear as a
+           full page"), which Ryan found a little hidden: it is the only route to /gear
+           from the editor, and a glyph that says "this, bigger" undersells a page that
+           does what the pane can't (edit a piece, make a kit, import). Same call as
+           "Your packs" (ListMenu): a word is found where an icon is not. -->
+      <NuxtLink v-if="hasGear" to="/gear" class="vp__open" aria-label="Manage My Gear">Manage</NuxtLink>
       <button
         type="button"
         class="btn btn--icon btn--ghost btn--flush-end"
@@ -488,7 +487,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
         title="Close"
         @click="emit('close')"
       >
-        <HugeiconsIcon :icon="Cancel01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconCrossMedium" />
       </button>
     </header>
 
@@ -539,35 +538,35 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             {{ t.label }}
           </button>
         </div>
-        <div v-if="folders.length" class="vp__target">
-          <span class="t-sm t-muted">Add to</span>
-          <!-- the last native dropdown in the app, converted with the rest: it wasn't
-               the transparent-overlay pattern, just an ordinary <select>, which left it
-               the one control that opened an OS list instead of ours -->
-          <OptionMenu
-            class="vp__select"
-            :options="targetOptions"
-            :current="targetFolderId ?? ''"
-            label="Folder to add into"
-            @pick="(k) => (targetFolderId = k)"
-          >
-            <template #trigger="{ active, open }">
-              <span class="t-clip vp__targetname">{{ active?.label }}</span>
-              <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
-            </template>
-          </OptionMenu>
-        </div>
+        <!-- the last native dropdown in the app, converted with the rest: it wasn't
+             the transparent-overlay pattern, just an ordinary <select>, which left it
+             the one control that opened an OS list instead of ours.
+             "Add to" is INSIDE the trigger: the phrase reads as one sentence, a word
+             space between its words (Ryan, 2026-11-10), with one hover ground around it,
+             where a label beside the button stood 16px off the folder's name. -->
+        <OptionMenu
+          v-if="folders.length"
+          class="vp__select"
+          :options="targetOptions"
+          :current="targetFolderId ?? ''"
+          label="Folder to add into"
+          @pick="(k) => (targetFolderId = k)"
+        >
+          <template #trigger="{ active, open }">
+            <span class="t-sm t-muted vp__targetlabel">Add to</span>
+            <span class="t-clip">{{ active?.label }}</span>
+            <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
+          </template>
+        </OptionMenu>
       </div>
 
-      <div class="vp__controls">
-        <!-- the field and its own clear — SearchField, the same control /gear draws -->
-        <SearchField
-          ref="searchEl"
-          v-model="query"
-          :placeholder="`Search my ${tab}…`"
-          :label="`Search my ${tab}`"
-        />
-      </div>
+      <!-- the field and its own clear — SearchField, the same control /gear draws -->
+      <SearchField
+        ref="searchEl"
+        v-model="query"
+        class="vp__search"
+        :label="`Search your ${tab}`"
+      />
 
       <!-- offline: how old the copy is, or that there is none (with a failed read's own
            words). The copy itself still lists below and still adds to the list. -->
@@ -603,7 +602,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             @click="onRowClick(entry, $event)"
           >
             <span class="vp__kit" aria-hidden="true">
-              <HugeiconsIcon v-if="iconById.get(entry.id)" :icon="iconById.get(entry.id)!" :size="16" :stroke-width="2" />
+              <SvgIcon v-if="iconById.get(entry.id)" :icon="iconById.get(entry.id)!" />
+              <!-- no icon to draw: /gear's dashed square, so the column holds a mark on every
+                   row and a row with none (most of Other) doesn't start its name early -->
+              <SvgIcon v-else :icon="IconSquarePlaceholderDashed" class="vp__noicon" />
             </span>
             <span class="gear__main">
               <!-- the full name on hover, for the rows the ellipsis cut short -->
@@ -626,7 +628,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
               <!-- food says its calories, the number it's picked by (its weight is beside it) -->
               <span v-else-if="tab === 'food' && entry.kcal" class="t-sm t-muted">{{ formatKcal(entry.kcal) }} kcal</span>
             </span>
-            <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, entry.entryUnit ?? unit, { withUnit: false }) }}<span class="t-muted"> {{ entry.entryUnit ?? unit }}</span></span>
+            <span class="t-num t-sm vp__w">{{ formatWeight(entry.weightMg, entry.entryUnit ?? unit, { withUnit: false }) }}<span class="t-muted vp__unit">{{ entry.entryUnit ?? unit }}</span></span>
           </button>
         </li>
         </template>
@@ -644,19 +646,19 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
            has gear that hasn't been made into a set, an empty Food tab no food packed -->
       <div v-else-if="tab === 'kits'" class="vp__empty">
         <p class="t-sm t-muted">
-          No kits yet. Make one with New kit on My Gear, or save a group on a list to My
-          Gear as one.
+          No kits yet. Make one on
+          <NuxtLink to="/gear" class="link vp__pagelink">the My Gear page</NuxtLink>, or save a group from
+          a list as a kit.
         </p>
       </div>
       <div v-else-if="tab === 'food'" class="vp__empty">
         <p class="t-sm t-muted">
-          No food yet. Add food to this list and it’ll collect itself here, with its
-          calories.
+          No food yet. Food you add to a list is saved here, with its calories.
         </p>
       </div>
       <div v-else class="vp__empty">
         <p class="t-sm t-muted">
-          No gear saved yet. Add gear to this list and it’ll collect itself here.
+          No gear yet. Gear you add to a list is saved here.
         </p>
       </div>
       </template>
@@ -680,9 +682,10 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    own scroll position while you work through the vault. */
 /* The SURFACE (lifted background, radius, soft shadow, forced-colors edge) comes
    from the shared .popover atom — the same one the autocomplete and kebab menus
-   wear, so this panel can't drift from them. It also hands down
-   --popover-item-radius and --popover-hover, which the rows below consume, so the
-   concentric corner and the hover tint stay pinned to this surface's geometry.
+   wear, so this panel can't drift from them. The rows below take the menus' row wash
+   (--popover-hover) and --popover-item-radius (the token derived from this surface's
+   corner), both in tokens.scss, so the concentric corner and the hover tint stay pinned
+   to this surface's geometry.
    Everything here is position + size only.
 
    Desktop: a floating column pinned to the right, clear of the sticky topbar and
@@ -711,62 +714,108 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   right: var(--space-4);
   bottom: var(--space-4);
   width: var(--vault-w);
+  /* The card's frame: the inset to the row grounds at the sides, and the room above
+     the header and under the last row. 8px on the sheet; the desktop column takes
+     more (below). */
+  --vp-pad: var(--space-2);
   /* Inline padding only — the same split .ac__menu makes. The VERTICAL breathing
      room lives inside the scroller below (where it scrolls with the content), so
-     the last row travels all the way to the card's edge instead of stopping 8px
-     short at a padding ledge and reading as cut off. */
-  padding: 0 var(--space-2);
+     the last row travels all the way to the card's edge instead of stopping short
+     at a padding ledge and reading as cut off. */
+  padding: 0 var(--vp-pad);
   /* clip the full-bleed rows (and the scrollbar's extremes) to the radius */
   overflow: hidden;
 }
-/* The divider: a hit area straddling the seam, wider than the 1px line it drags so
-   it can actually be grabbed. It INKS on hover/focus rather than sitting there as a
-   visible bar — the border already draws the seam, and a permanent handle would be
-   chrome on a panel that's mostly list. */
+/* The desktop column, a full-height card beside the list: 8px read as cramped against
+   its edge, so the next step. The phone and tablet sheet keeps 8 (Ryan, 2026-11-10:
+   "the original was better"). */
+@media (min-width: $bp-full + 1px) {
+  .vp {
+    --vp-pad: var(--space-3);
+    /* ...and the corners follow it. Every ground in here (rows, the active tab, the
+       search well) sits --vp-pad in from the card's edge, so each is concentric at the
+       card's corner less that inset: 20 - 12 = 8px, the --radius-2 the mode bar's chips
+       wear. The .popover pin (20 - 8) is for its 8px inset. */
+    --popover-item-radius: calc(var(--radius-4) - var(--vp-pad));
+    /* The grip hangs OUTSIDE the card (below), so the card can't clip: overflow:hidden
+       cut the old straddling divider in half, a 1.5px sliver you could grab only on its
+       inner 4.5px. The clipping the card did moves to the list, the one thing in here
+       that scrolls under its edge, with bottom corners concentric with the card's, so a
+       row scrolled half out of view still can't paint past the card's corner. */
+    overflow: visible;
+  }
+  .vp__list {
+    border-end-start-radius: var(--popover-item-radius);
+    border-end-end-radius: var(--popover-item-radius);
+  }
+}
+/* THE GRIP, the design kit's sidebar grip (design-system components.css,
+   .ds-sidebar__grip) turned to face left. OUTSIDE the card, in the gap the list leaves
+   it, rather than straddling the edge: straddling put half of it under the card's clip
+   and the other half over the rows' leading glyphs. The bar you see is 4px; the thing
+   you can hit is six times that, a target sized to what it does rather than to how it
+   looks. Hidden at rest: the card's shadow already draws its edge, and a handle there
+   permanently is a second edge saying the same thing. */
 .vp__resize {
   position: absolute;
   top: 0;
   bottom: 0;
-  left: 0;
-  width: 9px;
-  transform: translateX(-50%);
+  /* Flush against the card, where the kit leaves a 4px margin: its sidebar sits on the
+     page's own ground, this card floats over the list's, and 4px more put the bar far
+     enough off the card to read as the list's (Ryan: "a little closer to the pane"). */
+  right: 100%;
+  display: grid;
+  place-items: center;
+  width: var(--space-5);
   cursor: col-resize;
   touch-action: none;
-  background: transparent;
 }
-/* A short pill at the vertical middle rather than a full-height rule: the seam is
-   already drawn by the pane's border, and a second floor-to-ceiling line beside it
-   read as a double edge. This marks the one spot you grab and nothing else. */
+/* Shorter than a row, so it reads as an object beside the card and not as a second
+   border on it: 20 at rest, 28 under the pointer, 24 held or focused, a step under the
+   kit's 24 / 36 / 32 (Ryan: "decrease the height a tad"). The kit
+   grows and leans it toward the pointer as it nears; here it shows on hover and holds
+   still (Ryan tried the kit's pull and took it off). */
 .vp__resize::after {
   content: "";
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 3px;
-  height: 28px;
-  transform: translate(-50%, -50%);
+  width: var(--space-1);
+  height: calc(var(--space-4) + var(--space-1));
   border-radius: var(--radius-pill);
-  background: var(--ink-3);
+  background: color-mix(in oklab, var(--ink) 20%, transparent);
   opacity: 0;
-  transition: opacity var(--spring-fade-dur) var(--spring-fade);
-}
-.vp__resize:focus-visible::after {
-  opacity: 1;
+  transition:
+    height var(--spring-step-dur) var(--spring-step),
+    opacity var(--spring-fade-dur) var(--spring-fade),
+    background var(--spring-fade-dur) var(--spring-fade);
 }
 /* the hover twin is pointer-gated, as every hover that paints is (see .vp__add below) */
 @media (hover: hover) and (pointer: fine) {
   .vp__resize:hover::after {
     opacity: 1;
+    height: calc(var(--space-5) + var(--space-1));
+    background: color-mix(in oklab, var(--ink) 45%, transparent);
   }
+}
+/* Focus and the drag are not hover: a keyboard has no pointer to hover with, and a bar
+   you are holding has stopped being something to find. Both pin it on. */
+.vp__resize:focus-visible::after,
+.vp__resize.is-dragging::after {
+  opacity: 1;
+  height: var(--space-5);
+}
+.vp__resize:focus-visible::after {
+  background: var(--ink);
+}
+.vp__resize.is-dragging::after {
+  background: color-mix(in oklab, var(--ink) 45%, transparent);
 }
 .vp__resize:focus-visible {
   outline: none;
 }
-/* the rows carry their own --space-2 inline padding, so the header and controls
-   need the same inset to line up with them rather than hugging the card edge */
+/* the rows carry their own --space-2 inline padding, so the header and the bar need
+   the same inset to line up with them rather than hugging the card edge (the search
+   field does NOT take it — see .vp__search) */
 .vp__head,
 .vp__bar,
-.vp__controls,
 .vp__note,
 .vp__offline,
 .vp__empty {
@@ -798,12 +847,16 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   position: relative; /* the hit area below hangs off it */
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--popover-item-radius);
-  font-size: var(--text-base);
+  /* --radius-2, the MODE CHIP's corner (.modebar__opt), as "Your packs" takes it: the
+     editor's Gear / Packing / Trip are in view beside these, and /gear draws these same
+     three tabs with the mode bar itself. It was the card's concentric corner
+     (--popover-item-radius, 12px), which on a chip this short read as nearly a pill
+     against the mode bar's rounded rectangle (Ryan: "tab corner radii mismatch"). The
+     search under these takes the same corner (SearchField). The rows keep the
+     concentric one: they are menu rows, on the card's edge. */
+  border-radius: var(--radius-2);
   color: var(--ink-3);
-  cursor: pointer;
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
     color var(--spring-fade-dur) var(--spring-fade);
@@ -831,25 +884,28 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     translate: 0 -50%;
   }
 }
-/* --lit, the app's one on-plate, as the mode tabs and the sharing tabs wear it. It was
-   --paper-3, which is --surface-float's exact value in dark — the panel this tab sits
-   on — so the selected tab had no plate at all there (1.00:1), only its darker word. */
+/* --lit, the app's one tone for "on" (the mode tabs, the person filter, the row
+   toggles), and an amount of ink, so it composites over this card. It was --paper-3,
+   a page tone that IS --surface-float in dark: the chosen tab had no ground at all
+   there and was told from the others by its ink alone. */
 .vp__tab.is-active {
   background: var(--lit);
   color: var(--ink);
-}
-/* …and it still answers the pointer, like every other selected control */
-@media (hover: hover) and (pointer: fine) {
-  .vp__tab.is-active:hover {
-    background: var(--lit-hover);
-  }
 }
 /* THE PANEL HEADER is the .panel__head atom (controls.scss); only the offset onto
    this card's edge is its own. */
 .vp__head {
   /* the card no longer carries block padding (see .vp) — the top of it lives here */
-  padding-block-start: var(--space-2);
+  padding-block-start: var(--vp-pad);
   margin-bottom: var(--space-2);
+}
+/* On touch the two trailing buttons are --tap boxes, which already space their glyphs
+   44px apart; the header's gap on top of that stood Open and Close 52px apart, wider
+   than the toolbar's icons above the sheet. */
+@media (pointer: coarse) {
+  .vp__head {
+    gap: 0;
+  }
 }
 .vp__title {
   /* takes the slack so the two trailing controls sit together on the end rather than
@@ -857,41 +913,62 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
      middle of it, reading as a third heading */
   margin-inline-end: auto;
 }
-/* a glyph beside Close, and a link rather than a button: it navigates to the full page */
+/* A word beside Close, and a link rather than a button: it navigates to the full page.
+   It wears this card's other word control, the "Add to" chip below: the same padding,
+   corner (the tabs' chip corner) and wash, a step under the title's ink until the
+   pointer or focus is on it. At the pane's own text size, as the tabs and "Add to" are:
+   it was a step down (--text-chrome, 14px), and beside them it read as small print
+   (Ryan: "too small compared to neighbors"). */
 .vp__open {
   flex: none;
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+  transition:
+    background var(--spring-fade-dur) var(--spring-fade),
+    color var(--spring-fade-dur) var(--spring-fade);
 }
-.vp__controls {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
+.vp__open:focus-visible {
+  color: var(--ink);
+}
+@media (hover: hover) and (pointer: fine) {
+  .vp__open:hover {
+    background: var(--popover-hover);
+    color: var(--ink);
+  }
+}
+/* the same page, named in the Kits tab's empty sentence: a link in the sentence, drawn
+   as the pane's other one is (VaultElsewhere's .elsewhere__go) */
+.vp__pagelink {
+  text-decoration-line: underline;
+  text-underline-offset: 0.2em;
+}
+/* a finger gets the row's height to land on, as the Close box beside it has */
+@media (pointer: coarse) {
+  .vp__open {
+    min-height: var(--tap);
+  }
+}
+/* the search field, its clear and their touch target are SearchField's own; the class
+   lands on its root */
+/* The field's ground sits on the panel's own padding edge, the way the active tab's chip
+   hangs out to it above (and every row's hover ground does below), with its text pulled
+   in by the header's step, so the grounds share one edge and the words share another.
+   So the field stands directly in the card, with none of the header's --space-2 inset:
+   inset like the rest, the box started 8px inside the tab's chip and the edge read as a
+   mistake. */
+.vp__search {
   margin-bottom: var(--space-2);
 }
-/* the search field, its clear and their touch target are SearchField's own */
-/* The field's ground hangs into the panel's padding the way the active tab's chip does
-   above it (and every row's hover ground below it), with its text pulled in by the same
-   step, so the grounds share one edge and the words share another. Inset like the rest,
-   the box started 8px inside the tab's chip and the edge read as a mistake. */
-.vp__controls :deep(.sf) {
-  margin-inline: calc(-1 * var(--space-2));
-}
-.vp__controls :deep(.sf__input) {
+.vp__search :deep(.sf__input) {
   padding-inline-start: var(--space-2);
 }
-/* the hand stays on the select alone — "Add to" is the label naming it, not a
-   thing you click, and pointing at prose invites a click that does nothing */
-.vp__target {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  /* the far end of the tab row, and the side that gives way: a long folder name
-     ellipsizes before the tabs do */
-  margin-inline-start: auto;
-  min-width: 0;
-}
-/* "Add to" is two words and was wrapping onto two lines next to the select,
-   throwing the row's baseline out */
-.vp__target > span {
+/* "Add to" is two words and was wrapping onto two lines next to the folder's name,
+   throwing the row's baseline out; and it holds while the name gives way */
+.vp__targetlabel {
   flex: none;
   white-space: nowrap;
 }
@@ -903,7 +980,32 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    that wraps a name and must be allowed to ellipsize it. */
 .vp__select.optmenu {
   flex: 0 1 auto;
-  min-width: 0;
+  /* the far end of the tab row, and the side that gives way: a long folder name
+     ellipsizes before the tabs do */
+  margin-inline-start: auto;
+}
+/* The trigger takes the toolbar's "Your packs" chip (ListMenu's .lm__trigger), the
+   app's other word-and-chevron menu: 4px between its parts, not OptionMenu's bare 8
+   (Ryan: "the chevron appears far away"), which is about a word space between "Add to"
+   and the name, its padding, and a ground under the pointer and while the menu is
+   open. It had none, only the cursor. One thing is this card's own: the
+   ground is the wash its rows light with. The corner is the tabs' beside it, which is
+   the mode chip's (see .vp__tab). Pulled out by its padding at the trailing end, so the chevron
+   stays on the column's edge, as Your packs is at its leading one. */
+.vp__select :deep(.optmenu__btn) {
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-2);
+  margin-inline-end: calc(-1 * var(--space-2));
+  border-radius: var(--radius-2);
+  transition: background var(--spring-fade-dur) var(--spring-fade);
+}
+.vp__select :deep(.optmenu__btn[aria-expanded="true"]) {
+  background: var(--popover-hover);
+}
+@media (hover: hover) and (pointer: fine) {
+  .vp__select :deep(.optmenu__btn:hover) {
+    background: var(--popover-hover);
+  }
 }
 /* the target's mark is the shared .chev (atoms/controls.scss). Its copy here set the
    resting ink and nothing else — no .is-open rule at all — while the markup has always
@@ -913,7 +1015,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__offline {
   padding-block: var(--space-2);
 }
-/* The sheet holds its height while you filter (see .vp--sized), so a one-line
+/* The sheet holds its height while you filter (its fixed height, below), so a one-line
    "nothing matches" was left pinned to the top of a mostly-empty panel. Centre it
    in the space the rows would have occupied — flex:1 claims that space, and the
    note sits in the middle of it. */
@@ -927,7 +1029,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 .vp__list {
   /* the card's bottom breathing room, inside the scroller so it scrolls with the
      rows rather than sitting under them as a ledge that clips the last one */
-  padding: 0 0 var(--space-2);
+  padding: 0 0 var(--vp-pad);
   overflow-y: auto;
   /* never a horizontal bar — the same rule .ac__menu carries: overflow-y alone
      computes overflow-x to auto, so with classic (always-shown) scrollbars the
@@ -952,7 +1054,6 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   padding-top: var(--space-1);
 }
 .vp__kindname {
-  margin: 0;
   font-weight: 500;
 }
 /* the whole row is the button — a small "+" target would be a poor tap area on the
@@ -966,10 +1067,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   /* matches .ac__opt — a row on a floating surface, not a page row (which sits on
      the roomier --space-4 rhythm; see .vault__row / .mine__row) */
   padding: var(--space-2);
-  /* both pinned on .popover, so they track the surface rather than being guessed */
+  /* this and the hover tint below both track the .popover surface rather than being
+     guessed: the radius is the token derived from its corner (tokens.scss), the tint
+     is declared on .popover itself */
   border-radius: var(--popover-item-radius);
   text-align: left;
-  cursor: pointer;
   /* The row is a control and a drag handle, so holding it must not do what holding
      text does on a phone: select the label, or raise iOS's callout. Both spellings —
      WebKit reads only the prefixed one. */
@@ -978,12 +1080,12 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   -webkit-touch-callout: none;
 }
 /* HELD: the touch hold has armed (see liftedId), so the row is picked up and the next
-   move carries it. One step of ink past the active tab's plate and past the hover
-   tint, because this has to read as a different state from "under your finger" — it is
-   the moment a scroll became a drag. An amount of ink, not --paper-3, which it was:
-   that is this panel's own colour in dark, so the hold landed with a vibration and no
-   picture. No transition: it lands with the vibration tick, and feedback that a hold
-   registered is instant or it isn't feedback. */
+   move carries it. --lit-hover, the step of ink past both the hover tint (8%) and the
+   plate the active tab wears, because this has to read as a different state from "under
+   your finger" — it is the moment a scroll became a drag. An amount of ink, not the
+   --paper-3 it was: that tone is this card's own colour in dark, so there the hold
+   showed nothing. No transition: it lands with the vibration tick, and feedback that a
+   hold registered is instant or it isn't feedback. */
 .vp__add.is-lifted {
   background: var(--lit-hover);
 }
@@ -1010,13 +1112,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 /* the name cell (.gear__main / .gear__name / .gear__brand / .gear__variant) comes
    from atoms/gear.scss — shared with /vault's rows, which used to hand-mirror
-   these rules. Only the typed-match emphasis is the pane's own: */
-/* the characters that overlap what you've typed read bold — the same emphasis, from
-   the same helper, as the autocomplete's rows (.ac__hl) */
-.vp__hl {
-  font-weight: 700;
-  color: var(--ink);
-}
+   these rules. The typed-match emphasis (.vp__hl: the characters that overlap what
+   you've typed read bold) is there too, one rule with the autocomplete's rows'. */
 .vp__inlist {
   color: var(--ink-3);
 }
@@ -1030,9 +1127,19 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   height: 1lh;
   color: var(--ink-2);
 }
+/* as quiet as /gear's blank slot (.vault__typebtn.is-blank): a place, not a picture */
+.vp__noicon {
+  color: var(--ink-ghost);
+}
 .vp__w {
   flex: none;
   color: var(--ink-2);
+}
+/* The gap between the figure and its unit, the My Gear page row's (VaultGearRow's
+   .vault__unitwrap). A margin, because a space written before the unit in the template
+   is dropped by Vue's whitespace condensing and the row read "10g". */
+.vp__unit {
+  margin-left: 0.25ch;
 }
 /* CENTRED in the pane, both ways. These states have no rows to align to — they're
    a sentence about why the pane is empty — so left-aligning them at the top left
@@ -1096,24 +1203,21 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     bottom: max(var(--space-3), env(safe-area-inset-bottom, 0px));
     left: var(--space-3);
     width: auto;
-    max-height: min(27.5rem, 55dvh, calc(var(--sheet-room, 100dvh) - 2 * var(--space-3)));
+    height: min(27.5rem, 55dvh, calc(var(--sheet-room, 100dvh) - 2 * var(--space-3)));
     translate: 0
       calc(-1 * max(0px, var(--kb, 0px) + var(--space-3) - max(var(--space-3), env(safe-area-inset-bottom, 0px))));
     transition: translate var(--spring-step-dur) var(--ease-drawer);
   }
-  /* A FIXED height, not a max, once there's gear to browse. As a max, the sheet
-     shrank to fit whatever the filter left — so typing into the search resized the
-     surface under your thumb, and clearing it snapped it back. The rows move; the
-     thing holding them shouldn't. (Desktop needs no equivalent: the column is
-     pinned top and bottom, so it's already a fixed height.)
+  /* (The height above is FIXED, not a max, and in every state. As a max, the sheet
+     shrank to fit whatever the filter left, so typing into the search resized the
+     surface under your thumb and clearing it snapped it back; and signed out, empty or
+     still loading it was a short card that then grew when the rows came. One size,
+     whatever is in it (Ryan, 2026-11-10); the sign-in and empty states centre in it.
+     Desktop needs no equivalent: the column is pinned top and bottom.
      27.5rem = 440px, on the 8px grid. The dvh clamp still wins on a short phone —
      the sheet must not eat the list it sits beside — so the height is fixed per
      device rather than always literally 440. The keyboard is the one thing that
-     changes it (the --sheet-room cap above): it changes once as the keyboard rises,
-     never as you type. */
-  .vp--sized {
-    height: min(27.5rem, 55dvh, calc(var(--sheet-room, 100dvh) - 2 * var(--space-3)));
-  }
+     changes it (the --sheet-room cap): once as the keyboard rises, never as you type.) */
   /* nothing to resize when the sheet spans the gutters */
   .vp__resize {
     display: none;

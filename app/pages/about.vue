@@ -11,7 +11,7 @@ useHead({
   meta: [
     {
       name: "description",
-      content: "What Mahonia is, why it's named after the Oregon grape, and how it works.",
+      content: "What Mahonia is, why it’s named after the Oregon grape, and how it works.",
     },
   ],
 });
@@ -34,33 +34,30 @@ const copyrightYear = new Date().getFullYear();
         <p>
           Mahonia is a tool for building, weighing, and sharing packing lists, made by one
           person. Make a list, see what it weighs, send someone the link. No app, no ads, and no
-          sign-up to make a list: it's yours the moment you start typing. The grams are optional;
+          sign-up to make a list: it’s yours the moment you start typing. The grams are optional;
           build a list with zero weights and the totals just stay quiet.
         </p>
 
         <h2>How Mahonia works</h2>
         <ul>
           <li>
-            A list syncs to the server under a private, unguessable link as soon as you start
-            building it. That’s how the same list opens on your phone and your laptop.
+            A list is saved online as soon as you start building it, so it opens on your phone and
+            your laptop. It gets a private edit link and a separate read-only link to share, and
+            can only be reached by those links.
+          </li>
+          <li>Weights come from a catalog of makers’ published figures, and you can type over any of them.</li>
+          <li>
+            A list remembers more than weights: calories on food, the unit you typed each item
+            in, and the dates of the trip it’s for.
           </li>
           <li>
-            Every list gets a private edit link and a separate read-only link to share. No
-            sign-up. Nothing shows up publicly; a list is only ever reachable by its links.
-          </li>
-          <li>Weights are backed by a curated, cited gear catalog, but you can override anything.</li>
-          <li>
-            A list remembers more than weights: calories on food, the unit you typed each row
-            in, and the dates of the trip it's for.
-          </li>
-          <li>
-            Flip the same list into a checklist for the night before, and tick things off as they
+            Flip the same list into a checklist for the night before, and check things off as they
             go in the pack.
           </li>
           <li>
             The Trip tab plans the walk itself. Add a trail as a link or a map file, break it into
             days, and each day shows its distance and climb, a walking time that allows for the
-            weight on your back, and its hours of daylight. Name who's coming and mark who carries
+            weight on your back, and its hours of daylight. Name who’s coming and mark who carries
             what.
           </li>
           <li>
@@ -104,9 +101,9 @@ const copyrightYear = new Date().getFullYear();
              and the line for every other client. This stays as the one paragraph a
              directory reviewer reading About needs, since the registry listing links here. -->
         <p>
-          Mahonia is also a connector. Add <code>https://mahonia.app/mcp</code> to an AI
-          assistant that speaks MCP and it can read, make and change your lists with the same links
-          a person uses. Signed in, it can also read and change your My Gear.
+          You can connect Mahonia to an AI assistant, such as Claude or ChatGPT, and ask it to work
+          on your lists. The address to add is <code>https://mahonia.app/mcp</code>. It can read,
+          make, and change your lists with the same links a person uses. Signed in, it can also read and change your My Gear.
           <NuxtLink to="/help#assistants">Help</NuxtLink> has one-click setup and the line for
           every other client.
         </p>

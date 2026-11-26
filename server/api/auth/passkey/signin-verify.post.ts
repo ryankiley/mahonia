@@ -1,14 +1,11 @@
 import { defineEventHandler } from "h3";
 import { verifyAuthenticationResponse } from "@simplewebauthn/server";
-import { eq } from "drizzle-orm";
-import { startSession } from "../../../utils/authSession";
+import { openPrivate, startSession } from "../../../utils/authSession";
 import { findCredential, touchCredential } from "../../../utils/credentialRepo";
 import { useAccountDb } from "../../../utils/db";
-import { users } from "../../../db/schema";
-import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
+import { readJsonBodyCapped } from "../../../utils/http";
 import { trustedOrigin } from "../../../utils/origin";
 import { rpIdFor, takeChallenge } from "../../../utils/passkeys";
-import { rateLimit } from "../../../utils/rateLimit";
 
 // Step 2 of signing in with a passkey: verify the signature and start a session.
 //
@@ -21,9 +18,7 @@ import { rateLimit } from "../../../utils/rateLimit";
 // signature and an expired challenge are indistinguishable, so this can't be used
 // to test whether a given credential id exists.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "passkey");
+  await openPrivate(event, "passkey");
 
   const body = await readJsonBodyCapped<{ flowId?: unknown; response?: unknown }>(event, 32_000);
   const stored = await takeChallenge(body?.flowId);
@@ -61,15 +56,12 @@ export default defineEventHandler(async (event) => {
 
   if (!verification.verified) return { ok: false as const };
 
-  // the counter stamp and the email read are independent, so they go out together
-  // (one round trip on neon-http, which has no pipelining); the session starts only
-  // once the stamp has landed
-  const [, row] = await Promise.all([
-    touchCredential(db, cred.id, verification.authenticationInfo.newCounter),
-    db.select({ email: users.email }).from(users).where(eq(users.id, cred.userId)).limit(1),
-  ]);
-  await startSession(event, db, cred.userId);
-  // null, not "" — an account made with a passkey genuinely has no address, and
-  // the client distinguishes "none yet" from "" nowhere else
-  return { ok: true as const, user: { email: row[0]?.email ?? null } };
+  // the session starts only once the counter stamp has landed
+  await touchCredential(db, cred.id, verification.authenticationInfo.newCounter);
+  // the ceremony happened in this browser: its lists follow (see startSession). The
+  // session is as unproven as the account was when the key was looked up, not now:
+  // a claim landing in between must leave it stamped (claimUnverifiedAccount)
+  await startSession(event, db, cred.userId, { sweep: true, unproven: cred.accountUnproven });
+  // the address came back with the credential (findCredential joins the account)
+  return { ok: true as const, user: { email: cred.email } };
 });

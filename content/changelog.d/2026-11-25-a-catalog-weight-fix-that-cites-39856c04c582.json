@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "A catalog weight fix that cites a review site now waits for review instead of applying at once."
+  ],
+  "fixed": [
+    "Deleting your account says it was deleted again, and whether your lists went with it.",
+    "My Gear opened while offline no longer flickers its offline note on the first check.",
+    "A search of only spaces in My Gear no longer hides New kit.",
+    "Through the connector, a piece typed as a 2 Pack no longer links to a 3-pack catalog row.",
+    "A passkey that couldn’t be saved is reported as a failure, not as already added.",
+    "Lists edited at the same moment keep one order in your account."
+  ]
+}

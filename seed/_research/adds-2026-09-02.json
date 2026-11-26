@@ -45,7 +45,6 @@
     {
       "brand": "humangear",
       "name": "GoBite Duo Spoon & Fork",
-      "variant": "",
       "category_hint": "cook",
       "common_name": "utensils",
       "weight_value": 22,
@@ -82,7 +81,6 @@
     {
       "brand": "KIND",
       "name": "Nut Bar (Dark Chocolate Nuts & Sea Salt)",
-      "variant": "",
       "category_hint": "consumable",
       "common_name": "energy bar",
       "weight_value": 40,
@@ -97,7 +95,6 @@
     {
       "brand": "KIND",
       "name": "Nut Bar (Peanut Butter Dark Chocolate)",
-      "variant": "",
       "category_hint": "consumable",
       "common_name": "energy bar",
       "weight_value": 40,
@@ -112,7 +109,6 @@
     {
       "brand": "KIND",
       "name": "Nut Bar (Fruit & Nut)",
-      "variant": "",
       "category_hint": "consumable",
       "common_name": "energy bar",
       "weight_value": 40,
@@ -127,7 +123,6 @@
     {
       "brand": "KIND",
       "name": "Nut Bar (Blueberry Vanilla & Cashew)",
-      "variant": "",
       "category_hint": "consumable",
       "common_name": "energy bar",
       "weight_value": 40,
@@ -142,7 +137,6 @@
     {
       "brand": "Snow Peak",
       "name": "Micro Hozuki",
-      "variant": "",
       "category_hint": "electronics",
       "common_name": "lantern",
       "weight_value": 5,

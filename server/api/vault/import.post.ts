@@ -1,6 +1,6 @@
 import { defineEventHandler } from "h3";
-import { arrayOf, isObjectLike, readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
-import { rateLimit } from "../../utils/rateLimit";
+import { openPrivate } from "../../utils/authSession";
+import { arrayOf, isObjectLike, readJsonBodyCapped } from "../../utils/http";
 import { resolveOrMintVault } from "../../utils/vaultAuth";
 import { importVaultItems } from "../../utils/vaultRepo";
 import { VAULT_IMPORT_MAX } from "../../../shared/vault";
@@ -23,9 +23,7 @@ import type { VaultImportRow } from "../../../shared/vaultImport";
 // is a stale backup landing on a curated vault, and the skip is what makes that
 // harmless.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "vault-write");
+  await openPrivate(event, "vault-write");
 
   // Four times the capture cap: this carries a whole vault rather than one list's
   // worth, and a row can hold two URLs and a note.

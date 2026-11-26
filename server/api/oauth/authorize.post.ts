@@ -15,7 +15,7 @@ export default defineEventHandler(async (event) => {
   if (getHeader(event, "origin") !== origin) throw createError({ statusCode: 403, statusMessage: "Origin not allowed" });
   const body = await readJsonBodyCapped<Record<string, unknown>>(event, 8_192);
   const check = await checkAuthorizeRequest(db, origin, body ?? {});
-  if (!check.ok) return { ok: false as const, error: check.error, description: check.description, redirect: check.redirect };
+  if (!check.ok) return check;
   if (body.decision !== "allow") {
     return { ok: true as const, redirect: errorRedirect(check.redirectUri, "access_denied", "The person declined.", check.state) };
   }
@@ -25,6 +25,7 @@ export default defineEventHandler(async (event) => {
     redirectUri: check.redirectUri,
     codeChallenge: check.codeChallenge,
     scope: check.scope,
+    unproven: user.unproven,
   });
   return { ok: true as const, redirect: redirectWith(check.redirectUri, { code, state: check.state }) };
 });

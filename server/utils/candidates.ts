@@ -10,6 +10,7 @@ import {
   categoryForGearType,
   classificationToCategory,
   emergingBrandTokens,
+  GARMENT_ZONE,
   GENERIC_GEAR_TERMS,
   isAcceptableTypedItem,
   isBrandedTypedItem,
@@ -20,7 +21,7 @@ import {
   splitKnownBrand,
 } from "../../shared/catalogQuality";
 import { itemDisplayName } from "../../shared/weights";
-import { trigramScore } from "../../shared/catalogSearch";
+import { trigramScore, type CatalogSearchResult } from "../../shared/catalogSearch";
 import { bumpUsage, ensureCatalogSchema, searchCatalog } from "./catalog";
 import { ensureOf } from "./ddl";
 import type { Db } from "./db";
@@ -54,6 +55,12 @@ export const CANDIDATES_DDL: string[] = [
 ];
 
 const ensureCandidatesSchema = ensureOf(CANDIDATES_DDL);
+
+/** An observation still waiting on a verdict: neither promoted nor rejected. The
+ *  predicate idx_candidate_open is built on, said once for every query that means it. */
+const isOpen = () => and(isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt));
+/** The open observations of one norm_key: the rows a verdict on that key settles. */
+const openFor = (key: string) => and(eq(catalogCandidates.normKey, key), isOpen());
 
 export interface CandidateObservation {
   brand?: string | null;
@@ -128,6 +135,46 @@ const mode = <T>(arr: T[]): T | undefined => {
   return best;
 };
 
+/**
+ * The live catalog rows a product may already be, the likeliest first: the duplicate test
+ * the nightly promotion and verify_catalog_item share. A product WITH a size or version
+ * only matches a row of that size: the names alone score two sizes of one product as
+ * duplicates of each other. One without a size may match any size of the product. And a
+ * name that says MORE than the row is a different product, not a duplicate:
+ * trigramScore is coverage of the query's trigrams by the target, so "Zpacks Duplex
+ * Zip" scored its parent "Duplex" at about 0.75. A word the row lacks refuses the
+ * match; a generic noun ("tent") is not such a word. But garments worn on different
+ * parts of the body are different products, generic nouns or not: "UL Mittens" is not
+ * "UL Shirt", nor "EX Light Down Pants" "EX Light Down Jacket" (GARMENT_ZONE). A row is
+ * passed over when both names place a garment and no part of the body is in both; when
+ * either places none, or they share one, the words alone decide as before.
+ */
+export async function catalogMatches(db: Db, brand: string | null, name: string, variant: string | null): Promise<CatalogSearchResult[]> {
+  const full = itemDisplayName(brand, name, variant);
+  // by the product alone, every size of it: the search reads no variant, and a size in the
+  // query only weakens the match it is after
+  const matches = await searchCatalog(db, itemDisplayName(brand, name), 50);
+  const sizeKey = normKey(variant);
+  const tokensOf = (t: string) => normKey(t).split(" ").filter(Boolean);
+  const zonesOf = (tokens: string[]) => new Set(tokens.flatMap((t) => GARMENT_ZONE.get(t) ?? []));
+  const fullTokens = tokensOf(full);
+  const said = fullTokens.filter((t) => !GENERIC_GEAR_TERMS.has(t));
+  const worn = zonesOf(fullTokens);
+  const scored: { m: CatalogSearchResult; s: number }[] = [];
+  for (const m of matches) {
+    if (sizeKey && normKey(m.variant) !== sizeKey) continue;
+    const target = itemDisplayName(m.brand, m.name, m.variant);
+    const targetTokens = tokensOf(target);
+    const has = new Set(targetTokens);
+    if (said.some((t) => !has.has(t))) continue;
+    const targetWorn = zonesOf(targetTokens);
+    if (worn.size && targetWorn.size && ![...worn].some((z) => targetWorn.has(z))) continue;
+    const s = trigramScore(full, target);
+    if (s >= DEDUP_THRESHOLD) scored.push({ m, s });
+  }
+  return scored.sort((a, b) => b.s - a.s).map(({ m }) => m);
+}
+
 interface CorroborateResult {
   scanned: number; promoted: number; merged: number; rejected: number; skipped: number; purged: number;
 }
@@ -142,10 +189,10 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   const promotable = await db
     .select({ normKey: catalogCandidates.normKey })
     .from(catalogCandidates)
-    .where(and(isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)))
+    .where(isOpen())
     .groupBy(catalogCandidates.normKey)
     .having(sql`count(distinct ${catalogCandidates.listId}) >= ${K_DISTINCT_LISTS}`);
-  const keys = promotable.map((p: { normKey: string }) => p.normKey);
+  const keys = promotable.map((p) => p.normKey);
   res.scanned = keys.length;
   // Retention is independent of whether anything is promotable today. In
   // particular, one-off observations never reach K, which used to make their
@@ -162,20 +209,18 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   }
 
   // all open observations for those keys, grouped in JS
-  const rows = (await db
+  const rows = await db
     .select()
     .from(catalogCandidates)
-    .where(and(inArray(catalogCandidates.normKey, keys), isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)))) as Array<{
-    normKey: string; rawBrand: string | null; rawName: string; rawVariant: string | null; rawCommonName: string | null; listId: number; weightMg: number | null; classification: string | null;
-  }>;
+    .where(and(inArray(catalogCandidates.normKey, keys), isOpen()));
   const groups = new Map<string, typeof rows>();
-  for (const r of rows) (groups.get(r.normKey) ?? groups.set(r.normKey, []).get(r.normKey)!).push(r);
+  for (const r of rows) groups.getOrInsertComputed(r.normKey, () => []).push(r);
 
   // known catalog brands: the branded-item gate reads the folded set, and the split
   // below wants the catalog's own spelling for each ("Sea to Summit", not "sea to summit")
   const brandRows = await db.selectDistinct({ brand: catalogItems.brand }).from(catalogItems).where(eq(catalogItems.status, "active"));
   const brandSpellings = new Map<string, string>();
-  for (const b of brandRows as { brand: string | null }[]) {
+  for (const b of brandRows) {
     const key = normKey(b.brand);
     if (key && !brandSpellings.has(key)) brandSpellings.set(key, b.brand!.trim());
   }
@@ -190,7 +235,7 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
       rawName: sql<string>`min(${catalogCandidates.rawName})`,
     })
     .from(catalogCandidates)
-    .where(and(isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)))
+    .where(isOpen())
     .groupBy(catalogCandidates.normKey)
     .having(sql`count(distinct ${catalogCandidates.listId}) >= 2`);
   const emergingBrands = emergingBrandTokens(
@@ -200,12 +245,10 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
   );
 
   const reject = async (key: string) => {
-    await db.update(catalogCandidates).set({ rejectedAt: new Date() })
-      .where(and(eq(catalogCandidates.normKey, key), isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)));
+    await db.update(catalogCandidates).set({ rejectedAt: new Date() }).where(openFor(key));
   };
   const markPromoted = async (key: string, id: number) => {
-    await db.update(catalogCandidates).set({ promotedIntoId: id })
-      .where(and(eq(catalogCandidates.normKey, key), isNull(catalogCandidates.promotedIntoId), isNull(catalogCandidates.rejectedAt)));
+    await db.update(catalogCandidates).set({ promotedIntoId: id }).where(openFor(key));
   };
 
   for (const [key, grp] of groups) {
@@ -222,7 +265,6 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     const rawName = split.name;
     // the typed size or version, in the catalog's one style ("Long, 18F"), or none
     const variant = normalizeVariant(mode(grp.filter((r) => r.rawVariant).map((r) => r.rawVariant!)) ?? null) || null;
-    const full = itemDisplayName(rawBrand, rawName, variant);
 
     // gates: clean + branded (the gate reads the name as typed, brand and all)
     if (!isAcceptableTypedItem({ brand: typedBrand, name: typedName }) || !isBrandedTypedItem({ brand: typedBrand, name: typedName, knownBrands, emergingBrands })) {
@@ -240,33 +282,12 @@ export async function corroborateCatalog(db: Db): Promise<CorroborateResult> {
     const [lo, hi] = RANGE_G[category] ?? RANGE_G.other ?? ([0, Number.MAX_SAFE_INTEGER] as [number, number]);
     if (med / 1000 < lo || med / 1000 > hi) { await reject(key); res.rejected++; continue; }
 
-    // dedup against the live catalog (fuzzy) → bump usage instead of duplicating.
-    // A candidate WITH a size or version only ever merges into a row of that size: the
-    // names alone score two sizes of one product as duplicates of each other, and the
-    // Regular would have merged into whichever size was promoted first. A candidate
-    // without one may still merge into any size of the product, as it always did (a
-    // usage bump on one of them beats a sizeless community row beside the cited ones).
-    // And a typed name that says MORE than the catalog row is a different product, not
-    // a duplicate: trigramScore is coverage of the query's trigrams by the target, so
-    // "Zpacks Duplex Zip" scored its parent "Duplex" at about 0.75 and was merged into
-    // it, and the sibling product never entered. A word the row lacks refuses the
-    // merge; a generic noun the person added ("tent") is not such a word.
-    const matches = await searchCatalog(db, full, 5);
-    const sizeKey = normKey(variant);
-    const tokensOf = (t: string) => normKey(t).split(" ").filter(Boolean);
-    const said = tokensOf(full).filter((t) => !GENERIC_GEAR_TERMS.has(t));
-    let bestId = 0, bestScore = 0;
-    for (const m of matches) {
-      if (sizeKey && normKey(m.variant) !== sizeKey) continue;
-      const target = itemDisplayName(m.brand, m.name, m.variant);
-      const has = new Set(tokensOf(target));
-      if (said.some((t) => !has.has(t))) continue;
-      const s = trigramScore(full, target);
-      if (s > bestScore) { bestScore = s; bestId = m.id; }
-    }
-    if (bestScore >= DEDUP_THRESHOLD && bestId) {
-      await bumpUsage(db, [bestId]);
-      await markPromoted(key, bestId);
+    // dedup against the live catalog (fuzzy) → bump usage instead of duplicating
+    // (catalogMatches says what counts as the same product; the likeliest is first)
+    const [match] = await catalogMatches(db, rawBrand, rawName, variant);
+    if (match) {
+      await bumpUsage(db, [match.id]);
+      await markPromoted(key, match.id);
       res.merged++;
       continue;
     }

@@ -25,7 +25,7 @@
 // coordinate does not carry one (a longitude gives a solar offset, not a political
 // zone). Rather than guess, this gives the number that needs no guessing.
 
-import { utcMidnight } from "./calendar";
+import { DAY_MS, utcMidnight } from "./calendar";
 import type { LatLon } from "./polyline";
 
 const DEG = Math.PI / 180;
@@ -35,7 +35,6 @@ const SUNRISE_ZENITH_DEG = 90.833;
 const J2000 = 2451545.0;
 /** the Julian day at the Unix epoch, 1970-01-01T00:00Z */
 const JD_UNIX_EPOCH = 2440587.5;
-const DAY_MS = 86_400_000;
 
 /**
  * The Sun's declination, in degrees, at a Julian day. Positive north: about +23.44°

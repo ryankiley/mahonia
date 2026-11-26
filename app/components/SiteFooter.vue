@@ -1,6 +1,7 @@
 <script setup lang="ts">
 // A slim navigation line for non-editor pages, mounted by the default layout.
-// The editor keeps these destinations in its top-right menu to leave its canvas open.
+// The editor and My Gear keep these destinations in their top-right menus to leave
+// their canvas open (utils/siteLinks); My Gear hides this row with the body's `bare`.
 
 // The footer reads NO session state, and that is the point of it. It used to, for
 // one link: "My Gear" is signed-in chrome, so it needed the hint cookie to know
@@ -50,14 +51,11 @@ const here = (p: string) => route.path === p;
 }
 /* The rule is on the INNER column, not the outer block: it marks where the page's
    content ends, so it should measure the content — not run the width of whatever
-   shell the page happens to sit in. */
+   shell the page happens to sit in. A plain block: it holds the nav and nothing
+   else, and the nav lays out its own links. */
 .foot__inner {
   border-top: 1px solid var(--line);
   padding-block: var(--space-5);
-  display: flex;
-  flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-3) var(--space-5);
 }
 .foot__nav {
   display: flex;

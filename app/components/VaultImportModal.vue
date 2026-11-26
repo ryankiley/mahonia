@@ -91,7 +91,7 @@ const summary = computed(() => {
 
 <template>
   <BaseModal :open="open" label="Import gear" @close="emit('close')">
-    <h2 class="t-label">Import gear</h2>
+    <h2 class="t-label panel__title">Import gear</h2>
 
     <template v-if="state.step === 'done'">
       <p class="dlg__lede">{{ summary }}</p>
@@ -112,16 +112,18 @@ const summary = computed(() => {
         v-model="text"
         class="field well vimport__text"
         rows="5"
-        placeholder="A CSV like Folder,Item Name,Brand,Weight,Unit… or a JSON backup from Download JSON"
+        placeholder="A CSV like Folder,Item Name,Brand,Weight,Unit… or a JSON backup from “Download JSON”"
+        aria-label="CSV or JSON backup"
       />
+
+      <!-- the other way in, under the box it is the alternative to, as ImportModal has
+           it (FilePickButton); choosing a file imports immediately -->
+      <FilePickButton @text="send" />
 
       <p v-if="error" class="t-sm vimport__err">{{ error }}</p>
 
-      <div class="dlg__actions vimport__actions">
-        <!-- the same button-over-a-hidden-input ImportModal has (FilePickButton);
-             choosing a file imports immediately -->
-        <FilePickButton @text="send" />
-        <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
+      <div class="dlg__actions">
+        <button class="btn btn--soft" @click="emit('close')">Cancel</button>
         <button class="btn btn--primary" :disabled="state.step === 'sending' || !text.trim()" @click="send(text)">
           {{ state.step === "sending" ? "Importing…" : "Import" }}
         </button>
@@ -135,8 +137,6 @@ const summary = computed(() => {
 /* no font-size: .field's literal 16px is what stops iOS zooming on focus, and the
    fluid --text-base that used to override it here zoomed (ImportModal says more) */
 .vimport__text {
-  width: 100%;
-  font-family: var(--font);
   padding: var(--space-3);
   /* no resize — ImportModal's reasoning: the grip notches the rounded corner and
      the box scrolls anyway */
@@ -146,8 +146,5 @@ const summary = computed(() => {
    acts, and an import that didn't go through is neither (matches .vitem__err) */
 .vimport__err {
   color: var(--ink);
-}
-.vimport__actions {
-  flex-wrap: wrap;
 }
 </style>

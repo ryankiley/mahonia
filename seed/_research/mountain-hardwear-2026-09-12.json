@@ -208,7 +208,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Dwight Cap",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 63,
@@ -220,10 +219,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Mountain Light 25L+5L",
-      "variant": "",
-      "attributes": {
-        "volume_l": 30
-      },
+      "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 1025,
@@ -235,10 +231,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Ultra Lightweight 15",
-      "variant": "",
-      "attributes": {
-        "volume_l": 15
-      },
+      "attributes": {"volume_l": 15},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 192,
@@ -250,7 +243,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Rain Cover 30-50",
-      "variant": "",
       "category_hint": "other",
       "common_name": "pack cover",
       "weight_value": 89,
@@ -262,7 +254,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Piero Tin Cap",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 56,
@@ -274,7 +265,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Dwight Hat",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 75,
@@ -286,7 +276,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Dwight Cadet",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 63,
@@ -298,7 +287,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "SunShade Air Trail Hat",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 70,
@@ -310,7 +298,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Air Trail Cap",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 30,
@@ -322,7 +309,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "After Six Sacoche Eco",
-      "variant": "",
       "category_hint": "pack",
       "common_name": "sling bag",
       "weight_value": 117,
@@ -334,7 +320,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "After Six Wallet D Eco",
-      "variant": "",
       "category_hint": "other",
       "common_name": "wallet",
       "weight_value": 34,
@@ -346,7 +331,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Hardwear Mountain Livin' Cap",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 54,
@@ -444,7 +428,7 @@
       "name": "Kor AirShell Warm Hoody",
       "variant": "Women's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 307,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -612,7 +596,7 @@
       "name": "Cloud Cipher Hooded Jacket",
       "variant": "Women's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "rain jacket",
       "weight_value": 316,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -623,9 +607,7 @@
       "brand": "Mountain Hardwear",
       "name": "Peak Rambler Short",
       "variant": "Women's 2",
-      "attributes": {
-        "length": "5in"
-      },
+      "attributes": {"length": "5in"},
       "category_hint": "clothing",
       "common_name": "shorts",
       "weight_value": 146,
@@ -663,7 +645,7 @@
       "name": "Kor Alloy Hooded Jacket",
       "variant": "Women's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 300,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -675,7 +657,7 @@
       "name": "Free Element Hooded Jacket",
       "variant": "Women's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 355,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -699,7 +681,7 @@
       "name": "Kor Alloy Jacket",
       "variant": "Women's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 270,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -783,7 +765,7 @@
       "name": "Compressor Alpine Hooded Jacket",
       "variant": "Men's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 756,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -807,7 +789,7 @@
       "name": "Kor AirShell Warm Hoody",
       "variant": "Men's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 326,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -938,9 +920,7 @@
       "brand": "Mountain Hardwear",
       "name": "Dynama Pant",
       "variant": "Men's Medium",
-      "attributes": {
-        "length": "30in"
-      },
+      "attributes": {"length": "30in"},
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 252,
@@ -965,9 +945,7 @@
       "brand": "Mountain Hardwear",
       "name": "Shade Lite Short",
       "variant": "Men's Medium",
-      "attributes": {
-        "length": "5in"
-      },
+      "attributes": {"length": "5in"},
       "category_hint": "clothing",
       "common_name": "shorts",
       "weight_value": 165.5,
@@ -1039,7 +1017,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "All Tracks GORE-TEX Glove",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "gloves",
       "weight_value": 229,
@@ -1077,7 +1054,7 @@
       "name": "Cloud Cipher Hooded Jacket",
       "variant": "Men's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "rain jacket",
       "weight_value": 333,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -1100,9 +1077,7 @@
       "brand": "Mountain Hardwear",
       "name": "Peak Rambler Convertible Pant",
       "variant": "Men's 32",
-      "attributes": {
-        "length": "30in"
-      },
+      "attributes": {"length": "30in"},
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 286,
@@ -1127,9 +1102,7 @@
       "brand": "Mountain Hardwear",
       "name": "Peak Rambler Pant",
       "variant": "Men's 32",
-      "attributes": {
-        "length": "30in"
-      },
+      "attributes": {"length": "30in"},
       "category_hint": "clothing",
       "common_name": "hiking pants",
       "weight_value": 252,
@@ -1142,9 +1115,7 @@
       "brand": "Mountain Hardwear",
       "name": "Peak Rambler Short",
       "variant": "Men's 32",
-      "attributes": {
-        "length": "7in"
-      },
+      "attributes": {"length": "7in"},
       "category_hint": "clothing",
       "common_name": "shorts",
       "weight_value": 166,
@@ -1182,7 +1153,7 @@
       "name": "Kor Alloy Hooded Jacket",
       "variant": "Men's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 349,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -1218,7 +1189,7 @@
       "name": "Free Element Hooded Jacket",
       "variant": "Men's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 410,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -1230,7 +1201,7 @@
       "name": "Free Element Jacket",
       "variant": "Men's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 365,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -1254,7 +1225,7 @@
       "name": "Warp Factor Insulated Jacket",
       "variant": "Men's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 932,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -1350,7 +1321,7 @@
       "name": "Kor Alloy Jacket",
       "variant": "Men's Medium",
       "category_hint": "clothing",
-      "common_name": "insulated jacket",
+      "common_name": "synthetic jacket",
       "weight_value": 321,
       "weight_unit": "g",
       "weight_source": "manufacturer",
@@ -1396,10 +1367,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Camp 4 Duffel 45",
-      "variant": "",
-      "attributes": {
-        "volume_l": 45
-      },
+      "attributes": {"volume_l": 45},
       "category_hint": "pack",
       "common_name": "duffel",
       "weight_value": 899,
@@ -1447,10 +1415,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Camp 4 Duffel 65",
-      "variant": "",
-      "attributes": {
-        "volume_l": 65
-      },
+      "attributes": {"volume_l": 65},
       "category_hint": "pack",
       "common_name": "duffel",
       "weight_value": 1055,
@@ -1462,10 +1427,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Alpine Light Roll Top 30L Backpack",
-      "variant": "",
-      "attributes": {
-        "volume_l": 30
-      },
+      "attributes": {"volume_l": 30},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 640,
@@ -1477,7 +1439,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Power Stretch Beanie",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "beanie",
       "weight_value": 70,
@@ -1489,7 +1450,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Power Stretch Stimulus Glove",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "gloves",
       "weight_value": 50,
@@ -1502,9 +1462,7 @@
       "brand": "Mountain Hardwear",
       "name": "Phantom 15F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 15
-      },
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 924,
@@ -1516,10 +1474,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Lickety Split 20L Backpack",
-      "variant": "",
-      "attributes": {
-        "volume_l": 20
-      },
+      "attributes": {"volume_l": 20},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 609,
@@ -1531,10 +1486,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Camp 4 Duffel 95",
-      "variant": "",
-      "attributes": {
-        "volume_l": 95
-      },
+      "attributes": {"volume_l": 95},
       "category_hint": "pack",
       "common_name": "duffel",
       "weight_value": 1186,
@@ -1547,9 +1499,7 @@
       "brand": "Mountain Hardwear",
       "name": "Lamina 15F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 15
-      },
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1393,
@@ -1561,7 +1511,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Camp 4 Hip Pack",
-      "variant": "",
+      "attributes_unpublished": ["volume_l"],
       "category_hint": "pack",
       "common_name": "hip pack",
       "weight_value": 240,
@@ -1573,7 +1523,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Absolute Zero Gore-Tex Mitt",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "mittens",
       "weight_value": 286,
@@ -1585,7 +1534,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Exposure Gore-Tex Glove",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "gloves",
       "weight_value": 248,
@@ -1597,7 +1545,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Compressor Gore-Tex Mitt",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "mittens",
       "weight_value": 137,
@@ -1609,7 +1556,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Nimbus UL 2 Footprint",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 173,
@@ -1621,7 +1567,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Nimbus UL 1 Footprint",
-      "variant": "",
       "category_hint": "shelter",
       "common_name": "groundsheet",
       "weight_value": 123,
@@ -1634,9 +1579,7 @@
       "brand": "Mountain Hardwear",
       "name": "Bishop Pass 15F",
       "variant": "Regular",
-      "attributes": {
-        "temp_f": 15
-      },
+      "attributes": {"temp_f": 15},
       "category_hint": "sleep",
       "common_name": "sleeping bag",
       "weight_value": 1060,
@@ -1648,10 +1591,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "UL 20 Backpack",
-      "variant": "",
-      "attributes": {
-        "volume_l": 20
-      },
+      "attributes": {"volume_l": 20},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 303,
@@ -1663,10 +1603,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Scrambler 25L Backpack",
-      "variant": "",
-      "attributes": {
-        "volume_l": 25
-      },
+      "attributes": {"volume_l": 25},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 849,
@@ -1678,7 +1615,9 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Field Day Hip Pack",
-      "variant": "",
+      "attributes": {"volume_l": 4},
+      "attributes_source_url": "https://www.evo.com/fanny-packs/mountain-hardwear-field-day-hip-pack",
+      "attributes_quote": "Bag Volume (L): 4",
       "category_hint": "pack",
       "common_name": "hip pack",
       "weight_value": 123,
@@ -1690,10 +1629,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Field Day 28L Backpack",
-      "variant": "",
-      "attributes": {
-        "volume_l": 28
-      },
+      "attributes": {"volume_l": 28},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 859,
@@ -1705,10 +1641,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Field Day 22L Backpack",
-      "variant": "",
-      "attributes": {
-        "volume_l": 22
-      },
+      "attributes": {"volume_l": 22},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 825,
@@ -1720,7 +1653,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Threshold Rain Hat",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 85,
@@ -1732,7 +1664,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Kor Stasis Glove",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "gloves",
       "weight_value": 50,
@@ -1744,7 +1675,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Town Square Beanie",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "beanie",
       "weight_value": 110,
@@ -1756,7 +1686,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "All Tracks GORE-TEX Mitt",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "mittens",
       "weight_value": 208,
@@ -1768,7 +1697,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Caelum Dome",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "beanie",
       "weight_value": 78,
@@ -1780,7 +1708,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Power Stretch Balaclava",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "balaclava",
       "weight_value": 69,
@@ -1792,10 +1719,7 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Gnarwhal 18L Backpack",
-      "variant": "",
-      "attributes": {
-        "volume_l": 18
-      },
+      "attributes": {"volume_l": 18},
       "category_hint": "pack",
       "common_name": "backpack",
       "weight_value": 842,
@@ -1807,7 +1731,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Summit Grid Big Grid Hat",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 56,
@@ -1819,7 +1742,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Cordoroy Dad Cap",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 83,
@@ -1831,7 +1753,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Dome Roamer Tech Hat",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 42,
@@ -1843,7 +1764,6 @@
     {
       "brand": "Mountain Hardwear",
       "name": "Backyarn Cap",
-      "variant": "",
       "category_hint": "clothing",
       "common_name": "hat",
       "weight_value": 96,

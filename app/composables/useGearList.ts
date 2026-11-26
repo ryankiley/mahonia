@@ -1,19 +1,21 @@
 import type { Op } from "~~/shared/ops";
 import { applyOps, tidyListText, rebaseOnto } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
-import { colorKeyForName, STARTER_FOLDERS, usedColorKeys } from "~~/shared/categories";
+import { STARTER_FOLDERS } from "~~/shared/categories";
 import { LIST_CODE_HEADER, editLinkPath, normalizeShareCode } from "~~/shared/links";
 import { DRAFT_KEY, claimedLocalKey, hasRealContent, localKey } from "~~/shared/localList";
 import { reconcileSnapshot } from "~~/shared/reconcile";
-import type { Folder, Item, ListSnapshot } from "~~/shared/types";
-import { pickListMeta } from "~~/shared/types";
+import type { Folder, ListSnapshot } from "~~/shared/types";
+import { pickListMeta, stateData } from "~~/shared/types";
 import type { CaptureOneResult } from "./useVault";
 import type { VaultCapture, VaultGearKey } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
-import { computeTotals } from "~~/shared/weights";
+import { computeTotals, lineMg } from "~~/shared/weights";
+import { isWaterName } from "~~/shared/water";
 import { createEdits } from "~/composables/useGearListEdits";
 import { forgetClaimedOpen, markClaimedOpen } from "~/composables/useClaimedLists";
-import { useUndo, type UndoOffer } from "~/composables/useUndo";
+import { useUndo } from "~/composables/useUndo";
+import { editorCapability, type EditorCapability } from "~/utils/editorRoute";
 
 // Editor controller (one list open at a time → module singleton). Mutations are
 // applied optimistically via the SAME op-reducer the server uses, queued, and
@@ -48,6 +50,10 @@ type VaultAsk = { step: "prompt"; title: string } | { step: "picker"; rows: Vaul
 const FLUSH_DEBOUNCE_MS = 450;
 /** The first wait after a failed flush; it doubles per failure to a 30 s ceiling. */
 const FLUSH_BACKOFF_MS = 1500;
+/** The most ops one request carries: the client's batch size, well under what the
+ *  server takes. It refuses an oversized batch rather than truncating it, so a longer
+ *  queue goes out in batches of this many. */
+const FLUSH_BATCH_MAX = 500;
 // Both read at the moment the timer is set — for tests. The suites that drive this
 // controller with real timers (tests/gearList.nuxt.test.ts and company) wait out the
 // flush debounce on nearly every case, and the backoff once.
@@ -89,6 +95,9 @@ function create() {
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let flushFailures = 0;
   let inFlight = false;
+  // The draft's create while one is out, so a link asked for mid-create (saveDraft)
+  // waits on that one instead of starting a second.
+  let creating: Promise<void> | undefined;
   let pollTimer: ReturnType<typeof setTimeout> | undefined;
   let polling = false;
   // when the list last showed a sign of life — a local edit, a change adopted from
@@ -113,12 +122,11 @@ function create() {
     epochRef.value = ++epoch;
     return epoch;
   }
-  // True while load() runs its one-time backfills (water names, folder colours,
-  // stranded children). Those go through dispatch like any edit — which is right for
-  // persistence, and wrong for the vault: they fire on OPEN, so a list someone
-  // shared with you would capture its owner's whole gear set into your vault the
-  // moment a single legacy folder needed a colour. Suppressed here rather than at
-  // each backfill, so a fourth one added later inherits the rule instead of
+  // True while load() runs its one-time backfills (water's qty fold). Those go through
+  // dispatch like any edit — which is right for persistence, and wrong for the vault:
+  // they fire on OPEN, so a list someone shared with you would capture its owner's
+  // whole gear set into your vault the moment a single row needed one. Suppressed here
+  // rather than at each backfill, so one added later inherits the rule instead of
   // reintroducing the leak.
   let hydrating = false;
   // Raised when gear would reach the vault from a list this device didn't create
@@ -394,21 +402,15 @@ function create() {
   // timer My Gear's uses too (useUndo). `verb` is what the bar says happened to
   // `label`: removes, its first tenant, say nothing and read "Removed"; a paste that
   // made rows says "Added" (pasteItemsAfter).
-  const undo = useUndo<UndoOffer & { verb?: "Added" | "Removed" }>();
-  const pendingUndo = undo.pending;
+  const undo = useUndo();
   function offerUndo(label: string, restore: () => void, verb?: "Added" | "Removed") {
     undo.offer({ label, restore, verb });
   }
-  const holdUndo = undo.hold;
-  const releaseUndo = undo.release;
   // Something just ADDED as a set (a kit from My Gear, unfolded into a group): offer to
   // take it back off. The group's row goes and its rows with it (the reducer's
   // cascade), with no "Removed" of its own — undoing an add means it was never there.
   function offerUndoAdd(label: string, parentId: string) {
     offerUndo(label, () => dispatch({ t: "removeItem", id: parentId }), "Added");
-  }
-  function undoRemove() {
-    undo.take();
   }
 
   const totals = computed(() =>
@@ -539,6 +541,7 @@ function create() {
     stopPoll();
     pending = [];
     inFlight = false;
+    creating = undefined;
     isEditing = false;
     // the vault question is about THIS list — an unanswered one must not ride
     // along to the next list opened (where it would ask about the wrong gear,
@@ -579,7 +582,12 @@ function create() {
 
     // Hydrate from this browser's local copy first — instant paint, and the only
     // thing we can show if the network is down. Restore its un-acked queue too.
-    const local = await store.get(storeKey());
+    // When the editor page read ahead (readAhead, below) the copy is usually already
+    // here and nothing is awaited: the list lands in this tick, before the editor
+    // renders. A read that outran the page's wait is awaited rather than repeated.
+    const key = storeKey();
+    const ahead = store.take(key);
+    const local = ahead?.landed ? ahead.landed.record : await (ahead?.read ?? store.get(key));
     if (myEpoch !== epoch) return; // a newer load() superseded this one
     if (local) {
       // Backfilled on the way in, matching what the server does on the way out
@@ -619,39 +627,12 @@ function create() {
       // CREATED instead (useVaultCapture().captureNewList), where the device knows
       // it made the thing; everything else still captures as you edit.
       hydrating = true;
-      // one-time cleanup: early water rows were named "Water · 1 L"; the volume now
-      // lives in the qty (litres) field, so the name should just be "Water"
+      // one-time cleanup: water is a volume, not a count (foldWaterQty, shared/ops): a
+      // row stored with qty 3 before the reducer folded it becomes its whole volume at
+      // qty 1, weighing what it did. Self-persists via the mutate flow.
       for (const it of merged.items) {
-        if (/^water\s*·/i.test(it.name)) updateItem(it.id, { name: "Water" });
+        if (isWaterName(it.name) && it.qty > 1) updateItem(it.id, { qty: 1, unitWeightMg: lineMg(it) });
       }
-      // one-time backfill: lists imported before folders got colours assigned have
-      // every folder on the neutral grey ("other"), so the category chart reads as
-      // all grey. Reassign distinct palette hues — same logic as addFolder — so the
-      // viz is colourful. "other" is never auto-assigned and has no picker, so the
-      // only folders carrying it came from a pre-colour import; recolouring is safe
-      // and self-persists via the mutate flow (covers existing prod lists on open).
-      const colorKeys = usedColorKeys(merged.folders);
-      merged.folders.forEach((f, i) => {
-        if (colorKeys[i] !== "other") return;
-        const colorKey = colorKeyForName(f.name, colorKeys);
-        colorKeys[i] = colorKey;
-        updateFolder(f.id, { colorKey });
-      });
-      // one-time heal: before the reducer cascaded folderId on cross-folder parent
-      // moves (shared/ops.ts moveItem), a dragged parent could strand its children's
-      // folderId in the old folder — skewing class totals and folder-delete scope.
-      // A same-place moveItem on the parent is a pure no-op for the parent itself
-      // and re-runs the cascade; self-persists via the mutate flow like the
-      // backfills above.
-      const stranded = new Set<Item>();
-      const itemById = new Map(merged.items.map((item) => [item.id, item]));
-      for (const it of merged.items) {
-        if (it.parentId == null) continue;
-        const parent = itemById.get(it.parentId);
-        if (parent && parent.folderId !== it.folderId) stranded.add(parent);
-      }
-      for (const p of stranded)
-        dispatch({ t: "moveItem", id: p.id, folderId: p.folderId, sortOrder: p.sortOrder });
       hydrating = false;
       // Upgrade a legacy bare /e#{token} URL to the share-ready pretty path
       // (/e/{shareCode}#{token}) once the share code is known. Pre-#54 lists —
@@ -791,11 +772,37 @@ function create() {
     });
   }
 
-  // Persist a draft to the server on its first real content. The created snapshot
+  // Persist a draft to the server: on its first real content, or sooner when its
+  // links are asked for (saveDraft). The created snapshot
   // keeps the client-side folder/item ids (the create path normalizes but preserves
   // ids), so adopting it doesn't disturb focus or references. Ops typed during the
   // round-trip are queued and flushed right after.
-  async function createFromDraft() {
+  function createFromDraft(): Promise<void> {
+    if (creating) return creating;
+    const run: Promise<void> = runCreate().finally(() => {
+      if (creating === run) creating = undefined;
+    });
+    return (creating = run);
+  }
+
+  /**
+   * Save a draft NOW because someone asked for one of its links, whatever it holds.
+   * The first-real-content rule is about not leaving a row behind for a visitor who
+   * only looked; asking for a link is the plainest statement that this list is meant
+   * to exist, and a trip set up with a title, a trail and its people, sent round for
+   * everyone to add their gear to, has no item in it yet. Resolves to whether there
+   * is a list to link to: false offline, and false when the create fails (the caller
+   * says so; nothing here retries an empty draft).
+   */
+  async function saveDraft(): Promise<boolean> {
+    if (holdsList()) return true;
+    if (!snapshot.value || !online.value) return false;
+    const myEpoch = epoch;
+    await createFromDraft();
+    return myEpoch === epoch && holdsList();
+  }
+
+  async function runCreate() {
     // a claimed open is a SAVED list too — letting it fall through here would mint a
     // duplicate of it under a fresh token
     if (inFlight || holdsList() || !snapshot.value) return;
@@ -814,9 +821,9 @@ function create() {
           // every meta field — a trail link added to the draft must survive its
           // first save, and so must the dates, which sit in the same meta row and
           // are set the same way; LIST_META_KEYS is what keeps the next one from
-          // being forgotten here
+          // being forgotten here, and ENTITY_KEYS does the same for the lists
           ...pickListMeta(s),
-          data: { folders: s.folders, items: s.items, days: s.days ?? [], waypoints: s.waypoints ?? [], people: s.people ?? [] },
+          data: stateData(s),
         },
       });
       if (myEpoch !== epoch) {
@@ -825,7 +832,7 @@ function create() {
         // be found, and the draft that made it is let go, or the next New list would
         // restore it and make the list twice. Not while a draft is open by now: that
         // record is its own.
-        const token = useMyLists().registerCreated(res);
+        const token = myLists.registerCreated(res);
         setVaultDecisionFor(token, "yes");
         if (!snapshot.value || holdsList()) store.del(DRAFT_KEY);
         return;
@@ -857,17 +864,19 @@ function create() {
       // the next success replayed it over everything typed since: a weight changed
       // after the failure went back to its mid-create value, a deleted row came back.
       pending = [];
+      // An empty draft was only being saved because its link was asked for, and the
+      // asker is told (saveDraft). By the content rule nothing here is unsaved, so the
+      // sync line has no "Not saved" to show and there is nothing to retry.
+      if (!snapshot.value || !hasRealContent(snapshot.value)) {
+        setStatus("synced");
+        return;
+      }
       setStatus("error");
       // retry while there's still un-persisted content, backing off the way a failing
       // flush does (and on the same timer, so a list switch cancels it)
-      flushFailures++;
-      clearTimeout(retryTimer);
-      retryTimer = setTimeout(
-        () => {
-          if (!holdsList() && snapshot.value && hasRealContent(snapshot.value)) createFromDraft();
-        },
-        Math.min(flushBackoffMs * 2 ** (flushFailures - 1), 30_000),
-      );
+      retryAfterBackoff(() => {
+        if (!holdsList() && snapshot.value && hasRealContent(snapshot.value)) createFromDraft();
+      });
     } finally {
       if (myEpoch === epoch) {
         inFlight = false;
@@ -916,6 +925,14 @@ function create() {
     flushTimer = setTimeout(flush, flushDebounceMs);
   }
 
+  /** Run `run` after the failure backoff: the first wait doubled per failure in a row,
+   *  to a 30 s ceiling. One timer for a failed flush and a failed create alike. */
+  function retryAfterBackoff(run: () => void) {
+    flushFailures++;
+    clearTimeout(retryTimer);
+    retryTimer = setTimeout(run, Math.min(flushBackoffMs * 2 ** (flushFailures - 1), 30_000));
+  }
+
   async function flush() {
     if (inFlight || remoteMissing() || !pending.length || !snapshot.value) return;
     // offline: leave the queue intact + persisted; the online watcher re-flushes
@@ -925,11 +942,11 @@ function create() {
     // dispose() may already have cleared both of these.
     const myKey = storeKey();
     const snapAtFlush = snapshot.value;
-    // ≤500 ops per request — the server 400s on oversized batches instead of
-    // truncating. A longer queue (offline session) drains across sequential
-    // flushes: the finally reschedules while pending is non-empty, and the
-    // rebase below re-applies the remainder onto each merged snapshot.
-    const ops = pending.splice(0, 500);
+    // One batch per request (FLUSH_BATCH_MAX). A longer queue (offline session)
+    // drains across sequential flushes: the finally reschedules while pending is
+    // non-empty, and the rebase below re-applies the remainder onto each merged
+    // snapshot.
+    const ops = pending.splice(0, FLUSH_BATCH_MAX);
     inFlight = true;
     let failed = false;
     // DON'T ANNOUNCE A RETRY. Once the line reads "Not saved", flipping it to
@@ -1005,15 +1022,12 @@ function create() {
       // want it again in a second, and every open tab doing that turns a blip into
       // load at exactly the wrong moment. Doubles from 1.5s to a 30s ceiling; the
       // count resets the moment anything lands, so a one-off blip costs one wait.
-      flushFailures++;
-      const backoff = Math.min(flushBackoffMs * 2 ** (flushFailures - 1), 30_000);
-      clearTimeout(retryTimer);
-      retryTimer = setTimeout(scheduleFlush, backoff);
+      retryAfterBackoff(scheduleFlush);
     } finally {
       if (myEpoch === epoch) {
         inFlight = false;
         // ONLY chase the queue when this attempt actually landed. This is what drains
-        // a >500-op backlog across sequential flushes (see the splice above) — but on
+        // a backlog past FLUSH_BATCH_MAX across sequential flushes (see the splice above) — but on
         // the failure path `pending` is never empty, because the catch just re-queued
         // the batch, so it fired every time and replaced the backoff above with its
         // own 450ms. That is what made a failing save retry ~1/second forever.
@@ -1156,7 +1170,7 @@ function create() {
   // else, and were the longest stretch of this file that had nothing to do with syncing.
   // The few named here are the ones the engine itself calls.
   const edits = createEdits({ snapshot, dispatch, offerUndo, pendingBlankId });
-  const { updateFolder, updateItem } = edits;
+  const { updateItem } = edits;
 
   /** Bank one row on demand — see useVault.captureOne for why it bypasses the
    *  debounce and the consent prompt that the automatic path is built around. */
@@ -1164,7 +1178,7 @@ function create() {
     const snap = snapshot.value;
     const item = snap?.items.find((i) => i.id === id);
     if (!snap || !item) return "failed";
-    const { result, landed } = await vault.captureOne(item, snap.items, snap.folders, editToken());
+    const { result, landed } = await vault.captureOne(item, snap.items, snap.folders);
     // Folded in HERE rather than inside capture: the answer belongs to this list's
     // state, so a response that outlives the list (or the account) writes into a
     // Map that resetSession has already replaced, and nothing leaks anywhere.
@@ -1336,12 +1350,11 @@ function create() {
     // unconditionally (a new instance clearing whatever came before it).
     if (ownEpoch !== undefined && ownEpoch !== epoch) return;
     // best-effort: flush unsynced edits before teardown (SPA nav / unmount) so
-    // queued ops aren't silently dropped on the way out. Capped at the server's
-    // 500-op batch limit (it rejects oversized batches); the remainder is safe in
-    // the on-device copy below and drains on the next open. A dead token would only
-    // 404, so don't bother.
+    // queued ops aren't silently dropped on the way out. Capped at one batch
+    // (FLUSH_BATCH_MAX); the remainder is safe in the on-device copy below and drains
+    // on the next open. A dead token would only 404, so don't bother.
     if (pending.length && holdsList() && !remoteMissing()) {
-      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending.slice(0, 500) } }).catch(() => {});
+      $fetch("/api/edit/mutate", { method: "POST", headers: authHeaders(), body: { ops: pending.slice(0, FLUSH_BATCH_MAX) } }).catch(() => {});
     }
     // capture the latest state on device before teardown — the debounced persist
     // may not have fired, and SPA nav / unmount must not drop the last edits
@@ -1370,7 +1383,7 @@ function create() {
     keylessCode,
     startKeyless,
     authHeaders,
-    load, retryLoad, startDraft, dispose, rotate,
+    load, retryLoad, startDraft, saveDraft, dispose, rotate,
     vaultPrompt, answerVaultPrompt,
     vaultPicker, confirmVaultPicker, cancelVaultPicker,
     vaultAuto, vaultDeclined,
@@ -1381,11 +1394,56 @@ function create() {
     // every mutator: folders, rows, days, pins, people, paste, nesting (useGearListEdits)
     ...edits,
     saveItemToVault,
-    pendingBlankId, pendingUndo, undoRemove, holdUndo, releaseUndo, offerUndoAdd,
+    pendingBlankId, offerUndoAdd,
+    pendingUndo: undo.pending, undoRemove: undo.take, holdUndo: undo.hold, releaseUndo: undo.release,
   };
 }
 
 export function useGearList() {
   if (!singleton) singleton = create();
   return singleton;
+}
+
+/** The longest the editor page holds the list you're leaving for the on-device copy of
+ *  the one you're opening. Once IndexedDB is open the read takes a few ms; this only
+ *  bounds a slow open, past which the list opens the old way, through "Loading…". */
+const READ_AHEAD_MS = 250;
+
+/**
+ * Read the on-device copy of the list `route` opens BEFORE the editor mounts, for
+ * load() to take without waiting (useLocalListStore's held read).
+ *
+ * Switching lists remounts the page, and the new editor's load used to await this
+ * read with nothing to draw: for those frames the topbar lost every control but the
+ * switcher and the page said "Loading…", then the list flashed back in. On a phone
+ * that was several frames. The editor pages await this in setup instead, so the
+ * page's Suspense keeps the outgoing list on screen through the read (the controller
+ * is untouched until the new editor starts its session), and the new editor's first
+ * frame is the list it opened.
+ *
+ * The address is read by editorCapability, the same function the editor's route watcher
+ * acts on, so the key read here is the key load() asks for. A truncated link to a list
+ * this browser holds reads ahead under its token: the watcher restores the fragment and
+ * loads it a moment later. A list not on this device reads as nothing and opens from the
+ * network as it always has.
+ */
+export function readAhead(route: { hash: string; params: Record<string, unknown> }): Promise<void> {
+  let cap: EditorCapability;
+  try {
+    cap = editorCapability(route, {
+      hasSessionHint: () => useSession().hasSessionHint(),
+      heldToken: useMyLists().tokenFor,
+    });
+  } catch {
+    return Promise.resolve(); // a malformed fragment: the watcher throws on it too
+  }
+  const key =
+    cap.kind === "token" || cap.kind === "held" ? localKey(cap.token)
+      : cap.kind === "claimed" ? claimedLocalKey(cap.code)
+        : "";
+  if (!key) return Promise.resolve();
+  return Promise.race([
+    useLocalListStore().prefetch(key),
+    new Promise<void>((resolve) => setTimeout(resolve, READ_AHEAD_MS)),
+  ]);
 }

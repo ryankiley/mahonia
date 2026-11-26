@@ -131,3 +131,24 @@ describe("closing one surface", () => {
     expect(pinned()).toBe(false);
   });
 });
+
+// The calendar's "Clear" row is there only when there is something to clear, and it
+// unfolds: mounted bare on the first pick it made the panel jump 40px under the pointer,
+// and laid out but hidden it left an empty band under the grid before any date was picked.
+describe("the calendar's Clear row", () => {
+  const clear = () => wrapper.find<HTMLButtonElement>("button.head__dateclear");
+
+  it("takes no room while there is nothing to clear", async () => {
+    await datesButton().trigger("click");
+    expect(clear().exists()).toBe(false);
+    expect(wrapper.find(".head__clearrow").exists()).toBe(false);
+  });
+
+  it("arrives in the row that unfolds, once there is a date", async () => {
+    await datesButton().trigger("click");
+    await wrapper.setProps({ snapshot: { ...(wrapper.props() as { snapshot: object }).snapshot, startDate: "2026-08-04" } });
+    expect(clear().exists()).toBe(true);
+    // the app's reveal: a grid row that opens, with the gap above it folding too
+    expect(clear().element.parentElement?.className).toBe("reveal head__clearrow");
+  });
+});

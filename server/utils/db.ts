@@ -1,8 +1,10 @@
 // Database access. Local dev uses PGlite (in-process Postgres, zero setup);
 // production uses Neon when DATABASE_URL is set. Same Drizzle API either way.
-// Schema is ensured idempotently on first use (dev); prod would run migrations.
+// There is no migration step: the schema is ensured idempotently on first use, by
+// build() in dev and by the use*Db() and ensure*Schema() helpers below on Neon.
 
-import type { PgDatabase, PgQueryResultHKT } from "drizzle-orm/pg-core";
+import { sql, type SQL } from "drizzle-orm";
+import type { PgDatabase, PgQueryResultHKT, PgTable } from "drizzle-orm/pg-core";
 import * as schema from "../db/schema";
 import { CATALOG_DDL, ensureCatalogSchema } from "./catalog";
 import { CANDIDATES_DDL } from "./candidates";
@@ -30,29 +32,22 @@ export function isUniqueViolation(error: unknown): boolean {
   return typeof cause === "object" && cause !== null && (cause as { code?: unknown }).code === "23505";
 }
 
-let _dbPromise: Promise<Db> | undefined;
-
 /**
- * The effective database connection URL.
- *
- * On Vercel *preview* deployments an explicit `PREVIEW_DATABASE_URL` wins over
- * `DATABASE_URL` — a belt-and-suspenders guard so a preview can be pinned to an
- * isolated database even if a production-scoped `DATABASE_URL` were ever injected
- * into the preview environment. In the normal setup (Neon's per-preview branch
- * injection sets `DATABASE_URL`, and `PREVIEW_DATABASE_URL` is unset) this is
- * exactly `DATABASE_URL`, so production and ordinary previews are unaffected.
- * Isolation is enforced by the Vercel↔Neon preview-branch integration; this is
- * just the in-code safety net.
+ * How many rows of `table` match `where` (all of them when it is left out): one
+ * `select count(*)`, as a number. A count is a bigint, which Neon's driver hands
+ * back as text and PGlite as a number, so the conversion is here once rather than
+ * at each cap that asks.
  */
-function databaseUrl(): string | undefined {
-  if (process.env.VERCEL_ENV === "preview" && process.env.PREVIEW_DATABASE_URL) {
-    return process.env.PREVIEW_DATABASE_URL;
-  }
-  return process.env.DATABASE_URL;
+export async function countRows(db: Db, table: PgTable, where?: SQL): Promise<number> {
+  const [row] = await db.select({ n: sql<number>`count(*)` }).from(table).where(where);
+  return Number(row?.n ?? 0);
 }
 
+let _dbPromise: Promise<Db> | undefined;
+
 async function build(): Promise<Db> {
-  const url = databaseUrl();
+  // Neon's connection string. Unset means local PGlite: dev, the scripts and the tests.
+  const url = process.env.DATABASE_URL;
   if (url) {
     const { drizzle } = await import("drizzle-orm/neon-http");
     const { neon } = await import("@neondatabase/serverless");
@@ -84,8 +79,49 @@ async function build(): Promise<Db> {
   // persisted local file so dev data survives restarts (PGlite's mkdir isn't recursive)
   mkdirSync(dir, { recursive: true });
   const db = drizzle(new PGlite(dir), { schema });
-  await ensureSchema(db); // local dev only — idempotent
+  try {
+    await runDdl(db, DDL); // local dev only — idempotent
+  } catch (error) {
+    throw (await writtenByAnotherPostgres(dir, () => PGlite.create())) ?? error;
+  }
   return db;
+}
+
+/**
+ * The reason a local database folder won't open, when the reason is its age.
+ *
+ * A PGlite release that moves to a new Postgres major (0.6.0 went 18 → 19) can't
+ * read a folder the previous one wrote, and all it says is "PGlite failed to
+ * initialize properly", wrapped in the first query that ran. The folder records
+ * the major that wrote it in PG_VERSION, so on a failed open that file is compared
+ * with a throwaway in-memory instance's own version. Only on the failure path: a
+ * second instance costs about half a second, and a healthy open never pays it.
+ *
+ * Returns nothing when the folder has no PG_VERSION or the majors agree, so any
+ * other failure reaches the caller as it was thrown. The folder is left alone:
+ * it may hold the only copy of someone's local lists.
+ */
+export async function writtenByAnotherPostgres(
+  dir: string,
+  probe: () => Promise<{ query: (sql: string) => Promise<{ rows: unknown[] }>; close: () => Promise<void> }>,
+): Promise<Error | undefined> {
+  const { readFileSync } = await import("node:fs");
+  const { join } = await import("node:path");
+  let wrote: string;
+  try {
+    wrote = readFileSync(join(dir, "PG_VERSION"), "utf8").trim();
+  } catch {
+    return undefined;
+  }
+  const pg = await probe();
+  const { rows } = await pg.query("show server_version");
+  await pg.close();
+  const runs = String((rows[0] as { server_version?: unknown } | undefined)?.server_version ?? "").split(".")[0];
+  if (!runs || runs === wrote) return undefined;
+  return new Error(
+    `The local database in ${dir} was written by PostgreSQL ${wrote}, and the installed PGlite runs PostgreSQL ${runs}, which can't read it. ` +
+      `Move or delete that folder and start again: the schema is rebuilt on first use, and \`npm run seed\` refills the catalog.`,
+  );
 }
 
 // lists DDL — single-sourced here (mirrors CATALOG_DDL) so tests can build a
@@ -109,14 +145,6 @@ export const LISTS_DDL: string[] = [
     consumable_weight_mg bigint NOT NULL DEFAULT 0,
     total_weight_mg bigint NOT NULL DEFAULT 0,
     item_count integer NOT NULL DEFAULT 0,
-    is_public boolean NOT NULL DEFAULT false,
-    published_at timestamptz,
-    trip_type text,
-    season text,
-    primary_category text,
-    view_count integer NOT NULL DEFAULT 0,
-    flagged boolean NOT NULL DEFAULT false,
-    claim_phrase_hash text,
     last_snapshot_at timestamptz,
     version integer NOT NULL DEFAULT 1,
     status text NOT NULL DEFAULT 'active',
@@ -124,9 +152,6 @@ export const LISTS_DDL: string[] = [
     updated_at timestamptz NOT NULL DEFAULT now(),
     deleted_at timestamptz
   )`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trip_type text`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS view_count integer NOT NULL DEFAULT 0`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS flagged boolean NOT NULL DEFAULT false`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS last_snapshot_at timestamptz`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_url text`,
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_label text`,
@@ -141,6 +166,16 @@ export const LISTS_DDL: string[] = [
   // the byline on the read views — who MADE the list (set once at creation, never
   // re-pointed by a claim); resolves to that account's optional display name
   `ALTER TABLE lists ADD COLUMN IF NOT EXISTS author_user_id integer`,
+  // Columns from the first version that nothing ever read, dropped where an older
+  // database still has them.
+  `ALTER TABLE lists DROP COLUMN IF EXISTS primary_category, DROP COLUMN IF EXISTS view_count, DROP COLUMN IF EXISTS claim_phrase_hash`,
+  // The columns of the retired list publishing, dropped some deploys after #575
+  // (3959696a) stopped selecting them, so a rollback to that deploy still found them. A
+  // deploy from before #575 selects all five, and its own DDL re-adds trip_type and
+  // flagged but not is_public, published_at or season. Going back that far means rolling
+  // back FIRST and adding those three by hand after: every cold instance of this deploy
+  // or a later one drops them again.
+  `ALTER TABLE lists DROP COLUMN IF EXISTS is_public, DROP COLUMN IF EXISTS published_at, DROP COLUMN IF EXISTS trip_type, DROP COLUMN IF EXISTS season, DROP COLUMN IF EXISTS flagged`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,
@@ -212,17 +247,21 @@ export const ensureSnapshotSchema = ensureOf(SNAPSHOTS_DDL);
 const ensureVaultSchema = ensureOf(VAULT_DDL);
 
 /**
- * The shared DB with the vault schema ensured — the vault's counterpart to
- * useCatalogDb(), and for the same reason: on Neon the tables are created on first
- * use, so every vault endpoint must ensure before it queries. Folding the two calls
- * together makes that impossible to forget. Both memoized, so this costs no extra
- * round-trips on a warm instance.
+ * The shared DB with one more schema ensured on it: the shape of useVaultDb,
+ * useAccountDb and useCatalogDb. On Neon the tables are created on first use, so an
+ * endpoint must ensure before it queries; folding the two calls together makes that
+ * impossible to forget. Both are memoized, so this costs no extra round-trips on a
+ * warm instance.
  */
-export async function useVaultDb(): Promise<Db> {
+const withSchema = (ensure: (db: Db) => Promise<void>) => async (): Promise<Db> => {
   const db = await useDb();
-  await ensureVaultSchema(db);
+  await ensure(db);
   return db;
-}
+};
+
+/** The shared DB with the vault schema ensured — the vault's counterpart to
+ *  useCatalogDb(), and for the same reason (withSchema). */
+export const useVaultDb = withSchema(ensureVaultSchema);
 
 /** Idempotently create the OPTIONAL account tables (memoized). Separate from the
  *  vault's ensure on purpose: the vault works with no account at all, so a visitor
@@ -232,11 +271,7 @@ const ensureAccountSchema = ensureOf(ACCOUNT_DDL);
 
 /** The shared DB with the account schema ensured — the account layer's
  *  counterpart to useVaultDb(), for the same reason and with the same memoization. */
-export async function useAccountDb(): Promise<Db> {
-  const db = await useDb();
-  await ensureAccountSchema(db);
-  return db;
-}
+export const useAccountDb = withSchema(ensureAccountSchema);
 
 const DDL = [
   ...LISTS_DDL,
@@ -251,15 +286,13 @@ const DDL = [
   ...ACCOUNT_DDL,
 ];
 
-const ensureSchema = (db: Db) => runDdl(db, DDL);
-
 export async function useDb(): Promise<Db> {
   if (!_dbPromise) _dbPromise = build();
   const db = await _dbPromise;
   // Neon has no build-time DDL (dev's PGlite ensured the schema in build()), so
   // ensure the core `lists` table exists on first use. Memoized → one batch per
   // warm instance. Snapshots + catalog self-ensure on their own paths.
-  if (databaseUrl()) await ensureListsSchema(db);
+  if (process.env.DATABASE_URL) await ensureListsSchema(db);
   return db;
 }
 
@@ -269,8 +302,4 @@ export async function useDb(): Promise<Db> {
  * where build() ran the full DDL, but throws in prod). Folding them into one call
  * makes that impossible to forget. Both are memoized, so this adds no round-trips.
  */
-export async function useCatalogDb(): Promise<Db> {
-  const db = await useDb();
-  await ensureCatalogSchema(db);
-  return db;
-}
+export const useCatalogDb = withSchema(ensureCatalogSchema);

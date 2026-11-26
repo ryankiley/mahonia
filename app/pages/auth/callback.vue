@@ -9,95 +9,52 @@
 // doesn't take. It fires on mount without a click, so for the human it's still a
 // single tap from the email to being signed in.
 //
+// IN THE BROWSER THAT ASKED, that is. Anywhere else the server answers `confirm`
+// and spends nothing, and the account is named and a yes waited for: a link
+// is a way into whichever account asked for it, and one a stranger sent you would
+// otherwise sign this browser in as them and hand their account its lists (see
+// redeemMagicLink in server/utils/authSession.ts). The lists are then a question
+// of their own, after the sign-in and not part of it.
+//
+// THE PAGE ITSELF IS A WAYPOINT and asks nothing. The link is sent from here, and what
+// happens next happens somewhere else (useSignInLink): straight back to the page the
+// link was asked from, or, when there is something to ask, to that page first with the
+// question in a dialog over it. All this page ever draws is the bar, and one card if
+// the server is slow to answer.
+const route = useRoute();
+
 // noindex + no SSR data: the token lives in the query string and must not reach a
 // crawler, a cache, or a server-rendered payload.
-definePageMeta({ layout: "default" });
 useHead({
   title: "Signing you in — Mahonia",
   meta: [{ name: "robots", content: "noindex" }],
 });
 
-const route = useRoute();
-const { refresh } = useSession();
-
-type State = "working" | "done" | "invalid" | "error";
-const state = ref<State>("working");
-
-async function verify() {
+// ONLY WHEN IT IS SLOW. The straight run is over in a few hundred milliseconds, and a
+// card that appeared and vanished in that time was a flash of a dialog over an empty
+// page. Past a second the empty page needs to say it is working.
+const SLOW_MS = 1000;
+const slow = ref(false);
+let waiting: ReturnType<typeof setTimeout> | undefined;
+onMounted(() => {
+  waiting = setTimeout(() => (slow.value = true), SLOW_MS);
   const raw = route.query.t;
-  const token = (Array.isArray(raw) ? raw[0] : raw) ?? "";
-  if (!token) {
-    state.value = "invalid";
-    return;
-  }
-  state.value = "working";
-  try {
-    const res = await $fetch<{ ok: boolean }>("/api/auth/verify", {
-      method: "POST",
-      body: { token },
-    });
-    if (!res.ok) {
-      state.value = "invalid";
-      return;
-    }
-    // re-read the session so the rest of the app sees the new cookie, then hand
-    // the user straight to the thing they signed in for
-    await refresh(true);
-    tally("sign_in");
-    state.value = "done";
-    // Same as the passkey path: back where you started if we still know, /gear if
-    // not. The magic link usually returns in a new tab, which is exactly why the
-    // return path is in localStorage rather than sessionStorage.
-    await useReturnTo().resume("/gear");
-  } catch {
-    // network or rate limit — distinct from a bad token, and worth retrying
-    state.value = "error";
-  }
-}
-
-onMounted(verify);
+  // the link is sent as the page arrives, with no click (the top of this file says why)
+  void useSignInLink().arrive((Array.isArray(raw) ? raw[0] : raw) ?? "");
+});
+onBeforeUnmount(() => clearTimeout(waiting));
 </script>
 
 <template>
   <div>
     <SiteTopbar />
-    <main id="main-content" tabindex="-1" class="wrap page">
-      <template v-if="state === 'working' || state === 'done'">
-        <h1 class="t-title">Signing you in…</h1>
-        <p class="t-muted cb__line">One moment.</p>
-      </template>
-
-      <template v-else-if="state === 'invalid'">
-        <h1 class="t-title">That link has expired</h1>
-        <p class="t-muted cb__line">
-          Sign-in links work once and last 15 minutes. Ask for a fresh one and it’ll be along
-          in a moment.
-        </p>
-        <NuxtLink to="/account" class="btn btn--primary cb__action">Get a new link</NuxtLink>
-      </template>
-
-      <template v-else>
-        <h1 class="t-title">Couldn’t sign you in</h1>
-        <p class="t-muted cb__line">
-          Something went wrong on the way. Your link is probably still good.
-        </p>
-        <button type="button" class="btn btn--primary cb__action" @click="verify">Try again</button>
-      </template>
-    </main>
+    <main id="main-content" tabindex="-1" class="wrap page" />
+    <!-- nothing to answer and nothing to dismiss: it goes when the page does -->
+    <BaseModal :open="slow" label="Signing you in…">
+      <SignInHead>Signing you in…</SignInHead>
+      <div class="signin__body">
+        <p class="t-sm t-muted">One moment.</p>
+      </div>
+    </BaseModal>
   </div>
 </template>
-
-<style scoped>
-.page {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-}
-.cb__line {
-  max-width: 52ch;
-}
-.cb__action {
-  margin-top: var(--space-3);
-}
-</style>

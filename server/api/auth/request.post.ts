@@ -1,5 +1,11 @@
 import { createError, defineEventHandler } from "h3";
-import { findOrCreateUser, mailMagicLink, normalizeEmail, sweepExpiredAuth } from "../../utils/authSession";
+import {
+  findOrCreateUser,
+  mailMagicLink,
+  markAskingBrowser,
+  normalizeEmail,
+  sweepExpiredAuth,
+} from "../../utils/authSession";
 import { useAccountDb } from "../../utils/db";
 import { canSendEmail } from "../../utils/email";
 import { readJsonBodyCapped, setNoIndex } from "../../utils/http";
@@ -44,7 +50,10 @@ export default defineEventHandler(async (event) => {
   try {
     const db = await useAccountDb();
     const user = await findOrCreateUser(db, email);
-    await mailMagicLink(event, db, user.id, email);
+    // Only where a link is about to exist. Set any earlier and an ask that mailed
+    // nothing (a mistyped address, a throttled one) would replace the nonce the
+    // previous, still-good link is waiting for.
+    await mailMagicLink(event, db, user.id, email, { browserHash: markAskingBrowser(event) });
     // Opportunistic housekeeping on a rare, tightly-limited path: keeps expired
     // sessions and spent links from accumulating without needing a cron of their
     // own. Never allowed to fail the sign-in it rode in on.

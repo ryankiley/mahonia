@@ -6,9 +6,9 @@ import { sweepWindow, toIso } from "./time";
 import { createError } from "h3";
 import { and, desc, eq, inArray, isNotNull, isNull, lt, lte, notInArray, sql, type SQL } from "drizzle-orm";
 import { listClaims, listSnapshots, lists, type ListRow, users } from "../db/schema";
-import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeCalendarDate, normalizeDay, normalizeFolder, normalizeItem, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyListText, type Op, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "../../shared/ops";
+import { applyOps, isOpObject, MAX_DAYS, MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE, MAX_WAYPOINTS, normalizeDay, normalizeFolder, normalizeItem, normalizeMetaFields, normalizePerson, normalizeWaypoint, seedRouteEnds, tidyListText, type Op, MAX_TITLE_LEN, MAX_DESCRIPTION_LEN } from "../../shared/ops";
 import { UNASSIGNED, uniquifyPersonNames } from "../../shared/people";
-import { computeTotals } from "../../shared/weights";
+import { bySortOrder, computeTotals } from "../../shared/weights";
 import {
   diffListState,
   fullSnapToState,
@@ -16,19 +16,19 @@ import {
   stateToFullSnap,
   type FullSnap,
 } from "../../shared/snapshotDiff";
-import { UNITS, CLAIMED_LIST_CAP, LIST_META_KEYS } from "../../shared/types";
+import { CLAIMED_LIST_CAP, LIST_META_KEYS, stateData } from "../../shared/types";
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
-import type { ChangeAuthor, Item, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals, Unit } from "../../shared/types";
+import type { ChangeAuthor, Item, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals } from "../../shared/types";
 import { normalizeShareCode } from "../../shared/links";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
-import { normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "../../shared/trailDistance";
-import { parseProfile } from "../../shared/profile";
+import { normalizeDistanceUnit } from "../../shared/trailDistance";
 import { normalizeRouteGeometry } from "../../shared/polyline";
 import { tidyProse, tidyText } from "../../shared/tidyText";
-import { displayHost, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
+import { displayHost, normalizeTrailUrl, safeUrl } from "../../shared/trailLink";
 import { ensureSnapshotSchema, ensureTrailFaviconSchema, isUniqueViolation, useAccountDb, useDb, type Db } from "./db";
 import { getFavicon, warmFavicon } from "./trailFavicon";
 import { liveCatalogRows } from "./catalog";
+import { unitOf } from "./vaultRepo";
 import { randomEditToken, randomShareCode, randomSlug, sha256Hex } from "./tokens";
 import { stageCandidates, type CandidateObservation } from "./candidates";
 
@@ -45,15 +45,6 @@ function weightColumns(totals: Totals) {
   };
 }
 
-// Normalize + cap inbound content through the SAME reducer helpers the mutate path
-// uses, so the create/restore paths can never be a clamp-bypass into raw JSONB.
-// Beyond the per-field clamps, this is the only write path that takes a WHOLE list
-// at once, so the reducer's list-wide referential invariants (enforced per-op in
-// ops.ts addItem/moveItem) must be re-applied in bulk here — otherwise a raw create
-// POST can persist dangling refs that render nowhere yet still count in totals
-// (invisible, UI-undeletable weight). Mirrors jsonToListImport's healing rules:
-// unknown folderId → ungrouped, dangling/self parentId → top-level, one nesting
-// level only, and a nested child always carries its parent's folderId.
 /** Cap, normalize, first id wins (the reducer's add rule), keyed by id in the incoming
  *  order. A normalizer answers null for a row to drop rather than repair. */
 function firstById<R, T extends { id: string }>(
@@ -69,6 +60,15 @@ function firstById<R, T extends { id: string }>(
   return out;
 }
 
+// Normalize + cap inbound content through the SAME reducer helpers the mutate path
+// uses, so the create/restore paths can never be a clamp-bypass into raw JSONB.
+// Beyond the per-field clamps, this is the only write path that takes a WHOLE list
+// at once, so the reducer's list-wide referential invariants (enforced per-op in
+// ops.ts addItem/moveItem) must be re-applied in bulk here — otherwise a raw create
+// POST can persist dangling refs that render nowhere yet still count in totals
+// (invisible, UI-undeletable weight). Mirrors jsonToListImport's healing rules:
+// unknown folderId → ungrouped, dangling/self parentId → top-level, one nesting
+// level only, and a nested child always carries its parent's folderId.
 function normalizeListData(raw?: Partial<ListData>): ListData {
   const folderIds = firstById(raw?.folders, MAX_FOLDERS, normalizeFolder);
   const folders = [...folderIds.values()];
@@ -90,7 +90,7 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
   // file with gaps or ties still imports in a sane sequence, the same treatment the JSON
   // importer gives folders.
   const days = [...firstById(raw?.days, MAX_DAYS, normalizeDay).values()];
-  days.sort((a, b) => a.sortOrder - b.sortOrder).forEach((d, i) => (d.sortOrder = i));
+  days.sort(bySortOrder).forEach((d, i) => (d.sortOrder = i));
   // Waypoints, same dedupe and cap. WITHOUT this a snapshot restore drops every one of
   // them — the reconstructed data goes through here on its way to the row, and anything
   // this function doesn't carry simply isn't written.
@@ -111,7 +111,7 @@ function normalizeListData(raw?: Partial<ListData>): ListData {
     return person.id === UNASSIGNED ? null : person;
   });
   const people = [...personIds.values()];
-  people.sort((a, b) => a.sortOrder - b.sortOrder).forEach((p, i) => (p.sortOrder = i));
+  people.sort(bySortOrder).forEach((p, i) => (p.sortOrder = i));
   // names are unique per list (the reducer refuses a collision); a raw create or a
   // list written before that rule gets its repeats numbered rather than dropped —
   // dropping one would unassign the rows they carry
@@ -137,7 +137,9 @@ function rowMeta(row: ListRow) {
     trailDescentM: row.trailDescentM ?? undefined,
     startDate: row.startDate ?? undefined,
     endDate: row.endDate ?? undefined,
-    displayUnit: row.displayUnit as Unit,
+    // through unitOf like every other read of a unit: the column is free text, and a
+    // value that is no unit reads as grams (the fallback normalizeListMeta writes)
+    displayUnit: unitOf(row.displayUnit) ?? "g",
     version: row.version,
   };
 }
@@ -279,12 +281,12 @@ async function attachTrailFavicon(db: Db, snap: ListSnapshot): Promise<ListSnaps
  *  there re-shipped an immutable icon on every keystroke batch. The editor gets its icon
  *  once from getByEditHash, or from /api/trail-favicon while the list is still a draft.
  *
- *  `authorUserId` adds the byline, which belongs to the READ views only (/s and /l,
- *  not the editor, where you are the author and being told so is noise).
+ *  `authorUserId` adds the byline, which belongs to the READ view only (/s, not the
+ *  editor, where you are the author and being told so is noise).
  *
  *  The lookups hit different tables and touch different fields, so they run
  *  concurrently rather than paying each latency in series. */
-export async function hydrateForRead(
+async function hydrateForRead(
   db: Db,
   snap: ListSnapshot,
   authorUserId: number | null = null,
@@ -331,6 +333,11 @@ export function isLive(): SQL | undefined {
 }
 const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val: string) =>
   and(eq(col, val), isLive());
+/** This account's claims on lists that are still here: the WHERE the three reads of
+ *  ALL an account's lists take, after joining list_claims to lists (the lists it shows,
+ *  its takeout, the sign-in backfill). The read of ONE claimed list by its share code
+ *  (claimRepo.claimedEditHash) spells its own, with the code between the two terms. */
+export const claimedLiveBy = (userId: number): SQL | undefined => and(eq(listClaims.userId, userId), isLive());
 
 // The "is this holder allowed to touch this live, non-deleted list" lookup.
 //
@@ -339,9 +346,8 @@ const liveOnly = (col: typeof lists.editTokenHash | typeof lists.shareCode, val:
 // claim to `lists.edit_token_hash` precisely so a signed-in request can act on a
 // list the browser doesn't hold the link for — and the server can't hash its way
 // there, because it never had the raw value either.
-export async function findByEditHash(editHash: string, db?: Db): Promise<ListRow | null> {
-  const d = db ?? (await useDb());
-  const rows = await d.select().from(lists).where(liveOnly(lists.editTokenHash, editHash)).limit(1);
+export async function findByEditHash(editHash: string, db: Db): Promise<ListRow | null> {
+  const rows = await db.select().from(lists).where(liveOnly(lists.editTokenHash, editHash)).limit(1);
   return rows[0] ?? null;
 }
 
@@ -356,9 +362,8 @@ export async function findByEditHash(editHash: string, db?: Db): Promise<ListRow
  * Shares `liveOnly`, so the gate itself is still written once and can't drift from
  * the full-row read.
  */
-async function findIdByEditHash(editHash: string, db?: Db): Promise<number | null> {
-  const d = db ?? (await useDb());
-  const rows = await d
+async function findIdByEditHash(editHash: string, db: Db): Promise<number | null> {
+  const rows = await db
     .select({ id: lists.id })
     .from(lists)
     .where(liveOnly(lists.editTokenHash, editHash))
@@ -385,15 +390,11 @@ async function findIdByEditHash(editHash: string, db?: Db): Promise<number | nul
  */
 export async function findLiveByEditHashes(
   editHashes: string[],
-  db?: Db,
-): Promise<{ id: number; editTokenHash: string; createdAt: Date }[]> {
+  db: Db,
+): Promise<{ id: number }[]> {
   if (!editHashes.length) return [];
-  const d = db ?? (await useDb());
-  return d
-    // createdAt rides along for the claim rule: a list made before origin tracking
-    // existed carries no trustworthy "how did you get this" mark, and the server is
-    // the only place that still knows which era a list is from (see claimRepo).
-    .select({ id: lists.id, editTokenHash: lists.editTokenHash, createdAt: lists.createdAt })
+  return db
+    .select({ id: lists.id })
     .from(lists)
     .where(
       and(
@@ -409,16 +410,20 @@ export async function findLiveByEditHashes(
 // 5 points cover ~50 min of active editing across sessions.
 const SNAPSHOT_THROTTLE_MS = 10 * 60_000; // at most one auto-snapshot per list / 10 min
 const SNAPSHOT_CAP = 5; // keep the most recent N per list (older are pruned)
+/** A list's snapshots newest first, the serial id breaking a tie between rows stamped
+ *  in the same instant. One order for every read here: the chain's anchor, the prune
+ *  and the reconstruction have to agree on which row is the newest. */
+const NEWEST_FIRST = [desc(listSnapshots.createdAt), desc(listSnapshots.id)] as const;
 
 /** An edit that wasn't a person's: one made through the connector. */
-export type EditActor = "assistant";
+type EditActor = "assistant";
 
 /**
  * The signed-in account behind an edit, asked for only when a recovery point is
  * actually taken (at most once per throttle window), so the session read stays off
  * the hot path. Best-effort like the capture: a failed lookup names nobody.
  */
-export type EditorLookup = () => Promise<number | null>;
+type EditorLookup = () => Promise<number | null>;
 async function lookupEditor(editor?: EditorLookup): Promise<number | null> {
   try {
     return editor ? await editor() : null;
@@ -441,7 +446,7 @@ async function recentPointBy(db: Db, listId: number, actor: EditActor): Promise<
       .select({ actor: listSnapshots.actor, createdAt: listSnapshots.createdAt })
       .from(listSnapshots)
       .where(eq(listSnapshots.listId, listId))
-      .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
+      .orderBy(...NEWEST_FIRST)
       .limit(1);
     return !!newest && newest.actor === actor && Date.now() - new Date(newest.createdAt).getTime() < SNAPSHOT_THROTTLE_MS;
   } catch {
@@ -473,7 +478,7 @@ async function captureSnapshot(
         .select()
         .from(listSnapshots)
         .where(eq(listSnapshots.listId, row.id))
-        .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
+        .orderBy(...NEWEST_FIRST)
         .limit(1)
     )[0];
     // The delta is computed from the row we just READ, before either write — so
@@ -517,7 +522,7 @@ async function captureSnapshot(
       .select({ id: listSnapshots.id })
       .from(listSnapshots)
       .where(eq(listSnapshots.listId, row.id))
-      .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
+      .orderBy(...NEWEST_FIRST)
       .limit(SNAPSHOT_CAP);
     await Promise.all([
       demote &&
@@ -545,7 +550,7 @@ async function reconstructSnapshotState(
     .select()
     .from(listSnapshots)
     .where(eq(listSnapshots.listId, listId))
-    .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id)); // newest→oldest
+    .orderBy(...NEWEST_FIRST); // newest→oldest
   const idx = rows.findIndex((r) => r.id === targetId);
   if (idx < 0) return null;
   return reconstructChainAt(
@@ -580,28 +585,13 @@ export async function listSnapshotsByEditHash(
     })
     .from(listSnapshots)
     .where(eq(listSnapshots.listId, listId))
-    .orderBy(desc(listSnapshots.createdAt), desc(listSnapshots.id))
+    .orderBy(...NEWEST_FIRST)
     .limit(SNAPSHOT_CAP);
   // Other editors by the name they CHOSE, never their email, and nothing for an
-  // account without one (attachAuthorName's rule). Ids never leave the server.
-  const others = [
-    ...new Set(rows.map((r) => r.editorUserId).filter((u): u is number => u != null && u !== viewerUserId)),
-  ];
-  const names = new Map<number, string>();
-  if (others.length) {
-    try {
-      const found = await d
-        .select({ id: users.id, displayName: users.displayName })
-        .from(users)
-        .where(inArray(users.id, others));
-      for (const u of found) {
-        const name = u.displayName?.trim();
-        if (name) names.set(u.id, name);
-      }
-    } catch {
-      /* no account tables yet: nobody to name */
-    }
-  }
+  // account without one (chosenNames). Ids never leave the server.
+  const others = rows.map((r) => r.editorUserId).filter((u): u is number => u != null && u !== viewerUserId);
+  // no account tables yet: nobody to name
+  const names = await chosenNames(d, others).catch(() => new Map<number, string>());
   const byOf = (r: (typeof rows)[number]): ChangeAuthor | null => {
     if (r.actor === "assistant") return { kind: "assistant" };
     if (r.editorUserId == null) return null;
@@ -698,11 +688,32 @@ export async function restoreSnapshotByEditHash(
 }
 
 /**
- * Resolve a list's maker to the name shown under its title on the read views.
+ * The display names these accounts CHOSE, by id: the one read behind every name this
+ * module shows for an account (a list's byline, who made a recent change).
  *
- * Only a display name the account CHOSE is ever surfaced — never the email, never
- * a fallback derived from it. An account with no display name stays anonymous,
- * which is the default and the setting most people will leave alone.
+ * Only a display name the account chose is ever surfaced — never the email, never
+ * a fallback derived from it. An account with no display name is absent from the
+ * answer and stays anonymous, which is the default and the setting most people will
+ * leave alone.
+ */
+async function chosenNames(db: Db, userIds: readonly number[]): Promise<Map<number, string>> {
+  const names = new Map<number, string>();
+  const ids = [...new Set(userIds)];
+  if (!ids.length) return names;
+  const found = await db
+    .select({ id: users.id, displayName: users.displayName })
+    .from(users)
+    .where(inArray(users.id, ids));
+  for (const u of found) {
+    const name = u.displayName?.trim();
+    if (name) names.set(u.id, name);
+  }
+  return names;
+}
+
+/**
+ * Resolve a list's maker to the name shown under its title on the read views
+ * (chosenNames' rule).
  *
  * Attached at read time rather than denormalized onto the row so that renaming
  * yourself renames you everywhere at once, including on lists made years ago.
@@ -713,12 +724,7 @@ async function attachAuthorName(
   authorUserId: number | null,
 ): Promise<ListSnapshot> {
   if (authorUserId == null) return snap;
-  const rows = await db
-    .select({ displayName: users.displayName })
-    .from(users)
-    .where(eq(users.id, authorUserId))
-    .limit(1);
-  const name = rows[0]?.displayName?.trim();
+  const name = (await chosenNames(db, [authorUserId])).get(authorUserId);
   if (name) snap.authorName = name;
   return snap;
 }
@@ -770,9 +776,10 @@ export async function getTextByShareCode(code: string): Promise<ListSnapshot | n
  *
  * rowToSnapshot omits the route's geometry and its waypoints, so every read path starts
  * without them and has to ask. That is the wrong way round from how it reads — but it is
- * the only shape that fails CLOSED: /s (getByShareCode), /l (rowToPublicView) and the
- * public feed all build on rowToSnapshot, and any read path added later will too. Opt-in
- * means forgetting leaks nothing; opt-out means forgetting publishes somebody's route.
+ * the only shape that fails CLOSED: every share-code read (the /s page, its card, its
+ * Markdown, the connector's get_list) builds on rowToSnapshot, and any read path added
+ * later will too. Opt-in means forgetting leaks nothing; opt-out means forgetting
+ * publishes somebody's route.
  *
  * This wrapper existed once before, for body weight, and three owner paths forgot to call
  * it — which is why tests/waypointPrivacy.test.ts asserts BOTH halves: that a viewer never
@@ -837,23 +844,16 @@ function normalizeListMeta(raw: Partial<Record<ListMetaKey, unknown>> = {}) {
       ? tidyProse(raw.description.slice(0, MAX_DESCRIPTION_LEN)) || undefined
       : undefined,
     // anything but a real unit is grams
-    displayUnit: (typeof raw.displayUnit === "string" && UNITS.includes(raw.displayUnit as Unit)
-      ? raw.displayUnit
-      : "g") as Unit,
+    displayUnit: unitOf(raw.displayUnit) ?? "g",
     // re-validated, not just clamped — a create can carry an imported JSON backup's URL,
     // and safeUrl is what keeps a javascript: value out of the :href a stranger clicks
     trailUrl: normalizeTrailUrl(raw.trailUrl) ?? undefined,
-    trailLabel: normalizeTrailLabel(raw.trailLabel),
-    trailDistanceM: normalizeTrailDistanceM(raw.trailDistanceM),
-    trailDistanceUnit: normalizeDistanceUnit(raw.trailDistanceUnit),
-    trailProfile: parseProfile(raw.trailProfile).join(",") || undefined,
-    trailAscentM: normalizeTrailAscentM(raw.trailAscentM),
-    trailDescentM: normalizeTrailAscentM(raw.trailDescentM),
+    // The label, distance, unit, profile, climb, descent and dates, each by the rule the
+    // setMeta op applies (the reducer's one table), so a date set on a draft means the
+    // same thing after the draft is saved as it did before. Every one of the eight keys
+    // comes back, undefined when unusable, which is what lets `nulled` clear its column.
+    ...normalizeMetaFields(raw),
     routeGeometry: normalizeRouteGeometry(raw.routeGeometry),
-    // same rule the setMeta op applies, so a date set on a draft means the same thing
-    // after the draft is saved as it did before
-    startDate: normalizeCalendarDate(raw.startDate),
-    endDate: normalizeCalendarDate(raw.endDate),
   } satisfies Record<ListMetaKey, unknown>;
 }
 
@@ -883,8 +883,9 @@ export async function exportClaimedLists(db: Db, userId: number): Promise<ListSn
     .select({ row: lists })
     .from(listClaims)
     .innerJoin(lists, eq(lists.id, listClaims.listId))
-    .where(and(eq(listClaims.userId, userId), isLive()))
-    .orderBy(desc(lists.updatedAt))
+    .where(claimedLiveBy(userId))
+    // the same order the claim read takes, id tiebreak and all, so the two cap alike
+    .orderBy(desc(lists.updatedAt), desc(lists.id))
     .limit(CLAIMED_LIST_CAP);
   // catalog names only, not hydrateForRead: a backup carries no favicon. One catalog
   // read for every list together, rather than one per list.
@@ -962,7 +963,7 @@ export async function createList(
 /**
  * Owner-initiated delete: soft-delete the list this edit token holds. Reuses the
  * reaper's `deletedAt` model, so the list drops out of every capability lookup
- * (edit/share/public/feed all go through `liveOnly`) the instant this runs, and
+ * (edit and share both go through `liveOnly`) the instant this runs, and
  * the nightly purge reclaims its storage + snapshots after the same grace window
  * (so a mistaken delete is admin-recoverable for `LIST_PURGE_GRACE_DAYS`). Returns
  * false if the token resolves to nothing (already deleted / never existed) → 404.
@@ -976,6 +977,21 @@ export async function softDeleteByEditHash(editHash: string, db?: Db): Promise<b
     .where(liveOnly(lists.editTokenHash, editHash))
     .returning({ id: lists.id });
   return gone.length > 0;
+}
+
+/**
+ * A batch in words, for its recovery point: the summary, or the plain "edit" when it
+ * has nothing to say, or can't be worked out at all. It never throws. The summary is
+ * read off ops a client sent, AFTER the write they caused has landed, and the reducer
+ * passes over a malformed op that the summary may still try to read: a throw here
+ * would answer a saved batch with an error, and the editor would send it again.
+ */
+function describeChange(ops: readonly Op[], before: Parameters<typeof summarizeOps>[1]): string {
+  try {
+    return summarizeOps(ops, before).slice(0, MAX_SUMMARY_LEN) || "edit";
+  } catch {
+    return "edit";
+  }
 }
 
 /**
@@ -1018,14 +1034,9 @@ export async function applyOpsByEditHash(
     // here — this object IS what gets written to the row, so a key left off is a key
     // erased on the next keystroke batch. `waypoints` was exactly that: the reducer
     // placed the pin, this line dropped it, and the echo came back without it, so a
-    // waypoint survived until the first save and then vanished.
-    const data: ListData = {
-      folders: state.folders,
-      items: state.items,
-      days: state.days ?? [],
-      waypoints: state.waypoints ?? [],
-      people: state.people ?? [],
-    };
+    // waypoint survived until the first save and then vanished. stateData is that
+    // list of entities, the same one a full snapshot stores.
+    const data = stateData(state);
     const totals = computeTotals(data);
 
 
@@ -1067,7 +1078,7 @@ export async function applyOpsByEditHash(
       // description of the change — but the ops that caused it are right here, and
       // they are an exact one. Derived once on write; free to read back.
       if (doSnapshot)
-        await captureSnapshot(d, row, summarizeOps(ops, before).slice(0, MAX_SUMMARY_LEN) || "edit", {
+        await captureSnapshot(d, row, describeChange(ops, before), {
           actor: opts.actor ?? null,
           editorUserId: await lookupEditor(opts.editor),
         });
@@ -1127,12 +1138,10 @@ export async function applyOpsByEditHash(
 // however old — staleness is NOT grounds to delete a real list (a finished list can
 // sit untouched forever and must survive). Staleness (updated_at) is only a
 // debounce so we don't reap a near-empty list that's being actively built right
-// now. Publish status is deliberately NOT a factor. Soft-delete (deleted_at,
-// mirroring the rest of the schema) drops the row from every live query, frees the
-// slug/share_code/edit_token (the unique indexes are WHERE deleted_at IS NULL), and
-// stays reversible.
-const LIST_REAP_STALE_DAYS = Math.max(1, Number(process.env.LIST_REAP_STALE_DAYS) || 30);
-const REAP_BATCH_MAX = 10_000;
+// now. Soft-delete (deleted_at, mirroring the rest of the schema) drops the row from
+// every live query, frees the slug/share_code/edit_token (the unique indexes are WHERE
+// deleted_at IS NULL), and stays reversible.
+const LIST_REAP_STALE_DAYS = Number(process.env.LIST_REAP_STALE_DAYS) || 30;
 
 /**
  * Soft-delete near-empty abandoned lists (<= 1 item, untouched for `staleDays`).
@@ -1141,11 +1150,10 @@ const REAP_BATCH_MAX = 10_000;
  * nights. Returns how many were reaped.
  */
 export async function reapAbandonedLists(
-  db?: Db,
+  d: Db,
   opts?: { staleDays?: number; limit?: number },
 ): Promise<{ reaped: number }> {
-  const d = db ?? (await useDb());
-  const { cutoff, limit } = sweepWindow(opts?.staleDays, LIST_REAP_STALE_DAYS, opts?.limit, REAP_BATCH_MAX);
+  const { cutoff, limit } = sweepWindow(opts?.staleDays, LIST_REAP_STALE_DAYS, opts?.limit);
 
   // One statement: a bounded subquery picks the eligible ids and the UPDATE
   // soft-deletes them, counted via RETURNING. The jsonb_array_length guard is
@@ -1180,19 +1188,18 @@ export async function reapAbandonedLists(
 // age). Cascades to each list's snapshots, which hold full-copy payloads and are
 // the real storage weight; an empty reaped list rarely has any, but other
 // soft-deleted lists can.
-const LIST_PURGE_GRACE_DAYS = Math.max(1, Number(process.env.LIST_PURGE_GRACE_DAYS) || 90);
+const LIST_PURGE_GRACE_DAYS = Number(process.env.LIST_PURGE_GRACE_DAYS) || 90;
 
 /**
  * Permanently delete lists soft-deleted more than `graceDays` ago (+ their
- * snapshots). Batched (`limit`) like the reaper so one run can't issue an unbounded
+ * snapshots and the claims accounts held on them). Batched (`limit`) like the reaper so one run can't issue an unbounded
  * delete. Returns how many list rows were purged.
  */
 export async function purgeDeletedLists(
-  db?: Db,
+  d: Db,
   opts?: { graceDays?: number; limit?: number },
 ): Promise<{ purged: number }> {
-  const d = db ?? (await useDb());
-  const { cutoff, limit } = sweepWindow(opts?.graceDays, LIST_PURGE_GRACE_DAYS, opts?.limit, REAP_BATCH_MAX);
+  const { cutoff, limit } = sweepWindow(opts?.graceDays, LIST_PURGE_GRACE_DAYS, opts?.limit);
 
   const doomed = await d
     .select({ id: lists.id })
@@ -1202,9 +1209,22 @@ export async function purgeDeletedLists(
   if (!doomed.length) return { purged: 0 };
   const ids = doomed.map((r) => r.id);
 
-  // drop child snapshots first (no DB-level FK, so this is manual), then the rows
+  // drop what hangs off the lists first (no DB-level FK, so this is manual), then the rows
   await ensureSnapshotSchema(d);
   await d.delete(listSnapshots).where(inArray(listSnapshots.listId, ids));
+  // The claims accounts held on them too. Every read of a claim joins a live list, so
+  // one left behind is never seen again and nothing could ever remove it: it would
+  // sit in the table for good, one per account per purged list.
+  //
+  // Not allowed to fail the purge. list_claims is the account layer's table, made on
+  // first use, so a database nobody has signed in to has none (and no claims); and a
+  // delete that fails for any other reason costs a few stray rows, where stopping
+  // here would leave the lists themselves unpurged night after night.
+  try {
+    await d.delete(listClaims).where(inArray(listClaims.listId, ids));
+  } catch (e) {
+    console.warn("[purge lists] the purged lists' claims were not dropped", (e as Error).message);
+  }
   await d.delete(lists).where(inArray(lists.id, ids));
   return { purged: ids.length };
 }

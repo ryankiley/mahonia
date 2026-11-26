@@ -19,7 +19,6 @@ interface ConfirmOptions {
   title?: string;
   message: string;
   confirmLabel?: string;
-  cancelLabel?: string;
   // destructive actions read the confirm as the emphasised (primary) button and
   // say so in its label; the chrome is monochrome, so wording carries the weight.
   danger?: boolean;
@@ -28,7 +27,7 @@ interface ConfirmOptions {
   // then "delete your lists too?" — and a second modal appearing after you have
   // already committed reads as a step you didn't finish rather than a choice.
   // Read the answer from `confirmState.checked` after the promise resolves true.
-  checkbox?: { label: string; hint?: string; default?: boolean };
+  checkbox?: { label: string; hint?: string };
 }
 
 interface ConfirmState extends Required<Omit<ConfirmOptions, "danger" | "checkbox">> {
@@ -45,7 +44,6 @@ const confirmState = reactive<ConfirmState>({
   title: "",
   message: "",
   confirmLabel: "Confirm",
-  cancelLabel: "Cancel",
   danger: false,
   checkboxLabel: "",
   checkboxHint: "",
@@ -75,13 +73,12 @@ export function useDialogs() {
       title: opts.title ?? "",
       message: opts.message,
       confirmLabel: opts.confirmLabel ?? (opts.danger ? "Delete" : "Confirm"),
-      cancelLabel: opts.cancelLabel ?? "Cancel",
       danger: opts.danger ?? false,
       checkboxLabel: opts.checkbox?.label ?? "",
       checkboxHint: opts.checkbox?.hint ?? "",
       // reset every time — a box left ticked by a previous dialog must never carry
       // into an unrelated one, least of all a destructive one
-      checked: opts.checkbox?.default ?? false,
+      checked: false,
     });
     return new Promise<boolean>((res) => (confirmResolve = res));
   }

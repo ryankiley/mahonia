@@ -3,10 +3,12 @@
 // each rule still fires, so a check can't be quietly loosened into a no-op.
 
 import { describe, expect, it } from "vitest";
+import { buildCatalog } from "../scripts/catalogBuild";
 import type { CatalogCsvRow } from "../scripts/catalogCsv";
 import { runCatalogChecks } from "../scripts/catalogChecks";
 import type { ResearchFile } from "../scripts/research";
 import { kcalMatchesQuote, runResearchChecks, servingsOf } from "../scripts/researchChecks";
+import { tidyQuote } from "../shared/catalogQuality";
 
 const row = (o: Partial<CatalogCsvRow> & { name: string }): CatalogCsvRow => ({
   brand: "Acme",
@@ -47,7 +49,7 @@ describe("catalog conventions are errors, not warnings", () => {
     // one fact in two scales is two claims too: the length as the maker's word and as a height
     const ff = row({ name: "Egret", variant: "Regular, 5ft 3in, 20F", categoryHint: "sleep", weightMg: 700_000, commonName: "Sleeping bag", attributes: { length: "Regular", temp_f: 20 } });
     expect(codes([ff], "error")).toContain("attr-conflict");
-    expect(codes([{ ...ff, variant: "Regular, 20F" }], "error")).toEqual([]);
+    expect(codes([{ ...ff, variant: "20F, Regular" }], "error")).toEqual([]);
     const goldwin = row({ brand: "Goldwin", name: "GORE-TEX 3L Jacket", variant: "Medium, JP 3", categoryHint: "clothing", weightMg: 420_000, commonName: "Rain jacket", attributes: { size: "M" } });
     expect(codes([goldwin], "error")).toContain("attr-conflict");
     expect(codes([{ ...goldwin, variant: "JP 3", attributes: { size: "JP 3" } }], "error")).toEqual([]);
@@ -75,6 +77,76 @@ describe("catalog conventions are errors, not warnings", () => {
     expect(codes([row({ name: "Moab 3 (low)", categoryHint: "clothing", weightMg: 900_000, commonName: "Hiking shoes" })], "error")).toContain("name-qualifier");
     // a food row's flavor is the one allowed parenthetical
     expect(codes([row({ name: "Energy Bar (Chocolate Chip)", categoryHint: "consumable", weightMg: 68_000, kcal: 250, commonName: "Energy bar" })], "error")).not.toContain("name-qualifier");
+  });
+
+  it("name-gender: Men's / Women's is the fit, read out of the variant", () => {
+    const jacket = (name: string, variant: string) =>
+      row({ brand: "Katabatic Gear", name, variant, categoryHint: "clothing", weightMg: 300_000, commonName: "Down jacket", attributes: { fit: "Women's", size: "M" } });
+    expect(codes([jacket("Women's Tarn Down Jacket", "Medium")], "error")).toContain("name-gender");
+    expect(codes([jacket("The Aspen Women's Backpack", "Medium")], "error")).toContain("name-gender");
+    expect(codes([jacket("Tarn Down Jacket", "Women's Medium")], "error")).not.toContain("name-gender");
+    // a possessive that isn't a gender is a name
+    expect(codes([row({ brand: "Mountain Hardwear", name: "Hardwear Mountain Livin' Cap", categoryHint: "clothing", weightMg: 60_000, commonName: "Hat" })], "error")).not.toContain("name-gender");
+  });
+
+  it("name-unit-mark: the variant's unit rule holds in the name", () => {
+    const shorts = (name: string) => row({ brand: "Satisfy", name, variant: "Medium", categoryHint: "clothing", weightMg: 90_000, commonName: "Shorts", attributes: { size: "M" } });
+    expect(codes([shorts('TechSilk 8" Shorts')], "error")).toContain("name-unit-mark");
+    expect(codes([shorts("TechSilk 8in Shorts")], "error")).not.toContain("name-unit-mark");
+    expect(codes([row({ name: "Flat Tarp 7' x 9'", commonName: "Tarp", weightMg: 133_000 })], "error")).toContain("name-unit-mark");
+    expect(codes([row({ name: "Flex 15°F Quilt", variant: "Regular", categoryHint: "sleep", commonName: "Quilt", weightMg: 723_000, attributes: { length: "Regular" } })], "error")).toContain("name-unit-mark");
+    expect(codes([row({ name: "G-Hook Buckle ⅝", categoryHint: "other", commonName: "Buckle", weightMg: 3_000 })], "error")).toContain("name-unit-mark");
+    // an apostrophe in a word is not a foot mark
+    expect(codes([row({ brand: "Ortovox", name: "185 Rock'N'Wool Boxer", variant: "Men's", categoryHint: "clothing", commonName: "Underwear", weightMg: 60_000, attributes: { fit: "Men's" } })], "error")).not.toContain("name-unit-mark");
+  });
+
+  it("variant-redundant: no part of the variant repeats the name, and a bag's rating is said once", () => {
+    const pack = (variant: string) => row({ brand: "Liteway", name: "Elementum Pack Ultra", variant, categoryHint: "pack", weightMg: 565_000, commonName: "Backpack", attributes: { volume_l: 50 } });
+    expect(codes([pack("Ultra, 50L")], "error")).toContain("variant-redundant");
+    expect(codes([pack("50L")], "error")).not.toContain("variant-redundant");
+    const bag = (name: string, variant: string) =>
+      row({ brand: "Feathered Friends", name, variant, categoryHint: "sleep", weightMg: 723_000, commonName: "Sleeping bag", attributes: { length: "Regular", temp_f: 20 } });
+    expect(codes([bag("Egret UL 20", "20F, Regular")], "error")).toContain("variant-redundant");
+    expect(codes([bag("Spark 20F", "20F, Regular")], "error")).toContain("variant-redundant");
+    expect(codes([bag("Egret UL 20", "Regular")], "error")).not.toContain("variant-redundant");
+    // a bag whose name carries no rating states it in the variant
+    expect(codes([bag("UltraLite", "20F, Regular")], "error")).not.toContain("variant-redundant");
+    // a number in the name that isn't this rating
+    expect(codes([bag("Egret UL 30", "20F, Regular")], "error")).not.toContain("variant-redundant");
+  });
+
+  it("variant-axis-order: gender, rating, fill power, length or size, then the rest", () => {
+    const quilt = (variant: string) => row({ name: "Revelation", variant, categoryHint: "sleep", weightMg: 560_000, commonName: "Quilt", attributes: { temp_f: 20, fill_power: 850, length: "Regular" } });
+    expect(codes([quilt("Regular, 20F, 850FP")], "error")).toContain("variant-axis-order");
+    expect(codes([quilt("20F, Regular, 850FP")], "error")).toContain("variant-axis-order");
+    expect(codes([quilt("20F, 850FP, Regular")], "error")).not.toContain("variant-axis-order");
+    const bag = (variant: string) => row({ name: "Magma 30", variant, categoryHint: "sleep", weightMg: 640_000, commonName: "Sleeping bag", attributes: { fit: "Women's", length: "Regular" } });
+    expect(codes([bag("Regular, Women's")], "error")).toContain("variant-axis-order");
+    expect(codes([bag("Women's, Regular")], "error")).not.toContain("variant-axis-order");
+    // a length in feet is a length; the rest (a fabric, a footbox) follows freely
+    expect(codes([row({ name: "UltraLite", variant: "6ft, 20F", categoryHint: "sleep", weightMg: 820_000, commonName: "Sleeping bag", attributes: { length: "6ft", temp_f: 20 } })], "error")).toContain("variant-axis-order");
+    expect(codes([quilt("20F, 850FP, Regular, insulated footbox")], "error")).not.toContain("variant-axis-order");
+  });
+
+  it("category-outlier: one gear type, one category", () => {
+    const sunscreen = (brand: string, categoryHint: string) => row({ brand, name: "Sun Stick", categoryHint, weightMg: 20_000, commonName: "Sunscreen" });
+    expect(codes([sunscreen("Bioré", "other"), sunscreen("Anessa", "consumable"), sunscreen("Tocobo", "consumable")], "error")).toContain("category-outlier");
+    expect(codes([sunscreen("Bioré", "consumable"), sunscreen("Anessa", "consumable")], "error")).not.toContain("category-outlier");
+    // a tie names both rows: someone has to decide
+    expect(codes([sunscreen("Bioré", "other"), sunscreen("Anessa", "consumable")], "error").filter((c) => c === "category-outlier")).toHaveLength(2);
+  });
+
+  it("category-outlier: rows with no gear type aren't one gear type, and common-name-missing already names them", () => {
+    const untyped = (brand: string, categoryHint: string, commonName: string | null = null) => row({ brand, name: "Thing", categoryHint, weightMg: 20_000, commonName });
+    const found = codes([untyped("Acme", "other"), untyped("Bolt", "cook"), untyped("Core", "cook", "  ")], "error");
+    expect(found.filter((c) => c === "common-name-missing")).toHaveLength(3);
+    expect(found).not.toContain("category-outlier");
+  });
+
+  it("variant-unit-spacing: one token, plainly written, no unit marks", () => {
+    const v = (variant: string) => codes([row({ name: "Flash", variant, categoryHint: "cook", weightMg: 371_000, commonName: "Stove system" })], "error");
+    for (const bad of ["6 ft", '17" torso', "1.0L", "6ft 0in", "20 x 72", "Titanium ⅝in", "20°F"]) expect(v(bad)).toContain("variant-unit-spacing");
+    for (const ok of ["6ft", "1L", "6ft 6in", "20x72", "5ft x 8ft", "Titanium 5/8in", "0.5 DCF", "Women's Medium"]) expect(v(ok)).not.toContain("variant-unit-spacing");
   });
 
   it("name-size-prefix and name-plural-family: one singular name per family", () => {
@@ -120,6 +192,20 @@ describe("catalog conventions are errors, not warnings", () => {
     expect(codes(tabs, "error")).not.toContain("variant-filler");
     // trekking poles keep "per pair"
     expect(codes([row({ name: "Distance Carbon Trekking Poles", variant: "per pair", categoryHint: "other", weightMg: 300_000, commonName: "Trekking poles" })], "error")).not.toContain("variant-filler");
+  });
+
+  it("colour-variant names the colour word, not the whole variant; variant-edition keeps an edition out of the variant", () => {
+    const cap = (variant: string) => row({ brand: "Norda", name: "Luster Cap", variant, categoryHint: "clothing", weightMg: 36_000, commonName: "Hat" });
+    const colour = runCatalogChecks([cap("Trail Team Edition, Stone")]).filter((f) => f.code === "colour-variant");
+    expect(colour).toHaveLength(1);
+    // the chat read the whole variant quoted back as all of it refused
+    expect(colour[0]!.message).toContain('"Stone" in variant');
+    // every colour at once, so a two-colour variant isn't refused twice over
+    expect(runCatalogChecks([cap("Black/Red, Large")]).find((f) => f.code === "colour-variant")!.message).toContain('"Black", "Red" in variant');
+    expect(codes([cap("Trail Team Edition")], "error")).toEqual(["variant-edition"]);
+    expect(codes([cap("Special Editions")], "error")).toContain("variant-edition");
+    // an edition sold as its own build is a product, named in the name, as the research has them
+    expect(codes([row({ brand: "Amazon", name: "Kindle Paperwhite Signature Edition", variant: "2024", categoryHint: "electronics", weightMg: 214_000, commonName: "E-reader" })], "error")).not.toContain("variant-edition");
   });
 
   it("footwear-size and per-pair-label", () => {
@@ -172,6 +258,44 @@ describe("research-level attributes check", () => {
   });
 });
 
+describe("research-level weight conversion", () => {
+  const withUnit = (weight_unit: string): ResearchFile => ({
+    file: "synthetic.json",
+    rows: [{ brand: "Acme", name: "Ridge 2", variant: "2P", common_name: "tent", category_hint: "shelter", weight_value: 900, weight_unit, weight_source: "manufacturer", source_url: "https://acme.example/ridge", quote: "900 g" }],
+  });
+  const errors = (f: ResearchFile) => runResearchChecks([f]).filter((x) => x.level === "error").map((x) => x.code);
+  const skipped = (f: ResearchFile) => buildCatalog([f], new Map()).skipped;
+  it("reads the unit as the build does: a row that builds isn't refused for convert", () => {
+    for (const unit of ["g", " g", "g\n"]) {
+      expect(skipped(withUnit(unit))).toEqual([]);
+      expect(errors(withUnit(unit))).toEqual([]);
+    }
+    // and a unit the build can't read is refused by both
+    expect(skipped(withUnit("grams"))).toHaveLength(1);
+    expect(errors(withUnit("grams"))).toContain("convert");
+  });
+});
+
+describe("research-level quote hygiene", () => {
+  const withQuote = (quote: string): ResearchFile => ({
+    file: "synthetic.json",
+    rows: [{ brand: "Acme", name: "Echo Hoodie", variant: "Men's Medium", common_name: "rain jacket", category_hint: "clothing", weight_value: 150, weight_unit: "g", weight_source: "manufacturer", source_url: "https://acme.example/echo", quote }],
+  });
+  const codes = (f: ResearchFile) => runResearchChecks([f]).filter((x) => x.level === "error").map((x) => x.code);
+  it("a quote is one line of the page's words, single spaces, no markup", () => {
+    expect(codes(withQuote("Weight: 5.29 oz/ 150 g"))).toEqual([]);
+    expect(codes(withQuote('<div class="specs-title">Weight:</div> 5.29 oz/ 150 g'))).toContain("quote-hygiene");
+    expect(codes(withQuote("Weight: 5.29 oz &amp; 150 g"))).toContain("quote-hygiene");
+    expect(codes(withQuote("Weight:  5.29 oz | 150 g"))).toContain("quote-hygiene");
+    expect(codes(withQuote("Weight: 5.29 oz | 150 g"))).toContain("quote-hygiene");
+    expect(codes(withQuote("Sold as a 4-pack\nWeight: 150 g"))).toContain("quote-hygiene");
+  });
+  it("tidyQuote changes spacing only, never the words", () => {
+    expect(tidyQuote(" Weight:  0.31oz |​ 9g\n")).toBe("Weight: 0.31oz | 9g");
+    expect(tidyQuote("Weight: 5.29 oz/ 150 g")).toBe("Weight: 5.29 oz/ 150 g");
+  });
+});
+
 describe("research-level tent weight basis", () => {
   const tent = (variant: string, weight_value: number, quote: string): ResearchFile => ({
     file: "synthetic.json",
@@ -189,8 +313,45 @@ describe("research-level tent weight basis", () => {
     // "trail weight" while the page shows a packaged figure: store that instead
     expect(codes(tent("2P, trail weight", 1190, "Minimum Weight: 1190 g. Packed Weight: 1330 g"), "error")).toContain("tent-weight-basis");
   });
+  it("a retailer's label after the figure counts too", () => {
+    expect(codes(tent("1.5P", 539, "Weight: 19oz | 539g (trail)"), "error")).toContain("tent-weight-basis");
+    expect(codes(tent("", 688, "Weight: 24oz | 688g (minimum)"), "error")).toContain("tent-weight-basis");
+    expect(codes(tent("1.5P, trail weight", 539, "Weight: 19oz | 539g (trail)"), "error")).toEqual([]);
+  });
   it("a tent quoted at one unlabelled figure raises nothing", () => {
     expect(codes(tent("2P", 509, "Tent: 17.9 oz / 509 g (Dyneema floor)"), "error")).toEqual([]);
+  });
+});
+
+describe("research-level pack weight basis", () => {
+  const pack = (variant: string, weight_value: number, quote: string, common_name = "backpack"): ResearchFile => ({
+    file: "synthetic.json",
+    rows: [{ brand: "Acme", name: "Ridge 40", variant, common_name, category_hint: "pack", weight_value, weight_unit: "g", weight_source: "manufacturer", source_url: "https://acme.example/ridge-40", quote }],
+  });
+  const codes = (f: ResearchFile, level: "error" | "warning") => runResearchChecks([f]).filter((x) => x.level === level).map((x) => x.code);
+  it("a pack stored at its minimum when the page gives the full figure is an error, either order of label and figure", () => {
+    expect(codes(pack("", 780, "WEIGHT: 780g (Minimum Weight), 1,200g (Fully Equipped)"), "error")).toContain("pack-weight-basis");
+    expect(codes(pack("", 1200, "WEIGHT: 780g (Minimum Weight), 1,200g (Fully Equipped)"), "error")).toEqual([]);
+    expect(codes(pack("", 1390, "3lb 7oz (1560g) with hip belt, 3lb 1oz (1390g) without hip belt"), "error")).toContain("pack-weight-basis");
+    expect(codes(pack("with hipbelt", 1560, "3lb 7oz (1560g) with hip belt, 3lb 1oz (1390g) without hip belt"), "error")).toEqual([]);
+    // a label naming the figure after it, inside a sentence that names the full one first
+    expect(codes(pack("", 571, "weighs in at 1.26 lbs (stripped weight: 1.16 lb)"), "error")).toEqual([]);
+  });
+  it("a pack stored at a minimum-only figure must say so, and saying so is a to-do", () => {
+    expect(codes(pack("", 295, "Weight: 10.4oz | 295g (minimum)"), "error")).toContain("pack-weight-basis");
+    expect(codes(pack("minimum", 295, "Weight: 10.4oz | 295g (minimum)"), "error")).toEqual([]);
+    expect(codes(pack("minimum", 295, "Weight: 10.4oz | 295g (minimum)"), "warning")).toContain("pack-minimum-weight");
+    // "minimum" while the page shows the full pack: store that instead
+    expect(codes(pack("minimum", 780, "WEIGHT: 780g (Minimum Weight), 1,200g (Fully Equipped)"), "error")).toContain("pack-weight-basis");
+  });
+  it("a pack whose belt is optional says no hipbelt, and that is no to-do", () => {
+    expect(codes(pack("", 281, "Weight 9.9 oz / 281 g (30L, Standard Straps, No Belt)"), "error")).toContain("pack-weight-basis");
+    expect(codes(pack("30L, no hipbelt", 281, "Weight 9.9 oz / 281 g (30L, Standard Straps, No Belt)"), "error")).toEqual([]);
+    expect(codes(pack("30L, no hipbelt", 281, "Weight 9.9 oz / 281 g (30L, Standard Straps, No Belt)"), "warning")).not.toContain("pack-minimum-weight");
+  });
+  it("leaves unlabelled figures, and packs without a belt to speak of, alone", () => {
+    expect(codes(pack("", 905, "Total with M Straight belt 31.9 oz / 905 g"), "error")).toEqual([]);
+    expect(codes(pack("", 120, "Minimum weight: 120 g", "running vest"), "error")).toEqual([]);
   });
 });
 

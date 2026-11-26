@@ -4,22 +4,6 @@
 
 import type { Classification } from "./types";
 
-const CATEGORY_KEYS = [
-  "shelter",
-  "sleep",
-  "pack",
-  "kitchen",
-  "water",
-  "clothing",
-  "electronics",
-  "firstaid",
-  "worn",
-  "consumable",
-  "other",
-] as const;
-
-type CategoryKey = (typeof CATEGORY_KEYS)[number];
-
 interface FolderPreset {
   name: string;
   colorKey: CategoryKey;
@@ -35,40 +19,34 @@ export const STARTER_FOLDERS: FolderPreset[] = [
   { name: "Pack", colorKey: "pack", defaultClassification: "base" },
 ];
 
-// Assignable hues, ordered so consecutive picks sit far apart on the colour wheel
-// (green→pink→blue→orange→…) — adjacent folders read as clearly distinct. Grey
-// "other" is the neutral fallback, never auto-assigned. Exported for the People
-// manager's swatch row, which offers exactly these ten (people share the folder
-// vocabulary so one token set serves both).
-export const FOLDER_PALETTE = [
-  "shelter", // green 132
-  "sleep", // pink 350
-  "water", // blue 232
-  "pack", // orange 50
-  "clothing", // violet 300
-  "consumable", // teal 175
-  "firstaid", // red 22
-  "electronics", // indigo 266
-  "worn", // yellow 95
-  "kitchen", // magenta 328
-] as const satisfies readonly CategoryKey[];
-
 // The hue angle (OKLCH) behind each named token — used both to space out the
 // procedural overflow colours and to render them. Keep in sync with the
-// `--cat-*` tokens in tokens.scss.
-const CATEGORY_HUE: Record<CategoryKey, number> = {
-  shelter: 132,
-  sleep: 350,
-  water: 232,
-  pack: 50,
-  clothing: 300,
-  consumable: 175,
-  firstaid: 22,
-  electronics: 266,
-  worn: 95,
-  kitchen: 328,
+// `--cat-*` tokens in tokens.scss. ORDERED: the assignable hues come first, in the
+// order they are handed out, so consecutive picks sit far apart on the colour wheel
+// (green→pink→blue→orange→…) and adjacent folders read as clearly distinct.
+const CATEGORY_HUE = {
+  shelter: 132, // green
+  sleep: 350, // pink
+  water: 232, // blue
+  pack: 50, // orange
+  clothing: 300, // violet
+  consumable: 175, // teal
+  firstaid: 22, // red
+  electronics: 266, // indigo
+  worn: 95, // yellow
+  kitchen: 328, // magenta
   other: 250,
 };
+
+/** A named colour key: exactly the keys CATEGORY_HUE gives a hue. */
+type CategoryKey = keyof typeof CATEGORY_HUE;
+
+// The assignable hues, in CATEGORY_HUE's order. Grey "other" is the neutral fallback,
+// never auto-assigned. Exported for the People manager's swatch row, which offers
+// exactly these ten (people share the folder vocabulary so one token set serves both).
+export const FOLDER_PALETTE: readonly CategoryKey[] = (Object.keys(CATEGORY_HUE) as CategoryKey[]).filter(
+  (key) => key !== "other",
+);
 
 // Common folder names → their canonical category colour. So a folder literally
 // named "Clothing" gets the violet clothing token instead of whatever the next
@@ -104,8 +82,8 @@ function hueOf(colorKey: string): number | null {
 // otherwise fall back to the creation-order palette walk. Grey "other" may repeat —
 // it's the neutral bucket — but a coloured hue never doubles up.
 /** The hues a set of rows already wears, as the palette helpers below take them —
- *  with "other" standing in for a row that never got one (the load-time backfill tests
- *  for exactly that sentinel). Folders and people both answer it; seven call sites had
+ *  with "other" standing in for a row that never got one (a JSON import recolours
+ *  exactly that sentinel). Folders and people both answer it; seven call sites had
  *  spelled the map and its fallback themselves. */
 export function usedColorKeys(rows: readonly { colorKey?: string | null }[]): string[] {
   return rows.map((r) => r.colorKey ?? "other");
@@ -132,7 +110,7 @@ export function nextFolderColor(used: readonly string[]): string {
     .map(hueOf)
     .filter((h): h is number => h !== null)
     .sort((a, b) => a - b);
-  if (!hues.length) return FOLDER_PALETTE[0];
+  if (!hues.length) return FOLDER_PALETTE[0]!;
   // find the largest gap between consecutive used hues (wrapping past 360) and
   // place the new hue at its midpoint
   let bestGap = -1;

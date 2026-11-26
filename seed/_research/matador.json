@@ -3,7 +3,6 @@
     {
       "brand": "Matador",
       "name": "Freefly16 Packable Backpack",
-      "variant": "",
       "attributes": {"volume_l": 16},
       "category_hint": "pack",
       "weight_value": 190,
@@ -15,7 +14,6 @@
     {
       "brand": "Matador",
       "name": "Freerain22 Waterproof Packable Backpack",
-      "variant": "",
       "attributes": {"volume_l": 22},
       "category_hint": "pack",
       "weight_value": 300,
@@ -27,18 +25,17 @@
     {
       "brand": "Matador",
       "name": "ReFraction Packable Backpack",
-      "variant": "",
+      "attributes": {"volume_l": 16},
       "category_hint": "pack",
       "weight_value": 225,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.matadorequipment.com/products/refraction-packable-backpack",
-      "quote": "Weight: 8oz (225g)"
+      "source_url": "http://web.archive.org/web/20260228173552/https://www.matadorequipment.com/products/refraction-packable-backpack",
+      "quote": "Tech Specs + Materials Volume: 16 liters Weight: 8oz (225g)"
     },
     {
       "brand": "Matador",
       "name": "ReFraction Packable Duffle",
-      "variant": "",
       "category_hint": "pack",
       "weight_value": 225,
       "weight_unit": "g",
@@ -49,7 +46,6 @@
     {
       "brand": "Matador",
       "name": "ReFraction Packable Sling",
-      "variant": "",
       "category_hint": "pack",
       "weight_value": 115,
       "weight_unit": "g",
@@ -60,18 +56,17 @@
     {
       "brand": "Matador",
       "name": "Freerain Waterproof Packable Hip Pack",
-      "variant": "",
+      "attributes": {"volume_l": 2},
       "category_hint": "pack",
       "weight_value": 115,
       "weight_unit": "g",
       "weight_source": "manufacturer",
-      "source_url": "https://www.matadorequipment.com/products/freerain-hippack",
-      "quote": "Weight: 4.1oz (115g)"
+      "source_url": "http://web.archive.org/web/20260521033214/https://www.matadorequipment.com/products/freerain-hippack",
+      "quote": "Tech Specs + Materials Volume: 2 liters Weight: 4.1oz (115g)"
     },
     {
       "brand": "Matador",
       "name": "Beast28 Ultralight Technical Backpack",
-      "variant": "",
       "attributes": {"volume_l": 28},
       "category_hint": "pack",
       "weight_value": 680,
@@ -83,7 +78,6 @@
     {
       "brand": "Matador",
       "name": "SEG45 Travel Pack",
-      "variant": "",
       "attributes": {"volume_l": 45},
       "category_hint": "pack",
       "weight_value": 998,
@@ -95,7 +89,6 @@
     {
       "brand": "Matador",
       "name": "SEG28 Backpack",
-      "variant": "",
       "attributes": {"volume_l": 28},
       "category_hint": "pack",
       "weight_value": 1044,
@@ -119,7 +112,6 @@
     {
       "brand": "Matador",
       "name": "GlobeRider45 Travel Backpack",
-      "variant": "",
       "attributes": {"volume_l": 45},
       "category_hint": "pack",
       "weight_value": 2041,
@@ -142,7 +134,6 @@
     {
       "brand": "Matador",
       "name": "FlatPak Travel Soap Bar Case",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 13,
       "weight_unit": "g",
@@ -153,7 +144,6 @@
     {
       "brand": "Matador",
       "name": "FlatPak Zipper Toiletry Case",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 32,
       "weight_unit": "g",
@@ -164,7 +154,6 @@
     {
       "brand": "Matador",
       "name": "Travel Earplugs Kit",
-      "variant": "",
       "category_hint": "other",
       "weight_value": 14,
       "weight_unit": "g",
@@ -208,8 +197,8 @@
     {
       "brand": "Matador",
       "name": "Global Travel Stash",
-      "variant": "",
       "category_hint": "other",
+      "common_name": "wallet",
       "weight_value": 120,
       "weight_unit": "g",
       "weight_source": "manufacturer",

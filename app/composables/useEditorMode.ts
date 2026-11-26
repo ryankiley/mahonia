@@ -18,6 +18,7 @@
 
 import { recall, remember } from "../utils/remember";
 import { motionIsInstant } from "../plugins/inputModality.client";
+import { springCss } from "../utils/spring";
 
 export type EditorMode = "edit" | "pack" | "plan";
 export const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
@@ -25,10 +26,17 @@ export const MODE_ORDER: EditorMode[] = ["edit", "pack", "plan"];
 // to reset on reload. Planning is somewhere you WORK across sittings, so it stays put.
 const MODE_KEY = "gear.mode.v1";
 
-// How long the switch's motion needs to have finished by: the entering row's fade
-// (0.9 × --spring-fade-dur = 270ms) and the slots that fold with --t-slot (done by
-// --mode-end, 150 + 390ms), whose clips and starting styles this beat gates.
-const SWITCH_ANIM_MS = 420;
+// How long a switch's motion runs, which is how long the beat has to hold: the slots
+// that fold on --t-slot land at --mode-end (half a fade, then a move), and what arrives
+// on --t-in lands last (half a fade and half a move, then a step; atoms/modeswitch.scss).
+// Read off the same tokens, so a retune can't leave the beat short: it was a flat 420ms,
+// which ended before either, and a transition the beat gates (the add links' fade-in)
+// was cut where it stood. The 30ms is two frames past the last landing.
+function switchMs(): number {
+  const fade = springCss("fade").duration;
+  const move = springCss("move").duration;
+  return fade / 2 + Math.max(move, move / 2 + springCss("step").duration) + 30;
+}
 
 let singleton: ReturnType<typeof create> | undefined;
 
@@ -38,7 +46,6 @@ function create() {
     return m && MODE_ORDER.includes(m) ? m : "edit";
   };
   const mode = ref<EditorMode>(import.meta.client ? stored() : "edit");
-  watch(mode, (m) => remember(MODE_KEY, m));
 
   // Mount latches. Each row face mounts the first time its mode is entered and then
   // STAYS mounted, hidden by CSS in the other modes — so a switch stops tearing down
@@ -62,6 +69,7 @@ function create() {
   let switchTimer: ReturnType<typeof setTimeout> | undefined;
 
   watch(mode, (m) => {
+    remember(MODE_KEY, m);
     if (m === "edit") everEdit.value = true;
     else if (m === "pack") {
       everPacked.value = true;
@@ -76,7 +84,7 @@ function create() {
       return;
     }
     switching.value = true;
-    switchTimer = setTimeout(() => (switching.value = false), SWITCH_ANIM_MS);
+    switchTimer = setTimeout(() => (switching.value = false), switchMs());
   });
 
   return { mode, everEdit, everPacked, everPlan, switching };

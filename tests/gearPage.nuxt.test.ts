@@ -13,6 +13,7 @@ import { enableAutoUnmount, mount } from "@vue/test-utils";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { createError, readBody } from "h3";
 import type { VaultEntry } from "~~/shared/vault";
+import { vaultRow } from "./helpers/vault";
 import GearPage from "~/pages/gear.vue";
 
 // hasVault true so the page loads; vaultFetch REAL so the page's URL choice has to
@@ -30,16 +31,8 @@ mockNuxtImport("useVaultAccess", () => () => ({
 
 const storage = stubLocalStorage();
 
-const entry = (id: number, name: string): VaultEntry => ({
-  id,
-  name,
-  brand: "Brand",
-  weightMg: 250_000,
-  normKey: `brand|${name.toLowerCase()}|`,
-  timesSeen: 1,
-  lastUsedAt: "2026-08-01T00:00:00.000Z",
-  createdAt: "2026-08-01T00:00:00.000Z",
-});
+const entry = (id: number, name: string): VaultEntry =>
+  vaultRow({ id, name, brand: "Brand", weightMg: 250_000, normKey: `brand|${name.toLowerCase()}|` });
 
 // the add row's suggestions
 let catalogHits: Record<string, unknown>[] = [];
@@ -189,7 +182,7 @@ describe("the /gear page's vault calls", () => {
     await vi.waitFor(() => expect(editedOps).toHaveLength(1));
 
     // Cancel mid-send, then open the other piece and start typing there
-    document.querySelector<HTMLButtonElement>(".dlg__actions .btn--ghost")!.click();
+    document.querySelector<HTMLButtonElement>(".dlg__actions .btn--soft")!.click();
     await nextTick();
     await w.get('button[aria-label="Edit Brand Kakwa 40"]').trigger("click");
     await vi.waitFor(() => expect(nameField().value).toBe("Kakwa 40"));
@@ -384,6 +377,19 @@ describe("a kit on /gear", () => {
     expect(w.get(".kitsec").text()).toContain("· removed");
   });
 
+  // A kit's items are rows of gear like any other, class mark included. The section
+  // passes the row no `marks`, and a Boolean prop left out reads false: the column the
+  // Food tab asks to drop went from every kit as well.
+  it("draws an item's worn or consumable mark on the Kits tab", async () => {
+    listRows = [{ ...stove, classification: "worn" }, pot, kit];
+    storage.set("gear.vault.tab.v1", "kits");
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec .vault__row")).toHaveLength(2));
+    // the column on every row, so the weights beside it line up; the mark on the worn one
+    expect(w.findAll(".kitsec .vault__cls")).toHaveLength(2);
+    expect(w.findAll('.kitsec .vault__cls [title="Worn"]')).toHaveLength(1);
+  });
+
   it("says a kit's save failed, rather than the reload behind it wiping the message", async () => {
     listRows = [stove, pot, kit];
     storage.set("gear.vault.tab.v1", "kits");
@@ -434,6 +440,24 @@ describe("a kit on /gear", () => {
     await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(2));
     expect(names()).toEqual(before);
   });
+
+  // Spaces alone are no search: the kits all still list, so the way to make another
+  // stays at their foot. It went, where every other gate on the page trims the query.
+  it("keeps New kit under the kits when the search holds only spaces", async () => {
+    listRows = [stove, pot, kit];
+    storage.set("gear.vault.tab.v1", "kits");
+    const w = mount(GearPage, { attachTo: document.body });
+    await vi.waitFor(() => expect(w.findAll(".kitsec")).toHaveLength(1));
+    expect(w.find(".vault__addkit").exists()).toBe(true);
+
+    await w.get(".sf__input").setValue("   ");
+    expect(w.findAll(".kitsec")).toHaveLength(1);
+    expect(w.find(".vault__addkit").exists()).toBe(true);
+
+    // a real search still takes it away, as before
+    await w.get(".sf__input").setValue("cook");
+    expect(w.find(".vault__addkit").exists()).toBe(false);
+  });
 });
 
 describe("the /gear page's words and names", () => {
@@ -446,5 +470,32 @@ describe("the /gear page's words and names", () => {
     listRows = [{ ...entry(1, "Ether Light XT Insulated Air Sleeping Mat"), variant: "Regular Wide" }];
     const w = await openPage();
     expect(w.get(".gear__name").attributes("title")).toBe("Brand Ether Light XT Insulated Air Sleeping Mat Regular Wide");
+  });
+
+  it("searches and sorts your gear, and the sort trigger says the order it shows", async () => {
+    listRows = [entry(1, "Tent"), entry(2, "Quilt")];
+    const w = await openPage();
+    const search = w.get(".vault__searchwrap input");
+    expect(search.attributes("placeholder")).toBe("Search your gear…");
+    expect(search.attributes("aria-label")).toBe("Search your gear");
+
+    // an aria-label replaces the trigger's contents, so it has to carry the order too
+    const sort = w.get(".vault__view .optmenu__btn");
+    expect(sort.text()).toBe("By kind");
+    expect(sort.attributes("aria-label")).toBe("By kind, change how your gear is sorted");
+    await sort.trigger("click");
+    expect(w.get(".vault__view [role='menu']").attributes("aria-label")).toBe("Sort your gear");
+    await w.findAll(".menu__item").find((b) => b.text().includes("Heaviest"))!.trigger("click");
+    expect(sort.attributes("aria-label")).toBe("Heaviest, change how your gear is sorted");
+  });
+
+  it("opens the feedback box from the ⋯ menu", async () => {
+    listRows = [entry(1, "Tent")];
+    const w = await openPage();
+    useFeedback().close();
+    await w.get(".menu__btn[aria-label='More actions']").trigger("click");
+    await w.findAll('[role="menuitem"]').find((r) => r.text() === "Send feedback…")!.trigger("click");
+    expect(useFeedback().state.open).toBe(true);
+    useFeedback().close();
   });
 });

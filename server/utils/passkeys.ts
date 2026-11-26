@@ -33,7 +33,8 @@
 import type { H3Event } from "h3";
 import { createError } from "h3";
 import { generateRegistrationOptions, verifyRegistrationResponse } from "@simplewebauthn/server";
-import { trustedHost, trustedOrigin } from "./origin";
+import { MAX_PASSKEYS_PER_USER } from "./credentialRepo";
+import { trustedOrigin } from "./origin";
 import { randomSecret, sha256Hex } from "./tokens";
 import { sharedKvConfigured, useKv } from "./rateLimit";
 
@@ -42,10 +43,10 @@ import { sharedKvConfigured, useKv } from "./rateLimit";
 const PASSKEY_CHALLENGE_TTL_MS = 3 * 60_000;
 
 /** The Relying Party ID — the registrable domain a passkey is bound to. The
- *  trusted host with the port stripped (WebAuthn's rpId is a domain, and
+ *  trusted origin's hostname, so without its port (WebAuthn's rpId is a domain, and
  *  `localhost:3000` is not one; bare `localhost` is explicitly allowed). */
 export function rpIdFor(event: H3Event): string {
-  return trustedHost(event).split(":")[0]!;
+  return new URL(trustedOrigin(event)).hostname;
 }
 
 /**
@@ -95,7 +96,7 @@ const RP_NAME = "Mahonia";
  *     if (SettingsService.runtimeSupportsPQC())
  *       defaultSupportedAlgorithmIDs = [COSEALG.ML_DSA_44, ...]
  *
- * On Node 24 that detection succeeds, so the default silently became
+ * On Node 24 and 26 that detection succeeds, so the default silently became
  * [-48, -8, -7, -257] with post-quantum ML-DSA-44 FIRST — the most-preferred
  * algorithm, chosen by whatever the runtime happened to report. Node itself calls
  * ML-DSA-44 experimental and warns that it "might change at any time".
@@ -116,8 +117,11 @@ const RP_NAME = "Mahonia";
 const PASSKEY_ALGORITHM_IDS = [-8, -7, -257];
 
 /**
- * The refusal every passkey endpoint opens with: fail up front, loudly, rather
- * than at verify with nothing to explain it. One message to maintain.
+ * The refusal the three options endpoints and signup-verify open with: fail up
+ * front, loudly, rather than at verify with nothing to explain it. One message to
+ * maintain. register-verify and signin-verify do not call it: a ceremony reaches
+ * them only through an options endpoint that made this check, and a request that
+ * skips one finds no challenge and gets their ordinary refusal.
  *
  * Can this deployment run a passkey ceremony at all? A ceremony is TWO requests —
  * options (which writes the challenge) then verify (which reads it) — so the
@@ -139,6 +143,28 @@ export function requirePasskeysConfigured(): void {
     "[passkey] no shared KV configured (KV_REST_API_URL / KV_REST_API_TOKEN) — passkeys are unavailable",
   );
   throw createError({ statusCode: 503, statusMessage: "Passkeys unavailable" });
+}
+
+/**
+ * Refuse another passkey for an account already holding the most it may
+ * (MAX_PASSKEYS_PER_USER). Asked at BOTH halves of adding a key, with the count as
+ * that request reads it: register-options, so nobody touches a sensor for a key that
+ * can't be kept, and register-verify, because a ceremony stays redeemable for minutes
+ * after it is opened and a batch opened while there was room would otherwise all
+ * land. One refusal, so the two can't word it differently. Verifies that arrive
+ * TOGETHER all pass this, each reading the count before any has saved: what holds
+ * the cap against those is register-verify's look after the save
+ * (removePasskeyBeyondCap).
+ */
+export function requirePasskeyRoom(held: number): void {
+  if (held >= MAX_PASSKEYS_PER_USER) throw tooManyPasskeys();
+}
+
+/** The refusal itself, for register-verify's second look: a key that was saved beside
+ *  others arriving at the same moment and turned out to be one past the cap. Returned
+ *  rather than thrown, like notFound, so the call site keeps its `throw`. */
+export function tooManyPasskeys() {
+  return createError({ statusCode: 409, statusMessage: "Too many passkeys" });
 }
 
 interface StoredChallenge {

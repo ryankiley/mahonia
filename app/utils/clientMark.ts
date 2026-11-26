@@ -1,5 +1,5 @@
-import { ChatGptIcon, ClaudeIcon, CubeIcon, GoogleGeminiIcon, MistralIcon, PerplexityAiIcon, VisualStudioCodeIcon } from "@hugeicons/core-free-icons";
-import type { IconNode } from "./hugeicon";
+import { IconClaudeai, IconCursor, IconGemini, IconMistral, IconOpenai, IconPerplexity } from "../icons/central";
+import type { IconNode } from "./icon";
 
 // Who the /authorize page says is asking, and which logo goes on its tile.
 //
@@ -29,17 +29,19 @@ import type { IconNode } from "./hugeicon";
 // wrong party. Claude, ChatGPT, Cursor and VS Code are the callbacks those clients
 // document; Gemini, Mistral and Perplexity are their domains, with no published callback
 // to check against yet. Gemini is its app's own host, never all of google.com.
-const KNOWN: readonly { name: string; icon: IconNode; domains: readonly string[]; called: RegExp }[] = [
-  { name: "Claude", icon: ClaudeIcon, domains: ["claude.ai", "claude.com"], called: /\bclaude\b/i },
+// An entry with no icon still gets our name for the app; its tile shows the initial.
+const KNOWN: readonly { name: string; icon: IconNode | null; domains: readonly string[]; called: RegExp }[] = [
+  { name: "Claude", icon: IconClaudeai, domains: ["claude.ai", "claude.com"], called: /\bclaude\b/i },
   // the OpenAI knot, which Codex wears too
-  { name: "ChatGPT", icon: ChatGptIcon, domains: ["chatgpt.com"], called: /\b(chatgpt|codex|openai)\b/i },
-  // the cube Cursor's logo is drawn as, the same one its button wears on /account
-  { name: "Cursor", icon: CubeIcon, domains: ["cursor.com"], called: /\bcursor\b/i },
-  { name: "VS Code", icon: VisualStudioCodeIcon, domains: ["vscode.dev"], called: /\b(vs ?code|visual studio code)\b/i },
+  { name: "ChatGPT", icon: IconOpenai, domains: ["chatgpt.com"], called: /\b(chatgpt|codex|openai)\b/i },
+  // Cursor's own cube, the same one its button wears on /account
+  { name: "Cursor", icon: IconCursor, domains: ["cursor.com"], called: /\bcursor\b/i },
+  // the icon set has no VS Code logo, so it wears its initial
+  { name: "VS Code", icon: null, domains: ["vscode.dev"], called: /\b(vs ?code|visual studio code)\b/i },
   // the four-point spark
-  { name: "Gemini", icon: GoogleGeminiIcon, domains: ["gemini.google.com"], called: /\bgemini\b/i },
-  { name: "Le Chat", icon: MistralIcon, domains: ["mistral.ai"], called: /\b(mistral|le chat)\b/i },
-  { name: "Perplexity", icon: PerplexityAiIcon, domains: ["perplexity.ai"], called: /\bperplexity\b/i },
+  { name: "Gemini", icon: IconGemini, domains: ["gemini.google.com"], called: /\bgemini\b/i },
+  { name: "Le Chat", icon: IconMistral, domains: ["mistral.ai"], called: /\b(mistral|le chat)\b/i },
+  { name: "Perplexity", icon: IconPerplexity, domains: ["perplexity.ai"], called: /\bperplexity\b/i },
 ];
 
 export interface AskingClient {

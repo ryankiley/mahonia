@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon, DashedLine02Icon } from "@hugeicons/core-free-icons";
+import { IconBackpack, IconChevronDownMedium, IconCookies, IconFashion, IconSquarePlaceholderDashed } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import type { Classification, Unit } from "~~/shared/types";
 import { ownedOf, VAULT_NAME_MAX, VAULT_SHORT_MAX, VAULT_URL_MAX, type VaultEntry, type VaultItemOp, type VaultItemPatch } from "~~/shared/vault";
 import { formatPrice, parsePriceInput, zeroPrice } from "~~/shared/money";
-import { CLASS_ICONS } from "~/utils/classIcons";
-import { entryUnitFromInput, formatWeight, itemDisplayName, parseWeightInput } from "~~/shared/weights";
+import { entryUnitFromInput, formatWeight, itemDisplayName, parseKcal, parseWeightInput } from "~~/shared/weights";
 import { offersKcal, offersWorn } from "~~/shared/fuel";
 import { sameText } from "~~/shared/tidyText";
 import { vaultTabOf } from "~~/shared/vaultView";
@@ -71,10 +70,12 @@ const vault = useVaultOps();
 // Three-way, not the editor's two toggles. Those are toggles because each ALSO opens
 // the detail that only exists while it's on, so the row gains no third control; there
 // is no row to protect here, and a vault row has no qty, so it has no worn split.
+// What each class wears here: the pack for base, and the two marks the rows already
+// carry for the other two, the worn shirt and the consumable cookie.
 const CLASS_OPTIONS = [
-  { key: "base", label: "Base", icon: CLASS_ICONS.base },
-  { key: "worn", label: "Worn", icon: CLASS_ICONS.worn },
-  { key: "consumable", label: "Consumable", icon: CLASS_ICONS.consumable },
+  { key: "base", label: "Base", icon: IconBackpack },
+  { key: "worn", label: "Worn", icon: IconFashion },
+  { key: "consumable", label: "Consumable", icon: IconCookies },
 ];
 // the same list without Worn, for a row that can't be (see classOptions) — a constant
 // rather than a filter per recompute, so the picker's options keep one identity
@@ -170,10 +171,14 @@ const named = computed(() => ({ name: form.name, commonName: form.commonName }))
 // calories, and most food here carries no class at all (it took its list folder's), so
 // gating on one left the tab's own number unenterable. Food is the tab's rule
 // (vaultTabOf), read live off the fields and the picked icon like everything else here.
+//
+// The fuel half on its own (kcalCounts) is what onSubmit asks before it sends a number:
+// one reading of it, so the field shown and the number saved can't part.
+const kcalCounts = computed(() => offersKcal({ ...named.value, kcal: props.entry?.kcal }));
 const kcalOffered = computed(
   () =>
     (form.classification === "consumable" || vaultTabOf({ ...named.value, icon: form.icon ?? undefined }) === "food") &&
-    offersKcal({ ...named.value, kcal: props.entry?.kcal }),
+    kcalCounts.value,
 );
 // ...and "Worn" leaves the picker on water and stove fuel, as the editor row drops its
 // worn toggle there (offersWorn, the one rule for both): nobody wears a gas canister.
@@ -288,8 +293,9 @@ async function onSubmit() {
   // stops being true of the food). On a fuel row it WOULD be counted, so a number typed
   // before the name was edited into fuel — the field gone, the digits still in the ref —
   // is dropped rather than saved unseen, and the next list to pick this row gets none.
-  if (changed("kcal") && offersKcal({ ...named.value, kcal: props.entry?.kcal })) {
-    const k = form.kcal.trim() ? Math.max(0, Math.round(Number(form.kcal))) : 0;
+  if (changed("kcal") && kcalCounts.value) {
+    // read as the list row reads it (parseKcal): "2,700" is 2700, not not-a-number
+    const k = Math.max(0, Math.round(parseKcal(form.kcal) ?? 0));
     patch.kcal = k > 0 ? k : null;
   }
   if (changed("price")) {
@@ -408,7 +414,7 @@ async function add(p: VaultItemPatch) {
 <template>
   <BaseModal :open="!!entry" :label="adding ? 'Add gear' : 'Edit gear'" @close="emit('close')">
     <template v-if="entry">
-      <h2 class="t-label">{{ adding ? "Add gear" : "Edit gear" }}</h2>
+      <h2 class="t-label panel__title">{{ adding ? "Add gear" : "Edit gear" }}</h2>
       <p v-if="!adding" class="dlg__item">{{ itemDisplayName(entry.brand, entry.name, entry.variant) }}</p>
       <!-- Adding: a catalog search over the form, given by the page (#search; /gear
            passes the list editor's own name field). A pick fills the fields below and the
@@ -449,7 +455,7 @@ async function add(p: VaultItemPatch) {
         <!-- "Product", not "Name": beside Brand, "Name" read as the whole name, and this
              is only the part after it ("Keb Hike 30", "Builders Protein Bar") -->
         <span class="t-sm t-muted">Product</span>
-        <input v-model="form.name" class="field" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
+        <input v-model="form.name" class="field" placeholder="Add a product" autocomplete="off" autocorrect="off" spellcheck="false" @keydown.enter="onSubmit" />
       </label>
 
       <!-- The gear type, then the icon beside it, because the type decides the icon until
@@ -482,9 +488,9 @@ async function add(p: VaultItemPatch) {
                 :aria-label="`Icon: ${shownLabel ?? 'none'}`"
                 @click="toggle"
               >
-                <HugeiconsIcon v-if="shownIcon" :icon="shownIcon" :size="20" :stroke-width="2" aria-hidden="true" />
-                <HugeiconsIcon v-else :icon="DashedLine02Icon" class="vitem__noicon" :size="20" :stroke-width="2" aria-hidden="true" />
-                <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon v-if="shownIcon" :icon="shownIcon" aria-hidden="true" />
+                <SvgIcon v-else :icon="IconSquarePlaceholderDashed" class="vitem__noicon" aria-hidden="true" />
+                <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
               </button>
             </template>
           </GearIconPicker>
@@ -519,7 +525,7 @@ async function add(p: VaultItemPatch) {
           >
             <template #trigger="{ active, open }">
               <span>{{ active?.label }}</span>
-              <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2" aria-hidden="true" />
+              <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
             </template>
           </OptionMenu>
         </div>
@@ -586,7 +592,7 @@ async function add(p: VaultItemPatch) {
       </datalist>
 
       <div class="dlg__actions">
-        <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
+        <button class="btn btn--soft" @click="emit('close')">Cancel</button>
         <button class="btn btn--primary" :disabled="!canSave || saving" @click="onSubmit">
           {{ saving ? "Saving…" : adding ? "Add" : "Save" }}
         </button>
@@ -603,7 +609,12 @@ async function add(p: VaultItemPatch) {
 /* Two short fields on one line. Brand/variant and weight/type are each a pair you
    read together, and a single stacked column of eight fields makes the dialog scroll
    on a phone before you reach Save. */
-.vitem__pair {
+/* The gear type and the icon box (.vitem__typed) stand on the same two columns as every
+   pair, so the second column starts in one place down the dialog. Its own class rather
+   than a .vitem__pair, so it stays one line on a phone (the container query below names
+   the pairs alone): the box is too small to deserve a row of its own. */
+.vitem__pair,
+.vitem__typed {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: var(--space-3);
@@ -632,29 +643,19 @@ async function add(p: VaultItemPatch) {
   gap: var(--space-1);
 }
 /* its chevron is the .chev atom (controls.scss), not a copy */
-/* the gear type and the icon box, on the same two columns as every pair so the second
-   column starts in one place down the dialog. Its own class rather than a .vitem__pair,
-   so it stays one line on a phone — the box is too small to deserve a row of its own. */
-/* the icon button only as wide as its glyph and chevron, at the start of its column */
-.vitem__typed {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-3);
-}
 /* the popover's anchor is the whole Icon column, not the small box: the card then
    hangs from the dialog's right edge and stays inside it, where hung from the box in
    the second column it ran off the dialog's left */
 .vitem__iconpick {
   width: 100%;
 }
+/* the icon button only as wide as its glyph and chevron, at the start of its column */
 .vitem__iconbtn {
   /* .field sets a field's full width; this one is a glyph and a chevron */
   width: auto;
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  color: var(--ink);
-  cursor: pointer;
 }
 /* nothing to draw yet: the dashed square an empty row slot wears */
 .vitem__noicon {

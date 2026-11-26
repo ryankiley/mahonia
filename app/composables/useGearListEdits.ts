@@ -3,8 +3,8 @@ import { MAX_ITEMS, seedRouteEnds } from "~~/shared/ops";
 import { uid } from "~~/shared/id";
 import type { CatalogSearchResult } from "~~/shared/catalogSearch";
 import { splitWeightTail } from "~~/shared/pasteList";
-import { counted, tidyText } from "~~/shared/tidyText";
-import { isWaterName, waterMgFromMl, waterPhraseMl } from "~~/shared/water";
+import { counted, formatCount, tidyText } from "~~/shared/tidyText";
+import { isWaterName, waterMgFromMl, waterPhrase } from "~~/shared/water";
 import { colorKeyForName, nextFolderColor, usedColorKeys } from "~~/shared/categories";
 import { sortedPeople } from "~~/shared/people";
 import type { Folder, Item, ListSnapshot, Person, Unit, Waypoint, WaypointKind } from "~~/shared/types";
@@ -49,7 +49,9 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
     // next distinct palette colour (see colorKeyForName)
     const colorKey = colorKeyForName(name, usedColorKeys(folders));
     const id = uid();
-    dispatch({ t: "addFolder", folder: { id, name, colorKey, defaultClassification: "base", sortOrder: folders.length } });
+    // after the last one: a removed folder leaves a gap the count would land in
+    const sortOrder = folders.reduce((n, f) => Math.max(n, f.sortOrder + 1), 0);
+    dispatch({ t: "addFolder", folder: { id, name, colorKey, defaultClassification: "base", sortOrder } });
     return id;
   }
   const updateFolder = (id: string, patch: Partial<Folder>) =>
@@ -142,10 +144,7 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
         // people's: person dots and folder dots are the same swatch two rows apart
         // (CategoryBar above, chips below), so a person taking the Shelter
         // folder's green would put one color on two meanings. Distinct across both.
-        colorKey: nextFolderColor([
-          ...usedColorKeys(snapshot.value?.folders ?? []),
-          ...usedColorKeys(people),
-        ]),
+        colorKey: nextFolderColor(usedColorKeys([...(snapshot.value?.folders ?? []), ...people])),
         sortOrder: people.length,
       },
     });
@@ -307,10 +306,10 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
         classification: null,
         sortOrder: 0, // placed below
       };
-      const ml = waterPhraseMl(line);
-      if (ml != null) {
-        item.name = "Water";
-        item.unitWeightMg = waterMgFromMl(ml);
+      const water = waterPhrase(line);
+      if (water) {
+        item.name = water.name;
+        item.unitWeightMg = waterMgFromMl(water.ml);
         item.weightOverridden = true;
         item.classification = storedClassification("consumable", folderId, snap.folders);
       } else {
@@ -353,8 +352,8 @@ export function createEdits({ snapshot, dispatch, offerUndo, pendingBlankId }: E
     const ids = items.map((i) => i.id);
     const made = items.length;
     if (!made) return "";
-    const rows = counted(made, "row");
-    const label = capped ? `${rows} (a list holds ${MAX_ITEMS} items; ${capped} did not fit)` : rows;
+    const rows = counted(made, "item");
+    const label = capped ? `${rows} (a list holds ${formatCount(MAX_ITEMS)} items; ${capped} didn’t fit)` : rows;
     offerUndo(label, () => {
       // quiet: undoing the paste means the rows were never there, so the history
       // shouldn't read "Removed" twelve times over. A row nested under a pasted row

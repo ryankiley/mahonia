@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Delete02Icon, GripVerticalIcon } from "@hugeicons/core-free-icons";
+import { IconDotGrid2x3, IconTrashCan } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import type { Folder, Item, ListSnapshot } from "~~/shared/types";
 import { MAX_FOLDER_NAME_LEN } from "~~/shared/ops";
 import { bySortOrder } from "~~/shared/weights";
 
 // The editor's folder — editable by default, a checklist in packing mode. The
-// share views (/s + /l) render ReadonlyFolderSection instead, so this component
+// share view (/s) renders ReadonlyFolderSection instead, so this component
 // (and the editor graph it pulls in) never ships to a read-only page.
 //
 // `items` is this folder's items, pre-grouped + sorted by the parent (one
@@ -104,23 +104,23 @@ function onName(e: Event) {
            ~240ms of the switch was rebuilding folder chrome. -->
       <div class="folder__actions">
         <button
-          class="btn btn--icon btn--ghost folder__del ink-quiet"
+          class="btn btn--icon btn--ghost ink-quiet"
           title="Remove folder"
-          aria-label="Remove folder"
+          :aria-label="`Remove ${folder.name || 'folder'}`"
           @click="c.removeFolder(folder.id)"
         >
-          <HugeiconsIcon :icon="Delete02Icon" :size="16" :stroke-width="2" />
+          <SvgIcon :icon="IconTrashCan" />
         </button>
         <!-- drag via pointerdown; arrow keys give the focused grip the reordering
              its label promises (a drag needs a pointer) -->
         <button
-          class="btn btn--icon btn--ghost grip folder__grip ink-quiet"
+          class="btn btn--icon btn--ghost grip ink-quiet"
           title="Drag to reorder folder"
           :aria-label="`Reorder ${folder.name || 'folder'}`"
           @pointerdown="fdnd.start(folder.id, $event)"
           @keydown="onGripKey"
         >
-          <HugeiconsIcon :icon="GripVerticalIcon" :size="16" :stroke-width="2" />
+          <SvgIcon :icon="IconDotGrid2x3" />
         </button>
       </div>
     </header>
@@ -151,7 +151,8 @@ function onName(e: Event) {
 .folder.folder--dragging {
   opacity: 0.4;
 }
-/* drop line marking where a dragged folder will land (sits in the gap between folders) */
+/* drop line marking where a dragged folder will land: it sits in the middle of the gap
+   between folders, which is the editor's own --folder-gap (GearEditor's .editor__body) */
 .folder--drop-before::before,
 .folder--drop-after::after {
   content: "";
@@ -163,10 +164,10 @@ function onName(e: Event) {
   pointer-events: none;
 }
 .folder--drop-before::before {
-  top: calc(-0.5 * var(--space-7));
+  top: calc(-0.5 * var(--folder-gap));
 }
 .folder--drop-after::after {
-  bottom: calc(-0.5 * var(--space-7));
+  bottom: calc(-0.5 * var(--folder-gap));
 }
 /* same column template as ItemRow so the remove + grip line up with item controls */
 /* packing mode drops the folder's trailing actions, so the header's grid narrows

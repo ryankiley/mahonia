@@ -11,8 +11,8 @@
 //
 // Pure + dependency-light on purpose (no DB import) so the gating test stays fast.
 
-import type { CatalogCsvRow } from "./catalogCsv";
-import { isVariantRedundant, normalizeVariant, normKey, RANGE_G } from "../shared/catalogQuality";
+import { identity, type CatalogCsvRow } from "./catalogCsv";
+import { isVariantRedundant, normalizeVariant, normKey, RANGE_G, SPACED_UNITS } from "../shared/catalogQuality";
 import { soldByOf, traitsOf, type AttributeKey } from "../shared/catalogAxes";
 import { extractAttributes, SHOE_REGIONS } from "./catalogAttributes";
 import { GEAR_TYPE_ALIASES } from "./gearTypes";
@@ -29,13 +29,23 @@ const VARIANT_COMMENTARY =
 
 // Colour words that are weight-irrelevant and shouldn't fragment identity.
 // (Checked on VARIANT only — product names like "Silver Shadow" live in `name`.)
-const COLOUR_ATTR =
-  /\b(black|white|grey|gray|blue|navy|red|green|olive|khaki|tan|charcoal|sage|orange|yellow|purple|pink|brown|silver|graphite|slate|teal|maroon|burgundy|cream|beige|ivory|coyote|avalanche|habitat)\b/i;
+// The second line is colourway words a maker names a colour by ("Stone", "Moss"), none of
+// them a size or a version; words that are also product words (gold, copper, sky) stay out.
+const COLOUR_WORDS =
+  /\b(black|white|grey|gray|blue|navy|red|green|olive|khaki|tan|charcoal|sage|orange|yellow|purple|pink|brown|silver|graphite|slate|teal|maroon|burgundy|cream|beige|ivory|coyote|avalanche|habitat|stone|sand|moss|forest|clay|rust|onyx|midnight|ocean|indigo|cobalt|crimson|scarlet|plum|mocha|espresso|heather|bronze)\b/gi;
 
 // Pole-family items (trekking poles + their baskets/paws) — the ONE class of
 // paired gear that keeps a "per pair" unit label, since single-pole use is a real
 // setup. Used to exempt them from the "drop per pair" rule below.
 const POLE_ITEM = /\b(pole|poles|paw|paws|basket|baskets)\b/i;
+
+// A number and its unit split by a space, in the units normalizeVariant closes up: the
+// one list, so the check can't refuse a unit the normalizer leaves spaced, or miss one.
+const SPACED_UNIT = new RegExp(String.raw`\d\s+(?:${SPACED_UNITS})\b`);
+// Vulgar fractions: a unit mark in a name, and in a variant ("5/8in", not "⅝in").
+const FRACTIONS = "¼½¾⅓⅔⅛⅜⅝⅞";
+const NAME_UNIT_MARK = new RegExp(String.raw`\d\s*["″”′]|\d'(?!s\b)|°|[${FRACTIONS}]`);
+const VARIANT_UNIT_MARK = new RegExp(`["'°${FRACTIONS}]`);
 
 // Review/blog hosts — fine as a "measured" source, but a row claiming
 // weight_source="manufacturer" cited to one of these is provenance laundering.
@@ -80,7 +90,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
 
   // --- ERROR: a row shipped without a gear type ------------------------------
   // It's the label a pick pre-fills onto the user's item, so a blank one silently
-  // costs every future list that adds this row. build-catalog.ts already fails the
+  // costs every future list that adds this row. catalogBuild.ts already fails the
   // build on it; this makes the committed CSV answer for it too.
   for (const r of rows) {
     if (!r.commonName?.trim()) err("common-name-missing", `${gearLabel(r)}: no gear type`);
@@ -116,6 +126,25 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     }
   }
 
+  // --- ERROR: a gender in the name ---------------------------------------------
+  // Men's / Women's is the fit, an axis the build reads out of the variant ("Women's
+  // Medium" → fit + size). In the name it is invisible to that, and it splits one
+  // product into two names ("Women's Tarn Down Jacket" beside "Men's Tarn Down Jacket").
+  for (const r of rows) {
+    if (/\b(?:Men|Women)'s\b/i.test(r.name)) {
+      err("name-gender", `${gearLabel(r)}: Men's / Women's goes in the variant ("Women's Medium"), where it is read as the fit`);
+    }
+  }
+
+  // --- ERROR: a unit mark in the name -------------------------------------------
+  // The variant's unit rule holds in the name too: 8in, not 8"; 7ft x 9ft, not 7' x 9';
+  // 15F, not 15°F; 5/8in, not ⅝". A size the maker sells several of is a variant.
+  for (const r of rows) {
+    if (NAME_UNIT_MARK.test(r.name)) {
+      err("name-unit-mark", `${gearLabel(r)}: a unit mark in the name — spell the unit ("8in", "7ft", "15F", "5/8in"), or move a size to the variant`);
+    }
+  }
+
   // --- ERROR: variant carries research commentary instead of a clean config ---
   // Keyword-driven (deterministic, low false-positive). A legit size spec like
   // "(US size 9 / M9)" or "(tapered)" must NOT trip — only prose markers do.
@@ -137,15 +166,15 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   const byProduct = new Map<string, CatalogCsvRow[]>();
   for (const r of rows) {
     const k = `${normKey(r.brand)}|${normKey(r.name)}`;
-    (byProduct.get(k) ?? byProduct.set(k, []).get(k)!).push(r);
+    byProduct.getOrInsertComputed(k, () => []).push(r);
   }
   for (const group of byProduct.values()) {
     for (let a = 0; a < group.length; a++) {
       for (let b = a + 1; b < group.length; b++) {
-        const wa = group[a].weightMg;
-        const wb = group[b].weightMg;
-        const va = normKey(group[a].variant);
-        const vb = normKey(group[b].variant);
+        const wa = group[a]!.weightMg;
+        const wb = group[b]!.weightMg;
+        const va = normKey(group[a]!.variant);
+        const vb = normKey(group[b]!.variant);
         const oneBlank = va === "" || vb === "";
         const sameWeight = oneBlank ? Math.abs(wa - wb) <= 0.01 * Math.max(wa, wb) : wa === wb;
         if (!sameWeight) continue;
@@ -153,7 +182,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
         if (subset) {
           err(
             "duplicate-row",
-            `${group[a].brand} ${group[a].name}: same weight (${wa} mg vs ${wb} mg) for variants "${group[a].variant ?? ""}" and "${group[b].variant ?? ""}" — likely the same product twice`,
+            `${group[a]!.brand} ${group[a]!.name}: same weight (${wa} mg vs ${wb} mg) for variants "${group[a]!.variant ?? ""}" and "${group[b]!.variant ?? ""}" — likely the same product twice`,
           );
         }
       }
@@ -166,14 +195,14 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   const byBrand = new Map<string, CatalogCsvRow[]>();
   for (const r of rows) {
     const k = normKey(r.brand);
-    (byBrand.get(k) ?? byBrand.set(k, []).get(k)!).push(r);
+    byBrand.getOrInsertComputed(k, () => []).push(r);
   }
   for (const group of byBrand.values()) {
     for (let a = 0; a < group.length; a++) {
       for (let b = a + 1; b < group.length; b++) {
-        if (group[a].weightMg !== group[b].weightMg) continue;
-        const ta = normKey(group[a].name).split(" ").filter(Boolean);
-        const tb = normKey(group[b].name).split(" ").filter(Boolean);
+        if (group[a]!.weightMg !== group[b]!.weightMg) continue;
+        const ta = normKey(group[a]!.name).split(" ").filter(Boolean);
+        const tb = normKey(group[b]!.name).split(" ").filter(Boolean);
         if (ta.join(" ") === tb.join(" ")) continue; // same-name case handled above
         const [sh, lo] = ta.length <= tb.length ? [ta, tb] : [tb, ta];
         if (sh.join("").length < 4 || !tokenRunIncludes(lo, sh)) continue;
@@ -187,7 +216,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
         if (extra.length > 0 && extra.every((t) => VERSION.test(t))) continue;
         err(
           "duplicate-name",
-          `${group[a].brand}: "${group[a].name}" and "${group[b].name}" — same weight (${group[a].weightMg} mg), one name contains the other; likely the same product`,
+          `${group[a]!.brand}: "${group[a]!.name}" and "${group[b]!.name}" — same weight (${group[a]!.weightMg} mg), one name contains the other; likely the same product`,
         );
       }
     }
@@ -224,7 +253,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     const b = (r.brand ?? "").trim();
     if (!b) continue;
-    (brandSpellings.get(normKey(b)) ?? brandSpellings.set(normKey(b), new Set()).get(normKey(b))!).add(b);
+    brandSpellings.getOrInsertComputed(normKey(b), () => new Set()).add(b);
   }
   for (const spellings of brandSpellings.values()) {
     if (spellings.size > 1) err("brand-case-split", `one brand, ${spellings.size} spellings: ${[...spellings].map((s) => `"${s}"`).join(" / ")} — pick one`);
@@ -235,7 +264,7 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     for (const d of (r.variant ?? "").split(/,\s*/)) {
       if (!d) continue;
-      (tokenSpellings.get(d.toLowerCase()) ?? tokenSpellings.set(d.toLowerCase(), new Set()).get(d.toLowerCase())!).add(d);
+      tokenSpellings.getOrInsertComputed(d.toLowerCase(), () => new Set()).add(d);
     }
   }
   for (const spellings of tokenSpellings.values()) {
@@ -266,30 +295,42 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
 
   // --- ERROR: a row filed where none of its gear type's siblings are ------------
   // category_hint drives sort order, the plausibility band, and the consumable
-  // flag; a running cap in `other` beside 17 caps in `clothing` is a misfile. Only
-  // fires when the gear type has a clear home: at least 5 rows and 90% agreement.
+  // flag; a running cap in `other` beside 17 caps in `clothing` is a misfile. One
+  // gear type has one category (2026-11-25; it was "5+ rows, 90% agreeing" until a
+  // sunscreen sat in `other` beside eight in `consumable`). A thing that is filed
+  // differently is a different gear type ("Gas lantern" in cook, "Lantern" in
+  // electronics). A tie names every row, so someone decides. A row with no gear type
+  // takes no part: rows that lack one aren't one kind of thing, and common-name-missing
+  // has already named each.
   const catsByType = new Map<string, Map<string, number>>();
-  for (const r of rows) {
+  const typed = rows.filter((r) => r.commonName?.trim());
+  for (const r of typed) {
     const k = (r.commonName ?? "").toLowerCase();
-    const m = catsByType.get(k) ?? catsByType.set(k, new Map()).get(k)!;
+    const m = catsByType.getOrInsertComputed(k, () => new Map());
     m.set(r.categoryHint ?? "other", (m.get(r.categoryHint ?? "other") ?? 0) + 1);
   }
-  for (const r of rows) {
+  for (const r of typed) {
     const m = catsByType.get((r.commonName ?? "").toLowerCase())!;
+    if (m.size < 2) continue;
     const total = [...m.values()].reduce((a, b) => a + b, 0);
-    const [home, n] = [...m.entries()].sort((a, b) => b[1] - a[1])[0];
-    if (total >= 5 && n / total >= 0.9 && (r.categoryHint ?? "other") !== home) {
-      err("category-outlier", `${gearLabel(r)}: filed under ${r.categoryHint} while ${n} of ${total} "${r.commonName}" rows are ${home} — move it (or fix the gear type)`);
+    const [[home, n], [, runnerUp]] = [...m.entries()].sort((a, b) => b[1] - a[1]) as [[string, number], [string, number]];
+    if ((r.categoryHint ?? "other") !== home || n === runnerUp) {
+      err("category-outlier", `${gearLabel(r)}: filed under ${r.categoryHint} while ${n} of ${total} "${r.commonName}" rows are ${home} — one gear type, one category (move it, or give it its own gear type)`);
     }
   }
 
-  // --- ERROR: a number and its unit split, or a prime mark, in a variant --------
+  // --- ERROR: a number and its unit split, or a unit mark, in a variant ---------
   // normalizeVariant emits "6ft" / "400ml" / "5ft 6in"; a hand edit that slips past
-  // it ("6 ft", '17" torso') fails here.
+  // it ("6 ft", '17" torso', "⅝in", "20°F") fails here. Numbers are plain: "1L" not
+  // "1.0L", "6ft" not "6ft 0in", a bare dimension "20x72" not "20 x 72".
   for (const r of rows) {
     const v = r.variant ?? "";
-    if (/\d\s+(?:ft|in|yd|cm|mm|m|km|g|kg|oz|lb|ml|qt|gal|mAh|gsm)\b/.test(v) || /["']/.test(v.replace(/\b\w+'s\b/g, ""))) {
-      err("variant-unit-spacing", `${gearLabel(r)}: "${v}" — a number and its unit are one token ("6ft", "400ml"), and feet/inches are spelled out`);
+    if (
+      SPACED_UNIT.test(v) ||
+      VARIANT_UNIT_MARK.test(v.replace(/\b\w+'s\b/g, "")) ||
+      /\b\d+\.0(?=[A-Za-z])|\dft 0in\b|\b\d+(?:\.\d+)? x \d+(?:\.\d+)?\b/.test(v)
+    ) {
+      err("variant-unit-spacing", `${gearLabel(r)}: "${v}" — a number and its unit are one token ("6ft", "400ml", "5/8in"), plainly written ("1L", "6ft", "20x72"), with no unit marks`);
     }
   }
 
@@ -299,11 +340,10 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
     const ciNorm = (x: string | null) => (x || "").toLowerCase().replace(/\s+/g, " ").trim();
     // preserve punctuation so "Lone Peak 9" vs "Lone Peak 9+" stay distinct
     const ci = ciNorm(r.brand) + "|" + ciNorm(r.name) + "|" + ciNorm(r.variant);
-    const exact = `${r.brand ?? ""}\u0000${r.name}\u0000${r.variant ?? ""}`;
+    const exact = identity(r.brand, r.name, r.variant);
     const prev = byCI.get(ci);
     if (prev) {
-      const prevExact = `${prev.brand ?? ""}\u0000${prev.name}\u0000${prev.variant ?? ""}`;
-      if (prevExact !== exact) {
+      if (identity(prev.brand, prev.name, prev.variant) !== exact) {
         err("case-collision", `${gearLabel(r)} collides case-insensitively with ${gearLabel(prev)} (normalize casing)`);
       }
     } else {
@@ -321,15 +361,32 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   }
 
   // --- ERROR: colour-as-attribute in variant ------------------------------
+  // The word is named, not the whole variant: "Trail Team Edition, Stone" quoted whole
+  // read as if every part of it were refused, when only "Stone" was.
+  // Every colour word, so "Black/Red" isn't refused for "Black" and then again for "Red".
   for (const r of rows) {
-    if (r.variant && COLOUR_ATTR.test(r.variant)) {
-      err("colour-variant", `${gearLabel(r)}: variant contains a colour ("${r.variant}") — colour rarely affects weight`);
+    const colours = [...new Set(r.variant?.match(COLOUR_WORDS) ?? [])];
+    if (colours.length) {
+      const named = colours.map((c) => `"${c}"`).join(", ");
+      err("colour-variant", `${gearLabel(r)}: ${named} in variant "${r.variant}" ${colours.length > 1 ? "are colours" : "is a colour"} — colour rarely affects weight, so drop ${colours.length > 1 ? "them" : "it"}`);
+    }
+  }
+
+  // --- ERROR: an edition in variant ------------------------------------------
+  // An edition, collaboration release or colourway special is not a size or a config.
+  // One that weighs what the base product weighs IS the base product (no variant); one
+  // sold as its own build, with its own weight, is a product of its own and names the
+  // edition in `name` ("Kindle Paperwhite Signature Edition"), as every research row
+  // that has one already does.
+  for (const r of rows) {
+    if (/\beditions?\b/i.test(r.variant ?? "")) {
+      err("variant-edition", `${gearLabel(r)}: "${r.variant}" — an edition isn't a size; one that weighs the same is the base product (no variant), one sold as its own build names the edition in the name`);
     }
   }
 
   // --- WARNING: weight outside the category's plausible range ----------------
   for (const r of rows) {
-    const range = RANGE_G[r.categoryHint ?? "other"] ?? RANGE_G.other;
+    const range = RANGE_G[r.categoryHint ?? "other"] ?? RANGE_G.other!;
     const g = r.weightMg / 1000;
     if (g < range[0] || g > range[1]) {
       warn("plausibility", `${gearLabel(r)}: ${g.toFixed(1)} g outside ${r.categoryHint} range ${range[0]}–${range[1]} g`);
@@ -405,19 +462,15 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   // a product with one row is filler; "per bar" on the only row of "Energy Bar"
   // restates the name (a unit label earns its place only beside a multi-pack
   // sibling, or on trekking poles).
-  const rowsPerProduct = new Map<string, number>();
-  for (const r of rows) {
-    const k = `${normKey(r.brand)}|${normKey(r.name)}`;
-    rowsPerProduct.set(k, (rowsPerProduct.get(k) ?? 0) + 1);
-  }
+  const siblings = (r: CatalogCsvRow) => byProduct.get(`${normKey(r.brand)}|${normKey(r.name)}`)!;
   // a unit label is earned when a sibling row is counted differently: "sleeve of 10"
   // beside "per tablet", or "per pair" beside "per pole"
   const hasPackSibling = (r: CatalogCsvRow) =>
-    rows.some((o) => o !== r && normKey(o.brand) === normKey(r.brand) && normKey(o.name) === normKey(r.name) && /\b(\d+-pack|of \d+|per \w+)\b/i.test(o.variant ?? ""));
+    siblings(r).some((o) => o !== r && /\b(\d+-pack|of \d+|per \w+)\b/i.test(o.variant ?? ""));
   for (const r of rows) {
     const v = r.variant ?? "";
     if (!v) continue;
-    const single = rowsPerProduct.get(`${normKey(r.brand)}|${normKey(r.name)}`) === 1;
+    const single = siblings(r).length === 1;
     const dims = v.split(/,\s*/);
     if (dims.some((d) => /^(one size|unisex|1 serving)$/i.test(d))) {
       err("variant-filler", `${gearLabel(r)}: "${v}" — "One size" / "Unisex" / "1 serving" distinguish nothing (single-serving is the unmarked default); drop`);
@@ -475,9 +528,41 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   }
 
   // --- ERROR: variant just repeats the name (e.g. "Copper Spur HV UL3" + "UL3") -
+  // Whole, or one part of it: "Elementum Pack Ultra [Ultra, 50L]" says Ultra twice,
+  // and a sleeping bag named for its rating ("Spark 15F", "Egret UL 20") doesn't say
+  // 15F again in the variant; the rating goes in `attributes` instead. A bag whose
+  // name carries no rating states it in the variant ("UltraLite [20F, 6ft]").
   for (const r of rows) {
-    if (r.variant && isVariantRedundant(r.name, r.variant)) {
+    if (!r.variant) continue;
+    if (isVariantRedundant(r.name, r.variant)) {
       err("variant-redundant", `${gearLabel(r)}: variant "${r.variant}" already in the name — clear it`);
+      continue;
+    }
+    const nameWords = ` ${normKey(r.name.replace(/'/g, ""))} `;
+    for (const part of r.variant.split(/,\s*/)) {
+      const rating = /^(-?\d+)F$/.exec(part);
+      const repeated = rating
+        ? new RegExp(` ${rating[1]}(?: ?f)? `).test(nameWords)
+        : isVariantRedundant(r.name, part);
+      if (repeated) err("variant-redundant", `${gearLabel(r)}: "${part}" in the variant is already in the name — drop it${rating ? " (the rating goes in attributes)" : ""}`);
+    }
+  }
+
+  // --- ERROR: a variant's axes out of order ---------------------------------------
+  // Gender, then rating, then fill power, then length or size, then the rest:
+  // "Women's, 15F, Regular", "20F, 850FP, Long". Ninety percent of rows already read
+  // that way; a row that doesn't ("Regular, 20F") reads as a different product.
+  const AXIS_ORDER: [RegExp, string][] = [
+    [/^(?:Men|Women)'s\b/, "gender"],
+    [/^-?\d+F$/, "rating"],
+    [/^\d+\+?FP$/, "fill power"],
+    [/^(?:(?:X{1,3}-)?(?:Small|Large)|Medium|Short|Regular|Long|Tall|Petite)(?: Wide| Mummy| Rectangular)?$|^\d+ft(?: \d+in)?(?: Wide)?$/, "length or size"],
+  ];
+  for (const r of rows) {
+    const ranks = (r.variant ?? "").split(/,\s*/).map((p) => AXIS_ORDER.findIndex(([re]) => re.test(p))).filter((i) => i >= 0);
+    const at = ranks.findIndex((x, i) => i > 0 && x < ranks[i - 1]!);
+    if (at > 0) {
+      err("variant-axis-order", `${gearLabel(r)}: "${r.variant}" — ${AXIS_ORDER[ranks[at]!]![1]} goes before ${AXIS_ORDER[ranks[at - 1]!]![1]} (gender, rating, fill power, length or size, then the rest)`);
     }
   }
 

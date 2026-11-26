@@ -13,11 +13,12 @@
 //     a menu that is still there.
 //   · the site foot (#376) holds two rows that emit and two that navigate; the links
 //     close the menu too.
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import EditorMenu from "~/components/EditorMenu.vue";
 
 enableAutoUnmount(afterEach);
+afterEach(() => vi.unstubAllGlobals());
 
 const rows = (w: ReturnType<typeof mount>) => w.findAll('[role="menuitem"]').map((b) => b.text().trim());
 
@@ -77,6 +78,14 @@ describe("the editor's ⋯ menu", () => {
     const claimed = openMenu({ openedByCode: true });
     expect(rows(claimed)).toContain("Delete this list");
     expect(rows(claimed)).not.toContain("Forget this list");
+  });
+
+  it("drops Keyboard shortcuts on a touch device, which has no keys to press", () => {
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: q === "(pointer: coarse)", media: q }) as MediaQueryList);
+    const w = openMenu();
+    expect(rows(w)).not.toContain("Keyboard shortcuts");
+    // the rest of the site foot is untouched
+    expect(rows(w)).toEqual(expect.arrayContaining(["Send feedback…", "Help", "About", "Legal"]));
   });
 
   it("emits close before the row's own event", async () => {

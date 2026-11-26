@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ArrowLeft01Icon, ArrowRight01Icon } from "@hugeicons/core-free-icons";
+import { IconChevronLeftMedium, IconChevronRightMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { isoDate, parseIsoDate } from "~~/shared/calendar";
 
 // A month grid for picking a trip's two dates.
@@ -56,12 +56,22 @@ const monthLabel = computed(() =>
   new Date(viewY.value, viewM.value, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" }),
 );
 
+// A day's name for a screen reader, which otherwise hears a bare "4" in a grid whose
+// weekday letters are hidden from it. en-US like the month label above it. "Today"
+// leads the one cell that is ringed for the eye.
+const DAY_NAME = new Intl.DateTimeFormat("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
+const dayLabel = (date: Date, v: string) => (v === today ? `Today, ${DAY_NAME.format(date)}` : DAY_NAME.format(date));
+
 /** The cells to render: leading blanks to line up the 1st, then each day. */
 const cells = computed(() => {
   const lead = new Date(viewY.value, viewM.value, 1).getDay(); // 0 = Sunday, and the grid starts there
   const days = new Date(viewY.value, viewM.value + 1, 0).getDate();
-  const out: ({ iso: string; d: number } | null)[] = Array.from({ length: lead }, () => null);
-  for (let d = 1; d <= days; d++) out.push({ iso: iso(viewY.value, viewM.value, d), d });
+  const out: ({ iso: string; d: number; label: string } | null)[] = Array.from({ length: lead }, () => null);
+  for (let d = 1; d <= days; d++) {
+    const date = new Date(viewY.value, viewM.value, d);
+    const v = isoDate(date);
+    out.push({ iso: v, d, label: dayLabel(date, v) });
+  }
   return out;
 });
 
@@ -164,7 +174,7 @@ onMounted(() => {
         aria-label="Previous month"
         @click="step(-1)"
       >
-        <HugeiconsIcon :icon="ArrowLeft01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconChevronLeftMedium" />
       </button>
       <!-- polite, not assertive: the month changing is feedback on an action the
            reader just took, not an interruption -->
@@ -175,7 +185,7 @@ onMounted(() => {
         aria-label="Next month"
         @click="step(1)"
       >
-        <HugeiconsIcon :icon="ArrowRight01Icon" :size="16" :stroke-width="2" />
+        <SvgIcon :icon="IconChevronRightMedium" />
       </button>
     </div>
 
@@ -216,9 +226,11 @@ onMounted(() => {
           :class="{
             'is-start': c.iso === start,
             'is-end': c.iso === end,
+            'is-alone': c.iso === start && (!end || end === start),
             'is-between': inRange(c.iso) && c.iso !== start && c.iso !== end,
             'is-today': c.iso === today,
           }"
+          :aria-label="c.label"
           :aria-selected="c.iso === start || c.iso === end || inRange(c.iso)"
           :tabindex="c.iso === focused ? 0 : -1"
           @click="pick(c.iso); moveFocus(c.iso)"
@@ -311,7 +323,6 @@ onMounted(() => {
      stops reading as one bar. 8px on a 32px box softens the corner without rounding
      the thing away. */
   border-radius: var(--radius-2);
-  font-size: var(--text-base);
   color: var(--ink-2);
   transition:
     background var(--spring-fade-dur) var(--spring-fade),
@@ -327,11 +338,11 @@ onMounted(() => {
 }
 /* The grid is one tab stop and the arrows walk it, so the focused day has to be
    visible — without a cue you are moving an invisible caret around a month. Only on
-   :focus-visible, so a mouse click doesn't leave a ring behind. */
+   :focus-visible, so a mouse click doesn't leave a ring behind. The ring is the reset's
+   own, drawn inward so it sits inside the cell; it follows the cell's corner, which the
+   rules around this one already set for every state. */
 .cal__day:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
   outline-offset: var(--focus-offset-inset);
-  border-radius: var(--radius-2);
 }
 /* today is MARKED, not selected — a ring rather than a fill, so it can't be mistaken
    for one end of the range */
@@ -374,8 +385,11 @@ onMounted(() => {
   border-start-start-radius: 0;
   border-end-start-radius: 0;
 }
-/* a single-day trip is both ends at once — it must stay fully rounded */
-.cal__day.is-start.is-end {
+/* A start with no band to join stays fully rounded: a one-day trip (both ends at once),
+   and a start whose end isn't picked — mid-pick, or a trip left open-ended. Squaring
+   its far side toward a bar that isn't there read as a clipped corner. After the two
+   rules above, same specificity, so source order decides. */
+.cal__day.is-alone {
   border-radius: var(--radius-2);
 }
 </style>

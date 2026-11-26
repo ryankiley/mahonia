@@ -12,7 +12,7 @@
 //   • extractAttributes: the MECHANICAL reading of a variant string, keyed on the gear
 //     type where a token is ambiguous ("Regular" is a length on a quilt, a torso on a
 //     pack, an inseam on pants, a size on a pillow; "3L" is litres on a reservoir and a
-//     fabric on a jacket). scripts/build-catalog.ts runs it on every row; the CSV check
+//     fabric on a jacket). scripts/catalogBuild.ts runs it on every row; the CSV check
 //     re-runs it, so a hand-edited CSV that says "20F" without temp_f 20 fails the build.
 //     It never emits a value the validator would refuse ("330mAh", "10, 000mAh" stay in
 //     the variant for research), and it reports a variant that claims one axis twice —
@@ -27,14 +27,11 @@
 
 import { ATTRIBUTE_KEYS, INSEAM_TYPE, traitsOf, type AttributeKey, type RowAttributes } from "../shared/catalogAxes";
 import { ML_PER_UNIT } from "../shared/water";
-
-export { ATTRIBUTE_KEYS } from "../shared/catalogAxes";
-export type { AttributeKey, RowAttributes } from "../shared/catalogAxes";
 import { sizeWordsToLetters } from "../shared/catalogQuality";
 
 // --- canonical forms ---------------------------------------------------------
 
-export const LETTER = "XXS|XS|S|M|L|XL|XXL|XXXL|2XL|3XL";
+const LETTER = "XXS|XS|S|M|L|XL|XXL|XXXL|2XL|3XL";
 const LETTER_SIZE = new RegExp(`^(?:${LETTER})\\+?$`);
 const LETTER_RANGE = new RegExp(`^(?:${LETTER})/(?:${LETTER})$`);
 /** The regions a footwear size is written in; the footwear-size check reads the same list. */
@@ -79,7 +76,7 @@ type StringKey = keyof typeof STRING_FORM;
 const _everyKey: Record<AttributeKey, unknown> = { ...NUMERIC_RULES, ...STRING_FORM };
 void _everyKey;
 
-const isAttributeKey = (k: string): k is AttributeKey => (ATTRIBUTE_KEYS as readonly string[]).includes(k);
+export const isAttributeKey = (k: string): k is AttributeKey => (ATTRIBUTE_KEYS as readonly string[]).includes(k);
 const isNumericKey = (k: string): k is NumericKey => Object.hasOwn(NUMERIC_RULES, k);
 /** On the grid of `step` (to floating-point tolerance): 0.525 on 0.001, 1.5 on 0.5. */
 const onStep = (v: number, step: number) => {
@@ -190,7 +187,10 @@ export function extractAttributes(
   onConflict?: (message: string) => void,
 ): RowAttributes {
   const out: RowAttributes = {};
-  const v = (variant ?? "").trim();
+  // A row written in the app is tidied into the house apostrophe ("Men’s Large"), and
+  // every form here is spelled with the straight one, so such a row read as no fit and
+  // no size at all. The research files use the straight one, so this changes none of them.
+  const v = (variant ?? "").trim().replace(/’/g, "'");
   if (!v) return out;
   const type = (commonName ?? "").trim().toLowerCase();
   const cat = (categoryHint ?? "").trim().toLowerCase();
@@ -249,14 +249,14 @@ export function extractAttributes(
 
     // gender, with or without a size after it: "Women's", "Men's M", "Women's US 8", "Men's 32"
     if ((m = dim.match(/^(Men's|Women's)(?: (.+))?$/))) {
-      set("fit", m[1]);
+      set("fit", m[1]!);
       if (m[2]) sizeToken(m[2], true);
       continue;
     }
     // Osprey's women's fits: "WM/L", "WXS/S"
     if ((m = dim.match(/^W(XS\/S|S\/M|M\/L|L\/XL)$/))) {
       set("fit", "Women's");
-      sizeToken(m[1], true);
+      sizeToken(m[1]!, true);
       continue;
     }
 
@@ -291,7 +291,7 @@ export function extractAttributes(
     }
     // torso: "M torso", "Regular torso", "17in torso", "S/M torso"
     if ((m = dim.match(/^(.+) torso$/))) {
-      set("torso", m[1]);
+      set("torso", m[1]!);
       continue;
     }
 
@@ -335,12 +335,12 @@ export function extractAttributes(
     // ice axes), "1m" (a cable), anything but clothing; bare inches only where the gear's
     // one dimension is its length, and on a sheet it's the pad width it fits
     if (cat !== "clothing" && (m = dim.match(/^(\d+ft|\d+(?:-\d+)?cm|\d+m)(?: hank)?$/))) {
-      set("length", m[1]);
+      set("length", m[1]!);
       continue;
     }
     if ((m = dim.match(/^(\d+(?:\.\d+)?in)$/))) {
-      if (traits.lengthIn) set("length", m[1]);
-      else if (traits.widthIn) set("width", m[1]);
+      if (traits.lengthIn) set("length", m[1]!);
+      else if (traits.widthIn) set("width", m[1]!);
       continue;
     }
 
@@ -348,8 +348,8 @@ export function extractAttributes(
     // "Regular, Regular" (length, width); Zpacks writes "Slim-Short" (width-length)
     if (lengthScaled) {
       if ((m = dim.match(/^(Slim|Standard|Regular|Wide)-(Short|Regular|Long|Medium)$/))) {
-        set("width", m[1]);
-        set("length", m[2]);
+        set("width", m[1]!);
+        set("length", m[2]!);
         continue;
       }
       if (/^(?:Wide|Slim)$/.test(dim) || (out.length !== undefined && dim === "Regular")) {
@@ -357,7 +357,7 @@ export function extractAttributes(
         continue;
       }
       if ((m = dim.match(LENGTH_SCALE_TOKEN))) {
-        set("length", m[1]);
+        set("length", m[1]!);
         if (m[2]) set("width", m[2]);
         continue;
       }
@@ -376,7 +376,7 @@ export function extractAttributes(
     }
     // the maker's own scale: "Size D", "Size 2"
     if ((m = dim.match(/^Size ([A-Z0-9]+)$/))) {
-      set("size", m[1]);
+      set("size", m[1]!);
       continue;
     }
     // everything else that reads as a size: letters, ranges, a shoe size, a size word

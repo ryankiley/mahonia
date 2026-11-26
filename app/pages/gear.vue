@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { IconBackpack, IconBlockSortAscending, IconBlockSortDescending, IconChevronDownMedium, IconClock, IconFilterAscending, IconFire2, IconForkKnife, IconLightning, IconPlusMedium, IconSafeSimple, IconShapesPlusXSquareCircle, IconStar, IconToolbox } from "~/icons/central";
 import { counted, formatCount, pluralNoun } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Backpack03Icon, ChevronDownIcon, ChocolateIcon, PlusSignIcon, Clock01Icon, FireIcon, FlashIcon, ToolCaseIcon, Shapes01Icon, ListOrderedAzIcon, SortingNineOneIcon, SortingOneNineIcon, StarIcon } from "@hugeicons/core-free-icons";
+import { SvgIcon } from "~/utils/icon";
 import type { Unit } from "~~/shared/types";
 import { UNITS } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
@@ -40,9 +40,14 @@ import {
 // it touched (see captureVaultItems).
 //
 // noindex: it's one person's possessions and there is nothing here for a crawler.
+//
+// `bare`: no site footer (layouts/default.vue hides it for a body so marked). The page
+// is laid out as the editor is, which has none either, and Help, About and Legal are in
+// its ⋯ menu as they are in the editor's (VaultMenu).
 useHead({
   title: "My Gear — Mahonia",
   meta: [{ name: "robots", content: "noindex" }],
+  bodyAttrs: { class: "bare" },
 });
 
 // ---- the gear ------------------------------------------------------------
@@ -92,9 +97,26 @@ function putRow(row: VaultEntry) {
 // mode.
 const TAB_KEY = "gear.vault.tab.v1";
 // the names and order are shared/vaultView's, which the list's panel and the search's
-// "2 on Food" read too; the icons are this bar's (Food wears its kind's own, as its rows do)
-const TAB_ICON = { gear: Backpack03Icon, kits: ToolCaseIcon, food: ChocolateIcon };
+// "2 on Food" read too; the icons are this bar's. Food wears the MEAL's fork and knife,
+// one of the two marks its rows carry: it wore the other, the snack's candy, which named
+// the whole tab after its smallest things (Ryan: "I don't know if I like candy being the
+// main food icon").
+const TAB_ICON = { gear: IconBackpack, kits: IconToolbox, food: IconForkKnife };
 const TABS = VAULT_TABS.map((key) => ({ key, label: VAULT_TAB_LABEL[key], icon: TAB_ICON[key] }));
+// What a tab says when it has nothing to draw: what it holds, then how it fills, as ONE
+// paragraph in one voice. It was a line and a quieter line under it, balanced
+// separately, which set a headline over body copy for two short sentences and left
+// their widths to disagree (Ryan: "let's make the text one unit vs. headline and
+// body"). The kit's is Help's own sentence ("My Gear and your account"), so the two
+// can't define a kit differently.
+const KIT_IS = "A kit is a set you pack together, like a stove, pot, and lighter.";
+const EMPTY_COPY: Record<VaultTab, string> = {
+  gear: "The gear you own, ready to pick on any list. Add a piece, or build a list and its gear is saved here.",
+  kits: `${KIT_IS} It goes onto a list as one group.`,
+  food: "Meals and snacks, each with its calories. Add some, or build a list and its food is saved here.",
+};
+// a kit is made of gear, so with none the way in is a piece of gear, and the line says so
+const KIT_NEEDS_GEAR = `${KIT_IS} It’s made from your gear, so add some first.`;
 const isTab = (v: unknown): v is VaultTab => VAULT_TABS.some((t) => t === v);
 const tab = ref<VaultTab>("gear");
 onMounted(() => {
@@ -157,7 +179,7 @@ const sections = computed(() => vaultSections(filtered.value, flat.value));
 const narrowed = computed(() => filtered.value.length !== onTab.value.length);
 
 // The count line counts what the tab holds: pieces on Gear, kits on Kits.
-const countNoun = computed(() => (tab.value === "kits" ? "kit" : "item"));
+const countNoun = computed(() => (tab.value === "kits" ? "kit" : tab.value === "food" ? "item" : "piece"));
 
 // ---- kits ----------------------------------------------------------------
 // id → "Cook kit, Fire kit" for a piece's "In …" line, read off the kits as they now
@@ -242,6 +264,29 @@ const DRAFT_ID = -1;
 function startDraftKit(name: string) {
   draftKit.value = { ...BLANK_PIECE, id: DRAFT_ID, name };
 }
+// The empty block (the template says why it reads as it does). Shown with no gear at
+// all, once that is known and not while offline, or on a tab with none of its own; never
+// over a search, which has its own line, or a kit being named.
+const emptyShown = computed(() => {
+  if (!items.value.length) return !offline.value && !loading.value;
+  return !onTab.value.length && !query.value.trim() && !(tab.value === "kits" && draftKit.value);
+});
+// What adding is called on the open tab: the bar's button and the empty block's say it
+// alike, since they open the one dialog.
+const addLabel = computed(() => (tab.value === "food" ? "Add food" : "Add gear"));
+const emptyTab = computed(() => {
+  const t = tab.value;
+  const noGear = !items.value.length;
+  const kit = t === "kits" && !noGear;
+  return {
+    icon: TAB_ICON[t],
+    text: t === "kits" && noGear ? KIT_NEEDS_GEAR : EMPTY_COPY[t],
+    kit: kit && !readonly.value,
+    // gated as the bar's own add is: a change to My Gear needs the server
+    add: kit || offline.value ? "" : addLabel.value,
+    list: noGear,
+  };
+});
 // the Kits tab's sections: the kits, then an unsaved new kit where "New kit" was
 const kitSections = computed(() => (draftKit.value ? [...filtered.value, draftKit.value] : filtered.value));
 // What the gear on screen cost. Follows `filtered` like the weight beside it — both
@@ -295,17 +340,11 @@ function followElsewhere(to: VaultTab) {
 // search over the form: one form for adding and correcting, so a piece goes in with
 // everything it can hold. It replaced an inline name-and-weight row, which hid the
 // rest and read as broken. A piece lands under its kind by itself.
-const adding = ref(false);
 const BLANK_PIECE: VaultEntry = { id: 0, normKey: "", name: "", weightMg: 0, timesSeen: 0, lastUsedAt: "", createdAt: "" };
 function openAdd() {
   if (offline.value) return;
   query.value = "";
-  adding.value = true;
   editing.value = { ...BLANK_PIECE };
-}
-function closeDialog() {
-  editing.value = null;
-  adding.value = false;
 }
 // in place, first in its kind (the page orders by last use), rather than a reload
 // (the dialog closes itself, with `close`, only when the add was made in the opening
@@ -334,6 +373,8 @@ function offerAdded(item: VaultEntry) {
 // someone who only came to look — the LazyCatalogCorrectionModal idiom.
 const editing = ref<VaultEntry | null>(null);
 const editorEverOpened = useLatch(() => editing.value);
+// Adding is the dialog open on the blank piece (openAdd): no stored piece has its id.
+const adding = computed(() => editing.value?.id === BLANK_PIECE.id);
 // The brands and gear types your gear already uses, most used first: the dialog suggests
 // them ahead of the catalog's under Brand and Gear type.
 const knownVocab = computed(() => {
@@ -414,23 +455,11 @@ function onItemSaved(item: VaultEntry) {
 // made on this page before its unit picker went (it sat on the weight total, which
 // went for answering no question). Each row picks its own unit as well.
 const UNIT_KEY = "gear.gear.unit.v1";
-// The key before it stored a SYSTEM ("metric" | "imperial") rather than a unit,
-// because the page formatted with formatWeightAuto and a system was all that took.
-// It reads a column now — formatWeight, strict, like every other inventory column in
-// the app — because auto-promotion put a 12 g stake and a 1.2 kg tent in different
-// units in the same column, which cannot be read by eye and makes "Heaviest first"
-// look broken. Mapped once on read so an ounces user still opens in ounces.
-const LEGACY_SYSTEM_KEY = "gear.gear.system.v1";
 const unit = ref<Unit>("g");
 onMounted(() => {
   const saved = recall(UNIT_KEY);
   if (saved && (UNITS as string[]).includes(saved)) {
     unit.value = saved as Unit;
-    return;
-  }
-  const legacy = recall(LEGACY_SYSTEM_KEY);
-  if (legacy === "imperial" || legacy === "metric") {
-    setUnit(legacy === "imperial" ? "oz" : "g");
     return;
   }
   // No stored choice: inherit the most recent list on this device — and inherit its
@@ -439,10 +468,6 @@ onMounted(() => {
   const recent = [...useMyLists().entries.value].sort((a, b) => b.lastOpened - a.lastOpened)[0];
   unit.value = recent?.displayUnit ?? "g";
 });
-function setUnit(next: Unit) {
-  unit.value = next;
-  remember(UNIT_KEY, next);
-}
 
 // ---- remove + undo -------------------------------------------------------
 // No confirm dialog: removing gear is small, reversible, and something you'd do
@@ -487,19 +512,19 @@ const { open: openAccount } = useAccountModal();
 // gear in a pack-weight app: what to cut), then use, and A–Z last, since the search
 // already finds a thing by its name.
 const VIEW_OPTIONS = [
-  { key: "kinds", label: "By kind", icon: Shapes01Icon },
-  { key: "heaviest", label: "Heaviest", icon: SortingNineOneIcon },
-  { key: "lightest", label: "Lightest", icon: SortingOneNineIcon },
-  { key: "recent", label: "Recently used", icon: Clock01Icon },
-  { key: "most", label: "Most used", icon: StarIcon },
-  { key: "az", label: "A–Z", icon: ListOrderedAzIcon },
+  { key: "kinds", label: "By kind", icon: IconShapesPlusXSquareCircle },
+  { key: "heaviest", label: "Heaviest", icon: IconBlockSortDescending },
+  { key: "lightest", label: "Lightest", icon: IconBlockSortAscending },
+  { key: "recent", label: "Recently used", icon: IconClock },
+  { key: "most", label: "Most used", icon: IconStar },
+  { key: "az", label: "A–Z", icon: IconFilterAscending },
 ];
 // Food's: calories for the weight first (what a bar and a dinner are compared by),
 // then calories outright, then the Gear tab's orders without By kind, since food is
 // one kind.
 const FOOD_VIEW_OPTIONS = [
-  { key: "dense", label: "Calorie dense", icon: FlashIcon },
-  { key: "kcal", label: "Most calories", icon: FireIcon },
+  { key: "dense", label: "Calorie dense", icon: IconLightning },
+  { key: "kcal", label: "Most calories", icon: IconFire2 },
   ...VIEW_OPTIONS.filter((o) => o.key !== "kinds"),
 ];
 const viewOptions = computed(() => (tab.value === "food" ? FOOD_VIEW_OPTIONS : VIEW_OPTIONS));
@@ -526,14 +551,14 @@ const viewOption = computed(() => viewOptions.value.find((o) => o.key === view.v
 // (useListExports warms for the same reason, with a sharper one behind it: its
 // clipboard writes must stay inside iOS Safari's user-gesture window.)
 const exporter = () => import("~~/shared/exporters/vault");
-function warmExport() {
-  void exporter();
-}
-// The ⋯'s three rows. Import is a dialog rather than a download, so the menu's one
-// emit forks here instead of the menu knowing which of its rows is which kind.
+// The ⋯'s own rows. Import and feedback are dialogs rather than downloads, so the
+// menu's one emit forks here instead of the menu knowing which of its rows is which
+// kind. The feedback box is the app-wide one the editor's ⋯ opens (useFeedback).
 const importOpen = ref(false);
 const importEverOpened = useLatch(() => importOpen.value);
+const { open: openFeedback } = useFeedback();
 function onMenuPick(action: string) {
+  if (action === "feedback") return openFeedback();
   if (action !== "import") return void exportGear(action);
   importOpen.value = true;
 }
@@ -557,7 +582,7 @@ async function exportGear(kind: string) {
 </script>
 
 <template>
-  <div>
+  <div class="gearpage">
     <!-- compact: the bar's trailing group is now a glyph row behind one text action
          — the read views' exact shape, which is what the flag is for. Without it the
          looser gaps ran "Create a list" onto two lines at 375px once the ⋯ arrived,
@@ -593,7 +618,7 @@ async function exportGear(kind: string) {
           <VaultMenu
             :signed-in="hasVault && !offline"
             :can-export="hasGear && items.length > 0"
-            @open="warmExport"
+            @open="exporter"
             @pick="onMenuPick"
           />
         </ClientOnly>
@@ -617,13 +642,14 @@ async function exportGear(kind: string) {
              question asked in two places, and answering it twice in two voices is
              how a product starts sounding like two products. Change one, change
              both. -->
-        <div v-if="!hasGear" class="vault__auth">
+        <div v-if="!hasGear" class="vault__auth vault__mid">
+          <SvgIcon :icon="IconSafeSimple" size="xl" class="vault__midmark" aria-hidden="true" />
           <p class="vault__sentline">{{ VAULT_ASK }}</p>
           <button type="button" class="btn btn--primary" @click="openAccount">Sign in</button>
         </div>
 
         <!-- the gear -->
-        <div v-else>
+        <div v-else class="vault__body">
           <!-- the tabs, and opposite them on Gear and Food the way to add a piece: the
                dialog it opens files the piece under its own kind, so food added from
                Gear still lands on Food, and the toast says so. A kit is made at the foot
@@ -631,13 +657,17 @@ async function exportGear(kind: string) {
           <div class="vault__tabbar">
             <ModeBar :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
             <button v-if="tab !== 'kits' && !offline" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openAdd">
-              <HugeiconsIcon :icon="PlusSignIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-              {{ tab === "food" ? "Add food" : "Add gear" }}
+              <SvgIcon :icon="IconPlusMedium" aria-hidden="true" />
+              {{ addLabel }}
             </button>
           </div>
           <!-- Nothing to search or order until there IS gear — controls over
-               "Nothing here yet" are furniture for a room with no floor. -->
-          <div v-if="items.length" class="vault__bar">
+               "Nothing here yet" are furniture for a room with no floor. The same goes
+               for one TAB with nothing on it: a search field and "0 kits" over "No kits
+               yet" were two controls and a count for an empty room, and they pushed
+               its centred sentence down the page. A query keeps the field up, since
+               the query is the whole page's and this is where it is cleared. -->
+          <div v-if="items.length && (onTab.length || query.trim())" class="vault__bar">
             <!-- the field and its own clear — SearchField, the same control the gear
                  pane draws; only the sizing is this page's -->
             <!-- the tab's own name for what it holds: gear, food, kits -->
@@ -645,26 +675,28 @@ async function exportGear(kind: string) {
               ref="searchEl"
               v-model="query"
               class="vault__searchwrap"
-              :placeholder="`Search my ${tab}…`"
-              :label="`Search my ${tab}`"
+              :label="`Search your ${tab}`"
             />
 
             <!-- The question a gear of two hundred rows raises, what order, as the
                  app's own picker. It rides the trailing edge, over the rows' own
                  trailing controls. -->
             <!-- Not on Kits: kits are a handful of sections, not a list to order or sort -->
+            <!-- The trigger shows the current order, so its own label says it too
+                 (OptionMenu's triggerLabel): a bare label replaced it for a screen reader. -->
             <OptionMenu
               v-if="tab !== 'kits'"
               class="vault__view"
               :options="viewOptions"
               :current="view"
-              :label="`How to order my ${tab}`"
+              :label="`Sort your ${tab}`"
+              :trigger-label="`${viewOption.label}, change how your ${tab} is sorted`"
               @pick="pickView"
             >
               <template #trigger="{ open }">
-                <HugeiconsIcon :icon="viewOption.icon" class="vault__viewmark" :size="16" :stroke-width="2" aria-hidden="true" />
+                <SvgIcon :icon="viewOption.icon" class="vault__viewmark" aria-hidden="true" />
                 {{ viewOption.label }}
-                <HugeiconsIcon :icon="ChevronDownIcon" class="chev" :class="{ 'is-open': open }" :size="14" :stroke-width="2.25" aria-hidden="true" />
+                <SvgIcon :icon="IconChevronDownMedium" class="chev" :class="{ 'is-open': open }" size="sm" aria-hidden="true" />
               </template>
             </OptionMenu>
           </div>
@@ -680,10 +712,10 @@ async function exportGear(kind: string) {
           <!-- only while there is nothing to show yet. An add reloads the gear, and
                blanking a page you are working on for the length of a round trip
                reads as the page losing your gear. -->
-          <p v-if="loading && !items.length && !offline" class="t-muted vault__empty">Loading your gear…</p>
+          <p v-if="loading && !items.length && !offline" class="t-muted vault__mid">Loading your gear…</p>
 
           <template v-else-if="items.length">
-            <p class="t-sm t-muted vault__count">
+            <p v-if="onTab.length" class="t-sm t-muted vault__count">
               <template v-if="narrowed">{{ formatCount(filtered.length) }} of {{ formatCount(onTab.length) }}</template>
               <template v-else>{{ formatCount(onTab.length) }}</template>
               {{ pluralNoun(onTab.length, countNoun) }}
@@ -758,38 +790,35 @@ async function exportGear(kind: string) {
               :matches="elsewhere"
               @pick="followElsewhere"
             />
-            <p v-else-if="tab === 'kits' && !onTab.length && !draftKit" class="t-muted vault__none">
-              No kits yet. Make one with New kit.
-            </p>
-            <p v-else-if="tab === 'food' && !onTab.length" class="t-muted vault__none">
-              No food yet. Pack some on a list and it collects here with its calories, or
-              add it with Add food.
-            </p>
-            <!-- all of it food or kits, so far -->
-            <p v-else-if="tab === 'gear' && !onTab.length" class="t-muted vault__none">
-              No gear yet. Add a piece with Add gear, or build a list and it collects here.
-            </p>
             <!-- a kit is this page's folder, made the way a list makes one: the quiet
                  label at the foot becomes the name field, and the kit opens where it was -->
-            <AddFolder v-if="tab === 'kits' && !query && !draftKit && !readonly" class="vault__addkit" label="New kit" placeholder="Kit name" @add="startDraftKit" />
+            <AddFolder v-if="tab === 'kits' && onTab.length && !query.trim() && !draftKit && !readonly" class="vault__addkit" label="New kit" placeholder="Kit name" @add="startDraftKit" />
 
           </template>
 
-          <!-- Nothing at all: no gear yet. Adding is offered FIRST — the
-               capture sentence is still true and still the faster path, but it
-               answers "how does gear get here eventually", not "how do I put the
-               pack I bought yesterday in".
-               Not when the gear couldn't be read: "nothing here yet" under "couldn't
-               load your gear" told a signed-in visitor who'd lost signal that their
-               gear was gone. The line above says what is true then. -->
-          <div v-else-if="!offline" class="vault__empty">
-            <p class="t-muted">
-              Nothing here yet. Add a piece of gear, or build a list and it’ll collect
-              itself here.
-            </p>
-            <div class="vault__emptyacts">
-              <button type="button" class="btn btn--primary" @click="openAdd">Add gear</button>
-              <NuxtLink to="/e" class="btn btn--ghost">Create a list</NuxtLink>
+          <!-- NOTHING TO DRAW: no gear at all, or the open tab has none (emptyShown).
+               One block for both, centred in the page (.vault__mid): the tab's own mark,
+               a paragraph saying what the tab holds and how it fills, and the one thing
+               to do about it. What it IS comes first because the word alone
+               doesn't say it (Ryan: "folks may not know what a kit is"), and "No kits
+               yet" told a reader only what they could already see.
+               Adding is the button; "build a list" stays in the sentence, since it
+               answers "how does gear get here eventually", not "how do I put in the pack
+               I bought yesterday".
+               Not when the gear couldn't be read: "nothing here" under "couldn't load
+               your gear" told a signed-in visitor who'd lost signal that their gear was
+               gone. The line above says what is true then. -->
+          <div v-if="emptyShown" class="vault__mid">
+            <SvgIcon :icon="emptyTab.icon" size="xl" class="vault__midmark" aria-hidden="true" />
+            <p class="vault__sentline">{{ emptyTab.text }}</p>
+            <div v-if="emptyTab.kit || emptyTab.add || emptyTab.list" class="vault__emptyacts">
+              <!-- New kit is the page's one action here, so it is drawn as one; pressed,
+                   it is the same name field it is at the foot of a list of kits -->
+              <AddFolder v-if="emptyTab.kit" trigger-class="btn btn--primary" label="New kit" placeholder="Kit name" @add="startDraftKit" />
+              <!-- the bar's own word for it on this tab ("Add food" on Food), so the two
+                   buttons that open the one dialog aren't named differently -->
+              <button v-if="emptyTab.add" type="button" class="btn btn--primary" @click="openAdd">{{ emptyTab.add }}</button>
+              <NuxtLink v-if="emptyTab.list" to="/e" class="btn btn--soft">Create a list</NuxtLink>
             </div>
           </div>
 
@@ -801,7 +830,7 @@ async function exportGear(kind: string) {
              never answers. Only a browser with no hint draws the sign-in prompt, and
              that answer is settled before the first render. #fallback covers SSR. -->
         <template #fallback>
-          <p class="t-muted vault__empty">Loading…</p>
+          <p class="t-muted vault__mid">Loading…</p>
         </template>
       </ClientOnly>
     </main>
@@ -816,7 +845,7 @@ async function exportGear(kind: string) {
       :unit="unit"
       :default-currency="vaultCurrency"
       :known="knownVocab"
-      @close="closeDialog"
+      @close="editing = null"
       @saved="onItemSaved"
       @added="onItemAdded"
     >
@@ -867,10 +896,9 @@ async function exportGear(kind: string) {
 /* the switcher's width before it hydrates: its word and chevron, unseen */
 .gear__leadhold {
   visibility: hidden;
-  padding-inline-end: calc(14px + var(--space-1));
+  padding-inline-end: calc(14 * var(--tpx) + var(--space-1));
 }
-/* Signed out there is one thing to do, so the column centres and narrows — the
-   same shape /account uses for the same reason. Signed in the page is a wide,
+/* Signed out there is one thing to do, so the column centres and narrows. Signed in the page is a wide,
    left-aligned list of gear, which is why this is scoped to the signed-out block
    rather than the page. */
 .vault__auth {
@@ -908,16 +936,15 @@ async function exportGear(kind: string) {
    sizes it — it takes the slack up to a cap, so it never becomes a bar */
 .vault__searchwrap {
   flex: 1 1 20ch;
-  min-width: 0;
   max-width: 32ch;
 }
 /* mark + value + chevron, on the trailing edge over the rows' own trailing controls;
-   the value says which question it answers, so no "View" word */
+   the value says which question it answers, so no "View" word. The class is on an
+   OptionMenu's root, which is already a centred inline-flex box (.optmenu), and the
+   three parts are spaced inside its trigger; only where it sits and its ink are set
+   here. */
 .vault__view {
   margin-left: auto;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-2);
   white-space: nowrap;
   color: var(--ink-2);
   transition: color var(--spring-fade-dur) var(--spring-fade);
@@ -950,16 +977,65 @@ async function exportGear(kind: string) {
   margin-bottom: var(--space-5);
 }
 
-.vault__empty {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-4);
-}
 .vault__emptyacts {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+}
+/* A MESSAGE AND NOTHING ELSE: centred both ways in the space under the bar (and the
+   tabs, when they are up), as the 404 is in its page and the pane's empty notes are in
+   theirs. Worn by every state of this page that has no gear to draw: signed out, loading,
+   no gear at all, and a tab with nothing on it. A sentence and a button at the top-left
+   of an otherwise blank page read as a page that hadn't finished loading (Ryan: "feels
+   weird all at the top, not page center"), and with only some of them centred the
+   message jumped between corner and middle as you signed in or changed tab.
+   The column narrows and balances, since a centred line with a ragged edge reads as a
+   mistake.
+   The height comes down a chain that exists only while one of these is on the page
+   (the :has rules below, and the layout's column in the unscoped block): a page with
+   gear on it keeps the plain block flow it had. */
+.vault__mid {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  max-width: 34rem;
+  margin-inline: auto;
+  text-align: center;
+  text-wrap: balance;
+}
+/* Under the tabs, the tabs' own height again as air below the message: it then sits
+   where the signed-out prompt does, which has no tabs over it, and doesn't step down
+   the page when you sign in. Every one of these lands a little above the middle of the
+   window, where a lone block reads as centred. */
+.vault__body > .vault__mid {
+  padding-bottom: calc(var(--control-compact) + var(--space-1));
+}
+/* The tab's mark over its message, at the lesser ink: it says which tab is speaking,
+   and gives a centred block of text something to hang from. 40px, the height of the
+   button under it and off the icon scale on purpose: the scale's largest step (24) is
+   for a glyph beside text, and alone over a paragraph it read as a stray bullet (Ryan:
+   "icon could be bigger"). The stroke scales with it, untouched: thinned back to the
+   small icons' 1.5px it was a hairline drawing beside them, where the same glyph in the
+   tab above is a solid line (Ryan: "match the weight of the other icons"). Scaled, it
+   is the tab's icon, larger. */
+.vault__midmark {
+  width: calc(40 * var(--tpx));
+  height: calc(40 * var(--tpx));
+  color: var(--ink-3);
+}
+/* the kit's name is typed where its button was, so it is centred as the button was */
+.vault__mid :deep(.addfolder__input) {
+  text-align: center;
+}
+.gearpage:has(.vault__mid),
+.vault__page:has(.vault__mid),
+.vault__body:has(.vault__mid) {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 .vault__none {
   padding-block: var(--space-4);
@@ -989,6 +1065,14 @@ async function exportGear(kind: string) {
   gap: var(--space-3);
   margin-bottom: var(--space-3);
 }
+/* The tabs share this row with the add button, so they give up their icons sooner than
+   a bar with a row to itself does (modebar.scss): at a 375px phone the three tabs, their
+   icons and "Add gear" do not all fit. */
+@media (max-width: 380px) {
+  .vault__tabbar :deep(.modebar__opt svg) {
+    display: none;
+  }
+}
 .vault__tabadd {
   flex: none;
   gap: var(--space-1);
@@ -1006,5 +1090,15 @@ async function exportGear(kind: string) {
   }
   /* the row's own phone stack (name on its own line, the rest beneath) is
      VaultGearRow's */
+}
+</style>
+
+<style>
+/* Unscoped, because it reaches the layout's column, which this page doesn't own: a
+   plain block, with no height for the page to fill. A flex column only while it holds
+   one of My Gear's centred messages (error.vue does the same for the 404). */
+.shell__main:has(.vault__mid) {
+  display: flex;
+  flex-direction: column;
 }
 </style>

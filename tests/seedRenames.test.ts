@@ -60,6 +60,9 @@ describe("renameMovedVariants", () => {
 
     await db.update(schema.catalogItems).set({ verified: false }).where(eq(schema.catalogItems.id, old.id));
     expect((await renameMovedVariants(db, [csv({})])).catalog).toBe(0);
+    // nor a row an admin verified in the app: the database's, not the research's
+    await db.update(schema.catalogItems).set({ verified: true, verifiedBy: 7 }).where(eq(schema.catalogItems.id, old.id));
+    expect((await renameMovedVariants(db, [csv({})])).catalog).toBe(0);
   });
 
   it("leaves a size split or a size dropped alone: one orphan, one newcomer, or nothing", async () => {

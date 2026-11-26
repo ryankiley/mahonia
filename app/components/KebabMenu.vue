@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { EllipsisIcon } from "@hugeicons/core-free-icons";
+import { IconDotGrid1x3Horizontal } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // The ⋯ actions menu's SHELL — the quiet kebab, the popover, the travelling plate and
 // the dismiss rules (outside tap, a scroll gesture, Escape) — the three things that
@@ -11,10 +11,8 @@ import { EllipsisIcon } from "@hugeicons/core-free-icons";
 // Not the editor's kebab, whose trigger lives in its toolbar and whose body (EditorMenu)
 // mounts lazily on a hover; nor the account menu, whose trigger is a Tooltip'd avatar.
 // Both have a reason to draw their own shell. OptionMenu is the pick-one cousin.
-const { label = "More actions" } = defineProps<{
-  /** the trigger's accessible name, its tooltip, and the list's name */
-  label?: string;
-}>();
+/** the trigger's accessible name, its tooltip, and the list's name */
+const label = "More actions";
 /** the moment the menu opens — a parent warms a chunk its rows will need */
 const emit = defineEmits<{ open: [] }>();
 /** open state, bindable (v-model:open) for a parent that reacts to it; otherwise local */
@@ -24,8 +22,12 @@ const rootRef = useTemplateRef<HTMLElement>("rootRef");
 useMenuDismiss(open, rootRef);
 
 function toggle() {
-  open.value = !open.value;
-  if (open.value) emit("open");
+  // the next value, computed once: with a parent-bound model, reading open.value back
+  // after the write still gives the old prop, and `open` fired on close (MenuSection
+  // has the long form of this)
+  const next = !open.value;
+  open.value = next;
+  if (next) emit("open");
 }
 const close = () => {
   open.value = false;
@@ -43,7 +45,7 @@ const close = () => {
       :aria-expanded="open"
       @click="toggle"
     >
-      <HugeiconsIcon :icon="EllipsisIcon" :size="16" :stroke-width="2" />
+      <SvgIcon :icon="IconDotGrid1x3Horizontal" />
     </button>
     <Transition name="menu">
       <MenuList v-if="open" :aria-label="label">

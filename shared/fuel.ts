@@ -27,8 +27,8 @@ export type Named = Pick<Item, "name" | "commonName">;
  * "meths". Not the brand field: Esbit and Campingaz make stoves too, and a brand says
  * who made a thing, not what it is.
  *
- * Wider than isWaterName's exact "water", because a fuel match is a smaller claim than a
- * water match — nothing about the row's weight or class changes — but it is not a free
+ * Wider than isWaterName's "water" as the last word, because a fuel match is a smaller
+ * claim than a water match — nothing about the row's weight or class changes — but it is not a free
  * one either: a match also swaps the row's picture, withholds its calorie field while it
  * holds no number (offersKcal) and its worn toggle (offersWorn). So the net is narrowed
  * twice. A bare "canister" is as often a bear canister as a gas one, and a bare "alcohol"

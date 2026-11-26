@@ -1,0 +1,4 @@
+// Generated: a central icons glyph, outside this repo's MIT licence (see ./index.ts).
+import type { IconNode } from "../../utils/icon";
+
+export const IconCircleDotsCenter1: IconNode = [["path",{d:"M21 12C21 16.97 16.97 21 12 21C7.03 21 3 16.97 3 12C3 7.03 7.03 3 12 3C16.97 3 21 7.03 21 12Z",stroke:"currentColor"}],["path",{d:"M8 12H8.01M8.25 12C8.25 12.14 8.14 12.25 8 12.25C7.86 12.25 7.75 12.14 7.75 12C7.75 11.86 7.86 11.75 8 11.75C8.14 11.75 8.25 11.86 8.25 12Z",stroke:"currentColor",strokeLinecap:"round"}],["path",{d:"M12 12H12.01M12.25 12C12.25 12.14 12.14 12.25 12 12.25C11.86 12.25 11.75 12.14 11.75 12C11.75 11.86 11.86 11.75 12 11.75C12.14 11.75 12.25 11.86 12.25 12Z",stroke:"currentColor",strokeLinecap:"round"}],["path",{d:"M16 12H16.01M16.25 12C16.25 12.14 16.14 12.25 16 12.25C15.86 12.25 15.75 12.14 15.75 12C15.75 11.86 15.86 11.75 16 11.75C16.14 11.75 16.25 11.86 16.25 12Z",stroke:"currentColor",strokeLinecap:"round"}]];

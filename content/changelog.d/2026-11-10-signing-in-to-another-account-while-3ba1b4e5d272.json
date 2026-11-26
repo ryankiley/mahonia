@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-10",
+  "fixed": [
+    "Signing in to another account while the page is still loading no longer leaves the previous account's lists in the switcher."
+  ]
+}

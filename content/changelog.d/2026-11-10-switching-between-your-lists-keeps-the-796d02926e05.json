@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-10",
+  "changed": [
+    "Switching lists keeps the top bar and weight in place, and the weight counts over to the new list’s total."
+  ]
+}

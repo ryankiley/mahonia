@@ -7,6 +7,8 @@ import type { Item, ListSnapshot } from "../types";
 import { carrierName, effectivePersonId } from "../people";
 import { carriedIsDistinct, computeTotals, effectiveClassification, formatWeight, isBareGroup, itemDisplayName, lineMg, groupLineMg, splitWornQty } from "../weights";
 import { exportSections } from "./rows";
+import { isWaterName, waterVolumeLabel } from "../water";
+import { dropHidden } from "../tidyText";
 
 // a product name with its common name trailing after an em dash, when the item has one
 const withCommon = (name: string, commonName?: string) =>
@@ -29,11 +31,18 @@ const withCarrier = (name: string, carrier?: string) =>
 // Markdown, which a reader can see. Only the Item cell needs it: the rest are numbers.
 const cell = (text: string) => text.replace(/[\\|]|<(?=[A-Za-z!/?])/g, "\\$&");
 
-/** The count cell is shared by top-level and nested rows, including a base-row worn split. */
+/** The count cell is shared by top-level and nested rows, including a base-row worn split.
+ *  Water's is its volume: it has no count (waterVolumeLabel). */
 function quantityLabel(item: Item, folders: ListSnapshot["folders"]): string {
+  if (isWaterName(item.name)) return waterVolumeLabel(item);
   const wornQty = splitWornQty(item, effectiveClassification(item, folders));
   return `${item.qty}${wornQty > 0 ? ` (${wornQty} worn)` : ""}`;
 }
+
+/** The two lines that open every folder's table. Exported for the MCP tool, which
+ *  reads the text back line by line to cut it to size (server/utils/mcp fitMarkdown). */
+export const MD_HEADER = "| Item | Qty | Weight |";
+export const MD_RULE = "| --- | ---: | ---: |";
 
 export function listToMarkdown(list: ListSnapshot): string {
   const u = list.displayUnit;
@@ -50,8 +59,8 @@ export function listToMarkdown(list: ListSnapshot): string {
     if (!section.rows.length) continue;
     out.push(`## ${section.name}`);
     out.push("");
-    out.push("| Item | Qty | Weight |");
-    out.push("| --- | ---: | ---: |");
+    out.push(MD_HEADER);
+    out.push(MD_RULE);
     for (const { item: it, children: kids } of section.rows) {
       // a group's weight is its total (own + children); a plain row shows its own
       // line — kids is already this row's children, so no whole-list rescan
@@ -99,5 +108,7 @@ export function listToMarkdown(list: ListSnapshot): string {
     out.push(`- **Total:** ${formatWeight(totals.totalMg, u)}`);
   }
 
-  return out.join("\n");
+  // the read a model gets when it fetches a share link, so nothing in it may be hidden
+  // from the person who shared it: tidyText's rule for stored text, kept at the door too
+  return dropHidden(out.join("\n"));
 }

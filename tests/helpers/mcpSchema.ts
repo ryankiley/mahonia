@@ -1,5 +1,5 @@
 import Ajv, { type ValidateFunction } from "ajv";
-import { MCP_TOOLS } from "../../server/utils/mcp";
+import { MCP_ADMIN_TOOLS } from "../../server/utils/mcp";
 
 // Every declared outputSchema, compiled once under Ajv's strict mode, so a schema that
 // is itself malformed fails here before a client ever lists it. The MCP SDK's client
@@ -20,7 +20,8 @@ const closed = (schema: unknown): unknown => {
   return "properties" in out ? { ...out, additionalProperties: false } : out;
 };
 const validators = new Map<string, ValidateFunction>();
-for (const tool of MCP_TOOLS) if (tool.outputSchema) validators.set(tool.name, ajv.compile(closed(tool.outputSchema) as object));
+// every registered tool, the admin ones included
+for (const tool of MCP_ADMIN_TOOLS) if (tool.outputSchema) validators.set(tool.name, ajv.compile(closed(tool.outputSchema) as object));
 
 /** throws, in Ajv's own words, when a tool's structured result doesn't match its declared shape */
 export function expectConforms(tool: string, structured: unknown): void {

@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-22",
+  "fixed": [
+    "A trail distance from a connected assistant that's far too long (metres sent as kilometres) is refused, not saved as no distance."
+  ]
+}

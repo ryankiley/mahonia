@@ -14,7 +14,6 @@
     {
       "brand": "Sawyer",
       "name": "Micro Squeeze Water Filter",
-      "variant": "",
       "category_hint": "water",
       "weight_value": 2,
       "weight_unit": "oz",
@@ -25,7 +24,6 @@
     {
       "brand": "Sawyer",
       "name": "MINI Water Filter",
-      "variant": "",
       "category_hint": "water",
       "weight_value": 39,
       "weight_unit": "g",
@@ -47,7 +45,7 @@
     {
       "brand": "Katadyn",
       "name": "BeFree Water Filter",
-      "variant": "1.0L",
+      "variant": "1L",
       "category_hint": "water",
       "weight_value": 2.2,
       "weight_unit": "oz",
@@ -58,7 +56,7 @@
     {
       "brand": "Katadyn",
       "name": "BeFree Gravity Water Filter",
-      "variant": "3.0L",
+      "variant": "3L",
       "category_hint": "water",
       "weight_value": 6.8,
       "weight_unit": "oz",
@@ -69,7 +67,6 @@
     {
       "brand": "Platypus",
       "name": "QuickDraw Microfilter",
-      "variant": "",
       "category_hint": "water",
       "weight_value": 2.9,
       "weight_unit": "oz",

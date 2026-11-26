@@ -1,11 +1,11 @@
 // Shared reader for the cited research JSON in seed/_research/*.json — used by both
-// build-catalog.ts (emits the CSV) and audit-catalog.ts (accuracy gate). The row
+// catalogBuild.ts (builds the CSV) and audit-catalog.ts (accuracy gate). The row
 // SHAPE and the read-every-file-and-parse loop were duplicated across the two; the
 // per-row VALIDATION is intentionally different and stays in each script.
 
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { AttributeKey, RowAttributes } from "./catalogAttributes";
+import type { AttributeKey, RowAttributes } from "../shared/catalogAxes";
 import { identityKey } from "./catalogCsv";
 import { normalizeGearType } from "./gearTypes";
 import { deriveNoun } from "./searchTerms";
@@ -18,6 +18,16 @@ export interface ResearchRow {
   // The maker, or a collab as its own brand ("Zpacks x Vaucluse"). The UI renders
   // brand + name joined, so `name` never starts with the brand ("Watch SE 3", not
   // "Apple Watch SE 3"; an eponymous product takes a descriptor: "Camping Pillow Strap").
+  // The name is the maker's, as the maker writes it (ALL-CAPS model names stay: Petzl
+  // "ACTIK CORE", Samaya "RADICAL1"), with these house rules on top (2026-11-25):
+  //   • No Men's / Women's in the name: it is the fit, and goes in the variant.
+  //   • No unit marks: "TechSilk 8in Shorts", not 8"; a size the maker sells several of
+  //     is a variant ("Flat Tarp" [7ft x 9ft]). No °: a rating reads "15F".
+  //   • A sleeping bag the maker names for its rating keeps it ("Bishop Pass 15F",
+  //     "Egret UL 20"), and the variant doesn't say it again (the rating goes in
+  //     `attributes`); a bag named without one states it in the variant ("UltraLite"
+  //     [20F, 6ft]). One product under a maker's and a retailer's name is one name, the
+  //     maker's ("Tensor Trail Ultralight Insulated").
   brand?: string | null;
   name?: string;
   // Size / config, in the catalog's house style. Every rule below is ENFORCED: the
@@ -55,10 +65,21 @@ export interface ResearchRow {
   //     "typical" weight, stakes and bags included — never the "trail" or "minimum" figure
   //     (fly, inner, poles), which sits 100–300 g lighter on the same page. A row that could
   //     only be sourced at trail weight says "trail weight" in its variant and is a to-do.
+  //   • A pack (backpack, daypack, fastpack) weighs the pack AS IT SHIPS, every part in the
+  //     box (hip belt, frame or stays, back pad, removable lid), never the maker's "minimum"
+  //     / "stripped" / "base" figure. A part sold separately stays out. Where the belt is
+  //     optional, or sold both ways, the variant says "no hipbelt" / "with hipbelt"; a row that
+  //     could only be sourced at a stripped figure says "minimum" in its variant and is a to-do.
   //   • Servings: a multi-serving pouch says "2 servings"; single-serving is the unmarked default
   //     ("1 serving" is filler). A maker's format name stays ("Pro-Pak").
   //   • Several of a thing read "3-pack" or "sleeve of 10". A number and its unit are one
-  //     token ("6ft", "400ml", "20F").
+  //     token ("6ft", "400ml", "20F"), plainly written ("1L" not "1.0L", "6ft" not
+  //     "6ft 0in", "20x72" not "20 x 72", "5/8in" not "⅝in").
+  //   • Axes in one order: gender, rating, fill power, length or size, then the rest
+  //     ("Women's, 15F, Regular"; "20F, 850FP, Long, insulated footbox"). Nothing in the
+  //     variant repeats the name ("Elementum Pack Ultra" [50L], not [Ultra, 50L]).
+  //   • Plain-English qualifiers are lower case ("3oz pouch", "for bivy", "filter only");
+  //     a maker's option name keeps its capitals ("Full Zip", "Pro-Pak").
   //   • A config never hides in `name`: " - Regular", "(low)", "(2024)", "(SP129)" all go
   //     here. A size-named family is one name plus variants ("Food Bag" [L], not
   //     "Large Food Bag"), and a product-family name is singular ("Stuff Sack" [M]).
@@ -87,6 +108,9 @@ export interface ResearchRow {
   // naming the row and the next pass doesn't re-read the page. An axis here and in
   // `attributes` at once is an error.
   attributes_unpublished?: AttributeKey[] | null;
+  // One gear type, one category: every "Sunscreen" row is consumable. A thing filed
+  // differently is a different gear type ("Gas lantern" in cook beside "Lantern" in
+  // electronics).
   category_hint?: string | null;
   // the item's common name ("tent", "trekking poles") — REQUIRED for a new row to build
   // (a row with no common_name here, no seed/common-names.json entry, and no derivable
@@ -104,6 +128,55 @@ export interface ResearchRow {
   kcal?: number | null;
   kcal_source_url?: string | null;
   kcal_quote?: string | null;
+}
+
+/** The research file `npm run catalog:graduate` writes: rows an admin verified in the app
+ *  (verify_catalog_item) that no other research file has, whose quotes the audit reads in
+ *  ounces as the tool did. A research row corrected in the app goes back into its own file. */
+export const GRADUATED_FILE_NAME = "verified-in-app.json";
+
+// The one layout every research file is written in (2026-11-25; until then a file was
+// pretty, compact one-row-a-line, or something between, and a script editing rows had to
+// learn each). `npm run catalog:format` writes it; tests/catalog-research.test.ts holds
+// every file to it; catalog:graduate writes through it.
+//   • A row a key a line, nested values inline: "attributes": {"temp_f": 20}.
+//   • Keys in ResearchRow's own order; a key the reader doesn't know goes last.
+//   • An optional field with nothing to say is left out, never null or "".
+const RESEARCH_KEY_ORDER = [
+  "brand", "name", "variant", "attributes", "attributes_source_url", "attributes_quote",
+  "attributes_unpublished", "category_hint", "common_name", "weight_value", "weight_unit",
+  "weight_secondary", "weight_source", "source_url", "quote", "kcal", "kcal_source_url", "kcal_quote",
+];
+const OPTIONAL_KEYS = new Set([
+  "variant", "attributes", "attributes_source_url", "attributes_quote", "attributes_unpublished",
+  "common_name", "weight_secondary", "kcal", "kcal_source_url", "kcal_quote",
+]);
+
+/** JSON on one line with a space after every colon and comma, nested values too. */
+function inlineJson(v: unknown): string {
+  if (Array.isArray(v)) return `[${v.map(inlineJson).join(", ")}]`;
+  if (v && typeof v === "object") return `{${Object.entries(v).map(([k, x]) => `${JSON.stringify(k)}: ${inlineJson(x)}`).join(", ")}}`;
+  return JSON.stringify(v);
+}
+
+/** A research file's note: its `_comment`, or the `_note` a hand-written file may carry
+ *  it under, which always meant the same. The one reading of it, for everything that
+ *  writes a research file back (catalog:format, catalog:graduate). */
+export const researchFileNote = (data: { _comment?: unknown; _note?: unknown }): unknown => data._comment ?? data._note;
+
+/** A research file's text in the house layout. Only its note, as `_comment`
+ *  (researchFileNote), and `rows` are written: a file carrying anything else fails the
+ *  layout test rather than losing it quietly. */
+export function formatResearchFile(data: { _comment?: unknown; _note?: unknown; rows: readonly unknown[] }): string {
+  const rows = data.rows.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    const keys = [...RESEARCH_KEY_ORDER.filter((k) => k in row), ...Object.keys(row).filter((k) => !RESEARCH_KEY_ORDER.includes(k))]
+      .filter((k) => !(OPTIONAL_KEYS.has(k) && (row[k] == null || row[k] === "")));
+    return `    {\n${keys.map((k) => `      ${JSON.stringify(k)}: ${inlineJson(row[k])}`).join(",\n")}\n    }`;
+  });
+  const note = researchFileNote(data);
+  const comment = note != null ? `  "_comment": ${JSON.stringify(note)},\n` : "";
+  return `{\n${comment}  "rows": [${rows.length ? `\n${rows.join(",\n")}\n  ` : ""}]\n}\n`;
 }
 
 /** A parsed research file, or a parse error for it. Rows are `[]` when `parseError`
@@ -187,7 +260,7 @@ const RESEARCH_TEXT_FIELDS = [
 /** The reader owns basic JSON shape, so downstream per-row checks can report bad
  * values instead of crashing on an untyped scalar's `.trim()` / `.toLowerCase()`.
  * It deliberately leaves semantic checks (required fields, units, attribute forms)
- * to build-catalog and researchChecks, where their specific diagnostics belong. */
+ * to catalogBuild and researchChecks, where their specific diagnostics belong. */
 function researchRowProblem(raw: unknown, position: number): string | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return `row ${position} must be an object`;
   const row = raw as Record<string, unknown>;
@@ -218,13 +291,16 @@ export function researchGearType(row: ResearchRow, commonNames: Map<string, stri
   return normalizeGearType(own || mapped || deriveNoun((row.name ?? "").trim()) || "");
 }
 
-/** Read + JSON-parse every `*.json` under `researchDir`, sorted by filename. Never
- *  throws: a file that won't parse comes back with `parseError` set and `rows: []`. */
-export function readResearchFiles(researchDir: string): ResearchFile[] {
-  const files = readdirSync(researchDir)
+/** The research files under `researchDir`: every `*.json`, sorted by filename. */
+export const researchFileNames = (researchDir: string): string[] =>
+  readdirSync(researchDir)
     .filter((f) => f.endsWith(".json"))
     .sort();
-  return files.map((file) => {
+
+/** Read + JSON-parse every research file under `researchDir`. Never throws: a file that
+ *  won't parse comes back with `parseError` set and `rows: []`. */
+export function readResearchFiles(researchDir: string): ResearchFile[] {
+  return researchFileNames(researchDir).map((file) => {
     try {
       let parsed: unknown;
       try {

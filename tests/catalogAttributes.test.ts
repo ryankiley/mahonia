@@ -10,8 +10,8 @@ import {
   parseAttributes,
   serializeAttributes,
   validateAttributes,
-  type RowAttributes,
 } from "../scripts/catalogAttributes";
+import type { RowAttributes } from "../shared/catalogAxes";
 
 describe("extractAttributes reads what a variant states outright", () => {
   const cases: Array<[string, string, string, RowAttributes]> = [
@@ -51,6 +51,8 @@ describe("extractAttributes reads what a variant states outright", () => {
     ["Men's M, Regular", "Hiking pants", "clothing", { fit: "Men's", size: "M", length: "Regular" }],
     ["Women's", "Trail runners", "clothing", { fit: "Women's" }],
     ["Men's US 9", "Trail runners", "clothing", { fit: "Men's", size: "US 9" }],
+    // a row written in the app carries the house apostrophe
+    ["Men’s Large", "Socks", "clothing", { fit: "Men's", size: "L" }],
     ["Women's UK 10", "Rain jacket", "clothing", { fit: "Women's", size: "UK 10" }],
     ["EU 42", "Hiking boots", "clothing", { size: "EU 42" }],
     ["Men's US 9 / Women's US 10", "Hiking shoes", "clothing", {}],

@@ -1,8 +1,9 @@
 import { defineEventHandler } from "h3";
-import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
-import { rateLimit } from "../../utils/rateLimit";
+import { openPrivate } from "../../utils/authSession";
+import { readJsonBodyCapped } from "../../utils/http";
 import { requireVault } from "../../utils/vaultAuth";
 import { removeVaultItem, restoreVaultItem } from "../../utils/vaultRepo";
+import { isSerialId } from "../../../shared/ops";
 
 // Remove a piece of gear from the vault, or put it back (`restore: true` — the
 // undo behind the remove action).
@@ -15,14 +16,13 @@ import { removeVaultItem, restoreVaultItem } from "../../utils/vaultRepo";
 // the same answer as an id that doesn't exist, so the endpoint never confirms that
 // another vault's row is real.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "vault-write");
+  await openPrivate(event, "vault-write");
   const { db, vaultId } = await requireVault(event);
 
   const body = await readJsonBodyCapped<{ id?: unknown; restore?: unknown }>(event, 2_000);
-  const id = Number.isInteger(body?.id) ? (body.id as number) : null;
-  if (id == null) return { ok: false };
+  // the id range the repo itself filters by: anything else matches no row
+  const id = body?.id;
+  if (!isSerialId(id)) return { ok: false };
 
   const ok = body?.restore === true
     ? await restoreVaultItem(db, vaultId, id)

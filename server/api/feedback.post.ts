@@ -23,9 +23,9 @@ export default defineEventHandler(async (event) => {
 
   const body = await readJsonBodyCapped<{ message?: string }>(event, 4_000);
   const message = (typeof body?.message === "string" ? body.message : "").trim();
-  if (!message) throw createError({ statusCode: 400, statusMessage: "Say something first" });
+  if (!message) throw createError({ statusCode: 400, statusMessage: "Say something first." });
   if (message.length > MAX_FEEDBACK_LEN)
-    throw createError({ statusCode: 413, statusMessage: "That's longer than 500 characters" });
+    throw createError({ statusCode: 413, statusMessage: `That’s longer than ${MAX_FEEDBACK_LEN} characters.` });
 
   const token = process.env.GITHUB_FEEDBACK_TOKEN;
   const repo = process.env.GITHUB_FEEDBACK_REPO;
@@ -41,7 +41,7 @@ export default defineEventHandler(async (event) => {
       // failure: the sender is told it was sent, and it goes nowhere forever.
       throw createError({
         statusCode: 500,
-        statusMessage: "Feedback isn't configured",
+        statusMessage: "Feedback isn’t configured.",
       });
     }
     console.info(`[feedback] ${message}`);
@@ -49,18 +49,16 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!isFeedbackRepo(repo))
-    throw createError({ statusCode: 500, statusMessage: "Feedback isn't configured" });
+    throw createError({ statusCode: 500, statusMessage: "Feedback isn’t configured." });
 
   // the fixed title + fenced body rule lives in server/utils/feedback (and is tested
   // there) — it is the part of this endpoint most worth pinning down
   const payload = buildFeedbackIssue(message);
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10_000);
   try {
     const res = await fetch(`${GITHUB_API}/repos/${repo}/issues`, {
       method: "POST",
-      signal: controller.signal,
+      signal: AbortSignal.timeout(10_000),
       redirect: "error",
       headers: {
         authorization: `Bearer ${token}`,
@@ -76,9 +74,7 @@ export default defineEventHandler(async (event) => {
     // their message.
     if (!res.ok) throw new Error(String(res.status));
   } catch {
-    throw createError({ statusCode: 502, statusMessage: "Couldn't send that just now" });
-  } finally {
-    clearTimeout(timer);
+    throw createError({ statusCode: 502, statusMessage: "Couldn’t send that just now." });
   }
 
   return { ok: true, filed: true };

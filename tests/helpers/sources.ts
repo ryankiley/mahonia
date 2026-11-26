@@ -1,7 +1,7 @@
 // Walking the source tree and reading past its comments — what the three repo-wide
 // scanners (prose-dashes, designTokens, bodyWeightPrivacy) each did their own way.
 
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -26,9 +26,6 @@ export function walkSources(roots: string[], exts: string[]): string[] {
   for (const root of roots) walk(join(ROOT, root));
   return out;
 }
-
-/** Read a source file. */
-export const readSource = (path: string) => readFileSync(path, "utf8");
 
 /** Blank a span rather than delete it, so line numbers in a report stay true. */
 export const blank = (m: string) => m.replace(/[^\n]/g, " ");

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { ChevronDownIcon } from "@hugeicons/core-free-icons";
+import { IconChevronDownMedium, IconCrossMedium } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 import { mergeSwitcherRows } from "~~/shared/switcher";
 
 // The editor's list switcher: a word in the toolbar that opens a filterable menu
@@ -141,12 +141,11 @@ watch(open, (o) => {
       <!-- "Your", because a bare count here read as a fact about the list you're on
            ("1 pack") rather than the lists you have -->
       Your packs
-      <HugeiconsIcon
-        :icon="ChevronDownIcon"
+      <SvgIcon
+        :icon="IconChevronDownMedium"
         class="chev"
         :class="{ 'is-open': open }"
-        :size="14"
-        :stroke-width="2"
+        size="sm"
         aria-hidden="true"
       />
     </button>
@@ -158,11 +157,13 @@ watch(open, (o) => {
         <span>{{ resumed ? (all.length > 1 ? "Picked up where you left off. Your other lists are here." : "Picked up where you left off.") : "Pick up where you left off" }}</span>
         <button
           type="button"
-          class="lm__hintclose"
+          class="lm__hintclose ink-quiet"
           aria-label="Dismiss"
           title="Dismiss"
           @click="emit('dismiss-hint')"
-        >×</button>
+        >
+          <SvgIcon :icon="IconCrossMedium" size="sm" />
+        </button>
       </div>
     </Transition>
 
@@ -220,6 +221,9 @@ watch(open, (o) => {
    (see the note on .btn:hover, controls.scss) — otherwise tapping the trigger left
    the fill sitting there after the menu had already closed. */
 .lm__trigger.is-on {
+  /* --lit, the app's one tone for "this control is on" (the mode tabs right under this
+     bar, the person filter, the row toggles); it was --paper-2, a second tone for the
+     same statement */
   background: var(--lit);
   color: var(--ink);
 }
@@ -228,7 +232,10 @@ watch(open, (o) => {
     background: var(--paper-2);
     color: var(--ink);
   }
-  /* open and pointed at: a step up from the plate, not back down to the hover ground */
+  /* …and the open trigger still answers the pointer, a step up from its plate, as every
+     lit control does (--lit-hover, tokens.scss). It has to be said: the pointer is ON the
+     trigger the moment a click opens the menu, and the hover rule above, equal in weight
+     and later, would otherwise put the resting hover ground back over the plate. */
   .lm__trigger.is-on:hover {
     background: var(--lit-hover);
   }
@@ -266,14 +273,15 @@ watch(open, (o) => {
   width: max-content;
   max-width: min(26rem, calc(100vw - 2 * var(--space-4)));
 }
+/* A drawn mark, not the "×" character it was: a glyph sits on the text baseline,
+   which put it visibly below the sentence's middle, and no line-height centres a
+   character whose ink isn't centred in its own box.
+   The inks are .ink-quiet's (atoms/controls.scss), in the markup: the lesser ink at
+   rest, full ink under the pointer and on keyboard focus, on the fade */
 .lm__hintclose {
-  color: var(--ink-3);
-  font-size: var(--text-base);
-  line-height: 1;
-}
-@media (hover: hover) and (pointer: fine) {
-  .lm__hintclose:hover {
-    color: var(--ink);
-  }
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 </style>

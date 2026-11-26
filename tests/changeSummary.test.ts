@@ -37,7 +37,7 @@ describe("summarizeOps", () => {
     expect(summarizeOps([{ t: "updateItem", id: "a", patch: { unitWeightMg: 900 } }] as Op[]))
       .toBe("Changed 1 weight");
     expect(summarizeOps([{ t: "updateItem", id: "a", patch: { classification: "worn" } }] as Op[]))
-      .toBe("Reclassified 1 item");
+      .toBe("Changed how 1 item counts");
   });
 
   it("counts a unit change as a weight change — it re-expresses the same number", () => {
@@ -142,5 +142,22 @@ describe("summarizeOps — a malformed entry in the batch", () => {
       { t: "addItem", item: { id: "a", name: "Tent" } },
     ] as unknown as Op[];
     expect(summarizeOps(ops)).toContain("Tent");
+  });
+
+  // The reducer reads a patch's text fields only when they are strings, and coerces a
+  // new row's with String(); the summary handed them to tidyText and itemDisplayName as
+  // they came. It runs AFTER the write has landed, so a throw here answered a saved
+  // edit with a 500 and skipped that window's recovery point.
+  it.each([
+    // a patch field that isn't a string is one the reducer ignores: the brand stands
+    ["a null brand beside a rename", { t: "updateItem", id: "a", patch: { name: "x", brand: null } }, "Renamed Zpacks Tent → Zpacks x"],
+    ["a number for a variant", { t: "updateItem", id: "a", patch: { name: "x", variant: 5 } }, "Renamed Zpacks Tent → Zpacks x"],
+    // a new row with a brand and no name is stored with an empty name
+    ["a new row with no name", { t: "addItem", item: { id: "b", brand: "X" } }, "Added X"],
+    // …and one whose brand is a number is stored with it as text
+    ["a new row with a number for a brand", { t: "addItem", item: { id: "b", name: "n", brand: 5 } }, "Added 5 n"],
+  ])("reads a text field that isn't text as the reducer does: %s", (_what, op, said) => {
+    const list = before([item("a", { name: "Tent", brand: "Zpacks" })]);
+    expect(summarizeOps([op] as unknown as Op[], list)).toBe(said);
   });
 });

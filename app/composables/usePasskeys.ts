@@ -32,6 +32,27 @@ export function passkeysSupported(): boolean {
   );
 }
 
+/** Whether this browser can offer a passkey from a field's autofill list ("conditional
+ *  mediation"). A separate question from passkeysSupported: an older browser can run the
+ *  ceremony from a button and still have no such list. */
+export async function passkeyAutofillSupported(): Promise<boolean> {
+  if (!passkeysSupported()) return false;
+  try {
+    return (await window.PublicKeyCredential.isConditionalMediationAvailable?.()) === true;
+  } catch {
+    return false;
+  }
+}
+
+/** How long one autofill offer stands before it is renewed. The server's challenge
+ *  lasts three minutes (PASSKEY_CHALLENGE_TTL_MS, server/utils/passkeys.ts); an offer
+ *  left waiting past that would hand the person a passkey prompt that can only fail. */
+const AUTOFILL_RENEW_MS = 150_000;
+
+/** A credential list as the browser API wants it: each id as bytes. */
+const withBinaryIds = (list: unknown[]) =>
+  (list as { id: string }[]).map((c) => ({ ...c, id: b64urlToBytes(c.id) }));
+
 /** The server sends WebAuthn options as JSON; the browser API wants real binary
  *  in three of the fields. This is the entire reason a "WebAuthn browser library"
  *  usually exists. */
@@ -39,24 +60,14 @@ function toCreateOptions(o: Record<string, unknown>): PublicKeyCredentialCreatio
   const opts = { ...o } as Record<string, unknown>;
   opts.challenge = b64urlToBytes(o.challenge as string);
   opts.user = { ...(o.user as Record<string, unknown>), id: b64urlToBytes((o.user as { id: string }).id) };
-  if (Array.isArray(o.excludeCredentials)) {
-    opts.excludeCredentials = (o.excludeCredentials as { id: string }[]).map((c) => ({
-      ...c,
-      id: b64urlToBytes(c.id),
-    }));
-  }
+  if (Array.isArray(o.excludeCredentials)) opts.excludeCredentials = withBinaryIds(o.excludeCredentials);
   return opts as unknown as PublicKeyCredentialCreationOptions;
 }
 
 function toRequestOptions(o: Record<string, unknown>): PublicKeyCredentialRequestOptions {
   const opts = { ...o } as Record<string, unknown>;
   opts.challenge = b64urlToBytes(o.challenge as string);
-  if (Array.isArray(o.allowCredentials)) {
-    opts.allowCredentials = (o.allowCredentials as { id: string }[]).map((c) => ({
-      ...c,
-      id: b64urlToBytes(c.id),
-    }));
-  }
+  if (Array.isArray(o.allowCredentials)) opts.allowCredentials = withBinaryIds(o.allowCredentials);
   return opts as unknown as PublicKeyCredentialRequestOptions;
 }
 
@@ -87,31 +98,33 @@ type PasskeyResult = "ok" | "cancelled" | "unsupported" | "failed";
 
 /** Where a ceremony stopped, so each flow can map it to its own vocabulary. */
 type CeremonyEnd =
-  | { at: "options"; error: unknown } // the *-options request failed
+  | { at: "options" } // the *-options request failed
   | { at: "authenticator" } // the OS prompt was dismissed, or the authenticator refused
   | { at: "verify" } // the *-verify request failed
-  | { at: "done"; res: { ok: boolean; reason?: string } }; // the server's verdict, unmapped
+  | { at: "done"; res: { ok: boolean } }; // the server's verdict, unmapped
 
 /**
  * The ceremony every flow shares: fetch challenge options from the server, hand
  * them (as real binary) to the authenticator, POST the signed result back.
- * Register, sign-up and sign-in used to spell this skeleton out in full three
- * times, drifting only in endpoints and error vocabulary. What stays per-flow is
- * exactly that — which routes, create vs get, and what each failure is CALLED
- * (sign-up's "taken", the session refresh on success) — mapped by each caller
- * from the stop-point this returns.
+ * Register and sign-in used to spell this skeleton out in full each, drifting only
+ * in endpoints and error vocabulary. What stays per-flow is exactly that — which
+ * routes, create vs get, and the session refresh on success — mapped by each caller
+ * from the stop-point this returns. (Signing UP with a passkey had a flow here too,
+ * until the signed-out form became one door: an emailed link makes the account, and a
+ * passkey is added to it afterwards. The signup routes stay for the iOS app.)
  *
- * The verify response is typed concretely, not as a generic: the three routes
- * share one shape (`reason` is only ever set by signup-verify), and a generic
- * here makes nitro's typed $fetch defer its route-match conditional, which blows
- * TS's comparison stack in whatever file the checker visits next.
+ * The verify response is typed concretely, not as a generic: the routes share one
+ * shape, and a generic here makes nitro's typed $fetch defer its route-match
+ * conditional, which blows TS's comparison stack in whatever file the checker
+ * visits next.
  */
 async function ceremony(flow: {
   options: string;
-  /** sent with the options request (sign-up's email); no body at all when absent */
-  body?: Record<string, unknown>;
-  /** create mints a new credential (register, sign-up); get asserts one (sign-in) */
+  /** create mints a new credential (register); get asserts one (sign-in) */
   kind: "create" | "get";
+  /** sign-in's get waits in a field's autofill list instead of raising the OS prompt;
+   *  this is the signal that withdraws it (signInFromAutofill) */
+  autofill?: AbortSignal;
   verify: string;
   /** merged into the verify body (register's label) */
   extra?: Record<string, unknown>;
@@ -121,19 +134,24 @@ async function ceremony(flow: {
   try {
     const res = await $fetch<{ flowId: string; options: Record<string, unknown> }>(flow.options, {
       method: "POST",
-      body: flow.body, // undefined = no body at all — ofetch skips a falsy body
     });
     flowId = res.flowId;
     options = res.options;
-  } catch (e) {
-    return { at: "options", error: e };
+  } catch {
+    return { at: "options" };
   }
 
   let cred: PublicKeyCredential | null;
   try {
     cred = (await (flow.kind === "create"
       ? navigator.credentials.create({ publicKey: toCreateOptions(options) })
-      : navigator.credentials.get({ publicKey: toRequestOptions(options) }))) as PublicKeyCredential | null;
+      : // a sign-in is only ever offered from the address field (there is no button), so
+        // it is always the waiting, conditional kind
+        navigator.credentials.get({
+          publicKey: toRequestOptions(options),
+          mediation: "conditional" as const,
+          signal: flow.autofill,
+        }))) as PublicKeyCredential | null;
   } catch {
     // The user dismissed the OS prompt, or the authenticator refused. Not an
     // error to shout about — they simply chose not to.
@@ -142,7 +160,9 @@ async function ceremony(flow: {
   if (!cred) return { at: "authenticator" };
 
   try {
-    const res = await $fetch<{ ok: boolean; reason?: string }>(flow.verify, {
+    // the verify is what starts a session: after any session check, never beside it
+    await sessionSettled();
+    const res = await $fetch<{ ok: boolean }>(flow.verify, {
       method: "POST",
       body: { flowId, response: fromCredential(cred), ...flow.extra },
     });
@@ -150,6 +170,36 @@ async function ceremony(flow: {
   } catch {
     return { at: "verify" };
   }
+}
+
+/** Resolves after `ms`, or at once when `signal` aborts. */
+function pause(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const done = () => {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      resolve();
+    };
+    const timer = setTimeout(done, ms);
+    signal.addEventListener("abort", done, { once: true });
+  });
+}
+
+/** Resolves once the tab is the one being looked at (at once if it is), or when
+ *  `signal` aborts. */
+function untilVisible(signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const settled = () => document.visibilityState === "visible" || signal.aborted;
+    if (settled()) return resolve();
+    const check = () => {
+      if (!settled()) return;
+      document.removeEventListener("visibilitychange", check);
+      signal.removeEventListener("abort", check);
+      resolve();
+    };
+    document.addEventListener("visibilitychange", check);
+    signal.addEventListener("abort", check);
+  });
 }
 
 export function usePasskeys() {
@@ -170,58 +220,59 @@ export function usePasskeys() {
   }
 
   /**
-   * Create an account with nothing but a passkey — no email, no inbox round-trip.
+   * Sign in with a passkey, offered from the email field's autofill list for as long as
+   * `signal` stays unaborted. No email typed and no button: nothing is shown until the
+   * person focuses a field marked autocomplete="... webauthn", the browser lists
+   * whichever discoverable key it holds for this site, and the credential identifies the
+   * account ("ok"). Aborting it (the form went away) is "cancelled".
    *
-   * The same two-step ceremony as register(), against the unauthenticated signup
-   * routes: there's no session yet, because the account this is making doesn't
-   * exist until the authenticator signs the challenge. On success the server has
-   * already started the session, so this refreshes to pick it up.
-   *
-   * The address is required and is checked BEFORE the ceremony, so a taken or
-   * malformed one fails on the form rather than after someone has touched their
-   * sensor. It's the way back in if every authenticator is lost — see
-   * signup-options for why it's collected up front rather than after.
+   * The offer is renewed on a timer, each time with a fresh challenge, because it can
+   * wait far longer than a challenge lives.
    */
-  async function signUp(email: string): Promise<PasskeyResult | "taken" | "bad-email"> {
-    if (!passkeysSupported()) return "unsupported";
-    const end = await ceremony({
-      options: "/api/auth/passkey/signup-options",
-      body: { email },
-      kind: "create",
-      verify: "/api/auth/passkey/signup-verify",
-    });
-    if (end.at === "options") {
-      const status = statusOf(end.error);
-      if (status === 409) return "taken";
-      if (status === 400) return "bad-email";
-      return "failed";
+  async function signInFromAutofill(signal: AbortSignal): Promise<PasskeyResult> {
+    if (!(await passkeyAutofillSupported())) return "unsupported";
+    while (!signal.aborted) {
+      // Never from a hidden tab (the rule useRetryWhile keeps, dom.ts): a form left
+      // open in the background asked the server for a fresh challenge every renewal,
+      // two dozen an hour, for an offer nobody could see. The next one waits for the
+      // tab to come back.
+      await untilVisible(signal);
+      if (signal.aborted) break;
+      // one offer: withdrawn by the caller, or by the timer so the next can replace it
+      const offer = new AbortController();
+      let renewing = false;
+      const withdraw = () => offer.abort();
+      signal.addEventListener("abort", withdraw, { once: true });
+      const timer = setTimeout(() => {
+        renewing = true;
+        offer.abort();
+      }, AUTOFILL_RENEW_MS);
+      const end = await ceremony({
+        options: "/api/auth/passkey/signin-options",
+        kind: "get",
+        verify: "/api/auth/passkey/signin-verify",
+        autofill: offer.signal,
+      });
+      clearTimeout(timer);
+      signal.removeEventListener("abort", withdraw);
+      if (end.at === "authenticator") {
+        if (renewing && !signal.aborted) continue;
+        return "cancelled";
+      }
+      // The offer itself could not be made (offline, or asked too often): nobody picked
+      // anything, so nothing failed. Reported as a failure it told someone who had only
+      // opened the dialog that their passkey "didn't sign you in". A missed renewal,
+      // then: wait one out and offer again, where returning here ended the offer for as
+      // long as the form stayed open over a single blip.
+      if (end.at === "options") {
+        await pause(AUTOFILL_RENEW_MS, signal);
+        continue;
+      }
+      if (end.at !== "done" || !end.res.ok) return "failed";
+      await refresh(true); // adopt the new session app-wide
+      return "ok";
     }
-    if (end.at === "authenticator") return "cancelled";
-    if (end.at !== "done") return "failed";
-    if (!end.res.ok) return end.res.reason === "taken" ? "taken" : "failed";
-    // the session cookie is already set — this pulls the user into app state so
-    // the vault and the "add a way back in" prompt both light up without a reload.
-    // Forced, as sign-in's is: the form this runs from only shows once the session
-    // has resolved (signed out), and an unforced refresh of a resolved session
-    // returns without asking — which left a new account signed out until a reload.
-    await refresh(true);
-    return "ok";
-  }
-
-  /** Sign in with a passkey — no email typed. The browser offers whichever
-   *  discoverable key it holds for this site, and the credential identifies the
-   *  account. */
-  async function signIn(): Promise<PasskeyResult> {
-    if (!passkeysSupported()) return "unsupported";
-    const end = await ceremony({
-      options: "/api/auth/passkey/signin-options",
-      kind: "get",
-      verify: "/api/auth/passkey/signin-verify",
-    });
-    if (end.at === "authenticator") return "cancelled";
-    if (end.at !== "done" || !end.res.ok) return "failed";
-    await refresh(true); // adopt the new session app-wide
-    return "ok";
+    return "cancelled";
   }
 
   async function list(): Promise<PasskeySummary[]> {
@@ -245,5 +296,5 @@ export function usePasskeys() {
     }
   }
 
-  return { register, signUp, signIn, list, remove };
+  return { register, signInFromAutofill, list, remove };
 }

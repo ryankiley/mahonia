@@ -11,6 +11,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockNuxtImport, registerEndpoint } from "@nuxt/test-utils/runtime";
 import { flushPromises, mount } from "@vue/test-utils";
 import SharePanel from "~/components/SharePanel.vue";
+import { ROW_FLASH } from "~/components/ItemRow.vue";
 import type { ChangeAuthor, ClaimedList, SnapshotMeta } from "~~/shared/types";
 import { snapshotFor } from "./helpers/list";
 
@@ -18,7 +19,8 @@ import { snapshotFor } from "./helpers/list";
 // route rather than a $fetch stub: under the Nuxt environment $fetch is already
 // test-utils' own mock, which answers an unregistered path with a 404.
 let snapshotsData: SnapshotMeta[] = [];
-registerEndpoint("/api/edit/snapshots", () => ({ snapshots: snapshotsData }));
+let snapshotsAsked = 0;
+registerEndpoint("/api/edit/snapshots", () => (snapshotsAsked++, { snapshots: snapshotsData }));
 
 // The exporters themselves are useListExports' (and tests/exportEverything's); what is
 // under test here is the panel around them. Each fake row reports through the toast
@@ -44,6 +46,10 @@ mockNuxtImport("useListExports", () => (_snap: unknown, flash: (msg: string) => 
 
 const signedIn = ref(true);
 mockNuxtImport("useSession", () => () => ({ signedIn }));
+
+// the connection, which only a draft's links depend on
+const online = ref(true);
+mockNuxtImport("useOnline", () => () => online);
 
 const claimedLists = ref<ClaimedList[]>([]);
 const claimedLoaded = ref(true);
@@ -71,15 +77,16 @@ const claimedRow = (shareCode: string): ClaimedList => ({
 
 const flash = vi.fn();
 
-function mountPanel(over: { editToken?: string; shareCode?: string } = {}) {
+function mountPanel(over: { editToken?: string; shareCode?: string; version?: number } = {}) {
   return mount(SharePanel, {
     props: {
-      snapshot: over.shareCode === undefined ? snapshot : { ...snapshot, shareCode: over.shareCode },
+      snapshot: { ...snapshot, shareCode: over.shareCode ?? snapshot.shareCode, version: over.version ?? snapshot.version },
       editToken: over.editToken ?? "held-token",
       authHeaders: { Authorization: "Bearer held-token" },
       shareUrl: `https://mahonia.app/s/${SHARE}`,
-      flash,
     },
+    // the editor's toast, which the panel reaches by inject (ROW_FLASH)
+    global: { provide: { [ROW_FLASH as symbol]: flash } },
     attachTo: document.body,
   });
 }
@@ -95,6 +102,7 @@ beforeEach(() => {
   flash.mockClear();
   ran.length = 0;
   signedIn.value = true;
+  online.value = true;
   claimedLists.value = [];
   claimedLoaded.value = true;
   claimOne.mockClear();
@@ -231,6 +239,20 @@ describe("SharePanel — the tabs", () => {
     expect(rowNames(w)).toEqual(["Copy read-only link", "Recent changes", "Get a new edit link"]);
   });
 
+  // A list is made at version 1 and its first edit takes the first recovery point, so
+  // the version says whether the section has anything in it before any request does.
+  it("has no Recent changes row on a list nobody has edited, and doesn't ask for any", async () => {
+    snapshotsAsked = 0;
+    const w = mountPanel({ version: 1 });
+    await flushPromises();
+    expect(rowNames(w)).toEqual(["Copy read-only link", "Copy edit link", "Add to your account", "Replace edit link"]);
+    expect(snapshotsAsked).toBe(0);
+
+    mountPanel({ version: 2 });
+    await flushPromises();
+    expect(snapshotsAsked).toBe(1);
+  });
+
   it("puts the link before the files on Export, and warms the exporters", async () => {
     const w = mountPanel();
     expect(warmExporters).not.toHaveBeenCalled();
@@ -267,9 +289,55 @@ describe("SharePanel — the tabs", () => {
     expect(flash).toHaveBeenCalledWith("csv done");
   });
 
-  it("is one line and no tabs on a draft, which has no links and nothing to export", () => {
-    const w = mountPanel({ shareCode: "" });
-    expect(tabs(w)).toHaveLength(0);
-    expect(w.text()).toContain("Add an item");
+});
+
+// A draft has no server row: nothing real in it yet, or its first save hasn't landed.
+// Asking for a link is what saves it (the editor's side, see copyLink), so the panel
+// offers the same two copies and leaves out only what needs the row to exist.
+describe("SharePanel — a list that isn't saved yet", () => {
+  const draft = () => mountPanel({ shareCode: "", editToken: "" });
+  const rowNames = (w: ReturnType<typeof mountPanel>) =>
+    w.findAll('[role="tabpanel"] .menu__item').map((r) => r.attributes("aria-label") ?? r.text().trim());
+  const exportTab = (w: ReturnType<typeof mountPanel>) => w.findAll('[role="tab"]')[1]!;
+
+  it("offers both links, and nothing that needs a saved list", () => {
+    const w = draft();
+    expect(rowNames(w)).toEqual(["Copy read-only link", "Copy edit link"]);
+    expect(w.text()).not.toContain("Add an item");
+  });
+
+  it("asks the editor for the link exactly as a saved list does", async () => {
+    const w = draft();
+    await w.findAll(".share__row")[0]!.trigger("click");
+    await w.findAll(".share__row")[1]!.trigger("click");
+    expect(w.emitted().copyRead).toHaveLength(1);
+    expect(w.emitted().copyEdit).toHaveLength(1);
+  });
+
+  it("doesn't ask the server what changed on a list it has never seen", async () => {
+    snapshotsAsked = 0;
+    draft();
+    await flushPromises();
+    expect(snapshotsAsked).toBe(0);
+  });
+
+  it("says so in a line when there is no connection to save it over", () => {
+    online.value = false;
+    const w = draft();
+    expect(rowNames(w)).toEqual([]);
+    expect(w.text()).toContain("You’re offline. Links need a connection.");
+  });
+
+  it("still exports offline, without the card that offers the link", async () => {
+    online.value = false;
+    const w = draft();
+    await exportTab(w).trigger("click");
+    expect(w.text()).not.toContain("Sending this to someone?");
+    expect(rowNames(w)).toEqual(["Export text", "Export markdown", "Export csv", "Export json"]);
+  });
+
+  it("keeps a saved list's links offline: they exist already", () => {
+    online.value = false;
+    expect(rowNames(mountPanel())).toContain("Copy read-only link");
   });
 });

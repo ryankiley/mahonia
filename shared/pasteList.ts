@@ -12,13 +12,12 @@
  */
 
 import { MAX_ITEM_NAME_LEN } from "./ops";
-import { UNIT_ALIASES } from "./weights";
+import { UNIT_ALIASES, WEIGHT_NUMBER as NUM } from "./weights";
 
 // The unit words the weight field itself reads (shared/weights, the one vocabulary), and
-// its number token (".9 oz" is a weight there, so it is one here). Longest alias first,
+// its number token, imported (".9 oz" is a weight there, so it is one here). Longest alias first,
 // so "grams" is not read as "g" + "rams".
 const UNIT_WORDS = Object.keys(UNIT_ALIASES).sort((a, b) => b.length - a.length).join("|");
-const NUM = String.raw`(?:\d[\d.,]*|[.,]\d+)`;
 // one figure with its unit, and any compounds after it ("2 lb 3 oz" is one weight; the
 // field parser sums it, so the tail must hand all of it on)
 const WEIGHT = String.raw`${NUM}\s?(?:${UNIT_WORDS})(?:\s${NUM}\s?(?:${UNIT_WORDS}))*`;

@@ -11,7 +11,7 @@
 // Its own file rather than more of profile.ts on purpose: profile.ts rides the first load
 // (the reducer parses a stored profile), and this is read by the Trip tab alone.
 
-import { ASCENT_THRESHOLD_M, SMOOTH_WINDOW, gradeSeries, smooth, totalClimb } from "./profile";
+import { ASCENT_THRESHOLD_M, SMOOTH_WINDOW, climbScale, gradeSeries, smooth } from "./profile";
 import type { DayRange } from "./tripPlan";
 
 /** A sustained climb: where it starts along the route, how far it runs, what it gains. */
@@ -69,12 +69,8 @@ function terrainFor(
   routeM: number,
   routeAscentM: number | undefined,
 ): DayFactsTerrain {
-  const wholeProfileClimb = totalClimb(profile).ascentM;
-  return {
-    eased: smooth(profile, SMOOTH_WINDOW),
-    climbScale: routeAscentM && wholeProfileClimb > 0 ? routeAscentM / wholeProfileClimb : 1,
-    grades: gradeSeries(profile, routeM),
-  };
+  const eased = smooth(profile, SMOOTH_WINDOW);
+  return { eased, climbScale: climbScale(eased, routeAscentM), grades: gradeSeries(profile, routeM) };
 }
 
 /**
@@ -88,7 +84,7 @@ function terrainFor(
  * full-resolution ascent the way dayClimbs scales, since the stored profile smooths
  * away some real undulation and under-reads a climb by the same share.
  */
-function readDayFacts(
+export function dayFacts(
   profile: readonly number[],
   routeM: number | undefined,
   range: DayRange,
@@ -186,16 +182,6 @@ function readDayFacts(
   return out;
 }
 
-/** Facts for one day. Kept as the simple single-day API used by focused callers/tests. */
-export function dayFacts(
-  profile: readonly number[],
-  routeM: number | undefined,
-  range: DayRange,
-  routeAscentM?: number,
-): DayFacts | null {
-  return readDayFacts(profile, routeM, range, routeAscentM);
-}
-
 /**
  * Facts for a whole itinerary. The profile's smoothing, climb calibration and grades
  * are route-wide, so calculate them once rather than once for every day on the Trip tab.
@@ -210,5 +196,5 @@ export function dayFactsForRanges(
   const prepared = profile.length >= 2 && routeM && routeM > 0 && ownsGround
     ? terrainFor(profile, routeM, routeAscentM)
     : undefined;
-  return ranges.map((range) => readDayFacts(profile, routeM, range, routeAscentM, prepared));
+  return ranges.map((range) => dayFacts(profile, routeM, range, routeAscentM, prepared));
 }

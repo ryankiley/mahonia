@@ -1,40 +1,30 @@
 // CSV export + import — hand-rolled (no deps). Round-trips with our own export
 // and ingests LighterPack's "Export to CSV" output (flexible header detection).
 
-import type { Item, ListData, ListSnapshot, Unit } from "../types";
+import type { ListData, ListSnapshot, Unit } from "../types";
 import { colorKeyForName, nextFolderColor, usedColorKeys } from "../categories";
 import { MAX_FOLDERS, MAX_ITEMS, MAX_PEOPLE } from "../ops";
 import { carrierName } from "../people";
-import { effectiveClassificationInFolder, fromMg, itemDisplayName, parseDecimal, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
-import { exportOrderedItems } from "./rows";
-import { csvCell, stripFormulaGuard } from "./csvCell";
+import { effectiveClassificationInFolder, itemDisplayName, parseDecimal, splitWornQty, toMg, UNIT_ALIASES } from "../weights";
+import { exportSections } from "./rows";
+import { csvCell, csvPrice, csvWeight, stripFormulaGuard } from "./csvCell";
 import { uid } from "../id";
 
 // Delegate to the shared unit vocabulary (weights.UNIT_ALIASES) so a CSV / LighterPack
 // import recognizes the exact same unit words as free-text weight entry. This hand-
 // rolled list had drifted — it missed the singular "kilogram" — so importing a row in
 // "kilogram" silently fell through to the fallback unit.
-function normalizeUnit(raw: string | undefined, fallback: Unit): Unit {
+function normalizeUnit(raw: string | undefined): Unit {
   const u = (raw || "").trim().toLowerCase();
-  return UNIT_ALIASES[u] ?? fallback;
+  return UNIT_ALIASES[u] ?? "g";
 }
 
 const truthy = (v: string | undefined) =>
   !!v && /^(1|true|yes|y|x|worn|consumable)$/i.test(v.trim());
 
-// Decimals each unit is written with. Enough that toMg() rounds the value back to the
-// milligrams it came from, so an export/import round-trip is lossless in every unit.
-// Grams used to be written at ZERO decimals, which claimed a 499 mg row weighed nothing
-// -- while formatWeight goes out of its way to render "<1 g" on the same data, on the
-// stated reasoning that a real weight rounding to zero "must NOT read as 0". The file
-// now agrees with the screen. Trailing zeros never survive the unary `+` below, so a
-// whole-gram list still exports "1247", not "1247.000".
-const CSV_DECIMALS: Record<Unit, number> = { g: 3, kg: 6, oz: 6, lb: 6 };
-
 // ---- export ----
 export function listToCsv(list: ListSnapshot): string {
   const u = list.displayUnit;
-  const esc = csvCell;
   // One lookup table for both the exported folder name and effective class; an export
   // can contain hundreds of rows, so each must not scan every folder twice.
   const folderById = new Map(list.folders.map((folder) => [folder.id, folder]));
@@ -46,11 +36,6 @@ export function listToCsv(list: ListSnapshot): string {
   const out = [
     "Category,Item Name,Gear Type,Brand,Qty,Weight,Unit,Worn,Consumable,Price,URL,Description,Worn Qty,Kcal,Person,Needs Cooking",
   ];
-  // The EFFECTIVE carrier (a child falls back to its parent's), materialized per
-  // row because the flat CSV loses nesting: a child re-imports as top-level, so
-  // an assignment it only inherited has to be written out or it's gone.
-  const itemById = new Map(list.items.map((i) => [i.id, i]));
-  const carrierOf = (it: Item) => carrierName(list, it, it.parentId ? itemById.get(it.parentId) : null);
   // rows follow what the app shows (exportSections): folders in their order, each
   // folder's items in drag order, then any ungrouped items — so a re-import keeps
   // the visible order. Each top-level row is immediately followed by its
@@ -58,8 +43,7 @@ export function listToCsv(list: ListSnapshot): string {
   // container parent's is usually blank), so the flat CSV re-imports with correct
   // totals and no parent/child double-count. (CSV has no nesting column — children
   // re-import as flat top-level rows.)
-  const ordered: Item[] = exportOrderedItems(list);
-  for (const it of ordered) {
+  for (const { item, children } of exportSections(list).flatMap((s) => s.rows)) for (const it of [item, ...children]) {
     const cls = effectiveClassificationInFolder(
       it,
       it.folderId ? folderById.get(it.folderId) : undefined,
@@ -69,31 +53,34 @@ export function listToCsv(list: ListSnapshot): string {
     // makes a row typed in ounces come back as ounces instead of being flattened to
     // the list's unit on every round-trip.
     const ru = it.entryUnit ?? u;
-    const w = it.unitWeightMg > 0 ? +fromMg(it.unitWeightMg, ru).toFixed(CSV_DECIMALS[ru]) : "";
+    const w = csvWeight(it.unitWeightMg, ru);
     // the split gets its OWN column: the boolean Worn column can't carry a count
     // (a split row must not import back as fully worn)
     const wq = splitWornQty(it, cls);
     out.push(
       [
-        esc(folderName(it.folderId)),
+        csvCell(folderName(it.folderId)),
         // brand has its own column, so the name field carries model + variant
-        esc(itemDisplayName(null, it.name, it.variant)),
-        esc(it.commonName ?? ""),
-        esc(it.brand ?? ""),
+        csvCell(itemDisplayName(null, it.name, it.variant)),
+        csvCell(it.commonName ?? ""),
+        csvCell(it.brand ?? ""),
         it.qty,
         w,
         it.unitWeightMg > 0 ? ru : "",
         cls === "worn" ? "1" : "",
         cls === "consumable" ? "1" : "",
-        it.priceCents != null ? (it.priceCents / 100).toFixed(2) : "",
-        esc(it.productUrl ?? ""),
-        esc(it.description ?? ""),
+        csvPrice(it.priceCents),
+        csvCell(it.productUrl ?? ""),
+        csvCell(it.description ?? ""),
         wq > 0 ? wq : "",
         // only meaningful on a consumable row, and that's the only place it's
         // counted (see computeTotals) — so a stale value on a demoted row isn't
         // exported as though it still applied
         cls === "consumable" && it.kcal ? it.kcal : "",
-        esc(carrierOf(it)),
+        // The EFFECTIVE carrier (a child falls back to its parent's), materialized per
+        // row because the flat CSV loses nesting: a child re-imports as top-level, so
+        // an assignment it only inherited has to be written out or it's gone.
+        csvCell(carrierName(list, it, it === item ? null : item)),
         it.needsCooking === true ? "1" : "",
       ].join(","),
     );
@@ -214,10 +201,7 @@ export function csvToListData(
       personId.set(key, id);
       // seeded with the folders' hues too, like the editor's addPerson — one
       // color, one meaning, even when both sets render side by side
-      const colorKey = nextFolderColor([
-        ...usedColorKeys(folders),
-        ...usedColorKeys(people),
-      ]);
+      const colorKey = nextFolderColor(usedColorKeys([...folders, ...people]));
       people.push({ id, name: key, colorKey, sortOrder: people.length });
     }
     return personId.get(key)!;
@@ -236,7 +220,7 @@ export function csvToListData(
       return v ? stripFormulaGuard(v) : undefined;
     };
     const name = stripFormulaGuard((row[nameCol] || "").trim());
-    const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined, "g");
+    const unit = normalizeUnit(iUnit >= 0 ? row[iUnit] : undefined);
     // parseDecimal, not a strip of every comma: that read a decimal comma as a
     // thousands separator, so a "1,5" kg can came in as 15 kg
     const weightNum = iWeight >= 0 ? parseDecimal(row[iWeight] || "") : 0;

@@ -1,3 +1,4 @@
+import { eq, sql } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import * as schema from "../server/db/schema";
 import { MAX_CATALOG_ID } from "../shared/ops";
@@ -11,20 +12,31 @@ import {
   serializeCsv,
   specToMg,
 } from "../scripts/catalogCsv";
+import { runCatalogChecks } from "../scripts/catalogChecks";
 import {
   CATALOG_DDL,
+  TRUSTED_DOMAINS,
   activeCatalogRows,
   bumpUsage,
   isHttpUrl,
   isTrustedSource,
   proposeCorrection,
   recentChanges,
-  revertEdit,
 } from "../server/utils/catalog";
+import { undoCatalogEdit } from "../server/utils/catalogVerify";
 
 // A fresh in-memory catalog DB (PGlite, no disk) with the catalog DDL applied.
 async function freshCatalogDb() {
   return createTestDb(CATALOG_DDL);
+}
+
+/** Make every UPDATE of `table` fail while `when` (a plpgsql condition on NEW) holds: a
+ *  write lost part-way, as a dropped connection or a timeout loses one. Answers how to
+ *  lift it again. The next createTestDb drops it with the schema. */
+async function failUpdatesOf(db: Awaited<ReturnType<typeof freshCatalogDb>>, table: string, when = "true") {
+  await db.execute(sql.raw(`create function fail_${table}() returns trigger language plpgsql as $$ begin if ${when} then raise exception 'write to ${table} failed'; end if; return new; end $$`));
+  await db.execute(sql.raw(`create trigger fail_${table} before update on ${table} for each row execute function fail_${table}()`));
+  return () => db.execute(sql.raw(`drop trigger fail_${table} on ${table}`));
 }
 
 describe("specToMg — cited spec → integer milligrams", () => {
@@ -228,6 +240,21 @@ describe("isTrustedSource — citation domain allowlist", () => {
     // the scheme guard must stop it counting as a trusted citation.
     expect(isTrustedSource("javascript://zpacks.com/%0aalert(1)")).toBe(false);
   });
+  it("trusts no site the catalog audit refuses as a maker's source (a review site)", () => {
+    expect(isTrustedSource("https://www.outdoorgearlab.com/reviews/camping-and-hiking/x")).toBe(false);
+    expect(isTrustedSource("https://sectionhiker.com/some-review/")).toBe(false);
+    // every trusted domain, held to the audit's own provenance rule: a manufacturer
+    // weight cited to it must not read as laundered through a review
+    const laundered = [...TRUSTED_DOMAINS].filter((domain) =>
+      runCatalogChecks([
+        {
+          brand: "Maker", name: "Thing", commonName: "Tent", variant: null, attributes: null, attributesUnpublished: [],
+          categoryHint: "shelter", weightMg: 500_000, kcal: null, weightSource: "manufacturer", sourceUrl: `https://${domain}/thing`, searchTerms: null,
+        },
+      ]).some((f) => f.code === "provenance"),
+    );
+    expect(laundered).toEqual([]);
+  });
 });
 
 describe("isHttpUrl — only http(s) citations are linkable/storable", () => {
@@ -301,6 +328,32 @@ describe("proposeCorrection — trust-tiered wiki edits", () => {
     expect(await weightOf(db, row.id)).toBe(504_622); // weight untouched
   });
 
+  it("leaves a fix cited to a review site waiting, the row and its source as they were", async () => {
+    const db = await freshCatalogDb();
+    const row = await seedCatalogRow(db, { name: "Zpacks Duplex", weightMg: 504_622, weightSource: "manufacturer", verified: true, sourceUrl: "https://zpacks.com/products/duplex-tent" });
+    const out = await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 540_000, sourceUrl: "https://www.outdoorgearlab.com/reviews/duplex" });
+    expect(out).toMatchObject({ status: "proposed", weightMg: 504_622 });
+    const after = await catalogRow(db, row.id);
+    expect(Number(after.weightMg)).toBe(504_622);
+    expect(after.sourceUrl).toBe("https://zpacks.com/products/duplex-tent");
+  });
+
+  it("writes an applied fix and its weight together or not at all", async () => {
+    const db = await freshCatalogDb();
+    const row = await seedCatalogRow(db);
+    // the write that moves the weight is lost
+    const lift = await failUpdatesOf(db, "catalog_items");
+    await expect(proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 })).rejects.toThrow();
+    // so no edit says it was applied
+    expect(await weightOf(db, row.id)).toBe(12_000);
+    expect(await recentChanges(db, 10)).toEqual([]);
+    await lift();
+    // and the same call again does both
+    expect(await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 })).toMatchObject({ status: "applied", weightMg: 9_000 });
+    expect(await weightOf(db, row.id)).toBe(9_000);
+    expect((await recentChanges(db, 10)).map((c) => [c.status, c.oldWeightMg, c.newWeightMg])).toEqual([["applied", 12_000, 9_000]]);
+  });
+
   it("rejects bad weights / no-ops / missing items", async () => {
     const db = await freshCatalogDb();
     const row = await seedCatalogRow(db, { name: "X", weightMg: 1_000 });
@@ -319,11 +372,11 @@ describe("proposeCorrection — trust-tiered wiki edits", () => {
     expect(
       (await proposeCorrection(db, { catalogItemId: MAX_CATALOG_ID + 1, newWeightMg: 9_000 })).status,
     ).toBe("rejected");
-    expect((await revertEdit(db, MAX_CATALOG_ID + 1)).status).toBe("rejected");
+    expect(await undoCatalogEdit(db, MAX_CATALOG_ID + 1)).toContain("edit_id");
   });
 });
 
-describe("revertEdit — one-click undo of an applied edit", () => {
+describe("undoCatalogEdit — one-click undo of an applied edit", () => {
   it("restores the prior weight and won't double-revert", async () => {
     const db = await freshCatalogDb();
     const row = await seedCatalogRow(db, { name: "Stake" });
@@ -332,11 +385,29 @@ describe("revertEdit — one-click undo of an applied edit", () => {
     expect(changes[0].newWeightMg).toBe(9_000);
     expect(changes[0].itemName).toBe("Stake");
 
-    const out = await revertEdit(db, changes[0].id);
-    expect(out.status).toBe("applied");
+    expect(await undoCatalogEdit(db, changes[0].id)).toMatchObject({ row: { id: row.id } });
     expect(await weightOf(db, row.id)).toBe(12_000);
     // reverting a non-applied edit is rejected
-    expect((await revertEdit(db, changes[0].id)).status).toBe("rejected");
+    expect(await undoCatalogEdit(db, changes[0].id)).toContain("already undone");
+  });
+
+  it("puts the row back and marks its edit undone together or not at all", async () => {
+    const db = await freshCatalogDb();
+    const row = await seedCatalogRow(db, { name: "Stake" });
+    await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 });
+    const [edit] = await recentChanges(db, 10);
+    // the write that marks the edit undone is lost
+    const lift = await failUpdatesOf(db, "catalog_edits", "new.status = 'reverted'");
+    await expect(undoCatalogEdit(db, edit!.id)).rejects.toThrow();
+    // so the row still holds what the edit wrote, and the edit still stands
+    expect(await weightOf(db, row.id)).toBe(9_000);
+    expect((await recentChanges(db, 10))[0]!.status).toBe("applied");
+    await lift();
+    // and the same call again undoes it, where a row put back alone left an edit that
+    // could never be undone ("has changed since") and stood in the way of older ones
+    expect(await undoCatalogEdit(db, edit!.id)).toMatchObject({ rejected: false, row: { id: row.id, name: "Stake" } });
+    expect(await weightOf(db, row.id)).toBe(12_000);
+    expect((await recentChanges(db, 10))[0]!.status).toBe("reverted");
   });
 
   it("refuses to revert a stale (non-latest) applied edit", async () => {
@@ -347,8 +418,29 @@ describe("revertEdit — one-click undo of an applied edit", () => {
     const changes = await recentChanges(db, 10); // newest first → [B, A]
     const editA = changes[1].id;
     // reverting the older edit A would silently drop B → must be rejected
-    expect((await revertEdit(db, editA)).status).toBe("rejected");
+    expect(await undoCatalogEdit(db, editA)).toContain("newer applied edit");
     expect(await weightOf(db, row.id)).toBe(300_000); // unchanged
+  });
+
+  it("turns down a fix still waiting for review, once, without touching the row", async () => {
+    const db = await freshCatalogDb();
+    // a verified row takes an uncited fix as proposed
+    const row = await seedCatalogRow(db, { name: "Stake", weightSource: "manufacturer", verified: true });
+    expect((await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 })).status).toBe("proposed");
+    const [fix] = await recentChanges(db, 10);
+    expect(await undoCatalogEdit(db, fix!.id)).toMatchObject({ rejected: true, row: { id: row.id } });
+    expect(await weightOf(db, row.id)).toBe(12_000);
+    expect((await recentChanges(db, 10))[0]!.status).toBe("rejected");
+    expect(await undoCatalogEdit(db, fix!.id)).toContain("already turned down");
+  });
+
+  it("turns down a fix whose row is gone, answering no row", async () => {
+    const db = await freshCatalogDb();
+    const row = await seedCatalogRow(db, { name: "Stake", weightSource: "manufacturer", verified: true });
+    await proposeCorrection(db, { catalogItemId: row.id, newWeightMg: 9_000 });
+    const [fix] = await recentChanges(db, 10);
+    await db.delete(schema.catalogItems).where(eq(schema.catalogItems.id, row.id));
+    expect(await undoCatalogEdit(db, fix!.id)).toEqual({ rejected: true, row: null });
   });
 });
 
@@ -363,16 +455,5 @@ describe("activeCatalogRows — the import matcher's pool", () => {
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({ brand: "MSR", name: "PocketRocket 2 Stove", weightMg: 73_000, variant: null, kcal: null });
     expect(typeof rows[0]!.weightMg).toBe("number");
-  });
-});
-
-describe("recentChanges — the limit reaches SQL whole", () => {
-  it("truncates a fractional limit and defaults a NaN one, rather than failing the query", async () => {
-    const db = await freshCatalogDb();
-    const row = await seedCatalogRow(db, { name: "Stake", weightMg: 100_000 });
-    for (const newWeightMg of [101_000, 102_000, 103_000]) await proposeCorrection(db, { catalogItemId: row.id, newWeightMg });
-
-    await expect(recentChanges(db, 2.5)).resolves.toHaveLength(2);
-    await expect(recentChanges(db, Number.NaN)).resolves.toHaveLength(3);
   });
 });

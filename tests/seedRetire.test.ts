@@ -101,6 +101,13 @@ describe("retireOrphans", () => {
     expect(after.find((r) => r.id === kept!.id)!.status).toBe("active");
   });
 
+  it("never touches a row an admin verified in the app", async () => {
+    const [inApp] = await db.insert(schema.catalogItems).values(seeded({ name: "Typed Bar", verifiedBy: 7 })).returning();
+    expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 0, removed: 0 });
+    const [after] = await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, inApp!.id));
+    expect(after!.status).toBe("active");
+  });
+
   it("stops following a loop", async () => {
     const [a] = await db.insert(schema.catalogItems).values(seeded({ variant: "a" })).returning();
     const [b] = await db.insert(schema.catalogItems).values(seeded({ variant: "b" })).returning();

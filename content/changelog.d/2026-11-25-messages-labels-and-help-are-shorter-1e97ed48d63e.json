@@ -1,0 +1,14 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "Messages, labels, and Help are shorter and plainer throughout: fewer technical words, one name for each thing, and US spelling.",
+    "The app, Help, and Legal now all call it the read-only link.",
+    "The row menu says Group instead of Nesting, and the Trip tab's route figures are labeled Route climb and Route descent."
+  ],
+  "fixed": [
+    "The sign-in page's tab no longer says it is signing you in after a link has expired.",
+    "When copying the assistant address fails, the message now shows the address instead of asking you to select one that isn't on the page.",
+    "The Trip tab no longer promises a pack weight for each morning, which it never showed.",
+    "Climb figures on the Trip tab now have a thousands separator."
+  ]
+}

@@ -31,16 +31,13 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { isCalendarDate } from "../shared/calendar";
-import type { ChangelogRelease } from "../shared/changelog";
+import { CHANGELOG_GROUPS, type ChangelogGroup, type ChangelogRelease } from "../shared/changelog";
 import { FRAGMENT_DIR } from "./changelogSources";
 import { CHANGELOG_TZ, todayIn } from "./releaseNotes";
 
-type Group = "added" | "changed" | "fixed";
-const GROUPS: Group[] = ["added", "changed", "fixed"];
-
 // --- parse args: repeatable --added/--changed/--fixed, single --date/--title ---
 const argv = process.argv.slice(2);
-const groups: Record<Group, string[]> = { added: [], changed: [], fixed: [] };
+const groups: Record<ChangelogGroup, string[]> = { added: [], changed: [], fixed: [] };
 // Changelog days are Pacific calendar days — the clock the release workflow
 // settles them on — wherever this command happens to run.
 let date = todayIn(CHANGELOG_TZ);
@@ -51,7 +48,7 @@ for (let i = 0; i < argv.length; i++) {
   const val = argv[i + 1];
   if (arg === "--added" || arg === "--changed" || arg === "--fixed") {
     if (val === undefined) fail(`${arg} needs a value`);
-    groups[arg.slice(2) as Group].push(val.trim());
+    groups[arg.slice(2) as ChangelogGroup].push(val.trim());
     i++;
   } else if (arg === "--date") {
     if (!isCalendarDate(val)) fail("--date must be a real YYYY-MM-DD calendar date");
@@ -70,7 +67,7 @@ for (let i = 0; i < argv.length; i++) {
 // check below (length 1) and write `[""]`, which the content gate in
 // tests/changelog.test.ts then failed — the CLI printing ✓ over something that
 // turns the next PR red.
-for (const key of GROUPS) {
+for (const key of CHANGELOG_GROUPS) {
   groups[key] = groups[key].filter((s) => s.length > 0);
 }
 
@@ -89,7 +86,7 @@ if (!groups.added.length && !groups.changed.length && !groups.fixed.length) {
 // --- build the fragment: a release object, same shape the page already reads ---
 const fragment: ChangelogRelease = { date };
 if (title) fragment.title = title;
-for (const key of GROUPS) {
+for (const key of CHANGELOG_GROUPS) {
   if (groups[key].length) fragment[key] = groups[key];
 }
 

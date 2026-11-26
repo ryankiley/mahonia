@@ -1,5 +1,6 @@
-import { DirectionRight02Icon, DropletIcon, RacingFlagIcon, TentIcon } from "@hugeicons/core-free-icons";
-import type { IconNode } from "./hugeicon";
+import { IconDirection1, IconDrop, IconRacingFlag } from "../icons/central";
+import { TentGlyph } from "../icons/mahonia";
+import type { IconNode } from "./icon";
 import type { WaypointKind } from "~~/shared/types";
 
 /**
@@ -9,8 +10,8 @@ import type { WaypointKind } from "~~/shared/types";
  * They were separate maps in two components, which is the shape that lets a pin be blue on
  * the map and called "Camp" in its row. One object, both readers.
  *
- * It lives in `app/` rather than `shared/` on purpose: the icons come from the Hugeicons
- * package, and `shared/` is code the server runs too.
+ * It lives in `app/` rather than `shared/` on purpose: the icons are path data the
+ * browser draws, and `shared/` is code the server runs too.
  *
  * COLOUR: water, camp and landmark are CONTENT, so they take category hues. The route's
  * own two ends are properties of the route rather than categories of thing, so they take
@@ -19,12 +20,12 @@ import type { WaypointKind } from "~~/shared/types";
  * grade severity, and a waypoint will appear on that chart eventually.
  */
 export const WAYPOINT_KIND_META: Record<WaypointKind, { label: string; icon: IconNode; color: string }> = {
-  water: { label: "Water", icon: DropletIcon, color: "var(--cat-water)" },
-  camp: { label: "Camp", icon: TentIcon, color: "var(--cat-shelter)" },
+  water: { label: "Water", icon: IconDrop, color: "var(--cat-water)" },
+  camp: { label: "Camp", icon: TentGlyph, color: "var(--cat-shelter)" },
   // A SIGNPOST, not a map pin. Location01 is the "you are here" marker every map draws —
   // inside a pin on a map it says the same thing twice, and says nothing about what is
   // actually there. A signpost is a thing you pass on a walk.
-  landmark: { label: "Landmark", icon: DirectionRight02Icon, color: "var(--cat-clothing)" },
+  landmark: { label: "Landmark", icon: IconDirection1, color: "var(--cat-clothing)" },
   // BOTH ENDS WEAR THE SAME CHEQUERED FLAG, and that is deliberate rather than lazy.
   //
   // They were two flags differing only in the number of folds, which asked a reader to tell
@@ -35,8 +36,8 @@ export const WAYPOINT_KIND_META: Record<WaypointKind, { label: string; icon: Ico
   // It also settles the LOOP, where the start and the finish are one coordinate: the map
   // draws the finish over the trailhead there (see RouteMap's finishM), and two marks with
   // the same glyph overlap invisibly instead of looking like a rendering fault.
-  trailhead: { label: "Trailhead", icon: RacingFlagIcon, color: "var(--ink)" },
-  end: { label: "End", icon: RacingFlagIcon, color: "var(--ink)" },
+  trailhead: { label: "Trailhead", icon: IconRacingFlag, color: "var(--ink)" },
+  end: { label: "End", icon: IconRacingFlag, color: "var(--ink)" },
 };
 
 /** Anything unrecognised reads as a landmark, so a pin always has a glyph and a name. */
@@ -61,8 +62,4 @@ export const waypointKindMeta = (kind: string) =>
  */
 export const PLACEABLE_WAYPOINT_KINDS = ["water", "landmark"] as const;
 
-export const WAYPOINT_KIND_OPTIONS = PLACEABLE_WAYPOINT_KINDS.map((k) => ({
-  key: k,
-  label: WAYPOINT_KIND_META[k].label,
-  icon: WAYPOINT_KIND_META[k].icon,
-}));
+export const WAYPOINT_KIND_OPTIONS = PLACEABLE_WAYPOINT_KINDS.map((k) => ({ key: k, ...WAYPOINT_KIND_META[k] }));

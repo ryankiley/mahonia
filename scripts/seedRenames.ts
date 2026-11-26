@@ -5,10 +5,9 @@ import { eq } from "drizzle-orm";
 import { catalogItems, vaultItems } from "../server/db/schema";
 import { vaultNormKey } from "../shared/vault";
 import type { Db } from "../server/utils/db";
-import type { CatalogCsvRow } from "./catalogCsv";
-import { identity } from "./seedUpsert";
+import { identity, SEP, type CatalogCsvRow } from "./catalogCsv";
+import { seedManaged } from "../shared/catalogQuality";
 
-const SEP = "\u0000";
 const product = (brand: string | null, name: string, weightMg: number, sourceUrl: string | null) =>
   `${brand ?? ""}${SEP}${name}${SEP}${weightMg}${SEP}${sourceUrl ?? ""}`;
 
@@ -28,16 +27,16 @@ const product = (brand: string | null, name: string, weightMg: number, sourceUrl
  */
 export async function renameMovedVariants(db: Db, rows: readonly CatalogCsvRow[]): Promise<{ catalog: number; vault: number }> {
   const held = await db
-    .select({ id: catalogItems.id, brand: catalogItems.brand, name: catalogItems.name, variant: catalogItems.variant, weightMg: catalogItems.weightMg, sourceUrl: catalogItems.sourceUrl, verified: catalogItems.verified })
+    .select({ id: catalogItems.id, brand: catalogItems.brand, name: catalogItems.name, variant: catalogItems.variant, weightMg: catalogItems.weightMg, sourceUrl: catalogItems.sourceUrl, verified: catalogItems.verified, verifiedBy: catalogItems.verifiedBy })
     .from(catalogItems);
   const heldIdentities = new Set(held.map((r) => identity(r.brand, r.name, r.variant)));
   const wanted = new Set(rows.map((r) => identity(r.brand, r.name, r.variant)));
 
   const orphans = new Map<string, typeof held>();
   for (const r of held) {
-    if (!r.verified || wanted.has(identity(r.brand, r.name, r.variant))) continue;
+    if (!seedManaged(r) || wanted.has(identity(r.brand, r.name, r.variant))) continue;
     const key = product(r.brand, r.name, Number(r.weightMg), r.sourceUrl);
-    orphans.set(key, [...(orphans.get(key) ?? []), r]);
+    orphans.getOrInsertComputed(key, () => []).push(r);
   }
   const newcomers = new Map<string, CatalogCsvRow[]>();
   for (const r of rows) {

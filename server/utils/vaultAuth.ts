@@ -48,11 +48,10 @@ async function vaultFor(
  * resolveVaultForRead below, where "no vault yet" is a normal state, not an
  * error.
  *
- * `last_seen_at` is bumped on every resolve so an abandoned vault can be reaped on
- * the same schedule as an abandoned list, instead of accumulating forever. That
- * bump also clears any soft-delete the reaper had set: a vault whose owner comes
- * back inside the purge grace revives simply by being used, with no separate
- * restore path to remember to call.
+ * Resolving a vault stamps its `last_seen_at` (touchVaultByUser, at most once a
+ * day), and the same write clears a soft-delete should the row carry one, with no
+ * separate restore path to remember to call. The nightly sweep takes only vaults no
+ * account owns (vaultRepo), so an account's vault is never reaped for going unseen.
  */
 export async function requireVault(event: H3Event): Promise<{ db: Db; vaultId: number }> {
   const { db, vaultId } = await vaultFor(event);
@@ -84,9 +83,10 @@ export async function resolveVaultForRead(
  * H3Event; what's left up there is error handling.
  *
  * The mark is written at most once a day. Every vault call comes through here, the
- * autocomplete's per-keystroke search included, and the only reader of last_seen_at
- * is a reaper that counts in months: so the common request is a read, and the row is
- * rewritten only when the stamp has gone stale or there is a soft-delete to lift.
+ * autocomplete's per-keystroke search included, and nothing reads last_seen_at to
+ * the day (the nightly sweep counts in months, and only over vaults no account
+ * owns): so the common request is a read, and the row is rewritten only when the
+ * stamp has gone stale or there is a soft-delete to lift.
  */
 const VAULT_TOUCH_AFTER_MS = 24 * 60 * 60_000;
 export async function touchVaultByUser(db: Db, userId: number): Promise<number | null> {
@@ -124,6 +124,16 @@ export async function mintVault(db: Db, userId: number): Promise<number> {
 }
 
 /**
+ * The account's vault, marked used, minted when it has none yet: touchVaultByUser,
+ * then mintVault. For the writes that reach a vault by user id rather than by a
+ * request's session and must have somewhere to land: the sign-in backfill and a list
+ * the connector files. Each holds a user id it has already verified.
+ */
+export async function vaultIdOrMint(db: Db, userId: number): Promise<number> {
+  return (await touchVaultByUser(db, userId)) ?? (await mintVault(db, userId));
+}
+
+/**
  * Resolve the signed-in user's vault, creating it if this is their first capture.
  *
  * ONLY for capture — the write that happens automatically as you build a list, and
@@ -134,6 +144,5 @@ export async function mintVault(db: Db, userId: number): Promise<number> {
  */
 export async function resolveOrMintVault(event: H3Event): Promise<{ db: Db; vaultId: number }> {
   const { db, vaultId, userId } = await vaultFor(event);
-  if (vaultId != null) return { db, vaultId };
-  return { db, vaultId: await mintVault(db, userId) };
+  return { db, vaultId: vaultId ?? (await mintVault(db, userId)) };
 }

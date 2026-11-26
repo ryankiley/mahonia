@@ -94,3 +94,23 @@ describe("a row reading in grams on a pounds list", () => {
     expect(w.find(".item__fixrow").text()).toContain("Catalog: 1.22 lb");
   });
 });
+
+// The note is for a weight that DISAGREES with the catalog's, and whether it does is
+// judged as the row reads. Grams print no decimals: a tent the catalog holds at
+// 887,340 mg, imported at 887,000, read "887 g" in its cell and "Catalog: 887 g ·
+// suggest a fix" underneath.
+describe("a catalog weight the row cannot tell from its own", () => {
+  const tent: Item = { ...chair, unitWeightMg: 887_000, catalogWeightMgAtLink: 887_340 };
+
+  it.each(["g", "oz", "lb", "kg"] as const)("raises no note where both read the same in %s", (entryUnit) => {
+    const w = mountRow({ ...tent, entryUnit });
+    expect(w.find(".item__fixrow").exists()).toBe(false);
+  });
+
+  it("still raises it for a gram the row's unit shows, and not in a unit that hides it", () => {
+    const off = { ...tent, catalogWeightMgAtLink: 888_000 };
+    expect(mountRow({ ...off, entryUnit: "g" }).find(".item__fixrow").text()).toContain("Catalog: 888 g");
+    // 0.89 kg both ways
+    expect(mountRow({ ...off, entryUnit: "kg" }).find(".item__fixrow").exists()).toBe(false);
+  });
+});

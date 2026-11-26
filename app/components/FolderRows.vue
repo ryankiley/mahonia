@@ -88,14 +88,6 @@ const isAppendTarget = computed(
     dnd.drop.value?.parentId == null &&
     dnd.drop.value?.beforeId == null,
 );
-
-// "Add an item" drops a real, empty row into the folder (with every control a
-// normal row has) and focuses it — you just start typing. Catalog autocomplete +
-// water volumes still work in the row's own name field; an abandoned empty row
-// removes itself.
-function addBlank() {
-  c.addBlankItem(props.folder.id);
-}
 </script>
 
 <template>
@@ -123,7 +115,11 @@ function addBlank() {
   <!-- is-arriving while a row is fresh: the link you pressed has just BECOME that row's
        name field, so the next link fades in as the row's box pushes it down (CSS below) -->
   <div class="folder__add" :class="{ 'folder__add--first': !items.length, 'is-arriving': fresh.size > 0 }">
-    <button type="button" class="folder__addbtn" @click="addBlank">Add an item</button>
+    <!-- "Add an item" drops a real, empty row into the folder (with every control a
+         normal row has) and focuses it — you just start typing. Catalog autocomplete +
+         water volumes still work in the row's own name field; an abandoned empty row
+         removes itself. -->
+    <button type="button" class="folder__addbtn" @click="c.addBlankItem(folder.id)">Add an item</button>
   </div>
 </template>
 
@@ -132,12 +128,8 @@ function addBlank() {
    scoped styles match through the scope id stamped on the elements, and these
    elements are stamped with this component's now. */
 
-/* drag-to-reorder: insertion line when dropping at the end of this folder */
-.folder__droptail {
-  height: var(--space-px);
-  background: var(--ink);
-  margin: var(--space-1) 0;
-}
+/* (the drag's insertion line at the end of this folder, .folder__droptail, is drawn
+   with a nested group's own — atoms/item.scss) */
 /* THE ADD LINK BECOMES THE ROW. The blank row's name field sits on the link text's own
    pixel (.folder__addbtn is built to the field's geometry) and never moves; the row's
    box grows from nothing under it (grid rows 0fr→1fr — height:auto doesn't animate in
@@ -155,7 +147,7 @@ function addBlank() {
   animation: item-in var(--spring-step-dur) var(--spring-step);
 }
 .folder__items > .is-new:has(> .reveal, > .nestcollapse) {
-  animation: item-fade var(--spring-fade-dur) var(--spring-fade);
+  animation: fade-in var(--spring-fade-dur) var(--spring-fade);
 }
 .folder__items > .is-new > :deep(*) {
   min-height: 0;
@@ -165,7 +157,7 @@ function addBlank() {
    ItemRow's fold uses) */
 .folder__items > .is-new :deep(.item__meta > :not(.item__trail)),
 .folder__items > .is-new :deep(.item__meta > .item__trail > *) {
-  animation: item-fade var(--spring-fade-dur) var(--spring-fade);
+  animation: fade-in var(--spring-fade-dur) var(--spring-fade);
 }
 @keyframes item-in {
   from {
@@ -173,11 +165,7 @@ function addBlank() {
     padding-bottom: 0;
   }
 }
-@keyframes item-fade {
-  from {
-    opacity: 0;
-  }
-}
+/* (the fade is the shared `fade-in` keyframe — main.scss) */
 /* the next link: hidden while the field stands in its place, then in once the box has
    carried it most of a row down (a third of the step beat). Its top padding grows from
    0 on the same spring: the row keeps its own 8px above the field from the first frame
@@ -186,7 +174,7 @@ function addBlank() {
 .folder__add.is-arriving {
   animation:
     add-in var(--spring-step-dur) var(--spring-step),
-    item-fade var(--spring-fade-dur) var(--spring-fade) calc(var(--spring-step-dur) / 3) backwards;
+    fade-in var(--spring-fade-dur) var(--spring-fade) calc(var(--spring-step-dur) / 3) backwards;
 }
 @keyframes add-in {
   from {
@@ -220,7 +208,6 @@ function addBlank() {
 .folder__add {
   border-top: 1px solid var(--line);
   padding-top: var(--space-2);
-  margin-top: 0;
 }
 /* when the folder is EMPTY the add row is the FIRST row, so it drops the rule line —
    a first row never carries a divider under the folder name (same as .folder__items >

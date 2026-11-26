@@ -20,10 +20,6 @@ const loadVault = () =>
   }));
 
 // ---------------------------------------------------------------------------
-// capture
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // whose gear is this?
 // ---------------------------------------------------------------------------
 // A list you MADE is unambiguously yours, and its gear goes to your vault without
@@ -129,6 +125,16 @@ export function _pendingCapture(): boolean {
   return pending !== null;
 }
 
+/** Why a hand press did or didn't land. Each value is a different thing for the
+ *  row to SAY: a row to finish, a removal to undo on /gear, a full vault to make
+ *  room in, a request worth retrying.
+ *
+ *  EXPORTED because it is part of captureOne's public answer, and because the union
+ *  was otherwise spelled out by hand wherever that answer travels — the controller's
+ *  saveItemToVault and the row's test both restated it, so a sixth result would have
+ *  narrowed silently at one hop and kept compiling at the other. */
+export type CaptureOneResult = "saved" | "unworthy" | "removed" | "full" | "nested" | "failed";
+
 /**
  * Capture the gear in a list into this device's vault.
  *
@@ -144,16 +150,6 @@ export function _pendingCapture(): boolean {
  * treatment the offline catalog cache gets, and for the same reason (the editor's
  * bundle is budgeted).
  */
-/** Why a hand press did or didn't land. Each value is a different thing for the
- *  row to SAY: a row to finish, a removal to undo on /gear, a full vault to make
- *  room in, a request worth retrying.
- *
- *  EXPORTED because it is part of captureOne's public answer, and because the union
- *  was otherwise spelled out by hand wherever that answer travels — the controller's
- *  saveItemToVault and the row's test both restated it, so a sixth result would have
- *  narrowed silently at one hop and kept compiling at the other. */
-export type CaptureOneResult = "saved" | "unworthy" | "removed" | "full" | "nested" | "failed";
-
 export function useVaultCapture() {
   // hasVault as well as the fetch: capture does nothing for someone who has no vault
   // (see sync below), and the two come from the same place.
@@ -184,14 +180,14 @@ export function useVaultCapture() {
    */
   function sync(
     items: Item[],
-    folders: Folder[] = [],
+    folders: Folder[],
     opts: {
-      editToken?: string;
+      editToken: string;
       onAsk?: () => void;
       /** What the vault holds of this list's gear, or null while unanswered —
        *  the open list's own answer, handed in by the controller. */
       held?: ReadonlyMap<string, number | null> | null;
-    } = {},
+    },
   ): void {
     if (!import.meta.client) return;
     if (vaultKnown.value && !hasVault.value) return;
@@ -211,21 +207,21 @@ export function useVaultCapture() {
 
   function capture(
     { captureFromList, captureFingerprint }: Awaited<ReturnType<typeof loadVault>>,
-    ...[items, folders = [], opts = {}]: Parameters<typeof sync>
+    ...[items, folders, opts]: Parameters<typeof sync>
   ): void {
     const all = captureFromList(items, folders);
     if (!all.length) return;
     // Gear declined in the chooser stays declined on every later edit — this is
     // what makes "only the tent is mine" a standing answer rather than a
     // one-off, since capture otherwise re-offers the whole list every time.
-    const declined = vaultExclusionsFor(opts.editToken ?? "");
+    const declined = vaultExclusionsFor(opts.editToken);
     const caps = declined.size ? all.filter((c) => !declined.has(c.normKey)) : all;
     if (!caps.length) return;
     // The decision is consulted HERE, after the capture set is built, so a list
     // with nothing vault-worthy in it never raises the question. Asking whether
     // to add gear when there is no gear is a question whose answer changes
     // nothing — and it burned the one chance to ask about that list.
-    const decision = vaultDecisionFor(opts.editToken ?? "");
+    const decision = vaultDecisionFor(opts.editToken);
     if (decision === "no") return;
     // Only ask someone who HAS a vault to ask about (the session may not have
     // answered yet; signed out for certain never gets this far). The prompt once
@@ -342,7 +338,7 @@ export function useVaultCapture() {
 
   /**
    * Capture a list that arrived WHOLE — imported from LighterPack, or cloned from
-   * someone's public list. Its gear reaches the client in one server response
+   * someone's shared list. Its gear reaches the client in one server response
    * rather than through ops, so nothing else would ever offer it to the vault.
    *
    * Called at the moment of creation rather than from the editor's load(), even
@@ -373,7 +369,7 @@ export function useVaultCapture() {
    * else. Behind the same dynamic import, so asking for the list is what pulls the
    * chunk rather than the editor carrying it.
    */
-  async function buildCaptures(items: Item[], folders: Folder[] = []): Promise<VaultCapture[]> {
+  async function buildCaptures(items: Item[], folders: Folder[]): Promise<VaultCapture[]> {
     if (!import.meta.client) return [];
     try {
       const { captureFromList } = await loadVault();
@@ -409,7 +405,6 @@ export function useVaultCapture() {
     item: Item,
     allItems: Item[],
     folders: Folder[],
-    editToken: string,
   ): Promise<{ result: CaptureOneResult; landed: VaultGearKey[] }> {
     const nothing: VaultGearKey[] = [];
     if (!import.meta.client) return { result: "failed", landed: nothing };
@@ -429,17 +424,12 @@ export function useVaultCapture() {
       }
     }
     let caps: VaultCapture[];
-    try {
-      const { captureFromList } = await loadVault();
-      caps = captureFromList([item], folders);
-    } catch {
-      // chunk fetch failed (offline before the SW cached it)
-      return { result: "failed", landed: nothing };
-    }
-    if (!caps.length) return { result: "unworthy", landed: nothing };
     let landed: VaultGearKey[];
     let full = false;
     try {
+      const { captureFromList } = await loadVault();
+      caps = captureFromList([item], folders);
+      if (!caps.length) return { result: "unworthy", landed: nothing };
       const res = await vaultFetch<{ keys?: VaultGearKey[]; full?: boolean }>(
         "/api/vault/capture",
         // This is the deliberate update path. Background capture fills a missing
@@ -450,6 +440,7 @@ export function useVaultCapture() {
       landed = res?.keys ?? [];
       full = !!res?.full;
     } catch {
+      // the chunk fetch failed (offline before the SW cached it), or the request did
       return { result: "failed", landed: nothing };
     }
     // The press said "this gear is mine" and the vault either took it or didn't.

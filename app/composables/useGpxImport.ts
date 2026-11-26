@@ -2,7 +2,7 @@ import { ref, watch, type Ref } from "vue";
 import { profileToString } from "~~/shared/profile";
 import { cumulativeM, decodePolyline, nearestAlongM, routeGeometryFromPoints } from "~~/shared/polyline";
 import type { FilePin, TrackPoint } from "~~/shared/gpx";
-import { MAX_WAYPOINTS, type Op } from "~~/shared/ops";
+import { MAX_LABEL_LEN, MAX_WAYPOINTS, type Op } from "~~/shared/ops";
 import type { ListSnapshot, WaypointKind } from "~~/shared/types";
 
 /**
@@ -54,7 +54,7 @@ interface GpxTarget {
   setMeta: (patch: Extract<Op, { t: "setMeta" }>["patch"]) => void;
 }
 
-export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
+export function useGpxImport(c: GpxTarget) {
   const gpxError = ref("");
   const gpxBusy = ref(false);
   // Which read owns the outcome: a second file chosen while the first is still
@@ -91,7 +91,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
     // Every pin PROJECTS onto the line, because a waypoint is a distance along the route
     // and not a coordinate. A water source 200 m off-trail is recorded where you'd leave
     // the trail for it, which is the useful place to be told about it.
-    const taken = (snapshot.value?.waypoints ?? []).map((w) => w.alongM);
+    const taken = (c.snapshot.value?.waypoints ?? []).map((w) => w.alongM);
     // The room left is re-read HERE, not only when the offer was made: it can sit open
     // for minutes while a collaborator fills the list, and the reducer drops any pin
     // past its cap without a word — so stop where it would, rather than queue ops it
@@ -113,7 +113,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       // we gave it.
       if (pin.name) {
         const made = (c.snapshot.value?.waypoints ?? []).find((w) => w.alongM === alongM);
-        if (made) c.updateWaypoint(made.id, { label: pin.name.slice(0, 120) });
+        if (made) c.updateWaypoint(made.id, { label: pin.name.slice(0, MAX_LABEL_LEN) });
       }
     }
   }
@@ -216,7 +216,7 @@ export function useGpxImport(snapshot: Ref<ListSnapshot | null>, c: GpxTarget) {
       const offered = pins.slice(0, room);
       pending.value = geometry && offered.length ? { geometry, pins: offered, kindOf: pinKind, epoch } : null;
     } catch {
-      if (current()) gpxError.value = "Couldn't read a route out of that file.";
+      if (current()) gpxError.value = "Couldn’t read a route out of that file.";
     } finally {
       if (mine === reads) gpxBusy.value = false;
     }

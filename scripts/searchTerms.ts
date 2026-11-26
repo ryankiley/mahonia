@@ -3,7 +3,7 @@
 //
 // BUILD-TIME ONLY, which is why it lives here and not in shared/. Everything it
 // produces is materialized into catalog_items.search_terms at seed time, so the
-// only callers are build-catalog and catalogCsv — nothing under app/ or server/
+// only callers are research.ts and catalogCsv — nothing under app/ or server/
 // imports it at request time. It sat in shared/ (which means "the browser and the
 // server both need this, identically, while serving a request") for long enough to
 // imply a runtime role it never had. Its sibling scripts/gearTypes.ts is the same
@@ -335,8 +335,7 @@ export const EXTRA_TERMS: Record<string, readonly string[]> = {
   "softshell hoodie": ["softshell jacket", "soft shell", "softshell", "soft-shell jacket", "softshell hoody"],
   jacket: ["coat"],
   "down jacket": ["puffy", "puffer", "puffer jacket", "puffy jacket", "down coat", "down parka", "down puffy", "down hoody", "down hoodie", "insulated jacket", "feather jacket", "belay jacket"],
-  "insulated jacket": ["puffy", "puffer", "puffer jacket", "puffy jacket", "synthetic puffy", "insulated coat", "insulation jacket", "synthetic jacket", "active insulation", "belay jacket"],
-  "synthetic jacket": ["puffy", "puffer", "puffer jacket", "puffy jacket", "synthetic puffy", "synthetic insulated jacket", "insulated jacket", "active insulation"],
+  "synthetic jacket": ["puffy", "puffer", "puffer jacket", "puffy jacket", "synthetic puffy", "synthetic insulated jacket", "insulated jacket", "active insulation", "insulated coat", "insulation jacket", "belay jacket"],
   vest: ["gilet", "bodywarmer", "body warmer", "sleeveless jacket", "insulated vest", "down vest", "puffy vest", "puffer vest", "jerkin"],
   "down pants": ["insulated pants", "puffy pants", "down trousers", "insulated trousers", "puffer pants"],
   // — clothing: mid and base —
@@ -464,8 +463,7 @@ export const EXTRA_TERMS: Record<string, readonly string[]> = {
   carabiner: ["karabiner", "krab", "clip", "mini carabiner", "wire gate", "wiregate", "snap hook", "biner"],
   "gear hooks": ["gear hook", "hanger", "hangers", "pack hooks", "hooks", "s hook", "s-hook", "gear hanger"],
   // — hygiene —
-  sunscreen: ["sunblock", "sun cream", "suncream", "sun screen", "spf", "sun lotion", "sunscreen lotion", "sun block", "sun protection", "sunscreen cream", "zinc", "zinc cream"],
-  "sunscreen stick": ["sun stick", "sunblock stick", "spf stick", "sunscreen balm", "face stick", "zinc stick", "zinc"],
+  sunscreen: ["sunblock", "sun cream", "suncream", "sun screen", "spf", "sun lotion", "sunscreen lotion", "sun block", "sun protection", "sunscreen cream", "zinc", "zinc cream", "sun stick", "sunblock stick", "spf stick", "sunscreen balm", "face stick", "zinc stick"],
   "lip balm": ["lip salve", "chapstick", "lipbalm", "lip protection", "spf lip balm", "lip sunscreen", "lipsalve", "lip cream", "lip chap"],
   "insect repellent": ["bug spray", "insect spray", "mosquito repellent", "deet", "picaridin", "bug repellent", "mozzie spray", "mozzie repellent", "midge repellent", "sandfly repellent", "sandfly", "sandflies", "bug dope", "repellant", "insect repellant", "bug repellant", "mosquito spray", "insect repellent spray", "tick repellent", "bug juice"],
   "anti-chafe balm": ["anti chafe", "anti-chafe", "chafe balm", "chafing cream", "chamois cream", "anti chafing", "chafe stick", "anti-chafing", "body glide", "chafing balm", "chafe cream"],

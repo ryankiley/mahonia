@@ -19,8 +19,10 @@
 // design system opts into and this app has never used anywhere.
 //
 // FLAT BY DEFAULT, because this is chrome — a menubar lives at the top edge as part of
-// the frame, not as a card floating over the document. WRAPS, because "as many items as
-// needed" is the requirement and nowrap would push the last of them out of reach.
+// the frame, not as a card floating over the document. Flat is what a bare element
+// already is, so the rule declares no ground and no shadow at all. WRAPS, because "as
+// many items as needed" is the requirement and nowrap would push the last of them out
+// of reach.
 .modebar {
   display: inline-flex;
   flex-wrap: wrap;
@@ -28,8 +30,6 @@
   gap: var(--space-px);
   padding: var(--space-1);
   border-radius: var(--radius-3);
-  background: transparent;
-  box-shadow: none;
   color: var(--ink);
   // the row's own padding would otherwise indent it past the title beneath it
   margin-left: calc((var(--space-1) + var(--space-2)) * -1);
@@ -40,11 +40,12 @@
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  // 30px, NOT the design system's 24px --control-1 — the one metric of the port that is
-  // deliberately off. Its menubar is words only; this one puts a 16px icon beside the
-  // word, and 24px leaves 4px of air above and below a mark that needs to sit in its own
-  // space rather than press against the plate's edges. The extra six give the icon room
-  // without making the bar read as buttons. That 30px is --control-compact, which the
+  // 32px, NOT the design system's 24px --control-1 — the one metric of the port that is
+  // deliberately off. Its menubar is words only; this one puts a 20px icon beside the
+  // word, and 24px leaves 2px of air above and below a mark that needs to sit in its own
+  // space rather than press against the plate's edges. 32 leaves it 6px either side
+  // (the portfolio found 28 "still snug" around 18px glyphs) without making the bar
+  // read as buttons. That 32px is --control-compact, which the
   // people chips and the map's expand control share for the same row rhythm.
   height: var(--control-compact);
   padding: 0 var(--space-2);
@@ -57,9 +58,9 @@
     color var(--spring-fade-dur) var(--spring-fade);
 }
 // THE TARGET on a phone, drawn apart from the tab — the .switch::before pattern
-// (controls.scss). 30px is the height this bar should LOOK (see above), and 14px short of
+// (controls.scss). 32px is the height this bar should LOOK (see above), and 12px short of
 // the --tap every other control grows to on a coarse pointer; growing the tab would
-// change the look and stand the bar taller. A transparent ::before reaches 7px past it
+// change the look and stand the bar taller. A transparent ::before reaches 6px past it
 // above and below instead, absolutely positioned so it costs no layout. Vertical only:
 // the tabs sit 2px apart, and a hit area reaching sideways would land on the neighbour.
 @media (pointer: coarse) {
@@ -101,8 +102,9 @@
   }
 }
 
+// the ring is the reset's own (reset.scss); only where it sits is this chip's, drawn
+// inward over the plate
 .modebar__opt:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
   outline-offset: var(--focus-offset-inset);
 }
 
@@ -126,9 +128,16 @@
 }
 
 // The icons are this app's addition, not the design system's — its menubar is words only.
-// They go first at every width and vanish before the word does.
-@media (max-width: 380px) {
-  .modebar__opt svg {
+// They go first and vanish before the word does, where the bar runs out of room. The
+// bar's own options only: the chip is worn elsewhere (the share panel's tabs, the people
+// bar), and an icon added there is that surface's to hide.
+// 320px, which no current phone is under: three tabs with their icons are 230px wide and
+// the editor's column is 288 even there. The line was 380px, drawn for a row the bar
+// SHARES (My Gear's, with its add button), and it took the icons off every 375px phone
+// in the editor and on a shared list, where they fit with room to spare. A bar that
+// shares its row hides them at the width its own row needs (gear.vue).
+@media (max-width: 320px) {
+  .modebar .modebar__opt svg {
     display: none;
   }
 }

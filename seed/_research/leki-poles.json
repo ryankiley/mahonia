@@ -1,5 +1,5 @@
 {
-  "_note": "LEKI's current three-season trekking/hiking pole lineup, from lekiusa.com (their Shopify store). LEKI publishes weight PER POLE in the on-page SPECIFICATIONS table; the catalog stores trekking poles PER PAIR, so weight_value = 2x LEKI's per-pole spec. The quote records LEKI's exact per-pole figure (the source anchor) plus the doubled pair total. Ski-touring, four-season/mountaineering, Nordic-walking, race, kids, and single-staff models are intentionally excluded as out-of-category. The legacy 'Makalu Lite' (measured, OGL) already in the catalog is a distinct older model kept as-is.",
+  "_comment": "LEKI's current three-season trekking/hiking pole lineup, from lekiusa.com (their Shopify store). LEKI publishes weight PER POLE in the on-page SPECIFICATIONS table; the catalog stores trekking poles PER PAIR, so weight_value = 2x LEKI's per-pole spec. The quote records LEKI's exact per-pole figure (the source anchor) plus the doubled pair total. Ski-touring, four-season/mountaineering, Nordic-walking, race, kids, and single-staff models are intentionally excluded as out-of-category. The legacy 'Makalu Lite' (measured, OGL) already in the catalog is a distinct older model kept as-is.",
   "rows": [
     {
       "brand": "Leki",

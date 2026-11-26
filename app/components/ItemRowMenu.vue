@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HugeiconsIcon, type IconNode } from "~/utils/hugeicon";
+import { SvgIcon, type IconNode } from "~/utils/icon";
 
 // One of a row's popover menus. The carrier picker, the nesting actions and the
 // mobile ⋯ overflow were this exact shape written three times in ItemRow: a .menu
@@ -22,6 +22,11 @@ const props = defineProps<{
   kind: string;
   /** the trigger's accessible name, and its tooltip when `tooltip` is on */
   label: string;
+  /** a fuller accessible name for the TRIGGER alone, when a list of rows each carries
+   *  this menu: "Nesting for X-Mid 2" over a tooltip that says "Nesting" (it hangs off
+   *  the row, so the noun is on screen). It opens with `label`, so the name still
+   *  contains the visible word. */
+  triggerLabel?: string;
   /** the list's accessible name, when it reads differently from the trigger's —
    *  "Who carries this" under a trigger named "Carried by Sam" */
   menuLabel?: string;
@@ -70,17 +75,17 @@ function toggle() {
            click can act. Preventing the default keeps focus where it was; click
            still fires. -->
       <button
-        class="btn btn--icon btn--ghost rowmenu__btn ink-quiet"
+        class="btn btn--icon btn--ghost ink-quiet"
         :class="triggerClass"
         type="button"
         aria-haspopup="menu"
         :aria-expanded="isOpen"
-        :aria-label="label"
+        :aria-label="triggerLabel ?? label"
         @mousedown.prevent
         @click="toggle"
       >
         <slot name="trigger">
-          <HugeiconsIcon v-if="icon" :icon="icon" :size="16" :stroke-width="2" />
+          <SvgIcon v-if="icon" :icon="icon" />
         </slot>
       </button>
     </Tooltip>

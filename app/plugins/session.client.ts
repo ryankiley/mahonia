@@ -11,10 +11,13 @@
 // plausibly a session to fetch. That matters here more than it usually would —
 // `/e` is prerendered and CDN-served with zero function invocations, and it's the
 // route the whole site redirects to.
-import { deviceFingerprint } from "~/composables/useClaimedLists";
+import { deviceFingerprint, sweptTokens } from "~/composables/useClaimedLists";
 
 export default defineNuxtPlugin(() => {
   const session = useSession();
+  // What an earlier session left in this browser's storage and nobody was here to
+  // forget. Before anything below reads what the current one kept.
+  sweepStaleOwned(session.hasSessionHint());
   // What this browser last knew of the account's lists, before anything asks the
   // server — and the cross-tab follow that keeps it honest. See restoreFromDevice.
   useClaimedLists().restoreFromDevice();
@@ -46,15 +49,20 @@ export default defineNuxtPlugin(() => {
   // already, so signing in on a new device simply finds it. That claim-on-sign-in
   // step only existed while a vault was owned by a link the browser happened to
   // hold.
-  const registryFingerprint = computed(() =>
-    // the whole registry — the same set the claim sends, both buckets
-    deviceFingerprint(useMyLists().entries.value.map((e) => e.editToken)),
-  );
+  // the same set the claim sends, so a list merely opened here doesn't re-run it
+  const registryFingerprint = computed(() => deviceFingerprint(sweptTokens()));
   // On the OWNER, not on signedIn: an account replaced by another in this browser
   // (B's sign-in link redeemed while A was in) never flips signedIn, and the
   // switcher kept A's lists until a reload.
-  watch([() => session.user.value?.owner, registryFingerprint], ([owner, fingerprint]) => {
-    if (!owner) return;
-    void useClaimedLists().claimDeviceLists(fingerprint);
-  });
+  //
+  // And on `sweep`: a sign-in someone only confirmed here doesn't bring the
+  // browser's lists until they say so (claimDeviceLists holds the gate), and the
+  // yes arrives as that flag turning true on a session already signed in.
+  watch(
+    [() => session.user.value?.owner, registryFingerprint, () => session.user.value?.sweep],
+    ([owner, fingerprint]) => {
+      if (!owner) return;
+      void useClaimedLists().claimDeviceLists(fingerprint);
+    },
+  );
 });

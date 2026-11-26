@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import { Csv01Icon, FileImportIcon, TaskAdd01Icon, ThirdBracketIcon } from "@hugeicons/core-free-icons";
+import { IconBrackets1, IconBug, IconFileArrowLeftIn, IconFileExcel, IconSquareChecklist } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
+import { SITE_LINKS } from "~/utils/siteLinks";
 // My Gear's ⋯ actions menu — the same quiet kebab the editor and the read views
 // carry, in the one place that didn't have one.
 //
@@ -17,6 +18,16 @@ import { Csv01Icon, FileImportIcon, TaskAdd01Icon, ThirdBracketIcon } from "@hug
 // "Create a list" leads it. It was a word in the bar beside this menu, and on a phone
 // the bar ran brand, page name, that word, the account glyph and ⋯ edge to edge with
 // no air; the bar now holds the page's name and two glyphs at every width.
+//
+// Help, About and Legal close it, as they close the editor's menu, and for the editor's
+// reason: this page has no footer (gear.vue marks the body `bare`). It had the site's,
+// from when it was a site page; it is laid out as the editor is now (Your packs, the
+// tabs, this ⋯), and a footer under it was the one part still saying "website", ruling
+// a line under an empty page (Ryan: "why is this footer here vs in the ⋯ menu?").
+//
+// "Send feedback…" leads that foot, in the editor's seat for it and under the editor's
+// mark and words: feedback belongs beside the thing you would report on (SiteFooter),
+// and this page had no way to send any.
 const {
   /** Signed in, with gear to import into. Signed out the menu is only the way to a
    *  new list, which needs no account. */
@@ -37,7 +48,7 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
            isn't about this page's gear -->
       <li role="none">
         <NuxtLink to="/e" data-row role="menuitem" class="menu__item" @click="close()">
-          <HugeiconsIcon :icon="TaskAdd01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconSquareChecklist" aria-hidden="true" />
           Create a list
         </NuxtLink>
       </li>
@@ -50,21 +61,33 @@ const emit = defineEmits<{ pick: [action: string]; open: [] }>();
         <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'import')">
           <!-- the marks the editor's Import row and the list exports wear, so one act
                keeps one picture wherever you meet it -->
-          <HugeiconsIcon :icon="FileImportIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+          <SvgIcon :icon="IconFileArrowLeftIn" aria-hidden="true" />
           Import gear…
         </button>
         <!-- the same two words the editor's and the read views' export rows use, so
              one action keeps one name wherever you meet it -->
         <template v-if="canExport">
           <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'csv')">
-            <HugeiconsIcon :icon="Csv01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconFileExcel" aria-hidden="true" />
             Download CSV
           </button>
           <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'json')">
-            <HugeiconsIcon :icon="ThirdBracketIcon" :size="16" :stroke-width="2" aria-hidden="true" />
+            <SvgIcon :icon="IconBrackets1" aria-hidden="true" />
             Download JSON
           </button>
         </template>
+      </li>
+      <!-- the site foot, ruled off from this page's own rows: for everyone, signed in or
+           not, since it is now the only way from here to these three -->
+      <li role="none" class="menu__foot">
+        <button type="button" data-row role="menuitem" class="menu__item" @click="close(); emit('pick', 'feedback')">
+          <SvgIcon :icon="IconBug" aria-hidden="true" />
+          Send feedback…
+        </button>
+        <NuxtLink v-for="l in SITE_LINKS" :key="l.to" :to="l.to" data-row role="menuitem" class="menu__item" @click="close()">
+          <SvgIcon :icon="l.icon" aria-hidden="true" />
+          {{ l.label }}
+        </NuxtLink>
       </li>
     </template>
   </KebabMenu>

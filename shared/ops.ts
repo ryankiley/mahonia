@@ -9,10 +9,11 @@ import { isCalendarDate } from "./calendar";
 import { parseProfile } from "./profile";
 import { tidyProse, tidyText } from "./tidyText";
 import { boundedRound, normalizeDistanceUnit, normalizeTrailAscentM, normalizeTrailDistanceM } from "./trailDistance";
-import { normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "./trailLink";
+import { MAX_URL_LEN, normalizeTrailLabel, normalizeTrailUrl, safeUrl } from "./trailLink";
 import type { Classification, Folder, Item, ListMeta, ListMetaKey, ListSnapshot, ListState, Person, TripDay, Unit, Waypoint } from "./types";
 import { CLASSIFICATIONS, UNITS, WAYPOINT_KINDS } from "./types";
-import { personNameTaken, UNASSIGNED } from "./people";
+import { MAX_PERSON_NAME_LEN, personNameTaken, UNASSIGNED } from "./people";
+import { isWaterName } from "./water";
 import { cumulativeM, decodePolyline, isLoop, normalizeRouteGeometry } from "./polyline";
 
 // updateItem's patch: Partial<Item> plus `catalogItemId: null` as an explicit
@@ -93,8 +94,6 @@ export type Op =
       }>;
     };
 
-const CLASSES = CLASSIFICATIONS;
-
 // `YYYY-MM-DD`, and a date that actually exists — the regex alone would accept
 // 2026-02-31, which Date normalises to March and would silently move the trip.
 
@@ -172,21 +171,25 @@ const META_RULES: {
   startDate: { normalize: normalizeCalendarDate },
   endDate: { normalize: normalizeCalendarDate },
 };
+/** Every META_RULES field, each one present: its stored value, or undefined. */
+type MetaFields = { [K in keyof typeof META_RULES]: ListMeta[K] | undefined };
+
 /**
  * The clearable meta fields of a foreign object, each as the reducer's setMeta would
- * store it (undefined = clear, or nothing usable there). The JSON importer re-validates
- * a hand-edited backup by this — the same eight rules, not a second list of them.
+ * store it (undefined = clear, or nothing usable there). EVERY key comes back, the
+ * unusable ones as undefined: a whole-list write spreads this, and an update that
+ * leaves a column out keeps the live value standing. The JSON importer re-validates a
+ * hand-edited backup by this, and the server's create and restore validate by it too:
+ * the same eight rules, not a second list of them.
  */
-export function normalizeMetaFields(raw: Record<string, unknown>): Partial<ListMeta> {
-  const out: Partial<ListMeta> = {};
+export function normalizeMetaFields(raw: Record<string, unknown>): MetaFields {
+  const out: Record<string, unknown> = {};
   for (const key of Object.keys(META_RULES) as (keyof typeof META_RULES)[]) {
     const v = raw[key];
     const rule = META_RULES[key];
-    if (typeof v === "string" || (rule.numeric && typeof v === "number")) {
-      (out as Record<string, unknown>)[key] = rule.normalize(v);
-    }
+    out[key] = typeof v === "string" || (rule.numeric && typeof v === "number") ? rule.normalize(v) : undefined;
   }
-  return out;
+  return out as MetaFields;
 }
 
 // Hard caps (enforced in the reducer → client + server agree). Generous for
@@ -219,16 +222,16 @@ export const MAX_DESCRIPTION_LEN = 4000;
 export const MAX_ITEM_NAME_LEN = 200;
 export const MAX_ITEM_NOTE_LEN = 2000;
 export const MAX_GEAR_TYPE_LEN = 120; // commonName
-const MAX_BRAND_LEN = 120;
+export const MAX_BRAND_LEN = 120;
 /** a day's or a waypoint's label */
-const MAX_LABEL_LEN = 120;
+export const MAX_LABEL_LEN = 120;
 /** a day's or a waypoint's note: "Resupply at Reds, shuttle at 8" */
 export const MAX_NOTE_LEN = 500;
 /** a row's count, and its worn split */
-const MAX_QTY = 9999;
+export const MAX_QTY = 9999;
 export const MAX_VARIANT_LEN = 120; // the size/config qualifier, typed or picked
 export const MAX_FOLDER_NAME_LEN = 120;
-export const MAX_PERSON_NAME_LEN = 60;
+export { MAX_PERSON_NAME_LEN };
 // Past this an itinerary stops being something a person hand-enters, and the per-day
 // model stops being the right tool for the trip. A bound on row size, like the two above,
 // not an opinion about how long a walk should be.
@@ -251,6 +254,18 @@ export const UNIT_WEIGHT_MAX_MG = 100_000_000; // 100 kg per single unit
 // as one row without ever approaching the bound.
 export const KCAL_MAX = 1_000_000;
 
+/**
+ * kcal as it is stored: whole, positive and under KCAL_MAX, or absent. Never zero: a
+ * zero would read as "this food has no calories", which is a claim, where absent reads
+ * as "not filled in", which is the truth. One rule for a row's patch, a whole row and a
+ * piece of My Gear, so a direct POST can't store a value the editor could never have
+ * produced.
+ */
+export const kcalOf = (v: unknown): number | undefined => {
+  const k = typeof v === "number" && isFinite(v) ? Math.round(v) : 0;
+  return k > 0 ? Math.min(KCAL_MAX, k) : undefined;
+};
+
 // Identity strings are clamped too. Every HUMAN field below is length-capped, but
 // item/folder ids + folderId references are free-form client strings — left
 // unbounded, a hostile client could pack a single `data` JSONB row to hundreds of
@@ -265,6 +280,18 @@ const SAFE_COLOR_KEY = /^[a-z0-9-]{1,40}$/;
 /** One physical item cannot weigh less than zero or more than the shared item cap. */
 export const clampUnitWeightMg = (n: number) =>
   Math.max(0, Math.min(UNIT_WEIGHT_MAX_MG, Math.round(n)));
+
+/**
+ * Water is a volume, never a count. A water row (isWaterName) carries its whole volume as one
+ * unit, so a qty above one folds into the weight: 3 × 3 L is 9 L, qty 1. Without this a
+ * count could sit behind the editor's litres field, which has no stepper, and multiply
+ * the total where nobody could see it (Nov 2026, a 3 L row counted as 9 kg). Kept in the
+ * reducer, not in the row, so every writer owes it: the editor, the connector, an
+ * import, an older client. Lossless: the line weighs what it did. A zero stays zero.
+ */
+export function foldWaterQty(name: string, qty: number, unitWeightMg: number): { qty: number; unitWeightMg: number } {
+  return qty > 1 && isWaterName(name) ? { qty: 1, unitWeightMg: clampUnitWeightMg(unitWeightMg * qty) } : { qty, unitWeightMg };
+}
 
 /**
  * A worn count only describes a genuine partial of a base line. Keep this beside
@@ -291,7 +318,7 @@ function normalizeWornSplit(
 /** A stored product link: http(s) only, length-capped. Anything else is no link.
  *  Deliberately not tidied — see cleanText below on why URLs keep their apostrophes. */
 const httpUrl = (raw: string): string | undefined => {
-  const url = raw.trim().slice(0, 2000);
+  const url = raw.trim().slice(0, MAX_URL_LEN);
   return safeUrl(url) ? url : undefined;
 };
 
@@ -346,21 +373,17 @@ function cleanItemPatch(patch: ItemPatch): Partial<Item> {
   if (patch.entryUnit === null) out.entryUnit = undefined;
   else if (typeof patch.entryUnit === "string" && UNITS.includes(patch.entryUnit))
     out.entryUnit = patch.entryUnit;
-  // kcal: whole, non-negative. Anything that isn't a usable number CLEARS the field
-  // rather than storing 0 — a zero would read as "this food has no calories", which
-  // is a claim, where absent reads as "not filled in", which is the truth.
+  // kcal: null clears, and so does a number kcalOf won't store (zero or below), rather
+  // than storing 0. Anything that isn't a finite number is left alone.
   if (patch.kcal === null) out.kcal = undefined;
-  else if (typeof patch.kcal === "number" && isFinite(patch.kcal)) {
-    const k = Math.round(patch.kcal);
-    out.kcal = k > 0 ? Math.min(KCAL_MAX, k) : undefined;
-  }
+  else if (typeof patch.kcal === "number" && isFinite(patch.kcal)) out.kcal = kcalOf(patch.kcal);
   if (typeof patch.qty === "number" && isFinite(patch.qty))
     out.qty = Math.max(0, Math.min(MAX_QTY, Math.round(patch.qty)));
   if (typeof patch.wornQty === "number" && isFinite(patch.wornQty)) {
     const wq = Math.round(patch.wornQty);
     out.wornQty = wq > 0 ? Math.min(MAX_QTY, wq) : undefined; // ≤0 clears the split
   }
-  if (patch.classification === null || (typeof patch.classification === "string" && CLASSES.includes(patch.classification)))
+  if (patch.classification === null || (typeof patch.classification === "string" && CLASSIFICATIONS.includes(patch.classification)))
     out.classification = patch.classification;
   // NO worn/consumable-clears-wornQty rule here: applyOp's updateItem arm runs it
   // on the merged item (where it can also see qty), so stating it twice only
@@ -392,7 +415,7 @@ function cleanFolderPatch(patch: Partial<Folder>): Partial<Folder> {
   const out: Partial<Folder> = {};
   if (typeof patch.name === "string") out.name = cleanText(patch.name, MAX_FOLDER_NAME_LEN);
   if (typeof patch.colorKey === "string" && SAFE_COLOR_KEY.test(patch.colorKey)) out.colorKey = patch.colorKey;
-  if (typeof patch.defaultClassification === "string" && CLASSES.includes(patch.defaultClassification))
+  if (typeof patch.defaultClassification === "string" && CLASSIFICATIONS.includes(patch.defaultClassification))
     out.defaultClassification = patch.defaultClassification;
   if (typeof patch.sortOrder === "number" && isFinite(patch.sortOrder)) out.sortOrder = patch.sortOrder;
   return out;
@@ -641,6 +664,7 @@ function applyOp(state: ListState, op: Op): void {
         const linkedTo = it.catalogItemId;
         const patch = cleanItemPatch(op.patch || {});
         Object.assign(it, patch);
+        Object.assign(it, foldWaterQty(it.name, it.qty, it.unitWeightMg));
         // catalogWeightMgAtLink describes the product named by catalogItemId — it is
         // the baseline the "the catalog's weight changed" nudge measures against. So
         // it can only outlive a RE-LINK if the same patch stamps a fresh one.
@@ -788,7 +812,8 @@ function applyOp(state: ListState, op: Op): void {
       // The trail URL is VALIDATED, not just clamped: it ends up in a :href on a page
       // strangers open, and Vue won't sanitize it. An empty string clears the link;
       // anything that isn't http(s) is dropped, so a hostile client can't persist a
-      // javascript: value by talking to the API directly.
+      // javascript: value by talking to the API directly. (A bare "alltrails.com/…"
+      // is http(s): normalizeTrailUrl reads it as https, here and on the server alike.)
       if (typeof p.trailUrl === "string") {
         const href = normalizeTrailUrl(p.trailUrl);
         if (href) state.trailUrl = href;
@@ -843,15 +868,17 @@ export function normalizeItem(raw: Item): Item {
   // runs per item on every batch and every whole-list rebuild.
   const rawQty: unknown = raw.qty; // typed number, but this parses foreign JSON too
   const n = rawQty == null || rawQty === "" ? NaN : Number(rawQty);
-  const qty = Math.max(0, Math.min(MAX_QTY, Math.round(Number.isFinite(n) ? n : 1)));
-  let classification = CLASSES.includes(raw.classification as Classification)
+  const name = cleanText(String(raw.name ?? ""), MAX_ITEM_NAME_LEN);
+  const { qty, unitWeightMg } = foldWaterQty(
+    name,
+    Math.max(0, Math.min(MAX_QTY, Math.round(Number.isFinite(n) ? n : 1))),
+    clampUnitWeightMg(Number(raw.unitWeightMg) || 0),
+  );
+  let classification = CLASSIFICATIONS.includes(raw.classification as Classification)
     ? (raw.classification as Classification)
     : null;
   const worn = normalizeWornSplit(qty, classification, raw.wornQty);
   classification = worn.classification;
-  // same clamp as cleanItemPatch: whole, positive, bounded — anything else is
-  // absent rather than zero (see Item.kcal)
-  const kcal = typeof raw.kcal === "number" && isFinite(raw.kcal) ? Math.round(raw.kcal) : 0;
   return {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     // empty string collapses to null — a real id or nothing. "" is a truthy-looking
@@ -862,13 +889,13 @@ export function normalizeItem(raw: Item): Item {
     // the item this is nested under (validated against real, top-level items by the
     // addItem/moveItem reducer cases, which can see the whole list; here we only clamp)
     parentId: typeof raw.parentId === "string" && raw.parentId ? raw.parentId.slice(0, MAX_ID_LEN) : null,
-    name: cleanText(String(raw.name ?? ""), MAX_ITEM_NAME_LEN),
+    name,
     brand: raw.brand ? cleanText(String(raw.brand), MAX_BRAND_LEN) || undefined : undefined,
     variant: raw.variant ? cleanText(String(raw.variant), MAX_VARIANT_LEN) || undefined : undefined,
     commonName: raw.commonName ? cleanText(String(raw.commonName), MAX_GEAR_TYPE_LEN) || undefined : undefined,
     commonNameOverridden: raw.commonNameOverridden ? true : undefined,
     nameOverridden: raw.nameOverridden ? true : undefined,
-    unitWeightMg: clampUnitWeightMg(Number(raw.unitWeightMg) || 0),
+    unitWeightMg,
     weightOverridden: !!raw.weightOverridden,
     // display-only, but it must survive normalize or a JSON round-trip (and every
     // addItem, which also runs through here) would quietly reset each row to the
@@ -878,7 +905,9 @@ export function normalizeItem(raw: Item): Item {
     qty,
     wornQty: worn.wornQty,
     classification,
-    kcal: kcal > 0 ? Math.min(KCAL_MAX, kcal) : undefined,
+    // same rule as cleanItemPatch: anything kcalOf won't store is absent rather than
+    // zero (see Item.kcal)
+    kcal: kcalOf(raw.kcal),
     description: raw.description ? cleanText(String(raw.description), MAX_ITEM_NOTE_LEN) || undefined : undefined,
     productUrl: raw.productUrl ? httpUrl(String(raw.productUrl)) : undefined,
     priceCents:
@@ -961,7 +990,7 @@ export function normalizeFolder(raw: Folder): Folder {
     id: String(raw.id).slice(0, MAX_ID_LEN),
     name: cleanText(String(raw.name ?? ""), MAX_FOLDER_NAME_LEN) || "Folder",
     colorKey: raw.colorKey && SAFE_COLOR_KEY.test(String(raw.colorKey)) ? String(raw.colorKey) : "other",
-    defaultClassification: CLASSES.includes(raw.defaultClassification)
+    defaultClassification: CLASSIFICATIONS.includes(raw.defaultClassification)
       ? raw.defaultClassification
       : "base",
     // a `sortBy` from the days folders could be name/weight-sorted is dropped here:

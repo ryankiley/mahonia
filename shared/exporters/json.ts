@@ -18,6 +18,7 @@ import { normalizeTrailUrl } from "../trailLink";
 import { normalizeRouteGeometry } from "../polyline";
 import { uid } from "../id";
 import { uniquifyPersonNames } from "../people";
+import { colorKeyForName, usedColorKeys } from "../categories";
 import { isRecord } from "../record";
 import { bySortOrder } from "../weights";
 
@@ -87,6 +88,13 @@ export function jsonToListImport(text: string): JsonImport | null {
 
   const folderIdMap = new Map<string, string>();
   const folders = remintOrdered<Folder>(raw.folders, MAX_FOLDERS, normalizeFolder, folderIdMap);
+  // A folder that came without a usable colour reads "other" (normalizeFolder): give
+  // it the hue the editor would, so an imported list isn't all grey. A name that IS
+  // the grey bucket (Misc, Other) gets "other" back.
+  const hues = usedColorKeys(folders);
+  folders.forEach((f, i) => {
+    if (hues[i] === "other") f.colorKey = hues[i] = colorKeyForName(f.name, hues);
+  });
 
   // People before items: the items re-point personId through this map. Same
   // first-occurrence-wins dedupe as folders, for the same op-targeting reason.
@@ -102,7 +110,7 @@ export function jsonToListImport(text: string): JsonImport | null {
     .filter(isRecord)
     .slice(0, MAX_ITEMS)
     .map((it) => normalizeItem(it as unknown as Item))
-    .sort((a, b) => a.sortOrder - b.sortOrder);
+    .sort(bySortOrder);
   // Every item gets its OWN fresh id (duplicate source ids must NOT collide). A separate
   // source->new map (first occurrence wins, like folderIdMap) lets a child re-point its
   // parentId even when the parent appears later in the file.

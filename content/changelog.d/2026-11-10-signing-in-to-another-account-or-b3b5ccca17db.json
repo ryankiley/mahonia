@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-10",
+  "fixed": [
+    "Signing in to another account, or signing out, can no longer be undone a moment later by a session check that was still loading."
+  ]
+}

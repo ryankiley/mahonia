@@ -90,6 +90,29 @@ beforeEach(() => {
   dropWrites = false;
 });
 
+// The amount cell is the share row's (itemQtyLabel): one of a thing is the default, so
+// a column of "×1" down the checklist only hid the rows that carry a count.
+describe("the checklist's amount", () => {
+  const amount = (w: W) => w.get(".item--check .item__cqty").text();
+
+  it("prints nothing for one of a thing, and the count for more", () => {
+    expect(amount(mountRow([item({ id: "tent", name: "Tent", unitWeightMg: 887_000 })]))).toBe("");
+    expect(amount(mountRow([item({ id: "stakes", name: "Stakes", unitWeightMg: 12_000, qty: 8 })]))).toBe("×8");
+  });
+
+  it("still spells out a split and a volume", () => {
+    expect(amount(mountRow([item({ id: "socks", name: "Socks", unitWeightMg: 50_000, qty: 3, wornQty: 1 })]))).toBe("×3 · 1 worn");
+    expect(amount(mountRow([item({ id: "water", name: "Water", unitWeightMg: 1_000_000, classification: "consumable" })]))).toBe("1 L");
+  });
+
+  // one mark for "no weight" on both faces of the row
+  it("an unweighed row reads a dash on the checklist and in the editor's field", () => {
+    const w = mountRow([item({ id: "tent", name: "Tent" })]);
+    expect(w.get(".item--check .item__cweight").text()).toBe("—");
+    expect(w.get('input[aria-label="Weight"]').attributes("placeholder")).toBe("—");
+  });
+});
+
 describe("a group's box in packing mode", () => {
   it("reads its children, never its own flag: clear, then mixed, then checked", async () => {
     // the reported state: the group ticked on its own, everything under it still out

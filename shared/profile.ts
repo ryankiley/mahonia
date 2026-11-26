@@ -223,13 +223,23 @@ export function dayClimbs(
   // smoothing an unchanged route twice whenever an itinerary cell changes.
   const eased = smooth(profile, SMOOTH_WINDOW);
   const parts = segmentClimbsInEasedProfile(eased, dayDistancesM, routeM || undefined);
-  const wholeProfileClimb = segmentClimbsInEasedProfile(eased, [1])[0]?.ascentM ?? 0;
-  if (!routeAscentM || !(wholeProfileClimb > 0)) return parts;
-  const scale = routeAscentM / wholeProfileClimb;
+  const scale = climbScale(eased, routeAscentM);
   return parts.map((x) => ({
     ascentM: Math.round(x.ascentM * scale),
     descentM: Math.round(x.descentM * scale),
   }));
+}
+
+/**
+ * The magnitude correction dayClimbs describes, as a factor: the climb measured across
+ * the full track over the climb the smoothed profile shows end to end. 1 when there is
+ * no stored total or the profile shows no climb, so the shares stand as they are.
+ * Exported for shared/dayFacts, whose longest climb is scaled by the same factor as the
+ * day total it sits beside.
+ */
+export function climbScale(eased: readonly number[], routeAscentM: number | undefined): number {
+  const wholeProfileClimb = segmentClimbsInEasedProfile(eased, [1])[0]!.ascentM;
+  return routeAscentM && wholeProfileClimb > 0 ? routeAscentM / wholeProfileClimb : 1;
 }
 
 
@@ -351,7 +361,6 @@ export function gradeSpread(
   totalDistanceM: number,
 ): Record<GradeBand, number> {
   const spread: Record<GradeBand, number> = { easy: 0, moderate: 0, hard: 0 };
-  if (profile.length < 2) return spread;
   const per = totalDistanceM / (profile.length - 1);
   for (const r of gradeRuns(profile, totalDistanceM)) spread[r.band] += (r.to - r.from) * per;
   return spread;

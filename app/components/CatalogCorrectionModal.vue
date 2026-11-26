@@ -45,7 +45,7 @@ async function onSubmit() {
 <template>
   <BaseModal :open="!!target" label="Fix catalog weight" @close="close()">
     <template v-if="target">
-      <h2 class="t-label">Fix catalog weight</h2>
+      <h2 class="t-label panel__title">Fix catalog weight</h2>
       <p class="dlg__item">{{ target.itemName }}</p>
       <p class="t-sm t-muted dlg__lede">
         The catalog says {{ formatWeight(target.catalogWeightMg, target.displayUnit) }}. A fix
@@ -66,7 +66,7 @@ async function onSubmit() {
       </label>
 
       <div class="dlg__actions">
-        <button class="btn btn--ghost" @click="close()">Cancel</button>
+        <button class="btn btn--soft" @click="close()">Cancel</button>
         <button class="btn btn--primary" :disabled="submitting" @click="onSubmit">
           {{ submitting ? "Sending…" : "Suggest fix" }}
         </button>

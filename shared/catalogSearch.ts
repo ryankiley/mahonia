@@ -127,22 +127,22 @@ export interface LocalCatalogRow extends CatalogSearchResult {
 }
 
 /**
- * True when folded `query` exactly equals, whole-string-prefixes, or
- * word-boundary-prefixes folded `target` — the "I typed the start of the name"
- * case autocomplete must reward. Autocomplete token semantics: every query token
- * but the last must EQUAL consecutive target tokens; the last (the word still being
- * typed) may be a PREFIX. Multi-word aware, and the single window loop (tokensRunIn)
- * subsumes all three cases (exact/whole-prefix = a match anchored at i=0;
- * word-boundary-prefix = a match at any later token boundary). Examples:
+ * True when the query's words (`qt`, folded by searchTokens) exactly equal,
+ * whole-string-prefix, or word-boundary-prefix the target's (`tt`) — the "I typed the
+ * start of the name" case autocomplete must reward. Autocomplete token semantics: every
+ * query token but the last must EQUAL consecutive target tokens; the last (the word
+ * still being typed) may be a PREFIX. Multi-word aware, and the single window loop
+ * (tokensRunIn) subsumes all three cases (exact/whole-prefix = a match anchored at i=0;
+ * word-boundary-prefix = a match at any later token boundary). An empty query runs in
+ * nothing. Examples:
  *   "duplex" vs "Zpacks Duplex"        → last-token prefix at i=1        → true
  *   "x mid 2" vs "Durston X-Mid 2 Pro" → tokens align at i=1            → true
  *   "plex"  vs "Zpacks Duplex"         → mid-word substring, no boundary → false
+ *
+ * Asked of a row's search terms — the derived category noun and its synonyms ("puffy"
+ * in "down jacket puffy") — it decides only that a query names a KIND of gear (see the
+ * diversity cap in rankCandidates); it never ranks a row.
  */
-export function isExactOrPrefixMatch(query: string, target: string): boolean {
-  return runsIn(searchTokens(query), searchTokens(target));
-}
-
-/** The same test on words already folded: a non-empty query running in the target. */
 export function runsIn(qt: readonly string[], tt: readonly string[]): boolean {
   return qt.length > 0 && tokensRunIn(qt, tt);
 }
@@ -166,8 +166,8 @@ function tokensRunIn(qt: readonly string[], tt: readonly string[]): boolean {
 }
 
 /**
- * Whether `query` names the row's KIND of gear: its tokens are a leading run of the
- * row's common-name tokens, the last one still being typed ("sleeping b" → "Sleeping
+ * Whether the query (`qt`) names the row's KIND of gear: its tokens are a leading run of
+ * the row's common-name tokens (`tt`), the last one still being typed ("sleeping b" → "Sleeping
  * bag", and "Sleeping bag liner"). 0 = no; 1 = a leading prefix of a longer type;
  * 2 = the whole type. The 1/2 split breaks the tie the word-match ranker couldn't:
  * "sleeping bag" is the whole of "Sleeping bag" and only a prefix of "Sleeping bag
@@ -177,10 +177,7 @@ function tokensRunIn(qt: readonly string[], tt: readonly string[]): boolean {
  * derived from the name's words and can't be trusted for this (that ground cloth's
  * search_terms ARE "tent").
  */
-export function typeMatch(query: string, commonName: string | null | undefined): 0 | 1 | 2 {
-  return typeOf(searchTokens(query), searchTokens(commonName));
-}
-function typeOf(qt: readonly string[], tt: readonly string[]): 0 | 1 | 2 {
+export function typeOf(qt: readonly string[], tt: readonly string[]): 0 | 1 | 2 {
   if (!qt.length || !tt.length || qt.length > tt.length) return 0;
   if (!tokensMatchAt(qt, tt, 0)) return 0;
   return qt.length === tt.length ? 2 : 1;
@@ -193,50 +190,25 @@ function typeOf(qt: readonly string[], tt: readonly string[]): 0 | 1 | 2 {
  * let "battery" clear 0.6 against "Klättermusen … dry bag" on the strength of "att",
  * "tte", "ter" and " ba".
  */
-export function hasTokenHit(query: string, target: string): boolean {
-  return tokenHit(searchTokens(query), searchTokens(target));
-}
-function tokenHit(qt: readonly string[], tt: readonly string[]): boolean {
+export function tokenHit(qt: readonly string[], tt: readonly string[]): boolean {
   return qt.some((q) => (q.length >= 3 || hasIdeograph(q) || hasKana(q)) && tt.some((t) => t.startsWith(q)));
-}
-
-/**
- * Whether the query is a contiguous run of the row's search terms — the derived
- * category noun and its synonyms ("puffy" in "down jacket puffy"), last token still
- * being typed. Decides only that a query names a KIND of gear (see the diversity
- * cap in rankCandidates); it never ranks a row.
- */
-export function isSearchTermRun(query: string, searchTerms: string | null | undefined): boolean {
-  return runsIn(searchTokens(query), searchTokens(searchTerms));
 }
 
 export type MatchTier = 0 | 1 | 2 | 3;
 
 /**
  * Match-quality tier for ORDERING ONLY (0 = best).
- *   0  the query names the row's kind of gear (typeMatch on common_name)
+ *   0  the query names the row's kind of gear (`type`: typeOf on common_name)
  *   1  exact / prefix / word-boundary-prefix on brand + name — "I typed the name"
  *   2  strong fuzzy: score ≥ STRONG_THRESHOLD AND a word-boundary token hit
  *   3  cleared the SIM_THRESHOLD gate but weak (a typo's recall, kept only when
  *      nothing better matched — see the junk filter in rankCandidates)
- * `brandName` is the prefix target (brand + name, no search_terms — a category noun
- * shouldn't count as typing the name). `score` is the base trigramScore against the
- * FULL target (brand + name + search_terms), reused so tier 2 still rewards the
- * "rucksack"→pack matches that live in search_terms.
+ * Every argument is words already folded. `name` is the prefix target (brand + name, no
+ * search_terms — a category noun shouldn't count as typing the name). `score` is the
+ * base trigram coverage against `all`, the FULL target (brand + name + search_terms),
+ * reused so tier 2 still rewards the "rucksack"→pack matches that live in search_terms.
  */
-export function matchTier(
-  query: string,
-  brandName: string,
-  score: number,
-  commonName?: string | null,
-  searchTerms?: string | null,
-): MatchTier {
-  const qt = searchTokens(query);
-  const name = searchTokens(brandName);
-  return tierOf(qt, typeOf(qt, searchTokens(commonName)), name, [...name, ...searchTokens(searchTerms)], score);
-}
-/** matchTier on words already folded: `name` is brand + name, `all` adds the search terms. */
-function tierOf(
+export function tierOf(
   qt: readonly string[],
   type: 0 | 1 | 2,
   name: readonly string[],
@@ -372,7 +344,7 @@ export function toCatalogResult(row: LocalCatalogRow): CatalogSearchResult {
 export function mergeCatalogRows(
   existing: LocalCatalogRow[],
   incoming: LocalCatalogRow[],
-  cap = 2000,
+  cap = 2000, // bounded; far above what one person realistically searches
 ): LocalCatalogRow[] {
   const seen = new Set<number>();
   const out: LocalCatalogRow[] = [];

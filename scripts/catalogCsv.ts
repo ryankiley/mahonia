@@ -4,12 +4,11 @@
 
 import { parseCsv } from "../shared/exporters/csv";
 import { safeUrl } from "../shared/trailLink";
-import { WEIGHT_SOURCES, type WeightSource } from "../shared/types";
+import type { AttributeKey, RowAttributes } from "../shared/catalogAxes";
+import { WEIGHT_SOURCES, type Unit, type WeightSource } from "../shared/types";
 import { MG_PER_UNIT, parseWeightInput } from "../shared/weights";
-import { ATTRIBUTE_KEYS, parseAttributes, type AttributeKey, type RowAttributes } from "./catalogAttributes";
+import { isAttributeKey, parseAttributes } from "./catalogAttributes";
 import { buildSearchTerms } from "./searchTerms";
-
-export type SpecUnit = "g" | "kg" | "oz" | "lb";
 
 export const CATALOG_CSV_HEADERS = [
   "brand",
@@ -32,8 +31,6 @@ export const CATALOG_CSV_HEADERS = [
   "kcal",
 ] as const;
 
-export { WEIGHT_SOURCES };
-
 /** Membership in the provenance enum — one test instead of a cast-and-includes
  *  at every call site (the parser, the builder, the auditor, the gating test). */
 export const isWeightSource = (s: string): s is WeightSource =>
@@ -49,6 +46,14 @@ export const isCitationUrl = (s: string): boolean => safeUrl(s) !== null;
  *  and the auditor deliberately feed it differently. */
 export const identityKey = (brand: string, name: string, variant: string): string =>
   `${brand.toLowerCase()}|${name.toLowerCase()}|${variant.toLowerCase()}`;
+
+/** What joins the three fields of an exact identity: a character no field can hold. */
+export const SEP = "\u0000";
+/** A row's exact identity, as the table's unique index reads it: an absent brand or
+ *  variant is the empty one. Case kept, unlike identityKey: the seeder, the graduate run
+ *  and the case-collision check tell "NEMO" from "Nemo". */
+export const identity = (brand: string | null, name: string, variant: string | null) =>
+  `${brand ?? ""}${SEP}${name}${SEP}${variant ?? ""}`;
 
 /** "" (after trimming) → null, for the CSV's optional columns. */
 const blankToNull = (v: string | undefined) => {
@@ -73,14 +78,14 @@ const blankToNull = (v: string | undefined) => {
  * secondary within 5% of the primary is treated as redundant and dropped.
  */
 // unit size order (by mass): g < oz < lb < kg
-const UNIT_RANK: Record<SpecUnit, number> = { g: 0, oz: 1, lb: 2, kg: 3 };
+const UNIT_RANK: Record<Unit, number> = { g: 0, oz: 1, lb: 2, kg: 3 };
 
 const SECONDARY_UNIT_RE =
   /\b(kg|kgs?|kilograms?|lb|lbs?|pounds?|oz|ounces?|g|grams?)\b/i;
-function secondaryUnit(s: string): SpecUnit | null {
+function secondaryUnit(s: string): Unit | null {
   const m = s.match(SECONDARY_UNIT_RE);
   if (!m) return null;
-  const w = m[1].toLowerCase();
+  const w = m[1]!.toLowerCase();
   if (w.startsWith("k")) return "kg";
   if (w.startsWith("l") || w.startsWith("p")) return "lb";
   if (w.startsWith("o")) return "oz";
@@ -89,7 +94,7 @@ function secondaryUnit(s: string): SpecUnit | null {
 
 export function specToMg(
   value: number,
-  unit: SpecUnit,
+  unit: Unit,
   secondary?: string | null,
 ): number {
   if (!Number.isFinite(value)) throw new Error(`bad weight value: ${value}`);
@@ -149,7 +154,7 @@ export interface CatalogCsvRow {
   brand: string | null;
   name: string;
   // Generated default common name (a CSV column, unlike searchTerms which is derived);
-  // sourced from seed/common-names.json at build time. See scripts/build-catalog.ts.
+  // sourced from seed/common-names.json at build time. See scripts/catalogBuild.ts.
   commonName: string | null;
   variant: string | null;
   // The variant's axes as data (fit, size, temp_f, volume_l, …); null when the row
@@ -174,7 +179,7 @@ export interface CatalogCsvRow {
 export function csvToCatalogRows(text: string): CatalogCsvRow[] {
   const grid = parseCsv(text);
   if (grid.length === 0) return [];
-  const header = grid[0].map((h) => h.trim());
+  const header = grid[0]!.map((h) => h.trim());
   const idx = (col: string) => header.indexOf(col);
   const iBrand = idx("brand");
   const iName = idx("name");
@@ -193,8 +198,8 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
 
   const out: CatalogCsvRow[] = [];
   for (let r = 1; r < grid.length; r++) {
-    const cells = grid[r];
-    if (cells.length === 1 && cells[0].trim() === "") continue; // blank line
+    const cells = grid[r]!;
+    if (cells.length === 1 && cells[0]!.trim() === "") continue; // blank line
     const name = (cells[iName] ?? "").trim();
     if (!name) continue;
     const weightMg = Number((cells[iMg] ?? "").trim());
@@ -222,8 +227,8 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
     }
     const attributesUnpublished: AttributeKey[] = [];
     for (const k of (iUnpub >= 0 ? (cells[iUnpub] ?? "") : "").split(/;\s*/).filter(Boolean)) {
-      if (!(ATTRIBUTE_KEYS as readonly string[]).includes(k)) throw new Error(`row ${r + 1} (${name}): attributes_unpublished "${k}" is not an axis`);
-      attributesUnpublished.push(k as AttributeKey);
+      if (!isAttributeKey(k)) throw new Error(`row ${r + 1} (${name}): attributes_unpublished "${k}" is not an axis`);
+      attributesUnpublished.push(k);
     }
     out.push({
       brand: iBrand >= 0 ? blankToNull(cells[iBrand]) : null,

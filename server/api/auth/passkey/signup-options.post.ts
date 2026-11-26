@@ -1,10 +1,9 @@
 import { createError, defineEventHandler } from "h3";
 import { registrationOptions, requirePasskeysConfigured, startChallenge } from "../../../utils/passkeys";
 import { randomSecret } from "../../../utils/tokens";
-import { emailTaken, normalizeEmail } from "../../../utils/authSession";
+import { emailTaken, normalizeEmail, openPrivate } from "../../../utils/authSession";
 import { useAccountDb } from "../../../utils/db";
-import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../../utils/http";
-import { rateLimit } from "../../../utils/rateLimit";
+import { readJsonBodyCapped } from "../../../utils/http";
 
 // Step 1 of creating an account with nothing but a passkey.
 //
@@ -37,9 +36,7 @@ import { rateLimit } from "../../../utils/rateLimit";
 // account. This route is reachable by anyone, and the thing on the far side of it
 // is a row in `users`.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "passkey-signup");
+  await openPrivate(event, "passkey-signup");
 
   requirePasskeysConfigured();
 
@@ -54,18 +51,15 @@ export default defineEventHandler(async (event) => {
   // could both pass here — but the unique index is the real guard and signup-verify
   // handles losing that race.
   const db = await useAccountDb();
-  if (await emailTaken(db, email, -1)) {
+  if (await emailTaken(db, email)) {
     throw createError({ statusCode: 409, statusMessage: "That address already has an account" });
   }
 
   // The user handle the authenticator stores. Random and opaque rather than a row
-  // id, because there IS no row id yet — and nothing ever looks an account up by it
-  // (sign-in resolves the credential id instead), so it only has to be stable for
-  // the length of the ceremony.
-  // An opaque handle for an account that doesn't exist yet. Never used to look an
-  // account up (sign-in resolves the credential id), so it only has to be
-  // unguessable and unique enough that two accounts on one device don't render
-  // identically in a password manager.
+  // id, because there IS no row id yet. Nothing ever looks an account up by it
+  // (sign-in resolves the credential id instead), so it only has to be unguessable
+  // and unique enough that two accounts on one device don't render identically in a
+  // password manager.
   const handle = randomSecret();
 
   // What the OS prompt shows, and what names this passkey in a password manager

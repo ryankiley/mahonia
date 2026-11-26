@@ -1,8 +1,9 @@
 import { defineEventHandler } from "h3";
-import { readJsonBodyCapped, setNoIndex, setPrivate } from "../../utils/http";
-import { rateLimit } from "../../utils/rateLimit";
+import { openPrivate } from "../../utils/authSession";
+import { readJsonBodyCapped } from "../../utils/http";
 import { requireVault, resolveOrMintVault } from "../../utils/vaultAuth";
-import { applyVaultItemOp, type VaultItemOp } from "../../utils/vaultRepo";
+import { applyVaultItemOp } from "../../utils/vaultRepo";
+import type { VaultItemOp } from "../../../shared/vault";
 
 // Add a piece of gear by hand, correct one in place, or set a kit's parts — all
 // through ONE route taking an op, so the scoping below is written once.
@@ -13,9 +14,7 @@ import { applyVaultItemOp, type VaultItemOp } from "../../utils/vaultRepo";
 // because "you already have this" and "your vault is full" are facts about YOUR
 // vault and tell a stranger nothing.
 export default defineEventHandler(async (event) => {
-  setNoIndex(event);
-  setPrivate(event);
-  await rateLimit(event, "vault-write");
+  await openPrivate(event, "vault-write");
 
   // Read BEFORE resolving: an add may need to MINT the
   // vault and an edit must not, so which resolver runs depends on the op. Both still

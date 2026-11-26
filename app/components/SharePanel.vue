@@ -1,16 +1,8 @@
 <script setup lang="ts">
+import { IconArrowsRepeatCircle, IconClock, IconEyeOpen, IconPencil2, IconSquareBehindSquare1, IconUserAdd, IconUserDuo } from "~/icons/central";
 import { counted } from "~~/shared/tidyText";
-import { HugeiconsIcon } from "~/utils/hugeicon";
-import {
-  Clock01Icon,
-  Copy01Icon,
-  Edit02Icon,
-  Exchange01Icon,
-  UserAdd01Icon,
-  UserMultiple02Icon,
-  ViewIcon,
-} from "@hugeicons/core-free-icons";
-import type { ExportItem } from "~/composables/useListExports";
+import { SvgIcon } from "~/utils/icon";
+import { ROW_FLASH } from "~/components/ItemRow.vue";
 import type { ChangeAuthor, ListSnapshot, SnapshotMeta } from "~~/shared/types";
 
 // Everything about getting this list to someone else, in ONE place, as two tabs.
@@ -27,7 +19,7 @@ import type { ChangeAuthor, ListSnapshot, SnapshotMeta } from "~~/shared/types";
 // they are one panel.
 //
 // Both tabs draw their rows the menu's way: `.menu__item`, `[data-row]`, the
-// travelling plate, the 16px glyph in the menu's one glyph column, plus a second line.
+// travelling plate, the glyph in the menu's one glyph column, plus a second line.
 // On Share the label is the whole act ("Copy edit link") and the line is who that
 // hands the list to. Read one at a time that looks like it restates the name; read
 // as the pair it is, "see" against "change" is the plainest statement of how the two
@@ -52,11 +44,6 @@ const props = defineProps<{
   authHeaders: Record<string, string>;
   /** the READ-ONLY link the plain-text export appends — see the note in GearEditor */
   shareUrl: string;
-  /** The editor's toast, as a function rather than an event: an export closes the
-   *  panel and THEN finishes (the exporter chunk loads, the clipboard answers), and
-   *  by then this component is unmounted, and an unmounted component's emits go
-   *  nowhere. A function prop is just a reference and still reaches the editor. */
-  flash: (msg: string) => void;
 }>();
 const emit = defineEmits<{
   close: [];
@@ -65,16 +52,50 @@ const emit = defineEmits<{
   rotate: [];
 }>();
 
-const { plateRef, listRef, on } = useMenuPlate();
+// The editor's toast, by inject (ROW_FLASH, the way a row reaches it) rather than an
+// event: an export closes the panel and THEN finishes (the exporter chunk loads, the
+// clipboard answers), and by then this component is unmounted, and an unmounted
+// component's emits go nowhere. The injected function is just a reference and still
+// reaches the editor.
+const flash = inject(ROW_FLASH, () => {});
 
-// A draft has no share code until its first real item lands, so every link here
-// would be broken and every export empty. Say so once, rather than two tabs of
-// disabled rows.
+const { plateRef, listRef, rest, on } = useMenuPlate();
+
+// A draft is a list with no server row yet: nothing real in it, or its first save
+// hasn't landed. It has no links, but asking for one is what makes them: the copy
+// rows are the same rows, and the editor saves the list on the click before it
+// copies (GearEditor.copyLink). So a draft's panel is the saved panel less the two
+// things that need a row to exist, what has changed on it and replacing its link.
+//
+// It used to be one sentence, "Add an item and this list gets its links", which
+// made a trip set up with a title, a trail and its people unsendable until someone
+// typed a placeholder row, and told a list that had items but no connection to add
+// an item.
 const isDraft = computed(() => !props.snapshot.shareCode);
+// The one case with no link to offer: a draft, offline. Saving needs the server.
+// Said in a line where the rows would be (inert controls are absent, not disabled);
+// Export still works, since a file is made on the device.
+const online = useOnline();
+const canLink = computed(() => !isDraft.value || online.value);
 // A CLAIMED open is saved and shareable, but this device holds no edit link to copy:
 // the server only ever stored its hash. So there's no edit-link row, and the replace
 // row reads "Get a new edit link" (a rotate hands this device a fresh one).
 const holdsEditLink = computed(() => !!props.editToken);
+
+// The link rows, as a table the way the Export rows are (useListExports' exportItems):
+// a row is one entry here, not a hand-written <li>. The label is the whole act and the
+// accessible name; the hint is who that hands the list to.
+//
+// A claimed open (opened from the account) holds no edit link: the server only ever
+// stored its hash. No row rather than one that can't copy; the replace row below them
+// says "Get a new edit link" instead, which is how this device gets one. A draft holds
+// none either, yet, and gets one from the save its row starts.
+const linkRows = computed(() => [
+  { key: "read", label: "Copy read-only link", hint: "Anyone with it can see this list", icon: IconEyeOpen, run: () => emit("copyRead") },
+  ...(holdsEditLink.value || isDraft.value
+    ? [{ key: "edit", label: "Copy edit link", hint: "Anyone with it can edit this list", icon: IconPencil2, run: () => emit("copyEdit") }]
+    : []),
+]);
 
 // ---- the tabs ----
 // Real tabs, unlike the mode bar's radiogroup: two different panels, one shown at a
@@ -104,10 +125,13 @@ const { onKey } = useRovingRadio(
 // inside iOS Safari's gesture window, which a cold chunk fetch would spend.
 const { warmExporters, exportItems } = useListExports(
   () => props.snapshot,
-  (msg) => props.flash(msg),
+  flash,
   () => props.shareUrl,
 );
 watch(tab, (t) => t === "export" && warmExporters());
+// The hover plate goes home with the rows it was lighting: left parked on an Export
+// row, it kept the shorter Share tab scrollable over nothing (useMenuPlate.rest).
+watch(tab, rest);
 
 // ---- the account ----
 // ONE ACTION, and only while pressing it would do something. Not a section, not a
@@ -122,9 +146,10 @@ watch(tab, (t) => t === "export" && warmExporters());
 //
 // What's left is the rare case that IS actionable: a list this device holds a
 // link for that the account doesn't have. Sign-in sweeps up the lists this
-// browser made, and the server adds anything old enough to predate origin
-// tracking (see claimRepo), so what reaches this row is essentially a list
-// someone shared with you that you want to keep. Unlike the other rows it keeps
+// browser made, so what reaches this row is mostly a list someone shared with
+// you that you want to keep. (And, one at a time, your own, where
+// the sign-in was one you only confirmed here and you said "Not now" to the
+// lists: see startSession in server/utils/authSession.ts.) Unlike the other rows it keeps
 // the panel open: the claim is a request, and a failure has to be said here.
 const { signedIn } = useSession();
 const claimed = useClaimedLists();
@@ -146,7 +171,7 @@ async function addToAccount() {
   // success flips canAddToAccount and the button simply leaves. Nothing takes its
   // place: the list is on the account, which is what you asked for and what the
   // absence now means.
-  const ok = await useClaimedLists().claimOne(props.editToken);
+  const ok = await claimed.claimOne(props.editToken);
   claim.value = ok ? "idle" : "failed";
 }
 
@@ -157,7 +182,6 @@ function act(run: () => unknown) {
   emit("close");
   void run();
 }
-const runExport = (item: ExportItem) => act(item.run);
 
 // ---- recent changes ----
 // The recovery points the server already keeps: the closest thing to an activity log
@@ -165,6 +189,14 @@ const runExport = (item: ExportItem) => act(item.run);
 // window, a time, and who made it when anyone can be named; not a per-field diff.
 // Fetched when the panel mounts, which is when it opens (the editor renders it
 // lazily), so the editor never pays for it.
+// Whether there is anything to list, known without asking: a list is made at
+// version 1, every edit moves the version on, and the first edit after that takes a
+// recovery point (listRepo's throttle starts open), which the cap of five never prunes
+// to none. So an unedited list has no Recent changes row at all, where it used to have
+// one that folded out to "No changes yet": an inert control, and those are absent here.
+// Read off the snapshot rather than the fetch below, so the row never arrives late or
+// leaves again once the answer lands.
+const hasChanges = computed(() => !isDraft.value && props.snapshot.version > 1);
 const activity = ref<SnapshotMeta[]>([]);
 const activityState = ref<"idle" | "loading" | "error">("idle");
 // re-rendered against a ticking clock would be churn for no gain: the panel is open
@@ -174,7 +206,7 @@ const now = ref(Date.now());
 const activityOpen = ref(false);
 
 async function loadActivity() {
-  if (isDraft.value) return; // no server row yet — nothing to list
+  if (!hasChanges.value) return; // no server row yet, or nothing done to it: nothing to list
   activityState.value = "loading";
   try {
     const res = await $fetch<{ snapshots: SnapshotMeta[] }>("/api/edit/snapshots", {
@@ -244,149 +276,129 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   <div ref="listRef" class="popover menu__list share" role="dialog" aria-label="Sharing" v-on="on">
     <span ref="plateRef" class="menu__plate" aria-hidden="true" />
 
-    <p v-if="isDraft" class="t-muted share__note">Add an item and this list gets its links.</p>
+    <div class="share__tabs" role="tablist" aria-label="Sharing" @keydown="onKey">
+      <button
+        v-for="t in TABS"
+        :id="tabId(t.key)"
+        :key="t.key"
+        ref="opts"
+        type="button"
+        role="tab"
+        class="modebar__opt share__tab"
+        :class="{ 'is-active': tab === t.key }"
+        :aria-selected="tab === t.key"
+        :aria-controls="panelId(t.key)"
+        :tabindex="tab === t.key ? 0 : -1"
+        @click="tab = t.key"
+      >
+        {{ t.label }}
+      </button>
+    </div>
 
-    <template v-else>
-      <div class="share__tabs" role="tablist" aria-label="Sharing" @keydown="onKey">
-        <button
-          v-for="t in TABS"
-          :id="tabId(t.key)"
-          :key="t.key"
-          ref="opts"
-          type="button"
-          role="tab"
-          class="share__tab"
-          :class="{ 'is-active': tab === t.key }"
-          :aria-selected="tab === t.key"
-          :aria-controls="panelId(t.key)"
-          :tabindex="tab === t.key ? 0 : -1"
-          @click="tab = t.key"
-        >
-          {{ t.label }}
-        </button>
-      </div>
+    <!-- SHARE: the two links, what's changed, and under the rule the two acts that
+         change who holds the list. -->
+    <div v-if="tab === 'share'" :id="panelId('share')" role="tabpanel" :aria-labelledby="tabId('share')">
+      <p v-if="!canLink" class="t-muted share__note">You’re offline. Links need a connection.</p>
+      <ul v-else class="share__rows">
+        <!-- the read-only link, and the edit link where there is one to copy or to make
+             (linkRows) -->
+        <li v-for="r in linkRows" :key="r.key">
+          <button
+            type="button"
+            data-row
+            class="menu__item share__row"
+            :aria-label="r.label"
+            :aria-describedby="`${uid}-hint-${r.key}`"
+            @click="act(r.run)"
+          >
+            <SvgIcon :icon="r.icon" aria-hidden="true" />
+            <span class="share__text">
+              <span class="share__name">{{ r.label }}</span>
+              <span :id="`${uid}-hint-${r.key}`" class="share__hint">{{ r.hint }}</span>
+            </span>
+          </button>
+        </li>
 
-      <!-- SHARE: the two links, what's changed, and under the rule the two acts that
-           change who holds the list. -->
-      <div v-if="tab === 'share'" :id="panelId('share')" role="tabpanel" :aria-labelledby="tabId('share')">
-        <ul class="share__rows">
-          <li>
-            <button
-              type="button"
-              data-row
-              class="menu__item share__row"
-              aria-label="Copy read-only link"
-              :aria-describedby="`${uid}-hint-read`"
-              @click="act(() => emit('copyRead'))"
-            >
-              <HugeiconsIcon :icon="ViewIcon" :size="16" :stroke-width="2" aria-hidden="true" />
-              <span class="share__text">
-                <span class="share__name">Copy read-only link</span>
-                <span :id="`${uid}-hint-read`" class="share__hint">Anyone with it can see this list</span>
-              </span>
-            </button>
-          </li>
-          <!-- A claimed open (opened from the account) holds no edit link: the server only
-               ever stored its hash. No row rather than one that can't copy; the replace row
-               below says "Get a new edit link" instead, which is how this device gets one. -->
-          <li v-if="holdsEditLink">
-            <button
-              type="button"
-              data-row
-              class="menu__item share__row"
-              aria-label="Copy edit link"
-              :aria-describedby="`${uid}-hint-edit`"
-              @click="act(() => emit('copyEdit'))"
-            >
-              <HugeiconsIcon :icon="Edit02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-              <span class="share__text">
-                <span class="share__name">Copy edit link</span>
-                <span :id="`${uid}-hint-edit`" class="share__hint">Anyone with it can change this list</span>
-              </span>
-            </button>
-          </li>
-
-          <!-- RECENT CHANGES folds out: the same MenuSection the read views' ⋯ uses, with
-               entries in place of rows. Collapsed: it's reassurance you go looking for.
-               These are the server's recovery points: WHAT changed, WHEN, and who when
-               anyone can be named ("You", "Assistant", or a name an editor chose). -->
-          <MenuSection v-model:open="activityOpen" label="Recent changes" :icon="Clock01Icon">
-            <div class="share__activity">
-              <p v-if="activityState === 'loading'" class="t-muted">Loading…</p>
-              <p v-else-if="activityState === 'error'" class="t-muted">Couldn’t load recent changes.</p>
-              <p v-else-if="!activity.length" class="t-muted">No changes yet.</p>
-              <ul v-else class="share__log">
-                <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
-                  <span>{{ changeLabel(i) }}</span>
-                  <span class="t-muted share__logwhen"
-                    >{{ timeAgo(new Date(s.createdAt).getTime(), now, { short: true })
-                    }}<template v-if="showWho && whoLabel(s.by)"> · {{ whoLabel(s.by) }}</template></span
-                  >
-                </li>
-              </ul>
-            </div>
-          </MenuSection>
-
-          <!-- THE FOOT, ruled off: the two things that change who holds this list.
-               Keeping it on your account first (rare: it only shows for a list the
-               account doesn't have), replacing the link last, since that cuts off
-               everyone who has the old one. -->
-          <li class="menu__foot">
-            <button
-              v-if="canAddToAccount"
-              type="button"
-              data-row
-              class="menu__item"
-              :disabled="claim === 'claiming'"
-              @click="addToAccount"
-            >
-              <HugeiconsIcon :icon="UserAdd01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-              Add to your account
-            </button>
-            <p v-if="claim === 'failed'" role="alert" class="t-muted share__note">
-              That didn’t save. Check your connection and try again.
-            </p>
-            <button type="button" data-row class="menu__item" @click="act(() => emit('rotate'))">
-              <HugeiconsIcon :icon="Exchange01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-              {{ holdsEditLink ? "Replace edit link" : "Get a new edit link" }}
-            </button>
-          </li>
-        </ul>
-      </div>
-
-      <!-- EXPORT: the link first, then the files. -->
-      <div v-else :id="panelId('export')" role="tabpanel" :aria-labelledby="tabId('export')">
-        <div class="share__nudge">
-          <HugeiconsIcon :icon="UserMultiple02Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-          <div class="share__nudgebody">
-            <p class="share__name">Sending this to someone?</p>
-            <p class="share__nudgetext">Send the link instead. It always shows the latest version.</p>
-            <button type="button" class="btn btn--primary share__nudgebtn" @click="act(() => emit('copyRead'))">
-              <HugeiconsIcon :icon="Copy01Icon" :size="16" :stroke-width="2" aria-hidden="true" />
-              Copy read-only link
-            </button>
+        <!-- RECENT CHANGES folds out: the same MenuSection the read views' ⋯ uses, with
+             entries in place of rows. Collapsed: it's reassurance you go looking for.
+             These are the server's recovery points: WHAT changed, WHEN, and who when
+             anyone can be named ("You", "Assistant", or a name an editor chose). -->
+        <MenuSection v-if="hasChanges" v-model:open="activityOpen" label="Recent changes" :icon="IconClock">
+          <div class="share__activity">
+            <p v-if="activityState === 'loading'" class="t-muted">Loading…</p>
+            <p v-else-if="activityState === 'error'" class="t-muted">Couldn’t load recent changes.</p>
+            <p v-else-if="!activity.length" class="t-muted">No changes yet.</p>
+            <ul v-else class="share__log">
+              <li v-for="(s, i) in activity" :key="s.id" class="share__logrow">
+                <span>{{ changeLabel(i) }}</span>
+                <span class="t-muted share__logwhen"
+                  >{{ timeAgo(new Date(s.createdAt).getTime(), now, { short: true })
+                  }}<template v-if="showWho && whoLabel(s.by)"> · {{ whoLabel(s.by) }}</template></span
+                >
+              </li>
+            </ul>
           </div>
+        </MenuSection>
+
+        <!-- THE FOOT, ruled off: the two things that change who holds this list.
+             Keeping it on your account first (rare: it only shows for a list the
+             account doesn't have), replacing the link last, since that cuts off
+             everyone who has the old one. -->
+        <li v-if="!isDraft" class="menu__foot">
+          <button
+            v-if="canAddToAccount"
+            type="button"
+            data-row
+            class="menu__item"
+            :disabled="claim === 'claiming'"
+            @click="addToAccount"
+          >
+            <SvgIcon :icon="IconUserAdd" aria-hidden="true" />
+            Add to your account
+          </button>
+          <p v-if="claim === 'failed'" role="alert" class="t-muted share__note">
+            That didn’t save. Check your connection and try again.
+          </p>
+          <button type="button" data-row class="menu__item" @click="act(() => emit('rotate'))">
+            <SvgIcon :icon="IconArrowsRepeatCircle" aria-hidden="true" />
+            {{ holdsEditLink ? "Replace edit link" : "Get a new edit link" }}
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <!-- EXPORT: the link first, then the files. -->
+    <div v-else :id="panelId('export')" role="tabpanel" :aria-labelledby="tabId('export')">
+      <div v-if="canLink" class="share__nudge">
+        <SvgIcon :icon="IconUserDuo" aria-hidden="true" />
+        <div class="share__nudgebody">
+          <p class="share__name">Sending this to someone?</p>
+          <p class="share__nudgetext">Send the link instead. It always shows the latest version.</p>
+          <button type="button" class="btn btn--primary share__nudgebtn" @click="act(() => emit('copyRead'))">
+            <SvgIcon :icon="IconSquareBehindSquare1" aria-hidden="true" />
+            Copy read-only link
+          </button>
         </div>
-        <ul class="share__rows">
-          <li v-for="item in exportItems" :key="item.key">
-            <button
-              type="button"
-              data-row
-              class="menu__item share__row"
-              :aria-label="item.label"
-              :aria-describedby="`${uid}-hint-${item.key}`"
-              @click="runExport(item)"
-            >
-              <HugeiconsIcon :icon="item.icon" :size="16" :stroke-width="2" aria-hidden="true" />
-              <span class="share__text">
-                <span class="share__name">{{ item.format }}</span>
-                <span :id="`${uid}-hint-${item.key}`" class="share__hint">{{ item.hint }}</span>
-              </span>
-            </button>
-          </li>
-        </ul>
       </div>
-    </template>
+      <ul class="share__rows">
+        <li v-for="item in exportItems" :key="item.key">
+          <button
+            type="button"
+            data-row
+            class="menu__item share__row"
+            :aria-label="item.label"
+            :aria-describedby="`${uid}-hint-${item.key}`"
+            @click="act(item.run)"
+          >
+            <SvgIcon :icon="item.icon" aria-hidden="true" />
+            <span class="share__text">
+              <span class="share__name">{{ item.format }}</span>
+              <span :id="`${uid}-hint-${item.key}`" class="share__hint">{{ item.hint }}</span>
+            </span>
+          </button>
+        </li>
+      </ul>
+    </div>
   </div>
 </template>
 
@@ -405,21 +417,27 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   overscroll-behavior: contain;
 }
 /* On a phone the editor drops this panel's wrapper out of the positioning chain (see
-   .editor__sharemenu), so `right` measures from the viewport rather than from the
-   trigger. Take the page gutter on both sides instead of a width that might not fit. */
+   .editor__sharemenu), so `right` measures from the bar rather than from the trigger.
+   It sits at the page gutter under the trigger's end of the bar and keeps its own
+   width, giving way only where that doesn't fit. It used to take the gutter on BOTH
+   sides, which is the same thing on a 375px phone and a 688px-wide menu on anything
+   between that and the breakpoint. */
 @media (max-width: $bp-stack) {
   .share {
-    left: var(--space-4);
+    left: auto;
     right: var(--space-4);
-    width: auto;
+    width: min(22.5rem, calc(100% - 2 * var(--space-4)));
   }
 }
 
-/* ---- the tabs: the mode bar's look (ModeBar.vue), not a segmented track ----
+/* ---- the tabs: the mode bar's own chip (.modebar__opt, atoms/modebar.scss), not a
+   segmented track ----
    No track and no outline: the selected tab wears --lit, the one tone the app uses for
    "this is the one that's on" (the mode bar, the person filter, the chips), and the
    other answers the pointer with the mode bar's wash. A raised white pill in an outlined
-   track was the reference's control, and the only one of its kind in this app. */
+   track was the reference's control, and the only one of its kind in this app.
+   The chip brings its height, its inks, the wash, the plate, the inward focus ring and
+   the touch hit area; what's below is where a tab here differs from one in the bar. */
 .share__tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -427,56 +445,15 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   margin-bottom: var(--space-2);
 }
 .share__tab {
-  height: var(--control-compact);
+  /* each tab fills half the panel, so the word centres in it (in the bar a chip hugs
+     its label and there is nothing to centre) */
+  justify-content: center;
+  /* the panel's concentric corner, like the rows under it, and the strong weight */
   border-radius: var(--popover-item-radius);
-  color: var(--ink-3);
-  font-size: var(--text-chrome);
   font-weight: 600;
-  transition:
-    background-color var(--spring-fade-dur) var(--spring-fade),
-    color var(--spring-fade-dur) var(--spring-fade);
-}
-/* the mode bar's two amounts, for its reason (sRGB isn't symmetric) */
-@media (hover: hover) and (pointer: fine) {
-  .share__tab:hover {
-    background: light-dark(
-      color-mix(in oklab, var(--ink) 3.5%, transparent),
-      color-mix(in oklab, var(--ink) 7.5%, transparent)
-    );
-    color: var(--ink);
-  }
-}
-.share__tab:focus-visible {
-  outline: var(--focus-ring) solid var(--ink);
-  outline-offset: var(--focus-offset-inset);
-}
-.share__tab.is-active {
-  background: var(--lit);
-  color: var(--ink);
-}
-@media (hover: hover) and (pointer: fine) {
-  .share__tab.is-active:hover {
-    background: var(--lit-hover);
-  }
-}
-/* the 30px tab grows a hit area to the --tap floor on a phone, the mode bar's way */
-@media (pointer: coarse) {
-  .share__tab {
-    position: relative;
-  }
-  .share__tab::before {
-    content: "";
-    position: absolute;
-    inset: calc((var(--control-compact) - var(--tap)) / 2) 0;
-  }
 }
 
 /* ---- rows ---- */
-.share__rows {
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
 /* A menu row with a second line, glyph · label over hint. Its inset,
    gap and glyph are .menu__item's; it only wraps (a menu row doesn't, but the hint is
    prose in a panel of fixed width) and hangs its glyph on the LABEL's line rather than
@@ -486,17 +463,14 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   white-space: normal;
 }
 .share__row > svg {
-  margin-block: calc((1lh - 16px) / 2);
+  margin-block: calc((1lh - var(--icon)) / 2);
 }
 .share__text {
   display: grid;
   flex: 1 1 auto;
-  min-width: 0;
 }
 .share__name {
-  margin: 0;
   color: var(--ink);
-  font-size: var(--text-base);
 }
 .share__hint {
   color: var(--ink-2);
@@ -507,19 +481,27 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 /* Laid out on the rows' columns: its mark in the glyph column (the card's inset is a
    row's), its text where a row's label starts, so it reads as part of the same list
    rather than a box dropped on top of it. Shaped like the plate (the item radius),
-   since it sits where a row would. */
+   since it sits where a row would.
+   Its ground is AN AMOUNT OF INK — the well's 7% (.well, atoms/controls.scss, which has
+   the measurements: 1.17:1 on the light popover, 1.23 on the dark) — because the panel
+   is a floating surface. It was --paper-2, a page tone, which sat at 1.10:1 on this card
+   in either theme: a box you had to look for around the one piece of advice the tab
+   gives. */
 .share__nudge {
   display: flex;
   align-items: start;
   gap: var(--space-3);
   margin-bottom: var(--space-1);
-  padding: var(--space-3);
+  /* a row's inset above as well as beside: the card's first line then sits exactly
+     where the Share tab's first row puts its own, so switching tabs doesn't move the
+     top line of the panel by the 4px the card's roomier padding used to add */
+  padding: var(--space-2) var(--space-3) var(--space-3);
   border-radius: var(--popover-item-radius);
-  background: var(--paper-2);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
 }
 .share__nudge > svg {
   flex: none;
-  margin-block: calc((1lh - 16px) / 2);
+  margin-block: calc((1lh - var(--icon)) / 2);
   color: var(--ink-2);
 }
 .share__nudgebody {
@@ -528,7 +510,6 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
   gap: var(--space-1);
 }
 .share__nudgetext {
-  margin: 0;
   color: var(--ink-2);
   font-size: var(--text-chrome);
 }
@@ -541,23 +522,16 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 
 /* Prose where a row would be, inset like a row. */
 .share__note {
-  margin: 0;
   padding: var(--space-2) var(--space-3);
 }
-/* The entries start where the rows' labels do: past a row's inset, its 16px glyph and
+/* The entries start where the rows' labels do: past a row's inset, its glyph (--icon) and
    the gap, so they read as the section's contents. */
 .share__activity {
-  padding: var(--space-1) var(--space-3) var(--space-2) calc(var(--space-3) + var(--space-4) + var(--space-3));
-}
-.share__activity p {
-  margin: 0;
+  padding: var(--space-1) var(--space-3) var(--space-2) calc(var(--space-3) + var(--icon) + var(--space-3));
 }
 .share__log {
   display: grid;
   gap: var(--space-2);
-  margin: 0;
-  padding: 0;
-  list-style: none;
   /* a long-lived list can hold many recovery points; the panel stays a panel */
   max-height: 11rem;
   overflow-y: auto;

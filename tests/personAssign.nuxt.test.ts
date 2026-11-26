@@ -68,7 +68,12 @@ describe("carried by — the row's picker + the filter attribute", () => {
         // The desktop tail is fixed. The mobile-only More menu is always present
         // too, but CSS hides it on the grid; no row-conditional box follows person.
         expect(slots.slice(assignment + 1).map((slot) => slot.querySelector("button")?.getAttribute("aria-label") ?? slot.getAttribute("aria-label")))
-          .toEqual(["Duplicate item", "Remove item", "More actions", expect.stringMatching(/^Reorder /)]);
+          .toEqual([
+            expect.stringMatching(/^Duplicate /),
+            expect.stringMatching(/^Remove /),
+            expect.stringMatching(/^More actions for /),
+            expect.stringMatching(/^Reorder /),
+          ]);
       }
     } finally {
       w.unmount();

@@ -3,9 +3,11 @@
 // ceremony plumbing to server/utils/passkeys.ts.
 
 import { toIso } from "./time";
-import { and, desc, eq } from "drizzle-orm";
-import { credentials } from "../db/schema";
-import type { Db } from "./db";
+import { and, desc, eq, getTableColumns, lt } from "drizzle-orm";
+import { credentials, users } from "../db/schema";
+import { notRetired } from "./accessTokens";
+import { countRows, type Db } from "./db";
+import { cleanLine } from "./http";
 import type { PasskeySummary } from "../../shared/types";
 import { isSerialId } from "../../shared/ops";
 
@@ -43,6 +45,9 @@ export async function existingCredentialIds(db: Db, userId: number): Promise<str
   return rows.map((r) => r.credentialId);
 }
 
+/** A passkey's label as it is kept and as it is mailed: one short line. */
+export const cleanPasskeyLabel = (raw: string): string => cleanLine(raw, 60);
+
 export async function savePasskey(
   db: Db,
   input: {
@@ -53,29 +58,63 @@ export async function savePasskey(
     transports?: string[] | null;
     discoverable: boolean;
     label?: string | null;
+    /** the account's address was unproven when whatever authorized this key was
+     *  checked: see sessions.unproven in server/db/schema.ts */
+    unproven: boolean;
   },
-): Promise<void> {
-  await db.insert(credentials).values({
+): Promise<number> {
+  const [row] = await db.insert(credentials).values({
     userId: input.userId,
     credentialId: input.credentialId,
     publicKey: input.publicKey,
     counter: input.counter,
     transports: input.transports?.length ? JSON.stringify(input.transports) : null,
     discoverable: input.discoverable,
-    label: input.label?.slice(0, 60) || null,
-  });
+    label: (input.label && cleanPasskeyLabel(input.label)) || null,
+    unproven: input.unproven,
+  }).returning({ id: credentials.id });
+  return row!.id;
+}
+
+/**
+ * Take a just-saved passkey back out if it is one beyond the cap: true when it was.
+ *
+ * Counting before a save can't hold the cap against saves that arrive together: each
+ * reads the same count, finds room and writes. So the cap is settled afterwards, by
+ * the rows: a key is beyond the cap when MAX_PASSKEYS_PER_USER of the account's keys
+ * have a smaller id, which is to say were saved before it.
+ *
+ * Each request judges and removes ONLY ITS OWN row, by that order. "Over the cap, so
+ * undo mine" would have every racing request undo its own and leave the account
+ * under the cap with nothing saved; and trimming whichever rows are newest would
+ * delete a key another request has already told its owner was kept. By id, the
+ * earliest MAX_PASSKEYS_PER_USER rows never see that many before them, so they all
+ * stay, and the later ones go. (An id is taken a moment before its row is visible,
+ * so a later key can count before an earlier one has landed and be kept: the cap can
+ * then be passed by that key. It errs that way only, never by removing a kept key.)
+ */
+export async function removePasskeyBeyondCap(db: Db, userId: number, id: number): Promise<boolean> {
+  const earlier = await countRows(db, credentials, and(eq(credentials.userId, userId), lt(credentials.id, id)));
+  if (earlier < MAX_PASSKEYS_PER_USER) return false;
+  await deletePasskey(db, userId, id);
+  return true;
 }
 
 /** Look a credential up by the id the authenticator presented. Not scoped by
  *  user — for a discoverable ("usernameless") sign-in the credential is what
- *  TELLS us the user. */
+ *  TELLS us the user. A key made while the account's address was unproven finds
+ *  nothing once it is proven (claimUnverifiedAccount); `accountUnproven` says what
+ *  the address was as this read happened, for the session the sign-in starts, and
+ *  `email` is the account's, from the same join, for the sign-in's answer. */
 export async function findCredential(db: Db, credentialId: string) {
   const rows = await db
-    .select()
+    .select({ credential: getTableColumns(credentials), emailVerified: users.emailVerified, email: users.email })
     .from(credentials)
-    .where(eq(credentials.credentialId, credentialId))
+    .innerJoin(users, eq(users.id, credentials.userId))
+    .where(and(eq(credentials.credentialId, credentialId), notRetired(credentials.unproven)))
     .limit(1);
-  return rows[0] ?? null;
+  const row = rows[0];
+  return row ? { ...row.credential, accountUnproven: !row.emailVerified, email: row.email } : null;
 }
 
 /** Record a successful use: bump the signature counter and stamp the time. The

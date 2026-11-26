@@ -1,5 +1,5 @@
-import { Csv01Icon, HashIcon, ThirdBracketIcon, Txt01Icon } from "@hugeicons/core-free-icons";
-import type { IconNode } from "~/utils/hugeicon";
+import { IconBrackets1, IconFileExcel, IconFileText, IconHashtag } from "~/icons/central";
+import type { IconNode } from "~/utils/icon";
 import type { ListSnapshot } from "~~/shared/types";
 
 export interface ExportItem {
@@ -34,7 +34,7 @@ export interface ExportItem {
 export function useListExports(
   getSnapshot: () => ListSnapshot | null,
   flash: (msg: string) => void,
-  getShareUrl: () => string = () => "",
+  getShareUrl: () => string,
 ) {
   const textExporter = () => import("~~/shared/exporters/text");
   const mdExporter = () => import("~~/shared/exporters/markdown");
@@ -52,7 +52,7 @@ export function useListExports(
   // the chunk loads (and can FAIL to load: offline before the SW cached it, or a
   // dropped connection — the old static imports never could, so say so); then the
   // act. Written once, so the four below are only the part that differs.
-  const LOAD_FAILED = "Couldn’t load the exporter. Try again.";
+  const LOAD_FAILED = "Couldn’t get that ready. Try again.";
   async function withExporter<M>(
     load: () => Promise<M>,
     act: (mod: M, snap: ListSnapshot) => Promise<void> | void,
@@ -79,12 +79,12 @@ export function useListExports(
     withExporter(textExporter, async ({ listToText }, snap) => {
       const shareUrl = getShareUrl();
       const ok = await copyText(listToText(snap, { shareUrl }));
-      flash(ok ? (shareUrl ? "Copied, with the read-only link" : "Copied as plain text") : "Copy failed");
+      flash(ok ? (shareUrl ? "Copied, with the read-only link" : "Copied as plain text") : COPY_FAILED);
     });
 
   const copyMarkdown = () =>
     withExporter(mdExporter, async ({ listToMarkdown }, snap) => {
-      flash((await copyText(listToMarkdown(snap))) ? "Copied as Markdown" : "Copy failed");
+      flash((await copyText(listToMarkdown(snap))) ? "Copied as Markdown" : COPY_FAILED);
     });
 
   // downloadFile() + listFileBase() (the saved file is named after the list) live
@@ -127,10 +127,21 @@ export function useListExports(
   // also what tells a copy from a download there, now that the rows carry no trailing
   // mark.
   const exportItems: ExportItem[] = [
-    { key: "text", label: "Copy as plain text", format: "Plain text", hint: "One paragraph to paste, link included", icon: Txt01Icon, run: copyPlainText },
-    { key: "markdown", label: "Copy as Markdown", format: "Markdown", hint: "A table to paste", icon: HashIcon, run: copyMarkdown },
-    { key: "csv", label: "Download CSV", format: "CSV", hint: "Spreadsheet file", icon: Csv01Icon, run: downloadCsv },
-    { key: "json", label: "Download JSON", format: "JSON", hint: "Full backup file", icon: ThirdBracketIcon, run: downloadJson },
+    {
+      key: "text",
+      label: "Copy as plain text",
+      format: "Plain text",
+      // a list that isn't saved yet has no link to include (a getter: the list can be
+      // saved while these rows are up)
+      get hint() {
+        return getShareUrl() ? "One paragraph to paste, link included" : "One paragraph to paste";
+      },
+      icon: IconFileText,
+      run: copyPlainText,
+    },
+    { key: "markdown", label: "Copy as Markdown", format: "Markdown", hint: "A table to paste", icon: IconHashtag, run: copyMarkdown },
+    { key: "csv", label: "Download CSV", format: "CSV", hint: "Spreadsheet file", icon: IconFileExcel, run: downloadCsv },
+    { key: "json", label: "Download JSON", format: "JSON", hint: "Full backup file", icon: IconBrackets1, run: downloadJson },
   ];
 
   // exportItems ONLY. The four actions were returned individually too, and after both

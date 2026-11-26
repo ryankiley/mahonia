@@ -1,0 +1,135 @@
+# Writes the catalog rows an admin verified in the app back into the research, and opens a
+# PR with them. The other half of reseed-catalog.yml.
+#
+# WHY: the catalog has two ways in. A research PR reaches the production database on its
+# own (reseed-catalog.yml, on merge). A row added or corrected through the connector's
+# verify_catalog_item goes the other way, straight into the database, and only reaches the
+# research when `npm run catalog:graduate` is run by hand, which by late November 2026 it
+# never had been: some thirty rows lived only in production, in no research file, no CSV,
+# and no local or preview database. The reseed leaves such rows alone (seedUpsert.ts holds
+# them, seedRetire.ts skips them), so nothing was lost, but nothing was ever going to bring
+# them home either.
+#
+# What it does: graduate (reads production, writes seed/_research), build, audit, and if
+# seed/ changed, push the catalog/graduate branch and open a PR whose body is graduate's
+# own report: each research row it replaced is listed (the row is replaced and its file
+# written whole, in the house layout), and any whose research changed after the
+# verification is marked ⚠. The PR waits for a person: catalog rows are reviewed, never
+# auto-merged. When it merges, the reseed takes each row over (same id, verifier cleared).
+#
+# One PR at a time. While one is open the run stops: forcing the branch again would throw
+# away anything fixed by hand on it. Rows verified meanwhile go in the next one.
+#
+# CI on the PR: a PR opened with this workflow's own token raises no pull_request event, so
+# ci.yml would never run and main's required `check` would never report. A workflow
+# dispatch is the one event that token may raise, so the run starts ci.yml on the branch
+# itself, and its `check` lands on the head commit the PR is judged by. A push made to the
+# PR by hand runs CI as usual.
+#
+# Opening the PR at all needs the repo setting "Allow GitHub Actions to create and approve
+# pull requests" (Settings → Actions → General). Without it the branch is still pushed and
+# the run fails with a link to open the PR by hand, which runs CI the ordinary way.
+
+name: Graduate in-app catalog rows
+
+on:
+  schedule:
+    - cron: "0 16 * * 1" # Mondays, 08:00 Pacific
+  workflow_dispatch: {}
+
+permissions:
+  contents: write # push the catalog/graduate branch
+  pull-requests: write # open its PR
+  actions: write # start ci.yml on it
+
+concurrency:
+  group: graduate-catalog
+  cancel-in-progress: false
+
+jobs:
+  graduate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    env:
+      BRANCH: catalog/graduate
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Require the prod DB secret (fail fast, before any work)
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        run: |
+          if [ -z "$DATABASE_URL" ]; then
+            echo "::error::PROD_DATABASE_URL is not set: an empty DATABASE_URL makes graduate read a throwaway PGlite database and find nothing."
+            exit 1
+          fi
+
+      - name: Wait for an open graduate PR, if there is one
+        id: open
+        run: |
+          pr=$(gh pr list --repo "$GITHUB_REPOSITORY" --head "$BRANCH" --state open --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            echo "::notice::#$pr still holds the last graduation; merge or close it and the next run opens a new one."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.open.outputs.skip != 'true'
+        uses: actions/checkout@v4
+
+      - if: steps.open.outputs.skip != 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - if: steps.open.outputs.skip != 'true'
+        run: npm ci
+
+      - name: Graduate (reads production, writes seed/_research)
+        if: steps.open.outputs.skip != 'true'
+        env:
+          DATABASE_URL: ${{ secrets.PROD_DATABASE_URL }}
+        # pipefail: a run step is `bash -e` without it, and tee would pass a failed graduate
+        run: |
+          set -o pipefail
+          npm run --silent catalog:graduate | tee "$RUNNER_TEMP/graduate.txt"
+
+      - name: Build and audit (hard errors stop here, before anything is pushed)
+        if: steps.open.outputs.skip != 'true'
+        run: |
+          npm run catalog:build
+          npm run catalog:audit
+
+      - name: Open the PR, and start CI on it
+        if: steps.open.outputs.skip != 'true'
+        run: |
+          set -euo pipefail
+          if [ -z "$(git status --porcelain -- seed)" ]; then
+            echo "The research already has every row verified in the app."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add seed
+          git commit -m "chore: graduate rows verified in the app into the research"
+          # a branch left from an earlier graduation that was closed unmerged
+          git push --force origin "$BRANCH"
+          {
+            echo "Rows an admin verified in the app, written back into the research by \`npm run catalog:graduate\` and built. Look over each row, and any marked ⚠ above all, before merging; the reseed that follows takes each row over."
+            echo
+            echo '```text'
+            cat "$RUNNER_TEMP/graduate.txt"
+            echo '```'
+          } > "$RUNNER_TEMP/body.md"
+          if gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$BRANCH" \
+            --title "chore: graduate rows verified in the app into the research" \
+            --body-file "$RUNNER_TEMP/body.md"; then
+            gh workflow run ci.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          else
+            # The repo setting "Allow GitHub Actions to create and approve pull requests"
+            # is off. The branch is pushed; a PR a person opens runs CI the ordinary way.
+            # Failing the run is what sends the email that says so.
+            echo "::error::Pushed $BRANCH, but this workflow may not open PRs here. Open it: https://github.com/$GITHUB_REPOSITORY/compare/main...$BRANCH?expand=1 (body below), or turn on Settings → Actions → General → Allow GitHub Actions to create and approve pull requests."
+            cat "$RUNNER_TEMP/body.md"
+            exit 1
+          fi

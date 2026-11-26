@@ -11,6 +11,15 @@
 .tooltip-trigger {
   display: inline-flex;
 }
+// The wrapper is the layout box, so it is what a flex row sees: a class on the button
+// inside (`flex: none`, an auto margin) lands a level too deep to count. Around an icon
+// button it does not shrink, as the button would not: left shrinkable, the wrapped icons
+// in the editor's bar gave up width to a long status line while the bare ones beside
+// them held, and the row's spacing went uneven. Only icon buttons: a wrapped chip of
+// text (the totals, the plan's figures) is meant to give way.
+.tooltip-trigger:has(> .btn--icon) {
+  flex: none;
+}
 
 .tooltip {
   // fixed + non-interactive never vary, so they belong here rather than in the
@@ -20,8 +29,7 @@
   // above every other floating layer: a tooltip can describe a control inside a
   // popover or a dialog, so it has to clear --z-float rather than tie with it
   z-index: var(--z-tooltip);
-  max-width: 280px;
-  transform-origin: center;
+  max-width: 17.5rem; /* 280px at the base size; rem, so it grows with the type past 1920px */
   // How far the enter/leave states travel, and in which direction — flipped by
   // placement so the motion always reads as coming OUT of the trigger. As a custom
   // property, the transform itself is written once below instead of once per side.

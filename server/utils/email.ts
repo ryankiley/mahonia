@@ -240,7 +240,7 @@ export async function sendPasskeyAddedNotice(to: string, label: string | null): 
   const which = label ? `“${label}”` : "A new passkey";
   const lead = `${which} was added to your Mahonia account.`;
   const closing =
-    "If that was you, there's nothing to do. If it wasn't, open your account page and remove it, and remove any passkey you don't recognise while you're there.";
+    "If that was you, there's nothing to do. If it wasn't, open your account page and remove it, and remove any passkey you don't recognize while you're there.";
   await deliver(
     to,
     "A passkey was added to your Mahonia account",

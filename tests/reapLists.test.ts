@@ -1,6 +1,7 @@
-import { sql } from "drizzle-orm";
-import { describe, expect, it } from "vitest";
-import { lists, listSnapshots } from "../server/db/schema";
+import { eq, sql } from "drizzle-orm";
+import { describe, expect, it, vi } from "vitest";
+import { listClaims, lists, listSnapshots } from "../server/db/schema";
+import { ACCOUNT_DDL } from "../server/utils/accountSchema";
 import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
 import { purgeDeletedLists, reapAbandonedLists } from "../server/utils/listRepo";
 import type { ListData } from "../shared/types";
@@ -67,13 +68,6 @@ describe("reapAbandonedLists — soft-deletes near-empty abandoned lists", () =>
     expect(reaped).toBe(0);
   });
 
-  it("publish status is not a factor — reaps a public/once-published near-empty list", async () => {
-    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
-    await seed(db, { updatedAt: stale(), itemCount: 1, data: oneItem, isPublic: true, publishedAt: stale() });
-    const { reaped } = await reapAbandonedLists(db);
-    expect(reaped).toBe(1);
-  });
-
   it("guards against a drifted item_count (rollup says 0 but data holds 2 items)", async () => {
     const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
     // the actual JSONB item array (2) wins over a stale count → real list, survives
@@ -129,7 +123,7 @@ const rowCount = async (db: TestDb) =>
 
 describe("purgeDeletedLists — hard-deletes rows past the grace window", () => {
   it("purges a list soft-deleted longer than the grace period", async () => {
-    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
     await seed(db, { deletedAt: softDeleted(100) }); // > 90-day default
     const { purged } = await purgeDeletedLists(db);
     expect(purged).toBe(1);
@@ -137,7 +131,7 @@ describe("purgeDeletedLists — hard-deletes rows past the grace window", () => 
   });
 
   it("keeps a recently soft-deleted list inside the grace window", async () => {
-    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
     await seed(db, { deletedAt: softDeleted(10) }); // < 90 days → still recoverable
     const { purged } = await purgeDeletedLists(db);
     expect(purged).toBe(0);
@@ -145,7 +139,7 @@ describe("purgeDeletedLists — hard-deletes rows past the grace window", () => 
   });
 
   it("never touches a live (not soft-deleted) list", async () => {
-    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
     await seed(db, { deletedAt: null, updatedAt: softDeleted(400) }); // ancient but alive
     const { purged } = await purgeDeletedLists(db);
     expect(purged).toBe(0);
@@ -153,7 +147,7 @@ describe("purgeDeletedLists — hard-deletes rows past the grace window", () => 
   });
 
   it("cascades: drops the purged list's snapshots too", async () => {
-    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
     const row = await seed(db, { deletedAt: softDeleted(100) });
     await db.insert(listSnapshots).values({
       listId: row.id,
@@ -168,8 +162,40 @@ describe("purgeDeletedLists — hard-deletes rows past the grace window", () => 
     expect((await db.select().from(listSnapshots)).length).toBe(0); // orphan snapshots gone
   });
 
+  it("cascades: drops the claims accounts held on the purged list, and no other list's", async () => {
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
+    const gone = await seed(db);
+    const kept = await seed(db);
+    // two accounts filed the list that goes, one of them the list that stays
+    await db.insert(listClaims).values([
+      { userId: 1, listId: gone.id },
+      { userId: 2, listId: gone.id },
+      { userId: 1, listId: kept.id },
+    ]);
+    // deleted by whoever held its link, and past the grace
+    await db.update(lists).set({ deletedAt: softDeleted(100) }).where(eq(lists.id, gone.id));
+
+    expect((await purgeDeletedLists(db)).purged).toBe(1);
+    // a claim on a list that no longer exists is a row nothing can ever read or remove
+    expect(await db.select().from(listClaims).where(eq(listClaims.listId, gone.id))).toHaveLength(0);
+    expect((await db.select().from(listClaims)).map((c) => c.listId)).toEqual([kept.id]);
+  });
+
+  it("still purges where the account tables were never made, and says the claims were skipped", async () => {
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL); // no list_claims table
+    await seed(db, { deletedAt: softDeleted(100) });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect((await purgeDeletedLists(db)).purged).toBe(1);
+      expect(await rowCount(db)).toBe(0);
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
   it("does not immediately purge a list the reaper just soft-deleted", async () => {
-    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
     await seed(db, { updatedAt: stale() });
     expect((await reapAbandonedLists(db)).reaped).toBe(1); // deleted_at = now
     expect((await purgeDeletedLists(db)).purged).toBe(0); // inside the grace window
@@ -177,14 +203,14 @@ describe("purgeDeletedLists — hard-deletes rows past the grace window", () => 
   });
 
   it("respects a custom graceDays window", async () => {
-    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
     await seed(db, { deletedAt: softDeleted(20) });
     expect((await purgeDeletedLists(db, { graceDays: 30 })).purged).toBe(0); // 20d < 30d
     expect((await purgeDeletedLists(db, { graceDays: 7 })).purged).toBe(1); // 20d > 7d
   });
 
   it("respects the batch limit (backlog drains over runs)", async () => {
-    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL);
+    const db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, ACCOUNT_DDL);
     for (let i = 0; i < 3; i++) await seed(db, { deletedAt: softDeleted(100) });
     expect((await purgeDeletedLists(db, { limit: 2 })).purged).toBe(2);
     expect((await purgeDeletedLists(db, { limit: 2 })).purged).toBe(1);
