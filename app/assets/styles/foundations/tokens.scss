@@ -688,12 +688,11 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      Chromium's, and the whole point of a floor is to not be exactly at it. */
   --item-col-weight: 6.25em;
   /* …and the width comes from next door, where it had been sitting unused. This cell
-     held the word "Consumable" in a select when the track was measured; it holds TWO
-     --icon-btn toggles now (atoms/item.scss draws them), which is 68px of a 108–128px
-     reservation — so the row was carrying ~60px of air beside a column that was
-     clipping numbers for want of 12. Derived from the boxes rather than stated, the
-     way --item-col-actions below is, so a retune of --icon-btn moves it in step. */
-  --item-col-class: calc(2 * var(--icon-btn) + var(--space-1));
+     held the word "Consumable" in a select when the track was measured, then two
+     --icon-btn toggles; it holds ONE mark now (ItemRow draws it), and what it gave up
+     went to the name. Derived from the box rather than stated, the way
+     --item-col-actions below is, so a retune of --icon-btn moves it in step. */
+  --item-col-class: var(--icon-btn);
   /* actions column is FIXED, not auto: a row shows 4 or 5 trailing icons (the nesting
      add/indent/outdent varies), and an auto column would size to that count — stealing
      from the 1fr name column by a different amount per row and misaligning qty/weight/
@@ -718,10 +717,10 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      step if either size ever moves. */
   @media (pointer: coarse) {
     --item-col-actions: calc(5 * var(--tap) + 4 * var(--space-1) - var(--grip-pull));
-    /* the class cell's two toggles grow with it — same trap, one column over: a track
-       measured in --icon-btn boxes under buttons drawn at --tap is 24px short, and the
-       overflow would be the toggles sitting under the trailing icons */
-    --item-col-class: calc(2 * var(--tap) + var(--space-1));
+    /* the class cell's mark grows with it — same trap, one column over: a track
+       measured in an --icon-btn box under a button drawn at --tap is 12px short, and
+       the overflow would be the mark sitting under the trailing icons */
+    --item-col-class: var(--tap);
   }
   /* the read/share views' weight track, named so the read row, the folder header and
      the packing row all measure it identically: the two templates share it by value,

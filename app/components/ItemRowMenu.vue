@@ -13,7 +13,7 @@ import { SvgIcon, type IconNode } from "~/utils/icon";
 // opening any row's menu closes every other, and there is one set of dismiss
 // listeners for all of them rather than a pair per row. Every popover a row can
 // raise is namespaced off the row id (`<id>:person`, `<id>:nest`, `<id>:menu` — and
-// the row's own `:worn` / `:kcal` dialogs, which stay in ItemRow), which is what
+// the row's own `:class` dialog, which stays in ItemRow), which is what
 // makes them mutually exclusive for free, on this row or any other, with no
 // cross-wiring between them.
 const props = defineProps<{

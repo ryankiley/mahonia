@@ -62,12 +62,12 @@ describe("offersKcal", () => {
 });
 
 describe("offersWorn", () => {
-  it("offers the toggle on everything but water and stove fuel", () => {
+  it("offers Worn on everything but water, stove fuel included", () => {
     expect(offersWorn({ name: "Rain jacket" }, false)).toBe(true);
     expect(offersWorn({ name: "Fuel belt" }, false)).toBe(true);
     expect(offersWorn({ name: "Water" }, false)).toBe(false);
-    expect(offersWorn({ name: "Gas canister" }, false)).toBe(false);
-    expect(offersWorn({ name: "IsoPro", commonName: "Fuel canister" }, false)).toBe(false);
+    expect(offersWorn({ name: "Gas canister" }, false)).toBe(true);
+    expect(offersWorn({ name: "IsoPro", commonName: "Fuel canister" }, false)).toBe(true);
   });
 
   it("keeps it wherever the row already says worn, so the value can be walked back", () => {

@@ -1,15 +1,14 @@
-// THE WORN POPOVER ON A ROW OF SEVERAL. "Worn" is a switch, and on a row of three it has
-// to say how many: all of them, or some. It used to offer the part counts as chips (1, 2),
-// so flipping the switch wore all three while lighting no count and printing no line, and
-// picking the lit count again un-wore the row. Then the chips grew an "All" and a ceiling
-// of four, which was the card's width talking, not anything about gear.
+// THE CLASS POPOVER: ONE CHOICE, AND HOW MANY ARE WORN. A row counts as one thing —
+// base, worn or consumable — and its one mark opens that choice as a radio group. It was
+// two toggles with a card each, and each card had to say "Turns the other off" before
+// its switch; a choice of three says so by being one control. The lit option is not a
+// way off: pressing it writes nothing.
 //
-// So the count is a STEPPER with a figure you can type, clamped to the line, with "All"
-// beside it; the line over it is the count itself ("2 worn · 1 packed") in every state;
-// and asking for the count the row already has writes nothing. (A count on the row
-// itself was tried and taken out: the hover tooltip and the control's name still say
-// "2 of 3".) And because a row holds ONE class, each popover says so before its switch
-// takes the other one off.
+// On a row of several, worn also has to say how many: all of them, or some. So under the
+// choice is a STEPPER with a figure you can type, clamped to the line, with "All" beside
+// it; the line over it is the count itself ("2 worn · 1 packed") in every state; and
+// asking for the count the row already has writes nothing. (A count on the row itself
+// was tried and taken out: the hover tooltip and the mark's name still say "2 of 3".)
 //
 // Rendered through the real <ItemRow>, over the real reducer, because what is under test
 // is what the row stores for each press and which branch of the template draws.
@@ -38,14 +37,18 @@ const socks = (over: Partial<Item> = {}): Item =>
 const mountRow = (row: Item) => mountRowOver(snapshot, [{ ...row }]);
 const row = () => snapshot.value.items[0]!;
 
-async function openWorn(w: ReturnType<typeof mountRow>) {
-  await w.get('button[aria-label^="Worn"]').trigger("click");
+async function openClass(w: ReturnType<typeof mountRow>) {
+  await w.get(".item__clsbtn").trigger("click");
   await nextTick();
-  const pop = w.get('[role="dialog"][aria-label="Worn"]');
+  const pop = w.get('[role="dialog"][aria-label="Counts as"]');
+  const option = (word: string) => pop.get(`[role="radio"][aria-label^="${word}"]`);
   const field = () => pop.get<HTMLInputElement>('input[aria-label="How many are worn"]');
   return {
     pop,
-    sw: () => pop.get('[role="switch"]'),
+    base: () => option("Base"),
+    worn: () => option("Worn"),
+    consumable: () => option("Consumable"),
+    chosen: () => pop.findAll('[role="radio"][aria-checked="true"]').map((o) => o.text()),
     fewer: () => pop.get('button[aria-label="One fewer worn"]'),
     more: () => pop.get('button[aria-label="One more worn"]'),
     all: () => pop.get(".item__split"),
@@ -66,16 +69,17 @@ beforeEach(() => {
 });
 
 describe("how many are worn is a stepper, with All beside it", () => {
-  it("the switch alone wears them all, and says so: All lit, the figure and the line at 3", async () => {
+  it("choosing Worn wears them all, and says so: the figure and the line at 3", async () => {
     const w = mountRow(socks());
-    const p = await openWorn(w);
+    const p = await openClass(w);
     expect(p.count()).toBe("0");
     expect(p.line()).toBe("0 worn · 3 packed");
     expect(disabled(p.all())).toBe(false);
     expect(disabled(p.fewer())).toBe(true);
 
-    await p.sw().trigger("click");
+    await p.worn().trigger("click");
     expect(row().classification).toBe("worn");
+    expect(p.chosen()).toEqual(["Worn"]);
     expect(p.count()).toBe("3");
     expect(p.line()).toBe("3 worn · 0 packed");
     // All is a shortcut, not a state: at the top it stands down with the +, unlit
@@ -87,12 +91,12 @@ describe("how many are worn is a stepper, with All beside it", () => {
 
   it("steps from none, through a part, to all and back down to none", async () => {
     const w = mountRow(socks());
-    const p = await openWorn(w);
+    const p = await openClass(w);
 
     await p.more().trigger("click");
     expect(row()).toMatchObject({ wornQty: 1 });
     expect(p.line()).toBe("1 worn · 2 packed");
-    expect(p.sw().attributes("aria-checked")).toBe("true");
+    expect(p.chosen()).toEqual(["Worn"]);
 
     await p.more().trigger("click");
     expect(row()).toMatchObject({ wornQty: 2 });
@@ -111,14 +115,14 @@ describe("how many are worn is a stepper, with All beside it", () => {
     await p.fewer().trigger("click");
     await p.fewer().trigger("click");
     expect(row().wornQty ?? 0).toBe(0);
-    expect(p.sw().attributes("aria-checked")).toBe("false");
+    expect(p.chosen()).toEqual(["Base"]);
     expect(p.line()).toBe("0 worn · 3 packed");
     expect(disabled(p.fewer())).toBe(true);
   });
 
   it("takes a typed figure of any size, clamped to the line", async () => {
     const w = mountRow(socks({ qty: 40 }));
-    const p = await openWorn(w);
+    const p = await openClass(w);
 
     await p.type("20");
     expect(row()).toMatchObject({ wornQty: 20 });
@@ -146,7 +150,7 @@ describe("how many are worn is a stepper, with All beside it", () => {
     // the stub controller replaces the snapshot on every updateItem, as the live one
     // saves on every dispatch, so the same object is the proof
     const w = mountRow(socks({ wornQty: 2 }));
-    const p = await openWorn(w);
+    const p = await openClass(w);
     const before = snapshot.value;
     await p.type("2");
     expect(snapshot.value).toBe(before);
@@ -163,7 +167,7 @@ describe("how many are worn is a stepper, with All beside it", () => {
     const w = mountRowOver(snapshot, [socks({ classification: null })], rowProvides(), {
       folders: [folder({ defaultClassification: "worn" })],
     });
-    const p = await openWorn(w);
+    const p = await openClass(w);
     expect(disabled(p.all())).toBe(true);
     expect(p.line()).toBe("3 worn · 0 packed");
     // and a typed "all of them" is the count it already has: nothing written
@@ -180,7 +184,7 @@ describe("how many are worn is a stepper, with All beside it", () => {
   it("is not offered on one of one, or on a consumable", async () => {
     for (const over of [{ qty: 1 }, { classification: "consumable" }] as const) {
       const w = mountRow(socks(over));
-      const pop = (await openWorn(w)).pop;
+      const pop = (await openClass(w)).pop;
       expect(pop.find('input[aria-label="How many are worn"]').exists(), JSON.stringify(over)).toBe(false);
       expect(pop.find(".item__split").exists()).toBe(false);
       w.unmount();
@@ -189,41 +193,78 @@ describe("how many are worn is a stepper, with All beside it", () => {
   });
 });
 
-describe("one class a row: each popover says what its switch takes off", () => {
-  it("the worn popover on a consumable row", async () => {
-    const w = mountRow(socks({ name: "Granola bar", classification: "consumable" }));
-    const p = await openWorn(w);
-    expect(p.pop.text()).toContain("Turns Consumable off");
-    // the switch carries the line as its description, so it is heard before the press
-    const sw = p.sw();
-    expect(p.pop.get(`#${sw.attributes("aria-describedby")}`).text()).toBe("Turns Consumable off");
-    await sw.trigger("click");
-    expect(row().classification).toBe("worn");
-    expect(p.pop.text()).not.toContain("Turns Consumable off");
-    expect(sw.attributes("aria-describedby")).toBeUndefined();
+describe("one class a row: the choice is one control", () => {
+  it("offers the three, with the row's own lit and nothing to explain", async () => {
+    const w = mountRow(socks());
+    const p = await openClass(w);
+    expect(p.pop.findAll('[role="radio"]').map((o) => o.text())).toEqual(["Base", "Worn", "Consumable"]);
+    expect(p.chosen()).toEqual(["Base"]);
+    expect(p.pop.text()).not.toContain("Turns");
+    expect(p.pop.find('[role="switch"]').exists()).toBe(false);
   });
 
-  it("the consumable popover on a worn row, a part-worn one included", async () => {
+  it("moves a consumable to worn, and a worn or part-worn row to consumable, dropping the split", async () => {
+    const w = mountRow(socks({ name: "Granola bar", classification: "consumable" }));
+    const p = await openClass(w);
+    expect(p.chosen()).toEqual(["Consumable"]);
+    await p.worn().trigger("click");
+    expect(row().classification).toBe("worn");
+    expect(p.chosen()).toEqual(["Worn"]);
+    w.unmount();
+    useItemMenu().close();
+
     for (const over of [{ classification: "worn" }, { wornQty: 1 }] as const) {
-      const w = mountRow(socks(over));
-      await w.get('button[aria-label^="Consumable"]').trigger("click");
-      await nextTick();
-      const pop = w.get('[role="dialog"][aria-label="Consumable"]');
-      expect(pop.text(), JSON.stringify(over)).toContain("Turns Worn off");
-      const sw = pop.get('[role="switch"][aria-label^="Consumable"]');
-      expect(pop.get(`#${sw.attributes("aria-describedby")}`).text()).toBe("Turns Worn off");
-      await sw.trigger("click");
+      const w2 = mountRow(socks(over));
+      const p2 = await openClass(w2);
+      expect(p2.chosen(), JSON.stringify(over)).toEqual(["Worn"]);
+      await p2.consumable().trigger("click");
       expect(row()).toMatchObject({ classification: "consumable" });
       expect(row().wornQty ?? 0).toBe(0);
-      expect(pop.text()).not.toContain("Turns Worn off");
+      w2.unmount();
+      useItemMenu().close();
+    }
+  });
+
+  it("goes back to base from either, and pins base where the folder says otherwise", async () => {
+    const w = mountRow(socks({ classification: "worn" }));
+    const p = await openClass(w);
+    await p.base().trigger("click");
+    expect(row().classification).not.toBe("worn");
+    expect(p.chosen()).toEqual(["Base"]);
+    w.unmount();
+    useItemMenu().close();
+
+    const inWorn = mountRowOver(snapshot, [socks({ classification: null })], rowProvides(), {
+      folders: [folder({ defaultClassification: "worn" })],
+    });
+    const p2 = await openClass(inWorn);
+    expect(p2.chosen()).toEqual(["Worn"]);
+    await p2.base().trigger("click");
+    expect(row().classification).toBe("base");
+  });
+
+  it("the lit option writes nothing, a part-worn row's count included", async () => {
+    // the stub controller replaces the snapshot on every updateItem, so the same object
+    // is the proof
+    for (const [over, word] of [[{}, "Base"], [{ classification: "worn" }, "Worn"], [{ wornQty: 2 }, "Worn"], [{ classification: "consumable" }, "Consumable"]] as const) {
+      const w = mountRow(socks(over));
+      const p = await openClass(w);
+      const before = snapshot.value;
+      await p.pop.get(`[role="radio"][aria-label^="${word}"]`).trigger("click");
+      expect(snapshot.value, JSON.stringify(over)).toBe(before);
       w.unmount();
       useItemMenu().close();
     }
   });
 
-  it("says nothing on a row that is neither", async () => {
+  it("the arrows move the choice, one tab stop between the three", async () => {
     const w = mountRow(socks());
-    const p = await openWorn(w);
-    expect(p.pop.text()).not.toContain("Turns");
+    const p = await openClass(w);
+    expect(p.pop.findAll('[role="radio"]').map((o) => o.attributes("tabindex"))).toEqual(["0", "-1", "-1"]);
+    await p.pop.get('[role="radiogroup"]').trigger("keydown", { key: "ArrowRight" });
+    expect(row().classification).toBe("worn");
+    await p.pop.get('[role="radiogroup"]').trigger("keydown", { key: "ArrowLeft" });
+    expect(row().classification).not.toBe("worn");
+    expect(p.chosen()).toEqual(["Base"]);
   });
 });

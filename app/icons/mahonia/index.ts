@@ -39,3 +39,4 @@ export { StairsGlyph } from "./StairsGlyph";
 export { FuelCanGlyph } from "./FuelCanGlyph";
 export { WaterBottleGlyph } from "./WaterBottleGlyph";
 export { CanisterGlyph } from "./CanisterGlyph";
+export { UnsetRingGlyph } from "./UnsetRingGlyph";

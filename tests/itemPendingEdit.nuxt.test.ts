@@ -10,7 +10,7 @@
 // Reported as the amount or the weight disappearing when a row is made consumable, which
 // is the shortest path to it: type a weight into a new row, tap the cookie, watch the
 // field empty itself. The hole was in the row's shared plumbing though, not in the
-// classification toggles, so the cases below cover a second control (Worn) to pin that
+// class mark, so the cases below cover a second control (the nesting menu) to pin that
 // this is fixed once for the row rather than once per button.
 //
 // Needs the Nuxt environment: what's under test is an interaction between a real DOM
@@ -67,34 +67,34 @@ beforeEach(() => {
 });
 
 describe("a pending number edit survives the row's own controls", () => {
-  it("commits a typed weight when the Consumable toggle is pressed", async () => {
+  it("commits a typed weight when the class mark is pressed", async () => {
     const w = mountRow();
     const field = w.find<HTMLInputElement>('input[aria-label="Weight"]').element;
     typeInto(field, "250");
     expect(weightCommits).toEqual([]); // nothing committed yet — no blur has happened
 
-    await w.find('button[aria-label^="Consumable"]').trigger("click");
+    await w.find(".item__clsbtn").trigger("click");
 
     expect(weightCommits).toEqual(["250"]);
   });
 
-  it("commits a typed quantity when the Consumable toggle is pressed", async () => {
+  it("commits a typed quantity when the class mark is pressed", async () => {
     const w = mountRow();
     const field = w.find<HTMLInputElement>('input[aria-label="Quantity"]').element;
     typeInto(field, "7");
 
-    await w.find('button[aria-label^="Consumable"]').trigger("click");
+    await w.find(".item__clsbtn").trigger("click");
 
     expect(row().qty).toBe(7);
   });
 
   // the fix belongs to the row, not to one button
-  it("commits a typed weight when the Worn toggle is pressed", async () => {
+  it("commits a typed weight when the nesting menu is pressed", async () => {
     const w = mountRow();
     const field = w.find<HTMLInputElement>('input[aria-label="Weight"]').element;
     typeInto(field, "250");
 
-    await w.find('button[aria-label^="Worn"]').trigger("click");
+    await w.find(".item__nest-btn").trigger("click");
 
     expect(weightCommits).toEqual(["250"]);
   });

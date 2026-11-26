@@ -38,6 +38,18 @@ const NO_ITEMS: ItemT[] = [];
 // gear.nest.<id> — one blocking storage read per row per remount was the cost this
 // cache retired (its header carries the reasoning and the cross-tab invalidation).
 const nestCollapse = usePersistedCollapse("gear.nest.");
+
+// What a row can count as, in the totals bar's order and its words. `name` is the
+// option's accessible name: it OPENS with the visible label (WCAG 2.5.3: speech input
+// matches on the name, so "click Consumable" has to hit) and then says what the word
+// means. EVERY row gets all three, stove fuel included: a card that left Worn out there
+// was the one card of a different shape, and the rule that reads a row as fuel also
+// catches a fuel bottle and a gas stove (Ryan, 2026-11-25: "feels confused on fuel").
+const CLASS_OPTIONS = [
+  { key: "base", label: "Base", name: "Base: in your pack" },
+  { key: "worn", label: "Worn", name: "Worn on your body" },
+  { key: "consumable", label: "Consumable", name: "Consumable: food, fuel, or water" },
+] as const;
 </script>
 
 <script setup lang="ts">
@@ -52,8 +64,9 @@ import { bySortOrder, entryUnitFromInput, formatKcal, formatWeight, isBareGroup,
 import { isWaterName, itemQtyLabel } from "~~/shared/water";
 import { useItemRowFields } from "~/composables/useItemRowFields";
 import { useItemRowClassification } from "~/composables/useItemRowClassification";
+import { UnsetRingGlyph } from "~/icons/mahonia";
 import { consumableIcon } from "~/utils/itemMarks";
-import { ASSUMED_FUEL_PER_BOIL_G, isFuelRow, offersKcal, offersWorn } from "~~/shared/fuel";
+import { ASSUMED_FUEL_PER_BOIL_G, isFuelRow, offersKcal } from "~~/shared/fuel";
 // the same worthiness + identity rules the capture path runs, so "already banked"
 // below can only ever claim what capture would actually take (statically imported
 // like useGearList's own vaultNormKey — this module is in the editor graph already)
@@ -424,12 +437,10 @@ function flushPendingEdit(e: Event) {
 // (Ryan, 2026-09-12: the checklist "expresses the variant on a different line").
 const variantOnRow = computed(() => variantShownIds.value.has(props.item.id));
 
-// the picture on the consumable toggle, and on water's fixed mark: the droplet, the
-// fuel can, or the cookie. Read off the name and gear type whether or not the row IS
-// consumable — an unlit toggle draws what the mark would be, and the lit one matches
-// what the share view and /gear draw for the same row (consumableIcon is the one rule
-// all three read). What else a fuel name decides — no calorie field, no worn toggle —
-// is kcalOffered and wornOffered below, each reading shared/fuel for itself.
+// the picture a consumable row's mark wears, and water's fixed one: the droplet, the
+// fuel can, or the cookie — the same one the share view and /gear draw for the row
+// (consumableIcon is the one rule all three read). What else a fuel name decides — no
+// calorie field — is kcalOffered below, reading shared/fuel for itself.
 const consumableGlyph = computed(() => consumableIcon(props.item));
 
 // renaming in place via the same autocomplete: a catalog pick re-links + fills the
@@ -649,7 +660,7 @@ const {
   fitNote,
 });
 
-const { activeSplit, consumableAria, isConsumable, isWorn, setClass, setWornCount, splitOffered, wornAria, wornCount, wornTitle } =
+const { activeSplit, classAria, classTitle, isConsumable, isWorn, pickClass, rowClass, setWornCount, splitOffered, wornCount } =
   useItemRowClassification({
     item: toRef(props, "item"),
     list: toRef(props, "list"),
@@ -660,20 +671,23 @@ const { activeSplit, consumableAria, isConsumable, isWorn, setClass, setWornCoun
 // One-at-a-time across the whole list (useItemMenu's singleton), and the folder
 // lifts its collapse clip while any is open (atoms/folder.scss). The singleton holds ONE
 // open id, so every popover a row can raise is namespaced off the row id
-// (`<id>:menu`, `<id>:kcal`, …). That's what makes them mutually exclusive for free
+// (`<id>:menu`, `<id>:class`, …). That's what makes them mutually exclusive for free
 // — opening the calorie popover closes the ⋯ menu, on this row or any other, with
 // no cross-wiring between them.
 //
 // The three MENUS (carrier, nesting, the mobile ⋯ overflow) are <ItemRowMenu>s in
 // the template — one component for the chrome and the open/close contract, with
-// only their entries written here. The two classification DIALOGS below stay in
-// this file: they hold a switch and a field rather than a list of actions.
+// only their entries written here. The classification DIALOG below stays in
+// this file: it holds a choice and a field rather than a list of actions.
 const menu = useItemMenu();
 
-// ---- the two classification popovers ----
-// Both hang off their own toggle and hold: a switch for the class itself, plus the
-// one detail that only makes sense while it is on (worn → how many of the qty;
-// consumable → calories). Same shape twice, so learning one teaches the other.
+// ---- the class popover ----
+// ONE mark a row, and one card behind it: the choice of class (base, worn, consumable)
+// and under it the one detail that only makes sense for the class chosen — worn's how
+// many of the count, consumable's calories and cooking. It was two toggles with a card
+// each, side by side, which read as two independent switches over a field that holds
+// ONE value: each card had to say "Turns the other off" before its switch, and a row
+// that could not be worn kept an invisible second slot so the first stayed in column.
 //
 // Namespaced off the row id like the menus, so the singleton's single openId makes
 // every popover on every row mutually exclusive with no cross-wiring.
@@ -684,92 +698,81 @@ const menu = useItemMenu();
 // place the feature is needed is the one place it would be unreachable. Slide RIGHT
 // rather than flip to the leading edge when the card runs off the left: it hangs
 // off the trigger's right edge, which is correct on a wide row but walks off the
-// left of a phone, where the stacked layout puts the toggles near the middle of a
+// left of a phone, where the stacked layout puts the mark near the middle of a
 // 375px viewport (the composable's header says why a flip can't serve that case).
 // Tooltip.vue solves the same problem but is built around a hover-driven popup
 // teleported to <body>; this popover holds a focusable field and stays in the row.
-const wornRootRef = useTemplateRef<HTMLElement>("wornRootRef");
-const wornPopRef = useTemplateRef<HTMLElement>("wornPopRef");
-const isWornOpen = computed(() => menu.openId.value === `${props.item.id}:worn`);
-// Whether the worn toggle is drawn at all — offersWorn (shared/fuel): not on water, not
-// on stove fuel, kept where the row already says worn so the value stays clearable
-// (isWorn folds the split in). The slot stays either way — a ghost shirt holds it open,
-// see the template — so the consumable mark keeps its column.
-//
-// ...AND while its popover is open. The switch inside that popover is what makes a worn
-// fuel row stop being worn, and the toggle, the popover and the switch under the pointer
-// all live in the one root this gates: without this term the click that clears worn
-// unmounted the popover from inside itself, mid-transition, with the menu singleton still
-// holding its id, and focus dropped to the body.
-// The same guard classCellShown carries, for the same reason. The toggle goes when the
-// popover does.
-const wornOffered = computed(() => offersWorn(props.item, isWorn.value) || isWornOpen.value);
-const { above: wornAbove, shift: wornShift, place: placeWorn } = useMenuPlacement(wornPopRef, { fit: "shift" });
-// Placed on the tick the card mounts (it has no size to measure before that), and for a
-// row that mounts with it already open. No focus move: its controls are a switch and a
-// set of buttons, and pulling focus to the first of those would look like a selection
-// had been made.
-watch(isWornOpen, (open) => open && nextTick(placeWorn), { immediate: true });
+const classRootRef = useTemplateRef<HTMLElement>("classRootRef");
+const classPopRef = useTemplateRef<HTMLElement>("classPopRef");
+const isClassOpen = computed(() => menu.openId.value === `${props.item.id}:class`);
+const { above: classAbove, shift: classShift, place: placeClass } = useMenuPlacement(classPopRef, { fit: "shift" });
+// The picture on the mark: what the row counts as. The shirt for worn, and for a
+// consumable whichever of the cookie, the fuel can and the droplet consumableIcon picks.
+// BASE is the row with nothing set (it is stored as null), so its mark is the empty
+// outline of the plate the other two light: a dashed ring. It was the backpack, which
+// at this size read as a bin beside the row's own trash can. A shirt and a cookie either
+// side of a slash was drawn too (Ryan's idea, 2026-11-25): as two miniatures it read as
+// a percent sign among the weights, as two halves it read as nothing.
+const classGlyph = computed(() => (rowClass.value === "worn" ? IconFashion : rowClass.value === "consumable" ? consumableGlyph.value : UnsetRingGlyph));
 
-// ---- calories (consumable rows only) ----
-// Served in a popover hung off the classification control rather than given a
-// column: kcal is a fact about food, and food is a minority of a minority of rows.
-// A column would cost every row width to serve a few, which is the trade the
-// classification select already makes by collapsing three states into one control.
-const kcalRootRef = useTemplateRef<HTMLElement>("kcalRootRef");
-const kcalPopRef = useTemplateRef<HTMLElement>("kcalPopRef");
-const isKcalOpen = computed(() => menu.openId.value === `${props.item.id}:kcal`);
-const { above: kcalAbove, shift: kcalShift, place: placeKcal } = useMenuPlacement(kcalPopRef, { fit: "shift" });
-// The field itself is offered only once the row IS consumable — the only state in which
-// the number is counted, so offering it sooner would collect a value the totals ignore
-// — and not on stove fuel holding no number, whose "calories" are the wrong kind and
-// would feed the food plan (offersKcal, shared/fuel, has the whole argument and the
-// exception: a fuel row that already carries a value keeps the field, so the count
-// stays clearable).
-//
-// Decided when the popover OPENS, and held while it is open. The rule reads the row as
-// stored, and two things can change that under an open popover: clearing the number
-// (which is the field's own job) and the name committing — a name typed and then acted
-// on without leaving the field commits on the focus move the popover's own field causes.
-// Either would unmount the field with the cursor in it, a control vanishing under the
-// hand. So an open popover keeps the controls it opened with; the next open reads the
-// row afresh. (The same principle wornOffered follows for its toggle.)
+// Whether the card offers the CALORIE field is decided when it opens, and held while it
+// is open. The rule reads the row as stored, and two things can change that under an
+// open card: clearing the number (the field's own job) and the name committing — a name
+// typed and then acted on without leaving the field commits on the focus move the card's
+// own field causes. Either would unmount the field with the cursor in it. So an open
+// card keeps the field it opened with; the next open reads the row afresh.
+// The field is offered only once the row IS consumable, the only state in which the
+// number is counted, so offering it sooner would collect a value the totals ignore — and
+// not on stove fuel holding no number, whose "calories" are the wrong kind and would
+// feed the food plan (offersKcal, shared/fuel, has the whole argument and the exception:
+// a fuel row that already carries a value keeps the field, so the count stays clearable).
+// Served here rather than given a column: kcal is a fact about food, and food is a
+// minority of a minority of rows.
 const kcalHeld = ref(false);
 // immediate: the menu singleton outlives a row, so a row can mount with its popover
 // already open, and must decide (and place the card) then too
 watch(
-  isKcalOpen,
+  isClassOpen,
   (open, was) => {
     if (!open) return;
     kcalHeld.value = offersKcal(props.item);
     // on the tick the card mounts — it has no size to measure before that
     nextTick(() => {
-      placeKcal();
-      // focus the field on open — the popover exists to take one number, so landing
-      // anywhere else would make every use a click plus a tab. On an open only: a row
-      // that mounts under an open popover takes no focus it didn't have.
-      if (was === false) kcalRootRef.value?.querySelector<HTMLInputElement>("input")?.focus();
+      placeClass();
+      // On a consumable the card opens with the cursor in the calorie field — that
+      // number is what the card is opened for there, so landing anywhere else would
+      // make every use a click plus a tab. No focus move on any other row: its controls
+      // are a choice and a set of buttons, and pulling focus to the first of those would
+      // look like a selection had been made. On an open only: a row that mounts under an
+      // open popover takes no focus it didn't have.
+      if (was === false) classRootRef.value?.querySelector<HTMLInputElement>(".item__popinput")?.focus();
     });
   },
   { immediate: true },
 );
-const kcalOffered = computed(() => isConsumable.value && (isKcalOpen.value ? kcalHeld.value : offersKcal(props.item)));
-// Whether the two class marks are drawn. `!bareGroup` is the rule (below, at the cell);
+// the choice is a radio group: one tab stop, the arrows move the selection
+const { onKey: onClassKey } = useRovingRadio(
+  () => CLASS_OPTIONS.length,
+  () => CLASS_OPTIONS.findIndex((o) => o.key === rowClass.value),
+  (at) => pickClass(CLASS_OPTIONS[at]!.key),
+);
+const kcalOffered = computed(() => isConsumable.value && (isClassOpen.value ? kcalHeld.value : offersKcal(props.item)));
+// Whether the class mark is drawn. `!bareGroup` is the rule (below, at the cell);
 // the other three terms are the cases where taking them away would strand something:
 //  • WATER — its cell holds a FIXED mark, not a toggle, and that glyph is the only thing
 //    on the row saying it is a consumable. Nothing else can restate it, so it stays.
 //  • A STORED CLASS — a row marked worn or consumable before it gained children keeps its
-//    toggles, or the value is set forever with no field to clear it, still exported and
+//    mark, or the value is set forever with no field to clear it, still exported and
 //    still read by unwrapEmptied's guard. Same rule the gear type follows (cnameShown).
-//  • AN OPEN POPOVER — the kcal and worn popovers live INSIDE this cell, and clearing the
+//  • AN OPEN POPOVER — the class popover lives INSIDE this cell, and clearing the
 //    kcal field is exactly what can turn the row bare, which would unmount the popover
 //    the user is typing in.
 const classCellShown = computed(
-  () => isWater.value || !bareGroup.value || props.item.classification != null || props.item.needsCooking || isKcalOpen.value || isWornOpen.value,
+  () => isWater.value || !bareGroup.value || props.item.classification != null || props.item.needsCooking || isClassOpen.value,
 );
 
-// A popover GROWS after it is placed: turning Consumable on adds the calorie field, its
-// total and the cooking switch, and a worn switch on a consumable row adds the counts.
+// The popover GROWS after it is placed: choosing Consumable adds the calorie field, its
+// total and the cooking switch, and choosing Worn on a row of several adds the counts.
 // `place` runs once, on the short card, so a row near the viewport floor opened its card
 // below and then grew it past the bottom of the screen (measured: "Needs cooking" cut off
 // at the window edge). Re-placing would flip the card to the other side of its trigger —
@@ -787,10 +790,13 @@ function keepPopInView(e: Event) {
   });
 }
 
-// Open or close one of the two; what follows an open (placing the card, the kcal
-// field's focus) is the watchers' above.
-const toggleWorn = () => menu.toggle(`${props.item.id}:worn`, wornRootRef.value);
-const toggleKcal = () => menu.toggle(`${props.item.id}:kcal`, kcalRootRef.value);
+// whether the cooking switch is shown: on food that is consumable, not on stove fuel,
+// and on a bare group only while it already says it needs cooking, so it can be cleared
+const cookingOffered = computed(() => isConsumable.value && !isFuelRow(props.item) && (!bareGroup.value || !!props.item.needsCooking));
+
+// Open or close it; what follows an open (placing the card, the kcal field's focus) is
+// the watcher's above.
+const toggleClass = () => menu.toggle(`${props.item.id}:class`, classRootRef.value);
 // The typed worn count. Anything that isn't a number leaves the row alone, and the field
 // is put back to what the row holds either way — setWornCount clamps to the line, so
 // "99" on a row of 40 must read 40 afterwards, and a figure that changed nothing would
@@ -1310,7 +1316,7 @@ function dismissFix() {
           <!-- a group that keeps its class marks (#299: one carrying a line of its own)
                reads its calories here, on the name line; a bare group's go in the class
                column below, where its rows' consumable marks are. -->
-          <span v-if="isParent && rowKcal > 0 && classCellShown" class="t-sm t-muted item__gkcalinline" title="Calories in this group">· {{ formatKcal(rowKcal) }} kcal</span>
+          <span v-if="isParent && rowKcal > 0" class="t-sm t-muted item__gkcalinline" title="Calories in this group">· {{ formatKcal(rowKcal) }} kcal</span>
         </div>
         <!-- sub-line: the gear type (a quiet upright label) and, under it, the freeform note;
              both single-line live-text fields, showing whenever they hold a value or the
@@ -1589,15 +1595,14 @@ function dismissFix() {
           </OptionMenu>
         </div>
 
-        <!-- CLASSIFICATION — two toggles rather than a three-option select. The field
-             holds one value with base stored as null, so "both off" IS base: the pair
-             renders the type directly instead of restating it. Each toggle also opens
-             the one detail that only exists while it is on — worn's split count,
-             consumable's calories — so the row itself gains no third control.
-             CONSUMABLE FIRST, worn second. Water is why: its class is fixed, so its
-             row draws a lit mark instead of a toggle — and only with consumable in
-             the leading slot does that mark land in the same column as every other
-             row's cookie (the worn slot beside it is held open by a ghost below). -->
+        <!-- CLASSIFICATION — ONE mark, wearing what the row counts as: a dashed ring for
+             base (nothing set), the shirt for worn, the cookie (or fuel can, or droplet) for a consumable,
+             lit for the two that take the row out of base weight. It opens the choice
+             and, under it, the one detail that only exists for the class chosen —
+             worn's count, consumable's calories — so the row itself gains no second
+             control. It was two toggles, consumable then worn, which cost every row a
+             second slot for a field that holds one value. Water's class is fixed, so
+             its row draws the lit mark with nothing behind it, in the same column. -->
         <!-- THE TRAILING CLUSTER — the marks and the controls, as one thing. On the
              desktop grid this wrapper is `display: contents`, so both cells drop into
              their own columns exactly as they did loose; it exists for the mobile line,
@@ -1616,184 +1621,78 @@ function dismissFix() {
                eye reads it as covering the total beside it. A group carrying a line of
                its own keeps the marks — there the class does decide which bucket that
                line lands in. -->
-          <!-- what the group holds, in calories: a day's meals answer "how much food?"
-               from the row. A bare group's class cell is empty (#299), so the figure
-               takes that column — above its rows' consumable marks, which is where the
-               eye already goes for "food" — in the same muted italic voice as the total
-               beside it (Ryan, 2026-09-05). The share view prints the same words in the
-               same column. -->
-          <div v-if="isParent && rowKcal > 0 && !classCellShown" class="t-sm t-muted item__gkcal" title="Calories in this group">{{ formatKcal(rowKcal) }} kcal</div>
           <div v-if="classCellShown" class="item__classcell">
-            <div v-if="!isWater" ref="kcalRootRef" class="menu item__cls">
-              <Tooltip text="Consumable" :disabled="isKcalOpen" preferred-placement="top">
-                <button
-                  class="btn btn--icon btn--ghost menu__btn item__clsbtn"
-                  :class="{ 'item__mark': isConsumable }"
-                  type="button"
-                  aria-haspopup="dialog"
-                  :aria-expanded="isKcalOpen"
-                  :aria-label="consumableAria"
-                  @mousedown.prevent
-                  @click="toggleKcal"
-                >
-                  <SvgIcon :icon="consumableGlyph" />
-                </button>
-              </Tooltip>
-              <Transition name="menu">
-                <div
-                  v-if="isKcalOpen"
-                  ref="kcalPopRef"
-                  class="popover item__pop"
-                  :class="{ 'is-above': kcalAbove }"
-                  :style="kcalShift ? { translate: kcalShift + 'px 0' } : undefined"
-                  role="dialog"
-                  aria-label="Consumable"
-                  @click="keepPopInView"
-                  @change="keepPopInView"
-                >
-                  <div class="switch-row">
-                    <span class="t-sm">Consumable</span>
-                    <!-- The name has to OPEN with the visible label. WCAG 2.5.3 asks
-                         that a control's accessible name contain the text you can see
-                         beside it, and "Food, fuel or water" — good as the gloss is —
-                         shares not one word with the "Consumable" printed next to it.
-                         The cost is real and not theoretical: speech input matches on
-                         the accessible name, so "click Consumable" hit nothing.
-                         The gloss stays, after the label, because it is the sentence
-                         that says what the word means. (The worn switch below needs no
-                         such repair — "Worn on your body" already opens with "Worn".) -->
-                    <button
-                      class="switch"
-                      type="button"
-                      role="switch"
-                      :aria-checked="isConsumable"
-                      aria-label="Consumable: food, fuel, or water"
-                      :aria-describedby="isWorn ? `${item.id}-kcal-swap` : undefined"
-                      @click="setClass('consumable', !isConsumable)"
-                    />
-                  </div>
-                  <!-- the worn popover's twin: one class per row, so this switch takes
-                       worn (a split included) off with it — said before the click, and
-                       to a screen reader as the switch's description -->
-                  <p v-if="isWorn" :id="`${item.id}-kcal-swap`" class="t-sm t-muted item__popline">Turns Worn off</p>
-                  <!-- calories only once the row IS consumable, and not on fuel that has
-                       none to show — see kcalOffered -->
-                  <template v-if="kcalOffered">
-                    <label class="t-sm t-muted item__poplabel" :for="`${item.id}-kcal`">kcal each</label>
-                    <input
-                      :id="`${item.id}-kcal`"
-                      class="field field--num well item__popinput"
-                      :value="item.kcal ?? ''"
-                      placeholder="0"
-                      inputmode="numeric"
-                      autocomplete="off"
-                      spellcheck="false"
-                      @change="onKcal"
-                      @keydown.enter="($event.target as HTMLInputElement).blur()"
-                    />
-                    <!-- the line total, so a qty>1 row doesn't make you do it in your
-                         head. The icon marks it as DERIVED — everything above it in this
-                         popover is something you typed, this is the one line the app
-                         worked out. -->
-                    <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
-                      <SvgIcon :icon="IconCalculator" class="item__poplineicon" size="sm" aria-hidden="true" />
-                      {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
-                    </p>
-                  </template>
-                  <template v-if="isConsumable && !isFuelRow(item) && (!bareGroup || item.needsCooking)">
-                    <div class="switch-row">
-                      <span class="t-sm">Needs cooking</span>
-                      <button class="switch" type="button" role="switch" :aria-checked="!!item.needsCooking"
-                        aria-label="Needs cooking" @click="c.updateItem(item.id, { needsCooking: !item.needsCooking })" />
-                    </div>
-                    <!-- "for N boils" is the assumption, in the line: one boil an item.
-                         It was a hover title only, which a phone never shows, and the
-                         bare "~30 g fuel" read as a figure from nowhere. Same shape as
-                         the calorie total above ("750 kcal for 3"), same derived mark. -->
-                    <p v-if="item.needsCooking && !bareGroup" class="t-sm t-muted item__popline" role="status"
-                      :title="`Assumes one boil per item, at ${ASSUMED_FUEL_PER_BOIL_G} g per boil.`">
-                      <SvgIcon :icon="IconCalculator" class="item__poplineicon" size="sm" aria-hidden="true" />
-                      ~{{ item.qty * ASSUMED_FUEL_PER_BOIL_G }} g fuel for {{ item.qty }} {{ item.qty === 1 ? "boil" : "boils" }}
-                    </p>
-                  </template>
-                </div>
-              </Transition>
-            </div>
-            <!-- water's mark, not a toggle: its class can't change and it has no
-                 calories to hold, so a switch and a kcal field here would both be
-                 controls that lie. Same class, same lit chip, same "Consumable" name;
-                 the glyph is consumableIcon's answer for a water row, the droplet — one
-                 rule for this mark, the toggle above, the read view and /gear. -->
-            <div v-else class="item__cls">
-              <Tooltip text="Consumable" preferred-placement="top">
-                <span class="item__clsfixed item__mark" role="img" aria-label="Consumable">
-                  <SvgIcon :icon="consumableGlyph" />
-                </span>
-              </Tooltip>
-            </div>
-
-            <div v-if="wornOffered" ref="wornRootRef" class="menu item__cls">
+            <div v-if="!isWater" ref="classRootRef" class="menu item__cls">
               <!-- Tooltip wraps the BUTTON, not the cell: the popover below is anchored
                    to .item__cls, and putting the wrapper around both would re-anchor it
                    to a div that only spans the trigger. The accessible name stays on the
                    control (aria-label) — the tooltip only adds the visible description,
                    so `title` is dropped to avoid the native bubble doubling it. -->
-              <Tooltip :text="wornTitle" :disabled="isWornOpen" preferred-placement="top">
+              <Tooltip :text="classTitle" :disabled="isClassOpen" preferred-placement="top">
                 <button
                   class="btn btn--icon btn--ghost menu__btn item__clsbtn"
-                  :class="{ 'item__mark': isWorn }"
+                  :class="{ 'item__mark': rowClass !== 'base' }"
                   type="button"
                   aria-haspopup="dialog"
-                  :aria-expanded="isWornOpen"
-                  :aria-label="wornAria"
+                  :aria-expanded="isClassOpen"
+                  :aria-label="classAria"
                   @mousedown.prevent
-                  @click="toggleWorn"
+                  @click="toggleClass"
                 >
-                  <SvgIcon :icon="IconFashion" />
+                  <SvgIcon :icon="classGlyph" />
                 </button>
               </Tooltip>
               <Transition name="menu">
                 <div
-                  v-if="isWornOpen"
-                  ref="wornPopRef"
+                  v-if="isClassOpen"
+                  ref="classPopRef"
                   class="popover item__pop"
-                  :class="{ 'is-above': wornAbove }"
-                  :style="wornShift ? { translate: wornShift + 'px 0' } : undefined"
+                  :class="{ 'is-above': classAbove }"
+                  :style="classShift ? { translate: classShift + 'px 0' } : undefined"
                   role="dialog"
-                  aria-label="Worn"
+                  aria-label="Counts as"
                   @click="keepPopInView"
+                  @change="keepPopInView"
                 >
-                  <div class="switch-row">
-                    <span class="t-sm">Worn</span>
+                  <!-- THE CHOICE. A row holds ONE class, so it is one control with
+                       three settings — a radio group, which says "one of these" without
+                       a line of text to explain it. The lit option is not a way off:
+                       pressing it writes nothing (pickClass). -->
+                  <div class="item__classes" role="radiogroup" aria-label="Counts as" @keydown="onClassKey">
                     <button
-                      class="switch"
+                      v-for="o in CLASS_OPTIONS"
+                      :key="o.key"
+                      ref="opts"
+                      class="modebar__opt item__classopt"
+                      :class="{ 'is-active': o.key === rowClass }"
                       type="button"
-                      role="switch"
-                      :aria-checked="isWorn"
-                      aria-label="Worn on your body"
-                      :aria-describedby="isConsumable ? `${item.id}-worn-swap` : undefined"
-                      @click="setClass('worn', !isWorn)"
-                    />
+                      role="radio"
+                      :aria-checked="o.key === rowClass"
+                      :aria-label="o.name"
+                      :tabindex="o.key === rowClass ? 0 : -1"
+                      @click="pickClass(o.key)"
+                    >
+                      {{ o.label }}
+                    </button>
                   </div>
-                  <!-- A row holds ONE class, so this switch also clears the other. Said
-                       before the click, on the one row where it is true — the two
-                       toggles sit side by side and read as independent. -->
-                  <p v-if="isConsumable" :id="`${item.id}-worn-swap`" class="t-sm t-muted item__popline">Turns Consumable off</p>
                   <!-- How many: only on a row of several, because one of one is simply
-                       "worn" (splitOffered).
+                       "worn" (splitOffered), and never on a consumable.
                        The line over the control is the ANSWER, not a title: "2 worn ·
-                       1 packed" sits where "worn of 3" did, rather than a title above
-                       and the same figure again below (Ryan, 2026-11-25). It reads
-                       "0 worn · 3 packed" while worn is off, so the card is one height
-                       whatever is set.
+                       1 packed" (Ryan, 2026-11-25). It reads "0 worn · 3 packed" on a
+                       base row, so the card is one height whichever of the two is lit
+                       and the − that reaches none does not take the stepper away with it.
                        A STEPPER, the row's own quantity control on the card's ground:
                        − n +, with the figure typeable. It replaced count chips
                        (1 2 3 4 All) whose ceiling was the card's width — "does 4 feel
                        artificially limited", and it did. One control for every row
                        rather than chips for short rows and a stepper for long ones.
-                       "All" stays beside it: the one count worth a press of its own,
-                       and without it the switch alone meant "all of them" and said so
-                       nowhere. -->
+                       "All" stays beside it: the one count worth a press of its own. -->
+                  <!-- What is under the choice changes with it, AT ONCE: no glide on the
+                       lit option and no easing of the card's height. Both were built
+                       (a travelling plate, then the sections folding, then one box
+                       easing while the new content faded in) and taken out the same
+                       day: "let's go no animation on this, bad idea" (Ryan,
+                       2026-11-25). The options keep the tab chip's own colour fade. -->
                   <template v-if="splitOffered">
                     <p class="t-sm t-muted item__poplabel">{{ wornCount }} worn · {{ Math.max(0, item.qty - wornCount) }} packed</p>
                     <div class="item__splits">
@@ -1828,11 +1727,11 @@ function dismissFix() {
                           <SvgIcon :icon="IconPlusMedium" />
                         </button>
                       </div>
-                      <!-- A SHORTCUT, not a state: it never lights. When all are worn the
-                           switch above is already on and the figure and the line both
-                           say so; a second inverted chip beside the switch was two loud
-                           "on"s for one fact. At the top it stands down with the +
-                           beside it, the same way, for the same reason. -->
+                      <!-- A SHORTCUT, not a state: it never lights. When all are worn,
+                           Worn above is already lit and the figure and the line both
+                           say so; a second lit chip beside it was two loud "on"s for
+                           one fact. At the top it stands down with the + beside it,
+                           the same way, for the same reason. -->
                       <button
                         class="btn btn--quiet item__split"
                         type="button"
@@ -1844,18 +1743,64 @@ function dismissFix() {
                       </button>
                     </div>
                   </template>
+                  <!-- calories only once the row IS consumable, and not on fuel that has
+                       none to show — see kcalOffered -->
+                  <template v-if="kcalOffered">
+                    <!-- "each" only where there are several: on a row of one it asked
+                         "each of what?" -->
+                    <label class="t-sm t-muted item__poplabel" :for="`${item.id}-kcal`">{{ item.qty === 1 ? "kcal" : "kcal each" }}</label>
+                    <input
+                      :id="`${item.id}-kcal`"
+                      class="field field--num well item__popinput"
+                      :value="item.kcal ?? ''"
+                      placeholder="0"
+                      inputmode="numeric"
+                      autocomplete="off"
+                      spellcheck="false"
+                      @change="onKcal"
+                      @keydown.enter="($event.target as HTMLInputElement).blur()"
+                    />
+                    <!-- the line total, so a qty>1 row doesn't make you do it in your
+                         head. The icon marks it as DERIVED — everything above it in this
+                         popover is something you typed, this is the one line the app
+                         worked out. -->
+                    <p v-if="item.kcal && item.qty > 1" class="t-sm t-muted item__popline">
+                      <SvgIcon :icon="IconCalculator" class="item__poplineicon" aria-hidden="true" />
+                      {{ formatKcal(item.kcal * item.qty) }} kcal for {{ item.qty }}
+                    </p>
+                  </template>
+                  <template v-if="cookingOffered">
+                    <div class="switch-row">
+                      <span class="t-sm">Needs cooking</span>
+                      <button class="switch" type="button" role="switch" :aria-checked="!!item.needsCooking"
+                        aria-label="Needs cooking" @click="c.updateItem(item.id, { needsCooking: !item.needsCooking })" />
+                    </div>
+                    <!-- "for N boils" is the assumption, in the line: one boil an item.
+                         It was a hover title only, which a phone never shows, and the
+                         bare "~30 g fuel" read as a figure from nowhere. Same shape as
+                         the calorie total above ("750 kcal for 3"), same derived mark. -->
+                    <p v-if="item.needsCooking && !bareGroup" class="t-sm t-muted item__popline" role="status"
+                      :title="`Assumes one boil per item, at ${ASSUMED_FUEL_PER_BOIL_G} g per boil.`">
+                      <SvgIcon :icon="IconCalculator" class="item__poplineicon" aria-hidden="true" />
+                      ~{{ item.qty * ASSUMED_FUEL_PER_BOIL_G }} g fuel for {{ item.qty }} {{ item.qty === 1 ? "boil" : "boils" }}
+                    </p>
+                  </template>
                 </div>
               </Transition>
             </div>
-            <!-- the worn SLOT, held open by the icon itself rather than by a width,
-                 so it cannot drift from the real toggle's size. Water and fuel can't be worn (wornOffered), but the cell must
-                 stay two slots wide: the mobile line right-anchors this cell, so a
-                 one-slot cell would pull the row's lone consumable mark out of the
-                 column it exists to sit in. -->
-            <div v-else class="item__cls" aria-hidden="true">
-              <span class="item__clsfixed item__clsghost">
-                <SvgIcon :icon="IconFashion" />
-              </span>
+            <!-- water's mark, not a control: its class can't change and it has no
+                 calories to hold, so a choice and a kcal field here would both be
+                 controls that lie. Same class, same "Consumable" name, the droplet
+                 consumableIcon gives a water row — but NO lit plate: on this page the
+                 plate is the look of a mark that opens a choice, and a lit droplet
+                 among them was a button that did nothing when pressed (the share row's
+                 argument for its own marks). The picture is the whole mark. -->
+            <div v-else class="item__cls">
+              <Tooltip text="Consumable" preferred-placement="top">
+                <span class="item__clsfixed" role="img" aria-label="Consumable">
+                  <SvgIcon :icon="consumableGlyph" />
+                </span>
+              </Tooltip>
             </div>
           </div>
 
@@ -2191,8 +2136,8 @@ function dismissFix() {
 .item__weight {
   grid-area: weight;
 }
-/* the cell, not a classification wrapper, is what the grid places — both toggles
-   ride in the same column the word "Consumable" used to occupy.
+/* the cell, not a classification wrapper, is what the grid places — the mark rides
+   in the column the word "Consumable" used to occupy.
    CENTRED, not baseline: the row aligns on the baseline, which lines up the TOPS of
    a 32px icon button and a 36px field and so leaves every icon sitting 2px high
    against the numbers. That was invisible while this cell held text (text shares the
@@ -2341,22 +2286,8 @@ function dismissFix() {
 .item__weight:has(.field:read-only) .item__unit {
   font-style: italic;
 }
-/* the group's calorie readout in the class column: the classification cell's box
-   (a --field-h box pinned to the row's top, so the figure centres on the name line
-   whatever opens under the name), the figure centred in it like the marks it stands
-   in for, in the derived voice of the total beside it. Never wraps: a five-figure
-   day spills the column's edges by a few px rather than breaking "kcal" onto a line. */
-.item__gkcal {
-  grid-area: class;
-  align-self: start;
-  height: var(--field-h);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-style: italic;
-  white-space: nowrap;
-}
-/* …and on the name line, where a group that kept its marks reads it */
+/* the group's calorie readout, on the name line. It sat in the class column while that
+   was two marks wide; one mark is narrower than "2,700 kcal". */
 .item__gkcalinline {
   font-style: italic;
   white-space: nowrap;
@@ -2484,33 +2415,26 @@ function dismissFix() {
 /* transparent native select over the unit text — the same construction the total's
    unit picker uses. The label stays the only thing drawn; this just makes it a
    control. Sized to the label so it can't widen the weight column. */
-/* the two classification toggles. Both --icon-btn wide, and the class track is now
-   derived from exactly that pair (tokens.scss) rather than from the word "Consumable"
-   the old select spelled out — the row gets denser, not busier, and the ~60px that
-   reservation was still holding went to the weight column, which was short. */
+/* the classification mark. --icon-btn wide, and the class track is derived from exactly
+   that one box (tokens.scss). */
 .item__cls {
   position: relative;
   flex: none;
   display: inline-flex;
   align-items: center;
 }
-/* Water's fixed consumable mark, and its ghost worn slot: the toggle's exact box —
-   .btn--icon's size, .item__mark's chip — minus the button, because there is
-   nothing to press. Sized like the buttons so the two-slot cell holds its width
-   on water rows and the cookie column runs unbroken through them. */
+/* Water's fixed consumable mark: the control's exact box — .btn--icon's size — minus
+   the button and minus the lit plate, because there is nothing to press. Sized like
+   the button so the droplet sits in the column every other row's mark is in, and
+   drawn one ink step down from the figures, as the share row draws a mark that is a
+   fact. */
 .item__clsfixed {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: var(--icon-btn);
   min-height: var(--icon-btn);
-  border-radius: var(--radius-pill);
-}
-/* visibility, not opacity: opacity would leave it
-   hoverable, and a tooltip-less shirt lighting under a resting pointer reads as a
-   control nobody can find again. */
-.item__clsghost {
-  visibility: hidden;
+  color: var(--ink-2);
 }
 /* ON is a FILLED GROUND, not just darker ink — the shared `.item__mark` chip
    (atoms/item.scss), which the share views' rows draw as a static mark, so the two
@@ -2534,8 +2458,8 @@ function dismissFix() {
 @media (pointer: coarse) {
   /* the overshoot, as padding, so the chip's content box stays --icon-btn while the
      button stays --tap. box-sizing is border-box, so this costs the row no width.
-     The fixed mark and its ghost grow the same way — not for a tap target they
-     don't have, but so a water row's cell measures what every other row's does. */
+     The fixed mark grows the same way — not for a tap target it doesn't have, but
+     so a water row's cell measures what every other row's does. */
   .item__clsbtn,
   .item__clsfixed {
     padding: calc((var(--tap) - var(--icon-btn)) / 2);
@@ -2563,8 +2487,6 @@ function dismissFix() {
 /* anchored to the trigger, not the viewport: the point of the popover is that it
    opens where you were already looking. Right-aligned so it can't push the row's
    action cluster off a narrow screen. */
-/* ONE popover recipe, worn and consumable both. They hold the same shape — a switch
-   row, then that class's detail — so they share the surface rather than drifting. */
 .item__pop {
   /* The popover's own padding, and the basis for its inner corners. --popover-item-radius
      (controls.scss) assumes --space-2 of padding; this surface uses more, so it re-derives
@@ -2572,6 +2494,14 @@ function dismissFix() {
      the field's corners rounder than the gap around them. */
   --pop-pad: var(--space-3);
   --pop-inner-radius: calc(var(--radius-4) - var(--pop-pad));
+  /* The height of a control in the card. The worn stepper is as tall as the icon
+     buttons at its ends, which a coarse pointer grows to --tap (controls.scss); the
+     calorie field takes the same figure, so it is the stepper's height on every
+     pointer rather than a text line's. */
+  --pop-ctl-h: var(--icon-btn);
+  @media (pointer: coarse) {
+    --pop-ctl-h: var(--tap);
+  }
 
   position: absolute;
   top: calc(100% + var(--space-1));
@@ -2580,19 +2510,41 @@ function dismissFix() {
   display: grid;
   gap: var(--space-2);
   padding: var(--pop-pad);
-  /* one width for both popovers, set by the longest switch row ("Consumable" + the
-     switch) so the two read as the same object rather than two sizes of card. Wide
-     enough that neither detail label wraps — a wrapped label is what made these look
-     like two different components. */
-  width: 13rem;
+  /* one width whatever is chosen, set by the three options on one line, so the card
+     doesn't change size under the pointer as the choice moves */
+  width: 15rem;
   /* air under the card when the page scrolls to keep a grown one in view (keepPopInView) — without it the card lands flush on the window's edge */
   scroll-margin-block: var(--space-2);
 }
 /* flipped when the row sits too close to the viewport floor (measured on open:
-   placeWorn / placeKcal) */
+   placeClass) */
 .item__pop.is-above {
   top: auto;
   bottom: calc(100% + var(--space-1));
+}
+/* THE CHOICE: base · worn · consumable, as the app's own tabs — the mode bar's chip
+   (.modebar__opt, atoms/modebar.scss), the way the share panel's two tabs wear it. No
+   track and no outline: the chosen one takes --lit, the one tone for "this is the one
+   that's on" (the row's own mark included, so the mark and the option that set it
+   agree), and the others answer the pointer with the mode bar's wash. The chip brings
+   its height, its inks, the wash, the plate, the inward focus ring and the touch hit
+   area; what's below is where an option here differs from one in the bar. A segmented
+   track was built first and was the only one of its kind (Ryan, 2026-11-25: "can we
+   use existing tab designs"). */
+.item__classes {
+  display: flex;
+  gap: var(--space-px);
+}
+.item__classopt {
+  /* the three share the card's width by their words, not equally ("Consumable" is
+     twice "Base"), each growing by its share so the row ends on the card's padding
+     edge; the word centres in what it is given */
+  flex: 1 1 auto;
+  justify-content: center;
+  /* the card's concentric corner, like the well and the stepper under it, and the
+     strong weight — both as the share panel's tabs take them */
+  border-radius: var(--pop-inner-radius);
+  font-weight: 600;
 }
 /* Every line in the popover starts on the card's padding edge — the switch row, the
    labels, the field's box and the derived line all share it. An earlier version
@@ -2604,7 +2556,7 @@ function dismissFix() {
   white-space: nowrap;
 }
 /* the worn count's row: the stepper takes what "All" leaves, so the row ends on the
-   card's padding edge like the switch above it (Ryan, 2026-11-25, on the chips this
+   card's padding edge like the choice above it (Ryan, 2026-11-25, on the chips this
    replaced: "make all span wider to fix the internal padding") */
 .item__splits {
   display: flex;
@@ -2672,7 +2624,9 @@ function dismissFix() {
    transparent edge included: it is part of the box's size, and under forced colours,
    where fills are stripped, it is repainted and is all the field has. */
 .item__popinput {
-  min-height: var(--icon-btn);
+  /* the worn stepper's height, so the two cards' one control each measure the same:
+     --pop-ctl-h is an icon button's box, which is what sets the stepper's (.item__pop) */
+  min-height: var(--pop-ctl-h);
   padding: var(--space-1) var(--space-2);
   border: 1px solid transparent;
   border-radius: var(--pop-inner-radius);
@@ -2682,6 +2636,9 @@ function dismissFix() {
   align-items: center;
   gap: var(--space-1);
 }
+/* md, the scale's glyph for 16px text, which is what these lines are set in. It was
+   sm, the step for 14px text, and read as a speck beside the figure (Ryan, 2026-11-25:
+   "calc icon seems small here"). */
 .item__poplineicon {
   flex: none;
   color: var(--ink-3);
@@ -3101,6 +3058,15 @@ function dismissFix() {
     padding-block: var(--space-px);
     line-height: 1.3;
   }
+  /* …the ROW's text boxes, that is. The calorie field in the class card is a .field
+     inside the row too, and the rule above was flattening it to a text line: 27px
+     under a 32px stepper's worth of controls (Ryan, 2026-11-25: "should this be same
+     height as worn stepper"). It keeps the card's own box here as on the wide layout. */
+  .item-wrap .item .field.item__popinput {
+    min-height: var(--pop-ctl-h);
+    padding-block: var(--space-1);
+    line-height: 1.2;
+  }
   /* The sub-line sits directly under the name field here as on desktop, but the mobile
      name field is a text-tight box (padding-block 2px, see above), so the desktop tuck
      (sized to cancel a 36px field's dead space) has nothing to cancel. This is a GAP,
@@ -3415,9 +3381,6 @@ function dismissFix() {
        spacing to the ⋯ is the cluster's own. On a wrapped line the cell is
        right-anchored, so the 6px overhang lands in free space. */
     margin-left: calc((var(--icon-btn) - var(--tap)) / 2);
-  }
-  .item__gkcal {
-    flex: none;
   }
   /* the number fields have no grid column to fill on mobile, so give them compact
      explicit widths — otherwise width:100% balloons to the default text-input size

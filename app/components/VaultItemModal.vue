@@ -67,9 +67,8 @@ const vault = useVaultOps();
 // (VaultKitSection), and made there with New kit; it had a "Make it a kit" button
 // too, and it went (2026-11-08) for being a second door to the same room.
 
-// Three-way, not the editor's two toggles. Those are toggles because each ALSO opens
-// the detail that only exists while it's on, so the row gains no third control; there
-// is no row to protect here, and a vault row has no qty, so it has no worn split.
+// Three-way, as the editor row's own choice is, in a menu rather than behind a mark:
+// there is no row to protect here, and a vault row has no qty, so it has no worn split.
 // What each class wears here: the pack for base, and the two marks the rows already
 // carry for the other two, the worn shirt and the consumable cookie.
 const CLASS_OPTIONS = [
@@ -180,10 +179,10 @@ const kcalOffered = computed(
     (form.classification === "consumable" || vaultTabOf({ ...named.value, icon: form.icon ?? undefined }) === "food") &&
     kcalCounts.value,
 );
-// ...and "Worn" leaves the picker on water and stove fuel, as the editor row drops its
-// worn toggle there (offersWorn, the one rule for both): nobody wears a gas canister.
-// Kept while the entry IS worn, so a value that got there can be walked back — the
-// picker can't offer a way out of a state it doesn't list.
+// ...and "Worn" leaves the picker on water (offersWorn): nobody wears a litre of it.
+// Stove fuel keeps all three, as the editor row's choice does. Kept while the entry IS
+// worn, so a value that got there can be walked back — the picker can't offer a way out
+// of a state it doesn't list.
 const classOptions = computed(() =>
   offersWorn(named.value, form.classification === "worn") ? CLASS_OPTIONS : CLASS_OPTIONS_UNWORN,
 );

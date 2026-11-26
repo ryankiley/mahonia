@@ -2,9 +2,9 @@
 //
 // Beside shared/water.ts on purpose: water and fuel are the two consumables the app
 // treats as their own thing, and this is the text rule that says which rows are fuel,
-// plus the two things that rule decides beyond the row's picture (which lives in
+// plus what that rule decides beyond the row's picture (which lives in
 // app/utils/itemMarks.ts, with the glyphs): whether the row is offered a calorie
-// field, and whether it is offered a worn toggle. Pure text, no icon in sight, so it
+// field. Pure text, no icon in sight, so it
 // sits in shared/ where a server path (the MCP server, an importer) can read it the
 // way they read isWaterName — the editor and My Gear are only its first readers.
 
@@ -29,9 +29,8 @@ export type Named = Pick<Item, "name" | "commonName">;
  *
  * Wider than isWaterName's "water" as the last word, because a fuel match is a smaller
  * claim than a water match — nothing about the row's weight or class changes — but it is not a free
- * one either: a match also swaps the row's picture, withholds its calorie field while it
- * holds no number (offersKcal) and its worn toggle (offersWorn). So the net is narrowed
- * twice. A bare "canister" is as often a bear canister as a gas one, and a bare "alcohol"
+ * one either: a match also swaps the row's picture and withholds its calorie field while
+ * it holds no number (offersKcal). So the net is narrowed twice. A bare "canister" is as often a bear canister as a gas one, and a bare "alcohol"
  * on a gear list is usually the wipes; neither is taken. And a name that says the thing
  * is EATEN outranks the fuel word in it: sports nutrition is full of "fuel" — Tailwind
  * Endurance Fuel, SiS Beta Fuel, a Precision Fuel gel — and a drink mix that lost its
@@ -78,12 +77,11 @@ export const offersKcal = (row: Named & Pick<Item, "kcal">): boolean =>
   !isFuelRow(row) || (row.kcal ?? 0) > 0;
 
 /**
- * Is this row OFFERED a worn toggle? Not water and not stove fuel: nobody wears a litre
- * of water or a gas canister, and a toggle that can only honestly be answered one way
- * is a control that lies. KEPT where the row already says worn (`worn`: by class, or by
- * a split of its count) — a value the totals count must keep the one control that can
- * clear it, or it is set forever with no way back. The same shape as offersKcal, for
- * the same reason, and one rule for the editor's toggle and My Gear's type picker.
+ * Is this row OFFERED Worn? Everything but water: nobody wears a litre of water, and
+ * its class is fixed besides. KEPT where the row already says worn — a value the totals
+ * count must keep the control that can clear it. Stove fuel used to be refused too, and
+ * no longer is: the fuel rule also reads a fuel bottle and a gas stove as fuel, and
+ * Worn is one option of three now, not a toggle of its own to keep off the row. The
+ * editor row needs no rule (water's mark there opens nothing); this is My Gear's picker's.
  */
-export const offersWorn = (row: Named, worn: boolean): boolean =>
-  worn || (!isWaterName(row.name) && !isFuelRow(row));
+export const offersWorn = (row: Named, worn: boolean): boolean => worn || !isWaterName(row.name);

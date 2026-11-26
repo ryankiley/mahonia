@@ -49,18 +49,35 @@ export function useItemRowClassification({
     if (next >= qty) return setClass("worn", true);
     gear.updateItem(item.value.id, { wornQty: next, classification: baseValue() });
   }
-  const wornTitle = computed(() =>
-    activeSplit.value > 0 ? `${activeSplit.value} of ${item.value.qty} worn` : "Worn",
-  );
-  // The two toggles' accessible names say WHICH row, as the stepper's and the grip's do:
-  // a list of twenty read "Consumable: no" twenty times. They still open with the word
-  // on the tooltip (WCAG 2.5.3), and the state closes the name.
-  const named = () => item.value.name || "item";
-  const wornAria = computed(() =>
+  /** The one class the row counts as, a part-worn line included: a split is a base line
+   *  on disk, but it is what the row's mark and the picker both call worn. */
+  const rowClass = computed<Classification>(() => (isWorn.value ? "worn" : isConsumable.value ? "consumable" : "base"));
+  /**
+   * Choose the row's class — the picker's one writer. The class the row already has
+   * writes NOTHING (the lit option is not a way to turn it off, and every updateItem is
+   * a save, a version and a history line), which is also what leaves a part-worn line's
+   * count alone when Worn is pressed on it.
+   */
+  function pickClass(next: Classification) {
+    if (next === rowClass.value) return;
+    if (next === "base") setClass("worn", false);
+    else setClass(next, true);
+  }
+  /** What the row's mark says on hover: the class, with the count on a part-worn line.
+   *  "Base weight", not "Base": the base mark is a dashed ring, not a picture, so the
+   *  word has to carry it alone, and "Base" by itself names nothing to a newcomer. */
+  const classTitle = computed(() =>
     activeSplit.value > 0
-      ? `Worn for ${named()}: ${activeSplit.value} of ${item.value.qty}`
-      : `Worn for ${named()}: ${isWorn.value ? "yes" : "no"}`,
+      ? `${activeSplit.value} of ${item.value.qty} worn`
+      : rowClass.value === "worn"
+        ? "Worn"
+        : rowClass.value === "consumable"
+          ? "Consumable"
+          : "Base weight",
   );
-  const consumableAria = computed(() => `Consumable for ${named()}: ${isConsumable.value ? "yes" : "no"}`);
-  return { activeSplit, consumableAria, isConsumable, isWorn, setClass, setWornCount, splitOffered, wornAria, wornCount, wornTitle };
+  // The mark's accessible name opens with the word on its tooltip (WCAG 2.5.3) and then
+  // says WHICH row, as the stepper's and the grip's do: a list of twenty read "Base"
+  // twenty times.
+  const classAria = computed(() => `${classTitle.value} for ${item.value.name || "item"}`);
+  return { activeSplit, classAria, classTitle, isConsumable, isWorn, pickClass, rowClass, setWornCount, splitOffered, wornCount };
 }
