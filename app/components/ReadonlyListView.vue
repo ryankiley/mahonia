@@ -237,7 +237,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
                with the trail's: the row wraps on a narrow screen and the two then stack,
                so a mark that measured differently started its text at a different x. See
                --where-mark below, which is what actually holds the two to one slot. -->
-          <SvgIcon :icon="datesIcon(list.startDate, list.endDate)" aria-hidden="true" />
+          <SvgIcon :icon="datesIcon(list.startDate)" aria-hidden="true" />
           <span>{{ dateLabel }}</span>
         </span>
       </p>

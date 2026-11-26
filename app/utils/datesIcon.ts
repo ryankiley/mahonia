@@ -1,13 +1,12 @@
-import { IconCalendarAdd4, IconCalendarDays, IconCalendarToday } from "~/icons/central";
+import { IconCalendar1, IconCalendarAdd4 } from "~/icons/central";
 import type { IconNode } from "~/utils/icon";
 
 /**
- * The calendar a trip's dates wear, which says how many there are before the words do:
- * a calendar with a plus while there are none to show, one marked day for a single
- * date, and a page of days for a range. It was the page of days for all three, so "Add
- * dates" and a day trip looked the same as a week away.
+ * The calendar a trip's dates wear: one with a plus while there are none to show, and
+ * the plain calendar once there are. Both are the same ringed outline, so setting a date
+ * changes what is inside it and not its shape. It was a ringless page with one dot for a
+ * single date and a grid of dots for a range, which the words beside it already say.
  */
-export function datesIcon(start: string | null | undefined, end: string | null | undefined): IconNode {
-  if (!start) return IconCalendarAdd4;
-  return !end || end === start ? IconCalendarToday : IconCalendarDays;
+export function datesIcon(start: string | null | undefined): IconNode {
+  return start ? IconCalendar1 : IconCalendarAdd4;
 }

@@ -613,7 +613,7 @@ onClickOutside(trailEl, closeTrail);
           :aria-expanded="datesOpen"
           @click="datesOpen ? closeDates() : openDates()"
         >
-          <SvgIcon :icon="datesIcon(snapshot.startDate, snapshot.endDate)" aria-hidden="true" />
+          <SvgIcon :icon="datesIcon(snapshot.startDate)" aria-hidden="true" />
           {{ dateLabel || "Add dates" }}
         </button>
         <Transition name="menu">
