@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "Electronics wear a slimmer lightning bolt, and repair gear a spool of thread instead of a hammer."
+  ],
+  "fixed": [
+    "A camera lens in My Gear now wears the camera icon and files under Electronics."
+  ]
+}

@@ -1,4 +1,4 @@
-import { IconAirpods, IconBackpack, IconBug, IconCamera1, IconCandy, IconCap, IconChair, IconCooking, IconCup, IconDice5, IconDrop, IconFashion, IconForkKnife, IconForkSpoon, IconHammer, IconHead, IconLightning, IconMedicalCrossSquare, IconMoneybag, IconPhone, IconSelectLasso, IconShovel, IconSleep, IconSmartwatch2, IconWallet1 } from "../icons/central";
+import { IconAirpods, IconBackpack, IconBug, IconCamera1, IconCandy, IconCap, IconChair, IconCooking, IconCup, IconDice5, IconDrop, IconFashion, IconForkKnife, IconForkSpoon, IconHead, IconLightningBolt, IconMedicalCrossSquare, IconMoneybag, IconPhone, IconSelectLasso, IconShovel, IconSleep, IconSmartwatch2, IconThread, IconWallet1 } from "../icons/central";
 import type { IconNode } from "./icon";
 import { GEAR_GLYPH_LABELS, GEAR_GLYPHS, gearGlyphFor, type GearGlyph } from "~~/shared/gearGlyph";
 import { CanisterGlyph, CarabinerGlyph, GlassesGlyph, GloveGlyph, HeadlampGlyph, HikingBootGlyph, IceAxeGlyph, JacketGlyph, PantsGlyph, PocketKnifeGlyph, ShoeGlyph, SleepingPadGlyph, SocksGlyph, StoveGlyph, TentGlyph, TowelGlyph, TrekkingPolesGlyph, TubeGlyph, UnderwearGlyph, WaterBottleGlyph, WaterFilterGlyph } from "../icons/mahonia";
@@ -41,14 +41,14 @@ const GEAR_ICONS: Record<GearGlyph, IconNode> = {
   meal: IconForkKnife,
   food: IconCandy,
   knife: PocketKnifeGlyph,
-  repair: IconHammer,
+  repair: IconThread,
   iceAxe: IceAxeGlyph,
   light: HeadlampGlyph,
   phone: IconPhone,
   watch: IconSmartwatch2,
   earbuds: IconAirpods,
   camera: IconCamera1,
-  electronics: IconLightning,
+  electronics: IconLightningBolt,
   firstAid: IconMedicalCrossSquare,
   toiletry: TubeGlyph,
   towel: TowelGlyph,
