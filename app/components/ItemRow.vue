@@ -2047,7 +2047,19 @@ function dismissFix() {
                   </li>
                 </ul>
               </li>
-              <li v-for="a in overflowActions" :key="a.label" role="none" :class="{ item__nestact: a.nest }">
+              <!-- menu__foot on the first action, when there are carriers above it: the
+                   card then holds two KINDS of thing, a setting (who carries this, a radio
+                   run under its own label) and actions on the row, and nothing closed the
+                   first, so the chosen carrier's lit row sat flush on "Duplicate". The
+                   same hairline the toolbar's ⋯ rules its groups off with (Ryan,
+                   2026-11-25). Duplicate always leads and is never a nest entry
+                   (overflowActions), so the rule can't be hidden with one. -->
+              <li
+                v-for="(a, i) in overflowActions"
+                :key="a.label"
+                role="none"
+                :class="{ item__nestact: a.nest, menu__foot: i === 0 && peopleSorted.length > 0 }"
+              >
                 <button type="button" data-row role="menuitem" class="menu__item" @click="menu.close(); a.run()">
                   <SvgIcon :icon="a.icon" aria-hidden="true" />
                   {{ a.label }}
