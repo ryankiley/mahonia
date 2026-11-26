@@ -153,7 +153,8 @@ function positionTooltip() {
 // v-if'd away, and the editor mounts three to six of these per row, so a hidden
 // 150-row list was holding hundreds of empty anchors for popups nobody had asked
 // for. Latched, never reset — once the Teleport exists it stays, so the leave
-// transition of a tooltip going back down still has a place to play.
+// transition of a tooltip going back down still has a place to play. (The enter
+// of the first show needs `appear` on the Transition; see the template.)
 const everShown = ref(false);
 
 async function open() {
@@ -246,9 +247,12 @@ onScopeDispose(() => window.removeEventListener("scroll", hide, { capture: true 
   >
     <slot />
 
-    <!-- mounted on first show only — see everShown -->
+    <!-- mounted on first show only — see everShown. `appear`, because that first
+         show is therefore the Transition's own initial render, already holding the
+         popup: without it the first reveal of every tooltip snapped in, and only the
+         later ones (a toggle on a Transition that exists) rose into place -->
     <Teleport v-if="everShown" to="body" defer>
-      <Transition name="tooltip">
+      <Transition name="tooltip" appear>
         <div
           v-if="isVisible"
           :id="tooltipId"

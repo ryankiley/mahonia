@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-25",
+  "fixed": [
+    "A tooltip now rises into place the first time you hover a control, the same as it does every time after."
+  ]
+}
