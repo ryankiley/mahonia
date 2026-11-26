@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { IconBackpack, IconCalendarDays, IconFootsteps, IconMap, IconMapPin, IconGlobe2 } from "~/icons/central";
+import { IconBackpack, IconFootsteps, IconMap, IconMapPin, IconGlobe2 } from "~/icons/central";
+import { datesIcon } from "~/utils/datesIcon";
 import { StairsGlyph } from "~/icons/mahonia";
 import { SvgIcon } from "~/utils/icon";
 import { parseTrailLink } from "~~/shared/trailLink";
@@ -236,7 +237,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
                with the trail's: the row wraps on a narrow screen and the two then stack,
                so a mark that measured differently started its text at a different x. See
                --where-mark below, which is what actually holds the two to one slot. -->
-          <SvgIcon :icon="IconCalendarDays" aria-hidden="true" />
+          <SvgIcon :icon="datesIcon(list.startDate, list.endDate)" aria-hidden="true" />
           <span>{{ dateLabel }}</span>
         </span>
       </p>
