@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import type { SyncOffline } from "~/composables/useOffline";
 import { hasRealContent } from "~~/shared/localList";
 
 // The list's live sync state + last-edit time, in one quiet text line on the
-// leading edge of the editor's top bar. The words carry the state — "Syncing…",
-// "edited 1 hour ago", "Offline · saved on device" — and the state word
+// leading edge of the editor's top bar. The words carry the state — "Saving…",
+// "Edited 1 hour ago", "Not saved" — and the state word
 // swaps in place on change. No animation here: a save
 // cycle flips the word Synced→Syncing…→Synced in ~15ms, so animating a word that
 // changes faster than the motion runs looked like it was racing itself. A subtler
@@ -37,9 +38,13 @@ const stateWord = computed(() => {
     case "saving":
       return "Saving…";
     case "offline":
-      // with nothing on the device the second half would be a lie; the page body
-      // says what that state means (see GearEditor's `unloaded`)
-      return snapshot.value ? "Offline · saved on device" : "Offline";
+      // NOTHING TO THE EYE. The account control beside this line is a cloud with a line
+      // through it while offline, and pressing it says the rest: you're offline, and the
+      // list is saved on this device (AccountMenu, useOffline). The line read "Offline ·
+      // saved on device", which a phone cut off at "Offline · save…", and its shorter
+      // forms were cut off too: a phone's bar has about fifty pixels here. A screen
+      // reader still hears it from this line (`spoken`, below).
+      return "";
     case "error":
       return snapshot.value ? "Not saved" : "Couldn’t load";
     case "synced":
@@ -73,8 +78,21 @@ const timeSuffix = computed(() =>
     : "",
 );
 
+// What this list's sync knows about being offline, said once: the account control reads
+// it to draw "offline" in this bar (useOffline), and a screen reader hears it from here.
+const offline = computed<SyncOffline>(() =>
+  status.value !== "offline" ? null : snapshot.value ? "saved" : "unsaved",
+);
+const syncOffline = useSyncOffline();
+watch(offline, (word) => (syncOffline.value = word), { immediate: true });
+onScopeDispose(() => (syncOffline.value = null));
+/** said to a screen reader, who has no glyph to go by; drawn for nobody */
+const spoken = computed(() =>
+  offline.value === "saved" ? "Offline. Saved on this device." : offline.value ? "Offline." : "",
+);
+
 // Either half can carry the line now that the resting state drops its word.
-const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "");
+const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "" || spoken.value !== "");
 </script>
 
 <template>
@@ -83,7 +101,7 @@ const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "");
          change, while the time suffix updates silently outside it (so the 30s tick
          never re-announces) --><span
       aria-live="polite"
-    >{{ stateWord }}</span><span v-if="timeSuffix" class="syncstatus__time">{{ timeSuffix }}</span>
+    ><span v-if="spoken" class="visually-hidden">{{ spoken }}</span>{{ stateWord }}</span><span v-if="timeSuffix" class="syncstatus__time">{{ timeSuffix }}</span>
   </p>
 </template>
 

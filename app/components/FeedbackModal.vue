@@ -99,7 +99,7 @@ async function send() {
         <p v-if="error" class="t-sm fb__error">{{ error }}</p>
 
         <div class="dlg__actions">
-          <button type="button" class="btn btn--quiet" @click="emit('close')">Cancel</button>
+          <button type="button" class="btn btn--soft" @click="emit('close')">Cancel</button>
           <button type="button" class="btn btn--primary" :disabled="!canSend" @click="send">
             {{ state === "sending" ? "Sending…" : "Send" }}
           </button>

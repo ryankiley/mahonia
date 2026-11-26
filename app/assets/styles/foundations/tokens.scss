@@ -205,6 +205,15 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      ---- */
   --danger: light-dark(oklch(0.55 0.22 25), oklch(0.62 0.21 25));
   --danger-ink: #ffffff;
+  /* ITS SECOND USE, 2026-11-25: a form's error, said in a callout that points at the
+     field (.errtip, atoms/controls.scss). An error in plain ink under a field read as
+     one more line of the form's own copy, and nothing told a failed press from a
+     press that did nothing. It keeps the test above honest by being as rare: it is
+     on screen only while something has just gone wrong, never at rest.
+     The red as a GROUND under white text. The light theme's value in both themes:
+     dark's lighter red is tuned to be read ON the dark page, and white on it is 4.0:1,
+     under the 4.5:1 body text needs. On this one it is 5.4:1. */
+  --danger-solid: oklch(0.55 0.22 25);
 
   /* ---- category palette — LOUD + UNEXPECTED: the only colour on the site is the
      data viz, so it's pushed to electric, non-natural hues (volt green / hot pink /
@@ -360,6 +369,11 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
      than the box holding it. */
   --radius-3: calc(12 * var(--tpx));
   --radius-4: calc(20 * var(--tpx)); /* floating menus (autocomplete, kebab) — decisively rounder than panels */
+  /* the sign-in card, and only it (atoms/dialog.scss): every control in it is a pill, a
+     20px curve one --space-5 in from the edge, and under a 20px corner the card read as
+     squarer than the buttons it holds. Short of fully concentric (44px), which on a
+     card this size is most of the way to a lozenge. */
+  --radius-5: calc(32 * var(--tpx));
   /* the corner of a row or a well sitting INSIDE a --radius-4 surface, one --space-2
      in from its edge: concentric with the card, so an inner curve is never rounder than
      the box holding it. Read by the menu rows, the travelling plate and the typing well
@@ -411,6 +425,17 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --spring-pop-dur: 570ms;
   --spring-track: #{spring-curve(140, 0, 1)};
   --spring-track-dur: 210ms;
+  /* THE SHAKE — a card or a field saying no (main.scss, shake-x). Not one of the springs above:
+     those travel from one place to another, and this one goes nowhere. It is a spring
+     at rest that has been struck: 50 samples of e^(-7t)·sin(2π·6t) over half a second,
+     scaled so the first swing is 1. So it leaves at full speed, swings out, and each
+     return is smaller than the last (1, -0.56, 0.31, -0.17, 0.10) with the speed
+     carried through every turn. The first version was four separate legs, each easing
+     to a stop before the next began, and the stops are what read as mechanical.
+     --spring-shake-reach is how far the first swing goes. */
+  --spring-shake: linear(0, 0.4517, 0.7831, 0.9651, 0.9926, 0.8819, 0.6662, 0.3884, 0.0942, -0.1743, -0.3841, -0.5144, -0.558, -0.5203, -0.417, -0.2707, -0.1068, 0.0502, 0.1798, 0.2682, 0.3086, 0.302, 0.2553, 0.1801, 0.0903, 0, -0.0785, -0.1361, -0.1677, -0.1725, -0.1533, -0.1158, -0.0675, -0.0164, 0.0303, 0.0667, 0.0894, 0.097, 0.0904, 0.0725, 0.047, 0.0186, -0.0087, -0.0312, -0.0466, -0.0536, -0.0525, -0.0444, -0.0313, -0.0157, 0);
+  --spring-shake-dur: 500ms;
+  --spring-shake-reach: 8px;
   /* linear() landed in Safari 17.5 / Firefox 112 — older engines take the closest
      cubic-bezier rather than dropping to the `linear` keyword.
      The test value MUST have two stops. `linear(0)` is not a valid easing (one stop
@@ -423,6 +448,9 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
     --spring-move: cubic-bezier(0.22, 1, 0.36, 1);
     --spring-pop: cubic-bezier(0.34, 1.3, 0.5, 1);
     --spring-track: cubic-bezier(0.16, 1, 0.3, 1);
+    /* no bezier swings both ways, and half a shake is a lurch: these engines get none */
+    --spring-shake: linear;
+    --spring-shake-reach: 0px;
   }
   /* Outside the table: the iOS sheet curve, for the one move that follows the keyboard
      rather than a click — the phone sheet lifting clear of it (VaultPane's keyboard

@@ -61,7 +61,7 @@ describe("deleting the account", () => {
     await deleteAccount(view);
 
     expect(asked).toEqual([{ deleteLists: false }]);
-    expect(view.text()).toContain("Email me a link");
+    expect(view.get(".acct__empty button").text()).toBe("Continue");
     expect(note(view).exists()).toBe(true);
     expect(note(view).text()).toBe("Account deleted. Your lists are untouched.");
   });
@@ -100,14 +100,15 @@ describe("deleting the account", () => {
 
   // The dialog mount: the panel is still there once the session has gone (the dialog
   // stays open, retitled), so the line is said inside it.
-  it("says it in the account dialog too, which stays open as Sign in", async () => {
+  it("says it in the account dialog too, which stays open as the sign-in card", async () => {
     useAccountModal().open();
     const dialog = mount(AccountModal, { attachTo: document.body });
     await flushPromises();
     await nextTick();
     await deleteAccount(dialog);
 
-    expect(dialog.get("h2.panel__title").text()).toBe("Sign in");
+    // signed out it is the sign-in card, with its own title
+    expect(dialog.get("h2").text()).toBe("Sign in or sign up");
     expect(dialog.get('[role="dialog"]').find('[role="status"] .toast').text()).toBe(
       "Account deleted. Your lists are untouched.",
     );

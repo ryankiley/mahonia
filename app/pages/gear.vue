@@ -898,8 +898,7 @@ async function exportGear(kind: string) {
   visibility: hidden;
   padding-inline-end: calc(14 * var(--tpx) + var(--space-1));
 }
-/* Signed out there is one thing to do, so the column centres and narrows — the
-   same shape /account uses for the same reason. Signed in the page is a wide,
+/* Signed out there is one thing to do, so the column centres and narrows. Signed in the page is a wide,
    left-aligned list of gear, which is why this is scoped to the signed-out block
    rather than the page. */
 .vault__auth {
@@ -1065,6 +1064,14 @@ async function exportGear(kind: string) {
   justify-content: space-between;
   gap: var(--space-3);
   margin-bottom: var(--space-3);
+}
+/* The tabs share this row with the add button, so they give up their icons sooner than
+   a bar with a row to itself does (modebar.scss): at a 375px phone the three tabs, their
+   icons and "Add gear" do not all fit. */
+@media (max-width: 380px) {
+  .vault__tabbar :deep(.modebar__opt svg) {
+    display: none;
+  }
 }
 .vault__tabadd {
   flex: none;

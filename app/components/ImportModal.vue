@@ -7,6 +7,8 @@ import type { CatalogSearchResult } from "~~/shared/catalogSearch";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
 import { editLinkPath } from "~~/shared/links";
 import type { ListData, ListMeta } from "~~/shared/types";
+import { IconQuestionmarkCircle } from "~/icons/central";
+import { SvgIcon } from "~/utils/icon";
 
 // "Import a list" dialog — mint a NEW list from a LighterPack share link, a
 // pasted CSV, a JSON backup (the menus' "Download JSON"), or an uploaded file,
@@ -33,6 +35,9 @@ let opening = 0;
 // Sharing panel's Export tab. "Download JSON" is only that row's aria-label here (it is
 // the visible label in the read view's and My Gear's menus), and Help says it this way.
 const BACKUP_FROM = "Make one from the Export tab in Sharing.";
+/** what the (?) beside "Choose a file…" says: the CSV's columns, and the other file it takes */
+const FORMATS =
+  "A CSV needs a header row: Category, Item Name, Qty, Weight, Unit, Worn, Consumable. A file can also be a JSON backup from the Export tab in Sharing.";
 
 // fresh form each time the dialog is opened
 watch(
@@ -171,16 +176,16 @@ function importFile(text: string, file: File) {
     <!-- Two things nothing else on screen says: that the file picker takes the app's
          own JSON backup (its accept filter is invisible until the picker opens), and
          that an import ARRIVES as a new list rather than merging into the one you're
-         looking at. The hint under the box carries the CSV shape. -->
+         looking at. The (?) beside the file button carries the CSV shape. -->
     <p class="t-sm t-muted dlg__lede">
       Paste a LighterPack link or a CSV, or choose a file. It becomes a new list.
     </p>
 
     <input
       v-model="title"
-      class="field import__name"
+      class="field well import__name"
       :maxlength="MAX_TITLE_LEN"
-      placeholder="Imported list"
+      placeholder="List name"
       aria-label="List name"
       autocorrect="off"
       spellcheck="false"
@@ -193,20 +198,27 @@ function importFile(text: string, file: File) {
       placeholder="https://lighterpack.com/r/… or paste a CSV"
       aria-label="LighterPack link or CSV"
     />
-    <!-- the column order stays on screen: as a placeholder it vanished on the first
-         keystroke, exactly when someone composing a CSV by hand needs it -->
-    <p class="t-sm t-muted import__hint">
-      A CSV needs a header row: Category, Item Name, Qty, Weight, Unit, Worn, Consumable.
-      A file can also be a JSON backup from the Export tab in Sharing.
-    </p>
+    <!-- the other way in, with the box it is the alternative to (FilePickButton says why
+         it left the action row); choosing a file imports immediately, so there's no
+         chosen-name state to show.
+         Beside it, the (?) the header's "Import map file" has for the same job: which
+         files and what shape. That was four lines of grey type under the button, the
+         longest thing on the card, read by everyone to serve the few composing a CSV by
+         hand. It is one tap or hover away for them, and the lede already says a link, a
+         CSV or a file. -->
+    <div class="import__pick">
+      <FilePickButton @text="importFile" />
+      <Tooltip :text="FORMATS" preferred-placement="top">
+        <button type="button" class="import__why ink-quiet" aria-label="Which files and columns can be imported">
+          <SvgIcon :icon="IconQuestionmarkCircle" aria-hidden="true" />
+        </button>
+      </Tooltip>
+    </div>
 
     <p v-if="error" class="t-sm import__err">{{ error }}</p>
 
-    <div class="dlg__actions import__actions">
-      <!-- a real button over a hidden file input (FilePickButton); choosing a file
-           imports immediately, so there's no chosen-name state to show -->
-      <FilePickButton @text="importFile" />
-      <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
+    <div class="dlg__actions">
+      <button class="btn btn--soft" @click="emit('close')">Cancel</button>
       <button class="btn btn--primary" :disabled="importing || !text.trim()" @click="importFromText">
         {{ importing ? "Importing…" : "Import" }}
       </button>
@@ -218,13 +230,22 @@ function importFile(text: string, file: File) {
 /* overlay + dialog shell live in atoms/dialog.scss; only the import-specific
    body is scoped here */
 /* the tint is the shared .well atom (controls.scss) */
-/* the name sits above the paste box: what the list will be called, shown as its
-   placeholder so an untouched field still says what happens */
+/* ONE GROUP, one distance. The name, the paste box and the file button are the dialog's
+   inputs, so they sit the card's own gap apart (--space-3), and
+   the two wider steps are the shared ones on either side of them: under the lede and
+   over the buttons. The name used to push the box a further --space-2 away and the hint
+   itself the same from the button, so the steps down the card ran 12, 20, 20, 12, 20,
+   20 and nothing read as belonging with anything.
+   Its placeholder says what the field IS, in the words the editor's own title field
+   uses. It said "Imported list", the name an empty field falls back to, which read as
+   a caption on the box below it.
+   The name is CONTAINED, in the paste box's own tint (.well). Bare, its placeholder
+   was a grey phrase adrift between the lede and the box, with nothing to say it was a
+   field or what it named: on a floating card there are no rows around a control to
+   imply its edges. */
 .import__name {
-  margin-bottom: var(--space-2);
-}
-.import__hint {
-  margin-top: var(--space-2);
+  /* the height the copy-link field has (AppDialogs), the other one-line well on a card */
+  padding-block: var(--space-2);
 }
 /* No font-size of its own. .field sets the literal 16px (--text-input) that keeps
    iOS from zooming the page when the box takes focus; a var(--text-base) here
@@ -236,13 +257,23 @@ function importFile(text: string, file: File) {
      the box scrolls anyway (the dialog is fixed-width, rows are fixed) */
   resize: none;
 }
+/* the file button and the (?) that says what it takes, on one line */
+.import__pick {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+/* the header's (?) for map files, the same quiet treatment (.ink-quiet, in the markup),
+   at the icon scale's full step and not its small one: the small glyph is sized to sit
+   in a row of figures, and beside a 40px button it was a speck. The padding is its
+   press area, taken back by the margin so the row's spacing is the glyph's. */
+.import__why {
+  display: inline-flex;
+  padding: var(--space-2);
+  margin: calc(-1 * var(--space-2));
+  cursor: help;
+}
 .import__err {
   color: var(--ink);
-}
-/* composes the shared .dlg__actions row (atoms/dialog.scss); this dialog's extras:
-   the row may wrap when narrow, and the file picker anchors left while
-   Cancel/Import stay trailing */
-.import__actions {
-  flex-wrap: wrap;
 }
 </style>

@@ -280,6 +280,21 @@
   }
 }
 
+// The ERROR SHAKE — a card, or a field, saying no to what was typed. One keyframe and the
+// easing does the rest: --spring-shake (tokens.scss) is a struck spring that swings
+// either side of rest and ends where it started, so "to" is only how far the first swing
+// reaches and the element is back at 0 when it finishes. Global because it is worn by
+// whatever holds the field (the sign-in card shakes whole), and flattened with every
+// other motion by the reduced-motion rule at the foot of this file.
+@keyframes shake-x {
+  to {
+    transform: translateX(var(--spring-shake-reach));
+  }
+}
+.is-shaking {
+  animation: shake-x var(--spring-shake-dur) var(--spring-shake);
+}
+
 // The plain fade-in: a thing that arrives in place, from transparent. Global for the
 // reason num-pop is, below (Vue renames a scoped @keyframes per component): the row
 // faces on a mode switch (atoms/item.scss), a new row and its add link (FolderRows) and

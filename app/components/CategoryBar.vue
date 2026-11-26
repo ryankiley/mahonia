@@ -159,7 +159,7 @@ watch(
   min-width: 0;
   margin-inline-start: 0;
 }
-/* THE KEYBOARD RULE'S ONE EXCEPTION. What a key sets off lands in one frame
+/* AN EXCEPTION TO THE KEYBOARD RULE. What a key sets off lands in one frame
    (atoms/modality.scss): motion on the thing under the hands reads as the interface
    lagging behind them. The bar is not that thing. A weight is typed in a row further
    down the page, and the bar is the readout of it; snapping there made the one edit

@@ -138,7 +138,7 @@ useHead({
             everywhere” signs out all your devices and disconnects your assistants.
           </li>
           <li>
-            “Delete account” on your account page removes your email, display name, passkeys,
+            “Delete account” in your account removes your email, display name, passkeys,
             assistant connections, and saved gear, straight away and without asking me. It asks
             separately whether to delete your lists; by default they stay, because they belong to
             their edit links rather than to your account.
@@ -227,7 +227,7 @@ useHead({
         <p>
           Mahonia may change, pause, or shut down at any time, and isn’t guaranteed to keep your data
           forever. Keep your own backups of anything important: the editor can export your list,
-          and your account page can download everything filed under it.
+          and your account can download everything filed under it.
           It’s provided <strong>as is</strong> and <strong>as available</strong>, with no warranties
           of any kind and no guarantee of availability, accuracy, or fitness for any particular
           purpose, to the fullest extent the law allows. Weights, the catalog, and totals may be

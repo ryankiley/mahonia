@@ -36,13 +36,17 @@ function onChange(e: Event) {
     aria-hidden="true"
     @change="onChange"
   />
-  <button class="btn btn--ghost filepick" type="button" @click="inputRef?.click()">Choose a file…</button>
+  <button class="btn btn--soft filepick" type="button" @click="inputRef?.click()">Choose a file…</button>
 </template>
 
 <style scoped>
-/* first in a .dlg__actions row (atoms/dialog.scss), and the row's one control anchored
-   to the leading edge: the margin pushes Cancel and the primary to the trailing one */
+/* UNDER THE PASTE BOX, not in the dialog's action row. It is the other way to put
+   something in (paste, or choose a file), so it stands with the box it is the
+   alternative to. It was the first of three in .dlg__actions, a bare phrase beside the
+   contained Cancel and Import: it read as a caption on them, and on a phone the row
+   wrapped and left Import alone on a second line. Contained like the other second
+   buttons (.btn--soft), and its own width at the box's leading edge. */
 .filepick {
-  margin-right: auto;
+  align-self: flex-start;
 }
 </style>

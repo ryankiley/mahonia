@@ -19,9 +19,15 @@ mockNuxtImport("navigateTo", () => navigateTo);
 // forgetting a list also drops its on-device record; there's no IndexedDB here
 mockNuxtImport("useLocalListStore", () => () => memoryListStore());
 
-// a browser with a passkey that the server accepts
+// a browser that can offer a passkey from the address field. The offer waits (as it does
+// until someone picks one) unless a test says a passkey was picked.
+const { picked, refused } = vi.hoisted(() => ({ picked: { value: false }, refused: { value: false } }));
 mockNuxtImport("passkeysSupported", () => () => true);
-mockNuxtImport("usePasskeys", () => () => ({ signIn: async () => "ok", list: async () => [] }));
+mockNuxtImport("usePasskeys", () => () => ({
+  signInFromAutofill: () =>
+    refused.value ? Promise.resolve("failed") : picked.value ? Promise.resolve("ok") : new Promise(() => {}),
+  list: async () => [],
+}));
 
 registerEndpoint("/api/auth/request", { method: "POST", handler: () => ({ ok: true }) });
 
@@ -30,6 +36,8 @@ const KEY = "gear.returnto.v1";
 const home = location.pathname + location.search + location.hash;
 
 beforeEach(() => {
+  picked.value = false;
+  refused.value = false;
   storage.clear();
   navigateTo.mockClear();
   for (const e of useMyLists().entries.value) useMyLists().forget(e.editToken);
@@ -84,7 +92,7 @@ describe("asking for a link in the sign-in dialog", () => {
 
   it("remembers the page once the link is sent", async () => {
     history.replaceState(null, "", `/e/${CODE}#tok_secret`);
-    const view = mount(AccountView, { props: { inModal: true }, attachTo: document.body });
+    const view = mount(AccountView, { attachTo: document.body });
     await flushPromises();
     await nextTick();
     expect(storage.has(KEY)).toBe(false);
@@ -92,19 +100,31 @@ describe("asking for a link in the sign-in dialog", () => {
     await view.get('input[type="email"]').setValue("a@example.com");
     await view.get("form").trigger("submit");
     await flushPromises();
-    expect(view.text()).toContain("Check a@example.com for a link.");
+    expect(view.text()).toContain("We sent a sign-in link to a@example.com.");
     expect(JSON.parse(storage.get(KEY)!).path).toBe(`/e/${CODE}`);
   });
 
   it("signs in with a passkey in place: the dialog closes and nothing navigates", async () => {
     history.replaceState(null, "", `/e/${CODE}#tok_secret`);
-    const view = mount(AccountView, { props: { inModal: true }, attachTo: document.body });
+    picked.value = true; // from the address field's list: there is no passkey button
+    const view = mount(AccountView, { attachTo: document.body });
     await flushPromises();
     await nextTick();
-    await view.get("button.acct__wide").trigger("click");
     await flushPromises();
     expect(view.emitted("done")).toHaveLength(1);
     expect(navigateTo).not.toHaveBeenCalled();
     expect(storage.has(KEY)).toBe(false);
+  });
+
+  it("says so when a picked passkey doesn't sign in, and points at the address field", async () => {
+    refused.value = true;
+    const view = mount(AccountView, { attachTo: document.body });
+    await flushPromises();
+    await nextTick();
+    await flushPromises();
+    expect(view.get('[role="alert"]').text()).toBe(
+      "That passkey didn’t sign you in. Continue with your email instead.",
+    );
+    expect(view.emitted("done")).toBeUndefined();
   });
 });

@@ -1,0 +1,28 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "Sign in and Create an account are one form: type your email, press Continue, and a link signs you in, new or returning.",
+    "If you have a passkey, your browser offers it when you tap the email field on Sign in.",
+    "Sign in no longer has a separate passkey button.",
+    "After you ask for a sign-in link, the form steps aside and says which address the link went to.",
+    "The account page is now the account dialog: opening /account shows it over your list.",
+    "The second button of a pair, like a dialog's Cancel, is a gray pill instead of a bare word.",
+    "When a sign-in link has something to ask, it asks over the page you asked from instead of on an empty one.",
+    "The sign-in dialog is a small centered card with the Mahonia mark on top.",
+    "An expired sign-in link opens straight onto the form for a new one.",
+    "Sign in shows what went wrong in a red callout that points at the email field.",
+    "A mistyped email on Sign in shakes the sign-in card.",
+    "Dialogs close with the same quick, settled motion as menus.",
+    "Import a list is tidier: the name is a real field, Choose a file sits under the paste box, and file formats are behind a question mark.",
+    "Offline, the account button becomes a cloud with a line through it, and tapping it says your list is saved on this device.",
+    "Sign in tells you when you are offline before you press Continue.",
+    "A sign-in link opened offline waits and signs you in when you are back online.",
+    "The Gear, Packing, and Trip tabs keep their icons on a small phone."
+  ],
+  "fixed": [
+    "A mistyped email on Sign in is caught before you are told to check your inbox.",
+    "Sign in says whether you are offline, asked too often, or should just try again, instead of blaming the address.",
+    "A passkey that fails to sign you in now says so.",
+    "The top bar's icons no longer bunch up unevenly beside a long status."
+  ]
+}

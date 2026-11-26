@@ -16,6 +16,7 @@ import { useAccountDb, type Db } from "./db";
 import { setNoIndex, setPrivate } from "./http";
 import { rateLimit, type RateLimitAction } from "./rateLimit";
 import { randomSecret, sha256Hex } from "./tokens";
+import { normalizeEmail } from "../../shared/email";
 import { SESSION_HINT_COOKIE, SESSION_OWNER_COOKIE } from "../../shared/session";
 import { sendMagicLink, type MagicLinkEmail } from "./email";
 import { trustedOrigin } from "./origin";
@@ -87,27 +88,8 @@ interface RedeemedUser extends SessionUser {
   emailVerified: boolean;
 }
 
-/**
- * Normalize an email to its storage form: trimmed and lowercased. This IS the
- * identity — `Alex@Example.com` and `alex@example.com` are one account — so it
- * runs on every read and write path, never just at signup.
- *
- * Validation is deliberately loose (one @, something either side, no whitespace):
- * the real proof that an address is valid and reachable is that a link sent to it
- * comes back, and that check happens for free in this design. A stricter regex
- * would only reject deliverable addresses.
- */
-export function normalizeEmail(raw: unknown): string | null {
-  if (typeof raw !== "string") return null;
-  const email = raw.trim().toLowerCase();
-  if (email.length < 3 || email.length > 254) return null;
-  if (!/^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/.test(email)) return null;
-  // Nothing invisible: the address is shown back to whoever opens its sign-in link
-  // ("Sign in as ...?"), and a zero-width or direction-override character would let
-  // one address be dressed as another there. No deliverable address has one.
-  if (/[\u0000-\u001F\u007F-\u009F\u200B-\u200F\u2028-\u202E\u2060-\u2069\uFEFF]/.test(email)) return null;
-  return email;
-}
+// The address rule lives in shared/email, where the sign-in form reads it too.
+export { normalizeEmail };
 
 /** Find the account for `email`, creating it on first sign-in. There is no
  *  separate signup: requesting a link for an unknown address IS the signup, which

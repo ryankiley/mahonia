@@ -39,6 +39,11 @@ function restoreFocus() {
 watch(
   () => props.open,
   (open) => {
+    // Focus is the browser's. A dialog that is open as the SERVER renders has no
+    // document to ask, and asking took the whole page down with a 500 (the sign-in
+    // link's page, the first to mount one open). It is safe here once, so no caller
+    // has to know to wait for onMounted.
+    if (!import.meta.client) return;
     if (open) {
       restoreEl = document.activeElement as HTMLElement | null;
       menuTrigger =
@@ -56,6 +61,27 @@ watch(
 );
 // a dialog its parent mounts with v-if (People) is never told it closed
 onBeforeUnmount(() => props.open && restoreFocus());
+
+// THE TRAP HOLDS WHEN FOCUS HAS LEFT. onTab below hears a key pressed INSIDE the dialog.
+// When the control that had focus is taken away (a form swapped for its result, a row
+// removed, a button whose press replaced the card's contents) focus falls to <body>,
+// the dialog hears nothing, and the next Tab walked out onto the page behind the scrim.
+// So Tab is also heard on the window, the way Escape is above: while this dialog is
+// open and focus is not in it, the key brings focus back to its first control, or its
+// last on Shift. It stands down for a dialog opened over this one (focus is in that
+// one, or that one is the later scrim), which is how restoreFocus reasons too.
+onKeyStroke("Tab", (e) => {
+  const el = dlg.value;
+  if (!props.open || !el) return;
+  const active = document.activeElement;
+  if (el.contains(active)) return;
+  if (active instanceof Element && active.closest(".dlg")) return;
+  const scrims = document.querySelectorAll(".ovl");
+  if (scrims[scrims.length - 1] !== el.parentElement) return;
+  e.preventDefault();
+  const els = el.querySelectorAll<HTMLElement>(FOCUSABLE);
+  (els.length ? els[e.shiftKey ? els.length - 1 : 0]! : el).focus();
+});
 
 // cycle Tab between the dialog's first/last focusable descendants
 function onTab(e: KeyboardEvent) {

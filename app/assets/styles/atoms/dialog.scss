@@ -44,16 +44,18 @@
 }
 
 /* The account is NARROWER than the shared 30rem. Its widest state is a column of
-   full-width controls — a passkey button, an email field, a submit — and at 30rem
-   those stretch into bands. /account had already reached this conclusion for the
-   same markup (.acct__empty caps itself at 26rem in the page); this is that number,
-   applied where the dialog is now the measure.
+   full-width controls — an email field, a submit — and at 30rem
+   those stretch into bands. 26rem is the width the same markup capped itself at when
+   it was a page of its own; the dialog is the measure now.
    Opt-in via :has(), the same way .menu__plate attaches — no prop to thread through
    BaseModal for one caller's width. */
 .dlg:has(> .acct),
 .dlg:has(> .acctmodal__head) {
   max-width: var(--account-measure);
 }
+
+/* The sign-in card's own shape (a narrower, rounder dialog under a centred head) is
+   with its head, components/SignInHead.vue, and loads with it. */
 .dlg__field {
   display: flex;
   flex-direction: column;
@@ -93,20 +95,33 @@
   display: flex;
   justify-content: flex-end;
   align-items: center;
-  /* a quiet Cancel beside a filled primary: --space-2 put the word against the pill's
-     edge, and the two read as one control (Ryan, 2026-09-05). Every dialog's row. */
-  gap: var(--space-4);
+  /* Both contained (.btn--soft beside the primary, as every pair that stands on its own
+     is), so the pills' own edges separate them and they sit a pill's gap apart. It was
+     --space-4 while Cancel was a bare word, which at --space-2 ran against the pill's
+     edge and read as part of it. Every dialog's row. */
+  gap: var(--space-2);
   margin-top: var(--space-2);
 }
 .ovl-enter-active {
   transition: opacity var(--spring-fade-dur) var(--spring-fade);
 }
-/* exit: FASTER than the entrance, the menu family's own rule (controls.scss) — this
-   was the one surface that took as long to leave as to arrive, and a dismissed dialog
-   lingering a full fade beat after Escape read as reluctant. Still opacity only: a
-   thing leaving gets no spring to land on. */
+/* EXIT: THE MENUS' DISMISSAL (controls.scss, .menu-leave-active), on the same spring and
+   beat. Faster and flatter than the entrance, and it leaves FROM REST: the step spring
+   at 0.6 of its beat, where the fade spring this used is launched (most of its travel
+   in the first frame or two), so a dismissed dialog was gone in a blink the way the
+   menus were before they changed. The card goes back the way it came, half the
+   entrance's distance and with no scale, as a menu does toward its trigger. */
 .ovl-leave-active {
-  transition: opacity calc(var(--spring-fade-dur) * 0.6) var(--spring-fade);
+  transition: opacity calc(var(--spring-step-dur) * 0.6) var(--spring-step);
+}
+.ovl-leave-active .dlg {
+  transition:
+    transform calc(var(--spring-step-dur) * 0.6) var(--spring-step),
+    opacity calc(var(--spring-step-dur) * 0.6) var(--spring-step);
+}
+.ovl-leave-to .dlg {
+  transform: translateY(6px);
+  opacity: 0;
 }
 .ovl-enter-from,
 .ovl-leave-to {

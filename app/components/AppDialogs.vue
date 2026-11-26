@@ -35,7 +35,7 @@ watch(
         </span>
       </label>
       <div class="dlg__actions">
-        <button class="btn btn--ghost" @click="settleConfirm(false)">Cancel</button>
+        <button class="btn btn--soft" @click="settleConfirm(false)">Cancel</button>
         <button class="btn btn--primary" @click="settleConfirm(true)">{{ confirmState.confirmLabel }}</button>
       </div>
     </BaseModal>

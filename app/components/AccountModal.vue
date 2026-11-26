@@ -5,29 +5,35 @@ import { SvgIcon } from "~/utils/icon";
 //
 // Body and shell are both borrowed, deliberately: BaseModal owns the scrim, the rise,
 // click-outside, Escape, the focus trap and focus restore, and AccountView is the same
-// component /account renders. This file is the wiring between them and nothing else.
+// panel /authorize sets inline as a step. This file is the wiring between them and
+// nothing else.
 const { state, close } = useAccountModal();
 // The title, and the dialog's accessible name with it, are the panel's own heading
-// (v-model:heading): it knows whether it is a sign-in, the create form or the account,
+// (v-model:heading): it knows whether it is a sign-in, a link just sent or the account,
 // and a screen reader announcing one over another is the same mismatch as the title
 // showing it. Until the panel has said, the half of its rule that needs no panel: a
 // presumed account (offline, hint present) is still "your account", loading, rather
 // than a sign-in you don't need.
 const { presence } = useSession();
 const heading = ref<string>();
-const label = computed(() => heading.value ?? (presence.value !== "signedOut" ? "Your account" : "Sign in"));
+const label = computed(() => heading.value ?? (presence.value !== "signedOut" ? "Your account" : "Sign in or sign up"));
+// SIGNED OUT it is the sign-in card (SignInHead.vue): the mark, a centred
+// title, and no close button to see. Signed in it is the account, a tall surface of
+// sections that reads from the left under a title bar with its X: on a phone it leaves
+// too little scrim to count on a press outside.
+const card = computed(() => presence.value === "signedOut");
 </script>
 
 <template>
   <BaseModal :open="state.open" :label="label" @close="close">
     <!-- `done` is the panel telling us its errand finished: a sign-in or a sign-out
-         landed. In this mount that means close; on /account it means go somewhere,
-         which is why the panel takes the mount as a prop. A deleted account does not
+         landed. In this mount that means close. A deleted account does not
          fire it: the dialog stays open as Sign in, under the panel's confirmation. -->
     <!-- The only modal here whose body is a whole surface rather than a form, so it
          has no dlg__actions row and had no visible way out — just Escape and a tap on
          the scrim. The X is the same control the vault pane closes with. -->
-    <header class="panel__head acctmodal__head">
+    <SignInHead v-if="card">{{ label }}</SignInHead>
+    <header v-else class="panel__head acctmodal__head">
       <!-- .t-label is --ink-2 by design; a panel TITLE steps up to full ink, which is
            what the sharing and vault headers already do. -->
       <h2 class="t-label panel__title">{{ label }}</h2>
@@ -45,7 +51,18 @@ const label = computed(() => heading.value ?? (presence.value !== "signedOut" ? 
         <SvgIcon :icon="IconCrossMedium" />
       </button>
     </header>
-    <AccountView v-model:heading="heading" in-modal @done="close" />
+    <AccountView v-model:heading="heading" :notice="state.notice" @done="close" />
+    <!-- After the form, so Tab reaches the field and Continue first; drawn only while it
+         has keyboard focus, and always there for a screen reader. -->
+    <button
+      v-if="card"
+      type="button"
+      class="btn btn--icon btn--ghost signin__close"
+      aria-label="Close"
+      @click="close"
+    >
+      <SvgIcon :icon="IconCrossMedium" />
+    </button>
   </BaseModal>
 </template>
 
