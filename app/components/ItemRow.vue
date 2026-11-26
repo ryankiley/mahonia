@@ -1300,12 +1300,6 @@ function dismissFix() {
           />
           <!-- collapse a group of nested items — trails the name like the folder's
                chevron (the name hugs its text so this sits right after it) -->
-          <!-- the carrier, PHONE-ONLY on this face (see the mobile block): the
-               cluster's dot trigger is display:none in the mobile stack, and without
-               this the one mode that can assign showed no assignment state at all.
-               Desktop stays clean — the trigger's dot already says it. BEFORE the
-               chevron, so all three faces read name · carrier · chevron alike. -->
-          <span v-if="ownPerson" class="t-sm item__carrier item__ecarrier"><span class="swatch item__carrier-dot" :style="{ background: personColor(ownPerson) }" aria-hidden="true" /><span class="item__carrier-name">{{ ownPerson.name }}</span></span>
           <NestChevron
             v-if="isParent"
             :collapsed="nestCollapsed"
@@ -1883,7 +1877,9 @@ function dismissFix() {
                  so assignment, duplicate, remove and grip share fixed columns even
                  on a group with no nesting action. People exist list-wide, not per
                  row; an unassigned row keeps the same slot with its user glyph.
-                 Mobile carries these entries in the ⋯ menu instead. -->
+                 On a phone too: it had moved into the ⋯ menu there for want of
+                 width, and came back when the two class toggles became one mark
+                 (Ryan, 2026-11-25) — the line holds four boxes, as it did before. -->
             <ItemRowMenu
               v-if="peopleSorted.length"
               class="item__person"
@@ -1948,8 +1944,8 @@ function dismissFix() {
               </button>
             </Tooltip>
             <!-- mobile overflow: on a phone the trailing icons crowd the two-line row, so
-                 everything EXCEPT delete + grip collapses in here — the carrier picker,
-                 the nesting actions and the vault save — and desktop, which keeps the
+                 the nesting actions, the vault save, duplicate and remove collapse in
+                 here (the class mark, the carrier and the grip stay on the row) — and desktop, which keeps the
                  inline icons, never shows it. Same .menu/.popover atom as the editor's ⋯
                  kebab; one row's menu open at a time (useItemMenu). -->
             <ItemRowMenu
@@ -1962,44 +1958,7 @@ function dismissFix() {
               :icon="IconCircleDotsCenter1"
               trigger-class="menu__btn item__morebtn"
             >
-              <!-- the person picker's mobile seat — the desktop trigger is
-                   display:none here, so its popover would anchor to nothing. The
-                   SAME personPicks table as that popover, so the two seats can't
-                   drift. FIRST, not last: the assign run-through taps these forty
-                   times, and "Remove item" keeps the menu's closing seat — the
-                   one irreversible entry belongs at the end, not under the thumb.
-                   A real role=group with a visible name, so the radio run reads
-                   as one setting to assistive tech instead of loose siblings. -->
-              <li v-if="peopleSorted.length" role="none">
-                <ul role="group" aria-label="Who carries this">
-                  <!-- aria-hidden: the group's aria-label already names it — role=none
-                       strips the li's semantics but not its TEXT, so without this a
-                       screen reader heard the label twice -->
-                  <li role="none" class="t-label item__morelabel" aria-hidden="true">Who carries this</li>
-                  <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
-                    <button
-                      type="button"
-                      role="menuitemradio"
-                      data-row
-                      class="menu__item item__personpick"
-                      :class="{ 'is-active': e.active }"
-                      :aria-checked="e.active"
-                      @click="menu.close(); setPerson(e.active ? null : e.id)"
-                    >
-                      <span class="swatch" :class="{ 'swatch--hollow': !e.color }" :style="e.color ? { background: e.color } : undefined" aria-hidden="true" />
-                      {{ e.label }}
-                    </button>
-                  </li>
-                </ul>
-              </li>
-              <!-- menu__foot on the first action, when there are carriers above it: the
-                   card then holds two KINDS of thing, a setting (who carries this, a radio
-                   run under its own label) and actions on the row, and nothing closed the
-                   first, so the chosen carrier's lit row sat flush on "Duplicate". The
-                   same hairline the toolbar's ⋯ rules its groups off with (Ryan,
-                   2026-11-25). Duplicate always leads and is never a nest entry
-                   (overflowActions), so the rule can't be hidden with one.
-                   And again on the LAST action, "Remove item", for the reason the
+              <!-- menu__foot on the LAST action, "Remove item", for the reason the
                    toolbar's menu rules off "Delete this list": everything above it
                    copies, moves or saves the item, and this one ends it. Ink, not red:
                    it can be undone, and red is the list's own delete's alone. -->
@@ -2007,7 +1966,7 @@ function dismissFix() {
                 v-for="(a, i) in overflowActions"
                 :key="a.label"
                 role="none"
-                :class="{ item__nestact: a.nest, menu__foot: (i === 0 && peopleSorted.length > 0) || i === overflowActions.length - 1 }"
+                :class="{ item__nestact: a.nest, menu__foot: i === overflowActions.length - 1 }"
               >
                 <button type="button" data-row role="menuitem" class="menu__item" @click="menu.close(); a.run()">
                   <SvgIcon :icon="a.icon" aria-hidden="true" />
@@ -2994,27 +2953,22 @@ function dismissFix() {
 /* (still reaches: the swatch is this component's slot content into ItemRowMenu, so
    it carries this scope id even though the button around it doesn't) */
 .item__person-btn .swatch {
+  /* 14px here, not the swatch's usual 10: on this trigger the dot stands where a 20px
+     glyph does, between the class mark's ring (14px across) and the ⋯, and at 10 it
+     was the smallest thing in the cluster (Ryan, 2026-11-25: "is carrier circle too
+     small?"). The ring's own diameter, so empty ring and filled dot read as one size.
+     Set as the atom's own variable, so the nudge below follows it. */
+  --swatch: var(--icon-sm);
   margin-right: calc((var(--icon) - var(--swatch)) / 2);
 }
-/* the carrier tag itself is the shared .item__carrier atom (atoms/item.scss) —
-   drawn once for this face, the checklist face and the read rows */
-/* the edit face's copy exists only where the trigger's dot doesn't: the phone
-   (the trigger is display:none in the mobile block below, which reveals this) */
-.item__ecarrier {
-  display: none;
-}
+/* the carrier TAG (the shared .item__carrier atom, atoms/item.scss) is the checklist
+   face's and the read rows'; this face says it with the trigger's dot, on every width */
 /* the glyph column down both of this row's menus is .menu__item's own now
    (atoms/controls.scss) — the person entries take their dot through it too */
 /* picker entries: the chosen one wears the on-plate */
 .item__personpick.is-active {
   background: var(--lit);
   color: var(--ink);
-}
-/* the ⋯ menu's group label above the person entries — the entries' own inline
-   padding (space-3, controls.scss), so its text sits flush with theirs */
-.item__morelabel {
-  padding: var(--space-2) var(--space-3) var(--space-1);
-  color: var(--ink-3);
 }
 
 @media (max-width: $bp-stack) {
@@ -3217,18 +3171,21 @@ function dismissFix() {
      window, which until now got the height without the width. */
   .item__classcell .btn--icon,
   .item__classcell .item__clsfixed,
+  .item__trail :deep(.item__person-btn),
   .item__trail :deep(.item__morebtn) {
     width: var(--tap);
     padding: calc((var(--tap) - var(--icon-btn)) / 2);
   }
   /* (The grip's box is sized with its place in the cluster, further down: it is the
      one box here that isn't --tap wide.) */
-  /* mobile trailing cluster = ⋯ · grip. Everything else the row can do — the note, the
-     nesting actions, the vault save and the removal — moves into the ⋯ menu, which
-     names each one in words rather than asking a glyph to.
+  /* mobile trailing cluster = carrier (on a list that names people) · ⋯ · grip.
+     Everything else the row can do — the note, the nesting actions, the vault save
+     and the removal — moves into the ⋯ menu, which names each one in words rather
+     than asking a glyph to. (The carrier was in there too while the class cell was
+     two toggles wide; one mark gave its box back.)
      It is width that decides how many stay: on a coarse pointer every .btn--icon grows
      to --tap, so each inline icon costs 48px of a line that also has to carry the qty,
-     the weight and the two classification toggles. Delete was the last one held back —
+     the weight and the class mark. Delete was the last one held back —
      and it was the difference between a row that fits and a row that doesn't. Keeping
      it inline, a NESTED row (indented --space-5) needed ~421px of viewport for a
      four-figure weight, so "1 × 1,588 g" one level down ran its grip off the side of
@@ -3246,7 +3203,6 @@ function dismissFix() {
      reaches a wrapper from the hidden button inside it; the alternative is a class per
      Tooltip, which is markup spent on saying what the button already says. */
   .item__nest,
-  .item__person,
   .item__actions .tooltip-trigger:has(.item__vault-btn),
   .item__actions .tooltip-trigger:has(.item__dup),
   .item__actions .tooltip-trigger:has(.item__del) {
@@ -3254,36 +3210,6 @@ function dismissFix() {
   }
   .item__more {
     display: inline-flex;
-  }
-  /* …and the assignment state the hidden trigger was carrying comes back as the
-     name-line tag, or the one mode that can assign would show none at all */
-  .item__ecarrier {
-    display: inline-flex;
-  }
-  /* the name box is a plain BLOCK on a non-group row (only --group is a flex
-     row), so without this the tag dropped to its own line under the field,
-     aligned to nothing — make the box the baseline row the group variant
-     already is, the field taking the slack, the gap carrying the spacing */
-  .item__namebox:has(.item__ecarrier) {
-    display: flex;
-    align-items: baseline;
-    gap: var(--space-1);
-  }
-  .item__namebox:has(.item__ecarrier) :deep(.ac) {
-    flex: 1 1 auto;
-  }
-  .item__namebox:has(.item__ecarrier) .item__ecarrier {
-    margin-left: 0; /* the flex gap is the spacing here — the atom's margin doubled it */
-    /* …and the TAG is what gives way, not the name. Both are flex items on a 343px
-       line, and a flex item won't shrink below its min-content width unless its
-       min-width lets it: a long carrier that cannot shrink takes the row, and the
-       field collapses to 37px around it, leaving the item's own name as "Hy…". The
-       reset's `min-width: 0` on every element (reset.scss) is what lets the tag
-       shrink, and the cap keeps it from taking most of the line before it starts
-       to — the item's name is the row, the carrier is a note on it.
-       The tail is dropped with an ellipsis by .item__carrier-name (atoms/item.scss);
-       neither binds on a tag that already fits. */
-    max-width: 45%;
   }
   /* the classification cell used to hold a text label that had to ellipsize to keep
      qty/weight/controls on one line. Two icon toggles are a fixed 68px, so there is
@@ -3344,8 +3270,14 @@ function dismissFix() {
      right-aligned; this is the same idea for a centred one. The folder header below
      $bp-stack wears the same rule (atoms/folder.scss), so its trash stays in the ⋯'s
      column. */
+  .item__trail :deep(.item__person-btn),
   .item__trail :deep(.item__morebtn) {
     justify-content: center;
+  }
+  /* the carrier's dot centres with them: its nudge onto the desktop cluster's
+     right-aligned glyph column (.item__person-btn .swatch) has no column to meet here */
+  .item__trail .item__person-btn .swatch {
+    margin-right: 0;
   }
   /* THE GRIP'S BOX STARTS WHERE THE ⋯'S ENDS. To put the dots there it used to be a
      whole --tap box brought back by a negative margin of half a box and a pixel, which
