@@ -224,4 +224,25 @@ describe("Tooltip positioning", () => {
     await flushPromises();
     expect(trigger.getAttribute("aria-describedby")).toBeNull();
   });
+
+  // The Teleport, and the Transition in it, mount on the first show with the popup
+  // already inside — an initial render, which a Transition only animates with `appear`.
+  // Without it each tooltip's first reveal snapped in and only the later ones rose.
+  it("plays its enter on the very first show, not only on a return", async () => {
+    const host = document.createElement("div");
+    document.body.appendChild(host);
+    // the real Transition: test-utils stubs it by default, and the stub adds no classes
+    wrapper = mount(Tooltip, {
+      props: { text: "Remove item" },
+      slots: { default: "<button>hover me</button>" },
+      attachTo: host,
+      global: { stubs: { transition: false } },
+    });
+
+    // read on the tick it mounts, before a frame can move it on to enter-to
+    await wrapper.trigger("mouseenter");
+    const tip = document.body.querySelector<HTMLElement>(".tooltip")!;
+    expect(tip.classList.contains("tooltip-enter-from")).toBe(true);
+    expect(tip.classList.contains("tooltip-enter-active")).toBe(true);
+  });
 });
