@@ -1,5 +1,5 @@
 <script lang="ts">
-import { IconCodeTree, IconCalculator, IconCheckmark1Medium, IconChevronDownMedium, IconCircleDotsCenter1, IconCrossMedium, IconDotGrid2x3, IconFashion, IconFormSquare, IconSlideAdd, IconListAdd, IconMinusMedium, IconPlusMedium, IconSquareCheck, IconSquareMinus, IconTextIndentLeft, IconTextIndentRight, IconTrashCan, IconUser, IconSafeSimple } from "~/icons/central";
+import { IconCodeTree, IconCalculator, IconCheckmark1Medium, IconChevronDownMedium, IconCircleDotsCenter1, IconCrossMedium, IconDotGrid2x3, IconFashion, IconFormSquare, IconSlideAdd, IconListAdd, IconMinusMedium, IconPlusMedium, IconSquareCheck, IconSquareMinus, IconTextIndentLeft, IconTextIndentRight, IconTrashCan, IconUserEdit, IconSafeSimple } from "~/icons/central";
 import type { InjectionKey, Ref } from "vue";
 import type { Item as ItemT, Person, Unit } from "~~/shared/types";
 
@@ -1892,7 +1892,10 @@ function dismissFix() {
             >
               <template #trigger>
                 <span v-if="rowPerson" class="swatch" :style="{ background: personColor(rowPerson) }" aria-hidden="true" />
-                <SvgIcon v-else :icon="IconUser" />
+                <!-- nobody yet: the person with a pencil, "set who", rather than the
+                     bare person, which read as a fact about the row and not as
+                     something to press (Ryan, 2026-11-25) -->
+                <SvgIcon v-else :icon="IconUserEdit" />
               </template>
               <li v-for="e in personPicks" :key="e.id ?? 'none'" role="none">
                 <button
