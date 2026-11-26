@@ -241,17 +241,23 @@ export function useSession() {
    * Ask for a sign-in link.
    *
    * The endpoint's answer never varies with whether the address is KNOWN, so
-   * there's nothing about the account to branch on. It does distinguish the two
-   * failures a person can act on differently, neither of which says anything about
-   * the address: 503 (this deploy can't send mail at all) and everything else
-   * (offline, rate-limited — worth retrying).
+   * there's nothing about the account to branch on. It does distinguish the
+   * failures a person can act on differently, none of which says anything about
+   * the address: 503 (this deploy can't send mail at all), 429 (asked too often, so
+   * wait), no answer (offline), and anything else (worth one retry).
    */
-  async function requestLink(email: string): Promise<"sent" | "unavailable" | "error"> {
+  async function requestLink(email: string): Promise<"sent" | "unavailable" | "limited" | "offline" | "error"> {
     try {
       await $fetch("/api/auth/request", { method: "POST", body: { email } });
       return "sent";
     } catch (e) {
-      return statusOf(e) === 503 ? "unavailable" : "error";
+      const status = statusOf(e);
+      if (status === 503) return "unavailable";
+      // asked too often: waiting fixes it, and retyping the address does not
+      if (status === 429) return "limited";
+      // no answer at all, which is the network and never the address
+      if (status === undefined) return "offline";
+      return "error";
     }
   }
 

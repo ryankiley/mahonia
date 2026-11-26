@@ -11,6 +11,15 @@
 .tooltip-trigger {
   display: inline-flex;
 }
+// The wrapper is the layout box, so it is what a flex row sees: a class on the button
+// inside (`flex: none`, an auto margin) lands a level too deep to count. Around an icon
+// button it does not shrink, as the button would not: left shrinkable, the wrapped icons
+// in the editor's bar gave up width to a long status line while the bare ones beside
+// them held, and the row's spacing went uneven. Only icon buttons: a wrapped chip of
+// text (the totals, the plan's figures) is meant to give way.
+.tooltip-trigger:has(> .btn--icon) {
+  flex: none;
+}
 
 .tooltip {
   // fixed + non-interactive never vary, so they belong here rather than in the

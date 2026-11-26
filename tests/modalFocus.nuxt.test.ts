@@ -127,3 +127,46 @@ describe("a menu row that closes its menu", () => {
     expect(document.activeElement).toBe(trigger(w));
   });
 });
+
+// The trap heard Tab only from inside the dialog. A control taken away while it held
+// focus (a form swapped for its result, a row removed) drops focus to <body>, and the
+// next Tab walked out onto the page behind the scrim.
+describe("Tab, once focus has fallen out of an open dialog", () => {
+  const tab = (shiftKey = false) => {
+    const e = new KeyboardEvent("keydown", { key: "Tab", shiftKey, bubbles: true, cancelable: true });
+    window.dispatchEvent(e);
+    return e;
+  };
+
+  it("comes back to the dialog's first control, or its last on Shift", async () => {
+    const w = page();
+    await press(w, "#plain");
+    (document.activeElement as HTMLElement | null)?.blur();
+    expect(document.activeElement).toBe(document.body);
+
+    expect(tab().defaultPrevented).toBe(true);
+    expect(document.activeElement).toBe(w.get("#done").element);
+
+    (document.activeElement as HTMLElement).blur();
+    tab(true);
+    expect(document.activeElement).toBe(w.get("#next").element);
+  });
+
+  it("is left alone while focus is inside, and when no dialog is open", async () => {
+    const w = page();
+    expect(tab().defaultPrevented).toBe(false);
+    await press(w, "#plain");
+    w.get<HTMLElement>("#done").element.focus();
+    expect(tab().defaultPrevented).toBe(false);
+  });
+
+  it("goes to the dialog on top when one is open over another", async () => {
+    const w = page();
+    await press(w, "#plain");
+    await press(w, "#next");
+    (document.activeElement as HTMLElement | null)?.blur();
+    tab();
+    expect(document.activeElement).toBe(w.get("#inner").element);
+  });
+});
+

@@ -10,223 +10,51 @@
 // single tap from the email to being signed in.
 //
 // IN THE BROWSER THAT ASKED, that is. Anywhere else the server answers `confirm`
-// and spends nothing, and this page names the account and waits for a yes: a link
+// and spends nothing, and the account is named and a yes waited for: a link
 // is a way into whichever account asked for it, and one a stranger sent you would
 // otherwise sign this browser in as them and hand their account its lists (see
 // redeemMagicLink in server/utils/authSession.ts). The lists are then a question
 // of their own, after the sign-in and not part of it.
+//
+// THE PAGE ITSELF IS A WAYPOINT and asks nothing. The link is sent from here, and what
+// happens next happens somewhere else (useSignInLink): straight back to the page the
+// link was asked from, or, when there is something to ask, to that page first with the
+// question in a dialog over it. All this page ever draws is the bar, and one card if
+// the server is slow to answer.
 const route = useRoute();
-const { refresh, allowListSweep } = useSession();
-
-type State = "working" | "confirm" | "lists" | "done" | "invalid" | "error";
-const state = ref<State>("working");
 
 // noindex + no SSR data: the token lives in the query string and must not reach a
 // crawler, a cache, or a server-rendered payload.
-// The tab says what the page is doing: it is only "signing you in" while it is.
 useHead({
-  title: () => (state.value === "working" || state.value === "done" ? "Signing you in — Mahonia" : "Sign in — Mahonia"),
+  title: "Signing you in — Mahonia",
   meta: [{ name: "robots", content: "noindex" }],
 });
 
-/** what the server said when it wanted a yes: whose account, whether any browser
- *  asked for this link, and whether signing in clears out whoever was there first */
-const asking = ref({ email: "", asked: true, evicts: false });
-/** the yes: sent with the token from then on, so "Try again" doesn't ask twice */
-let confirmed = false;
-const addFailed = ref(false);
-
-// the lists this browser made: what the second question is about
-const deviceLists = computed(() => useMyLists().entries.value.filter(madeHere).length);
-
-type VerifyAnswer =
-  | { ok: true; sweep: boolean }
-  | { ok: false; reason: "invalid" }
-  | { ok: false; reason: "confirm"; email: string; asked: boolean; evicts: boolean };
-
-// A PRESS IS ONLY AN ANSWER IF THE QUESTION WAS THERE FIRST. Another site can open
-// this page under a click the person is already making for something else: the
-// second half of a double-click, or the one that brings this window forward. So a
-// press counts only once its question has been on screen, in a focused window,
-// for a moment. Nobody reads "Sign in as …?" faster than this. The button shows
-// it (disabled until then), so a press that came too soon is seen not to have
-// landed rather than seeming to do nothing.
-const READ_MS = 700;
-const armed = ref(false);
-let arming: ReturnType<typeof setTimeout> | undefined;
-function rearm() {
-  armed.value = false;
-  clearTimeout(arming);
-  arming = setTimeout(() => (armed.value = true), READ_MS);
-}
-function ask(question: "confirm" | "lists") {
-  rearm();
-  state.value = question;
-}
-useWindowEvent("focus", rearm);
+// ONLY WHEN IT IS SLOW. The straight run is over in a few hundred milliseconds, and a
+// card that appeared and vanished in that time was a flash of a dialog over an empty
+// page. Past a second the empty page needs to say it is working.
+const SLOW_MS = 1000;
+const slow = ref(false);
+let waiting: ReturnType<typeof setTimeout> | undefined;
 onMounted(() => {
-  document.addEventListener("visibilitychange", rearm);
-  // the link is sent as the page arrives, with no click (the top of this file says why)
-  void verify();
-});
-onBeforeUnmount(() => {
-  clearTimeout(arming);
-  document.removeEventListener("visibilitychange", rearm);
-});
-
-function confirm() {
-  if (!armed.value) return;
-  confirmed = true;
-  void verify();
-}
-
-async function verify() {
+  waiting = setTimeout(() => (slow.value = true), SLOW_MS);
   const raw = route.query.t;
-  const token = (Array.isArray(raw) ? raw[0] : raw) ?? "";
-  if (!token) {
-    state.value = "invalid";
-    return;
-  }
-  state.value = "working";
-  try {
-    // The page's own session check went out as it loaded, and this is about to
-    // change who is signed in: let that answer land first (sessionSettled says
-    // what happened when it landed second).
-    await sessionSettled();
-    const res = await $fetch<VerifyAnswer>("/api/auth/verify", {
-      method: "POST",
-      body: confirmed ? { token, confirmed } : { token },
-    });
-    if (!res.ok) {
-      if (res.reason === "invalid") state.value = "invalid";
-      else {
-        asking.value = { email: res.email, asked: res.asked, evicts: res.evicts };
-        ask("confirm");
-      }
-      return;
-    }
-    // re-read the session so the rest of the app sees the new cookie
-    await refresh(true);
-    tally("sign_in");
-    // THE LISTS ARE A SECOND QUESTION. A sign-in this browser asked for brings the
-    // lists it made into the account (`sweep`). One that was only confirmed here
-    // doesn't: the yes above is one press, and one press is what a stranger's link
-    // is after, so it signs in and takes nothing with it. With no lists here there
-    // is nothing to take and nothing to ask: what this browser makes from now on,
-    // it makes signed in.
-    if (!res.sweep) {
-      if (deviceLists.value > 0) return ask("lists");
-      await allowListSweep();
-    }
-    await finish();
-  } catch {
-    // network or rate limit — distinct from a bad token, and worth retrying
-    state.value = "error";
-  }
-}
-
-async function addLists() {
-  if (!armed.value) return;
-  addFailed.value = !(await allowListSweep());
-  if (!addFailed.value) await finish();
-}
-
-/** Hand the person to the thing they signed in for: back where they started if we
- *  still know, /gear if not. The magic link usually returns in a new tab, which is
- *  exactly why the return path is in localStorage rather than sessionStorage. */
-async function finish() {
-  state.value = "done";
-  await useReturnTo().resume("/gear");
-}
+  // the link is sent as the page arrives, with no click (the top of this file says why)
+  void useSignInLink().arrive((Array.isArray(raw) ? raw[0] : raw) ?? "");
+});
+onBeforeUnmount(() => clearTimeout(waiting));
 </script>
 
 <template>
   <div>
     <SiteTopbar />
-    <!-- One message and one way on, in every state, so it sits where the 404 does
-         (.page--alone, main.scss) rather than at the page's top-left corner. -->
-    <main id="main-content" tabindex="-1" class="wrap page page--alone">
-      <div class="cb">
-        <template v-if="state === 'working' || state === 'done'">
-          <h1 class="t-title">Signing you in…</h1>
-          <p class="t-muted cb__line">One moment.</p>
-        </template>
-
-        <template v-else-if="state === 'confirm'">
-          <h1 class="t-title cb__account">Sign in as {{ asking.email }}?</h1>
-          <p class="t-muted cb__line">
-            {{
-              asking.asked
-                ? "This link was asked for in a different browser. Carry on only if you asked for it."
-                : "Carry on only if this address is yours."
-            }}
-          </p>
-          <p v-if="asking.evicts" class="t-muted cb__line">
-            Signing in removes any passkey already on this account and signs out anyone else using it.
-          </p>
-          <div class="cb__actions">
-            <button type="button" class="btn btn--primary" :disabled="!armed" @click="confirm">Sign in</button>
-            <NuxtLink to="/" class="btn btn--quiet">Not me</NuxtLink>
-          </div>
-        </template>
-
-        <template v-else-if="state === 'lists'">
-          <h1 class="t-title">Add this browser’s {{ deviceLists === 1 ? "list" : "lists" }} to your account?</h1>
-          <p class="t-muted cb__line cb__account">
-            You’re signed in as {{ asking.email }}. Add
-            {{ deviceLists === 1 ? "it and it opens" : "them and they open" }} on any device you sign in on.
-          </p>
-          <p v-if="addFailed" class="t-muted cb__line">That didn’t go through. Try again, or carry on without.</p>
-          <div class="cb__actions">
-            <button type="button" class="btn btn--primary" :disabled="!armed" @click="addLists">
-              {{ deviceLists === 1 ? "Add list" : "Add lists" }}
-            </button>
-            <button type="button" class="btn btn--quiet" @click="finish">Not now</button>
-          </div>
-        </template>
-
-        <template v-else-if="state === 'invalid'">
-          <h1 class="t-title">That link has expired</h1>
-          <p class="t-muted cb__line">
-            Sign-in links work once and last 15 minutes.
-          </p>
-          <NuxtLink to="/account" class="btn btn--primary cb__action">Get a new link</NuxtLink>
-        </template>
-
-        <template v-else>
-          <h1 class="t-title">Couldn’t sign you in</h1>
-          <p class="t-muted cb__line">
-            Something went wrong on the way. Your link is probably still good.
-          </p>
-          <button type="button" class="btn btn--primary cb__action" @click="verify">Try again</button>
-        </template>
+    <main id="main-content" tabindex="-1" class="wrap page" />
+    <!-- nothing to answer and nothing to dismiss: it goes when the page does -->
+    <BaseModal :open="slow" label="Signing you in…">
+      <SignInHead>Signing you in…</SignInHead>
+      <div class="signin__body">
+        <p class="t-sm t-muted">One moment.</p>
       </div>
-    </main>
+    </BaseModal>
   </div>
 </template>
-
-<style scoped>
-.cb {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2);
-}
-.cb__line {
-  max-width: 52ch;
-}
-.cb__account {
-  overflow-wrap: anywhere;
-}
-.cb__action,
-.cb__actions {
-  margin-top: var(--space-3);
-}
-.cb__actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-}
-</style>

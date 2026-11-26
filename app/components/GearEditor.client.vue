@@ -1407,10 +1407,10 @@ function onCorrected(res: { status: string; itemName?: string }) {
       <!-- a truncated edit link: the read-only view is the way back to THIS list, so
            it takes the primary and starting over steps down beside it -->
       <NuxtLink v-if="keylessCode" :to="`/s/${keylessCode}`" class="btn btn--primary">Open the read-only view</NuxtLink>
-      <button :class="['btn', keylessCode ? 'btn--quiet' : 'btn--primary']" @click="newList({ replace: true })">Create a list</button>
+      <button :class="['btn', keylessCode ? 'btn--soft' : 'btn--primary']" @click="newList({ replace: true })">Create a list</button>
       <!-- quiet, under the primary: the way forward stays the page's loudest offer,
            and retiring the row that led here is the calm cleanup beside it -->
-      <button v-if="missingEntry" class="btn btn--quiet" @click="forgetMissingList">Forget this list</button>
+      <button v-if="missingEntry" class="btn btn--soft" @click="forgetMissingList">Forget this list</button>
     </main>
 
     <main v-else-if="unloaded" id="main-content" tabindex="-1" class="wrap editor__missing">
@@ -1420,7 +1420,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
           : "This list couldn’t be loaded. Check your connection and try again." }}
       </p>
       <button v-if="status === 'error'" class="btn btn--primary" @click="c.retryLoad()">Try again</button>
-      <button :class="['btn', status === 'error' ? 'btn--quiet' : 'btn--primary']" @click="newList({ replace: true })">Create a list</button>
+      <button :class="['btn', status === 'error' ? 'btn--soft' : 'btn--primary']" @click="newList({ replace: true })">Create a list</button>
     </main>
 
     <main v-else id="main-content" tabindex="-1" class="wrap editor__missing">
@@ -1596,7 +1596,8 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* The title block (name + trail link) belongs to ListHead.vue — it owns its own layout
    so the hover affordance, the title, and the link keep one DOM order. */
 
-/* the icon cluster is rigid so it can't be nudged by anything that joins the row */
+/* the icon cluster is rigid so it can't be nudged by anything that joins the row (an
+   icon button wrapped in a <Tooltip> is held by the wrapper's own rule, tooltip.scss) */
 .editor__share,
 .editor__vault,
 .menu {

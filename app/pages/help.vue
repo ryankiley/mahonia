@@ -228,7 +228,7 @@ useHead({
             “Remove” takes a piece out of My Gear and keeps it out, even if a list still has it. To
             bring it back, add it again in My Gear.
           </li>
-          <li>“Download everything” on your account page downloads your filed lists and My Gear.</li>
+          <li>“Download everything” in your account downloads your filed lists and My Gear.</li>
           <li>
             “Delete account” erases your email, passkeys, and My Gear. Your lists stay, with their
             links, unless you check “Delete my lists too”.
@@ -246,7 +246,7 @@ useHead({
         <p>
           Signed in, it can also reach the lists filed under your account, and My Gear. It asks you
           to sign in the first time, and stays connected until you disconnect it under “Assistant
-          access” on your account page.
+          access” in your account.
         </p>
 
         <h3>Setting it up</h3>
@@ -302,8 +302,8 @@ useHead({
           </li>
         </ul>
         <p>
-          A client that can’t sign in can use a token instead. Make one under “Assistant access” on
-          your account page and send it as an <code>Authorization: Bearer</code> header. It’s shown
+          A client that can’t sign in can use a token instead. Make one under “Assistant access” in
+          your account and send it as an <code>Authorization: Bearer</code> header. It’s shown
           once and lasts until you revoke it.
         </p>
 

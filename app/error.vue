@@ -21,6 +21,7 @@ const dev = import.meta.dev;
 // link left the error.
 const { state: accountModal } = useAccountModal();
 const { mount: dialogs } = useDialogs();
+const signInLink = useSignInLinkState();
 </script>
 
 <template>
@@ -56,8 +57,9 @@ const { mount: dialogs } = useDialogs();
       </div>
     </main>
   </NuxtLayout>
-  <!-- app.vue's two, in its order: the dialogs last, over the account they can be raised from -->
+  <!-- app.vue's three, in its order: the dialogs last, over the account they can be raised from -->
   <LazyAccountModal v-if="accountModal.everOpened" />
+  <LazySignInLinkDialog v-if="signInLink.everOpened" />
   <LazyAppDialogs v-if="dialogs.everOpened" />
 </template>
 

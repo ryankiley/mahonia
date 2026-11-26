@@ -592,7 +592,7 @@ async function add(p: VaultItemPatch) {
       </datalist>
 
       <div class="dlg__actions">
-        <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
+        <button class="btn btn--soft" @click="emit('close')">Cancel</button>
         <button class="btn btn--primary" :disabled="!canSave || saving" @click="onSubmit">
           {{ saving ? "Saving…" : adding ? "Add" : "Save" }}
         </button>

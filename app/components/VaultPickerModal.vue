@@ -95,7 +95,7 @@ const groups = computed(() =>
       </div>
 
       <div class="dlg__actions">
-        <button class="btn btn--ghost" @click="emit('cancel')">Cancel</button>
+        <button class="btn btn--soft" @click="emit('cancel')">Cancel</button>
         <button class="btn btn--primary" :disabled="!keep.size" @click="emit('confirm', [...keep])">
           Add {{ keep.size }}
         </button>

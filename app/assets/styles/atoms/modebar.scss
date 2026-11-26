@@ -126,10 +126,15 @@
 }
 
 // The icons are this app's addition, not the design system's — its menubar is words only.
-// They go first at every width and vanish before the word does. The bar's own options
-// only: the chip is worn elsewhere (the share panel's tabs, the people bar), and an icon
-// added there is that surface's to hide.
-@media (max-width: 380px) {
+// They go first and vanish before the word does, where the bar runs out of room. The
+// bar's own options only: the chip is worn elsewhere (the share panel's tabs, the people
+// bar), and an icon added there is that surface's to hide.
+// 320px, which no current phone is under: three tabs with their icons are 230px wide and
+// the editor's column is 288 even there. The line was 380px, drawn for a row the bar
+// SHARES (My Gear's, with its add button), and it took the icons off every 375px phone
+// in the editor and on a shared list, where they fit with room to spare. A bar that
+// shares its row hides them at the width its own row needs (gear.vue).
+@media (max-width: 320px) {
   .modebar .modebar__opt svg {
     display: none;
   }

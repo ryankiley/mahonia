@@ -66,7 +66,7 @@ async function onSubmit() {
       </label>
 
       <div class="dlg__actions">
-        <button class="btn btn--ghost" @click="close()">Cancel</button>
+        <button class="btn btn--soft" @click="close()">Cancel</button>
         <button class="btn btn--primary" :disabled="submitting" @click="onSubmit">
           {{ submitting ? "Sending…" : "Suggest fix" }}
         </button>
