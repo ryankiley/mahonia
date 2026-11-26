@@ -276,6 +276,8 @@ jobs:
   # there is one (the delta step uploads only when it succeeded). It waits on
   # `build` alone — the receipt is ready a minute in, whatever the suite says.
   comment:
+    # What the PR's check list calls it: a bare `comment` doesn't say about what.
+    name: bundle delta
     needs: build
     # Fork and Dependabot PRs have a read-only GITHUB_TOKEN, so neither can post
     # this optional receipt. The other jobs still run for them; only the
