@@ -10,6 +10,12 @@
 // Delays go too, or a delayed arrival (a mode switch's fade-in, a visibility flip at
 // the end of a fold) would still wait out a beat it no longer animates.
 // Script that runs its own Web Animation or times a wait asks motionIsInstant().
+//
+// EXCEPT A NO. The shake (main.scss, .is-shaking) is not the result of a key shown
+// sooner: it is the whole of the answer, and at zero length it is no answer at all. It
+// is also set off by a key more often than not, since an address is typed and then sent
+// with Enter, or with Go on a phone's keyboard, where this rule left it silent on the
+// commonest path there is. Reduced motion still flattens it (main.scss).
 :root[data-input="keyboard"] {
   *,
   *::before,
@@ -18,5 +24,11 @@
     transition-delay: 0s !important;
     animation-duration: 0s !important;
     animation-delay: 0s !important;
+  }
+}
+// Inside no-preference, or this rule's weight would beat that kill-switch too.
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-input="keyboard"] .is-shaking {
+    animation-duration: var(--spring-shake-dur) !important;
   }
 }

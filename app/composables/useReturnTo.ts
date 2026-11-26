@@ -78,10 +78,12 @@ export function useReturnTo() {
     return isSafeReturnPath(stored.path) ? stored.path : null;
   }
 
-  /** Go back where they came from, or to `fallback` if there's nowhere to go. */
-  async function resume(fallback: string): Promise<void> {
+  /** Go back where they came from, or to `fallback` if there's nowhere to go. Says
+   *  which it was: true when there was a page to go back to. */
+  async function resume(fallback: string): Promise<boolean> {
     const path = take();
     await navigateTo(path ? withHeldKey(path) : fallback, { replace: true });
+    return path !== null;
   }
 
   return { remember, rememberHere, resume };

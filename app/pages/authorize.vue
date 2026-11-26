@@ -3,8 +3,8 @@
 // client) sends a person so their assistant can reach My Gear.
 //
 // Two states on one page, decided by the session. Signed out, it is the same sign-in
-// surface /account shows, mounted the way the modal mounts it so a finished sign-in
-// stays here instead of navigating away; the page simply re-renders as the consent
+// form the account dialog shows, set inline as a step, and a finished sign-in stays
+// here; the page simply re-renders as the consent
 // once there is an account. Signed in, it names the app asking and what it wants,
 // and Allow or Deny sends the person back to the app with the answer.
 //
@@ -152,12 +152,8 @@ async function decide(decision: "allow" | "deny") {
             </span>
             <span class="az__tie" />
             <span class="az__tile">
-              <svg class="az__home" viewBox="0 0 315 367" xmlns="http://www.w3.org/2000/svg">
-                <!-- the favicon's M (public/icon.svg), drawn in the page's ink -->
-                <path
-                  d="M215.25 367C231 304.086 225.75 209.714 199.5 209.714C183.75 209.714 178.5 246.414 194.25 288.357C173.25 272.629 141.75 272.629 120.75 288.357C136.5 246.414 131.25 209.714 115.5 209.714C89.25 209.714 84 304.086 99.75 367C78.75 346.029 26.25 346.029 5.25 367C21 330.3 47.25 288.357 0 241.171C63 193.986 26.25 89.1286 10.5 52.4286C52.5 52.4286 84 26.2143 99.75 0C110.25 83.8857 136.5 157.286 157.5 157.286C178.5 157.286 204.75 83.8857 215.25 0C231 26.2143 262.5 52.4286 304.5 52.4286C283.5 99.6143 267.75 141.557 315 188.743C262.5 235.929 288.75 309.329 309.75 367C288.75 346.029 236.25 346.029 215.25 367Z"
-                />
-              </svg>
+              <!-- the favicon's M, in the page's ink -->
+              <MahoniaMark class="az__home" />
             </span>
           </div>
           <!-- One heading per state, inside ClientOnly with the state it names. Signed
@@ -171,7 +167,7 @@ async function decide(decision: "allow" | "deny") {
               <h1 class="t-title">Connect {{ label }} to Mahonia</h1>
               <p class="t-muted">Sign in to your Mahonia account first. {{ label }} will then ask to {{ wants }}.</p>
               <div class="az__signin">
-                <AccountView in-modal as-step />
+                <AccountView as-step />
               </div>
             </template>
 
@@ -185,7 +181,7 @@ async function decide(decision: "allow" | "deny") {
                     <span>{{ s.text }}</span>
                   </li>
                 </ul>
-                <p class="t-muted az__fine">Until you disconnect it on your account page, under Assistant access.</p>
+                <p class="t-muted az__fine">Until you disconnect it in your account, under Assistant access.</p>
               </section>
 
               <!-- what Mahonia couldn't check, said before the buttons rather than under them -->
@@ -272,7 +268,6 @@ async function decide(decision: "allow" | "deny") {
 .az__home {
   width: calc(22 * var(--tpx));
   height: calc(22 * var(--tpx));
-  fill: currentColor;
 }
 /* the tie between them: three dots of the quietest ink, drawn as one dotted rule so
    the gap reads as a connection being made rather than a gap */

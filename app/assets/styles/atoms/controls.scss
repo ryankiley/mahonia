@@ -346,6 +346,61 @@ input[type="search"]::-webkit-search-decoration {
   color: var(--ink-3);
 }
 
+// The ERROR CALLOUT — what went wrong with a field, in a small red bubble whose point
+// touches the field it is about. The tooltip's shape (tooltip.scss: --radius-2,
+// --text-chrome, the same padding) in the one colour the chrome owns, so it reads as a
+// thing said ABOUT the field and not as another line of the form.
+// In the flow, under the field: it pushes the button down instead of covering it, and it
+// is read in order by a screen reader (give it role="alert").
+// --errtip-at is where the point sits along the bubble: the middle by default, for a
+// centred form; a left-aligned one sets it near the leading edge.
+.errtip {
+  position: relative;
+  align-self: center;
+  max-width: 100%;
+  padding: var(--space-1) var(--space-3);
+  background: var(--danger-solid);
+  color: var(--danger-ink);
+  border-radius: var(--radius-2);
+  font-size: var(--text-chrome);
+  font-weight: 500;
+  text-align: center;
+  text-wrap: balance;
+  // out of the field, the way a tooltip leaves its trigger; replayed whenever the
+  // element is re-keyed, which is how a second failed press is seen to have landed
+  animation: errtip-in var(--spring-step-dur) var(--spring-step);
+  transform-origin: var(--errtip-at, 50%) 0;
+}
+.errtip::before {
+  content: "";
+  position: absolute;
+  inset-block-start: -4px;
+  inset-inline-start: var(--errtip-at, 50%);
+  width: 10px;
+  height: 10px;
+  background: inherit;
+  border-start-start-radius: 2px;
+  transform: translateX(-50%) rotate(45deg);
+}
+// A NOTE, not an error: the same bubble in the tooltip's own inverted ink, for a
+// condition that is nobody's mistake and has not failed anything yet (offline, before a
+// press). Red stays for "that went wrong".
+.errtip--note {
+  background: var(--ink);
+  color: var(--paper);
+}
+// where the error is about no one field (a card's own action failing), the bubble
+// without its point
+.errtip--nopoint::before {
+  content: none;
+}
+@keyframes errtip-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.96);
+  }
+}
+
 .field--num {
   font-variant-numeric: tabular-nums;
   text-align: right;

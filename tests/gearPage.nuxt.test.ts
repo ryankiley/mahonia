@@ -182,7 +182,7 @@ describe("the /gear page's vault calls", () => {
     await vi.waitFor(() => expect(editedOps).toHaveLength(1));
 
     // Cancel mid-send, then open the other piece and start typing there
-    document.querySelector<HTMLButtonElement>(".dlg__actions .btn--ghost")!.click();
+    document.querySelector<HTMLButtonElement>(".dlg__actions .btn--soft")!.click();
     await nextTick();
     await w.get('button[aria-label="Edit Brand Kakwa 40"]').trigger("click");
     await vi.waitFor(() => expect(nameField().value).toBe("Kakwa 40"));

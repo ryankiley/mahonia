@@ -41,6 +41,7 @@ export { IconCirclePlus } from "./IconCirclePlus";
 export { IconCircleX } from "./IconCircleX";
 export { IconClaudeai } from "./IconClaudeai";
 export { IconClock } from "./IconClock";
+export { IconCloudOff } from "./IconCloudOff";
 export { IconCodeTree } from "./IconCodeTree";
 export { IconCookies } from "./IconCookies";
 export { IconCooking } from "./IconCooking";

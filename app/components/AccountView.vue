@@ -1,8 +1,9 @@
 <script setup lang="ts">
 // The account surface itself — sign-in when signed out, settings when signed in.
 //
-// Mount-agnostic: the account modal shows this over whatever you were doing, and
-// /account renders the same thing for a bookmark, a typed URL, or the "Get a new link" button on a dead magic link.
+// Two mounts: the account dialog shows this over whatever you were doing, and
+// /authorize sets the signed-out half inline as a step of its own card (asStep). The
+// /account address opens the dialog and draws nothing of its own (pages/account.vue).
 // One implementation, so the two can't drift.
 //
 // That last part is the whole point of the extraction. The vault went the other way
@@ -10,35 +11,51 @@
 // comment in the page admitting its prompt is copied "WORD FOR WORD" from the pane.
 // Signing in and deleting an account are worse things to keep in sync by hand.
 import { IconChevronDownMedium, IconClaudeai, IconCursor, IconEyeOpen, IconKey1, IconOpenai, IconPencil2, IconSquareBehindSquare1 } from "~/icons/central";
+import type { AccountNotice } from "~/composables/useAccountModal";
+import { normalizeEmail } from "~~/shared/email";
 import { counted } from "~~/shared/tidyText";
 import { SvgIcon } from "~/utils/icon";
 import type { IconNode } from "~/utils/icon";
 import type { AccessScope, AccessTokenSummary, PasskeySummary } from "~~/shared/types";
 
-// In the MODAL you are already where you want to be, so finishing means closing and
-// nothing else. On the PAGE there is no context behind it, so finishing has to take
-// you somewhere — back where you came from, or the vault. Same component, one prop,
-// rather than two copies that answer this differently.
-// The heading is the page's alone: a modal mount draws the title itself, in a header
-// row that also carries the close button, so the panel must not draw a second one.
+// Wherever it is mounted you are already where you want to be, so finishing an errand
+// here (a sign-in, a sign-out) is said to the mount (`done`) and it decides: the dialog
+// closes, /authorize goes on to its consent. A deleted account says nothing: the panel
+// stays, as the sign-in form, under its own confirmation. The panel never navigates, and it
+// draws no heading of its own: the mount titles it (v-model:heading says with what).
+// It had a third mount, a page at /account with nothing behind it, which is why it once
+// took a prop to say it was in a dialog, drew a page heading, centred and narrowed its
+// own column, and went somewhere when it finished. That page is the dialog now (pages/account.vue).
 // `asStep`: mounted as one step of another page (the /authorize consent), which has
 // already said what the sign-in is for and sets its own left edge. So the why-line is
-// dropped and the signed-out column stops centring itself under a left-aligned heading.
-const { inModal = false, asStep = false } = defineProps<{ inModal?: boolean; asStep?: boolean }>();
+// dropped and the signed-out column reads from the left under that page's heading.
+// `notice`: why the dialog was opened, when that changes what the signed-out form says
+// (useAccountModal). A prop, so the panel knows nothing of the dialog it may be in.
+const { asStep = false, notice = null } = defineProps<{ asStep?: boolean; notice?: AccountNotice | null }>();
 const emit = defineEmits<{ done: [] }>();
 // Say what this surface is FOR right now. Signed out it is a sign-in dialog, and
 // titling it "Your account" describes something you don't have yet — the one thing
 // the person in front of it is certain of. Signed in, it's the settings page — and
 // so is a PRESUMED session (offline with the hint cookie, the body still loading):
 // there is an account here, and "Sign in" over it asked for something already had.
+// ONCE THE LINK IS SENT the form has done its job, and steps aside for the one thing
+// left to do: go and find the mail. It stayed up before, with the address still in the
+// field and Continue live again under "Check ... for a link", which read as a form still
+// waiting to be filled in. The address it went to; "" while the form is what's showing.
+// Up here because the heading reads it at once.
+const sentTo = ref("");
 const heading = computed(() =>
-  presence.value !== "signedOut" ? "Your account" : mode.value === "create" ? "Create an account" : "Sign in",
+  presence.value !== "signedOut"
+    ? "Your account"
+    : sentTo.value
+      ? "Check your email"
+      : notice === "expired"
+        ? "That link has expired"
+        : notice === "failed"
+          ? "Couldn’t sign you in"
+          : "Sign in or sign up",
 );
 
-async function finish(fallback: string) {
-  if (inModal) return emit("done");
-  await useReturnTo().resume(fallback);
-}
 
 // Your account. Deliberately the whole of it: a way back in, an optional display
 // name, your passkeys, and the way out. No avatar, no bio, no profile — an account
@@ -51,11 +68,9 @@ async function finish(fallback: string) {
 //
 // It lives here rather than at the bottom of /gear so the vault page can be about
 // gear and nothing else.
-// NO useHead HERE. This is a component with two mounts, and the modal mount renders
-// over some OTHER page — so a head call would retitle that page and, worse, stamp its
-// own noindex onto it. A public shared list is one of the pages this can open over.
-// The title and the noindex belong to /account, which is the thing that is actually
-// the account; see the page.
+// NO useHead HERE. The dialog mount renders over some OTHER page, so a head call would
+// retitle that page and, worse, stamp its own noindex onto it. A public shared list is
+// one of the pages this can open over.
 
 const { user, signedIn, presence, loaded, pending, refresh, requestLink, signOut, saveProfile, forgetAccountMemos } = useSession();
 // Offline with an account, the session ask fails and stays unresolved, so neither
@@ -72,104 +87,150 @@ onMounted(() => {
   canPasskey.value = passkeysSupported();
 });
 
-// ---- signed out: two jobs, one page ---------------------------------------
-// Signing in and creating an account are NOT the same task and don't share copy.
-// Signing in should be one tap and needs no explanation; creating asks for an
-// address and owes you a reason. So the surface has a mode, and defaults to
-// signing in — after launch that's the overwhelmingly common reason to be here.
-const mode = ref<"signin" | "create">("signin");
-// The heading, handed up as well as drawn (v-model:heading). The dialog mount draws its
-// own title row and names itself by it, and the switch above lives here: with its own
-// copy of the rule, and no way to see `mode`, the dialog said "Sign in" over the create
-// form. Down here because it reads `mode` at once.
+// ---- signed out: one door -------------------------------------------------
+// ONE FORM for someone new and someone returning. It was two (Sign in, and Create an
+// account behind a "New here?" switch), and the person had to know which they were. The
+// link never needed telling: /api/auth/request finds the account or makes it, and gives
+// the same answer either way. So it is an address and Continue, for everyone, under a
+// title that names both ("Sign in or sign up": with no line under the button to say a
+// first visit is welcome, the title has to). A passkey is offered from the field itself
+// to someone who already added one (the account's Passkeys section is where a new
+// account does that).
+// The heading is handed up and never drawn here (v-model:heading): the dialog draws its
+// own title and names itself by it.
 const headingOut = defineModel<string>("heading");
 watchEffect(() => (headingOut.value = heading.value));
 
 // ---- signing in ----------------------------------------------------------
-const signingIn = ref(false);
-const signinNote = ref("");
-async function signInWithPasskey() {
-  signingIn.value = true;
-  signinNote.value = "";
-  const r = await pk.signIn();
-  signingIn.value = false;
-  // Back to whatever you were doing. This used to just return, leaving you on the
-  // settings page you never came here to read — with no list navigation in the site
-  // bar to get out with. /gear is the fallback: it's the one thing an account is
-  // FOR, so it's the right landing when there's nowhere to go back to.
+// A PASSKEY FROM THE EMAIL FIELD. Signed out, the browser is asked to offer any passkey
+// it holds for this site in the address field's own autofill list (the field is marked
+// autocomplete="... webauthn"): focus the field, pick the passkey, signed in, nothing
+// typed. There is no passkey button and no link: the form is one field and Continue, and
+// whoever's passkey the list can't reach (a security key, another phone, a browser with
+// no such list) continues by email like everyone else, which always works.
+let autofill: AbortController | null = null;
+function stopAutofill() {
+  autofill?.abort();
+  autofill = null;
+}
+async function offerAutofill() {
+  stopAutofill();
+  const mine = (autofill = new AbortController());
+  const r = await pk.signInFromAutofill(mine.signal);
+  if (autofill === mine) autofill = null;
+  // back to whatever you were doing: the mount closes, or goes on
   if (r === "ok") {
     tally("sign_in");
-    return await finish("/gear");
+    emit("done");
   }
-  signinNote.value =
-    r === "unsupported"
-      ? "This browser can’t use passkeys. Ask for a link instead."
-      : r === "cancelled"
-        ? ""
-        : "No passkey matched. Ask for a link instead, or create an account.";
+  // A passkey was picked and the sign-in still failed (the server refused it, or could
+  // not be reached). It said nothing, and the form sat there as if nothing had been
+  // tried. The address field is the way on, so the line points at it.
+  else if (r === "failed") linkNote.value = "That passkey didn’t sign you in. Continue with your email instead.";
 }
+// OFFLINE IS KNOWN BEFORE ANYONE PRESSES. Asking for a link needs the network, and the
+// browser already says when there is none, so the form says so and holds Continue
+// instead of letting the press fail and then explaining. It lifts by itself when the
+// connection is back. (The browser's word is only trusted this way round: it can claim
+// to be online on a dead connection, and then the press fails and says why, as before.)
+const online = useOnline();
+// only while the signed-out form is what's showing, and gone with it; and not offline,
+// where the offer cannot even be fetched
+watch(
+  () => loaded.value && !signedIn.value && canPasskey.value && !sentTo.value && online.value,
+  (on) => (on ? void offerAutofill() : stopAutofill()),
+  { immediate: true },
+);
+onBeforeUnmount(stopAutofill);
 
 const linkEmail = ref("");
 const linkSending = ref(false);
+// WHAT WENT WRONG, in one line under the field, said aloud as it appears (role="alert").
+// Each failure has its own words because each has its own remedy: fix the address,
+// wait, get back online, or just try again. They were one line, "Check the address and
+// try again", for failures that are never the address: the endpoint answers a
+// malformed one with the same ok as a good one.
 const linkNote = ref("");
+const BAD_ADDRESS = "Enter a valid email address.";
+/** the line is about the address itself: marks the field invalid */
+const linkBadAddress = computed(() => linkNote.value === BAD_ADDRESS);
+const noteId = useId();
+/** counts the presses that ended in a line, so each one shows its line afresh */
+const linkTry = ref(0);
+// a line about what was typed is stale the moment it is retyped
+watch(linkEmail, () => (linkNote.value = ""));
+// FOCUS GOES WHERE THE CARD WENT. Swapping the form for the sent line removes the field
+// and the button, one of which had focus, and focus then falls to <body>: the next Tab
+// lands on the page behind the dialog, outside its trap, and a screen reader hears
+// nothing of what replaced the form. So the sent line takes focus as it appears (it is
+// read out, and Tab from it reaches the one button), and the field takes it on the way
+// back.
+const sentLine = useTemplateRef<HTMLElement>("sentLine");
+const linkField = useTemplateRef<HTMLInputElement>("linkField");
+/** The card says no to what was typed (shake-x, main.scss): for an address that isn't
+ *  one, and only that. Offline or "try again" is not about what was typed, and a shake
+ *  for them would send someone back to an address that was fine.
+ *  THE WHOLE CARD, not the field: a hairline field swinging inside a still card read as
+ *  a twitch, where the card moving as one object reads as a no. Where there is no card
+ *  (a step of another page, /authorize) the field is all there is to shake.
+ *  Taken off and put back across a reflow, so a second bad press shakes again. */
+function shake(field: HTMLElement | null) {
+  const el = field?.closest<HTMLElement>(".dlg") ?? field;
+  if (!el) return;
+  el.classList.remove("is-shaking");
+  void el.offsetHeight;
+  el.classList.add("is-shaking");
+  // its own ending, not a child's: the callout inside the card ends a shorter animation
+  // of its own, which bubbles here and would stop the shake a beat early
+  const done = (e: AnimationEvent) => {
+    if (e.target !== el) return;
+    el.classList.remove("is-shaking");
+    el.removeEventListener("animationend", done);
+  };
+  el.addEventListener("animationend", done);
+}
+async function useAnotherAddress() {
+  sentTo.value = "";
+  await nextTick();
+  linkField.value?.focus();
+}
 async function sendLink() {
   const email = linkEmail.value.trim();
-  if (!email || linkSending.value) return;
+  if (!email || linkSending.value || !online.value) return;
+  // The server's own rule (shared/email), asked here because the server won't say: it
+  // answers `sam@gmail` with the same ok as a real address, and this form then told
+  // sam to check a mailbox nothing was sent to.
+  if (!normalizeEmail(email)) {
+    linkTry.value++;
+    shake(linkField.value);
+    // the wording nearly every form uses, and an instruction rather than a remark: it
+    // says what to do next
+    linkNote.value = BAD_ADDRESS;
+    return;
+  }
   linkSending.value = true;
   linkNote.value = "";
   const r = await requestLink(email);
   linkSending.value = false;
   // The link opens in a new tab, on /auth/callback, which sends you back to the page
-  // this was asked from (useReturnTo). On /account itself that remembers nothing, and
-  // a page this is one step of (/authorize) has remembered its own request already.
+  // this was asked from (useReturnTo). A page this is one step of (/authorize) has
+  // remembered its own request already.
   if (r === "sent" && !asStep) useReturnTo().rememberHere();
   // "sent" is the same answer for a known and an unknown address — the endpoint
   // deliberately can't tell you which, so neither can this.
-  linkNote.value =
-    r === "sent"
-      ? `Check ${email} for a link.`
-      : r === "unavailable"
-        ? "Sign-in links aren’t set up on this site yet."
-        : "Couldn’t send that. Check the address and try again.";
-}
-
-// ---- creating an account -------------------------------------------------
-const signupEmail = ref("");
-const creating = ref(false);
-const createNote = ref("");
-async function createWithPasskey() {
-  const email = signupEmail.value.trim();
-  if (!email || creating.value) return;
-  creating.value = true;
-  createNote.value = "";
-  const r = await pk.signUp(email);
-  if (r === "ok") tally("sign_in"); // a session either way, so it counts like the others
-  creating.value = false;
-  if (r === "ok") return;
-  if (r === "taken") {
-    // Creating can't sign you in — the ceremony makes a NEW credential, and letting
-    // it attach to an existing account would let anyone who knows your address add
-    // their own passkey to it. So it switches you instead of leaving you to find
-    // the toggle, and carries the address across so it isn't typed twice.
-    linkEmail.value = email;
-    mode.value = "signin";
-    signinNote.value = "You already have an account. Sign in with your passkey, or ask for a link.";
+  if (r === "sent") {
+    sentTo.value = email;
+    await nextTick();
+    sentLine.value?.focus();
     return;
   }
-  createNote.value =
-    r === "bad-email"
-        ? "That doesn’t look like an email address."
-        : r === "unsupported"
-          ? "This browser can’t make a passkey. Use a sign-in link instead."
-          : r === "cancelled"
-            ? ""
-            : "Couldn’t create the passkey. Try again.";
-}
-// Where this browser can't make a passkey at all, the way that does work: a sign-in
-// link, which makes the account for a new address. The address typed here goes along.
-function switchToLink() {
-  linkEmail.value = signupEmail.value.trim();
-  mode.value = "signin";
+  linkTry.value++;
+  linkNote.value = {
+    unavailable: "Sign-in links aren’t set up on this site yet.",
+    limited: "Too many tries. Wait a minute, then try again.",
+    offline: "You’re offline. Try again once you’re connected.",
+    error: "Couldn’t send the link. Try again.",
+  }[r];
 }
 
 // ---- display name --------------------------------------------------------
@@ -387,7 +448,7 @@ async function exportEverything() {
   }
 }
 // The confirmation, shown after the account is gone and the panel has flipped back to
-// the sign-in screen (it is still mounted then, on /account and in the dialog alike).
+// the sign-in screen (the dialog is still open then, as the sign-in card).
 // Longer-lived than the usual toast (8s, not useToast's two): there is nothing to act
 // on, and it's the only acknowledgement that an irreversible thing succeeded. Its
 // markup went missing when the account became this panel (#174), and for months the
@@ -461,8 +522,8 @@ async function onSignOutEverywhere() {
   try {
     await $fetch("/api/auth/signout-all", { method: "POST" });
     forgetAccountMemos();
-    // Stay put and re-read: in the modal there is nowhere to go (you're already
-    // looking at the account), and on the page you're already on /account.
+    // Stay put and re-read: there is nowhere to go, you're already looking at the
+    // account.
     await refresh(true);
   } catch {
     pkNote.value = "Couldn’t sign out everywhere. Check your connection and try again.";
@@ -472,114 +533,78 @@ async function onSignOutEverywhere() {
 
 async function onSignOut() {
   await signOut(); // drops the per-account memos itself — see useSession
-  // Signing out of a list you're reading shouldn't also take the list away — in the
-  // modal this just closes. The page has nothing behind it, so it goes to /gear.
-  await finish("/gear");
+  // Signing out of a list you're reading shouldn't also take the list away: the dialog
+  // just closes.
+  emit("done");
 }
 </script>
 
 <template>
-  <div class="acct" :class="{ 'acct--modal': inModal, 'acct--step': asStep }">
-    <h1 v-if="!inModal" class="t-title acct__head">{{ heading }}</h1>
+  <div class="acct" :class="{ 'acct--step': asStep }">
 
     <ClientOnly>
-      <!-- Centred and narrow: signed out there is exactly one thing to do here,
-           so the page shouldn't read as a form with a column of chrome beside it. -->
+      <!-- signed out there is exactly one thing to do here -->
       <div v-if="loaded && !signedIn" class="acct__empty">
-        <!-- SIGN IN. A passkey is one tap and nothing typed, so it leads; the
-             link is the fallback for a device that doesn't hold one yet. -->
-        <template v-if="mode === 'signin'">
-          <!-- the one line that says what an account is FOR, before it asks for one: the
-               vault is the whole reason, and a stranger who tapped the person icon has
-               not been told. Lists never needing it is the half that keeps the promise. -->
-          <p v-if="!asStep" class="t-sm t-muted acct__why">
+        <!-- SENT: the form is gone and this is all there is (see sentTo). The address is
+             said back, since a typo is the likeliest reason no mail arrives, with the way
+             to fix one beside it. -->
+        <template v-if="sentTo">
+          <p ref="sentLine" class="t-sm t-muted acct__sent" tabindex="-1">
+            We sent a sign-in link to <span class="acct__sentto">{{ sentTo }}</span>. It works once and lasts 15
+            minutes.
+          </p>
+          <!-- contained, in the grey of a second button: it stands where Continue stood, and
+               a bare underlined line there read as a footnote, not the way back -->
+          <button type="button" class="btn btn--soft acct__again" @click="useAnotherAddress">
+            Use a different address
+          </button>
+        </template>
+        <template v-else>
+          <!-- the one line that says what an account is FOR, before it asks for one: your
+               gear is the whole reason, and a stranger who tapped the person icon has not
+               been told. Lists never needing it is the half that keeps the promise. -->
+          <p v-if="notice === 'expired'" class="t-sm t-muted acct__why">
+            Sign-in links work once and last 15 minutes. Enter your email for a new one.
+          </p>
+          <p v-else-if="notice === 'failed'" class="t-sm t-muted acct__why">
+            That link isn’t working. Enter your email for a new one.
+          </p>
+          <p v-else-if="!asStep" class="t-sm t-muted acct__why">
             An account saves your gear across lists and devices. Lists work without one.
           </p>
-          <button
-            v-if="canPasskey"
-            type="button"
-            class="btn btn--primary acct__wide"
-            :disabled="signingIn"
-            @click="signInWithPasskey"
-          >
-            <SvgIcon :icon="IconKey1" />
-            {{ signingIn ? "Waiting for your device…" : "Sign in with a passkey" }}
-          </button>
-          <p v-if="signinNote" class="t-sm acct__note">{{ signinNote }}</p>
 
-          <!-- These are ALTERNATIVES, not steps — the rule says so where stacked
-               buttons alone would read as a sequence. The one place this page
-               draws a line at all; see atoms/controls.scss on borders being rare.
-               Just "or": it read "or sign in with a link" over a button that says
-               "Email me a link", so the rule only has to say there is a choice. -->
-          <p v-if="canPasskey" class="acct__or"><span>or</span></p>
-
-          <form class="acct__signup" @submit.prevent="sendLink">
+          <!-- THE DOOR: an address and one button, the same for a first visit and a
+               return (see the script). The primary, wherever it is drawn. -->
+          <!-- novalidate: the browser's own bubble for a bad address is a second voice,
+               in the system's type and a different place in every browser. The line under
+               the field says it instead (sendLink). -->
+          <form class="acct__signup" novalidate @submit.prevent="sendLink">
             <input
+              ref="linkField"
               v-model="linkEmail"
               class="field acct__input"
               type="email"
-              autocomplete="email"
+              autocomplete="username webauthn"
               placeholder="you@example.com"
               aria-label="Email address"
+              :aria-invalid="linkBadAddress || undefined"
+              :aria-describedby="linkNote || !online ? noteId : undefined"
             />
-            <button
-              type="submit"
-              class="btn"
-              :class="canPasskey ? 'acct__alt' : 'btn--primary'"
-              :disabled="linkSending || !linkEmail.trim()"
-            >
-              {{ linkSending ? "Sending…" : "Email me a link" }}
+            <!-- under the field it is about and pointing at it, above the button that tries
+                 again (.errtip, controls.scss). Keyed by the try: a second failed press
+                 re-makes it, so it arrives again and is read out again, where the same
+                 line sitting still looked like a press that did nothing. -->
+            <p v-if="!online" :id="noteId" class="errtip errtip--note" role="status">
+              You’re offline. Connect to sign in.
+            </p>
+            <p v-else-if="linkNote" :id="noteId" :key="linkTry" class="errtip" role="alert">{{ linkNote }}</p>
+            <button type="submit" class="btn btn--primary" :disabled="linkSending || !linkEmail.trim() || !online">
+              {{ linkSending ? "Sending…" : "Continue" }}
             </button>
           </form>
-          <p v-if="linkNote" class="t-sm acct__note">{{ linkNote }}</p>
 
-          <p class="t-sm t-muted acct__swap">
-            New here?
-            <button type="button" class="acct__switch" @click="mode = 'create'">
-              Create an account
-            </button>
-          </p>
         </template>
-
-          <!-- CREATE. Needs an address, and owes a reason for asking: the line above the
-               field, in the words the account page puts under the address. -->
-          <template v-else>
-            <p class="t-sm t-muted acct__why">Your email is how you get back in if you lose your devices.</p>
-            <form class="acct__signup" @submit.prevent="createWithPasskey">
-              <input
-                v-model="signupEmail"
-                class="field acct__input"
-                type="email"
-                autocomplete="email"
-                placeholder="you@example.com"
-                aria-label="Email address"
-              />
-              <button
-                type="submit"
-                class="btn btn--primary"
-                :disabled="creating || !signupEmail.trim() || !canPasskey"
-              >
-                <SvgIcon :icon="IconKey1" />
-                {{ creating ? "Waiting for your device…" : "Create account with a passkey" }}
-              </button>
-            </form>
-            <!-- the button above is disabled then, and a disabled button gives no reason -->
-            <p v-if="!canPasskey" class="t-sm acct__note">
-              This browser can’t make a passkey.
-              <button type="button" class="acct__switch" @click="switchToLink">Use a sign-in link</button>
-              instead, which makes an account for a new address.
-            </p>
-            <p v-if="createNote" class="t-sm acct__note">{{ createNote }}</p>
-
-            <p class="t-sm t-muted acct__swap">
-              Already have an account?
-              <button type="button" class="acct__switch" @click="mode = 'signin'">
-                Sign in
-              </button>
-            </p>
-          </template>
-        </div>
+      </div>
 
         <div v-else-if="loaded && signedIn" class="acct__body">
           <section class="acct__section">
@@ -770,115 +795,73 @@ async function onSignOut() {
 </template>
 
 <style scoped lang="scss">
-.acct__head {
-  margin-bottom: var(--space-6);
-}
 .acct__body {
   display: flex;
   flex-direction: column;
-  max-width: 52ch;
-}
-/* one rhythm for every block: a hairline above, the same padding below it. The
-   sections differ in content, never in spacing. */
-/* Centred only when the signed-out column is what's below it — asked of the page's
-   own structure rather than re-deriving the session state up here, so the two can't
-   disagree. Signed in the page is a left-aligned stack of sections, where a centred
-   heading would float free of everything under it.
-   The margin drops with it: the column below sets its own top spacing, and the two
-   were stacking into one very large gap. ONE spacer owns this gap, and it's this one. */
-.page:has(.acct__empty) .acct__head {
-  text-align: center;
-  margin-bottom: var(--space-5);
 }
 .acct__input:focus {
   border-color: var(--ink-2);
 }
 
-/* In the MODAL the dialog is already the measure. Both max-widths below exist to stop
-   a form stranding itself in a wide page column — inside a 30rem .dlg they do nothing
-   but inset the body 8px past the heading above it, which is the misalignment you see.
-   The bottom padding goes the same way: .dlg has its own, and the two stacked to 56px
-   under the last control against 24px above the first. */
-.acct--modal .acct__body,
-.acct--modal .acct__empty {
-  max-width: none;
+/* the address in the sent line, in full ink and unbroken where it fits */
+.acct__sentto {
+  color: var(--ink);
+  overflow-wrap: anywhere;
 }
-.acct--modal .acct__empty {
-  padding-bottom: 0;
+/* The sent state keeps the form's two distances: the line stands one group off the
+   button under it, as the explanation does off the field (.acct__why), and the button
+   runs the column's width, as Continue did. */
+.acct__sent {
+  margin-block-end: var(--space-2);
+}
+/* it takes focus to be read out and to keep Tab inside the card (sendLink), not to be
+   shown as a control: there is nothing here to press */
+.acct__sent:focus {
+  outline: none;
 }
 
-/* Signed out there is exactly one thing to do, so the column centres and narrows
-   rather than sitting left in a full-width page beside empty space. */
+/* THE SIGNED-OUT COLUMN. Its mount is the measure (the sign-in card, or /authorize's
+   own column), so it sets no width and no padding of its own: the controls run the
+   mount's width and the lines sit between them.
+   In the dialog it is the sign-in card (SignInHead.vue): the title is
+   centred under the mark, so the lines under it are centred too, and balanced like the
+   card's other centred copy. */
 .acct__empty {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   gap: var(--space-4);
-  max-width: var(--account-measure);
-  margin-inline: auto;
-  padding-block: 0 var(--space-6);
   text-align: center;
+  text-wrap: balance;
 }
-.acct__empty .acct__wide {
-  width: 100%;
-}
-/* "or" sitting in a hairline. The rule is drawn with a flex child either side
-   rather than a pseudo-element on the text, so it centres correctly whatever the
-   word's width and needs no background-matching trick to punch the gap. */
 /* TWO DISTANCES in this column, and no third. Things that are one group sit --space-3
    apart (a field and its button; in the dialog, the title and the line under it), and
-   the groups sit --space-5 apart: the explanation, the form, the line that switches
-   forms, and then the card's own padding below it, which is --space-5 as well. It ran
-   22 / 28 / 12 / 16 / 24 down the dialog, so the explanation stood further from the
-   field than from its own title and the last line crowded the button.
-   The column's gap is --space-4 (what the "or" rule wants either side of it), so each
-   group edge adds the --space-2 that makes it --space-5. */
+   the groups sit --space-5 apart: the explanation, the form, and then the card's own
+   padding below it, which is --space-5 as well. It ran 22 / 28 / 12 / 16 / 24 down the
+   dialog, so the explanation stood further from the field than from its own title.
+   The column's gap is --space-4, so the explanation adds the --space-2 that makes its
+   edge --space-5. */
 .acct__why {
   margin-block-end: var(--space-2);
 }
-.acct__swap {
-  margin-block-start: var(--space-2);
-}
-/* In the dialog the title is drawn by the dialog (AccountModal), a --space-3 gap plus its
-   header's --space-2 above this column. Taking the --space-2 back here puts the title
-   and its line one group's distance apart, and leaves the signed-in dialog, whose body
-   is sections and not this column, as it was. */
-.acct--modal .acct__empty {
+/* A STEP OF ANOTHER PAGE reads from the left, under that page's own left edge: a
+   centred column there put a centred paragraph under a left-aligned heading. It also
+   takes back the --space-2 the host's heading stands off it, so the heading and the
+   first line are one group's distance apart. */
+.acct--step .acct__empty {
+  text-align: start;
+  text-wrap: pretty;
   margin-block-start: calc(-1 * var(--space-2));
 }
-/* LEFT-ALIGNED wherever something above it already is: one step of another page
-   (asStep, under the host page's own left edge) and the dialog (under a title that sits
-   left of its close button). A centred column there put a centred paragraph and a
-   centred last line under a left-aligned heading. The rule across the app: anything
-   with a title bar or rows reads from the left, and only a page that is this column
-   alone (/account, signed out) centres it. The line that switches between signing in
-   and creating an account goes left with the rest; the "or" rule is drawn, not set, so
-   it still spans. */
-.acct--step .acct__empty,
-.acct--modal .acct__empty {
-  align-items: stretch;
-  text-align: start;
+/* a step of another page reads from the left, so its error does too: at the field's
+   leading edge, the point a little way in */
+.acct--step .errtip {
+  align-self: flex-start;
+  --errtip-at: var(--space-5);
 }
-.acct--step .acct__empty {
-  margin-inline: 0;
-}
-.acct__or {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  width: 100%;
-  color: var(--ink-3);
-}
-.acct__or::before,
-.acct__or::after {
-  content: "";
-  flex: 1 1 auto;
-  height: 1px;
-  background: var(--line);
-}
-/* A mode switch, not a navigation — it swaps the form in place, so it's a button
-   that reads as a link rather than an anchor that goes nowhere (the reset already
-   strips a button's chrome, so only the link's own look is said here). */
+/* A button that reads as a link: it acts in place (opens the token form) rather than
+   going anywhere, so it is not an anchor (the reset already strips a button's chrome,
+   so only the link's own look is said here). */
 .acct__switch {
   color: var(--ink);
   font-weight: 600;
@@ -898,34 +881,13 @@ async function onSignOut() {
     text-decoration-color: var(--ink-2);
   }
 }
-/* The secondary action. The system is deliberately de-outlined (see
-   atoms/controls.scss), so this gets a quiet FILL rather than a border — it reads
-   as a button at rest without introducing the one device that file rules out.
-   The fill is an AMOUNT OF INK, not a paper tone: this column sits on the page and in
-   the account dialog alike, and a named tone is only right on one ground. In dark,
-   --paper-3 is the dialog card's exact surface, so the hover fill vanished into it and
-   the --paper-2 rest sat darker than the card it was meant to lift off. --lit and
-   --lit-hover (tokens.scss) are a plate and its step up under the pointer, mixed from
-   ink so they composite over whichever ground this lands on. */
-.acct__empty .acct__alt {
-  width: 100%;
-  background: var(--lit);
-  color: var(--ink-2);
-}
-/* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
-@media (hover: hover) and (pointer: fine) {
-  .acct__empty .acct__alt:hover {
-    background: var(--lit-hover);
-    color: var(--ink);
-  }
-}
 .acct__signup {
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   gap: var(--space-3);
-  width: 100%;
 }
+/* one rhythm for every block: a hairline above, the same padding below it. The
+   sections differ in content, never in spacing. */
 .acct__section {
   display: flex;
   flex-direction: column;
@@ -980,11 +942,10 @@ async function onSignOut() {
    less: a floating panel has nothing around a control to imply its edges, so the
    container IS the affordance. (The signed-out email field already looked like this;
    the display name was a bottom rule, so the same surface had two kinds of input.)
-   On the signed-out screen the field is stacked between two full-width pill buttons,
-   where a bare underline reads as a gap in that stack rather than a control in it:
-   the same height, radius and padding as the buttons, so the three stack as one
-   object, and the text starts on the left like any other input, rather than centred
-   with the prose. Its full width and placeholder ink are .field's (controls.scss). */
+   On the signed-out screen the field sits over a full-width pill button, where a bare
+   underline reads as a gap rather than a control: the same height, radius and padding
+   as the button, so the two stack as one object, and the text starts on the left like
+   any other input, rather than centred with the prose. Its full width and placeholder ink are .field's (controls.scss). */
 .acct__input {
   flex: 1 1 auto;
   min-height: var(--control-h);

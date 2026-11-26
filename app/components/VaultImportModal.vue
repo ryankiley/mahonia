@@ -116,13 +116,14 @@ const summary = computed(() => {
         aria-label="CSV or JSON backup"
       />
 
+      <!-- the other way in, under the box it is the alternative to, as ImportModal has
+           it (FilePickButton); choosing a file imports immediately -->
+      <FilePickButton @text="send" />
+
       <p v-if="error" class="t-sm vimport__err">{{ error }}</p>
 
-      <div class="dlg__actions vimport__actions">
-        <!-- the same button-over-a-hidden-input ImportModal has (FilePickButton);
-             choosing a file imports immediately -->
-        <FilePickButton @text="send" />
-        <button class="btn btn--ghost" @click="emit('close')">Cancel</button>
+      <div class="dlg__actions">
+        <button class="btn btn--soft" @click="emit('close')">Cancel</button>
         <button class="btn btn--primary" :disabled="state.step === 'sending' || !text.trim()" @click="send(text)">
           {{ state.step === "sending" ? "Importing…" : "Import" }}
         </button>
@@ -145,8 +146,5 @@ const summary = computed(() => {
    acts, and an import that didn't go through is neither (matches .vitem__err) */
 .vimport__err {
   color: var(--ink);
-}
-.vimport__actions {
-  flex-wrap: wrap;
 }
 </style>
