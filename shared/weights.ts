@@ -481,6 +481,24 @@ export const nameRepeatsBrand = (brand: string | null | undefined, name: string)
   return n === b || n.startsWith(`${b} `);
 };
 
+/** The brand a row draws ahead of its name, in the brand's ink, and `nameAfterBrand` the
+ *  rest. Where the name already opens with the brand ("Goldwin 0 3L Jacket" under
+ *  Goldwin) the brand is the name's own opening words, as typed, and the name is what
+ *  follows: left whole, that row wore the name's ink from end to end beside neighbours
+ *  whose brand was grey. A name that is only the brand stays a name. */
+export const brandOf = (brand: string | null | undefined, name: string): string | null => {
+  const b = (brand ?? "").trim();
+  if (!b) return null;
+  if (!nameRepeatsBrand(b, name)) return b;
+  const n = name.trim();
+  return n.length > b.length ? n.slice(0, b.length) : null;
+};
+export const nameAfterBrand = (brand: string | null | undefined, name: string): string => {
+  const b = (brand ?? "").trim();
+  const n = name.trim();
+  return b && nameRepeatsBrand(b, name) && n.length > b.length ? n.slice(b.length).trimStart() : name;
+};
+
 /** Flat display name "Brand Name Variant" (brand/variant optional) — shared by
  *  exports + the editable name field. Two-arg calls (e.g. catalog search text)
  *  keep the old "Brand Name" behavior since variant defaults to undefined.
