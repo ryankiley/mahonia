@@ -2025,7 +2025,7 @@ function dismissFix() {
                    A real role=group with a visible name, so the radio run reads
                    as one setting to assistive tech instead of loose siblings. -->
               <li v-if="peopleSorted.length" role="none">
-                <ul role="group" aria-label="Who carries this">
+                <ul role="group" class="item__moregroup" aria-label="Who carries this">
                   <!-- aria-hidden: the group's aria-label already names it — role=none
                        strips the li's semantics but not its TEXT, so without this a
                        screen reader heard the label twice -->
@@ -3034,6 +3034,14 @@ function dismissFix() {
 .item__personpick.is-active {
   background: var(--lit);
   color: var(--ink);
+}
+/* The ⋯ menu is two things in one card: a SETTING (who carries this, a radio run under
+   its own label) and then actions on the row. The label opens the first; nothing closed
+   it, so the chosen carrier's lit row sat flush on "Duplicate" and the run read as one
+   list of eight (Ryan, 2026-11-25). Air, not a rule: the card has no other line in it,
+   and distance is what separates here (tokens.scss, hairlines). */
+.item__moregroup {
+  margin-bottom: var(--space-2);
 }
 /* the ⋯ menu's group label above the person entries — the entries' own inline
    padding (space-3, controls.scss), so its text sits flush with theirs */
