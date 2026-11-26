@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-25",
+  "fixed": [
+    "A piece whose name starts with its brand now shows the brand in grey like every other row in My Gear and the suggestions."
+  ]
+}

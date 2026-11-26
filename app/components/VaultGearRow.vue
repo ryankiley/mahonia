@@ -6,7 +6,7 @@ import type { Unit } from "~~/shared/types";
 import type { VaultEntry } from "~~/shared/vault";
 import type { GearGlyph } from "~~/shared/gearGlyph";
 import { formatPrice } from "~~/shared/money";
-import { formatKcal, formatWeight, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
+import { brandOf, formatKcal, formatWeight, itemDisplayName, nameAfterBrand } from "~~/shared/weights";
 import { formatKcalDensity, kcalPerGram, vaultTabOf } from "~~/shared/vaultView";
 import { consumableIcon } from "~/utils/itemMarks";
 import { gearIcon, gearIconLabel } from "~/utils/gearIcons";
@@ -131,9 +131,10 @@ const meta = computed(() => {
            the end ("… Regular" / "… Long Wide") read identically, and this is the way
            to tell them apart without opening the dialog -->
       <p class="gear__name t-clip" :title="displayName">
-        <!-- no brand where the name already says it ("Apple Watch"), itemDisplayName's rule -->
-        <span v-if="entry.brand && !nameRepeatsBrand(entry.brand, entry.name)" class="gear__brand">{{ entry.brand }}</span>
-        <span>{{ entry.name }}</span>
+        <!-- the brand once, in its own ink: where the name already opens with it ("Apple
+             Watch"), those words of the name are the brand -->
+        <span v-if="brandOf(entry.brand, entry.name)" class="gear__brand">{{ brandOf(entry.brand, entry.name) }}</span>
+        <span>{{ nameAfterBrand(entry.brand, entry.name) }}</span>
         <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
       </p>
       <!-- the sub-line: the gear type, the calories and calories for the weight on

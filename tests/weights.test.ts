@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { itemDisplayName, nameRepeatsBrand, rowDisplayKcal,
+import { brandOf, itemDisplayName, nameAfterBrand, nameRepeatsBrand, rowDisplayKcal,
   carriesContent,
   carriesOwnLine,
   computeTotals,
@@ -687,6 +687,18 @@ describe("itemDisplayName says the brand once", () => {
     expect(nameRepeatsBrand("Apple", "Apple Watch")).toBe(true);
     expect(nameRepeatsBrand("Apple", "iPhone")).toBe(false);
     expect(nameRepeatsBrand("", "Apple Watch")).toBe(false);
+  });
+  it("draws the brand once, taking it from the name where the name opens with it", () => {
+    const split = (brand: string | null, name: string) => [brandOf(brand, name), nameAfterBrand(brand, name)];
+    expect(split("Goldwin", "MT Gany Light Tapered Pants")).toEqual(["Goldwin", "MT Gany Light Tapered Pants"]);
+    expect(split("Goldwin", "Goldwin 0 3L Jacket")).toEqual(["Goldwin", "0 3L Jacket"]);
+    // as the name spells it, since that is the text on screen
+    expect(split("apple", "Apple Watch")).toEqual(["Apple", "Watch"]);
+    expect(split("Sea to Summit", "Sea to Summit Aeros")).toEqual(["Sea to Summit", "Aeros"]);
+    // a name that is only the brand stays a name, and no brand means none
+    expect(split("Apple", "Apple")).toEqual([null, "Apple"]);
+    expect(split("Apple", "Applecore")).toEqual(["Apple", "Applecore"]);
+    expect(split(null, "Apple Watch")).toEqual([null, "Apple Watch"]);
   });
 });
 

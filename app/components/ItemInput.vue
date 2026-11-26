@@ -4,7 +4,7 @@ import { SvgIcon } from "~/utils/icon";
 import { typeScale } from "~/utils/typeScale";
 import type { EffectScope } from "vue";
 import type { Unit } from "~~/shared/types";
-import { nameRepeatsBrand, formatWeight, itemDisplayName } from "~~/shared/weights";
+import { brandOf, formatWeight, itemDisplayName, nameAfterBrand } from "~~/shared/weights";
 import { foldKeepingPlus, highlightParts } from "~~/shared/searchText";
 import { MAX_ITEM_NAME_LEN } from "~~/shared/ops";
 import { tidyText } from "~~/shared/tidyText";
@@ -724,11 +724,11 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
            twice. -->
       <li v-if="product" class="ac__product" role="presentation" aria-hidden="true" @mousedown.prevent>
         <span class="ac__name">
-          <span v-if="product.brand && !nameRepeatsBrand(product.brand, product.name)" class="ac__brand t-clip">
-            <span v-for="(p, pi) in hl(product.brand)" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
+          <span v-if="brandOf(product.brand, product.name)" class="ac__brand t-clip">
+            <span v-for="(p, pi) in hl(brandOf(product.brand, product.name) ?? '')" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
           </span>
           <span class="ac__model t-clip">
-            <span v-for="(p, pi) in hl(product.name)" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
+            <span v-for="(p, pi) in hl(nameAfterBrand(product.brand, product.name))" :key="pi" :class="{ 'ac__hl': p.on }">{{ p.t }}</span>
           </span>
         </span>
       </li>
@@ -772,16 +772,16 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
               <SvgIcon :icon="IconSafeSimple" class="ac__mineicon" size="sm" aria-hidden="true" />
               <span class="visually-hidden">From My Gear: </span>
             </template>
-            <span v-if="named.brand && !nameRepeatsBrand(named.brand, named.name)" class="ac__brand t-clip">
+            <span v-if="brandOf(named.brand, named.name)" class="ac__brand t-clip">
               <span
-                v-for="(p, pi) in hl(named.brand)"
+                v-for="(p, pi) in hl(brandOf(named.brand, named.name) ?? '')"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>
             </span>
             <span class="ac__model t-clip">
               <span
-                v-for="(p, pi) in hl(named.name)"
+                v-for="(p, pi) in hl(nameAfterBrand(named.brand, named.name))"
                 :key="pi"
                 :class="{ 'ac__hl': p.on }"
               >{{ p.t }}</span>

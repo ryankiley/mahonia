@@ -7,7 +7,7 @@ import type { VaultEntry } from "~~/shared/vault";
 import { listNormKeys } from "~~/shared/vault";
 import { matchesElsewhere, searchVaultRows, VAULT_TAB_LABEL, VAULT_TABS, vaultSections, vaultTabOf, type VaultTab } from "~~/shared/vaultView";
 import { highlightParts } from "~~/shared/searchText";
-import { formatKcal, formatWeight, groupBy, itemDisplayName, nameRepeatsBrand } from "~~/shared/weights";
+import { brandOf, formatKcal, formatWeight, groupBy, itemDisplayName, nameAfterBrand } from "~~/shared/weights";
 import { counted } from "~~/shared/tidyText";
 import { addVaultKit } from "~/composables/useVaultUnfold";
 import { kitItemCount } from "~~/shared/vaultKit";
@@ -610,11 +610,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
             <span class="gear__main">
               <!-- the full name on hover, for the rows the ellipsis cut short -->
               <span class="gear__name t-clip" :title="itemDisplayName(entry.brand, entry.name, entry.variant)">
-                <span v-if="entry.brand && !nameRepeatsBrand(entry.brand, entry.name)" class="gear__brand"
-                  ><span v-for="(p, pi) in hl(entry.brand)" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
+                <span v-if="brandOf(entry.brand, entry.name)" class="gear__brand"
+                  ><span v-for="(p, pi) in hl(brandOf(entry.brand, entry.name) ?? '')" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
                 >
                 <span
-                  ><span v-for="(p, pi) in hl(entry.name)" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
+                  ><span v-for="(p, pi) in hl(nameAfterBrand(entry.brand, entry.name))" :key="pi" :class="{ 'vp__hl': p.on }">{{ p.t }}</span></span
                 >
                 <span v-if="entry.variant" class="gear__variant"><span class="sep">·</span> {{ entry.variant }}</span>
               </span>
