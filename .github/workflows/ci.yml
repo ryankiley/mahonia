@@ -68,7 +68,7 @@ permissions:
 # was 1:36 to 2:31 (30 runs, 2026-11-25). The suite was already as parallel as one
 # runner allows (vitest.config.ts caps it at the runner's four cores), so the only
 # way left to shorten the wait was more runners: `test` is three of them, each
-# running a third of the files, and `build` is a fourth doing everything that isn't
+# running its own part of the suite, and `build` is a fourth doing everything that isn't
 # the suite, all at the same time. Each one pays its own checkout and `npm ci`
 # (15–25 s), so the run costs more machine-minutes than it did and takes about
 # half as long; on a public repo those minutes are free.
@@ -208,25 +208,38 @@ jobs:
         if: '!cancelled()'
         run: node scripts/probe-server-bundle.mjs
 
-  # The suite, a third of its files per machine. `--shard=N/3` is vitest's own
-  # split: it orders the test files by a hash of their path and deals them out, so
-  # every file lands in exactly one shard, the same one on every run, and a file
-  # added tomorrow needs nothing here. The count comes from the matrix
-  # (`strategy.job-total`), so changing the list below is the whole change.
+  # The suite, split the way vitest already splits it. The config has two
+  # projects: `nuxt` is every `*.nuxt.test.ts` — components and composables,
+  # mounted in the Nuxt runtime — and `node` is the rest, plain logic and the
+  # server. So the jobs are named for what they hold, and a new test picks its
+  # job by its filename, as it already picks its project. Nothing to keep here.
   #
-  # `fail-fast: false`: a red shard doesn't cancel the others. Which tests fail is
+  # `node` is about three quarters of the time, so it runs as two shards.
+  # `--shard=N/2` is vitest's own split: it orders the files by a hash of their
+  # path and deals them out, so every file lands in exactly one shard, the same
+  # one on every run. Measured before this: nuxt 72 s of tests, node 204 s, so
+  # the three jobs come out near 72/102/102 where three blind thirds of the
+  # whole suite had come out 73/121/81.
+  #
+  # A THIRD PROJECT in vitest.config.ts would run in none of these — add its row.
+  #
+  # `fail-fast: false`: a red job doesn't cancel the others. Which tests fail is
   # the answer a PR is waiting for, and two thirds of it is not the answer.
   test:
-    # `test (2/3)` on the PR, not GitHub's default `test (2)`: the bare number
-    # doesn't say it is one shard of several. Free to rename — the ruleset
-    # requires only `check`, below.
-    name: test (${{ matrix.shard }}/${{ strategy.job-total }})
+    # Free to rename — the ruleset requires only `check`, below.
+    name: test (${{ matrix.name }})
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3]
+        include:
+          - name: nuxt
+            args: --project nuxt
+          - name: node 1/2
+            args: --project node --shard=1/2
+          - name: node 2/2
+            args: --project node --shard=2/2
     steps:
       - uses: actions/checkout@v4
 
@@ -238,7 +251,7 @@ jobs:
       - run: npm ci
 
       - name: Test
-        run: npm test -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
+        run: npm test -- ${{ matrix.args }}
 
   # THE GATE. `main`'s ruleset requires a check named `check`, and that name used to
   # be the single job; now it is this one, which only reads how the others ended.
@@ -252,7 +265,7 @@ jobs:
   #    nothing reads.)
   #  - it asks for the word `success`, not for the absence of `failure`. A job
   #    renamed above and not here reads as an empty string, which is not `success`.
-  # `needs.test.result` is the whole matrix: `success` only if every shard was.
+  # `needs.test.result` is the whole matrix: `success` only if every job in it was.
   check:
     needs: [build, test]
     if: always()
