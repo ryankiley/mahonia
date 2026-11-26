@@ -1,5 +1,5 @@
 // Every control on a row says WHICH row. The stepper and the grip always did ("One more
-// X-Mid 2", "Reorder X-Mid 2"); the rest read "Remove item", "Consumable: no" and "More
+// X-Mid 2", "Reorder X-Mid 2"); the rest read "Remove item", "Consumable" and "More
 // actions" once per row, so a list of twenty gave a screen reader twenty of each.
 // Mounted, because each name is a binding in a template. What stays as it was is
 // asserted too: the menus' own names are the bare word, the way the tooltips are.
@@ -27,8 +27,7 @@ type W = ReturnType<typeof mountRow>;
 const name = (w: W, selector: string) => w.get(selector).attributes("aria-label");
 const names = (w: W) => ({
   unit: name(w, ".item__unitwrap .optmenu__btn"),
-  consumable: name(w, '.item__clsbtn[aria-label^="Consumable"]'),
-  worn: name(w, '.item__clsbtn[aria-label^="Worn"]'),
+  cls: name(w, ".item__clsbtn"),
   nesting: name(w, ".item__nest-btn"),
   duplicate: name(w, ".item__dup"),
   remove: name(w, ".item__del"),
@@ -42,8 +41,7 @@ describe("a row's controls name the row", () => {
     const w = mountRow(item({ id: "tent", name: "X-Mid 2", unitWeightMg: 887_000 }));
     expect(names(w)).toEqual({
       unit: "Weight unit for X-Mid 2",
-      consumable: "Consumable for X-Mid 2: no",
-      worn: "Worn for X-Mid 2: no",
+      cls: "Base weight for X-Mid 2",
       nesting: "Group for X-Mid 2",
       duplicate: "Duplicate X-Mid 2",
       remove: "Remove X-Mid 2",
@@ -55,8 +53,7 @@ describe("a row's controls name the row", () => {
     const w = mountRow(item({ id: "blank", unitWeightMg: 100_000 }));
     expect(names(w)).toEqual({
       unit: "Weight unit for this item",
-      consumable: "Consumable for item: no",
-      worn: "Worn for item: no",
+      cls: "Base weight for item",
       nesting: "Group for item",
       duplicate: "Duplicate item",
       remove: "Remove item",
@@ -64,11 +61,13 @@ describe("a row's controls name the row", () => {
     });
   });
 
-  it("with the state closing the name on the two class toggles", () => {
+  it("with the class opening the name on the class mark, and the count on a part-worn row", () => {
     const food = mountRow(item({ id: "mix", name: "Trail mix", unitWeightMg: 200_000, classification: "consumable" }));
-    expect(name(food, '.item__clsbtn[aria-label^="Consumable"]')).toBe("Consumable for Trail mix: yes");
+    expect(name(food, ".item__clsbtn")).toBe("Consumable for Trail mix");
+    const shirt = mountRow(item({ id: "shirt", name: "Sun hoody", unitWeightMg: 150_000, classification: "worn" }));
+    expect(name(shirt, ".item__clsbtn")).toBe("Worn for Sun hoody");
     const socks = mountRow(item({ id: "socks", name: "Socks", unitWeightMg: 50_000, qty: 3, wornQty: 1 }));
-    expect(name(socks, '.item__clsbtn[aria-label^="Worn"]')).toBe("Worn for Socks: 1 of 3");
+    expect(name(socks, ".item__clsbtn")).toBe("1 of 3 worn for Socks");
   });
 
   it("while the menus they open keep their own names", async () => {

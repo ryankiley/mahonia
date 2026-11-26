@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "Each row has one mark for base, worn or consumable instead of two toggles, and it opens one choice of the three.",
+    "On a phone, a row on a list that names people has its who-carries-this button back beside the mark.",
+    "A group's calories now sit beside its name.",
+    "Stove fuel can be marked worn, like any other row."
+  ],
+  "fixed": [
+    "On a phone, the calorie field in a row's card is as tall as the controls beside it."
+  ]
+}

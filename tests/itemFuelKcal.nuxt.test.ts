@@ -1,24 +1,22 @@
-// THE CALORIE FIELD ON A FUEL ROW. A row's consumable popover holds the switch and, once
-// the row is consumable, a "kcal each" field — and the number typed there is food energy:
+// THE CALORIE FIELD ON A FUEL ROW. A row's class popover holds the choice and, once the
+// row is consumable, a "kcal each" field — and the number typed there is food energy:
 // the totals bar counts it and the food plan divides it by the days. A gas canister is a
 // consumable too, and a field asking for its calories is an invitation to type the
 // ~1,350 kcal of isobutane in a 110 g can, which the plan then serves as a day's ration.
 //
 // So a row that reads as stove fuel (isFuelRow, the same rule that draws its fuel can)
-// is offered the switch alone — UNLESS it already carries a number. A stored value keeps
+// is offered the choice alone — UNLESS it already carries a number. A stored value keeps
 // counting, as Item.kcal says every stored value does, so it keeps the one field that can
 // clear it (offersKcal has the argument). The three rows below are the three states.
 //
-// THE WORN TOGGLE follows the same shape (wornOffered): nobody wears a gas canister, so a
-// fuel row draws no worn toggle — a ghost shirt holds the slot, as it does for water —
-// unless the row already says worn, in which case the toggle stays so it can be undone.
+// WORN IS OFFERED ON FUEL like on any row. It used to be withheld (nobody wears a gas
+// canister), which made fuel's the one card of a different shape, and the fuel rule also
+// reads a fuel bottle and a gas stove as fuel. Water is the row with no choice at all:
+// its class is fixed, and its mark is a plain droplet that opens nothing.
 //
-// AND AN OPEN POPOVER KEEPS THE CONTROLS IT OPENED WITH. Undoing worn happens INSIDE the
-// worn popover, and the popover lives in the root the toggle's rule gates: the first cut
-// of that rule unmounted the popover from inside its own switch, with the menu singleton
-// still holding its id, the folder's overlay lift never returned and focus dropped to the
-// body. The kcal field held the same trap through the name commit the field's own focus
-// causes. So both are decided when a popover opens and held until it closes.
+// AND AN OPEN POPOVER KEEPS THE FIELD IT OPENED WITH. The kcal field's rule reads the row
+// as stored, and clearing the number or a name commit can change that with the cursor in
+// the field. So it is decided when the popover opens and held until it closes.
 //
 // Rendered through the real <ItemRow>, because what is under test is which branch of the
 // template draws.
@@ -48,11 +46,11 @@ const mountRow = (row: Item) => mountRowOver(snapshot, [{ ...row }]);
 
 // open the popover, then answer for what it holds
 async function openPop(w: ReturnType<typeof mountRow>) {
-  await w.get('button[aria-label^="Consumable for "][aria-label$=": yes"]').trigger("click");
+  await w.get('button[aria-label^="Consumable for "]').trigger("click");
   await nextTick();
-  const pop = w.get('[role="dialog"][aria-label="Consumable"]');
+  const pop = w.get('[role="dialog"][aria-label="Counts as"]');
   return {
-    hasSwitch: pop.find('[role="switch"]').exists(),
+    hasChoice: pop.find('[role="radio"][aria-label^="Consumable"]').exists(),
     field: pop.find<HTMLInputElement>('input[id$="-kcal"]'),
   };
 }
@@ -65,18 +63,28 @@ describe("the calorie field on a fuel row", () => {
   it("is offered on food", async () => {
     const w = mountRow(item({ id: "dinner", name: "Chicken Pesto Pasta", commonName: "Meal", unitWeightMg: 130_000 }));
     const pop = await openPop(w);
-    expect(pop.hasSwitch).toBe(true);
+    expect(pop.hasChoice).toBe(true);
     expect(pop.field.exists()).toBe(true);
   });
 
-  it("is withheld on fuel holding no number — the switch stays", async () => {
+  it("asks for kcal each only where the row has several", async () => {
+    for (const [qty, label] of [[1, "kcal"], [3, "kcal each"]] as const) {
+      const w = mountRow(item({ id: "dinner", name: "Chicken Pesto Pasta", unitWeightMg: 130_000, qty }));
+      await openPop(w);
+      expect(w.get('label[for="dinner-kcal"]').text(), String(qty)).toBe(label);
+      w.unmount();
+      useItemMenu().close();
+    }
+  });
+
+  it("is withheld on fuel holding no number — the choice stays", async () => {
     for (const fuel of [
       item({ id: "gas", name: "IsoPro Fuel Canister", brand: "MSR", commonName: "Fuel canister", unitWeightMg: 110_000 }),
       item({ id: "propane", name: "Propane 1 lb", unitWeightMg: 460_000 }),
     ]) {
       const w = mountRow(fuel);
       const pop = await openPop(w);
-      expect(pop.hasSwitch).toBe(true);
+      expect(pop.hasChoice).toBe(true);
       expect(pop.field.exists(), fuel.name).toBe(false);
       w.unmount();
     }
@@ -93,11 +101,12 @@ describe("the calorie field on a fuel row", () => {
 describe("the simple cooking estimate", () => {
   beforeEach(() => useItemMenu().close());
 
-  it("reveals the cooking toggle only after Consumable is on, without adding calculator inputs", async () => {
+  it("reveals the cooking toggle only after Consumable is chosen, without adding calculator inputs", async () => {
     const w = mountRow(item({ id: "meal", name: "Pasta", classification: "base", qty: 6, unitWeightMg: 100_000, kcal: 400 }));
-    await w.get('button[aria-label="Consumable for Pasta: no"]').trigger("click");
-    const pop = w.get('[role="dialog"][aria-label="Consumable"]');
-    const consumable = pop.get('[role="switch"][aria-label^="Consumable"]');
+    await w.get('button[aria-label="Base weight for Pasta"]').trigger("click");
+    const pop = w.get('[role="dialog"][aria-label="Counts as"]');
+    const consumable = pop.get('[role="radio"][aria-label^="Consumable"]');
+    const base = pop.get('[role="radio"][aria-label^="Base"]');
     expect(pop.find('[aria-label="Needs cooking"]').exists()).toBe(false);
     await consumable.trigger("click");
     const cooking = pop.get('[role="switch"][aria-label="Needs cooking"]');
@@ -112,7 +121,7 @@ describe("the simple cooking estimate", () => {
     expect(snapshot.value.items[0]).toMatchObject({ qty: 6, unitWeightMg: 100_000, kcal: 400, needsCooking: true });
 
     // Class changes hide the estimate without losing this trip's preparation choice.
-    await consumable.trigger("click");
+    await base.trigger("click");
     expect(pop.find('[aria-label="Needs cooking"]').exists()).toBe(false);
     expect(pop.find('[role="status"]').exists()).toBe(false);
     expect(snapshot.value.items[0]!.needsCooking).toBe(true);
@@ -127,7 +136,7 @@ describe("the simple cooking estimate", () => {
   it.each([0, 1, 6, 9999])("assumes one boil per unit at quantity %i", async (qty) => {
     const w = mountRow(item({ id: "meal", name: "Pasta", qty, needsCooking: true }));
     await openPop(w);
-    const estimate = () => w.get('[role="dialog"][aria-label="Consumable"] [role="status"]').text();
+    const estimate = () => w.get('[role="dialog"][aria-label="Counts as"] [role="status"]').text();
     expect(estimate()).toBe(`~${qty * 10} g fuel for ${qty} ${qty === 1 ? "boil" : "boils"}`);
     snapshot.value.items[0]!.qty = 2;
     await nextTick();
@@ -147,43 +156,37 @@ describe("the simple cooking estimate", () => {
 
 // SCOPED TO THE ROW: a parent renders its children as more <ItemRow>s, so an unscoped
 // find could answer for a child — none here have children, but the habit is the point.
-const wornToggle = (w: ReturnType<typeof mountRow>) => w.find(".item-row").find('button[aria-label^="Worn"]');
-const ghostShirt = (w: ReturnType<typeof mountRow>) => w.find(".item-row").find(".item__clsghost");
+const classMark = (w: ReturnType<typeof mountRow>) => w.find(".item-row").find(".item__clsbtn");
 
-describe("the worn toggle on a fuel row", () => {
+describe("the choice on fuel and water", () => {
   beforeEach(() => {
     snapshot.value = blankList();
+    useItemMenu().close();
   });
 
-  it("is drawn on food", () => {
-    const w = mountRow(item({ id: "bar", name: "Clif bar", unitWeightMg: 68_000 }));
-    expect(wornToggle(w).exists()).toBe(true);
-    expect(ghostShirt(w).exists()).toBe(false);
-  });
-
-  it("gives way to the ghost slot on fuel, whatever the row's class", () => {
+  it("is all three on fuel, whatever the row's class", async () => {
     for (const fuel of [
       item({ id: "gas", name: "IsoPro Fuel Canister", commonName: "Fuel canister", unitWeightMg: 110_000 }),
       item({ id: "gas", name: "Gas canister", unitWeightMg: 210_000, classification: null }),
       item({ id: "gas", name: "Propane 1 lb", unitWeightMg: 460_000, classification: "base" }),
+      item({ id: "gas", name: "Gas canister", unitWeightMg: 210_000, classification: "worn" }),
     ]) {
       const w = mountRow(fuel);
-      expect(wornToggle(w).exists(), fuel.name).toBe(false);
-      expect(ghostShirt(w).exists(), fuel.name).toBe(true);
+      await classMark(w).trigger("click");
+      await nextTick();
+      expect(w.findAll('[role="radio"]').map((o) => o.text()), fuel.name).toEqual(["Base", "Worn", "Consumable"]);
       w.unmount();
+      useItemMenu().close();
     }
   });
 
-  it("stays on fuel a row already says is worn — by class or by a split — so it can be undone", () => {
-    for (const worn of [
-      item({ id: "gas", name: "Gas canister", unitWeightMg: 210_000, classification: "worn" }),
-      item({ id: "gas", name: "Gas canister", unitWeightMg: 210_000, classification: "base", qty: 2, wornQty: 1 }),
-    ]) {
-      const w = mountRow(worn);
-      expect(wornToggle(w).exists()).toBe(true);
-      expect(ghostShirt(w).exists()).toBe(false);
-      w.unmount();
-    }
+  it("is not there on water: one plain droplet, no plate, nothing to press", () => {
+    const w = mountRow(item({ id: "water", name: "Water" }));
+    expect(classMark(w).exists()).toBe(false);
+    const mark = w.find(".item-row").get(".item__clsfixed");
+    expect(mark.attributes("aria-label")).toBe("Consumable");
+    expect(mark.classes()).not.toContain("item__mark");
+    expect(w.find(".item-row").findAll(".item__classcell .item__cls")).toHaveLength(1);
   });
 });
 
@@ -191,30 +194,6 @@ describe("an open popover keeps the controls it opened with", () => {
   beforeEach(() => {
     snapshot.value = blankList();
     useItemMenu().close();
-  });
-
-  it("undoing worn inside the worn popover leaves the popover standing, and the toggle goes when it closes", async () => {
-    const w = mountRow(item({ id: "gas", name: "Gas canister", unitWeightMg: 210_000, classification: "worn" }));
-    const row = () => snapshot.value.items[0]!;
-    await w.get('button[aria-label^="Worn"]').trigger("click");
-    await nextTick();
-    const pop = () => w.find('[role="dialog"][aria-label="Worn"]');
-    expect(pop().exists()).toBe(true);
-
-    await pop().get('[role="switch"]').trigger("click");
-    await nextTick();
-    // the row is no longer worn — and nothing was pulled out from under the click
-    expect(row().classification).toBeNull();
-    expect(pop().exists()).toBe(true);
-    expect(wornToggle(w).exists()).toBe(true);
-    expect(useItemMenu().openId.value).toBe("gas:worn");
-
-    // closing is what takes the toggle away
-    useItemMenu().close();
-    await nextTick();
-    expect(pop().exists()).toBe(false);
-    expect(wornToggle(w).exists()).toBe(false);
-    expect(ghostShirt(w).exists()).toBe(true);
   });
 
   it("clearing a fuel row's calories keeps the field for the rest of the visit; the next open withholds it", async () => {
@@ -233,7 +212,7 @@ describe("an open popover keeps the controls it opened with", () => {
     useItemMenu().close();
     await nextTick();
     pop = await openPop(w);
-    expect(pop.hasSwitch).toBe(true);
+    expect(pop.hasChoice).toBe(true);
     expect(pop.field.exists()).toBe(false);
   });
 

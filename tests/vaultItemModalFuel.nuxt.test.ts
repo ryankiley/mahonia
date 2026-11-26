@@ -45,13 +45,13 @@ const typeOptions = async (w: W) => {
 const patchSent = () => (sent.at(-1) as { op: { patch: Record<string, unknown> } }).op.patch;
 
 describe("the edit dialog on a fuel entry", () => {
-  it("offers no kcal field on fuel holding no number, and no Worn in its type picker", async () => {
+  it("offers no kcal field on fuel holding no number, and all three in its type picker", async () => {
     const w = open(entry("IsoPro Fuel Canister", { commonName: "Fuel canister" }));
     expect(kcalField(w)).toBeUndefined();
-    expect(await typeOptions(w)).toEqual(["Base", "Consumable"]);
+    expect(await typeOptions(w)).toEqual(["Base", "Worn", "Consumable"]);
   });
 
-  it("offers both on food, and Worn again on fuel that already is worn", async () => {
+  it("offers both on food, and Worn on fuel that already is worn", async () => {
     const food = open(entry("Trail mix", { commonName: "Snack" }));
     expect(kcalField(food)?.exists()).toBe(true);
     expect(await typeOptions(food)).toEqual(["Base", "Worn", "Consumable"]);
