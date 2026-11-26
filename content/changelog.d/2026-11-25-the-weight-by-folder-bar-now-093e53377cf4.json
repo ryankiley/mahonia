@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "The weight-by-folder bar now slides to its new proportions when a weight changes, instead of jumping."
+  ]
+}

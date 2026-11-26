@@ -10,6 +10,7 @@
 // Delays go too, or a delayed arrival (a mode switch's fade-in, a visibility flip at
 // the end of a fold) would still wait out a beat it no longer animates.
 // Script that runs its own Web Animation or times a wait asks motionIsInstant().
+// One exception, and it says why where it is made: the weight bar (CategoryBar.vue).
 :root[data-input="keyboard"] {
   *,
   *::before,
