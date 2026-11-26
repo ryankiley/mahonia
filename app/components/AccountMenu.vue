@@ -87,7 +87,8 @@ const { open: openAccount } = useAccountModal();
 // OFFLINE, THE CONTROL SAYS SO. Its glyph becomes a cloud with a line through it, in
 // both shapes, and pressing it opens a small card that says the rest: you're offline,
 // the open list is saved on this device, and signing in will have to wait. For someone
-// signed in the account's rows follow under it, as ever.
+// signed in the account's rows follow under it only while the server might answer
+// them (see the template).
 // This is where the bar says "offline" at all. The status line beside it used to
 // ("Offline · saved on device"), and a phone cut that off mid-word.
 const offline = useOffline();
@@ -189,13 +190,20 @@ watch(offline, (off) => {
               My Gear
             </NuxtLink>
           </li>
-          <li v-if="known" role="none">
+          <!-- The account's own two rows need the server, so with no connection they are
+               not here: "Your account" opened a dialog that could only say it opens once
+               you're back online, and "Sign out" could not reach the server to end the
+               session (it signed the page out and left the cookie). An inert row is
+               absent, not disabled. Offline the card is then one thing, signed in or out:
+               what the cloud means. `online`, not `offline`: when it is only Mahonia that
+               can't be reached, either may well work, and they stay. -->
+          <li v-if="known && online" role="none">
             <button type="button" data-row role="menuitem" class="menu__item" @click="open = false; openAccount()">
               <SvgIcon :icon="IconUser" aria-hidden="true" />
               Your account
             </button>
           </li>
-          <li v-if="known" role="none">
+          <li v-if="known && online" role="none">
             <button type="button" data-row role="menuitem" class="menu__item" @click="onSignOut">
               <SvgIcon :icon="IconArrowBoxLeft" aria-hidden="true" />
               Sign out
@@ -219,6 +227,12 @@ watch(offline, (off) => {
 .acct__offline {
   width: 15rem;
   max-width: calc(100vw - var(--space-6));
+}
+/* Alone in the card, which is every offline card with no connection, it wears no mark
+   either: the cloud that opened it is right above, and with no rows there is no glyph
+   column for a second one to sit in. */
+.acct__offline:last-child > svg {
+  display: none;
 }
 /* ON A PHONE THE OFFLINE CARD HANGS FROM THE BAR'S EDGE, as the sharing panel does. A
    menu's card hangs from the right of its own button, which suits a control at the end
