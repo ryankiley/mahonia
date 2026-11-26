@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { IconCalendarDays, IconChevronDownMedium, IconGlobe2, IconMapPin, IconPencil2, IconQuestionmarkCircle, IconSquareBehindSquare1, IconTrashCan } from "~/icons/central";
+import { IconChevronDownMedium, IconGlobe2, IconMapPin, IconPencil2, IconQuestionmarkCircle, IconSquareBehindSquare1, IconTrashCan } from "~/icons/central";
+import { datesIcon } from "~/utils/datesIcon";
 import { SvgIcon } from "~/utils/icon";
 import { MAX_TITLE_LEN } from "~~/shared/ops";
 import {
@@ -612,7 +613,7 @@ onClickOutside(trailEl, closeTrail);
           :aria-expanded="datesOpen"
           @click="datesOpen ? closeDates() : openDates()"
         >
-          <SvgIcon :icon="IconCalendarDays" aria-hidden="true" />
+          <SvgIcon :icon="datesIcon(snapshot.startDate, snapshot.endDate)" aria-hidden="true" />
           {{ dateLabel || "Add dates" }}
         </button>
         <Transition name="menu">
@@ -630,17 +631,18 @@ onClickOutside(trailEl, closeTrail);
                  fills its two ends and tints between them, and the affordance this
                  popover hangs off has swapped its label to the range. A third copy
                  inside the panel restated what you were looking at. -->
-            <!-- Always laid out, so the panel is one height before and after the first
-                 pick. With nothing to clear it is `visibility: hidden`, which takes it out
-                 of the tab order and the accessibility tree as well as out of sight. -->
-            <button
-              type="button"
-              class="btn btn--quiet head__dateclear"
-              :style="dateLabel ? undefined : { visibility: 'hidden' }"
-              @click="clearDates"
-            >
-              Clear
-            </button>
+            <!-- THERE ONLY WHEN THERE IS SOMETHING TO CLEAR, and it unfolds. It has been both
+                 other ways. Mounted on the first pick, it made the panel jump 40px taller
+                 under the pointer. Always laid out and hidden until needed, it left an
+                 empty band under the grid for everyone who had not picked a date yet,
+                 which is most openings. The row's own reveal (controls.scss, .reveal)
+                 opens it over a beat instead, so the panel grows as a motion and rests
+                 at the height of what is in it. -->
+            <Transition name="reveal">
+              <div v-if="snapshot.startDate" class="reveal head__clearrow">
+                <button type="button" class="btn btn--quiet head__dateclear" @click="clearDates">Clear</button>
+              </div>
+            </Transition>
           </span>
         </Transition>
       </span>
@@ -1328,9 +1330,13 @@ onClickOutside(trailEl, closeTrail);
   transform-origin: top left;
   z-index: var(--z-menu);
   display: grid;
-  gap: var(--space-2);
   padding: var(--space-3);
   width: max-content;
+}
+/* the gap above Clear is the row's own, so it folds away with the row (.reveal's
+   --reveal-offset): a grid gap would stay behind, 8px under the calendar */
+.head__clearrow {
+  --reveal-offset: var(--space-2);
 }
 /* The month grid is a fixed 260px panel, and "Add dates" is the SECOND affordance in
    this row — so on a phone it opens around x=139 and runs 24px past the right edge,

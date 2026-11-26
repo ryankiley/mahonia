@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "A trip's dates icon shows a plus with no dates, one marked day for a single date, and a page of days for a range."
+  ],
+  "fixed": [
+    "The date picker no longer leaves an empty band under the calendar before a date is picked."
+  ]
+}
