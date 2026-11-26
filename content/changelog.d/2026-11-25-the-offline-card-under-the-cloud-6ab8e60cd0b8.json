@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-25",
+  "changed": [
+    "The offline card under the cloud icon now sets its message in a callout, and on a phone it is as wide as its words, not the screen."
+  ]
+}

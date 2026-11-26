@@ -167,10 +167,15 @@ watch(offline, (off) => {
       <Transition name="menu">
         <MenuList v-if="open" :aria-label="offline ? offlineHead : 'Your account'">
           <!-- what the struck cloud means, said in full where it was pressed. Not a row:
-               nothing here is pressed, so the travelling plate passes it by. -->
-          <li v-if="offline" role="none" class="acct__offline">
-            <p class="acct__offhead">{{ offlineHead }}</p>
-            <p v-if="offlineLine" class="acct__offline-line t-muted">{{ offlineLine }}</p>
+               nothing here is pressed, so the travelling plate passes it by. The shared
+               menu callout, the Export tab's card (Ryan, 2026-11-25): bare words above
+               the account's rows read as a heading for them. -->
+          <li v-if="offline" role="none" class="menu__callout acct__offline">
+            <SvgIcon :icon="IconCloudOff" aria-hidden="true" />
+            <div class="menu__callout-body">
+              <p class="menu__callout-title acct__offhead">{{ offlineHead }}</p>
+              <p v-if="offlineLine" class="menu__callout-text acct__offline-line">{{ offlineLine }}</p>
+            </div>
           </li>
           <li v-if="!known && unreachable" role="none">
             <button type="button" data-row role="menuitem" class="menu__item" @click="open = false; openAccount()">
@@ -208,43 +213,33 @@ watch(offline, (off) => {
 .acct__signin {
   white-space: nowrap;
 }
-/* The offline card's words: a title in the menu rows' ink and a line under it in the
-   quieter one, inset like a row so it sits on the rows' left edge when they follow. A
-   measure of its own, since the card is otherwise as wide as its longest row and with
-   no rows that is nothing to go by. */
+/* The offline card's words are the shared .menu__callout (atoms/controls.scss). What is
+   this card's own is a measure: a card is as wide as its longest row, and with no rows,
+   or two short ones, that is nothing for a sentence to go by. */
 .acct__offline {
   width: 15rem;
   max-width: calc(100vw - var(--space-6));
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--text-chrome);
-  white-space: normal;
 }
-.acct__offhead {
-  font-weight: 600;
-  color: var(--ink);
-}
-/* ON A PHONE THE OFFLINE CARD RUNS THE BAR'S WIDTH. A menu's card hangs from the right
-   edge of the control that opened it and grows leftward (.menu__list, controls.scss),
-   which suits a control at the end of the bar. This one is two icons in, so its card
-   hung off to the left of the cloud, over the list's switcher, with nothing lining it
-   up. So here the card is placed against the bar and not the button: the .menu stops
-   being its containing block, the sticky bar is the next one up, and the card sits a
-   gutter in from each side, directly under the bar. */
+/* ON A PHONE THE OFFLINE CARD HANGS FROM THE BAR'S EDGE, as the sharing panel does. A
+   menu's card hangs from the right of its own button, which suits a control at the end
+   of the bar. This one is two icons in, so its card hung off to the left of the cloud,
+   over the list's switcher, with nothing lining it up. So the .menu stops being its
+   containing block and the bar itself is the next one up: the card keeps the width its
+   words give it, and its right edge sits where the ⋯ menu's card does beside it, a
+   --space-2 in from the screen.
+   (It ran the full width of the bar for a while, a gutter in from each side: the one
+   card in the bar sized by the screen and not by what it holds; Ryan, 2026-11-25:
+   "width is still inconsistent with share and other simple menus".) */
 @media (max-width: 480px) {
   .acct--offline {
     position: static;
   }
   .acct--offline .menu__list {
-    inset-inline: var(--space-2);
-    width: auto;
+    right: var(--space-2);
     /* as close to its control as any menu is to its own: measured from the bar now, so
        the bar's bottom padding (--space-3, both bars) is taken back off the usual gap.
        Left at the bar's foot it hung a full padding lower than the menus beside it. */
     top: calc(100% - var(--space-3) + var(--space-1));
-  }
-  .acct--offline .acct__offline {
-    width: auto;
-    max-width: none;
   }
 }
 

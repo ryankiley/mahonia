@@ -666,6 +666,53 @@ input[type="search"]::-webkit-search-decoration {
   padding-top: var(--space-1);
   border-top: 1px solid var(--line);
 }
+// ── a CALLOUT inside a menu's card ───────────────────────────────────────────
+// The one thing a card has to SAY before its rows: the Export tab's "send the link
+// instead", the account card's "you're offline". Laid out on the rows' columns: its mark
+// in the glyph column (the callout's inset is a row's), its words where a row's label
+// starts, so it reads as part of the same list rather than a box dropped on top of it.
+// Shaped like the plate (the item radius), since it sits where a row would.
+// Its ground is AN AMOUNT OF INK, the well's 7% (.well, in this file, has the measurements:
+// 1.17:1 on the light popover, 1.23 on the dark), because a menu is a floating surface;
+// a page tone (--paper-2) sat at 1.10:1 on the card in either theme, a box you had to
+// look for. Not a [data-row]: nothing here is pressed, so the plate passes it by.
+// SharePanel carried this alone as .share__nudge; lifted on the second consumer.
+.menu__callout {
+  display: flex;
+  align-items: start;
+  gap: var(--space-3);
+  margin-bottom: var(--space-1);
+  // a row's inset above as well as beside: the callout's first line then sits exactly
+  // where a first row would put its own
+  padding: var(--space-2) var(--space-3) var(--space-3);
+  border-radius: var(--popover-item-radius);
+  background: color-mix(in oklab, var(--ink) 7%, transparent);
+  white-space: normal;
+}
+// Alone in its card (the signed-out offline card) there are no rows to stand off from
+// or be told apart from: the card is the callout, and a tinted box filling a card is
+// one box drawn twice.
+.menu__callout:last-child {
+  margin-bottom: 0;
+  background: none;
+}
+.menu__callout > svg {
+  flex: none;
+  margin-block: calc((1lh - var(--icon)) / 2);
+  color: var(--ink-2);
+}
+.menu__callout-body {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
+}
+.menu__callout-title {
+  color: var(--ink);
+}
+.menu__callout-text {
+  color: var(--ink-2);
+  font-size: var(--text-chrome);
+}
 // ── a section INSIDE a menu ──────────────────────────────────────────────────
 // A group of related items that opens in place, rather than a flat run of peers.
 // The editor's ⋯ grew one for Export (three formats you'd otherwise scan past to
