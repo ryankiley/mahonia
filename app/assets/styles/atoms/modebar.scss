@@ -81,8 +81,10 @@
 // symmetric, so one percentage does not buy one step in both themes. A flat 5% used to
 // read 1.12:1 on white and 1.08:1 on black — and once --lit quieted the selected state
 // to 1.16, the light-mode gap fell to 0.039 while dark's stayed at 0.078, i.e. the bar
-// lost half its hierarchy in one theme only. At 3.5/5 the step is 0.076 light, 0.078
-// dark: the same two steps either way.
+// lost half its hierarchy in one theme only. 3.5/5 put the step back, by ratio.
+// Dark is 7.5% now: --lit's dark plate went to 13% (2026-11-25, tokens.scss says why
+// ratios mislead next to black), and the wash keeps its place a little over halfway
+// up to it, as 3.5 is to 6.5 — at 5% it was #0d0d0d on #000, a hover nobody saw.
 // Kept as a color-mix and NOT a token: this is a transient tint that has to work on
 // whatever the bar sits on. (An earlier comment here named a `--wash-hover` token; no
 // such token was ever declared — the value has always been a literal.)
@@ -94,7 +96,7 @@
   .modebar__opt:hover {
     background: light-dark(
       color-mix(in oklab, var(--ink) 3.5%, transparent),
-      color-mix(in oklab, var(--ink) 5%, transparent)
+      color-mix(in oklab, var(--ink) 7.5%, transparent)
     );
     color: var(--ink);
   }

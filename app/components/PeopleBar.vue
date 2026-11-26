@@ -130,7 +130,11 @@ const { onKey } = useRovingRadio(
 .pplbar__chip {
   gap: var(--space-2);
   padding: 0 var(--space-3);
-  border: 1px solid var(--line);
+  /* The outline IS the unselected chip — there is no fill under it — so in dark it takes
+     the stronger hairline. --line there is 8% white, #141414 on a black page: enough
+     for a rule between two rows of text, not for a shape drawn in nothing else (Ryan,
+     2026-11-25: "outline states are a little dim"). Light keeps --line. */
+  border: 1px solid light-dark(var(--line), var(--line-2));
   /* Never wider than the row. Uncapped, a name near the 60-character limit drew a
      chip wider than a 320px screen and ran off it; capped, the chip stops at the
      row's edge and the name inside it clips (.pplbar__name). */
