@@ -273,7 +273,7 @@ const versionLabel = (r: CatalogResult) => tidyText(r.variant || nameAfterBrand(
 // versions state one (the Men's / Women's pair is most of what comes in versions), else
 // the one most people pick, which is the first the search sent. Once words narrow the
 // rows it is the one they most nearly say, or the typed size itself when nothing fits.
-const FIT_KEY = "mahonia.fit";
+const FIT_KEY = "gear.fit.v1";
 function rememberedFit(): string | null {
   try {
     return localStorage.getItem(FIT_KEY);

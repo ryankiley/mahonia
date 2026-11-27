@@ -443,6 +443,29 @@ describe("rankCandidates — kind-of-gear queries", () => {
     expect(rankProducts(rows, "lone peak").map((r) => r.id)).toEqual([1, 3, 2]);
   });
 
+  it("never hands over more than the row cap, and never splits a product to fit it", () => {
+    const rows = Array.from({ length: 12 }, (_, p) =>
+      Array.from({ length: 8 }, (_, v) => row({ id: p * 100 + v, brand: "Nemo", name: `Tensor ${p}`, variant: `Size ${v}` })),
+    ).flat();
+    // twelve products of eight versions is 96 rows; the cap of 60 stops at seven whole products
+    const out = rankProducts(rows, "tensor");
+    expect(out).toHaveLength(56);
+    expect(new Set(out.map((r) => r.name)).size).toBe(7);
+    // the first product comes whole however big it is
+    expect(rankProducts(rows, "tensor", 12, 5)).toHaveLength(8);
+  });
+
+  it("brings every version of a product it keeps, even one the junk filter would drop", () => {
+    // the Men's row is filed a wind jacket, the Women's a rain jacket: "rain jacket" names
+    // the Women's gear type outright, and the Men's falls to the weak tier on its own
+    const rows = [
+      row({ id: 1, brand: "Houdini", name: "Five to Nine Jacket", variant: "Men's Large", commonName: "Wind jacket", searchTerms: "wind jacket" }),
+      row({ id: 2, brand: "Houdini", name: "Five to Nine Jacket", variant: "Women's Medium", commonName: "Rain jacket", searchTerms: "rain jacket" }),
+    ];
+    expect(rankCandidates(rows, "rain jacket").map((r) => r.id)).toEqual([2]);
+    expect(rankProducts(rows, "rain jacket").map((r) => r.id)).toEqual([2, 1]);
+  });
+
   it("answers nothing where the row cut answers nothing", () => {
     expect(rankProducts([row({ id: 1 })], "d")).toEqual([]);
     expect(rankProducts([row({ id: 1 })], "my car keys")).toEqual([]);

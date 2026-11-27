@@ -22,7 +22,12 @@ interface CatalogCacheRecord {
 
 const DB_NAME = "mahonia-catalog";
 const STORE = "snapshot";
-const KEY = "catalog";
+// "catalog.v2" since the search answers in whole products (rankProducts): a record kept
+// from the row-cut answers before it holds two versions of a four-version product, and
+// the version step would list those two offline as if they were all. The old record is
+// dropped the first time this one is missing (prime), not read.
+const KEY = "catalog.v2";
+const OLD_KEYS = ["catalog"];
 const DB_VERSION = 1;
 
 // best-effort both ways: a cache that can't be read is an empty one, and one that
@@ -51,6 +56,11 @@ export function useCatalogCache() {
     primed = true;
     const rec = await idbGet();
     if (rec?.items?.length) memItems = rec.items;
+    else
+      void idbRequest(DB_NAME, DB_VERSION, STORE, "readwrite", (s) => {
+        for (const k of OLD_KEYS) s.delete(k);
+        return s.count();
+      }).catch(() => undefined);
   }
 
   function persistSoon() {

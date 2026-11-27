@@ -90,6 +90,13 @@ export const STRONG_THRESHOLD = 0.6;
  *  offline ranker so the two can never return different counts. */
 export const SEARCH_LIMIT = 12;
 
+/** Most rows a product-cut answer carries (rankProducts). Twelve products are usually
+ *  fifteen to forty rows, a sixteen-size quilt included; the cap is there so a query
+ *  naming a kind of gear can't hand over several times the twelve rows the endpoint's
+ *  rate limit was set for (the catalog is not to be scraped in bulk). A product is never
+ *  split: the first always comes whole, and one that won't fit ends the answer. */
+export const PRODUCT_ROWS_LIMIT = 60;
+
 /** The autocomplete result shape returned to the client (no usageCount). */
 export interface CatalogSearchResult {
   id: number;
@@ -281,6 +288,16 @@ export function rankCandidates(
   return ordered.map(({ row }) => toCatalogResult(row));
 }
 
+/** The relevance cascade itself: tier, whole type over type prefix, verified, usage,
+ *  score, then id, so equal rows can't swap between keystrokes. */
+const byRelevance = (a: Scored, b: Scored) =>
+  a.tier - b.tier ||
+  b.type - a.type ||
+  Number(b.row.verified) - Number(a.row.verified) ||
+  b.row.usageCount - a.row.usageCount ||
+  b.score - a.score ||
+  a.row.id - b.row.id;
+
 interface Scored {
   row: LocalCatalogRow;
   score: number;
@@ -291,9 +308,9 @@ interface Scored {
 
 /** The gate, the junk filter and the relevance order: everything rankCandidates and
  *  rankProducts share, so the two can only differ in how they cut the sorted rows. */
-function gateAndSort(rows: LocalCatalogRow[], rawQuery: string): { kept: Scored[]; generic: boolean } {
+function gateAndSort(rows: LocalCatalogRow[], rawQuery: string): { kept: Scored[]; gated: Scored[]; generic: boolean } {
   const q = (rawQuery ?? "").trim();
-  if (!enoughToSearch(q)) return { kept: [], generic: false }; // 1 char is too noisy for trigrams, unless it is a word
+  if (!enoughToSearch(q)) return { kept: [], gated: [], generic: false }; // 1 char is too noisy for trigrams, unless it is a word
   const query = searchQuery(q);
   const qt = query.tokens;
   const scored: Scored[] = [];
@@ -317,16 +334,10 @@ function gateAndSort(rows: LocalCatalogRow[], rawQuery: string): { kept: Scored[
   // look-alikes under it are noise: the menu stays shut and the typed text stands.
   const anyReal = scored.some((r) => r.tier < 3);
   const kept = anyReal ? scored.filter((r) => r.tier < 3) : qt.length > 1 ? [] : scored;
-  kept.sort(
-    (a, b) =>
-      a.tier - b.tier ||
-      b.type - a.type ||
-      Number(b.row.verified) - Number(a.row.verified) ||
-      b.row.usageCount - a.row.usageCount ||
-      b.score - a.score ||
-      a.row.id - b.row.id,
-  );
-  return { kept, generic: scored.some((r) => r.type > 0 || runsIn(qt, r.terms)) };
+  kept.sort(byRelevance);
+  // `gated` is every row over the gate, junk filter or not, in the same order: a
+  // product kept for its best version brings the versions the filter would drop
+  return { kept, gated: [...scored].sort(byRelevance), generic: scored.some((r) => r.type > 0 || runsIn(qt, r.terms)) };
 }
 
 /**
@@ -344,14 +355,23 @@ function gateAndSort(rows: LocalCatalogRow[], rawQuery: string): { kept: Scored[
  * once a product is one entry. The result is rows, not a nested shape, so every reader
  * of a search response (the offline cache, the menu, the iOS client) keeps its type.
  */
-export function rankProducts(rows: LocalCatalogRow[], rawQuery: string, limit = SEARCH_LIMIT): CatalogSearchResult[] {
-  const { kept, generic } = gateAndSort(rows, rawQuery);
+export function rankProducts(
+  rows: LocalCatalogRow[],
+  rawQuery: string,
+  limit = SEARCH_LIMIT,
+  maxRows = PRODUCT_ROWS_LIMIT,
+): CatalogSearchResult[] {
+  const { kept, gated, generic } = gateAndSort(rows, rawQuery);
+  // Which products, and in what order, is the kept rows' to say. Their versions are
+  // every gated row of the product: the junk filter judges each row by its own gear
+  // type, so a jacket whose Men's row is filed a wind jacket and Women's a rain jacket
+  // lost one of the two on "rain jacket", and the version step listed half a product.
+  const keep = new Set(kept.map(({ row }) => productKey(row.brand, row.name)));
   const products = new Map<string, LocalCatalogRow[]>();
-  for (const { row } of kept) {
+  for (const { row } of kept) products.set(productKey(row.brand, row.name), []);
+  for (const { row } of gated) {
     const key = productKey(row.brand, row.name);
-    const versions = products.get(key);
-    if (versions) versions.push(row);
-    else products.set(key, [row]);
+    if (keep.has(key)) products.get(key)!.push(row);
   }
   let ordered = [...products.values()];
   if (generic) {
@@ -369,7 +389,12 @@ export function rankProducts(rows: LocalCatalogRow[], rawQuery: string, limit = 
     }
     ordered = [...picked, ...overflow];
   }
-  return ordered.slice(0, limit).flatMap((versions) => versions.map(toCatalogResult));
+  const out: CatalogSearchResult[] = [];
+  for (const versions of ordered.slice(0, limit)) {
+    if (out.length && out.length + versions.length > maxRows) break;
+    for (const v of versions) out.push(toCatalogResult(v));
+  }
+  return out;
 }
 
 /** A loaded/ranked row in the autocomplete's result shape: usageCount dropped, the
