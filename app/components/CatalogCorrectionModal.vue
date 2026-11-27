@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { formatWeight } from "~~/shared/weights";
+import { formatWeight, parseWeightInput } from "~~/shared/weights";
 
 const { target, submitting, close, submit } = useCatalogCorrection();
 const emit = defineEmits<{ done: [{ status: string; itemName?: string }] }>();
@@ -27,8 +27,7 @@ watch(
 );
 // The figure takes the caret, selected: it is the one thing this card asks for, and a
 // typed number should replace the suggestion rather than join it. The NUMBER only, not
-// its unit: the server reads a bare figure as grams whatever unit the list shows, so
-// selecting "31.3 oz" whole would turn a typed 30 into thirty grams.
+// its unit, so what is typed over it still reads as a weight in the unit beside it.
 // On the node, post (see BaseModal's move-in): the field is made anew for each target,
 // and on the first one it reaches the page after the tick a watch on `target` could wait.
 watch(
@@ -44,11 +43,17 @@ watch(
 
 async function onSubmit() {
   // if the field is untouched, send the EXACT integer mg (formatWeight→parse is
-  // lossy and locale-dependent); only parse the string when the user edited it
+  // lossy and locale-dependent); only parse the string when the user edited it.
+  // Parsed HERE, in the unit the card is showing, the way a row's weight field reads a
+  // bare number in its row's unit. The server only ever sees the text, and reads a
+  // figure with no unit as grams: on a list in ounces, "30" over "31.3 oz" proposed
+  // thirty grams for everyone. A figure this can't read still goes as typed, so the
+  // server's refusal is the answer.
   const asked = target.value;
+  const typedMg = edited.value && asked ? parseWeightInput(weight.value, asked.displayUnit) : null;
   const res = await submit({
-    weight: edited.value ? weight.value : undefined,
-    weightMg: edited.value ? undefined : target.value?.suggestedMg,
+    weight: edited.value && typedMg === null ? weight.value : undefined,
+    weightMg: edited.value ? (typedMg ?? undefined) : target.value?.suggestedMg,
     sourceUrl: sourceUrl.value.trim() || undefined,
     reason: reason.value.trim() || undefined,
   });
