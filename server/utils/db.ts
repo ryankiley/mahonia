@@ -126,9 +126,13 @@ export async function writtenByAnotherPostgres(
 
 // lists DDL — single-sourced here (mirrors CATALOG_DDL) so tests can build a
 // fresh DB with the exact production-faithful shape. Safe on PGlite + Neon.
-// The ALTERs make column additions idempotent on a pre-existing dev database
-// (CREATE TABLE IF NOT EXISTS won't add a column to a table that already exists).
+// CREATE TABLE IF NOT EXISTS won't add a column to a table that already exists, so a
+// new column ships as an ALTER beside its CREATE and is folded in once it has
+// deployed (see CLAUDE.md).
 export const LISTS_DDL: string[] = [
+  // author_user_id is the byline on the read views: who MADE the list (set once at
+  // creation, never re-pointed by a claim); resolves to that account's optional
+  // display name.
   `CREATE TABLE IF NOT EXISTS lists (
     id serial PRIMARY KEY,
     public_slug text NOT NULL,
@@ -150,32 +154,17 @@ export const LISTS_DDL: string[] = [
     status text NOT NULL DEFAULT 'active',
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now(),
-    deleted_at timestamptz
+    deleted_at timestamptz,
+    trail_distance_m integer,
+    trail_distance_unit text,
+    trail_profile text,
+    trail_ascent_m integer,
+    trail_descent_m integer,
+    route_geometry text,
+    start_date text,
+    end_date text,
+    author_user_id integer
   )`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS last_snapshot_at timestamptz`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_url text`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_label text`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_distance_m integer`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_distance_unit text`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_profile text`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_ascent_m integer`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS trail_descent_m integer`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS route_geometry text`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS start_date text`,
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS end_date text`,
-  // the byline on the read views — who MADE the list (set once at creation, never
-  // re-pointed by a claim); resolves to that account's optional display name
-  `ALTER TABLE lists ADD COLUMN IF NOT EXISTS author_user_id integer`,
-  // Columns from the first version that nothing ever read, dropped where an older
-  // database still has them.
-  `ALTER TABLE lists DROP COLUMN IF EXISTS primary_category, DROP COLUMN IF EXISTS view_count, DROP COLUMN IF EXISTS claim_phrase_hash`,
-  // The columns of the retired list publishing, dropped some deploys after #575
-  // (3959696a) stopped selecting them, so a rollback to that deploy still found them. A
-  // deploy from before #575 selects all five, and its own DDL re-adds trip_type and
-  // flagged but not is_public, published_at or season. Going back that far means rolling
-  // back FIRST and adding those three by hand after: every cold instance of this deploy
-  // or a later one drops them again.
-  `ALTER TABLE lists DROP COLUMN IF EXISTS is_public, DROP COLUMN IF EXISTS published_at, DROP COLUMN IF EXISTS trip_type, DROP COLUMN IF EXISTS season, DROP COLUMN IF EXISTS flagged`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_edit_token ON lists(edit_token_hash) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_share_code ON lists(share_code) WHERE deleted_at IS NULL`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_lists_slug ON lists(public_slug) WHERE deleted_at IS NULL`,
@@ -209,11 +198,6 @@ export const SNAPSHOTS_DDL: string[] = [
     editor_user_id integer,
     created_at timestamptz NOT NULL DEFAULT now()
   )`,
-  // idempotent column adds for pre-existing tables (Neon has no build-time DDL)
-  `ALTER TABLE list_snapshots ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'base'`,
-  `ALTER TABLE list_snapshots ADD COLUMN IF NOT EXISTS item_count integer NOT NULL DEFAULT 0`,
-  `ALTER TABLE list_snapshots ADD COLUMN IF NOT EXISTS actor text`,
-  `ALTER TABLE list_snapshots ADD COLUMN IF NOT EXISTS editor_user_id integer`,
   `CREATE INDEX IF NOT EXISTS idx_list_snapshots_list ON list_snapshots(list_id, created_at DESC)`,
 ];
 

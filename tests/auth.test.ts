@@ -233,37 +233,13 @@ describe("an address is only a claim until a link comes back", () => {
     expect(await isVerified(byLink.id)).toBe(true);
   });
 
-  it("grandfathers the accounts that predate the column", async () => {
-    // The column arrives as two statements — ADD ... DEFAULT true, then ALTER ...
-    // SET DEFAULT false — and they do opposite jobs on purpose. Rows written
-    // before the distinction existed can't be sorted into verified and not, so
-    // they're taken as verified; everything after earns it. Reordering them (or
-    // dropping the second) would quietly evict the passkeys of every account that
-    // already existed, on their next sign-in.
-    // the schema as it stood BEFORE the column existed — a filtered group is still
-    // just a group as far as the helper is concerned
-    const deployed = await createTestDb(ACCOUNT_DDL.filter((s) => !s.includes("email_verified")));
-    // written the way the old code wrote it, with no such column to fill in
-    await deployed.execute(sql.raw(`insert into users (email) values ('old@example.com')`));
-
-    // the deploy: the same idempotent DDL, now with the column in it
-    for (const stmt of ACCOUNT_DDL) await deployed.execute(sql.raw(stmt));
-    // ...after which the COLUMN DEFAULT is what an insert that says nothing about
-    // verification gets. Both real insert paths name it explicitly, so this is the
-    // backstop: a future one that forgets lands on unproved, which is the side
+  it("leaves an account unproved when the insert says nothing about verification", async () => {
+    // Both real insert paths name the column explicitly, so the COLUMN DEFAULT is
+    // the backstop: a future one that forgets lands on unproved, which is the side
     // that fails safe.
-    await deployed.execute(sql.raw(`insert into users (email) values ('new@example.com')`));
-
-    // and then the NEXT cold start runs the whole DDL again over the migrated
-    // database. It must not backfill a second time: that would mark every unproved
-    // account proved and disarm the eviction for good.
-    for (const stmt of ACCOUNT_DDL) await deployed.execute(sql.raw(stmt));
-
-    const verified = async (email: string) =>
-      (await deployed.select().from(schema.users).where(eq(schema.users.email, email)))[0]!
-        .emailVerified;
-    expect(await verified("old@example.com")).toBe(true);
-    expect(await verified("new@example.com")).toBe(false);
+    await db.execute(sql.raw(`insert into users (email) values ('bare@example.com')`));
+    const [bare] = await db.select().from(schema.users).where(eq(schema.users.email, "bare@example.com"));
+    expect(bare!.emailVerified).toBe(false);
   });
 
   it("evicts the passkey and every session when the address's owner first signs in", async () => {
