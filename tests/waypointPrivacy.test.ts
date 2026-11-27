@@ -1,11 +1,31 @@
-import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import { rowToSnapshot } from "../server/utils/listRepo";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { ACCOUNT_DDL } from "../server/utils/accountSchema";
+import { CATALOG_DDL } from "../server/utils/catalog";
+import { claimLists } from "../server/utils/claimRepo";
+import { LISTS_DDL, SNAPSHOTS_DDL } from "../server/utils/db";
+import {
+  applyOpsByEditHash,
+  createList,
+  exportClaimedLists,
+  getByEditHash,
+  getByShareCode,
+  getCardByShareCode,
+  getTextByShareCode,
+  listSnapshotsByEditHash,
+  restoreSnapshotByEditHash,
+  rowToSnapshot,
+} from "../server/utils/listRepo";
+import { listToCsv } from "../shared/exporters/csv";
 import { listToJson } from "../shared/exporters/json";
 import { encodePolyline } from "../shared/polyline";
 import type { ListRow } from "../server/db/schema";
 import type { ListData, ListMeta } from "../shared/types";
-import { ROOT } from "./helpers/sources";
+import { seedCatalogRow } from "./helpers/catalog";
+import { byToken, createTestDb, type TestDb } from "./helpers/db";
+import { dbState } from "./helpers/dbMock";
+
+// createList, getByEditHash and the share-code reads take no db argument
+vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mockDbModule(o));
 
 // The route's shape is the app's only stored geography, and it is not public.
 //
@@ -53,8 +73,8 @@ const row = (over: Partial<ListRow> = {}) =>
     data: {
       folders: [],
       items: [
-        { id: "i1", name: "Tent", qty: 1, sortOrder: 0, packed: true },
-        { id: "i2", name: "Stove", qty: 1, sortOrder: 1, packed: false },
+        { id: "i1", folderId: null, name: "Tent", qty: 1, sortOrder: 0, packed: true, priceCents: 28_900, currency: "USD" },
+        { id: "i2", folderId: null, name: "Stove", qty: 1, sortOrder: 1, packed: false },
       ],
       days: [],
       waypoints: [{ id: "w1", kind: "camp", alongM: 6_200, label: "Cairn Basin" }],
@@ -99,6 +119,21 @@ describe("a route never rides a read path", () => {
     expect(JSON.stringify(snap)).not.toContain("packed");
   });
 
+  it("nor what the owner paid for it", () => {
+    // A price comes onto a row with a piece picked from My Gear. No list surface shows
+    // it, so on a share link it was only ever something a stranger could read out of
+    // the payload, export, or carry into their own gear by duplicating the list.
+    const snap = rowToSnapshot(row());
+    expect(snap.items.map((i) => i.name)).toEqual(["Tent", "Stove"]);
+    for (const item of snap.items) {
+      expect("priceCents" in item).toBe(false);
+      expect("currency" in item).toBe(false);
+    }
+    const json = JSON.stringify(snap);
+    expect(json).not.toContain("28900");
+    expect(json).not.toContain("USD");
+  });
+
   it("the days beside them are still public, which is the point of the asymmetry", () => {
     const snap = rowToSnapshot(
       row({ data: { folders: [], items: [], days: [{ id: "d1", sortOrder: 0, distanceM: 16_093 }], waypoints: [] } } as Partial<ListRow>),
@@ -113,76 +148,118 @@ describe("a route never rides a read path", () => {
     const json = listToJson(publicSnap);
     expect(json).not.toContain(GEOMETRY);
     expect(json).not.toContain("Cairn Basin");
+    expect(json).not.toContain("priceCents");
+  });
+
+  it("and a CSV taken from one has an empty Price column", () => {
+    const csv = listToCsv(rowToSnapshot(row()));
+    expect(csv).toContain("Tent");
+    expect(csv).not.toContain("289");
   });
 });
 
+// Driven through the repo on a real database: every function that answers an edit
+// capability or mints a list, since each one talks to an owner. A wrapper that is called
+// by some of them and not others does not error anywhere. It hands the editor back a list
+// with no route, and the client adopts that wholesale.
 describe("…but the OWNER still gets it back", () => {
-  const src = readFileSync(`${ROOT}server/utils/listRepo.ts`, "utf8");
-
-  // Every function that answers an edit CAPABILITY or mints a list — i.e. talks to
-  // an owner. These are the hash cores: the ByEditToken names are one-line wrappers
-  // that hash and delegate (see listRepo's findByEditHash precedent), so the bodies
-  // this test reads — and the owner-only guarantee — live here, and the same body
-  // now serves both ways in (bearer token, or session + claimed code via editAuth).
-  const OWNER_PATHS = [
-    "getByEditHash",
-    "createList",
-    "applyOpsByEditHash",
-    "restoreSnapshotByEditHash",
-    // the account takeout: a claim is ownership, so the owner's fields ride it
-    "exportClaimedLists",
-  ];
-
-  const bodyOf = (name: string) => {
-    const start = src.search(new RegExp(`(export )?(async )?function ${name}\\b`));
-    expect(start, `${name} not found in listRepo.ts`).toBeGreaterThan(-1);
-    const rest = src.slice(start + 1);
-    const end = rest.search(/\n(export )?(async )?function /);
-    return end === -1 ? rest : rest.slice(0, end);
+  const PIN = { id: "w1", kind: "camp", alongM: 600, label: "Cairn Basin" };
+  const owned = {
+    routeGeometry: GEOMETRY,
+    waypoints: [PIN],
+    items: [
+      expect.objectContaining({ id: "i1", packed: true, priceCents: 28_900, currency: "USD" }),
+      expect.objectContaining({ id: "i2", packed: true, priceCents: 26_000, currency: "CAD" }),
+    ],
   };
 
-  it.each(OWNER_PATHS)("%s carries the owner-only fields", (name) => {
-    const body = bodyOf(name);
-    expect(body).toContain("rowToSnapshot");
-    expect(body).toContain("withOwnerOnly");
+  let db: TestDb;
+  let editToken: string;
+  let shareCode: string;
+  let minted: unknown;
+
+  beforeEach(async () => {
+    db = dbState.db = await createTestDb(LISTS_DDL, SNAPSHOTS_DDL, CATALOG_DDL, ACCOUNT_DDL);
+    // the catalog renamed this product after the list linked it
+    const pack = await seedCatalogRow(db, { brand: "Durston", name: "Kakwa 55" });
+    const made = await createList({
+      title: "Trip",
+      routeGeometry: GEOMETRY,
+      data: {
+        folders: [],
+        items: [
+          { id: "i1", name: "Tent", qty: 1, sortOrder: 0, packed: true, priceCents: 28_900, currency: "USD" },
+          { id: "i2", name: "Kakwa 55 OLD", brand: "Durston", catalogItemId: pack.id, qty: 1, sortOrder: 1, packed: true, priceCents: 26_000, currency: "CAD" },
+        ],
+        days: [],
+        waypoints: [PIN],
+      } as unknown as ListData,
+    });
+    editToken = made.editToken;
+    shareCode = made.snapshot.shareCode;
+    minted = made.snapshot;
   });
 
-  it("and withOwnerOnly is the only thing that ever sets them", () => {
-    // If a second place starts assigning these, the guarantee stops being one line and
-    // becomes a habit. Exactly two assignments, both inside the wrapper.
-    expect(src.match(/\.routeGeometry\s*=/g) ?? []).toHaveLength(1);
-    expect(src.match(/snap\.waypoints\s*=/g) ?? []).toHaveLength(1);
+  const edit = (ops: Parameters<typeof applyOpsByEditHash>[1]) => byToken(applyOpsByEditHash)(editToken, ops, db);
 
+  it("on the list as it is minted, or a draft with a route loses it on its first save", () => {
+    expect(minted).toMatchObject(owned);
   });
 
-  it("re-attaches the packed tick WITHOUT clobbering the hydrated items", () => {
-    // The owner path is withOwnerOnly(await hydrateForRead(rowToSnapshot(row)), row), so
-    // the items reaching this wrapper have already had their catalog names trickled down.
-    // Assigning row.data.items over the top restores the tick and silently reverts every
-    // renamed catalogue product — on the owner's view only, which is the hardest place to
-    // notice it. Match by id and copy the one field.
-    const body = bodyOf("withOwnerOnly");
-    expect(body).not.toMatch(/snap\.items\s*=\s*\(\(row\.data/);
-    expect(body).toMatch(/snap\.items\s*=\s*snap\.items\.map/);
+  it("on a read by edit link", async () => {
+    expect(await byToken(getByEditHash)(editToken)).toMatchObject(owned);
   });
 
-  it("a restore normalizes and WRITES geometry, unlike the field this wrapper replaced", () => {
-    // Body weight was deliberately not written on restore, because it never entered the
-    // chain. Geometry is the opposite case: it rides the chain, it is the one field an
-    // owner cannot retype, and leaving it out of the update would keep the LIVE value
-    // standing on every restore — the exact bug trailProfile already had. The write is
-    // the whole meta, spread from the one normalizer createList uses, whose `satisfies`
-    // is what keeps a field from going missing here.
-    expect(bodyOf("restoreSnapshotByEditHash")).toMatch(/\.\.\.nulled\(meta\)/);
-    expect(bodyOf("normalizeListMeta")).toMatch(/routeGeometry:\s*normalizeRouteGeometry\(raw\.routeGeometry\)/);
-    expect(bodyOf("normalizeListMeta")).toMatch(/satisfies Record<ListMetaKey, unknown>/);
+  it("on the autosave echo, which the editor adopts whole", async () => {
+    expect(await edit([{ t: "updateItem", id: "i1", patch: { qty: 2 } }])).toMatchObject(owned);
   });
 
-  it("normalizeListData carries waypoints, or a restore drops every one", () => {
-    // the reconstructed data passes through here on its way to the row (people
-    // joined the literal for the same reason — see tests/people.test.ts for the
-    // end-to-end version of this canary)
-    expect(src).toMatch(/waypoints\.sort/);
-    expect(src).toMatch(/return \{ folders, items, days, waypoints, people \}/);
+  it("on a restore, which writes them back over whatever is live", async () => {
+    // the first edit records the list as minted; the second clears the route (and its
+    // pins with it), unticks the tent and reprices it
+    await edit([{ t: "updateItem", id: "i1", patch: { qty: 2 } }]);
+    const cleared = await edit([
+      { t: "setMeta", patch: { routeGeometry: "" } },
+      { t: "updateItem", id: "i1", patch: { packed: false, priceCents: 100, currency: "EUR" } },
+    ]);
+    expect(cleared!.routeGeometry).toBeUndefined();
+    expect(cleared!.waypoints).toEqual([]);
+
+    const points = await byToken(listSnapshotsByEditHash)(editToken, db);
+    const restored = await byToken(restoreSnapshotByEditHash)(editToken, points!.at(-1)!.id, db);
+    expect(restored).toMatchObject(owned);
+    // and it is the row that holds them, not only the answer
+    expect(await byToken(getByEditHash)(editToken)).toMatchObject(owned);
+  });
+
+  it("in the account's takeout, since a claim is ownership", async () => {
+    expect(await claimLists(db, 1, [editToken])).toBe(1);
+    expect(await exportClaimedLists(db, 1)).toMatchObject([owned]);
+  });
+
+  it("beside the catalog's current name, which putting the tick back must not undo", async () => {
+    // The owner's items are hydrated before the owner-only fields go back on. Restoring
+    // those by replacing the items with the stored ones would revert every renamed
+    // catalog product, on the owner's view only.
+    const current = expect.objectContaining({ id: "i2", name: "Kakwa 55", packed: true, priceCents: 26_000, currency: "CAD" });
+    expect((await byToken(getByEditHash)(editToken))!.items[1]).toEqual(current);
+    expect((await edit([{ t: "updateItem", id: "i1", patch: { qty: 2 } }]))!.items[1]).toEqual(current);
+    await claimLists(db, 1, [editToken]);
+    expect((await exportClaimedLists(db, 1))[0]!.items[1]).toEqual(current);
+  });
+
+  it.each([
+    ["the shared page", getByShareCode],
+    ["its social card", getCardByShareCode],
+    ["its Markdown twin", getTextByShareCode],
+  ])("and a share-code reader of %s gets none of it", async (_name, read) => {
+    const snap = (await read(shareCode))!;
+    // the gear itself is public
+    expect(snap.items.map((i) => i.id)).toEqual(["i1", "i2"]);
+    expect("routeGeometry" in snap).toBe(false);
+    expect(snap.waypoints).toEqual([]);
+    const json = JSON.stringify(snap);
+    for (const secret of [GEOMETRY, "Cairn Basin", "packed", "priceCents", "currency", "28900", "26000"])
+      expect(json).not.toContain(secret);
   });
 });

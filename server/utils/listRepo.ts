@@ -20,6 +20,7 @@ import { CLAIMED_LIST_CAP, LIST_META_KEYS, stateData } from "../../shared/types"
 import type { CatalogSearchResult } from "../../shared/catalogSearch";
 import type { ChangeAuthor, Item, ListData, ListMeta, ListMetaKey, ListSnapshot, ListState, SnapshotMeta, Totals } from "../../shared/types";
 import { normalizeShareCode } from "../../shared/links";
+import { isRecord } from "../../shared/record";
 import { MAX_SUMMARY_LEN, summarizeOps } from "../../shared/changeSummary";
 import { normalizeDistanceUnit } from "../../shared/trailDistance";
 import { normalizeRouteGeometry } from "../../shared/polyline";
@@ -46,7 +47,8 @@ function weightColumns(totals: Totals) {
 }
 
 /** Cap, normalize, first id wins (the reducer's add rule), keyed by id in the incoming
- *  order. A normalizer answers null for a row to drop rather than repair. */
+ *  order. A normalizer answers null for a row to drop rather than repair, and a row that
+ *  is no object at all (a null in a create body) is dropped before one reads it. */
 function firstById<R, T extends { id: string }>(
   raw: readonly R[] | undefined,
   cap: number,
@@ -54,6 +56,7 @@ function firstById<R, T extends { id: string }>(
 ): Map<string, T> {
   const out = new Map<string, T>();
   for (const r of (raw ?? []).slice(0, cap)) {
+    if (!isRecord(r)) continue;
     const row = normalize(r);
     if (row && !out.has(row.id)) out.set(row.id, row);
   }
@@ -168,7 +171,12 @@ export function rowToSnapshot(row: ListRow): ListSnapshot {
     // Stripped HERE rather than at each read path, for the reason the two fields below
     // give: every read starts from this function, so omitting it is the only version
     // that fails closed. withOwnerOnly puts the real items back.
-    items: (data.items ?? []).map(({ packed: _packed, ...rest }) => rest),
+    //
+    // WITHOUT the price and its currency either. They come onto a row with a piece
+    // picked from My Gear and no list surface shows them, so on a share link they were
+    // what the owner paid, readable in the payload, printed in a reader's CSV, and
+    // carried into a stranger's own gear by a duplicate.
+    items: (data.items ?? []).map(({ packed: _packed, priceCents: _priceCents, currency: _currency, ...rest }) => rest),
     days: data.days ?? [],
     // People ride every read path, the same way days do — who carries what is
     // list CONTENT (the point of the feature is a friend seeing their half over
@@ -774,33 +782,38 @@ export async function getTextByShareCode(code: string): Promise<ListSnapshot | n
 /**
  * Attach the fields the OWNER may see and a viewer may not.
  *
- * rowToSnapshot omits the route's geometry and its waypoints, so every read path starts
- * without them and has to ask. That is the wrong way round from how it reads — but it is
- * the only shape that fails CLOSED: every share-code read (the /s page, its card, its
- * Markdown, the connector's get_list) builds on rowToSnapshot, and any read path added
- * later will too. Opt-in means forgetting leaks nothing; opt-out means forgetting
- * publishes somebody's route.
+ * rowToSnapshot omits the route's geometry and its waypoints, and each item's packed tick
+ * and price, so every read path starts without them and has to ask. That is the wrong way
+ * round from how it reads — but it is the only shape that fails CLOSED: every share-code
+ * read (the /s page, its card, its Markdown, the connector's get_list) builds on
+ * rowToSnapshot, and any read path added later will too. Opt-in means forgetting leaks
+ * nothing; opt-out means forgetting publishes somebody's route.
  *
  * This wrapper existed once before, for body weight, and three owner paths forgot to call
  * it — which is why tests/waypointPrivacy.test.ts asserts BOTH halves: that a viewer never
- * gets these, and that all four owner paths do.
+ * gets these, and that every owner path does.
  */
 function withOwnerOnly(snap: ListSnapshot, row: ListRow): ListSnapshot {
   snap.routeGeometry = row.routeGeometry ?? undefined;
   snap.waypoints = ((row.data ?? {}) as ListData).waypoints ?? [];
-  // The packed ticks back onto the items, MATCHED BY ID rather than by replacing the
-  // array. That distinction is the whole of this comment: the owner path is
-  // `withOwnerOnly(await hydrateForRead(db, rowToSnapshot(row)), row)`, so by the time
+  // The packed ticks and the prices back onto the items, MATCHED BY ID rather than by
+  // replacing the array. That distinction is the whole of this comment: the owner path
+  // is `withOwnerOnly(await hydrateForRead(db, rowToSnapshot(row)), row)`, so by the time
   // this runs the items have already had their catalog names trickled down
   // (hydrateCatalogNames). Assigning `row.data.items` over the top would restore the tick
   // and silently undo that refresh — every renamed catalogue product reverting to the
   // name baked in when it was added, on the owner's view only.
-  const ticks = new Map(
-    (((row.data ?? {}) as ListData).items ?? []).map((i) => [i.id, i.packed]),
-  );
+  const stored = new Map((((row.data ?? {}) as ListData).items ?? []).map((i) => [i.id, i]));
   snap.items = snap.items.map((i) => {
-    const packed = ticks.get(i.id);
-    return packed == null ? i : { ...i, packed };
+    const own = stored.get(i.id);
+    if (!own) return i;
+    const { packed, priceCents, currency } = own;
+    return {
+      ...i,
+      ...(packed == null ? {} : { packed }),
+      ...(priceCents == null ? {} : { priceCents }),
+      ...(currency == null ? {} : { currency }),
+    };
   });
   return snap;
 }

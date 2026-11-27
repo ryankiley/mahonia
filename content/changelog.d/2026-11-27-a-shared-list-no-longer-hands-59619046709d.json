@@ -1,0 +1,6 @@
+{
+  "date": "2026-11-27",
+  "fixed": [
+    "A shared list no longer hands its readers what you paid for your gear: prices stay out of the link, and out of a reader's CSV and JSON."
+  ]
+}
