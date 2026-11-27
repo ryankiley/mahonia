@@ -2,6 +2,7 @@
 // button is gated while it sends, but Enter in any field comes straight through, and a
 // request outlives the dialog it was sent from.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { readBody } from "h3";
 import { registerEndpoint } from "@nuxt/test-utils/runtime";
 import { enableAutoUnmount, mount } from "@vue/test-utils";
 import CatalogCorrectionModal from "~/components/CatalogCorrectionModal.vue";
@@ -17,10 +18,12 @@ const TARGET = {
 let release = () => {};
 let held = Promise.resolve();
 let posts = 0;
+let lastBody: { weight?: string; weightMg?: number } | null = null;
 registerEndpoint("/api/catalog/correct", {
   method: "POST",
-  handler: async () => {
+  handler: async (event) => {
     posts++;
+    lastBody = await readBody(event);
     await held;
     return { status: "applied" };
   },
@@ -104,6 +107,52 @@ describe("where the catalog correction opens", () => {
     expect(document.activeElement).toBe(field);
     expect(field.value).toBe("510 g");
     expect([field.selectionStart, field.selectionEnd]).toEqual([0, 3]);
+    useCatalogCorrection().close();
+  });
+});
+
+// The server reads a figure with no unit as grams. The card shows the list's unit, so a
+// bare number typed over "17.99 oz" means ounces, as it does in a row's weight field.
+describe("what a typed catalog correction is sent as", () => {
+  const typed = async (text: string, displayUnit: "g" | "oz") => {
+    held = Promise.resolve();
+    lastBody = null;
+    useCatalogCorrection().open({ ...TARGET, displayUnit });
+    const w = mount(CatalogCorrectionModal, {
+      global: { stubs: { BaseModal: { template: "<div><slot /></div>" } } },
+    });
+    await nextTick();
+    await w.get("input").setValue(text);
+    await pressEnter(w);
+    await vi.waitFor(() => expect(lastBody).not.toBeNull());
+    useCatalogCorrection().close();
+    return lastBody!;
+  };
+
+  it("reads a bare number in the unit the card shows", async () => {
+    expect(await typed("18", "oz")).toMatchObject({ weightMg: 510_291 });
+    expect(await typed("505", "g")).toMatchObject({ weightMg: 505_000 });
+  });
+
+  it("keeps a unit that was typed, whatever the card shows", async () => {
+    expect(await typed("505 g", "oz")).toMatchObject({ weightMg: 505_000 });
+  });
+
+  it("sends what it cannot read as typed, for the server to refuse", async () => {
+    const body = await typed("heavy", "g");
+    expect(body.weight).toBe("heavy");
+    expect(body.weightMg).toBeUndefined();
+  });
+
+  it("still sends the exact figure when the field was never touched", async () => {
+    held = Promise.resolve();
+    lastBody = null;
+    const w = openDialog();
+    await nextTick();
+    await pressEnter(w);
+    await vi.waitFor(() => expect(lastBody).not.toBeNull());
+    expect(lastBody).toMatchObject({ weightMg: 510_000 });
+    expect(lastBody!.weight).toBeUndefined();
     useCatalogCorrection().close();
   });
 });
