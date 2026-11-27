@@ -95,3 +95,14 @@ Every research file is in one layout (a row a key a line, keys in `ResearchRow` 
 blank optional keys); `npm test` fails a file that isn't, and `npm run catalog:format`
 rewrites them all without changing a value.
 
+
+## A schema change is folded into its CREATE once it has deployed
+
+The DDL lists (`LISTS_DDL`, `VAULT_DDL`, `ACCOUNT_DDL` and the rest) run on every cold
+instance, and even a no-op `ALTER TABLE` takes an exclusive lock on its table each time, so
+they hold only what production doesn't have yet. A new column ships as an `ADD COLUMN IF NOT
+EXISTS` beside its `CREATE TABLE`, and once that has deployed a follow-up PR moves the column
+into the CREATE and deletes the ALTER. A column is dropped one deploy after
+`server/db/schema.ts` stops declaring it, with a `DROP COLUMN IF EXISTS`, and that statement
+is likewise deleted once it has deployed. A folded column no longer heals itself: a local
+`.data/pglite` folder or a restored database older than it has to be recreated.

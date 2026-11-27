@@ -11,11 +11,30 @@
 // capabilities you already hold, so that you don't have to keep the links yourself.
 
 export const ACCOUNT_DDL: string[] = [
+  // display_name is optional, opt-in, and the only publicly visible part of an
+  // account.
+  //
+  // email_verified: HAS ANYONE EVER PROVED THEY HOLD THIS INBOX?
+  //
+  // false is the passkey-signup state. That route takes an address from an
+  // unauthenticated body and attaches a credential to it without mailing it
+  // first, so until a link sent there comes back, "this passkey belongs to this
+  // address" is a claim and not a fact. true is every account the magic-link path
+  // made, where the address IS the way in. The column defaults to false, so an
+  // insert that says nothing about verification lands on the side that fails safe.
+  //
+  // What the flag is FOR is server/api/auth/verify.post.ts: redeeming a link for
+  // a still-unverified account evicts every passkey and session that predates it.
+  // Without that, anyone could sign up with a stranger's address, and the passkey
+  // they left behind would keep opening the account that stranger later signs
+  // into — see claimUnverifiedAccount in authSession.ts.
   `CREATE TABLE IF NOT EXISTS users (
     id serial PRIMARY KEY,
     email text NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
-    last_seen_at timestamptz NOT NULL DEFAULT now()
+    last_seen_at timestamptz NOT NULL DEFAULT now(),
+    display_name text,
+    email_verified boolean NOT NULL DEFAULT false
   )`,
   // REQUIRED, including on the passkey signup path. The passkey is what identifies
   // you; the address is the only way back in when every authenticator is lost, and
@@ -27,60 +46,37 @@ export const ACCOUNT_DDL: string[] = [
   // case-insensitive identity users expect without needing the citext extension
   // (which PGlite doesn't ship).
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (email)`,
-  // optional, opt-in, and the only publicly visible part of an account
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS display_name text`,
-  // HAS ANYONE EVER PROVED THEY HOLD THIS INBOX?
-  //
-  // false is the passkey-signup state. That route takes an address from an
-  // unauthenticated body and attaches a credential to it without mailing it
-  // first, so until a link sent there comes back, "this passkey belongs to this
-  // address" is a claim and not a fact. true is every account the magic-link path
-  // made, where the address IS the way in.
-  //
-  // What the flag is FOR is server/api/auth/verify.post.ts: redeeming a link for
-  // a still-unverified account evicts every passkey and session that predates it.
-  // Without that, anyone could sign up with a stranger's address, and the passkey
-  // they left behind would keep opening the account that stranger later signs
-  // into — see claimUnverifiedAccount in authSession.ts.
-  //
-  // ADDED true, DEFAULTED false, and the two halves do different jobs. Rows that
-  // predate this column were written before the distinction existed and can't be
-  // sorted into verified and not, so they're grandfathered rather than having
-  // their owners' passkeys evicted on next sign-in. Everything created from here
-  // on starts false and earns true. (To harden an existing deployment instead,
-  // run `UPDATE users SET email_verified = false WHERE id IN (SELECT user_id FROM
-  // credentials)` once, by hand, knowing it costs those accounts their passkeys.)
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified boolean NOT NULL DEFAULT true`,
-  `ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT false`,
 
+  // browser_hash is which browser asked for the link (redeemMagicLink): only that
+  // browser is signed in without being asked first.
   `CREATE TABLE IF NOT EXISTS auth_tokens (
     id serial PRIMARY KEY,
     token_hash text NOT NULL,
     user_id integer NOT NULL,
     expires_at timestamptz NOT NULL,
     consumed_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now()
+    created_at timestamptz NOT NULL DEFAULT now(),
+    browser_hash text
   )`,
-  // Which browser asked for the link (redeemMagicLink): only that browser is
-  // signed in without being asked first.
-  `ALTER TABLE auth_tokens ADD COLUMN IF NOT EXISTS browser_hash text`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_auth_tokens_hash ON auth_tokens (token_hash)`,
   `CREATE INDEX IF NOT EXISTS idx_auth_tokens_expiry ON auth_tokens (expires_at)`,
 
+  // sweep_ok is whether this session's browser may sweep its lists into the account
+  // unasked (startSession).
+  //
+  // unproven marks a row made while the account's address was unproven: such a row
+  // opens nothing once it is proven (see sessions.unproven in server/db/schema.ts).
+  // credentials, access_tokens and oauth_codes carry the same column.
   `CREATE TABLE IF NOT EXISTS sessions (
     id serial PRIMARY KEY,
     token_hash text NOT NULL,
     user_id integer NOT NULL,
     expires_at timestamptz NOT NULL,
     created_at timestamptz NOT NULL DEFAULT now(),
-    last_used_at timestamptz NOT NULL DEFAULT now()
+    last_used_at timestamptz NOT NULL DEFAULT now(),
+    sweep_ok boolean NOT NULL DEFAULT false,
+    unproven boolean NOT NULL DEFAULT false
   )`,
-  // Whether this session's browser may sweep its lists into the account unasked
-  // (startSession). Added true, then defaulted false, the way email_verified was:
-  // a session from before the column had already swept, and stopping it would
-  // strand the lists its browser makes next. Every session since says which it is.
-  `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS sweep_ok boolean NOT NULL DEFAULT true`,
-  `ALTER TABLE sessions ALTER COLUMN sweep_ok SET DEFAULT false`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_sessions_hash ON sessions (token_hash)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_user ON sessions (user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_sessions_expiry ON sessions (expires_at)`,
@@ -101,15 +97,9 @@ export const ACCOUNT_DDL: string[] = [
     refresh_hash text,
     refresh_prev_hash text,
     created_at timestamptz NOT NULL DEFAULT now(),
-    last_used_at timestamptz
+    last_used_at timestamptz,
+    unproven boolean NOT NULL DEFAULT false
   )`,
-  // the app columns, for a table made by an earlier build of this feature (a preview
-  // branch's database): the same idempotent shape every other column change here takes
-  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS kind text NOT NULL DEFAULT 'token' CHECK (kind IN ('token', 'app'))`,
-  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS client_id text`,
-  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS expires_at timestamptz`,
-  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS refresh_hash text`,
-  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS refresh_prev_hash text`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_access_tokens_hash ON access_tokens (token_hash)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_access_tokens_refresh ON access_tokens (refresh_hash)`,
   `CREATE INDEX IF NOT EXISTS idx_access_tokens_refresh_prev ON access_tokens (refresh_prev_hash)`,
@@ -137,7 +127,8 @@ export const ACCOUNT_DDL: string[] = [
     scope text NOT NULL,
     expires_at timestamptz NOT NULL,
     consumed_at timestamptz,
-    created_at timestamptz NOT NULL DEFAULT now()
+    created_at timestamptz NOT NULL DEFAULT now(),
+    unproven boolean NOT NULL DEFAULT false
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_oauth_codes_hash ON oauth_codes (code_hash)`,
   `CREATE INDEX IF NOT EXISTS idx_oauth_codes_expiry ON oauth_codes (expires_at)`,
@@ -153,19 +144,11 @@ export const ACCOUNT_DDL: string[] = [
     discoverable boolean NOT NULL DEFAULT false,
     label text,
     created_at timestamptz NOT NULL DEFAULT now(),
-    last_used_at timestamptz
+    last_used_at timestamptz,
+    unproven boolean NOT NULL DEFAULT false
   )`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_credentials_credential_id ON credentials (credential_id)`,
   `CREATE INDEX IF NOT EXISTS idx_credentials_user ON credentials (user_id)`,
-
-  // Made while the account's address was unproven: such a row opens nothing once it
-  // is proven (see sessions.unproven in server/db/schema.ts). Defaulted false, which
-  // leaves rows from before the column as they were: the claim deletes those anyway,
-  // and only a request in flight at the moment of a claim could write a straggler.
-  `ALTER TABLE sessions ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
-  `ALTER TABLE credentials ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
-  `ALTER TABLE access_tokens ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
-  `ALTER TABLE oauth_codes ADD COLUMN IF NOT EXISTS unproven boolean NOT NULL DEFAULT false`,
 
   // list_claims — "this account holds this list". See server/db/schema.ts for why
   // it's a join table and not an owner column, and why it stores no secret.

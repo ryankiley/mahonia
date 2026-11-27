@@ -69,6 +69,17 @@ const isNeon = () => Boolean(process.env.DATABASE_URL);
 // Safe on BOTH PGlite and Neon. Single source of truth; also spread into db.ts's
 // local idempotent DDL. The pg_trgm GIN index is created separately (Neon only).
 export const CATALOG_DDL: string[] = [
+  // search_terms — derived noun + locale/synonym aliases (scripts/searchTerms.ts),
+  // folded into the fuzzy match.
+  //
+  // common_name — the generated default label ("tent", "trekking poles") a pick
+  // pre-fills onto a list item.
+  //
+  // kcal — cited per-unit food energy (food rows only; null elsewhere).
+  //
+  // verified_by + source_quote — an in-app verification (verify_catalog_item): the
+  // admin account behind it, and the maker's words for the weight. Null on every
+  // seeded and community row; see schema.ts for what verified_by means to the seed.
   `CREATE TABLE IF NOT EXISTS catalog_items (
     id serial PRIMARY KEY,
     brand text,
@@ -84,31 +95,19 @@ export const CATALOG_DDL: string[] = [
     status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','merged','removed')),
     merged_into_id integer,
     created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now()
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    search_terms text,
+    common_name text,
+    kcal integer,
+    verified_by integer,
+    source_quote text
   )`,
-  // search_terms — derived noun + locale/synonym aliases (scripts/searchTerms.ts),
-  // folded into the fuzzy match. Added via ALTER so existing tables gain it too
-  // (CREATE TABLE IF NOT EXISTS above is a no-op once the table exists).
-  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS search_terms text`,
-  // common_name — the generated default label ("tent", "trekking poles") a pick
-  // pre-fills onto a list item. ALTER so existing tables gain it (like search_terms).
-  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS common_name text`,
-  // kcal — cited per-unit food energy (food rows only; null elsewhere). ALTER so
-  // existing tables self-migrate, same as search_terms/common_name.
-  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS kcal integer`,
-  // verified_by + source_quote — an in-app verification (verify_catalog_item): the
-  // admin account behind it, and the maker's words for the weight. Null on every
-  // seeded and community row; see schema.ts for what verified_by means to the seed.
-  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS verified_by integer`,
-  `ALTER TABLE catalog_items ADD COLUMN IF NOT EXISTS source_quote text`,
-  // Columns from the first version that nothing ever read or wrote, dropped where an
-  // older database still has them.
-  `ALTER TABLE catalog_items DROP COLUMN IF EXISTS description, DROP COLUMN IF EXISTS image_url, DROP COLUMN IF EXISTS msrp_cents, DROP COLUMN IF EXISTS currency`,
   // identity for idempotent upsert — coalesce so NULL brand/variant compare equal
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_catalog_identity ON catalog_items ((coalesce(brand,'')), name, (coalesce(variant,'')))`,
   // autocomplete ranking: verified first, then most-used
   `CREATE INDEX IF NOT EXISTS idx_catalog_rank ON catalog_items (verified DESC, usage_count DESC) WHERE status = 'active'`,
-  // catalog_edits — the wiki history (Phase 3); see schema.ts for the rationale
+  // catalog_edits — the wiki history (Phase 3); see schema.ts for the rationale.
+  // undo — an in-app verification's prior row fields, for revert_catalog_edit (schema.ts)
   `CREATE TABLE IF NOT EXISTS catalog_edits (
     id serial PRIMARY KEY,
     catalog_item_id integer NOT NULL,
@@ -117,14 +116,11 @@ export const CATALOG_DDL: string[] = [
     source_url text,
     reason text,
     status text NOT NULL DEFAULT 'applied' CHECK (status IN ('applied','proposed','reverted','rejected')),
-    created_at timestamptz NOT NULL DEFAULT now()
+    created_at timestamptz NOT NULL DEFAULT now(),
+    undo jsonb
   )`,
-  // a first-version column nothing ever read, dropped where it still exists
-  `ALTER TABLE catalog_edits DROP COLUMN IF EXISTS confirmations`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_item ON catalog_edits (catalog_item_id, created_at DESC)`,
   `CREATE INDEX IF NOT EXISTS idx_catalog_edits_recent ON catalog_edits (created_at DESC)`,
-  // undo — an in-app verification's prior row fields, for revert_catalog_edit (schema.ts)
-  `ALTER TABLE catalog_edits ADD COLUMN IF NOT EXISTS undo jsonb`,
 ];
 
 // Neon ships pg_trgm and unaccent; PGlite doesn't (see the file header), so the

@@ -47,10 +47,6 @@ export const CANDIDATES_DDL: string[] = [
     created_at timestamptz NOT NULL DEFAULT now(),
     updated_at timestamptz NOT NULL DEFAULT now()
   )`,
-  // the size or version column arrived after the table did (2026-09-12); a database
-  // that already has the table takes it here, the same way the catalog table grows
-  `ALTER TABLE catalog_candidates ADD COLUMN IF NOT EXISTS raw_variant text`,
-  `ALTER TABLE catalog_candidates ADD COLUMN IF NOT EXISTS raw_common_name text`,
   `CREATE UNIQUE INDEX IF NOT EXISTS idx_candidate_identity ON catalog_candidates (norm_key, list_id)`,
   `CREATE INDEX IF NOT EXISTS idx_candidate_open ON catalog_candidates (norm_key) WHERE promoted_into_id IS NULL AND rejected_at IS NULL`,
 ];
