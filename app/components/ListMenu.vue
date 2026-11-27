@@ -157,7 +157,7 @@ watch(open, (o) => {
         <span>{{ resumed ? (all.length > 1 ? "Picked up where you left off. Your other lists are here." : "Picked up where you left off.") : "Pick up where you left off" }}</span>
         <button
           type="button"
-          class="lm__hintclose ink-quiet"
+          class="lm__hintclose foreground-quiet"
           aria-label="Dismiss"
           title="Dismiss"
           @click="emit('dismiss-hint')"
@@ -221,10 +221,10 @@ watch(open, (o) => {
    (see the note on .btn:hover, controls.scss) — otherwise tapping the trigger left
    the fill sitting there after the menu had already closed. */
 .lm__trigger.is-on {
-  /* --wash-selected, the app's one tone for "this control is on" (the mode tabs right under this
+  /* --background-selected, the app's one tone for "this control is on" (the mode tabs right under this
      bar, the person filter, the row toggles); it was --background-secondary, a second tone for the
      same statement */
-  background: var(--wash-selected);
+  background: var(--background-selected);
   color: var(--foreground-primary);
 }
 @media (hover: hover) and (pointer: fine) {
@@ -233,11 +233,11 @@ watch(open, (o) => {
     color: var(--foreground-primary);
   }
   /* …and the open trigger still answers the pointer, a step up from its plate, as every
-     lit control does (--wash-selected-hover, tokens.scss). It has to be said: the pointer is ON the
+     lit control does (--background-selected-hover, tokens.scss). It has to be said: the pointer is ON the
      trigger the moment a click opens the menu, and the hover rule above, equal in weight
      and later, would otherwise put the resting hover ground back over the plate. */
   .lm__trigger.is-on:hover {
-    background: var(--wash-selected-hover);
+    background: var(--background-selected-hover);
   }
 }
 /* the app's dropdown mark, and it turns over when the menu is open — it IS the ⋯
@@ -275,9 +275,9 @@ watch(open, (o) => {
 }
 /* A drawn mark, not the "×" character it was: a glyph sits on the text baseline,
    which put it visibly below the sentence's middle, and no line-height centres a
-   character whose ink isn't centred in its own box.
-   The inks are .ink-quiet's (atoms/controls.scss), in the markup: the lesser ink at
-   rest, full ink under the pointer and on keyboard focus, on the fade */
+   character whose foreground isn't centred in its own box.
+   The foregrounds are .foreground-quiet's (atoms/controls.scss), in the markup: the lesser foreground at
+   rest, primary foreground under the pointer and on keyboard focus, on the fade */
 .lm__hintclose {
   flex: none;
   display: inline-flex;

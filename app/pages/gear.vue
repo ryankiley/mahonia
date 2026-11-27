@@ -656,7 +656,7 @@ async function exportGear(kind: string) {
                of the Kits tab instead, as a list's folder is ("New kit", below). -->
           <div class="vault__tabbar">
             <ModeBar :modes="TABS" :current="tab" label="My Gear view" @pick="pickTab" />
-            <button v-if="tab !== 'kits' && !offline" type="button" class="btn btn--quiet ink-quiet vault__tabadd" @click="openAdd">
+            <button v-if="tab !== 'kits' && !offline" type="button" class="btn btn--quiet foreground-quiet vault__tabadd" @click="openAdd">
               <SvgIcon :icon="IconPlusMedium" aria-hidden="true" />
               {{ addLabel }}
             </button>
@@ -941,7 +941,7 @@ async function exportGear(kind: string) {
 /* mark + value + chevron, on the trailing edge over the rows' own trailing controls;
    the value says which question it answers, so no "View" word. The class is on an
    OptionMenu's root, which is already a centred inline-flex box (.optmenu), and the
-   three parts are spaced inside its trigger; only where it sits and its ink are set
+   three parts are spaced inside its trigger; only where it sits and its foreground are set
    here. */
 .vault__view {
   margin-left: auto;
@@ -962,7 +962,7 @@ async function exportGear(kind: string) {
 .vault__view:focus-within .chev {
   color: var(--foreground-primary);
 }
-/* Pointer-gated, like every hover on this page that paints, ink included: on touch
+/* Pointer-gated, like every hover on this page that paints, foreground included: on touch
    a tap leaves :hover latched on the picker after its menu has closed, a lit control
    nothing is pointing at. Focus (the rules above) is what touch and keys get. */
 @media (hover: hover) and (pointer: fine) {
@@ -1013,7 +1013,7 @@ async function exportGear(kind: string) {
 .vault__body > .vault__mid {
   padding-bottom: calc(var(--control-compact) + var(--space-1));
 }
-/* The tab's mark over its message, at the lesser ink: it says which tab is speaking,
+/* The tab's mark over its message, at the lesser foreground: it says which tab is speaking,
    and gives a centred block of text something to hang from. 40px, the height of the
    button under it and off the icon scale on purpose: the scale's largest step (24) is
    for a glyph beside text, and alone over a paragraph it read as a stray bullet (Ryan:

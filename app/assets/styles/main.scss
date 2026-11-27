@@ -243,7 +243,7 @@
   border-bottom: 1px solid var(--border-strong);
   transition: border-color var(--spring-fade-dur) var(--spring-fade);
 }
-// deepen on hover, but never to full ink — keeps the underline soft (see --underline).
+// deepen on hover, but never to primary foreground — keeps the underline soft (see --underline).
 // Pointer-gated like every hover (see .btn:hover, controls.scss).
 @media (hover: hover) and (pointer: fine) {
   .prose a:not(.btn):hover {
@@ -256,7 +256,7 @@
    text beside them, and a box at that size stands the line taller than its neighbours.
    One step down to --text-chrome brings the glyphs level and keeps the chip inside the
    24px line (14 × 1.4 + the padding = 22.4). The ground is the well's tint rather than
-   the keycap's edged paper: a keycap is a thing you press, and this is only a thing you
+   the keycap's edged background: a keycap is a thing you press, and this is only a thing you
    read. */
 .prose code {
   display: inline-block;

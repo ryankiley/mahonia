@@ -152,7 +152,7 @@ async function decide(decision: "allow" | "deny") {
             </span>
             <span class="az__tie" />
             <span class="az__tile">
-              <!-- the favicon's M, in the page's ink -->
+              <!-- the favicon's M, in the page's foreground -->
               <MahoniaMark class="az__home" />
             </span>
           </div>
@@ -269,7 +269,7 @@ async function decide(decision: "allow" | "deny") {
   width: calc(22 * var(--tpx));
   height: calc(22 * var(--tpx));
 }
-/* the tie between them: three dots of the quietest ink, drawn as one dotted rule so
+/* the tie between them: three dots of the quietest foreground, drawn as one dotted rule so
    the gap reads as a connection being made rather than a gap */
 .az__tie {
   width: var(--space-6);

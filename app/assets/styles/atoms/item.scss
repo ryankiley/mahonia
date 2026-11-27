@@ -118,7 +118,7 @@
        children in VIEW (shared/packing), which on a context row is exactly the
        matching child below it, so pressing it packs that child. The dimming is
        about the figures; the box beneath it still does what it says. Direct children only — the
-       matching nested rows live in the sibling .nestcollapse and keep full ink.
+       matching nested rows live in the sibling .nestcollapse and keep primary foreground.
        …and NOT while the row has a surface up: opacity composites onto every
        descendant and no child can undo it, so without the guard the row's own
        popovers (the person picker, the nest menu, the name autocomplete)
@@ -361,8 +361,8 @@
 /* The CLASSIFICATION CHIP — the lit ground that says a row is worn or consumable.
    In the editor it is the ON state of a toggle button; in the share views it is a
    static mark. Same picture either way, so the paint lives here rather than in two
-   scoped blocks: a quiet grey chip (--wash-selected, whose whole job is this) carrying the
-   state without an inverted ink chip's weight — these sit in a dense list, and a row
+   scoped blocks: a quiet grey chip (--background-selected, whose whole job is this) carrying the
+   state without an inverted foreground chip's weight — these sit in a dense list, and a row
    of black dots would out-shout the weights, which are what the page is for. Colour
    would be the obvious signal, but this codebase reserves it for the data viz.
    It used to take --background-tertiary and read heavy for it; see that token for why a surface
@@ -377,17 +377,17 @@
    blink its state off. */
 .item__mark,
 .item__mark:hover {
-  background: var(--wash-selected);
+  background: var(--background-selected);
   background-clip: content-box;
   border-radius: var(--radius-pill);
   color: var(--foreground-primary);
 }
-/* The hold, plus an answer: under a fine pointer the lit toggle steps up to --wash-selected-hover
+/* The hold, plus an answer: under a fine pointer the lit toggle steps up to --background-selected-hover
    rather than sitting inert at its plate — a selected control still hovers. Buttons
    only: the share views' marks are facts (role="img"), and a fact doesn't hover. */
 @media (hover: hover) and (pointer: fine) {
   button.item__mark:hover {
-    background-color: var(--wash-selected-hover); /* longhand: the shorthand resets the clip above and the plate grew */
+    background-color: var(--background-selected-hover); /* longhand: the shorthand resets the clip above and the plate grew */
   }
 }
 
@@ -417,7 +417,7 @@
 /* The carrier tag — who takes this row, as a dot and a name riding the name line.
    ONE recipe for every face that draws it (the editor's edit + checklist faces and
    the share views' ReadonlyItemRow), per this file's own header rule: it existed
-   as two hand-mirrored scoped copies for exactly one review cycle. Quiet ink —
+   as two hand-mirrored scoped copies for exactly one review cycle. Quiet foreground —
    the dot is the identity, the name confirms it. */
 /* BASELINE, not centre — and the dot is what steps out of it (align-self below), which
    is the same two-part idiom .head__anchor uses for the trail link's favicon.
@@ -466,8 +466,8 @@
 /* The CAPTION FIELD — a line of live text under the thing it annotates, in the aside
    voice: an item's note, and its gear type and variant beside it (ItemRow's
    .item__note), and a day's note in the trip plan (.plan__daynote), which took the
-   item's recipe wholesale. No box and no handle; the lightest ink, italic, and the same
-   ink while typing as at rest, so nothing jumps between editing and reading. A static
+   item's recipe wholesale. No box and no handle; the lightest foreground, italic, and the same
+   foreground while typing as at rest, so nothing jumps between editing and reading. A static
    16px, like .field, so focusing one on a phone never zooms the page. The caret
    carries focus.
    A NOTE is a textarea (a sentence wraps; a value doesn't), sized to its content where

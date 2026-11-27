@@ -348,7 +348,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   gap: var(--space-2);
   color: var(--foreground-tertiary);
 }
-/* One step up from the rest of the line's ink: a name is content, where "edited 3m ago"
+/* One step up from the rest of the line's foreground: a name is content, where "edited 3m ago"
    is status. Still quiet enough to sit under the title without competing with it. */
 .view__byline {
   color: var(--foreground-secondary);

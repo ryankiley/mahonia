@@ -12,8 +12,8 @@
 // The look transcribes the app's own type system (foundations/typography.scss +
 // TotalsBar): two weights (400/600), 700 for the page-title role, tight tracking
 // on numbers and titles, the unit smaller and muted beside the big figure, labels
-// sentence-case 600 in secondary ink. Colors are the light-theme tokens — the
-// card is always light, paper being the brand's ground. Faces are Inter (the
+// sentence-case 600 in secondary foreground. Colors are the light-theme tokens — the
+// card is always light, background being the brand's ground. Faces are Inter (the
 // closest OFL stand-in for the site's system-ui stack — a lambda has no system
 // fonts), with InterDisplay for the two display-size runs, subset into
 // server/assets/fonts (coverage rule: shared/ogCard.ts's DRAWABLE_RANGES).
@@ -123,7 +123,7 @@ const CHIP_GAP = 48;
 const CHIP_PAIR_GAP = 14;
 const CARD_INNER_W = 1200 - 72 * 2;
 // Inter's average advance across this row's label/figure mix, measured off the raster
-// (tests/ogCard.test.ts renders a tonne-scale breakdown and checks the ink stops inside
+// (tests/ogCard.test.ts renders a tonne-scale breakdown and checks the foreground stops inside
 // the padding). Erring high is the safe direction: it shrinks a shade early rather than
 // letting a heavy list run off the card.
 const CHIP_ADVANCE_EM = 0.56;

@@ -82,9 +82,9 @@ body {
 // variant text beside it — otherwise the eye stops on a mid-height dot on its way
 // along the name.
 //
-// Opacity rather than a new colour token: the dot has to recede from whatever ink
+// Opacity rather than a new colour token: the dot has to recede from whatever foreground
 // its neighbour carries (--foreground-tertiary in a row, --background-primary on the inverted toast), and it
-// must not reach for --foreground-ghost, which is spoken for by the list-title
+// must not reach for --foreground-quaternary, which is spoken for by the list-title
 // placeholder and sits far below the AA floor on purpose.
 .sep {
   opacity: 0.55;

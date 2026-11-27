@@ -131,7 +131,7 @@ const meta = computed(() => {
            the end ("… Regular" / "… Long Wide") read identically, and this is the way
            to tell them apart without opening the dialog -->
       <p class="gear__name t-clip" :title="displayName">
-        <!-- the brand once, in its own ink: where the name already opens with it ("Apple
+        <!-- the brand once, in its own foreground: where the name already opens with it ("Apple
              Watch"), those words of the name are the brand -->
         <span v-if="brandOf(entry.brand, entry.name)" class="gear__brand">{{ brandOf(entry.brand, entry.name) }}</span>
         <span>{{ nameAfterBrand(entry.brand, entry.name) }}</span>
@@ -206,7 +206,7 @@ const meta = computed(() => {
       <Tooltip text="Edit">
         <button
           type="button"
-          class="btn btn--icon btn--ghost vault__act ink-quiet"
+          class="btn btn--icon btn--ghost vault__act foreground-quiet"
           :aria-label="`Edit ${displayName}`"
           @click="emit('edit')"
         >
@@ -220,7 +220,7 @@ const meta = computed(() => {
         <Tooltip text="Remove">
           <button
             type="button"
-            class="btn btn--icon btn--ghost vault__act ink-quiet"
+            class="btn btn--icon btn--ghost vault__act foreground-quiet"
             :disabled="busy"
             :aria-label="`Remove ${displayName} from My Gear`"
             @click="emit('remove')"
@@ -247,7 +247,7 @@ const meta = computed(() => {
 }
 /* The picture column. Its box is the name's first line (1lh tall), so the glyph
    centres on that line however many lines the row grows, the same reasoning that
-   puts the trailing marks at flex-start. Secondary ink: it supports the name, it
+   puts the trailing marks at flex-start. Secondary foreground: it supports the name, it
    doesn't outrank it. Pulled closer to the name than the row's gap, because the two
    are one object and the row's --space-4 is the gap BETWEEN objects. */
 .vault__type {
@@ -269,11 +269,11 @@ const meta = computed(() => {
   width: 100%;
   height: 100%;
 }
-/* An empty slot wears the dashed square in the faintest ink, where an icon
+/* An empty slot wears the dashed square in the faintest foreground, where an icon
    would sit. It used to be a 14px dashed border drawn in CSS, whose dashes rendered
    unevenly at that size and read on a real page as an image that failed to load. */
 .vault__typebtn.is-blank {
-  color: var(--foreground-ghost);
+  color: var(--foreground-quaternary);
 }
 @media (hover: hover) and (pointer: fine) {
   .vault__typebtn:hover {
@@ -346,7 +346,7 @@ const meta = computed(() => {
   align-self: flex-start;
   margin-block: var(--icon-pull);
 }
-/* sizing + hover come from .btn--icon .btn--ghost; only the quiet resting ink is
+/* sizing + hover come from .btn--icon .btn--ghost; only the quiet resting foreground is
    ours, matching the folder header's delete beside it */
 .vault__act {
   flex: none;

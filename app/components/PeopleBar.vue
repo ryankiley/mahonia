@@ -88,7 +88,7 @@ const { onKey } = useRovingRadio(
              characters, and the chip used to run out past the screen's edge with it.
              The chip's title carries the whole name for a pointer. -->
         <span class="pplbar__name t-clip">{{ c.label }}</span><!--
-        the chip's carry, riding a step off the name in the chip's OWN ink — the
+        the chip's carry, riding a step off the name in the chip's OWN foreground — the
         bordered chip shape is what keeps it reading as a control, not a readout chip
         --><span v-if="c.weight" class="t-num pplbar__wt">{{ c.weight }}</span>
       </button>
@@ -116,7 +116,7 @@ const { onKey } = useRovingRadio(
    change what the page shows, a few rows apart — so they wear its class rather than a
    copy of it: the option height and its row rhythm, --radius-2 (not the pill: that is
    for a button standing on its own, and a row of options never does), the chrome type
-   and the quiet ink, the wash under a pointer, the inward focus ring, the --wash-selected plate
+   and the quiet foreground, the wash under a pointer, the inward focus ring, the --background-selected plate
    when chosen (the app's one on-plate, and it answers the pointer a step up), and on a
    coarse pointer the transparent ::before that makes a 32px chip a 44px target — top and
    bottom only, since the chips sit --space-1 apart and an overhang sideways would hand
@@ -149,7 +149,7 @@ const { onKey } = useRovingRadio(
   border-color: transparent;
 }
 /* (the hollow "no colour yet" dot is the shared .swatch--hollow atom — controls.scss) */
-/* The carry takes the chip's OWN ink: t-muted is --foreground-secondary, a step DARKER than a
+/* The carry takes the chip's OWN foreground: t-muted is --foreground-secondary, a step DARKER than a
    resting chip's --foreground-tertiary, so the qualifier out-shouted the name it qualifies on
    every chip but the lit one. No margin — the chip's flex gap is the spacing,
    and a margin on top of it doubled the step. */

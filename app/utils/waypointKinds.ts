@@ -15,7 +15,7 @@ import type { WaypointKind } from "~~/shared/types";
  *
  * COLOUR: water, camp and landmark are CONTENT, so they take category hues. The route's
  * own two ends are properties of the route rather than categories of thing, so they take
- * ink and differ by their glyph — which also stops five pins exhausting the palette.
+ * foreground and differ by their glyph — which also stops five pins exhausting the palette.
  * All five avoid red, amber and orange: the elevation profile spends exactly those on
  * grade severity, and a waypoint will appear on that chart eventually.
  */

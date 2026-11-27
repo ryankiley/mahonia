@@ -197,12 +197,12 @@ watch(
   max-width: 100%;
 }
 /* folder names read as labels — same treatment as the Base/Worn chips (t-label):
-   strong weight, secondary ink. The figure beside them keeps full ink. */
+   strong weight, secondary foreground. The figure beside them keeps primary foreground. */
 .catbar__name {
   font-weight: 600;
   color: var(--foreground-secondary);
 }
-/* the figure carries the data (full ink); its unit is secondary (--foreground-secondary, the one
+/* the figure carries the data (primary foreground); its unit is secondary (--foreground-secondary, the one
    de-emphasis level — same as every other unit), and the two sit tight as one
    "1,300 g" pair — which trails the name's last word rather than breaking from it.
    text-indent is reset because the hanging indent above belongs to the ITEM, and a

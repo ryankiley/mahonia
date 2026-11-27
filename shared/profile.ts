@@ -323,7 +323,7 @@ export function gradeSeries(profile: readonly number[], totalDistanceM: number):
 
 /**
  * The profile cut into runs of like difficulty — `[from, to]` sample indices, inclusive,
- * each meeting the next so a renderer can draw them without a hairline of paper between.
+ * each meeting the next so a renderer can draw them without a hairline of background between.
  *
  * Lives here rather than in the component because it is arithmetic on the same smoothed
  * series everything else here reads, and both the shading and anything else that wants to

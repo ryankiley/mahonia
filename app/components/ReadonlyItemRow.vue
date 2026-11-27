@@ -317,7 +317,7 @@ const rowPerson = computed(() =>
 }
 /* NO .item__mark ground. In the editor that lit pill is the ON state of a toggle
    BUTTON; a read row has no toggles, so the same pill drew a button-shaped thing that
-   did nothing when pressed. The picture is the whole mark, one ink step down from the
+   did nothing when pressed. The picture is the whole mark, one foreground step down from the
    figures beside it: the class qualifies the row, the weight is what the row is for.
    `vertical-align` drops the glyph off the baseline until its optical centre sits on
    the figures' — an <svg>'s own baseline is its bottom edge, so left alone it perches

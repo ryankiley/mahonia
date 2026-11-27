@@ -111,16 +111,16 @@ useMenuDismiss(open, toRef(props, "root"));
   padding-inline: calc((var(--iconpick-cell) - var(--icon)) / 2);
   text-align: start;
 }
-/* the one you have: the menus' wash under full-strength ink */
+/* the one you have: the menus' wash under primary foreground */
 .iconpick__cell[aria-pressed="true"],
 .iconpick__auto[aria-pressed="true"] {
-  background: var(--wash-hover);
+  background: var(--background-hover);
   color: var(--foreground-primary);
 }
 @media (hover: hover) and (pointer: fine) {
   .iconpick__cell:hover,
   .iconpick__auto:hover {
-    background: var(--wash-hover);
+    background: var(--background-hover);
     color: var(--foreground-primary);
   }
 }

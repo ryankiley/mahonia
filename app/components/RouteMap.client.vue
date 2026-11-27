@@ -455,7 +455,7 @@ function renderBounds() {
       // THE SAME DROP AS A WAYPOINT, because on the map it is one: the end of a day is
       // a camp, and a reader shouldn't have to know which of these the itinerary drew
       // and which somebody placed. It takes the inverted pin's recipe wholesale (see
-      // the CSS) — the itinerary talking, in ink rather than a category's hue — and
+      // the CSS) — the itinerary talking, in foreground rather than a category's hue — and
       // keeps its own name only as a hook.
       icon: pinIcon("camp", " routemap__pin--dark routemap__bound"),
     }).addTo(map);
@@ -1200,7 +1200,7 @@ onBeforeUnmount(() => {
            than it does for the estimates, because one of the gestures it explains is the
            press-and-hold, and touch is exactly where that one is worth knowing. -->
       <Tooltip v-else :text="gestures" preferred-placement="top">
-        <button type="button" class="btn btn--icon btn--ghost ink-quiet routemap__help" aria-label="How to use this map">
+        <button type="button" class="btn btn--icon btn--ghost foreground-quiet routemap__help" aria-label="How to use this map">
           <SvgIcon :icon="IconQuestionmarkCircle" size="sm" />
         </button>
       </Tooltip>
@@ -1302,7 +1302,7 @@ onBeforeUnmount(() => {
 .routemap__wpdel {
   align-self: flex-start;
   font-size: var(--text-chrome);
-  // the one destructive control on the map, so it says so — every other mark here is ink
+  // the one destructive control on the map, so it says so — every other mark here is foreground
   // or a category hue, and this is neither
   color: var(--danger);
 }
@@ -1379,7 +1379,7 @@ onBeforeUnmount(() => {
   color: var(--foreground-tertiary);
 }
 /* The (?) sits where the sentence did, and quietly — it is an offer, not a notice. Its
-   inks are .ink-quiet's (controls.scss), so it lifts under keyboard focus as well as
+   foregrounds are .foreground-quiet's (controls.scss), so it lifts under keyboard focus as well as
    under the pointer. */
 
 // ARMED: one stretch of the route is the only thing worth aiming at, so the cursor says
@@ -1493,7 +1493,7 @@ onBeforeUnmount(() => {
    A white drop with a coloured glyph says "one of the things you will pass" — water, a
    landmark, a kind of place. These are not that. A camp is where the plan puts you and the
    ends are where the route begins and stops, and both are statements the ROUTE makes rather
-   than categories of thing. Solid ink says so at a glance and needs no further hue, which
+   than categories of thing. Solid foreground says so at a glance and needs no further hue, which
    matters on a sheet already carrying magenta paths and green woodland.
    The seat inverts with it — a step OFF the drop rather than a fixed grey, so the head
    still reads as round instead of as a black blob with a point on it.
@@ -1511,7 +1511,7 @@ onBeforeUnmount(() => {
 }
 
 /* THE CHART'S CURSOR, ON THE GROUND.
-   The same mark the profile draws at the same moment — ink with a paper ring — because it
+   The same mark the profile draws at the same moment — foreground with a background ring — because it
    IS the same mark: one reading shown twice, once on the shape and once on the place. Made
    of the light-theme values rather than tokens, like everything else drawn over this
    basemap, which stays light in both themes.

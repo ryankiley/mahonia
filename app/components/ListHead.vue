@@ -566,7 +566,7 @@ onClickOutside(trailEl, closeTrail);
           />
           <SvgIcon :icon="IconGlobe2" v-else class="head__cardicon head__icon--fallback" size="sm" aria-hidden="true" />
           <a
-            class="head__cardurl t-clip ink-quiet"
+            class="head__cardurl t-clip foreground-quiet"
             :href="link.href"
             target="_blank"
             rel="nofollow ugc noopener noreferrer"
@@ -579,7 +579,7 @@ onClickOutside(trailEl, closeTrail);
           >
             <!-- sm, tracking the card's own 14px type; md is for marks beside 16px text (the
                  link row) and reads oversized in here. The line drops a step below sm's
-                 1.25px as well: among these words a fuller outline carries more ink than
+                 1.25px as well: among these words a fuller outline carries more foreground than
                  they do and stops reading as their equal. 1px is what the old tuning drew
                  (1.75 on the 24 grid at 14px); lighter still went spindly. -->
             <SvgIcon :icon="IconSquareBehindSquare1" size="sm" :stroke-width="1" aria-hidden="true" />
@@ -718,7 +718,7 @@ onClickOutside(trailEl, closeTrail);
               text="GPX, KML, KMZ, TCX, FIT, GeoJSON, or GeoRSS. Gives the route’s distance and climb. The file stays in your browser."
               preferred-placement="bottom"
             >
-              <button type="button" class="head__gpxwhy ink-quiet" aria-label="Which map files can be read">
+              <button type="button" class="head__gpxwhy foreground-quiet" aria-label="Which map files can be read">
                 <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
@@ -732,7 +732,7 @@ onClickOutside(trailEl, closeTrail);
           <p v-if="pending" class="head__gpxerr t-sm">
             This route can add {{ counted(pending.pins.length, "waypoint") }}.
             <button type="button" class="head__gpxyes" @click="confirmPins">Add them</button>
-            <button type="button" class="head__gpxno ink-quiet" @click="pending = null">No thanks</button>
+            <button type="button" class="head__gpxno foreground-quiet" @click="pending = null">No thanks</button>
           </p>
 
           <!-- edit only. On the way IN the single job is pasting a URL; a title box there
@@ -844,11 +844,11 @@ onClickOutside(trailEl, closeTrail);
 .head__pencil {
   flex: none;
   /* Centred on the title's CAP HEIGHT, not its line box.
-     Centring on the line box put this 4.4px high, because a title's ink sits low in
+     Centring on the line box put this 4.4px high, because a title's foreground sits low in
      its box: the face's ascent is 0.969em but its caps are only 0.705em, and the
      leading is split evenly above and below. So the optical centre of the word is
      well under the box's middle.
-     Cap height, not the rendered glyphs — measuring actual ink would move the hint
+     Cap height, not the rendered glyphs — measuring actual foreground would move the hint
      the moment you typed a "y".
      From the wrapper's top:  .field's padding-top
                             + half-leading (1.2 - 0.969 - 0.219) / 2 = 0.006em
@@ -921,10 +921,10 @@ onClickOutside(trailEl, closeTrail);
   }
 }
 /* much lighter than .field's --foreground-tertiary default: at 32px bold, --foreground-tertiary reads as a real
-   title someone typed rather than as an empty field. See --foreground-ghost in tokens.scss
+   title someone typed rather than as an empty field. See --foreground-quaternary in tokens.scss
    for why going under the AA floor is sound here specifically. */
 .head__title::placeholder {
-  color: var(--foreground-ghost);
+  color: var(--foreground-quaternary);
 }
 /* The trail link row. Holds the "Add a trail" button OR the resolved link, in the same
    place, and keeps its height either way so nothing below shifts as the affordance
@@ -1046,7 +1046,7 @@ onClickOutside(trailEl, closeTrail);
   opacity: 1;
   visibility: visible;
 }
-/* muted, not full ink — the URL is what you're confirming, not what you act on, so the
+/* muted, not primary foreground — the URL is what you're confirming, not what you act on, so the
    ACTION beside it takes the emphasis. (Darkening it was a guess; it wants to be the
    other way round.) */
 /* block, not the browser's default inline: an inline <img> sits on the text baseline and
@@ -1074,10 +1074,10 @@ onClickOutside(trailEl, closeTrail);
   max-width: 32ch;
   /* the one thing here that navigates, so it deepens under the pointer and on focus —
      quiet at rest, because the card is a place you land on the way to Edit as often as
-     to the trail itself. The inks are .ink-quiet's (atoms/controls.scss), worn in the
+     to the trail itself. The foregrounds are .foreground-quiet's (atoms/controls.scss), worn in the
      markup. */
 }
-/* the actions are the emphasis in this card: full ink, at .btn--quiet's regular
+/* the actions are the emphasis in this card: primary foreground, at .btn--quiet's regular
    weight. The explicit font-size is load-bearing — .btn hard-sets --text-base (16px), which would otherwise
    leave "Edit" at 16px beside a 12px URL and push the card to 40px tall against the
    reference's 32px. */
@@ -1094,7 +1094,7 @@ onClickOutside(trailEl, closeTrail);
    the affordance is a line of text in the page's own flow, not a control on a surface, so
    colour alone carries the hover — and with no box, its glyph sits flush at the same x as
    the resolved link's mark with nothing to compensate for. */
-/* the inks are .btn--quiet's own (controls.scss) — rest at --foreground-tertiary, lift to --foreground-primary under
+/* the foregrounds are .btn--quiet's own (controls.scss) — rest at --foreground-tertiary, lift to --foreground-primary under
    the pointer or keyboard focus; the icon inherits currentColor, so it lifts with the
    text. Restating the resting colour here used to TIE the atom's hover on specificity
    (scoping adds a [data-v-] attribute) and win on order, so the button never answered
@@ -1187,8 +1187,8 @@ onClickOutside(trailEl, closeTrail);
    boundary. Each label sits above its own field, so a placeholder never has to stand in
    for one.
    The fill is the .well atom (atoms/controls.scss), worn in the markup: its ground (an
-   amount of ink, so it shows on this card in both themes, where the --background-secondary this used
-   sat at 1.10:1 on it), its ink, its placeholder, and its focus — the ground deepens a
+   amount of foreground, so it shows on this card in both themes, where the --background-secondary this used
+   sat at 1.10:1 on it), its foreground, its placeholder, and its focus — the ground deepens a
    step and nothing is drawn round it, the one focus every contained field on a floating
    surface takes. Only the geometry below is this panel's. */
 .head__panelinput {
@@ -1203,7 +1203,7 @@ onClickOutside(trailEl, closeTrail);
   line-height: 1.25;
   padding: var(--space-1) var(--space-2);
   /* No outline, at rest or focused (the reset already gives inputs none — the old
-     `1px solid transparent` was opting back IN so a focus ring could ink it). The
+     `1px solid transparent` was opting back IN so a focus ring could foreground it). The
      fill IS the field here; a ring on top said the same thing twice, and the site's
      own inputs carry no border at all — the caret carries focus. */
   /* smaller than the panel's own corner — derived, so it tracks --radius-3 */
@@ -1263,7 +1263,7 @@ onClickOutside(trailEl, closeTrail);
   display: none;
 }
 /* the (?) that replaced a line of caveats — the same quiet treatment the planning rows
-   use, and the same class for it: .ink-quiet (atoms/controls.scss), in the markup */
+   use, and the same class for it: .foreground-quiet (atoms/controls.scss), in the markup */
 .head__gpxwhy {
   display: inline-flex;
   margin-left: var(--space-1);
@@ -1281,8 +1281,8 @@ onClickOutside(trailEl, closeTrail);
   text-decoration: underline;
   text-underline-offset: var(--underline-offset);
 }
-/* the yes stands at full ink, so it has nowhere to lift to; the no rests a step back and
-   lifts to meet it — .ink-quiet (atoms/controls.scss), in the markup */
+/* the yes stands at primary foreground, so it has nowhere to lift to; the no rests a step back and
+   lifts to meet it — .foreground-quiet (atoms/controls.scss), in the markup */
 .head__gpxyes {
   margin-left: var(--space-1);
   color: var(--foreground-primary);
@@ -1302,7 +1302,7 @@ onClickOutside(trailEl, closeTrail);
 /* The .menu__item atom's treatment, with this panel's own geometry: its ground on the
    grounds' edge with the fields and the rule above it, its icon on the words' edge. */
 .head__panelremove {
-  /* .menu__item (atoms/controls.scss) supplies the row: background, ink, hover tint,
+  /* .menu__item (atoms/controls.scss) supplies the row: background, foreground, hover tint,
      concentric radius, transition, and the centred flex row itself with its
      12px gap. Only this panel's own geometry lives here. The radius comes out right
      because .head__panel keeps the .popover atom's corner — see there. */
@@ -1367,11 +1367,11 @@ onClickOutside(trailEl, closeTrail);
   color: var(--foreground-tertiary);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss). The wash
-   and the ink used to sit in two consecutive rules on the identical selector; they
+   and the foreground used to sit in two consecutive rules on the identical selector; they
    are one affordance, so they travel as one block now. */
 @media (hover: hover) and (pointer: fine) {
   .head__dateclear:hover {
-    background: var(--wash-hover);
+    background: var(--background-hover);
     color: var(--foreground-primary);
   }
 }

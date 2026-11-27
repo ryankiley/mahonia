@@ -197,7 +197,7 @@ export function useMenuPlate(): {
       // OPT-IN, via [data-row-hue] — the same way [data-row] already says which
       // elements the plate may land on at all. The design system's ds-menu takes every
       // row's colour unconditionally, which is right there and wrong here: Mahonia's
-      // rows already vary their ink for HIERARCHY (a section item and the switcher's
+      // rows already vary their foreground for HIERARCHY (a section item and the switcher's
       // "New list" sit at --foreground-secondary), so washing from that would light those rows more
       // faintly than their neighbours — "less hoverable" rather than "different in
       // kind". Marking the one row that means it leaves every other menu untouched.
@@ -205,7 +205,7 @@ export function useMenuPlate(): {
       // The COLOUR comes from computed `color`, which is resolved — light-dark()
       // picked, var() substituted. A custom property would hand over its raw token
       // stream instead, and the row's own declaration is the honest single source for
-      // "this row's ink" anyway.
+      // "this row's foreground" anyway.
       if (row.hasAttribute("data-row-hue")) {
         plate.style.setProperty("--hov-foreground", getComputedStyle(row).color);
       } else {

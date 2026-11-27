@@ -104,7 +104,7 @@ function onName(e: Event) {
            ~240ms of the switch was rebuilding folder chrome. -->
       <div class="folder__actions">
         <button
-          class="btn btn--icon btn--ghost ink-quiet"
+          class="btn btn--icon btn--ghost foreground-quiet"
           title="Remove folder"
           :aria-label="`Remove ${folder.name || 'folder'}`"
           @click="c.removeFolder(folder.id)"
@@ -114,7 +114,7 @@ function onName(e: Event) {
         <!-- drag via pointerdown; arrow keys give the focused grip the reordering
              its label promises (a drag needs a pointer) -->
         <button
-          class="btn btn--icon btn--ghost grip ink-quiet"
+          class="btn btn--icon btn--ghost grip foreground-quiet"
           title="Drag to reorder folder"
           :aria-label="`Reorder ${folder.name || 'folder'}`"
           @pointerdown="fdnd.start(folder.id, $event)"
@@ -207,7 +207,7 @@ function onName(e: Event) {
    same .folder__bodyinner and needs the identical release, and a SCOPED rule only
    ever matched the elements this component rendered */
 /* packing/checklist mode disables the name input (it's read-only there). Browsers
-   grey disabled inputs out (UA -webkit-text-fill-color), so pin it back to full ink —
+   grey disabled inputs out (UA -webkit-text-fill-color), so pin it back to primary foreground —
    the folder name should read the same as it does in edit mode. */
 .folder__name:disabled {
   color: var(--foreground-primary);

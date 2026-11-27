@@ -6,7 +6,7 @@
  * Mahonia divergences kept on purpose:
  * - Universal margin/padding zero — gear's many unstyled <ul> grids (My Lists,
  *   Discover, the catbar legend) rely on no default list padding.
- * - Links inherit ink with NO underline — gear styles links per component
+ * - Links inherit foreground with NO underline — gear styles links per component
  *   (buttons, nav); the few inline links opt into their own affordance.
  * - Form controls are borderless + transparent — the .field / .btn atoms in
  *   controls.scss rebuild any chrome; portfolio keeps UA borders, gear doesn't.
@@ -243,7 +243,7 @@ input[type="checkbox"] {
   touch-action: manipulation;
 }
 
-// Links inherit ink, no underline — styled per component.
+// Links inherit foreground, no underline — styled per component.
 a {
   color: inherit;
   text-decoration: none;

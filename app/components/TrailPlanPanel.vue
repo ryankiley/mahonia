@@ -270,7 +270,7 @@ const profile = computed(() => parseProfile(props.snapshot.trailProfile));
 
 // ---- what the day is like, read off the profile ----
 // The camp's altitude, the high point, the longest climb and the steepest stretch
-// (shared/dayFacts): derived, said in the estimate's ink, silent on a day with no
+// (shared/dayFacts): derived, said in the estimate's foreground, silent on a day with no
 // distance. Nothing here is typed; the profile is public but this reads on /e for now.
 const facts = computed(() =>
   dayFactsForRanges(profile.value, props.snapshot.trailDistanceM, ranges.value, props.snapshot.trailAscentM),
@@ -608,7 +608,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
       <FigureChip v-if="totalAscentM > 0" :label="snapshot.trailAscentM ? 'Climb in days' : 'Climb'" :value="ascentReadout(totalAscentM)" :unit="ascentUnit" />
       <!-- the pack, kept in view because the totals bar stands down in this mode. The
            unit as its own element, the way the totals bar does it: baked into the
-           formatted string it can't take the lesser ink, so "lb" sat at full weight
+           formatted string it can't take the lesser foreground, so "lb" sat at full weight
            beside every other unit on the panel stepping back -->
       <Tooltip v-if="load.carriedMg > 0" :text="carriedTip" :disabled="!carriedTip" preferred-placement="bottom">
         <FigureChip
@@ -778,7 +778,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
           />
           <button
             type="button"
-            class="btn btn--icon btn--ghost ink-quiet plan__del"
+            class="btn btn--icon btn--ghost foreground-quiet plan__del"
             :title="`Remove day ${i + 1}`"
             :aria-label="`Remove day ${i + 1}`"
             @click="removeDay(i)"
@@ -867,7 +867,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
                  The calories beside it keep theirs, being a single figure. -->
             <span class="t-num">{{ estimates[i] ? formatHours(estimates[i]!.hours) : "—" }}</span>
             <Tooltip v-if="estimates[i]" text="Walking time only, no breaks. Pace follows the gradient and the weight of your pack." preferred-placement="top">
-              <button type="button" class="plan__why ink-quiet" aria-label="How the walking time is worked out">
+              <button type="button" class="plan__why foreground-quiet" aria-label="How the walking time is worked out">
                 <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
@@ -875,7 +875,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 
           <!-- How much light there is to walk in: sunrise to sunset at the middle of the
                day's stretch, on its date. Arithmetic rather than an estimate, so it carries
-               no `~` and no band. It takes the caution ink when the walking time before it
+               no `~` and no band. It takes the caution foreground when the walking time before it
                runs past the light less a margin (lightIsShort): a walk that ends in the dark
                is the one thing about a day that a week's notice fixes. Only a dated list
                with a route has it; everything else renders nothing rather than a guess. -->
@@ -888,7 +888,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             <span class="t-num">{{ formatDaylight(dayDaylight[i]!) }}</span>
             <span class="visually-hidden"> of daylight</span>
             <Tooltip :text="lightTip(i)" preferred-placement="top">
-              <button type="button" class="plan__why ink-quiet" aria-label="How the daylight is worked out">
+              <button type="button" class="plan__why foreground-quiet" aria-label="How the daylight is worked out">
                 <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
@@ -898,7 +898,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
             <SvgIcon :icon="IconFire2" class="plan__gl" aria-hidden="true" />
             <span class="t-num">{{ estimates[i] ? `~${formatKcal(roundKcal(estimates[i]!.totalKcal))}` : "—" }}</span>
             <Tooltip v-if="estimates[i]" :text="burnTip" preferred-placement="top">
-              <button type="button" class="plan__why ink-quiet" aria-label="How the calories are worked out">
+              <button type="button" class="plan__why foreground-quiet" aria-label="How the calories are worked out">
                 <SvgIcon :icon="IconQuestionmarkCircle" size="sm" aria-hidden="true" />
               </button>
             </Tooltip>
@@ -920,7 +920,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
         </div>
 
         <!-- What the day is like, read off the profile: two derived sentences in the
-             estimate's ink. The first is where you end up and how high; the second is
+             estimate's foreground. The first is where you end up and how high; the second is
              the climb you'll remember and the steepest bit. Both go quiet when there
              is nothing to say (flat ground, a day with no distance). -->
         <template v-if="dayDistancesM[i] && facts[i]">
@@ -1207,14 +1207,14 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__collapse--tight {
   margin-left: calc(var(--space-2) * -1 + 2px);
 }
-/* …and only the delete goes to the far edge. Its inks are .ink-quiet's (controls.scss):
+/* …and only the delete goes to the far edge. Its foregrounds are .foreground-quiet's (controls.scss):
    a resting colour stated here tied the ghost button's hover on specificity and won on
    order, so the glyph never answered the pointer. */
 .plan__del {
   flex: none;
   margin-left: auto;
 }
-/* The day's note: the item note's caption voice, at day scale — the lightest ink,
+/* The day's note: the item note's caption voice, at day scale — the lightest foreground,
    italic, no box and no handle, one line until the text wraps. 16px, static, so focusing
    it on a phone never zooms the page. That is the shared caption field (atoms/item.scss,
    one rule with ItemRow's .item__note); only its box in this column is set here. */
@@ -1277,7 +1277,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   color: var(--foreground-tertiary);
 }
 /* a derived sentence under the day's figures (the camp, the ground, the carry), in the
-   estimate's ink, with a glyph for its subject so a stack of them scans by shape */
+   estimate's foreground, with a glyph for its subject so a stack of them scans by shape */
 .plan__fact {
   margin-top: var(--space-1);
   display: flex;
@@ -1290,7 +1290,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   position: relative;
   top: 0.2em;
 }
-/* the once-only hint above the days, same ink, same size, no glyph */
+/* the once-only hint above the days, same foreground, same size, no glyph */
 .plan__carryhint {
   margin-top: var(--space-2);
   color: var(--foreground-tertiary);
@@ -1312,9 +1312,9 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   color: var(--foreground-tertiary);
 }
 /* The light, when the walk runs past it: the figure and its sun step FORWARD to full
-   ink, from the estimate's step back. Not --danger: that token is spent on destruction
+   foreground, from the estimate's step back. Not --danger: that token is spent on destruction
    alone (tokens.scss), and the chrome is monochrome by rule, so a caution here is the
-   same move every emphasis on this site makes, a darker ink. On a row of stepped-back
+   same move every emphasis on this site makes, a darker foreground. On a row of stepped-back
    figures one at full strength is the thing the eye lands on, and the (?) beside it
    says why. */
 .plan__cell--light.is-short,
@@ -1329,8 +1329,8 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   margin-left: var(--space-2);
   display: inline-flex;
   cursor: help;
-  /* the inks are .ink-quiet's (controls.scss). The resting state is --foreground-tertiary and NOT
-     --foreground-ghost: the ghost token's own definition says not to reuse it below the
+  /* the foregrounds are .foreground-quiet's (controls.scss). The resting state is --foreground-tertiary and NOT
+     --foreground-quaternary: the token's own definition says not to reuse it below the
      page-title size, and at 14px it made the only sign an explanation exists a 1.35:1
      smudge — invisible to exactly the reader who needed the explanation. */
 }
@@ -1338,7 +1338,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   flex: none;
   color: var(--foreground-tertiary);
 }
-/* Units and other trailing small text take --foreground-tertiary, the lesser ink.
+/* Units and other trailing small text take --foreground-tertiary, the lesser foreground.
  *
  * NOT `.t-muted`, which is --foreground-secondary and therefore DARKER — beside a derived figure (also
  * --foreground-tertiary) it made the unit louder than the number it qualifies, which is backwards. One
@@ -1378,7 +1378,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   max-width: 7ch;
   text-align: left;
 }
-/* Literally the "Add folder" treatment — same type, same inks, same distance from the
+/* Literally the "Add folder" treatment — same type, same foregrounds, same distance from the
    run of things above it. .editor__addfolder reaches --space-7 from a --space-4 parent
    gap and this has the identical arithmetic to do, so it does it the identical way. */
 .plan__addwrap {
@@ -1502,7 +1502,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
    hands both). Its own template only lined it up with itself, which put its distance
    somewhere the pins' never was. The trailing action cell is empty; there is nothing
    to delete here. What's left here is the one thing the camp says differently: */
-/* ink, not a category hue — it is the itinerary talking, the same thing the handle on
+/* foreground, not a category hue — it is the itinerary talking, the same thing the handle on
    the map says by being paper-filled rather than solid */
 .plan__campkind {
   color: var(--foreground-tertiary);

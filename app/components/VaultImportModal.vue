@@ -142,7 +142,7 @@ const summary = computed(() => {
      the box scrolls anyway */
   resize: none;
 }
-/* plain ink, not --danger: colour is reserved for the data viz and irreversible
+/* plain foreground, not --danger: colour is reserved for the data viz and irreversible
    acts, and an import that didn't go through is neither (matches .vitem__err) */
 .vimport__err {
   color: var(--foreground-primary);

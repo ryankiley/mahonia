@@ -233,13 +233,13 @@ function act(event: MenuEvent | FootEvent) {
    [data-row-hue] in the markup is what opts this row into the plate washing it in
    its OWN hue rather than the neutral one (useMenuPlate reads the colour straight
    off this declaration), so every other menu in the app is untouched.
-   No hover deepen. The wash is the state — moving the ink as well would say two
+   No hover deepen. The wash is the state — moving the foreground as well would say two
    things about one event, and there is nowhere darker for red to go that doesn't
    read as a different colour. */
 /* the glyph column, and the `flex: none` pinning the icon into it, are .menu__item's
    own now (atoms/controls.scss) — including the section header's, which took its gap
    from the copy that lived here */
-/* ...and forgetting stays in plain ink. It is not a lesser action — it takes the
+/* ...and forgetting stays in plain foreground. It is not a lesser action — it takes the
    default row colour, not the quiet one — it just isn't the irreversible one, and
    red is what this menu reserves for that. */
 .editor__delete {

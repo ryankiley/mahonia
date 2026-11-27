@@ -803,7 +803,7 @@ async function onSignOut() {
   border-color: var(--foreground-secondary);
 }
 
-/* the address in the sent line, in full ink and unbroken where it fits */
+/* the address in the sent line, in primary foreground and unbroken where it fits */
 .acct__sentto {
   color: var(--foreground-primary);
   overflow-wrap: anywhere;
@@ -865,7 +865,7 @@ async function onSignOut() {
 .acct__switch {
   color: var(--foreground-primary);
   font-weight: 600;
-  /* the house underline: soft at rest, deepens to --foreground-secondary — never full ink
+  /* the house underline: soft at rest, deepens to --foreground-secondary — never primary foreground
      (tokens.scss, the --underline rule) */
   text-decoration: underline;
   text-decoration-color: var(--underline);
@@ -874,7 +874,7 @@ async function onSignOut() {
 .acct__switch:focus-visible {
   text-decoration-color: var(--foreground-secondary);
 }
-/* pointer-gated, ink included: a tap latches :hover on touch, and the underline would
+/* pointer-gated, foreground included: a tap latches :hover on touch, and the underline would
    stay deepened on a switch nobody is pointing at */
 @media (hover: hover) and (pointer: fine) {
   .acct__switch:hover {
@@ -945,7 +945,7 @@ async function onSignOut() {
    On the signed-out screen the field sits over a full-width pill button, where a bare
    underline reads as a gap rather than a control: the same height, radius and padding
    as the button, so the two stack as one object, and the text starts on the left like
-   any other input, rather than centred with the prose. Its full width and placeholder ink are .field's (controls.scss). */
+   any other input, rather than centred with the prose. Its full width and placeholder foreground are .field's (controls.scss). */
 .acct__input {
   flex: 1 1 auto;
   min-height: var(--control-h);
@@ -962,7 +962,7 @@ async function onSignOut() {
    pull it back to the left edge every other line sits on */
 /* The one destructive control in the app, and the one coloured one — see --danger in
    tokens.scss for why this is the single exception to monochrome chrome. It used to
-   step BACK to secondary ink, on the reasoning that the confirm dialog carried the
+   step BACK to secondary foreground, on the reasoning that the confirm dialog carried the
    gravity; the trouble is that a delete button rendered quieter than the Sign out
    above it reads as the less consequential of the two, which is exactly backwards. */
 /* Compound, so it beats .acct__btn's container fill — both are single-class rules and
@@ -1060,9 +1060,9 @@ async function onSignOut() {
 /* The picker's trigger, as the bordered pill the field and the button beside it are.
    Its classes arrive through triggerClass, so the global .btn and .btn--ghost land on
    it, but nothing scoped here did: the trigger is OptionMenu's own inner button, not its
-   root, and that component's bare-trigger rule (no padding, inherited ink) outranks
+   root, and that component's bare-trigger rule (no padding, inherited foreground) outranks
    .btn. It drew as a bare word between two pills. So the row's recipe is carried across
-   by hand: .btn's inline padding and .btn--ghost's ink put back, and .acct__btn's
+   by hand: .btn's inline padding and .btn--ghost's foreground put back, and .acct__btn's
    hairline, ground and hover, which "Make token" takes from that class. And its longer
    label never breaks inside the pill. */
 .acct__tokenrow :deep(.acct__scope) {

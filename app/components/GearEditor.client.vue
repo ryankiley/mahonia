@@ -1516,7 +1516,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 .editor > main {
   flex: 1 0 auto;
 }
-/* .topbar itself (sticky, paper, rule) is global — main.scss */
+/* .topbar itself (sticky, background, rule) is global — main.scss */
 .topbar__inner {
   display: flex;
   align-items: center;
@@ -1619,15 +1619,15 @@ function onCorrected(res: { status: string; itemName?: string }) {
   color: var(--foreground-primary);
 }
 
-/* on = the pane (or the sharing panel) is open: the icon takes full ink and a soft
+/* on = the pane (or the sharing panel) is open: the icon takes primary foreground and a soft
    ground, so the button reads as a held state rather than a hover. One rule for both,
-   so the two topbar popovers signal their state identically — and --wash-selected for the ground,
+   so the two topbar popovers signal their state identically — and --background-selected for the ground,
    the one tone the app uses for "on" (the mode tabs, the person filter, the row
    toggles), where this used a second one, --background-secondary. */
 .editor__vault.is-on,
 .editor__share.is-on {
   color: var(--foreground-primary);
-  background: var(--wash-selected);
+  background: var(--background-selected);
 }
 /* The sharing panel hangs off a 32px button near the right end of the bar. `.menu`
    makes that button the containing block, so `right: 0` puts the panel's right edge at
@@ -1694,7 +1694,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
 /* the first-run pointer moved out of the column and onto the list switcher it
    points at — it lives in ListMenu now, tethered to that control */
 /* the inline vault ask's affirmative — quiet like the rest of the banner, and
-   deepening to full ink on hover the way every under-link on the site does */
+   deepening to primary foreground on hover the way every under-link on the site does */
 .editor__vaultadd {
   flex: none;
   color: var(--foreground-primary);

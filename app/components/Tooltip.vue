@@ -128,9 +128,9 @@ function positionTooltip() {
     ? (preferredPlacement === "top" ? "bottom" : "top")
     : preferredPlacement;
 
-  // Centre on the trigger's INK, then clamp to the page column's content-edges.
+  // Centre on the trigger's FOREGROUND, then clamp to the page column's content-edges.
   //
-  // Usually the ink is the box and the shift is 0. It isn't when a control aligns its
+  // Usually the foreground is the box and the shift is 0. It isn't when a control aligns its
   // glyph to one side of a larger tap target — which the editor's row actions do on
   // purpose, right-aligning every glyph so the drag grip sits flush at the row's edge
   // (see ItemRow's .item__actions). Centred on the BOX, a tooltip there points at the

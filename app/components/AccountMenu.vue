@@ -258,16 +258,16 @@ watch(offline, (off) => {
 }
 
 
-/* The disc wears --wash-selected — the app's ONE plate meaning "this control is on", the same
+/* The disc wears --background-selected — the app's ONE plate meaning "this control is on", the same
    tone the selected mode tab and the classification chips sit on. So the bar says
    "signed in" the way the mode bar says "Gear": a state shown as a lit ground, not as
    a dark object. The first cut was a solid --foreground-tertiary disc with a --background-primary letter; Ryan
    (2026-09-12): "circle is too dark, letter is too small, use the gray from the
-   selected state of Gear". Hover steps the plate to --wash-selected-hover, as the selected tab
+   selected state of Gear". Hover steps the plate to --background-selected-hover, as the selected tab
    does; pointer-gated like every hover.
    THE LETTER IS A GLYPH, and weighs like one (Ryan, same day: "letter should feel more
    like the icon weight"). No colour of its own: it inherits the button's, so it rests
-   at the same ink as the glyphs beside it — --foreground-secondary in the site bar, the editor's
+   at the same foreground as the glyphs beside it — --foreground-secondary in the site bar, the editor's
    quieter --foreground-tertiary — and darkens with them on hover, focus and open. Medium, not
    semibold: the icons draw a flat 1.5px line,
    which is a 14px medium stem; semibold read as a bold black mark in a row of thin
@@ -285,7 +285,7 @@ watch(offline, (off) => {
   width: var(--avatar);
   height: var(--avatar);
   border-radius: var(--radius-pill);
-  background: var(--wash-selected);
+  background: var(--background-selected);
   font-size: calc(var(--avatar) * 0.64);
   font-weight: 500;
   line-height: 1;
@@ -298,7 +298,7 @@ watch(offline, (off) => {
 }
 @media (hover: hover) and (pointer: fine) {
   .menu__btn:hover .avatar {
-    background: var(--wash-selected-hover);
+    background: var(--background-selected-hover);
   }
 }
 </style>

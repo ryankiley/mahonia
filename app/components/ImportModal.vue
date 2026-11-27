@@ -209,7 +209,7 @@ function importFile(text: string, file: File) {
     <div class="import__pick">
       <FilePickButton @text="importFile" />
       <Tooltip :text="FORMATS" preferred-placement="top">
-        <button type="button" class="import__why ink-quiet" aria-label="Which files and columns can be imported">
+        <button type="button" class="import__why foreground-quiet" aria-label="Which files and columns can be imported">
           <SvgIcon :icon="IconQuestionmarkCircle" aria-hidden="true" />
         </button>
       </Tooltip>
@@ -263,7 +263,7 @@ function importFile(text: string, file: File) {
   align-items: center;
   gap: var(--space-2);
 }
-/* the header's (?) for map files, the same quiet treatment (.ink-quiet, in the markup),
+/* the header's (?) for map files, the same quiet treatment (.foreground-quiet, in the markup),
    at the icon scale's full step and not its small one: the small glyph is sized to sit
    in a row of figures, and beside a 40px button it was a speck. The padding is its
    press area, taken back by the margin so the row's spacing is the glyph's. */

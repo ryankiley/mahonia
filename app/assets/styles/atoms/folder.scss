@@ -87,8 +87,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  /* the inks are .ink-quiet's (atoms/controls.scss), which NestChevron wears: the
-     lesser ink at rest, full ink under the pointer AND on keyboard focus. This rule
+  /* the foregrounds are .foreground-quiet's (atoms/controls.scss), which NestChevron wears: the
+     lesser foreground at rest, primary foreground under the pointer AND on keyboard focus. This rule
      carried its own copy with the pointer half only, so the one control a read view
      has gave a keyboard nothing but the ring. */
 }
@@ -212,8 +212,8 @@
   display: none;
 }
 /* the add row's fold on a mode switch: modeswitch.scss */
-/* the delete and the grip rest at the lesser ink and lift under the pointer — the
-   .ink-quiet atom (controls.scss), on both */
+/* the delete and the grip rest at the lesser foreground and lift under the pointer — the
+   .foreground-quiet atom (controls.scss), on both */
 /* right-align both controls + pull the grip's layout box left so its gap matches
    the item rows below (the flush shift is otherwise invisible to layout) */
 .folder__actions .btn--icon {

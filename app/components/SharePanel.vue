@@ -432,11 +432,11 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 
 /* ---- the tabs: the mode bar's own chip (.modebar__opt, atoms/modebar.scss), not a
    segmented track ----
-   No track and no outline: the selected tab wears --wash-selected, the one tone the app uses for
+   No track and no outline: the selected tab wears --background-selected, the one tone the app uses for
    "this is the one that's on" (the mode bar, the person filter, the chips), and the
    other answers the pointer with the mode bar's wash. A raised white pill in an outlined
    track was the reference's control, and the only one of its kind in this app.
-   The chip brings its height, its inks, the wash, the plate, the inward focus ring and
+   The chip brings its height, its foregrounds, the wash, the plate, the inward focus ring and
    the touch hit area; what's below is where a tab here differs from one in the bar. */
 .share__tabs {
   display: grid;

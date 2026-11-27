@@ -683,7 +683,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 /* The SURFACE (lifted background, radius, soft shadow, forced-colors edge) comes
    from the shared .popover atom — the same one the autocomplete and kebab menus
    wear, so this panel can't drift from them. The rows below take the menus' row wash
-   (--wash-hover) and --popover-item-radius (the token derived from this surface's
+   (--background-hover) and --popover-item-radius (the token derived from this surface's
    corner), both in tokens.scss, so the concentric corner and the hover tint stay pinned
    to this surface's geometry.
    Everything here is position + size only.
@@ -884,12 +884,12 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     translate: 0 -50%;
   }
 }
-/* --wash-selected, the app's one tone for "on" (the mode tabs, the person filter, the row
-   toggles), and an amount of ink, so it composites over this card. It was --background-tertiary,
+/* --background-selected, the app's one tone for "on" (the mode tabs, the person filter, the row
+   toggles), and an amount of foreground, so it composites over this card. It was --background-tertiary,
    a page tone that IS --surface-1 in dark: the chosen tab had no ground at all
-   there and was told from the others by its ink alone. */
+   there and was told from the others by its foreground alone. */
 .vp__tab.is-active {
-  background: var(--wash-selected);
+  background: var(--background-selected);
   color: var(--foreground-primary);
 }
 /* THE PANEL HEADER is the .panel__head atom (controls.scss); only the offset onto
@@ -915,7 +915,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 /* A word beside Close, and a link rather than a button: it navigates to the full page.
    It wears this card's other word control, the "Add to" chip below: the same padding,
-   corner (the tabs' chip corner) and wash, a step under the title's ink until the
+   corner (the tabs' chip corner) and wash, a step under the title's foreground until the
    pointer or focus is on it. At the pane's own text size, as the tabs and "Add to" are:
    it was a step down (--text-chrome, 14px), and beside them it read as small print
    (Ryan: "too small compared to neighbors"). */
@@ -936,7 +936,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 @media (hover: hover) and (pointer: fine) {
   .vp__open:hover {
-    background: var(--wash-hover);
+    background: var(--background-hover);
     color: var(--foreground-primary);
   }
 }
@@ -1000,15 +1000,15 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   transition: background var(--spring-fade-dur) var(--spring-fade);
 }
 .vp__select :deep(.optmenu__btn[aria-expanded="true"]) {
-  background: var(--wash-hover);
+  background: var(--background-hover);
 }
 @media (hover: hover) and (pointer: fine) {
   .vp__select :deep(.optmenu__btn:hover) {
-    background: var(--wash-hover);
+    background: var(--background-hover);
   }
 }
 /* the target's mark is the shared .chev (atoms/controls.scss). Its copy here set the
-   resting ink and nothing else — no .is-open rule at all — while the markup has always
+   resting foreground and nothing else — no .is-open rule at all — while the markup has always
    handed it `is-open`, so the one chevron that told you the picker was open never turned. */
 /* the offline line sits over the rows, not centred in their space as a note is */
 .vp__note,
@@ -1080,14 +1080,14 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   -webkit-touch-callout: none;
 }
 /* HELD: the touch hold has armed (see liftedId), so the row is picked up and the next
-   move carries it. --wash-selected-hover, the step of ink past both the hover tint (8%) and the
+   move carries it. --background-selected-hover, the step of foreground past both the hover tint (8%) and the
    plate the active tab wears, because this has to read as a different state from "under
-   your finger" — it is the moment a scroll became a drag. An amount of ink, not the
+   your finger" — it is the moment a scroll became a drag. An amount of foreground, not the
    --background-tertiary it was: that tone is this card's own colour in dark, so there the hold
    showed nothing. No transition: it lands with the vibration tick, and feedback that a
    hold registered is instant or it isn't feedback. */
 .vp__add.is-lifted {
-  background: var(--wash-selected-hover);
+  background: var(--background-selected-hover);
 }
 /* Split from :hover, not merged with it: focus is not a pointer state and a keyboard
    driving a touch device still needs the highlight, while the hover twin paints only
@@ -1095,11 +1095,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
    duplicated lines here because the pane STAYS OPEN as you add — an ungated tint sat
    on the last row you tapped while you went on picking the next one. */
 .vp__add:focus-visible {
-  background: var(--wash-hover);
+  background: var(--background-hover);
 }
 @media (hover: hover) and (pointer: fine) {
   .vp__add:hover:not(:disabled) {
-    background: var(--wash-hover);
+    background: var(--background-hover);
   }
 }
 /* Already in the list: the row recedes rather than disappearing — seeing that you
@@ -1129,7 +1129,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 /* as quiet as /gear's blank slot (.vault__typebtn.is-blank): a place, not a picture */
 .vp__noicon {
-  color: var(--foreground-ghost);
+  color: var(--foreground-quaternary);
 }
 .vp__w {
   flex: none;

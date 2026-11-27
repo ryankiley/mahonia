@@ -149,7 +149,7 @@ export function categoryColor(colorKey: string): string {
  * GREEN IS NOT A DAY COLOUR.
  *
  * The folder palette opens on volt green, which is right there — a folder is read against
- * paper. A day is read against a topographic map, and that map is mostly forest, drawn in
+ * background. A day is read against a topographic map, and that map is mostly forest, drawn in
  * green. Day 1 was landing on the one hue its background already owns, and no amount of
  * casing fixes a line that is the colour of the thing behind it.
  *

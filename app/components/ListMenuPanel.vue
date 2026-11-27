@@ -164,7 +164,7 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
 /* THE ONE YOU'RE IN IS A CHECK, not a ground — .menu__check, the shared mark.
    It was a --background-tertiary fill, which put two meanings on one property: the travelling
    plate marks where the POINTER is, and this marked where you ARE. Hovering the
-   current row stacked the plate's translucent ink over that fill and composited a
+   current row stacked the plate's translucent foreground over that fill and composited a
    third, darker tone — so the row you were already on read as more hovered than any
    other row could get, and the two states couldn't be told apart.
    One ground, one meaning: the plate owns every fill in this menu, and "current" is

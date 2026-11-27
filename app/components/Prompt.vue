@@ -44,7 +44,7 @@ const emit = defineEmits<{ dismiss: [] }>();
 </template>
 
 <style scoped>
-/* Inline: an aside in the column, so it borrows the page's ink rather than the
+/* Inline: an aside in the column, so it borrows the page's foreground rather than the
    toast's inverted surface, and a hairline + faint fill is the whole of its chrome.
    Quiet on purpose — it's a question you can ignore, not a warning. */
 .prompt {
@@ -73,7 +73,7 @@ const emit = defineEmits<{ dismiss: [] }>();
   flex-direction: column;
   gap: var(--space-px);
 }
-/* leading mark: same box and ink as the dismiss at the other end, so the two read
+/* leading mark: same box and foreground as the dismiss at the other end, so the two read
    as a matched pair bracketing the message */
 .prompt__icon {
   flex: none;

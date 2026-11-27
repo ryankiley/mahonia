@@ -170,7 +170,7 @@ onMounted(() => {
     <div class="cal__head">
       <button
         type="button"
-        class="btn btn--icon btn--ghost cal__nav ink-quiet"
+        class="btn btn--icon btn--ghost cal__nav foreground-quiet"
         aria-label="Previous month"
         @click="step(-1)"
       >
@@ -181,7 +181,7 @@ onMounted(() => {
       <span class="t-sm cal__month" aria-live="polite">{{ monthLabel }}</span>
       <button
         type="button"
-        class="btn btn--icon btn--ghost cal__nav ink-quiet"
+        class="btn btn--icon btn--ghost cal__nav foreground-quiet"
         aria-label="Next month"
         @click="step(1)"
       >
@@ -250,11 +250,11 @@ onMounted(() => {
      stretching to fill a panel, so the cells stay square */
   width: calc(7 * var(--icon-btn));
 
-  /* The range band, mixed from INK rather than picked off the surface ramp.
+  /* The range band, mixed from FOREGROUND rather than picked off the surface ramp.
      --background-secondary was doing this job and couldn't: the grid sits on a .popover
      (--surface-1, #1f1f1f in dark), and --background-secondary is #151515 there — a shade
      DARKER than the surface under it. The selected span read as a faint dent instead
-     of a fill. Ink over the surface holds in both schemes because --foreground-primary inverts with
+     of a fill. Foreground over the surface holds in both schemes because --foreground-primary inverts with
      them, which is the same reason .popover mixes its own hover.
      Mixed into --surface-1 rather than into `transparent`, so it is OPAQUE: the
      pip tracks underneath these cells, and a translucent band would let it show
@@ -330,7 +330,7 @@ onMounted(() => {
 }
 /* no background here — the pip IS the hover, and a fill under it would double the mark
    and kill the sense that one cursor is moving. Pointer-gated — it paints (see the note
-   on .btn:hover, controls.scss): a tapped day kept its hover ink after the finger left. */
+   on .btn:hover, controls.scss): a tapped day kept its hover foreground after the finger left. */
 @media (hover: hover) and (pointer: fine) {
   .cal__day:hover {
     color: var(--foreground-primary);
@@ -349,7 +349,7 @@ onMounted(() => {
 .cal__day.is-today {
   box-shadow: inset 0 0 0 1px var(--border-strong);
 }
-/* the span between the ends is tinted; the ends themselves are inverted ink. Same
+/* the span between the ends is tinted; the ends themselves are inverted foreground. Same
    monochrome vocabulary as the row toggles: a filled ground means "on".
    After :hover, not before — the two rules are the same specificity, so source order
    is what decides them, and a day inside the range must keep reading as inside it

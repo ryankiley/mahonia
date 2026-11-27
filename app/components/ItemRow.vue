@@ -846,7 +846,7 @@ const nestActions = computed(() => {
 // that cell's width is a track the whole page's rows share, and most lists never
 // name anyone. The trigger only exists once the list has people; assigned, it
 // swaps its glyph for the carrier's own .swatch dot (the vault button's
-// state-swap move) — colour stays in a dot, chrome stays ink, and the dot
+// state-swap move) — colour stays in a dot, chrome stays foreground, and the dot
 // carries the state at a contrast a tinted glyph never met.
 // The people in display order and their slots come from GearEditor (PEOPLE_CTX):
 // sorted once per snapshot for every row, not once per row.
@@ -1489,7 +1489,7 @@ function dismissFix() {
                  The names carry the ITEM, like the grip's and the checkbox's do:
                  "One more, button" on its own says nothing about what of. -->
             <button
-              class="btn btn--icon btn--ghost item__qtybtn ink-quiet"
+              class="btn btn--icon btn--ghost item__qtybtn foreground-quiet"
               type="button"
               :disabled="item.qty <= 1"
               :aria-label="`One fewer ${item.name || 'item'}`"
@@ -1519,7 +1519,7 @@ function dismissFix() {
                  the + beside it is the one that stands down below $bp-stack. -->
             <span class="t-sm t-muted item__unit">×</span>
             <button
-              class="btn btn--icon btn--ghost item__qtybtn ink-quiet"
+              class="btn btn--icon btn--ghost item__qtybtn foreground-quiet"
               type="button"
               :disabled="item.qty >= MAX_QTY"
               :aria-label="`One more ${item.name || 'item'}`"
@@ -1603,7 +1603,7 @@ function dismissFix() {
              where the two have to wrap TOGETHER. Split, they made two ragged rows of
              icons: the class cell ends in a centred glyph 13px inside its box and the
              actions end in the grip, whose dots deliberately overshoot to the row’s
-             edge, so the stacked lines’ ink landed 19px apart and lined up in no
+             edge, so the stacked lines’ foreground landed 19px apart and lined up in no
              column at all. One item can only wrap whole. -->
         <div class="item__trail">
           <!-- ...and the marks stand down on a BARE GROUP for the same reason the count
@@ -1692,7 +1692,7 @@ function dismissFix() {
                     <div class="item__splits">
                       <div class="item__wornstep">
                         <button
-                          class="btn btn--icon btn--ghost item__wornbtn ink-quiet"
+                          class="btn btn--icon btn--ghost item__wornbtn foreground-quiet"
                           type="button"
                           :disabled="wornCount <= 0"
                           aria-label="One fewer worn"
@@ -1712,7 +1712,7 @@ function dismissFix() {
                           @keydown.enter="($event.target as HTMLInputElement).blur()"
                         />
                         <button
-                          class="btn btn--icon btn--ghost item__wornbtn ink-quiet"
+                          class="btn btn--icon btn--ghost item__wornbtn foreground-quiet"
                           type="button"
                           :disabled="wornCount >= item.qty"
                           aria-label="One more worn"
@@ -1824,7 +1824,7 @@ function dismissFix() {
             <Transition name="vaultin" :css="vaultRevealArmed">
               <Tooltip v-if="vaultOffered" :text="vaultLabel" preferred-placement="top">
                 <button
-                  class="btn btn--icon btn--ghost item__vault-btn ink-quiet"
+                  class="btn btn--icon btn--ghost item__vault-btn foreground-quiet"
                   :class="{ 'is-active': vaultSaved }"
                   type="button"
                   :disabled="vaultSave === 'saving'"
@@ -1920,7 +1920,7 @@ function dismissFix() {
                  it in the ⋯ menu with the rest of the cluster. -->
             <Tooltip text="Duplicate" preferred-placement="top">
               <button
-                class="btn btn--icon btn--ghost item__dup ink-quiet"
+                class="btn btn--icon btn--ghost item__dup foreground-quiet"
                 type="button"
                 :aria-label="`Duplicate ${item.name || 'item'}`"
                 @mousedown.prevent
@@ -1938,7 +1938,7 @@ function dismissFix() {
                  word. Same split as Duplicate beside it. -->
             <Tooltip text="Remove" preferred-placement="top">
               <button
-                class="btn btn--icon btn--ghost item__del ink-quiet"
+                class="btn btn--icon btn--ghost item__del foreground-quiet"
                 :aria-label="`Remove ${item.name || 'item'}`"
                 @mousedown.prevent
                 @click="c.removeItem(item.id)"
@@ -1963,7 +1963,7 @@ function dismissFix() {
             >
               <!-- menu__foot on the LAST action, "Remove item", for the reason the
                    toolbar's menu rules off "Delete this list": everything above it
-                   copies, moves or saves the item, and this one ends it. Ink, not red:
+                   copies, moves or saves the item, and this one ends it. Foreground, not red:
                    it can be undone, and red is the list's own delete's alone. -->
               <li
                 v-for="(a, i) in overflowActions"
@@ -1980,7 +1980,7 @@ function dismissFix() {
             <!-- drag via pointerdown; arrow keys give the focused grip the reordering
                  its label promises (a drag needs a pointer) -->
             <button
-              class="btn btn--icon btn--ghost grip item__grip ink-quiet"
+              class="btn btn--icon btn--ghost grip item__grip foreground-quiet"
               :title="`Drag to reorder · ${altLabel}-drag to duplicate`"
               :aria-label="`Reorder ${item.name || 'item'}`"
               @pointerdown="dnd.start(item.id, $event)"
@@ -1996,12 +1996,12 @@ function dismissFix() {
     <Transition name="reveal">
       <div v-if="showFix" class="reveal">
         <div class="item__fixrow">
-          <button type="button" class="item__under-link ink-quiet t-sm" @click="openFix">
+          <button type="button" class="item__under-link foreground-quiet t-sm" @click="openFix">
             Catalog: {{ formatWeight(item.catalogWeightMgAtLink ?? 0, rowUnit) }} · suggest a fix
           </button>
           <button
             type="button"
-            class="btn btn--icon btn--ghost item__fixdismiss ink-quiet"
+            class="btn btn--icon btn--ghost item__fixdismiss foreground-quiet"
             title="Dismiss"
             aria-label="Dismiss suggestion"
             @click="dismissFix"
@@ -2231,7 +2231,7 @@ function dismissFix() {
 /* A DERIVED weight — a group's total, water's litres-to-grams — is read, not typed
    (the input is readonly, and onWeight refuses it). It kept every affordance of a
    field all the same, so the parent of a nested group read as editable (Ryan,
-   2026-09-05). Same box, so the column doesn't move; muted ink, an arrow cursor and no
+   2026-09-05). Same box, so the column doesn't move; muted foreground, an arrow cursor and no
    caret, so the number reads as a figure. The unit chevron beside it stays live: the
    group's unit is still yours to pick.
    And ITALIC, number and unit both: the row's own vocabulary for "derived". A group's
@@ -2347,12 +2347,12 @@ function dismissFix() {
      weight cell no longer asks: it centres too (see .item__weight in the stack block
      below), which needs no baseline from this wrap at all.
      THE DESKTOP CELL ABOVE STILL ASKS, AND THAT IS FINE — measured, not assumed.
-     Chromium and WebKit both land the unit's ink within half a pixel of the number's at
+     Chromium and WebKit both land the unit's foreground within half a pixel of the number's at
      1100px, the same residue the fixed mobile cell reads, so there is nothing here to
      fix and no reason to spend the desktop grid's baseline on it. What actually diverges
      is a cell with NO TEXT ANYWHERE (the mobile line's two icon-only clusters); a centred
      wrap like this one leads with a text span, and both engines take its baseline from
-     that. Re-measure from INK, never from the box model, if this is ever revisited: the
+     that. Re-measure from FOREGROUND, never from the box model, if this is ever revisited: the
      box formula reports a phantom error here because WebKit sizes the field 24px against
      a 20.8px line box. */
 .item__unit {
@@ -2388,10 +2388,10 @@ function dismissFix() {
 /* Water's fixed consumable mark: the control's exact box — .btn--icon's size — minus
    the button and minus the lit plate, because there is nothing to press. Sized like
    the button so the droplet sits in the column every other row's mark is in.
-   --foreground-tertiary, the resting ink of every glyph beside it (.ink-quiet, controls.scss). It
+   --foreground-tertiary, the resting foreground of every glyph beside it (.foreground-quiet, controls.scss). It
    was --foreground-secondary, a step up to say "a fact, not a control" — but one step of grey
    between neighbours reads as a mismatch, not as a state, and the row already says
-   water three other ways. The ink only: no hover lift, since nothing here presses. */
+   water three other ways. The foreground only: no hover lift, since nothing here presses. */
 .item__clsfixed {
   display: inline-flex;
   align-items: center;
@@ -2400,11 +2400,11 @@ function dismissFix() {
   min-height: var(--icon-btn);
   color: var(--foreground-tertiary);
 }
-/* ON is a FILLED GROUND, not just darker ink — the shared `.item__mark` chip
+/* ON is a FILLED GROUND, not just darker foreground — the shared `.item__mark` chip
    (atoms/item.scss), which the share views' rows draw as a static mark, so the two
    views can't drift on what "worn" looks like. Ink-vs-grey alone would be the same
    signal hover already uses, so a toggle would read as merely hovered.
-   The OFF ink is scoped to the off state (`:not`) rather than stated flat: a scoped
+   The OFF foreground is scoped to the off state (`:not`) rather than stated flat: a scoped
    rule carries its component's attribute, so a flat `.item__clsbtn` would outrank
    the shared chip's own colour and leave a lit toggle drawn in --foreground-tertiary. */
 .item__clsbtn:not(.item__mark) {
@@ -2488,10 +2488,10 @@ function dismissFix() {
 }
 /* THE CHOICE: base · worn · consumable, as the app's own tabs — the mode bar's chip
    (.modebar__opt, atoms/modebar.scss), the way the share panel's two tabs wear it. No
-   track and no outline: the chosen one takes --wash-selected, the one tone for "this is the one
+   track and no outline: the chosen one takes --background-selected, the one tone for "this is the one
    that's on" (the row's own mark included, so the mark and the option that set it
    agree), and the others answer the pointer with the mode bar's wash. The chip brings
-   its height, its inks, the wash, the plate, the inward focus ring and the touch hit
+   its height, its foregrounds, the wash, the plate, the inward focus ring and the touch hit
    area; what's below is where an option here differs from one in the bar. A segmented
    track was built first and was the only one of its kind (Ryan, 2026-11-25: "can we
    use existing tab designs"). */
@@ -2528,7 +2528,7 @@ function dismissFix() {
 }
 /* The stepper is the row's quantity control (.item__qty--step) on the card's ground:
    ONE box holding − n +, so the three read as a single control beside "All" rather than
-   as three more chips. Its ground is the chip's and the kcal well's — an amount of ink
+   as three more chips. Its ground is the chip's and the kcal well's — an amount of foreground
    (see .item__split below). The figure carries no box of its own inside it, for the
    reason the row's doesn't: bare and centred, it is the stepper's value, not a third
    control between two. */
@@ -2538,7 +2538,7 @@ function dismissFix() {
   display: flex;
   align-items: center;
   border-radius: var(--pop-inner-radius);
-  background: var(--wash-field);
+  background: var(--background-field);
 }
 .item__wornbtn {
   flex: none;
@@ -2550,24 +2550,24 @@ function dismissFix() {
   width: 0;
   text-align: center;
 }
-/* The chip's ground is AN AMOUNT OF INK, the well's two (.well, atoms/controls.scss): 7%
+/* The chip's ground is AN AMOUNT OF FOREGROUND, the well's two (.well, atoms/controls.scss): 7%
    at rest, 10% under the pointer — the same pair the kcal field takes in the popover
    beside this one, so the two cards' grounds agree. It drew them in --background-secondary and
    --background-tertiary, page tones on a floating card: 1.10:1 at rest on the light popover, and in
-   dark --background-tertiary IS --surface-1, so pointing at a count erased its chip. Not --wash-selected:
+   dark --background-tertiary IS --surface-1, so pointing at a count erased its chip. Not --background-selected:
    that is the tone for ON, and here on is the inverted chip below. */
 .item__split {
   min-width: var(--icon-btn);
   min-height: var(--icon-btn);
   padding-inline: var(--space-2);
   border-radius: var(--pop-inner-radius);
-  background: var(--wash-field);
+  background: var(--background-field);
   color: var(--foreground-secondary);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .item__split:hover {
-    background: var(--wash-field-focus);
+    background: var(--background-field-focus);
     color: var(--foreground-primary);
   }
 }
@@ -2579,7 +2579,7 @@ function dismissFix() {
    page, so a well sunk into it reads as "type here" at a glance, where a hairline
    rectangle has to be looked at to be seen.
    That fill is the .well atom (atoms/controls.scss), worn in the markup: an amount of
-   ink, which composites over the card, where the --background-secondary this used sat at 1.10:1 on
+   foreground, which composites over the card, where the --background-secondary this used sat at 1.10:1 on
    it. Focus is the atom's too, the ground deepening a step and nothing drawn round it —
    the one focus every contained field on a floating surface takes (the trail panel's
    fields, the searches, the paste boxes). This one used to swap to --background-tertiary and add a
@@ -2636,10 +2636,10 @@ function dismissFix() {
   --tip-shift: var(--icon-inset);
 }
 /* the grip, the vault tick, duplicate, remove and the qty ± (which sit mid-row but are
-   the same kind of thing) rest at the lesser ink and lift under the pointer — the
-   .ink-quiet atom (controls.scss), which the three menu triggers wear too; one class
+   the same kind of thing) rest at the lesser foreground and lift under the pointer — the
+   .foreground-quiet atom (controls.scss), which the three menu triggers wear too; one class
    is what keeps them the same weight across the row */
-/* banked: the tick holds at full ink so the row keeps saying so */
+/* banked: the tick holds at primary foreground so the row keeps saying so */
 .item__vault-btn.is-active,
 .item__vault-btn.is-active:hover {
   color: var(--foreground-primary);
@@ -2685,7 +2685,7 @@ function dismissFix() {
 /* The save button's coming and going is STATE — the automatic capture releasing a
    row, or taking it. Arrival gets a little sizzle: the trigger pops in, and a
    light front sweeps left-to-right through the glyph — a soft-edged mask wipe
-   over the icon held at full ink, whose final frame is the no-mask state, so the
+   over the icon held at primary foreground, whose final frame is the no-mask state, so the
    sweep ends where rest begins. When the enter class lifts, the button's own
    color transition (above) settles the lit glyph onto --foreground-tertiary — the SAME token
    every other icon in the cluster rests at, so a settled row reads as one even
@@ -2875,12 +2875,12 @@ function dismissFix() {
 }
 /* the variant field keeps .item__note's italic aside voice (the voice the row's name
    used for it before it moved down here), and the dot between the two fields takes the
-   gear type's quiet upright ink so it reads as punctuation, not as either field's text */
+   gear type's quiet upright foreground so it reads as punctuation, not as either field's text */
 .item__gtype-dot {
   color: var(--foreground-tertiary);
 }
 /* note — a single-line live-text field under the item (no box, no resize handle).
-   Reads as a caption: the lightest ink (matching the "Add an item" placeholder) and
+   Reads as a caption: the lightest foreground (matching the "Add an item" placeholder) and
    italic, to sit quietly beneath the item name. The recipe (.item__note) is the shared
    caption field, atoms/item.scss, which the trip plan's day note wears too. Its upward
    tuck under the name lives on the .reveal--note wrapper (so the grid track sizing
@@ -2892,8 +2892,8 @@ function dismissFix() {
    costs exactly the line the <input> did and the row's height is unchanged until there
    is something to wrap. */
 /* quiet "suggest a fix" link under a row (a <button>: the pointer is the reset's). Its
-   inks are .ink-quiet's (atoms/controls.scss), in the markup: the lesser ink at rest,
-   full ink under the pointer and on keyboard focus, on the fade. */
+   foregrounds are .foreground-quiet's (atoms/controls.scss), in the markup: the lesser foreground at rest,
+   primary foreground under the pointer and on keyboard focus, on the fade. */
 .item__under-link {
   display: inline-flex;
   align-items: center;
@@ -2909,7 +2909,7 @@ function dismissFix() {
 }
 /* composes .btn--icon for the real tap target (--icon-btn box, --tap on touch) —
    without it the bare 14px glyph was the whole hit area. This rule keeps the quiet
-   --foreground-tertiary treatment over .btn--ghost's ink, and the negative block margins pull the
+   --foreground-tertiary treatment over .btn--ghost's foreground, and the negative block margins pull the
    enlarged box back out of layout so the fix row keeps its one-text-line rhythm
    (the actions cluster's overshoot technique). */
 .item__fixdismiss {
@@ -2972,7 +2972,7 @@ function dismissFix() {
    (atoms/controls.scss) — the person entries take their dot through it too */
 /* picker entries: the chosen one wears the on-plate */
 .item__personpick.is-active {
-  background: var(--wash-selected);
+  background: var(--background-selected);
   color: var(--foreground-primary);
 }
 
@@ -3062,7 +3062,7 @@ function dismissFix() {
        Half of this line doesn't: the qty cell, the unit wrap and both icon clusters are
        flex boxes that centre their own contents, so none of them offers a baseline and
        each one gets a SYNTHESIZED one instead — a value the spec leaves the engine to
-       derive, and here the engines disagreed. Measured from the rendered ink against the
+       derive, and here the engines disagreed. Measured from the rendered foreground against the
        pre-fix rules: WebKit put the count 2px off the weight beside it, and the grip 2px
        off the numbers, while Blink did not move a pixel — its own error was sub-pixel
        (the unit 0.4px high, the class toggles 0.8px above the ⋯ and the grip), which is
@@ -3263,14 +3263,14 @@ function dismissFix() {
      centres here too. The grip keeps its flush treatment (.grip: the glyph right-
      aligned in the box and shifted a third of itself out to the edge), which puts
      its dots, a narrow glyph, hard against the box's right edge; a centred glyph's
-     centre is half a box in. Even to the EYE is even gaps between ink, not between
+     centre is half a box in. Even to the EYE is even gaps between foreground, not between
      centres: the dots are a third the width of the round glyphs, so equal centres
      left a wider hole before the grip (Ryan, 2026-09-12: "still don't look evenly
      spaced"). So the dots come back by half a box and a little more, which
-     puts their left edge the same 32px past the ⋯'s ink as each glyph sits past
+     puts their left edge the same 32px past the ⋯'s foreground as each glyph sits past
      the last. The 1px is
-     Central's geometry at 18px: the ⋯'s ink is 13.5px wide and the dots' 6px, which
-     puts the dots' ink 30px past the ⋯'s, as the marks sit apart. Replaces .grip's
+     Central's geometry at 18px: the ⋯'s foreground is 13.5px wide and the dots' 6px, which
+     puts the dots' foreground 30px past the ⋯'s, as the marks sit apart. Replaces .grip's
      --grip-pull here: that pull evens the desktop cluster, where the ⋯ is
      right-aligned; this is the same idea for a centred one. The folder header below
      $bp-stack wears the same rule (atoms/folder.scss), so its trash stays in the ⋯'s

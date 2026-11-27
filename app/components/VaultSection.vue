@@ -75,7 +75,7 @@ const { collapsed, toggle } = usePersistedCollapse("gear.vkind.").useFor(() => p
      these glyphs sit centred over the rows' (VaultKitSection), so their tips do too */
   --tip-shift: 0px;
 }
-/* a heading, not a field: the field's type, its ink and its LINE (the reset gives an h2
+/* a heading, not a field: the field's type, its foreground and its LINE (the reset gives an h2
    the tight heading leading, which is what stood it 5px shorter than a kit's name) */
 .vsec__kind {
   line-height: var(--leading-normal);

@@ -142,7 +142,7 @@ const dayColors = computed(() => dayColorSequence(props.dayDistancesM.length));
  *
  * The two encodings are separate claims — which day this is, and how hard it is — and they
  * were touching, which made the fill read as part of the line rather than as the ground
- * under it. A sliver of paper between them is what says "these are two things".
+ * under it. A sliver of background between them is what says "these are two things".
  *
  * viewBox units, so it scales with the container the way everything else in this drawing
  * does; at the chart's usual height it lands around 2–3 real pixels.
@@ -191,7 +191,7 @@ const dayRuns = computed(() => {
     const idx: number[] = [];
     for (let i = 0; i < props.profile.length; i++) if (owner[i] === d) idx.push(i);
     // NO LOOK-BACK. It used to reach back one sample so adjacent days met rather than
-    // leaving a hairline of paper — but the days are cut apart on purpose now, and a run
+    // leaving a hairline of background — but the days are cut apart on purpose now, and a run
     // that starts one sample early is a run that extends PAST its own boundary. That
     // overlap is what left a sliver of the neighbouring colour showing through the gap,
     // and widening the cut to hide it only made the gap coarse. Each day draws its own
@@ -221,7 +221,7 @@ const dayRuns = computed(() => {
  * than the hole it was standing in for.
  *
  * Now a fill stops where its day stops, the way the ridge above it already did, and what
- * separates two days is one sample of untouched paper on both marks at once.
+ * separates two days is one sample of untouched background on both marks at once.
  *
  * Grade runs still SHARE a sample where two bands meet (see gradeRuns), so a change of
  * difficulty inside a day stays joined. Only the day boundary opens.
@@ -645,7 +645,7 @@ const id = useId();
 }
 /* The route's own figures, in the same chip the trip's estimates use — they answer the
    same kind of question and were reading as a different class of thing. */
-/* the same lesser ink the panel gives its units — see the note there on why not .t-muted */
+/* the same lesser foreground the panel gives its units — see the note there on why not .t-muted */
 /* :deep — the chips' spans are FigureChip's and carry its scope, not this one's */
 .tprofile__facts :deep(.t-muted) {
   color: var(--foreground-tertiary);
@@ -661,7 +661,7 @@ const id = useId();
    broken line rather than a dotted one. non-scaling-stroke on the element is what keeps
    them circular: without it preserveAspectRatio="none" would squash them into ovals. */
 .tprofile__cursor {
-  /* --foreground-secondary, not --foreground-tertiary. The cursor crosses two backgrounds: bare paper above the ridge
+  /* --foreground-secondary, not --foreground-tertiary. The cursor crosses two backgrounds: bare background above the ridge
      and the grade shading below it. At --foreground-tertiary the upper half read clearly and the lower
      half disappeared into the fill, so the line looked like it stopped dead at the route —
      the same complaint as a clipped line, from the opposite cause. One step darker carries
@@ -765,7 +765,7 @@ const id = useId();
  * It is also the cheap way to keep the element ceiling at the top of this file standing:
  * a flat fill is CSS on a path that already existed, where a fade wants either a <defs>
  * with a <linearGradient> per run or a mask — both of which were tried and dropped. */
-/* EASY GROUND TAKES NOTHING. It was a 10% ink wash, which is a colour — and a colour that
+/* EASY GROUND TAKES NOTHING. It was a 10% foreground wash, which is a colour — and a colour that
    fires on most of a route is not a signal, it is a background. Shading is a severity
    claim; the claim on easy ground is that there isn't one. Drawn as nothing, the amber and
    the red become marks you notice rather than two shades of a grey band. */

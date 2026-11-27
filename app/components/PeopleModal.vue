@@ -259,7 +259,7 @@ function remove(p: Person) {
 /* CHOSEN is a state, and it keeps its plate whatever the pointer is doing — this
    strip has to say which colour is this person's. */
 .ppl__swatchbtn.is-active {
-  background: var(--wash-selected);
+  background: var(--background-selected);
 }
 /* …and the hover wears the SAME plate, so it has to be pointer-gated (it paints —
    see the note on .btn:hover, controls.scss). iOS latches :hover on the last thing
@@ -271,10 +271,10 @@ function remove(p: Person) {
    either), and a plate on it would offer an affordance the element doesn't have. */
 @media (hover: hover) and (pointer: fine) {
   button.ppl__swatchbtn:hover {
-    background: var(--wash-selected);
+    background: var(--background-selected);
   }
   button.ppl__swatchbtn.is-active:hover {
-    background: var(--wash-selected-hover); /* the chosen swatch answers the pointer too */
+    background: var(--background-selected-hover); /* the chosen swatch answers the pointer too */
   }
 }
 /* the reset's ring, drawn inward over the plate */

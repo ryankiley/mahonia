@@ -127,7 +127,7 @@ const shown = computed(() => stateWord.value !== "" || timeSuffix.value !== "" |
     display: none;
   }
 }
-/* a genuine "Not saved" is the one state worth full ink */
+/* a genuine "Not saved" is the one state worth primary foreground */
 .syncstatus.is-alert {
   color: var(--foreground-primary);
 }

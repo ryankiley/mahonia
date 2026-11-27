@@ -74,7 +74,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 
       The mark is .item__mark, the same atom, so the "this one is on" plate is one recipe
       wherever it appears. What is added here is HUE: the chosen glyph lights in its own
-      category colour, the others stay quiet ink, so the row says which kind at a glance
+      category colour, the others stay quiet foreground, so the row says which kind at a glance
       without needing the word beside it. The name field's placeholder still carries the
       word for anyone who wants it spelled out.
     -->
@@ -94,7 +94,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
       <Tooltip v-for="k in WAYPOINT_KIND_OPTIONS" :key="k.key" :text="k.label" preferred-placement="top">
         <button
           type="button"
-          class="btn btn--icon btn--ghost ink-quiet wprow__kindbtn"
+          class="btn btn--icon btn--ghost foreground-quiet wprow__kindbtn"
           :class="{ 'item__mark': waypoint.kind === k.key }"
           :aria-pressed="waypoint.kind === k.key"
           :aria-label="k.label"
@@ -173,7 +173,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
 .wprow__name {
   grid-area: name;
 }
-/* ONE SIZE AND ONE INK across the row's readings. They were set apart twice over — the
+/* ONE SIZE AND ONE FOREGROUND across the row's readings. They were set apart twice over — the
    coordinate a step smaller, then the distance a step darker — and neither difference was
    carrying a claim. These two cells are the same kind of thing said two ways: where the pin
    is. Ranking one above the other only breaks the baseline the column is read down. */
@@ -206,7 +206,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
   gap: var(--space-px);
 }
 /* quiet until chosen; .item__mark supplies the plate and the inline style the hue. The
-   quiet is .ink-quiet's (controls.scss), worn in the markup: a resting colour stated here
+   quiet is .foreground-quiet's (controls.scss), worn in the markup: a resting colour stated here
    tied the ghost button's hover on specificity and won on order, so an unchosen kind
    never answered the pointer. */
 </style>
