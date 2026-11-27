@@ -1,0 +1,12 @@
+{
+  "date": "2026-11-27",
+  "added": [
+    "A size the catalog doesn't list can be typed onto its product and weighed yourself."
+  ],
+  "changed": [
+    "Typing a gear name shows each product once; pick it, then choose your size or version."
+  ],
+  "fixed": [
+    "Products sold in more than twelve sizes now offer every one of them."
+  ]
+}

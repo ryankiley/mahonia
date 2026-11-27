@@ -51,22 +51,39 @@ describe("a product name typed in full", () => {
     expect(commits()).toEqual([expect.objectContaining({ name: "Duplex", brand: "Zpacks", variant: "Long", catalogItemId: 1, weightMg: 560_000 })]);
   });
 
-  it("points the menu at the product as soon as the results settle", async () => {
+  // a version sits inside its product's row now, so that row is what lights; Enter on
+  // it takes the version the text names, with no step to walk
+  it("points the menu at the product as soon as the results settle, and Enter takes the version typed", async () => {
     catalogHits = [PLEX, LONG, REGULAR];
     vaultHits = [];
-    const { w, input } = mountInput();
+    const { w, input, commits } = mountInput();
     await typeAndSettle(w, input, "Zpacks Duplex Long");
     const lit = w.findAll('[role="option"]').filter((o) => o.classes("is-active"));
     expect(lit).toHaveLength(1);
-    expect(lit[0]!.text()).toContain("Long");
+    expect(lit[0]!.text()).toContain("Duplex");
     expect(input.getAttribute("aria-activedescendant")).toBe(lit[0]!.attributes("id"));
+    await w.find("input").trigger("keydown", { key: "Enter" });
+    expect(commits()).toEqual([expect.objectContaining({ catalogItemId: 1, variant: "Long" })]);
   });
 
-  it("points at nothing when the name is ambiguous or a near miss", async () => {
+  it("points at the product when its name alone is typed, and Enter opens its versions", async () => {
+    catalogHits = [PLEX, LONG, REGULAR];
+    vaultHits = [];
+    const { w, input, commits } = mountInput();
+    await typeAndSettle(w, input, "Zpacks Duplex");
+    const lit = w.findAll('[role="option"].is-active');
+    expect(lit).toHaveLength(1);
+    expect(lit[0]!.text()).toContain("2 versions");
+    await w.find("input").trigger("keydown", { key: "Enter" });
+    expect(commits()).toEqual([]);
+    await vi.waitFor(() => expect(w.findAll(".ac__product")).toHaveLength(1));
+  });
+
+  it("points at nothing on a near miss", async () => {
     catalogHits = [LONG, REGULAR];
     vaultHits = [];
     const { w, input } = mountInput();
-    await typeAndSettle(w, input, "Zpacks Duplex");
+    await typeAndSettle(w, input, "Zpacks Duple");
     expect(w.findAll('[role="option"].is-active')).toHaveLength(0);
   });
 

@@ -47,7 +47,8 @@ describe("the add row's name field: the catalog only, and only picks commit", ()
     // give the vault half the same debounce it would need to land, had it been asked
     await new Promise((r) => setTimeout(r, 300));
     const opts = w.findAll('[role="option"]').map((o) => o.text());
-    expect(opts).toHaveLength(2);
+    // the Duplex, once (its two sizes are behind the row)
+    expect(opts).toHaveLength(1);
     expect(opts.join(" ")).not.toContain("Mine");
     expect(w.text()).not.toContain("My Gear");
   });
@@ -75,10 +76,24 @@ describe("the add row's name field: the catalog only, and only picks commit", ()
     catalogHits = [LONG, REGULAR];
     vaultHits = [];
     const { w, input, commits, submits } = mountAddField();
-    await typeAndSettle(w, input, "Zpacks Duplex");
+    await typeAndSettle(w, input, "Zpacks Duple");
     await w.find("input").trigger("keydown", { key: "Enter" });
     expect(submits()).toBe(1);
     expect(commits()).toEqual([]);
+  });
+
+  // a product's own name is the menu's to answer: Enter opens its versions, and the
+  // form is not submitted with a name that still has a size to choose
+  it("opens the versions on Enter when the text is a product sold in several", async () => {
+    catalogHits = [LONG, REGULAR];
+    vaultHits = [];
+    const { w, input, commits, submits } = mountAddField();
+    await typeAndSettle(w, input, "Zpacks Duplex");
+    await w.find("input").trigger("keydown", { key: "Enter" });
+    expect(submits()).toBe(0);
+    expect(commits()).toEqual([]);
+    await vi.waitFor(() => expect(w.findAll(".ac__product")).toHaveLength(1));
+    expect(w.findAll('[role="option"]').map((o) => o.find(".ac__size").text())).toEqual(["Long", "Regular"]);
   });
 
   it("still links a product typed in full", async () => {

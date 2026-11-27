@@ -5,6 +5,7 @@
 
 import { itemDisplayName } from "./weights";
 import { enoughToSearch, foldForSearch, hasIdeograph, hasKana } from "./searchText";
+import { productKey } from "./catalogProducts";
 
 /** pg_trgm-style trigrams over the folded string, each word padded (2 leading + 1
  *  trailing, like pg_trgm). Output is byte-identical to the prior inlined fold —
@@ -273,11 +274,29 @@ export function rankCandidates(
   rawQuery: string,
   limit = SEARCH_LIMIT,
 ): CatalogSearchResult[] {
+  const { kept, generic } = gateAndSort(rows, rawQuery);
+  // a query that names a kind of gear — a common name, or a derived noun/synonym —
+  // gets the spread; a product or brand name gets every size it has
+  const ordered = generic ? diversify(kept, limit) : kept.slice(0, limit);
+  return ordered.map(({ row }) => toCatalogResult(row));
+}
+
+interface Scored {
+  row: LocalCatalogRow;
+  score: number;
+  type: 0 | 1 | 2;
+  tier: MatchTier;
+  terms: readonly string[];
+}
+
+/** The gate, the junk filter and the relevance order: everything rankCandidates and
+ *  rankProducts share, so the two can only differ in how they cut the sorted rows. */
+function gateAndSort(rows: LocalCatalogRow[], rawQuery: string): { kept: Scored[]; generic: boolean } {
   const q = (rawQuery ?? "").trim();
-  if (!enoughToSearch(q)) return []; // 1 char is too noisy for trigrams, unless it is a word
+  if (!enoughToSearch(q)) return { kept: [], generic: false }; // 1 char is too noisy for trigrams, unless it is a word
   const query = searchQuery(q);
   const qt = query.tokens;
-  const scored: { row: LocalCatalogRow; score: number; type: 0 | 1 | 2; tier: MatchTier; terms: readonly string[] }[] = [];
+  const scored: Scored[] = [];
   for (const row of rows) {
     // Score against name AND the derived search terms, mirroring the Neon target
     // (coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,'')). Each is
@@ -307,11 +326,50 @@ export function rankCandidates(
       b.score - a.score ||
       a.row.id - b.row.id,
   );
-  // a query that names a kind of gear — a common name, or a derived noun/synonym —
-  // gets the spread; a product or brand name gets every size it has
-  const generic = scored.some((r) => r.type > 0 || runsIn(qt, r.terms));
-  const ordered = generic ? diversify(kept, limit) : kept.slice(0, limit);
-  return ordered.map(({ row }) => toCatalogResult(row));
+  return { kept, generic: scored.some((r) => r.type > 0 || runsIn(qt, r.terms)) };
+}
+
+/**
+ * The same ranking, cut by PRODUCT: the first `limit` products, each with every version
+ * it has, the versions together and still in rank order, so a product's first row is
+ * its most picked (the menu lists them in reading order itself: compareVersions).
+ *
+ * rankCandidates cuts by row, and a product sold in sizes is several rows: a quilt in
+ * sixteen took the whole menu and lost four of them to the cap, and seven jackets' Men's
+ * and Women's rows interleaved by popularity. A product stands where its best version
+ * ranks; its other versions share its name, so they pass the same gate and come with it.
+ *
+ * A query that names a kind of gear still spreads across brands (BRAND_CAP products
+ * each, the rest refilling as in diversify); the per-product cap has nothing left to do
+ * once a product is one entry. The result is rows, not a nested shape, so every reader
+ * of a search response (the offline cache, the menu, the iOS client) keeps its type.
+ */
+export function rankProducts(rows: LocalCatalogRow[], rawQuery: string, limit = SEARCH_LIMIT): CatalogSearchResult[] {
+  const { kept, generic } = gateAndSort(rows, rawQuery);
+  const products = new Map<string, LocalCatalogRow[]>();
+  for (const { row } of kept) {
+    const key = productKey(row.brand, row.name);
+    const versions = products.get(key);
+    if (versions) versions.push(row);
+    else products.set(key, [row]);
+  }
+  let ordered = [...products.values()];
+  if (generic) {
+    const perBrand = new Map<string, number>();
+    const picked: LocalCatalogRow[][] = [];
+    const overflow: LocalCatalogRow[][] = [];
+    for (const versions of ordered) {
+      const brand = foldForSearch(versions[0]!.brand ?? "");
+      const n = perBrand.get(brand) ?? 0;
+      if (brand && n >= BRAND_CAP) overflow.push(versions);
+      else {
+        perBrand.set(brand, n + 1);
+        picked.push(versions);
+      }
+    }
+    ordered = [...picked, ...overflow];
+  }
+  return ordered.slice(0, limit).flatMap((versions) => versions.map(toCatalogResult));
 }
 
 /** A loaded/ranked row in the autocomplete's result shape: usageCount dropped, the

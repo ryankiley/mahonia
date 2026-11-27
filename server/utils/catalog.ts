@@ -160,6 +160,10 @@ export async function searchCatalog(
   db: Db,
   rawQuery: unknown,
   limit = SEARCH_LIMIT, // same default as the offline ranker — counts can't drift
+  // How the ranked rows are cut: by row (the default: what the connector and the
+  // candidate dedup read) or by product, each with every version (rankProducts, what
+  // the editor's menu asks for). Recall is the same either way.
+  rank: typeof rankCandidates = rankCandidates,
 ): Promise<CatalogSearchResult[]> {
   const q = normalizeQuery(rawQuery);
   if (!enoughToSearch(q)) return []; // 1 char is too noisy for trigrams, unless it is a word
@@ -199,13 +203,13 @@ export async function searchCatalog(
         and word_similarity(unaccent(${wide}), unaccent(coalesce(brand,'') || ' ' || name || ' ' || coalesce(search_terms,''))) >= ${SIM_THRESHOLD}
     `);
     // STAGE 2 — the same JS re-ranker the offline path uses.
-    return rankCandidates(normalizeRows(res), q, limit);
+    return rank(normalizeRows(res), q, limit);
   }
 
   // PGlite: load the bounded active catalog and rank in JS — the SAME ranking the
   // offline client uses (rankCandidates is the shared source of truth).
   const rows = await db.select().from(catalogItems).where(eq(catalogItems.status, "active"));
-  return rankCandidates(rows, q, limit);
+  return rank(rows, q, limit);
 }
 
 /**

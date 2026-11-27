@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   mergeCatalogRows,
   rankCandidates,
+  rankProducts,
   runsIn,
   searchTokens,
   tierOf,
@@ -387,6 +388,64 @@ describe("rankCandidates — kind-of-gear queries", () => {
   it("does not cap a query that names the product: every size comes back", () => {
     const rows = ["Regular", "Regular Wide", "Long Wide", "Regular Mummy", "Short"].map((v, i) => pad(i + 1, "Nemo", "Tensor All-Season", v));
     expect(rankCandidates(rows, "tensor").map((r) => r.id)).toEqual([1, 2, 3, 4, 5]);
+  });
+
+  // rankProducts: the same ranking, cut by product (what the editor's menu asks for)
+  it("returns a product once, with every version it has, however many", () => {
+    const sizes = Array.from({ length: 16 }, (_, i) => pad(i + 1, "Nemo", "Tensor All-Season", `Size ${i + 1}`));
+    // the row cut loses four of sixteen to the cap; the product cut is one product
+    expect(rankCandidates(sizes, "tensor")).toHaveLength(12);
+    expect(rankProducts(sizes, "tensor").map((r) => r.id)).toEqual(sizes.map((r) => r.id));
+  });
+
+  it("counts the limit in products, and keeps each product's versions together", () => {
+    const rows = [
+      pad(1, "Nemo", "Tensor Elite", "Regular"),
+      pad(2, "Nemo", "Tensor All-Season", "Regular"),
+      pad(3, "Nemo", "Tensor Elite", "Long"),
+      pad(4, "Nemo", "Tensor All-Season", "Long"),
+      pad(5, "Nemo", "Tensor Trail", "Regular"),
+    ];
+    // a product stands where its first (best) version ranks, and brings the rest
+    expect(rankProducts(rows, "tensor").map((r) => r.id)).toEqual([1, 3, 2, 4, 5]);
+    expect(rankProducts(rows, "tensor", 2).map((r) => r.id)).toEqual([1, 3, 2, 4]);
+  });
+
+  it("keeps a product's versions in rank order, most picked first", () => {
+    const rows = [
+      row({ id: 1, brand: "Nemo", name: "Tensor Elite", variant: "Long", usageCount: 1 }),
+      row({ id: 2, brand: "Nemo", name: "Tensor Elite", variant: "Regular", usageCount: 9 }),
+    ];
+    expect(rankProducts(rows, "tensor").map((r) => r.id)).toEqual([2, 1]);
+  });
+
+  it("spreads a kind-of-gear query across brands, two products each, then backfills", () => {
+    const rows = [
+      pad(1, "Nemo", "Tensor All-Season", "Regular"),
+      pad(2, "Nemo", "Tensor All-Season", "Long"),
+      pad(3, "Nemo", "Tensor Elite"),
+      pad(4, "Nemo", "Switchback"),
+      pad(5, "Therm-a-Rest", "NeoAir XLite NXT"),
+    ];
+    // Nemo's first two products (the All-Season whole), the Therm-a-Rest, then the
+    // capped Nemo product fills the rest
+    expect(rankProducts(rows, "sleeping pad").map((r) => r.id)).toEqual([1, 2, 3, 5, 4]);
+    // a query that names the brand is not a kind of gear: no spread
+    expect(rankProducts(rows, "nemo").map((r) => r.id)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("tells a product from its plus", () => {
+    const rows = [
+      row({ id: 1, brand: "Altra", name: "Lone Peak 9", variant: "Men's" }),
+      row({ id: 2, brand: "Altra", name: "Lone Peak 9+", variant: "Men's" }),
+      row({ id: 3, brand: "Altra", name: "Lone Peak 9", variant: "Women's" }),
+    ];
+    expect(rankProducts(rows, "lone peak").map((r) => r.id)).toEqual([1, 3, 2]);
+  });
+
+  it("answers nothing where the row cut answers nothing", () => {
+    expect(rankProducts([row({ id: 1 })], "d")).toEqual([]);
+    expect(rankProducts([row({ id: 1 })], "my car keys")).toEqual([]);
   });
 
   it("treats a synonym in search_terms as a kind-of-gear query too", () => {

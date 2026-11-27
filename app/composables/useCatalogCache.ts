@@ -1,6 +1,6 @@
 import {
   mergeCatalogRows,
-  rankCandidates,
+  rankProducts,
   type CatalogSearchResult,
   type LocalCatalogRow,
 } from "~~/shared/catalogSearch";
@@ -69,8 +69,11 @@ export function useCatalogCache() {
     persistSoon();
   }
 
+  // By product, as the live search is asked (`by=product`): the menu reads either
+  // answer the same way. A product's versions are all here once it has been seen
+  // online, since that answer carries every one of them.
   function searchLocal(q: string): CatalogSearchResult[] {
-    return rankCandidates(memItems, q);
+    return rankProducts(memItems, q);
   }
 
   return { prime, remember, searchLocal };
