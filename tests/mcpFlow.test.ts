@@ -8,7 +8,6 @@ import { LISTS_DDL, SNAPSHOTS_DDL, TRAIL_FAVICONS_DDL } from "../server/utils/db
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
 import { makeEvent, stubFetch } from "./helpers/http";
-import { expectResultConforms } from "./helpers/mcpSchema";
 
 // The MCP tools end to end against a real (in-memory) database: an assistant makes a
 // list, adds to it, sets its trip, and reads it back the way a person would see it on
@@ -21,7 +20,11 @@ vi.mock("../server/utils/rateLimit", () => {
   return {
     rateLimit: async () => {},
     rateLimitSubject: async () => {},
-    useKv: () => ({ getItem: async (k: string) => kv.get(k) ?? null, setItem: async (k: string, v: unknown) => void kv.set(k, v) }),
+    useKv: () => ({
+      getItem: async (k: string) => kv.get(k) ?? null,
+      setItem: async (k: string, v: unknown) => void kv.set(k, v),
+      removeItem: async (k: string) => void kv.delete(k),
+    }),
   };
 });
 // searchCatalog reads DATABASE_URL at call time to pick the Neon SQL branch, which a
@@ -36,8 +39,6 @@ async function rpc(method: string, params?: unknown, id = 1) {
 }
 const call = async (name: string, args: unknown) => {
   const r = await rpc("tools/call", { name, arguments: args });
-  // a real database's values, held to the declared shape as the stubbed suite's are
-  expectResultConforms(name, r);
   return { data: r.structuredContent as Record<string, unknown>, text: r.content[0]!.text, isError: r.isError ?? false };
 };
 
@@ -288,6 +289,11 @@ describe("groups and relinking, end to end", () => {
     const bars = find(await read(), "Bars");
     expect((await call("edit_list", { edit_link: link, add: [{ name: "x", group: bars.id }] })).text).toContain("itself nested");
     expect((await call("edit_list", { edit_link: link, add: [{ name: "x", group: monday.id, folder: "Shelter" }] })).text).toContain("another folder");
+    expect((await call("edit_list", { edit_link: link, add: [{ name: "x", group: "nope" }] })).text).toContain('No row on this list has the id "nope" to group "x" under');
+    // a row under a nested row is two deep, however it is sent
+    expect((await call("edit_list", { edit_link: link, add: [{ name: "x", items: [{ name: "y", items: [{ name: "z" }] }] }] })).text).toContain("can't nest rows of its own");
+    // every one of those was refused whole
+    expect(shape(await read())[0]).toEqual(["Food", [["Monday", ["Bars", "Jerky", "Gummies"]]]]);
   });
 
   it("moves a row out of a group and back in to a place, and a group across folders with its rows", async () => {
@@ -307,6 +313,10 @@ describe("groups and relinking, end to end", () => {
     // Food, emptied, is still a folder of the list
     expect(shape(list)).toEqual([["Food", []], ["Day 1", [["Monday", ["Jerky", "Bars", "Gummies"]]]], ["Unfiled", [["Duplex", ["Stakes"]]]]]);
     expect((await call("edit_list", { edit_link: link, update: [{ id: monday.id, group: find(list, "Duplex").id }] })).text).toContain("rows nested under it");
+    const stakes = find(list, "Stakes");
+    expect((await call("edit_list", { edit_link: link, update: [{ id: stakes.id, group: stakes.id }] })).text).toContain("can't be grouped under itself");
+    expect((await call("edit_list", { edit_link: link, update: [{ id: stakes.id, group: monday.id, folder: "Food" }] })).text).toContain("give group or folder, not both");
+    expect(shape(await read())).toEqual(shape(list));
   });
 
   it("relinks a nested row to the catalog where it sits, keeps a typed weight as the owner's, and unlinks", async () => {
@@ -317,7 +327,7 @@ describe("groups and relinking, end to end", () => {
     list = await read();
     // the row is now the catalog's quilt, and still Monday's
     expect(shape(list)[1]).toEqual(["Day 1", [["Monday", ["Jerky", "Bars", "Revelation"]]]]);
-    expect(find(list, "Revelation")).toMatchObject({ brand: "Enlightened Equipment", variant: "20F Long", weight_g: 590, catalog_id: 1 });
+    expect(find(list, "Revelation")).toMatchObject({ brand: "Enlightened Equipment", variant: "20F Long", gear_type: "Quilt", weight_g: 590, catalog_id: 1 });
     // relinked again with a weight of its own: the catalog's variant, the owner's weight
     const quilt = find(list, "Revelation");
     const again = await call("edit_list", { edit_link: link, update: [{ id: quilt.id, catalog_id: 2, weight_g: 600 }] });

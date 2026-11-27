@@ -11,7 +11,6 @@ import { catalogRow, seedCatalogRow } from "./helpers/catalog";
 import { createTestDb, type TestDb } from "./helpers/db";
 import { dbState } from "./helpers/dbMock";
 import { makeEvent } from "./helpers/http";
-import { expectResultConforms } from "./helpers/mcpSchema";
 
 // The admin tools (verify_catalog_item, get_catalog_edits, revert_catalog_edit), driven
 // through the real endpoint against a real (in-memory) database. Held here: only an
@@ -26,7 +25,7 @@ vi.mock("../server/utils/db", async (o) => (await import("./helpers/dbMock")).mo
 vi.mock("../server/utils/rateLimit", () => ({
   rateLimit: async () => {},
   rateLimitSubject: async () => {},
-  useKv: () => ({ getItem: async () => null, setItem: async () => {} }),
+  useKv: () => ({ getItem: async () => null, setItem: async () => {}, removeItem: async () => {} }),
 }));
 // the catalog reads pick their SQL by DATABASE_URL at call time
 vi.stubEnv("DATABASE_URL", "");
@@ -45,19 +44,16 @@ const listed = async (token?: string) =>
   ((await post({ jsonrpc: "2.0", id: 1, method: "tools/list" }, token)).reply.result!.tools ?? []).map((t) => t.name);
 const callTool = (name: string, args: unknown, token?: string) => post({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name, arguments: args } }, token);
 const call = (args: unknown, token?: string) => callTool(TOOL, args, token);
-/** an admin's call to any admin tool that the tool answered, held to its declared shape */
+/** an admin's call to any admin tool that the tool answered */
 async function adminCall(name: string, args: Record<string, unknown>, token = adminWrite): Promise<{ refused: boolean; text: string; data: any }> {
   const { reply } = await callTool(name, args, token);
   const result = reply.result!;
-  expectResultConforms(name, result);
   return { refused: result.isError ?? false, text: result.content[0]!.text, data: result.structuredContent };
 }
 /** an admin's call that the tool answered: its row, or its refusal */
 async function verify(args: Record<string, unknown>) {
   const { reply } = await call(args, adminWrite);
   const result = reply.result!;
-  // the declared outputSchema, compiled closed, as every MCP suite holds its calls to
-  expectResultConforms(TOOL, result);
   return { refused: result.isError ?? false, text: result.content[0]!.text, data: result.structuredContent as { created: boolean; row: Record<string, unknown>; edit_id: number; warnings?: string[] } };
 }
 
@@ -94,17 +90,15 @@ afterEach(() => {
 });
 
 describe("who sees it and who can call it", () => {
-  it("is listed as the public six plus the admin three, declared like them, the writers saying they write for everyone", async () => {
+  it("is listed as the public six plus the admin three, the writers saying they write for everyone", async () => {
     const tools = (await post({ jsonrpc: "2.0", id: 1, method: "tools/list" }, adminWrite)).reply.result!.tools as unknown as {
       name: string;
-      outputSchema?: { type: string };
       annotations: Record<string, boolean>;
       inputSchema: { properties: Record<string, { type?: string; maxLength?: number; maximum?: number }> };
     }[];
     expect(tools.map((t) => t.name)).toEqual(["get_list", "search_catalog", "create_list", "edit_list", "get_my_gear", "edit_my_gear", ...ADMIN_TOOLS]);
     const [verifyTool, editsTool, revertTool] = tools.slice(-3) as [(typeof tools)[0], (typeof tools)[0], (typeof tools)[0]];
     for (const tool of [verifyTool, editsTool, revertTool]) {
-      expect(tool.outputSchema?.type, tool.name).toBe("object");
       // every free-text argument carries the cap the tool holds it to, as the other tools' do
       const uncapped = Object.entries(tool.inputSchema.properties).filter(([, p]) => p.type === "string" && !("enum" in p) && p.maxLength == null);
       expect(uncapped.map(([k]) => k), tool.name).toEqual([]);
@@ -725,5 +719,40 @@ describe("linking the person's own piece in the same call", () => {
     expect(cut.refused, cut.text).toBe(false);
     expect(cut.data.gear).toMatchObject({ id: hoody, variant: "Women’s Large", weight_g: 320 });
 
+  });
+});
+
+// The field set of each admin tool's answer, held exactly, as mcp.test.ts holds the
+// list tools': a producer that grows or loses a field fails here.
+describe("the fields each admin tool answers with", () => {
+  const keys = (value: unknown) => Object.keys(value as object).sort();
+  const ROW = ["brand", "category", "display_name", "gear_type", "id", "name", "source_url", "variant", "verified", "weight_g", "weight_source"];
+  let rowId = 0;
+  let done: Awaited<ReturnType<typeof adminCall>>;
+  // a scale weight over the maker's, with the person's piece linked: every field at once
+  beforeAll(async () => {
+    const row = await seedCatalogRow(db, { brand: "Nite Ize", name: "Gear Tie", variant: "2-pack", commonName: "Gear tie", categoryHint: "other", weightMg: 85_050, weightSource: "manufacturer", sourceUrl: "https://niteize.example/gear-tie", sourceQuote: "Weight: 3 ounces", verified: true, verifiedBy: admin });
+    rowId = row.id;
+    const piece = (await adminCall("edit_my_gear", { add: [{ brand: "Nite Ize", name: "Gear Tie", variant: "2-pack" }] })).data.results[0].item.id as number;
+    done = await adminCall(TOOL, { catalog_id: rowId, weight_g: 60, weight_source: "measured", gear_id: piece });
+  });
+
+  it("verify_catalog_item: the answer, with a warning and a linked piece, and its row", () => {
+    expect(done.refused, done.text).toBe(false);
+    expect(keys(done.data)).toEqual(["created", "edit_id", "gear", "revived", "row", "unchanged", "warnings"]);
+    expect(keys(done.data.row)).toEqual(ROW);
+  });
+
+  it("get_catalog_edits: the answer and an edit", async () => {
+    const history = await adminCall("get_catalog_edits", { catalog_id: rowId });
+    expect(keys(history.data)).toEqual(["edits"]);
+    expect(keys(history.data.edits[0])).toEqual(["at", "catalog_id", "id", "item", "kind", "new_weight_g", "old_weight_g", "reason", "source_url", "status"]);
+  });
+
+  it("revert_catalog_edit: the answer and its row", async () => {
+    const undone = await adminCall("revert_catalog_edit", { edit_id: done.data.edit_id });
+    expect(undone.refused, undone.text).toBe(false);
+    expect(keys(undone.data)).toEqual(["edit_id", "rejected", "retired", "row"]);
+    expect(keys(undone.data.row)).toEqual(ROW);
   });
 });
