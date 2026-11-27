@@ -839,7 +839,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
      tab carries its own --space-2 of chip padding on top of the shared inset, so
      "Gear" alone sat 8px further in and the column read as bent. Pull the row back
      by exactly that padding: the text aligns and the active chip's ground overhangs
-     into the panel's own padding, which is the --tap-pull idiom (grow the box, not
+     into the panel's own padding, which is the --touch-target-pull idiom (grow the box, not
      the picture). */
   margin-inline-start: calc(-1 * var(--space-2));
 }
@@ -868,11 +868,11 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 }
 /* A FINGER-SIZED TARGET for a chip drawn at text size. The tab is ~27px tall and sits
    between the header and the search field, a thumb's width from both; growing the chip
-   to --tap would stand the row 17px taller on a sheet that is short of height already.
-   So the box that answers the tap grows and the picture doesn't: an invisible --tap of
-   height centred on the chip, the .switch::before trick (controls.scss). It reaches
-   about as far as the 8px margins either side, so it doesn't steal taps meant for the
-   header above or the search field below.
+   to --touch-target would stand the row 17px taller on a sheet that is short of height
+   already. So the box that answers the tap grows and the picture doesn't: an invisible
+   --touch-target of height centred on the chip, the .switch::before trick
+   (controls.scss). It reaches about as far as the 8px margins either side, so it doesn't
+   steal taps meant for the header above or the search field below.
    Touch only — a mouse can hit the chip it can see. */
 @media (pointer: coarse) {
   .vp__tab::before {
@@ -880,7 +880,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
     position: absolute;
     inset-inline: 0;
     top: 50%;
-    height: var(--tap);
+    height: var(--touch-target);
     translate: 0 -50%;
   }
 }
@@ -899,8 +899,8 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
   padding-block-start: var(--vp-pad);
   margin-bottom: var(--space-2);
 }
-/* On touch the two trailing buttons are --tap boxes, which already space their glyphs
-   44px apart; the header's gap on top of that stood Open and Close 52px apart, wider
+/* On touch the two trailing buttons are --touch-target boxes, which already space their
+   glyphs 44px apart; the header's gap on top of that stood Open and Close 52px apart, wider
    than the toolbar's icons above the sheet. */
 @media (pointer: coarse) {
   .vp__head {
@@ -949,7 +949,7 @@ const targetOptions = computed(() => folders.value.map((f) => ({ key: f.id, labe
 /* a finger gets the row's height to land on, as the Close box beside it has */
 @media (pointer: coarse) {
   .vp__open {
-    min-height: var(--tap);
+    min-height: var(--touch-target);
   }
 }
 /* the search field, its clear and their touch target are SearchField's own; the class

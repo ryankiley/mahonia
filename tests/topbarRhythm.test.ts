@@ -18,7 +18,7 @@ describe("the editor bar's icon spacing", () => {
   const bar = block(".topbar__inner");
 
   it("is a touch target less the button, so it closes to nothing on touch", () => {
-    expect(bar).toContain("--cluster-gap: calc(var(--tap) - var(--icon-btn));");
+    expect(bar).toContain("--cluster-gap: calc(var(--touch-target) - var(--icon-btn));");
     expect(bar).toContain("gap: var(--cluster-gap);");
     expect(bar).toMatch(/@media \(pointer: coarse\) \{\s*--cluster-gap: 0px;/);
     // and no width breakpoint of its own any more

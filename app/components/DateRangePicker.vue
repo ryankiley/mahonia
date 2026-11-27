@@ -206,7 +206,7 @@ onMounted(() => {
         class="cal__pip"
         aria-hidden="true"
         :style="{
-          translate: `calc(var(--icon-btn) * ${pip.col}) calc((var(--icon-btn) + var(--space-px)) * ${pip.row})`,
+          translate: `calc(var(--icon-btn) * ${pip.col}) calc((var(--icon-btn) + var(--space-half)) * ${pip.row})`,
         }"
       />
       <span v-for="(w, i) in WEEKDAYS" :key="i" class="t-sm t-muted cal__wd" aria-hidden="true">{{ w }}</span>
@@ -280,7 +280,7 @@ onMounted(() => {
 .cal__grid {
   display: grid;
   grid-template-columns: repeat(7, var(--icon-btn));
-  row-gap: var(--space-px);
+  row-gap: var(--space-half);
   /* the pip's containing block. `isolate` keeps its z-index:-1 inside this grid —
      without a stacking context here that negative layer resolves against whatever
      ancestor happens to make one, and the pip would hunt for a surface to hide behind. */

@@ -85,17 +85,17 @@ const card = computed(() => presence.value === "signedOut");
    what made the top read as more padded than the sides even though .dlg insets both by
    --space-5. Pull the box back onto the text line so the title sits on the card's
    padding edge and the row is as tall as its type.
-   --icon-pull is that pull (tokens.scss, beside --tap-pull): derived from the box size
-   rather than typed, so a retune of --icon-btn keeps the rhythm. */
+   --icon-pull is that pull (tokens.scss, beside --touch-target-pull): derived from the
+   box size rather than typed, so a retune of --icon-btn keeps the rhythm. */
 .acctmodal__head .btn--icon {
   margin-block: var(--icon-pull);
 }
-/* touch: the button grows to --tap (atoms/controls.scss), so the pull that keeps the
-   row as tall as its type is the --tap one. With the 32px pull on a 44px box the header
-   stood 12px taller on a phone than the same header does under a mouse. */
+/* touch: the button grows to --touch-target (atoms/controls.scss), so the pull that keeps the
+   row as tall as its type is the --touch-target one. With the 32px pull on a 44px box the
+   header stood 12px taller on a phone than the same header does under a mouse. */
 @media (pointer: coarse) {
   .acctmodal__head .btn--icon {
-    margin-block: var(--tap-pull);
+    margin-block: var(--touch-target-pull);
   }
 }
 </style>

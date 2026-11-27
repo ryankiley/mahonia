@@ -1201,7 +1201,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   line-height: var(--leading-normal);
   font-size: var(--text-title);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--track-tight);
+  letter-spacing: var(--tracking-tight);
 }
 /* the chevron rides with the NAME, as a folder's does — it belongs to the thing it
    folds, not to the row's trailing actions */
@@ -1268,7 +1268,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   display: inline-flex;
   align-items: center;
   justify-self: start;
-  gap: var(--space-px);
+  gap: var(--space-half);
   min-height: var(--field-h);
   font-size: var(--text-base);
 }
@@ -1432,7 +1432,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: var(--space-px);
+  gap: var(--space-half);
   padding: var(--space-1);
   border-radius: var(--radius-2);
   background: var(--map-background);
@@ -1442,7 +1442,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
-  height: calc(26 * var(--tpx));
+  height: calc(26 * var(--px));
   padding: 0 var(--space-2);
   border-radius: var(--radius-1);
   font-size: var(--text-chrome);
@@ -1466,8 +1466,8 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   font-weight: var(--font-weight-semibold);
 }
 .plan__armdot {
-  width: calc(8 * var(--tpx));
-  height: calc(8 * var(--tpx));
+  width: calc(8 * var(--px));
+  height: calc(8 * var(--px));
   border-radius: var(--radius-round);
 }
 /* the unclaimed stretch has no day colour, because it is nobody's */
@@ -1539,7 +1539,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
      NAME FIRST. It is what you read the row by, so it takes the left edge where the eye
      lands; the kind toggles are what you set once and then stop looking at. */
   /* THE TRACK FOLLOWS THE POINTER, because the buttons in it do. An icon button is
-     --icon-btn under a mouse and --tap under a thumb (controls.scss grows it for the
+     --icon-btn under a mouse and --touch-target under a thumb (controls.scss grows it for the
      44px target). Pinned at --icon-btn, these tracks were 32px boxes holding 44px
      buttons — and a grid track narrower than its content doesn't clip it, it lets it
      paint over the neighbour. The delete button hung off the end of the row and the
@@ -1547,7 +1547,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   --wprow-btn: var(--icon-btn);
   --wprow-cols:
     minmax(0, 1fr)
-    calc(var(--wprow-btn) * 2 + var(--space-px))
+    calc(var(--wprow-btn) * 2 + var(--space-half))
     auto
     auto
     var(--wprow-btn);
@@ -1572,7 +1572,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 /* A thumb gets the bigger boxes, so the row gets the bigger tracks. */
 @media (pointer: coarse) {
   .plan__wplist {
-    --wprow-btn: var(--tap);
+    --wprow-btn: var(--touch-target);
   }
 }
 /* TWO LINES, and the split is by KIND of thing rather than by what happens to fit.
@@ -1590,7 +1590,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   .plan__wplist {
     --wprow-cols:
       minmax(0, 1fr)
-      calc(var(--wprow-btn) * 2 + var(--space-px))
+      calc(var(--wprow-btn) * 2 + var(--space-half))
       var(--wprow-btn);
     --wprow-areas:
       "name kind del"
@@ -1611,7 +1611,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__wplist:not(:has(button.wprow__del)) {
   --wprow-cols:
     minmax(0, 1fr)
-    calc(var(--wprow-btn) * 2 + var(--space-px))
+    calc(var(--wprow-btn) * 2 + var(--space-half))
     auto
     auto;
   --wprow-areas: "name kind coord dist";
@@ -1623,7 +1623,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
   .plan__wplist:not(:has(button.wprow__del)) {
     --wprow-cols:
       minmax(0, 1fr)
-      calc(var(--wprow-btn) * 2 + var(--space-px));
+      calc(var(--wprow-btn) * 2 + var(--space-half));
     --wprow-areas:
       "name kind"
       "coord dist";

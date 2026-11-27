@@ -5,15 +5,16 @@ import { ROOT, stripComments as strip, walkSources } from "./helpers/sources";
 // EVERY var(--x) RESOLVES TO SOMETHING THAT DEFINES --x.
 //
 // This exists because `margin-block-start: var(--space-8)` sat on the About page for an
-// unknown length of time doing nothing at all. There is no --space-8 — the scale runs
-// 1-7, then 9 — so the declaration was invalid at computed-value time, the margin
+// unknown length of time doing nothing at all. There was no --space-8 then — the scale
+// ran 1-7, then 9 — so the declaration was invalid at computed-value time, the margin
 // resolved to 0, and the section rule sat hard against the paragraph above it. Nothing
 // reported it. Sass doesn't resolve custom properties, the browser drops the declaration
 // silently, and the page still renders, so a typo here is invisible to the build, to the
 // type checker and to every other test in this suite. It was found by looking at it.
 //
-// The trap is the shape of the scale: 1-7 then 9 makes --space-8 the natural thing to
-// write, and the next person will write it again.
+// The trap was the shape of the scale: 1-7 then 9 made --space-8 the natural thing to
+// write. The top step is --space-8 now and the scale has no hole, but a name one past
+// either end is as easy to write as that one was.
 //
 // A reference WITH A FALLBACK is deliberate, not a typo — `var(--hov-foreground,
 // var(--foreground-primary))` is how the travelling plate takes a row's own hue when a
@@ -44,7 +45,7 @@ for (const path of files) {
 const referenced = new Map<string, string[]>();
 for (const path of files) {
   const src = strip(readFileSync(path, "utf8"));
-  // a template literal builds the name at runtime (categoryColor's `var(--cat-${key})`);
+  // a template literal builds the name at runtime (categoryColor's `var(--category-${key})`);
   // there is no static name to check, and shared/categories.ts already clamps the input
   for (const m of src.matchAll(/var\(\s*(--[a-z][a-z0-9-]*)\s*\)/gi)) {
     const name = m[1]!;
@@ -60,7 +61,7 @@ describe("design tokens", () => {
     expect(orphans).toEqual([]);
   });
 
-  // The spacing scale is the one that bit, and the one whose gap invites the typo.
+  // The spacing scale is the one that bit, when it had a gap that invited the typo.
   it("the spacing scale has no holes a reference could fall into", () => {
     const scale = [...defined].filter((n) => /^--space-\d+$/.test(n)).sort();
     expect(scale.length).toBeGreaterThan(0);

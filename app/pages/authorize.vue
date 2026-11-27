@@ -232,7 +232,7 @@ async function decide(decision: "allow" | "deny") {
   flex-direction: column;
   gap: var(--space-4);
   width: 100%;
-  max-width: var(--account-measure);
+  max-width: var(--container-account);
   margin-inline: auto;
   /* the topbar is the page's only other furniture, so the column sits a clear step
      below it on a wide window rather than tucked against it */
@@ -254,8 +254,8 @@ async function decide(decision: "allow" | "deny") {
 .az__tile {
   display: grid;
   place-items: center;
-  width: calc(48 * var(--tpx));
-  height: calc(48 * var(--tpx));
+  width: calc(48 * var(--px));
+  height: calc(48 * var(--px));
   border-radius: var(--radius-3);
   background: var(--background-secondary);
   color: var(--foreground-primary);
@@ -266,8 +266,8 @@ async function decide(decision: "allow" | "deny") {
   line-height: var(--leading-none);
 }
 .az__home {
-  width: calc(22 * var(--tpx));
-  height: calc(22 * var(--tpx));
+  width: calc(22 * var(--px));
+  height: calc(22 * var(--px));
 }
 /* the tie between them: three dots of the quietest foreground, drawn as one dotted rule so
    the gap reads as a connection being made rather than a gap */

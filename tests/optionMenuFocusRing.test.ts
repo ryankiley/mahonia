@@ -12,7 +12,7 @@ const sfc = stripComments(readFileSync(`${ROOT}app/components/OptionMenu.vue`, "
 const tokens = stripComments(readFileSync(`${ROOT}app/assets/styles/foundations/tokens.scss`, "utf8"));
 
 const px = (token: string) => {
-  const m = tokens.match(new RegExp(`${token}:\\s*(?:calc\\((\\d+) \\* var\\(--tpx\\)\\)|(\\d+)px)`));
+  const m = tokens.match(new RegExp(`${token}:\\s*(?:calc\\((\\d+) \\* var\\(--px\\)\\)|(\\d+)px)`));
   expect(m, `no px value for ${token}`).not.toBeNull();
   return Number(m![1] ?? m![2]);
 };

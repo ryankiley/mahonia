@@ -1231,7 +1231,7 @@ onBeforeUnmount(() => {
 }
 
 .routemap__canvas {
-  height: calc(320 * var(--tpx));
+  height: calc(320 * var(--px));
   width: 100%;
   // --radius-2, the same softening the app's other large surfaces take. Leaflet's own
   // container needs it too (below): the tile pane is transformed, and a transformed
@@ -1350,13 +1350,13 @@ onBeforeUnmount(() => {
     background: var(--map-background-muted);
   }
 }
-// A finger's size on touch, as every icon button is (--tap): at 32px the one control that
-// gets you to a map you can pan was the smallest target on it. Zoom's +/− are Leaflet's
-// own and stay its size.
+// A finger's size on touch, as every icon button is (--touch-target): at 32px the one
+// control that gets you to a map you can pan was the smallest target on it. Zoom's +/−
+// are Leaflet's own and stay its size.
 @media (pointer: coarse) {
   .routemap__expand {
-    width: var(--tap);
-    height: var(--tap);
+    width: var(--touch-target);
+    height: var(--touch-target);
   }
 }
 
@@ -1553,7 +1553,7 @@ onBeforeUnmount(() => {
 }
 
 .routemap .leaflet-control-attribution {
-  font-size: calc(10 * var(--tpx));
+  font-size: calc(10 * var(--px));
   background: var(--map-background-translucent);
 
   a {

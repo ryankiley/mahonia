@@ -203,7 +203,7 @@ const spokenAt = computed(() => formatDistance(props.waypoint.alongM, props.dist
   grid-area: kind;
   display: inline-flex;
   align-items: center;
-  gap: var(--space-px);
+  gap: var(--space-half);
 }
 /* quiet until chosen; .item__mark supplies the plate and the inline style the hue. The
    quiet is .foreground-quiet's (controls.scss), worn in the markup: a resting colour

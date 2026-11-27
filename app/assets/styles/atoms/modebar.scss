@@ -28,7 +28,7 @@
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-px);
+  gap: var(--space-half);
   padding: var(--space-1);
   border-radius: var(--radius-3);
   color: var(--foreground-primary);
@@ -60,7 +60,7 @@
 }
 // THE TARGET on a phone, drawn apart from the tab — the .switch::before pattern
 // (controls.scss). 32px is the height this bar should LOOK (see above), and 12px short of
-// the --tap every other control grows to on a coarse pointer; growing the tab would
+// the --touch-target every other control grows to on a coarse pointer; growing the tab would
 // change the look and stand the bar taller. A transparent ::before reaches 6px past it
 // above and below instead, absolutely positioned so it costs no layout. Vertical only:
 // the tabs sit 2px apart, and a hit area reaching sideways would land on the neighbour.
@@ -71,7 +71,7 @@
   .modebar__opt::before {
     content: "";
     position: absolute;
-    inset: calc((var(--control-compact) - var(--tap)) / 2) 0;
+    inset: calc((var(--control-compact) - var(--touch-target)) / 2) 0;
   }
 }
 

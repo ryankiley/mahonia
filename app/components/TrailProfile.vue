@@ -201,7 +201,7 @@ const dayRuns = computed(() => {
       ridge: ridgePath(idx),
       // unassigned ground is grey — a quiet surface, not a category colour, because it
       // is precisely the part of the route that has no day to belong to yet
-      color: d === -1 ? "var(--foreground-tertiary)" : (dayColors.value[d] ?? "var(--cat-other)"),
+      color: d === -1 ? "var(--foreground-tertiary)" : (dayColors.value[d] ?? "var(--category-other)"),
       index: d,
     });
   }
@@ -591,7 +591,7 @@ const id = useId();
 .tprofile {
   display: block;
   width: 100%;
-  height: clamp(56px, 9vw, calc(96 * var(--tpx)));
+  height: clamp(56px, 9vw, calc(96 * var(--px)));
   /* An SVG root clips to its viewBox by default, and a stroke is centred on its path — so
      at x=0 and at the far right, half of every dot of the cursor (.tprofile__cursor,
      below) fell outside the box and was cut away. The line looked like it came apart
@@ -683,7 +683,7 @@ const id = useId();
      which is the part of the chart you most want to interrogate. Padding is inside the
      box, so the same space reserves the room and answers the pointer.
      The readout reads this back (below), so the two can't drift apart. */
-  --tprofile-head: calc(24 * var(--tpx));
+  --tprofile-head: calc(24 * var(--px));
   padding-top: var(--tprofile-head);
   /* Horizontal movement belongs to the chart, vertical still scrolls the page. Without
      this the browser holds every touch-drag open as a possible scroll and then cancels the
@@ -706,7 +706,7 @@ const id = useId();
   transform: translate(-50%, calc(-100% - var(--space-1)));
   display: flex;
   gap: var(--space-2);
-  padding: var(--space-px) var(--space-2);
+  padding: var(--space-half) var(--space-2);
   border-radius: var(--radius-2);
   background: var(--background-secondary);
   color: var(--foreground-secondary);
@@ -736,7 +736,7 @@ const id = useId();
 /* The SAME hues the shading uses, so the number and the band under the cursor agree —
    but not the same tokens, and that is deliberate rather than sloppy.
    
-   --cat-* are validated as FILLS at ~3:1, and as text on --background-secondary in light
+   --category-* are validated as FILLS at ~3:1, and as text on --background-secondary in light
    mode the red measures 4.21:1 against AA's 4.5. So light mode drops the lightness at the
    same hue angle: the correlation a reader perceives is the HUE (it's the red one, it's
    the orange one), and lightness is free to move to clear the contrast floor. Dark mode
@@ -784,7 +784,7 @@ const id = useId();
   opacity: 0.22;
 }
 /* Red for hard, and the SAME red the hover readout marks a steep grade with — one idea,
-   one hue. Yellow for moderate rather than orange: --cat-pack sits 28° from this in hue
+   one hue. Yellow for moderate rather than orange: --category-pack sits 28° from this in hue
    at a similar lightness, which is a classic red/green-deficient confusion pair, and a
    difficulty signal is exactly the wrong place to ask someone to tell those apart. */
 .tprofile__fill.is-hard {

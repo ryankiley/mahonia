@@ -82,14 +82,14 @@ defineExpose({ focus: () => inputEl.value?.focus() });
   display: inline-flex;
   align-items: center;
 }
-/* touch: the clear meets the --tap minimum (controls.scss), centred on the same glyph,
-   so the bigger box only widens its hit area, not where the mark sits */
+/* touch: the clear meets the --touch-target minimum (controls.scss), centred on the same
+   glyph, so the bigger box only widens its hit area, not where the mark sits */
 @media (pointer: coarse) {
   .sf__clear {
     justify-content: center;
-    min-width: var(--tap);
-    min-height: var(--tap);
-    right: calc(var(--space-3) + var(--icon) / 2 - var(--tap) / 2);
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
+    right: calc(var(--space-3) + var(--icon) / 2 - var(--touch-target) / 2);
   }
 }
 </style>

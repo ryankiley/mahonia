@@ -899,7 +899,7 @@ onClickOutside(trailEl, closeTrail);
   font-size: var(--text-page-title);
   font-weight: var(--font-weight-bold);
   line-height: var(--leading-tight);
-  letter-spacing: var(--track-tight);
+  letter-spacing: var(--tracking-tight);
   /* textarea defaults that have to go for it to read as a title rather than a control:
      no drag handle, no scrollbar (it's sized to its content, so there's nothing to
      scroll), and no min-height from .field — one line at this size is already taller
@@ -1402,6 +1402,6 @@ onClickOutside(trailEl, closeTrail);
 }
 .trailswap-leave-to {
   opacity: 0;
-  translate: 0 calc(-1 * var(--space-px));
+  translate: 0 calc(-1 * var(--space-half));
 }
 </style>

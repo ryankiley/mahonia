@@ -136,7 +136,7 @@ watch(
    :first-child it would have kept it until the node was removed and the bar's left
    edge sat a gap inside the column for the whole exit, then slid back. */
 .catbar__seg:not(.seg-leave-active) ~ .catbar__seg {
-  margin-inline-start: var(--space-px);
+  margin-inline-start: var(--space-half);
 }
 /* Arriving is CSS's (@starting-style) and not <TransitionGroup>'s enter classes, which
    land a frame or two after the insert. The other segments start giving up the
@@ -211,7 +211,7 @@ watch(
 .catbar__wt {
   display: inline-flex;
   align-items: baseline;
-  gap: var(--space-px);
+  gap: var(--space-half);
   margin-inline-start: var(--space-2);
   text-indent: 0;
 }

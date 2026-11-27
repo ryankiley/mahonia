@@ -101,7 +101,7 @@ const captionParts = computed(() =>
 .headline__uc {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-px);
+  gap: var(--space-half);
 }
 
 /* The unit takes --text-title, not --text-chrome. At 14px beside a 64px figure the
@@ -111,10 +111,10 @@ const captionParts = computed(() =>
 .headline__unit {
   font-size: var(--text-title);
   font-weight: var(--font-weight-regular);
-  /* half-step between the type system's two trackings: the full --track-tight
+  /* half-step between the type system's two trackings: the full --tracking-tight
      visibly pinches a bare two-letter unit ("oz"), while normal tracking reads
      loose beside the tightly-tracked display figure */
-  letter-spacing: var(--track-unit);
+  letter-spacing: var(--tracking-snug);
   color: var(--foreground-secondary);
   transition: color var(--spring-fade-dur) var(--spring-fade);
 }

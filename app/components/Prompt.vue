@@ -71,7 +71,7 @@ const emit = defineEmits<{ dismiss: [] }>();
 .prompt__text {
   display: flex;
   flex-direction: column;
-  gap: var(--space-px);
+  gap: var(--space-half);
 }
 /* leading mark: same box and foreground as the dismiss at the other end, so the two read
    as a matched pair bracketing the message */
@@ -98,17 +98,17 @@ const emit = defineEmits<{ dismiss: [] }>();
     opacity: 1;
   }
 }
-/* touch: the dismiss meets the --tap minimum (the house rule, controls.scss)
+/* touch: the dismiss meets the --touch-target minimum (the house rule, controls.scss)
    without growing the prompt — the extra hit area overhangs the box via negative
    margins, the same trick the folder header uses */
 @media (pointer: coarse) {
   .prompt__close {
-    min-width: var(--tap);
-    min-height: var(--tap);
+    min-width: var(--touch-target);
+    min-height: var(--touch-target);
     /* the button at rest is its glyph and a --space-1 of padding either side */
     --prompt-close: calc(var(--icon) + 2 * var(--space-1));
-    margin-block: calc((var(--tap) - var(--prompt-close)) / -2);
-    margin-inline-end: calc((var(--tap) - var(--prompt-close)) / -2);
+    margin-block: calc((var(--touch-target) - var(--prompt-close)) / -2);
+    margin-inline-end: calc((var(--touch-target) - var(--prompt-close)) / -2);
   }
 }
 </style>

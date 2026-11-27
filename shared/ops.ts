@@ -272,7 +272,7 @@ export const kcalOf = (v: unknown): number | undefined => {
 // MB (1000 items × a giant id), amplified ×5 by the full-copy snapshots. 128 is far
 // above any real uid().
 const MAX_ID_LEN = 128;
-// colorKey is interpolated into a CSS value (categoryColor → `var(--cat-<key>)`);
+// colorKey is interpolated into a CSS value (categoryColor → `var(--category-<key>)`);
 // restrict it to a safe charset so it can't smuggle a CSS token (e.g. a `url()`
 // tracking beacon) onto a shared list a viewer opens.
 const SAFE_COLOR_KEY = /^[a-z0-9-]{1,40}$/;

@@ -110,9 +110,9 @@ const MENU_ACTIONS: MenuAction[] = [
 //
 // The shortcuts sheet stands down on a touch device: it lists keys a phone doesn't
 // have, so the row led to a page of things you can't press. `pointer: coarse`
-// (coarsePointer, utils/platform) is the same test that grows the icon buttons to --tap,
-// so "phone" means one thing here. A tablet with a keyboard attached loses the row and
-// keeps the sheet — `?` still opens it.
+// (coarsePointer, utils/platform) is the same test that grows the icon buttons to
+// --touch-target, so "phone" means one thing here. A tablet with a keyboard attached
+// loses the row and keeps the sheet — `?` still opens it.
 const touch = coarsePointer();
 const SITE_ACTIONS: MenuAction[] = [
   { label: "Keyboard shortcuts", icon: IconKeyboard, event: "shortcuts", hidden: () => touch },
@@ -212,7 +212,7 @@ function act(event: MenuEvent | FootEvent) {
 <style scoped lang="scss">
 /* A short phone can't show the whole menu. Keep all links and actions reachable. */
 .editor__actions {
-  max-height: calc(100svh - var(--space-9));
+  max-height: calc(100svh - var(--space-8));
   overflow-y: auto;
   overscroll-behavior: contain;
 }

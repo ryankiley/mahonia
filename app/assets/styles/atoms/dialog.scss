@@ -51,7 +51,7 @@
    BaseModal for one caller's width. */
 .dlg:has(> .acct),
 .dlg:has(> .acctmodal__head) {
-  max-width: var(--account-measure);
+  max-width: var(--container-account);
 }
 
 /* The sign-in card's own shape (a narrower, rounder dialog under a centred head) is
@@ -73,7 +73,7 @@
 .dlg__item {
   font-size: var(--text-title);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--track-tight);
+  letter-spacing: var(--tracking-tight);
 }
 // trailing-aligned buttons closing every dialog body — part of the shared shell,
 // so it lives here beside .dlg rather than in one caller's scoped styles

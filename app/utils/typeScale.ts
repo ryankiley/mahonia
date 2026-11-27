@@ -1,5 +1,5 @@
 // One pixel of the type, as a number: exactly 1 up to the 1920px anchor, and growing with
-// --text-base past it. The script side of the stylesheet's --tpx (tokens.scss), for the
+// --text-base past it. The script side of the stylesheet's --px (tokens.scss), for the
 // gaps a script places things with (a menu's distance from its trigger, a tooltip's from
 // the window's edge), so they open up with the spacing the CSS draws around them instead
 // of staying at their px values beside 25px type on a 3000px window.

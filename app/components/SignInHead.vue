@@ -27,7 +27,7 @@
    real button for a screen reader and for the keyboard, drawn only while it has focus. */
 .dlg:has(> .signin__head) {
   position: relative;
-  max-width: var(--account-measure);
+  max-width: var(--container-account);
   /* rounder than the other dialogs, to sit with the pills inside it (tokens.scss) */
   border-radius: var(--radius-5);
 }
@@ -42,7 +42,7 @@
 }
 .signin__mark {
   display: block;
-  height: calc(40 * var(--tpx));
+  height: calc(40 * var(--px));
   width: auto;
 }
 /* the type is .t-title's, on the element; this is only what an address in a title needs */

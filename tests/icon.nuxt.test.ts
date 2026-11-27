@@ -44,7 +44,7 @@ describe("SvgIcon", () => {
 
   it("holds each step's px to its token in tokens.scss", () => {
     const tokens = readFileSync("app/assets/styles/foundations/tokens.scss", "utf8");
-    const token = (name: string) => Number(tokens.match(new RegExp(`--${name}:\\s*calc\\((\\d+) \\* var\\(--tpx\\)\\)`))?.[1]);
+    const token = (name: string) => Number(tokens.match(new RegExp(`--${name}:\\s*calc\\((\\d+) \\* var\\(--px\\)\\)`))?.[1]);
     for (const [step, { px }] of Object.entries(ICON_SIZES)) {
       expect(token(step === "md" ? "icon" : `icon-${step}`), `--icon${step === "md" ? "" : `-${step}`}`).toBe(px);
     }

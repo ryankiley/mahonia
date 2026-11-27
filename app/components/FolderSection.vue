@@ -159,7 +159,7 @@ function onName(e: Event) {
   position: absolute;
   left: 0;
   right: 0;
-  height: var(--space-px);
+  height: var(--space-half);
   background: var(--foreground-primary);
   pointer-events: none;
 }
@@ -242,8 +242,8 @@ function onName(e: Event) {
      (mirrors the item rows' .item__actions treatment) */
   .folder__actions .btn--icon {
     min-height: 0;
-    height: var(--tap);
-    margin-block: var(--tap-pull);
+    height: var(--touch-target);
+    margin-block: var(--touch-target-pull);
   }
   /* the add button's compact mobile metrics ride along with the shared atom
      (atoms/item.scss), so this row and a nested group's stay in step */

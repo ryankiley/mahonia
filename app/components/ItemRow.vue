@@ -1102,7 +1102,7 @@ watch(savedAs, () => {
 // the same actions the inline icons run: the one nesting action that applies to this
 // row's state (add-nested / nest-up / un-nest), then the vault save, and last the removal — all inline on a desktop row
 // and living only here on a phone (see the mobile block: the trailing cluster is
-// ⋯ · grip, because the icons are --tap wide there and the line has no room for the
+// ⋯ · grip, because the icons are --touch-target wide there and the line has no room for the
 // row's numbers beside more than two of them).
 const overflowActions = computed(() => {
   // The nesting entries ARE nestActions — the desktop menu's table, not a second
@@ -2324,12 +2324,12 @@ function dismissFix() {
 }
 /* A coarse pointer WIDE enough to still be on the grid — a tablet in landscape, a
    touch laptop. (Below $bp-stack the stepper isn't rendered at all, so this is the
-   only case.) It's the one icon button that doesn't widen to --tap there, because
+   only case.) It's the one icon button that doesn't widen to --touch-target there, because
    --item-col-qty is derived from --qty-btn: at 44px the track would want 132px, and
    it would take that from the name column on the widest rows in the app.
    The HEIGHT still grows, so the target is 28×44 — past the 24×24 floor (WCAG 2.5.8)
    in both directions, and full height under the finger. Neither needs saying here:
-   the width rule above is scoped, so it already outranks .btn--icon's coarse --tap
+   the width rule above is scoped, so it already outranks .btn--icon's coarse --touch-target
    width, and that same coarse rule's min-height is what grows the height. */
 /* the pop when the stepper moves the number — the shared `num-pop` keyframe
    (main.scss), the one the big total takes when it changes. blur(0) at rest, never
@@ -2364,8 +2364,8 @@ function dismissFix() {
 .item__unit {
   flex: none;
 }
-/* (The unit trigger's touch hit area — --tap, pulled back onto the line — is drawn with
-   My Gear's row picker: atoms/item.scss.) */
+/* (The unit trigger's touch hit area — --touch-target, pulled back onto the line — is
+   drawn with My Gear's row picker: atoms/item.scss.) */
 /* Quiet by default — one of these sits on every row, and a column of hard chevrons
    would shout louder than the weights they belong to. That resting step
    (--foreground-tertiary, and the pin that keeps it from shrinking) is the shared .chev
@@ -2428,16 +2428,16 @@ function dismissFix() {
 }
 @media (pointer: coarse) {
   /* the overshoot, as padding, so the chip's content box stays --icon-btn while the
-     button stays --tap. box-sizing is border-box, so this costs the row no width.
+     button stays --touch-target. box-sizing is border-box, so this costs the row no width.
      The fixed mark grows the same way — not for a tap target it doesn't have, but
      so a water row's cell measures what every other row's does. */
   .item__clsbtn,
   .item__clsfixed {
-    padding: calc((var(--tap) - var(--icon-btn)) / 2);
+    padding: calc((var(--touch-target) - var(--icon-btn)) / 2);
   }
   /* The box the padding above was assuming, which nothing had actually declared.
      A BUTTON gets it from .btn--icon, whose own coarse rule takes width and
-     min-height to --tap (controls.scss). The fixed mark is a <span> and gets
+     min-height to --touch-target (controls.scss). The fixed mark is a <span> and gets
      nothing — it stayed pinned at --icon-btn, and since box-sizing is border-box
      the padding didn't grow it, it just ate 12px out of the 32 the glyph had.
      Two visible faults, both only on a touch pointer:
@@ -2451,8 +2451,8 @@ function dismissFix() {
      Stated as the same two properties .btn--icon's coarse rule sets, so the mark
      and the button it stands in for can't measure differently again. */
   .item__clsfixed {
-    width: var(--tap);
-    min-height: var(--tap);
+    width: var(--touch-target);
+    min-height: var(--touch-target);
   }
 }
 /* anchored to the trigger, not the viewport: the point of the popover is that it
@@ -2466,12 +2466,12 @@ function dismissFix() {
   --pop-pad: var(--space-3);
   --pop-inner-radius: calc(var(--radius-4) - var(--pop-pad));
   /* The height of a control in the card. The worn stepper is as tall as the icon
-     buttons at its ends, which a coarse pointer grows to --tap (controls.scss); the
+     buttons at its ends, which a coarse pointer grows to --touch-target (controls.scss); the
      calorie field takes the same figure, so it is the stepper's height on every
      pointer rather than a text line's. */
   --pop-ctl-h: var(--icon-btn);
   @media (pointer: coarse) {
-    --pop-ctl-h: var(--tap);
+    --pop-ctl-h: var(--touch-target);
   }
 
   position: absolute;
@@ -2504,7 +2504,7 @@ function dismissFix() {
    use existing tab designs"). */
 .item__classes {
   display: flex;
-  gap: var(--space-px);
+  gap: var(--space-half);
 }
 .item__classopt {
   /* the three share the card's width by their words, not equally ("Consumable" is
@@ -2635,7 +2635,7 @@ function dismissFix() {
 /* …and the tooltips move with the glyphs. The rule above puts a 20px picture at the
    RIGHT edge of a 32px button, so a tooltip centred on the button lands 6px left of
    the thing it names — half the difference, on every control in this cluster.
-   Derived from the two sizes, so it holds past 1920px where both grow (--tpx). Tooltip
+   Derived from the two sizes, so it holds past 1920px where both grow (--px). Tooltip
    reads it back in JS, which works because main.scss REGISTERS --tip-shift as a
    <length>: unregistered, a calc() came back as its token stream and parsed to NaN,
    which is why this used to be a literal 8px.
@@ -2789,7 +2789,7 @@ function dismissFix() {
   top: 0;
   left: 0;
   right: 0;
-  height: var(--space-px);
+  height: var(--space-half);
   background: var(--foreground-primary);
   pointer-events: none;
 }
@@ -2918,13 +2918,13 @@ function dismissFix() {
   gap: var(--space-1);
   margin-top: var(--space-1);
 }
-/* composes .btn--icon for the real tap target (--icon-btn box, --tap on touch) —
+/* composes .btn--icon for the real tap target (--icon-btn box, --touch-target on touch) —
    without it the bare 14px glyph was the whole hit area. This rule keeps the quiet
    --foreground-tertiary treatment over .btn--ghost's foreground, and the negative block
    margins pull the enlarged box back out of layout so the fix row keeps its one-text-line
    rhythm (the actions cluster's overshoot technique). */
 .item__fixdismiss {
-  margin-block: var(--tap-pull);
+  margin-block: var(--touch-target-pull);
 }
 
 /* the nested block's thread-line container is the shared .nest-block atom
@@ -3025,7 +3025,7 @@ function dismissFix() {
   .item-wrap .item .field,
   .item-wrap .item__name :deep(.field) {
     min-height: 0;
-    padding-block: var(--space-px);
+    padding-block: var(--space-half);
     line-height: var(--leading-snug);
   }
   /* …the ROW's text boxes, that is. The calorie field in the class card is a .field
@@ -3096,7 +3096,7 @@ function dismissFix() {
        the 1ch field min-width); this is the separation between those pairs.
        It SHRINKS on the narrowest screens rather than holding at space-4 and
        overflowing. Once the classification cell became two toggles, a coarse
-       pointer's --tap sizing left this line needing more width than a 375px phone
+       pointer's --touch-target sizing left this line needing more width than a 375px phone
        has, and a fixed gap spends on air the controls need. Above ~640px it
        resolves to space-4 and nothing changes.
        The FLOOR is --space-3, not --space-2. At 8px the separation between the
@@ -3148,14 +3148,14 @@ function dismissFix() {
     height: auto;
     align-self: auto;
   }
-  /* the --tap tap targets keep their size but overflow the (shorter) text line via
+  /* the --touch-target tap targets keep their size but overflow the (shorter) text line via
      negative margins, so the icons don't inflate the row and push the two text
      lines apart.
      BOTH icon groups on this line, not just the trailing one. The classification cell
-     held a text label when this rule was written; once it became two --tap buttons it
-     stood 44px tall inside a ~25px text line, and the flex line grew to fit it — which
-     is the whole problem, and it is not one the line's own alignment can solve. A 44px
-     item makes a 44px line whatever you align it by (the line takes its cross size from
+     held a text label when this rule was written; once it became two --touch-target
+     buttons it stood 44px tall inside a ~25px text line, and the flex line grew to fit it
+     — which is the whole problem, and it is not one the line's own alignment can solve. A
+     44px item makes a 44px line whatever you align it by (the line takes its cross size from
      its tallest item, and this rule ran when the line was still `baseline`, where the
      numbers then held the top of it while every icon centred ~10px below them).
      So the fix has to be the BOX, not the alignment: shrink each icon's footprint back
@@ -3169,8 +3169,8 @@ function dismissFix() {
   .item__classcell .btn--icon,
   .item__classcell .item__clsfixed {
     min-height: 0;
-    height: var(--tap);
-    margin-block: var(--tap-pull);
+    height: var(--touch-target);
+    margin-block: var(--touch-target-pull);
   }
   /* …and then the class cell's two boxes have to be squared back off, because those
      two PAINT. The rule above grows the height alone, and --radius-pill over the
@@ -3189,19 +3189,19 @@ function dismissFix() {
   .item__classcell .item__clsfixed,
   .item__trail :deep(.item__person-btn),
   .item__trail :deep(.item__morebtn) {
-    width: var(--tap);
-    padding: calc((var(--tap) - var(--icon-btn)) / 2);
+    width: var(--touch-target);
+    padding: calc((var(--touch-target) - var(--icon-btn)) / 2);
   }
   /* (The grip's box is sized with its place in the cluster, further down: it is the
-     one box here that isn't --tap wide.) */
+     one box here that isn't --touch-target wide.) */
   /* mobile trailing cluster = carrier (on a list that names people) · ⋯ · grip.
      Everything else the row can do — the note, the nesting actions, the vault save
      and the removal — moves into the ⋯ menu, which names each one in words rather
      than asking a glyph to. (The carrier was in there too while the class cell was
      two toggles wide; one mark gave its box back.)
      It is width that decides how many stay: on a coarse pointer every .btn--icon grows
-     to --tap, so each inline icon costs 48px of a line that also has to carry the qty,
-     the weight and the class mark. Delete was the last one held back —
+     to --touch-target, so each inline icon costs 48px of a line that also has to carry
+     the qty, the weight and the class mark. Delete was the last one held back —
      and it was the difference between a row that fits and a row that doesn't. Keeping
      it inline, a NESTED row (indented --space-5) needed ~421px of viewport for a
      four-figure weight, so "1 × 1,588 g" one level down ran its grip off the side of
@@ -3256,8 +3256,8 @@ function dismissFix() {
        and read as a hole in the middle of the cluster here, on the numbers' line or
        wrapped under it. The separation from the weight stays the auto margin's.
        And that same gap is ZERO, inside the pairs too (the class cell's and the
-       actions' own, below). Every box here is --tap wide, so a 4px gap between two of
-       them is touch target spaced from touch target, which the eye never sees — what
+       actions' own, below). Every box here is --touch-target wide, so a 4px gap between
+       two of them is touch target spaced from touch target, which the eye never sees — what
        it sees is 28px of air between glyphs instead of 32, still even. On a 320px
        phone those three gaps were 12px of a line that wraps the moment "2.5 L" or
        "10 ×" asks for one more figure. The boxes touch; none overlaps. */
@@ -3296,8 +3296,8 @@ function dismissFix() {
     margin-right: 0;
   }
   /* THE GRIP'S BOX STARTS WHERE THE ⋯'S ENDS. To put the dots there it used to be a
-     whole --tap box brought back by a negative margin of half a box and a pixel, which
-     laid it over the right half of the ⋯, and on top of it, being later in the row:
+     whole --touch-target box brought back by a negative margin of half a box and a pixel,
+     which laid it over the right half of the ⋯, and on top of it, being later in the row:
      a tap on the ⋯'s centre or anywhere right of it landed on the grip, which does
      nothing on a tap, and only the left half of the glyph opened the menu (Ryan,
      2026-11-25: "sometimes this icon is a little hard to press on mobile"). Now the
@@ -3311,15 +3311,15 @@ function dismissFix() {
      containment, which stands down for a row with a focused button (item.scss).
      margin-left: 0 is against .grip's own pull. */
   .item__trail .item__grip {
-    width: calc(var(--tap) / 2 - var(--tpx) + var(--grip-bleed));
+    width: calc(var(--touch-target) / 2 - var(--px) + var(--grip-bleed));
     margin-left: 0;
     margin-right: calc(-1 * var(--grip-bleed));
     padding-right: var(--grip-bleed);
   }
   .item__classcell {
     flex: none;
-    /* …and its LEADING tap overshoot comes out of the line, the way --tap-pull takes
-       the vertical one. The marks' boxes are --tap wide down here (above), but what
+    /* …and its LEADING tap overshoot comes out of the line, the way --touch-target-pull takes
+       the vertical one. The marks' boxes are --touch-target wide down here (above), but what
        you see of a mark is its --icon-btn ground; the 6px either side of that is
        target, not picture. Left in, it stacked on --meta-gap: the weight's chevron sat
        18px from the first mark's ground where the gap promises 12, and on a 320px
@@ -3328,7 +3328,7 @@ function dismissFix() {
        Only the leading edge: the box still sits whole on the right, where the marks'
        spacing to the ⋯ is the cluster's own. On a wrapped line the cell is
        right-anchored, so the 6px overhang lands in free space. */
-    margin-left: calc((var(--icon-btn) - var(--tap)) / 2);
+    margin-left: calc((var(--icon-btn) - var(--touch-target)) / 2);
   }
   /* the number fields have no grid column to fill on mobile, so give them compact
      explicit widths — otherwise width:100% balloons to the default text-input size
@@ -3454,7 +3454,7 @@ function dismissFix() {
   .item__cname {
     grid-column: 2 / -1;
     grid-row: 1;
-    padding-block: var(--space-px);
+    padding-block: var(--space-half);
     line-height: var(--leading-snug);
     display: flex;
     align-items: center;

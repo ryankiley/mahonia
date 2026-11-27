@@ -180,7 +180,7 @@
      folder header follows through its var(--head-cols, var(--item-cols)). */
   --item-cols: #{t.$item-cols-edit};
   @media (pointer: coarse) {
-    --item-col-actions: calc(6 * var(--tap) + 5 * var(--space-1) - var(--grip-pull));
+    --item-col-actions: calc(6 * var(--touch-target) + 5 * var(--space-1) - var(--grip-pull));
   }
 }
 
@@ -204,7 +204,7 @@
    copies, and a drop that lands a level in must not look like a different gesture. */
 .folder__droptail,
 .item-nest__droptail {
-  height: var(--space-px);
+  height: var(--space-half);
   background: var(--foreground-primary);
   margin: var(--space-1) 0;
 }
@@ -328,19 +328,19 @@
    positioned, centred inline-flex box the pair needs (.menu here, .optmenu there), so
    neither restates it; what the two rows shared by hand is below.
    The trigger's hit area: the bare word-and-glyph is ~29×24, so on a coarse pointer it
-   grows to --tap and the overshoot is pulled back out of the line (--tap-pull), the way
-   the row's icon buttons do it — the target grows, the row's height doesn't.
-   And keyboard focus lights the mark as the row's hover does (each row's own rule):
-   --foreground-secondary, not the --foreground-primary other chevrons lift to, because
-   one of these sits on every row and a column of full-ink marks would out-shout the
-   weights. */
+   grows to --touch-target and the overshoot is pulled back out of the line
+   (--touch-target-pull), the way the row's icon buttons do it — the target grows, the
+   row's height doesn't. And keyboard focus lights the mark as the row's hover does (each
+   row's own rule): --foreground-secondary, not the --foreground-primary other chevrons
+   lift to, because one of these sits on every row and a column of full-ink marks would
+   out-shout the weights. */
 @media (pointer: coarse) {
   /* .optmenu named too: the wrap IS the OptionMenu's root, and the extra class keeps
      this ahead of the component's own trigger rule, which loads later at equal weight */
   .item__unitwrap.optmenu .optmenu__btn,
   .vault__unitwrap.optmenu .optmenu__btn {
-    min-height: var(--tap);
-    margin-block: var(--tap-pull);
+    min-height: var(--touch-target);
+    margin-block: var(--touch-target-pull);
   }
 }
 .item__unitwrap:focus-within .chev,
@@ -369,9 +369,9 @@
    It used to take --background-tertiary and read heavy for it; see --background-selected
    for why a surface tone is the wrong thing to borrow for a filled state.
    background-clip pins the ground to the CONTENT box, which is how it stays
-   --icon-btn across every pointer: a coarse one grows the editor's button to --tap
+   --icon-btn across every pointer: a coarse one grows the editor's button to --touch-target
    for the thumb, and a 44px disc drawn in a ~25px text line reaches the rules above
-   and below the row. Same idiom as --tap-pull: grow the box, not the picture.
+   and below the row. Same idiom as --touch-target-pull: grow the box, not the picture.
    The :hover twin is a HOLD, not a hover style: the editor's chip is a .btn--icon,
    and that atom clears the ground on hover (controls.scss) at the same specificity.
    Same declarations, later in the cascade — so pointing at a lit toggle doesn't
@@ -401,11 +401,11 @@
    chip gets its box from .btn--icon; this has no button to inherit one from, so the
    box lives here rather than as a hand-copy per surface.
    --icon-btn to LOOK at, pulled back onto the text line it sits in (--icon-pull, the
-   --tap-pull idiom one size down): at its full height the chip stands the row's first
-   line 8px taller than an unmarked row's, which shows up as an uneven rhythm down a
+   --touch-target-pull idiom one size down): at its full height the chip stands the row's
+   first line 8px taller than an unmarked row's, which shows up as an uneven rhythm down a
    list where only some rows are marked. Grow the box, not the picture. A modifier
    rather than a widening of .item__mark, because the editor's copy is deliberately
-   --tap on a coarse pointer and this must not fight it. */
+   --touch-target on a coarse pointer and this must not fight it. */
 .item__mark--static {
   flex: none;
   display: inline-flex;
@@ -539,7 +539,7 @@ textarea.plan__daynote {
   .item__cweight,
   .item__roqty,
   .item__roweight {
-    padding-block: var(--space-px);
+    padding-block: var(--space-half);
     line-height: var(--leading-snug);
     display: inline-flex;
     align-items: center;
@@ -549,7 +549,7 @@ textarea.plan__daynote {
      and their base rule has no min-height floor to drop) */
   .folder__addbtn,
   .item-nest__add {
-    padding-block: var(--space-px);
+    padding-block: var(--space-half);
     line-height: var(--leading-snug);
   }
 }
@@ -569,7 +569,7 @@ textarea.plan__daynote {
    The editor's rows only: the share views' rows carry no overlays and no typing. */
 .item-wrap {
   content-visibility: auto;
-  contain-intrinsic-size: auto calc(64 * var(--tpx));
+  contain-intrinsic-size: auto calc(64 * var(--px));
   /* Paint containment comes with content-visibility, and it clips at this box's
      padding edge. The grip's dots are shifted OUT of the row's right edge by design
      (.grip in atoms/controls.scss: the glyph's own internal padding goes into the
@@ -583,14 +583,15 @@ textarea.plan__daynote {
 }
 /* …and on a phone the clip shaves a NESTED row's lit marks the same way, from below.
    The stacked meta line is a ~23px text line and a mark's ground is --icon-btn, so a
-   lit drop or cookie hangs 4.4px past it top and bottom (the boxes take the full --tap
-   and --tap-pull them back; the ground is what paints). A top-level row's wrap has 8px
-   of padding under that line to hide it in; a nested row's has none, so the ground's
-   bottom came off flat. Same answer as the grip's: reach by the overhang, give it back.
-   The block is a flex column, so the negative margin can't collapse into the gap. */
+   lit drop or cookie hangs 4.4px past it top and bottom (the boxes take the full
+   --touch-target and --touch-target-pull them back; the ground is what paints). A
+   top-level row's wrap has 8px of padding under that line to hide it in; a nested row's
+   has none, so the ground's bottom came off flat. Same answer as the grip's: reach by the
+   overhang, give it back. The block is a flex column, so the negative margin can't
+   collapse into the gap. */
 @media (max-width: t.$bp-stack) {
   .nest-block > .item-wrap {
-    --mark-bleed: calc((var(--icon-btn) - var(--tap)) / 2 - var(--tap-pull));
+    --mark-bleed: calc((var(--icon-btn) - var(--touch-target)) / 2 - var(--touch-target-pull));
     padding-block-end: var(--mark-bleed);
     margin-block-end: calc(-1 * var(--mark-bleed));
   }
@@ -604,7 +605,7 @@ textarea.plan__daynote {
    at the row's edge while it faded (measured, 2026-09-05). And every row while a drag
    is live, so the held row's shadow paints and the drop targets measure true rather
    than at a remembered size.
-   And a row with a BUTTON under keyboard focus: its ring is drawn round a --tap box
+   And a row with a BUTTON under keyboard focus: its ring is drawn round a --touch-target box
    that overhangs the row's text line by design, and came out cut flat along the bottom
    and, for the grip, down the right (Ryan, 2026-11-25: "still clipping at bottom").
    button, not any :focus-visible: a text field matches that whenever it has focus, and
