@@ -78,12 +78,10 @@
 
 /* collapse chevron button — right after the folder name (one recipe for both folder
    views; the editor adds only a -1px margin-left to trim input slack), and the same
-   button trailing a group row's name (.item__nestcollapse). The only thing that
-   differs is the glyph's rendered size, which --chev-glyph carries for the
-   coarse-pointer rule below. */
+   button trailing a group row's name (.item__nestcollapse). Both draw the glyph at
+   --icon, which the coarse-pointer rule below measures its pull from. */
 .folder__collapse,
 .item__nestcollapse {
-  --chev-glyph: calc(20 * var(--tpx));
   flex: none;
   align-self: center;
   display: flex;
@@ -97,7 +95,6 @@
 /* the row's chevron is the folder's size; -1px so it hugs the name at the same
    distance the folder chevron does (8px from the text, both) */
 .item__nestcollapse {
-  --chev-glyph: var(--icon);
   margin-left: -1px;
 }
 /* touch: the chevron is the primary per-folder control (and the ONLY interactive
@@ -106,7 +103,7 @@
    edge stays tight against the name, so a tap at the end of an editor name still
    focuses the input instead of toggling — and the overshoot is pulled back out of
    layout (--tap-pull) so the glyph stays optically put and the header (or row)
-   keeps its height. calc(--chev-glyph − --tap) cancels exactly the width added
+   keeps its height. calc(--icon − --tap) cancels exactly the width added
    past the glyph. */
 @media (pointer: coarse) {
   .folder__collapse,
@@ -114,7 +111,7 @@
     min-width: var(--tap);
     height: var(--tap);
     justify-content: flex-start;
-    margin-right: calc(var(--chev-glyph) - var(--tap));
+    margin-right: calc(var(--icon) - var(--tap));
     margin-block: var(--tap-pull);
   }
 }

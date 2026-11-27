@@ -2538,7 +2538,7 @@ function dismissFix() {
   display: flex;
   align-items: center;
   border-radius: var(--pop-inner-radius);
-  background: color-mix(in oklab, var(--ink) 7%, transparent);
+  background: var(--wash);
 }
 .item__wornbtn {
   flex: none;
@@ -2561,13 +2561,13 @@ function dismissFix() {
   min-height: var(--icon-btn);
   padding-inline: var(--space-2);
   border-radius: var(--pop-inner-radius);
-  background: color-mix(in oklab, var(--ink) 7%, transparent);
+  background: var(--wash);
   color: var(--ink-2);
 }
 /* pointer-gated — it paints (see the note on .btn:hover, controls.scss) */
 @media (hover: hover) and (pointer: fine) {
   .item__split:hover {
-    background: color-mix(in oklab, var(--ink) 10%, transparent);
+    background: var(--wash-deep);
     color: var(--ink);
   }
 }
@@ -3015,7 +3015,7 @@ function dismissFix() {
   .item-wrap .item__name :deep(.field) {
     min-height: 0;
     padding-block: var(--space-px);
-    line-height: 1.3;
+    line-height: var(--leading-compact);
   }
   /* …the ROW's text boxes, that is. The calorie field in the class card is a .field
      inside the row too, and the rule above was flattening it to a text line: 27px
@@ -3024,7 +3024,7 @@ function dismissFix() {
   .item-wrap .item .field.item__popinput {
     min-height: var(--pop-ctl-h);
     padding-block: var(--space-1);
-    line-height: 1.2;
+    line-height: var(--leading-control);
   }
   /* The sub-line sits directly under the name field here as on desktop, but the mobile
      name field is a text-tight box (padding-block 2px, see above), so the desktop tuck
@@ -3444,7 +3444,7 @@ function dismissFix() {
     grid-column: 2 / -1;
     grid-row: 1;
     padding-block: var(--space-px);
-    line-height: 1.3;
+    line-height: var(--leading-compact);
     display: flex;
     align-items: center;
   }

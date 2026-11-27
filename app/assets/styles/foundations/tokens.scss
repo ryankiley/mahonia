@@ -156,6 +156,14 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
     color-mix(in oklab, var(--ink) 43%, transparent),
     color-mix(in oklab, var(--ink) 35%, transparent)
   );
+  /* ---- the WASH: the resting ground of a contained thing on a floating surface — the
+     typing well, a menu's callout, the worn stepper and its count chips. An amount of
+     ink for --lit's reason, and why it is these two amounts is argued at .well
+     (atoms/controls.scss), which had the pair first; the other three restated it.
+     --wash-deep is the same ground one step on: the well focused, a chip pointed at.
+     ONE percentage each, not a light-dark() pair: these measured out equal. ---- */
+  --wash: color-mix(in oklab, var(--ink) 7%, transparent);
+  --wash-deep: color-mix(in oklab, var(--ink) 10%, transparent);
 
   /* ---- ink: neutral grey ramp; primary is true black / white ---- */
   --ink: light-dark(#000000, #ffffff);
@@ -316,9 +324,18 @@ $item-cols-edit: 1fr var(--item-col-qty) var(--item-col-weight) var(--item-col-c
   --text-chrome: 0.875rem; /* 14px — a popover's own text, the topbar status */
   --text-micro: 0.75rem; /* 12px — the small labels sitting above its fields */
 
-  /* ---- line-height scale — the two leadings the type system uses, named so they
+  /* ---- line-height scale — the leadings the type system uses, named so they
      can't drift as scattered literals. ---- */
   --leading-tight: 1.15; /* the one heading size (.t-title) — cap-height rows */
+  /* a label's line, and a heading's: what the reset gives both, and what a box that is
+     neither asks for by name when it has to sit level with one (a <div> field beside a
+     <label> one). The reset names buttons and inputs too, but its `font: inherit`
+     further down hands those the body's 1.5 back, so a control that wants this says so. */
+  --leading-control: 1.2;
+  /* the two-line phone row. Its edit, read and packing forms have to come out the same
+     height or the row jumps when the mode changes, so the four rules that set it
+     (atoms/item.scss, ItemRow) read one number */
+  --leading-compact: 1.3;
   --leading-normal: 1.5; /* body prose, item names + notes — multi-line reading */
 
   /* the type system's one non-default tracking (.t-title, .t-num, buttons) —

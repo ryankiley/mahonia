@@ -897,7 +897,7 @@ onClickOutside(trailEl, closeTrail);
      workaround (controls.scss) doesn't apply here. */
   font-size: var(--text-page-title);
   font-weight: 700;
-  line-height: 1.2;
+  line-height: var(--leading-control);
   letter-spacing: var(--track-tight);
   /* textarea defaults that have to go for it to read as a title rather than a control:
      no drag handle, no scrollbar (it's sized to its content, so there's nothing to
@@ -1030,7 +1030,7 @@ onClickOutside(trailEl, closeTrail);
   font-size: var(--text-chrome);
   /* tight leading, not the inherited 1.5 — the card's height is content + padding, and
      1.5 alone pushed it past the 32px that squares it with the row's icon buttons */
-  line-height: 1.2;
+  line-height: var(--leading-control);
   white-space: nowrap;
   opacity: 0;
   visibility: hidden;
@@ -1056,8 +1056,8 @@ onClickOutside(trailEl, closeTrail);
   flex: none;
   display: block;
   /* type pixels, as .head__icon above */
-  width: calc(14 * var(--tpx));
-  height: calc(14 * var(--tpx));
+  width: var(--icon-sm);
+  height: var(--icon-sm);
   border-radius: var(--radius-icon);
 }
 /* The URL FLEXES between a floor and a ceiling rather than being sized by its content.
@@ -1180,7 +1180,7 @@ onClickOutside(trailEl, closeTrail);
   color: var(--ink-3);
   font-size: var(--text-micro);
   font-weight: 600; /* the type system's one strong weight — no 500 (typography.scss) */
-  line-height: 1.2; /* 14.4px — a tight box, so the label reads as attached to its field */
+  line-height: var(--leading-control); /* 14.4px — a tight box, so the label reads as attached to its field */
 }
 /* filled, unlike the borderless .field used everywhere else: inside a floating panel
    there's no surrounding structure to imply where the input begins, so the fill IS the
@@ -1310,7 +1310,7 @@ onClickOutside(trailEl, closeTrail);
      the words' 20. Now on the two the rest of the panel keeps (see .head__panellabel). */
   padding: var(--space-2);
   font-size: var(--text-chrome);
-  line-height: 1.2;
+  line-height: var(--leading-control);
 }
 
 /* dates — a sibling of the trail affordance in the same meta row, so it needs its

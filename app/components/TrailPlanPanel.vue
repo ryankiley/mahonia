@@ -1197,7 +1197,7 @@ const distanceValue = (m: number | undefined) => distanceFieldValue(m, distanceU
 .plan__name,
 .plan__restname {
   padding-block: var(--space-1);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   font-size: var(--text-title);
   font-weight: 600;
   letter-spacing: var(--track-tight);
