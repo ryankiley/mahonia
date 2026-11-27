@@ -1,4 +1,4 @@
-// Canonical category color keys (map to `--cat-*` tokens in SCSS) and the
+// Canonical category color keys (map to `--category-*` tokens in SCSS) and the
 // starter folder set a brand-new list begins with. Folders are user-named and
 // fully editable — these are just sensible defaults.
 
@@ -21,7 +21,7 @@ export const STARTER_FOLDERS: FolderPreset[] = [
 
 // The hue angle (OKLCH) behind each named token — used both to space out the
 // procedural overflow colours and to render them. Keep in sync with the
-// `--cat-*` tokens in tokens.scss. ORDERED: the assignable hues come first, in the
+// `--category-*` tokens in tokens.scss. ORDERED: the assignable hues come first, in the
 // order they are handed out, so consecutive picks sit far apart on the colour wheel
 // (green→pink→blue→orange→…) and adjacent folders read as clearly distinct.
 const CATEGORY_HUE = {
@@ -142,7 +142,7 @@ export function categoryColor(colorKey: string): string {
   // (an outbound `url()` fetch = a viewer-tracking beacon) into a shared list.
   // Belt-and-suspenders with the colorKey clamp in shared/ops — this also guards
   // any value already persisted before that clamp existed.
-  return /^[a-z0-9-]+$/.test(colorKey) ? `var(--cat-${colorKey}, var(--cat-other))` : "var(--cat-other)";
+  return /^[a-z0-9-]+$/.test(colorKey) ? `var(--category-${colorKey}, var(--category-other))` : "var(--category-other)";
 }
 
 /**

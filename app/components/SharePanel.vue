@@ -412,7 +412,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
    a row's second line, and the card on the Export tab. */
 .share {
   width: 22.5rem;
-  max-height: calc(100svh - var(--space-9));
+  max-height: calc(100svh - var(--space-8));
   overflow-y: auto;
   overscroll-behavior: contain;
 }
@@ -441,7 +441,7 @@ const showWho = computed(() => new Set(activity.value.map((s) => whoKey(s.by))).
 .share__tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: var(--space-px);
+  gap: var(--space-half);
   margin-bottom: var(--space-2);
 }
 .share__tab {

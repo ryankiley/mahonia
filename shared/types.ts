@@ -25,7 +25,7 @@ export const CLASSIFICATIONS: readonly Classification[] = ["base", "worn", "cons
 export interface Folder {
   id: string; // client-generated (nanoid/uuid) so optimistic edits need no round-trip
   name: string;
-  colorKey?: string; // maps to a `--cat-*` color token
+  colorKey?: string; // maps to a `--category-*` color token
   defaultClassification: Classification; // items inherit unless they override
   sortOrder: number;
 }
@@ -42,7 +42,7 @@ export interface Folder {
 export interface Person {
   id: string; // client-generated, like Folder and Item
   name: string;
-  colorKey?: string; // same `--cat-*` vocabulary as Folder.colorKey
+  colorKey?: string; // same `--category-*` vocabulary as Folder.colorKey
   sortOrder: number;
 }
 

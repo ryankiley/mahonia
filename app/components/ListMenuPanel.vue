@@ -143,7 +143,7 @@ const isCurrent = (e: SwitcherRow) => !!currentShareCode && e.shareCode === curr
      link row's line (1.5 leading) plus its padding, or the touch floor (controls.scss). */
   --lm-row: calc(var(--text-base) * var(--leading-normal) + 2 * var(--space-2));
   @media (pointer: coarse) {
-    --lm-row: max(var(--tap), calc(var(--text-base) * var(--leading-normal) + 2 * var(--space-2)));
+    --lm-row: max(var(--touch-target), calc(var(--text-base) * var(--leading-normal) + 2 * var(--space-2)));
   }
   max-height: calc(5.5 * var(--lm-row));
   overflow-y: auto;

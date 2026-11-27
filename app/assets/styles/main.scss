@@ -15,7 +15,7 @@
 
 // SvgIcon's glyphs (utils/icon.ts). SIZE: each named step reads its token (--icon-xs …
 // --icon-xl, tokens.scss), so a step moves in one place, and the steps grow with the type
-// past 1920px (--tpx) and stand still below it. SvgIcon also writes the same numbers as
+// past 1920px (--px) and stand still below it. SvgIcon also writes the same numbers as
 // width/height attributes, for the moment before this stylesheet arrives; any declaration
 // beats a presentation attribute. In :where(), at zero specificity, so every rule that
 // already sizes a glyph (the touch glyph, the qty stepper's) still wins.
@@ -41,10 +41,10 @@
 // from the glyph and box sizes where it's set. Registered as a length so that read gets
 // px: an unregistered custom property comes back as its token stream, and a calc() in it
 // parsed to NaN. 0 where nothing sets it, as an absent property read before.
-// --tpx (tokens.scss), registered so it resolves to px once on :root and inherits as a
+// --px (tokens.scss), registered so it resolves to px once on :root and inherits as a
 // number. Unregistered, every element whose tokens were built from it re-resolved the unit
 // itself, and restyled on any window resize, below the anchor too, where it can't change.
-@property --tpx {
+@property --px {
   syntax: "<length>";
   inherits: true;
   initial-value: 1px;
@@ -69,7 +69,7 @@
 // Global layout helpers
 .wrap {
   width: 100%;
-  max-width: var(--measure);
+  max-width: var(--container-page);
   margin-inline: auto;
   /* viewport-fit=cover (nuxt.config) lets content reach the screen edges, so the
      gutter must clear the safe-area insets — e.g. the notch/Dynamic Island when
@@ -91,7 +91,7 @@
    already the class all of them put on <main>, so it belongs here beside `.wrap`.
    A page that genuinely differs still overrides it in its own block. */
 .page {
-  padding-block: var(--space-5) var(--space-9);
+  padding-block: var(--space-5) var(--space-8);
 }
 
 /* A PAGE THAT IS ONE MESSAGE AND ONE WAY ON, centred both ways between the top bar and
@@ -109,7 +109,7 @@
   display: grid;
   place-items: center;
   text-align: center;
-  /* EQUAL AIR ABOVE AND BELOW. .page pads --space-5 over its content and --space-9
+  /* EQUAL AIR ABOVE AND BELOW. .page pads --space-5 over its content and --space-8
      under it, which is right for a page that runs down to the footer and wrong for one
      centred in the window: the message sat 36px high on the padding alone. */
   padding-block: var(--space-5);
@@ -157,12 +157,12 @@
 }
 
 .prose {
-  max-width: var(--prose);
-  /* CENTRED in the page column, not flush to its left gutter. .wrap is --measure
+  max-width: var(--container-prose);
+  /* CENTRED in the page column, not flush to its left gutter. .wrap is --container-page
      wide (≥1024px) and this column is 42rem, so left-aligning parked ~350px of dead
      space to the right of every prose page and the block sat noticeably left of
      centre — it read as a layout fault rather than a measure. The topbar and footer
-     still span the full --measure, which is correct: they're chrome, and the reading
+     still span the full --container-page, which is correct: they're chrome, and the reading
      column is the thing that wants optical centring. */
   margin-inline: auto;
   display: flex;
@@ -176,7 +176,7 @@
 .prose :is(h2, h3) {
   font-size: var(--text-title);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--track-tight);
+  letter-spacing: var(--tracking-tight);
   margin-top: var(--space-4);
 }
 .prose :is(h2, h3):first-child {
@@ -219,9 +219,10 @@
    line-height, where `1.5rem` is an equally natural way to write it. The moment it took
    a unit the calc would be length × length, invalid at computed-value time, and `top`
    would fall back to `auto` with every bullet on the site dropping to the foot of its
-   line and nothing anywhere reporting it. That is the same silent failure --space-8 had
-   just been caught making one file over. The `lh` unit IS half the line box, however the
-   line-height is expressed, so there is no token to keep honest. */
+   line and nothing anywhere reporting it. That is the same silent failure a reference
+   to a spacing step that didn't exist had just been caught making one file over. The `lh`
+   unit IS half the line box, however the line-height is expressed, so there is no token
+   to keep honest. */
 .prose li::before {
   content: "";
   position: absolute;

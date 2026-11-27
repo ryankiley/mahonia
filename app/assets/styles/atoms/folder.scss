@@ -102,17 +102,17 @@
    buttons (controls.scss). The box grows rightward + vertically ONLY — the left
    edge stays tight against the name, so a tap at the end of an editor name still
    focuses the input instead of toggling — and the overshoot is pulled back out of
-   layout (--tap-pull) so the glyph stays optically put and the header (or row)
-   keeps its height. calc(--icon − --tap) cancels exactly the width added
+   layout (--touch-target-pull) so the glyph stays optically put and the header (or row)
+   keeps its height. calc(--icon − --touch-target) cancels exactly the width added
    past the glyph. */
 @media (pointer: coarse) {
   .folder__collapse,
   .item__nestcollapse {
-    min-width: var(--tap);
-    height: var(--tap);
+    min-width: var(--touch-target);
+    height: var(--touch-target);
     justify-content: flex-start;
-    margin-right: calc(var(--icon) - var(--tap));
-    margin-block: var(--tap-pull);
+    margin-right: calc(var(--icon) - var(--touch-target));
+    margin-block: var(--touch-target-pull);
   }
 }
 
@@ -129,7 +129,7 @@
   hanging-punctuation: none;
   font-weight: var(--font-weight-semibold);
   font-size: var(--text-title);
-  letter-spacing: var(--track-tight);
+  letter-spacing: var(--tracking-tight);
   /* …and as a FIELD (the editor's and My Gear's headers, below) it sizes to the typed
      text so the chevron hugs the name, not the full column. min-width is a small floor
      ONLY so a *cleared* name stays clickable (folders are always created with a name) —
@@ -252,21 +252,22 @@
     gap: 0;
   }
   /* The item rows below this width put their trailing glyphs on one pitch (ItemRow.vue,
-     .item__trail): every box --tap wide and touching, glyphs centred, the grip brought
-     back half a box. The header does the same, or its trash sits a few px left of the
+     .item__trail): every box --touch-target wide and touching, glyphs centred, the grip
+     brought back half a box. The header does the same, or its trash sits a few px left of the
      rows' ⋯ column (the desktop arrangement above, right-aligned in --icon-btn boxes
      with --grip-pull, measures differently). */
   .folder__actions .btn--icon {
-    width: var(--tap);
-    padding: calc((var(--tap) - var(--icon-btn)) / 2);
+    width: var(--touch-target);
+    padding: calc((var(--touch-target) - var(--icon-btn)) / 2);
     justify-content: center;
   }
-  /* The grip's box is what is left of a --tap one after the trash's, plus a reach into
-     the page gutter, and not a whole box laid back over the trash's right half: see
-     .item__trail .item__grip, whose rule this is. The reach is longer here (--space-3,
-     most of the gutter) because nothing contains the header's paint as a row's is. */
+  /* The grip's box is what is left of a --touch-target one after the trash's, plus a
+     reach into the page gutter, and not a whole box laid back over the trash's right
+     half: see .item__trail .item__grip, whose rule this is. The reach is longer here
+     (--space-3, most of the gutter) because nothing contains the header's paint as a
+     row's is. */
   .folder__actions .grip {
-    width: calc(var(--tap) / 2 - var(--tpx) + var(--space-3));
+    width: calc(var(--touch-target) / 2 - var(--px) + var(--space-3));
     padding: 0 var(--space-3) 0 0;
     justify-content: flex-end;
     margin-left: 0;

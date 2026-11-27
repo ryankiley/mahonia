@@ -29,7 +29,7 @@ export function useRouteMapGeometry({ geometry, dayDistancesM }: RouteMapGeometr
       if (pointsForDay.length >= 2) {
         legs.push({
           points: pointsForDay,
-          color: colors.value[index] ?? "var(--cat-other)",
+          color: colors.value[index] ?? "var(--category-other)",
           day: index + 1,
           fromM,
           toM,

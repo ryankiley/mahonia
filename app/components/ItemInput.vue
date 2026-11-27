@@ -826,7 +826,7 @@ const hl = (text: string) => highlightParts(tidyText(text), draft.value);
   left: 0;
   top: calc(100% + var(--space-1));
   z-index: var(--z-autocomplete);
-  width: min(40rem, calc(min(100vw, var(--measure)) - 2 * var(--space-4)));
+  width: min(40rem, calc(min(100vw, var(--container-page)) - 2 * var(--space-4)));
   /* inline padding only — the VERTICAL breathing room lives inside the scroller
      (its padding-block scrolls with the content), so scrolled rows travel all
      the way to the card's edge instead of clipping 8px early at a padding ledge */

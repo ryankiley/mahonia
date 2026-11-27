@@ -46,7 +46,7 @@ const emit = defineEmits<{ pick: [tab: VaultTab] }>();
     position: absolute;
     inset-inline: 0;
     top: 50%;
-    height: var(--tap);
+    height: var(--touch-target);
     translate: 0 -50%;
   }
 }

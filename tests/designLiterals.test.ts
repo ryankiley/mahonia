@@ -119,7 +119,7 @@ describe("design literals", () => {
         {
           file: "app/components/RouteMap.client.vue",
           prop: "font-size",
-          value: "calc(10 * var(--tpx))",
+          value: "calc(10 * var(--px))",
           why: "the map's attribution: a licence line, legible and under every step of the scale",
         },
       ],

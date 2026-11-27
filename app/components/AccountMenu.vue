@@ -272,14 +272,14 @@ watch(offline, (off) => {
    and open. Medium, not semibold: the icons draw a flat 1.5px line,
    which is a 14px medium stem; semibold read as a bold black mark in a row of thin
    grey lines.
-   Sized like the glyphs beside it, in --tpx: they grow with the type past the 1920px
+   Sized like the glyphs beside it, in --px: they grow with the type past the 1920px
    anchor now, and a disc left at 22px shrank beside them to a dot (Ryan: "this got too
    small"). 24 beside the 20px glyphs on every pointer, the disc a phone already drew.
    The letter is 0.64 of the disc, so the two move together past the anchor.
    The letter is trimmed to its cap so the cap itself is centred, not its rounded line
    box (which sat up to 0.4px low at some zooms). */
 .avatar {
-  --avatar: calc(24 * var(--tpx));
+  --avatar: calc(24 * var(--px));
   display: inline-grid;
   place-items: center;
   width: var(--avatar);

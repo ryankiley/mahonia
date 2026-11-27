@@ -1032,7 +1032,7 @@ async function onSignOut() {
   grid-template-columns: minmax(0, 1fr) max-content;
   align-items: baseline;
   column-gap: var(--space-3);
-  row-gap: var(--space-px);
+  row-gap: var(--space-half);
   padding-block: var(--space-3);
 }
 .acct__item + .acct__item {

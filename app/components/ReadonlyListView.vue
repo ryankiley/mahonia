@@ -309,8 +309,8 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
 
   <!-- Nothing to show, so it takes the shape the site already uses for exactly that:
        .page--alone + .prose, the same block app/error.vue renders, centred as the 404
-       is. It used to build its own (.view's flex column at full --measure width, with
-       --space-9 above), which put a single muted line hard against the page gutter;
+       is. It used to build its own (.view's flex column at full --container-page width, with
+       --space-8 above), which put a single muted line hard against the page gutter;
        then it took the reading column's left edge, which left it reading from the left
        at the top of the page while the 404 beside it sat in the middle. -->
   <main v-else id="main-content" tabindex="-1" class="wrap page page--alone">
@@ -449,7 +449,7 @@ const asHeight = (m: number) => heightWithUnit(m, distanceUnit.value);
   margin: 0 0 var(--space-2);
   font-size: var(--text-base);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--track-tight);
+  letter-spacing: var(--tracking-tight);
   color: var(--foreground-tertiary);
 }
 .view__days {

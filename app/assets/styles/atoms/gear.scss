@@ -13,7 +13,7 @@
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: var(--space-px);
+  gap: var(--space-half);
 }
 
 /* ONE ellipsized run, not three flex items each clipping itself.

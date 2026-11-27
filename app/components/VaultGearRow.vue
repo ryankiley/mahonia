@@ -351,12 +351,12 @@ const meta = computed(() => {
 .vault__act {
   flex: none;
 }
-/* touch: the row's controls take --tap-pull, whose layout box is exactly the 1.45rem text line — so
-   enlarging the hit area for a thumb no longer stands a phone row 8px taller than
-   the same row on a desktop. */
+/* touch: the row's controls take --touch-target-pull, whose layout box is exactly the
+   1.45rem text line — so enlarging the hit area for a thumb no longer stands a phone row
+   8px taller than the same row on a desktop. */
 @media (pointer: coarse) {
   .vault__actions > * {
-    margin-block: var(--tap-pull);
+    margin-block: var(--touch-target-pull);
     align-self: center;
   }
   /* ...which makes the cluster's box exactly one text line already, so the desktop

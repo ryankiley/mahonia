@@ -1457,13 +1457,13 @@ function onCorrected(res: { status: string; itemName?: string }) {
   display: flex;
   flex-direction: column;
   min-height: 100svh;
-  /* The My Gear pane's width, in type pixels (--tpx) rather than pixels. The remembered
+  /* The My Gear pane's width, in type pixels (--px) rather than pixels. The remembered
      figure (--vault-span, 368 to start) is px at 16px type, so nothing moves up to a
      1920px window; past it the type keeps growing and so does the list column
-     (--measure), and a pane frozen in px got proportionally narrower until its rows
+     (--container-page), and a pane frozen in px got proportionally narrower until its rows
      were a dozen characters of 25px type, every name cut off. This way a row holds the
      same words at 3000px that it does at 1920. */
-  --vault-w: calc(var(--vault-span) * var(--tpx));
+  --vault-w: calc(var(--vault-span) * var(--px));
 }
 /* Split view: the vault occupies the right of the screen, so the editor's CONTENT
    gives up that width rather than sitting underneath it. Padding on the content
@@ -1483,7 +1483,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
     padding-right: var(--split-pad);
   }
   /* ...then the topbar breaks back out to the full viewport. It can't simply be left
-     unpadded: main IS the .wrap (centred, max-width --measure), so padding it would
+     unpadded: main IS the .wrap (centred, max-width --container-page), so padding it would
      only eat its own content box and never move the column. The inset has to be on
      the shell, and the bar opts out of it. */
   .editor--split > .topbar {
@@ -1503,9 +1503,9 @@ function onCorrected(res: { status: string; itemName?: string }) {
        width = from there to where the centred bar's .wrap always ended */
   .topbar__inner {
     max-width: none;
-    margin-left: calc((100% - var(--split-p) - min(100% - var(--split-p), var(--measure))) / 2);
+    margin-left: calc((100% - var(--split-p) - min(100% - var(--split-p), var(--container-page))) / 2);
     margin-right: 0;
-    width: calc((var(--split-p) + min(100% - var(--split-p), var(--measure)) + min(100%, var(--measure))) / 2);
+    width: calc((var(--split-p) + min(100% - var(--split-p), var(--container-page)) + min(100%, var(--container-page))) / 2);
   }
   .editor--split > .topbar > .topbar__inner {
     --split-p: var(--split-pad);
@@ -1529,17 +1529,17 @@ function onCorrected(res: { status: string; itemName?: string }) {
      it: the button's size per pointer (controls.scss) plus this row's padding. */
   min-height: calc(var(--icon-btn) + 2 * var(--space-3));
   @media (pointer: coarse) {
-    min-height: calc(var(--tap) + 2 * var(--space-3));
+    min-height: calc(var(--touch-target) + 2 * var(--space-3));
   }
-  /* ONE RHYTHM FOR THE ICONS, mouse or touch: a touch target (--tap) from the centre
+  /* ONE RHYTHM FOR THE ICONS, mouse or touch: a touch target (--touch-target) from the centre
      of one to the centre of the next. The buttons are 32px under a mouse and grow to
-     --tap under a finger (controls.scss), and with one gap for both the cluster ran 40px
-     apart on a desktop, 36 in a narrow window and 48 on a phone. So the gap is what is
-     left of --tap after the button: 12px beside a 32px button, nothing beside a 44px
-     one. The second is also the most room this bar has ever had on a phone, where the
-     cluster and the switcher once ran 17px past a 375px screen and the gap was halved
-     to make them fit. */
-  --cluster-gap: calc(var(--tap) - var(--icon-btn));
+     --touch-target under a finger (controls.scss), and with one gap for both the cluster
+     ran 40px apart on a desktop, 36 in a narrow window and 48 on a phone. So the gap is
+     what is left of --touch-target after the button: 12px beside a 32px button, nothing
+     beside a 44px one. The second is also the most room this bar has ever had on a phone,
+     where the cluster and the switcher once ran 17px past a 375px screen and the gap was
+     halved to make them fit. */
+  --cluster-gap: calc(var(--touch-target) - var(--icon-btn));
   gap: var(--cluster-gap);
   @media (pointer: coarse) {
     --cluster-gap: 0px;
@@ -1656,7 +1656,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
    element that actually sits in the gutter should reach into it. */
 .menu:last-child {
   /* glyph optics, so in type pixels with the glyphs */
-  --gutter-pull: calc(13 * var(--tpx));
+  --gutter-pull: calc(13 * var(--px));
   margin-right: calc(-1 * var(--gutter-pull));
 }
 /* ...and its popover gives most of the pull back. A .menu__list hangs from its
@@ -1788,7 +1788,7 @@ function onCorrected(res: { status: string; itemName?: string }) {
   margin-top: calc(var(--folder-gap) - var(--body-gap));
 }
 .editor__missing {
-  padding-block: var(--space-9);
+  padding-block: var(--space-8);
   display: flex;
   flex-direction: column;
   align-items: center;

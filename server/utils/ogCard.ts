@@ -60,7 +60,7 @@ import { ogFonts } from "./ogFonts";
 const BACKGROUND = "#ffffff";
 const FOREGROUND = "#000000";
 const FOREGROUND_SECONDARY = "#595959";
-const TRACK_TIGHT = "-0.02em"; // --track-tight
+const TRACK_TIGHT = "-0.02em"; // --tracking-tight
 
 // The big figure's two sizes, named because the baseline correction below is a
 // function of their difference.

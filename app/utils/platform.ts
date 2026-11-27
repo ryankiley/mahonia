@@ -36,9 +36,9 @@ export const altKeyLabel = (): string => (isMac() ? "⌥" : "Alt");
 
 /**
  * Whether this is a touch-first device: `pointer: coarse`, the same test the stylesheet
- * grows the icon buttons to --tap on, so "phone" means one thing in script and in CSS.
- * Asked at call time, never cached: a caller that wants it fixed for its own life reads
- * it once. False on the server and where there is no matchMedia to ask.
+ * grows the icon buttons to --touch-target on, so "phone" means one thing in script and
+ * in CSS. Asked at call time, never cached: a caller that wants it fixed for its own life
+ * reads it once. False on the server and where there is no matchMedia to ask.
  *
  * One spelling for the three places in the editor that had each written the media query
  * out: the ⋯ menu (no shortcuts row), the focus scroll (wait for the keyboard) and the

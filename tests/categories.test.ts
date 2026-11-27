@@ -5,14 +5,14 @@ import { categoryColor, dayColorSequence } from "../shared/categories";
 // read/share views, so an unsafe key must never reach the output verbatim.
 describe("categoryColor", () => {
   it("resolves curated + procedural hue keys", () => {
-    expect(categoryColor("shelter")).toBe("var(--cat-shelter, var(--cat-other))");
+    expect(categoryColor("shelter")).toBe("var(--category-shelter, var(--category-other))");
     expect(categoryColor("h240")).toContain("oklch");
   });
 
   it("falls back to the neutral token for unsafe keys — no CSS-value injection", () => {
-    expect(categoryColor("x,url(//evil.tld)")).toBe("var(--cat-other)");
-    expect(categoryColor("a;b")).toBe("var(--cat-other)");
-    expect(categoryColor("")).toBe("var(--cat-other)");
+    expect(categoryColor("x,url(//evil.tld)")).toBe("var(--category-other)");
+    expect(categoryColor("a;b")).toBe("var(--category-other)");
+    expect(categoryColor("")).toBe("var(--category-other)");
   });
 });
 
@@ -35,9 +35,9 @@ describe("dayColorSequence", () => {
     // two shades of the same idea. This is nextFolderColor's max-gap rule, inherited
     // rather than restated.
     expect(dayColorSequence(3)).toEqual([
-      "var(--cat-sleep, var(--cat-other))",
-      "var(--cat-water, var(--cat-other))",
-      "var(--cat-pack, var(--cat-other))",
+      "var(--category-sleep, var(--category-other))",
+      "var(--category-water, var(--category-other))",
+      "var(--category-pack, var(--category-other))",
     ]);
   });
 
