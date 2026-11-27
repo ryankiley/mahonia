@@ -149,9 +149,11 @@ export function csvToListData(
   const iWorn = idx(["worn"]);
   const iCons = idx(["consumable", "consumables"]);
   const iWornQty = idx(["worn qty", "wornqty", "worn quantity"]);
-  // Mahonia doesn't do prices — a LighterPack/CSV "price" column is dropped on
-  // import rather than silently carried (invisible in the editor, but re-emitted
-  // on export). productUrl is kept: it's not a price, and it seeds the future
+  // A file's "price" column is dropped on import: no list surface shows or edits a
+  // price, so an imported one would ride the row unseen. A row holds a price only
+  // when it came with a piece picked from My Gear, and that is what the export's
+  // Price column prints, for the owner alone (rowToSnapshot strips it from a share
+  // read). productUrl is kept: it's not a price, and it seeds the future
   // canonical-URL affiliate tagging.
   const iUrl = idx(["url", "link", "product url"]);
   const iDesc = idx(["desc", "description", "notes", "note"]);
