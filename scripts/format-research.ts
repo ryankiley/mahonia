@@ -1,6 +1,5 @@
 // npm run catalog:format — rewrite every seed/_research/*.json in the house layout
-// (formatResearchFile). Values never change: the file is parsed and written back, a
-// `_note` read as the `_comment` it always meant (researchFileNote).
+// (formatResearchFile). Values never change: the file is parsed and written back.
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";

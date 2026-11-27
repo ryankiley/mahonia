@@ -1,5 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
+import { buildSearchTerms } from "../scripts/searchTerms";
 import * as schema from "../server/db/schema";
 import { CATALOG_DDL } from "../server/utils/catalog";
 import { CANDIDATES_DDL, corroborateCatalog, stageCandidates } from "../server/utils/candidates";
@@ -150,7 +151,10 @@ describe("community intake — corroborateCatalog", () => {
     expect(r.promoted).toBe(1);
     expect(r.rejected).toBe(0);
     const [row] = (await db.select().from(schema.catalogItems)) as any[];
-    expect(row).toMatchObject({ name: "Frobozz Palace 9000", commonName: "Tent", searchTerms: "tent", categoryHint: "shelter", weightMg: 1_710_000 });
+    expect(row).toMatchObject({ name: "Frobozz Palace 9000", commonName: "Tent", categoryHint: "shelter", weightMg: 1_710_000 });
+    // the words the build gives a tent, so the row is found the same once it joins the research
+    expect(row.searchTerms).toBe(buildSearchTerms("Frobozz Palace 9000", "shelter", "Tent"));
+    expect(row.searchTerms).toContain("shelter");
   });
 
   it("still rejects a weight no gear type can explain", async () => {

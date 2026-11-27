@@ -1,13 +1,14 @@
 // Search-side vocabulary: the extra words a catalog row should be findable by
 // beyond its brand + model name. Two problems it solves, both search-only (no UI):
 //
-// BUILD-TIME ONLY, which is why it lives here and not in shared/. Everything it
-// produces is materialized into catalog_items.search_terms at seed time, so the
-// only callers are research.ts and catalogCsv — nothing under app/ or server/
-// imports it at request time. It sat in shared/ (which means "the browser and the
-// server both need this, identically, while serving a request") for long enough to
-// imply a runtime role it never had. Its sibling scripts/gearTypes.ts is the same
-// kind of thing, filed correctly.
+// WRITE-TIME ONLY, which is why it lives here and not in shared/ ("the browser and
+// the server both need this, identically, while serving a request"). Everything it
+// produces is materialized into catalog_items.search_terms when a row is written:
+// by the seed (research.ts, catalogCsv) and by the server's two writers of catalog
+// rows (verify_catalog_item, the nightly promotion), which call the same function so
+// a row added in the app is found by the words the build will give it. Nothing under
+// app/ imports it, and no search reads it. Its sibling scripts/gearTypes.ts is the
+// same kind of thing.
 //
 //   1. CATEGORY search — a tent is named "Copper Spur" / "X-Mid", never "tent", so
 //      typing "tent" finds nothing. We derive a canonical noun for each row and

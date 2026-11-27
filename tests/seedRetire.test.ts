@@ -75,16 +75,14 @@ describe("retireOrphans", () => {
     const [old] = await db.insert(schema.catalogItems).values(seeded({ variant: "single bar" })).returning();
     const [mid] = await db.insert(schema.catalogItems).values(seeded({ variant: "per bar" })).returning();
     const [bar] = await db.insert(schema.catalogItems).values(seeded({})).returning();
-    // an earlier seed pointed old at mid; mid has since retired too
+    // an earlier seed pointed old at mid; this one retires mid too
     await db.update(schema.catalogItems).set({ status: "merged", mergedIntoId: mid!.id }).where(eq(schema.catalogItems.id, old!.id));
-
-    // the reader follows the chain even before the reseed straightens it
-    await db.update(schema.catalogItems).set({ status: "merged", mergedIntoId: bar!.id }).where(eq(schema.catalogItems.id, mid!.id));
-    expect((await liveCatalogRows(db as never, [old!.id])).get(old!.id)?.id).toBe(bar!.id);
 
     await retireOrphans(db as never, [csv({})]);
     const [straight] = await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, old!.id));
     expect(straight!.mergedIntoId).toBe(bar!.id);
+    // so the one hop a reader takes lands on the live row
+    expect((await liveCatalogRows(db as never, [old!.id])).get(old!.id)?.id).toBe(bar!.id);
 
     const stamp = straight!.updatedAt;
     await retireOrphans(db as never, [csv({})]);
@@ -106,13 +104,5 @@ describe("retireOrphans", () => {
     expect(await retireOrphans(db as never, [csv({})])).toEqual({ merged: 0, removed: 0 });
     const [after] = await db.select().from(schema.catalogItems).where(eq(schema.catalogItems.id, inApp!.id));
     expect(after!.status).toBe("active");
-  });
-
-  it("stops following a loop", async () => {
-    const [a] = await db.insert(schema.catalogItems).values(seeded({ variant: "a" })).returning();
-    const [b] = await db.insert(schema.catalogItems).values(seeded({ variant: "b" })).returning();
-    await db.update(schema.catalogItems).set({ status: "merged", mergedIntoId: b!.id }).where(eq(schema.catalogItems.id, a!.id));
-    await db.update(schema.catalogItems).set({ status: "merged", mergedIntoId: a!.id }).where(eq(schema.catalogItems.id, b!.id));
-    expect((await liveCatalogRows(db as never, [a!.id])).size).toBe(0);
   });
 });

@@ -1,0 +1,9 @@
+{
+  "date": "2026-11-27",
+  "changed": [
+    "Gear the catalog picks up from people's lists is found by the same search words as the rest, like \"rucksack\" for a backpack."
+  ],
+  "fixed": [
+    "My Gear no longer gains a second copy of a piece after you rename it or type its size as a letter."
+  ]
+}

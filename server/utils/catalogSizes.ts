@@ -17,7 +17,7 @@
 // weight when it is linked.
 
 import { extractAttributes, SHOE_REGIONS } from "../../scripts/catalogAttributes";
-import { normalizeVariant, normKey, SIZE_LETTER_WORD } from "../../shared/catalogQuality";
+import { normalizeVariant, normKey, SIZE_LETTER_WORD, SIZE_WORD_LETTER } from "../../shared/catalogQuality";
 
 /** A catalog row as the size check reads it: its variant, and the gear type and kind
  *  the variant's tokens are read by ("Regular" is a length on a quilt, a torso on a pack). */
@@ -31,10 +31,10 @@ export interface SizeRow {
 // a hyphen may be typed as a space or left out ("x large", "xlarge")
 const SIZE_WORDS = ["XXX-Large", "XX-Large", "X-Large", "XX-Small", "X-Small", "Small", "Medium", "Large", "Regular", "Short", "Long", "Tall", "Wide", "Slim", "Petite", "Standard", "Jumbo", "Mini", "Nano", "Big", "Person", "Mummy"];
 const SIZE_WORD_RE = SIZE_WORDS.map((w) => [new RegExp(`\\b${w.replace("-", "[- ]?")}\\b`, "gi"), w] as const);
-// the S/M/L family's words back to the catalog's letters (SIZE_LETTER_WORD); no word is the
-// start of another, so the order they are tried in can't matter
-const WORD_LETTER: Record<string, string> = Object.fromEntries(Object.entries(SIZE_LETTER_WORD).map(([letter, word]) => [word, letter]));
-const RANGE_WORD = Object.keys(WORD_LETTER).join("|");
+// the S/M/L family's words, in the catalog's case as SIZE_WORD_RE leaves them; no word is
+// the start of another, so the order they are tried in can't matter
+const RANGE_WORD = Object.values(SIZE_LETTER_WORD).join("|");
+const letterOf = (word: string) => SIZE_WORD_LETTER[word.toLowerCase()]!;
 // a shoe size with its region on either side, in the regions the catalog writes one in
 const REGION_THEN_SIZE = new RegExp(`\\b(${SHOE_REGIONS})\\s*(\\d{1,2}(?:\\.5)?)\\b`, "gi");
 const SIZE_THEN_REGION = new RegExp(`\\b(\\d{1,2}(?:\\.5)?)\\s*(${SHOE_REGIONS})\\b`, "gi");
@@ -61,8 +61,8 @@ function foldTyped(variant: string): string {
     // Osprey's women's fits ("wm/l" is "WM/L")
     .replace(/\bw(xs\/s|s\/m|m\/l|l\/xl)\b/gi, (_m, r: string) => `W${r.toUpperCase()}`)
     // a range in words is the catalog's letters ("Large/X-Large" is "L/XL")
-    .replace(new RegExp(`\\b(${RANGE_WORD})(?=/)`, "g"), (w) => WORD_LETTER[w]!)
-    .replace(new RegExp(`(?<=/)(${RANGE_WORD})\\b`, "g"), (w) => WORD_LETTER[w]!)
+    .replace(new RegExp(`\\b(${RANGE_WORD})(?=/)`, "g"), letterOf)
+    .replace(new RegExp(`(?<=/)(${RANGE_WORD})\\b`, "g"), letterOf)
     // a bare size letter in any case, but not the m of "2 m" or the l of "1 l"
     .replace(/(?<![\w'])(?<!\d\s*)(xxxl|3xl|2xl|xxl|xxs|xl|xs|s|m|l)(?![\w'])/gi, (s) => s.toUpperCase())
     .replace(/(\d{3})(\+?)\s*(?:fp|fill(?: power)?)\b/gi, "$1$2FP")

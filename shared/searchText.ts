@@ -23,7 +23,10 @@ import { foldApostrophes } from "./tidyText";
  *  Width folds first (foldWidth). trigrams() and the tier/prefix helpers in
  *  shared/catalogSearch.ts all fold through this ONE function so they can never drift
  *  apart; the Neon query folds its width through foldWidth before the SQL, since
- *  unaccent() knows nothing of width. */
+ *  unaccent() knows nothing of width.
+ *  My Gear stores this fold's output as each piece's key (vaultNormKey), and nothing
+ *  re-derives a stored key: a change to what this returns must ship with a one-off
+ *  re-key of My Gear, or the next capture of a piece misses its row and adds a twin. */
 export function foldForSearch(input: string): string {
   return foldLetters(input).replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }

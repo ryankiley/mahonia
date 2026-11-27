@@ -313,42 +313,34 @@ export async function catalogRowsById(db: Db, ids: readonly number[], anyStatus 
   return new Map(rows.map((r) => [r.id, toCatalogResult(r)]));
 }
 
-/** A merge chain longer than this is a loop, or a catalog nobody should trust. */
-const MAX_MERGE_HOPS = 8;
-
 /**
  * The live row each id now means, keyed by the id asked for: the row itself while it is
- * active, the row it was retired into while it is `merged` (followed to the end of the
- * chain), absent when it was retired with no successor or never existed.
+ * active, the row it was retired into while it is `merged`, absent when it was retired
+ * with no successor or never existed. One hop is the whole walk: every seed aims each
+ * retired row straight at a live one (scripts/seedRetire.ts), so a pointer at a row that
+ * has itself retired lasts only until the next seed, and reads as absent until then.
  *
  * What every reader of a stored link goes through, because the seed retires rather than
- * deletes (scripts/seedRetire.ts) and a list row keeps the id it was picked under. The
- * common case, every id still active, costs the one query catalogRowsById would.
+ * deletes and a list row keeps the id it was picked under. The common case, every id
+ * still active, costs the one query catalogRowsById would.
  */
 export async function liveCatalogRows(db: Db, ids: readonly number[]): Promise<Map<number, CatalogSearchResult>> {
   const asked = [...new Set(ids.filter(isCatalogId))];
   const out = new Map<number, CatalogSearchResult>();
   if (!asked.length) return out;
   await ensureCatalogSchema(db);
-  const byId = new Map<number, typeof catalogItems.$inferSelect>();
-  let want = asked;
-  for (let hop = 0; want.length && hop <= MAX_MERGE_HOPS; hop++) {
-    const rows = await db.select().from(catalogItems).where(inArray(catalogItems.id, want));
-    for (const r of rows) byId.set(r.id, r);
-    want = [
-      ...new Set(
-        rows.flatMap((r) =>
-          r.status === "merged" && isCatalogId(r.mergedIntoId) && !byId.has(r.mergedIntoId) ? [r.mergedIntoId] : [],
-        ),
-      ),
-    ];
+  const rows = await db.select().from(catalogItems).where(inArray(catalogItems.id, asked));
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  const successorOf = (r: (typeof rows)[number]) => (r.status === "merged" && isCatalogId(r.mergedIntoId) ? r.mergedIntoId : null);
+  const targets = [...new Set(rows.map(successorOf).filter((id): id is number => id != null && !byId.has(id)))];
+  if (targets.length) {
+    for (const r of await db.select().from(catalogItems).where(inArray(catalogItems.id, targets))) byId.set(r.id, r);
   }
   for (const id of asked) {
-    let row = byId.get(id);
-    for (let hop = 0; row?.status === "merged" && hop <= MAX_MERGE_HOPS; hop++) {
-      row = isCatalogId(row.mergedIntoId) ? byId.get(row.mergedIntoId) : undefined;
-    }
-    if (row?.status === "active") out.set(id, toCatalogResult(row));
+    const row = byId.get(id);
+    const successor = row && successorOf(row);
+    const live = successor != null ? byId.get(successor) : row;
+    if (live?.status === "active") out.set(id, toCatalogResult(live));
   }
   return out;
 }

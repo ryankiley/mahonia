@@ -188,24 +188,6 @@ describe("catalog:graduate, a research row corrected in the app", () => {
     expect([started._comment, started.rows.length]).toEqual(["Rows verified in the app (verify_catalog_item), written out by npm run catalog:graduate.", 1]);
   });
 
-  it("keeps a file's note when it is under _note, read as the _comment catalog:format writes it as", () => {
-    const note = 'Shelters, "quoted" {braces} and [brackets] in a string.';
-    const noted = pretty.replace('"_comment"', '"_note"');
-    expect(JSON.parse(noted)).toEqual({ _note: note, rows: rowsOf(pretty) });
-    // a research row's own file: the same text whichever key held the note
-    const text = planGraduation([corrected], [{ file: "shelters.json", raw: noted }]).writes.get("shelters.json")!;
-    expect(JSON.parse(text)._comment).toBe(note);
-    expect(text).toBe(planGraduation([corrected], [{ file: "shelters.json", raw: pretty }]).writes.get("shelters.json"));
-    // verified-in-app.json: its own note, not the one a new file is started under
-    const pot: ResearchRow = { brand: "Toaks", name: "Titanium 750 Pot", variant: null, weight_value: 103 };
-    const graduatedRaw = JSON.stringify({ _note: "Kept by hand.", rows: [] });
-    const graduated = JSON.parse(planGraduation([pot], [{ file: "verified-in-app.json", raw: graduatedRaw }]).writes.get("verified-in-app.json")!);
-    expect([graduated._comment, graduated.rows.length]).toEqual(["Kept by hand.", 1]);
-    // the one reading of it, which catalog:format writes through too; _comment wins if a file has both
-    expect(formatResearchFile({ _note: "A note.", rows: [] })).toBe(formatResearchFile({ _comment: "A note.", rows: [] }));
-    expect(formatResearchFile({ _note: "Old.", _comment: "A note.", rows: [] })).toBe(formatResearchFile({ _comment: "A note.", rows: [] }));
-  });
-
   it("names each row it writes over, and marks one whose research changed after the verification", () => {
     const research = { weightMg: specToMg(17.8, "oz", "504 g"), sourceUrl: "https://zpacks.com/products/duplex-tent" };
     const app = { weightMg: 524_000, sourceUrl: "https://zpacks.com/products/duplex-tent-2026" };

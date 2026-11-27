@@ -13,9 +13,10 @@
 #     prod untouched (a green-but-wrong run).
 #   • Runs `catalog:audit` first — hard errors (exit 1) abort before any DB write.
 #   • The seeder is idempotent (upsert by brand+name+variant) and self-guards
-#     against wiping the catalog (it skips the prune when the CSV has <50 rows).
+#     against emptying the catalog (it retires nothing when the CSV has 50 rows or fewer).
 #   • Community rows (verified=false) are never touched; only seed-managed
-#     (verified=true) rows are inserted / updated / pruned.
+#     (verified=true) rows are inserted, updated, or retired when the CSV stops
+#     naming them (kept with a pointer to their successor, never deleted).
 #   • concurrency: one reseed at a time, never cancelled mid-write.
 #
 # One-time setup (repo → Settings → Secrets and variables → Actions):
@@ -33,19 +34,11 @@ on:
       # catalogCsv derives search_terms through this, so an edit here changes
       # what seeding writes just as surely as an edit to catalogCsv itself
       - scripts/searchTerms.ts
-      # seeding also refolds every My Gear identity through the search fold
-      # (scripts/seedIdentities.ts), so a change to the fold is a change to what
-      # seeding writes: without a reseed a stored key stays under the old fold and
-      # the next capture of the same gear lands as a twin
-      - shared/searchText.ts
-      - shared/vault.ts
-      - scripts/seedIdentities.ts
-      # the rest of what the seeder runs: the upsert, and the rename, size and retire passes
+      # the rest of what the seeder runs: the upsert, and the rename and retire passes
       - scripts/seedUpsert.ts
       - scripts/seedRenames.ts
-      - scripts/seedSizes.ts
       - scripts/seedRetire.ts
-      # and what those two passes decide by: the size-letter words and the successor match
+      # and what those passes decide by: which rows the seed manages and the successor match
       - shared/catalogQuality.ts
       - shared/catalogLinks.ts
   # manual re-run (e.g. after setting the secret, or to force a resync)

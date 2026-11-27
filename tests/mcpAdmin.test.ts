@@ -1,5 +1,6 @@
 import { and, eq, sql } from "drizzle-orm";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { buildSearchTerms } from "../scripts/searchTerms";
 import * as schema from "../server/db/schema";
 import mcp from "../server/routes/mcp.post";
 import { ACCESS_TOKEN_PREFIX, mintAccessToken } from "../server/utils/accessTokens";
@@ -170,6 +171,10 @@ describe("verifying", () => {
     expect(done.refused).toBe(false);
     expect(done.data).toMatchObject({ created: false, row: { id: community, weight_g: 1022, verified: true, weight_source: "manufacturer", source_url: DURSTON, gear_type: "Tent" } });
     expect(await catalogRow(db, community)).toMatchObject({ verified: true, verifiedBy: admin, sourceQuote: "Total Weight: 36 oz / 1022 g", commonName: "Tent" });
+    // found by the words the build would give it, not by its gear type alone
+    const terms = (await catalogRow(db, community)).searchTerms;
+    expect(terms).toBe(buildSearchTerms("X-Mid 2", "shelter", "Tent"));
+    expect(terms).toContain("shelter");
     const edits = await db.select().from(schema.catalogEdits).where(eq(schema.catalogEdits.catalogItemId, community));
     expect(edits.map((e) => [Number(e.oldWeightMg), Number(e.newWeightMg), e.reason, e.status])).toEqual([[1_000_000, 1_022_000, "Checked the spec table", "applied"]]);
     // the answer names that edit, for revert_catalog_edit
@@ -196,7 +201,8 @@ describe("verifying", () => {
     const id = done.data.row.id as number;
     const [edit] = await db.select().from(schema.catalogEdits).where(eq(schema.catalogEdits.catalogItemId, id));
     expect(done.data.edit_id).toBe(edit!.id);
-    expect((await catalogRow(db, id)).verifiedBy).toBe(admin);
+    expect(await catalogRow(db, id)).toMatchObject({ verifiedBy: admin, searchTerms: buildSearchTerms("Altaplex", "shelter", "Tent") });
+    expect((await catalogRow(db, id)).searchTerms).toContain("shelter");
     const search = (await post({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: "search_catalog", arguments: { query: "altaplex" } } })).reply.result!;
     expect((search.structuredContent!.results as { id: number }[]).map((r) => r.id)).toContain(id);
   });
@@ -273,7 +279,8 @@ describe("what it refuses", () => {
 
   it("corrects a research row's weight from the maker's page, keeps it the research's after, and the undo hands it back", async () => {
     const montbell = "https://www.montbell.com/us/en/products/detail/2301381";
-    const row = await seedCatalogRow(db, { brand: "Montbell", name: "Plasma 1000 Down Jacket", variant: "Men's Medium", commonName: "Down jacket", categoryHint: "clothing", searchTerms: "down jacket clothing puffy", weightMg: 136_078, weightSource: "manufacturer", sourceUrl: montbell, verified: true });
+    const built = buildSearchTerms("Plasma 1000 Down Jacket", "clothing", "Down jacket");
+    const row = await seedCatalogRow(db, { brand: "Montbell", name: "Plasma 1000 Down Jacket", variant: "Men's Medium", commonName: "Down jacket", categoryHint: "clothing", searchTerms: built, weightMg: 136_078, weightSource: "manufacturer", sourceUrl: montbell, verified: true });
     // it graduates back into its own research file, where the audit reads the quote's grams
     // alone: an ounce figure doesn't carry it past a gram figure that disagrees
     const ounces = await refusal({ catalog_id: row.id, weight_g: 139, source_url: montbell, quote: "Average Weight 4.9 oz, fill weight 50 g" });
@@ -282,16 +289,18 @@ describe("what it refuses", () => {
     const first = await verify({ catalog_id: row.id, weight_g: 138, source_url: montbell, quote: "Average Weight 138g" });
     expect(first.refused, first.text).toBe(false);
     // stamped like any verification; the gear type, kind and search terms stay the build's
-    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 138_000, verifiedBy: admin, sourceQuote: "Average Weight 138g", commonName: "Down jacket", categoryHint: "clothing", searchTerms: "down jacket clothing puffy" });
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 138_000, verifiedBy: admin, sourceQuote: "Average Weight 138g", commonName: "Down jacket", categoryHint: "clothing", searchTerms: built });
     // stamped, it's still the research's to rename or retype, and still the maker's figure
     const cite = { catalog_id: row.id, weight_g: 138, source_url: montbell, quote: "Average Weight 138g" };
     expect(await refusal({ ...cite, name: "Plasma 1000 Down Parka" })).toContain("seed/_research");
     expect(await refusal({ ...cite, gear_type: "Insulated jacket" })).toContain("seed/_research");
     expect(await refusal({ catalog_id: row.id, weight_g: 141, weight_source: "measured" })).toContain("edit_my_gear's weight_g");
+    // and its quote is still read as its research file reads it, with nothing else changing
+    expect(await refusal({ catalog_id: row.id, weight_g: 139, source_url: montbell, quote: "Average Weight 4.9 oz, fill weight 50 g" })).toContain("nearest quote figure 50 g");
     // a second correction naming the row's own gear type leaves it, and the search terms, be
     const second = await verify({ ...cite, gear_type: "down jacket", weight_g: 139, quote: "Average Weight 139g" });
     expect(second.refused, second.text).toBe(false);
-    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 139_000, commonName: "Down jacket", searchTerms: "down jacket clothing puffy" });
+    expect(await catalogRow(db, row.id)).toMatchObject({ weightMg: 139_000, commonName: "Down jacket", searchTerms: built });
     // undone, newest first, it is the research's again with the research's weight
     expect((await adminCall("revert_catalog_edit", { edit_id: second.data.edit_id })).refused).toBe(false);
     expect((await adminCall("revert_catalog_edit", { edit_id: first.data.edit_id })).refused).toBe(false);

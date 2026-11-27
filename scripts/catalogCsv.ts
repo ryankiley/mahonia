@@ -175,12 +175,17 @@ export interface CatalogCsvRow {
   searchTerms: string | null;
 }
 
-/** Map parsed CSV (with a header row) to typed catalog rows; validates required fields. */
+/** Map parsed CSV (with a header row) to typed catalog rows; validates required fields.
+ *  The header must name every column the build writes (CATALOG_CSV_HEADERS), in any
+ *  order: a file without one is not the build's, and reading it as blanks would seed
+ *  rows stripped of that column. */
 export function csvToCatalogRows(text: string): CatalogCsvRow[] {
   const grid = parseCsv(text);
   if (grid.length === 0) return [];
   const header = grid[0]!.map((h) => h.trim());
-  const idx = (col: string) => header.indexOf(col);
+  const missing = CATALOG_CSV_HEADERS.filter((h) => !header.includes(h));
+  if (missing.length) throw new Error(`catalog.csv is missing columns: ${missing.join(", ")}`);
+  const idx = (col: (typeof CATALOG_CSV_HEADERS)[number]) => header.indexOf(col);
   const iBrand = idx("brand");
   const iName = idx("name");
   const iCommon = idx("common_name");
@@ -192,9 +197,6 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
   const iKcal = idx("kcal");
   const iAttr = idx("attributes");
   const iUnpub = idx("attributes_unpublished");
-  if (iName < 0 || iMg < 0 || iSrc < 0) {
-    throw new Error("catalog.csv missing required columns (name, weight_mg, weight_source)");
-  }
 
   const out: CatalogCsvRow[] = [];
   for (let r = 1; r < grid.length; r++) {
@@ -210,38 +212,36 @@ export function csvToCatalogRows(text: string): CatalogCsvRow[] {
     if (!isWeightSource(weightSource)) {
       throw new Error(`row ${r + 1} (${name}): invalid weight_source "${weightSource}"`);
     }
-    const categoryHint = iCat >= 0 ? blankToNull(cells[iCat]) : null;
-    const kcalRaw = iKcal >= 0 ? blankToNull(cells[iKcal]) : null;
+    const categoryHint = blankToNull(cells[iCat]);
+    const kcalRaw = blankToNull(cells[iKcal]);
     const kcal = kcalRaw === null ? null : Number(kcalRaw);
     if (kcal !== null && (!Number.isInteger(kcal) || kcal <= 0)) {
       throw new Error(`row ${r + 1} (${name}): kcal must be a positive integer when present`);
     }
-    const commonName = iCommon >= 0 ? blankToNull(cells[iCommon]) : null;
-    let attributes: RowAttributes | null = null;
-    if (iAttr >= 0) {
-      try {
-        attributes = parseAttributes(cells[iAttr]);
-      } catch (e) {
-        throw new Error(`row ${r + 1} (${name}): ${(e as Error).message}`);
-      }
+    const commonName = blankToNull(cells[iCommon]);
+    let attributes: RowAttributes | null;
+    try {
+      attributes = parseAttributes(cells[iAttr]);
+    } catch (e) {
+      throw new Error(`row ${r + 1} (${name}): ${(e as Error).message}`);
     }
     const attributesUnpublished: AttributeKey[] = [];
-    for (const k of (iUnpub >= 0 ? (cells[iUnpub] ?? "") : "").split(/;\s*/).filter(Boolean)) {
+    for (const k of (cells[iUnpub] ?? "").split(/;\s*/).filter(Boolean)) {
       if (!isAttributeKey(k)) throw new Error(`row ${r + 1} (${name}): attributes_unpublished "${k}" is not an axis`);
       attributesUnpublished.push(k);
     }
     out.push({
-      brand: iBrand >= 0 ? blankToNull(cells[iBrand]) : null,
+      brand: blankToNull(cells[iBrand]),
       name,
       commonName,
-      variant: iVariant >= 0 ? blankToNull(cells[iVariant]) : null,
+      variant: blankToNull(cells[iVariant]),
       attributes,
       attributesUnpublished,
       categoryHint,
       weightMg,
       kcal,
       weightSource,
-      sourceUrl: iUrl >= 0 ? blankToNull(cells[iUrl]) : null,
+      sourceUrl: blankToNull(cells[iUrl]),
       searchTerms: buildSearchTerms(name, categoryHint, commonName),
     });
   }

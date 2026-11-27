@@ -3,16 +3,17 @@
 // surviving to an ad-hoc spot-check later.
 //
 // ERRORS gate the build (npm test fails, and CI runs npm test on every PR). Every
-// CONVENTION is an error: a rule that only warns is a rule that drifts. The two
-// WARNINGS left are not conventions but judgment lists for a human — weight
-// plausibility (heavy boots and sub-gram patches are legit) and pouch meals still
-// at net weight (a to-do until someone weighs one). Research-level checks (the
-// cited quote vs the stored weight, kcal vs its panel) live in researchChecks.ts.
+// CONVENTION is an error: a rule that only warns is a rule that drifts. The
+// WARNINGS left are not conventions but to-do lists for a human: pouch meals still
+// at net weight (until someone weighs one), food rows without kcal, and rows missing
+// an axis their gear type is sold by. Research-level checks (a weight outside its
+// category's range, the cited quote vs the stored weight, kcal vs its panel) live in
+// researchChecks.ts.
 //
 // Pure + dependency-light on purpose (no DB import) so the gating test stays fast.
 
 import { identity, type CatalogCsvRow } from "./catalogCsv";
-import { isVariantRedundant, normalizeVariant, normKey, RANGE_G, SPACED_UNITS } from "../shared/catalogQuality";
+import { isVariantRedundant, normalizeVariant, normKey, SPACED_UNITS } from "../shared/catalogQuality";
 import { soldByOf, traitsOf, type AttributeKey } from "../shared/catalogAxes";
 import { extractAttributes, SHOE_REGIONS } from "./catalogAttributes";
 import { GEAR_TYPE_ALIASES } from "./gearTypes";
@@ -381,15 +382,6 @@ export function runCatalogChecks(rows: CatalogCsvRow[]): Finding[] {
   for (const r of rows) {
     if (/\beditions?\b/i.test(r.variant ?? "")) {
       err("variant-edition", `${gearLabel(r)}: "${r.variant}" — an edition isn't a size; one that weighs the same is the base product (no variant), one sold as its own build names the edition in the name`);
-    }
-  }
-
-  // --- WARNING: weight outside the category's plausible range ----------------
-  for (const r of rows) {
-    const range = RANGE_G[r.categoryHint ?? "other"] ?? RANGE_G.other!;
-    const g = r.weightMg / 1000;
-    if (g < range[0] || g > range[1]) {
-      warn("plausibility", `${gearLabel(r)}: ${g.toFixed(1)} g outside ${r.categoryHint} range ${range[0]}–${range[1]} g`);
     }
   }
 

@@ -1,6 +1,6 @@
 // A catalog row whose variant was tidied keeps its id (2026-09-12). Lives beside the
 // seeder rather than in it so a test can run it on PGlite; seed-catalog.ts calls it
-// before its upsert, after sizesToWords.
+// before its upsert.
 import { eq } from "drizzle-orm";
 import { catalogItems, vaultItems } from "../server/db/schema";
 import { vaultNormKey } from "../shared/vault";
@@ -16,7 +16,7 @@ const product = (brand: string | null, name: string, weightMg: number, sourceUrl
  * ("Medium, JP 3" → "JP 3") reaches the upsert as a row it has never seen and the prune
  * as a row the CSV no longer wants: the product would be inserted under a new id and
  * deleted under the old, and every list row linked to the old id would lose its live
- * name and its "suggest a fix" path — the reason sizesToWords renames in place. So a
+ * name and its "suggest a fix" path. So a
  * seed-managed row the CSV no longer names and a CSV row the database does not hold
  * yet, with the same brand, name, weight and source, ONE of each, are the same product
  * under a new variant: the row takes the new variant, id kept, and My Gear's rows under

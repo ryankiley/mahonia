@@ -511,6 +511,8 @@ describe("the gear tools", () => {
       ["Medium Black", "Large", "Rain jacket"],
       ["Men's Medium Black", "Men's Large", "Rain jacket"],
       ["6ft 6in Black", "6ft", "Bivy"],
+      // a range typed in words is read as the catalog's letters
+      ["Large/X-Large", "S/M", "Hat"],
     ];
     for (const [piece, catalog, type] of contradicts) expect(sizeConflict(piece, row(catalog, type, kindOf(type))), `${piece} / ${catalog}`).toBe(true);
     const links: [string | null, string | null, string?][] = [
