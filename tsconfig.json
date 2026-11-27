@@ -1,7 +1,6 @@
 {
-  // The app project — what `nuxt typecheck` checks. scripts/ and tests/ have their
-  // own projects (tsconfig.scripts.json, tsconfig.tests.json); scripts/typecheck.mjs
-  // runs all three.
+  // The app project — what `nuxt typecheck` checks. scripts/ and tests/ share a
+  // project of their own (tsconfig.tooling.json); scripts/typecheck.mjs runs both.
   "extends": "./.nuxt/tsconfig.json",
   "compilerOptions": {
     // Incremental: the first run writes what it learned to node_modules/.cache, and

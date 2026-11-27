@@ -1,12 +1,12 @@
 #!/usr/bin/env node
-// `npm run typecheck`: regenerate Nuxt's types once, then check the three TypeScript
-// projects side by side — app (what `nuxt typecheck` checks), scripts/ and tests/
-// (which it never reaches; see tsconfig.scripts.json and tsconfig.tests.json).
+// `npm run typecheck`: regenerate Nuxt's types once, then check the two TypeScript
+// projects side by side — app (what `nuxt typecheck` checks) and tooling, which is
+// scripts/ and tests/ (which it never reaches; see tsconfig.tooling.json).
 //
-// WHY a script and not `nuxt typecheck && vue-tsc … && vue-tsc …`: the three checks
+// WHY a script and not `nuxt typecheck && vue-tsc …`: the two checks
 // are independent, and each one is a single-threaded TypeScript program, so run in
-// a chain they take the sum of their times and run together they take the longest
-// one. The `nuxt prepare` stays sequential and first, deliberately — all three
+// a chain they take the sum of their times and run together they take the longer
+// one. The `nuxt prepare` stays sequential and first, deliberately — both
 // projects extend .nuxt/tsconfig.json, and `nuxt typecheck` rewrites that file (and
 // .nuxt/*.d.ts) on its way in, so a checker that started alongside it could read a
 // half-written file and report an error that isn't there. Generating once, then
@@ -20,8 +20,8 @@
 // run, is the full gate (see CLAUDE.md). CI has no cache and pays the cold price
 // every time; it's not the run anyone is waiting at a keyboard for.
 //
-//   npm run typecheck              all three
-//   npm run typecheck -- tests     one or more by name: app, scripts, tests
+//   npm run typecheck              both
+//   npm run typecheck -- tooling   one by name: app, tooling
 import { spawn } from "node:child_process";
 import { createRequire } from "node:module";
 import { dirname, resolve } from "node:path";
@@ -35,8 +35,7 @@ const nuxt = resolve(dirname(nuxtPkg), require(nuxtPkg).bin.nuxt);
 
 const PROJECTS = {
   app: "tsconfig.json",
-  scripts: "tsconfig.scripts.json",
-  tests: "tsconfig.tests.json",
+  tooling: "tsconfig.tooling.json",
 };
 
 const wanted = process.argv.slice(2);
@@ -53,7 +52,7 @@ function run(script, args, { inherit = false } = {}) {
     const child = spawn(process.execPath, [script, ...args], {
       cwd: root,
       // nuxt prepare's own log line is fine to stream; the checkers are captured so
-      // three of them can't interleave their error lists.
+      // they can't interleave their error lists.
       stdio: inherit ? "inherit" : ["ignore", "pipe", "pipe"],
       env: { ...process.env, NODE_ENV: process.env.NODE_ENV || "production" },
     });

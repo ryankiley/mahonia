@@ -1,26 +1,7 @@
 import type { ModuleOptions } from "@vite-pwa/nuxt";
 
-/**
- * A precached HTML entry needs a new revision for every deployment, not merely
- * for every Git commit. Rebuilding the same commit after a build-time setting
- * changes (notably NUXT_PUBLIC_OFFLINE) changes the static shell too. Vercel's
- * deployment ID has that property; the SHA remains a stable fallback for older
- * Vercel projects, and a local build gets its own timestamp.
- */
-interface VercelBuildEnvironment {
-  VERCEL_DEPLOYMENT_ID?: string;
-  VERCEL_GIT_COMMIT_SHA?: string;
-}
-
-export function pwaPrecacheRevision(
-  env: VercelBuildEnvironment = {
-    VERCEL_DEPLOYMENT_ID: process.env.VERCEL_DEPLOYMENT_ID,
-    VERCEL_GIT_COMMIT_SHA: process.env.VERCEL_GIT_COMMIT_SHA,
-  },
-  fallback = String(Date.now()),
-): string {
-  return env.VERCEL_DEPLOYMENT_ID || env.VERCEL_GIT_COMMIT_SHA || fallback;
-}
+// Stamps the precached pages. It must be new on every build, or a deploy keeps the old copy.
+const BUILD_REVISION = String(Date.now());
 
 // The PWA: service worker, runtime caching, and what an offline visit still does.
 //
@@ -86,8 +67,8 @@ export const PWA_OPTIONS: Partial<ModuleOptions> = {
     // "/_shell" rides along for the same reason: it is the offline fallback for every
     // edit link, below.
     additionalManifestEntries: [
-      { url: "/", revision: pwaPrecacheRevision() },
-      { url: "/_shell", revision: pwaPrecacheRevision() },
+      { url: "/", revision: BUILD_REVISION },
+      { url: "/_shell", revision: BUILD_REVISION },
     ],
     // Disable the plugin's default catch-all navigation fallback: it binds to a
     // non-precached "/" (the auto-precache of the fallback only runs in dev, not

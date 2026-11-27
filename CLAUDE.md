@@ -55,8 +55,8 @@ npm run test:changed
 That is `vitest run --changed origin/main`: every test whose import graph reaches a file
 changed on this branch, committed or not. Or name the files — `npx vitest run
 tests/water.test.ts`. The typecheck is cheap enough to run whole — `npm run typecheck` is
-the three projects side by side, incremental, ~6 s warm — or one of them: `npm run
-typecheck -- app` (`scripts`, `tests`).
+the two projects side by side, incremental, ~6 s warm — or one of them: `npm run
+typecheck -- app` (or `tooling`, which is scripts/ and tests/).
 
 Why this matters more here than the habit suggests: several sessions share this machine,
 each in its own worktree. Two full suites running at once starve each other into 20 s
